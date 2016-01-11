@@ -1,0 +1,32 @@
+{
+  "name": "fabel",
+  "version": "1.0.0",
+  "description": "F# to JS compiler",
+  "main": "index.js",
+  "dependencies": {
+    "babel-core": "^6.3.26"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "alfonsogarciacaro",
+  "license": "ISC",
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alfonsogarciacaro/Fabel.git"
+  },
+  "keywords": [
+    "fsharp",
+    "babel",
+    "compiler",
+    "transpiler"
+  ],
+  "bugs": {
+    "url": "https://github.com/alfonsogarciacaro/Fabel/issues"
+  },
+  "homepage": "https://github.com/alfonsogarciacaro/Fabel#readme"
+}

@@ -1,5 +1,6 @@
 module Fabel.Transform.FSharp2Fabel
 
+open System.Collections.Concurrent
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -17,7 +18,7 @@ module private Util =
             filenames: string list
             scope: (string * string) list
             decisionTargets: Map<int, DecisionTarget>
-            entities: System.Collections.Concurrent.ConcurrentDictionary<string, Fabel.Entity>
+            entities: ConcurrentDictionary<string, Fabel.Entity>
         }
         member x.IsInternal (entity: FSharpEntity): bool =
             x.filenames |> List.exists ((=) entity.DeclarationLocation.FileName)
@@ -26,6 +27,7 @@ module private Util =
     let (|ExprKind|) (expr: Fabel.Expr) = expr.Kind
     let (|ExprType|) (expr: Fabel.Expr) = expr.Type
 
+    // TODO: Remove root namespace from FileName or use it only for Lambda Expressions 
     let (|Range|) (r: Range.range) = {
         source = Some r.FileName
         start = { line = r.StartLine + 1; column = r.StartColumn }
@@ -105,7 +107,7 @@ module private Types =
         Fabel.Decorator(att.AttributeType.FullName, args) |> Some
 
     let rec private makeTypeEntity (ctx: Context) (tdef: FSharpEntity): Fabel.TypeEntity =
-        ctx.entities.GetOrAdd (tdef.FullName, System.Func<string,Fabel.Entity>(fun _ ->
+        let makeTypeEntity' (_: string): Fabel.Entity =
             let kind =
                 if tdef.IsInterface then Fabel.Interface
                 // elif tdef.IsFSharpExceptionDeclaration then Fabel.Exception
@@ -115,21 +117,23 @@ module private Types =
                     let baseClass =
                         match tdef.BaseType with
                         | None -> None
-                        | Some x when not x.HasTypeDefinition
+                        | Some (NonAbbreviatedType x) when not x.HasTypeDefinition
                             || x.TypeDefinition.FullName = "System.Object" -> None
                         | Some x -> makeTypeEntity ctx x.TypeDefinition |> Some
                     Fabel.Class (baseClass)
             // Take only interfaces and attributes with internal declaration
             let infcs =
                 tdef.DeclaredInterfaces
-                |> Seq.filter (fun t -> t.HasTypeDefinition && ctx.IsInternal t.TypeDefinition)
+                |> Seq.filter (fun (NonAbbreviatedType x) ->
+                    x.HasTypeDefinition && ctx.IsInternal x.TypeDefinition)
                 |> Seq.map (fun x -> sanitize x.TypeDefinition.FullName)
                 |> Seq.toList
             let decs =
                 tdef.Attributes |> Seq.choose (makeDecorator ctx) |> Seq.toList
             upcast Fabel.TypeEntity (kind, sanitize tdef.FullName, infcs, decs,
-                        tdef.Accessibility.IsPublic, ctx.IsInternal tdef))
-        ) :?> Fabel.TypeEntity
+                        tdef.Accessibility.IsPublic, ctx.IsInternal tdef)
+        // Try to retrieve entity from cache
+        ctx.entities.GetOrAdd (tdef.FullName, makeTypeEntity') :?> Fabel.TypeEntity
 
     let rec makeTypeFromDef (ctx: Context) (tdef: FSharpEntity) =
         // Guard: F# abbreviations shouldn't be passed as argument
@@ -232,7 +236,11 @@ open Util
 open Types
 open Identifiers
 
-let rec private (|Transform|) (ctx: Context) (fsExpr: FSharpExpr): Fabel.Expr =
+let rec transformTest (filenames: string list) (fsExpr: FSharpExpr) =
+    let ctx = { filenames = filenames;  scope = []; decisionTargets = Map.empty<_,_>; entities = ConcurrentDictionary<_,_> () }
+    transform ctx fsExpr
+
+and private (|Transform|) (ctx: Context) (fsExpr: FSharpExpr): Fabel.Expr =
     transform ctx fsExpr
 
 and private transform ctx fsExpr =
@@ -377,7 +385,7 @@ and private transform ctx fsExpr =
                 if meth.DisplayName <> "( .ctor )" then meth.DisplayName
                 elif meth.IsImplicitConstructor then meth.DisplayName
                 else failwith "TODO: Secondary constructors"
-            ns + ent.DisplayName + methName + (overloadSuffix meth)
+            ns + ent.DisplayName + "." + methName + (overloadSuffix meth)
         let hasRestParams (meth: FSharpMemberOrFunctionOrValue) argExprs =
             if meth.CurriedParameterGroups.Count <> 1 then None else
             let args = meth.CurriedParameterGroups.[0]
@@ -533,7 +541,7 @@ and private transform ctx fsExpr =
         | _ -> assignments @ [ body ]
         |> makeSequential
 
-    (** Applications *)
+    (** ## Applications *)
     | BasicPatterns.TraitCall (_sourceTypes, traitName, _typeArgs, _typeInstantiation, argExprs) ->
         printfn "TraitCall detected in %A: %A" fsExpr.Range fsExpr // TODO: Check
         makeGetApply (transform ctx argExprs.Head) traitName

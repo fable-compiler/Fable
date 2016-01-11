@@ -8,13 +8,16 @@ let testDir   = "./test/"
 
 // Filesets
 let appReferences  = !! "src/**/*.fsproj"
+let binDirs = !! "src/**/bin" ++ "src/**/obj"
 
 // version info
 let version = "0.2"  // or retrieve from CI server
 
 // Targets
-Target "Clean" (fun _ -> 
-    CleanDirs [buildDir; testDir]
+Target "Clean" (fun _ ->
+    binDirs
+    |> Seq.append [buildDir; testDir]
+    |> CleanDirs
 )
 
 Target "Release" (fun _ ->

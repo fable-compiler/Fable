@@ -3,3 +3,4 @@ NUGET
   specs:
     FAKE (4.12.2)
     FSharp.Compiler.Service (2.0.0.2)
+    Newtonsoft.Json (8.0.2)
