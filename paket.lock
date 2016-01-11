@@ -1,0 +1,5 @@
+NUGET
+  remote: https://www.nuget.org/api/v2
+  specs:
+    FAKE (4.12.2)
+    FSharp.Compiler.Service (2.0.0.2)

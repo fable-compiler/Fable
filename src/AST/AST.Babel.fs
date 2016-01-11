@@ -1,0 +1,525 @@
+namespace Fabel.AST.Babel
+open Fabel.AST
+
+/// The type field is a string representing the AST variant type. 
+/// Each subtype of Node is documented below with the specific string of its type field. 
+/// You can use this field to determine which interface a node implements.
+/// The loc field represents the source location information of the node. 
+/// If the node contains no information about the source location, the field is null; 
+/// otherwise it is an object consisting of a start position (the position of the first character of the parsed source region) 
+/// and an end position (the position of the first character after the parsed source region):
+[<AbstractClass>]
+type Node(typ, ?loc) =
+    member x.``type``: string = typ
+    member x.loc: SourceLocation option = loc
+
+/// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
+[<AbstractClass>] type Expression(typ, ?loc) = inherit Node(typ, ?loc = loc)
+
+[<AbstractClass>] type Literal(typ, ?loc) = inherit Expression(typ, ?loc = loc)
+
+[<AbstractClass>] type Statement(typ, ?loc) = inherit Node(typ, ?loc = loc)
+
+/// Note that declarations are considered statements; this is because declarations can appear in any statement context.
+[<AbstractClass>] type Declaration(typ, ?loc) = inherit Statement(typ, ?loc = loc)
+
+/// A module import or export declaration.
+[<AbstractClass>] type ModuleDeclaration(typ, ?loc) = inherit Node(typ, ?loc = loc)
+
+type Pattern = interface end
+
+(** ##Template Literals *)
+
+// type TemplateLiteral
+// type TaggedTemplateExpression
+// type TemplateElement
+
+(** ##Patterns *)
+
+// type ObjectPattern
+// type ArrayPattern
+// type RestElement
+// type AssignmentPattern
+
+(** ##Identifier *)
+/// Note that an identifier may be an expression or a destructuring pattern.
+type Identifier(name, ?loc) =
+    inherit Expression("Identifier", ?loc = loc)
+    member x.name: string = name
+    interface Pattern
+
+(** ##Literals *)
+type RegExpLiteral(pattern, flags, ?loc) =
+    inherit Literal("RegExpLiteral", ?loc = loc)
+    member x.pattern: string = pattern
+    member x.flags =
+        flags |> Seq.map (function
+            | RegexGlobal -> "g"
+            | RegexIgnoreCase -> "i"
+            | RegexMultiline -> "m"
+            | RegexSticky -> "y") |> Seq.fold (+) ""
+
+type NullLiteral(?loc) =
+    inherit Literal("NullLiteral", ?loc = loc)
+
+type StringLiteral(value, ?loc) =
+    inherit Literal("StringLiteral", ?loc = loc)
+    member x.value: string = value
+
+type BooleanLiteral(value, ?loc) =
+    inherit Literal("BooleanLiteral", ?loc = loc)
+    member x.value: bool = value
+
+type NumericLiteral(value, ?loc) =
+    inherit Literal("NumericLiteral", ?loc = loc)
+    member x.value: U2<int, float> = value    
+
+(** ##Misc *)
+type Decorator(value, ?loc) =
+    inherit Node("Decorator", ?loc = loc)
+    member x.value = value
+    
+type DirectiveLiteral(?loc) =
+    inherit StringLiteral("DirectiveLiteral", ?loc = loc)
+
+/// e.g. "use strict";
+type Directive(value, ?loc) =
+    inherit Node("Directive", ?loc = loc)
+    member x.value: DirectiveLiteral = value    
+
+(** ##Program *)
+/// A complete program source tree.
+/// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module. 
+/// Otherwise, sourceType must be "script".
+type Program(body, directives, ?loc) =
+    inherit Node("Program", ?loc = loc)
+    member x.sourceType = "module" // Don't use "script"
+    member x.body: U2<Statement, ModuleDeclaration> list = body
+    member x.directives: Directive list = directives
+
+(** ##Statements *)
+/// An expression statement, i.e., a statement consisting of a single expression.
+type ExpressionStatement(expression, ?loc) =
+    inherit Statement("ExpressionStatement", ?loc = loc)
+    member x.expression: Expression = expression
+
+/// A block statement, i.e., a sequence of statements surrounded by braces.
+type BlockStatement(body, directives, ?loc) =
+    inherit Statement("BlockStatement", ?loc = loc)
+    member x.body: Statement list = body
+    member x.directives: Directive list = directives
+
+/// An empty statement, i.e., a solitary semicolon.
+type EmptyStatement(?loc) =
+    inherit Statement("EmptyStatement", ?loc = loc)
+
+type DebuggerStatement(?loc) =
+    inherit Statement("DebuggerStatement", ?loc = loc)
+    
+// type WithStatement
+
+(** ##Control Flow *)
+type ReturnStatement(argument, ?loc) =
+    inherit Statement("ReturnStatement", ?loc = loc)
+    member x.argument: Expression = argument
+
+// type LabeledStatement
+// type BreakStatement
+// type ContinueStatement
+
+(** ##Choice *)
+type IfStatement(test, consequent, ?alternate, ?loc) =
+    inherit Statement("IfStatement", ?loc = loc)
+    member x.test: Expression = test
+    member x.consequent: Statement = consequent
+    member x.alternate: Statement option = alternate    
+
+/// A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
+type SwitchCase(consequent, ?test, ?loc) =
+    inherit Node("SwitchCase", ?loc = loc)
+    member x.test: Expression option = test
+    member x.consequent: Statement list = consequent
+
+type SwitchStatement(discriminant, cases, ?loc) =
+    inherit Statement("SwitchStatement", ?loc = loc)
+    member x.discriminant: Expression = discriminant
+    member x.cases: SwitchCase list = cases
+
+(** ##Exceptions *)
+type ThrowStatement(argument, ?loc) =
+    inherit Statement("ThrowStatement", ?loc = loc)
+    member x.argument: Expression = argument
+
+/// A catch clause following a try block.
+type CatchClause(param, body, ?loc) =
+    inherit Node("CatchClause", ?loc = loc)
+    member x.param: Pattern = param
+    member x.body: BlockStatement = body
+
+/// If handler is null then finalizer must be a BlockStatement.
+type TryStatement(block, ?handler, ?finalizer, ?loc) =
+    inherit Statement("TryStatement", ?loc = loc)
+    member x.block: BlockStatement = block
+    member x.handler: CatchClause option = handler
+    member x.finalizer: BlockStatement option = finalizer
+
+(** ##Declarations *)
+type VariableDeclarator(id, ?init, ?loc) =
+    inherit Declaration("VariableDeclarator", ?loc = loc)
+    member x.id: Pattern = id
+    member x.init: Expression option = init
+
+type VariableDeclarationKind = Var | Let | Const
+
+type VariableDeclaration(kind, declarations, ?loc) =
+    inherit Declaration("VariableDeclaration", ?loc = loc)
+    new (declaration, ?loc) = VariableDeclaration(Var, [declaration], ?loc = loc)
+    member x.declarations: VariableDeclarator list = declarations
+    member x.kind =
+        match kind with Var -> "var" | Let -> "let" | Const -> "const"
+
+(** ##Loops *)
+type WhileStatement(test, body, ?loc) =
+    inherit Statement("WhileStatement", ?loc = loc)
+    member x.test: Expression = test
+    member x.body: BlockStatement = body
+
+type DoWhileStatement(body, test, ?loc) =
+    inherit Statement("DoWhileStatement", ?loc = loc)
+    member x.body: BlockStatement = body
+    member x.test: Expression = test
+
+type ForStatement(body, ?init, ?test, ?update, ?loc) =
+    inherit Statement("ForStatement", ?loc = loc)
+    member x.body: BlockStatement = body
+    member x.init: U2<VariableDeclaration, Expression> option = init
+    member x.test: Expression option = test
+    member x.update: Expression option = update
+
+type ForInStatement(left, right, body, ?loc) =
+    inherit Statement("ForInStatement", ?loc = loc)
+    member x.body: BlockStatement = body
+    member x.left: U2<VariableDeclaration, Expression> = left
+    member x.right: Expression = right
+
+type ForOfStatement(left, right, body, ?loc) =
+    inherit Statement("ForOfStatement", ?loc = loc)
+    member x.body: BlockStatement = body
+    member x.left: U2<VariableDeclaration, Expression> = left
+    member x.right: Expression = right
+
+/// A function declaration. Note that id cannot be null.
+type FunctionDeclaration(id, arguments, body, generator, async, ?loc) =
+    inherit Declaration("FunctionDeclaration", ?loc = loc)
+    member x.id: Identifier = id
+    member x.``params``: Pattern list = arguments
+    member x.body: BlockStatement = body
+    member x.generator = generator
+    member x.async = async
+
+(** ##Expressions *)
+
+/// A super pseudo-expression.
+type Super(?loc) =
+    inherit Expression("Super", ?loc = loc)
+
+type ThisExpression(?loc) =
+    inherit Expression("ThisExpression", ?loc = loc)
+
+/// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
+type ArrowFunctionExpression(arguments, body, expression, ?loc) =
+    inherit Expression("ArrowFunctionExpression", ?loc = loc)
+    member x.expression =
+        match body with U2.Case1 _ -> false | U2.Case2 _ -> true
+    member x.``params``: Pattern list = arguments
+    member x.body: U2<BlockStatement, Expression> = body
+    member x.async = async        
+        
+type FunctionExpression(arguments, body, generator, async, ?id, ?loc) =
+    inherit Expression("FunctionExpression", ?loc = loc)
+    member x.id: Identifier option = id
+    member x.``params``: Pattern list = arguments
+    member x.body: BlockStatement = body
+    member x.generator = generator
+    member x.async = async
+    
+/// e.g., x = do { var t = f(); t * t + 1 };
+/// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
+/// Doesn't seem to work well with block-scoped variables (let, const)
+type DoExpression(body, ?loc) =
+    inherit Expression("DoExpression", ?loc = loc)
+    member x.body: BlockStatement = body
+    
+type YieldExpression(argument, ``delegate``, ?loc) =
+    inherit Expression("YieldExpression", ?loc = loc)
+    member x.argument: Expression option = argument
+    /// Delegates to another generator? (yield*)
+    member x.``delegate``: bool = ``delegate``    
+
+type AwaitExpression(argument, ?loc) =
+    inherit Expression("AwaitExpression", ?loc = loc)
+    member x.argument: Expression option = argument
+
+// type RestProperty(argument, ?loc) =
+//     inherit Node("RestProperty", ?loc = loc)
+//     member x.argument: Expression = argument
+
+/// e.g., var z = { x: 1, ...y } // Copy all properties from y 
+type SpreadProperty(argument, ?loc) =
+    inherit Node("SpreadProperty", ?loc = loc)
+    member x.argument: Expression = argument
+
+type SpreadElement(argument, ?loc) =
+    inherit Node("SpreadElement", ?loc = loc)
+    member x.argument: Expression = argument
+    
+type ArrayExpression(elements, ?loc) =
+    inherit Expression("ArrayExpression", ?loc = loc)
+    member x.elements: U2<Expression, SpreadElement> option list = elements
+
+[<AbstractClass>]
+type ObjectMember(key, computed, decorators, typ, ?value, ?loc) =
+    inherit Node(typ, ?loc = loc)
+    member x.key: Expression = key
+    member x.computed: bool = computed
+    member x.value: Expression option = value
+    member x.decorators: Decorator list = decorators
+    
+type ObjectProperty(shorthand, key, computed, decorators, value, ?loc) =
+    inherit ObjectMember(key, computed, decorators, "ObjectProperty", value, ?loc = loc)
+    member x.shorthand: bool = shorthand
+
+type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMethod
+
+type ObjectMethod(kind, key, computed, decorators, arguments, body, generator, async, ?loc) =
+    inherit ObjectMember(key, computed, decorators, "ObjectMethod", ?loc = loc)
+    member x.kind = match kind with ObjectGetter -> "get"
+                                  | ObjectSetter -> "set"
+                                  | ObjectMethod -> "method"
+    member x.``params``: Pattern list = arguments
+    member x.body: BlockStatement = body
+    member x.generator = generator
+    member x.async = async
+
+/// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression. 
+/// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
+type MemberExpression(``object``, property, computed, ?loc) =
+    inherit Expression("MemberExpression", ?loc = loc)
+    member x.``object``: Expression = ``object``
+    member x.property: Expression = property
+    member x.computed: bool = computed
+    interface Pattern
+
+type ObjectExpression(properties, ?loc) =
+    inherit Expression("ObjectExpression", ?loc = loc)
+    member x.properties: U3<ObjectProperty, ObjectMethod, SpreadProperty> list = properties
+
+/// A conditional expression, i.e., a ternary ?/: expression.
+type ConditionalExpression(test, alternate, consequent, ?loc) =
+    inherit Expression("ConditionalExpression", ?loc = loc)
+    member x.test: Expression = test
+    member x.alternate: Expression = alternate
+    member x.consequent: Expression = consequent
+
+/// A function or method call expression.  
+type CallExpression(callee, arguments, ?loc) =
+    inherit Expression("CallExpression", ?loc = loc)
+    member x.callee: Expression = callee
+    member x.arguments: U2<Expression, SpreadElement> list = arguments
+
+type NewExpression(callee, arguments, ?loc) =
+    inherit Expression("NewExpression", ?loc = loc)
+    member x.callee: Expression = callee
+    member x.arguments: U2<Expression, SpreadElement> list = arguments
+
+/// A comma-separated sequence of expressions.
+type SequenceExpression(expressions, ?loc) =
+    inherit Expression("SequenceExpression", ?loc = loc)
+    member x.expressions: Expression list = expressions
+
+(** ##Unary Operations *)
+type UnaryExpression(operator, argument, ?prefix, ?loc) =
+    inherit Expression("UnaryExpression", ?loc = loc)
+    member x.prefix: bool = defaultArg prefix true
+    member x.argument: Expression = argument
+    member x.operator =
+        match operator with
+        | UnaryMinus -> "-"
+        | UnaryPlus -> "+"
+        | UnaryNot -> "!"
+        | UnaryNotBitwise -> "~"
+        | UnaryTypeof -> "typeof"
+        | UnaryVoid -> "void"
+        | UnaryDelete -> "delete"           
+
+type UpdateExpression(operator, prefix, argument, ?loc) =
+    inherit Expression("UpdateExpression", ?loc = loc)
+    member x.prefix: bool = prefix
+    member x.argument: Expression = argument
+    member x.operator =
+        match operator with
+        | UpdateMinus -> "--"
+        | UpdatePlus -> "++"
+    
+(** ##Binary Operations *)
+type BinaryExpression(operator, left, right, ?loc) =
+    inherit Expression("BinaryExpression", ?loc = loc)
+    member x.left: Expression = left
+    member x.right: Expression = right
+    member x.operator =
+        match operator with
+        | BinaryEqual -> "=="
+        | BinaryUnequal -> "!="
+        | BinaryEqualStrict -> "==="
+        | BinaryUnequalStrict -> "!=="
+        | BinaryLess -> "<"
+        | BinaryLessOrEqual -> "<="
+        | BinaryMore -> ">"
+        | BinaryMoreOrEqual -> ">="
+        | BinaryShiftLeft -> "<<"
+        | BinaryShiftRightSignPropagating -> ">>"
+        | BinaryShiftRightZeroFill -> ">>>"
+        | BinaryMinus -> "-"
+        | BinaryPlus -> "+"
+        | BinaryMultiply -> "*"
+        | BinaryDivide -> "/"
+        | BinaryModulus -> "%"
+        | BinaryExponent -> "**"
+        | BinaryOrBitwise -> "|"
+        | BinaryXorBitwise -> "^"
+        | BinaryAndBitwise -> "&"
+        | BinaryIn -> "in"
+        | BinaryInstanceOf -> "instanceof"
+
+type AssignmentExpression(operator, left, right, ?loc) =
+    inherit Expression("AssignmentExpression", ?loc = loc)
+    member x.left: Expression = left
+    member x.right: Expression = right
+    member x.operator =
+        match operator with    
+        | AssignEqual -> "="
+        | AssignMinus -> "-="
+        | AssignPlus -> "+="
+        | AssignMultiply -> "*="
+        | AssignDivide -> "/="
+        | AssignModulus -> "%="
+        | AssignShiftLeft -> "<<="
+        | AssignShiftRightSignPropagating -> ">>="
+        | AssignShiftRightZeroFill -> ">>>="
+        | AssignOrBitwise -> "|="
+        | AssignXorBitwise -> "^="
+        | AssignAndBitwise -> "&="
+    
+type LogicalExpression(operator, left, right, ?loc) =
+    inherit Expression("LogicalExpression", ?loc = loc)
+    member x.left: Expression = left
+    member x.right: Expression = right
+    member x.operator =
+        match operator with
+        | LogicalOr -> "||"
+        | LogicalAnd-> "&&"
+
+(** ##Classes *)
+type ClassMethodKind =
+    | ClassConstructor | ClassMethod | ClassGetter | ClassSetter
+
+type ClassMethod(kind, key, value, computed, ``static``, decorators, ?loc) =
+    inherit Node("ClassMethod", ?loc = loc)
+    member x.kind = match kind with ClassConstructor -> "constructor"
+                                  | ClassGetter -> "get"
+                                  | ClassSetter -> "set"
+                                  | ClassMethod -> "method"
+    member x.key: Expression = key
+    member x.value: FunctionExpression = value
+    member x.computed: bool = computed
+    member x.``static``: bool = ``static``
+    member x.decorators: Decorator list = decorators
+
+/// ES Class Fields & Static Properties
+/// https://github.com/jeffmo/es-class-fields-and-static-properties
+/// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
+type ClassProperty(key, value, ?loc) =
+    inherit Node("ClassProperty", ?loc = loc)
+    member x.key: Identifier = key
+    member x.value: Expression = value
+
+type ClassBody(body, ?loc) =
+    inherit Node("ClassBody", ?loc = loc)
+    member x.body: U2<ClassMethod, ClassProperty> = body
+
+type ClassDeclaration(id, decorators, body, ?super, ?loc) =
+    inherit Declaration("ClassDeclaration", ?loc = loc)
+    member x.id: Identifier = id
+    member x.superClass: Expression option = super
+    member x.body: ClassBody = body
+    member x.decorators: Decorator list = decorators
+
+/// Anonymous class: e.g., var myClass = class { }
+type ClassExpression(decorators, body, ?super, ?loc) =
+    inherit Expression("ClassExpression", ?loc = loc)
+    member x.superClass: Expression option = super
+    member x.body: ClassBody = body
+    member x.decorators: Decorator list = decorators
+
+// type MetaProperty(meta, property, ?loc) =
+//     inherit Expression("MetaProperty", ?loc = loc)
+//     member x.meta: Identifier = meta
+//     member x.property: Expression = property
+
+(** ##Modules *)
+/// A specifier in an import or export declaration.
+[<AbstractClass>]
+type ModuleSpecifier(typ, local, ?loc) =
+    inherit Node(typ, ?loc = loc)
+    member x.local: Identifier = local
+
+/// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod". 
+/// The imported field refers to the name of the export imported from the module. 
+/// The local field refers to the binding imported into the local module scope. 
+/// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo. 
+/// If it is an aliased import, such as in import {foo as bar} from "mod", the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
+type ImportSpecifier(local, imported, ?loc) =
+    inherit ModuleSpecifier("ImportSpecifier", local, ?loc = loc)
+    member x.imported: Identifier = imported
+
+/// A default import specifier, e.g., foo in import foo from "mod.js".
+type ImportDefaultSpecifier(local, ?loc) =
+    inherit ModuleSpecifier("ImportDefaultSpecifier", local, ?loc = loc)
+    
+/// A namespace import specifier, e.g., * as foo in import * as foo from "mod.js".
+type ImportNamespaceSpecifier(local, ?loc) =
+    inherit ModuleSpecifier("ImportNamespaceSpecifier", local, ?loc = loc)
+
+/// e.g., import foo from "mod";.
+type ImportDeclaration(specifiers, source, ?loc) =
+    inherit ModuleDeclaration("ImportDeclaration", ?loc = loc)
+    member x.specifiers: U3<ImportSpecifier, ImportDefaultSpecifier, ImportNamespaceSpecifier> list = specifiers
+    member x.source: Literal = source
+
+/// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}. 
+/// The exported field refers to the name exported in the module. 
+/// The local field refers to the binding into the local module scope. 
+/// If it is a basic named export, such as in export {foo}, both exported and local are equivalent Identifier nodes; 
+/// in this case an Identifier node representing foo. If it is an aliased export, such as in export {bar as foo}, 
+/// the exported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
+type ExportSpecifier(local, exported, ?loc) =
+    inherit ModuleSpecifier("ExportSpecifier", local, ?loc = loc)
+    member x.exported: Identifier = exported
+    
+/// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
+/// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
+type ExportNamedDeclaration(specifiers, ?declaration, ?source, ?loc) =
+    inherit ModuleDeclaration("ExportNamedDeclaration", ?loc = loc)
+    member x.specifiers: ExportSpecifier list = specifiers
+    member x.declaration: Declaration option = declaration
+    member x.source: Literal option = source
+
+/// An export default declaration, e.g., export default function () {}; or export default 1;. 
+type ExportDefaultDeclaration(declaration, ?loc) =
+    inherit ModuleDeclaration("ExportDefaultDeclaration", ?loc = loc)
+    member x.declaration: U2<Declaration, Expression> = declaration
+
+/// An export batch declaration, e.g., export * from "mod";.
+type ExportAllDeclaration(source, ?loc) =
+    inherit ModuleDeclaration("ExportAllDeclaration", ?loc = loc)
+    member x.source: Literal = source
