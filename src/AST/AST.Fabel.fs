@@ -21,7 +21,7 @@ type PrimitiveTypeKind =
     | TypedArray of NumberKind
 
 and DeclaredTypeKind =
-    | Class of parent: TypeEntity option
+    | Class of parent: string option
     | Interface
     | Union
     | Record    
@@ -32,24 +32,28 @@ and Type =
     | PrimitiveType of PrimitiveTypeKind
 
 (** ##Entities *)
-and Entity(fullName, decorators, isPublic, isInternal) =
-    // member x.Declarations: Declaration list = declarations
+and SourceKind =
+    | Internal of fileName: string
+    | Imported of moduleName: string * route: string
+    | External
+
+and Entity(fullName, decorators, isPublic, source) =
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
-    member x.IsInternal: bool = isInternal
+    member x.Source: SourceKind = source
     member x.FullName: string = fullName
     member x.HasDecoratorNamed decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
     
-and TypeEntity(kind, fullName, interfaces, decorators, isPublic, isInternal) =
-    inherit Entity(fullName, decorators, isPublic, isInternal)
+and TypeEntity(kind, fullName, interfaces, decorators, isPublic, source) =
+    inherit Entity(fullName, decorators, isPublic, source)
     member x.Kind: DeclaredTypeKind = kind
     member x.Interfaces: string list = interfaces
 
 and Declaration =
     | ActionDeclaration of Expr
-    | EntityDeclaration of Entity
-    | MemberDeclarion of Member
+    | EntityDeclaration of Entity * nested: Declaration list
+    | MemberDeclaration of Member
 
 and MemberKind =
     | Constructor
@@ -63,7 +67,7 @@ and Member(kind, func, decorators, isPublic, isStatic) =
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
     member x.IsStatic: bool = isStatic
-
+    
 (** ##Expressions *)
 and LambdaKind = Immediate | Async | Generator
     

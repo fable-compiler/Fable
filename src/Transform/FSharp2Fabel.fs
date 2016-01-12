@@ -7,32 +7,37 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fabel.AST
 
 module private Util =
-    type Emitter = Fabel.Expr list -> Fabel.ExprKind
-
     type DecisionTarget =
         | TargetRef of Fabel.IdentifierExpr
         | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
 
-    type Context =
-        {
-            filenames: string list
+    type Context = {
             scope: (string * string) list
             decisionTargets: Map<int, DecisionTarget>
-            entities: ConcurrentDictionary<string, Fabel.Entity>
         }
-        member x.IsInternal (entity: FSharpEntity): bool =
-            x.filenames |> List.exists ((=) entity.DeclarationLocation.FileName)
 
     let (|FieldName|) (fi: FSharpField) = fi.Name
     let (|ExprKind|) (expr: Fabel.Expr) = expr.Kind
     let (|ExprType|) (expr: Fabel.Expr) = expr.Type
 
-    // TODO: Remove root namespace from FileName or use it only for Lambda Expressions 
     let (|Range|) (r: Range.range) = {
-        source = Some r.FileName
+        // source = Some r.FileName
         start = { line = r.StartLine + 1; column = r.StartColumn }
         ``end``= { line = r.EndLine + 1; column = r.EndColumn }
     }
+
+    let (|NumberKind|_|) = function
+        | "System.SByte" -> Some Int8
+        | "System.Byte" -> Some UInt8
+        | "System.Int16" -> Some Int16
+        | "System.UInt16" -> Some UInt16
+        | "System.Int32" -> Some Int32
+        | "System.UInt32" -> Some UInt32
+        | "System.Int64" -> Some Float64
+        | "System.UInt64" -> Some Float64
+        | "System.Single" -> Some Float32
+        | "System.Double" -> Some Float64
+        | _ -> None    
     
     let (|ReplaceArgs|_|) (lambdaArgs: (Fabel.IdentifierExpr*Fabel.Expr) list) (nestedArgs: Fabel.Expr list) =
         let (|SplitList|) f li =
@@ -62,78 +67,134 @@ module private Util =
             when meth.DisplayName = "GetEnumerator" ->
             Some (ident, value, body)
         | _ -> None
-    
-module private Types =
+        
+    let (|Namespace|_|) (ns: string) (decl: FSharpImplementationFileDeclaration) =
+        let rec matchNamespace (nsParts: string list) decl =
+            match decl with
+            | FSharpImplementationFileDeclaration.Entity (e, sub)
+                when e.IsNamespace && e.DisplayName = nsParts.Head ->
+                match nsParts, sub with
+                | [x], _ -> Some sub
+                | x::xs, [sub] -> matchNamespace xs sub
+                | _ -> None
+            | _ -> None
+        if ns.Length = 0
+        then Some [decl]
+        else matchNamespace (ns.Split('.') |> Array.toList) decl
+        
+    let (|NonAbbreviatedType|) (t: FSharpType) =
+        let rec abbr (t: FSharpType) = if t.IsAbbreviation then abbr t.AbbreviatedType else t
+        abbr t
+        
+    let (|OptionUnion|ListUnion|ErasedUnion|OtherType|) (typ: Fabel.Type) =
+        match typ with
+        | Fabel.DeclaredType typ ->
+            match typ.FullName with
+            | "Microsoft.FSharp.Core.Option" -> OptionUnion
+            | "Microsoft.FSharp.Collections.List" -> ListUnion
+            | _ when Option.isSome (typ.HasDecoratorNamed "Erase") -> ErasedUnion
+            | _ -> OtherType
+        | _ -> OtherType
+                
+module private Cache =
     open Util
+    
+    type FSharpProjectInfo = {
+        fileNames: string list
+        importedModules: string list
+    }
+
+    let mutable proj: FSharpProjectInfo option = None
+    let entities = ConcurrentDictionary<string, Fabel.Entity>()
 
     let private sanitize (name: string) =
         let idx = name.IndexOf ('`')
         if idx >= 0 then name.Substring (0, idx) else name
 
-    let private (|NonAbbreviatedType|) (t: FSharpType) =
-        let rec abbr (t: FSharpType) = if t.IsAbbreviation then abbr t.AbbreviatedType else t
-        abbr t
-
-    let private (|NumberKind|_|) = function
-        | "System.SByte" -> Some Int8
-        | "System.Byte" -> Some UInt8
-        | "System.Int16" -> Some Int16
-        | "System.UInt16" -> Some UInt16
-        | "System.Int32" -> Some Int32
-        | "System.UInt32" -> Some UInt32
-        | "System.Int64" -> Some Float64
-        | "System.UInt64" -> Some Float64
-        | "System.Single" -> Some Float32
-        | "System.Double" -> Some Float64
-        | _ -> None
+    let private isInternal (tdef: FSharpEntity) =
+        match proj with
+        | None -> false
+        | Some proj -> List.exists ((=) tdef.DeclarationLocation.FileName) proj.fileNames
         
-    let private isNetPrimitive = function
-        | NumberKind kind -> Fabel.Number kind |> Some
-        | "System.Boolean" -> Fabel.Boolean |> Some
-        | "System.Char" -> Fabel.String true |> Some
-        | "System.String" -> Fabel.String false |> Some
-        | "Microsoft.FSharp.Core.Unit" -> Fabel.Unit |> Some
-        | "System.Collections.Generic.List`1" -> Fabel.DynamicArray |> Some
-        | _ -> None
-
-    let private makeDecorator (ctx: Context) (att: FSharpAttribute) =
-        if not (ctx.IsInternal att.AttributeType) then None else
+    let private getSource (tdef: FSharpEntity) =
+        match proj with
+        | None -> failwith "Cache is not initialized"
+        | Some proj ->
+            proj.fileNames
+            |> List.tryFind ((=) tdef.DeclarationLocation.FileName)
+            |> function
+            | Some file -> Fabel.Internal file
+            | None ->
+                proj.importedModules
+                |> List.tryPick (fun import ->
+                    if tdef.FullName.StartsWith import
+                    then Some (import, tdef.FullName)
+                    else None)
+                |> function
+                | Some (import, fullName) ->
+                    Fabel.Imported (import,
+                        let route = fullName.Replace(import, "")
+                        if route.StartsWith "."
+                        then route.Substring(1)
+                        else route)
+                | None -> Fabel.External
+        
+    let private makeDecorator (att: FSharpAttribute) =
+        if not(isInternal att.AttributeType) then None else
         let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
         let fullName =
             let fullName = sanitize att.AttributeType.FullName
             if fullName.EndsWith ("Attribute")
             then fullName.Substring (0, fullName.Length - 9)
             else fullName
-        Fabel.Decorator(att.AttributeType.FullName, args) |> Some
+        Fabel.Decorator(att.AttributeType.FullName, args) |> Some        
 
-    let rec private makeTypeEntity (ctx: Context) (tdef: FSharpEntity): Fabel.TypeEntity =
-        let makeTypeEntity' (_: string): Fabel.Entity =
-            let kind =
-                if tdef.IsInterface then Fabel.Interface
-                // elif tdef.IsFSharpExceptionDeclaration then Fabel.Exception
-                elif tdef.IsFSharpRecord then Fabel.Record
-                elif tdef.IsFSharpUnion then Fabel.Union
-                else
-                    let baseClass =
-                        match tdef.BaseType with
-                        | None -> None
-                        | Some (NonAbbreviatedType x) when not x.HasTypeDefinition
-                            || x.TypeDefinition.FullName = "System.Object" -> None
-                        | Some x -> makeTypeEntity ctx x.TypeDefinition |> Some
-                    Fabel.Class (baseClass)
-            // Take only interfaces and attributes with internal declaration
-            let infcs =
-                tdef.DeclaredInterfaces
-                |> Seq.filter (fun (NonAbbreviatedType x) ->
-                    x.HasTypeDefinition && ctx.IsInternal x.TypeDefinition)
-                |> Seq.map (fun x -> sanitize x.TypeDefinition.FullName)
-                |> Seq.toList
-            let decs =
-                tdef.Attributes |> Seq.choose (makeDecorator ctx) |> Seq.toList
-            upcast Fabel.TypeEntity (kind, sanitize tdef.FullName, infcs, decs,
-                        tdef.Accessibility.IsPublic, ctx.IsInternal tdef)
-        // Try to retrieve entity from cache
-        ctx.entities.GetOrAdd (tdef.FullName, makeTypeEntity') :?> Fabel.TypeEntity
+    let private makeTypeEntity (tdef: FSharpEntity) =
+        let kind =
+            if tdef.IsInterface then Fabel.Interface
+            // elif tdef.IsFSharpExceptionDeclaration then Fabel.Exception
+            elif tdef.IsFSharpRecord then Fabel.Record
+            elif tdef.IsFSharpUnion then Fabel.Union
+            else
+                let parentClass =
+                    match tdef.BaseType with
+                    | None -> None
+                    | Some (NonAbbreviatedType x) when not x.HasTypeDefinition
+                        || x.TypeDefinition.FullName = "System.Object" -> None
+                    | Some x -> Some x.TypeDefinition.FullName
+                Fabel.Class parentClass
+        // Take only interfaces and attributes with internal declaration
+        let infcs =
+            tdef.DeclaredInterfaces
+            |> Seq.filter (fun (NonAbbreviatedType x) ->
+                x.HasTypeDefinition && isInternal x.TypeDefinition)
+            |> Seq.map (fun x -> sanitize x.TypeDefinition.FullName)
+            |> Seq.toList
+        let decs =
+            tdef.Attributes |> Seq.choose makeDecorator |> Seq.toList
+        Fabel.TypeEntity (kind, sanitize tdef.FullName, infcs, decs,
+                    tdef.Accessibility.IsPublic, getSource tdef)
+                    
+    let getTypeEntity (tdef: FSharpEntity) =
+        entities.GetOrAdd (tdef.FullName, fun _ -> makeTypeEntity tdef :> Fabel.Entity)
+        :?> Fabel.TypeEntity
+
+    let init (fsProj: FSharpCheckProjectResults) =
+        let fileNames =
+            fsProj.AssemblyContents.ImplementationFiles
+            |> List.map (fun x -> x.FileName)
+        let importedModules =
+            fsProj.AssemblySignature.Entities
+            |> Seq.fold (fun acc ent ->
+                let isImport: bool = failwith "TODO: Check import attribute"
+                if isImport then ent.FullName::acc else acc) []
+        proj <- Some {
+            fileNames = fileNames
+            importedModules = importedModules
+        }
+    
+module private Types =
+    open Util
 
     let rec makeTypeFromDef (ctx: Context) (tdef: FSharpEntity) =
         // Guard: F# abbreviations shouldn't be passed as argument
@@ -152,9 +213,15 @@ module private Types =
             |> Fabel.PrimitiveType
         else
         // .NET Primitives
-        match isNetPrimitive tdef.FullName with
-        | Some typ -> Fabel.PrimitiveType typ
-        | None -> makeTypeEntity ctx tdef |> Fabel.DeclaredType
+        match tdef.FullName with
+        | NumberKind kind -> Fabel.Number kind |> Fabel.PrimitiveType
+        | "System.Boolean" -> Fabel.Boolean |> Fabel.PrimitiveType
+        | "System.Char" -> Fabel.String true |> Fabel.PrimitiveType
+        | "System.String" -> Fabel.String false |> Fabel.PrimitiveType
+        | "Microsoft.FSharp.Core.Unit" -> Fabel.Unit |> Fabel.PrimitiveType
+        | "System.Collections.Generic.List`1" -> Fabel.DynamicArray |> Fabel.PrimitiveType
+        // Declared Type
+        | _ -> Cache.getTypeEntity tdef |> Fabel.DeclaredType
 
     and makeType (ctx: Context) (NonAbbreviatedType t) =
         let rec countFuncArgs (fn: FSharpType) =
@@ -174,16 +241,6 @@ module private Types =
 
     let (|FabelType|) = makeType
     
-    let (|OptionUnion|ListUnion|ErasedUnion|OtherType|) (typ: Fabel.Type) =
-        match typ with
-        | Fabel.DeclaredType typ ->
-            match typ.FullName with
-            | "Microsoft.FSharp.Core.Option" -> OptionUnion
-            | "Microsoft.FSharp.Collections.List" -> ListUnion
-            | _ when Option.isSome (typ.HasDecoratorNamed "Erase") -> ErasedUnion
-            | _ -> OtherType
-        | _ -> OtherType
-
 // end module Types
 
 module private Identifiers =
@@ -236,11 +293,7 @@ open Util
 open Types
 open Identifiers
 
-let rec transformTest (filenames: string list) (fsExpr: FSharpExpr) =
-    let ctx = { filenames = filenames;  scope = []; decisionTargets = Map.empty<_,_>; entities = ConcurrentDictionary<_,_> () }
-    transform ctx fsExpr
-
-and private (|Transform|) (ctx: Context) (fsExpr: FSharpExpr): Fabel.Expr =
+let rec private (|Transform|) (ctx: Context) (fsExpr: FSharpExpr): Fabel.Expr =
     transform ctx fsExpr
 
 and private transform ctx fsExpr =
@@ -412,20 +465,16 @@ and private transform ctx fsExpr =
         | "Microsoft.FSharp.Core.Operators.( |> )" -> makeApply args.Tail.Head [args.Head]
         | "Microsoft.FSharp.Core.Operators.( <| )" -> makeApply args.Head args.Tail
         | _ ->
-            (** -If this is an internal method, check for Emit attributes *)
             (** -If this is an external method, check for replacements *)
             let resolved =
                 match methType with
-                | Fabel.DeclaredType typEnt when typEnt.IsInternal ->
-                    match typEnt.HasDecoratorNamed "ASTEmit" with
-                    | Some (Fabel.Decorator (_, [:? Emitter as emitter])) ->
-                        match callee with Some a -> a::args | None -> args
-                        |> emitter |> Some
-                    | _ -> None
+                | Fabel.DeclaredType typEnt
+                    when typEnt.Source <> Fabel.External -> None
                 | _ ->
                     match Replacements.tryReplace methFullName callee args with
                     | Some _ as repl -> repl 
-                    | None -> failwithf "Couldn't find replacemente for external method %s" methFullName
+                    | None -> failwithf "Couldn't find replacemente for external method %s"
+                                        methFullName
             (** -If no Emit attribute nor replacement has been found then: *)
             match resolved with
             | Some exprKind -> exprKind
@@ -775,3 +824,39 @@ and private transform ctx fsExpr =
     | BasicPatterns.AddressSet _ // (lvalueExpr, rvalueExpr)
     | _ -> failwithf "Cannot compile expression in %A: %A" fsExpr.Range fsExpr
 
+let rec isEmpty (b: bool) (decl: Fabel.Declaration) =
+    if not b then false else
+    match decl with
+    | Fabel.ActionDeclaration _ -> false
+    | Fabel.MemberDeclaration _ -> false
+    | Fabel.EntityDeclaration (e , decls) ->
+        match e.Source with
+        | Fabel.External -> failwith "Unexpected external entity in file"
+        | Fabel.Imported _ -> true
+        | Fabel.Internal _ ->
+            match decls with
+            | [] -> true
+            | decls -> decls |> List.fold (fun b decl -> isEmpty b decl) b
+
+let private transformEntity (decl: FSharpEntity): Fabel.Entity =
+    failwith "TODO"
+    
+let transformFile rootNamespace (file: FSharpImplementationFileContents) =
+    let rec transformDeclarations decls =
+        decls |> List.iter (function
+        | FSharpImplementationFileDeclaration.Entity (e, sub) ->
+            let ent = transformEntity e
+            failwith "TODO: Add entity to cache"
+            transformDeclarations sub
+        | decl -> failwithf "Unexpected declaration: %A" decl)
+    file.Declarations |> List.iter (function
+    | Namespace "Fabel.Import" _ -> failwith "TODO: Imports"
+     // Ignore other Fabel namespaces: Global, Core
+    | Namespace "Fabel" _ -> ()
+    | Namespace rootNamespace decls -> transformDeclarations decls
+    | _ -> failwithf "Entity outside root or Fabel namespaces in %s"
+                file.FileName)
+
+let transformTest (filenames: string list) (fsExpr: FSharpExpr) =
+    let ctx = { scope = []; decisionTargets = Map.empty<_,_> }
+    transform ctx fsExpr

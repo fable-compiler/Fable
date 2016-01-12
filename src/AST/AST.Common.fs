@@ -13,7 +13,7 @@ type Position =
     { line: int; column: int; }
 
 type SourceLocation =
-    { source: string option; start: Position; ``end``: Position; }
+    { (*source: string option;*) start: Position; ``end``: Position; }
 
 type NumberKind =
     | Int8 | UInt8 | UInt8Clamped | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64

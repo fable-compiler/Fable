@@ -169,5 +169,9 @@ and private transformFunctionBody (ctx: Context) (expr: Fabel.Expr): Babel.Block
     | _ -> returnBlock (transformExpr ctx expr)
     
 let transformTest (expr: Fabel.Expr) =
-    let block = transformFunctionBody Context expr
-    Babel.Program (block.body |> List.map U2.Case1, [])
+    let body: Babel.Statement =
+        upcast Babel.ExpressionStatement (
+            Babel.CallExpression (
+                Babel.FunctionExpression ([],
+                    transformFunctionBody Context expr), []))
+    Babel.Program ([U2.Case1 body], [], ?loc=expr.Range)

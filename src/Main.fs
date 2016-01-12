@@ -75,7 +75,7 @@ let main argv =
             Transform.FSharp2Fabel.transformTest filenames actionDecl.Expr
             |> Transform.Fabel2Babel.transformTest
         Newtonsoft.Json.JsonConvert.SerializeObject (expr, Fabel.Util.Json.converters)
-        |> printfn "%s"
+        |> fun json -> File.WriteAllText("./Program.json", json)
     with e ->
         printfn "ERROR: %s" e.Message
     0 // return an integer exit code

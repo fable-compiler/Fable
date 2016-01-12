@@ -235,13 +235,13 @@ type ArrowFunctionExpression(arguments, body, expression, ?loc) =
     member x.body: U2<BlockStatement, Expression> = body
     member x.async = async        
         
-type FunctionExpression(arguments, body, generator, async, ?id, ?loc) =
+type FunctionExpression(arguments, body, ?generator, ?async, ?id, ?loc) =
     inherit Expression("FunctionExpression", ?loc = loc)
     member x.id: Identifier option = id
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
-    member x.generator = generator
-    member x.async = async
+    member x.generator: bool = defaultArg generator false
+    member x.async: bool = defaultArg async false
     
 /// e.g., x = do { var t = f(); t * t + 1 };
 /// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
