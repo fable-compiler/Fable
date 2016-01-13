@@ -68,6 +68,11 @@ and Member(kind, func, decorators, isPublic, isStatic) =
     member x.IsPublic: bool = isPublic
     member x.IsStatic: bool = isStatic
     
+and File(filePath, rootNamespace, declarations) =
+    member x.FilePath: string = filePath
+    member x.RootNamespace: string = rootNamespace
+    member x.Declarations: Declaration list = declarations
+    
 (** ##Expressions *)
 and LambdaKind = Immediate | Async | Generator
     
@@ -111,20 +116,20 @@ and ExprKind =
     | TryCatch of body: Expr * catch: (IdentifierExpr * Expr) option * finalizers: Expr list
     | VarDeclaration of var: IdentifierExpr * value: Expr * isMutable: bool
 
-and Expr (kind, typ, ?range) =
+and Expr (kind, ?typ, ?range) =
     member x.Kind: ExprKind = kind
-    member x.Type: Type = typ
+    member x.Type: Type = defaultArg typ Type.UnknownType
     member x.Range: SourceLocation option = range
     member x.Children: Expr list =
         match x.Kind with
         | _ -> failwith "Not implemented"
 
-and IdentifierExpr (name, typ, ?range) =
-    inherit Expr (Value (Identifier name), typ, ?range=range)
+and IdentifierExpr (name, ?typ, ?range) =
+    inherit Expr (Value (Identifier name), ?typ=typ, ?range=range)
     member x.Name = name
     
-and LambdaExpr (args, body, kind, restParams, typ, ?range) =
-    inherit Expr (Lambda (args, body, kind, restParams), typ, ?range=range)
+and LambdaExpr (args, body, kind, restParams, ?typ, ?range) =
+    inherit Expr (Lambda (args, body, kind, restParams), ?typ=typ, ?range=range)
     member __.Arguments = args
     member __.Body = body
     member __.Kind = kind
