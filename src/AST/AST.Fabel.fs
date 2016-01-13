@@ -82,7 +82,7 @@ and ValueKind =
     | Null
     | TypeRef of Type
     | Identifier of string
-    | CoreModule of string // e.g., $F.Seq
+    | CoreModule of string // e.g., $Fabel.Seq
     | IntConst of int
     | FloatConst of float
     | StringConst of string

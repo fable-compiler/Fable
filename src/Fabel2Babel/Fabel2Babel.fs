@@ -1,7 +1,10 @@
-module Fabel.Transform.Fabel2Babel
-open Fabel.AST
+module Fabel.Fabel2Babel
 
-let private coreLibRef: Babel.Expression = upcast Babel.Identifier ("$F")
+open Microsoft.FSharp.Compiler
+open Microsoft.FSharp.Compiler.Ast
+open Microsoft.FSharp.Compiler.SourceCodeServices
+open Fabel
+open Fabel.AST
 
 // type Enclosing = Root | Module | Class | TestSuite
     
@@ -96,11 +99,13 @@ and private transformExpr (ctx: Context) (expr: Fabel.Expr): Babel.Expression =
     match expr.Kind with
     | Fabel.Value kind ->
         match kind with
+        | Fabel.CoreModule name ->
+            let coreLibRef = Babel.Identifier Literals.coreLibIdent
+            upcast Babel.MemberExpression (coreLibRef, Babel.Identifier (name), false)
         | Fabel.This -> upcast Babel.ThisExpression (?loc=expr.Range)
         | Fabel.Super -> upcast Babel.Super (?loc=expr.Range)
         | Fabel.Null -> upcast Babel.NullLiteral (?loc=expr.Range)
         | Fabel.Identifier name -> upcast Babel.Identifier (name, ?loc=expr.Range)
-        | Fabel.CoreModule name -> upcast Babel.MemberExpression (coreLibRef, Babel.Identifier (name), false)
         | Fabel.IntConst x -> upcast Babel.NumericLiteral (U2.Case1 x, ?loc=expr.Range)
         | Fabel.FloatConst x -> upcast Babel.NumericLiteral (U2.Case2 x, ?loc=expr.Range)
         | Fabel.StringConst x -> upcast Babel.StringLiteral (x, ?loc=expr.Range)
@@ -168,5 +173,5 @@ and private transformFunctionBody (ctx: Context) (expr: Fabel.Expr): Babel.Block
                 ?loc = expr.Range)], [])
     | _ -> returnBlock (transformExpr ctx expr)
     
-let transformFile (file: Fabel.File) =
+let transformFiles (com: ICompiler) (files: Fabel.File list): Babel.Program list =
     failwith "TODO"

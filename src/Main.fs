@@ -5,6 +5,7 @@ open System.IO
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
+open Fabel
 
 let parseFSharpScript (mainFilePath: string) =
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
@@ -19,13 +20,13 @@ let parseFSharpScript (mainFilePath: string) =
 [<EntryPoint>]
 let main argv =
     try
-        let proj = parseFSharpScript argv.[0]
-        for file in proj.AssemblyContents.ImplementationFiles do
-            let babelAst =
-                Transform.FSharp2Fabel.transformFile file
-                |> Transform.Fabel2Babel.transformFile
+        let com: ICompiler = failwith "TODO"
+        parseFSharpScript argv.[0]
+        |> FSharp2Fabel.transformFiles com
+        |> Fabel2Babel.transformFiles com
+        |> List.iteri (fun i babelAst -> 
             let json = JsonConvert.SerializeObject (babelAst, Fabel.Util.Json.converters)
-            File.WriteAllText("./Program.json", json)
+            File.WriteAllText(sprintf "./File%i.json" i, json))
     with e ->
         printfn "ERROR: %s" e.Message
     0 // return an integer exit code

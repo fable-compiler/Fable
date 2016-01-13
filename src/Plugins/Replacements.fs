@@ -1,4 +1,4 @@
-module Fabel.Transform.Replacements
+module Fabel.Plugins.Replacements
 open Fabel.AST
 
 module private Util =

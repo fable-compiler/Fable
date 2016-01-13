@@ -47,13 +47,15 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util/Json.fs" />
+    <Compile Include="Util/Util.fs" />
     <Compile Include="AST/AST.Common.fs" />
     <Compile Include="AST/AST.Fabel.fs" />
     <Compile Include="AST/AST.Babel.fs" />
-    <Compile Include="Transform/Replacements.fs" />
-    <Compile Include="Transform/FSharp2Fabel.fs" />
-    <Compile Include="Transform/Fabel2Babel.fs" />
+    <Compile Include="Compiler/Compiler.fs" />
+    <Compile Include="Plugins/Replacements.fs" />
+    <Compile Include="Fabel2Babel/Fabel2Babel.fs" />
+    <Compile Include="FSharp2Fabel/Util.fs" />
+    <Compile Include="FSharp2Fabel/FSharp2Fabel.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config" />
   </ItemGroup>
