@@ -21,6 +21,7 @@ type PrimitiveTypeKind =
     | TypedArray of NumberKind
 
 and DeclaredTypeKind =
+    | Module
     | Class of parent: string option
     | Interface
     | Union
@@ -68,10 +69,10 @@ and Member(kind, func, decorators, isPublic, isStatic) =
     member x.IsPublic: bool = isPublic
     member x.IsStatic: bool = isStatic
     
-and File(filePath, rootNamespace, declarations) =
+and File(filePath, rootEntity, rootDeclarations) =
     member x.FilePath: string = filePath
-    member x.RootNamespace: string = rootNamespace
-    member x.Declarations: Declaration list = declarations
+    member x.RootNamespace: Entity = rootEntity
+    member x.Declarations: Declaration list = rootDeclarations
     
 (** ##Expressions *)
 and LambdaKind = Immediate | Async | Generator

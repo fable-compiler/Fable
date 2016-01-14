@@ -20,7 +20,16 @@ let parseFSharpScript (mainFilePath: string) =
 [<EntryPoint>]
 let main argv =
     try
-        let com: ICompiler = failwith "TODO"
+        let opts = {
+            sourceRootPath = "./"
+            targetRootPath = "./js"
+            environment = "browser"
+            jsLibFolder = "./"
+        }   
+        let com = {
+            new ICompiler with
+                member __.Options = opts                
+        }
         parseFSharpScript argv.[0]
         |> FSharp2Fabel.transformFiles com
         |> Fabel2Babel.transformFiles com

@@ -1,3 +1,4 @@
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Fabel.FSharp2Fabel
 
 open Microsoft.FSharp.Compiler
@@ -384,7 +385,7 @@ let rec private transformDeclarations (com: IFabelCompiler) decls: Fabel.Declara
     decls |> List.fold (fun (decls, lastChild: Fabel.Entity option, lastChildDecls) decl ->
         match decl with
         | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-            failwith "TODO: Check if entity must be ignored because Import or Erase decorators"
+            // TODO: Check if entity must be ignored because Import or Erase decorators
             let decls =
                 match lastChild with
                 | None -> decls
@@ -393,7 +394,7 @@ let rec private transformDeclarations (com: IFabelCompiler) decls: Fabel.Declara
             decls, Some lastChild, lastChildDecls
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
             let memberKind =
-                failwith "TODO: Check overloads"
+                // TODO: Check overloads
                 let name = meth.DisplayName
                 if meth.IsImplicitConstructor then Fabel.Constructor
                 elif meth.IsPropertyGetterMethod then Fabel.Getter name
@@ -439,8 +440,33 @@ let rec private transformDeclarations (com: IFabelCompiler) decls: Fabel.Declara
         (Fabel.EntityDeclaration (lastChild, List.rev lastChildDecls))::decls
 
 let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
+    // Consider an entity not empty when it contains:
+    // 1) two or more not empty module declarations
+    // 2) one or more non-module declarations
+    let rec getRootEntity (ent: Fabel.Entity) (decls: Fabel.Declaration list) =
+        let rec isNotEmpty (decls: Fabel.Declaration list) =
+            decls |> List.fold (fun (partialCondition, fullCondition) decl ->
+                match fullCondition, decl with
+                | true, _ -> true, true
+                | false, Fabel.ActionDeclaration _
+                | false, Fabel.MemberDeclaration _ -> true, true
+                | false, Fabel.EntityDeclaration (:? Fabel.TypeEntity as e, _)
+                    when e.Kind <> Fabel.Module -> true, true
+                | false, Fabel.EntityDeclaration (e, decls) ->
+                    if isNotEmpty decls
+                    then true, partialCondition
+                    else partialCondition, false) (false, false)
+            |> function _, fullCondition -> fullCondition
+        if isNotEmpty decls then Some (ent, decls)
+        else decls |> List.tryPick (function
+            | Fabel.EntityDeclaration (e, decls) -> getRootEntity e decls
+            | _ -> None)
     let com = makeCompiler com fsProj
-    fsProj.AssemblyContents.ImplementationFiles |> List.map (fun file ->
-        Fabel.File (file.FileName,
-            failwith "TODO: Calculate file root namespace",
-            transformDeclarations com file.Declarations |> List.rev))
+    fsProj.AssemblyContents.ImplementationFiles |> List.choose (fun file ->
+        let fileDecls = transformDeclarations com file.Declarations |> List.rev
+        let fileEnt = Fabel.Entity ("global", [], true, Fabel.Internal file.FileName)
+        // To prevent excessive nesting in JS modules, find the first non-empty module in the file
+        match getRootEntity fileEnt fileDecls with
+        | Some (rootEnt, rootDecls) -> Some(Fabel.File (file.FileName, rootEnt, rootDecls))
+         // Skip empty files (e.g., those containing only Import or Erase types)
+        | None -> None)

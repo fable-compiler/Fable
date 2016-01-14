@@ -129,6 +129,7 @@ module Types =
             // elif tdef.IsFSharpExceptionDeclaration then Fabel.Exception
             elif tdef.IsFSharpRecord then Fabel.Record
             elif tdef.IsFSharpUnion then Fabel.Union
+            elif tdef.IsFSharpModule then Fabel.Module
             else
                 let parentClass =
                     match tdef.BaseType with
@@ -445,18 +446,3 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
                 let methName = methFullName.Substring (methFullName.LastIndexOf "." + 1)
                 makeGetApply callee methName args
     |> makeExpr com ctx fsExpr
-    
-// TODO: Remove if not used
-let rec private isEmpty (b: bool) (decl: Fabel.Declaration) =
-    if not b then false else
-    match decl with
-    | Fabel.ActionDeclaration _ -> false
-    | Fabel.MemberDeclaration _ -> false
-    | Fabel.EntityDeclaration (e , decls) ->
-        match e.Source with
-        | Fabel.External -> failwith "Unexpected external entity in file"
-        | Fabel.Imported _ -> true
-        | Fabel.Internal _ ->
-            match decls with
-            | [] -> true
-            | decls -> decls |> List.fold (fun b decl -> isEmpty b decl) b
