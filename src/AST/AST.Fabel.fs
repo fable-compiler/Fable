@@ -7,8 +7,7 @@ type Decorator =
     member x.FullName = match x with Decorator (prop,_) -> prop
     member x.Arguments = match x with Decorator (_,prop) -> prop
     member x.Name =
-        let fullName = x.FullName
-        fullName.Substring (fullName.LastIndexOf '.' + 1)
+        x.FullName.Substring (x.FullName.LastIndexOf '.' + 1)
 
 (** ##Types *)
 type PrimitiveTypeKind =
@@ -17,7 +16,7 @@ type PrimitiveTypeKind =
     | String of isChar: bool
     | Boolean
     | Function of argCount: int
-    | DynamicArray // ResizeArray, non-numeric Array, tuple
+    | DynamicArray of isTuple: bool // ResizeArray, non-numeric Array, tuple
     | TypedArray of NumberKind
 
 and DeclaredTypeKind =
@@ -43,6 +42,8 @@ and Entity(fullName, decorators, isPublic, source) =
     member x.IsPublic: bool = isPublic
     member x.Source: SourceKind = source
     member x.FullName: string = fullName
+    member x.Name =
+        x.FullName.Substring(x.FullName.LastIndexOf('.') + 1)
     member x.HasDecoratorNamed decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
     

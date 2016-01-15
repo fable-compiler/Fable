@@ -91,11 +91,11 @@ type Directive(value, ?loc) =
 /// A complete program source tree.
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module. 
 /// Otherwise, sourceType must be "script".
-type Program(body, directives, ?loc) =
+type Program(body, ?directives, ?loc) =
     inherit Node("Program", ?loc = loc)
     member x.sourceType = "module" // Don't use "script"
     member x.body: U2<Statement, ModuleDeclaration> list = body
-    member x.directives: Directive list = directives
+    member x.directives: Directive list = defaultArg directives []
 
 (** ##Statements *)
 /// An expression statement, i.e., a statement consisting of a single expression.
@@ -104,10 +104,10 @@ type ExpressionStatement(expression, ?loc) =
     member x.expression: Expression = expression
 
 /// A block statement, i.e., a sequence of statements surrounded by braces.
-type BlockStatement(body, directives, ?loc) =
+type BlockStatement(body, ?directives, ?loc) =
     inherit Statement("BlockStatement", ?loc = loc)
     member x.body: Statement list = body
-    member x.directives: Directive list = directives
+    member x.directives: Directive list = defaultArg directives []
 
 /// An empty statement, i.e., a solitary semicolon.
 type EmptyStatement(?loc) =
@@ -196,12 +196,16 @@ type ForStatement(body, ?init, ?test, ?update, ?loc) =
     member x.test: Expression option = test
     member x.update: Expression option = update
 
+/// When passing a VariableDeclaration, the bound value must go through
+/// the `right` parameter instead of `init` property in VariableDeclarator
 type ForInStatement(left, right, body, ?loc) =
     inherit Statement("ForInStatement", ?loc = loc)
     member x.body: BlockStatement = body
     member x.left: U2<VariableDeclaration, Expression> = left
     member x.right: Expression = right
 
+/// When passing a VariableDeclaration, the bound value must go through
+/// the `right` parameter instead of `init` property in VariableDeclarator
 type ForOfStatement(left, right, body, ?loc) =
     inherit Statement("ForOfStatement", ?loc = loc)
     member x.body: BlockStatement = body
@@ -303,11 +307,11 @@ type ObjectMethod(kind, key, computed, decorators, arguments, body, generator, a
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression. 
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
-type MemberExpression(``object``, property, computed, ?loc) =
+type MemberExpression(``object``, property, ?computed, ?loc) =
     inherit Expression("MemberExpression", ?loc = loc)
     member x.``object``: Expression = ``object``
     member x.property: Expression = property
-    member x.computed: bool = computed
+    member x.computed: bool = defaultArg computed false
     interface Pattern
 
 type ObjectExpression(properties, ?loc) =
@@ -508,10 +512,10 @@ type ExportSpecifier(local, exported, ?loc) =
     
 /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
 /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
-type ExportNamedDeclaration(specifiers, ?declaration, ?source, ?loc) =
+type ExportNamedDeclaration(?declaration, ?specifiers, ?source, ?loc) =
     inherit ModuleDeclaration("ExportNamedDeclaration", ?loc = loc)
-    member x.specifiers: ExportSpecifier list = specifiers
     member x.declaration: Declaration option = declaration
+    member x.specifiers: ExportSpecifier list = defaultArg specifiers []
     member x.source: Literal option = source
 
 /// An export default declaration, e.g., export default function () {}; or export default 1;. 

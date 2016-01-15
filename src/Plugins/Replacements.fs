@@ -1,6 +1,11 @@
 module Fabel.Plugins.Replacements
 open Fabel.AST
 
+type Resolution =
+    | Solved of Fabel.ExprKind
+    | Partial of typFullName: string * methName: string * args: Fabel.Expr list
+    | Untouched
+
 module private Util =
     let [<Literal>] system = "System."
     let [<Literal>] fsharp = "Microsoft.FSharp."
@@ -9,19 +14,6 @@ module private Util =
     let inline (=>) first second = first, second
 
     let (|Split|) splitter (str: string) = str.Split ([|splitter|])
-    
-    let (|ExprKind|) (expr: Fabel.Expr) = expr.Kind
-
-    let (|ApplyStatic|_|) = function
-    | Fabel.Apply (ExprKind (Fabel.Get (ExprKind (Fabel.Value (Fabel.TypeRef typ)),
-                                        ExprKind (Fabel.Value (Fabel.StringConst methName)))), args, _) ->
-        Some (typ, methName, args)
-    | _ -> None
-
-    let (|ApplyInstance|_|) = function
-    | Fabel.Apply (ExprKind (Fabel.Get (callee, ExprKind (Fabel.Value (Fabel.StringConst methName)))), args, _) ->
-        Some (callee, methName, args)
-    | _ -> None
 
     let astOnlyExpr kind =
         Fabel.Expr (kind, Fabel.UnknownType)
@@ -73,13 +65,13 @@ module private AstPass =
         | NoMapping
         
     let mapMethod callee args = function
-        | Instance name -> instanceCall name (instanceArgs callee args) |> Some
-        | CoreLib (lib, name) -> fabelCoreLibCall lib name (staticArgs callee args) |> Some
-        | JSLib (lib, name) -> jsCoreLibCall lib name (staticArgs callee args) |> Some
-        | Getter name -> getter name (instanceArgs callee args) |> Some
-        | Setter name -> setter name (instanceArgs callee args) |> Some
-        | Inline exprKind -> Some exprKind
-        | NoMapping -> None        
+        | Instance name -> instanceCall name (instanceArgs callee args) |> Solved
+        | CoreLib (lib, name) -> fabelCoreLibCall lib name (staticArgs callee args) |> Solved
+        | JSLib (lib, name) -> jsCoreLibCall lib name (staticArgs callee args) |> Solved
+        | Getter name -> getter name (instanceArgs callee args) |> Solved
+        | Setter name -> setter name (instanceArgs callee args) |> Solved
+        | Inline exprKind -> Solved exprKind
+        | NoMapping -> Untouched        
     
     let (|OneArg|_|) (callee: Fabel.Expr option, args: Fabel.Expr list) =
         match callee, args with None, [arg] -> Some arg | _ -> None
@@ -90,34 +82,34 @@ module private AstPass =
     let (|ThreeArgs|_|) (callee: Fabel.Expr option, args: Fabel.Expr list) =
         match callee, args with None, [arg1;arg2;arg3] -> Some (arg1, arg2, arg3) | _ -> None    
     
-    let checkPrimitive (args: Fabel.Expr list) continuation =
+    let private checkType (args: Fabel.Expr list) successContinuation =
         match args.Head.Type with
+        | Fabel.UnknownType ->
+            successContinuation () |> Solved
         | Fabel.PrimitiveType kind ->
             match kind with
             | Fabel.Number _ | Fabel.String _ | Fabel.Boolean | Fabel.Unit ->
-                continuation () |> Some
-            | _ -> None
-        | Fabel.DeclaredType _ ->
-            let typRef = Fabel.TypeRef args.Head.Type |> Fabel.Value |> astOnlyExpr
-            let methRef = Fabel.Get (typRef, failwith "TODO: Method name for non-primitive operators") |> astOnlyExpr
-            Fabel.Apply (methRef, args, false) |> Some
-        | _ -> None
+                successContinuation () |> Solved
+            | Fabel.Function _ | Fabel.DynamicArray _ | Fabel.TypedArray _ ->
+                failwith "TODO: Custom operators to add function, tuples or arrays?" 
+        | Fabel.DeclaredType typ ->
+            Partial (typ.FullName, failwith "TODO: Method name for non-primitive operators", args)
 
     let unaryOp op arg =
-        checkPrimitive [arg] (fun () ->
+        checkType [arg] (fun () ->
             Fabel.Unary (op, arg) |> Fabel.Operation)
 
     let binaryOp op left right =
-        checkPrimitive [left; right] (fun () ->
+        checkType [left; right] (fun () ->
             Fabel.Binary (op, left, right) |> Fabel.Operation)
 
     let logicalOp op left right =
-        checkPrimitive [left; right] (fun () ->
+        checkType [left; right] (fun () ->
             Fabel.Logical (op, left, right) |> Fabel.Operation)
         
     // TODO: Check primitive args also here?
     let math methName args =
-        jsCoreLibCall "Math" methName args |> Some
+        jsCoreLibCall "Math" methName args |> Solved
 
     let operators methName callee args =
         match methName, (callee, args) with
@@ -152,13 +144,13 @@ module private AstPass =
         | "sin", _ -> math "sin" args
         | "sqrt", _ -> math "sqrt" args
         | "tan", _ -> math "tan" args
-        | _ -> None
+        | _ -> Untouched
 
     let intrinsicFunctions methName callee args =
         match methName, (callee, args) with
-        | "GetArray", TwoArgs (ar, idx) -> Fabel.Get (ar, idx) |> Some
-        | "SetArray", ThreeArgs (ar, idx, value) -> Fabel.Set (ar, Some idx, value) |> Some
-        | _ -> None
+        | "GetArray", TwoArgs (ar, idx) -> Fabel.Get (ar, idx) |> Solved
+        | "SetArray", ThreeArgs (ar, idx, value) -> Fabel.Set (ar, Some idx, value) |> Solved
+        | _ -> Untouched
         
     let fsharpMap methName callee args =
         match methName with
@@ -261,7 +253,7 @@ let tryReplace (methFullName: string) (callee: Fabel.Expr option) (args: Fabel.E
     let astPass typeName methName callee args=
         if AstPass.mappings.ContainsKey typeName
         then AstPass.mappings.[typeName] methName callee args
-        else None
+        else Untouched
     let coreLibPass typeName methName callee args =
         let pass (mappings: System.Collections.Generic.IDictionary<_,_>) callee args =
             if not(mappings.ContainsKey typeName) then None else
@@ -282,9 +274,8 @@ let tryReplace (methFullName: string) (callee: Fabel.Expr option) (args: Fabel.E
         | _ as methName -> methName        
     match astPass typeName methName callee args with
     // If the first pass just returned a type ref, try to resolve it again
-    | Some (ApplyStatic (typ, methName, args)) ->
-        match typ with
-        | Fabel.DeclaredType typ -> coreLibPass typ.FullName methName None args
-        | _ -> failwithf "Static calls to external types are not allowed after AST pass: %s" methFullName
-    | Some _ as res -> res
-    | None -> coreLibPass typeName methName callee args
+    // TODO: Make the first pass return Either instead
+    | Partial (typFullName, methName, args) ->
+        coreLibPass typFullName methName None args
+    | Solved res -> Some res
+    | Untouched -> coreLibPass typeName methName callee args

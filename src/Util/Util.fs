@@ -1,4 +1,43 @@
-namespace Fabel.Util
+namespace Fabel
+
+type CompilerOptions = {
+    sourceRootPath: string
+    targetRootPath: string
+    environment: string
+    jsLibFolder: string
+}
+
+type ICompiler =
+    abstract Options: CompilerOptions
+
+module Naming =
+    let [<Literal>] coreLibIdent = "$Fabel"
+    let [<Literal>] rootModuleIdent = "$M0"
+    let getImportModuleIdent i = sprintf "$M%i" (i+1)
+    
+    let identForbiddenChars =
+        System.Text.RegularExpressions.Regex "^[^a-zA-Z_]|[^0-9a-zA-Z_]"
+
+    // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
+    let jsKeywords =
+        set["abstract"; "await"; "boolean"; "break"; "byte"; "case"; "catch"; "char"; "class"; "const"; "continue"; "debugger"; "default"; "delete"; "do"; "double";
+            "else"; "enum"; "export"; "extends"; "false"; "final"; "finally"; "float"; "for"; "function"; "goto"; "if"; "implements"; "import"; "in"; "instanceof"; "int"; "interface";
+            "let"; "long"; "native"; "new"; "null"; "package"; "private"; "protected"; "public"; "return"; "self"; "short"; "static"; "super"; "switch"; "synchronized";
+            "this"; "throw"; "throws"; "transient"; "true"; "try"; "typeof"; "undefined"; "var"; "void"; "volatile"; "while"; "with"; "yield" ]
+        
+    let sanitizeIdent conflicts name =
+        let preventConflicts conflicts str =
+            let rec check n =
+                let name = if n > 0 then sprintf "%s_%i" str n else str
+                if not (conflicts name) then name else check (n+1)
+            check 0
+        // Replace Forbidden Chars
+        let sanitizedName = identForbiddenChars.Replace(name, "_")
+        // Check if it's a keyword
+        jsKeywords.Contains sanitizedName
+        |> function true -> "_" + sanitizedName | false -> sanitizedName
+        // Check if it already exists in scope
+        |> preventConflicts conflicts
 
 module IO =
     open System

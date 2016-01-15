@@ -34,7 +34,7 @@ let main argv =
         |> FSharp2Fabel.transformFiles com
         |> Fabel2Babel.transformFiles com
         |> List.iteri (fun i babelAst -> 
-            let json = JsonConvert.SerializeObject (babelAst, Fabel.Util.Json.converters)
+            let json = JsonConvert.SerializeObject (babelAst, Json.converters)
             File.WriteAllText(sprintf "./File%i.json" i, json))
     with e ->
         printfn "ERROR: %s" e.Message

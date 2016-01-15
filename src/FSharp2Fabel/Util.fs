@@ -12,8 +12,8 @@ type DecisionTarget =
     | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
 
 type Context = {
-        scope: (string * string) list
-        decisionTargets: Map<int, DecisionTarget>
+    scope: (string * string) list
+    decisionTargets: Map<int, DecisionTarget>
     }
     
 type IFabelCompiler =
@@ -169,7 +169,7 @@ module Types =
             | NumberKind kind -> Some kind | _ -> None
             |> function
                 | Some numbeKind -> Fabel.TypedArray numbeKind
-                | _ -> Fabel.DynamicArray
+                | _ -> Fabel.DynamicArray false
             |> Fabel.PrimitiveType
         else
         // .NET Primitives
@@ -179,17 +179,18 @@ module Types =
         | "System.Char" -> Fabel.String true |> Fabel.PrimitiveType
         | "System.String" -> Fabel.String false |> Fabel.PrimitiveType
         | "Microsoft.FSharp.Core.Unit" -> Fabel.Unit |> Fabel.PrimitiveType
-        | "System.Collections.Generic.List`1" -> Fabel.DynamicArray |> Fabel.PrimitiveType
+        | "System.Collections.Generic.List`1" -> Fabel.DynamicArray false |> Fabel.PrimitiveType
         // Declared Type
         | _ -> com.GetTypeEntity tdef |> Fabel.DeclaredType
 
     and makeType (com: IFabelCompiler) (NonAbbreviatedType t) =
+        if t.IsGenericParameter then Fabel.UnknownType else
         let rec countFuncArgs (fn: FSharpType) =
             if not fn.IsFunctionType then 1 else
             fn.GenericArguments
             |> Seq.fold (fun (acc: int) x -> acc + (countFuncArgs fn)) 0
             |> (-) <| 1
-        if t.IsTupleType then Fabel.DynamicArray |> Some
+        if t.IsTupleType then Fabel.DynamicArray true |> Some
         elif t.IsFunctionType then Fabel.Function (countFuncArgs t) |> Some
         else None
         |> function
@@ -204,19 +205,8 @@ module Types =
 [<AutoOpen>]
 module Identifiers =
     let private sanitizeIdent (ctx: Context) (fsName: string) =
-        let preventConflicts exists str =
-            let rec check n =
-                let name = if n > 0 then sprintf "%s%i" str n else str
-                if not (exists name) then name else check (n+1)
-            check 0
-        let sanitizedName =
-            // Replace Forbidden Chars
-            let sanitizedName = IdentForbiddenChars.Regex.Replace(fsName, "_")
-            // Check if it's a keyword
-            Literals.jsKeywords.Contains sanitizedName
-            |> function true -> "_" + sanitizedName | false -> sanitizedName
-            // Check if it already exists in scope
-            |> preventConflicts (fun x -> List.exists (fun (_,x') -> x = x') ctx.scope)
+        let sanitizedName = fsName |> Naming.sanitizeIdent (fun x ->
+            List.exists (fun (_,x') -> x = x') ctx.scope)
         { ctx with scope = (fsName, sanitizedName)::ctx.scope }, sanitizedName
 
     /// Make a sanitized identifier from a speculative name

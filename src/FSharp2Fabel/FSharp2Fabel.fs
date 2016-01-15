@@ -7,55 +7,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fabel.AST
 open Fabel.FSharp2Fabel.Util
 
-let rec private makeCompiler (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
-    let entities =
-        System.Collections.Concurrent.ConcurrentDictionary<string, Fabel.Entity>()
-    let fileNames =
-        fsProj.AssemblyContents.ImplementationFiles
-        |> List.map (fun x -> x.FileName)
-    let importedModules =
-        fsProj.AssemblySignature.Entities
-        |> Seq.fold (fun acc ent ->
-            let isImport = false // TODO: Check import attribute
-            if isImport then ent.FullName::acc else acc) []
-
-    { new IFabelCompiler with
-        member fcom.Transform ctx fsExpr =
-            transformExpr fcom ctx fsExpr
-        member fcom.IsInternal tdef =
-            List.exists ((=) tdef.DeclarationLocation.FileName) fileNames
-        member fcom.GetEntity tdef =
-            entities.GetOrAdd (tdef.FullName, fun _ ->
-                if tdef.IsNamespace || tdef.IsFSharpModule
-                then makeTypeEntity fcom tdef :> Fabel.Entity
-                else makeEntity fcom tdef)
-        member fcom.GetTypeEntity tdef =
-            entities.GetOrAdd (tdef.FullName, fun _ ->
-                makeTypeEntity fcom tdef :> Fabel.Entity) :?> Fabel.TypeEntity
-        member fcom.GetSource tdef =
-            importedModules
-            |> List.tryPick (fun import ->
-                if tdef.FullName.StartsWith import
-                then Some (import, tdef.FullName)
-                else None)
-            |> function
-            | Some (import, fullName) ->
-                Fabel.Imported (import,
-                    let route = fullName.Replace(import, "")
-                    if route.StartsWith "."
-                    then route.Substring(1)
-                    else route)
-            | None ->
-                fileNames
-                |> List.tryFind ((=) tdef.DeclarationLocation.FileName)
-                |> function
-                // TODO: Check Import attribute is not used just in case?
-                | Some file -> Fabel.Internal file
-                | None -> Fabel.External
-      interface ICompiler with
-        member fcom.Options = com.Options }
-
-and private transformExpr com ctx fsExpr =
+let rec private transformExpr com ctx fsExpr =
     match fsExpr with
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -394,7 +346,7 @@ let rec private transformDeclarations (com: IFabelCompiler) decls: Fabel.Declara
             decls, Some lastChild, lastChildDecls
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
             let memberKind =
-                // TODO: Check overloads
+                // TODO: Check overloads, sanitize name (but tests)
                 let name = meth.DisplayName
                 if meth.IsImplicitConstructor then Fabel.Constructor
                 elif meth.IsPropertyGetterMethod then Fabel.Getter name
@@ -439,10 +391,58 @@ let rec private transformDeclarations (com: IFabelCompiler) decls: Fabel.Declara
     | decls, Some lastChild, lastChildDecls ->
         (Fabel.EntityDeclaration (lastChild, List.rev lastChildDecls))::decls
 
+let private makeCompiler (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
+    let entities =
+        System.Collections.Concurrent.ConcurrentDictionary<string, Fabel.Entity>()
+    let fileNames =
+        fsProj.AssemblyContents.ImplementationFiles
+        |> List.map (fun x -> x.FileName)
+    let importedModules =
+        fsProj.AssemblySignature.Entities
+        |> Seq.fold (fun acc ent ->
+            let isImport = false // TODO: Check import attribute
+            if isImport then ent.FullName::acc else acc) []
+    { new IFabelCompiler with
+        member fcom.Transform ctx fsExpr =
+            transformExpr fcom ctx fsExpr
+        member fcom.IsInternal tdef =
+            List.exists ((=) tdef.DeclarationLocation.FileName) fileNames
+        member fcom.GetEntity tdef =
+            entities.GetOrAdd (tdef.FullName, fun _ ->
+                if tdef.IsNamespace || tdef.IsFSharpModule
+                then makeTypeEntity fcom tdef :> Fabel.Entity
+                else makeEntity fcom tdef)
+        member fcom.GetTypeEntity tdef =
+            entities.GetOrAdd (tdef.FullName, fun _ ->
+                makeTypeEntity fcom tdef :> Fabel.Entity) :?> Fabel.TypeEntity
+        member fcom.GetSource tdef =
+            importedModules
+            |> List.tryPick (fun import ->
+                if tdef.FullName.StartsWith import
+                then Some (import, tdef.FullName)
+                else None)
+            |> function
+            | Some (import, fullName) ->
+                Fabel.Imported (import,
+                    let route = fullName.Replace(import, "")
+                    if route.StartsWith "."
+                    then route.Substring(1)
+                    else route)
+            | None ->
+                fileNames
+                |> List.tryFind ((=) tdef.DeclarationLocation.FileName)
+                |> function
+                // TODO: Check Import attribute is not used just in case?
+                | Some file -> Fabel.Internal file
+                | None -> Fabel.External
+      interface ICompiler with
+        member __.Options = com.Options }
+
 let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
     // Consider an entity not empty when it contains:
     // 1) two or more not empty module declarations
     // 2) one or more non-module declarations
+    // TODO: Another condition: contains a test suite declaration (module with TestSuite decorator)
     let rec getRootEntity (ent: Fabel.Entity) (decls: Fabel.Declaration list) =
         let rec isNotEmpty (decls: Fabel.Declaration list) =
             decls |> List.fold (fun (partialCondition, fullCondition) decl ->
