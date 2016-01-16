@@ -408,13 +408,7 @@ let private makeCompiler (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
         member fcom.IsInternal tdef =
             List.exists ((=) tdef.DeclarationLocation.FileName) fileNames
         member fcom.GetEntity tdef =
-            entities.GetOrAdd (tdef.FullName, fun _ ->
-                if tdef.IsNamespace || tdef.IsFSharpModule
-                then makeTypeEntity fcom tdef :> Fabel.Entity
-                else makeEntity fcom tdef)
-        member fcom.GetTypeEntity tdef =
-            entities.GetOrAdd (tdef.FullName, fun _ ->
-                makeTypeEntity fcom tdef :> Fabel.Entity) :?> Fabel.TypeEntity
+            entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
         member fcom.GetSource tdef =
             importedModules
             |> List.tryPick (fun import ->
@@ -450,8 +444,7 @@ let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
                 | true, _ -> true, true
                 | false, Fabel.ActionDeclaration _
                 | false, Fabel.MemberDeclaration _ -> true, true
-                | false, Fabel.EntityDeclaration (:? Fabel.TypeEntity as e, _)
-                    when e.Kind <> Fabel.Module -> true, true
+                | false, Fabel.EntityDeclaration (e, _) when e.Kind <> Fabel.Module -> true, true
                 | false, Fabel.EntityDeclaration (e, decls) ->
                     if isNotEmpty decls
                     then true, partialCondition
@@ -464,7 +457,7 @@ let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
     let com = makeCompiler com fsProj
     fsProj.AssemblyContents.ImplementationFiles |> List.choose (fun file ->
         let fileDecls = transformDeclarations com file.Declarations |> List.rev
-        let fileEnt = Fabel.Entity ("global", [], true, Fabel.Internal file.FileName)
+        let fileEnt = Fabel.Entity (Fabel.Module, "global", [], [], true, Fabel.Internal file.FileName)
         // To prevent excessive nesting in JS modules, find the first non-empty module in the file
         match getRootEntity fileEnt fileDecls with
         | Some (rootEnt, rootDecls) -> Some(Fabel.File (file.FileName, rootEnt, rootDecls))

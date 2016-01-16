@@ -139,7 +139,8 @@ module private AstPass =
         | "floor", _ -> math "floor" args
         | "log", _ -> math "log" args
         | "log10", _ -> math "LN10" args
-        | "pown", _ -> math "pow" args
+        // TODO: optimize square pow: x * x
+        | "pown", _ | "**", _ -> math "pow" args
         | "round", _ -> math "round" args
         | "sin", _ -> math "sin" args
         | "sqrt", _ -> math "sqrt" args

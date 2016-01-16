@@ -231,13 +231,13 @@ type ThisExpression(?loc) =
     inherit Expression("ThisExpression", ?loc = loc)
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-type ArrowFunctionExpression(arguments, body, expression, ?loc) =
+type ArrowFunctionExpression(arguments, body, async, ?loc) =
     inherit Expression("ArrowFunctionExpression", ?loc = loc)
     member x.expression =
         match body with U2.Case1 _ -> false | U2.Case2 _ -> true
     member x.``params``: Pattern list = arguments
     member x.body: U2<BlockStatement, Expression> = body
-    member x.async = async        
+    member x.async: bool = async        
         
 type FunctionExpression(arguments, body, ?generator, ?async, ?id, ?loc) =
     inherit Expression("FunctionExpression", ?loc = loc)
@@ -425,19 +425,19 @@ type LogicalExpression(operator, left, right, ?loc) =
 
 (** ##Classes *)
 type ClassMethodKind =
-    | ClassConstructor | ClassMethod | ClassGetter | ClassSetter
+    | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind, key, value, computed, ``static``, decorators, ?loc) =
+type ClassMethod(kind, key, value, computed, ``static``, ?decorators, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     member x.kind = match kind with ClassConstructor -> "constructor"
                                   | ClassGetter -> "get"
                                   | ClassSetter -> "set"
-                                  | ClassMethod -> "method"
+                                  | ClassFunction -> "method"
     member x.key: Expression = key
     member x.value: FunctionExpression = value
     member x.computed: bool = computed
     member x.``static``: bool = ``static``
-    member x.decorators: Decorator list = decorators
+    member x.decorators: Decorator list = defaultArg decorators []
 
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
@@ -449,21 +449,22 @@ type ClassProperty(key, value, ?loc) =
 
 type ClassBody(body, ?loc) =
     inherit Node("ClassBody", ?loc = loc)
-    member x.body: U2<ClassMethod, ClassProperty> = body
+    member x.body: U2<ClassMethod, ClassProperty> list = body
 
-type ClassDeclaration(id, decorators, body, ?super, ?loc) =
+type ClassDeclaration(body, id, ?super, ?decorators, ?loc) =
     inherit Declaration("ClassDeclaration", ?loc = loc)
+    member x.body: ClassBody = body
     member x.id: Identifier = id
     member x.superClass: Expression option = super
-    member x.body: ClassBody = body
-    member x.decorators: Decorator list = decorators
+    member x.decorators: Decorator list = defaultArg decorators []
 
 /// Anonymous class: e.g., var myClass = class { }
-type ClassExpression(decorators, body, ?super, ?loc) =
+type ClassExpression(body, ?id, ?super, ?decorators, ?loc) =
     inherit Expression("ClassExpression", ?loc = loc)
-    member x.superClass: Expression option = super
     member x.body: ClassBody = body
-    member x.decorators: Decorator list = decorators
+    member x.id: Identifier option = id    
+    member x.superClass: Expression option = super
+    member x.decorators: Decorator list = defaultArg decorators []
 
 // type MetaProperty(meta, property, ?loc) =
 //     inherit Expression("MetaProperty", ?loc = loc)

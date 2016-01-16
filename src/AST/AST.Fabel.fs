@@ -19,38 +19,35 @@ type PrimitiveTypeKind =
     | DynamicArray of isTuple: bool // ResizeArray, non-numeric Array, tuple
     | TypedArray of NumberKind
 
-and DeclaredTypeKind =
+and Type =
+    | UnknownType
+    | DeclaredType of Entity
+    | PrimitiveType of PrimitiveTypeKind
+
+(** ##Entities *)
+and EntityKind =
     | Module
     | Class of parent: string option
     | Interface
     | Union
     | Record    
 
-and Type =
-    | UnknownType
-    | DeclaredType of TypeEntity
-    | PrimitiveType of PrimitiveTypeKind
-
-(** ##Entities *)
 and SourceKind =
     | Internal of fileName: string
     | Imported of moduleName: string * route: string
     | External
 
-and Entity(fullName, decorators, isPublic, source) =
+and Entity(kind, fullName, interfaces, decorators, isPublic, source) =
+    member x.Kind: EntityKind = kind
+    member x.FullName: string = fullName
+    member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
     member x.Source: SourceKind = source
-    member x.FullName: string = fullName
     member x.Name =
         x.FullName.Substring(x.FullName.LastIndexOf('.') + 1)
     member x.HasDecoratorNamed decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
-    
-and TypeEntity(kind, fullName, interfaces, decorators, isPublic, source) =
-    inherit Entity(fullName, decorators, isPublic, source)
-    member x.Kind: DeclaredTypeKind = kind
-    member x.Interfaces: string list = interfaces
 
 and Declaration =
     | ActionDeclaration of Expr

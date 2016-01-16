@@ -21,7 +21,6 @@ type IFabelCompiler =
     abstract Transform: Context -> FSharpExpr -> Fabel.Expr
     abstract IsInternal: FSharpEntity -> bool
     abstract GetEntity: FSharpEntity -> Fabel.Entity
-    abstract GetTypeEntity: FSharpEntity -> Fabel.TypeEntity
     abstract GetSource: FSharpEntity -> Fabel.SourceKind
     
 [<AutoOpen>]
@@ -123,13 +122,13 @@ module Types =
             else fullName
         Fabel.Decorator(att.AttributeType.FullName, args) |> Some
 
-    let makeTypeEntity (com: IFabelCompiler) (tdef: FSharpEntity) =
+    let makeEntity (com: IFabelCompiler) (tdef: FSharpEntity) =
         let kind =
             if tdef.IsInterface then Fabel.Interface
             // elif tdef.IsFSharpExceptionDeclaration then Fabel.Exception
             elif tdef.IsFSharpRecord then Fabel.Record
             elif tdef.IsFSharpUnion then Fabel.Union
-            elif tdef.IsFSharpModule then Fabel.Module
+            elif tdef.IsFSharpModule || tdef.IsNamespace then Fabel.Module
             else
                 let parentClass =
                     match tdef.BaseType with
@@ -147,14 +146,8 @@ module Types =
             |> Seq.toList
         let decs =
             tdef.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList
-        Fabel.TypeEntity (kind, sanitizeEntityName tdef.FullName, infcs, decs,
+        Fabel.Entity (kind, sanitizeEntityName tdef.FullName, infcs, decs,
                     tdef.Accessibility.IsPublic, com.GetSource tdef)
-
-    let makeEntity (com: IFabelCompiler) (tdef: FSharpEntity) =
-        Fabel.Entity (sanitizeEntityName tdef.FullName,
-            tdef.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-            tdef.Accessibility.IsPublic,
-            com.GetSource tdef)
 
     let rec makeTypeFromDef (com: IFabelCompiler) (tdef: FSharpEntity) =
         // Guard: F# abbreviations shouldn't be passed as argument
@@ -181,7 +174,7 @@ module Types =
         | "Microsoft.FSharp.Core.Unit" -> Fabel.Unit |> Fabel.PrimitiveType
         | "System.Collections.Generic.List`1" -> Fabel.DynamicArray false |> Fabel.PrimitiveType
         // Declared Type
-        | _ -> com.GetTypeEntity tdef |> Fabel.DeclaredType
+        | _ -> com.GetEntity tdef |> Fabel.DeclaredType
 
     and makeType (com: IFabelCompiler) (NonAbbreviatedType t) =
         if t.IsGenericParameter then Fabel.UnknownType else

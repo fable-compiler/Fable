@@ -10,122 +10,159 @@ type Context = {
     fullName: string
     }
     
+type FabelFunctionInfo =
+    | FabelFunctionInfo of
+        args: Fabel.IdentifierExpr list *
+        restParams: bool *
+        body: Fabel.Expr *
+        kind: Fabel.LambdaKind
+    
+type BabelFunctionInfo =
+    | BabelFunctionInfo of
+        args: Babel.Pattern list *
+        body: U2<Babel.BlockStatement, Babel.Expression> *
+        generator: bool *
+        async: bool
+
 type IBabelCompiler =
     inherit ICompiler
     abstract GetImport: string -> string
+    abstract TransformExpr: Context -> Fabel.Expr -> Babel.Expression
+    abstract TransformStatement: Context -> Fabel.Expr -> Babel.Statement
+    abstract TransformFunction: Context -> FabelFunctionInfo -> BabelFunctionInfo
     
-let rec private ident (expr: Fabel.IdentifierExpr) =
+let (|ExprKind|) (e: Fabel.Expr) = e.Kind
+let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
+let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
+    
+let private ident (expr: Fabel.IdentifierExpr) =
     Babel.Identifier (expr.Name, ?loc=expr.Range)
 
-and private identFromName name =
+let private identFromName name =
     let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name
     Babel.Identifier name
 
-and private assign left right =
+// TODO: Resolve type reference: Hierarchies for internal/import let fail for external
+let private typeRef (range: SourceLocation option) (fullName: string): Babel.Expression =
+    failwith "TODO TODO TODO"
+
+let private assign left right =
     Babel.AssignmentExpression(AssignEqual, left, right) :> Babel.Expression
+    
+let private block (com: IBabelCompiler) ctx (exprs: Fabel.Expr list) =
+    let exprs = match exprs with
+                | [ExprKind (Fabel.Sequential statements)] -> statements
+                | _ -> exprs
+    Babel.BlockStatement (exprs |> List.map (com.TransformStatement ctx))
 
-and private func com ctx kind body args restParams =
-    let generator, async =
-        match kind with
-        | Fabel.Immediate -> false, false
-        | Fabel.Generator -> true, false
-        | Fabel.Async -> false, true
-    let body = transformFunctionBody com ctx body
-    let args: Babel.Pattern list =
-        if restParams then failwith "TODO: RestParams"
-        else args |> List.map (fun x -> upcast ident x)
-    args, body, generator, async
+let private funcExpression, funcDeclaration =
+    let func (com: IBabelCompiler) ctx funcInfo =
+        let (BabelFunctionInfo (args, body, generator, async)) = com.TransformFunction ctx funcInfo
+        let body = match body with
+                    | U2.Case1 block -> block
+                    | U2.Case2 expr -> Babel.BlockStatement [Babel.ReturnStatement expr]
+        args, body, generator, async
+    let funcExpression (com: IBabelCompiler) ctx range args restParams body kind =
+        let args, body, generator, async =
+            func com ctx (FabelFunctionInfo (args, restParams, body, kind))
+        Babel.FunctionExpression (args, body, generator, async, ?loc=range)
+    let funcDeclaration (com: IBabelCompiler) ctx id args restParams body kind =
+        let args, body, generator, async =
+            func com ctx (FabelFunctionInfo (args, restParams, body, kind))
+        Babel.FunctionDeclaration(id, args, body, generator, async)
+    funcExpression, funcDeclaration
 
-and private funcDeclaration com ctx id kind body args restParams =
-    let args, body, generator, async = func com ctx kind body args restParams
-    Babel.FunctionDeclaration(id, args, body, generator, async)
+let private funcArrow (com: IBabelCompiler) ctx range args restParams body kind =
+    let (BabelFunctionInfo (args, body, generator, async)) =
+        com.TransformFunction ctx (FabelFunctionInfo (args, restParams, body, kind))
+    Babel.ArrowFunctionExpression (args, body, async, ?loc=range) :> Babel.Expression
 
-and private funcExpression com ctx kind body args restParams range =
-    let args, body, generator, async = func com ctx kind body args restParams
-    Babel.FunctionExpression (args, body, generator, async, ?loc=range)
-
-and private varDeclaration range var value =
+let private varDeclaration range var value =
     Babel.VariableDeclaration (
         Babel.VariableDeclarationKind.Var,
         [Babel.VariableDeclarator (var, value)],
         ?loc = range)
 
 /// Immediately Invoked Function Expression
-and private iife com ctx fnBody =
-    Babel.CallExpression (
-        Babel.FunctionExpression ([],
-            transformFunctionBody com ctx fnBody), [])
+let private iife com ctx body =
+    let fexpr = funcExpression com ctx None [] false body Fabel.Immediate
+    Babel.CallExpression (fexpr, [])
 
-and private block com ctx (exprs: Fabel.Expr list) =
-    let exprs =
-        match exprs with
-        | [expr] ->
-            match expr.Kind with
-            | Fabel.Sequential statements -> statements
-            | _ -> exprs
-        | _ -> exprs
-    Babel.BlockStatement (exprs |> List.map (transformStatement com ctx), [])
+let get left propName =
+    if Naming.identForbiddenChars.IsMatch propName
+    then Babel.MemberExpression(left, Babel.StringLiteral propName, true)
+    else Babel.MemberExpression(left, Babel.Identifier propName, false)
+    :> Babel.Expression
     
-and private memberExpr com ctx expr (property: Fabel.Expr) =
+let private getExpr com ctx (TransformExpr com ctx expr) (property: Fabel.Expr) =
     let property, computed =
-        match property.Kind with
-        | Fabel.Value (Fabel.StringConst name)
+        match property with
+        | ExprKind (Fabel.Value (Fabel.StringConst name))
             when Naming.identForbiddenChars.IsMatch name = false ->
             Babel.Identifier (name) :> Babel.Expression, false
-        | _ -> transformExpr com ctx property, true
-    Babel.MemberExpression (transformExpr com ctx expr, property, computed)
+        | TransformExpr com ctx property -> property, true
+    Babel.MemberExpression (expr, property, computed) :> Babel.Expression
 
-and private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
+let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
     match expr.Kind with
     | Fabel.Loop loopKind ->
         match loopKind with
-        | Fabel.While (guard, body) ->
-            upcast Babel.WhileStatement (transformExpr com ctx guard, block com ctx [body])
-        | Fabel.ForOf (var, enumerable, body) ->
+        | Fabel.While (TransformExpr com ctx guard, body) ->
+            upcast Babel.WhileStatement (guard, block com ctx [body])
+        | Fabel.ForOf (var, TransformExpr com ctx enumerable, body) ->
             // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right 
-            let var = Babel.VariableDeclaration(Babel.VariableDeclarationKind.Var,
-                        [Babel.VariableDeclarator (ident var)])
+            let var =
+                Babel.VariableDeclaration(
+                    Babel.VariableDeclarationKind.Var,
+                    [Babel.VariableDeclarator (ident var)])
             upcast Babel.ForOfStatement (
-                U2.Case1 var, transformExpr com ctx enumerable, block com ctx [body])
-        | Fabel.For (var, start, limit, body, isUp) ->
+                U2.Case1 var, enumerable, block com ctx [body])
+        | Fabel.For (var, TransformExpr com ctx start,
+                        TransformExpr com ctx limit, body, isUp) ->
             upcast Babel.ForStatement (
                 block com ctx [body],
-                transformExpr com ctx start
-                    |> varDeclaration None (ident var) |> U2.Case1,
-                Babel.BinaryExpression (BinaryOperator.BinaryLessOrEqual, ident var, transformExpr com ctx limit),
+                start |> varDeclaration None (ident var) |> U2.Case1,
+                Babel.BinaryExpression (BinaryOperator.BinaryLessOrEqual, ident var, limit),
                 Babel.UpdateExpression (UpdateOperator.UpdatePlus, false, ident var))
-    | Fabel.Set (callee, property, value) ->
+
+    | Fabel.Set (callee, property, TransformExpr com ctx value) ->
         let left =
             match property with
-            | None -> transformExpr com ctx callee
-            | Some property -> upcast memberExpr com ctx callee property
-        upcast Babel.ExpressionStatement (
-            assign left (transformExpr com ctx value), ?loc = expr.Range)
-    | Fabel.VarDeclaration (var, value, _isMutable) ->
-        transformExpr com ctx value
-        |> varDeclaration expr.Range (ident var) :> Babel.Statement
+            | None -> com.TransformExpr ctx callee
+            | Some property -> getExpr com ctx callee property
+        upcast Babel.ExpressionStatement (assign left value, ?loc = expr.Range)
+
+    | Fabel.VarDeclaration (var, TransformExpr com ctx value, _isMutable) ->
+        varDeclaration expr.Range (ident var) value :> Babel.Statement
+
     | Fabel.TryCatch (body, catch, finalizers) ->
-        let handler = catch |> Option.map (fun (param, body)->
-            Babel.CatchClause (ident param, block com ctx [body]))
-        let finalizer = match finalizers with [] -> None | xs -> Some (block com ctx xs)
-        upcast Babel.TryStatement (block com ctx [body], ?handler=handler, ?finalizer=finalizer)
-    | Fabel.IfThenElse (guardExpr, thenExpr, elseExpr) ->
+        let handler =
+            catch |> Option.map (fun (param, body) ->
+                Babel.CatchClause (ident param, block com ctx [body]))
+        let finalizer =
+            match finalizers with
+            | [] -> None
+            | xs -> Some (block com ctx xs)
+        upcast Babel.TryStatement (
+            block com ctx [body], ?handler=handler, ?finalizer=finalizer)
+
+    | Fabel.IfThenElse (TransformExpr com ctx guardExpr,
+                        TransformStatement com ctx thenExpr, elseExpr) ->
         let elseExpr =
             match elseExpr.Kind with
             | Fabel.Value (Fabel.Null) -> None
-            | _ -> Some (transformStatement com ctx elseExpr)
+            | _ -> Some (com.TransformStatement ctx elseExpr)
         upcast Babel.IfStatement (
-            transformExpr com ctx guardExpr,
-            transformStatement com ctx thenExpr,
-            ?alternate = elseExpr,
-            ?loc = expr.Range)
+            guardExpr, thenExpr, ?alternate=elseExpr, ?loc=expr.Range)
+
     | Fabel.Sequential _ ->
         failwithf "Sequence when single statement expected in %A: %A" expr.Range expr 
+
     // Expressions become ExpressionStatements
     | Fabel.Value _ | Fabel.Get _ | Fabel.Apply _ | Fabel.Lambda _ | Fabel.Operation _ ->
-        upcast Babel.ExpressionStatement (transformExpr com ctx expr, ?loc=expr.Range)
+        upcast Babel.ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range)
 
-and private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
+let private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
     match expr.Kind with
     | Fabel.Value kind ->
         match kind with
@@ -144,68 +181,105 @@ and private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
         | Fabel.ArrayConst items -> failwith "TODO"
         | Fabel.TypeRef typ ->
             match typ with
-            // TODO: Resolve type reference: Hierarchies for internal/import and fail for external
-            | Fabel.DeclaredType typEnt -> upcast Babel.Identifier (typEnt.FullName, ?loc=expr.Range)
+            | Fabel.DeclaredType typEnt -> typeRef expr.Range typEnt.FullName
             | _ -> failwithf "Not supported type reference: %A" typ
+
     | Fabel.Operation op ->
         match op with
-        | Fabel.Logical (op, left, right) -> failwith "TODO"
-        | Fabel.Unary (op, expr) ->
-            upcast Babel.UnaryExpression (op, transformExpr com ctx expr, ?loc=expr.Range)
-        | Fabel.Binary (op, left, right) ->
-            upcast Babel.BinaryExpression (
-                op, transformExpr com ctx left, transformExpr com ctx right, ?loc=expr.Range)
-    | Fabel.Apply (callee, args, isPrimaryConstructor) ->
-        let args = args |> List.map (transformExpr com ctx >> U2<_,_>.Case1)
+        | Fabel.Logical (op, left, right) ->
+            failwith "TODO"
+        | Fabel.Unary (op, (TransformExpr com ctx operand as expr)) ->
+            upcast Babel.UnaryExpression (op, operand, ?loc=expr.Range)
+        | Fabel.Binary (op, TransformExpr com ctx left, TransformExpr com ctx right) ->
+            upcast Babel.BinaryExpression (op, left, right, ?loc=expr.Range)
+
+    | Fabel.Apply (TransformExpr com ctx callee, args, isPrimaryConstructor) ->
+        let args = args |> List.map (com.TransformExpr ctx >> U2<_,_>.Case1)
         if isPrimaryConstructor
-        then upcast Babel.NewExpression (transformExpr com ctx callee, args, ?loc=expr.Range)
-        else upcast Babel.CallExpression (transformExpr com ctx callee, args, ?loc=expr.Range)
+        then upcast Babel.NewExpression (callee, args, ?loc=expr.Range)
+        else upcast Babel.CallExpression (callee, args, ?loc=expr.Range)
+
     | Fabel.Lambda (args, body, kind, restParams) ->
-        upcast funcExpression com ctx kind body args restParams expr.Range
-    | Fabel.Get (callee, property) -> upcast memberExpr com ctx callee property
-    | Fabel.IfThenElse (guardExpr, thenExpr, elseExpr) ->
+        funcArrow com ctx expr.Range args restParams body kind
+
+    | Fabel.Get (callee, property) ->
+        getExpr com ctx callee property
+
+    | Fabel.IfThenElse (TransformExpr com ctx guardExpr,
+                        TransformExpr com ctx thenExpr,
+                        TransformExpr com ctx elseExpr) ->
         upcast Babel.ConditionalExpression (
-            transformExpr com ctx guardExpr,
-            transformExpr com ctx thenExpr,
-            transformExpr com ctx elseExpr,
-            ?loc = expr.Range)
+            guardExpr, thenExpr, elseExpr, ?loc = expr.Range)
+
     | Fabel.Sequential statements ->
-        Babel.BlockStatement (statements |> List.map (transformStatement com ctx), [])
+        Babel.BlockStatement (statements |> List.map (com.TransformStatement ctx), [])
         |> fun block -> upcast Babel.DoExpression (block)
+
     | Fabel.TryCatch _ ->
         upcast (iife com ctx expr)
+
     | Fabel.Loop _ | Fabel.Set _  | Fabel.VarDeclaration _ ->
         failwithf "Statement when expression expected in %A: %A" expr.Range expr 
     
-and private transformFunctionBody com ctx (expr: Fabel.Expr): Babel.BlockStatement =
-    let returnBlock e = Babel.BlockStatement [Babel.ReturnStatement e]
-    match expr.Type, expr.Kind with
-    | Fabel.PrimitiveType (Fabel.Unit), _ ->
-        block com ctx [expr]
-    | _, Fabel.TryCatch (tryBody, catch, finalizers) ->
-        let handler = catch |> Option.map (fun (param, body) ->
-            Babel.CatchClause (ident param, returnBlock (transformExpr com ctx body)))
-        let finalizer = match finalizers with [] -> None | xs -> Some (block com ctx xs)
-        Babel.BlockStatement (
-            [Babel.TryStatement (
-                returnBlock (transformExpr com ctx tryBody),
-                ?handler = handler,
-                ?finalizer = finalizer,
-                ?loc = expr.Range)], [])
-    | _ -> returnBlock (transformExpr com ctx expr)
+let private transformFunctionBody com ctx (FabelFunctionInfo (args, restParams, body, kind)) =
+    let returnBlock e =
+        Babel.BlockStatement [Babel.ReturnStatement e]
+    let generator, async =
+        match kind with
+        | Fabel.Immediate -> false, false
+        | Fabel.Generator -> true, false
+        | Fabel.Async -> false, true
+    let args: Babel.Pattern list =
+        if restParams then failwith "TODO: RestParams"
+        else args |> List.map (fun x -> upcast ident x)
+    let body: U2<Babel.BlockStatement, Babel.Expression> =
+        match body.Type, body.Kind with
+        | Fabel.PrimitiveType (Fabel.Unit), _ ->
+            block com ctx [body] |> U2.Case1
+        | _, Fabel.TryCatch (tryBody, catch, finalizers) ->
+            let handler = catch |> Option.map (fun (param, body) ->
+                Babel.CatchClause (ident param, returnBlock (transformExpr com ctx body)))
+            let finalizer = match finalizers with [] -> None | xs -> Some (block com ctx xs)
+            Babel.BlockStatement (
+                [Babel.TryStatement (
+                    returnBlock (transformExpr com ctx tryBody),
+                    ?handler = handler,
+                    ?finalizer = finalizer,
+                    ?loc = body.Range)], []) |> U2.Case1
+        | _ -> returnBlock (transformExpr com ctx body) |> U2.Case1
+    BabelFunctionInfo (args, body, generator, async)
     
 let private transformTestSuite com ctx decls: Babel.CallExpression =
     failwith "TODO: TestSuite members"
     
-let private transformClass com ctx decls: Babel.ClassExpression =
-    failwith "TODO: Class members"
+// type ClassMethodKind =
+//     | ClassConstructor | ClassMethod | ClassGetter | ClassSetter
+let private transformClass com ctx baseClass decls: Babel.ClassExpression =
+    let declareMember kind name (f: Fabel.LambdaExpr) isStatic =
+        let name, computed: Babel.Expression * bool =
+            if Naming.identForbiddenChars.IsMatch name
+            then upcast Babel.StringLiteral name, true
+            else upcast Babel.Identifier name, false
+        let f = funcExpression com ctx None f.Arguments f.RestParams f.Body f.Kind
+        Babel.ClassMethod(kind, name, f, computed, isStatic)
+    decls
+    |> List.map (function
+        | Fabel.MemberDeclaration m ->
+            let kind, name =
+                match m.Kind with
+                | Fabel.Constructor -> Babel.ClassConstructor, "constructor"
+                | Fabel.Method name -> Babel.ClassFunction, name
+                | Fabel.Getter name -> Babel.ClassGetter, name
+                | Fabel.Setter name -> Babel.ClassSetter, name
+            declareMember kind name m.Function m.IsStatic
+        | Fabel.ActionDeclaration _
+        | Fabel.EntityDeclaration _ as decl ->
+            failwithf "Unexpected declaration in class: %A" decl)
+    |> List.map U2<_,Babel.ClassProperty>.Case1
+    |> fun meths -> Babel.ClassExpression(Babel.ClassBody meths,
+                        ?super = Option.map (typeRef None) baseClass)
 
 let rec private transformModDecls com ctx modIdent decls = seq {
-    let get left propName =
-        if Naming.identForbiddenChars.IsMatch propName
-        then Babel.MemberExpression(left, Babel.StringLiteral propName, true)
-        else Babel.MemberExpression(left, Babel.Identifier propName, false)
-        :> Babel.Expression
     // TODO: Keep track of sanitized member names to be sure they don't clash? 
     let declareMember var name expr isPublic =
         let var = match var with Some x -> x | None -> identFromName name
@@ -222,18 +296,21 @@ let rec private transformModDecls com ctx modIdent decls = seq {
                 transformExpr com ctx m.Function.Body, name
             | Fabel.Method name ->
                 let f = m.Function
-                upcast funcExpression com ctx f.Kind f.Body f.Arguments f.RestParams None, name
+                upcast funcExpression com ctx None f.Arguments f.RestParams f.Body f.Kind, name
             | Fabel.Constructor | Fabel.Setter _ ->
                 failwithf "Unexpected member in module: %A" m.Kind
         yield declareMember None name expr m.IsPublic
     | Fabel.EntityDeclaration (e, sub) ->
-        match e with
-        // Interfaces or attribute declarations shouldn't reach this point
-        | :? Fabel.TypeEntity as te when te.Kind <> Fabel.Module ->
+        let declareClass baseClass =
             // Don't create a new context for class declarations
-            let classExpr = transformClass com ctx sub
-            yield declareMember None e.Name classExpr e.IsPublic
-        | _ ->
+            let classExpr = transformClass com ctx baseClass sub
+            declareMember None e.Name classExpr e.IsPublic
+        match e.Kind with
+        // Interfaces or attribute declarations shouldn't reach this point
+        | Fabel.Interface -> ()
+        | Fabel.Class baseClass -> yield declareClass baseClass
+        | Fabel.Union | Fabel.Record -> yield declareClass None 
+        | Fabel.Module ->
             let nestedIdent, protectedIdent =
                 let memberNames =
                     decls |> Seq.choose (function
@@ -267,11 +344,15 @@ let makeCompiler (com: ICompiler) =
     let imports =
         System.Collections.Generic.Dictionary<string, string>()
     { new IBabelCompiler with
-        member __.GetImport moduleName: string =
+        member bcom.GetImport moduleName: string =
             match imports.TryGetValue moduleName with
             | true, import -> import
             | false, _ ->
-                let m = sprintf "$M%i" imports.Count in imports.Add(moduleName, m); m  
+                let m = sprintf "$M%i" imports.Count
+                imports.Add(moduleName, m); m
+        member bcom.TransformExpr ctx e = transformExpr bcom ctx e
+        member bcom.TransformStatement ctx e = transformStatement bcom ctx e
+        member bcom.TransformFunction ctx e = transformFunctionBody bcom ctx e
       interface ICompiler with
         member __.Options = com.Options }
 
