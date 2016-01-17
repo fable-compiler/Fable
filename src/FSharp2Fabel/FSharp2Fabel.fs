@@ -400,8 +400,15 @@ let private makeCompiler (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
     let importedModules =
         fsProj.AssemblySignature.Entities
         |> Seq.fold (fun acc ent ->
-            let isImport = false // TODO: Check import attribute
+            let isImport: bool = failwith "TODO: Check import attribute"
             if isImport then ent.FullName::acc else acc) []
+    entities
+    |> List.fold (fun acc e ->
+        match e with
+        | Attribute "Import" args -> failwith "TODO"
+        // | Attribute "Erase" args -> failwith "TODO"
+        | _ -> failwith "TODO")
+    |> ignore
     { new IFabelCompiler with
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
@@ -418,17 +425,12 @@ let private makeCompiler (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
             |> function
             | Some (import, fullName) ->
                 Fabel.Imported (import,
-                    let route = fullName.Replace(import, "")
-                    if route.StartsWith "."
-                    then route.Substring(1)
-                    else route)
+                    fullName.Replace(import, "") |> Naming.trimPeriod)
             | None ->
                 fileNames
                 |> List.tryFind ((=) tdef.DeclarationLocation.FileName)
-                |> function
                 // TODO: Check Import attribute is not used just in case?
-                | Some file -> Fabel.Internal file
-                | None -> Fabel.External
+                |> function Some file -> Fabel.Internal file | None -> Fabel.External
       interface ICompiler with
         member __.Options = com.Options }
 

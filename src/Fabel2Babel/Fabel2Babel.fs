@@ -7,7 +7,8 @@ open Fabel
 open Fabel.AST
 
 type Context = {
-    fullName: string
+    moduleFullName: string
+    file: string
     }
     
 type FabelFunctionInfo =
@@ -26,7 +27,7 @@ type BabelFunctionInfo =
 
 type IBabelCompiler =
     inherit ICompiler
-    abstract GetImport: string -> string
+    abstract GetImport: string -> Babel.Expression
     abstract TransformExpr: Context -> Fabel.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fabel.Expr -> Babel.Statement
     abstract TransformFunction: Context -> FabelFunctionInfo -> BabelFunctionInfo
@@ -41,10 +42,56 @@ let private ident (expr: Fabel.IdentifierExpr) =
 let private identFromName name =
     let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name
     Babel.Identifier name
+    
+let get left propName =
+    if Naming.identForbiddenChars.IsMatch propName
+    then Babel.MemberExpression(left, Babel.StringLiteral propName, true)
+    else Babel.MemberExpression(left, Babel.Identifier propName, false)
+    :> Babel.Expression
+    
+let private getExpr com ctx (TransformExpr com ctx expr) (property: Fabel.Expr) =
+    let property, computed =
+        match property with
+        | ExprKind (Fabel.Value (Fabel.StringConst name))
+            when Naming.identForbiddenChars.IsMatch name = false ->
+            Babel.Identifier (name) :> Babel.Expression, false
+        | TransformExpr com ctx property -> property, true
+    Babel.MemberExpression (expr, property, computed) :> Babel.Expression
 
 // TODO: Resolve type reference: Hierarchies for internal/import let fail for external
-let private typeRef (range: SourceLocation option) (fullName: string): Babel.Expression =
-    failwith "TODO TODO TODO"
+let private typeRef (com: IBabelCompiler) ctx fullName source =
+    let split (s: string) =
+        s.Split('.') |> Array.toList
+    let getDiff s1 s2 =
+        let rec removeCommon (xs1: string list) (xs2: string list) =
+            match xs1, xs2 with
+            | x1::xs1, x2::xs2 when x1 = x2 -> removeCommon xs1 xs2
+            | _ -> xs2
+        removeCommon (split s1) (split s2)
+    let rec makeExpr (members: string list) (baseExpr: Babel.Expression option) =
+        match baseExpr with
+        | Some baseExpr ->
+            match members with
+            | [] -> baseExpr
+            | m::ms -> get baseExpr m |> Some |> makeExpr ms 
+        | None ->
+            match members with
+            | [] -> failwith "Unexpected empty type reference"
+            | m::ms -> identFromName m :> Babel.Expression |> Some |> makeExpr ms
+    match source with
+    | Fabel.Imported (moduleName, route) ->
+        failwith "TODO: Reference imported modules"
+    | Fabel.Internal file ->
+        if ctx.file <> file then
+            let import = com.GetImport file
+            // TODO remove root namespace from file name
+            failwith "TODO"
+        else
+            if ctx.moduleFullName = fullName
+            then failwithf "Unexpected reference to current module: %s" fullName
+            else getDiff ctx.moduleFullName fullName |> makeExpr
+    | Fabel.External ->
+        failwithf "Unexpected reference to external type: %s" fullName
 
 let private assign left right =
     Babel.AssignmentExpression(AssignEqual, left, right) :> Babel.Expression
@@ -87,21 +134,6 @@ let private varDeclaration range var value =
 let private iife com ctx body =
     let fexpr = funcExpression com ctx None [] false body Fabel.Immediate
     Babel.CallExpression (fexpr, [])
-
-let get left propName =
-    if Naming.identForbiddenChars.IsMatch propName
-    then Babel.MemberExpression(left, Babel.StringLiteral propName, true)
-    else Babel.MemberExpression(left, Babel.Identifier propName, false)
-    :> Babel.Expression
-    
-let private getExpr com ctx (TransformExpr com ctx expr) (property: Fabel.Expr) =
-    let property, computed =
-        match property with
-        | ExprKind (Fabel.Value (Fabel.StringConst name))
-            when Naming.identForbiddenChars.IsMatch name = false ->
-            Babel.Identifier (name) :> Babel.Expression, false
-        | TransformExpr com ctx property -> property, true
-    Babel.MemberExpression (expr, property, computed) :> Babel.Expression
 
 let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
     match expr.Kind with
@@ -181,7 +213,7 @@ let private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
         | Fabel.ArrayConst items -> failwith "TODO"
         | Fabel.TypeRef typ ->
             match typ with
-            | Fabel.DeclaredType typEnt -> typeRef expr.Range typEnt.FullName
+            | Fabel.DeclaredType typEnt -> typeRef com ctx typEnt.Source
             | _ -> failwithf "Not supported type reference: %A" typ
 
     | Fabel.Operation op ->
@@ -262,6 +294,8 @@ let private transformClass com ctx baseClass decls: Babel.ClassExpression =
             else upcast Babel.Identifier name, false
         let f = funcExpression com ctx None f.Arguments f.RestParams f.Body f.Kind
         Babel.ClassMethod(kind, name, f, computed, isStatic)
+    let baseClass =
+        baseClass |> Option.map (typeRef com ctx)
     decls
     |> List.map (function
         | Fabel.MemberDeclaration m ->
@@ -276,8 +310,7 @@ let private transformClass com ctx baseClass decls: Babel.ClassExpression =
         | Fabel.EntityDeclaration _ as decl ->
             failwithf "Unexpected declaration in class: %A" decl)
     |> List.map U2<_,Babel.ClassProperty>.Case1
-    |> fun meths -> Babel.ClassExpression(Babel.ClassBody meths,
-                        ?super = Option.map (typeRef None) baseClass)
+    |> fun meths -> Babel.ClassExpression(Babel.ClassBody meths, ?super=baseClass)
 
 let rec private transformModDecls com ctx modIdent decls = seq {
     // TODO: Keep track of sanitized member names to be sure they don't clash? 
@@ -332,7 +365,8 @@ let rec private transformModDecls com ctx modIdent decls = seq {
             //     var NestedMod = NestedMod_1.NestedMod = {};
             // })(NestedMod);
             let nestedDecls =
-                transformModDecls com { fullName = e.FullName } protectedIdent sub |> Seq.toList
+                let ctx = { ctx with moduleFullName = e.FullName } 
+                transformModDecls com ctx protectedIdent sub |> Seq.toList
             yield Babel.ExpressionStatement(
                     Babel.CallExpression(
                         Babel.FunctionExpression([protectedIdent],
@@ -344,12 +378,14 @@ let makeCompiler (com: ICompiler) =
     let imports =
         System.Collections.Generic.Dictionary<string, string>()
     { new IBabelCompiler with
-        member bcom.GetImport moduleName: string =
+        member bcom.GetImport moduleName =
             match imports.TryGetValue moduleName with
-            | true, import -> import
+            | true, import ->
+                upcast Babel.Identifier import
             | false, _ ->
-                let m = sprintf "$M%i" imports.Count
-                imports.Add(moduleName, m); m
+                let import = Naming.getImportModuleIdent imports.Count
+                imports.Add(moduleName, import)
+                upcast Babel.Identifier import
         member bcom.TransformExpr ctx e = transformExpr bcom ctx e
         member bcom.TransformStatement ctx e = transformStatement bcom ctx e
         member bcom.TransformFunction ctx e = transformFunctionBody bcom ctx e
@@ -359,7 +395,10 @@ let makeCompiler (com: ICompiler) =
 let transformFiles (com: ICompiler) (files: Fabel.File list): Babel.Program list =
     let babelCom = makeCompiler com
     files |> List.map (fun file ->
-        let ctx = { fullName = file.RootNamespace.FullName }
+        let ctx = {
+            file = file.FilePath
+            moduleFullName = file.RootNamespace.FullName
+            }
         let rootIdent = Babel.Identifier Naming.rootModuleIdent
         let rootHead = [
             // export default $M0;

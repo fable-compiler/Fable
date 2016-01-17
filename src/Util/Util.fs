@@ -13,10 +13,14 @@ type ICompiler =
 module Naming =
     let [<Literal>] coreLibIdent = "$Fabel"
     let [<Literal>] rootModuleIdent = "$M0"
+    
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
     let identForbiddenChars =
         System.Text.RegularExpressions.Regex "^[^a-zA-Z_]|[^0-9a-zA-Z_]"
+        
+    let trimPeriod (s: string) =
+        if s.StartsWith "." then s.Substring 1 else s
 
     // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
     let jsKeywords =

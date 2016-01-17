@@ -25,17 +25,17 @@ and Type =
     | PrimitiveType of PrimitiveTypeKind
 
 (** ##Entities *)
-and EntityKind =
-    | Module
-    | Class of parent: string option
-    | Interface
-    | Union
-    | Record    
-
 and SourceKind =
     | Internal of fileName: string
     | Imported of moduleName: string * route: string
     | External
+
+and EntityKind =
+    | Module
+    | Class of baseClass: SourceKind option
+    | Interface
+    | Union
+    | Record    
 
 and Entity(kind, fullName, interfaces, decorators, isPublic, source) =
     member x.Kind: EntityKind = kind

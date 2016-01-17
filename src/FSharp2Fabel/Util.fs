@@ -48,6 +48,15 @@ module Patterns =
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
         | _ -> None
+        
+    let (|Attribute|_|) (name: string) (ent: FSharpEntity) =
+        ent.Attributes
+        |> Seq.tryPick (fun x ->
+            match x.AttributeType.TryFullName with
+            | Some fullName ->
+                let attName = fullName.Substring(fullName.LastIndexOf "." + 1)
+                if attName = name then Some (x.ConstructorArguments |> Seq.map snd |> Seq.toList) else None
+            | None -> None)
 
     let (|ReplaceArgs|_|) (lambdaArgs: (Fabel.IdentifierExpr*Fabel.Expr) list) (nestedArgs: Fabel.Expr list) =
         let (|SplitList|) f li =
@@ -135,7 +144,7 @@ module Types =
                     | None -> None
                     | Some (NonAbbreviatedType x) when not x.HasTypeDefinition
                         || x.TypeDefinition.FullName = "System.Object" -> None
-                    | Some x -> Some x.TypeDefinition.FullName
+                    | Some x -> Some (com.GetSource x.TypeDefinition)
                 Fabel.Class parentClass
         // Take only interfaces and attributes with internal declaration
         let infcs =
@@ -147,7 +156,7 @@ module Types =
         let decs =
             tdef.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList
         Fabel.Entity (kind, sanitizeEntityName tdef.FullName, infcs, decs,
-                    tdef.Accessibility.IsPublic, com.GetSource tdef)
+            tdef.Accessibility.IsPublic, com.GetSource tdef)
 
     let rec makeTypeFromDef (com: IFabelCompiler) (tdef: FSharpEntity) =
         // Guard: F# abbreviations shouldn't be passed as argument
