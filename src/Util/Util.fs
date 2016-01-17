@@ -19,8 +19,12 @@ module Naming =
     let identForbiddenChars =
         System.Text.RegularExpressions.Regex "^[^a-zA-Z_]|[^0-9a-zA-Z_]"
         
-    let trimPeriod (s: string) =
-        if s.StartsWith "." then s.Substring 1 else s
+    let trimDots (s: string) =
+        match s.StartsWith ".", s.EndsWith "." with
+        | true, true -> s.Substring(1, s.Length - 2)
+        | true, false -> s.Substring(1)
+        | false, true -> s.Substring(0, s.Length - 1)
+        | false, false -> s
 
     // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
     let jsKeywords =

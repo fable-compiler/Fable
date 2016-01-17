@@ -11,17 +11,18 @@ type DecisionTarget =
     | TargetRef of Fabel.IdentifierExpr
     | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
 
-type Context = {
+type Context =
+    {
     scope: (string * string) list
     decisionTargets: Map<int, DecisionTarget>
     }
+    static member Empty = { scope = []; decisionTargets = Map.empty<_,_>; }
     
 type IFabelCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fabel.Expr
     abstract IsInternal: FSharpEntity -> bool
     abstract GetEntity: FSharpEntity -> Fabel.Entity
-    abstract GetSource: FSharpEntity -> Fabel.SourceKind
     
 [<AutoOpen>]
 module Patterns =
@@ -49,16 +50,38 @@ module Patterns =
         | "System.Double" -> Some Float64
         | _ -> None
         
-    let (|Attribute|_|) (name: string) (ent: FSharpEntity) =
+    let (|Location|_|) (com: IFabelCompiler) (ent: FSharpEntity) =
+        if com.IsInternal ent
+        then Some {
+            Fabel.file = ent.DeclarationLocation.FileName
+            Fabel.fullName = ent.FullName
+            }
+        else None
+        
+    let (|WithAttribute|_|) (name: string) (ent: FSharpEntity) =
         ent.Attributes
         |> Seq.tryPick (fun x ->
             match x.AttributeType.TryFullName with
             | Some fullName ->
                 let attName = fullName.Substring(fullName.LastIndexOf "." + 1)
-                if attName = name then Some (x.ConstructorArguments |> Seq.map snd |> Seq.toList) else None
+                if attName = name
+                then Some (x.ConstructorArguments |> Seq.map snd |> Seq.toList)
+                else None
             | None -> None)
 
-    let (|ReplaceArgs|_|) (lambdaArgs: (Fabel.IdentifierExpr*Fabel.Expr) list) (nestedArgs: Fabel.Expr list) =
+    /// Is interface o inherits from System.Attribute?
+    let (|AbstractEntity|_|) (ent: FSharpEntity) =
+        if ent.IsInterface then Some ent else
+        match ent.BaseType with
+        | None -> None
+        | Some t ->
+            if not t.HasTypeDefinition then None else
+            match t.TypeDefinition.TryFullName with
+            | Some "System.Attribute" -> Some ent
+            | _ -> None
+
+    let (|ReplaceArgs|_|) (lambdaArgs: (Fabel.IdentifierExpr*Fabel.Expr) list)
+                          (nestedArgs: Fabel.Expr list) =
         let (|SplitList|) f li =
             List.foldBack (fun (x: 'a) (li1: 'a list, li2: 'a list) ->
                 if f x then li1, x::li2 else x::li1, li2) li ([],[])
@@ -120,6 +143,19 @@ module Types =
     let sanitizeEntityName (name: string) =
         let idx = name.IndexOf ('`')
         if idx >= 0 then name.Substring (0, idx) else name
+        
+    let getBaseClassLocation (tdef: FSharpEntity) =
+        match tdef.BaseType with
+        | None -> None
+        | Some (NonAbbreviatedType t) ->
+            (not t.HasTypeDefinition ||
+                t.TypeDefinition.FullName = "System.Object")
+            |> function
+            | true -> None
+            | false -> Some {
+                Fabel.file = t.TypeDefinition.DeclarationLocation.FileName
+                Fabel.fullName = t.TypeDefinition.FullName
+            }
 
     let makeDecorator (com: IFabelCompiler) (att: FSharpAttribute) =
         if not(com.IsInternal att.AttributeType) then None else
@@ -138,14 +174,7 @@ module Types =
             elif tdef.IsFSharpRecord then Fabel.Record
             elif tdef.IsFSharpUnion then Fabel.Union
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fabel.Module
-            else
-                let parentClass =
-                    match tdef.BaseType with
-                    | None -> None
-                    | Some (NonAbbreviatedType x) when not x.HasTypeDefinition
-                        || x.TypeDefinition.FullName = "System.Object" -> None
-                    | Some x -> Some (com.GetSource x.TypeDefinition)
-                Fabel.Class parentClass
+            else Fabel.Class (getBaseClassLocation tdef)
         // Take only interfaces and attributes with internal declaration
         let infcs =
             tdef.DeclaredInterfaces
@@ -154,9 +183,11 @@ module Types =
             |> Seq.map (fun x -> sanitizeEntityName x.TypeDefinition.FullName)
             |> Seq.toList
         let decs =
-            tdef.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList
-        Fabel.Entity (kind, sanitizeEntityName tdef.FullName, infcs, decs,
-            tdef.Accessibility.IsPublic, com.GetSource tdef)
+            tdef.Attributes
+            |> Seq.choose (makeDecorator com)
+            |> Seq.toList
+        Fabel.Entity (kind, failwith "TODO: file option", sanitizeEntityName tdef.FullName,
+                        infcs, decs, tdef.Accessibility.IsPublic)
 
     let rec makeTypeFromDef (com: IFabelCompiler) (tdef: FSharpEntity) =
         // Guard: F# abbreviations shouldn't be passed as argument
@@ -206,7 +237,7 @@ module Types =
 
 [<AutoOpen>]
 module Identifiers =
-    let private sanitizeIdent (ctx: Context) (fsName: string) =
+    let sanitizeIdent (ctx: Context) (fsName: string) =
         let sanitizedName = fsName |> Naming.sanitizeIdent (fun x ->
             List.exists (fun (_,x') -> x = x') ctx.scope)
         { ctx with scope = (fsName, sanitizedName)::ctx.scope }, sanitizedName
@@ -406,8 +437,8 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
         (** -If this is an external method, check for replacements *)
         let resolved =
             match methType with
-            | Fabel.DeclaredType typEnt
-                when typEnt.Source <> Fabel.External -> None
+            | Fabel.DeclaredType typEnt when typEnt.File.IsSome ->
+                None // TODO: Check for Emit attribute
             | _ ->
                 match Replacements.tryReplace methFullName callee args with
                 | Some _ as repl -> repl

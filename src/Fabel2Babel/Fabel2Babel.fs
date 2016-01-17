@@ -27,6 +27,7 @@ type BabelFunctionInfo =
 
 type IBabelCompiler =
     inherit ICompiler
+    abstract GetFabelFile: string -> Fabel.File
     abstract GetImport: string -> Babel.Expression
     abstract TransformExpr: Context -> Fabel.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fabel.Expr -> Babel.Statement
@@ -58,11 +59,10 @@ let private getExpr com ctx (TransformExpr com ctx expr) (property: Fabel.Expr) 
         | TransformExpr com ctx property -> property, true
     Babel.MemberExpression (expr, property, computed) :> Babel.Expression
 
-// TODO: Resolve type reference: Hierarchies for internal/import let fail for external
-let private typeRef (com: IBabelCompiler) ctx fullName source =
-    let split (s: string) =
-        s.Split('.') |> Array.toList
+let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
     let getDiff s1 s2 =
+        let split (s: string) =
+            s.Split('.') |> Array.toList
         let rec removeCommon (xs1: string list) (xs2: string list) =
             match xs1, xs2 with
             | x1::xs1, x2::xs2 when x1 = x2 -> removeCommon xs1 xs2
@@ -78,20 +78,24 @@ let private typeRef (com: IBabelCompiler) ctx fullName source =
             match members with
             | [] -> failwith "Unexpected empty type reference"
             | m::ms -> identFromName m :> Babel.Expression |> Some |> makeExpr ms
-    match source with
-    | Fabel.Imported (moduleName, route) ->
-        failwith "TODO: Reference imported modules"
-    | Fabel.Internal file ->
-        if ctx.file <> file then
-            let import = com.GetImport file
-            // TODO remove root namespace from file name
-            failwith "TODO"
-        else
-            if ctx.moduleFullName = fullName
-            then failwithf "Unexpected reference to current module: %s" fullName
-            else getDiff ctx.moduleFullName fullName |> makeExpr
-    | Fabel.External ->
-        failwithf "Unexpected reference to external type: %s" fullName
+    match file with
+    | None -> failwithf "Cannot reference type: %s" fullName
+    | Some file ->
+        let file = com.GetFabelFile file
+        file.External
+        |> List.tryFind (fun ext ->
+            fullName = ext.FullName || fullName.StartsWith ext.FullName)
+        |> function
+            | Some (Fabel.ImportModule (ns, modName)) ->
+                Some (com.GetImport modName)
+                |> makeExpr (getDiff ns fullName)
+            | Some (Fabel.GlobalModule ns) ->
+                makeExpr (getDiff ns fullName) None
+            | None when ctx.file <> file.FileName ->
+                Some (com.GetImport file.FileName)
+                |> makeExpr (getDiff file.RootFullName fullName)
+            | None ->
+                makeExpr (getDiff ctx.moduleFullName fullName) None
 
 let private assign left right =
     Babel.AssignmentExpression(AssignEqual, left, right) :> Babel.Expression
@@ -213,7 +217,12 @@ let private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
         | Fabel.ArrayConst items -> failwith "TODO"
         | Fabel.TypeRef typ ->
             match typ with
-            | Fabel.DeclaredType typEnt -> typeRef com ctx typEnt.Source
+            | Fabel.DeclaredType typEnt ->
+                let typFullName =
+                    if Option.isSome (typEnt.HasDecoratorNamed "Erase") 
+                    then typEnt.FullName.Substring(0, typEnt.FullName.LastIndexOf ".")
+                    else typEnt.FullName
+                typeRef com ctx typEnt.File typFullName
             | _ -> failwithf "Not supported type reference: %A" typ
 
     | Fabel.Operation op ->
@@ -286,7 +295,7 @@ let private transformTestSuite com ctx decls: Babel.CallExpression =
     
 // type ClassMethodKind =
 //     | ClassConstructor | ClassMethod | ClassGetter | ClassSetter
-let private transformClass com ctx baseClass decls: Babel.ClassExpression =
+let private transformClass com ctx (baseClass: Fabel.EntityLocation option) decls =
     let declareMember kind name (f: Fabel.LambdaExpr) isStatic =
         let name, computed: Babel.Expression * bool =
             if Naming.identForbiddenChars.IsMatch name
@@ -294,8 +303,8 @@ let private transformClass com ctx baseClass decls: Babel.ClassExpression =
             else upcast Babel.Identifier name, false
         let f = funcExpression com ctx None f.Arguments f.RestParams f.Body f.Kind
         Babel.ClassMethod(kind, name, f, computed, isStatic)
-    let baseClass =
-        baseClass |> Option.map (typeRef com ctx)
+    let baseClass = baseClass |> Option.map (fun loc ->
+        typeRef com ctx (Some loc.file) loc.fullName)
     decls
     |> List.map (function
         | Fabel.MemberDeclaration m ->
@@ -339,7 +348,7 @@ let rec private transformModDecls com ctx modIdent decls = seq {
             let classExpr = transformClass com ctx baseClass sub
             declareMember None e.Name classExpr e.IsPublic
         match e.Kind with
-        // Interfaces or attribute declarations shouldn't reach this point
+        // Interfaces, attribute or erased declarations shouldn't reach this point
         | Fabel.Interface -> ()
         | Fabel.Class baseClass -> yield declareClass baseClass
         | Fabel.Union | Fabel.Record -> yield declareClass None 
@@ -374,10 +383,16 @@ let rec private transformModDecls com ctx modIdent decls = seq {
                             [U2.Case1 (upcast nestedIdent)])) :> Babel.Statement
     }
     
-let makeCompiler (com: ICompiler) =
+let makeCompiler (com: ICompiler) (files: Fabel.File list) =
     let imports =
         System.Collections.Generic.Dictionary<string, string>()
+    let fileMap =
+        files |> Seq.map (fun f -> f.FileName, f) |> Map.ofSeq
     { new IBabelCompiler with
+        member bcom.GetFabelFile fileName =
+            Map.tryFind fileName fileMap
+            |> function Some file -> file
+                      | None -> failwithf "File not parsed: %s" fileName
         member bcom.GetImport moduleName =
             match imports.TryGetValue moduleName with
             | true, import ->
@@ -393,23 +408,23 @@ let makeCompiler (com: ICompiler) =
         member __.Options = com.Options }
 
 let transformFiles (com: ICompiler) (files: Fabel.File list): Babel.Program list =
-    let babelCom = makeCompiler com
-    files |> List.map (fun file ->
-        let ctx = {
-            file = file.FilePath
-            moduleFullName = file.RootNamespace.FullName
-            }
-        let rootIdent = Babel.Identifier Naming.rootModuleIdent
-        let rootHead = [
-            // export default $M0;
-            varDeclaration None rootIdent (Babel.ObjectExpression [])
-                :> Babel.Statement |> U2.Case1
-            // var publicVar = $M0.publicVar = {};
-            Babel.ExportDefaultDeclaration (U2.Case2 (upcast rootIdent))
-                :> Babel.ModuleDeclaration |> U2.Case2
-        ]
-        let rootDecls =
-            transformModDecls babelCom ctx rootIdent file.Declarations
-            |> Seq.map (fun x -> U2<_,Babel.ModuleDeclaration>.Case1 x)
-            |> Seq.toList
-        Babel.Program (rootHead@rootDecls))
+    let babelCom = makeCompiler com files
+    files |> List.choose (fun file ->
+        match file.Root with
+        | Some (Fabel.EntityDeclaration (root, decls)) ->
+            let ctx = { file = file.FileName; moduleFullName = root.FullName }
+            let rootIdent = Babel.Identifier Naming.rootModuleIdent
+            let rootHead = [
+                // export default $M0;
+                varDeclaration None rootIdent (Babel.ObjectExpression [])
+                    :> Babel.Statement |> U2.Case1
+                // var publicVar = $M0.publicVar = {};
+                Babel.ExportDefaultDeclaration (U2.Case2 (upcast rootIdent))
+                    :> Babel.ModuleDeclaration |> U2.Case2
+            ]
+            let rootDecls =
+                transformModDecls babelCom ctx rootIdent decls
+                |> Seq.map (fun x -> U2<_,Babel.ModuleDeclaration>.Case1 x)
+                |> Seq.toList
+            Babel.Program (rootHead@rootDecls) |> Some
+        | _ -> None)

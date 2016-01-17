@@ -25,29 +25,34 @@ and Type =
     | PrimitiveType of PrimitiveTypeKind
 
 (** ##Entities *)
-and SourceKind =
-    | Internal of fileName: string
-    | Imported of moduleName: string * route: string
-    | External
+and EntityLocation = { file: string; fullName: string }
 
 and EntityKind =
     | Module
-    | Class of baseClass: SourceKind option
-    | Interface
+    | Class of baseClass: EntityLocation option
     | Union
     | Record    
+    | Interface
 
-and Entity(kind, fullName, interfaces, decorators, isPublic, source) =
+and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
     member x.Kind: EntityKind = kind
+    member x.File: string option = file
     member x.FullName: string = fullName
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
-    member x.Source: SourceKind = source
     member x.Name =
         x.FullName.Substring(x.FullName.LastIndexOf('.') + 1)
+    member x.Namespace =
+        let fullName = x.FullName
+        match fullName.LastIndexOf "." with
+        | -1 -> ""
+        | 0 -> failwithf "Unexpected entity full name: %s" fullName
+        | _ as i -> fullName.Substring(0, i)
     member x.HasDecoratorNamed decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
+    static member CreateRootModule fileName =
+        Entity (Module, Some fileName, "", [], [], true)
 
 and Declaration =
     | ActionDeclaration of Expr
@@ -67,10 +72,21 @@ and Member(kind, func, decorators, isPublic, isStatic) =
     member x.IsPublic: bool = isPublic
     member x.IsStatic: bool = isStatic
     
-and File(filePath, rootEntity, rootDeclarations) =
-    member x.FilePath: string = filePath
-    member x.RootNamespace: Entity = rootEntity
-    member x.Declarations: Declaration list = rootDeclarations
+and ExternalEntity =
+    | ImportModule of fullName: string * moduleName: string
+    | GlobalModule of fullName: string
+    member x.FullName =
+        match x with ImportModule (fullName, _)
+                   | GlobalModule fullName -> fullName
+    
+and File(fileName, root, external) =
+    member x.FileName: string = fileName
+    member x.Root: Declaration option = root
+    member x.External: ExternalEntity list = external
+    member x.RootFullName =
+        match x.Root with
+        | Some(EntityDeclaration (root, _)) -> root.FullName
+        | _ -> ""
     
 (** ##Expressions *)
 and LambdaKind = Immediate | Async | Generator
