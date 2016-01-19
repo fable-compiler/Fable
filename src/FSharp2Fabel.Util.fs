@@ -15,8 +15,10 @@ type Context =
     {
     scope: (string * string) list
     decisionTargets: Map<int, DecisionTarget>
+    parentEntities: FSharpEntity list
     }
-    static member Empty = { scope = []; decisionTargets = Map.empty<_,_>; }
+    member ctx.Reset() =
+        { ctx with scope=[]; decisionTargets=Map.empty<_,_> }
     
 type IFabelCompiler =
     inherit ICompiler

@@ -54,8 +54,21 @@ let rec private transformExpr com ctx fsExpr =
     | BasicPatterns.Value thisVar when thisVar.IsMemberThisValue ->
         makeExpr com ctx fsExpr (Fabel.Value Fabel.This)
 
-    | BasicPatterns.Value(GetIdent com ctx ident) ->
-        upcast ident
+    | BasicPatterns.Value v ->
+        if not v.IsModuleValueOrMember then
+            let (GetIdent com ctx ident) = v
+            upcast ident
+        else
+            // ctx.parentEntities
+            // |> List.exists (fun x -> x.IsEffectivelySameAs v.EnclosingEntity)
+            // |> function
+            // | true -> upcast makeSanitizedIdent ctx Fabel.UnknownType v.DisplayName
+            // | false ->
+            let typeRef =
+                makeTypeFromDef com v.EnclosingEntity
+                |> Fabel.TypeRef |> Fabel.Value
+            Fabel.Get (Fabel.Expr typeRef, makeLiteral v.DisplayName)
+            |> makeExpr com ctx fsExpr
 
     | BasicPatterns.DefaultValue (FabelType com typ) ->
         let valueKind =
@@ -356,23 +369,30 @@ type private DeclInfo() =
         self.extMods.AddRange childExtMods
     
 let private transformMemberDecl
-    (com: IFabelCompiler) (declInfo: DeclInfo) (meth: FSharpMemberOrFunctionOrValue)
+    (com: IFabelCompiler) ctx (declInfo: DeclInfo) (meth: FSharpMemberOrFunctionOrValue)
     (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let memberKind =
-        // TODO: Check overloads
         let name = meth.DisplayName
-        if meth.IsImplicitConstructor then Fabel.Constructor
-        elif meth.IsPropertyGetterMethod then Fabel.Getter name
-        elif meth.IsPropertySetterMethod then Fabel.Setter name
-        else Fabel.Method name
+        // TODO: Another way to check module values?
+        // TODO: Mutable module values
+        if meth.IsModuleValueOrMember then
+            match meth.XmlDocSig.[0] with
+            | 'P' -> Fabel.Getter name
+            | _ -> Fabel.Method name
+        else
+            // TODO: Check overloads
+            if meth.IsImplicitConstructor then Fabel.Constructor
+            elif meth.IsPropertyGetterMethod then Fabel.Getter name
+            elif meth.IsPropertySetterMethod then Fabel.Setter name
+            else Fabel.Method name
     let ctx, args =
         let args = if meth.IsInstanceMember then List.skip 1 args else args
         match args with
-        | [] -> Context.Empty, []
+        | [] -> ctx, []
         | [[singleArg]] ->
             makeType com singleArg.FullType |> function
-            | Fabel.PrimitiveType Fabel.Unit -> Context.Empty, []
-            | _ -> let (BindIdent com Context.Empty (ctx, arg)) = singleArg in ctx, [arg]
+            | Fabel.PrimitiveType Fabel.Unit -> ctx, []
+            | _ -> let (BindIdent com ctx (ctx, arg)) = singleArg in ctx, [arg]
         | _ ->
             Seq.foldBack (fun tupledArg (accContext, accArgs) ->
                 match tupledArg with
@@ -382,9 +402,9 @@ let private transformMemberDecl
                     newContext, arg::accArgs
                 | _ ->
                     // The F# compiler "untuples" the args in methods
-                    let newContext, untupledArg = makeLambdaArgs com Context.Empty tupledArg
+                    let newContext, untupledArg = makeLambdaArgs com ctx tupledArg
                     newContext, untupledArg@accArgs
-            ) args (Context.Empty, [])
+            ) args (ctx, []) // TODO: Reset Context?
     let entMember = 
         Fabel.Member(memberKind,
             Fabel.LambdaExpr (args, transformExpr com ctx body, Fabel.Immediate, hasRestParams meth),
@@ -395,7 +415,7 @@ let private transformMemberDecl
     declInfo
    
 let rec private transformEntityDecl
-    (com: IFabelCompiler) (declInfo: DeclInfo) ent subDecls =
+    (com: IFabelCompiler) ctx (declInfo: DeclInfo) ent subDecls =
     match ent with
     | WithAttribute "Global" _ ->
         Fabel.GlobalModule ent.FullName
@@ -411,25 +431,31 @@ let rec private transformEntityDecl
     | WithAttribute "Erase" _ | AbstractEntity _ ->
         declInfo // Ignore 
     | _ ->
-        let childDecls, childExtMods = transformDeclarations com subDecls
+        let ctx = { ctx with parentEntities = ent::ctx.parentEntities }
+        let childDecls, childExtMods = transformDeclarations com ctx subDecls
         declInfo.AddChild (com.GetEntity ent, childDecls, childExtMods)
         declInfo
 
-and private transformDeclarations (com: IFabelCompiler) decls =
+and private transformDeclarations (com: IFabelCompiler) ctx decls =
     let declInfo =
         decls |> List.fold (fun (declInfo: DeclInfo) decl ->
             match decl with
             | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-                transformEntityDecl com declInfo e sub
+                transformEntityDecl com ctx declInfo e sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
-                transformMemberDecl com declInfo meth args body
-            | FSharpImplementationFileDeclaration.InitAction (Transform com Context.Empty expr) ->
+                transformMemberDecl com ctx declInfo meth args body
+            | FSharpImplementationFileDeclaration.InitAction (Transform com ctx expr) ->
                 declInfo.decls.Add(Fabel.ActionDeclaration expr); declInfo
         ) (DeclInfo())
     declInfo.ClearChild ()
     List.ofSeq declInfo.decls, List.ofSeq declInfo.extMods
         
 let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
+    let emptyContext parent = {
+        scope = []
+        decisionTargets = Map.empty<_,_>
+        parentEntities = match parent with Some p -> [p] | None -> [] 
+    }
     let rec getRootDecls rootEnt = function
         | [FSharpImplementationFileDeclaration.Entity (e, subDecls)]
             when e.IsNamespace || e.IsFSharpModule ->
@@ -454,7 +480,7 @@ let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
     fsProj.AssemblyContents.ImplementationFiles
     |> List.map (fun file ->
         let rootEnt, rootDecls = getRootDecls None file.Declarations
-        let rootDecls, extDecls = transformDeclarations com rootDecls
+        let rootDecls, extDecls = transformDeclarations com (emptyContext rootEnt) rootDecls
         match rootDecls with
         | [] -> Fabel.File(file.FileName, None, extDecls)
         | _ ->

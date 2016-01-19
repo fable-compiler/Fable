@@ -58,7 +58,9 @@ let private getExpr com ctx (TransformExpr com ctx expr) (property: Fabel.Expr) 
             when Naming.identForbiddenChars.IsMatch name = false ->
             Babel.Identifier (name) :> Babel.Expression, false
         | TransformExpr com ctx property -> property, true
-    Babel.MemberExpression (expr, property, computed) :> Babel.Expression
+    match expr with
+    | :? Babel.EmptyExpression -> property
+    | _ -> Babel.MemberExpression (expr, property, computed) :> Babel.Expression
 
 let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
     let getDiff s1 s2 =
@@ -77,7 +79,7 @@ let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
             | m::ms -> get baseExpr m |> Some |> makeExpr ms 
         | None ->
             match members with
-            | [] -> failwith "Unexpected empty type reference"
+            | [] -> upcast Babel.EmptyExpression()
             | m::ms -> identFromName m :> Babel.Expression |> Some |> makeExpr ms
     match file with
     | None -> failwithf "Cannot reference type: %s" fullName
@@ -336,7 +338,11 @@ let rec private transformModDecls com ctx modIdent decls = seq {
         let expr, name =
             match m.Kind with
             | Fabel.Getter name ->
-                transformExpr com ctx m.Function.Body, name
+                let finfo = FabelFunctionInfo ([], false, m.Function.Body, Fabel.Immediate)
+                let (BabelFunctionInfo (_, body, _, _)) = transformFunctionBody com ctx finfo
+                match body with
+                | U2.Case1 e -> Babel.DoExpression e :> Babel.Expression, name
+                | U2.Case2 e -> e, name // TODO: Optimize do expressions?
             | Fabel.Method name ->
                 let f = m.Function
                 upcast funcExpression com ctx None f.Arguments f.RestParams f.Body f.Kind, name
@@ -356,13 +362,13 @@ let rec private transformModDecls com ctx modIdent decls = seq {
         | Fabel.Module ->
             let nestedIdent, protectedIdent =
                 let memberNames =
-                    decls |> Seq.choose (function
-                    | Fabel.EntityDeclaration (e, _) -> Some e.Name
-                    | Fabel.ActionDeclaration e -> None
-                    | Fabel.MemberDeclaration m ->
-                        match m.Kind with
-                        | Fabel.Method name | Fabel.Getter name -> Some name
-                        | Fabel.Constructor | Fabel.Setter _ -> None)
+                    sub |> Seq.choose (function
+                        | Fabel.EntityDeclaration (e, _) -> Some e.Name
+                        | Fabel.ActionDeclaration e -> None
+                        | Fabel.MemberDeclaration m ->
+                            match m.Kind with
+                            | Fabel.Method name | Fabel.Getter name -> Some name
+                            | Fabel.Constructor | Fabel.Setter _ -> None)
                     |> Set.ofSeq
                 identFromName e.Name,
                 // Protect module identifier against members with same name
@@ -411,8 +417,7 @@ let transformFiles (com: ICompiler) (files: Fabel.File list): Babel.Program list
     files |> List.choose (fun file ->
         match file.Root with
         | Some (Fabel.EntityDeclaration (root, decls)) ->
-            for decl in decls do
-                printfn "%A" decl
+            // for decl in decls do printfn "%A" decl
             let ctx = {
                 file = file.FileName
                 moduleFullName = root.FullName

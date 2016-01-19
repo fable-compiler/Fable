@@ -28,6 +28,10 @@ type Node(typ, ?loc) =
 
 type Pattern = interface end
 
+/// Placeholder, doesn't belong to Babel specs
+type EmptyExpression() =
+    inherit Expression("EmptyExpression")
+
 (** ##Template Literals *)
 
 // type TemplateLiteral
