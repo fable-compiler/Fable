@@ -106,6 +106,7 @@ and ValueKind =
     | BoolConst of bool
     | RegexConst of source:string * flags: RegexFlag list
     | ArrayConst of Expr list
+    | ObjExpr of string list // TODO
     
 and LoopKind =
     | While of guard: Expr * body: Expr

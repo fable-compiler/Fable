@@ -267,8 +267,20 @@ let makeExpr com (ctx: Context) (fsExpr: FSharpExpr) kind =
     let (FabelType com typ, Range range) = fsExpr.Type, fsExpr.Range
     Fabel.Expr (kind, typ, range)
 
-let makeSequential statements =
-    Fabel.Expr (Fabel.Sequential statements, (List.last statements).Type)
+let rec makeSequential statements =
+    match statements with
+    | [] -> Fabel.Value Fabel.Null |> Fabel.Expr
+    | [expr] -> expr
+    | first::rest ->
+        match first.Kind with
+        | Fabel.Value (Fabel.Null)
+        // Calls to System.Object..ctor in class constructors
+        | Fabel.Value (Fabel.ObjExpr []) -> makeSequential rest
+        | Fabel.Sequential firstStatements -> makeSequential (firstStatements @ rest)
+        | _ ->
+            match rest with
+            | [ExprKind (Fabel.Sequential statements)] -> makeSequential (first::statements)
+            | _ -> Fabel.Expr (Fabel.Sequential statements, (List.last statements).Type)
 
 let makeTypeRef typ =
     Fabel.Expr (Fabel.Value (Fabel.TypeRef typ))
@@ -414,11 +426,7 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
             |> function Some i when i > 0 -> string i | _ -> ""
         let ent = meth.EnclosingEntity
         let ns = match ent.Namespace with Some ns -> ns + "." | None -> ""
-        let methName =
-            if meth.DisplayName <> "( .ctor )" then meth.DisplayName
-            elif meth.IsImplicitConstructor then meth.DisplayName
-            else failwith "TODO: Secondary constructors"
-        ns + ent.DisplayName + "." + methName + (overloadSuffix meth)
+        ns + ent.DisplayName + "." + meth.DisplayName + (overloadSuffix meth)
     (** ###Method call processing *)
     let methType, methFullName =
         let methType = makeTypeFromDef com meth.EnclosingEntity
@@ -436,6 +444,7 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
     match methFullName with
     | "Microsoft.FSharp.Core.Operators.( |> )" -> makeApply ctx args.Tail.Head [args.Head]
     | "Microsoft.FSharp.Core.Operators.( <| )" -> makeApply ctx args.Head args.Tail
+    | "System.Object..ctor" -> Fabel.Value (Fabel.ObjExpr [])
     | _ ->
         (** -If this is an external method, check for replacements *)
         let resolved =

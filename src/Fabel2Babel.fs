@@ -37,6 +37,11 @@ type IBabelCompiler =
 let (|ExprKind|) (e: Fabel.Expr) = e.Kind
 let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
 let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
+
+let (|Block|) (e: U2<Babel.BlockStatement, Babel.Expression>) =
+    match e with
+    | U2.Case1 e -> e
+    | U2.Case2 e -> Babel.BlockStatement [Babel.ReturnStatement e]
     
 let private ident (expr: Fabel.IdentifierExpr) =
     Babel.Identifier (expr.Name, ?loc=expr.Range)
@@ -217,7 +222,8 @@ let private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
         | Fabel.StringConst x -> upcast Babel.StringLiteral (x, ?loc=expr.Range)
         | Fabel.BoolConst x -> upcast Babel.BooleanLiteral (x, ?loc=expr.Range)
         | Fabel.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags, ?loc=expr.Range)
-        | Fabel.ArrayConst items -> failwith "TODO"
+        | Fabel.ArrayConst items -> failwith "TODO: Array initializers"
+        | Fabel.ObjExpr _ -> failwith "TODO: Object expressions"
         | Fabel.TypeRef typ ->
             match typ with
             | Fabel.DeclaredType typEnt ->
@@ -304,20 +310,24 @@ let private transformClass com ctx (baseClass: Fabel.EntityLocation option) decl
             if Naming.identForbiddenChars.IsMatch name
             then upcast Babel.StringLiteral name, true
             else upcast Babel.Identifier name, false
-        let f = funcExpression com ctx None f.Arguments f.RestParams f.Body f.Kind
-        Babel.ClassMethod(kind, name, f, computed, isStatic)
+        let finfo = FabelFunctionInfo (f.Arguments, f.RestParams, f.Body, f.Kind)
+        let (BabelFunctionInfo (args, Block body, generator, async)) =
+            transformFunctionBody com ctx finfo
+        // TODO: Optimization: remove null statement that F# compiler 
+        // adds at the bottom of constructors
+        Babel.ClassMethod(kind, name, args, body, computed, isStatic)
     let baseClass = baseClass |> Option.map (fun loc ->
         typeRef com ctx (Some loc.file) loc.fullName)
     decls
     |> List.map (function
         | Fabel.MemberDeclaration m ->
-            let kind, name =
+            let kind, name, isStatic =
                 match m.Kind with
-                | Fabel.Constructor -> Babel.ClassConstructor, "constructor"
-                | Fabel.Method name -> Babel.ClassFunction, name
-                | Fabel.Getter name -> Babel.ClassGetter, name
-                | Fabel.Setter name -> Babel.ClassSetter, name
-            declareMember kind name m.Function m.IsStatic
+                | Fabel.Constructor -> Babel.ClassConstructor, "constructor", false
+                | Fabel.Method name -> Babel.ClassFunction, name, m.IsStatic
+                | Fabel.Getter name -> Babel.ClassGetter, name, m.IsStatic
+                | Fabel.Setter name -> Babel.ClassSetter, name, m.IsStatic
+            declareMember kind name m.Function isStatic
         | Fabel.ActionDeclaration _
         | Fabel.EntityDeclaration _ as decl ->
             failwithf "Unexpected declaration in class: %A" decl)

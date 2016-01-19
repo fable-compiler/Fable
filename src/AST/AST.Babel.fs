@@ -431,17 +431,20 @@ type LogicalExpression(operator, left, right, ?loc) =
 type ClassMethodKind =
     | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind, key, value, computed, ``static``, ?decorators, ?loc) =
+type ClassMethod(kind, key, args, body, computed, ``static``, ?decorators, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     member x.kind = match kind with ClassConstructor -> "constructor"
                                   | ClassGetter -> "get"
                                   | ClassSetter -> "set"
                                   | ClassFunction -> "method"
     member x.key: Expression = key
-    member x.value: FunctionExpression = value
+    member x.``params``: Pattern list = args
+    member x.body: BlockStatement = body
     member x.computed: bool = computed
     member x.``static``: bool = ``static``
     member x.decorators: Decorator list = defaultArg decorators []
+    // This appears in astexplorer.net but it's not documented
+    // member x.expression: bool = false
 
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties

@@ -93,8 +93,6 @@ let rec private transformExpr com ctx fsExpr =
             Fabel.Lambda (lambdaArgs,
                 Fabel.Expr (Fabel.Apply (eBody, args, isCons), e.Type, ?range=e.Range),
                 Fabel.Immediate, false) |> makeExpr com ctx fsExpr
-        | Fabel.Sequential statements ->
-            makeSequential (assignment::statements)
         | _ -> makeSequential [assignment; body]
 
     | BasicPatterns.LetRec(recursiveBindings, body) ->
@@ -108,9 +106,7 @@ let rec private transformExpr com ctx fsExpr =
             |> List.map2 (fun ident (var, Transform com ctx binding) ->
                 Fabel.VarDeclaration (ident, binding, var.IsMutable)
                 |> makeExpr com ctx fsExpr) idents
-        match transformExpr com newContext body with
-        | ExprKind (Fabel.Sequential statements) -> assignments @ statements
-        | _ as body -> assignments @ [ body ]
+        assignments @ [transformExpr com newContext body] 
         |> makeSequential
 
     (** ## Applications *)
@@ -143,13 +139,7 @@ let rec private transformExpr com ctx fsExpr =
         makeTryCatch com ctx fsExpr body (Some (catchVar, catchBody)) None
 
     | BasicPatterns.Sequential (Transform com ctx first, Transform com ctx second) ->
-        match first.Kind with
-        | Fabel.Value (Fabel.Null) -> second
-        | _ ->
-            match second.Kind with
-            | Fabel.Sequential statements -> first::statements
-            | _ -> [first; second]
-            |> makeSequential
+        makeSequential [first; second]
 
     (** ## Lambdas *)
     | BasicPatterns.Lambda (var, body) ->
@@ -292,9 +282,7 @@ let rec private transformExpr com ctx fsExpr =
                     let (BindIdent com accContext (newContext, ident)) = var
                     let assignment = Fabel.Expr (Fabel.VarDeclaration (ident, binding, var.IsMutable))
                     newContext, (assignment::accAssignments)) decVars decBindings (ctx, [])
-            match transformExpr com newContext decBody with
-            | ExprKind (Fabel.Sequential statements) -> assignments @ statements
-            | _ as decBody -> assignments @ [ decBody ]
+            assignments @ [transformExpr com newContext decBody]
             |> makeSequential
 
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
@@ -361,10 +349,10 @@ type private DeclInfo() =
             Fabel.EntityDeclaration (child.Value, List.ofSeq self.childDecls)
             |> self.decls.Add
         child <- None
+        self.childDecls.Clear ()
     member self.AddChild (newChild, childDecls, childExtMods) =
         self.ClearChild ()
         child <- Some newChild
-        self.childDecls.Clear ()
         self.childDecls.AddRange childDecls
         self.extMods.AddRange childExtMods
     
@@ -375,7 +363,7 @@ let private transformMemberDecl
         let name = meth.DisplayName
         // TODO: Another way to check module values?
         // TODO: Mutable module values
-        if meth.IsModuleValueOrMember then
+        if meth.EnclosingEntity.IsFSharpModule then
             match meth.XmlDocSig.[0] with
             | 'P' -> Fabel.Getter name
             | _ -> Fabel.Method name

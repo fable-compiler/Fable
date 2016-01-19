@@ -20,17 +20,18 @@ let parseFSharpScript (mainFilePath: string) =
 [<EntryPoint>]
 let main argv =
     try
+        let projFile = argv.[0]
         let opts = {
-            sourceRootPath = "./"
-            targetRootPath = argv.[1]
+            sourceRootPath = Path.GetDirectoryName projFile
+            targetRootPath = Path.GetDirectoryName projFile
             environment = "browser"
-            jsLibFolder = "./"
+            jsLibFolder = "./lib"
         }   
         let com = {
             new ICompiler with
                 member __.Options = opts            
         }
-        parseFSharpScript argv.[0]
+        parseFSharpScript projFile
         |> FSharp2Fabel.transformFiles com
         |> Fabel2Babel.transformFiles com
         |> List.iteri (fun i babelAst ->
