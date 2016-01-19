@@ -22,21 +22,22 @@ let main argv =
     try
         let opts = {
             sourceRootPath = "./"
-            targetRootPath = "./js"
+            targetRootPath = argv.[1]
             environment = "browser"
             jsLibFolder = "./"
         }   
         let com = {
             new ICompiler with
-                member __.Options = opts                
+                member __.Options = opts            
         }
         parseFSharpScript argv.[0]
         |> FSharp2Fabel.transformFiles com
         |> Fabel2Babel.transformFiles com
-        |> List.iteri (fun i babelAst -> 
+        |> List.iteri (fun i babelAst ->
             let json = JsonConvert.SerializeObject (
-                        babelAst, Json.ErasedUnionConverter())
-            File.WriteAllText(sprintf "./File%i.json" i, json))
+                        babelAst, Json.ErasedUnionConverter())              
+            File.WriteAllText(sprintf "%s/File%i.json" opts.targetRootPath i, json)
+            printfn "Complete")
     with e ->
         printfn "ERROR: %s" e.Message
     0 // return an integer exit code

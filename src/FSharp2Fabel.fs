@@ -330,12 +330,30 @@ let rec private transformExpr com ctx fsExpr =
     | BasicPatterns.AddressSet _ // (lvalueExpr, rvalueExpr)
     | _ -> failwithf "Cannot compile expression in %A: %A" fsExpr.Range fsExpr
 
-type private DeclInfo = {
-    decls: Fabel.Declaration list
-    child: Fabel.Entity option
-    childDecls: Fabel.Declaration list
-    extMods: Fabel.ExternalEntity list
-    }
+type private DeclInfo() =
+    let mutable child: Fabel.Entity option = None
+    member val decls = ResizeArray<Fabel.Declaration>()
+    member val childDecls = ResizeArray<Fabel.Declaration>()
+    member val extMods = ResizeArray<Fabel.ExternalEntity>()
+    // The F# compiler considers class methods as children of the enclosing module, correct that
+    member self.AddMethod (meth: FSharpMemberOrFunctionOrValue, methDecl: Fabel.Declaration) =
+        let methParentFullName =
+            sanitizeEntityName meth.EnclosingEntity.FullName
+        match child with
+        | Some x when x.FullName = methParentFullName ->
+            self.childDecls.Add methDecl
+        | _ -> self.decls.Add methDecl
+    member self.ClearChild () =
+        if child.IsSome then
+            Fabel.EntityDeclaration (child.Value, List.ofSeq self.childDecls)
+            |> self.decls.Add
+        child <- None
+    member self.AddChild (newChild, childDecls, childExtMods) =
+        self.ClearChild ()
+        child <- Some newChild
+        self.childDecls.Clear ()
+        self.childDecls.AddRange childDecls
+        self.extMods.AddRange childExtMods
     
 let private transformMemberDecl
     (com: IFabelCompiler) (declInfo: DeclInfo) (meth: FSharpMemberOrFunctionOrValue)
@@ -373,55 +391,43 @@ let private transformMemberDecl
             meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
             meth.Accessibility.IsPublic, not meth.IsInstanceMember)
         |> Fabel.MemberDeclaration
-    // The F# compiler considers class methods as children of the enclosing module, correct that
-    let methParentFullName = sanitizeEntityName meth.EnclosingEntity.FullName
-    match declInfo.child with
-    | Some x when x.FullName = methParentFullName ->
-        { declInfo with childDecls = entMember::declInfo.childDecls }
-    | _  ->
-        { declInfo with decls = entMember::declInfo.decls }
+    declInfo.AddMethod (meth, entMember)
+    declInfo
    
-let rec private transformEntityDecl (com: IFabelCompiler) declInfo ent subDecls =
+let rec private transformEntityDecl
+    (com: IFabelCompiler) (declInfo: DeclInfo) ent subDecls =
     match ent with
     | WithAttribute "Global" _ ->
-        let extMod = Fabel.GlobalModule ent.FullName
-        { declInfo with extMods = extMod::declInfo.extMods }
+        Fabel.GlobalModule ent.FullName
+        |> declInfo.extMods.Add
+        declInfo
     | WithAttribute "Import" args ->
         match args with
         | [:? string as modName] ->
-            let extMod = Fabel.ImportModule(ent.FullName, modName)
-            { declInfo with extMods = extMod::declInfo.extMods }
+            Fabel.ImportModule(ent.FullName, modName)
+            |> declInfo.extMods.Add
+            declInfo
         | _ -> failwith "Import attributes must have a single string argument"
     | WithAttribute "Erase" _ | AbstractEntity _ ->
         declInfo // Ignore 
     | _ ->
-        let decls =
-            match declInfo.child with
-            | None -> declInfo.decls
-            | Some child ->
-                Fabel.EntityDeclaration (child, List.rev declInfo.childDecls)
-                |> fun decl -> decl::declInfo.decls
-        let child = Some (com.GetEntity ent)
-        let childDecls, extMods = transformDeclarations com subDecls
-        { decls=decls; child=child; childDecls=childDecls; extMods=extMods }
+        let childDecls, childExtMods = transformDeclarations com subDecls
+        declInfo.AddChild (com.GetEntity ent, childDecls, childExtMods)
+        declInfo
 
-/// Declarations are returned in reverse order
 and private transformDeclarations (com: IFabelCompiler) decls =
-    decls
-    |> List.fold (fun (declInfo: DeclInfo) decl ->
-        match decl with
-        | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-            transformEntityDecl com declInfo e sub
-        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
-            transformMemberDecl com declInfo meth args body
-        | FSharpImplementationFileDeclaration.InitAction (Transform com Context.Empty expr) ->
-            { declInfo with decls = (Fabel.ActionDeclaration expr)::declInfo.decls })
-        { decls=[]; child=None; childDecls=[]; extMods=[] }
-    |> function
-        | { child = None } as res -> res.decls, res.extMods
-        | { child = Some child } as res ->
-            let decl = Fabel.EntityDeclaration (child, List.rev res.childDecls)
-            decl::res.decls, res.extMods
+    let declInfo =
+        decls |> List.fold (fun (declInfo: DeclInfo) decl ->
+            match decl with
+            | FSharpImplementationFileDeclaration.Entity (e, sub) ->
+                transformEntityDecl com declInfo e sub
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
+                transformMemberDecl com declInfo meth args body
+            | FSharpImplementationFileDeclaration.InitAction (Transform com Context.Empty expr) ->
+                declInfo.decls.Add(Fabel.ActionDeclaration expr); declInfo
+        ) (DeclInfo())
+    declInfo.ClearChild ()
+    List.ofSeq declInfo.decls, List.ofSeq declInfo.extMods
         
 let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
     let rec getRootDecls rootEnt = function
@@ -438,8 +444,9 @@ let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
         { new IFabelCompiler with
             member fcom.Transform ctx fsExpr =
                 transformExpr fcom ctx fsExpr
-            member fcom.IsInternal tdef =
-                Set.contains tdef.DeclarationLocation.FileName fileNames
+            member fcom.GetInternalFile tdef =
+                let file = tdef.DeclarationLocation.FileName
+                if Set.contains file fileNames then Some file else None
             member fcom.GetEntity tdef =
                 entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
         interface ICompiler with

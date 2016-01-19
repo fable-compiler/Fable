@@ -21,7 +21,7 @@ type Context =
 type IFabelCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fabel.Expr
-    abstract IsInternal: FSharpEntity -> bool
+    abstract GetInternalFile: FSharpEntity -> string option
     abstract GetEntity: FSharpEntity -> Fabel.Entity
     
 [<AutoOpen>]
@@ -51,12 +51,9 @@ module Patterns =
         | _ -> None
         
     let (|Location|_|) (com: IFabelCompiler) (ent: FSharpEntity) =
-        if com.IsInternal ent
-        then Some {
-            Fabel.file = ent.DeclarationLocation.FileName
-            Fabel.fullName = ent.FullName
-            }
-        else None
+        match com.GetInternalFile ent with
+        | Some file -> Some { Fabel.file=file; Fabel.fullName=ent.FullName }
+        | None -> None
         
     let (|WithAttribute|_|) (name: string) (ent: FSharpEntity) =
         ent.Attributes
@@ -158,14 +155,16 @@ module Types =
             }
 
     let makeDecorator (com: IFabelCompiler) (att: FSharpAttribute) =
-        if not(com.IsInternal att.AttributeType) then None else
-        let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
-        let fullName =
-            let fullName = sanitizeEntityName att.AttributeType.FullName
-            if fullName.EndsWith ("Attribute")
-            then fullName.Substring (0, fullName.Length - 9)
-            else fullName
-        Fabel.Decorator(att.AttributeType.FullName, args) |> Some
+        match com.GetInternalFile att.AttributeType with
+        | None -> None
+        | Some _ ->
+            let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
+            let fullName =
+                let fullName = sanitizeEntityName att.AttributeType.FullName
+                if fullName.EndsWith ("Attribute")
+                then fullName.Substring (0, fullName.Length - 9)
+                else fullName
+            Fabel.Decorator(att.AttributeType.FullName, args) |> Some
 
     let makeEntity (com: IFabelCompiler) (tdef: FSharpEntity) =
         let kind =
@@ -179,15 +178,17 @@ module Types =
         let infcs =
             tdef.DeclaredInterfaces
             |> Seq.filter (fun (NonAbbreviatedType x) ->
-                x.HasTypeDefinition && com.IsInternal x.TypeDefinition)
+                x.HasTypeDefinition &&
+                com.GetInternalFile x.TypeDefinition |> Option.isSome)
             |> Seq.map (fun x -> sanitizeEntityName x.TypeDefinition.FullName)
             |> Seq.toList
         let decs =
             tdef.Attributes
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
-        Fabel.Entity (kind, failwith "TODO: file option", sanitizeEntityName tdef.FullName,
-                        infcs, decs, tdef.Accessibility.IsPublic)
+        Fabel.Entity (kind, com.GetInternalFile tdef,
+            sanitizeEntityName tdef.FullName,
+            infcs, decs, tdef.Accessibility.IsPublic)
 
     let rec makeTypeFromDef (com: IFabelCompiler) (tdef: FSharpEntity) =
         // Guard: F# abbreviations shouldn't be passed as argument

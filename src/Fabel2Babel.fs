@@ -7,8 +7,9 @@ open Fabel
 open Fabel.AST
 
 type Context = {
-    moduleFullName: string
     file: string
+    moduleFullName: string
+    imports: System.Collections.Generic.Dictionary<string, string>
     }
     
 type FabelFunctionInfo =
@@ -28,7 +29,7 @@ type BabelFunctionInfo =
 type IBabelCompiler =
     inherit ICompiler
     abstract GetFabelFile: string -> Fabel.File
-    abstract GetImport: string -> Babel.Expression
+    abstract GetImport: Context -> string -> Babel.Expression
     abstract TransformExpr: Context -> Fabel.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fabel.Expr -> Babel.Statement
     abstract TransformFunction: Context -> FabelFunctionInfo -> BabelFunctionInfo
@@ -87,12 +88,12 @@ let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
             fullName = ext.FullName || fullName.StartsWith ext.FullName)
         |> function
             | Some (Fabel.ImportModule (ns, modName)) ->
-                Some (com.GetImport modName)
+                Some (com.GetImport ctx modName)
                 |> makeExpr (getDiff ns fullName)
             | Some (Fabel.GlobalModule ns) ->
                 makeExpr (getDiff ns fullName) None
             | None when ctx.file <> file.FileName ->
-                Some (com.GetImport file.FileName)
+                Some (com.GetImport ctx file.FileName)
                 |> makeExpr (getDiff file.RootFullName fullName)
             | None ->
                 makeExpr (getDiff ctx.moduleFullName fullName) None
@@ -384,8 +385,6 @@ let rec private transformModDecls com ctx modIdent decls = seq {
     }
     
 let makeCompiler (com: ICompiler) (files: Fabel.File list) =
-    let imports =
-        System.Collections.Generic.Dictionary<string, string>()
     let fileMap =
         files |> Seq.map (fun f -> f.FileName, f) |> Map.ofSeq
     { new IBabelCompiler with
@@ -393,13 +392,13 @@ let makeCompiler (com: ICompiler) (files: Fabel.File list) =
             Map.tryFind fileName fileMap
             |> function Some file -> file
                       | None -> failwithf "File not parsed: %s" fileName
-        member bcom.GetImport moduleName =
-            match imports.TryGetValue moduleName with
+        member bcom.GetImport ctx moduleName =
+            match ctx.imports.TryGetValue moduleName with
             | true, import ->
                 upcast Babel.Identifier import
             | false, _ ->
-                let import = Naming.getImportModuleIdent imports.Count
-                imports.Add(moduleName, import)
+                let import = Naming.getImportModuleIdent ctx.imports.Count
+                ctx.imports.Add(moduleName, import)
                 upcast Babel.Identifier import
         member bcom.TransformExpr ctx e = transformExpr bcom ctx e
         member bcom.TransformStatement ctx e = transformStatement bcom ctx e
@@ -412,8 +411,15 @@ let transformFiles (com: ICompiler) (files: Fabel.File list): Babel.Program list
     files |> List.choose (fun file ->
         match file.Root with
         | Some (Fabel.EntityDeclaration (root, decls)) ->
-            let ctx = { file = file.FileName; moduleFullName = root.FullName }
-            let rootIdent = Babel.Identifier Naming.rootModuleIdent
+            for decl in decls do
+                printfn "%A" decl
+            let ctx = {
+                file = file.FileName
+                moduleFullName = root.FullName
+                imports = System.Collections.Generic.Dictionary<_,_>()
+            }
+            let rootIdent =
+                Babel.Identifier Naming.rootModuleIdent
             let rootHead = [
                 // export default $M0;
                 varDeclaration None rootIdent (Babel.ObjectExpression [])

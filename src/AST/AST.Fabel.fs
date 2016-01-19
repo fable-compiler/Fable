@@ -53,6 +53,7 @@ and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
     static member CreateRootModule fileName =
         Entity (Module, Some fileName, "", [], [], true)
+    override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
     | ActionDeclaration of Expr
@@ -71,6 +72,7 @@ and Member(kind, func, decorators, isPublic, isStatic) =
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
     member x.IsStatic: bool = isStatic
+    override x.ToString() = sprintf "%A" kind
     
 and ExternalEntity =
     | ImportModule of fullName: string * moduleName: string
