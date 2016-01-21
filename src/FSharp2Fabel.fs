@@ -335,28 +335,38 @@ let rec private transformExpr com ctx fsExpr =
 
 type private DeclInfo() =
     let mutable child: Fabel.Entity option = None
-    member val decls = ResizeArray<Fabel.Declaration>()
-    member val childDecls = ResizeArray<Fabel.Declaration>()
-    member val extMods = ResizeArray<Fabel.ExternalEntity>()
+    let decls = ResizeArray<Fabel.Declaration>()
+    let childDecls = ResizeArray<Fabel.Declaration>()
+    let extMods = ResizeArray<Fabel.ExternalEntity>()
     // The F# compiler considers class methods as children of the enclosing module, correct that
     member self.AddMethod (meth: FSharpMemberOrFunctionOrValue, methDecl: Fabel.Declaration) =
         let methParentFullName =
             sanitizeEntityName meth.EnclosingEntity.FullName
         match child with
         | Some x when x.FullName = methParentFullName ->
-            self.childDecls.Add methDecl
-        | _ -> self.decls.Add methDecl
+            childDecls.Add methDecl
+        | _ ->
+            self.ClearChild ()
+            decls.Add methDecl
+    member self.AddInitAction (actionDecl: Fabel.Declaration) =
+        self.ClearChild ()
+        decls.Add actionDecl
+    member self.AddExternalModule extMod =
+        extMods.Add extMod
     member self.ClearChild () =
         if child.IsSome then
-            Fabel.EntityDeclaration (child.Value, List.ofSeq self.childDecls)
-            |> self.decls.Add
+            Fabel.EntityDeclaration (child.Value, List.ofSeq childDecls)
+            |> decls.Add
         child <- None
-        self.childDecls.Clear ()
-    member self.AddChild (newChild, childDecls, childExtMods) =
+        childDecls.Clear ()
+    member self.AddChild (newChild, newChildDecls, childExtMods) =
         self.ClearChild ()
         child <- Some newChild
-        self.childDecls.AddRange childDecls
-        self.extMods.AddRange childExtMods
+        childDecls.AddRange newChildDecls
+        extMods.AddRange childExtMods
+    member self.GetDeclarationsAndExternalModules () =
+        self.ClearChild ()
+        List.ofSeq decls, List.ofSeq extMods        
     
 let private transformMemberDecl
     (com: IFabelCompiler) ctx (declInfo: DeclInfo) (meth: FSharpMemberOrFunctionOrValue)
@@ -409,13 +419,13 @@ let rec private transformEntityDecl
     match ent with
     | WithAttribute "Global" _ ->
         Fabel.GlobalModule ent.FullName
-        |> declInfo.extMods.Add
+        |> declInfo.AddExternalModule
         declInfo
     | WithAttribute "Import" args ->
         match args with
         | [:? string as modName] ->
             Fabel.ImportModule(ent.FullName, modName)
-            |> declInfo.extMods.Add
+            |> declInfo.AddExternalModule
             declInfo
         | _ -> failwith "Import attributes must have a single string argument"
     | WithAttribute "Erase" _ | AbstractEntity _ ->
@@ -435,10 +445,9 @@ and private transformDeclarations (com: IFabelCompiler) ctx decls =
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                 transformMemberDecl com ctx declInfo meth args body
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx expr) ->
-                declInfo.decls.Add(Fabel.ActionDeclaration expr); declInfo
+                declInfo.AddInitAction (Fabel.ActionDeclaration expr); declInfo
         ) (DeclInfo())
-    declInfo.ClearChild ()
-    List.ofSeq declInfo.decls, List.ofSeq declInfo.extMods
+    declInfo.GetDeclarationsAndExternalModules ()
         
 let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
     let emptyContext parent = {
