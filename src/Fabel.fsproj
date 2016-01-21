@@ -17,13 +17,14 @@
     <DebugSymbols>true</DebugSymbols>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>..\build</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Debug\Fabel.XML</DocumentationFile>
+    <DocumentationFile>..\build\Fabel.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <Commandlineparameters>/Users/alfonsogarciacaronunez/Documents/Github/fabel/temp/Test.fsx</Commandlineparameters>
+    <StartArguments>../temp/Test.fsx</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>

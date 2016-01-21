@@ -203,7 +203,7 @@ let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
         failwithf "Sequence when single statement expected in %A: %A" expr.Range expr 
 
     // Expressions become ExpressionStatements
-    | Fabel.Value _ | Fabel.Get _ | Fabel.Apply _ | Fabel.Lambda _ | Fabel.Operation _ ->
+    | Fabel.Value _ | Fabel.Get _ | Fabel.Apply _ | Fabel.Lambda _ ->
         upcast Babel.ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range)
 
 let private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
@@ -233,21 +233,23 @@ let private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
                     else typEnt.FullName
                 typeRef com ctx typEnt.File typFullName
             | _ -> failwithf "Not supported type reference: %A" typ
+        | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _ ->
+            failwithf "Unexpected stand-alone operation: %A" expr
 
-    | Fabel.Operation op ->
-        match op with
-        | Fabel.Logical (op, left, right) ->
-            failwith "TODO"
-        | Fabel.Unary (op, (TransformExpr com ctx operand as expr)) ->
+    | Fabel.Apply (callee, args, isPrimaryConstructor) ->
+        match callee.Kind, args with
+        | Fabel.Value (Fabel.LogicalOp op), [left; right] ->
+            failwith "TODO: Logical operations"
+        | Fabel.Value (Fabel.UnaryOp op), [TransformExpr com ctx operand as expr] ->
             upcast Babel.UnaryExpression (op, operand, ?loc=expr.Range)
-        | Fabel.Binary (op, TransformExpr com ctx left, TransformExpr com ctx right) ->
+        | Fabel.Value (Fabel.BinaryOp op), [TransformExpr com ctx left; TransformExpr com ctx right] ->
             upcast Babel.BinaryExpression (op, left, right, ?loc=expr.Range)
-
-    | Fabel.Apply (TransformExpr com ctx callee, args, isPrimaryConstructor) ->
-        let args = args |> List.map (com.TransformExpr ctx >> U2<_,_>.Case1)
-        if isPrimaryConstructor
-        then upcast Babel.NewExpression (callee, args, ?loc=expr.Range)
-        else upcast Babel.CallExpression (callee, args, ?loc=expr.Range)
+        | _ ->
+            let callee = com.TransformExpr ctx callee
+            let args = args |> List.map (com.TransformExpr ctx >> U2<_,_>.Case1)
+            if isPrimaryConstructor
+            then upcast Babel.NewExpression (callee, args, ?loc=expr.Range)
+            else upcast Babel.CallExpression (callee, args, ?loc=expr.Range)
 
     | Fabel.Lambda (args, body, kind, restParams) ->
         funcArrow com ctx expr.Range args restParams body kind

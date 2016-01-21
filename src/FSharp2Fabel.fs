@@ -98,7 +98,7 @@ let rec private transformExpr com ctx fsExpr =
     | BasicPatterns.LetRec(recursiveBindings, body) ->
         let newContext, idents =
             recursiveBindings
-            |> Seq.foldBack (fun (var, _) (accContext, accIdents) ->
+            |> List.foldBack (fun (var, _) (accContext, accIdents) ->
                 let (BindIdent com accContext (newContext, ident)) = var
                 newContext, (ident::accIdents)) <| (ctx, [])
         let assignments =
@@ -256,13 +256,15 @@ let rec private transformExpr com ctx fsExpr =
                 let typ = makeType com unionCase.UnionCaseFields.[0].FieldType
                 makeTypeTest typ unionExpr
         | OptionUnion | ListUnion ->
-            let op = if (unionCase.Name = "None" || unionCase.Name = "Empty") then BinaryEqual else BinaryUnequal
-            Fabel.Binary (op, unionExpr, Fabel.Value Fabel.Null |> Fabel.Expr)
-            |> Fabel.Operation
+            let opKind =
+                if (unionCase.Name = "None" || unionCase.Name = "Empty")
+                then BinaryEqual
+                else BinaryUnequal
+            makeBinOp opKind unionExpr (Fabel.Value Fabel.Null |> Fabel.Expr)
         | OtherType ->
-            Fabel.Binary (BinaryEqualStrict,
-                Fabel.Get (unionExpr, makeLiteral "Tag") |> Fabel.Expr,
-                makeLiteral unionCase.Name) |> Fabel.Operation
+            let left = Fabel.Get (unionExpr, makeLiteral "Tag") |> Fabel.Expr
+            let right = makeLiteral unionCase.Name
+            makeBinOp BinaryEqualStrict left right
         |> makeExpr com ctx fsExpr
 
     (** Pattern Matching *)
@@ -303,14 +305,14 @@ let rec private transformExpr com ctx fsExpr =
             targetRefsCount
             |> Map.filter (fun k v -> v > 1)
             |> Map.fold (fun acc k v ->
-                let decTargetVars, decTargetExpr = List.item k decisionTargets
+                let decTargetVars, decTargetExpr = decisionTargets.[k]
                 let lambda = makeLambda com ctx None decTargetVars decTargetExpr
-                let ident = makeSanitizedIdent ctx lambda.Type (sprintf "$target%i" k)
+                let ident = makeSanitizedIdent ctx lambda.Type (sprintf "target%i" k)
                 Map.add k (ident, lambda) acc) (Map.empty<_,_>)
         let decisionTargets =
             targetRefsCount |> Map.map (fun k v ->
                 match v with
-                | 1 -> TargetImpl (List.item k decisionTargets)
+                | 1 -> TargetImpl decisionTargets.[k]
                 | _ -> TargetRef (fst assignments.[k]))
         let newContext = { ctx with decisionTargets = decisionTargets }
         if assignments.Count = 0 then
@@ -374,7 +376,7 @@ let private transformMemberDecl
             elif meth.IsPropertySetterMethod then Fabel.Setter name
             else Fabel.Method name
     let ctx, args =
-        let args = if meth.IsInstanceMember then List.skip 1 args else args
+        let args = if meth.IsInstanceMember then Seq.skip 1 args |> Seq.toList else args
         match args with
         | [] -> ctx, []
         | [[singleArg]] ->
@@ -382,7 +384,7 @@ let private transformMemberDecl
             | Fabel.PrimitiveType Fabel.Unit -> ctx, []
             | _ -> let (BindIdent com ctx (ctx, arg)) = singleArg in ctx, [arg]
         | _ ->
-            Seq.foldBack (fun tupledArg (accContext, accArgs) ->
+            List.foldBack (fun tupledArg (accContext, accArgs) ->
                 match tupledArg with
                 | [] -> failwith "Unexpected empty tupled in curried arguments"
                 | [nonTupledArg] ->

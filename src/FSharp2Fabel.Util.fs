@@ -222,10 +222,9 @@ module Types =
     and makeType (com: IFabelCompiler) (NonAbbreviatedType t) =
         if t.IsGenericParameter then Fabel.UnknownType else
         let rec countFuncArgs (fn: FSharpType) =
-            if not fn.IsFunctionType then 1 else
-            fn.GenericArguments
-            |> Seq.fold (fun (acc: int) x -> acc + (countFuncArgs fn)) 0
-            |> (-) <| 1
+            if fn.IsFunctionType
+            then countFuncArgs (Seq.last fn.GenericArguments) + 1
+            else 0
         if t.IsTupleType then Fabel.DynamicArray true |> Some
         elif t.IsFunctionType then Fabel.Function (countFuncArgs t) |> Some
         else None
@@ -258,6 +257,13 @@ module Identifiers =
         | Some (_,fabelName) -> Fabel.IdentifierExpr (fabelName, makeType com fsRef.FullType)
         | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
 
+    let (|GetOrBindIdent|) com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
+        ctx.scope
+        |> List.tryFind (fun (fsName,_) -> fsName = fsRef.DisplayName)
+        |> function
+        | Some (_,fabelName) -> Fabel.IdentifierExpr (fabelName, makeType com fsRef.FullType)
+        | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
+
     /// sanitizeEntityName F# identifier and create new context
     let (|BindIdent|) com ctx (fsRef: FSharpMemberOrFunctionOrValue) =
         let newContext, sanitizedIdent = sanitizeIdent ctx fsRef.DisplayName
@@ -266,6 +272,13 @@ module Identifiers =
 let makeExpr com (ctx: Context) (fsExpr: FSharpExpr) kind =
     let (FabelType com typ, Range range) = fsExpr.Type, fsExpr.Range
     Fabel.Expr (kind, typ, range)
+
+let makeLogOp, makeBinOp, makeUnOp =
+    let makeOp op args =
+        Fabel.Apply (op |> Fabel.Value |> Fabel.Expr, args, false)
+    (fun op left right -> makeOp (Fabel.LogicalOp op) [left; right]),
+    (fun op left right -> makeOp (Fabel.BinaryOp op) [left; right]),
+    (fun op operand -> makeOp (Fabel.UnaryOp op) [operand])
 
 let rec makeSequential statements =
     match statements with
@@ -280,7 +293,7 @@ let rec makeSequential statements =
         | _ ->
             match rest with
             | [ExprKind (Fabel.Sequential statements)] -> makeSequential (first::statements)
-            | _ -> Fabel.Expr (Fabel.Sequential statements, (List.last statements).Type)
+            | _ -> Fabel.Expr (Fabel.Sequential statements, (Seq.last statements).Type)
 
 let makeTypeRef typ =
     Fabel.Expr (Fabel.Value (Fabel.TypeRef typ))
@@ -309,14 +322,24 @@ let makeConst (value: obj) =
 
 let makeLiteral (value: obj) = makeConst value |> Fabel.Expr
 
-let makeLambdaArgs com ctx vars =
-    List.foldBack (fun var (accContext, accArgs) ->
+let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
+    let isUnitVar =
+        match vars with
+        | [var] ->
+            match makeType com var.FullType with
+            | Fabel.PrimitiveType Fabel.Unit -> true
+            | _ -> false
+        | _ -> false
+    if isUnitVar
+    then ctx, []
+    else List.foldBack (fun var (accContext, accArgs) ->
         let (BindIdent com accContext (newContext, arg)) = var
         newContext, arg::accArgs) vars (ctx, [])
 
-let makeLambda com ctx range vars (Transform com ctx body) =
+let makeLambda (com: IFabelCompiler) ctx range vars body =
     let range = match range with Some (Range r) -> Some r | None -> None
-    let newContext, args = makeLambdaArgs com ctx vars
+    let ctx, args = makeLambdaArgs com ctx vars
+    let body = com.Transform ctx body
     let args, body =
         match body.Kind with
         | Fabel.Lambda (args', body, Fabel.Immediate, false) -> args@args', body
@@ -347,22 +370,21 @@ let makeCoreCall modName (methName: string) args =
 
 let makeTypeTest (typ: Fabel.Type) expr =
     let checkType expr (primitiveType: string) =
-        Fabel.Binary (BinaryEqualStrict,
-            Fabel.Unary (UnaryTypeof, expr) |> Fabel.Operation |> Fabel.Expr,
-            makeLiteral primitiveType) |> Fabel.Operation
+        makeBinOp BinaryEqualStrict (makeUnOp UnaryTypeof expr |> Fabel.Expr)
+                                    (makeLiteral primitiveType)
     match typ with
     | Fabel.PrimitiveType kind ->
         match kind with
         | Fabel.String _ -> checkType expr "string"
         | Fabel.Number _ -> checkType expr "number"
         | Fabel.Boolean -> checkType expr "boolean"
-        | Fabel.Unit -> Fabel.Binary (BinaryEqual, expr, Fabel.Value Fabel.Null |> Fabel.Expr)
-                        |> Fabel.Operation
+        | Fabel.Unit ->
+            makeBinOp BinaryEqual expr (Fabel.Value Fabel.Null |> Fabel.Expr)
         | _ -> failwithf "Unsupported type test: %A" typ
     | Fabel.DeclaredType typEnt ->
         match typEnt.Kind with
         | Fabel.Interface -> makeCoreCall "Util" "hasInterface" [makeLiteral typEnt.FullName]
-        | _ -> Fabel.Binary (BinaryInstanceOf, expr, makeTypeRef typ) |> Fabel.Operation
+        | _ -> makeBinOp BinaryInstanceOf expr (makeTypeRef typ)
     | _ -> failwithf "Unsupported type test in: %A" typ
 
 let makeGetApply expr methName args =
@@ -370,7 +392,6 @@ let makeGetApply expr methName args =
     Fabel.Apply (expr, args, false)
 
 let makeApply ctx (expr: Fabel.Expr) (args: Fabel.Expr list) =
-    let apply expr args = Fabel.Apply (expr, args, false)
     match expr with
     // Optimize id lambdas applied right away, as in `x |> unbox`
     | ExprKind (Fabel.Lambda ([lambdaArg], (:? Fabel.IdentifierExpr as identExpr), Fabel.Immediate, false))
@@ -381,18 +402,17 @@ let makeApply ctx (expr: Fabel.Expr) (args: Fabel.Expr list) =
     | ExprType (Fabel.PrimitiveType (Fabel.Function fnArgCount)) when fnArgCount > args.Length ->
         let lambdaArgs =
             [for i=1 to (fnArgCount - args.Length)
-                do yield makeSanitizedIdent ctx Fabel.UnknownType (sprintf "i%i" i)]
-        Fabel.Lambda (lambdaArgs,
-            apply expr (args @ (lambdaArgs |> List.map unbox)) |> Fabel.Expr,
-            Fabel.Immediate, false)
+                do yield makeSanitizedIdent ctx Fabel.UnknownType (sprintf "a%i" i)]
+        let apply = Fabel.Apply (expr, args @ (lambdaArgs |> List.map unbox), false) |> Fabel.Expr
+        Fabel.Lambda (lambdaArgs, apply, Fabel.Immediate, false)
     // Flatten nested curried applications as it happens in pipelines: e.g., (fun x -> fnCall 2 x) 3
     | ExprKind (Fabel.Lambda (lambdaArgs,
-                    ExprKind (Fabel.Apply (nestedExpr, nestedArgs, _)),
+                    ExprKind (Fabel.Apply (nestedExpr, nestedArgs, isCons)),
                     Fabel.Immediate, false)) ->
         match nestedArgs with
-        | ReplaceArgs (List.zip lambdaArgs args) nestedArgs -> apply nestedExpr nestedArgs
-        | _ -> apply expr args
-    | _ -> apply expr args
+        | ReplaceArgs (List.zip lambdaArgs args) nestedArgs -> Fabel.Apply (nestedExpr, nestedArgs, isCons)
+        | _ -> Fabel.Apply (expr, args, isCons)
+    | _ -> Fabel.Apply (expr, args, false)
 
 let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
     if meth.CurriedParameterGroups.Count <> 1 then false else

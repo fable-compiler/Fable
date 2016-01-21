@@ -97,15 +97,19 @@ module private AstPass =
 
     let unaryOp op arg =
         checkType [arg] (fun () ->
-            Fabel.Unary (op, arg) |> Fabel.Operation)
+            let op = Fabel.UnaryOp op |> Fabel.Value |> Fabel.Expr
+            Fabel.Apply (op, [arg], false))
 
     let binaryOp op left right =
         checkType [left; right] (fun () ->
-            Fabel.Binary (op, left, right) |> Fabel.Operation)
+            let op = Fabel.BinaryOp op |> Fabel.Value |> Fabel.Expr
+            Fabel.Apply (op, [left; right], false))
+
 
     let logicalOp op left right =
         checkType [left; right] (fun () ->
-            Fabel.Logical (op, left, right) |> Fabel.Operation)
+            let op = Fabel.LogicalOp op |> Fabel.Value |> Fabel.Expr
+            Fabel.Apply (op, [left; right], false))
         
     // TODO: Check primitive args also here?
     let math methName args =
@@ -113,9 +117,12 @@ module private AstPass =
 
     let operators methName callee args =
         match methName, (callee, args) with
-        // F# Compiler converts all logical operations to IfThenElse expressions
-        // | "&&", TwoArgs (x, y) -> logicalOp LogicalAnd x y
-        // | "||", TwoArgs (x, y) -> logicalOp LogicalOr x y
+        // F# Compiler actually converts all logical operations to IfThenElse expressions
+        | "&&", TwoArgs (x, y) -> logicalOp LogicalAnd x y
+        | "||", TwoArgs (x, y) -> logicalOp LogicalOr x y
+        // TODO: If we're comparing against null, we should use non-strict equality
+        | "<>", TwoArgs (x, y) -> binaryOp BinaryUnequalStrict x y
+        | "=", TwoArgs (x, y) -> binaryOp BinaryEqualStrict x y
         | "+", TwoArgs (x, y) -> binaryOp BinaryPlus x y
         | "-", TwoArgs (x, y) -> binaryOp BinaryMinus x y
         | "*", TwoArgs (x, y) -> binaryOp BinaryMultiply x y
@@ -158,7 +165,9 @@ module private AstPass =
         | "add" | "Add" -> Instance "set"
         | "containsKey" | "ContainsKey" -> Instance "has"
         | "Count" -> Getter "size"
-        | "isEmpty" | "IsEmpty" -> Inline (Fabel.Unary (UnaryNot, Option.get callee) |> Fabel.Operation)
+        | "isEmpty" | "IsEmpty" ->
+            let op = Fabel.UnaryOp UnaryNot |> Fabel.Value |> Fabel.Expr
+            Fabel.Apply (op, [Option.get callee], false) |> Inline
         | "Item" -> Instance "get"
         | "Remove" -> Instance "delete"
         | "tryFind"

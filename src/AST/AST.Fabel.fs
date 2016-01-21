@@ -92,7 +92,7 @@ and File(fileName, root, external) =
     
 (** ##Expressions *)
 and LambdaKind = Immediate | Async | Generator
-    
+
 and ValueKind =
     | This
     | Super
@@ -106,6 +106,9 @@ and ValueKind =
     | BoolConst of bool
     | RegexConst of source:string * flags: RegexFlag list
     | ArrayConst of Expr list
+    | UnaryOp of UnaryOperator
+    | BinaryOp of BinaryOperator
+    | LogicalOp of LogicalOperator
     | ObjExpr of string list // TODO
     
 and LoopKind =
@@ -113,15 +116,9 @@ and LoopKind =
     | For of ident: IdentifierExpr * start: Expr * limit: Expr * body: Expr * isUp: bool
     | ForOf of ident: IdentifierExpr * enumerable: Expr * body: Expr
     
-and OperationKind =
-    | Unary of UnaryOperator * Expr
-    | Binary of operator: BinaryOperator * left: Expr * right: Expr
-    | Logical of operator: LogicalOperator * left: Expr * right: Expr
-
 and ExprKind =
     // Pure Expressions
     | Value of ValueKind
-    | Operation of OperationKind
     | Get of callee: Expr * property: Expr
     | Apply of callee: Expr * args: Expr list * isPrimaryConstructor: bool
     | Lambda of args: IdentifierExpr list * body: Expr * kind: LambdaKind * restParams: bool 
