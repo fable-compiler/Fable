@@ -21,8 +21,10 @@ type PrimitiveTypeKind =
 
 and Type =
     | UnknownType
+    | CoreType of modName: string * className: string option
     | DeclaredType of Entity
     | PrimitiveType of PrimitiveTypeKind
+    | MetaType of Type
 
 (** ##Entities *)
 and EntityLocation = { file: string; fullName: string }
@@ -34,10 +36,11 @@ and EntityKind =
     | Record    
     | Interface
 
-and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
+and Entity(kind, file, fullName, range, interfaces, decorators, isPublic) =
     member x.Kind: EntityKind = kind
     member x.File: string option = file
     member x.FullName: string = fullName
+    member x.Range: SourceLocation = range
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
@@ -52,7 +55,11 @@ and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
     member x.HasDecoratorNamed decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
     static member CreateRootModule fileName =
-        Entity (Module, Some fileName, "", [], [], true)
+        let line, col =
+            System.IO.File.ReadLines fileName
+            |> Seq.fold (fun (line, _) str -> line + 1, str.Length) (0,0)
+        let range = { start={line=1; column=0}; ``end``={line=line; column=col-1}}
+        Entity (Module, Some fileName, "", range, [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
@@ -66,8 +73,9 @@ and MemberKind =
     | Getter of name: string
     | Setter of name: string
 
-and Member(kind, func, decorators, isPublic, isStatic) =
+and Member(kind, range, func, decorators, isPublic, isStatic) =
     member x.Kind: MemberKind = kind
+    member x.Range: SourceLocation = range
     member x.Function: LambdaExpr = func
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
@@ -131,20 +139,20 @@ and ExprKind =
     | TryCatch of body: Expr * catch: (IdentifierExpr * Expr) option * finalizers: Expr list
     | VarDeclaration of var: IdentifierExpr * value: Expr * isMutable: bool
 
-and Expr (kind, ?typ, ?range) =
+and Expr (kind, typ, range) =
     member x.Kind: ExprKind = kind
-    member x.Type: Type = defaultArg typ Type.UnknownType
-    member x.Range: SourceLocation option = range
+    member x.Type: Type = typ
+    member x.Range: SourceLocation = range
     member x.Children: Expr list =
         match x.Kind with
         | _ -> failwith "Not implemented"
 
-and IdentifierExpr (name, ?typ, ?range) =
-    inherit Expr (Value (Identifier name), ?typ=typ, ?range=range)
+and IdentifierExpr (name, typ, range) =
+    inherit Expr (Value (Identifier name), typ, range)
     member x.Name = name
     
-and LambdaExpr (args, body, kind, restParams, ?typ, ?range) =
-    inherit Expr (Lambda (args, body, kind, restParams), ?typ=typ, ?range=range)
+and LambdaExpr (args, body, kind, restParams, typ, range) =
+    inherit Expr (Lambda (args, body, kind, restParams), typ, range)
     member __.Arguments = args
     member __.Body = body
     member __.Kind = kind

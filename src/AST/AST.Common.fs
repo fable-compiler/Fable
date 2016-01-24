@@ -8,9 +8,14 @@ type EraseAttribute() = inherit System.Attribute()
 /// Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
 type Position =
     { line: int; column: int; }
+    static member Empty = { line = 1; column = 0 }
 
 type SourceLocation =
     { (*source: string option;*) start: Position; ``end``: Position; }
+    static member (+) (r1: SourceLocation, r2: SourceLocation) =
+        { start = r1.start; ``end`` = r2.``end`` }
+    static member Empty =
+        { start = Position.Empty; ``end`` = Position.Empty }
 
 type NumberKind =
     | Int8 | UInt8 | UInt8Clamped | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64

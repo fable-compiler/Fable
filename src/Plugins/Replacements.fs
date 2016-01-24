@@ -15,33 +15,48 @@ module private Util =
 
     let (|Split|) splitter (str: string) = str.Split ([|splitter|])
 
-    let astOnlyExpr kind =
-        Fabel.Expr (kind, Fabel.UnknownType)
+    let makeExpr range typ kind =
+        Fabel.Expr (kind, typ, range)
+        
+    let makeFnType args =
+        List.length args |> Fabel.Function |> Fabel.PrimitiveType
 
-    let ident name =
-        Fabel.Identifier name |> Fabel.Value |> astOnlyExpr
+    let ident range name =
+        Fabel.Identifier name |> Fabel.Value |> makeExpr range Fabel.UnknownType
 
-    let literal str =
-        Fabel.StringConst str |> Fabel.Value |> astOnlyExpr
+    let literal range str =
+        let typ = Fabel.PrimitiveType (Fabel.String false)
+        Fabel.StringConst str |> Fabel.Value |> makeExpr range typ
     
-    let jsCoreLibCall modName methName args =
-        Fabel.Apply (Fabel.Get (ident modName, literal methName) |> astOnlyExpr, args, false)
+    let jsCoreLibCall range modName methName args =
+        let get =
+            Fabel.Get (ident range modName, literal range methName)
+            |> makeExpr range (makeFnType args)
+        Fabel.Apply (get, args, false)
 
-    let fabelCoreLibCall modName methName args =
-        Fabel.Apply (Fabel.Get (Fabel.Value (Fabel.CoreModule (modName)) |> astOnlyExpr,
-                        literal methName) |> astOnlyExpr, args, false)
+    let fabelCoreLibCall range modName methName args =
+        let get =
+            let value =
+                Fabel.Value (Fabel.CoreModule (modName))
+                |> makeExpr range Fabel.UnknownType
+            Fabel.Get (value, literal range methName)
+            |> makeExpr range (makeFnType args)
+        Fabel.Apply (get, args, false)
 
-    let instanceCall methName (callee, args) =
-        Fabel.Apply (Fabel.Get (callee, literal methName) |> astOnlyExpr, args, false)
+    let instanceCall range methName (callee, args) =
+        let get =
+            Fabel.Get (callee, literal range methName)
+            |> makeExpr range (makeFnType args)
+        Fabel.Apply (get, args, false)
 
-    let getter propertyName (callee, args) =
+    let getter range propertyName (callee, args) =
         match args with
-        | [] -> Fabel.Get (callee, literal propertyName)
+        | [] -> Fabel.Get (callee, literal range propertyName)
         | _ -> failwith "No argument expected for getter"
 
-    let setter propertyName (callee, args) =
+    let setter range propertyName (callee, args) =
         match args with
-        | [value] -> Fabel.Set (callee, Some (literal propertyName), value)
+        | [value] -> Fabel.Set (callee, Some (literal range propertyName), value)
         | _ -> failwith "Single argument expected for setter"
         
     let instanceArgs (callee: Fabel.Expr option) (args: Fabel.Expr list) =
@@ -54,7 +69,6 @@ module private Util =
         | Some callee -> callee::args
         | None -> args
 
-
 module private AstPass =
     open Util
     
@@ -64,12 +78,12 @@ module private AstPass =
         | Inline of Fabel.ExprKind
         | NoMapping
         
-    let mapMethod callee args = function
-        | Instance name -> instanceCall name (instanceArgs callee args) |> Solved
-        | CoreLib (lib, name) -> fabelCoreLibCall lib name (staticArgs callee args) |> Solved
-        | JSLib (lib, name) -> jsCoreLibCall lib name (staticArgs callee args) |> Solved
-        | Getter name -> getter name (instanceArgs callee args) |> Solved
-        | Setter name -> setter name (instanceArgs callee args) |> Solved
+    let mapMethod range callee args = function
+        | Instance name -> instanceCall range name (instanceArgs callee args) |> Solved
+        | CoreLib (lib, name) -> fabelCoreLibCall range lib name (staticArgs callee args) |> Solved
+        | JSLib (lib, name) -> jsCoreLibCall range lib name (staticArgs callee args) |> Solved
+        | Getter name -> getter range name (instanceArgs callee args) |> Solved
+        | Setter name -> setter range name (instanceArgs callee args) |> Solved
         | Inline exprKind -> Solved exprKind
         | NoMapping -> Untouched        
     
@@ -92,81 +106,109 @@ module private AstPass =
                 successContinuation () |> Solved
             | Fabel.Function _ | Fabel.DynamicArray _ | Fabel.TypedArray _ ->
                 failwith "TODO: Custom operators to add function, tuples or arrays?" 
-        | Fabel.DeclaredType typ ->
-            Partial (typ.FullName, failwith "TODO: Method name for non-primitive operators", args)
+        | Fabel.DeclaredType _
+        | Fabel.CoreType _
+        | Fabel.MetaType _ ->
+            // Partial (typ.FullName, failwith "TODO", args)
+            failwith "TODO: Non-primitive operator replacements"
 
-    let unaryOp op arg =
+    let unaryOp range op (arg: Fabel.Expr) =
         checkType [arg] (fun () ->
-            let op = Fabel.UnaryOp op |> Fabel.Value |> Fabel.Expr
+            let typ =
+                match op with
+                | UnaryMinus | UnaryPlus | UnaryNotBitwise ->
+                    arg.Type
+                | UnaryNot -> Fabel.PrimitiveType Fabel.Boolean
+                | UnaryTypeof | UnaryVoid | UnaryDelete ->
+                    failwith "Unexpected unary operator"
+            let op =
+                Fabel.UnaryOp op |> Fabel.Value
+                |> makeExpr range typ
             Fabel.Apply (op, [arg], false))
 
-    let binaryOp op left right =
+    let binaryOp range op (left: Fabel.Expr) right =
         checkType [left; right] (fun () ->
-            let op = Fabel.BinaryOp op |> Fabel.Value |> Fabel.Expr
+            let typ =
+                match op with
+                | BinaryEqual | BinaryEqualStrict | BinaryUnequal | BinaryUnequalStrict
+                | BinaryLess | BinaryLessOrEqual | BinaryMore | BinaryMoreOrEqual ->
+                    Fabel.PrimitiveType Fabel.Boolean
+                | BinaryShiftLeft | BinaryShiftRightSignPropagating | BinaryShiftRightZeroFill
+                | BinaryMinus | BinaryPlus | BinaryMultiply | BinaryDivide | BinaryModulus | BinaryExponent
+                | BinaryOrBitwise | BinaryXorBitwise | BinaryAndBitwise ->
+                    left.Type
+                | BinaryIn | BinaryInstanceOf ->
+                    failwith "Unexpected binary operator"
+            let op =
+                Fabel.BinaryOp op |> Fabel.Value
+                |> makeExpr range typ
             Fabel.Apply (op, [left; right], false))
 
-
-    let logicalOp op left right =
+    let logicalOp range op left right =
         checkType [left; right] (fun () ->
-            let op = Fabel.LogicalOp op |> Fabel.Value |> Fabel.Expr
+            let op =
+                Fabel.LogicalOp op |> Fabel.Value
+                |> makeExpr range (Fabel.PrimitiveType Fabel.Boolean)
             Fabel.Apply (op, [left; right], false))
         
     // TODO: Check primitive args also here?
-    let math methName args =
-        jsCoreLibCall "Math" methName args |> Solved
+    let math range methName args =
+        jsCoreLibCall range "Math" methName args |> Solved
 
-    let operators methName callee args =
+    let operators range methName callee args =
         match methName, (callee, args) with
         // F# Compiler actually converts all logical operations to IfThenElse expressions
-        | "&&", TwoArgs (x, y) -> logicalOp LogicalAnd x y
-        | "||", TwoArgs (x, y) -> logicalOp LogicalOr x y
+        | "&&", TwoArgs (x, y) -> logicalOp range LogicalAnd x y
+        | "||", TwoArgs (x, y) -> logicalOp range LogicalOr x y
         // TODO: If we're comparing against null, we should use non-strict equality
-        | "<>", TwoArgs (x, y) -> binaryOp BinaryUnequalStrict x y
-        | "=", TwoArgs (x, y) -> binaryOp BinaryEqualStrict x y
-        | "+", TwoArgs (x, y) -> binaryOp BinaryPlus x y
-        | "-", TwoArgs (x, y) -> binaryOp BinaryMinus x y
-        | "*", TwoArgs (x, y) -> binaryOp BinaryMultiply x y
-        | "/", TwoArgs (x, y) -> binaryOp BinaryDivide x y
-        | "%", TwoArgs (x, y) -> binaryOp BinaryModulus x y
-        | "<<<", TwoArgs (x, y) -> binaryOp BinaryShiftLeft x y
-        | ">>>", TwoArgs (x, y) -> binaryOp BinaryShiftRightSignPropagating x y
-        | "&&&", TwoArgs (x, y) -> binaryOp BinaryAndBitwise x y
-        | "|||", TwoArgs (x, y) -> binaryOp BinaryOrBitwise x y
-        | "^^^", TwoArgs (x, y) -> binaryOp BinaryXorBitwise x y
-        | "~~~", OneArg x -> unaryOp UnaryNotBitwise x
-        | "not", OneArg x -> unaryOp UnaryNot x
-        | "abs", _ -> math "abs" args
-        | "acos", _ -> math "acos" args
-        | "asin", _ -> math "asin" args
-        | "atan", _ -> math "atan" args
-        | "atan2", _ -> math "atan2" args
-        | "ceil", _ -> math "ceil" args
-        | "cos", _ -> math "cos" args
-        | "exp", _ -> math "exp" args
-        | "floor", _ -> math "floor" args
-        | "log", _ -> math "log" args
-        | "log10", _ -> math "LN10" args
+        | "<>", TwoArgs (x, y) -> binaryOp range BinaryUnequalStrict x y
+        | "=", TwoArgs (x, y) -> binaryOp range BinaryEqualStrict x y
+        | "+", TwoArgs (x, y) -> binaryOp range BinaryPlus x y
+        | "-", TwoArgs (x, y) -> binaryOp range BinaryMinus x y
+        | "*", TwoArgs (x, y) -> binaryOp range BinaryMultiply x y
+        | "/", TwoArgs (x, y) -> binaryOp range BinaryDivide x y
+        | "%", TwoArgs (x, y) -> binaryOp range BinaryModulus x y
+        | "<<<", TwoArgs (x, y) -> binaryOp range BinaryShiftLeft x y
+        | ">>>", TwoArgs (x, y) -> binaryOp range BinaryShiftRightSignPropagating x y
+        | "&&&", TwoArgs (x, y) -> binaryOp range BinaryAndBitwise x y
+        | "|||", TwoArgs (x, y) -> binaryOp range BinaryOrBitwise x y
+        | "^^^", TwoArgs (x, y) -> binaryOp range BinaryXorBitwise x y
+        | "~~~", OneArg x -> unaryOp range UnaryNotBitwise x
+        | "not", OneArg x -> unaryOp range UnaryNot x
+        | "abs", _ -> math range "abs" args
+        | "acos", _ -> math range "acos" args
+        | "asin", _ -> math range "asin" args
+        | "atan", _ -> math range "atan" args
+        | "atan2", _ -> math range "atan2" args
+        | "ceil", _ -> math range "ceil" args
+        | "cos", _ -> math range "cos" args
+        | "exp", _ -> math range "exp" args
+        | "floor", _ -> math range "floor" args
+        | "log", _ -> math range "log" args
+        | "log10", _ -> math range "LN10" args
         // TODO: optimize square pow: x * x
-        | "pown", _ | "**", _ -> math "pow" args
-        | "round", _ -> math "round" args
-        | "sin", _ -> math "sin" args
-        | "sqrt", _ -> math "sqrt" args
-        | "tan", _ -> math "tan" args
+        | "pown", _ | "**", _ -> math range "pow" args
+        | "round", _ -> math range "round" args
+        | "sin", _ -> math range "sin" args
+        | "sqrt", _ -> math range "sqrt" args
+        | "tan", _ -> math range "tan" args
         | _ -> Untouched
 
-    let intrinsicFunctions methName callee args =
+    let intrinsicFunctions range methName callee args =
         match methName, (callee, args) with
         | "GetArray", TwoArgs (ar, idx) -> Fabel.Get (ar, idx) |> Solved
         | "SetArray", ThreeArgs (ar, idx, value) -> Fabel.Set (ar, Some idx, value) |> Solved
         | _ -> Untouched
         
-    let fsharpMap methName callee args =
+    let fsharpMap range methName callee args =
         match methName with
         | "add" | "Add" -> Instance "set"
         | "containsKey" | "ContainsKey" -> Instance "has"
         | "Count" -> Getter "size"
         | "isEmpty" | "IsEmpty" ->
-            let op = Fabel.UnaryOp UnaryNot |> Fabel.Value |> Fabel.Expr
+            let op =
+                Fabel.UnaryOp UnaryNot |> Fabel.Value
+                |> makeExpr range (Fabel.PrimitiveType Fabel.Boolean)
             Fabel.Apply (op, [Option.get callee], false) |> Inline
         | "Item" -> Instance "get"
         | "Remove" -> Instance "delete"
@@ -194,7 +236,7 @@ module private AstPass =
         | "tryFindKey" -> failwith "TODO"
         | "tryPick" -> failwith "TODO"
         | _ -> NoMapping
-        |> mapMethod callee args
+        |> mapMethod range callee args
 // TODO: Static methods
 // let add k v (m:Map<_,_>) = m.Add(k,v)
 // let containsKey k (m:Map<_,_>) = m.ContainsKey(k)
@@ -254,22 +296,22 @@ module private CoreLibPass =
         
 open Util
     
-let tryReplace (methFullName: string) (callee: Fabel.Expr option) (args: Fabel.Expr list) =
+let tryReplace range (methFullName: string) (callee: Fabel.Expr option) (args: Fabel.Expr list) =
     // Function definitions
     let flattenArgs callee args =
         match callee with Some arg -> arg::args | None -> args
     let lowerFirst (methName: string) =
         ((methName.Substring (0, 1)).ToLower ()) + methName.Substring (1)
-    let astPass typeName methName callee args=
+    let astPass typeName methName callee args =
         if AstPass.mappings.ContainsKey typeName
-        then AstPass.mappings.[typeName] methName callee args
+        then AstPass.mappings.[typeName] range methName callee args
         else Untouched
     let coreLibPass typeName methName callee args =
         let pass (mappings: System.Collections.Generic.IDictionary<_,_>) callee args =
             if not(mappings.ContainsKey typeName) then None else
             match callee with
-            | Some callee -> instanceCall (lowerFirst methName) (callee, args)
-            | None -> fabelCoreLibCall mappings.[typeName] (lowerFirst methName) args
+            | Some callee -> instanceCall range (lowerFirst methName) (callee, args)
+            | None -> fabelCoreLibCall range mappings.[typeName] (lowerFirst methName) args
             |> Some
         match pass CoreLibPass.mappings callee args with
         | Some _ as res -> res
