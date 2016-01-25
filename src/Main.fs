@@ -7,18 +7,11 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open Fabel
 
-let parseFSharpScript (input: string) =
+let parseFSharpScript (projFile: string) (projCode: string option) =
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
-    let file =
-        if File.Exists input
-        then input
-        else
-            let file = Path.ChangeExtension(Path.GetTempFileName(), "fsx")
-            File.WriteAllText(file, input)
-            file
     let projOptions =
-        let code = File.ReadAllText file
-        checker.GetProjectOptionsFromScript(file, code, otherFlags=[|"--define:DEBUG"|])
+        let projCode = match projCode with Some x -> x | None -> File.ReadAllText projFile
+        checker.GetProjectOptionsFromScript(projFile, projCode, otherFlags=[|"--define:DEBUG"|])
         |> Async.RunSynchronously
     checker.ParseAndCheckProject(projOptions)
     |> Async.RunSynchronously
@@ -26,7 +19,13 @@ let parseFSharpScript (input: string) =
 
 [<EntryPoint>]
 let main argv =
-    let projFile = argv.[0]
+    let projFile, projCode =
+        match argv.[0] with
+        | "--file" -> argv.[1], None
+        | code ->
+            let file = Path.ChangeExtension(Path.GetTempFileName(), "fsx")
+            File.WriteAllText(file, code)
+            file, Some code
     let opts = {
         sourceRootPath = Path.GetDirectoryName projFile
         targetRootPath = Path.GetDirectoryName projFile
@@ -37,7 +36,7 @@ let main argv =
         new ICompiler with
             member __.Options = opts            
     }
-    parseFSharpScript projFile
+    parseFSharpScript projFile projCode
     |> FSharp2Fabel.transformFiles com
     |> Fabel2Babel.transformFiles com
     |> List.iter (fun babelAst ->

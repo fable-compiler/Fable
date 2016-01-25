@@ -13,9 +13,7 @@ type Position =
 type SourceLocation =
     { (*source: string option;*) start: Position; ``end``: Position; }
     static member (+) (r1: SourceLocation, r2: SourceLocation) =
-        { start = r1.start; ``end`` = r2.``end`` }
-    static member Empty =
-        { start = Position.Empty; ``end`` = Position.Empty }
+            { start = r1.start; ``end`` = r2.``end`` }
 
 type NumberKind =
     | Int8 | UInt8 | UInt8Clamped | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64
@@ -32,11 +30,11 @@ type UnaryOperator =
     | UnaryTypeof
     | UnaryVoid
     | UnaryDelete
-    
+
 type UpdateOperator =
     | UpdateMinus
     | UpdatePlus
-    
+
 type BinaryOperator =
     | BinaryEqual
     | BinaryUnequal
@@ -60,11 +58,11 @@ type BinaryOperator =
     | BinaryAndBitwise
     | BinaryIn
     | BinaryInstanceOf
-    
+
 type LogicalOperator =
     | LogicalOr
     | LogicalAnd
-    
+
 type AssignmentOperator =
     | AssignEqual
     | AssignMinus
@@ -77,4 +75,4 @@ type AssignmentOperator =
     | AssignShiftRightZeroFill
     | AssignOrBitwise
     | AssignXorBitwise
-    | AssignAndBitwise    
+    | AssignAndBitwise

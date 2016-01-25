@@ -33,7 +33,7 @@ type IBabelCompiler =
 let (|ExprType|) (fexpr: Fabel.Expr) = fexpr.Type
 let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
 let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
-    
+
 let private ident (id: Fabel.Ident) =
     Babel.Identifier id.name
 
@@ -136,8 +136,11 @@ let private iife (com: IBabelCompiler) ctx (expr: Fabel.Expr) =
         |> funcExpression com ctx
     Babel.CallExpression (lambda, [], ?loc=expr.Range)
 
-let private varDeclaration range var (value: Babel.Expression) =
-    Babel.VariableDeclaration(range, var, value)
+let private varDeclaration range var value =
+    Babel.VariableDeclaration (
+        Babel.VariableDeclarationKind.Var,
+        [Babel.VariableDeclarator (var, value, ?loc=range)],
+        ?loc = range)
 
 let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
     match expr with
@@ -352,7 +355,8 @@ let rec private transformModDecls com ctx modIdent decls = seq {
                 upcast funcExpression com ctx m.Function, name
             | Fabel.Constructor | Fabel.Setter _ ->
                 failwithf "Unexpected member in module: %A" m.Kind
-        yield declareMember (Some m.Range) None name expr m.IsPublic
+        let memberRange = expr.loc |> Option.map (fun x -> m.Range + x)
+        yield declareMember memberRange None name expr m.IsPublic
     | Fabel.EntityDeclaration (ent, entDecls, entRange) ->
         match ent.Kind with
         // Interfaces, attribute or erased declarations shouldn't reach this point
@@ -386,7 +390,7 @@ let rec private transformModDecls com ctx modIdent decls = seq {
             yield Babel.ExpressionStatement(
                     Babel.CallExpression(
                         Babel.FunctionExpression([protectedIdent],
-                            Babel.BlockStatement nestedDecls,
+                            Babel.BlockStatement (nestedDecls, ?loc=Some entRange),
                             ?loc=Some entRange),
                         [U2.Case1 (upcast nestedIdent)],
                         entRange),
@@ -427,19 +431,25 @@ let transformFiles (com: ICompiler) (files: Fabel.File list): Babel.Program list
                 moduleFullName = file.Root.FullName
                 imports = System.Collections.Generic.Dictionary<_,_>()
             }
-            let emptyLoc = SourceLocation.Empty
+            let rootRange =
+                let line, col =
+                    System.IO.File.ReadLines file.FileName
+                    |> Seq.fold (fun (line, _) str -> line + 1, str.Length) (0,0)
+                { start={line=1; column=0}; ``end``={line=line; column=col}}
             let rootIdent =
                 Babel.Identifier Naming.rootModuleIdent
-            let rootHead = [
-                // var $M0 = {};
-                // exports.default = $M0;
-                varDeclaration None rootIdent (Babel.ObjectExpression [])
-                    :> Babel.Statement |> U2.Case1
-                Babel.ExportDefaultDeclaration (U2.Case2 (upcast rootIdent))
-                    :> Babel.ModuleDeclaration |> U2.Case2
-            ]
             let rootDecls =
                 transformModDecls babelCom ctx rootIdent file.Declarations
-                |> Seq.map (fun x -> U2<_,Babel.ModuleDeclaration>.Case1 x)
+                |> Seq.append <| [Babel.ReturnStatement rootIdent]
                 |> Seq.toList
-            Babel.Program (rootHead@rootDecls) |> Some)
+            let rootMod =
+                Babel.ExportDefaultDeclaration(
+                    U2.Case2 (Babel.CallExpression(
+                                Babel.FunctionExpression(
+                                    [rootIdent],
+                                    Babel.BlockStatement(rootDecls, ?loc=Some rootRange),
+                                    ?loc=Some rootRange),
+                                [U2.Case1 (upcast Babel.ObjectExpression [])],
+                                rootRange) :> Babel.Expression),
+                        rootRange) :> Babel.ModuleDeclaration |> U2.Case2
+            Babel.Program (rootRange, [rootMod]) |> Some)

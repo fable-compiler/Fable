@@ -20,28 +20,28 @@ module private Util =
 
     let literal str =
         Fabel.StringConst str |> Fabel.Value
+            
+    let jsCoreLibCall range typ modName methName args =
+        let get = Fabel.Get (ident modName, literal methName, Fabel.UnknownType)
+        Fabel.Apply(get, args, false, typ, range)
 
-    let apply callee args =
-        Fabel.Apply (callee, args, false, Fabel.UnknownType, None)
-
-    let jsCoreLibCall modName methName args =
-        apply (Fabel.Get (ident modName, literal methName, Fabel.UnknownType)) args
-
-    let fabelCoreLibCall modName methName args =
+    let fabelCoreLibCall range typ modName methName args =
         let coreMod = Fabel.Value (Fabel.CoreModule modName)
-        apply (Fabel.Get (coreMod, literal methName, Fabel.UnknownType)) args
+        let get = Fabel.Get (coreMod, literal methName, Fabel.UnknownType)
+        Fabel.Apply(get, args, false, typ, range)
 
-    let instanceCall methName (callee, args) =
-        apply (Fabel.Get (callee, literal methName, Fabel.UnknownType)) args
+    let instanceCall range typ methName (callee, args) =
+        let get = Fabel.Get (callee, literal methName, Fabel.UnknownType)
+        Fabel.Apply(get, args, false, typ, range)
 
-    let getter range propertyName (callee, args) =
+    let getter typ propertyName (callee, args) =
         match args with
-        | [] -> Fabel.Get (callee, literal propertyName, Fabel.UnknownType)
+        | [] -> Fabel.Get (callee, literal propertyName, typ)
         | _ -> failwith "No argument expected for getter"
 
     let setter range propertyName (callee, args) =
         match args with
-        | [value] -> Fabel.Set (callee, Some (literal propertyName), value, None)
+        | [value] -> Fabel.Set (callee, Some (literal propertyName), value, range)
         | _ -> failwith "Single argument expected for setter"
 
     let instanceArgs (callee: Fabel.Expr option) (args: Fabel.Expr list) =
@@ -63,11 +63,11 @@ module private AstPass =
         | Inline of Fabel.Expr
         | NoMapping
 
-    let mapMethod range callee args = function
-        | Instance name -> instanceCall range name (instanceArgs callee args) |> Solved
-        | CoreLib (lib, name) -> fabelCoreLibCall range lib name (staticArgs callee args) |> Solved
-        | JSLib (lib, name) -> jsCoreLibCall range lib name (staticArgs callee args) |> Solved
-        | Getter name -> getter range name (instanceArgs callee args) |> Solved
+    let mapMethod range typ callee args = function
+        | Instance name -> instanceCall range typ name (instanceArgs callee args) |> Solved
+        | CoreLib (lib, name) -> fabelCoreLibCall range typ lib name (staticArgs callee args) |> Solved
+        | JSLib (lib, name) -> jsCoreLibCall range typ lib name (staticArgs callee args) |> Solved
+        | Getter name -> getter typ name (instanceArgs callee args) |> Solved
         | Setter name -> setter range name (instanceArgs callee args) |> Solved
         | Inline exprKind -> Solved exprKind
         | NoMapping -> Untouched
@@ -94,78 +94,78 @@ module private AstPass =
         | Fabel.DeclaredType typ ->
             Partial (typ.FullName, failwith "TODO: Method name for non-primitive operators", args)
 
-    let unaryOp range op (arg: Fabel.Expr) =
+    let unaryOp range typ op arg =
         checkType [arg] (fun () ->
-            Fabel.UnaryOp op |> Fabel.Value
-            |> apply <| [arg])
+            let op = Fabel.UnaryOp op |> Fabel.Value
+            Fabel.Apply(op, [arg], false, typ, range))
 
-    let binaryOp range op (left: Fabel.Expr) right =
+    let binaryOp range typ op left right =
         checkType [left; right] (fun () ->
-            Fabel.BinaryOp op |> Fabel.Value
-            |> apply <| [left; right])
+            let op = Fabel.BinaryOp op |> Fabel.Value
+            Fabel.Apply(op, [left; right], false, typ, range))
 
-    let logicalOp range op left right =
+    let logicalOp range typ op left right =
         checkType [left; right] (fun () ->
-            Fabel.LogicalOp op |> Fabel.Value
-            |> apply <| [left; right])
+            let op = Fabel.LogicalOp op |> Fabel.Value
+            Fabel.Apply(op, [left; right], false, typ, range))
 
     // TODO: Check primitive args also here?
-    let math range methName args =
-        jsCoreLibCall range "Math" methName args |> Solved
+    let math range typ methName args =
+        jsCoreLibCall range typ "Math" methName args |> Solved
 
-    let operators range methName callee args =
+    let operators range typ methName callee args =
         match methName, (callee, args) with
         // F# Compiler actually converts all logical operations to IfThenElse expressions
-        | "&&", TwoArgs (x, y) -> logicalOp range LogicalAnd x y
-        | "||", TwoArgs (x, y) -> logicalOp range LogicalOr x y
+        | "&&", TwoArgs (x, y) -> logicalOp range typ LogicalAnd x y
+        | "||", TwoArgs (x, y) -> logicalOp range typ LogicalOr x y
         // TODO: If we're comparing against null, we should use non-strict equality
-        | "<>", TwoArgs (x, y) -> binaryOp range BinaryUnequalStrict x y
-        | "=", TwoArgs (x, y) -> binaryOp range BinaryEqualStrict x y
-        | "+", TwoArgs (x, y) -> binaryOp range BinaryPlus x y
-        | "-", TwoArgs (x, y) -> binaryOp range BinaryMinus x y
-        | "*", TwoArgs (x, y) -> binaryOp range BinaryMultiply x y
-        | "/", TwoArgs (x, y) -> binaryOp range BinaryDivide x y
-        | "%", TwoArgs (x, y) -> binaryOp range BinaryModulus x y
-        | "<<<", TwoArgs (x, y) -> binaryOp range BinaryShiftLeft x y
-        | ">>>", TwoArgs (x, y) -> binaryOp range BinaryShiftRightSignPropagating x y
-        | "&&&", TwoArgs (x, y) -> binaryOp range BinaryAndBitwise x y
-        | "|||", TwoArgs (x, y) -> binaryOp range BinaryOrBitwise x y
-        | "^^^", TwoArgs (x, y) -> binaryOp range BinaryXorBitwise x y
-        | "~~~", OneArg x -> unaryOp range UnaryNotBitwise x
-        | "not", OneArg x -> unaryOp range UnaryNot x
-        | "abs", _ -> math range "abs" args
-        | "acos", _ -> math range "acos" args
-        | "asin", _ -> math range "asin" args
-        | "atan", _ -> math range "atan" args
-        | "atan2", _ -> math range "atan2" args
-        | "ceil", _ -> math range "ceil" args
-        | "cos", _ -> math range "cos" args
-        | "exp", _ -> math range "exp" args
-        | "floor", _ -> math range "floor" args
-        | "log", _ -> math range "log" args
-        | "log10", _ -> math range "LN10" args
+        | "<>", TwoArgs (x, y) -> binaryOp range typ BinaryUnequalStrict x y
+        | "=", TwoArgs (x, y) -> binaryOp range typ BinaryEqualStrict x y
+        | "+", TwoArgs (x, y) -> binaryOp range typ BinaryPlus x y
+        | "-", TwoArgs (x, y) -> binaryOp range typ BinaryMinus x y
+        | "*", TwoArgs (x, y) -> binaryOp range typ BinaryMultiply x y
+        | "/", TwoArgs (x, y) -> binaryOp range typ BinaryDivide x y
+        | "%", TwoArgs (x, y) -> binaryOp range typ BinaryModulus x y
+        | "<<<", TwoArgs (x, y) -> binaryOp range typ BinaryShiftLeft x y
+        | ">>>", TwoArgs (x, y) -> binaryOp range typ BinaryShiftRightSignPropagating x y
+        | "&&&", TwoArgs (x, y) -> binaryOp range typ BinaryAndBitwise x y
+        | "|||", TwoArgs (x, y) -> binaryOp range typ BinaryOrBitwise x y
+        | "^^^", TwoArgs (x, y) -> binaryOp range typ BinaryXorBitwise x y
+        | "~~~", OneArg x -> unaryOp range typ UnaryNotBitwise x
+        | "not", OneArg x -> unaryOp range typ UnaryNot x
+        | "abs", _ -> math range typ "abs" args
+        | "acos", _ -> math range typ "acos" args
+        | "asin", _ -> math range typ "asin" args
+        | "atan", _ -> math range typ "atan" args
+        | "atan2", _ -> math range typ "atan2" args
+        | "ceil", _ -> math range typ "ceil" args
+        | "cos", _ -> math range typ "cos" args
+        | "exp", _ -> math range typ "exp" args
+        | "floor", _ -> math range typ "floor" args
+        | "log", _ -> math range typ "log" args
+        | "log10", _ -> math range typ "LN10" args
         // TODO: optimize square pow: x * x
-        | "pown", _ | "**", _ -> math range "pow" args
-        | "round", _ -> math range "round" args
-        | "sin", _ -> math range "sin" args
-        | "sqrt", _ -> math range "sqrt" args
-        | "tan", _ -> math range "tan" args
+        | "pown", _ | "**", _ -> math range typ "pow" args
+        | "round", _ -> math range typ "round" args
+        | "sin", _ -> math range typ "sin" args
+        | "sqrt", _ -> math range typ "sqrt" args
+        | "tan", _ -> math range typ "tan" args
         | _ -> Untouched
 
-    let intrinsicFunctions range methName callee args =
+    let intrinsicFunctions range typ methName callee args =
         match methName, (callee, args) with
-        | "GetArray", TwoArgs (ar, idx) -> Fabel.Get (ar, idx, Fabel.UnknownType) |> Solved
-        | "SetArray", ThreeArgs (ar, idx, value) -> Fabel.Set (ar, Some idx, value, None) |> Solved
+        | "GetArray", TwoArgs (ar, idx) -> Fabel.Get (ar, idx, typ) |> Solved
+        | "SetArray", ThreeArgs (ar, idx, value) -> Fabel.Set (ar, Some idx, value, range) |> Solved
         | _ -> Untouched
 
-    let fsharpMap range methName callee args =
+    let fsharpMap range typ methName callee args =
         match methName with
         | "add" | "Add" -> Instance "set"
         | "containsKey" | "ContainsKey" -> Instance "has"
         | "Count" -> Getter "size"
         | "isEmpty" | "IsEmpty" ->
             let op = Fabel.UnaryOp UnaryNot |> Fabel.Value
-            apply op [Option.get callee] |> Inline
+            Fabel.Apply (op, [Option.get callee], false, typ, range) |> Inline
         | "Item" -> Instance "get"
         | "Remove" -> Instance "delete"
         | "tryFind"
@@ -192,7 +192,7 @@ module private AstPass =
         | "tryFindKey" -> failwith "TODO"
         | "tryPick" -> failwith "TODO"
         | _ -> NoMapping
-        |> mapMethod range callee args
+        |> mapMethod range typ callee args
 // TODO: Static methods
 // let add k v (m:Map<_,_>) = m.Add(k,v)
 // let containsKey k (m:Map<_,_>) = m.ContainsKey(k)
@@ -252,38 +252,39 @@ module private CoreLibPass =
 
 open Util
 
-let tryReplace range (methFullName: string) (callee: Fabel.Expr option) (args: Fabel.Expr list) =
-    // Function definitions
-    let flattenArgs callee args =
-        match callee with Some arg -> arg::args | None -> args
-    let lowerFirst (methName: string) =
-        ((methName.Substring (0, 1)).ToLower ()) + methName.Substring (1)
-    let astPass typeName methName callee args =
-        if AstPass.mappings.ContainsKey typeName
-        then AstPass.mappings.[typeName] range methName callee args
-        else Untouched
-    let coreLibPass typeName methName callee args =
-        let pass (mappings: System.Collections.Generic.IDictionary<_,_>) callee args =
-            if not(mappings.ContainsKey typeName) then None else
-            match callee with
-            | Some callee -> instanceCall range (lowerFirst methName) (callee, args)
-            | None -> fabelCoreLibCall range mappings.[typeName] (lowerFirst methName) args
-            |> Some
-        match pass CoreLibPass.mappings callee args with
-        | Some _ as res -> res
-        // Native mapping methods are always static, so we must flatten the args first
-        | None -> pass CoreLibPass.nativeTypeMappings None (flattenArgs callee args)
-    // Run
+let private flattenArgs callee args =
+    match callee with Some arg -> arg::args | None -> args
+
+let private lowerFirst (methName: string) =
+    ((methName.Substring (0, 1)).ToLower ()) + methName.Substring (1)
+
+let private astPass range typ typeName methName callee args=
+    if AstPass.mappings.ContainsKey typeName
+    then AstPass.mappings.[typeName] range typ methName callee args
+    else Untouched
+
+let private coreLibPass range typ typeName methName callee args =
+    let pass (mappings: System.Collections.Generic.IDictionary<_,_>) callee args =
+        if not(mappings.ContainsKey typeName) then None else
+        match callee with
+        | Some callee -> instanceCall range typ (lowerFirst methName) (callee, args)
+        | None -> fabelCoreLibCall range typ mappings.[typeName] (lowerFirst methName) args
+        |> Some
+    match pass CoreLibPass.mappings callee args with
+    | Some _ as res -> res
+    // Native mapping methods are always static, so we must flatten the args first
+    | None -> pass CoreLibPass.nativeTypeMappings None (flattenArgs callee args)
+
+let tryReplace range typ (methFullName: string) (callee: Fabel.Expr option) (args: Fabel.Expr list) =
     let typeName, methName =
         let lastPeriod = methFullName.LastIndexOf (".")
         methFullName.Substring (0, lastPeriod),
         match methFullName.Substring (lastPeriod + 1) with
         | Split ' ' [|"(";operator;")"|] -> operator
         | _ as methName -> methName
-    match astPass typeName methName callee args with
-    // If the first pass just returned a type ref, try to resolve it again
-    // TODO: Make the first pass return Either instead
+    match astPass range typ typeName methName callee args with
+    // If the first pass has only partially resolved the expression, try to resolve it again
     | Partial (typFullName, methName, args) ->
-        coreLibPass typFullName methName None args
+        coreLibPass range typ typFullName methName None args
     | Solved res -> Some res
-    | Untouched -> coreLibPass typeName methName callee args
+    | Untouched -> coreLibPass range typ typeName methName callee args

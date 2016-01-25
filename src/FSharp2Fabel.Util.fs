@@ -469,13 +469,14 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
     | "Microsoft.FSharp.Core.Operators.( <| )" -> makeApply com ctx fsExpr args.Head args.Tail
     | "System.Object..ctor" -> Fabel.Value (Fabel.ObjExpr [])
     | _ ->
+        let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
         (** -If this is an external method, check for replacements *)
         let resolved =
             match methType with
             | Fabel.DeclaredType typEnt when typEnt.File.IsSome ->
                 None // TODO: Check for Emit attribute
             | _ ->
-                match Replacements.tryReplace range methFullName callee args with
+                match Replacements.tryReplace range typ methFullName callee args with
                 | Some _ as repl -> repl
                 | None -> failwithf "Couldn't find replacemente for external method %s"
                                     methFullName
@@ -491,7 +492,6 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
                 |> function
                 | Some callee, args -> callee, args
                 | None, args -> Fabel.Value (Fabel.TypeRef methType), args
-            let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
         (**     *Check if this a getter or setter  *)
             if meth.IsPropertyGetterMethod then
                 Fabel.Get (callee, makeConst meth.DisplayName, typ)
