@@ -8,39 +8,32 @@ open Fabel.AST
 open Fabel.Plugins
 
 type DecisionTarget =
-    | TargetRef of Fabel.IdentifierExpr
+    | TargetRef of Fabel.Ident
     | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
 
 type Context = {
     scope: (string * string) list
     decisionTargets: Map<int, DecisionTarget>
     }
-    
+
 type IFabelCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fabel.Expr
     abstract GetInternalFile: FSharpEntity -> string option
     abstract GetEntity: FSharpEntity -> Fabel.Entity
-    
+
 [<AutoOpen>]
 module Patterns =
     let (|Transform|) (com: IFabelCompiler) = com.Transform
     let (|FieldName|) (fi: FSharpField) = fi.Name
-    let (|ExprKind|) (expr: Fabel.Expr) = expr.Kind
     let (|ExprType|) (expr: Fabel.Expr) = expr.Type
-
-    let makeRange (r: Range.range) = {
-        // source = Some r.FileName
-        start = { line = r.StartLine + 1; column = r.StartColumn }
-        ``end``= { line = r.EndLine + 1; column = r.EndColumn }
-    }
-    let (|Range|) r = makeRange r
 
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
         | "System.Byte" -> Some UInt8Clamped
         | "System.Int16" -> Some Int16
         | "System.UInt16" -> Some UInt16
+        | "System.Char" -> Some UInt16
         | "System.Int32" -> Some Int32
         | "System.UInt32" -> Some UInt32
         | "System.Int64" -> Some Float64
@@ -48,12 +41,12 @@ module Patterns =
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
         | _ -> None
-        
+
     let (|Location|_|) (com: IFabelCompiler) (ent: FSharpEntity) =
         match com.GetInternalFile ent with
         | Some file -> Some { Fabel.file=file; Fabel.fullName=ent.FullName }
         | None -> None
-        
+
     let (|WithAttribute|_|) (name: string) (ent: FSharpEntity) =
         ent.Attributes
         |> Seq.tryPick (fun x ->
@@ -76,7 +69,7 @@ module Patterns =
             | Some "System.Attribute" -> Some ent
             | _ -> None
 
-    let (|ReplaceArgs|_|) (lambdaArgs: (Fabel.IdentifierExpr*Fabel.Expr) list)
+    let (|ReplaceArgs|_|) (lambdaArgs: (Fabel.Ident * Fabel.Expr) list)
                           (nestedArgs: Fabel.Expr list) =
         let (|SplitList|) f li =
             List.foldBack (fun (x: 'a) (li1: 'a list, li2: 'a list) ->
@@ -86,9 +79,9 @@ module Patterns =
         else
             let lambdaArgs, nestedArgs =
                 nestedArgs |> List.fold (fun (lambdaArgs, nestedArgs) arg ->
-                    match arg.Kind with
-                    | Fabel.Value (Fabel.Identifier ident) ->
-                        let splitter (a : Fabel.IdentifierExpr,_) = a.Name = ident
+                    match arg with
+                    | Fabel.Value (Fabel.IdentValue ident) ->
+                        let splitter (a: Fabel.Ident,_) = a.name = ident.name
                         match lambdaArgs with
                         | SplitList splitter (lambdaArgs,[_,e]) -> lambdaArgs, e::nestedArgs
                         | _ -> lambdaArgs, arg::nestedArgs
@@ -139,7 +132,7 @@ module Types =
     let sanitizeEntityName (name: string) =
         let idx = name.IndexOf ('`')
         if idx >= 0 then name.Substring (0, idx) else name
-        
+
     let getBaseClassLocation (tdef: FSharpEntity) =
         match tdef.BaseType with
         | None -> None
@@ -203,17 +196,18 @@ module Types =
             | NumberKind kind -> Some kind | _ -> None
             |> function
                 | Some numbeKind -> Fabel.TypedArray numbeKind
-                | _ -> Fabel.DynamicArray false
-            |> Fabel.PrimitiveType
+                | _ -> Fabel.DynamicArray
+            |> Fabel.Array |> Fabel.PrimitiveType
         else
         // .NET Primitives
         match tdef.FullName with
         | NumberKind kind -> Fabel.Number kind |> Fabel.PrimitiveType
         | "System.Boolean" -> Fabel.Boolean |> Fabel.PrimitiveType
-        | "System.Char" -> Fabel.String true |> Fabel.PrimitiveType
-        | "System.String" -> Fabel.String false |> Fabel.PrimitiveType
+        | "System.Char" -> Fabel.Number UInt16 |> Fabel.PrimitiveType
+        | "System.String" -> Fabel.String |> Fabel.PrimitiveType
+        | "System.Text.RegularExpressions.Regex" -> Fabel.Regex |> Fabel.PrimitiveType
         | "Microsoft.FSharp.Core.Unit" -> Fabel.Unit |> Fabel.PrimitiveType
-        | "System.Collections.Generic.List`1" -> Fabel.DynamicArray false |> Fabel.PrimitiveType
+        | "System.Collections.Generic.List`1" -> Fabel.DynamicArray |> Fabel.Array |> Fabel.PrimitiveType
         // Declared Type
         | _ -> com.GetEntity tdef |> Fabel.DeclaredType
 
@@ -223,7 +217,7 @@ module Types =
             if fn.IsFunctionType
             then countFuncArgs (Seq.last fn.GenericArguments) + 1
             else 0
-        if t.IsTupleType then Fabel.DynamicArray true |> Some
+        if t.IsTupleType then Fabel.Tuple |> Fabel.Array |> Some
         elif t.IsFunctionType then Fabel.Function (countFuncArgs t) |> Some
         else None
         |> function
@@ -237,102 +231,89 @@ module Types =
 
 [<AutoOpen>]
 module Identifiers =
+    let makeIdent name typ = {Fabel.name=name; Fabel.typ=typ}
+
     let sanitizeIdent (ctx: Context) (fsName: string) =
         let sanitizedName = fsName |> Naming.sanitizeIdent (fun x ->
             List.exists (fun (_,x') -> x = x') ctx.scope)
         { ctx with scope = (fsName, sanitizedName)::ctx.scope }, sanitizedName
 
     /// Make a sanitized identifier from a speculative name
-    let makeSanitizedIdent ctx range typ speculativeName =
+    let makeSanitizedIdent ctx typ speculativeName =
         let ctx, sanitizedIdent = sanitizeIdent ctx speculativeName
-        ctx, Fabel.IdentifierExpr (sanitizedIdent, typ, range)
+        ctx, makeIdent sanitizedIdent typ
 
     /// Get corresponding identifier to F# value in current scope
     let (|GetIdent|) com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
         ctx.scope
         |> List.tryFind (fun (fsName,_) -> fsName = fsRef.DisplayName)
         |> function
-        | Some (_,fabelName) ->
-            Fabel.IdentifierExpr(fabelName,
-                makeType com fsRef.FullType, makeRange fsRef.DeclarationLocation)
-        | None ->
-            failwithf "Detected non-bound identifier: %s in %A"
-                fsRef.DisplayName fsRef.DeclarationLocation
+        | Some (_,fabelName) -> makeIdent fabelName (makeType com fsRef.FullType)
+        | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
 
     /// sanitizeEntityName F# identifier and create new context
     let (|BindIdent|) com ctx (fsRef: FSharpMemberOrFunctionOrValue) =
         let newContext, sanitizedIdent = sanitizeIdent ctx fsRef.DisplayName
-        newContext, Fabel.IdentifierExpr (sanitizedIdent, makeType com fsRef.FullType, makeRange fsRef.DeclarationLocation)
+        newContext, makeIdent sanitizedIdent (makeType com fsRef.FullType)
 
-let makeExpr range typ kind =
-    Fabel.Expr (kind, typ, range)
-    
-let makeTypeRange com (fsExpr: FSharpExpr) =
-    makeType com fsExpr.Type, makeRange fsExpr.Range
-    
-let makeExprFrom com (fsExpr: FSharpExpr) kind =
-    Fabel.Expr (kind, makeType com fsExpr.Type, makeRange fsExpr.Range)
-    
+let makeRange (r: Range.range) = {
+    // source = Some r.FileName
+    start = { line = r.StartLine; column = r.StartColumn }
+    ``end``= { line = r.EndLine; column = r.EndColumn }
+}
+
+let makeRangeFrom (fsExpr: FSharpExpr) =
+    Some (makeRange fsExpr.Range)
+
 let makeFnType args =
     List.length args |> Fabel.Function |> Fabel.PrimitiveType
 
-let makeNull range =
-    Fabel.Value Fabel.Null |> makeExpr range (Fabel.PrimitiveType Fabel.Unit)
-
 let makeLogOp, makeBinOp, makeUnOp =
     let makeOp range typ args op =
-        Fabel.Apply (op |> Fabel.Value |> makeExpr range (makeFnType args), args, false)
-        |> makeExpr range typ
+        Fabel.Apply (Fabel.Value op, args, false, typ, range)
     (fun range typ args op -> makeOp range typ args (Fabel.LogicalOp op)),
     (fun range typ args op -> makeOp range typ args (Fabel.BinaryOp op)),
     (fun range typ args op -> makeOp range typ args (Fabel.UnaryOp op))
 
 let rec makeSequential range statements =
     match statements with
-    | [] -> makeNull range
+    | [] -> Fabel.Value Fabel.Null
     | [expr] -> expr
     | first::rest ->
-        match first.Kind with
+        match first with
         | Fabel.Value (Fabel.Null)
         // Calls to System.Object..ctor in class constructors
         | Fabel.Value (Fabel.ObjExpr []) -> makeSequential range rest
-        | Fabel.Sequential firstStatements -> makeSequential range (firstStatements @ rest)
+        | Fabel.Sequential (firstStatements, _) -> makeSequential range (firstStatements @ rest)
         | _ ->
             match rest with
-            | [ExprKind (Fabel.Sequential statements)] -> makeSequential range (first::statements)
-            | _ -> Fabel.Expr (Fabel.Sequential statements, (Seq.last statements).Type, range)
+            | [Fabel.Sequential (statements, _)] -> makeSequential range (first::statements)
+            | _ -> Fabel.Sequential (statements, range)
 
-let makeTypeRef range typ =
-    Fabel.Expr (Fabel.Value (Fabel.TypeRef typ), Fabel.MetaType typ, range)
-    
-let makeVarDecl range (ident, isMut) binding =
-    Fabel.VarDeclaration (ident, binding, isMut)
-    |> makeExpr range (Fabel.PrimitiveType Fabel.Unit)
+let makeTypeRef typ =
+    Fabel.Value (Fabel.TypeRef typ)
 
 let makeConst (value: obj) =
-    let ekind, tkind =
-        match value with
-        | :? bool as x -> Fabel.BoolConst x, Fabel.Boolean
-        | :? char as x -> Fabel.StringConst (string x), Fabel.String true
-        | :? string as x -> Fabel.StringConst x, Fabel.String false
-        // Integer types
-        | :? int as x -> Fabel.IntConst x, Fabel.Number Int32
-        | :? byte as x -> Fabel.IntConst (int x), Fabel.Number UInt8Clamped
-        | :? sbyte as x -> Fabel.IntConst (int x), Fabel.Number Int8
-        | :? int16 as x -> Fabel.IntConst (int x), Fabel.Number Int16
-        | :? uint16 as x -> Fabel.IntConst (int x), Fabel.Number UInt16
-        | :? uint32 as x -> Fabel.IntConst (int x), Fabel.Number UInt32
-        // Float types
-        | :? float as x -> Fabel.FloatConst x, Fabel.Number Float64
-        | :? int64 as x -> Fabel.FloatConst (float x), Fabel.Number Float64
-        | :? uint64 as x -> Fabel.FloatConst (float x), Fabel.Number Float64
-        | :? float32 as x -> Fabel.FloatConst (float x), Fabel.Number Float32
-        // TODO: Regex
-        | :? unit | _ when value = null -> Fabel.Null, Fabel.Unit
-        | _ -> failwithf "Unexpected literal %O" value
-    Fabel.PrimitiveType tkind, Fabel.Value ekind
-
-let makeLiteral range (value: obj) = makeConst value ||> makeExpr range
+    match value with
+    | :? bool as x -> Fabel.BoolConst x
+    | :? string as x -> Fabel.StringConst x
+    // Integer types
+    | :? int as x -> Fabel.IntConst (x, Int32)
+    | :? byte as x -> Fabel.IntConst (int x, UInt8Clamped)
+    | :? sbyte as x -> Fabel.IntConst (int x, Int8)
+    | :? int16 as x -> Fabel.IntConst (int x, Int16)
+    | :? uint16 as x -> Fabel.IntConst (int x, UInt16)
+    | :? char as x -> Fabel.IntConst (int x, UInt16)
+    | :? uint32 as x -> Fabel.IntConst (int x, UInt32)
+    // Float types
+    | :? float as x -> Fabel.FloatConst (x, Float64)
+    | :? int64 as x -> Fabel.FloatConst (float x, Float64)
+    | :? uint64 as x -> Fabel.FloatConst (float x, Float64)
+    | :? float32 as x -> Fabel.FloatConst (float x, Float32)
+    // TODO: Regex
+    | :? unit | _ when value = null -> Fabel.Null
+    | _ -> failwithf "Unexpected literal %O" value
+    |> Fabel.Value
 
 let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
     let isUnitVar =
@@ -348,97 +329,92 @@ let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
         let (BindIdent com accContext (newContext, arg)) = var
         newContext, arg::accArgs) vars (ctx, [])
 
-let makeLambda (com: IFabelCompiler) ctx range vars body =
-    let ctx, args = makeLambdaArgs com ctx vars
+let makeLambda (com: IFabelCompiler) ctx vars (body: FSharpExpr) =
     let args, body =
-        let body = com.Transform ctx body
-        match body.Kind with
-        | Fabel.Lambda (args', body, Fabel.Immediate, false) -> args@args', body
-        | _ -> args, body
-    Fabel.Expr (Fabel.Lambda (args, body, Fabel.Immediate, false), (makeFnType args), range)
+        let ctx, args = makeLambdaArgs com ctx vars
+        match com.Transform ctx body with
+        | Fabel.Value (Fabel.Lambda {args=args2; body=body2; kind=Fabel.Immediate; restParams=false}) ->
+            args@args2, body2
+        | body -> args, body
+    Fabel.Lambda {args=args; body=body; kind=Fabel.Immediate; restParams=false}
+    |> Fabel.Value
 
-let makeTryCatch com ctx fsExpr (Transform com ctx body) catchClause finalBody =
-    let typ, range = makeTypeRange com fsExpr
+let makeLoop (fsExpr: FSharpExpr) loopKind =
+    Fabel.Loop (loopKind, makeRangeFrom fsExpr)
+
+let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
     let catchClause =
         match catchClause with
         | Some (BindIdent com ctx (catchContext, catchVar), Transform com ctx catchBody) ->
             Some (catchVar, catchBody)
         | None -> None
-    let finalizers =
+    let finalizer =
         match finalBody with
-        | Some (Transform com ctx finalBody) ->
-            match finalBody with
-            | ExprKind (Fabel.Sequential statements) -> statements
-            | finalBody -> [finalBody]
-        | None -> []
-    Fabel.TryCatch (body, catchClause, finalizers) |> makeExpr range typ
+        | Some (Transform com ctx finalBody) -> Some finalBody
+        | None -> None
+    Fabel.TryCatch (body, catchClause, finalizer, makeRangeFrom fsExpr)
 
 let makeCoreCall range typ args (modName: string, methName: string option, isCons: bool) =
     let meth =
         let coreExpr = Fabel.CoreModule modName |> Fabel.Value
-                       |> makeExpr range Fabel.UnknownType
         match methName with
         | None -> coreExpr
         | Some methName ->
-            Fabel.Get (coreExpr, makeLiteral range methName)
-            |> makeExpr range (makeFnType args)
-    Fabel.Apply (meth, args, isCons) |> makeExpr range typ
+            Fabel.Get (coreExpr, makeConst methName, makeFnType args)
+    Fabel.Apply (meth, args, isCons, typ, range)
 
 let makeTypeTest range (typ: Fabel.Type) expr =
     let stringType, boolType =
-        Fabel.PrimitiveType (Fabel.String false), Fabel.PrimitiveType Fabel.Boolean
-    let checkType expr (primitiveType: string) =
-        let typof = makeUnOp range stringType [expr] UnaryTypeof
-        makeBinOp range boolType [typof; makeLiteral range primitiveType] BinaryEqualStrict 
+        Fabel.PrimitiveType Fabel.String, Fabel.PrimitiveType Fabel.Boolean
+    let checkType (primitiveType: string) expr =
+        let typof = makeUnOp None stringType [expr] UnaryTypeof
+        makeBinOp range boolType [typof; makeConst primitiveType] BinaryEqualStrict
     match typ with
     | Fabel.PrimitiveType kind ->
         match kind with
-        | Fabel.String _ -> checkType expr "string"
-        | Fabel.Number _ -> checkType expr "number"
-        | Fabel.Boolean -> checkType expr "boolean"
+        | Fabel.String _ -> checkType "string" expr
+        | Fabel.Number _ -> checkType "number" expr
+        | Fabel.Boolean -> checkType "boolean" expr
         | Fabel.Unit ->
-            makeBinOp range boolType [expr; makeNull range] BinaryEqual
+            makeBinOp range boolType [expr; Fabel.Value Fabel.Null] BinaryEqual
         | _ -> failwithf "Unsupported type test: %A" typ
     | Fabel.DeclaredType typEnt ->
         match typEnt.Kind with
         | Fabel.Interface ->
-            makeCoreCall range (Fabel.PrimitiveType Fabel.Boolean)
-                [makeLiteral range typEnt.FullName] ("Util", Some "hasInterface", false)
-        | _ -> makeBinOp range boolType [expr; makeTypeRef range typ] BinaryInstanceOf
+            ("Util", Some "hasInterface", false)
+            |> makeCoreCall range boolType [makeConst typEnt.FullName]
+        | _ ->
+            makeBinOp range boolType [expr; makeTypeRef typ] BinaryInstanceOf
     | _ -> failwithf "Unsupported type test in: %A" typ
 
-let makeGetApply range typ expr args methName =
-    let expr =
-        Fabel.Get (expr, makeLiteral range methName)
-        |> makeExpr range (makeFnType args)
-    Fabel.Apply (expr, args, false) |> makeExpr range typ
-
-let makeApply ctx range typ (expr: Fabel.Expr) (args: Fabel.Expr list) =
+let makeApply com ctx (fsExpr: FSharpExpr) (expr: Fabel.Expr) (args: Fabel.Expr list) =
+    let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
     match expr with
     // Optimize id lambdas applied right away, as in `x |> unbox`
-    | ExprKind (Fabel.Lambda ([lambdaArg], (:? Fabel.IdentifierExpr as identExpr), Fabel.Immediate, false))
-        when lambdaArg.Name = identExpr.Name && args.Length = 1 ->
-        args.Head.Kind
+    | Fabel.Value
+        (Fabel.Lambda { args = [lambdaArg]; kind = Fabel.Immediate; restParams = false;
+            body = Fabel.Value (Fabel.IdentValue body) })
+        when lambdaArg.name = body.name && args.Length = 1 -> args.Head
     // As Fabel lambdas have multiple args, they cannot be curried and we have to recreate the extra lambda
     // when applying less parameters than necessary (F# compiler already does that for methods)
     | ExprType (Fabel.PrimitiveType (Fabel.Function fnArgCount)) when fnArgCount > args.Length ->
-        let ctx, lambdaArgs =
+        let _, lambdaArgs =
             [1..(fnArgCount - args.Length)] |> List.fold (fun (ctx, args) i ->
-                let ctx, arg = makeSanitizedIdent ctx range Fabel.UnknownType (sprintf "a%i" i)
+                let ctx, arg = makeSanitizedIdent ctx Fabel.UnknownType (sprintf "$arg%i" i)
                 ctx, arg::args) (ctx, [])
-        let apply =
-            Fabel.Apply (expr, args @ (lambdaArgs |> List.map unbox), false)
-            |> makeExpr range typ
-        Fabel.Lambda (lambdaArgs, apply, Fabel.Immediate, false)
+        let args = args @ (lambdaArgs |> List.map (Fabel.IdentValue >> Fabel.Value))
+        let apply = Fabel.Apply (expr, args, false, typ, None)
+        Fabel.Lambda {args=lambdaArgs; body=apply; kind=Fabel.Immediate; restParams=false}
+        |> Fabel.Value
     // Flatten nested curried applications as it happens in pipelines: e.g., (fun x -> fnCall 2 x) 3
-    | ExprKind (Fabel.Lambda (lambdaArgs,
-                    ExprKind (Fabel.Apply (nestedExpr, nestedArgs, isCons)),
-                    Fabel.Immediate, false)) ->
+    | Fabel.Value
+        (Fabel.Lambda { args = lambdaArgs; kind = Fabel.Immediate; restParams = false;
+             body = Fabel.Apply (nestedExpr, nestedArgs, isCons, _, _) }) ->
         match nestedArgs with
-        | ReplaceArgs (List.zip lambdaArgs args) nestedArgs -> Fabel.Apply (nestedExpr, nestedArgs, isCons)
-        | _ -> Fabel.Apply (expr, args, isCons)
-    | _ -> Fabel.Apply (expr, args, false)
-    |> makeExpr range typ
+        | ReplaceArgs (List.zip lambdaArgs args) nestedArgs ->
+            Fabel.Apply (nestedExpr, nestedArgs, isCons, typ, range)
+        | _ -> Fabel.Apply (expr, args, false, typ, range)
+    | _ -> Fabel.Apply (expr, args, false, typ, range)
 
 let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
     if meth.CurriedParameterGroups.Count <> 1 then false else
@@ -489,9 +465,9 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
         List.map (com.Transform ctx) args
     (** -If this a pipe, optimize *)
     match methFullName with
-    | "Microsoft.FSharp.Core.Operators.( |> )" -> makeApply ctx range typ args.Tail.Head [args.Head]
-    | "Microsoft.FSharp.Core.Operators.( <| )" -> makeApply ctx range typ args.Head args.Tail
-    | "System.Object..ctor" -> Fabel.Value (Fabel.ObjExpr []) |> makeExpr range typ
+    | "Microsoft.FSharp.Core.Operators.( |> )" -> makeApply com ctx fsExpr args.Tail.Head [args.Head]
+    | "Microsoft.FSharp.Core.Operators.( <| )" -> makeApply com ctx fsExpr args.Head args.Tail
+    | "System.Object..ctor" -> Fabel.Value (Fabel.ObjExpr [])
     | _ ->
         (** -If this is an external method, check for replacements *)
         let resolved =
@@ -514,18 +490,18 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
                 else callee, args
                 |> function
                 | Some callee, args -> callee, args
-                | None, args -> makeTypeRef range methType, args
+                | None, args -> Fabel.Value (Fabel.TypeRef methType), args
+            let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
         (**     *Check if this a getter or setter  *)
             if meth.IsPropertyGetterMethod then
-                Fabel.Get (callee, makeLiteral range meth.DisplayName)
-                 |> makeExpr range typ
+                Fabel.Get (callee, makeConst meth.DisplayName, typ)
             elif meth.IsPropertySetterMethod then
-                Fabel.Set (callee, Some (makeLiteral range meth.DisplayName), args.Head)
-                |> makeExpr range typ
+                Fabel.Set (callee, Some (makeConst meth.DisplayName), args.Head, range)
         (**     *Check if this is an implicit constructor *)
             elif meth.IsImplicitConstructor then
-                Fabel.Apply (callee, args, true) |> makeExpr range typ
+                Fabel.Apply (callee, args, true, typ, range)
         (**     *If nothing of the above applies, call the method normally *)
             else
-                methFullName.Substring (methFullName.LastIndexOf "." + 1)
-                |> makeGetApply range typ callee args
+                let methName = methFullName.Substring (methFullName.LastIndexOf "." + 1)
+                let callee = Fabel.Get (callee, makeConst methName, makeFnType args)
+                Fabel.Apply (callee, args, false, typ, range)
