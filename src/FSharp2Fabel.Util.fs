@@ -11,17 +11,21 @@ type DecisionTarget =
     | TargetRef of Fabel.Ident
     | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
 
-type Context = {
+type Context =
+    {
     scope: (string * string) list
     decisionTargets: Map<int, DecisionTarget>
+    parentEntities: FSharpEntity list
     }
-
+    member ctx.Reset() =
+        { ctx with scope=[]; decisionTargets=Map.empty<_,_> }
+    
 type IFabelCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fabel.Expr
     abstract GetInternalFile: FSharpEntity -> string option
     abstract GetEntity: FSharpEntity -> Fabel.Entity
-
+    
 [<AutoOpen>]
 module Patterns =
     let (|Transform|) (com: IFabelCompiler) = com.Transform
@@ -30,7 +34,7 @@ module Patterns =
 
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
-        | "System.Byte" -> Some UInt8Clamped
+        | "System.Byte" -> Some UInt8
         | "System.Int16" -> Some Int16
         | "System.UInt16" -> Some UInt16
         | "System.Char" -> Some UInt16
@@ -41,12 +45,12 @@ module Patterns =
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
         | _ -> None
-
+        
     let (|Location|_|) (com: IFabelCompiler) (ent: FSharpEntity) =
         match com.GetInternalFile ent with
         | Some file -> Some { Fabel.file=file; Fabel.fullName=ent.FullName }
         | None -> None
-
+        
     let (|WithAttribute|_|) (name: string) (ent: FSharpEntity) =
         ent.Attributes
         |> Seq.tryPick (fun x ->
@@ -132,7 +136,7 @@ module Types =
     let sanitizeEntityName (name: string) =
         let idx = name.IndexOf ('`')
         if idx >= 0 then name.Substring (0, idx) else name
-
+        
     let getBaseClassLocation (tdef: FSharpEntity) =
         match tdef.BaseType with
         | None -> None
@@ -180,7 +184,6 @@ module Types =
             |> Seq.toList
         Fabel.Entity (kind, com.GetInternalFile tdef,
             sanitizeEntityName tdef.FullName,
-            makeRange tdef.DeclarationLocation,
             infcs, decs, tdef.Accessibility.IsPublic)
 
     let rec makeTypeFromDef (com: IFabelCompiler) (tdef: FSharpEntity) =
@@ -251,6 +254,13 @@ module Identifiers =
         | Some (_,fabelName) -> makeIdent fabelName (makeType com fsRef.FullType)
         | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
 
+    let (|GetOrBindIdent|) com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
+        ctx.scope
+        |> List.tryFind (fun (fsName,_) -> fsName = fsRef.DisplayName)
+        |> function
+        | Some (_,fabelName) -> makeIdent fabelName (makeType com fsRef.FullType)
+        | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
+
     /// sanitizeEntityName F# identifier and create new context
     let (|BindIdent|) com ctx (fsRef: FSharpMemberOrFunctionOrValue) =
         let newContext, sanitizedIdent = sanitizeIdent ctx fsRef.DisplayName
@@ -262,7 +272,7 @@ let makeRange (r: Range.range) = {
     ``end``= { line = r.EndLine; column = r.EndColumn }
 }
 
-let makeRangeFrom (fsExpr: FSharpExpr) =
+let makeRangeFrom (fsExpr: FSharpExpr) = 
     Some (makeRange fsExpr.Range)
 
 let makeFnType args =
@@ -338,7 +348,7 @@ let makeLambda (com: IFabelCompiler) ctx vars (body: FSharpExpr) =
         | body -> args, body
     Fabel.Lambda {args=args; body=body; kind=Fabel.Immediate; restParams=false}
     |> Fabel.Value
-
+    
 let makeLoop (fsExpr: FSharpExpr) loopKind =
     Fabel.Loop (loopKind, makeRangeFrom fsExpr)
 
@@ -384,7 +394,7 @@ let makeTypeTest range (typ: Fabel.Type) expr =
             ("Util", Some "hasInterface", false)
             |> makeCoreCall range boolType [makeConst typEnt.FullName]
         | _ ->
-            makeBinOp range boolType [expr; makeTypeRef typ] BinaryInstanceOf
+            makeBinOp range boolType [expr; makeTypeRef typ] BinaryInstanceOf 
     | _ -> failwithf "Unsupported type test in: %A" typ
 
 let makeApply com ctx (fsExpr: FSharpExpr) (expr: Fabel.Expr) (args: Fabel.Expr list) =
@@ -450,7 +460,6 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
         let ns = match ent.Namespace with Some ns -> ns + "." | None -> ""
         ns + ent.DisplayName + "." + meth.DisplayName + (overloadSuffix meth)
     (** ###Method call processing *)
-    let typ, range = makeTypeRange com fsExpr
     let methType, methFullName =
         let methType = makeTypeFromDef com meth.EnclosingEntity
         methType, sanitizeMethFullName meth
@@ -482,7 +491,7 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
                                     methFullName
         (** -If no Emit attribute nor replacement has been found then: *)
         match resolved with
-        | Some exprKind -> exprKind |> makeExpr range typ
+        | Some exprKind -> exprKind
         | None ->
         (**     *Check if this an extension *)
             let callee, args =

@@ -32,11 +32,11 @@ type UnaryOperator =
     | UnaryTypeof
     | UnaryVoid
     | UnaryDelete
-
+    
 type UpdateOperator =
     | UpdateMinus
     | UpdatePlus
-
+    
 type BinaryOperator =
     | BinaryEqual
     | BinaryUnequal
@@ -60,11 +60,11 @@ type BinaryOperator =
     | BinaryAndBitwise
     | BinaryIn
     | BinaryInstanceOf
-
+    
 type LogicalOperator =
     | LogicalOr
     | LogicalAnd
-
+    
 type AssignmentOperator =
     | AssignEqual
     | AssignMinus
@@ -77,4 +77,4 @@ type AssignmentOperator =
     | AssignShiftRightZeroFill
     | AssignOrBitwise
     | AssignXorBitwise
-    | AssignAndBitwise
+    | AssignAndBitwise    

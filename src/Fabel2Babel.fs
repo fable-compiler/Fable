@@ -11,7 +11,7 @@ type Context = {
     moduleFullName: string
     imports: System.Collections.Generic.Dictionary<string, string>
     }
-
+    
 type BabelFunctionInfo =
     {
         args: Babel.Pattern list
@@ -25,7 +25,7 @@ type BabelFunctionInfo =
 type IBabelCompiler =
     inherit ICompiler
     abstract GetFabelFile: string -> Fabel.File
-    abstract GetImport: Context -> SourceLocation -> string -> Babel.Expression
+    abstract GetImport: Context -> string -> Babel.Expression
     abstract TransformExpr: Context -> Fabel.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fabel.Expr -> Babel.Statement
     abstract TransformFunction: Context -> Fabel.FunctionInfo -> BabelFunctionInfo
@@ -38,33 +38,32 @@ let private foldRanges (baseRange: SourceLocation) (decls: Babel.Statement list)
     decls |> List.choose (fun x -> x.loc) |> function
         | [] -> baseRange
         | locs -> List.last locs |> (+) baseRange
-
+    
 let private ident (id: Fabel.Ident) =
     Babel.Identifier id.name
 
-let private identFromName loc name =
+let private identFromName name =
     let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name
     Babel.Identifier name
-
+    
 let private get left propName =
     if Naming.identForbiddenChars.IsMatch propName
-    then Babel.MemberExpression(left.loc, left, Babel.StringLiteral(left.loc, propName), true)
-    else Babel.MemberExpression(left.loc, left, Babel.Identifier(left.loc, propName), false)
+    then Babel.MemberExpression(left, Babel.StringLiteral propName, true)
+    else Babel.MemberExpression(left, Babel.Identifier propName, false)
     :> Babel.Expression
-
+    
 let private getExpr com ctx (TransformExpr com ctx expr) (property: Fabel.Expr) =
     let property, computed =
         match property with
         | Fabel.Value (Fabel.StringConst name)
             when Naming.identForbiddenChars.IsMatch name = false ->
-            Babel.Identifier(property.Range, name) :> Babel.Expression, false
+            Babel.Identifier (name) :> Babel.Expression, false
         | TransformExpr com ctx property -> property, true
     match expr with
     | :? Babel.EmptyExpression -> property
-    | _ -> Babel.MemberExpression(expr.loc + property.loc, expr, property, computed)
-            :> Babel.Expression
+    | _ -> Babel.MemberExpression (expr, property, computed) :> Babel.Expression
 
-let private typeRef (com: IBabelCompiler) ctx range file fullName =
+let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
     let getDiff s1 s2 =
         let split (s: string) =
             s.Split('.') |> Array.toList
@@ -78,12 +77,11 @@ let private typeRef (com: IBabelCompiler) ctx range file fullName =
         | Some baseExpr ->
             match members with
             | [] -> baseExpr
-            | m::ms -> get baseExpr m |> Some |> makeExpr ms
+            | m::ms -> get baseExpr m |> Some |> makeExpr ms 
         | None ->
             match members with
-            | [] -> upcast Babel.EmptyExpression range
-            | m::ms -> identFromName range m :> Babel.Expression
-                       |> Some |> makeExpr ms
+            | [] -> upcast Babel.EmptyExpression()
+            | m::ms -> identFromName m :> Babel.Expression |> Some |> makeExpr ms
     match file with
     | None -> failwithf "Cannot reference type: %s" fullName
     | Some file ->
@@ -93,7 +91,7 @@ let private typeRef (com: IBabelCompiler) ctx range file fullName =
             fullName = ext.FullName || fullName.StartsWith ext.FullName)
         |> function
             | Some (Fabel.ImportModule (ns, modName)) ->
-                Some (com.GetImport ctx range modName)
+                Some (com.GetImport ctx modName)
                 |> makeExpr (getDiff ns fullName)
             | Some (Fabel.GlobalModule ns) ->
                 makeExpr (getDiff ns fullName) None
@@ -106,13 +104,13 @@ let private typeRef (com: IBabelCompiler) ctx range file fullName =
 let private assign range left right =
     Babel.AssignmentExpression(AssignEqual, left, right, ?loc=range)
     :> Babel.Expression
-
+    
 let private block (com: IBabelCompiler) ctx range (exprs: Fabel.Expr list) =
     let exprs = match exprs with
                 | [Fabel.Sequential (statements,_)] -> statements
                 | _ -> exprs
     Babel.BlockStatement (exprs |> List.map (com.TransformStatement ctx), ?loc=range)
-
+    
 let private returnBlock e =
     Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
 
@@ -154,7 +152,7 @@ let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
         | Fabel.While (TransformExpr com ctx guard, body) ->
             upcast Babel.WhileStatement (guard, block com ctx body.Range [body], ?loc=expr.Range)
         | Fabel.ForOf (var, TransformExpr com ctx enumerable, body) ->
-            // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right
+            // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right 
             let var =
                 Babel.VariableDeclaration(
                     Babel.VariableDeclarationKind.Var,
@@ -197,10 +195,11 @@ let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
             match elseExpr with
             | Fabel.Value Fabel.Null -> None
             | _ -> Some (com.TransformStatement ctx elseExpr)
-        upcast Babel.IfStatement (expr.Range, guardExpr, thenExpr, ?alternate=elseExpr)
+        upcast Babel.IfStatement (
+            guardExpr, thenExpr, ?alternate=elseExpr, ?loc=expr.Range)
 
     | Fabel.Sequential _ ->
-        failwithf "Sequence when single statement expected in %A: %A" expr.Range expr
+        failwithf "Sequence when single statement expected in %A: %A" expr.Range expr 
 
     // Expressions become ExpressionStatements
     | Fabel.Value _ | Fabel.Get _ | Fabel.Apply _ ->
@@ -229,10 +228,10 @@ let private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
             match typ with
             | Fabel.DeclaredType typEnt ->
                 let typFullName =
-                    if Option.isSome (typEnt.HasDecoratorNamed "Erase")
+                    if Option.isSome (typEnt.HasDecoratorNamed "Erase") 
                     then typEnt.FullName.Substring(0, typEnt.FullName.LastIndexOf ".")
                     else typEnt.FullName
-                typeRef com ctx expr.Range typEnt.File typFullName
+                typeRef com ctx typEnt.File typFullName
             | _ -> failwithf "Not supported type reference: %A" typ
         | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _ ->
             failwithf "Unexpected stand-alone operation: %A" expr
@@ -242,15 +241,15 @@ let private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
         | Fabel.Value (Fabel.LogicalOp op), [left; right] ->
             failwith "TODO: Logical operations"
         | Fabel.Value (Fabel.UnaryOp op), [TransformExpr com ctx operand as expr] ->
-            upcast Babel.UnaryExpression (expr.Range, op, operand)
+            upcast Babel.UnaryExpression (op, operand, ?loc=expr.Range)
         | Fabel.Value (Fabel.BinaryOp op), [TransformExpr com ctx left; TransformExpr com ctx right] ->
-            upcast Babel.BinaryExpression (expr.Range, op, left, right)
+            upcast Babel.BinaryExpression (op, left, right, ?loc=expr.Range)
         | _ ->
             let callee = com.TransformExpr ctx callee
             let args = args |> List.map (com.TransformExpr ctx >> U2<_,_>.Case1)
             if isPrimaryConstructor
-            then upcast Babel.NewExpression (expr.Range, callee, args)
-            else upcast Babel.CallExpression (expr.Range, callee, args)
+            then upcast Babel.NewExpression (callee, args, ?loc=expr.Range)
+            else upcast Babel.CallExpression (callee, args, ?loc=expr.Range)
 
     | Fabel.Get (callee, property, _) ->
         getExpr com ctx callee property
@@ -269,8 +268,8 @@ let private transformExpr com ctx (expr: Fabel.Expr): Babel.Expression =
         upcast (iife com ctx expr)
 
     | Fabel.Loop _ | Fabel.Set _  | Fabel.VarDeclaration _ ->
-        failwithf "Statement when expression expected in %A: %A" expr.Range expr
-
+        failwithf "Statement when expression expected in %A: %A" expr.Range expr 
+    
 let private transformFunction com ctx (finfo: Fabel.FunctionInfo) =
     let generator, async =
         match finfo.kind with
@@ -299,10 +298,10 @@ let private transformFunction com ctx (finfo: Fabel.FunctionInfo) =
         | _ ->
             transformExpr com ctx finfo.body |> U2.Case2
     BabelFunctionInfo.Create(args, body, generator, async)
-
+    
 let private transformTestSuite com ctx decls: Babel.CallExpression =
     failwith "TODO: TestSuite members"
-
+    
 // type ClassMethodKind =
 //     | ClassConstructor | ClassMethod | ClassGetter | ClassSetter
 let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation option) decls =
@@ -316,7 +315,7 @@ let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation o
         // TODO: Optimization: remove null statement that F# compiler adds at the bottom of constructors
         Babel.ClassMethod(range, kind, name, finfo.args, body, computed, isStatic)
     let baseClass = baseClass |> Option.map (fun loc ->
-        typeRef com ctx SourceLocation.Empty (Some loc.file) loc.fullName)
+        typeRef com ctx (Some loc.file) loc.fullName)
     decls
     |> List.map (function
         | Fabel.MemberDeclaration m ->
@@ -335,11 +334,11 @@ let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation o
 
 let rec private transformModDecls com ctx modIdent decls =
     let cons, consBack = (fun x y -> x::y), (fun x y -> y::x)
-    // TODO: Keep track of sanitized member names to be sure they don't clash?
+    // TODO: Keep track of sanitized member names to be sure they don't clash? 
     let declareMember range var name isPublic expr =
         let var = match var with Some x -> x | None -> identFromName name
         if isPublic
-        then assign (Some range) (get modIdent name) expr
+        then assign (Some range) (get modIdent name) expr 
         else expr
         |> varDeclaration (Some range) var :> Babel.Statement
     let declareClass classRange className classDecls isPublic baseClass =
@@ -379,7 +378,7 @@ let rec private transformModDecls com ctx modIdent decls =
             |> consBack acc
         | Fabel.Union | Fabel.Record ->
             declareClass entRange ent.Name entDecls ent.IsPublic None
-            |> consBack acc
+            |> consBack acc 
         | Fabel.Module ->
             let nestedIdent, protectedIdent =
                 let memberNames =
@@ -395,7 +394,7 @@ let rec private transformModDecls com ctx modIdent decls =
                 // Protect module identifier against members with same name
                 Babel.Identifier (Naming.sanitizeIdent memberNames.Contains ent.Name)
             let nestedDecls =
-                let ctx = { ctx with moduleFullName = ent.FullName }
+                let ctx = { ctx with moduleFullName = ent.FullName } 
                 transformModDecls com ctx protectedIdent entDecls
             let nestedRange =
                 foldRanges entRange nestedDecls
@@ -423,14 +422,14 @@ let private makeCompiler (com: ICompiler) (files: Fabel.File list) =
             Map.tryFind fileName fileMap
             |> function Some file -> file
                       | None -> failwithf "File not parsed: %s" fileName
-        member bcom.GetImport ctx range moduleName =
+        member bcom.GetImport ctx moduleName =
             match ctx.imports.TryGetValue moduleName with
             | true, import ->
-                upcast Babel.Identifier(range, import)
+                upcast Babel.Identifier import
             | false, _ ->
                 let import = Naming.getImportModuleIdent ctx.imports.Count
                 ctx.imports.Add(moduleName, import)
-                upcast Babel.Identifier(range, import)
+                upcast Babel.Identifier import
         member bcom.TransformExpr ctx e = transformExpr bcom ctx e
         member bcom.TransformStatement ctx e = transformStatement bcom ctx e
         member bcom.TransformFunction ctx e = transformFunction bcom ctx e
@@ -461,4 +460,4 @@ let transformFiles (com: ICompiler) (files: Fabel.File list): Babel.Program list
                                 [U2.Case1 (upcast Babel.ObjectExpression [])],
                                 rootRange) :> Babel.Expression),
                         rootRange) :> Babel.ModuleDeclaration |> U2.Case2
-            Babel.Program (rootRange, [rootMod]) |> Some)
+            Babel.Program (rootRange, [rootMod]) |> Some)         

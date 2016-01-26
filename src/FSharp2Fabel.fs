@@ -7,7 +7,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fabel.AST
 open Fabel.FSharp2Fabel.Util
 
-let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
+let rec private transformExpr com ctx fsExpr =
     match fsExpr with
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -45,13 +45,13 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         makeConst value
 
     | BasicPatterns.BaseValue typ ->
-        makeType com typ |> Fabel.Super |> Fabel.Value
+        makeType com typ |> Fabel.Super |> Fabel.Value 
 
     | BasicPatterns.ThisValue typ ->
-        makeType com typ |> Fabel.This |> Fabel.Value
+        makeType com typ |> Fabel.This |> Fabel.Value 
 
     | BasicPatterns.Value thisVar when thisVar.IsMemberThisValue ->
-        makeType com thisVar.FullType |> Fabel.This |> Fabel.Value
+        makeType com thisVar.FullType |> Fabel.This |> Fabel.Value 
 
     | BasicPatterns.Value v ->
         if not v.IsModuleValueOrMember then
@@ -74,10 +74,9 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
     (** ## Assignments *)
     // TODO: Possible optimization if binding to another ident (let x = y), just replace it in the ctx
     | BasicPatterns.Let((BindIdent com ctx (newContext, ident) as var,
-                            Transform com ctx binding), body) ->
-        let varRange = makeRange var.DeclarationLocation
+                            Transform com ctx value), body) ->
         let body = transformExpr com newContext body
-        let assignment = Fabel.VarDeclaration (ident, value, var.IsMutable)
+        let assignment = Fabel.VarDeclaration (ident, value, var.IsMutable) 
         match body with
         // Check if this this is just a wrapper to a call as it happens in pipelines
         // e.g., let x = 5 in fun y -> methodCall x y
@@ -101,7 +100,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
             recursiveBindings
             |> List.map2 (fun ident (var, Transform com ctx binding) ->
                 Fabel.VarDeclaration (ident, binding, var.IsMutable)) idents
-        assignments @ [transformExpr com newContext body]
+        assignments @ [transformExpr com newContext body] 
         |> makeSequential (makeRangeFrom fsExpr)
 
     (** ## Applications *)
@@ -118,7 +117,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
 
     | BasicPatterns.Application(Transform com ctx expr, _typeArgs, args) ->
         makeApply com ctx fsExpr expr (List.map (transformExpr com ctx) args)
-
+        
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fabel.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)
 
@@ -145,7 +144,6 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
     // TODO: Check if it's FSharpException
     // TODO: Change name of automatically generated fields
     | BasicPatterns.FSharpFieldGet (callee, FabelType com calleeType, FieldName fieldName) ->
-        let range = makeRange fsExpr.Range
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
@@ -167,7 +165,6 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
 
     // TODO: Change name of automatically generated fields
     | BasicPatterns.FSharpFieldSet (callee, FabelType com calleeType, FieldName fieldName, Transform com ctx value) ->
-        let range = makeRange fsExpr.Range
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
@@ -206,21 +203,17 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
 
     // TODO: Check if it's FSharpException
     // TODO: Create constructors for Record and Union types
-    // TODO: Detect Record copies, when one of the arguments is:
-    // FSharpFieldGet (Some Value val originalRecord,type _,field _)])
     | BasicPatterns.NewRecord(FabelType com recordType, argExprs) ->
-        let range = makeRange fsExpr.Range
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         Fabel.Apply (makeTypeRef recordType, argExprs, true,
             makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
     | BasicPatterns.NewUnionCase(FabelType com unionType, unionCase, argExprs) ->
-        let range = makeRange fsExpr.Range
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         match unionType with
         | ErasedUnion | OptionUnion ->
             match argExprs with
-            | [] -> Fabel.Value Fabel.Null
+            | [] -> Fabel.Value Fabel.Null 
             | [expr] -> expr
             | _ -> failwithf "Erased Union Cases must have one single field: %A" unionType
         | ListUnion ->
@@ -237,7 +230,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FabelType com typ as fsTyp, Transform com ctx expr) ->
-        makeTypeTest (makeRangeFrom fsExpr) typ expr
+        makeTypeTest (makeRangeFrom fsExpr) typ expr 
 
     | BasicPatterns.UnionCaseTest (Transform com ctx unionExpr, FabelType com unionType, unionCase) ->
         let boolType = Fabel.PrimitiveType Fabel.Boolean
@@ -253,7 +246,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
                 if (unionCase.Name = "None" || unionCase.Name = "Empty")
                 then BinaryEqual
                 else BinaryUnequal
-            makeBinOp (makeRangeFrom fsExpr) boolType [unionExpr; Fabel.Value Fabel.Null] opKind
+            makeBinOp (makeRangeFrom fsExpr) boolType [unionExpr; Fabel.Value Fabel.Null] opKind 
         | OtherType ->
             let left = Fabel.Get (unionExpr, makeConst "Tag", Fabel.PrimitiveType Fabel.String)
             let right = makeConst unionCase.Name
@@ -358,8 +351,8 @@ type private DeclInfo() =
         extMods.AddRange childExtMods
     member self.GetDeclarationsAndExternalModules () =
         self.ClearChild ()
-        List.ofSeq decls, List.ofSeq extMods
-
+        List.ofSeq decls, List.ofSeq extMods        
+    
 let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let memberKind =
@@ -396,7 +389,7 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
                     let newContext, untupledArg = makeLambdaArgs com ctx tupledArg
                     newContext, untupledArg@accArgs
             ) args (ctx, []) // TODO: Reset Context?
-    let entMember =
+    let entMember = 
         Fabel.Member(memberKind, makeRange meth.DeclarationLocation,
             Fabel.FunctionInfo.Create (Fabel.Immediate, args, hasRestParams meth, transformExpr com ctx body),
             meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
@@ -404,7 +397,7 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
         |> Fabel.MemberDeclaration
     declInfo.AddMethod (meth, entMember)
     declInfo
-
+   
 let rec private transformEntityDecl
     (com: IFabelCompiler) ctx (declInfo: DeclInfo) ent subDecls =
     match ent with
@@ -420,8 +413,9 @@ let rec private transformEntityDecl
             declInfo
         | _ -> failwith "Import attributes must have a single string argument"
     | WithAttribute "Erase" _ | AbstractEntity _ ->
-        declInfo // Ignore
+        declInfo // Ignore 
     | _ ->
+        let ctx = { ctx with parentEntities = ent::ctx.parentEntities }
         let childDecls, childExtMods = transformDeclarations com ctx subDecls
         declInfo.AddChild (com.GetEntity ent, makeRange ent.DeclarationLocation, childDecls, childExtMods)
         declInfo
@@ -438,9 +432,13 @@ and private transformDeclarations (com: IFabelCompiler) ctx decls =
                 declInfo.AddInitAction (Fabel.ActionDeclaration expr); declInfo
         ) (DeclInfo())
     declInfo.GetDeclarationsAndExternalModules ()
-
+        
 let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
-    let emptyContext parent = { scope = []; decisionTargets = Map.empty<_,_> }
+    let emptyContext parent = {
+        scope = []
+        decisionTargets = Map.empty<_,_>
+        parentEntities = match parent with Some p -> [p] | None -> [] 
+    }
     let rec getRootDecls rootEnt = function
         | [FSharpImplementationFileDeclaration.Entity (e, subDecls)]
             when e.IsNamespace || e.IsFSharpModule ->
@@ -461,7 +459,7 @@ let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
             member fcom.GetEntity tdef =
                 entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
         interface ICompiler with
-            member __.Options = com.Options }
+            member __.Options = com.Options }    
     fsProj.AssemblyContents.ImplementationFiles
     |> List.map (fun file ->
         let rootEnt, rootDecls = getRootDecls None file.Declarations

@@ -21,10 +21,8 @@ type PrimitiveTypeKind =
 
 and Type =
     | UnknownType
-    | CoreType of modName: string * className: string option
     | DeclaredType of Entity
     | PrimitiveType of PrimitiveTypeKind
-    | MetaType of Type
 
 (** ##Entities *)
 and EntityLocation = { file: string; fullName: string }
@@ -33,14 +31,13 @@ and EntityKind =
     | Module
     | Class of baseClass: EntityLocation option
     | Union
-    | Record
+    | Record    
     | Interface
 
-and Entity(kind, file, fullName, range, interfaces, decorators, isPublic) =
+and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
     member x.Kind: EntityKind = kind
     member x.File: string option = file
     member x.FullName: string = fullName
-    member x.Range: SourceLocation = range
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
@@ -55,11 +52,7 @@ and Entity(kind, file, fullName, range, interfaces, decorators, isPublic) =
     member x.HasDecoratorNamed decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
     static member CreateRootModule fileName =
-        let line, col =
-            System.IO.File.ReadLines fileName
-            |> Seq.fold (fun (line, _) str -> line + 1, str.Length) (0,0)
-        let range = { start={line=1; column=0}; ``end``={line=line; column=col-1}}
-        Entity (Module, Some fileName, "", range, [], [], true)
+        Entity (Module, Some fileName, "", [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
@@ -81,20 +74,20 @@ and Member(kind, range, func, decorators, isPublic, isStatic) =
     member x.IsPublic: bool = isPublic
     member x.IsStatic: bool = isStatic
     override x.ToString() = sprintf "%A" kind
-
+        
 and ExternalEntity =
     | ImportModule of fullName: string * moduleName: string
     | GlobalModule of fullName: string
     member x.FullName =
         match x with ImportModule (fullName, _)
                    | GlobalModule fullName -> fullName
-
+    
 and File(fileName, root, decls, extEntities) =
     member x.FileName: string = fileName
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
     member x.ExternalEntities: ExternalEntity list = extEntities
-
+    
 (** ##Expressions *)
 and ArrayKind = TypedArray of NumberKind | DynamicArray | Tuple
 
@@ -144,12 +137,12 @@ and ValueKind =
         | BinaryOp _ | LogicalOp _ -> PrimitiveType (Function 2)
         | Lambda { args=args } -> PrimitiveType (Function args.Length)
         | ObjExpr _ -> UnknownType
-
+    
 and LoopKind =
     | While of guard: Expr * body: Expr
     | For of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool
     | ForOf of ident: Ident * enumerable: Expr * body: Expr
-
+    
 and Expr =
     // Pure Expressions
     | Value of value: ValueKind
@@ -166,7 +159,7 @@ and Expr =
 
     member x.Type =
         match x with
-        | Value kind -> kind.Type
+        | Value kind -> kind.Type 
         | Get (_,_,typ) | Apply (_,_,_,typ,_) -> typ
         | IfThenElse (_,thenExpr,_,_) -> thenExpr.Type
         | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
@@ -178,7 +171,7 @@ and Expr =
             match finalizer with
             | Some _ -> PrimitiveType Unit
             | None -> body.Type
-
+            
     member x.Range: SourceLocation option =
         match x with
         | Value _ | Get _ -> None
@@ -189,7 +182,7 @@ and Expr =
         | Set (_,_,_,range)
         | Sequential (_,range)
         | TryCatch (_,_,_,range) -> range
-
+            
     member x.Children: (Expr list) option =
         match x with
         | Value _ -> None
@@ -213,3 +206,4 @@ and Expr =
             | Some (_,catch), None -> Some [body; catch]
             | None, Some finalizer -> Some [body; finalizer]
             | None, None -> Some [body]
+            
