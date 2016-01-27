@@ -31,6 +31,11 @@ module Patterns =
     let (|Transform|) (com: IFabelCompiler) = com.Transform
     let (|FieldName|) (fi: FSharpField) = fi.Name
     let (|ExprType|) (expr: Fabel.Expr) = expr.Type
+    
+    let (|NonAbbreviatedType|) (t: FSharpType) =
+        let rec abbr (t: FSharpType) =
+            if t.IsAbbreviation then abbr t.AbbreviatedType else t
+        abbr t
 
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
@@ -67,7 +72,7 @@ module Patterns =
         if ent.IsInterface then Some ent else
         match ent.BaseType with
         | None -> None
-        | Some t ->
+        | Some (NonAbbreviatedType t) ->
             if not t.HasTypeDefinition then None else
             match t.TypeDefinition.TryFullName with
             | Some "System.Attribute" -> Some ent
@@ -117,17 +122,13 @@ module Patterns =
         then Some [decl]
         else matchNamespace (ns.Split('.') |> Array.toList) decl
 
-    let (|NonAbbreviatedType|) (t: FSharpType) =
-        let rec abbr (t: FSharpType) = if t.IsAbbreviation then abbr t.AbbreviatedType else t
-        abbr t
-
     let (|OptionUnion|ListUnion|ErasedUnion|OtherType|) (typ: Fabel.Type) =
         match typ with
         | Fabel.DeclaredType typ ->
             match typ.FullName with
             | "Microsoft.FSharp.Core.Option" -> OptionUnion
             | "Microsoft.FSharp.Collections.List" -> ListUnion
-            | _ when Option.isSome (typ.HasDecoratorNamed "Erase") -> ErasedUnion
+            | _ when Option.isSome (typ.TryGetDecorator "Erase") -> ErasedUnion
             | _ -> OtherType
         | _ -> OtherType
 
@@ -151,16 +152,13 @@ module Types =
             }
 
     let makeDecorator (com: IFabelCompiler) (att: FSharpAttribute) =
-        match com.GetInternalFile att.AttributeType with
-        | None -> None
-        | Some _ ->
-            let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
-            let fullName =
-                let fullName = sanitizeEntityName att.AttributeType.FullName
-                if fullName.EndsWith ("Attribute")
-                then fullName.Substring (0, fullName.Length - 9)
-                else fullName
-            Fabel.Decorator(att.AttributeType.FullName, args) |> Some
+        let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
+        let fullName =
+            let fullName = sanitizeEntityName att.AttributeType.FullName
+            if fullName.EndsWith ("Attribute")
+            then fullName.Substring (0, fullName.Length - 9)
+            else fullName
+        Fabel.Decorator(fullName, args)
 
     let makeEntity (com: IFabelCompiler) (tdef: FSharpEntity) =
         let kind =
@@ -170,7 +168,7 @@ module Types =
             elif tdef.IsFSharpUnion then Fabel.Union
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fabel.Module
             else Fabel.Class (getBaseClassLocation tdef)
-        // Take only interfaces and attributes with internal declaration
+        // Take only interfaces with internal declaration
         let infcs =
             tdef.DeclaredInterfaces
             |> Seq.filter (fun (NonAbbreviatedType x) ->
@@ -180,7 +178,7 @@ module Types =
             |> Seq.toList
         let decs =
             tdef.Attributes
-            |> Seq.choose (makeDecorator com)
+            |> Seq.map (makeDecorator com)
             |> Seq.toList
         Fabel.Entity (kind, com.GetInternalFile tdef,
             sanitizeEntityName tdef.FullName,
@@ -302,7 +300,7 @@ let rec makeSequential range statements =
 
 let makeTypeRef typ =
     Fabel.Value (Fabel.TypeRef typ)
-
+    
 let makeConst (value: obj) =
     match value with
     | :? bool as x -> Fabel.BoolConst x
@@ -364,16 +362,18 @@ let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClau
         | None -> None
     Fabel.TryCatch (body, catchClause, finalizer, makeRangeFrom fsExpr)
 
-let makeCoreCall range typ args (modName: string, methName: string option, isCons: bool) =
+let makeCoreRef com modname =
+    Fabel.Value (Fabel.ImportRef (Naming.getCoreLibPath com, Some modname))
+
+let makeCoreCall com range typ args (modName: string, methName: string option, isCons: bool) =
     let meth =
-        let coreExpr = Fabel.CoreModule modName |> Fabel.Value
         match methName with
-        | None -> coreExpr
+        | None -> makeCoreRef com modName
         | Some methName ->
-            Fabel.Get (coreExpr, makeConst methName, makeFnType args)
+            Fabel.Get (makeCoreRef com modName, makeConst methName, makeFnType args)
     Fabel.Apply (meth, args, isCons, typ, range)
 
-let makeTypeTest range (typ: Fabel.Type) expr =
+let makeTypeTest com range (typ: Fabel.Type) expr =
     let stringType, boolType =
         Fabel.PrimitiveType Fabel.String, Fabel.PrimitiveType Fabel.Boolean
     let checkType (primitiveType: string) expr =
@@ -392,7 +392,7 @@ let makeTypeTest range (typ: Fabel.Type) expr =
         match typEnt.Kind with
         | Fabel.Interface ->
             ("Util", Some "hasInterface", false)
-            |> makeCoreCall range boolType [makeConst typEnt.FullName]
+            |> makeCoreCall com range boolType [makeConst typEnt.FullName]
         | _ ->
             makeBinOp range boolType [expr; makeTypeRef typ] BinaryInstanceOf 
     | _ -> failwithf "Unsupported type test in: %A" typ
@@ -455,7 +455,7 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
             overloads
             |> Seq.mapi (fun i x -> i,x)
             |> Seq.tryPick (fun (i,x) -> if x.XmlDocSig = meth.XmlDocSig then Some i else None)
-            |> function Some i when i > 0 -> string i | _ -> ""
+            |> function Some i when i > 0 -> sprintf "_%i" i | _ -> ""
         let ent = meth.EnclosingEntity
         let ns = match ent.Namespace with Some ns -> ns + "." | None -> ""
         ns + ent.DisplayName + "." + meth.DisplayName + (overloadSuffix meth)
@@ -481,11 +481,11 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
         let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
         (** -If this is an external method, check for replacements *)
         let resolved =
-            match methType with
-            | Fabel.DeclaredType typEnt when typEnt.File.IsSome ->
+            match com.GetInternalFile meth.EnclosingEntity with
+            | Some _ ->
                 None // TODO: Check for Emit attribute
             | _ ->
-                match Replacements.tryReplace range typ methFullName callee args with
+                match Replacements.tryReplace com range typ methFullName callee args with
                 | Some _ as repl -> repl
                 | None -> failwithf "Couldn't find replacemente for external method %s"
                                     methFullName

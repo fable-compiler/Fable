@@ -218,7 +218,7 @@ let rec private transformExpr com ctx fsExpr =
             | _ -> failwithf "Erased Union Cases must have one single field: %A" unionType
         | ListUnion ->
             match unionCase.Name with
-            | "Cons" -> Fabel.Apply (Fabel.Value (Fabel.CoreModule "List"),
+            | "Cons" -> Fabel.Apply (makeCoreRef com "List",
                             (makeConst "Cons")::argExprs, true,
                             makeType com fsExpr.Type, makeRangeFrom fsExpr)
             | _ -> Fabel.Value Fabel.Null
@@ -230,7 +230,7 @@ let rec private transformExpr com ctx fsExpr =
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FabelType com typ as fsTyp, Transform com ctx expr) ->
-        makeTypeTest (makeRangeFrom fsExpr) typ expr 
+        makeTypeTest com (makeRangeFrom fsExpr) typ expr 
 
     | BasicPatterns.UnionCaseTest (Transform com ctx unionExpr, FabelType com unionType, unionCase) ->
         let boolType = Fabel.PrimitiveType Fabel.Boolean
@@ -240,7 +240,7 @@ let rec private transformExpr com ctx fsExpr =
                 failwithf "Erased Union Cases must have one single field: %A" unionType
             else
                 let typ = makeType com unionCase.UnionCaseFields.[0].FieldType
-                makeTypeTest (makeRangeFrom fsExpr) typ unionExpr
+                makeTypeTest com (makeRangeFrom fsExpr) typ unionExpr
         | OptionUnion | ListUnion ->
             let opKind =
                 if (unionCase.Name = "None" || unionCase.Name = "Empty")
@@ -317,103 +317,123 @@ let rec private transformExpr com ctx fsExpr =
     | BasicPatterns.AddressSet _ // (lvalueExpr, rvalueExpr)
     | _ -> failwithf "Cannot compile expression in %A: %A" fsExpr.Range fsExpr
 
+// The F# compiler considers class methods as children of the enclosing module.
+// Whe use this type to correct that, see type DeclInfo below.
+type private EntChild =
+    | Compiled of Fabel.Entity * SourceLocation
+    | Ignored of fullName: string
+    static member matchesFullName child str =
+        match child with
+        | Some (Compiled (ent, _)) -> ent.FullName = str
+        | Some (Ignored fullName) -> fullName = str
+        | None -> false
+
 type private DeclInfo() =
-    let mutable child: (Fabel.Entity * SourceLocation) option = None
+    let mutable child: EntChild option = None
     let decls = ResizeArray<Fabel.Declaration>()
     let childDecls = ResizeArray<Fabel.Declaration>()
     let extMods = ResizeArray<Fabel.ExternalEntity>()
-    // The F# compiler considers class methods as children of the enclosing module, correct that
-    member self.AddMethod (meth: FSharpMemberOrFunctionOrValue, methDecl: Fabel.Declaration) =
-        let methParentFullName =
-            sanitizeEntityName meth.EnclosingEntity.FullName
+    member self.IsIgnored (meth: FSharpMemberOrFunctionOrValue) =
+        if meth.IsCompilerGenerated then true else
         match child with
-        | Some (x,_) when x.FullName = methParentFullName ->
-            childDecls.Add methDecl
-        | _ ->
-            self.ClearChild ()
-            decls.Add methDecl
+        | Some (Ignored fullName) ->
+            sanitizeEntityName meth.EnclosingEntity.FullName
+            |> (=) fullName
+        | _ -> false
+    member self.AddMethod (meth: FSharpMemberOrFunctionOrValue, methDecl: Fabel.Declaration) =
+        sanitizeEntityName meth.EnclosingEntity.FullName
+        |> EntChild.matchesFullName child
+        |> function true -> childDecls.Add methDecl
+                  | false -> self.ClearChild (); decls.Add methDecl
     member self.AddInitAction (actionDecl: Fabel.Declaration) =
         self.ClearChild ()
         decls.Add actionDecl
-    member self.AddExternalModule extMod =
+    member self.AddExternal (extMod: Fabel.ExternalEntity) =
+        self.ClearChild ()
+        child <- Some (Ignored extMod.FullName)
         extMods.Add extMod
     member self.ClearChild () =
         match child with
-        | Some (child, range) ->
-            Fabel.EntityDeclaration (child, List.ofSeq childDecls, range) |> decls.Add
-        | None -> ()
+        | Some (Compiled (child, range)) ->
+            Fabel.EntityDeclaration (child, List.ofSeq childDecls, range)
+            |> decls.Add
+        | _ -> ()
         child <- None
         childDecls.Clear ()
     member self.AddChild (newChild, newChildRange, newChildDecls, childExtMods) =
         self.ClearChild ()
-        child <- Some (newChild, newChildRange)
+        child <- Some (Compiled (newChild, newChildRange))
         childDecls.AddRange newChildDecls
         extMods.AddRange childExtMods
+    member self.AddIgnored (ent: FSharpEntity) =
+        self.ClearChild ()
+        child <- Some (Ignored (sanitizeEntityName ent.FullName))
     member self.GetDeclarationsAndExternalModules () =
         self.ClearChild ()
         List.ofSeq decls, List.ofSeq extMods        
     
 let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    let memberKind =
-        let name = meth.DisplayName
-        // TODO: Another way to check module values?
-        // TODO: Mutable module values
-        if meth.EnclosingEntity.IsFSharpModule then
-            match meth.XmlDocSig.[0] with
-            | 'P' -> Fabel.Getter name
-            | _ -> Fabel.Method name
-        else
-            // TODO: Check overloads
-            if meth.IsImplicitConstructor then Fabel.Constructor
-            elif meth.IsPropertyGetterMethod then Fabel.Getter name
-            elif meth.IsPropertySetterMethod then Fabel.Setter name
-            else Fabel.Method name
-    let ctx, args =
-        let args = if meth.IsInstanceMember then Seq.skip 1 args |> Seq.toList else args
-        match args with
-        | [] -> ctx, []
-        | [[singleArg]] ->
-            makeType com singleArg.FullType |> function
-            | Fabel.PrimitiveType Fabel.Unit -> ctx, []
-            | _ -> let (BindIdent com ctx (ctx, arg)) = singleArg in ctx, [arg]
-        | _ ->
-            List.foldBack (fun tupledArg (accContext, accArgs) ->
-                match tupledArg with
-                | [] -> failwith "Unexpected empty tupled in curried arguments"
-                | [nonTupledArg] ->
-                    let (BindIdent com accContext (newContext, arg)) = nonTupledArg
-                    newContext, arg::accArgs
-                | _ ->
-                    // The F# compiler "untuples" the args in methods
-                    let newContext, untupledArg = makeLambdaArgs com ctx tupledArg
-                    newContext, untupledArg@accArgs
-            ) args (ctx, []) // TODO: Reset Context?
-    let entMember = 
-        Fabel.Member(memberKind, makeRange meth.DeclarationLocation,
-            Fabel.FunctionInfo.Create (Fabel.Immediate, args, hasRestParams meth, transformExpr com ctx body),
-            meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-            meth.Accessibility.IsPublic, not meth.IsInstanceMember)
-        |> Fabel.MemberDeclaration
-    declInfo.AddMethod (meth, entMember)
+    if declInfo.IsIgnored meth |> not then
+        let memberKind =
+            let name = meth.DisplayName
+            // TODO: Another way to check module values?
+            if meth.EnclosingEntity.IsFSharpModule then
+                match meth.XmlDocSig.[0] with
+                | 'P' -> Fabel.Getter name
+                | _ -> Fabel.Method name
+            else
+                // TODO: Check overloads
+                if meth.IsImplicitConstructor then Fabel.Constructor
+                elif meth.IsPropertyGetterMethod then Fabel.Getter name
+                elif meth.IsPropertySetterMethod then Fabel.Setter name
+                else Fabel.Method name
+        let ctx, args =
+            let args = if meth.IsInstanceMember then Seq.skip 1 args |> Seq.toList else args
+            match args with
+            | [] -> ctx, []
+            | [[singleArg]] ->
+                makeType com singleArg.FullType |> function
+                | Fabel.PrimitiveType Fabel.Unit -> ctx, []
+                | _ -> let (BindIdent com ctx (ctx, arg)) = singleArg in ctx, [arg]
+            | _ ->
+                List.foldBack (fun tupledArg (accContext, accArgs) ->
+                    match tupledArg with
+                    | [] -> failwith "Unexpected empty tupled in curried arguments"
+                    | [nonTupledArg] ->
+                        let (BindIdent com accContext (newContext, arg)) = nonTupledArg
+                        newContext, arg::accArgs
+                    | _ ->
+                        // The F# compiler "untuples" the args in methods
+                        let newContext, untupledArg = makeLambdaArgs com ctx tupledArg
+                        newContext, untupledArg@accArgs
+                ) args (ctx, []) // TODO: Reset Context?
+        let entMember = 
+            Fabel.Member(memberKind, makeRange meth.DeclarationLocation,
+                Fabel.FunctionInfo.Create (Fabel.Immediate, args, hasRestParams meth, transformExpr com ctx body),
+                meth.Attributes |> Seq.map (makeDecorator com) |> Seq.toList,
+                meth.Accessibility.IsPublic, not meth.IsInstanceMember)
+            |> Fabel.MemberDeclaration
+        declInfo.AddMethod (meth, entMember)
     declInfo
    
 let rec private transformEntityDecl
-    (com: IFabelCompiler) ctx (declInfo: DeclInfo) ent subDecls =
+    (com: IFabelCompiler) ctx (declInfo: DeclInfo) (ent: FSharpEntity) subDecls =
     match ent with
     | WithAttribute "Global" _ ->
         Fabel.GlobalModule ent.FullName
-        |> declInfo.AddExternalModule
+        |> declInfo.AddExternal
         declInfo
     | WithAttribute "Import" args ->
         match args with
-        | [:? string as modName] ->
+        | [:? string as modName] when not(System.String.IsNullOrWhiteSpace modName) ->
             Fabel.ImportModule(ent.FullName, modName)
-            |> declInfo.AddExternalModule
+            |> declInfo.AddExternal
             declInfo
-        | _ -> failwith "Import attributes must have a single string argument"
+        | _ -> failwith "Import attributes must have a single non-empty string argument"
     | WithAttribute "Erase" _ | AbstractEntity _ ->
-        declInfo // Ignore 
+        declInfo.AddIgnored ent
+        declInfo
     | _ ->
         let ctx = { ctx with parentEntities = ent::ctx.parentEntities }
         let childDecls, childExtMods = transformDeclarations com ctx subDecls
@@ -454,8 +474,14 @@ let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
             member fcom.Transform ctx fsExpr =
                 transformExpr fcom ctx fsExpr
             member fcom.GetInternalFile tdef =
-                let file = tdef.DeclarationLocation.FileName
-                if Set.contains file fileNames then Some file else None
+                // In F# scripts the DeclarationLocation of referenced libraries
+                // becomes the .fsx file, so check first if the entity belongs
+                // to an assembly already compiled (external to the project)
+                match tdef.Assembly.FileName with
+                | Some _ -> None
+                | None ->
+                    let file = tdef.DeclarationLocation.FileName
+                    if Set.contains file fileNames then Some file else None
             member fcom.GetEntity tdef =
                 entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
         interface ICompiler with

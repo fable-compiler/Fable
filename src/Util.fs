@@ -11,9 +11,11 @@ type ICompiler =
     abstract Options: CompilerOptions
 
 module Naming =
-    let [<Literal>] coreLibIdent = "$Fabel"
-    let [<Literal>] rootModuleIdent = "$M0"
+    open System.IO
     
+    let getCoreLibPath (com: ICompiler) =
+        Path.Combine(com.Options.jsLibFolder, "Fabel.Core.js")
+        
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
     let identForbiddenChars =

@@ -1,4 +1,5 @@
 module Fabel.Plugins.Replacements
+open Fabel
 open Fabel.AST
 
 type Resolution =
@@ -14,21 +15,26 @@ module private Util =
     let inline (=>) first second = first, second
 
     let (|Split|) splitter (str: string) = str.Split ([|splitter|])
+    let (|StartsWith|_|) pattern (str: string) =
+        if str.StartsWith pattern then Some pattern else None
 
     let ident name =
         Fabel.IdentValue {name=name; typ=Fabel.UnknownType} |> Fabel.Value
 
     let literal str =
         Fabel.StringConst str |> Fabel.Value
+
+    let importCall range typ importRef modOption methName args =
+        let importMod = Fabel.Value (Fabel.ImportRef (importRef, modOption))
+        let get = Fabel.Get (importMod, literal methName, Fabel.UnknownType)
+        Fabel.Apply(get, args, false, typ, range)
             
     let jsCoreLibCall range typ modName methName args =
         let get = Fabel.Get (ident modName, literal methName, Fabel.UnknownType)
         Fabel.Apply(get, args, false, typ, range)
 
-    let fabelCoreLibCall range typ modName methName args =
-        let coreMod = Fabel.Value (Fabel.CoreModule modName)
-        let get = Fabel.Get (coreMod, literal methName, Fabel.UnknownType)
-        Fabel.Apply(get, args, false, typ, range)
+    let fabelCoreLibCall com range typ modName methName args =
+        importCall range typ (Naming.getCoreLibPath com) (Some modName) methName args
 
     let instanceCall range typ methName (callee, args) =
         let get = Fabel.Get (callee, literal methName, Fabel.UnknownType)
@@ -63,9 +69,9 @@ module private AstPass =
         | Inline of Fabel.Expr
         | NoMapping
 
-    let mapMethod range typ callee args = function
+    let mapMethod com range typ callee args = function
         | Instance name -> instanceCall range typ name (instanceArgs callee args) |> Solved
-        | CoreLib (lib, name) -> fabelCoreLibCall range typ lib name (staticArgs callee args) |> Solved
+        | CoreLib (lib, name) -> fabelCoreLibCall com range typ lib name (staticArgs callee args) |> Solved
         | JSLib (lib, name) -> jsCoreLibCall range typ lib name (staticArgs callee args) |> Solved
         | Getter name -> getter typ name (instanceArgs callee args) |> Solved
         | Setter name -> setter range name (instanceArgs callee args) |> Solved
@@ -113,7 +119,7 @@ module private AstPass =
     let math range typ methName args =
         jsCoreLibCall range typ "Math" methName args |> Solved
 
-    let operators range typ methName callee args =
+    let operators com range typ methName callee args =
         match methName, (callee, args) with
         // F# Compiler actually converts all logical operations to IfThenElse expressions
         | "&&", TwoArgs (x, y) -> logicalOp range typ LogicalAnd x y
@@ -152,13 +158,13 @@ module private AstPass =
         | "tan", _ -> math range typ "tan" args
         | _ -> Untouched
 
-    let intrinsicFunctions range typ methName callee args =
+    let intrinsicFunctions com range typ methName callee args =
         match methName, (callee, args) with
         | "GetArray", TwoArgs (ar, idx) -> Fabel.Get (ar, idx, typ) |> Solved
         | "SetArray", ThreeArgs (ar, idx, value) -> Fabel.Set (ar, Some idx, value, range) |> Solved
         | _ -> Untouched
 
-    let fsharpMap range typ methName callee args =
+    let fsharpMap com range typ methName callee args =
         match methName with
         | "add" | "Add" -> Instance "set"
         | "containsKey" | "ContainsKey" -> Instance "has"
@@ -192,7 +198,7 @@ module private AstPass =
         | "tryFindKey" -> failwith "TODO"
         | "tryPick" -> failwith "TODO"
         | _ -> NoMapping
-        |> mapMethod range typ callee args
+        |> mapMethod com range typ callee args
 // TODO: Static methods
 // let add k v (m:Map<_,_>) = m.Add(k,v)
 // let containsKey k (m:Map<_,_>) = m.ContainsKey(k)
@@ -220,8 +226,15 @@ module private AstPass =
 // let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
 // let tryPick f (m:Map<_,_>) = m.TryPick(f)
 
+    let asserts com range typ methName callee args =
+        match methName with
+        | StartsWith "AreEqual" _ ->
+            importCall range typ "assert" None "equal" args |> Solved
+        | _ -> Untouched
+
     let mappings =
         dict [
+            "NUnit.Framework.Assert" => asserts
             fsharp + "Core.Operators" => operators
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
             // fsharp + "Collections.Set" => fsharpSet
@@ -258,33 +271,33 @@ let private flattenArgs callee args =
 let private lowerFirst (methName: string) =
     ((methName.Substring (0, 1)).ToLower ()) + methName.Substring (1)
 
-let private astPass range typ typeName methName callee args=
+let private astPass com range typ typeName methName callee args=
     if AstPass.mappings.ContainsKey typeName
-    then AstPass.mappings.[typeName] range typ methName callee args
+    then AstPass.mappings.[typeName] com range typ methName callee args
     else Untouched
 
-let private coreLibPass range typ typeName methName callee args =
+let private coreLibPass com range typ typeName methName callee args =
     let pass (mappings: System.Collections.Generic.IDictionary<_,_>) callee args =
         if not(mappings.ContainsKey typeName) then None else
         match callee with
         | Some callee -> instanceCall range typ (lowerFirst methName) (callee, args)
-        | None -> fabelCoreLibCall range typ mappings.[typeName] (lowerFirst methName) args
+        | None -> fabelCoreLibCall com range typ mappings.[typeName] (lowerFirst methName) args
         |> Some
     match pass CoreLibPass.mappings callee args with
     | Some _ as res -> res
     // Native mapping methods are always static, so we must flatten the args first
     | None -> pass CoreLibPass.nativeTypeMappings None (flattenArgs callee args)
 
-let tryReplace range typ (methFullName: string) (callee: Fabel.Expr option) (args: Fabel.Expr list) =
+let tryReplace (com: ICompiler) range typ (methFullName: string) (callee: Fabel.Expr option) (args: Fabel.Expr list) =
     let typeName, methName =
         let lastPeriod = methFullName.LastIndexOf (".")
         methFullName.Substring (0, lastPeriod),
         match methFullName.Substring (lastPeriod + 1) with
         | Split ' ' [|"(";operator;")"|] -> operator
         | _ as methName -> methName
-    match astPass range typ typeName methName callee args with
+    match astPass com range typ typeName methName callee args with
     // If the first pass has only partially resolved the expression, try to resolve it again
     | Partial (typFullName, methName, args) ->
-        coreLibPass range typ typFullName methName None args
+        coreLibPass com range typ typFullName methName None args
     | Solved res -> Some res
-    | Untouched -> coreLibPass range typ typeName methName callee args
+    | Untouched -> coreLibPass com range typ typeName methName callee args

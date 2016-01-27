@@ -49,7 +49,7 @@ and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
         | -1 -> ""
         | 0 -> failwithf "Unexpected entity full name: %s" fullName
         | _ as i -> fullName.Substring(0, i)
-    member x.HasDecoratorNamed decorator =
+    member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
     static member CreateRootModule fileName =
         Entity (Module, Some fileName, "", [], [], true)
@@ -73,6 +73,8 @@ and Member(kind, range, func, decorators, isPublic, isStatic) =
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
     member x.IsStatic: bool = isStatic
+    member x.TryGetDecorator decorator =
+        decorators |> List.tryFind (fun x -> x.Name = decorator)
     override x.ToString() = sprintf "%A" kind
         
 and ExternalEntity =
@@ -111,7 +113,7 @@ and ValueKind =
     | Super of Type
     | TypeRef of Type
     | IdentValue of Ident
-    | CoreModule of string // e.g., $Fabel.Seq
+    | ImportRef of import: string * prop: string option
     | IntConst of int * NumberKind
     | FloatConst of float * NumberKind
     | StringConst of string
@@ -127,7 +129,7 @@ and ValueKind =
         match x with
         | Null -> PrimitiveType Unit
         | This typ | Super typ | IdentValue {typ=typ} -> typ
-        | CoreModule _ | TypeRef _ -> UnknownType
+        | ImportRef _ | TypeRef _ -> UnknownType
         | IntConst (_,kind) | FloatConst (_,kind) -> PrimitiveType (Number kind)
         | StringConst _ -> PrimitiveType String
         | RegexConst _ -> PrimitiveType Regex
@@ -166,7 +168,7 @@ and Expr =
         | Sequential (exprs,_) ->
             match exprs with
             | [] -> PrimitiveType Unit
-            | exprs -> (List.last exprs).Type
+            | exprs -> (Seq.last exprs).Type
         | TryCatch (body,_,finalizer,_) ->
             match finalizer with
             | Some _ -> PrimitiveType Unit
