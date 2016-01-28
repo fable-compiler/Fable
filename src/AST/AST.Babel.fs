@@ -33,10 +33,22 @@ type EmptyExpression() =
     inherit Expression("EmptyExpression")
 
 (** ##Template Literals *)
+type TemplateElement(value: string, tail, ?loc) =
+    inherit Node("TemplateElement", ?loc = loc)
+    member x.tail: bool = tail
+    member x.value = dict [ ("raw", value); ("cooked", value) ]
 
-// type TemplateLiteral
-// type TaggedTemplateExpression
-// type TemplateElement
+type TemplateLiteral(quasis, expressions, ?macro, ?loc) =
+    inherit Literal("TemplateLiteral", ?loc = loc)
+    member x.quasis: TemplateElement list = quasis
+    member x.expressions: Expression list = expressions
+    /// Not in babel-specs, used to simulate a macro template
+    member x.macro = defaultArg macro false
+    
+type TaggedTemplateExpression(tag, quasi, ?loc) =
+    inherit Expression("TaggedTemplateExpression", ?loc = loc)
+    member x.tag: Expression = tag
+    member x.quasi: TemplateLiteral = quasi
 
 (** ##Patterns *)
 

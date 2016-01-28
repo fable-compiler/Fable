@@ -164,6 +164,29 @@ let private varDeclaration range var value =
         Babel.VariableDeclarationKind.Var,
         [Babel.VariableDeclarator (var, value, ?loc=range)],
         ?loc = range)
+        
+let private template range (txt: string) args =
+    let args = Array.ofList args
+    let el isTail value = Babel.TemplateElement(value, isTail)
+    let rec buildEls idx (matches: System.Text.RegularExpressions.Match list) els =
+        match matches with
+        | [] -> (el true (txt.Substring idx), None)::els
+        | m::ms ->
+            let arg = m.Value.Substring 1 |> int |> Array.tryItem <| args
+            let value, idx = txt.Substring(idx, m.Index - idx), m.Index + m.Length
+            (el false value, arg)::els |> buildEls idx ms
+    let placeholders =
+        System.Text.RegularExpressions.Regex.Matches(txt, @"\$\d+")
+        |> Seq.cast<_> |> Seq.toList
+    match buildEls 0 placeholders [] with
+    | [] -> Babel.StringLiteral(txt, ?loc=range) :> Babel.Expression
+    | els ->
+        let els, args =
+            let els, args = els |> List.rev |> List.unzip
+            els, List.choose id args
+        // TODO: Check args length? (Omission may be intended)
+        Babel.TemplateLiteral(els, args, macro=true, ?loc=range) 
+        :> Babel.Expression
 
 let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
     match expr with
