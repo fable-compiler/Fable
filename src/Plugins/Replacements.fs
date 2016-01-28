@@ -14,7 +14,6 @@ module private Util =
 
     let inline (=>) first second = first, second
 
-    let (|Split|) splitter (str: string) = str.Split ([|splitter|])
     let (|StartsWith|_|) pattern (str: string) =
         if str.StartsWith pattern then Some pattern else None
 
@@ -292,9 +291,7 @@ let tryReplace (com: ICompiler) range typ (methFullName: string) (callee: Fabel.
     let typeName, methName =
         let lastPeriod = methFullName.LastIndexOf (".")
         methFullName.Substring (0, lastPeriod),
-        match methFullName.Substring (lastPeriod + 1) with
-        | Split ' ' [|"(";operator;")"|] -> operator
-        | _ as methName -> methName
+        methFullName.Substring (lastPeriod + 1)
     match astPass com range typ typeName methName callee args with
     // If the first pass has only partially resolved the expression, try to resolve it again
     | Partial (typFullName, methName, args) ->

@@ -318,7 +318,7 @@ let rec private transformExpr com ctx fsExpr =
     | _ -> failwithf "Cannot compile expression in %A: %A" fsExpr.Range fsExpr
 
 // The F# compiler considers class methods as children of the enclosing module.
-// Whe use this type to correct that, see type DeclInfo below.
+// We use this type to correct that, see type DeclInfo below.
 type private EntChild =
     | Compiled of Fabel.Entity * SourceLocation
     | Ignored of fullName: string
@@ -333,16 +333,28 @@ type private DeclInfo() =
     let decls = ResizeArray<Fabel.Declaration>()
     let childDecls = ResizeArray<Fabel.Declaration>()
     let extMods = ResizeArray<Fabel.ExternalEntity>()
-    member self.IsIgnored (meth: FSharpMemberOrFunctionOrValue) =
+    // TODO: Check if constructor has Erase decorator
+    /// Interface, inherits from System.Attribute, has "Erase" decorator...
+    member self.IsIgnoredEntity (ent: FSharpEntity) =
+        if ent.IsInterface then true else
+        match ent.Attributes, ent.BaseType with
+        | ContainsAtt "Erase" _, _ -> true
+        | _, Some (NonAbbreviatedType t) when t.HasTypeDefinition ->
+            match t.TypeDefinition.TryFullName with
+            | Some "System.Attribute" -> true
+            | _ -> false
+        | _ -> false
+    /// Is compiler generated or belongs to ignored entity?
+    /// (remember F# compiler puts class methods in enclosing modules)
+    member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.IsCompilerGenerated then true else
         match child with
         | Some (Ignored fullName) ->
             sanitizeEntityName meth.EnclosingEntity.FullName
             |> (=) fullName
         | _ -> false
-    member self.AddMethod (meth: FSharpMemberOrFunctionOrValue, methDecl: Fabel.Declaration) =
-        sanitizeEntityName meth.EnclosingEntity.FullName
-        |> EntChild.matchesFullName child
+    member self.AddMethod (methDecl: Fabel.Declaration, parentName: string) =
+        EntChild.matchesFullName child parentName
         |> function true -> childDecls.Add methDecl
                   | false -> self.ClearChild (); decls.Add methDecl
     member self.AddInitAction (actionDecl: Fabel.Declaration) =
@@ -374,9 +386,9 @@ type private DeclInfo() =
     
 let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    if declInfo.IsIgnored meth |> not then
+    if declInfo.IsIgnoredMethod meth |> not then
         let memberKind =
-            let name = meth.DisplayName
+            let name = sanitizeMethodName meth.DisplayName
             // TODO: Another way to check module values?
             if meth.EnclosingEntity.IsFSharpModule then
                 match meth.XmlDocSig.[0] with
@@ -414,24 +426,26 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
                 meth.Attributes |> Seq.map (makeDecorator com) |> Seq.toList,
                 meth.Accessibility.IsPublic, not meth.IsInstanceMember)
             |> Fabel.MemberDeclaration
-        declInfo.AddMethod (meth, entMember)
+        let parentName =
+            sanitizeEntityName meth.EnclosingEntity.FullName
+        declInfo.AddMethod (entMember, parentName)
     declInfo
    
 let rec private transformEntityDecl
     (com: IFabelCompiler) ctx (declInfo: DeclInfo) (ent: FSharpEntity) subDecls =
-    match ent with
-    | WithAttribute "Global" _ ->
+    match ent.Attributes with
+    | ContainsAtt "Global" _ ->
         Fabel.GlobalModule ent.FullName
         |> declInfo.AddExternal
         declInfo
-    | WithAttribute "Import" args ->
+    | ContainsAtt "Import" args ->
         match args with
         | [:? string as modName] when not(System.String.IsNullOrWhiteSpace modName) ->
             Fabel.ImportModule(ent.FullName, modName)
             |> declInfo.AddExternal
             declInfo
         | _ -> failwith "Import attributes must have a single non-empty string argument"
-    | WithAttribute "Erase" _ | AbstractEntity _ ->
+    | _ when declInfo.IsIgnoredEntity ent ->
         declInfo.AddIgnored ent
         declInfo
     | _ ->

@@ -56,9 +56,8 @@ module Patterns =
         | Some file -> Some { Fabel.file=file; Fabel.fullName=ent.FullName }
         | None -> None
         
-    let (|WithAttribute|_|) (name: string) (ent: FSharpEntity) =
-        ent.Attributes
-        |> Seq.tryPick (fun x ->
+    let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
+        atts |> Seq.tryPick (fun x ->
             match x.AttributeType.TryFullName with
             | Some fullName ->
                 let attName = fullName.Substring(fullName.LastIndexOf "." + 1)
@@ -66,17 +65,6 @@ module Patterns =
                 then Some (x.ConstructorArguments |> Seq.map snd |> Seq.toList)
                 else None
             | None -> None)
-
-    /// Is interface o inherits from System.Attribute?
-    let (|AbstractEntity|_|) (ent: FSharpEntity) =
-        if ent.IsInterface then Some ent else
-        match ent.BaseType with
-        | None -> None
-        | Some (NonAbbreviatedType t) ->
-            if not t.HasTypeDefinition then None else
-            match t.TypeDefinition.TryFullName with
-            | Some "System.Attribute" -> Some ent
-            | _ -> None
 
     let (|ReplaceArgs|_|) (lambdaArgs: (Fabel.Ident * Fabel.Expr) list)
                           (nestedArgs: Fabel.Expr list) =
@@ -137,6 +125,9 @@ module Types =
     let sanitizeEntityName (name: string) =
         let idx = name.IndexOf ('`')
         if idx >= 0 then name.Substring (0, idx) else name
+        
+    let sanitizeMethodName (name: string) =
+        System.Text.RegularExpressions.Regex.Replace (name, "^\( (.*) \)$", "$1")
         
     let getBaseClassLocation (tdef: FSharpEntity) =
         match tdef.BaseType with
@@ -234,7 +225,7 @@ module Types =
 module Identifiers =
     let makeIdent name typ = {Fabel.name=name; Fabel.typ=typ}
 
-    let sanitizeIdent (ctx: Context) (fsName: string) =
+    let private sanitizeIdent (ctx: Context) (fsName: string) =
         let sanitizedName = fsName |> Naming.sanitizeIdent (fun x ->
             List.exists (fun (_,x') -> x = x') ctx.scope)
         { ctx with scope = (fsName, sanitizedName)::ctx.scope }, sanitizedName
@@ -458,7 +449,7 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
             |> function Some i when i > 0 -> sprintf "_%i" i | _ -> ""
         let ent = meth.EnclosingEntity
         let ns = match ent.Namespace with Some ns -> ns + "." | None -> ""
-        ns + ent.DisplayName + "." + meth.DisplayName + (overloadSuffix meth)
+        ns + (sanitizeMethodName ent.DisplayName) + "." + meth.DisplayName + (overloadSuffix meth)
     (** ###Method call processing *)
     let methType, methFullName =
         let methType = makeTypeFromDef com meth.EnclosingEntity

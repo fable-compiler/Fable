@@ -13,7 +13,7 @@ let parseFSharpScript (projFile: string) (projCode: string option) =
         let projCode = match projCode with Some x -> x | None -> File.ReadAllText projFile
         checker.GetProjectOptionsFromScript(projFile, projCode, otherFlags=[|"--define:DEBUG"|])
         |> Async.RunSynchronously
-    checker.ParseAndCheckProject(projOptions)
+    checker.ParseAndCheckProject({ projOptions with UseScriptResolutionRules = false })
     |> Async.RunSynchronously
     // TODO: Check errors
 

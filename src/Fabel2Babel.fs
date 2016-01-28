@@ -380,8 +380,7 @@ let private compileModMember com ctx (m: Fabel.Member) =
 // Compile tests using Mocha.js BDD interface
 let private compileTest com ctx (test: Fabel.Member) name =
     let testName =
-        System.Text.RegularExpressions.Regex.Replace (name, "^\( (.*) \)$", "$1")
-        |> Babel.StringLiteral :> Babel.Expression
+        Babel.StringLiteral name :> Babel.Expression
     let testBody =
         funcExpression com ctx test.Function :> Babel.Expression
     let testRange =
