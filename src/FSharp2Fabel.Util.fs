@@ -126,8 +126,22 @@ module Types =
         let idx = name.IndexOf ('`')
         if idx >= 0 then name.Substring (0, idx) else name
         
-    let sanitizeMethodName (name: string) =
-        System.Text.RegularExpressions.Regex.Replace (name, "^\( (.*) \)$", "$1")
+    let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
+        let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
+            meth.IsProperty || meth.IsEvent || meth.IsImplicitConstructor |> not
+        let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
+            if not (isOverloadable meth) then "" else
+            let overloads =
+                meth.EnclosingEntity.MembersFunctionsAndValues
+                |> Seq.filter (fun x -> isOverloadable x && x.DisplayName = meth.DisplayName)
+                |> Seq.toArray
+            if overloads.Length = 1 then "" else
+            overloads
+            |> Seq.mapi (fun i x -> i,x)
+            |> Seq.tryPick (fun (i,x) -> if x.XmlDocSig = meth.XmlDocSig then Some i else None)
+            |> function Some i when i > 0 -> sprintf "_%i" i | _ -> ""
+        let s = System.Text.RegularExpressions.Regex.Replace (meth.DisplayName, "^\( (.*) \)$", "$1")
+        System.Char.ToLowerInvariant(s.[0]).ToString() + s.Substring(1) + (overloadSuffix meth)
         
     let getBaseClassLocation (tdef: FSharpEntity) =
         match tdef.BaseType with
@@ -431,25 +445,43 @@ let splitLast (li: 'a list) =
         | [last] -> List.rev acc, last
         | x::xs -> split' (x::acc) xs
     split' [] li
+    
+let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
+                (methFullName: string) callee args =
+    let isReplaceCandidate =
+        // Is external method or contains Replace attribute?
+        match meth.Attributes, com.GetInternalFile meth.EnclosingEntity with
+        | ContainsAtt "Replace" _, _ | _, None -> true
+        | _ -> false
+    if not isReplaceCandidate then
+        None // TODO: Check Emit attributes
+    else
+        let ownerFullName, methName =
+            let lastPeriod = methFullName.LastIndexOf (".")
+            methFullName.Substring (0, lastPeriod),
+            methFullName.Substring (lastPeriod + 1)
+        let applyInfo: Fabel.ApplyInfo = {
+            methodName = methName
+            ownerFullName = ownerFullName
+            range = makeRangeFrom fsExpr
+            callee = callee
+            args = args
+            returnType = makeType com fsExpr.Type
+            decorators = []     // TODO
+            calleeTypeArgs = [] // TODO
+            methodTypeArgs = [] // TODO
+        }
+        match Replacements.tryReplace com applyInfo with
+        | Some _ as repl -> repl
+        | None -> failwithf "Couldn't find replacemente for external method %s"
+                            methFullName
 
 let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: FSharpExpr list) =
     let sanitizeMethFullName (meth: FSharpMemberOrFunctionOrValue) =
-        let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
-            meth.IsProperty || meth.IsEvent || meth.IsImplicitConstructor |> not
-        let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
-            if not (isOverloadable meth) then "" else
-            let overloads =
-                meth.EnclosingEntity.MembersFunctionsAndValues
-                |> Seq.filter (fun x -> isOverloadable x && x.DisplayName = meth.DisplayName)
-                |> Seq.toArray
-            if overloads.Length = 1 then "" else
-            overloads
-            |> Seq.mapi (fun i x -> i,x)
-            |> Seq.tryPick (fun (i,x) -> if x.XmlDocSig = meth.XmlDocSig then Some i else None)
-            |> function Some i when i > 0 -> sprintf "_%i" i | _ -> ""
-        let ent = meth.EnclosingEntity
-        let ns = match ent.Namespace with Some ns -> ns + "." | None -> ""
-        ns + (sanitizeMethodName ent.DisplayName) + "." + meth.DisplayName + (overloadSuffix meth)
+        let ns = match meth.EnclosingEntity.Namespace with
+                 | Some ns -> ns + "." | None -> ""
+        sanitizeMethodName meth
+        |> (+) (ns + meth.EnclosingEntity.DisplayName + ".")
     (** ###Method call processing *)
     let methType, methFullName =
         let methType = makeTypeFromDef com meth.EnclosingEntity
@@ -465,25 +497,18 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
         List.map (com.Transform ctx) args
     (** -If this a pipe, optimize *)
     match methFullName with
-    | "Microsoft.FSharp.Core.Operators.( |> )" -> makeApply com ctx fsExpr args.Tail.Head [args.Head]
-    | "Microsoft.FSharp.Core.Operators.( <| )" -> makeApply com ctx fsExpr args.Head args.Tail
+    | "Microsoft.FSharp.Core.Operators.|>" -> makeApply com ctx fsExpr args.Tail.Head [args.Head]
+    | "Microsoft.FSharp.Core.Operators.<|" -> makeApply com ctx fsExpr args.Head args.Tail
     | "System.Object..ctor" -> Fabel.Value (Fabel.ObjExpr [])
     | _ ->
-        let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
-        (** -If this is an external method, check for replacements *)
+        (** -Check for replacements *)
         let resolved =
-            match com.GetInternalFile meth.EnclosingEntity with
-            | Some _ ->
-                None // TODO: Check for Emit attribute
-            | _ ->
-                match Replacements.tryReplace com range typ methFullName callee args with
-                | Some _ as repl -> repl
-                | None -> failwithf "Couldn't find replacemente for external method %s"
-                                    methFullName
+            tryReplace com fsExpr meth methFullName callee args
         (** -If no Emit attribute nor replacement has been found then: *)
         match resolved with
         | Some exprKind -> exprKind
         | None ->
+            let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
         (**     *Check if this an extension *)
             let callee, args =
                 if meth.IsExtensionMember

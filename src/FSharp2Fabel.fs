@@ -388,7 +388,7 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     if declInfo.IsIgnoredMethod meth |> not then
         let memberKind =
-            let name = sanitizeMethodName meth.DisplayName
+            let name = sanitizeMethodName meth
             // TODO: Another way to check module values?
             if meth.EnclosingEntity.IsFSharpModule then
                 match meth.XmlDocSig.[0] with

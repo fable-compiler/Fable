@@ -105,6 +105,19 @@ and FunctionInfo =
     static member Create (kind, args, restParams, body) =
         { args=args; body=body; kind=kind; restParams=restParams }
 
+and ApplyInfo =
+    {
+        methodName: string
+        ownerFullName: string
+        callee: Expr option
+        args: Expr list
+        returnType: Type
+        range: SourceLocation option
+        decorators: Decorator list
+        calleeTypeArgs: Type list
+        methodTypeArgs: Type list
+    }
+
 and Ident = { name: string; typ: Type }
 
 and ValueKind =
