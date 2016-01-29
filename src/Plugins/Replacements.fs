@@ -150,7 +150,7 @@ module private AstPass =
         | "exp" -> math r typ args "exp"
         | "floor" -> math r typ args "floor"
         | "log" -> math r typ args "log"
-        | "log10" -> math r typ args "LN10"
+        | "log10" -> math r typ args "log10"
         // TODO: optimize square pow: x * x
         | "pown" | "**" -> math r typ args "pow"
         | "round" -> math r typ args "round"

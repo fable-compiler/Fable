@@ -48,23 +48,27 @@ module Patterns =
         | "System.Int64" -> Some Float64
         | "System.UInt64" -> Some Float64
         | "System.Single" -> Some Float32
-        | "System.Double" -> Some Float64
+        | "System.Double"
+        | "Microsoft.FSharp.Core.float`1" -> Some Float64
         | _ -> None
         
     let (|Location|_|) (com: IFabelCompiler) (ent: FSharpEntity) =
         match com.GetInternalFile ent with
         | Some file -> Some { Fabel.file=file; Fabel.fullName=ent.FullName }
         | None -> None
-        
-    let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
-        atts |> Seq.tryPick (fun x ->
-            match x.AttributeType.TryFullName with
+
+    let tryFindAtt f (atts: #seq<FSharpAttribute>) =
+        atts |> Seq.tryPick (fun att ->
+            match att.AttributeType.TryFullName with
             | Some fullName ->
-                let attName = fullName.Substring(fullName.LastIndexOf "." + 1)
-                if attName = name
-                then Some (x.ConstructorArguments |> Seq.map snd |> Seq.toList)
+                if fullName.Substring(fullName.LastIndexOf "." + 1) |> f
+                then Some att
                 else None
             | None -> None)
+        
+    let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
+        atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
+            att.ConstructorArguments |> Seq.map snd |> Seq.toList) 
 
     let (|ReplaceArgs|_|) (lambdaArgs: (Fabel.Ident * Fabel.Expr) list)
                           (nestedArgs: Fabel.Expr list) =
@@ -140,9 +144,14 @@ module Types =
             |> Seq.mapi (fun i x -> i,x)
             |> Seq.tryPick (fun (i,x) -> if x.XmlDocSig = meth.XmlDocSig then Some i else None)
             |> function Some i when i > 0 -> sprintf "_%i" i | _ -> ""
-        let s = System.Text.RegularExpressions.Regex.Replace (meth.DisplayName, "^\( (.*) \)$", "$1")
-        // TODO: Don't make first letter lower in descriptive names (e.g. tests)
-        System.Char.ToLowerInvariant(s.[0]).ToString() + s.Substring(1) + (overloadSuffix meth)
+        let methName =
+            let s = System.Text.RegularExpressions.Regex.Replace (
+                        meth.DisplayName, "^\( (.*) \)$", "$1")
+            // If this is a test, the name will be descriptive, so don't lower the first letter
+            meth.Attributes |> tryFindAtt (fun attName -> attName.StartsWith ("Test")) |> function
+                | Some _ -> s
+                | None -> System.Char.ToLowerInvariant(s.[0]).ToString() + s.Substring(1)
+        methName + (overloadSuffix meth)
         
     let getBaseClassLocation (tdef: FSharpEntity) =
         match tdef.BaseType with
@@ -451,8 +460,8 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
                 (methFullName: string) callee args =
     let isReplaceCandidate =
         // Is external method or contains Replace attribute?
-        match meth.Attributes, com.GetInternalFile meth.EnclosingEntity with
-        | ContainsAtt "Replace" _, _ | _, None -> true
+        match com.GetInternalFile meth.EnclosingEntity, meth.Attributes with
+        | None, _ | _, ContainsAtt "Replace" _-> true
         | _ -> false
     if not isReplaceCandidate then
         None // TODO: Check Emit attributes
