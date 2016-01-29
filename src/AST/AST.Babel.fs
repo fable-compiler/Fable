@@ -229,13 +229,13 @@ type ForOfStatement(left, right, body, ?loc) =
     member x.right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
-type FunctionDeclaration(id, arguments, body, generator, async, ?loc) =
+type FunctionDeclaration(id, arguments, body, ?generator, ?async, ?loc) =
     inherit Declaration("FunctionDeclaration", ?loc = loc)
     member x.id: Identifier = id
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
-    member x.generator = generator
-    member x.async = async
+    member x.generator = defaultArg generator false
+    member x.async = defaultArg async false
 
 (** ##Expressions *)
 
@@ -247,13 +247,13 @@ type ThisExpression(?loc) =
     inherit Expression("ThisExpression", ?loc = loc)
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-type ArrowFunctionExpression(arguments, body, async, ?loc) =
+type ArrowFunctionExpression(arguments, body, ?async, ?loc) =
     inherit Expression("ArrowFunctionExpression", ?loc = loc)
     member x.expression =
         match body with U2.Case1 _ -> false | U2.Case2 _ -> true
     member x.``params``: Pattern list = arguments
     member x.body: U2<BlockStatement, Expression> = body
-    member x.async: bool = async        
+    member x.async: bool = defaultArg async false
         
 type FunctionExpression(arguments, body, ?generator, ?async, ?id, ?loc) =
     inherit Expression("FunctionExpression", ?loc = loc)

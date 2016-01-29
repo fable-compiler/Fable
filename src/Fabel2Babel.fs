@@ -11,16 +11,6 @@ type private Context = {
     moduleFullName: string
     imports: System.Collections.Generic.Dictionary<string, string>
     }
-    
-type private BabelFunctionInfo =
-    {
-        args: Babel.Pattern list
-        body: U2<Babel.BlockStatement, Babel.Expression>
-        generator: bool
-        async: bool
-    }
-    static member Create (args, body, generator, async) =
-        { args=args; body=body; generator=generator; async=async }
 
 type private IBabelCompiler =
     inherit ICompiler
@@ -28,7 +18,8 @@ type private IBabelCompiler =
     abstract GetImport: Context -> string -> Babel.Expression
     abstract TransformExpr: Context -> Fabel.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fabel.Expr -> Babel.Statement
-    abstract TransformFunction: Context -> Fabel.FunctionInfo -> BabelFunctionInfo
+    abstract TransformFunction: Context -> Fabel.Ident list -> Fabel.Expr ->
+        (Babel.Pattern list) * U2<Babel.BlockStatement, Babel.Expression>
 
 let private (|ExprType|) (fexpr: Fabel.Expr) = fexpr.Type
 let private (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
@@ -133,31 +124,28 @@ let private block (com: IBabelCompiler) ctx range (exprs: Fabel.Expr list) =
 let private returnBlock e =
     Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
 
-let private func (com: IBabelCompiler) ctx funcInfo =
-    let f = com.TransformFunction ctx funcInfo
-    let body = match f.body with U2.Case1 block -> block | U2.Case2 expr -> returnBlock expr
-    f.args, body, f.generator, f.async
+let private func (com: IBabelCompiler) ctx args body =
+    let args, body = com.TransformFunction ctx args body
+    let body = match body with U2.Case1 block -> block | U2.Case2 expr -> returnBlock expr
+    args, body
 
-let private funcExpression (com: IBabelCompiler) ctx funcInfo =
-    let args, body, generator, async = func com ctx funcInfo
-    Babel.FunctionExpression (args, body, generator, async, ?loc=body.loc)
+let private funcExpression (com: IBabelCompiler) ctx args body =
+    let args, body = func com ctx args body
+    Babel.FunctionExpression (args, body, ?loc=body.loc)
 
-let private funcDeclaration (com: IBabelCompiler) ctx id funcInfo =
-    let args, body, generator, async = func com ctx funcInfo
-    Babel.FunctionDeclaration(id, args, body, generator, async, ?loc=body.loc)
+let private funcDeclaration (com: IBabelCompiler) ctx id args body =
+    let args, body = func com ctx args body
+    Babel.FunctionDeclaration(id, args, body, ?loc=body.loc)
 
-let private funcArrow (com: IBabelCompiler) ctx funcInfo =
-    let f = com.TransformFunction ctx funcInfo
-    let range = match f.body with U2.Case1 x -> x.loc | U2.Case2 x -> x.loc
-    Babel.ArrowFunctionExpression (f.args, f.body, f.async, ?loc=range)
+let private funcArrow (com: IBabelCompiler) ctx args body =
+    let args, body = com.TransformFunction ctx args body
+    let range = match body with U2.Case1 x -> x.loc | U2.Case2 x -> x.loc
+    Babel.ArrowFunctionExpression (args, body, ?loc=range)
     :> Babel.Expression
 
 /// Immediately Invoked Function Expression
 let private iife (com: IBabelCompiler) ctx (expr: Fabel.Expr) =
-    let lambda =
-        Fabel.FunctionInfo.Create(Fabel.Immediate, [], false, expr)
-        |> funcExpression com ctx
-    Babel.CallExpression (lambda, [], ?loc=expr.Range)
+    Babel.CallExpression (funcExpression com ctx [] expr, [], ?loc=expr.Range)
 
 let private varDeclaration range var value =
     Babel.VariableDeclaration (
@@ -265,7 +253,7 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
         | Fabel.StringConst x -> upcast Babel.StringLiteral (x, ?loc=expr.Range)
         | Fabel.BoolConst x -> upcast Babel.BooleanLiteral (x, ?loc=expr.Range)
         | Fabel.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags, ?loc=expr.Range)
-        | Fabel.Lambda finfo -> funcArrow com ctx finfo
+        | Fabel.Lambda (args, body) -> funcArrow com ctx args body
         | Fabel.ArrayConst (items, kind) -> failwith "TODO: Array initializers"
         | Fabel.ObjExpr _ -> failwith "TODO: Object expressions"
         | Fabel.TypeRef typ ->
@@ -314,19 +302,13 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
     | Fabel.Loop _ | Fabel.Set _  | Fabel.VarDeclaration _ ->
         failwithf "Statement when expression expected in %A: %A" expr.Range expr 
     
-let private transformFunction com ctx (finfo: Fabel.FunctionInfo) =
-    let generator, async =
-        match finfo.kind with
-        | Fabel.Immediate -> false, false
-        | Fabel.Generator -> true, false
-        | Fabel.Async -> false, true
+let private transformFunction com ctx args body =
     let args: Babel.Pattern list =
-        if finfo.restParams then failwith "TODO: RestParams"
-        else finfo.args |> List.map (fun x -> upcast ident x)
+        List.map (fun x -> upcast ident x) args
     let body: U2<Babel.BlockStatement, Babel.Expression> =
-        match finfo.body with
+        match body with
         | ExprType (Fabel.PrimitiveType Fabel.Unit) ->
-            block com ctx finfo.body.Range [finfo.body] |> U2.Case1
+            block com ctx body.Range [body] |> U2.Case1
         | Fabel.TryCatch (tryBody, handler, finalizer, tryRange) ->
             let handler =
                 handler |> Option.map (fun (param, body) ->
@@ -338,24 +320,24 @@ let private transformFunction com ctx (finfo: Fabel.FunctionInfo) =
                 transformExpr com ctx tryBody |> returnBlock
             Babel.BlockStatement (
                 [Babel.TryStatement (tryBody, ?handler=handler, ?finalizer=finalizer, ?loc=tryRange)],
-                ?loc = finfo.body.Range) |> U2.Case1
+                ?loc = body.Range) |> U2.Case1
         | _ ->
-            transformExpr com ctx finfo.body |> U2.Case2
-    BabelFunctionInfo.Create(args, body, generator, async)
+            transformExpr com ctx body |> U2.Case2
+    args, body
     
 let private transformTestSuite com ctx decls: Babel.CallExpression =
     failwith "TODO: TestSuite members"
     
 let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation option) decls =
-    let declareMember range kind name (finfo: Fabel.FunctionInfo) isStatic =
+    let declareMember range kind name args body isStatic =
         let name, computed: Babel.Expression * bool =
             if Naming.identForbiddenChars.IsMatch name
             then upcast Babel.StringLiteral name, true
             else upcast Babel.Identifier name, false
-        let finfo = transformFunction com ctx finfo
-        let body = match finfo.body with U2.Case1 e -> e | U2.Case2 e -> returnBlock e
+        let args, body = transformFunction com ctx args body
+        let body = match body with U2.Case1 e -> e | U2.Case2 e -> returnBlock e
         // TODO: Optimization: remove null statement that F# compiler adds at the bottom of constructors
-        Babel.ClassMethod(range, kind, name, finfo.args, body, computed, isStatic)
+        Babel.ClassMethod(range, kind, name, args, body, computed, isStatic)
     let baseClass = baseClass |> Option.map (fun loc ->
         typeRef com ctx (Some loc.file) loc.fullName)
     decls
@@ -367,7 +349,7 @@ let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation o
                 | Fabel.Method name -> Babel.ClassFunction, name, m.IsStatic
                 | Fabel.Getter name -> Babel.ClassGetter, name, m.IsStatic
                 | Fabel.Setter name -> Babel.ClassSetter, name, m.IsStatic
-            declareMember m.Range kind name m.Function isStatic
+            declareMember m.Range kind name m.Arguments m.Body isStatic
         | Fabel.ActionDeclaration _
         | Fabel.EntityDeclaration _ as decl ->
             failwithf "Unexpected declaration in class: %A" decl)
@@ -386,14 +368,12 @@ let private compileModMember com ctx (m: Fabel.Member) =
     let expr, name =
         match m.Kind with
         | Fabel.Getter name ->
-            let finfo =
-                Fabel.FunctionInfo.Create(Fabel.Immediate, [], false, m.Function.body)
-                |> transformFunction com ctx
-            match finfo.body with
+            let args, body = transformFunction com ctx [] m.Body
+            match body with
             | U2.Case2 e -> e, name
             | U2.Case1 e -> Babel.DoExpression(e, ?loc=e.loc) :> Babel.Expression, name
         | Fabel.Method name ->
-            upcast funcExpression com ctx m.Function, name
+            upcast funcExpression com ctx m.Arguments m.Body, name
         | Fabel.Constructor | Fabel.Setter _ ->
             failwithf "Unexpected member in module: %A" m.Kind
     let memberRange =
@@ -405,7 +385,7 @@ let private compileTest com ctx (test: Fabel.Member) name =
     let testName =
         Babel.StringLiteral name :> Babel.Expression
     let testBody =
-        funcExpression com ctx test.Function :> Babel.Expression
+        funcExpression com ctx test.Arguments test.Body :> Babel.Expression
     let testRange =
         match testBody.loc with
         | Some loc -> test.Range + loc | None -> test.Range
@@ -516,7 +496,7 @@ let private makeCompiler (com: ICompiler) (files: Fabel.File list) =
                 upcast Babel.Identifier import
         member bcom.TransformExpr ctx e = transformExpr bcom ctx e
         member bcom.TransformStatement ctx e = transformStatement bcom ctx e
-        member bcom.TransformFunction ctx e = transformFunction bcom ctx e
+        member bcom.TransformFunction ctx args body = transformFunction bcom ctx args body
       interface ICompiler with
         member __.Options = com.Options }
 

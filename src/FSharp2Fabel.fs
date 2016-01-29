@@ -80,14 +80,9 @@ let rec private transformExpr com ctx fsExpr =
         match body with
         // Check if this this is just a wrapper to a call as it happens in pipelines
         // e.g., let x = 5 in fun y -> methodCall x y
-        | Fabel.Value (Fabel.Lambda {
-                args = lambdaArgs; kind = Fabel.Immediate; restParams = false;
-                body = Fabel.Apply (callee, ReplaceArgs [ident,value] args, isCons,_,_) as body
-            }) ->
-            Fabel.Lambda {
-                args = lambdaArgs; kind = Fabel.Immediate; restParams = false;
-                body = Fabel.Apply (callee, args, isCons, body.Type, body.Range)
-            } |> Fabel.Value
+        | Fabel.Value(Fabel.Lambda(args2, (Fabel.Apply(callee, ReplaceArgs [ident, value] args, cons,_,_) as body))) ->
+            Fabel.Lambda (args2, Fabel.Apply (callee, args, cons, body.Type, body.Range))
+            |> Fabel.Value
         | _ -> makeSequential (makeRangeFrom fsExpr) [assignment; body]
 
     | BasicPatterns.LetRec(recursiveBindings, body) ->
@@ -421,8 +416,8 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
                         newContext, untupledArg@accArgs
                 ) args (ctx, []) // TODO: Reset Context?
         let entMember = 
-            Fabel.Member(memberKind, makeRange meth.DeclarationLocation,
-                Fabel.FunctionInfo.Create (Fabel.Immediate, args, hasRestParams meth, transformExpr com ctx body),
+            Fabel.Member(memberKind,
+                makeRange meth.DeclarationLocation, args, transformExpr com ctx body,
                 meth.Attributes |> Seq.map (makeDecorator com) |> Seq.toList,
                 meth.Accessibility.IsPublic, not meth.IsInstanceMember)
             |> Fabel.MemberDeclaration

@@ -267,19 +267,25 @@ let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
         meth.IsProperty
         || meth.IsEvent
         || meth.IsImplicitConstructor
-        || isReplaceCandidate com meth
         |> not
     let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
-        if not (isOverloadable meth) then "" else
-        let overloads =
+        (isOverloadable meth && not <| isReplaceCandidate com meth)
+        |> function
+        | false -> ""
+        | true ->
             meth.EnclosingEntity.MembersFunctionsAndValues
             |> Seq.filter (fun x -> isOverloadable x && x.DisplayName = meth.DisplayName)
             |> Seq.toArray
-        if overloads.Length = 1 then "" else
-        overloads
-        |> Seq.mapi (fun i x -> i,x)
-        |> Seq.tryPick (fun (i,x) -> if x.XmlDocSig = meth.XmlDocSig then Some i else None)
-        |> function Some i when i > 0 -> sprintf "_%i" i | _ -> ""
+            |> function
+            | overloads when overloads.Length = 1 -> ""
+            | overloads ->
+                overloads
+                |> Seq.mapi (fun i x -> i,x)
+                |> Seq.tryPick (fun (i,x) ->
+                    if x.XmlDocSig = meth.XmlDocSig then Some i else None)
+                |> function
+                | Some i when i > 0 -> sprintf "_%i" i
+                | _ -> ""
     let methName =
         let s = System.Text.RegularExpressions.Regex.Replace (
                     meth.DisplayName, "^\( (.*) \)$", "$1")
@@ -366,10 +372,10 @@ let makeLambda (com: IFabelCompiler) ctx vars (body: FSharpExpr) =
     let args, body =
         let ctx, args = makeLambdaArgs com ctx vars
         match com.Transform ctx body with
-        | Fabel.Value (Fabel.Lambda {args=args2; body=body2; kind=Fabel.Immediate; restParams=false}) ->
+        | Fabel.Value (Fabel.Lambda (args2, body2)) ->
             args@args2, body2
         | body -> args, body
-    Fabel.Lambda {args=args; body=body; kind=Fabel.Immediate; restParams=false}
+    Fabel.Lambda (args, body)
     |> Fabel.Value
     
 let makeLoop (fsExpr: FSharpExpr) loopKind =
@@ -426,9 +432,7 @@ let makeApply com ctx (fsExpr: FSharpExpr) (expr: Fabel.Expr) (args: Fabel.Expr 
     let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
     match expr with
     // Optimize id lambdas applied right away, as in `x |> unbox`
-    | Fabel.Value
-        (Fabel.Lambda { args = [lambdaArg]; kind = Fabel.Immediate; restParams = false;
-            body = Fabel.Value (Fabel.IdentValue body) })
+    | Fabel.Value (Fabel.Lambda ([lambdaArg], Fabel.Value (Fabel.IdentValue body)))
         when lambdaArg.name = body.name && args.Length = 1 -> args.Head
     // As Fabel lambdas have multiple args, they cannot be curried and we have to recreate the extra lambda
     // when applying less parameters than necessary (F# compiler already does that for methods)
@@ -439,12 +443,10 @@ let makeApply com ctx (fsExpr: FSharpExpr) (expr: Fabel.Expr) (args: Fabel.Expr 
                 ctx, arg::args) (ctx, [])
         let args = args @ (lambdaArgs |> List.map (Fabel.IdentValue >> Fabel.Value))
         let apply = Fabel.Apply (expr, args, false, typ, None)
-        Fabel.Lambda {args=lambdaArgs; body=apply; kind=Fabel.Immediate; restParams=false}
+        Fabel.Lambda (lambdaArgs, apply)
         |> Fabel.Value
     // Flatten nested curried applications as it happens in pipelines: e.g., (fun x -> fnCall 2 x) 3
-    | Fabel.Value
-        (Fabel.Lambda { args = lambdaArgs; kind = Fabel.Immediate; restParams = false;
-             body = Fabel.Apply (nestedExpr, nestedArgs, isCons, _, _) }) ->
+    | Fabel.Value (Fabel.Lambda (lambdaArgs, Fabel.Apply (nestedExpr, nestedArgs, isCons, _, _))) ->
         match nestedArgs with
         | ReplaceArgs (List.zip lambdaArgs args) nestedArgs ->
             Fabel.Apply (nestedExpr, nestedArgs, isCons, typ, range)
@@ -491,6 +493,7 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
         | None -> failwithf "Couldn't find replacemente for external method %s"
                             methFullName
 
+// TODO: If it's an imported method with ParamArray, spread the last argument
 let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: FSharpExpr list) =
     let sanitizeMethFullName (meth: FSharpMemberOrFunctionOrValue) =
         let ns = match meth.EnclosingEntity.Namespace with
@@ -501,15 +504,8 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
     let methType, methFullName =
         let methType = makeTypeFromDef com meth.EnclosingEntity
         methType, sanitizeMethFullName meth
-    let callee =
-        callee |> Option.map (com.Transform ctx)
-    let args =
-        let args =
-            if not (hasRestParams meth) then args else
-            match splitLast args with
-            | args, BasicPatterns.NewArray (_, restArgs) -> args@restArgs
-            | _ -> failwithf "TODO: Spread when passing array ref to ParamArray arg"
-        List.map (com.Transform ctx) args
+    let callee, args =
+        Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
     (** -If this a pipe, optimize *)
     match methFullName with
     | "Microsoft.FSharp.Core.Operators.|>" -> makeApply com ctx fsExpr args.Tail.Head [args.Head]

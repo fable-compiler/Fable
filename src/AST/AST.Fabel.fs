@@ -66,10 +66,11 @@ and MemberKind =
     | Getter of name: string
     | Setter of name: string
 
-and Member(kind, range, func, decorators, isPublic, isStatic) =
+and Member(kind, range, args, body, decorators, isPublic, isStatic) =
     member x.Kind: MemberKind = kind
     member x.Range: SourceLocation = range
-    member x.Function: FunctionInfo = func
+    member x.Arguments: Ident list = args
+    member x.Body: Expr = body
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
     member x.IsStatic: bool = isStatic
@@ -93,20 +94,7 @@ and File(fileName, root, decls, extEntities) =
 (** ##Expressions *)
 and ArrayKind = TypedArray of NumberKind | DynamicArray | Tuple
 
-and FunctionKind = Immediate | Async | Generator
-
-and FunctionInfo =
-    {
-        kind: FunctionKind
-        restParams: bool
-        args: Ident list
-        body: Expr
-    }
-    static member Create (kind, args, restParams, body) =
-        { args=args; body=body; kind=kind; restParams=restParams }
-
-and ApplyInfo =
-    {
+and ApplyInfo = {
         methodName: string
         ownerFullName: string
         callee: Expr option
@@ -136,7 +124,7 @@ and ValueKind =
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
-    | Lambda of info: FunctionInfo
+    | Lambda of args: Ident list * body: Expr
     | ObjExpr of string list // TODO
     member x.Type =
         match x with
@@ -150,7 +138,7 @@ and ValueKind =
         | ArrayConst (_,kind) -> PrimitiveType (Array kind)
         | UnaryOp _ -> PrimitiveType (Function 1)
         | BinaryOp _ | LogicalOp _ -> PrimitiveType (Function 2)
-        | Lambda { args=args } -> PrimitiveType (Function args.Length)
+        | Lambda (args, _) -> PrimitiveType (Function args.Length)
         | ObjExpr _ -> UnknownType
     
 and LoopKind =
