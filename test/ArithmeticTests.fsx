@@ -73,10 +73,6 @@ module ArithmeticTests =
         sqrt 4.5 |> checkTo3dp 2121
         
     [<Test>]
-    let ``exp works``() =
-        exp 8.0 |> checkTo3dp 2980957
-
-    [<Test>]
     let ``acos works``() =
         acos 0.25 |> checkTo3dp 1318
 
@@ -105,6 +101,10 @@ module ArithmeticTests =
         tan 0.25 |> checkTo3dp 255
 
     [<Test>]
+    let ``exp works``() =
+        exp 8.0 |> checkTo3dp 2980957
+
+    [<Test>]
     let ``log works``() =
         log 232.12 |> checkTo3dp 5447
 
@@ -112,67 +112,74 @@ module ArithmeticTests =
     let ``log10 works``() =
         log10 232.12 |> checkTo3dp 2365
 
-(*
     [<Test>]
-    let ``PI works``() = checkTo3dp 3141. Math.PI
+    let ``PI works``() =
+        checkTo3dp 3141 Math.PI
 
     [<Test>]
-    let ``E works``() = checkTo3dp 2718. Math.E
+    let ``E works``() =
+        checkTo3dp 2718 Math.E
 
     [<Test>]
-    let ``sin works``() = checkTo3dp <@ sin(0.25 * Math.PI) @>
+    let ``Math.abs works``() =
+        Assert.AreEqual(Math.Abs -4, 4)
 
     [<Test>]
-    let ``sqrt works``() = checkTo3dp <@ sqrt 4.0 @>
+    let ``Math.pown works``() =
+        Math.Pow(2.2, 3.0) |> checkTo3dp 10648
 
     [<Test>]
-    let ``tan works``() = checkTo3dp <@ tan(0.25 * Math.PI) @>
+    let ``Math.sqrt works``() =
+        Math.Sqrt 4.5 |> checkTo3dp 2121
 
     [<Test>]
-    let ``Math.abs works``() = checkTo3dp <@ float(Math.Abs -4) @>
+    let ``Math.round works``() =
+        Assert.AreEqual(Math.Round -12.5, -12)
 
     [<Test>]
-    let ``Math.acos works``() = checkTo3dp <@ Math.Acos 0.25 @>
+    let ``Math.ceil works``() =
+        Assert.AreEqual(Math.Ceiling 11.25, 12)
 
     [<Test>]
-    let ``Math.asin works``() = checkTo3dp <@ Math.Asin 0.25 @>
+    let ``Math.floor works``() =
+        Assert.AreEqual(Math.Floor 11.75, 11)
 
     [<Test>]
-    let ``Math.atan works``() = checkTo3dp <@ Math.Atan 0.25 @>
+    let ``Math.acos works``() =
+        Math.Acos 0.25 |> checkTo3dp 1318
 
     [<Test>]
-    let ``Math.atan2 works``() = checkTo3dp <@ Math.Atan2(-0.25, -0.25) @>
+    let ``Math.asin works``() =
+        Math.Asin 0.25 |> checkTo3dp 252
 
     [<Test>]
-    let ``Math.ceil works``() = checkTo3dp <@ Math.Ceiling 11.25 @>
+    let ``Math.atan works``() =
+        Math.Atan 0.25 |> checkTo3dp 244
 
     [<Test>]
-    let ``Math.cos works``() = checkTo3dp <@ Math.Cos(0.25 * Math.PI) @>
+    let ``Math.atan2 works``() =
+        Math.Atan2(90., 15.) |> checkTo3dp 1405
 
     [<Test>]
-    let ``Math.exp works``() = checkTo3dp <@ Math.Exp 8.0 @>
+    let ``Math.cos works``() =
+        Math.Cos(0.1 * Math.PI) |> checkTo3dp 951
 
     [<Test>]
-    let ``Math.floor works``() = checkTo3dp <@ Math.Floor 11.75 @>
+    let ``Math.sin works``() =
+        Math.Sin(0.25 * Math.PI) |> checkTo3dp 707
 
     [<Test>]
-    let ``Math.log works``() = checkTo3dp <@ Math.Log 232.12 @>
+    let ``Math.tan works``() =
+        Math.Tan(0.5) |> checkTo3dp 546
 
     [<Test>]
-    let ``Math.log10 works``() = checkTo3dp <@ Math.Log10 232.12 @>
+    let ``Math.exp works``() =
+        Math.Exp 8.0 |> checkTo3dp 2980957
 
     [<Test>]
-    let ``Math.pown works``() = checkTo3dp <@ Math.Pow(2.2, 3.0) @>
+    let ``Math.log works``() =
+        Math.Log 232.12 |> checkTo3dp 5447
 
     [<Test>]
-    let ``Math.round works``() = checkTo3dp <@ Math.Round -12.5 @>
-
-    [<Test>]
-    let ``Math.sin works``() = checkTo3dp <@ Math.Sin(0.25 * Math.PI) @>
-
-    [<Test>]
-    let ``Math.sqrt works``() = checkTo3dp <@ Math.Sqrt 4.0 @>
-
-    [<Test>]
-    let ``Math.tan works``() = checkTo3dp <@ Math.Tan(0.25 * Math.PI) @>
-*)
+    let ``Math.log10 works``() =
+        Math.Log10 232.12 |> checkTo3dp 2365

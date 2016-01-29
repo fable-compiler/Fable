@@ -130,29 +130,6 @@ module Types =
         let idx = name.IndexOf ('`')
         if idx >= 0 then name.Substring (0, idx) else name
         
-    let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
-        let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
-            meth.IsProperty || meth.IsEvent || meth.IsImplicitConstructor |> not
-        let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
-            if not (isOverloadable meth) then "" else
-            let overloads =
-                meth.EnclosingEntity.MembersFunctionsAndValues
-                |> Seq.filter (fun x -> isOverloadable x && x.DisplayName = meth.DisplayName)
-                |> Seq.toArray
-            if overloads.Length = 1 then "" else
-            overloads
-            |> Seq.mapi (fun i x -> i,x)
-            |> Seq.tryPick (fun (i,x) -> if x.XmlDocSig = meth.XmlDocSig then Some i else None)
-            |> function Some i when i > 0 -> sprintf "_%i" i | _ -> ""
-        let methName =
-            let s = System.Text.RegularExpressions.Regex.Replace (
-                        meth.DisplayName, "^\( (.*) \)$", "$1")
-            // If this is a test, the name will be descriptive, so don't lower the first letter
-            meth.Attributes |> tryFindAtt (fun attName -> attName.StartsWith ("Test")) |> function
-                | Some _ -> s
-                | None -> System.Char.ToLowerInvariant(s.[0]).ToString() + s.Substring(1)
-        methName + (overloadSuffix meth)
-        
     let getBaseClassLocation (tdef: FSharpEntity) =
         match tdef.BaseType with
         | None -> None
@@ -278,6 +255,39 @@ module Identifiers =
     let (|BindIdent|) com ctx (fsRef: FSharpMemberOrFunctionOrValue) =
         let newContext, sanitizedIdent = sanitizeIdent ctx fsRef.DisplayName
         newContext, makeIdent sanitizedIdent (makeType com fsRef.FullType)
+
+let isReplaceCandidate (com: IFabelCompiler) (meth: FSharpMemberOrFunctionOrValue) =
+    // Is external method or contains Replace attribute?
+    match com.GetInternalFile meth.EnclosingEntity, meth.Attributes with
+    | None, _ | _, ContainsAtt "Replace" _-> true
+    | _ -> false
+
+let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
+    let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
+        meth.IsProperty
+        || meth.IsEvent
+        || meth.IsImplicitConstructor
+        || isReplaceCandidate com meth
+        |> not
+    let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
+        if not (isOverloadable meth) then "" else
+        let overloads =
+            meth.EnclosingEntity.MembersFunctionsAndValues
+            |> Seq.filter (fun x -> isOverloadable x && x.DisplayName = meth.DisplayName)
+            |> Seq.toArray
+        if overloads.Length = 1 then "" else
+        overloads
+        |> Seq.mapi (fun i x -> i,x)
+        |> Seq.tryPick (fun (i,x) -> if x.XmlDocSig = meth.XmlDocSig then Some i else None)
+        |> function Some i when i > 0 -> sprintf "_%i" i | _ -> ""
+    let methName =
+        let s = System.Text.RegularExpressions.Regex.Replace (
+                    meth.DisplayName, "^\( (.*) \)$", "$1")
+        // If this is a test, the name will be descriptive, so don't lower the first letter
+        meth.Attributes |> tryFindAtt (fun attName -> attName.StartsWith ("Test")) |> function
+            | Some _ -> s
+            | None -> System.Char.ToLowerInvariant(s.[0]).ToString() + s.Substring(1)
+    methName + (overloadSuffix meth)
 
 let makeRange (r: Range.range) = {
     // source = Some r.FileName
@@ -458,12 +468,7 @@ let splitLast (li: 'a list) =
     
 let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
                 (methFullName: string) callee args =
-    let isReplaceCandidate =
-        // Is external method or contains Replace attribute?
-        match com.GetInternalFile meth.EnclosingEntity, meth.Attributes with
-        | None, _ | _, ContainsAtt "Replace" _-> true
-        | _ -> false
-    if not isReplaceCandidate then
+    if not <| isReplaceCandidate com meth then
         None // TODO: Check Emit attributes
     else
         let ownerFullName, methName =
@@ -490,7 +495,7 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
     let sanitizeMethFullName (meth: FSharpMemberOrFunctionOrValue) =
         let ns = match meth.EnclosingEntity.Namespace with
                  | Some ns -> ns + "." | None -> ""
-        sanitizeMethodName meth
+        sanitizeMethodName com meth
         |> (+) (ns + meth.EnclosingEntity.DisplayName + ".")
     (** ###Method call processing *)
     let methType, methFullName =

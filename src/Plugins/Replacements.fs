@@ -145,14 +145,14 @@ module private AstPass =
         | "asin" -> math r typ args "asin"
         | "atan" -> math r typ args "atan"
         | "atan2" -> math r typ args "atan2"
-        | "ceil" -> math r typ args "ceil"
+        | "ceil" | "ceiling" -> math r typ args "ceil"
         | "cos" -> math r typ args "cos"
         | "exp" -> math r typ args "exp"
         | "floor" -> math r typ args "floor"
         | "log" -> math r typ args "log"
         | "log10" -> math r typ args "log10"
         // TODO: optimize square pow: x * x
-        | "pown" | "**" -> math r typ args "pow"
+        | "pow" | "pown" | "**" -> math r typ args "pow"
         | "round" -> math r typ args "round"
         | "sin" -> math r typ args "sin"
         | "sqrt" -> math r typ args "sqrt"
@@ -228,13 +228,14 @@ module private AstPass =
 
     let asserts com (i: Fabel.ApplyInfo) =
         match i.methodName with
-        | StartsWith "areEqual" _ ->
+        | "areEqual" ->
             importCall i.range i.returnType "assert" None "equal" i.args |> Some
         | _ -> None
 
     let mappings =
         dict [
             "NUnit.Framework.Assert" => asserts
+            "System.Math" => operators
             fsharp + "Core.Operators" => operators
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
             // fsharp + "Collections.Set" => fsharpSet
