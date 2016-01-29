@@ -3,3 +3,4 @@ source https://www.nuget.org/api/v2
 nuget FAKE
 nuget FSharp.Compiler.Service
 nuget Newtonsoft.Json
+nuget NUnit

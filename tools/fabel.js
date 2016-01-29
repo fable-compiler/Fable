@@ -1,3 +1,6 @@
+/* global __dirname */
+/* global process */
+
 var fs = require("fs");
 var babel = require("babel-core");
 var exec = require('child_process').exec;
@@ -31,11 +34,13 @@ function babelifyToFile(sourceFile, babelAst) {
     fs.writeFileSync(sourceMapFile, JSON.stringify(parsed.map));
 }
 
-var sourceFile = null;
-var fabelCmd = 'mono ../build/Fabel.exe ';
+var sourceFile = null,
+    fabelCmd = process.platform === "win32" ? "cmd " : "mono ";
+
+fabelCmd += __dirname + "/../build/Fabel.exe ";
 if (process.argv[2] == "--file") {
     sourceFile = process.argv[3];
-    fabelCmd += "--file " + sourceFile;
+    fabelCmd += "--file " + process.cwd() + "/" + sourceFile;
 }
 else {
     fabelCmd += "'" + process.argv[2] + "'";

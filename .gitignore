@@ -1,6 +1,8 @@
 # Personal
 .vscode/
 quick-test.fsx
+test/*.js
+test/*.js.map
 
 # Node
 node_modules/

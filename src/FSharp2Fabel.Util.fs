@@ -141,6 +141,7 @@ module Types =
             |> Seq.tryPick (fun (i,x) -> if x.XmlDocSig = meth.XmlDocSig then Some i else None)
             |> function Some i when i > 0 -> sprintf "_%i" i | _ -> ""
         let s = System.Text.RegularExpressions.Regex.Replace (meth.DisplayName, "^\( (.*) \)$", "$1")
+        // TODO: Don't make first letter lower in descriptive names (e.g. tests)
         System.Char.ToLowerInvariant(s.[0]).ToString() + s.Substring(1) + (overloadSuffix meth)
         
     let getBaseClassLocation (tdef: FSharpEntity) =

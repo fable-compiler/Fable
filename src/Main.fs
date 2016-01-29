@@ -9,13 +9,22 @@ open Fabel
 
 let parseFSharpScript (projFile: string) (projCode: string option) =
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
+    let oldDir = Directory.GetCurrentDirectory ()
+    Path.GetFullPath projFile
+    |> Path.GetDirectoryName
+    |> Directory.SetCurrentDirectory
     let projOptions =
+        let projFile = Path.GetFileName projFile
         let projCode = match projCode with Some x -> x | None -> File.ReadAllText projFile
         checker.GetProjectOptionsFromScript(projFile, projCode, otherFlags=[|"--define:DEBUG"|])
         |> Async.RunSynchronously
-    checker.ParseAndCheckProject({ projOptions with UseScriptResolutionRules = false })
-    |> Async.RunSynchronously
+    // let projOptions = { projOptions with UseScriptResolutionRules = false }
+    let checkProjectResults =
+        checker.ParseAndCheckProject(projOptions)
+        |> Async.RunSynchronously
+    Directory.SetCurrentDirectory oldDir
     // TODO: Check errors
+    checkProjectResults
 
 [<EntryPoint>]
 let main argv =
