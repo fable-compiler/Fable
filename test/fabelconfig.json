@@ -1,0 +1,5 @@
+{
+    "outDir": "../build/test",
+    "symbols": [],
+    "lib": "../../lib"
+}

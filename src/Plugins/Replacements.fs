@@ -234,12 +234,13 @@ module private AstPass =
 
     let mappings =
         dict [
-            "NUnit.Framework.Assert" => asserts
             "System.Math" => operators
             fsharp + "Core.Operators" => operators
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
             // fsharp + "Collections.Set" => fsharpSet
-            fsharp + "Collections.Map" => fsharpMap ]
+            fsharp + "Collections.Map" => fsharpMap
+            "NUnit.Framework.Assert" => asserts
+        ]
 
 module private CoreLibPass =
     open Util
@@ -250,6 +251,7 @@ module private CoreLibPass =
     let mappings =
         dict [
             system + "Random" => ("Random", Both)
+            fsharp + "Control.AsyncBuilder" => ("Async", Both)
             fsharp + "Collections.List" => ("List", Both)
             fsharp + "Collections.Array" => ("Array", Both)
             fsharp + "Collections.Seq" => ("Seq", Both)

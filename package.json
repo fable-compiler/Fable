@@ -4,7 +4,15 @@
   "description": "F# to JS compiler",
   "main": "index.js",
   "dependencies": {
-    "babel-core": "^6.3.26"
+    "babel-core": "^6.4.5",
+    "babel-plugin-transform-do-expressions": "^6.3.13",
+    "babel-plugin-transform-es2015-arrow-functions": "^6.4.0",
+    "babel-plugin-transform-es2015-classes": "^6.4.5",
+    "babel-plugin-transform-es2015-computed-properties": "^6.4.0",
+    "babel-plugin-transform-es2015-for-of": "^6.3.13",
+    "babel-plugin-transform-es2015-modules-umd": "^6.4.3",
+    "babel-plugin-transform-es2015-spread": "^6.4.0",
+    "mocha": "^2.4.5"
   },
   "devDependencies": {},
   "scripts": {

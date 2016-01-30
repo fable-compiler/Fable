@@ -3,5 +3,7 @@ NUGET
   specs:
     FAKE (4.17.1)
     FSharp.Compiler.Service (2.0.0.3)
+    FSharp.Compiler.Service.ProjectCracker (2.0.0.3)
     Newtonsoft.Json (8.0.2)
-    NUnit (3.0.1)
+    NUnit (2.6.4)
+    NUnit.Runners (2.6.4)

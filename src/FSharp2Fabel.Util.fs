@@ -244,13 +244,6 @@ module Identifiers =
         | Some (_,fabelName) -> makeIdent fabelName (makeType com fsRef.FullType)
         | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
 
-    let (|GetOrBindIdent|) com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
-        ctx.scope
-        |> List.tryFind (fun (fsName,_) -> fsName = fsRef.DisplayName)
-        |> function
-        | Some (_,fabelName) -> makeIdent fabelName (makeType com fsRef.FullType)
-        | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
-
     /// sanitizeEntityName F# identifier and create new context
     let (|BindIdent|) com ctx (fsRef: FSharpMemberOrFunctionOrValue) =
         let newContext, sanitizedIdent = sanitizeIdent ctx fsRef.DisplayName
@@ -287,12 +280,10 @@ let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
                 | Some i when i > 0 -> sprintf "_%i" i
                 | _ -> ""
     let methName =
-        let s = System.Text.RegularExpressions.Regex.Replace (
-                    meth.DisplayName, "^\( (.*) \)$", "$1")
+        let methName = Naming.removeBrackets meth.DisplayName
         // If this is a test, the name will be descriptive, so don't lower the first letter
-        meth.Attributes |> tryFindAtt (fun attName -> attName.StartsWith ("Test")) |> function
-            | Some _ -> s
-            | None -> System.Char.ToLowerInvariant(s.[0]).ToString() + s.Substring(1)
+        meth.Attributes |> tryFindAtt (fun attName -> attName.StartsWith ("Test"))
+        |> function Some _ -> methName | None -> Naming.lowerFirst methName
     methName + (overloadSuffix meth)
 
 let makeRange (r: Range.range) = {

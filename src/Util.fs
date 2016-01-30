@@ -1,25 +1,35 @@
 namespace Fabel
 
 type CompilerOptions = {
-    sourceRootPath: string
-    targetRootPath: string
-    environment: string
-    jsLibFolder: string
+    code: string
+    projFile: string
+    symbols: string[]
+    outDir: string
+    lib: string
 }
 
 type ICompiler =
     abstract Options: CompilerOptions
 
 module Naming =
+    open System
     open System.IO
+    open System.Text.RegularExpressions
+    
+    let removeBrackets =
+        let bracketRegex = Regex("^\( (.*) \)$")
+        fun s -> bracketRegex.Replace(s, "$1")
+        
+    let lowerFirst (s: string) =
+        s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
     
     let getCoreLibPath (com: ICompiler) =
-        Path.Combine(com.Options.jsLibFolder, "Fabel.Core.js")
+        Path.Combine(com.Options.lib, "Fabel.Core.js")
         
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
     let identForbiddenChars =
-        System.Text.RegularExpressions.Regex "^[^a-zA-Z_]|[^0-9a-zA-Z_]"
+        Regex "^[^a-zA-Z_]|[^0-9a-zA-Z_]"
         
     let trimDots (s: string) =
         match s.StartsWith ".", s.EndsWith "." with
@@ -42,7 +52,8 @@ module Naming =
                 if not (conflicts name) then name else check (n+1)
             check 0
         // Replace Forbidden Chars
-        let sanitizedName = identForbiddenChars.Replace(name, "_")
+        let sanitizedName =
+            identForbiddenChars.Replace(removeBrackets name, "_")
         // Check if it's a keyword
         jsKeywords.Contains sanitizedName
         |> function true -> "_" + sanitizedName | false -> sanitizedName

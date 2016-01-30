@@ -58,10 +58,18 @@ let rec private transformExpr com ctx fsExpr =
             let (GetIdent com ctx ident) = v
             Fabel.Value (Fabel.IdentValue ident)
         else
-            let typeRef =
-                makeTypeFromDef com v.EnclosingEntity
-                |> Fabel.TypeRef |> Fabel.Value
-            Fabel.Get (typeRef, makeConst v.DisplayName, makeType com fsExpr.Type)
+            match v.FullName with
+            | "Microsoft.FSharp.Core.Operators.seq" ->
+                Fabel.ImportRef (Naming.getCoreLibPath com, Some "Seq")
+                |> Fabel.Value
+            | "Microsoft.FSharp.Core.ExtraTopLevelOperators.async" ->
+                Fabel.ImportRef (Naming.getCoreLibPath com, Some "Async")
+                |> Fabel.Value
+            | _ ->
+                let typeRef =
+                    makeTypeFromDef com v.EnclosingEntity
+                    |> Fabel.TypeRef |> Fabel.Value
+                Fabel.Get (typeRef, makeConst v.DisplayName, makeType com fsExpr.Type)
 
     | BasicPatterns.DefaultValue (FabelType com typ) ->
         let valueKind =

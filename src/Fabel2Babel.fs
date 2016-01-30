@@ -328,6 +328,7 @@ let private transformFunction com ctx args body =
 let private transformTestSuite com ctx decls: Babel.CallExpression =
     failwith "TODO: TestSuite members"
     
+// TODO: Set interfaces with $Fabel.Util.setInterfaces(Class.prototyp, [interfaces])
 let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation option) decls =
     let declareMember range kind name args body isStatic =
         let name, computed: Babel.Expression * bool =
@@ -547,4 +548,4 @@ let transformFiles (com: ICompiler) (files: Fabel.File list): Babel.Program list
                     :> Babel.ModuleDeclaration
                     |> U2.Case2
                     |> consBack acc) [rootMod]
-            Babel.Program (rootRange, rootDecls) |> Some)         
+            Babel.Program (file.FileName, rootRange, rootDecls) |> Some)         
