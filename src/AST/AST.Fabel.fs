@@ -125,7 +125,6 @@ and ValueKind =
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
     | Lambda of args: Ident list * body: Expr
-    | ObjExpr of string list // TODO
     member x.Type =
         match x with
         | Null -> PrimitiveType Unit
@@ -139,7 +138,6 @@ and ValueKind =
         | UnaryOp _ -> PrimitiveType (Function 1)
         | BinaryOp _ | LogicalOp _ -> PrimitiveType (Function 2)
         | Lambda (args, _) -> PrimitiveType (Function args.Length)
-        | ObjExpr _ -> UnknownType
     
 and LoopKind =
     | While of guard: Expr * body: Expr
@@ -149,11 +147,13 @@ and LoopKind =
 and Expr =
     // Pure Expressions
     | Value of value: ValueKind
+    | ObjExpr of (string*Expr) list * range: SourceLocation option
     | Get of callee: Expr * property: Expr * typ: Type
     | Apply of callee: Expr * args: Expr list * isPrimaryConstructor: bool * typ: Type * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
     // Pseudo-Statements
+    | Throw of Expr * range: SourceLocation option
     | Loop of LoopKind * range: SourceLocation option
     | VarDeclaration of var: Ident * value: Expr * isMutable: bool
     | Set of callee: Expr * property: Expr option * value: Expr * range: SourceLocation option
@@ -163,9 +163,10 @@ and Expr =
     member x.Type =
         match x with
         | Value kind -> kind.Type 
+        | ObjExpr _ -> UnknownType
         | Get (_,_,typ) | Apply (_,_,_,typ,_) -> typ
         | IfThenElse (_,thenExpr,_,_) -> thenExpr.Type
-        | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
+        | Throw _ | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
         | Sequential (exprs,_) ->
             match exprs with
             | [] -> PrimitiveType Unit
@@ -179,34 +180,38 @@ and Expr =
         match x with
         | Value _ | Get _ -> None
         | VarDeclaration (_,value,_) -> value.Range
+        | ObjExpr (_,range)
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
+        | Throw (_,range)
         | Loop (_,range)
         | Set (_,_,_,range)
         | Sequential (_,range)
         | TryCatch (_,_,_,range) -> range
             
-    member x.Children: (Expr list) option =
+    member x.Children: Expr list =
         match x with
-        | Value _ -> None
-        | Get (callee,prop,_) -> Some [callee; prop]
-        | Apply (callee,args,_,_,_) -> Some (callee::args)
-        | IfThenElse (guardExpr,thenExpr,elseExpr,_) -> Some [guardExpr; thenExpr; elseExpr]
+        | Value _ -> []
+        | ObjExpr (decls,_) -> decls |> List.map snd
+        | Get (callee,prop,_) -> [callee; prop]
+        | Apply (callee,args,_,_,_) -> (callee::args)
+        | IfThenElse (guardExpr,thenExpr,elseExpr,_) -> [guardExpr; thenExpr; elseExpr]
+        | Throw (ex,_) -> [ex]
         | Loop (kind,_) ->
             match kind with
-            | While (guard,body) -> Some [guard; body]
-            | For (_,start,limit,body,_) -> Some [start; limit; body]
-            | ForOf (_,enumerable,body) -> Some [enumerable; body]
+            | While (guard,body) -> [guard; body]
+            | For (_,start,limit,body,_) -> [start; limit; body]
+            | ForOf (_,enumerable,body) -> [enumerable; body]
         | Set (callee,prop,value,_) ->
             match prop with
-            | Some prop -> Some [callee; prop; value]
-            | None -> Some [callee; value]
-        | VarDeclaration (_,value,_) -> Some [value]
-        | Sequential (exprs,_) -> Some exprs
+            | Some prop -> [callee; prop; value]
+            | None -> [callee; value]
+        | VarDeclaration (_,value,_) -> [value]
+        | Sequential (exprs,_) -> exprs
         | TryCatch (body,catch,finalizer,_) ->
             match catch, finalizer with
-            | Some (_,catch), Some finalizer -> Some [body; catch; finalizer]
-            | Some (_,catch), None -> Some [body; catch]
-            | None, Some finalizer -> Some [body; finalizer]
-            | None, None -> Some [body]
+            | Some (_,catch), Some finalizer -> [body; catch; finalizer]
+            | Some (_,catch), None -> [body; catch]
+            | None, Some finalizer -> [body; finalizer]
+            | None, None -> [body]
             

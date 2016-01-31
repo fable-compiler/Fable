@@ -7,6 +7,15 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open Fabel
 
+let readOptions projFile =
+    let projDir = Path.GetDirectoryName(projFile)
+    if File.Exists(Path.Combine(projDir, "fabelconfig.json")) then
+        let json = File.ReadAllText(Path.Combine(projDir, "fabelconfig.json"))
+        let opts = JsonConvert.DeserializeObject<CompilerOptions>(json)
+        { opts with projFile = projFile }
+    else
+        CompilerOptions.Default projFile
+
 let parseFSharpProject (com: ICompiler) =
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
     let projOptions =
@@ -26,10 +35,9 @@ let parseFSharpProject (com: ICompiler) =
     let checkProjectResults =
         checker.ParseAndCheckProject(projOptions)
         |> Async.RunSynchronously
-    match checkProjectResults.Errors with
-    | [||] -> checkProjectResults
-    | errors ->
-        errors
+    if not checkProjectResults.HasCriticalErrors
+    then checkProjectResults
+    else checkProjectResults.Errors
         |> Seq.map (fun e -> "\t" + e.Message)
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
@@ -39,15 +47,9 @@ let parseFSharpProject (com: ICompiler) =
 let main argv =
     try
         let opts =
-            if argv.[0] = "--projFile" then
-                let projDir = Path.GetDirectoryName argv.[1] |> Path.GetFullPath
-                let opts =
-                    let json = File.ReadAllText(Path.Combine(projDir, "fabelconfig.json"))
-                    JsonConvert.DeserializeObject<CompilerOptions>(json)
-                Directory.SetCurrentDirectory projDir
-                { opts with projFile = Path.GetFileName argv.[1] }
-            else
-                JsonConvert.DeserializeObject<CompilerOptions>(argv.[0])
+            if argv.[0] = "--projFile"
+            then readOptions argv.[1]
+            else JsonConvert.DeserializeObject<_>(argv.[0])
             |> function
                 | opts when opts.code <> null ->
                     let projFile = Path.ChangeExtension(Path.GetTempFileName(), "fsx")

@@ -118,7 +118,7 @@ module Patterns =
         match typ with
         | Fabel.DeclaredType typ ->
             match typ.FullName with
-            | "Microsoft.FSharp.Core.Option" -> OptionUnion
+            | "Microsoft.FSharp.Core.FSharpOption" -> OptionUnion
             | "Microsoft.FSharp.Collections.List" -> ListUnion
             | _ when Option.isSome (typ.TryGetDecorator "Erase") -> ErasedUnion
             | _ -> OtherType
@@ -143,14 +143,19 @@ module Types =
                 Fabel.fullName = t.TypeDefinition.FullName
             }
 
+    // Some attributes (like ComDefaultInterface) will throw an exception
+    // when trying to access ConstructorArguments
     let makeDecorator (com: IFabelCompiler) (att: FSharpAttribute) =
-        let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
-        let fullName =
-            let fullName = sanitizeEntityName att.AttributeType.FullName
-            if fullName.EndsWith ("Attribute")
-            then fullName.Substring (0, fullName.Length - 9)
-            else fullName
-        Fabel.Decorator(fullName, args)
+        try
+            let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
+            let fullName =
+                let fullName = sanitizeEntityName att.AttributeType.FullName
+                if fullName.EndsWith ("Attribute")
+                then fullName.Substring (0, fullName.Length - 9)
+                else fullName
+            Fabel.Decorator(fullName, args) |> Some
+        with _ ->
+            None
 
     let makeEntity (com: IFabelCompiler) (tdef: FSharpEntity) =
         let kind =
@@ -170,7 +175,7 @@ module Types =
             |> Seq.toList
         let decs =
             tdef.Attributes
-            |> Seq.map (makeDecorator com)
+            |> Seq.choose (makeDecorator com)
             |> Seq.toList
         Fabel.Entity (kind, com.GetInternalFile tdef,
             sanitizeEntityName tdef.FullName,
@@ -180,17 +185,15 @@ module Types =
         // Guard: F# abbreviations shouldn't be passed as argument
         if tdef.IsFSharpAbbreviation
         then failwith "Abbreviation passed to makeTypeFromDef"
-        // Object
-        elif tdef.FullName = "System.Object"
-        then Fabel.UnknownType
         // Array
         elif tdef.IsArrayType then
             match tdef.GenericParameters.[0].FullName with
-            | NumberKind kind -> Some kind | _ -> None
-            |> function
-                | Some numbeKind -> Fabel.TypedArray numbeKind
-                | _ -> Fabel.DynamicArray
+            | NumberKind kind -> Fabel.TypedArray kind
+            | _ -> Fabel.DynamicArray
             |> Fabel.Array |> Fabel.PrimitiveType
+        // Object
+        elif tdef.FullName = "System.Object"
+        then Fabel.UnknownType
         else
         // .NET Primitives
         match tdef.FullName with
@@ -313,7 +316,7 @@ let rec makeSequential range statements =
         match first with
         | Fabel.Value (Fabel.Null)
         // Calls to System.Object..ctor in class constructors
-        | Fabel.Value (Fabel.ObjExpr []) -> makeSequential range rest
+        | Fabel.ObjExpr ([],_) -> makeSequential range rest
         | Fabel.Sequential (firstStatements, _) -> makeSequential range (firstStatements @ rest)
         | _ ->
             match rest with
@@ -481,8 +484,8 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
         }
         match Replacements.tryReplace com applyInfo with
         | Some _ as repl -> repl
-        | None -> failwithf "Couldn't find replacemente for external method %s"
-                            methFullName
+        | None ->
+            failwithf "Cannot find replacement for external method %s" methFullName
 
 // TODO: If it's an imported method with ParamArray, spread the last argument
 let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: FSharpExpr list) =
@@ -501,7 +504,7 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
     match methFullName with
     | "Microsoft.FSharp.Core.Operators.|>" -> makeApply com ctx fsExpr args.Tail.Head [args.Head]
     | "Microsoft.FSharp.Core.Operators.<|" -> makeApply com ctx fsExpr args.Head args.Tail
-    | "System.Object..ctor" -> Fabel.Value (Fabel.ObjExpr [])
+    | "System.Object..ctor" -> Fabel.ObjExpr ([], makeRangeFrom fsExpr)
     | _ ->
         (** -Check for replacements *)
         let resolved =

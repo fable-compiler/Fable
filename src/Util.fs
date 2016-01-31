@@ -1,12 +1,16 @@
 namespace Fabel
 
-type CompilerOptions = {
-    code: string
-    projFile: string
-    symbols: string[]
-    outDir: string
-    lib: string
-}
+type CompilerOptions =
+    {
+        code: string
+        projFile: string
+        symbols: string[]
+        outDir: string
+        lib: string
+    }
+    static member Default projFile = {
+        code=null; symbols=[||]; outDir="."; lib="."; projFile=projFile        
+    }
 
 type ICompiler =
     abstract Options: CompilerOptions
@@ -24,7 +28,7 @@ module Naming =
         s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
     
     let getCoreLibPath (com: ICompiler) =
-        Path.Combine(com.Options.lib, "Fabel.Core.js")
+        Path.Combine(com.Options.lib, "fabel-core.js")
         
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
@@ -60,11 +64,9 @@ module Naming =
         // Check if it already exists in scope
         |> preventConflicts conflicts
 
-module IO =
-    open System
     /// Creates a relative path from one file or folder to another.
     /// from http://stackoverflow.com/a/340454/3922220
-    let makeRelativePath fromPath toPath =
+    let getRelativePath toPath fromPath =
         let fromUri = Uri(fromPath)
         let toUri = Uri(toPath)
         if fromUri.Scheme <> toUri.Scheme then

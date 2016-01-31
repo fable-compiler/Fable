@@ -187,11 +187,13 @@ let rec private transformExpr com ctx fsExpr =
 
     (** Instantiation *)
     | BasicPatterns.NewArray(FabelType com typ, argExprs) ->
-        match typ with
-        | Fabel.PrimitiveType (Fabel.Array arrayKind) ->
-            (argExprs |> List.map (transformExpr com ctx), arrayKind)
-            |> Fabel.ArrayConst |> Fabel.Value
-        | _ -> failwithf "Unexpected array initializer: %A" fsExpr
+        let arrayKind =
+            match typ with
+            | Fabel.PrimitiveType (Fabel.Number numberKind) ->
+                Fabel.TypedArray numberKind
+            | _ -> Fabel.DynamicArray
+        (argExprs |> List.map (transformExpr com ctx), arrayKind)
+        |> Fabel.ArrayConst |> Fabel.Value
 
     | BasicPatterns.NewTuple(_, argExprs) ->
         (argExprs |> List.map (transformExpr com ctx), Fabel.Tuple)
@@ -426,7 +428,7 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
         let entMember = 
             Fabel.Member(memberKind,
                 makeRange meth.DeclarationLocation, args, transformExpr com ctx body,
-                meth.Attributes |> Seq.map (makeDecorator com) |> Seq.toList,
+                meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
                 meth.Accessibility.IsPublic, not meth.IsInstanceMember)
             |> Fabel.MemberDeclaration
         let parentName =

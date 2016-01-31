@@ -128,6 +128,10 @@ module private AstPass =
         // TODO: If we're comparing against null, we should use non-strict equality
         | "<>" -> binaryOp r typ args BinaryUnequalStrict
         | "=" -> binaryOp r typ args BinaryEqualStrict
+        | "<" -> binaryOp r typ args BinaryLess
+        | "<=" -> binaryOp r typ args BinaryLessOrEqual
+        | ">" -> binaryOp r typ args BinaryMore
+        | ">=" -> binaryOp r typ args BinaryMoreOrEqual
         | "+" -> binaryOp r typ args BinaryPlus
         | "-" -> binaryOp r typ args BinaryMinus
         | "*" -> binaryOp r typ args BinaryMultiply
@@ -157,6 +161,11 @@ module private AstPass =
         | "sin" -> math r typ args "sin"
         | "sqrt" -> math r typ args "sqrt"
         | "tan" -> math r typ args "tan"
+        | "!" -> Fabel.Get(args.Head, literal "cell", Fabel.UnknownType) |> Some
+        | ":=" -> Fabel.Set(args.Head, Some(literal "cell"), args.Tail.Head, r) |> Some
+        | "ref" -> Fabel.ObjExpr([("cell", args.Head)], r) |> Some
+        // TODO: failwithf
+        | "failwith" | "raise" -> Fabel.Throw (args.Head, r) |> Some
         | _ -> None
 
     let intrinsicFunctions com (i: Fabel.ApplyInfo) =
@@ -251,6 +260,7 @@ module private CoreLibPass =
     let mappings =
         dict [
             system + "Random" => ("Random", Both)
+            fsharp + "Control.Async" => ("Async", Both)
             fsharp + "Control.AsyncBuilder" => ("Async", Both)
             fsharp + "Collections.List" => ("List", Both)
             fsharp + "Collections.Array" => ("Array", Both)

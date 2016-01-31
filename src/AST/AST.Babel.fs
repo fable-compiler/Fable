@@ -300,28 +300,28 @@ type ArrayExpression(elements, ?loc) =
     member x.elements: U2<Expression, SpreadElement> option list = elements
 
 [<AbstractClass>]
-type ObjectMember(key, computed, decorators, typ, ?value, ?loc) =
+type ObjectMember(typ, key, ?value, ?computed, ?loc) =
     inherit Node(typ, ?loc = loc)
     member x.key: Expression = key
-    member x.computed: bool = computed
     member x.value: Expression option = value
-    member x.decorators: Decorator list = decorators
+    member x.computed: bool = defaultArg computed false
+    // member x.decorators: Decorator list = defaultArg decorators []
     
-type ObjectProperty(shorthand, key, computed, decorators, value, ?loc) =
-    inherit ObjectMember(key, computed, decorators, "ObjectProperty", value, ?loc = loc)
-    member x.shorthand: bool = shorthand
+type ObjectProperty(key, value, ?shorthand, ?computed, ?loc) =
+    inherit ObjectMember("ObjectProperty", key, value, ?computed=computed, ?loc=loc)
+    member x.shorthand: bool = defaultArg shorthand false
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMethod
 
-type ObjectMethod(kind, key, computed, decorators, arguments, body, generator, async, ?loc) =
-    inherit ObjectMember(key, computed, decorators, "ObjectMethod", ?loc = loc)
+type ObjectMethod(kind, key, arguments, body, ?computed, ?generator, ?async, ?loc) =
+    inherit ObjectMember("ObjectMethod", key, ?computed=computed, ?loc=loc)
     member x.kind = match kind with ObjectGetter -> "get"
                                   | ObjectSetter -> "set"
                                   | ObjectMethod -> "method"
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
-    member x.generator = generator
-    member x.async = async
+    member x.generator: bool = defaultArg generator false
+    member x.async: bool = defaultArg async false
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression. 
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
@@ -337,11 +337,11 @@ type ObjectExpression(properties, ?loc) =
     member x.properties: U3<ObjectProperty, ObjectMethod, SpreadProperty> list = properties
 
 /// A conditional expression, i.e., a ternary ?/: expression.
-type ConditionalExpression(test, alternate, consequent, ?loc) =
+type ConditionalExpression(test, consequent, alternate, ?loc) =
     inherit Expression("ConditionalExpression", ?loc = loc)
     member x.test: Expression = test
-    member x.alternate: Expression = alternate
     member x.consequent: Expression = consequent
+    member x.alternate: Expression = alternate
 
 /// A function or method call expression.  
 type CallExpression(callee, arguments, ?loc) =
@@ -445,7 +445,7 @@ type LogicalExpression(operator, left, right, ?loc) =
 type ClassMethodKind =
     | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(loc, kind, key, args, body, computed, ``static``, ?decorators) =
+type ClassMethod(loc, kind, key, args, body, computed, ``static``) =
     inherit Node("ClassMethod", loc)
     member x.kind = match kind with ClassConstructor -> "constructor"
                                   | ClassGetter -> "get"
@@ -456,7 +456,7 @@ type ClassMethod(loc, kind, key, args, body, computed, ``static``, ?decorators) 
     member x.body: BlockStatement = body
     member x.computed: bool = computed
     member x.``static``: bool = ``static``
-    member x.decorators: Decorator list = defaultArg decorators []
+    // member x.decorators: Decorator list = defaultArg decorators []
     // This appears in astexplorer.net but it's not documented
     // member x.expression: bool = false
 
@@ -472,20 +472,20 @@ type ClassBody(loc, body) =
     inherit Node("ClassBody", loc)
     member x.body: U2<ClassMethod, ClassProperty> list = body
 
-type ClassDeclaration(loc, body, id, ?super, ?decorators) =
+type ClassDeclaration(loc, body, id, ?super) =
     inherit Declaration("ClassDeclaration", loc)
     member x.body: ClassBody = body
     member x.id: Identifier = id
     member x.superClass: Expression option = super
-    member x.decorators: Decorator list = defaultArg decorators []
+    // member x.decorators: Decorator list = defaultArg decorators []
 
 /// Anonymous class: e.g., var myClass = class { }
-type ClassExpression(loc, body, ?id, ?super, ?decorators) =
+type ClassExpression(loc, body, ?id, ?super) =
     inherit Expression("ClassExpression", loc)
     member x.body: ClassBody = body
     member x.id: Identifier option = id    
     member x.superClass: Expression option = super
-    member x.decorators: Decorator list = defaultArg decorators []
+    // member x.decorators: Decorator list = defaultArg decorators []
 
 // type MetaProperty(meta, property, ?loc) =
 //     inherit Expression("MetaProperty", ?loc = loc)
