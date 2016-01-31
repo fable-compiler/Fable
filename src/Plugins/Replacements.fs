@@ -240,10 +240,18 @@ module private AstPass =
         | "areEqual" ->
             importCall i.range i.returnType "assert" None "equal" i.args |> Some
         | _ -> None
+        
+    let exceptions com (i: Fabel.ApplyInfo) =
+        match i.methodName with
+        // TODO: Constructor with inner exception
+        | ".ctor" -> Some i.args.Head
+        | "get_Message" -> i.callee
+        | _ -> None
 
     let mappings =
         dict [
             "System.Math" => operators
+            "System.Exception" => exceptions
             fsharp + "Core.Operators" => operators
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
             // fsharp + "Collections.Set" => fsharpSet

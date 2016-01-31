@@ -316,6 +316,7 @@ let rec makeSequential range statements =
         match first with
         | Fabel.Value (Fabel.Null)
         // Calls to System.Object..ctor in class constructors
+        // TODO: Remove also calls to System.Exception..ctor in constructors?
         | Fabel.ObjExpr ([],_) -> makeSequential range rest
         | Fabel.Sequential (firstStatements, _) -> makeSequential range (firstStatements @ rest)
         | _ ->
@@ -468,7 +469,11 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
         None // TODO: Check Emit attributes
     else
         let ownerFullName, methName =
-            let lastPeriod = methFullName.LastIndexOf (".")
+            let lastPeriod =
+                // TODO: Check also overloaded constructors
+                if methFullName.EndsWith(".ctor")
+                then methFullName.Length - 6
+                else methFullName.LastIndexOf (".")
             methFullName.Substring (0, lastPeriod),
             methFullName.Substring (lastPeriod + 1)
         let applyInfo: Fabel.ApplyInfo = {
@@ -485,7 +490,8 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
         match Replacements.tryReplace com applyInfo with
         | Some _ as repl -> repl
         | None ->
-            failwithf "Cannot find replacement for external method %s" methFullName
+            methFullName
+            |> failwithf "Cannot find replacement for external method %s"
 
 // TODO: If it's an imported method with ParamArray, spread the last argument
 let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: FSharpExpr list) =

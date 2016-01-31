@@ -79,8 +79,7 @@ let ``async use statements should dispose of resources when they go out of scope
 let ``Try ... with ... expressions inside async expressions work the same``() =
     let result = ref ""
     let throw() : unit =
-        failwith "Boo!"
-        // raise(exn "Boo!")
+        raise(exn "Boo!")
     let append(x) = 
         result := !result + x
     let innerAsync() =
