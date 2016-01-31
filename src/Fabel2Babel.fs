@@ -163,7 +163,7 @@ let private varDeclaration range var value =
         [Babel.VariableDeclarator (var, value, ?loc=range)],
         ?loc = range)
         
-let private template range (txt: string) args =
+let private macroExpression range (txt: string) args =
     let args = Array.ofList args
     let el isTail value = Babel.TemplateElement(value, isTail)
     let rec buildEls idx (matches: System.Text.RegularExpressions.Match list) els =
@@ -244,9 +244,12 @@ let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
         
     | Fabel.Throw (TransformExpr com ctx ex, range) ->
         upcast Babel.ThrowStatement(ex, ?loc=range)
+        
+    | Fabel.Wrapped (expr, _) ->
+        com.TransformStatement ctx expr        
 
     // Expressions become ExpressionStatements
-    | Fabel.Value _ | Fabel.Get _ | Fabel.Apply _ | Fabel.ObjExpr _ ->
+    | Fabel.Value _ | Fabel.Get _| Fabel.Emit _ | Fabel.Apply _ | Fabel.ObjExpr _ ->
         upcast Babel.ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range)
 
 let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Expression =
@@ -283,7 +286,7 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
         | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _ ->
             failwithf "Unexpected stand-alone operation: %A" expr
 
-    | Fabel.ObjExpr (props, _) ->
+    | Fabel.ObjExpr (props, range) ->
         props
         |> List.map (fun (key, value) ->
             let key =
@@ -292,16 +295,23 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
                 else Babel.Identifier key :> Babel.Expression
             Babel.ObjectProperty(key, com.TransformExpr ctx value, ?loc=value.Range)
             |> U3.Case1 )
-        |> fun props -> upcast Babel.ObjectExpression(props, ?loc=expr.Range)
+        |> fun props -> upcast Babel.ObjectExpression(props, ?loc=range)
+        
+    | Fabel.Emit (emit, args, _, range) ->
+        List.map (com.TransformExpr ctx) args
+        |> macroExpression range emit
+        
+    | Fabel.Wrapped (expr, _) ->
+        com.TransformExpr ctx expr
 
-    | Fabel.Apply (callee, args, isPrimaryConstructor, _, _) ->
+    | Fabel.Apply (callee, args, isPrimaryConstructor, _, range) ->
         match callee, args with
         | Fabel.Value (Fabel.LogicalOp op), [TransformExpr com ctx left; TransformExpr com ctx right] ->
-            upcast Babel.LogicalExpression (op, left, right, ?loc=expr.Range)
+            upcast Babel.LogicalExpression (op, left, right, ?loc=range)
         | Fabel.Value (Fabel.UnaryOp op), [TransformExpr com ctx operand as expr] ->
-            upcast Babel.UnaryExpression (op, operand, ?loc=expr.Range)
+            upcast Babel.UnaryExpression (op, operand, ?loc=range)
         | Fabel.Value (Fabel.BinaryOp op), [TransformExpr com ctx left; TransformExpr com ctx right] ->
-            upcast Babel.BinaryExpression (op, left, right, ?loc=expr.Range)
+            upcast Babel.BinaryExpression (op, left, right, ?loc=range)
         | _ ->
             let callee = com.TransformExpr ctx callee
             let args =
@@ -309,21 +319,21 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
                 |> List.rev |> cleanNullArgs |> List.rev
                 |> List.map (com.TransformExpr ctx >> U2<_,_>.Case1)
             if isPrimaryConstructor
-            then upcast Babel.NewExpression (callee, args, ?loc=expr.Range)
-            else upcast Babel.CallExpression (callee, args, ?loc=expr.Range)
+            then upcast Babel.NewExpression (callee, args, ?loc=range)
+            else upcast Babel.CallExpression (callee, args, ?loc=range)
 
     | Fabel.Get (callee, property, _) ->
         getExpr com ctx callee property
 
     | Fabel.IfThenElse (TransformExpr com ctx guardExpr,
                         TransformExpr com ctx thenExpr,
-                        TransformExpr com ctx elseExpr, _) ->
+                        TransformExpr com ctx elseExpr, range) ->
         upcast Babel.ConditionalExpression (
-            guardExpr, thenExpr, elseExpr, ?loc = expr.Range)
+            guardExpr, thenExpr, elseExpr, ?loc = range)
 
-    | Fabel.Sequential (statements, _) ->
-        Babel.BlockStatement (statements |> List.map (com.TransformStatement ctx), [])
-        |> fun block -> upcast Babel.DoExpression (block)
+    | Fabel.Sequential (statements, range) ->
+        Babel.BlockStatement (statements |> List.map (com.TransformStatement ctx), ?loc=range)
+        |> fun block -> upcast Babel.DoExpression (block, ?loc=range)
 
     | Fabel.TryCatch _ | Fabel.Throw _ ->
         upcast (iife com ctx expr)

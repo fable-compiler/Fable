@@ -30,7 +30,7 @@ var transformMacroExpressions = {
           buildArgs["$" + i] = path.node.expressions[i];
       }
       
-      path.replaceWith(buildMacro(buildArgs));
+      path.replaceWithMultiple(buildMacro(buildArgs));
     }
   }
 };

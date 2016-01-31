@@ -227,7 +227,7 @@ module Types =
 
 [<AutoOpen>]
 module Identifiers =
-    let makeIdent name typ = {Fabel.name=name; Fabel.typ=typ}
+    let makeIdent name: Fabel.Ident = {name=name; typ=Fabel.UnknownType}
 
     let private sanitizeIdent (ctx: Context) (fsName: string) =
         let sanitizedName = fsName |> Naming.sanitizeIdent (fun x ->
@@ -235,22 +235,22 @@ module Identifiers =
         { ctx with scope = (fsName, sanitizedName)::ctx.scope }, sanitizedName
 
     /// Make a sanitized identifier from a speculative name
-    let makeSanitizedIdent ctx typ speculativeName =
+    let makeSanitizedIdent ctx typ speculativeName: Context*Fabel.Ident =
         let ctx, sanitizedIdent = sanitizeIdent ctx speculativeName
-        ctx, makeIdent sanitizedIdent typ
+        ctx, {name=sanitizedIdent; typ=typ}
 
     /// Get corresponding identifier to F# value in current scope
-    let (|GetIdent|) com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
+    let (|GetIdent|) com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fabel.Ident =
         ctx.scope
         |> List.tryFind (fun (fsName,_) -> fsName = fsRef.DisplayName)
         |> function
-        | Some (_,fabelName) -> makeIdent fabelName (makeType com fsRef.FullType)
+        | Some (_,fabelName) -> {name=fabelName; typ=(makeType com fsRef.FullType)}
         | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
 
     /// sanitize F# identifier and create new context
-    let (|BindIdent|) com ctx (fsRef: FSharpMemberOrFunctionOrValue) =
+    let (|BindIdent|) com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fabel.Ident =
         let newContext, sanitizedIdent = sanitizeIdent ctx fsRef.DisplayName
-        newContext, makeIdent sanitizedIdent (makeType com fsRef.FullType)
+        newContext, {name=sanitizedIdent; typ=(makeType com fsRef.FullType)}
 
 let isReplaceCandidate (com: IFabelCompiler) (meth: FSharpMemberOrFunctionOrValue) =
     // Is external method or contains Replace attribute?
@@ -445,6 +445,11 @@ let makeApply com ctx (fsExpr: FSharpExpr) (expr: Fabel.Expr) (args: Fabel.Expr 
         match nestedArgs with
         | ReplaceArgs (List.zip lambdaArgs args) nestedArgs ->
             Fabel.Apply (nestedExpr, nestedArgs, isCons, typ, range)
+        | _ -> Fabel.Apply (expr, args, false, typ, range)
+    | Fabel.Value (Fabel.Lambda ([lambdaArg], Fabel.Get (nestedExpr, prop, _))) ->
+        match nestedExpr with
+        | Fabel.Value (Fabel.IdentValue {name=nestedName}) when lambdaArg.name = nestedName ->
+            Fabel.Get (args.Head, prop, typ)
         | _ -> Fabel.Apply (expr, args, false, typ, range)
     | _ -> Fabel.Apply (expr, args, false, typ, range)
 

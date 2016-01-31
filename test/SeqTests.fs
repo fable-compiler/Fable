@@ -64,39 +64,36 @@ let ``while in seq expressions works``() =
         while n < 10 do
             n <- n + 1
             yield n
-    } |> Seq.sum //|> equal 55
+    } |> Seq.sum |> equal 55
 
-(*
 type 'a Tree =
     | Leaf
     | Node of 'a Tree * 'a * 'a Tree
 
 [<Test>]
 let ``recursive seq expressions work``() =
-let rec traverse t = seq { 
-    match t with
-            | Leaf -> ()
-            | Node(xs, y, zs) ->
-                yield y
-                yield! traverse xs
-                yield! traverse zs |> Seq.map (fun x -> 2. * x)
-         }
-        let t =
-            Node(Node(Leaf, 1., Leaf), 2., Node(Leaf, 3., Leaf))
-        traverse t |> Seq.sumBy float
+    let rec traverse t = seq { 
+        match t with
+        | Leaf -> ()
+        | Node(xs, y, zs) ->
+            yield y
+            yield! traverse xs
+            yield! traverse zs |> Seq.map (fun x -> 2 * x)
+    }
+    let t = Node(Node(Leaf, 1, Leaf), 2, Node(Leaf, 3, Leaf))
+    traverse t |> Seq.sum |> equal 9
 
 [<Test>]
 let ``try...finally in seq expressions works``() =
-    let n = ref 0.0
-    try
-             seq { 
-                try 
-                    raise (exn "My message")
-                finally 
-                    n := !n + 1.0
-             } |> Seq.iter ignore
-         with _ -> ()
-         !n
+    let mutable n = 0
+    try seq { 
+        try 
+            raise (exn "My message")
+        finally 
+            n <- n + 1
+        } |> Seq.iter ignore
+    with _ -> ()
+    equal 1 n
 
 open System
 type DisposableAction(f) =
@@ -105,21 +102,19 @@ type DisposableAction(f) =
 
 [<Test>]
 let ``use in seq expressions works``() =
-    let n = ref 0.0
+    let mutable n = 0
     seq { 
-            use x = new DisposableAction(fun () ->
-                n := !n + 1.0)
-            ignore x
-         } |> Seq.iter ignore
-         !n
+        use x = new DisposableAction(fun () ->
+            n <- n + 1)
+        ignore x
+    } |> Seq.iter ignore
+    equal 1 n
 
 [<Test>]
 let ``array expressions work``() =
-    let xs = [| 
-    for x in 1 .. 10 do
-               yield x 
-         |]
-         xs |> Array.length |> float
+    [| for x in 1 .. 10 do yield x |]
+    |> Array.length |> equal 10
+(*
 
 [<Test>]
 let ``list expressions work``() =

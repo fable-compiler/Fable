@@ -12,6 +12,8 @@ type Position =
 
 type SourceLocation =
     { (*source: string option;*) start: Position; ``end``: Position; }
+    member x.Collapse() =
+        { start = x.start; ``end`` = x.start }
     static member (+) (r1: SourceLocation, r2: SourceLocation) =
         { start = r1.start; ``end`` = r2.``end`` }
     static member Empty =

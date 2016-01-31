@@ -21,11 +21,16 @@ module Naming =
     open System.Text.RegularExpressions
     
     let removeBrackets =
-        let bracketRegex = Regex("^\( (.*) \)$")
+        let bracketRegex = Regex(@"^\( (.*) \)$")
         fun s -> bracketRegex.Replace(s, "$1")
         
     let lowerFirst (s: string) =
         s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
+        
+    let getFieldIndex fieldName =
+        match Regex.Match(fieldName, @"\d+$") with
+        | m when m.Success -> int m.Value
+        | _ -> 0
     
     let getCoreLibPath (com: ICompiler) =
         Path.Combine(com.Options.lib, "fabel-core.js")
@@ -33,7 +38,7 @@ module Naming =
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
     let identForbiddenChars =
-        Regex "^[^a-zA-Z_]|[^0-9a-zA-Z_]"
+        Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
         
     let trimDots (s: string) =
         match s.StartsWith ".", s.EndsWith "." with

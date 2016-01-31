@@ -173,6 +173,7 @@ module private AstPass =
             |> fabelCoreLibCall com r typ "Seq" "rangeStep" |> Some
         // TODO: failwithf
         | "failwith" | "raise" -> Fabel.Throw (args.Head, r) |> Some
+        | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
         | _ -> None
 
     let intrinsicFunctions com (i: Fabel.ApplyInfo) =
@@ -181,7 +182,7 @@ module private AstPass =
         | "SetArray", ThreeArgs (ar, idx, value) -> Fabel.Set (ar, Some idx, value, i.range) |> Some
         | _ -> None
 
-    let fsharpMap com (i: Fabel.ApplyInfo) =
+    let maps com (i: Fabel.ApplyInfo) =
         match i.methodName with
         | "add" -> Instance "set"
         | "containsKey" -> Instance "has"
@@ -242,6 +243,14 @@ module private AstPass =
 // let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
 // let tryPick f (m:Map<_,_>) = m.TryPick(f)
 
+    let arrays com (i: Fabel.ApplyInfo) =
+        match i.methodName with
+        | "length" ->
+            let callee, _ = instanceArgs i.callee i.args
+            Fabel.Get (callee, literal "length", Int32 |> Fabel.Number |> Fabel.PrimitiveType)
+            |> Some
+        | _ -> None
+
     let asserts com (i: Fabel.ApplyInfo) =
         match i.methodName with
         | "areEqual" ->
@@ -262,7 +271,8 @@ module private AstPass =
             fsharp + "Core.Operators" => operators
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
             // fsharp + "Collections.Set" => fsharpSet
-            fsharp + "Collections.Map" => fsharpMap
+            fsharp + "Collections.Map" => maps
+            fsharp + "Collections.Array" => arrays
             "NUnit.Framework.Assert" => asserts
         ]
 
