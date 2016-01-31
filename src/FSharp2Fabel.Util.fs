@@ -118,7 +118,7 @@ module Patterns =
         match typ with
         | Fabel.DeclaredType typ ->
             match typ.FullName with
-            | "Microsoft.FSharp.Core.FSharpOption" -> OptionUnion
+            | "Microsoft.FSharp.Core.Option" -> OptionUnion
             | "Microsoft.FSharp.Collections.List" -> ListUnion
             | _ when Option.isSome (typ.TryGetDecorator "Erase") -> ErasedUnion
             | _ -> OtherType
@@ -126,9 +126,10 @@ module Patterns =
 
 [<AutoOpen>]
 module Types =
-    let sanitizeEntityName (name: string) =
-        let idx = name.IndexOf ('`')
-        if idx >= 0 then name.Substring (0, idx) else name
+    let sanitizeEntityName (ent: FSharpEntity) =
+        let ns = match ent.Namespace with
+                 | Some ns -> ns + "." | None -> ""
+        ns + ent.DisplayName
         
     let getBaseClassLocation (tdef: FSharpEntity) =
         match tdef.BaseType with
@@ -149,7 +150,7 @@ module Types =
         try
             let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
             let fullName =
-                let fullName = sanitizeEntityName att.AttributeType.FullName
+                let fullName = sanitizeEntityName att.AttributeType
                 if fullName.EndsWith ("Attribute")
                 then fullName.Substring (0, fullName.Length - 9)
                 else fullName
@@ -171,15 +172,14 @@ module Types =
             |> Seq.filter (fun (NonAbbreviatedType x) ->
                 x.HasTypeDefinition &&
                 com.GetInternalFile x.TypeDefinition |> Option.isSome)
-            |> Seq.map (fun x -> sanitizeEntityName x.TypeDefinition.FullName)
+            |> Seq.map (fun x -> sanitizeEntityName x.TypeDefinition)
             |> Seq.toList
         let decs =
             tdef.Attributes
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
         Fabel.Entity (kind, com.GetInternalFile tdef,
-            sanitizeEntityName tdef.FullName,
-            infcs, decs, tdef.Accessibility.IsPublic)
+            sanitizeEntityName tdef, infcs, decs, tdef.Accessibility.IsPublic)
 
     let rec makeTypeFromDef (com: IFabelCompiler) (tdef: FSharpEntity) =
         // Guard: F# abbreviations shouldn't be passed as argument
@@ -247,7 +247,7 @@ module Identifiers =
         | Some (_,fabelName) -> makeIdent fabelName (makeType com fsRef.FullType)
         | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
 
-    /// sanitizeEntityName F# identifier and create new context
+    /// sanitize F# identifier and create new context
     let (|BindIdent|) com ctx (fsRef: FSharpMemberOrFunctionOrValue) =
         let newContext, sanitizedIdent = sanitizeIdent ctx fsRef.DisplayName
         newContext, makeIdent sanitizedIdent (makeType com fsRef.FullType)
@@ -332,18 +332,18 @@ let makeConst (value: obj) =
     | :? bool as x -> Fabel.BoolConst x
     | :? string as x -> Fabel.StringConst x
     // Integer types
-    | :? int as x -> Fabel.IntConst (x, Int32)
-    | :? byte as x -> Fabel.IntConst (int x, UInt8Clamped)
-    | :? sbyte as x -> Fabel.IntConst (int x, Int8)
-    | :? int16 as x -> Fabel.IntConst (int x, Int16)
-    | :? uint16 as x -> Fabel.IntConst (int x, UInt16)
-    | :? char as x -> Fabel.IntConst (int x, UInt16)
-    | :? uint32 as x -> Fabel.IntConst (int x, UInt32)
+    | :? int as x -> Fabel.NumberConst (U2.Case1 x, Int32)
+    | :? byte as x -> Fabel.NumberConst (U2.Case1 (int x), UInt8Clamped)
+    | :? sbyte as x -> Fabel.NumberConst (U2.Case1 (int x), Int8)
+    | :? int16 as x -> Fabel.NumberConst (U2.Case1 (int x), Int16)
+    | :? uint16 as x -> Fabel.NumberConst (U2.Case1 (int x), UInt16)
+    | :? char as x -> Fabel.NumberConst (U2.Case1 (int x), UInt16)
+    | :? uint32 as x -> Fabel.NumberConst (U2.Case1 (int x), UInt32)
     // Float types
-    | :? float as x -> Fabel.FloatConst (x, Float64)
-    | :? int64 as x -> Fabel.FloatConst (float x, Float64)
-    | :? uint64 as x -> Fabel.FloatConst (float x, Float64)
-    | :? float32 as x -> Fabel.FloatConst (float x, Float32)
+    | :? float as x -> Fabel.NumberConst (U2.Case2 x, Float64)
+    | :? int64 as x -> Fabel.NumberConst (U2.Case2 (float x), Float64)
+    | :? uint64 as x -> Fabel.NumberConst (U2.Case2 (float x), Float64)
+    | :? float32 as x -> Fabel.NumberConst (U2.Case2 (float x), Float32)
     // TODO: Regex
     | :? unit | _ when value = null -> Fabel.Null
     | _ -> failwithf "Unexpected literal %O" value
@@ -463,22 +463,13 @@ let splitLast (li: 'a list) =
         | x::xs -> split' (x::acc) xs
     split' [] li
     
-let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
-                (methFullName: string) callee args =
+let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue) callee args =
     if not <| isReplaceCandidate com meth then
         None // TODO: Check Emit attributes
     else
-        let ownerFullName, methName =
-            let lastPeriod =
-                // TODO: Check also overloaded constructors
-                if methFullName.EndsWith(".ctor")
-                then methFullName.Length - 6
-                else methFullName.LastIndexOf (".")
-            methFullName.Substring (0, lastPeriod),
-            methFullName.Substring (lastPeriod + 1)
         let applyInfo: Fabel.ApplyInfo = {
-            methodName = methName
-            ownerFullName = ownerFullName
+            ownerFullName = sanitizeEntityName meth.EnclosingEntity
+            methodName = sanitizeMethodName com meth
             range = makeRangeFrom fsExpr
             callee = callee
             args = args
@@ -489,36 +480,32 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
         }
         match Replacements.tryReplace com applyInfo with
         | Some _ as repl -> repl
-        | None ->
-            methFullName
-            |> failwithf "Cannot find replacement for external method %s"
+        | None -> failwithf "Cannot find replacement for %s" meth.FullName
 
 // TODO: If it's an imported method with ParamArray, spread the last argument
-let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: FSharpExpr list) =
-    let sanitizeMethFullName (meth: FSharpMemberOrFunctionOrValue) =
-        let ns = match meth.EnclosingEntity.Namespace with
-                 | Some ns -> ns + "." | None -> ""
-        sanitizeMethodName com meth
-        |> (+) (ns + meth.EnclosingEntity.DisplayName + ".")
-    (** ###Method call processing *)
-    let methType, methFullName =
-        let methType = makeTypeFromDef com meth.EnclosingEntity
-        methType, sanitizeMethFullName meth
+let makeCall (com: IFabelCompiler) ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: FSharpExpr list) =
     let callee, args =
         Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
     (** -If this a pipe, optimize *)
-    match methFullName with
-    | "Microsoft.FSharp.Core.Operators.|>" -> makeApply com ctx fsExpr args.Tail.Head [args.Head]
-    | "Microsoft.FSharp.Core.Operators.<|" -> makeApply com ctx fsExpr args.Head args.Tail
-    | "System.Object..ctor" -> Fabel.ObjExpr ([], makeRangeFrom fsExpr)
+    match meth.FullName with
+    // TODO: Other pipe operators?
+    | "Microsoft.FSharp.Core.Operators.( |> )" ->
+        makeApply com ctx fsExpr args.Tail.Head [args.Head]
+    | "Microsoft.FSharp.Core.Operators.( <| )" ->
+        makeApply com ctx fsExpr args.Head args.Tail
+    | "Microsoft.FSharp.Core.Operators.( ||> )" ->
+        makeApply com ctx fsExpr (List.last args) (List.take 2 args)
+    | "System.Object..ctor" ->
+        Fabel.ObjExpr ([], makeRangeFrom fsExpr)
     | _ ->
         (** -Check for replacements *)
         let resolved =
-            tryReplace com fsExpr meth methFullName callee args
+            tryReplace com fsExpr meth callee args
         (** -If no Emit attribute nor replacement has been found then: *)
         match resolved with
         | Some exprKind -> exprKind
         | None ->
+            let methName = sanitizeMethodName com meth |> makeConst
             let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
         (**     *Check if this an extension *)
             let callee, args =
@@ -527,17 +514,18 @@ let makeCall com ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: 
                 else callee, args
                 |> function
                 | Some callee, args -> callee, args
-                | None, args -> Fabel.Value (Fabel.TypeRef methType), args
+                | None, args ->
+                    let ownerType = makeTypeFromDef com meth.EnclosingEntity
+                    Fabel.Value (Fabel.TypeRef ownerType), args
         (**     *Check if this a getter or setter  *)
             if meth.IsPropertyGetterMethod then
-                Fabel.Get (callee, makeConst meth.DisplayName, typ)
+                Fabel.Get (callee, methName, typ)
             elif meth.IsPropertySetterMethod then
-                Fabel.Set (callee, Some (makeConst meth.DisplayName), args.Head, range)
+                Fabel.Set (callee, Some methName, args.Head, range)
         (**     *Check if this is an implicit constructor *)
             elif meth.IsImplicitConstructor then
                 Fabel.Apply (callee, args, true, typ, range)
         (**     *If nothing of the above applies, call the method normally *)
             else
-                let methName = methFullName.Substring (methFullName.LastIndexOf "." + 1)
-                let callee = Fabel.Get (callee, makeConst methName, makeFnType args)
+                let callee = Fabel.Get (callee, methName, makeFnType args)
                 Fabel.Apply (callee, args, false, typ, range)

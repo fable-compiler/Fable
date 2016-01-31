@@ -115,8 +115,7 @@ and ValueKind =
     | TypeRef of Type
     | IdentValue of Ident
     | ImportRef of import: string * prop: string option
-    | IntConst of int * NumberKind
-    | FloatConst of float * NumberKind
+    | NumberConst of U2<int,float> * NumberKind
     | StringConst of string
     | BoolConst of bool
     | RegexConst of source:string * flags: RegexFlag list
@@ -130,7 +129,7 @@ and ValueKind =
         | Null -> PrimitiveType Unit
         | This typ | Super typ | IdentValue {typ=typ} -> typ
         | ImportRef _ | TypeRef _ -> UnknownType
-        | IntConst (_,kind) | FloatConst (_,kind) -> PrimitiveType (Number kind)
+        | NumberConst (_,kind) -> PrimitiveType (Number kind)
         | StringConst _ -> PrimitiveType String
         | RegexConst _ -> PrimitiveType Regex
         | BoolConst _ -> PrimitiveType Boolean

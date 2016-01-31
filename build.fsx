@@ -21,7 +21,7 @@ Target "Clean" (fun _ ->
     |> CleanDirs
 )
 
-Target "TestNUnit" (fun _ ->
+Target "NUnitTest" (fun _ ->
     !! "test/**/*.fsproj"
     |> MSBuildRelease testBuildDir "Build"
     |> Log "Release-Output: "
@@ -33,7 +33,7 @@ Target "TestNUnit" (fun _ ->
             OutputFile = "TestResults.xml" })
 )
 
-Target "TestMocha" (fun _ ->
+Target "MochaTest" (fun _ ->
     Shell.Exec("node", "tools/fabel.js --projFile test/Fabel.Tests.fsproj")
     |> function
     | 0 ->

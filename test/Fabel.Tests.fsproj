@@ -42,6 +42,7 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
+    <Compile Include="SeqTests.fs" />
     <Compile Include="AsyncTests.fs" />
   </ItemGroup>
   <PropertyGroup>

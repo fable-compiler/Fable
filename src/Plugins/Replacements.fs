@@ -98,7 +98,7 @@ module private AstPass =
             | Fabel.Function _ | Fabel.Array _ | Fabel.Regex _ ->
                 failwithf "Unexpected operands: %A" args
         | Fabel.DeclaredType typ ->
-            failwith "TODO: Custom operators"
+            None
 
     let unaryOp range typ args op =
         checkType args (fun () ->
@@ -164,6 +164,13 @@ module private AstPass =
         | "!" -> Fabel.Get(args.Head, literal "cell", Fabel.UnknownType) |> Some
         | ":=" -> Fabel.Set(args.Head, Some(literal "cell"), args.Tail.Head, r) |> Some
         | "ref" -> Fabel.ObjExpr([("cell", args.Head)], r) |> Some
+        | "float" | "seq" -> Some args.Head
+        | ".. .." ->
+            fabelCoreLibCall com r typ "Seq" "rangeStep" args |> Some
+        | ".." ->
+            let step = Fabel.NumberConst (U2.Case1 1, Int32) |> Fabel.Value
+            [args.Head; step; args.Tail.Head]
+            |> fabelCoreLibCall com r typ "Seq" "rangeStep" |> Some
         // TODO: failwithf
         | "failwith" | "raise" -> Fabel.Throw (args.Head, r) |> Some
         | _ -> None
@@ -272,7 +279,8 @@ module private CoreLibPass =
             fsharp + "Control.AsyncBuilder" => ("Async", Both)
             fsharp + "Collections.List" => ("List", Both)
             fsharp + "Collections.Array" => ("Array", Both)
-            fsharp + "Collections.Seq" => ("Seq", Both)
+            fsharp + "Collections.Seq" => ("Seq", Static)
+            fsharp + "Core.CompilerServices.RuntimeHelpers" => ("Seq", Static)
             system + "DateTime" => ("Time", Static)
             system + "TimeSpan" => ("Time", Static)
             system + "String" => ("String", Static)
@@ -281,8 +289,8 @@ module private CoreLibPass =
             genericCollections + "IList" => ("ResizeArray", Static)
             genericCollections + "Dictionary" => ("Dictionary", Static)
             genericCollections + "IDictionary" => ("Dictionary", Static)
-            fsharp + "Collections.Set" => ("Set", Static)
-            fsharp + "Collections.Map" => ("Map", Static)
+            // fsharp + "Collections.Set" => ("Set", Static)
+            // fsharp + "Collections.Map" => ("Map", Static)
         ]
 
 open Util

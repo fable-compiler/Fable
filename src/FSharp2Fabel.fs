@@ -75,7 +75,7 @@ let rec private transformExpr com ctx fsExpr =
         let valueKind =
             match typ with
             | Fabel.PrimitiveType Fabel.Boolean -> Fabel.BoolConst false
-            | Fabel.PrimitiveType (Fabel.Number kind) -> Fabel.IntConst (0, kind)
+            | Fabel.PrimitiveType (Fabel.Number kind) -> Fabel.NumberConst (U2.Case1 0, kind)
             | _ -> Fabel.Null
         Fabel.Value valueKind
 
@@ -93,17 +93,16 @@ let rec private transformExpr com ctx fsExpr =
             |> Fabel.Value
         | _ -> makeSequential (makeRangeFrom fsExpr) [assignment; body]
 
-    | BasicPatterns.LetRec(recursiveBindings, body) ->
-        let newContext, idents =
-            recursiveBindings
-            |> List.foldBack (fun (var, _) (accContext, accIdents) ->
-                let (BindIdent com accContext (newContext, ident)) = var
-                newContext, (ident::accIdents)) <| (ctx, [])
+    | BasicPatterns.LetRec(recBindings, body) ->
+        let ctx, idents =
+            (recBindings, (ctx, [])) ||> List.foldBack (fun (var,_) (ctx, idents) ->
+                let (BindIdent com ctx (newContext, ident)) = var
+                (newContext, ident::idents))
         let assignments =
-            recursiveBindings
+            recBindings
             |> List.map2 (fun ident (var, Transform com ctx binding) ->
                 Fabel.VarDeclaration (ident, binding, var.IsMutable)) idents
-        assignments @ [transformExpr com newContext body] 
+        assignments @ [transformExpr com ctx body] 
         |> makeSequential (makeRangeFrom fsExpr)
 
     (** ## Applications *)
@@ -355,8 +354,7 @@ type private DeclInfo() =
         if meth.IsCompilerGenerated then true else
         match child with
         | Some (Ignored fullName) ->
-            sanitizeEntityName meth.EnclosingEntity.FullName
-            |> (=) fullName
+            (sanitizeEntityName meth.EnclosingEntity) = fullName
         | _ -> false
     member self.AddMethod (methDecl: Fabel.Declaration, parentName: string) =
         EntChild.matchesFullName child parentName
@@ -384,7 +382,7 @@ type private DeclInfo() =
         extMods.AddRange childExtMods
     member self.AddIgnored (ent: FSharpEntity) =
         self.ClearChild ()
-        child <- Some (Ignored (sanitizeEntityName ent.FullName))
+        child <- Some (Ignored (sanitizeEntityName ent))
     member self.GetDeclarationsAndExternalModules () =
         self.ClearChild ()
         List.ofSeq decls, List.ofSeq extMods        
@@ -431,9 +429,7 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
                 meth.Accessibility.IsPublic, not meth.IsInstanceMember)
             |> Fabel.MemberDeclaration
-        let parentName =
-            sanitizeEntityName meth.EnclosingEntity.FullName
-        declInfo.AddMethod (entMember, parentName)
+        declInfo.AddMethod (entMember, sanitizeEntityName meth.EnclosingEntity)
     declInfo
    
 let rec private transformEntityDecl

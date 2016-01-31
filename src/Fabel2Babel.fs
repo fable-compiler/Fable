@@ -261,8 +261,7 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
         | Fabel.Super _ -> upcast Babel.Super ()
         | Fabel.Null -> upcast Babel.NullLiteral ()
         | Fabel.IdentValue {name=name} -> upcast Babel.Identifier (name)
-        | Fabel.IntConst (x,_) -> upcast Babel.NumericLiteral (U2.Case1 x)
-        | Fabel.FloatConst (x,_) -> upcast Babel.NumericLiteral (U2.Case2 x)
+        | Fabel.NumberConst (x,_) -> upcast Babel.NumericLiteral x
         | Fabel.StringConst x -> upcast Babel.StringLiteral (x)
         | Fabel.BoolConst x -> upcast Babel.BooleanLiteral (x)
         | Fabel.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
