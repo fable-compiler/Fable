@@ -48,6 +48,7 @@ let ``List.append works``() =
       let ys = [0]
       let zs = List.append ys xs
       zs.Head + zs.Tail.Head
+      |> equal 1
 
 [<Test>]
 let ``List.average works``() =
@@ -76,23 +77,27 @@ let ``List.collect works``() =
       ys.Head + ys.Tail.Head
       |> equal 3
 
-(*
+[<Test>]
 let ``List.concat works``() =
-         let xs = [[1]; [2]; [3]; [4]]
-         let ys = xs |> List.concat
-         ys.Head  + ys.Tail.Head
+      let xs = [[1]; [2]; [3]; [4]]
+      let ys = xs |> List.concat
+      ys.Head  + ys.Tail.Head
+      |> equal 3
 
 [<Test>]
 let ``List.exists works``() =
-         let xs = [1; 2; 3; 4]
-         xs |> List.exists (fun x -> x = 2)
+      let xs = [1; 2; 3; 4]
+      xs |> List.exists (fun x -> x = 2)
+      |> equal true
 
 [<Test>]
 let ``List.exists2 works``() =
-         let xs = [1; 2; 3; 4]
-         let ys = [1; 2; 3; 4]
-         List.exists2 (fun x y -> x * y = 16) xs ys
+      let xs = [1; 2; 3; 4]
+      let ys = [1; 2; 3; 4]
+      List.exists2 (fun x y -> x * y = 16) xs ys
+      |> equal true
 
+(*
 [<Test>]
 let ``List.filter works``() =
          let xs = [1; 2; 3; 4]

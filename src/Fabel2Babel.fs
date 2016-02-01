@@ -58,7 +58,7 @@ let private ident (id: Fabel.Ident) =
     Babel.Identifier id.name
 
 let private identFromName name =
-    let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name
+    let name = Naming.sanitizeIdent (fun _ -> false) name
     Babel.Identifier name
     
 let private get left propName =

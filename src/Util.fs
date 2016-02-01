@@ -55,9 +55,9 @@ module Naming =
             "this"; "throw"; "throws"; "transient"; "true"; "try"; "typeof"; "undefined"; "var"; "void"; "volatile"; "while"; "with"; "yield" ]
         
     let sanitizeIdent conflicts name =
-        let preventConflicts conflicts str =
+        let preventConflicts conflicts name =
             let rec check n =
-                let name = if n > 0 then sprintf "%s_%i" str n else str
+                let name = if n > 0 then sprintf "%s_%i" name n else name
                 if not (conflicts name) then name else check (n+1)
             check 0
         // Replace Forbidden Chars

@@ -231,6 +231,11 @@ module private AstPass =
         | "length" ->
             call true i.methodName |> Some
         | _ -> None
+        
+    let seqs com (i: Fabel.ApplyInfo) =
+        match i.methodName with
+        | "cast" -> Some i.args.Head
+        | _ -> None        
 
     let lists com (i: Fabel.ApplyInfo) =
         let call isProp meth: Fabel.Expr =
@@ -250,7 +255,7 @@ module private AstPass =
             |> makeCall com i.range i.returnType |> Some
         // Methods taken directly from Seq module
         | "iter" | "average" | "averageBy" 
-        | "reduce" | "reduceBack" ->
+        | "reduce" | "reduceBack" | "exists" | "exists2"  ->
             CoreLibCall ("Seq", Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | "item" ->
@@ -293,6 +298,7 @@ module private AstPass =
             fsharp + "Collections.Map" => maps
             fsharp + "Collections.Array" => arrays
             fsharp + "Collections.List" => lists
+            fsharp + "Collections.Seq" => seqs
             "NUnit.Framework.Assert" => asserts
         ]
 
