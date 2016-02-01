@@ -142,7 +142,7 @@ module private AstPass =
         | "!" -> Fabel.Get(args.Head, makeConst "cell", Fabel.UnknownType) |> Some
         | ":=" -> Fabel.Set(args.Head, Some(makeConst "cell"), args.Tail.Head, r) |> Some
         | "ref" -> Fabel.ObjExpr([("cell", args.Head)], r) |> Some
-        | "float" | "seq" -> Some args.Head
+        | "float" | "seq" | "id" -> Some args.Head
         | ".. .." ->
             CoreLibCall("Seq", Some "rangeStep", false, args)
             |> makeCall com r typ |> Some
@@ -150,9 +150,9 @@ module private AstPass =
             let step = Fabel.NumberConst (U2.Case1 1, Int32) |> Fabel.Value
             CoreLibCall("Seq", Some "rangeStep", false, [args.Head; step; args.Tail.Head])
             |> makeCall com r typ |> Some
+        | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
         // TODO: failwithf
         | "failwith" | "raise" -> Fabel.Throw (args.Head, r) |> Some
-        | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
         | _ -> None
 
     let intrinsicFunctions com (i: Fabel.ApplyInfo) =
@@ -222,18 +222,51 @@ module private AstPass =
 // let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
 // let tryPick f (m:Map<_,_>) = m.TryPick(f)
 
-    let collections com (i: Fabel.ApplyInfo) =
+    let arrays com (i: Fabel.ApplyInfo) =
         let call isProp meth: Fabel.Expr =
             let callee, args = instanceArgs i.callee i.args
             InstanceCall (callee, meth, isProp, args)
             |> makeCall com i.range i.returnType
         match i.methodName with
-        | "length" | "head" | "tail" ->
+        | "length" ->
             call true i.methodName |> Some
-        | "item" | "get" ->
-            call false i.methodName |> Some
+        | _ -> None
+
+    let lists com (i: Fabel.ApplyInfo) =
+        let call isProp meth: Fabel.Expr =
+            let callee, args = instanceArgs i.callee i.args
+            InstanceCall (callee, meth, isProp, args)
+            |> makeCall com i.range i.returnType
+        match i.methodName with
+        // Not implemented, compiled as a condition
         | "isEmpty" ->
             makeEqOp i.range [call true "tail"; Fabel.Value Fabel.Null] false |> Some
+        // Properties
+        | "length" | "head" | "tail" ->
+            call true i.methodName |> Some
+        // Constructors
+        | "empty" | "cons" ->
+            CoreLibCall ("List", None, true, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        // Methods taken directly from Seq module
+        | "iter" | "average" | "averageBy" 
+        | "reduce" | "reduceBack" ->
+            CoreLibCall ("Seq", Some i.methodName, false, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "item" ->
+            let args = match i.callee with Some x -> i.args@[x] | None -> i.args
+            CoreLibCall ("Seq", Some i.methodName, false, args)
+            |> makeCall com i.range i.returnType |> Some
+        // To make them easier to use from JS, these methods are attached
+        // to List.prototype so we need to change args' order
+        | "rev" | "collect" | "choose" | "map" | "mapi" ->
+            let args = List.rev i.args
+            InstanceCall (args.Head, i.methodName, false, args.Tail)
+            |> makeCall com i.range i.returnType |> Some
+        // Don't change order for append
+        | "append" ->
+            InstanceCall (i.args.Head, i.methodName, false, i.args.Tail)
+            |> makeCall com i.range i.returnType |> Some
         | _ -> None
 
     let asserts com (i: Fabel.ApplyInfo) =
@@ -258,8 +291,8 @@ module private AstPass =
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
             // fsharp + "Collections.Set" => fsharpSet
             fsharp + "Collections.Map" => maps
-            fsharp + "Collections.Array" => collections
-            fsharp + "Collections.List" => collections
+            fsharp + "Collections.Array" => arrays
+            fsharp + "Collections.List" => lists
             "NUnit.Framework.Assert" => asserts
         ]
 

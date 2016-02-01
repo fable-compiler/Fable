@@ -28,7 +28,6 @@ let ``List.Item works``() =
       let xs = [1; 2; 3; 4]
       equal 4 xs.[3]
       
-(*
 [<Test>]
 let ``List cons works``() =
       let xs = [1; 2; 3; 4]
@@ -52,28 +51,32 @@ let ``List.append works``() =
 
 [<Test>]
 let ``List.average works``() =
-         let xs = [1; 2; 3; 4]
-         List.average xs
+      List.average [1.; 2.; 3.; 4.]
+      |> equal 2.5
 
 [<Test>]
 let ``List.averageBy works``() =
-         let xs = [1; 2; 3; 4]
-         List.averageBy (fun x -> x*2) xs
+      [1.; 2.; 3.; 4.]
+      |> List.averageBy ((*) 2.)
+      |> equal 5.
 
 [<Test>]
 let ``List.choose works``() =
-         let xs = [1; 2; 3; 4]
-         let result = xs |> List.choose (fun x ->
+      let xs = [1; 2; 3; 4]
+      let result = xs |> List.choose (fun x ->
             if x > 2 then Some x
             else None) 
-         result.Head + result.Tail.Head
+      result.Head + result.Tail.Head
+      |> equal 7
 
 [<Test>]
 let ``List.collect works``() =
-         let xs = [[1]; [2]; [3]; [4]]
-         let ys = xs |> List.collect id
-         ys.Head  + ys.Tail.Head
+      let xs = [[1]; [2]; [3]; [4]]
+      let ys = xs |> List.collect id
+      ys.Head + ys.Tail.Head
+      |> equal 3
 
+(*
 let ``List.concat works``() =
          let xs = [[1]; [2]; [3]; [4]]
          let ys = xs |> List.concat
