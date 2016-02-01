@@ -114,13 +114,8 @@ let ``use in seq expressions works``() =
 let ``array expressions work``() =
     [| for x in 1 .. 10 do yield x |]
     |> Array.length |> equal 10
-(*
 
 [<Test>]
 let ``list expressions work``() =
-    let xs = [
-    for x in 1 .. 10 do
-               yield x 
-         ]
-         xs |> List.length |> float
-*)
+    [ for x in 1 .. 10 do yield x ]
+    |> List.length |> equal 10

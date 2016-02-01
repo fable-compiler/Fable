@@ -243,7 +243,7 @@ module private AstPass =
 // let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
 // let tryPick f (m:Map<_,_>) = m.TryPick(f)
 
-    let arrays com (i: Fabel.ApplyInfo) =
+    let collections com (i: Fabel.ApplyInfo) =
         match i.methodName with
         | "length" ->
             let callee, _ = instanceArgs i.callee i.args
@@ -272,7 +272,8 @@ module private AstPass =
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
             // fsharp + "Collections.Set" => fsharpSet
             fsharp + "Collections.Map" => maps
-            fsharp + "Collections.Array" => arrays
+            fsharp + "Collections.Array" => collections
+            fsharp + "Collections.List" => collections
             "NUnit.Framework.Assert" => asserts
         ]
 
@@ -310,6 +311,7 @@ let private astPass com (info: Fabel.ApplyInfo) =
     | ContainsKey info.ownerFullName f -> f com info
     | _ -> None
 
+// TODO: Constructors
 let private coreLibPass com (info: Fabel.ApplyInfo) =
     match CoreLibPass.mappings with
     | ContainsKey info.ownerFullName (modName, kind) ->
