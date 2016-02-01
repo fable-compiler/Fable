@@ -1,6 +1,7 @@
 module Fabel.Plugins.Replacements
 open Fabel
 open Fabel.AST
+open Fabel.AST.Fabel.Util
 
 module private Util =
     let [<Literal>] system = "System."
@@ -16,37 +17,14 @@ module private Util =
         let success, value = dic.TryGetValue key
         if success then Some value else None
 
-    let ident name =
-        Fabel.IdentValue {name=name; typ=Fabel.UnknownType} |> Fabel.Value
-
-    let literal str =
-        Fabel.StringConst str |> Fabel.Value
-
-    let importCall range typ importRef modOption methName args =
-        let importMod = Fabel.Value (Fabel.ImportRef (importRef, modOption))
-        let get = Fabel.Get (importMod, literal methName, Fabel.UnknownType)
-        Fabel.Apply(get, args, false, typ, range)
-            
-    let jsCoreLibCall range typ modName methName args =
-        let get = Fabel.Get (ident modName, literal methName, Fabel.UnknownType)
-        Fabel.Apply(get, args, false, typ, range)
-
-    let fabelCoreLibCall com range typ modName methName args =
-        let coreLib = Naming.getCoreLibPath com
-        importCall range typ coreLib (Some modName) methName args
-
-    let instanceCall range typ methName (callee, args) =
-        let get = Fabel.Get (callee, literal methName, Fabel.UnknownType)
-        Fabel.Apply(get, args, false, typ, range)
-
     let getter typ propertyName (callee, args) =
         match args with
-        | [] -> Fabel.Get (callee, literal propertyName, typ)
+        | [] -> Fabel.Get (callee, makeConst propertyName, typ)
         | _ -> failwith "No argument expected for getter"
 
     let setter range propertyName (callee, args) =
         match args with
-        | [value] -> Fabel.Set (callee, Some (literal propertyName), value, range)
+        | [value] -> Fabel.Set (callee, Some (makeConst propertyName), value, range)
         | _ -> failwith "Single argument expected for setter"
 
     let instanceArgs (callee: Fabel.Expr option) (args: Fabel.Expr list) =
@@ -63,16 +41,16 @@ module private AstPass =
     open Util
 
     type MappedMethod =
-        // | CoreLib of string*string | JSLib of string*string
         | Instance of string
         | Getter of string | Setter of string
         | Inline of Fabel.Expr
         | NoMapping
 
     let mapMethod com (i: Fabel.ApplyInfo) = function
-        // | CoreLib (lib, name) -> fabelCoreLibCall .. (staticArgs info) |> Some
-        // | JSLib (lib, name) -> jsCoreLibCall .. (staticArgs info) |> Some
-        | Instance name -> instanceCall i.range i.returnType name (instanceArgs i.callee i.args) |> Some
+        | Instance name ->
+            let callee, args = instanceArgs i.callee i.args
+            InstanceCall (callee, name, false, args)
+            |> makeCall com i.range i.returnType |> Some
         | Getter name -> getter i.returnType name (instanceArgs i.callee i.args) |> Some
         | Setter name -> setter i.range name (instanceArgs i.callee i.args) |> Some
         | Inline exprKind -> Some exprKind
@@ -115,11 +93,11 @@ module private AstPass =
             let op = Fabel.LogicalOp op |> Fabel.Value
             Fabel.Apply(op, args, false, typ, range))
 
-    // TODO: Check primitive args also here?
-    let math range typ args methName =
-        jsCoreLibCall range typ "Math" methName args |> Some
-
     let operators com (info: Fabel.ApplyInfo) =
+        // TODO: Check primitive args also here?
+        let math range typ args methName =
+            GlobalCall ("Math", Some methName, false, args)
+            |> makeCall com range typ |> Some
         let r, typ, args = info.range, info.returnType, info.args
         match info.methodName with
         // F# Compiler actually converts all logical operations to IfThenElse expressions
@@ -161,16 +139,17 @@ module private AstPass =
         | "sin" -> math r typ args "sin"
         | "sqrt" -> math r typ args "sqrt"
         | "tan" -> math r typ args "tan"
-        | "!" -> Fabel.Get(args.Head, literal "cell", Fabel.UnknownType) |> Some
-        | ":=" -> Fabel.Set(args.Head, Some(literal "cell"), args.Tail.Head, r) |> Some
+        | "!" -> Fabel.Get(args.Head, makeConst "cell", Fabel.UnknownType) |> Some
+        | ":=" -> Fabel.Set(args.Head, Some(makeConst "cell"), args.Tail.Head, r) |> Some
         | "ref" -> Fabel.ObjExpr([("cell", args.Head)], r) |> Some
         | "float" | "seq" -> Some args.Head
         | ".. .." ->
-            fabelCoreLibCall com r typ "Seq" "rangeStep" args |> Some
+            CoreLibCall("Seq", Some "rangeStep", false, args)
+            |> makeCall com r typ |> Some
         | ".." ->
             let step = Fabel.NumberConst (U2.Case1 1, Int32) |> Fabel.Value
-            [args.Head; step; args.Tail.Head]
-            |> fabelCoreLibCall com r typ "Seq" "rangeStep" |> Some
+            CoreLibCall("Seq", Some "rangeStep", false, [args.Head; step; args.Tail.Head])
+            |> makeCall com r typ |> Some
         // TODO: failwithf
         | "failwith" | "raise" -> Fabel.Throw (args.Head, r) |> Some
         | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
@@ -244,17 +223,24 @@ module private AstPass =
 // let tryPick f (m:Map<_,_>) = m.TryPick(f)
 
     let collections com (i: Fabel.ApplyInfo) =
+        let call isProp meth: Fabel.Expr =
+            let callee, args = instanceArgs i.callee i.args
+            InstanceCall (callee, meth, isProp, args)
+            |> makeCall com i.range i.returnType
         match i.methodName with
-        | "length" ->
-            let callee, _ = instanceArgs i.callee i.args
-            Fabel.Get (callee, literal "length", Int32 |> Fabel.Number |> Fabel.PrimitiveType)
-            |> Some
+        | "length" | "head" | "tail" ->
+            call true i.methodName |> Some
+        | "item" | "get" ->
+            call false i.methodName |> Some
+        | "isEmpty" ->
+            makeEqOp i.range [call true "tail"; Fabel.Value Fabel.Null] false |> Some
         | _ -> None
 
     let asserts com (i: Fabel.ApplyInfo) =
         match i.methodName with
         | "areEqual" ->
-            importCall i.range i.returnType "assert" None "equal" i.args |> Some
+            ImportCall("assert", None, Some "equal", false, i.args)
+            |> makeCall com i.range i.returnType |> Some
         | _ -> None
         
     let exceptions com (i: Fabel.ApplyInfo) =
@@ -317,10 +303,11 @@ let private coreLibPass com (info: Fabel.ApplyInfo) =
     | ContainsKey info.ownerFullName (modName, kind) ->
         match kind, info.callee with
         | CoreLibPass.Both, Some callee -> 
-            instanceCall info.range info.returnType info.methodName (callee, info.args)
+            InstanceCall (callee, info.methodName, false, info.args)
+            |> makeCall com info.range info.returnType
         | _ ->
-            staticArgs info.callee info.args
-            |> fabelCoreLibCall com info.range info.returnType modName info.methodName
+            CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args)
+            |> makeCall com info.range info.returnType
         |> Some
     | _ -> None
 

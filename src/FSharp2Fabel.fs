@@ -5,6 +5,7 @@ open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fabel.AST
+open Fabel.AST.Fabel.Util
 open Fabel.FSharp2Fabel.Util
 
 let rec private transformExpr com ctx fsExpr =
@@ -28,17 +29,17 @@ let rec private transformExpr com ctx fsExpr =
         match body with
         | BasicPatterns.Lambda (BindIdent com ctx (newContext, ident), body) ->
             Fabel.For (ident, start, limit, com.Transform newContext body, isUp)
-            |> makeLoop fsExpr
+            |> makeLoop (makeRangeFrom fsExpr)
         | _ -> failwithf "Unexpected loop in %A: %A" fsExpr.Range fsExpr
 
     | BasicPatterns.WhileLoop(Transform com ctx guardExpr, Transform com ctx bodyExpr) ->
         Fabel.While (guardExpr, bodyExpr)
-        |> makeLoop fsExpr
+        |> makeLoop (makeRangeFrom fsExpr)
 
     // This must appear before BasicPatterns.Let
     | ForOf (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
         Fabel.ForOf (ident, value, transformExpr com newContext body)
-        |> makeLoop fsExpr
+        |> makeLoop (makeRangeFrom fsExpr)
 
     (** Values *)
     | BasicPatterns.Const(value, _typ) ->
@@ -115,7 +116,7 @@ let rec private transformExpr com ctx fsExpr =
     // TODO: Check `inline` annotation?
     // TODO: Watch for restParam attribute
     | BasicPatterns.Call(callee, meth, _typeArgs1, _typeArgs2, args) ->
-        makeCall com ctx fsExpr callee meth args
+        makeCallFrom com ctx fsExpr callee meth args
 
     | BasicPatterns.Application(Transform com ctx expr, _typeArgs, args) ->
         makeApply com ctx fsExpr expr (List.map (transformExpr com ctx) args)
@@ -206,7 +207,7 @@ let rec private transformExpr com ctx fsExpr =
 
     // TODO: Check for erased constructors with property assignment (Call + Sequential)
     | BasicPatterns.NewObject(meth, _typeArgs, args) ->
-        makeCall com ctx fsExpr None meth args
+        makeCallFrom com ctx fsExpr None meth args
 
     // TODO: Check if it's FSharpException
     // TODO: Create constructors for Record and Union types
@@ -224,11 +225,12 @@ let rec private transformExpr com ctx fsExpr =
             | [expr] -> expr
             | _ -> failwithf "Erased Union Cases must have one single field: %A" unionType
         | ListUnion ->
-            match unionCase.Name with
-            | "Cons" -> Fabel.Apply (makeCoreRef com "List",
-                            (makeConst "Cons")::argExprs, true,
-                            makeType com fsExpr.Type, makeRangeFrom fsExpr)
-            | _ -> Fabel.Value Fabel.Null
+            let typ =
+                match argExprs with
+                | [_;tail] -> tail.Type
+                | _ -> makeType com fsExpr.Type
+            CoreLibCall("List", None, true, argExprs)
+            |> makeCall com (makeRangeFrom fsExpr) typ
         | OtherType ->
             let argExprs =
                 // Include Tag name in args

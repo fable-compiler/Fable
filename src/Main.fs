@@ -45,27 +45,23 @@ let parseFSharpProject (com: ICompiler) =
 
 [<EntryPoint>]
 let main argv =
-    try
-        let opts =
-            if argv.[0] = "--projFile"
-            then readOptions argv.[1]
-            else JsonConvert.DeserializeObject<_>(argv.[0])
-            |> function
-                | opts when opts.code <> null ->
-                    let projFile = Path.ChangeExtension(Path.GetTempFileName(), "fsx")
-                    File.WriteAllText(projFile, opts.code)
-                    { opts with projFile = projFile }
-                | opts -> opts
-        let com = { new ICompiler with
-                        member __.Options = opts }
-        let babelAstList =
-            parseFSharpProject com
-            |> FSharp2Fabel.transformFiles com 
-            |> Fabel2Babel.transformFiles com
-        JsonConvert.SerializeObject (
-            babelAstList, Json.ErasedUnionConverter())
-        |> printfn "%s"
-        0 // return an integer exit code
-    with ex ->
-        printfn "%s" ex.Message
-        1 
+    let opts =
+        if argv.[0] = "--projFile"
+        then readOptions argv.[1]
+        else JsonConvert.DeserializeObject<_>(argv.[0])
+        |> function
+            | opts when opts.code <> null ->
+                let projFile = Path.ChangeExtension(Path.GetTempFileName(), "fsx")
+                File.WriteAllText(projFile, opts.code)
+                { opts with projFile = projFile }
+            | opts -> opts
+    let com = { new ICompiler with
+                    member __.Options = opts }
+    let babelAstList =
+        parseFSharpProject com
+        |> FSharp2Fabel.transformFiles com 
+        |> Fabel2Babel.transformFiles com
+    JsonConvert.SerializeObject (
+        babelAstList, Json.ErasedUnionConverter())
+    |> Console.WriteLine
+    0 // return an integer exit code

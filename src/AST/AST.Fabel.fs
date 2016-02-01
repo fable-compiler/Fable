@@ -221,4 +221,120 @@ and Expr =
     //         | Some (_,catch), None -> [body; catch]
     //         | None, Some finalizer -> [body; finalizer]
     //         | None, None -> [body]
-            
+    
+module Util =
+    open Fabel
+    
+    type CallKind =
+        | InstanceCall of callee: Expr * meth: string * isProp: bool * args: Expr list
+        | ImportCall of importRef: string * modName: string option * meth: string option * isCons: bool * args: Expr list
+        | CoreLibCall of modName: string * meth: string option * isCons: bool * args: Expr list
+        | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
+
+    let makeLoop range loopKind = Loop (loopKind, range)
+    let makeFnType args = List.length args |> Function |> PrimitiveType
+
+    let makeTypeRef typ = Value (TypeRef typ)
+    let makeCoreRef com modname = Value (ImportRef (Naming.getCoreLibPath com, Some modname))
+
+    let makeIdent name: Ident = {name=name; typ=UnknownType}
+    let makeIdentExpr name = makeIdent name |> IdentValue |> Value 
+
+    let makeBinOp, makeUnOp, makeLogOp, makeEqOp =
+        let makeOp range typ args op =
+            Apply (Value op, args, false, typ, range)
+        (fun range typ args op -> makeOp range typ args (BinaryOp op)),
+        (fun range typ args op -> makeOp range typ args (UnaryOp op)),
+        (fun range args op -> makeOp range (PrimitiveType Boolean) args (LogicalOp op)),
+        (fun range args strict ->
+            (if strict then BinaryEqualStrict else BinaryEqual) |> BinaryOp
+            |> makeOp range (PrimitiveType Boolean) args)
+
+    let rec makeSequential range statements =
+        match statements with
+        | [] -> Value Null
+        | [expr] -> expr
+        | first::rest ->
+            match first with
+            | Value (Null)
+            // Calls to System.Object..ctor in class constructors
+            // TODO: Remove also calls to System.Exception..ctor in constructors?
+            | ObjExpr ([],_) -> makeSequential range rest
+            | Sequential (firstStatements, _) -> makeSequential range (firstStatements @ rest)
+            | _ ->
+                match rest with
+                | [Sequential (statements, _)] -> makeSequential range (first::statements)
+                | _ -> Sequential (statements, range)
+                
+    let makeConst (value: obj) =
+        match value with
+        | :? bool as x -> BoolConst x
+        | :? string as x -> StringConst x
+        // Integer types
+        | :? int as x -> NumberConst (U2.Case1 x, Int32)
+        | :? byte as x -> NumberConst (U2.Case1 (int x), UInt8Clamped)
+        | :? sbyte as x -> NumberConst (U2.Case1 (int x), Int8)
+        | :? int16 as x -> NumberConst (U2.Case1 (int x), Int16)
+        | :? uint16 as x -> NumberConst (U2.Case1 (int x), UInt16)
+        | :? char as x -> NumberConst (U2.Case1 (int x), UInt16)
+        | :? uint32 as x -> NumberConst (U2.Case1 (int x), UInt32)
+        // Float types
+        | :? float as x -> NumberConst (U2.Case2 x, Float64)
+        | :? int64 as x -> NumberConst (U2.Case2 (float x), Float64)
+        | :? uint64 as x -> NumberConst (U2.Case2 (float x), Float64)
+        | :? float32 as x -> NumberConst (U2.Case2 (float x), Float32)
+        // TODO: Regex
+        | :? unit | _ when value = null -> Null
+        | _ -> failwithf "Unexpected literal %O" value
+        |> Value
+        
+    let makeCall com range typ kind =
+        let getCallee meth args owner =
+            match meth with
+            | Some meth -> Get (owner, makeConst meth, makeFnType args)
+            | None -> owner
+        let apply isCons args callee =
+            Apply(callee, args, isCons, typ, range)
+        match kind with
+        | InstanceCall (callee, meth, true, _) ->
+            Get (callee, makeConst meth, typ)
+        | InstanceCall (callee, meth, false, args) ->
+            Get (callee, makeConst meth, makeFnType args)
+            |> apply false args
+        | ImportCall (importRef, modOption, meth, isCons, args) ->
+            Value (ImportRef (importRef, modOption))
+            |> getCallee meth args
+            |> apply isCons args
+        | CoreLibCall (modName, meth, isCons, args) ->
+            makeCoreRef com modName
+            |> getCallee meth args
+            |> apply isCons args
+        | GlobalCall (modName, meth, isCons, args) ->
+            makeIdentExpr modName
+            |> getCallee meth args
+            |> apply isCons args
+        
+    let makeTypeTest com range (typ: Type) expr =
+        let stringType, boolType =
+            PrimitiveType String, PrimitiveType Boolean
+        let checkType (primitiveType: string) expr =
+            let typof = makeUnOp None stringType [expr] UnaryTypeof
+            makeBinOp range boolType [typof; makeConst primitiveType] BinaryEqualStrict
+        match typ with
+        | PrimitiveType kind ->
+            match kind with
+            | String _ -> checkType "string" expr
+            | Number _ -> checkType "number" expr
+            | Boolean -> checkType "boolean" expr
+            | Unit ->
+                makeBinOp range boolType [expr; Value Null] BinaryEqual
+            | _ -> failwithf "Unsupported type test: %A" typ
+        | DeclaredType typEnt ->
+            match typEnt.Kind with
+            | Interface ->
+                // TODO: Test
+                CoreLibCall ("Util", Some "hasInterface", false, [makeConst typEnt.FullName])
+                |> makeCall com range boolType 
+            | _ ->
+                makeBinOp range boolType [expr; makeTypeRef typ] BinaryInstanceOf 
+        | _ -> failwithf "Unsupported type test in %A: %A" range typ

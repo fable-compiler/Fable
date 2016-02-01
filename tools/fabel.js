@@ -5,7 +5,7 @@ var fs = require("fs");
 var path = require("path");
 var babel = require("babel-core");
 var template = require("babel-template");
-var exec = require('child_process').exec;
+var spawn = require('child_process').spawn;
 
 // Custom plugin to simulate macro expressions
 var transformMacroExpressions = {
@@ -103,8 +103,8 @@ try {
     }
     
     var fabelCwd = process.cwd();
-    var fabelCmd = process.platform === "win32" ? "cmd " : "mono ";
-    fabelCmd += __dirname + "/../build/main/Fabel.exe ";
+    var fabelCmd = process.platform === "win32" ? "cmd" : "mono";
+    var fabelCmdArgs = [__dirname + "/../build/main/Fabel.exe"];
 
     if (typeof opts.projFile === "string") {
         fabelCwd = path.dirname(fabelCwd + "/" + opts.projFile);
@@ -121,31 +121,38 @@ try {
     else if (typeof opts.code !== "string") {
         throw "No correct --projFile or --code argument provided";
     }
-    fabelCmd += "'" + JSON.stringify(opts).replace("'", "''") + "'";
-    console.log(fabelCmd);
     
-    exec(fabelCmd, { cwd: fabelCwd }, function(error, stdout, stderr) {
-        if (error != null) {
-            var errorMessage = typeof stdout === "string" && stdout.length > 0
-                                ? stdout : stderr; 
-            console.log("FABEL ERROR: " + errorMessage);
-            process.exit(1);
+    fabelCmdArgs.push(JSON.stringify(opts));
+    console.log(fabelCmd + " " + fabelCmdArgs.join(" "));
+    
+    console.log( process.env.PATH );
+    var proc = spawn(fabelCmd, fabelCmdArgs, { cwd: fabelCwd });
+
+    proc.on('exit', function(code) {
+        process.exit(code);
+    });    
+
+    proc.stderr.on('data', function(data) {
+        console.log("FABEL ERROR: " + data.toString());
+    });    
+
+    var chunks = [];
+    proc.stdout.on("data", function(chunk) {
+        chunks.push(chunk.toString());
+    });
+
+    proc.stdout.on("end", function() {
+        try {
+            var babelAstArray = JSON.parse(chunks.join(""));
+            if (opts.projFile) {
+                babelifyToFile(fabelCwd, path.join(fabelCwd, opts.outDir), babelAstArray);
+            }
+            else {
+                babelifyToConsole(babelAstArray[0]);
+            }
         }
-        else {
-            try {
-                var babelAstArray = JSON.parse(stdout);
-                if (opts.projFile) {
-                    babelifyToFile(fabelCwd, path.join(fabelCwd, opts.outDir), babelAstArray);
-                }
-                else {
-                    babelifyToConsole(babelAstArray[0]);
-                }
-                process.exit(0);
-            }
-            catch (err) {
-                console.log("BABEL ERROR: " + err);
-                process.exit(1);
-            }
+        catch (err) {
+            console.log("BABEL ERROR: " + err);
         }
     });
 }
