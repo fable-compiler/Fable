@@ -64,30 +64,25 @@ function babelifyToConsole(babelAst) {
     console.log(parsed.code);
 }
 
-function babelifyToFile(projDir, outDir, babelAstArray) {
-    for (var i=0; i<babelAstArray.length; i++) {
-        var babelAst = babelAstArray[i];
-        var targetFile = path.join(outDir, path.relative(projDir, babelAst.fileName));
-        targetFile = targetFile.replace(path.extname(babelAst.fileName), ".js")
-        
-        var opts = {
-            sourceMaps: true,
-            sourceMapTarget: path.basename(targetFile),
-            sourceFileName: babelAst.fileName,
-            plugins: babelPlugins
-        };
+function babelifyToFile(projDir, outDir, babelAst) {
+    var targetFile = path.join(outDir, path.relative(projDir, babelAst.fileName));
+    targetFile = targetFile.replace(path.extname(babelAst.fileName), ".js")
+    
+    var opts = {
+        sourceMaps: true,
+        sourceMapTarget: path.basename(targetFile),
+        sourceFileName: babelAst.fileName,
+        plugins: babelPlugins
+    };
 
-        var parsed = babel.transformFromAst(babelAst, null, opts);
-        
-        ensureDirExists(path.dirname(targetFile));
-        fs.writeFileSync(targetFile, parsed.code);
-        fs.appendFileSync(targetFile, "\n//# sourceMappingURL=" + path.basename(targetFile)+".map");
-        
-        fs.writeFileSync(targetFile + ".map", JSON.stringify(parsed.map));
-    }
-    console.log("Complete");
+    var parsed = babel.transformFromAst(babelAst, null, opts);
+    
+    ensureDirExists(path.dirname(targetFile));
+    fs.writeFileSync(targetFile, parsed.code);
+    fs.appendFileSync(targetFile, "\n//# sourceMappingURL=" + path.basename(targetFile)+".map");
+    
+    fs.writeFileSync(targetFile + ".map", JSON.stringify(parsed.map));
 }
-
 
 try {
     var opts = {
@@ -125,10 +120,10 @@ try {
     fabelCmdArgs.push(JSON.stringify(opts));
     console.log(fabelCmd + " " + fabelCmdArgs.join(" "));
     
-    console.log( process.env.PATH );
     var proc = spawn(fabelCmd, fabelCmdArgs, { cwd: fabelCwd });
 
     proc.on('exit', function(code) {
+        console.log("Finished with code " + code);
         process.exit(code);
     });    
 
@@ -136,25 +131,32 @@ try {
         console.log("FABEL ERROR: " + data.toString());
     });    
 
-    var chunks = [];
-    proc.stdout.on("data", function(chunk) {
-        chunks.push(chunk.toString());
-    });
-
-    proc.stdout.on("end", function() {
+    var buffer = "";
+    proc.stdout.on("data", function(data) {
+        var txt = data.toString();
+        var json, closing = /\}\n(?![^$\{][\s\S]*")/.exec(txt);
+        if (closing == null) {
+            buffer += txt;
+            return;
+        }
+        else {
+            json = buffer + txt.substring(0, closing.index + 1);
+            buffer = txt.substring(closing.index + 2);
+        }
+        
         try {
-            var babelAstArray = JSON.parse(chunks.join(""));
+            var babelAst = JSON.parse(json);
             if (opts.projFile) {
-                babelifyToFile(fabelCwd, path.join(fabelCwd, opts.outDir), babelAstArray);
+                babelifyToFile(fabelCwd, path.join(fabelCwd, opts.outDir), babelAst);
             }
             else {
-                babelifyToConsole(babelAstArray[0]);
+                babelifyToConsole(babelAst);
             }
         }
         catch (err) {
             console.log("BABEL ERROR: " + err);
         }
-    });
+    });    
 }
 catch (err) {
     console.log("ARG ERROR: " + err);

@@ -57,11 +57,11 @@ let main argv =
             | opts -> opts
     let com = { new ICompiler with
                     member __.Options = opts }
-    let babelAstList =
-        parseFSharpProject com
-        |> FSharp2Fabel.transformFiles com 
-        |> Fabel2Babel.transformFiles com
-    JsonConvert.SerializeObject (
-        babelAstList, Json.ErasedUnionConverter())
-    |> Console.WriteLine
+    parseFSharpProject com
+    |> FSharp2Fabel.transformFiles com 
+    |> Fabel2Babel.transformFiles com
+    |> List.iter (fun ast ->
+        JsonConvert.SerializeObject (ast, Json.ErasedUnionConverter())
+        |> Console.Out.WriteLine
+        Console.Out.Flush ())
     0 // return an integer exit code
