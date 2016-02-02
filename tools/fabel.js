@@ -128,20 +128,23 @@ try {
     });    
 
     proc.stderr.on('data', function(data) {
-        console.log("FABEL ERROR: " + data.toString());
+        console.log("FABEL ERROR: " + data.toString().substring(0, 300) + "...");
     });    
 
     var buffer = "";
     proc.stdout.on("data", function(data) {
         var txt = data.toString();
-        var json, closing = /\}\n(?![^$\{][\s\S]*")/.exec(txt);
-        if (closing == null) {
+        // New lines are parsed as literals \n,
+        // so this complicated RegExp isn't necessary
+        // var json, closing = /\}\n(?![^$\{][\s\S]*")/.exec(txt);
+        var json, closing = txt.indexOf("\n");
+        if (closing == -1) {
             buffer += txt;
             return;
         }
         else {
-            json = buffer + txt.substring(0, closing.index + 1);
-            buffer = txt.substring(closing.index + 2);
+            json = buffer + txt.substring(0, closing + 1);
+            buffer = txt.substring(closing + 1);
         }
         
         try {

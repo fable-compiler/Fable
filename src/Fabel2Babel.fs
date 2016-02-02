@@ -540,9 +540,9 @@ let private makeCompiler (com: ICompiler) (files: Fabel.File list) =
       interface ICompiler with
         member __.Options = com.Options }
 
-let transformFiles (com: ICompiler) (files: Fabel.File list): Babel.Program list =
+let transformFiles (com: ICompiler) (files: Fabel.File list) =
     let babelCom = makeCompiler com files
-    files |> List.choose (fun file ->
+    files |> Seq.choose (fun file ->
         match file.Declarations with
         | [] -> None
         | _ ->

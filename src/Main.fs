@@ -60,7 +60,7 @@ let main argv =
     parseFSharpProject com
     |> FSharp2Fabel.transformFiles com 
     |> Fabel2Babel.transformFiles com
-    |> List.iter (fun ast ->
+    |> Seq.iter (fun ast ->
         JsonConvert.SerializeObject (ast, Json.ErasedUnionConverter())
         |> Console.Out.WriteLine
         Console.Out.Flush ())

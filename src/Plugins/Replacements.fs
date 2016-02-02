@@ -12,6 +12,9 @@ module private Util =
 
     let (|StartsWith|_|) pattern (str: string) =
         if str.StartsWith pattern then Some pattern else None
+
+    let (|EndsWith|_|) pattern (str: string) =
+        if str.EndsWith pattern then Some pattern else None
         
     let (|ContainsKey|_|) key (dic: System.Collections.Generic.IDictionary<'k,'v>) =
         let success, value = dic.TryGetValue key
@@ -222,56 +225,100 @@ module private AstPass =
 // let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
 // let tryPick f (m:Map<_,_>) = m.TryPick(f)
 
-    let arrays com (i: Fabel.ApplyInfo) =
-        let call isProp meth: Fabel.Expr =
-            let callee, args = instanceArgs i.callee i.args
-            InstanceCall (callee, meth, isProp, args)
-            |> makeCall com i.range i.returnType
-        match i.methodName with
-        | "length" ->
-            call true i.methodName |> Some
-        | _ -> None
-        
-    let seqs com (i: Fabel.ApplyInfo) =
-        match i.methodName with
-        | "cast" -> Some i.args.Head
-        | _ -> None        
+    type CollectionKind = Seq | List | Array
 
-    let lists com (i: Fabel.ApplyInfo) =
-        let call isProp meth: Fabel.Expr =
-            let callee, args = instanceArgs i.callee i.args
-            InstanceCall (callee, meth, isProp, args)
+    let collections com (i: Fabel.ApplyInfo) =
+        let prop meth callee =
+            InstanceCall (callee, meth, true, [])
             |> makeCall com i.range i.returnType
+        let icall meth (callee, args) =
+            InstanceCall (callee, meth, false, args)
+            |> makeCall com i.range i.returnType
+        let cons modName args =
+            CoreLibCall (modName, None, true, args)
+            |> makeCall com i.range i.returnType
+        let ccall modName meth args =
+            CoreLibCall (modName, Some meth, false, args)
+            |> makeCall com i.range i.returnType
+        let callee c args =
+            let c, _ = instanceArgs c args in c
+        let kind =
+            match i.ownerFullName with
+            | EndsWith "Seq" _ -> Seq
+            | EndsWith "List" _ -> List
+            | EndsWith "Array" _ -> Array
+            | _ -> failwithf "Unexpected collection: %s" i.ownerFullName
+        let meth, c, args = i.methodName, i.callee, i.args
         match i.methodName with
-        // Not implemented, compiled as a condition
+        // Seq only
+        | "cast" -> Some i.args.Head
+        // Special cases
         | "isEmpty" ->
-            makeEqOp i.range [call true "tail"; Fabel.Value Fabel.Null] false |> Some
-        // Properties
-        | "length" | "head" | "tail" ->
-            call true i.methodName |> Some
-        // Constructors
+            match kind with
+            | Seq -> ccall "Seq" meth args
+            // Not implemented, compiled as a condition
+            | Array -> makeEqOp i.range [prop "length" args.Head; makeConst 0] true
+            | List -> makeEqOp i.range [prop "tail" (callee c args); Fabel.Value Fabel.Null] false
+            |> Some
+        | "length" ->
+            match kind with
+            | Seq -> ccall "Seq" meth (staticArgs c args)
+            | Array | List ->
+                let callee, _ = instanceArgs c args
+                prop meth callee
+            |> Some
+        | "head" ->
+            match kind with
+            | Seq -> ccall "Seq" meth (staticArgs c args)
+            | Array -> getter i.returnType (makeConst 0) (instanceArgs c args) 
+            | List -> prop meth (callee c args)
+            |> Some
+        | "tail" ->
+            match kind with
+            | Seq -> ccall "Seq" meth (staticArgs c args)
+            | Array -> icall "slice" (i.args.Head, [makeConst 1])
+            | List -> prop meth (callee c args)
+            |> Some
+        // Constructors ('cons' only applies to List)
         | "empty" | "cons" ->
-            CoreLibCall ("List", None, true, i.args)
-            |> makeCall com i.range i.returnType |> Some
+            match kind with
+            | Seq -> ccall "Seq" meth args
+            | Array ->
+                match i.returnType with
+                | Fabel.PrimitiveType (Fabel.Array kind) ->
+                    Fabel.ArrayConst ([], kind) |> Fabel.Value
+                | _ -> failwithf "Expecting array type but got %A" i.returnType
+            | List -> cons "List" args
+            |> Some
+        | "item" ->
+            match kind with
+            | Seq -> ccall "Seq" meth args
+            | Array -> getter i.returnType (makeConst args.Head) (args.Tail.Head, [])
+            | List -> match i.callee with Some x -> i.args@[x] | None -> i.args
+                      |> ccall "Seq" meth
+            |> Some
         // Methods taken directly from Seq module
         | "iter" | "average" | "averageBy" 
-        | "reduce" | "reduceBack" | "exists" | "exists2"  ->
-            CoreLibCall ("Seq", Some i.methodName, false, i.args)
-            |> makeCall com i.range i.returnType |> Some
-        | "item" ->
-            let args = match i.callee with Some x -> i.args@[x] | None -> i.args
-            CoreLibCall ("Seq", Some i.methodName, false, args)
-            |> makeCall com i.range i.returnType |> Some
-        // To make them easier to use from JS, these methods are attached
-        // to List.prototype so we need to change args' order
-        | "rev" | "collect" | "choose" | "map" | "mapi" ->
-            let args = List.rev i.args
-            InstanceCall (args.Head, i.methodName, false, args.Tail)
-            |> makeCall com i.range i.returnType |> Some
-        // Don't change order for append
-        | "append" ->
-            InstanceCall (i.args.Head, i.methodName, false, i.args.Tail)
-            |> makeCall com i.range i.returnType |> Some
+        | "reduce" | "reduceBack" | "exists" | "exists2" ->
+            ccall "Seq" meth args |> Some
+        // TODO: Other collection methods and build Array after borrowing Seq method
+        // Methods already implemented for Lists
+        | "append" | "collect" | "choose" | "map" | "mapi" | "rev" ->
+            match kind with
+            | Seq | Array -> ccall "Seq" meth args
+            | List ->
+                // To make them easier to use from JS, they'are attached to
+                // List.prototype so we need to change args' order (but 'append')
+                let args = if meth = "append" then i.args else (List.rev i.args)
+                InstanceCall (args.Head, meth, false, args.Tail)
+                |> makeCall com i.range i.returnType
+            |> Some
+        // Methods already implemented *statically* for Lists
+        | "init" | "concat" | "replicate" ->
+            match kind with
+            | Seq | Array -> ccall "Seq" meth args
+            | List -> ccall "List" meth args
+            |> Some
         | _ -> None
 
     let asserts com (i: Fabel.ApplyInfo) =
@@ -296,9 +343,9 @@ module private AstPass =
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
             // fsharp + "Collections.Set" => fsharpSet
             fsharp + "Collections.Map" => maps
-            fsharp + "Collections.Array" => arrays
-            fsharp + "Collections.List" => lists
-            fsharp + "Collections.Seq" => seqs
+            fsharp + "Collections.Array" => collections
+            fsharp + "Collections.List" => collections
+            fsharp + "Collections.Seq" => collections
             "NUnit.Framework.Assert" => asserts
         ]
 
@@ -313,9 +360,6 @@ module private CoreLibPass =
             system + "Random" => ("Random", Both)
             fsharp + "Control.Async" => ("Async", Both)
             fsharp + "Control.AsyncBuilder" => ("Async", Both)
-            fsharp + "Collections.List" => ("List", Both)
-            fsharp + "Collections.Array" => ("Array", Both)
-            fsharp + "Collections.Seq" => ("Seq", Static)
             fsharp + "Core.CompilerServices.RuntimeHelpers" => ("Seq", Static)
             system + "DateTime" => ("Time", Static)
             system + "TimeSpan" => ("Time", Static)
@@ -325,6 +369,9 @@ module private CoreLibPass =
             genericCollections + "IList" => ("ResizeArray", Static)
             genericCollections + "Dictionary" => ("Dictionary", Static)
             genericCollections + "IDictionary" => ("Dictionary", Static)
+            fsharp + "Collections.Seq" => ("Seq", Static)
+            // fsharp + "Collections.List" => ("List", Both)
+            // fsharp + "Collections.Array" => ("Array", Both)
             // fsharp + "Collections.Set" => ("Set", Static)
             // fsharp + "Collections.Map" => ("Map", Static)
         ]

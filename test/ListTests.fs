@@ -96,71 +96,76 @@ let ``List.exists2 works``() =
       let ys = [1; 2; 3; 4]
       List.exists2 (fun x y -> x * y = 16) xs ys
       |> equal true
-
 (*
 [<Test>]
 let ``List.filter works``() =
-         let xs = [1; 2; 3; 4]
-         let ys = xs |> List.filter (fun x -> x > 5)
-         ys.IsEmpty
+      let xs = [1; 2; 3; 4]
+      let ys = xs |> List.filter (fun x -> x > 5)
+      equal ys.IsEmpty true
 
 [<Test>]
 let ``List.find works``() =
-         let xs = [1; 2; 3; 4]
-         xs |> List.find ((=) 2)
+      [1; 2; 3; 4]
+      |> List.find ((=) 2)
+      |> equal 2
 
 [<Test>]
 let ``List.findIndex works``() =
-         let xs = [1; 2; 3; 4]
-         xs |> List.findIndex ((=) 2)
-         |> float
+      [1; 2; 3; 4]
+      |> List.findIndex ((=) 2)
+      |> equal 1
 
 [<Test>]
 let ``List.fold works``() =
-         let xs = [1; 2; 3; 4]
-         let total = xs |> List.fold (+) 0
-         total
+      [1; 2; 3; 4]
+      |> List.fold (+) 0
+      |> equal 10
 
 [<Test>]
 let ``List.fold2 works``() =
-         let xs = [1; 2; 3; 4]
-         let ys = [1; 2; 3; 4]
-         let total = List.fold2 (fun x y z -> x + y + z) 0 xs ys
-         total
+      let xs = [1; 2; 3; 4]
+      let ys = [1; 2; 3; 4]
+      List.fold2 (fun x y z -> x + y + z) 0 xs ys
+      |> equal 20
 
 [<Test>]
 let ``List.foldBack works``() =
-         let xs = [1; 2; 3; 4]
-         let total = List.foldBack (+) xs 0
-         total
+      [1; 2; 3; 4]
+      |> List.foldBack (fun x acc -> acc - x) <| 100
+      |> equal 90 
 
 [<Test>]
 let ``List.foldBack2 works``() =
-         let xs = [1; 2; 3; 4]
-         let ys = [1; 2; 3; 4]
-         let total = List.foldBack2 (fun x y z -> x + y + z) xs ys 0
-         total
+      let xs = [1; 2; 3; 4]
+      let ys = [1; 2; 3; 4]
+      List.foldBack2 (fun x y acc -> acc - y * x) xs ys 0
+      |> equal -30
 
 [<Test>]
 let ``List.forall works``() =
-         let xs = [1; 2; 3; 4]
-         List.forall (fun x -> x < 5) xs
+      [1; 2; 3; 4]
+      |> List.forall (fun x -> x < 5)
+      |> equal true
 
 [<Test>]
 let ``List.forall2 works``() =
-         let xs = [1; 2; 3; 4]
-         let ys = [1; 2; 3; 4]
-         List.forall2 (=) xs ys
+      let xs = [1; 2; 3; 4]
+      let ys = [1; 2; 3; 4]
+      List.forall2 (=) xs ys
+      |> equal true
 
 [<Test>]
 let ``List.head works``() =
-         let xs = [1; 2; 3; 4]
-         List.head xs
+      [1; 2; 3; 4]
+      |> List.head
+      |> equal 1
 
 [<Test>]
 let ``List.init works``() =
-         let xs = List.init 4 float
-         xs.Head + xs.Tail.Head
+      let xs = List.init 4 float
+      xs.Head + xs.Tail.Head
+      |> equal 1.
+
 
 [<Test>]
 let ``List.isEmpty works``() =
