@@ -298,14 +298,27 @@ module private AstPass =
                       |> ccall "Seq" meth
             |> Some
         // Methods taken directly from Seq module
-        | "iter" | "average" | "averageBy" 
-        | "reduce" | "reduceBack" | "exists" | "exists2" ->
+        | "average" | "averageBy"
+        | "exists" | "exists2"
+        | "find" | "findIndex"
+        | "fold" | "fold2" | "foldBack" | "foldBack2"
+        | "forall" | "forall2"
+        | "iter"
+        | "reduce" | "reduceBack" ->
             ccall "Seq" meth args |> Some
-        // TODO: Other collection methods and build Array after borrowing Seq method
+        // TODO: Implement optimized versions of these methods    
+        | "filter" ->
+            let res = ccall "Seq" meth args
+            match kind with
+            | Seq -> res
+            | Array -> ccall "Seq" "toArray" [res]
+            | List -> ccall "Seq" "toList" [res]
+            |> Some
         // Methods already implemented for Lists
         | "append" | "collect" | "choose" | "map" | "mapi" | "rev" ->
             match kind with
-            | Seq | Array -> ccall "Seq" meth args
+            | Seq -> ccall "Seq" meth args
+            | Array -> ccall "Seq" "toArray" [(ccall "Seq" meth args)]
             | List ->
                 // To make them easier to use from JS, they'are attached to
                 // List.prototype so we need to change args' order (but 'append')

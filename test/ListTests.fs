@@ -96,7 +96,7 @@ let ``List.exists2 works``() =
       let ys = [1; 2; 3; 4]
       List.exists2 (fun x y -> x * y = 16) xs ys
       |> equal true
-(*
+
 [<Test>]
 let ``List.filter works``() =
       let xs = [1; 2; 3; 4]
@@ -154,6 +154,7 @@ let ``List.forall2 works``() =
       List.forall2 (=) xs ys
       |> equal true
 
+(*
 [<Test>]
 let ``List.head works``() =
       [1; 2; 3; 4]
