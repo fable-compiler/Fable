@@ -86,10 +86,15 @@ module Patterns =
                 | _ -> visit identAndRepls letBody
             | _ -> None
         match fsExpr with
-        | Lambda(lambdaArg1, Call(None, meth, _, _, ([Value methArg1] as methArgs)))
-            when lambdaArg1.IsEffectivelySameAs methArg1 ->
-                Some([lambdaArg1], meth, methArgs)
-        // TODO: Two more levels of wrapping lambdas
+        | Lambda(larg1, Call(None, meth, _, _, ([Value marg1] as margs)))
+            when larg1.IsEffectivelySameAs marg1 ->
+                Some([larg1], meth, margs)
+        | Lambda(larg1, Lambda(larg2, Call(None, meth, _, _, ([Value marg1;Value marg2] as margs))))
+            when larg1.IsEffectivelySameAs marg1 && larg2.IsEffectivelySameAs marg2 ->
+            Some([larg1;larg2], meth, margs)
+        | Lambda(larg1, Lambda(larg2, Lambda(larg3,Call(None, meth, _, _, ([Value marg1;Value marg2;Value marg3] as margs)))))
+            when larg1.IsEffectivelySameAs marg1 && larg2.IsEffectivelySameAs marg2 && larg3.IsEffectivelySameAs marg3 ->
+            Some([larg1;larg2;larg3], meth, margs)
         | _ -> visit [] fsExpr
 
     let (|Pipe|_|) = function

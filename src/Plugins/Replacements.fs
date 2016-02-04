@@ -335,7 +335,7 @@ module private AstPass =
     let asserts com (i: Fabel.ApplyInfo) =
         match i.methodName with
         | "areEqual" ->
-            ImportCall("assert", None, Some "equal", false, i.args)
+            ImportCall("assert", false, None, Some "equal", false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
         

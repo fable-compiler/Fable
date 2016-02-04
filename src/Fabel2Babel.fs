@@ -9,13 +9,13 @@ open Fabel.AST
 type private Context = {
     file: string
     moduleFullName: string
-    imports: System.Collections.Generic.Dictionary<string, string>
+    imports: System.Collections.Generic.Dictionary<string, string * bool>
     }
 
 type private IBabelCompiler =
     inherit ICompiler
     abstract GetFabelFile: string -> Fabel.File
-    abstract GetImport: Context -> string -> Babel.Expression
+    abstract GetImport: Context -> bool -> string -> Babel.Expression
     abstract TransformExpr: Context -> Fabel.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fabel.Expr -> Babel.Statement
     abstract TransformFunction: Context -> Fabel.Ident list -> Fabel.Expr ->
@@ -109,8 +109,8 @@ let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
         |> List.tryFind (fun ext ->
             fullName = ext.FullName || fullName.StartsWith ext.FullName)
         |> function
-            | Some (Fabel.ImportModule (ns, modName)) ->
-                Some (com.GetImport ctx modName)
+            | Some (Fabel.ImportModule (ns, modName, isNs)) ->
+                Some (com.GetImport ctx isNs modName)
                 |> makeExpr (getDiff ns fullName)
             | Some (Fabel.GlobalModule ns) ->
                 makeExpr (getDiff ns fullName) None
@@ -119,7 +119,7 @@ let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
                 |> Naming.getRelativePath file.FileName
                 |> fun x -> System.IO.Path.ChangeExtension(x, ".js")
                 |> (+) "./"
-                |> com.GetImport ctx
+                |> com.GetImport ctx false
                 |> Some
                 |> makeExpr (getDiff file.Root.FullName fullName)
             | None ->
@@ -260,10 +260,10 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
     match expr with
     | Fabel.Value kind ->
         match kind with
-        | Fabel.ImportRef (import, prop) ->
+        | Fabel.ImportRef (import, isNs, prop) ->
             match prop with
-            | Some prop -> get (com.GetImport ctx import) prop
-            | None -> com.GetImport ctx import
+            | Some prop -> get (com.GetImport ctx isNs import) prop
+            | None -> com.GetImport ctx isNs import
         | Fabel.This _ -> upcast Babel.ThisExpression ()
         | Fabel.Super _ -> upcast Babel.Super ()
         | Fabel.Null -> upcast Babel.NullLiteral ()
@@ -529,13 +529,13 @@ let private makeCompiler (com: ICompiler) (files: Fabel.File list) =
             Map.tryFind fileName fileMap
             |> function Some file -> file
                       | None -> failwithf "File not parsed: %s" fileName
-        member bcom.GetImport ctx moduleName =
+        member bcom.GetImport ctx isNs moduleName =
             match ctx.imports.TryGetValue moduleName with
-            | true, import ->
+            | true, (import, _) ->
                 upcast Babel.Identifier import
             | false, _ ->
                 let import = Naming.getImportModuleIdent ctx.imports.Count
-                ctx.imports.Add(moduleName, import)
+                ctx.imports.Add(moduleName, (import, isNs))
                 upcast Babel.Identifier import
         member bcom.TransformExpr ctx e = transformExpr bcom ctx e
         member bcom.TransformStatement ctx e = transformStatement bcom ctx e
@@ -580,10 +580,16 @@ let transformFiles (com: ICompiler) (files: Fabel.File list) =
             // TODO: Import namespaces `import * as $M1 from foo`
             let rootDecls =
                 ctx.imports |> Seq.fold (fun acc import ->
+                    let importVar, isNs = import.Value
                     let specifier =
-                        Babel.Identifier import.Value
-                        |> Babel.ImportDefaultSpecifier
-                        |> U3.Case2
+                        if isNs then
+                            Babel.Identifier importVar
+                            |> Babel.ImportNamespaceSpecifier
+                            |> U3.Case3
+                        else
+                            Babel.Identifier importVar
+                            |> Babel.ImportDefaultSpecifier
+                            |> U3.Case2
                     Babel.ImportDeclaration(
                         [specifier],
                         Babel.StringLiteral import.Key)

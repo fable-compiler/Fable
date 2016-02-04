@@ -79,10 +79,10 @@ and Member(kind, range, args, body, decorators, isPublic, isStatic) =
     override x.ToString() = sprintf "%A" kind
         
 and ExternalEntity =
-    | ImportModule of fullName: string * moduleName: string
+    | ImportModule of fullName: string * moduleName: string * isNs: bool
     | GlobalModule of fullName: string
     member x.FullName =
-        match x with ImportModule (fullName, _)
+        match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
     
 and File(fileName, root, decls, extEntities) =
@@ -117,7 +117,7 @@ and ValueKind =
     | Super of Type
     | TypeRef of Type
     | IdentValue of Ident
-    | ImportRef of import: string * prop: string option
+    | ImportRef of import: string * isNs: bool * prop: string option
     | NumberConst of U2<int,float> * NumberKind
     | StringConst of string
     | BoolConst of bool
@@ -228,13 +228,14 @@ module Util =
     
     type CallKind =
         | InstanceCall of callee: Expr * meth: string * args: Expr list
-        | ImportCall of importRef: string * modName: string option * meth: string option * isCons: bool * args: Expr list
+        | ImportCall of importRef: string * isNs: bool * modName: string option * meth: string option * isCons: bool * args: Expr list
         | CoreLibCall of modName: string * meth: string option * isCons: bool * args: Expr list
         | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
     let makeLoop range loopKind = Loop (loopKind, range)
     let makeTypeRef typ = Value (TypeRef typ)
-    let makeCoreRef com modname = Value (ImportRef (Naming.getCoreLibPath com, Some modname))
+    let makeCoreRef com modname =
+        Value (ImportRef (Naming.getCoreLibPath com, true, Some modname))
 
     let makeIdent name: Ident = {name=name; typ=UnknownType}
     let makeIdentExpr name = makeIdent name |> IdentValue |> Value 
@@ -304,8 +305,8 @@ module Util =
             let fnTyp = PrimitiveType (List.length args |> Function)
             Apply (callee, [makeConst meth], ApplyGet, fnTyp, None)
             |> apply ApplyMeth args
-        | ImportCall (importRef, modOption, meth, isCons, args) ->
-            Value (ImportRef (importRef, modOption))
+        | ImportCall (importRef, isNs, modOption, meth, isCons, args) ->
+            Value (ImportRef (importRef, isNs, modOption))
             |> getCallee meth args
             |> apply (getKind isCons) args
         | CoreLibCall (modName, meth, isCons, args) ->

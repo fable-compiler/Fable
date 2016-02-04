@@ -13,8 +13,7 @@ let rec private transformExpr com ctx fsExpr =
     (** ## Custom patterns *)
     // async, seq
     | CoreValue modName ->
-        Fabel.ImportRef (Naming.getCoreLibPath com, Some modName)
-        |> Fabel.Value
+        makeCoreRef com modName
     
     | ForOf (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
         Fabel.ForOf (ident, value, transformExpr com newContext body)
@@ -30,7 +29,6 @@ let rec private transformExpr com ctx fsExpr =
             
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
-    | BasicPatterns.NewDelegate(_delegateType, Transform com ctx delegateBodyExpr) -> delegateBodyExpr
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
     | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
@@ -139,6 +137,9 @@ let rec private transformExpr com ctx fsExpr =
     | BasicPatterns.Lambda (BindIdent com ctx (ctx, arg), body) ->
         Fabel.Lambda ([arg], transformExpr com ctx body) |> Fabel.Value
 
+    | BasicPatterns.NewDelegate(_delegateType, Transform com ctx delegateBodyExpr) ->
+        makeDelegate delegateBodyExpr
+
     (** ## Getters and Setters *)
     | BasicPatterns.ILFieldGet (callee, typ, fieldName) ->
         failwithf "Found unsupported ILField reference in %A: %A" fsExpr.Range fsExpr
@@ -215,27 +216,35 @@ let rec private transformExpr com ctx fsExpr =
         Fabel.Apply (makeTypeRef recordType, argExprs, Fabel.ApplyCons,
             makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
-    // TODO: Move to Replacements?
     | BasicPatterns.NewUnionCase(FabelType com unionType, unionCase, argExprs) ->
-        let argExprs = argExprs |> List.map (transformExpr com ctx)
         match unionType with
         | ErasedUnion | OptionUnion ->
-            match argExprs with
+            match List.map (transformExpr com ctx) argExprs with
             | [] -> Fabel.Value Fabel.Null 
             | [expr] -> expr
             | _ -> failwithf "Erased Union Cases must have one single field: %A" unionType
         | ListUnion ->
-            let typ =
-                match argExprs with
-                | [_;tail] -> tail.Type
-                | _ -> makeType com fsExpr.Type
-            CoreLibCall("List", None, true, argExprs)
-            |> makeCall com (makeRangeFrom fsExpr) typ
+            let buildArgs args =
+                let args = args |> List.rev |> (List.map (transformExpr com ctx))
+                Fabel.Value (Fabel.ArrayConst (args, Fabel.DynamicArray))
+            let rec ofArray accArgs = function
+                | [] ->
+                    CoreLibCall("List", Some "ofArray", false, [buildArgs accArgs])
+                | arg::[BasicPatterns.NewUnionCase(_, _, rest)] ->
+                    ofArray (arg::accArgs) rest
+                | arg::[Transform com ctx list2] ->
+                    CoreLibCall("List", Some "ofArray", false, (buildArgs (arg::accArgs))::[list2])
+                | _ ->
+                    failwithf "Unexpected List constructor %A at %A" fsExpr fsExpr.Range
+            match argExprs with
+            | [] -> CoreLibCall("List", None, true, [])
+            | _ -> ofArray [] argExprs
+            |> makeCall com (makeRangeFrom fsExpr) unionType
         | OtherType ->
             let argExprs =
                 // Include Tag name in args
                 let tag = makeConst unionCase.Name
-                match argExprs with
+                match List.map (transformExpr com ctx) argExprs with
                 | [] -> [tag]
                 | [arg] -> [tag;arg]
                 // If there's more than one data field, make a tuple
@@ -460,8 +469,9 @@ let rec private transformEntityDecl
         declInfo
     | ContainsAtt "Import" args ->
         match args with
-        | [:? string as modName] when not(System.String.IsNullOrWhiteSpace modName) ->
-            Fabel.ImportModule(ent.FullName, modName)
+        | (:? string as modName)::rest when not(System.String.IsNullOrWhiteSpace modName) ->
+            let isNs = match rest with [:? bool as isNs] -> isNs | _ -> false
+            Fabel.ImportModule(ent.FullName, modName, isNs)
             |> declInfo.AddExternal
             declInfo
         | _ -> failwith "Import attributes must have a single non-empty string argument"

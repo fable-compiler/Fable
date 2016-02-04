@@ -35,6 +35,7 @@ module Naming =
     let getCoreLibPath (com: ICompiler) =
         Path.Combine(com.Options.lib, "fabel-core.js")
         
+    // TODO: Use $F for CoreLib?
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
     let identForbiddenChars =
