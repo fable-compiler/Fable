@@ -301,15 +301,15 @@ module private AstPass =
         | "find" | "findIndex"
         | "fold" | "fold2" | "foldBack" | "foldBack2"
         | "forall" | "forall2"
-        | "iter" // TODO iteri, iter2, iteri2
-        | "reduce" | "reduceBack" ->
+        | "iter" | "iteri" | "iter2" | "iteri2"
+        | "reduce" | "reduceBack" | "sum" ->
             ccall "Seq" meth (deleg args) |> Some
         // TODO: Implement optimized versions of these methods    
-        | "filter" ->
+        | "filter" | "map2" | "mapi2" | "map3" ->
             match kind with
-            | Seq -> ccall "Seq" meth args
-            | Array -> ccall "Seq" meth args |> toArray
-            | List -> ccall "Seq" meth args |> toList
+            | Seq -> ccall "Seq" meth (deleg args)
+            | Array -> ccall "Seq" meth (deleg args) |> toArray
+            | List -> ccall "Seq" meth (deleg args) |> toList
             |> Some
         // Methods already implemented for Lists
         | "append" | "collect" | "choose" | "map" | "mapi" | "rev" ->

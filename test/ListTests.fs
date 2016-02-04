@@ -169,83 +169,84 @@ let ``List.isEmpty works``() =
       List.isEmpty [1] |> equal false
       List.isEmpty [] |> equal true
 
-(*
 [<Test>]
 let ``List.iter works``() =
-         let xs = [1; 2; 3; 4]
-         let total = ref 0
-         xs |> List.iter (fun x ->
-            total := !total + x
-         )
-         !total
+      let xs = [1; 2; 3; 4]
+      let mutable total = 0
+      xs |> List.iter (fun x ->
+      total <- total + x)
+      equal 10 total
 
 [<Test>]
 let ``List.iter2 works``() =
-         let xs = [1; 2; 3; 4]
-         let total = ref 0
-         List.iter2 (fun x y ->
-            total := !total + x + y
-         ) xs xs
-         !total
+      let xs = [1; 2; 3; 4]
+      let ys = [2; 4; 6; 8]
+      let total = ref 0
+      List.iter2 (fun x y ->
+      total := !total + (y - x)
+      ) xs ys
+      equal 10 !total
 
 [<Test>]
 let ``List.iteri works``() =
-         let xs = [1; 2; 3; 4]
-         let total = ref 0
-         xs |> List.iteri (fun i x ->
-            total := !total + (float i) * x
-         )
-         !total
+      let mutable total = 0
+      [1; 2; 3; 4]
+      |> List.iteri (fun i x ->
+            total <- total + (i * x))
+      equal 20 total
 
 [<Test>]
 let ``List.iteri2 works``() =
-         let xs = [1; 2; 3; 4]
-         let total = ref 0
-         List.iteri2 (fun i x y ->
-            total := !total + (float i) * x + (float i) * y
-         ) xs xs
-         !total
+      let mutable total = 0
+      let xs = [1; 2; 3; 4]
+      let ys = [2; 4; 6; 8]
+      List.iteri2 (fun i x y ->
+      total <- total + i * (y - x)
+      ) xs ys
+      equal 20 total
 
 [<Test>]
 let ``List.length works``() =
-         let xs = [1; 2; 3; 4]
-         List.length xs 
-         |> float
+      let xs = [1; 2; 3; 4]
+      List.length xs 
+      |> equal 4
 
 [<Test>]
 let ``List.map works``() =
-         let xs = [1]
-         let ys = xs |> List.map (fun x -> x*2)
-         ys.Head
-
-[<Test>]
-let ``List.map2 works``() =
-         let xs = [1]
-         let ys = [2]
-         let zs = List.map2 (fun x y -> x*y) xs ys
-         zs.Head
-
-[<Test>]
-let ``List.map3 works``() =
-         let xs = [1]
-         let ys = [2]
-         let zs = [3]
-         let ks = List.map3 (fun x y z -> x * y * z) xs ys zs
-         zs.Head
+      let xs = [1;2;3]
+      let ys = xs |> List.map ((*) 2)
+      equal 4 ys.Tail.Head
 
 [<Test>]
 let ``List.mapi works``() =
-         let xs = [1]
-         let ys = xs |> List.mapi (fun i x -> float i + x)
-         ys.Head
+      let xs = [1]
+      let ys = xs |> List.mapi (fun i x -> i * x)
+      equal 0 ys.Head
+      
+[<Test>]
+let ``List.map2 works``() =
+      let xs = [1;2]
+      let ys = [2;3]
+      let zs = List.map2 (fun x y -> x - y) xs ys
+      equal -1 zs.Head
+
+[<Test>]
+let ``List.map3 works``() =
+      let xs = [1;2;3]
+      let ys = [5;4;3]
+      let zs = [7;8;9]
+      let ks = List.map3 (fun x y z -> z - y - x) xs ys zs
+      List.sum ks
+      |> equal 6
 
 [<Test>]
 let ``List.mapi2 works``() =
-         let xs = [1]
-         let ys = [2]
-         let zs = List.mapi2 (fun i x y -> float i + x * y) xs ys
-         zs.Head
+      let xs = [7;8;9]
+      let ys = [5;4;3]
+      let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
+      List.sum zs |> equal 16
 
+(*
 [<Test>]
 let ``List.max works``() =
          let xs = [1; 2]
@@ -267,9 +268,8 @@ let ``List.minBy works``() =
          xs |> List.minBy (fun x -> -x)
 
 [<Test>]
-let ``List.nth works``() =
-         let xs = [1; 2]
-         List.nth xs 1
+let ``List.item works``() =
+         [1; 2] |> List.item 1 |> equal 2
 
 [<Test>]
 let ``List.ofArray works``() =
