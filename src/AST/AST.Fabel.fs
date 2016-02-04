@@ -286,6 +286,9 @@ module Util =
         | _ -> failwithf "Unexpected literal %O" value
         |> Value
         
+    let makeFnType args =
+        PrimitiveType (List.length args |> Function)
+    
     let makeGet range typ callee propExpr =
         Apply (callee, [propExpr], ApplyGet, typ, range)
         

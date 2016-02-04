@@ -1,5 +1,5 @@
 [<NUnit.Framework.TestFixture>] 
-module Fabel.Tests.SeqTests
+module Fabel.Tests.SeqExpressionTests
 open System
 open NUnit.Framework
 open Fabel.Tests.Util

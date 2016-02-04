@@ -46,8 +46,8 @@ type BinaryOperator =
     | BinaryUnequalStrict
     | BinaryLess
     | BinaryLessOrEqual
-    | BinaryMore
-    | BinaryMoreOrEqual
+    | BinaryGreater
+    | BinaryGreaterOrEqual
     | BinaryShiftLeft
     | BinaryShiftRightSignPropagating
     | BinaryShiftRightZeroFill

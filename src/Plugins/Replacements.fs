@@ -16,9 +16,16 @@ module private Util =
     let (|EndsWith|_|) pattern (str: string) =
         if str.EndsWith pattern then Some pattern else None
         
-    let (|ContainsKey|_|) key (dic: System.Collections.Generic.IDictionary<'k,'v>) =
+    let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k,'v>) key =
         let success, value = dic.TryGetValue key
         if success then Some value else None
+
+    let (|SetContains|_|) set item =
+        if Set.contains item set then Some item else None
+
+    // The core lib expects non-curried lambdas
+    let deleg = List.mapi (fun i x ->
+        if i=0 then (makeDelegate x) else x)
 
     let getter range typ propertyName (callee, args) =
         match args with
@@ -91,12 +98,12 @@ module private AstPass =
         | "&&" -> logicalOp r typ args LogicalAnd
         | "||" -> logicalOp r typ args LogicalOr
         // TODO: If we're comparing against null, we should use non-strict equality
-        | "<>" -> binaryOp r typ args BinaryUnequalStrict
-        | "=" -> binaryOp r typ args BinaryEqualStrict
-        | "<" -> binaryOp r typ args BinaryLess
-        | "<=" -> binaryOp r typ args BinaryLessOrEqual
-        | ">" -> binaryOp r typ args BinaryMore
-        | ">=" -> binaryOp r typ args BinaryMoreOrEqual
+        | "<>" | "neq" -> binaryOp r typ args BinaryUnequalStrict
+        | "=" | "eq"-> binaryOp r typ args BinaryEqualStrict
+        | "<" | "lt" -> binaryOp r typ args BinaryLess
+        | "<=" | "lte" -> binaryOp r typ args BinaryLessOrEqual
+        | ">" | "gt" -> binaryOp r typ args BinaryGreater
+        | ">=" | "gte" -> binaryOp r typ args BinaryGreaterOrEqual
         | "+" -> binaryOp r typ args BinaryPlus
         | "-" -> binaryOp r typ args BinaryMinus
         | "*" -> binaryOp r typ args BinaryMultiply
@@ -127,6 +134,9 @@ module private AstPass =
         | "sin" -> math r typ args "sin"
         | "sqrt" -> math r typ args "sqrt"
         | "tan" -> math r typ args "tan"
+        | "compare" ->
+            let emit = Fabel.Emit("$0 < $1 ? -1 : ($0 == $1 ? 0 : 1)") |> Fabel.Value
+            Fabel.Apply(emit, args, Fabel.ApplyMeth, typ, r) |> Some
         // Reference
         | "!" -> makeGet r Fabel.UnknownType args.Head (makeConst "cell") |> Some
         | ":=" -> Fabel.Set(args.Head, Some(makeConst "cell"), args.Tail.Head, r) |> Some
@@ -136,24 +146,26 @@ module private AstPass =
         // Ignore: wrap to keep Unit type (see Fabel2Babel.transformFunction)
         | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
         // Ranges
-        | ".. .." ->
-            CoreLibCall("Seq", Some "rangeStep", false, args)
-            |> makeCall com r typ |> Some
-        | ".." ->
-            let step = Fabel.NumberConst (U2.Case1 1, Int32) |> Fabel.Value
-            CoreLibCall("Seq", Some "rangeStep", false, [args.Head; step; args.Tail.Head])
+        | ".." | ".. .." ->
+            let meth = if info.methodName = ".." then "range" else "rangeStep"
+            CoreLibCall("Seq", Some meth, false, args)
             |> makeCall com r typ |> Some
         // Exceptions
-        // TODO: failwithf
-        | "failwith" | "raise" -> Fabel.Throw (args.Head, r) |> Some
+        | "failwith" | "raise" -> Fabel.Throw (args.Head, r) |> Some // TODO: failwithf
         | _ -> None
 
     let intrinsicFunctions com (i: Fabel.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
-        | "GetArray", TwoArgs (ar, idx) ->
+        | "getArray", TwoArgs (ar, idx) ->
             makeGet i.range i.returnType ar idx |> Some
-        | "SetArray", ThreeArgs (ar, idx, value) ->
+        | "setArray", ThreeArgs (ar, idx, value) ->
             Fabel.Set (ar, Some idx, value, i.range) |> Some
+        | "getArraySlice", ThreeArgs (ar, x, y) ->
+            let args = [x;y]
+            let meth = makeGet i.range (makeFnType args) ar (makeConst "slice")
+            Fabel.Apply (meth, args, Fabel.ApplyMeth, i.returnType, i.range) |> Some
+        | "setArraySlice", _ ->
+            failwith "TODO: SetArraySlice"
         | _ -> None
 
     let maps com (i: Fabel.ApplyInfo) =
@@ -218,28 +230,58 @@ module private AstPass =
 // let tryPick f (m:Map<_,_>) = m.TryPick(f)
 
     type CollectionKind = Seq | List | Array
+    
+    // Functions which don't return a new collection of the same type
+    let implementedSeqNonBuildFunctions =
+        set [ "average"; "averageBy"; "countBy"; "compareWith"; "empty";
+              "exactlyOne"; "exists"; "exists2"; "fold"; "fold2"; "foldBack"; "foldBack2";
+              "forall"; "forall2"; "head"; "item"; "iter"; "iteri"; "iter2"; "iteri2";
+              "isEmpty"; "last"; "length"; "max"; "maxBy"; "min"; "minBy";
+              "reduce"; "reduceBack"; "sum"; "sumBy"; "tail";
+              "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; "unfold" ]
 
-    let collections com (i: Fabel.ApplyInfo) =
-        // The core lib expects non-curried lambdas
-        let deleg = List.mapi (fun i x ->
-            if i=0 then (makeDelegate x) else x)
+    // Functions that must return a collection of the same type
+    let implementedSeqBuildFunctions =
+        set [ "append"; "choose"; "collect"; "concat"; "distinctBy"; "distinctBy";
+              "filter"; "where"; "groupBy"; "init";
+              "map"; "mapi"; "map2"; "mapi2"; "map3";
+              "pairwise"; "replicate"; "rev"; "scan"; "singleton";
+              "skip"; "skipWhile"; "take"; "takeWhile"; "sort"; "sortBy";
+              "sortWith"; "sortDescending"; "sortByDescending"; "sortInPlaceBy"; "zip"; "zip3" ]
+
+    let implementedListFunctions =
+        set [ "append"; "choose"; "collect"; "concat"; "filter"; "where";
+              "init"; "map"; "mapi"; "replicate"; "rev"; "singleton" ]
+
+    let jsArrayFunctions =
+        dict [
+            "concat" => "concat"
+            "exists" => "some"
+            "filter" => "filter"
+            "find" => "find"
+            "findIndex" => "findIndex"
+            "forall" => "every"
+            "indexed" => "entries"
+            "iter" => "forEach"
+            "map" => "map"
+            "reduce" => "reduce"
+            "reduceBack" => "reduceRight"
+            "sortInPlace" => "sort"
+            "sortInPlaceWith" => "sort"
+            // String.concat => join
+        ]
+
+    let collectionsSecondPass com (i: Fabel.ApplyInfo) =
         let prop (meth: string) callee =
             makeGet i.range i.returnType callee (makeConst meth)
         let icall meth (callee, args) =
             InstanceCall (callee, meth, args)
             |> makeCall com i.range i.returnType
-        let cons modName args =
-            CoreLibCall (modName, None, true, args)
-            |> makeCall com i.range i.returnType
         let ccall modName meth args =
             CoreLibCall (modName, Some meth, false, args)
             |> makeCall com i.range i.returnType
-        let toArray expr =
-            List.singleton expr |> ccall "Seq" "toArray"
-        let toList expr =
-            List.singleton expr |> ccall "Seq" "toList"
-        let callee c args =
-            let c, _ = instanceArgs c args in c
+        let toArray expr = List.singleton expr |> ccall "Seq" "toArray"
+        let toList expr = List.singleton expr |> ccall "Seq" "toList"
         let kind =
             match i.ownerFullName with
             | EndsWith "Seq" _ -> Seq
@@ -248,34 +290,24 @@ module private AstPass =
             | _ -> failwithf "Unexpected collection: %s" i.ownerFullName
         let meth, c, args = i.methodName, i.callee, i.args
         match i.methodName with
-        // Seq only, erase
-        | "cast" -> Some i.args.Head
-        // Special cases
+        // Deal with special cases first
+        | "cast" -> Some i.args.Head // Seq only, erase
         | "isEmpty" ->
             match kind with
             | Seq -> ccall "Seq" meth args
-            // Not implemented, compiled as a condition
             | Array -> makeEqOp i.range [prop "length" args.Head; makeConst 0] true
-            | List -> makeEqOp i.range [prop "tail" (callee c args); Fabel.Value Fabel.Null] false
+            | List -> let c, _ = instanceArgs c args
+                      makeEqOp i.range [prop "tail" c; Fabel.Value Fabel.Null] false
             |> Some
-        | "length" ->
+        | "head" | "tail" | "length" ->
             match kind with
             | Seq -> ccall "Seq" meth (staticArgs c args)
-            | Array | List ->
-                let callee, _ = instanceArgs c args
-                prop meth callee
-            |> Some
-        | "head" ->
-            match kind with
-            | Seq -> ccall "Seq" meth (staticArgs c args)
-            | Array -> getter i.range i.returnType (makeConst 0) (instanceArgs c args) 
-            | List -> prop meth (callee c args)
-            |> Some
-        | "tail" ->
-            match kind with
-            | Seq -> ccall "Seq" meth (staticArgs c args)
-            | Array -> icall "slice" (i.args.Head, [makeConst 1])
-            | List -> prop meth (callee c args)
+            | List -> let c, _ = instanceArgs c args in prop meth c
+            | Array ->
+                let c, args = instanceArgs c args
+                if meth = "head" then getter i.range i.returnType (makeConst 0) (c, args)
+                elif meth = "tail" then icall "slice" (i.args.Head, [makeConst 1])
+                else prop "length" c
             |> Some
         // Constructors ('cons' only applies to List)
         | "empty" | "cons" ->
@@ -286,7 +318,8 @@ module private AstPass =
                 | Fabel.PrimitiveType (Fabel.Array kind) ->
                     Fabel.ArrayConst ([], kind) |> Fabel.Value
                 | _ -> failwithf "Expecting array type but got %A" i.returnType
-            | List -> cons "List" args
+            | List -> CoreLibCall ("List", None, true, args)
+                      |> makeCall com i.range i.returnType
             |> Some
         | "item" ->
             match kind with
@@ -295,40 +328,25 @@ module private AstPass =
             | List -> match i.callee with Some x -> i.args@[x] | None -> i.args
                       |> ccall "Seq" meth
             |> Some
-        // Methods taken directly from Seq module
-        | "average" | "averageBy"
-        | "exists" | "exists2"
-        | "find" | "findIndex"
-        | "fold" | "fold2" | "foldBack" | "foldBack2"
-        | "forall" | "forall2"
-        | "iter" | "iteri" | "iter2" | "iteri2"
-        | "reduce" | "reduceBack" | "sum" ->
-            ccall "Seq" meth (deleg args) |> Some
-        // TODO: Implement optimized versions of these methods    
-        | "filter" | "map2" | "mapi2" | "map3" ->
-            match kind with
-            | Seq -> ccall "Seq" meth (deleg args)
-            | Array -> ccall "Seq" meth (deleg args) |> toArray
-            | List -> ccall "Seq" meth (deleg args) |> toList
-            |> Some
-        // Methods already implemented for Lists
-        | "append" | "collect" | "choose" | "map" | "mapi" | "rev" ->
-            match kind with
-            | Seq -> ccall "Seq" meth (deleg args)
-            | Array -> ccall "Seq" meth (deleg args) |> toArray
-            | List ->
-                // To make them easier to use from JS, they'are attached to
-                // List.prototype so we need to change args' order (but 'append')
-                let args = if meth = "append" then i.args else (List.rev i.args)
-                InstanceCall (args.Head, meth, (deleg args.Tail))
-                |> makeCall com i.range i.returnType
-            |> Some
-        // Methods already implemented *statically* for Lists
-        | "init" | "concat" | "replicate" ->
+        | "take" | "skip" ->
             match kind with
             | Seq -> ccall "Seq" meth args
-            | Array -> ccall "Seq" meth args |> toArray
-            | List -> ccall "List" meth args
+            | List -> ccall "Seq" meth args |> toList
+            | Array ->
+                let args = if meth = "take" then [makeConst 0; i.args.[1]] else [i.args.[1]]
+                icall "slice" (i.args.Head, args)
+            |> Some
+        | "getSlice" ->
+            match kind with
+            | Seq | Array -> failwithf "GetSlice called in non-list in: %A" i.range
+            | List -> icall "getSlice" (i.callee.Value, i.args) |> Some 
+        | SetContains implementedSeqNonBuildFunctions meth ->
+            ccall "Seq" meth (deleg args) |> Some
+        | SetContains implementedSeqBuildFunctions meth ->
+            match kind with
+            | Seq -> ccall "Seq" meth (deleg args)
+            | List -> ccall "Seq" meth (deleg args) |> toList
+            | Array -> ccall "Seq" meth (deleg args) |> toArray
             |> Some
         | _ -> None
 
@@ -353,6 +371,19 @@ module private AstPass =
             InstanceCall (i.callee.Value, i.methodName, i.args)
             |> makeCall com i.range i.returnType |> Some
         | _ -> failwith "TODO: Object methods"
+        
+    let collectionsFirstPass com (i: Fabel.ApplyInfo) =
+        match i.ownerFullName, i.methodName with
+        | EndsWith "List" _, SetContains implementedListFunctions meth ->
+            CoreLibCall ("List", Some meth, false, deleg i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | EndsWith "Array" _, DicContains jsArrayFunctions meth ->
+            InstanceCall (i.args.Head, meth, deleg i.args.Tail)
+            |> makeCall com i.range i.returnType |> Some
+        | _ -> None
+        |> function
+            | Some _ as res -> res
+            | None -> collectionsSecondPass com i
 
     let mappings =
         dict [
@@ -363,9 +394,9 @@ module private AstPass =
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
             // fsharp + "Collections.Set" => fsharpSet
             fsharp + "Collections.Map" => maps
-            fsharp + "Collections.Array" => collections
-            fsharp + "Collections.List" => collections
-            fsharp + "Collections.Seq" => collections
+            fsharp + "Collections.Array" => collectionsFirstPass
+            fsharp + "Collections.List" => collectionsFirstPass
+            fsharp + "Collections.Seq" => collectionsSecondPass
             "NUnit.Framework.Assert" => asserts
         ]
 
@@ -399,14 +430,14 @@ module private CoreLibPass =
 open Util
 
 let private astPass com (info: Fabel.ApplyInfo) =
-    match AstPass.mappings with
-    | ContainsKey info.ownerFullName f -> f com info
+    match info.ownerFullName with
+    | DicContains AstPass.mappings f -> f com info
     | _ -> None
 
 // TODO: Constructors
 let private coreLibPass com (info: Fabel.ApplyInfo) =
-    match CoreLibPass.mappings with
-    | ContainsKey info.ownerFullName (modName, kind) ->
+    match info.ownerFullName with
+    | DicContains CoreLibPass.mappings (modName, kind) ->
         match kind, info.callee with
         | CoreLibPass.Both, Some callee -> 
             InstanceCall (callee, info.methodName, info.args)

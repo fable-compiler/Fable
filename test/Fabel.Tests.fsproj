@@ -42,9 +42,9 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
-    <Compile Include="SeqTests.fs" />
-    <Compile Include="ListTests.fs" />
     <Compile Include="AsyncTests.fs" />
+    <Compile Include="SeqExpressionTests.fs" />
+    <Compile Include="ListTests.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
