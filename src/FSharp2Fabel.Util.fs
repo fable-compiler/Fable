@@ -14,7 +14,7 @@ type DecisionTarget =
 
 type Context =
     {
-    scope: (string * string) list
+    scope: (string * Fabel.Expr) list
     decisionTargets: Map<int, DecisionTarget>
     parentEntities: FSharpEntity list
     }
@@ -29,9 +29,109 @@ type IFabelCompiler =
     
 [<AutoOpen>]
 module Patterns =
+    open BasicPatterns
+
+    let (|Rev|) = List.rev
     let (|Transform|) (com: IFabelCompiler) = com.Transform
     let (|FieldName|) (fi: FSharpField) = fi.Name
     let (|ExprType|) (expr: Fabel.Expr) = expr.Type
+    
+    let (|CoreValue|_|) = function
+        | BasicPatterns.Value v ->
+            match v.FullName with
+            | "Microsoft.FSharp.Core.Operators.seq" -> Some "Seq"
+            | "Microsoft.FSharp.Core.ExtraTopLevelOperators.async" -> Some "Async"
+            | _ -> None
+        | _ -> None
+    
+    let (|ForOf|_|) = function
+        | Let((_, value),
+              Let((_, Call(_, meth, _, [], [])),
+                TryFinally(
+                  WhileLoop(_,
+                    Let((ident, _), body)), _)))
+            when meth.DisplayName = "GetEnumerator" ->
+            Some(ident, value, body)
+        | _ -> None
+
+    // TODO: Explanation
+    let (|Closure|_|) fsExpr =
+        let checkArgs (identAndRepls: (FSharpMemberOrFunctionOrValue*FSharpExpr) list) args =
+            if identAndRepls.Length <> (List.length args) then false else
+            (args, identAndRepls)
+            ||> List.forall2 (fun arg (ident, _) ->
+                match arg with
+                | Value arg when (not ident.IsMutable) ->
+                    ident.IsEffectivelySameAs arg
+                | _ -> false)
+        let rec visit identAndRepls = function
+            | Let((letArg, letValue), letBody) ->
+                let identAndRepls = identAndRepls@[(letArg, letValue)]
+                match letBody with
+                | Lambda(lambdaArg1, Call(None, meth, _, _, Rev (last1::args))) ->
+                    if checkArgs identAndRepls (List.rev args)
+                    then Some([lambdaArg1], meth, (List.map snd identAndRepls)@[last1])
+                    else None
+                | Lambda(lambdaArg1,
+                         Lambda(lambdaArg2, Call(None, meth, _, _, Rev (last2::last1::args)))) ->
+                    if checkArgs identAndRepls (List.rev args)
+                    then Some([lambdaArg1;lambdaArg2], meth, (List.map snd identAndRepls)@[last1;last2])
+                    else None
+                | Lambda(lambdaArg1,
+                         Lambda(lambdaArg2,
+                            Lambda(lambdaArg3,Call(None, meth, _, _, Rev (last3::last2::last1::args))))) ->
+                    if checkArgs identAndRepls (List.rev args)
+                    then Some([lambdaArg1;lambdaArg2;lambdaArg3], meth, (List.map snd identAndRepls)@[last1;last2;last3])
+                    else None
+                | _ -> visit identAndRepls letBody
+            | _ -> None
+        match fsExpr with
+        | Lambda(lambdaArg1, Call(None, meth, _, _, ([Value methArg1] as methArgs)))
+            when lambdaArg1.IsEffectivelySameAs methArg1 ->
+                Some([lambdaArg1], meth, methArgs)
+        // TODO: Two more levels of wrapping lambdas
+        | _ -> visit [] fsExpr
+
+    let (|Pipe|_|) = function
+        | Call(None, meth, _, _, [arg1; arg2]) ->
+            match meth.FullName with
+            | "Microsoft.FSharp.Core.Operators.( |> )" ->
+                Some (arg2, [arg1])
+            | "Microsoft.FSharp.Core.Operators.( <| )" ->
+                Some (arg1, [arg2])
+            | _ -> None
+        | Call(None, meth, _, _, [arg1; arg2; arg3]) ->
+            match meth.FullName with
+            | "Microsoft.FSharp.Core.Operators.( ||> )" ->
+                Some (arg3, [arg1; arg2])
+            | "Microsoft.FSharp.Core.Operators.( <|| )" ->
+                Some (arg1, [arg2; arg3])
+            | _ -> None
+        | Call(None, meth, _, _, [arg1; arg2; arg3; arg4]) ->
+            match meth.FullName with
+            | "Microsoft.FSharp.Core.Operators.( |||> )" ->
+                Some (arg4, [arg1; arg2; arg3])
+            | "Microsoft.FSharp.Core.Operators.( <||| )" ->
+                Some (arg1, [arg2; arg3; arg4])
+            | _ -> None
+        | _ -> None
+        
+    let (|ErasableLambda|_|) fsExpr =
+        let checkArgs lambdaArgs methArgs =
+            (lambdaArgs, methArgs)
+            ||> List.forall2 (fun larg marg ->
+                match marg with Value marg -> marg.IsEffectivelySameAs larg | _ -> false)
+        match fsExpr with
+        | Pipe(Closure ([larg1;larg2;larg3] as lambdaArgs, meth, Rev (last3::last2::last1::methArgs)), ([e1;e2;e3] as exprs))
+            when checkArgs lambdaArgs [last1;last2;last3] ->
+            Some (meth, (List.rev methArgs)@exprs)
+        | Pipe(Closure ([larg1;larg2] as lambdaArgs, meth, Rev (last2::last1::methArgs)), ([e1;e2] as exprs))
+            when checkArgs lambdaArgs [last1;last2] ->
+            Some (meth, (List.rev methArgs)@exprs)
+        | Pipe(Closure ([larg1] as lambdaArgs, meth, Rev (last1::methArgs)), ([e1] as exprs))
+            when checkArgs lambdaArgs [last1] ->
+            Some (meth, (List.rev methArgs)@exprs)
+        | _ -> None
     
     let (|NonAbbreviatedType|) (t: FSharpType) =
         let rec abbr (t: FSharpType) =
@@ -70,36 +170,6 @@ module Patterns =
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList) 
-
-    let (|ReplaceArgs|_|) (lambdaArgs: (Fabel.Ident * Fabel.Expr) list)
-                          (nestedArgs: Fabel.Expr list) =
-        let (|SplitList|) f li =
-            List.foldBack (fun (x: 'a) (li1: 'a list, li2: 'a list) ->
-                if f x then li1, x::li2 else x::li1, li2) li ([],[])
-        if lambdaArgs.Length = 0 then
-            None
-        else
-            let lambdaArgs, nestedArgs =
-                nestedArgs |> List.fold (fun (lambdaArgs, nestedArgs) arg ->
-                    match arg with
-                    | Fabel.Value (Fabel.IdentValue ident) ->
-                        let splitter (a: Fabel.Ident,_) = a.name = ident.name
-                        match lambdaArgs with
-                        | SplitList splitter (lambdaArgs,[_,e]) -> lambdaArgs, e::nestedArgs
-                        | _ -> lambdaArgs, arg::nestedArgs
-                    | _ -> lambdaArgs, arg::nestedArgs) (lambdaArgs, [])
-            if lambdaArgs.Length = 0 then Some(List.rev nestedArgs) else None
-
-    let (|ForOf|_|) = function
-        | BasicPatterns.Let
-            ((_, value),
-                BasicPatterns.Let ((_, BasicPatterns.Call (_, meth, _, [], [])),
-                    BasicPatterns.TryFinally (
-                        BasicPatterns.WhileLoop (_,
-                            BasicPatterns.Let ((ident, _), body)), _)))
-            when meth.DisplayName = "GetEnumerator" ->
-            Some (ident, value, body)
-        | _ -> None
 
     let (|Namespace|_|) (ns: string) (decl: FSharpImplementationFileDeclaration) =
         let rec matchNamespace (nsParts: string list) decl =
@@ -209,11 +279,11 @@ module Types =
         | _ -> com.GetEntity tdef |> Fabel.DeclaredType
 
     and makeType (com: IFabelCompiler) (NonAbbreviatedType t) =
-        if t.IsGenericParameter then Fabel.UnknownType else
         let rec countFuncArgs (fn: FSharpType) =
             if fn.IsFunctionType
             then countFuncArgs (Seq.last fn.GenericArguments) + 1
             else 0
+        if t.IsGenericParameter then Fabel.UnknownType else
         if t.IsTupleType then Fabel.Tuple |> Fabel.Array |> Some
         elif t.IsFunctionType then Fabel.Function (countFuncArgs t) |> Some
         else None
@@ -228,28 +298,36 @@ module Types =
 
 [<AutoOpen>]
 module Identifiers =
-    let private sanitizeIdent (ctx: Context) (fsName: string) =
-        let sanitizedName = fsName |> Naming.sanitizeIdent (fun x ->
-            List.exists (fun (_,x') -> x = x') ctx.scope)
-        { ctx with scope = (fsName, sanitizedName)::ctx.scope }, sanitizedName
+    /// Make a sanitized identifier from a tentative name
+    let bindIdent (ctx: Context) typ (tentativeName: string) =
+        let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
+            List.exists (fun (_,x') ->
+                match x' with
+                | Fabel.Value (Fabel.IdentValue {name=name}) -> x = name
+                | _ -> false) ctx.scope)
+        let ident: Fabel.Ident = { name=sanitizedName; typ=typ}
+        let identValue = Fabel.Value (Fabel.IdentValue ident)
+        { ctx with scope = (tentativeName, identValue)::ctx.scope}, ident
 
-    /// Make a sanitized identifier from a speculative name
-    let makeSanitizedIdent ctx typ speculativeName: Context*Fabel.Ident =
-        let ctx, sanitizedIdent = sanitizeIdent ctx speculativeName
-        ctx, {name=sanitizedIdent; typ=typ}
+    /// Sanitize F# identifier and create new context
+    let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fabel.Ident =
+        bindIdent ctx (makeType com fsRef.FullType) fsRef.DisplayName
+    
+    let (|BindIdent|) = bindIdentFrom
+
+    let bindExpr ctx fsName expr =
+        { ctx with scope = (fsName, expr)::ctx.scope}
 
     /// Get corresponding identifier to F# value in current scope
-    let (|GetIdent|) com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fabel.Ident =
+    let getBoundExpr com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
         ctx.scope
         |> List.tryFind (fun (fsName,_) -> fsName = fsRef.DisplayName)
         |> function
-        | Some (_,fabelName) -> {name=fabelName; typ=(makeType com fsRef.FullType)}
-        | None -> failwithf "Detected non-bound identifier: %s in %A" fsRef.DisplayName fsRef.DeclarationLocation
+        | Some (_,boundExpr) -> boundExpr
+        | None -> failwithf "Detected non-bound identifier: %s in %A"
+                    fsRef.DisplayName fsRef.DeclarationLocation
 
-    /// sanitize F# identifier and create new context
-    let (|BindIdent|) com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fabel.Ident =
-        let newContext, sanitizedIdent = sanitizeIdent ctx fsRef.DisplayName
-        newContext, {name=sanitizedIdent; typ=(makeType com fsRef.FullType)}
+// module Fabel.FSharp2Fabel.Util
 
 let isReplaceCandidate (com: IFabelCompiler) (meth: FSharpMemberOrFunctionOrValue) =
     // Is external method or contains Replace attribute?
@@ -307,20 +385,10 @@ let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
         | _ -> false
     if isUnitVar
     then ctx, []
-    else List.foldBack (fun var (accContext, accArgs) ->
-        let (BindIdent com accContext (newContext, arg)) = var
+    else List.foldBack (fun var (ctx, accArgs) ->
+        let newContext, arg = bindIdentFrom com ctx var
         newContext, arg::accArgs) vars (ctx, [])
 
-let makeLambda (com: IFabelCompiler) ctx vars (body: FSharpExpr) =
-    let args, body =
-        let ctx, args = makeLambdaArgs com ctx vars
-        match com.Transform ctx body with
-        | Fabel.Value (Fabel.Lambda (args2, body2)) ->
-            args@args2, body2
-        | body -> args, body
-    Fabel.Lambda (args, body)
-    |> Fabel.Value
-    
 let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
     let catchClause =
         match catchClause with
@@ -332,36 +400,6 @@ let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClau
         | Some (Transform com ctx finalBody) -> Some finalBody
         | None -> None
     Fabel.TryCatch (body, catchClause, finalizer, makeRangeFrom fsExpr)
-
-let makeApply com ctx (fsExpr: FSharpExpr) (expr: Fabel.Expr) (args: Fabel.Expr list) =
-    let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
-    match expr with
-    // Optimize id lambdas applied right away, as in `x |> unbox`
-    | Fabel.Value (Fabel.Lambda ([lambdaArg], Fabel.Value (Fabel.IdentValue body)))
-        when lambdaArg.name = body.name && args.Length = 1 -> args.Head
-    // As Fabel lambdas have multiple args, they cannot be curried and we have to recreate the extra lambda
-    // when applying less parameters than necessary (F# compiler already does that for methods)
-    | ExprType (Fabel.PrimitiveType (Fabel.Function fnArgCount)) when fnArgCount > args.Length ->
-        let _, lambdaArgs =
-            [1..(fnArgCount - args.Length)] |> List.fold (fun (ctx, args) i ->
-                let ctx, arg = makeSanitizedIdent ctx Fabel.UnknownType (sprintf "$arg%i" i)
-                ctx, arg::args) (ctx, [])
-        let args = args @ (lambdaArgs |> List.map (Fabel.IdentValue >> Fabel.Value))
-        let apply = Fabel.Apply (expr, args, false, typ, None)
-        Fabel.Lambda (lambdaArgs, apply)
-        |> Fabel.Value
-    // Flatten nested curried applications as it happens in pipelines: e.g., (fun x -> fnCall 2 x) 3
-    | Fabel.Value (Fabel.Lambda (lambdaArgs, Fabel.Apply (nestedExpr, nestedArgs, isCons, _, _))) ->
-        match nestedArgs with
-        | ReplaceArgs (List.zip lambdaArgs args) nestedArgs ->
-            Fabel.Apply (nestedExpr, nestedArgs, isCons, typ, range)
-        | _ -> Fabel.Apply (expr, args, false, typ, range)
-    | Fabel.Value (Fabel.Lambda ([lambdaArg], Fabel.Get (nestedExpr, prop, _))) ->
-        match nestedExpr with
-        | Fabel.Value (Fabel.IdentValue {name=nestedName}) when lambdaArg.name = nestedName ->
-            Fabel.Get (args.Head, prop, typ)
-        | _ -> Fabel.Apply (expr, args, false, typ, range)
-    | _ -> Fabel.Apply (expr, args, false, typ, range)
 
 let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
     if meth.CurriedParameterGroups.Count <> 1 then false else
@@ -389,50 +427,42 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
         | Some _ as repl -> repl
         | None -> failwithf "Cannot find replacement for %s" meth.FullName
 
+let makeGetFrom com (fsExpr: FSharpExpr) callee propExpr =
+    Fabel.Apply (callee, [propExpr], Fabel.ApplyGet, makeType com fsExpr.Type, makeRangeFrom fsExpr)
+
 // TODO: If it's an imported method with ParamArray, spread the last argument
 let makeCallFrom (com: IFabelCompiler) ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: FSharpExpr list) =
     let callee, args =
         Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
-    (** -If this a pipe, optimize *)
-    match meth.FullName with
-    // TODO: Other pipe operators?
-    | "Microsoft.FSharp.Core.Operators.( |> )" ->
-        makeApply com ctx fsExpr args.Tail.Head [args.Head]
-    | "Microsoft.FSharp.Core.Operators.( <| )" ->
-        makeApply com ctx fsExpr args.Head args.Tail
-    | "Microsoft.FSharp.Core.Operators.( ||> )" ->
-        makeApply com ctx fsExpr (List.last args) (List.take 2 args)
-    | "System.Object..ctor" ->
-        Fabel.ObjExpr ([], makeRangeFrom fsExpr)
-    | _ ->
-        (** -Check for replacements *)
-        let resolved =
-            tryReplace com fsExpr meth callee args
-        (** -If no Emit attribute nor replacement has been found then: *)
-        match resolved with
-        | Some exprKind -> exprKind
-        | None ->
-            let methName = sanitizeMethodName com meth |> makeConst
-            let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
-        (**     *Check if this an extension *)
-            let callee, args =
-                if meth.IsExtensionMember
-                then match callee with Some a -> None, a::args | None -> None, args
-                else callee, args
-                |> function
-                | Some callee, args -> callee, args
-                | None, args ->
-                    let ownerType = makeTypeFromDef com meth.EnclosingEntity
-                    Fabel.Value (Fabel.TypeRef ownerType), args
-        (**     *Check if this a getter or setter  *)
-            if meth.IsPropertyGetterMethod then
-                Fabel.Get (callee, methName, typ)
-            elif meth.IsPropertySetterMethod then
-                Fabel.Set (callee, Some methName, args.Head, range)
-        (**     *Check if this is an implicit constructor *)
-            elif meth.IsImplicitConstructor then
-                Fabel.Apply (callee, args, true, typ, range)
-        (**     *If nothing of the above applies, call the method normally *)
-            else
-                let callee = Fabel.Get (callee, methName, makeFnType args)
-                Fabel.Apply (callee, args, false, typ, range)
+    (** -Check for replacements *)
+    let resolved =
+        tryReplace com fsExpr meth callee args
+    (** -If no Emit attribute nor replacement has been found then: *)
+    match resolved with
+    | Some exprKind -> exprKind
+    | None ->
+        let methName = sanitizeMethodName com meth |> makeConst
+        let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
+    (**     *Check if this an extension *)
+        let callee, args =
+            if meth.IsExtensionMember
+            then match callee with Some a -> None, a::args | None -> None, args
+            else callee, args
+            |> function
+            | Some callee, args -> callee, args
+            | None, args ->
+                let ownerType = makeTypeFromDef com meth.EnclosingEntity
+                Fabel.Value (Fabel.TypeRef ownerType), args
+    (**     *Check if this a getter or setter  *)
+        if meth.IsPropertyGetterMethod then
+            makeGetFrom com fsExpr callee methName
+        elif meth.IsPropertySetterMethod then
+            Fabel.Set (callee, Some methName, args.Head, range)
+    (**     *Check if this is an implicit constructor *)
+        elif meth.IsImplicitConstructor then
+            Fabel.Apply (callee, args, Fabel.ApplyCons, typ, range)
+    (**     *If nothing of the above applies, call the method normally *)
+        else
+            let calleeType = Fabel.PrimitiveType (Fabel.Function args.Length) 
+            let callee = makeGet range calleeType callee methName
+            Fabel.Apply (callee, args, Fabel.ApplyMeth, typ, range)

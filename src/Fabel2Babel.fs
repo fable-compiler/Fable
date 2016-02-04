@@ -49,10 +49,14 @@ let private foldRanges (baseRange: SourceLocation) (decls: Babel.Statement list)
     |> Seq.fold (fun _ x -> x) baseRange
     |> (+) baseRange
     
-let rec private cleanNullArgs = function
-    | [] -> []
-    | (Fabel.Value Fabel.Null)::args -> cleanNullArgs args
-    | args -> args
+let private cleanArgs (com: IBabelCompiler) ctx args =
+    let rec cleanNull = function
+        | [] -> []
+        | (Fabel.Value Fabel.Null)::args -> cleanNull args
+        | args -> args
+    args
+    |> List.rev |> cleanNull |> List.rev
+    |> List.map (com.TransformExpr ctx >> U2<_,_>.Case1)
     
 let private ident (id: Fabel.Ident) =
     Babel.Identifier id.name
@@ -249,7 +253,7 @@ let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
         com.TransformStatement ctx expr        
 
     // Expressions become ExpressionStatements
-    | Fabel.Value _ | Fabel.Get _| Fabel.Emit _ | Fabel.Apply _ | Fabel.ObjExpr _ ->
+    | Fabel.Value _ | Fabel.Apply _ | Fabel.ObjExpr _ ->
         upcast Babel.ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range)
 
 let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Expression =
@@ -283,8 +287,8 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
                     else typEnt.FullName
                 typeRef com ctx typEnt.File typFullName
             | _ -> failwithf "Not supported type reference: %A" typ
-        | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _ ->
-            failwithf "Unexpected stand-alone operation: %A" expr
+        | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _ | Fabel.Emit _ ->
+            failwithf "Unexpected stand-alone value: %A" expr
 
     | Fabel.ObjExpr (props, range) ->
         props
@@ -297,33 +301,32 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
             |> U3.Case1 )
         |> fun props -> upcast Babel.ObjectExpression(props, ?loc=range)
         
-    | Fabel.Emit (emit, args, _, range) ->
-        List.map (com.TransformExpr ctx) args
-        |> macroExpression range emit
-        
     | Fabel.Wrapped (expr, _) ->
         com.TransformExpr ctx expr
 
-    | Fabel.Apply (callee, args, isPrimaryConstructor, _, range) ->
+    | Fabel.Apply (callee, args, kind, _, range) ->
         match callee, args with
+        // Logical, Binary and Unary Operations
         | Fabel.Value (Fabel.LogicalOp op), [TransformExpr com ctx left; TransformExpr com ctx right] ->
             upcast Babel.LogicalExpression (op, left, right, ?loc=range)
         | Fabel.Value (Fabel.UnaryOp op), [TransformExpr com ctx operand as expr] ->
             upcast Babel.UnaryExpression (op, operand, ?loc=range)
         | Fabel.Value (Fabel.BinaryOp op), [TransformExpr com ctx left; TransformExpr com ctx right] ->
             upcast Babel.BinaryExpression (op, left, right, ?loc=range)
+        // Emit expressions
+        | Fabel.Value (Fabel.Emit emit), args ->
+            List.map (com.TransformExpr ctx) args
+            |> macroExpression range emit
         | _ ->
-            let callee = com.TransformExpr ctx callee
-            let args =
-                args
-                |> List.rev |> cleanNullArgs |> List.rev
-                |> List.map (com.TransformExpr ctx >> U2<_,_>.Case1)
-            if isPrimaryConstructor
-            then upcast Babel.NewExpression (callee, args, ?loc=range)
-            else upcast Babel.CallExpression (callee, args, ?loc=range)
-
-    | Fabel.Get (callee, property, _) ->
-        getExpr com ctx callee property
+            match kind with
+            | Fabel.ApplyMeth ->
+                Babel.CallExpression (com.TransformExpr ctx callee, cleanArgs com ctx args, ?loc=range)
+                :> Babel.Expression
+            | Fabel.ApplyCons ->
+                Babel.NewExpression (com.TransformExpr ctx callee, cleanArgs com ctx args, ?loc=range)
+                :> Babel.Expression
+            | Fabel.ApplyGet ->
+                getExpr com ctx callee args.Head
 
     | Fabel.IfThenElse (TransformExpr com ctx guardExpr,
                         TransformExpr com ctx thenExpr,

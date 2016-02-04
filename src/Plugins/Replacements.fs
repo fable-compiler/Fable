@@ -20,9 +20,9 @@ module private Util =
         let success, value = dic.TryGetValue key
         if success then Some value else None
 
-    let getter typ propertyName (callee, args) =
+    let getter range typ propertyName (callee, args) =
         match args with
-        | [] -> Fabel.Get (callee, makeConst propertyName, typ)
+        | [] -> makeGet range typ callee (makeConst propertyName)
         | _ -> failwith "No argument expected for getter"
 
     let setter range propertyName (callee, args) =
@@ -42,22 +42,6 @@ module private Util =
 
 module private AstPass =
     open Util
-
-    type MappedMethod =
-        | Instance of string
-        | Getter of string | Setter of string
-        | Inline of Fabel.Expr
-        | NoMapping
-
-    let mapMethod com (i: Fabel.ApplyInfo) = function
-        | Instance name ->
-            let callee, args = instanceArgs i.callee i.args
-            InstanceCall (callee, name, false, args)
-            |> makeCall com i.range i.returnType |> Some
-        | Getter name -> getter i.returnType name (instanceArgs i.callee i.args) |> Some
-        | Setter name -> setter i.range name (instanceArgs i.callee i.args) |> Some
-        | Inline exprKind -> Some exprKind
-        | NoMapping -> None
 
     let (|OneArg|_|) (callee: Fabel.Expr option, args: Fabel.Expr list) =
         match callee, args with None, [arg] -> Some arg | _ -> None
@@ -84,17 +68,17 @@ module private AstPass =
     let unaryOp range typ args op =
         checkType args (fun () ->
             let op = Fabel.UnaryOp op |> Fabel.Value
-            Fabel.Apply(op, args, false, typ, range))
+            Fabel.Apply(op, args, Fabel.ApplyMeth, typ, range))
 
     let binaryOp range typ args op =
         checkType args (fun () ->
             let op = Fabel.BinaryOp op |> Fabel.Value
-            Fabel.Apply(op, args, false, typ, range))
+            Fabel.Apply(op, args, Fabel.ApplyMeth, typ, range))
 
     let logicalOp range typ args op =
         checkType args (fun () ->
             let op = Fabel.LogicalOp op |> Fabel.Value
-            Fabel.Apply(op, args, false, typ, range))
+            Fabel.Apply(op, args, Fabel.ApplyMeth, typ, range))
 
     let operators com (info: Fabel.ApplyInfo) =
         // TODO: Check primitive args also here?
@@ -125,6 +109,7 @@ module private AstPass =
         | "^^^" -> binaryOp r typ args BinaryXorBitwise
         | "~~~" -> unaryOp r typ args UnaryNotBitwise
         | "not" -> unaryOp r typ args UnaryNot
+        // Math functions
         | "abs" -> math r typ args "abs"
         | "acos" -> math r typ args "acos"
         | "asin" -> math r typ args "asin"
@@ -142,10 +127,15 @@ module private AstPass =
         | "sin" -> math r typ args "sin"
         | "sqrt" -> math r typ args "sqrt"
         | "tan" -> math r typ args "tan"
-        | "!" -> Fabel.Get(args.Head, makeConst "cell", Fabel.UnknownType) |> Some
+        // Reference
+        | "!" -> makeGet r Fabel.UnknownType args.Head (makeConst "cell") |> Some
         | ":=" -> Fabel.Set(args.Head, Some(makeConst "cell"), args.Tail.Head, r) |> Some
         | "ref" -> Fabel.ObjExpr([("cell", args.Head)], r) |> Some
+        // Conversions
         | "float" | "seq" | "id" -> Some args.Head
+        // Ignore: wrap to keep Unit type (see Fabel2Babel.transformFunction)
+        | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
+        // Ranges
         | ".. .." ->
             CoreLibCall("Seq", Some "rangeStep", false, args)
             |> makeCall com r typ |> Some
@@ -153,29 +143,31 @@ module private AstPass =
             let step = Fabel.NumberConst (U2.Case1 1, Int32) |> Fabel.Value
             CoreLibCall("Seq", Some "rangeStep", false, [args.Head; step; args.Tail.Head])
             |> makeCall com r typ |> Some
-        | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
+        // Exceptions
         // TODO: failwithf
         | "failwith" | "raise" -> Fabel.Throw (args.Head, r) |> Some
         | _ -> None
 
     let intrinsicFunctions com (i: Fabel.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
-        | "GetArray", TwoArgs (ar, idx) -> Fabel.Get (ar, idx, i.returnType) |> Some
-        | "SetArray", ThreeArgs (ar, idx, value) -> Fabel.Set (ar, Some idx, value, i.range) |> Some
+        | "GetArray", TwoArgs (ar, idx) ->
+            makeGet i.range i.returnType ar idx |> Some
+        | "SetArray", ThreeArgs (ar, idx, value) ->
+            Fabel.Set (ar, Some idx, value, i.range) |> Some
         | _ -> None
 
     let maps com (i: Fabel.ApplyInfo) =
         match i.methodName with
-        | "add" -> Instance "set"
-        | "containsKey" -> Instance "has"
-        | "count" -> Getter "size"
-        | "isEmpty" ->
-            let op = Fabel.UnaryOp UnaryNot |> Fabel.Value
-            Fabel.Apply (op, [i.callee.Value], false, i.returnType, i.range)
-            |> Inline
-        | "item" -> Instance "get"
-        | "remove" -> Instance "delete"
-        | "tryFind" -> Instance "get"
+        // | "add" -> Instance "set"
+        // | "containsKey" -> Instance "has"
+        // | "count" -> Getter "size"
+        // | "isEmpty" ->
+        //     let op = Fabel.UnaryOp UnaryNot |> Fabel.Value
+        //     Fabel.Apply (op, [i.callee.Value], false, i.returnType, i.range)
+        //     |> Inline
+        // | "item" -> Instance "get"
+        // | "remove" -> Instance "delete"
+        // | "tryFind" -> Instance "get"
         | "empty" -> failwith "TODO"
         | "exists" -> failwith "TODO"
         | "filter" -> failwith "TODO"
@@ -196,8 +188,8 @@ module private AstPass =
         | "toSeq" -> failwith "TODO"
         | "tryFindKey" -> failwith "TODO"
         | "tryPick" -> failwith "TODO"
-        | _ -> NoMapping
-        |> mapMethod com i
+        | _ -> None
+        
 // TODO: Static methods
 // let add k v (m:Map<_,_>) = m.Add(k,v)
 // let containsKey k (m:Map<_,_>) = m.ContainsKey(k)
@@ -228,11 +220,13 @@ module private AstPass =
     type CollectionKind = Seq | List | Array
 
     let collections com (i: Fabel.ApplyInfo) =
-        let prop meth callee =
-            InstanceCall (callee, meth, true, [])
-            |> makeCall com i.range i.returnType
+        // The core lib expects non-curried lambdas
+        let deleg = List.mapi (fun i x ->
+            if i=0 then (makeDelegate x) else x)
+        let prop (meth: string) callee =
+            makeGet i.range i.returnType callee (makeConst meth)
         let icall meth (callee, args) =
-            InstanceCall (callee, meth, false, args)
+            InstanceCall (callee, meth, args)
             |> makeCall com i.range i.returnType
         let cons modName args =
             CoreLibCall (modName, None, true, args)
@@ -240,6 +234,10 @@ module private AstPass =
         let ccall modName meth args =
             CoreLibCall (modName, Some meth, false, args)
             |> makeCall com i.range i.returnType
+        let toArray expr =
+            List.singleton expr |> ccall "Seq" "toArray"
+        let toList expr =
+            List.singleton expr |> ccall "Seq" "toList"
         let callee c args =
             let c, _ = instanceArgs c args in c
         let kind =
@@ -250,7 +248,7 @@ module private AstPass =
             | _ -> failwithf "Unexpected collection: %s" i.ownerFullName
         let meth, c, args = i.methodName, i.callee, i.args
         match i.methodName with
-        // Seq only
+        // Seq only, erase
         | "cast" -> Some i.args.Head
         // Special cases
         | "isEmpty" ->
@@ -270,7 +268,7 @@ module private AstPass =
         | "head" ->
             match kind with
             | Seq -> ccall "Seq" meth (staticArgs c args)
-            | Array -> getter i.returnType (makeConst 0) (instanceArgs c args) 
+            | Array -> getter i.range i.returnType (makeConst 0) (instanceArgs c args) 
             | List -> prop meth (callee c args)
             |> Some
         | "tail" ->
@@ -293,7 +291,7 @@ module private AstPass =
         | "item" ->
             match kind with
             | Seq -> ccall "Seq" meth args
-            | Array -> getter i.returnType (makeConst args.Head) (args.Tail.Head, [])
+            | Array -> getter i.range i.returnType (makeConst args.Head) (args.Tail.Head, [])
             | List -> match i.callee with Some x -> i.args@[x] | None -> i.args
                       |> ccall "Seq" meth
             |> Some
@@ -303,33 +301,33 @@ module private AstPass =
         | "find" | "findIndex"
         | "fold" | "fold2" | "foldBack" | "foldBack2"
         | "forall" | "forall2"
-        | "iter"
+        | "iter" // TODO iteri, iter2, iteri2
         | "reduce" | "reduceBack" ->
-            ccall "Seq" meth args |> Some
+            ccall "Seq" meth (deleg args) |> Some
         // TODO: Implement optimized versions of these methods    
         | "filter" ->
-            let res = ccall "Seq" meth args
             match kind with
-            | Seq -> res
-            | Array -> ccall "Seq" "toArray" [res]
-            | List -> ccall "Seq" "toList" [res]
+            | Seq -> ccall "Seq" meth args
+            | Array -> ccall "Seq" meth args |> toArray
+            | List -> ccall "Seq" meth args |> toList
             |> Some
         // Methods already implemented for Lists
         | "append" | "collect" | "choose" | "map" | "mapi" | "rev" ->
             match kind with
-            | Seq -> ccall "Seq" meth args
-            | Array -> ccall "Seq" "toArray" [(ccall "Seq" meth args)]
+            | Seq -> ccall "Seq" meth (deleg args)
+            | Array -> ccall "Seq" meth (deleg args) |> toArray
             | List ->
                 // To make them easier to use from JS, they'are attached to
                 // List.prototype so we need to change args' order (but 'append')
                 let args = if meth = "append" then i.args else (List.rev i.args)
-                InstanceCall (args.Head, meth, false, args.Tail)
+                InstanceCall (args.Head, meth, (deleg args.Tail))
                 |> makeCall com i.range i.returnType
             |> Some
         // Methods already implemented *statically* for Lists
         | "init" | "concat" | "replicate" ->
             match kind with
-            | Seq | Array -> ccall "Seq" meth args
+            | Seq -> ccall "Seq" meth args
+            | Array -> ccall "Seq" meth args |> toArray
             | List -> ccall "List" meth args
             |> Some
         | _ -> None
@@ -347,10 +345,19 @@ module private AstPass =
         | ".ctor" -> Some i.args.Head
         | "get_Message" -> i.callee
         | _ -> None
+        
+    let objects com (i: Fabel.ApplyInfo) =
+        match i.methodName with
+        | ".ctor" -> Fabel.ObjExpr ([], i.range) |> Some
+        | "toString" ->
+            InstanceCall (i.callee.Value, i.methodName, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | _ -> failwith "TODO: Object methods"
 
     let mappings =
         dict [
             "System.Math" => operators
+            "System.Object" => objects
             "System.Exception" => exceptions
             fsharp + "Core.Operators" => operators
             fsharp + "Core.LanguagePrimitives.IntrinsicFunctions" => intrinsicFunctions
@@ -402,7 +409,7 @@ let private coreLibPass com (info: Fabel.ApplyInfo) =
     | ContainsKey info.ownerFullName (modName, kind) ->
         match kind, info.callee with
         | CoreLibPass.Both, Some callee -> 
-            InstanceCall (callee, info.methodName, false, info.args)
+            InstanceCall (callee, info.methodName, info.args)
             |> makeCall com info.range info.returnType
         | _ ->
             CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args)

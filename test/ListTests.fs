@@ -136,9 +136,8 @@ let ``List.foldBack works``() =
 
 [<Test>]
 let ``List.foldBack2 works``() =
-      let xs = [1; 2; 3; 4]
-      let ys = [1; 2; 3; 4]
-      List.foldBack2 (fun x y acc -> acc - y * x) xs ys 0
+      ([1; 2; 3; 4], [1; 2; 3; 4], 0)
+      |||> List.foldBack2 (fun x y acc -> acc - y * x)
       |> equal -30
 
 [<Test>]
@@ -149,12 +148,10 @@ let ``List.forall works``() =
 
 [<Test>]
 let ``List.forall2 works``() =
-      let xs = [1; 2; 3; 4]
-      let ys = [1; 2; 3; 4]
-      List.forall2 (=) xs ys
+      ([1; 2; 3; 4], [1; 2; 3; 4])
+      ||> List.forall2 (=)
       |> equal true
 
-(*
 [<Test>]
 let ``List.head works``() =
       [1; 2; 3; 4]
@@ -167,12 +164,12 @@ let ``List.init works``() =
       xs.Head + xs.Tail.Head
       |> equal 1.
 
-
 [<Test>]
 let ``List.isEmpty works``() =
-         let xs = [1]
-         List.isEmpty xs
+      List.isEmpty [1] |> equal false
+      List.isEmpty [] |> equal true
 
+(*
 [<Test>]
 let ``List.iter works``() =
          let xs = [1; 2; 3; 4]

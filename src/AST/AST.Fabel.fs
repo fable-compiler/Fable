@@ -16,7 +16,7 @@ type PrimitiveTypeKind =
     | String
     | Regex
     | Boolean
-    | Function of argCount: int
+    | Function of arity: int
     | Array of ArrayKind
 
 and Type =
@@ -105,6 +105,9 @@ and ApplyInfo = {
         calleeTypeArgs: Type list
         methodTypeArgs: Type list
     }
+    
+and ApplyKind =
+    | ApplyMeth | ApplyGet | ApplyCons
 
 and Ident = { name: string; typ: Type }
 
@@ -124,11 +127,12 @@ and ValueKind =
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
     | Lambda of args: Ident list * body: Expr
+    | Emit of string
     member x.Type =
         match x with
         | Null -> PrimitiveType Unit
         | This typ | Super typ | IdentValue {typ=typ} -> typ
-        | ImportRef _ | TypeRef _ -> UnknownType
+        | ImportRef _ | TypeRef _ | Emit _ -> UnknownType
         | NumberConst (_,kind) -> PrimitiveType (Number kind)
         | StringConst _ -> PrimitiveType String
         | RegexConst _ -> PrimitiveType Regex
@@ -146,11 +150,9 @@ and LoopKind =
 and Expr =
     // Pure Expressions
     | Value of value: ValueKind
-    | Get of callee: Expr * property: Expr * typ: Type
     | ObjExpr of members: (string*Expr) list * range: SourceLocation option
-    | Emit of emit: string * args: Expr list * typ: Type * range: SourceLocation option 
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
-    | Apply of callee: Expr * args: Expr list * isPrimaryConstructor: bool * typ: Type * range: SourceLocation option
+    | Apply of callee: Expr * args: Expr list * kind: ApplyKind * typ: Type * range: SourceLocation option
 
     // Pseudo-Statements
     | Throw of Expr * range: SourceLocation option
@@ -160,7 +162,7 @@ and Expr =
     | Sequential of Expr list * range: SourceLocation option
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
 
-    // This is mostly to hide the type of ignored expressions so they don't trigger
+    // This is mainly to hide the type of ignored expressions so they don't trigger
     // a return in functions, but they'll be erased in compiled code
     | Wrapped of Expr * Type
 
@@ -168,7 +170,7 @@ and Expr =
         match x with
         | Value kind -> kind.Type 
         | ObjExpr _ -> UnknownType
-        | Get (_,_,typ) | Emit (_,_,typ,_) | Wrapped (_,typ) | Apply (_,_,_,typ,_) -> typ
+        | Wrapped (_,typ) | Apply (_,_,_,typ,_) -> typ
         | IfThenElse (_,thenExpr,_,_) -> thenExpr.Type
         | Throw _ | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
         | Sequential (exprs,_) ->
@@ -182,10 +184,9 @@ and Expr =
             
     member x.Range: SourceLocation option =
         match x with
-        | Value _ | Get _ -> None
+        | Value _ -> None
         | VarDeclaration (_,e,_) | Wrapped (e,_) -> e.Range
-        | ObjExpr (_,range)
-        | Emit (_,_,_,range) 
+        | ObjExpr (_,range) 
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
         | Throw (_,range)
@@ -226,14 +227,12 @@ module Util =
     open Fabel
     
     type CallKind =
-        | InstanceCall of callee: Expr * meth: string * isProp: bool * args: Expr list
+        | InstanceCall of callee: Expr * meth: string * args: Expr list
         | ImportCall of importRef: string * modName: string option * meth: string option * isCons: bool * args: Expr list
         | CoreLibCall of modName: string * meth: string option * isCons: bool * args: Expr list
         | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
     let makeLoop range loopKind = Loop (loopKind, range)
-    let makeFnType args = List.length args |> Function |> PrimitiveType
-
     let makeTypeRef typ = Value (TypeRef typ)
     let makeCoreRef com modname = Value (ImportRef (Naming.getCoreLibPath com, Some modname))
 
@@ -242,7 +241,7 @@ module Util =
 
     let makeBinOp, makeUnOp, makeLogOp, makeEqOp =
         let makeOp range typ args op =
-            Apply (Value op, args, false, typ, range)
+            Apply (Value op, args, ApplyMeth, typ, range)
         (fun range typ args op -> makeOp range typ args (BinaryOp op)),
         (fun range typ args op -> makeOp range typ args (UnaryOp op)),
         (fun range args op -> makeOp range (PrimitiveType Boolean) args (LogicalOp op)),
@@ -255,16 +254,14 @@ module Util =
         | [] -> Value Null
         | [expr] -> expr
         | first::rest ->
-            match first with
-            | Value (Null)
+            match first, rest with
+            | Value Null, _ -> makeSequential range rest
+            | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
             // Calls to System.Object..ctor in class constructors
             // TODO: Remove also calls to System.Exception..ctor in constructors?
-            | ObjExpr ([],_) -> makeSequential range rest
-            | Sequential (firstStatements, _) -> makeSequential range (firstStatements @ rest)
-            | _ ->
-                match rest with
-                | [Sequential (statements, _)] -> makeSequential range (first::statements)
-                | _ -> Sequential (statements, range)
+            // TODO: Move these optimizations to Fabel2Babel layer? (remove also Null as last expr)
+            | ObjExpr ([],_), _ -> makeSequential range rest
+            | _ -> Sequential (statements, range)
                 
     let makeConst (value: obj) =
         match value with
@@ -288,32 +285,38 @@ module Util =
         | _ -> failwithf "Unexpected literal %O" value
         |> Value
         
+    let makeGet range typ callee propExpr =
+        Apply (callee, [propExpr], ApplyGet, typ, range)
+        
     let makeCall com range typ kind =
         let getCallee meth args owner =
             match meth with
-            | Some meth -> Get (owner, makeConst meth, makeFnType args)
             | None -> owner
-        let apply isCons args callee =
-            Apply(callee, args, isCons, typ, range)
+            | Some meth ->
+                let fnTyp = PrimitiveType (List.length args |> Function)
+                Apply (owner, [makeConst meth], ApplyGet, fnTyp, None)
+        let apply kind args callee =
+            Apply(callee, args, kind, typ, range)
+        let getKind isCons =
+            if isCons then ApplyCons else ApplyMeth
         match kind with
-        | InstanceCall (callee, meth, true, _) ->
-            Get (callee, makeConst meth, typ)
-        | InstanceCall (callee, meth, false, args) ->
-            Get (callee, makeConst meth, makeFnType args)
-            |> apply false args
+        | InstanceCall (callee, meth, args) ->
+            let fnTyp = PrimitiveType (List.length args |> Function)
+            Apply (callee, [makeConst meth], ApplyGet, fnTyp, None)
+            |> apply ApplyMeth args
         | ImportCall (importRef, modOption, meth, isCons, args) ->
             Value (ImportRef (importRef, modOption))
             |> getCallee meth args
-            |> apply isCons args
+            |> apply (getKind isCons) args
         | CoreLibCall (modName, meth, isCons, args) ->
             makeCoreRef com modName
             |> getCallee meth args
-            |> apply isCons args
+            |> apply (getKind isCons) args
         | GlobalCall (modName, meth, isCons, args) ->
             makeIdentExpr modName
             |> getCallee meth args
-            |> apply isCons args
-        
+            |> apply (getKind isCons) args
+            
     let makeTypeTest com range (typ: Type) expr =
         let stringType, boolType =
             PrimitiveType String, PrimitiveType Boolean
@@ -338,3 +341,44 @@ module Util =
             | _ ->
                 makeBinOp range boolType [expr; makeTypeRef typ] BinaryInstanceOf 
         | _ -> failwithf "Unsupported type test in %A: %A" range typ
+
+    let makeUnionCons range =
+        let args: Ident list = [makeIdent "t"; makeIdent "d"]
+        let emit = Emit "this.tag=t;this.data=d;" |> Value
+        let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
+        Member(Constructor, range, args, body, [], true, false)
+        |> MemberDeclaration
+        
+    let makeDelegate (expr: Expr) =
+        let rec flattenLambda accArgs = function
+            | Value (Lambda (args, body)) ->
+                flattenLambda (accArgs@args) body
+            | _ as body ->
+                Value (Lambda (accArgs, body))
+        match expr, expr.Type with
+        | Value (Lambda (args, body)), _ ->
+            flattenLambda args body
+        | _, PrimitiveType (Function arity) ->
+            let lambdaArgs =
+                [1..arity] |> List.map (fun i -> {name=sprintf "$arg%i" i; typ=UnknownType}) 
+            let lambdaBody = 
+                (expr, lambdaArgs)
+                ||> List.fold (fun callee arg ->
+                    Apply (callee, [Value (IdentValue arg)], ApplyMeth, UnknownType, expr.Range))
+            Lambda (lambdaArgs, lambdaBody) |> Value
+        | _ ->
+            expr // Do nothing
+            
+    let makeApply range typ callee exprs =
+        let lasti = (List.length exprs) - 1
+        ((0, callee), exprs)
+        ||> List.fold (fun (i, callee) expr ->
+            let typ = if i = lasti then typ else PrimitiveType (Function <|i+1)
+            let callee =
+                match callee with
+                | Sequential _ ->
+                    // Surround with a lambda
+                    Apply (Lambda ([], callee) |> Value, [], ApplyMeth, typ, range)
+                | _ -> callee
+            i, Apply (callee, [expr], ApplyMeth, typ, range))
+        |> snd
