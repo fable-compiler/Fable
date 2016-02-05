@@ -121,8 +121,8 @@ and ValueKind =
     | NumberConst of U2<int,float> * NumberKind
     | StringConst of string
     | BoolConst of bool
-    | RegexConst of source:string * flags: RegexFlag list
-    | ArrayConst of Expr list * ArrayKind
+    | RegexConst of source: string * flags: RegexFlag list
+    | ArrayConst of args: U2<Expr list, int> * kind: ArrayKind
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator

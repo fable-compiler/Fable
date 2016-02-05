@@ -118,23 +118,13 @@ module private AstPass =
         | "not" -> unaryOp r typ args UnaryNot
         | "~-" -> unaryOp r typ args UnaryMinus
         // Math functions
-        | "abs" -> math r typ args "abs"
-        | "acos" -> math r typ args "acos"
-        | "asin" -> math r typ args "asin"
-        | "atan" -> math r typ args "atan"
-        | "atan2" -> math r typ args "atan2"
-        | "ceil" | "ceiling" -> math r typ args "ceil"
-        | "cos" -> math r typ args "cos"
-        | "exp" -> math r typ args "exp"
-        | "floor" -> math r typ args "floor"
-        | "log" -> math r typ args "log"
-        | "log10" -> math r typ args "log10"
         // TODO: optimize square pow: x * x
         | "pow" | "pown" | "**" -> math r typ args "pow"
-        | "round" -> math r typ args "round"
-        | "sin" -> math r typ args "sin"
-        | "sqrt" -> math r typ args "sqrt"
-        | "tan" -> math r typ args "tan"
+        | "ceil" | "ceiling" -> math r typ args "ceil"
+        | "abs" | "acos" | "asin" | "atan" | "atan2" 
+        | "cos"  | "exp" | "floor" | "log" | "log10"
+        | "round" | "sin" | "sqrt" | "tan" ->
+            math r typ args info.methodName
         | "compare" ->
             let emit = Fabel.Emit("$0 < $1 ? -1 : ($0 == $1 ? 0 : 1)") |> Fabel.Value
             Fabel.Apply(emit, args, Fabel.ApplyMeth, typ, r) |> Some
@@ -289,9 +279,13 @@ module private AstPass =
             |> makeCall com i.range i.returnType
         let toList expr =
             List.singleton expr |> ccall "Seq" "toList"
-        let toArray source expr =
+        let toArray expr =
+            let dynamicArray = ccall "Seq" "toArray" [expr]
+            match i.returnType with
+            | Fabel.PrimitiveType(Fabel.Array(Fabel.TypedArray _ as kind)) ->
+                Fabel.ArrayConst(U2.Case1 [dynamicArray], kind) |> Fabel.Value
+            | _ -> dynamicArray
             // TODO: Build preallocated array
-            ccall "Seq" "toArray" [expr]
         let kind =
             match i.ownerFullName with
             | EndsWith "Seq" _ -> Seq
@@ -320,18 +314,6 @@ module private AstPass =
                 elif meth = "tail" then icall "slice" (i.args.Head, [makeConst 1])
                 else prop "length" c
             |> Some
-        // Constructors ('cons' only applies to List)
-        | "empty" | "cons" ->
-            match kind with
-            | Seq -> ccall "Seq" meth args
-            | Array ->
-                match i.returnType with
-                | Fabel.PrimitiveType (Fabel.Array kind) ->
-                    Fabel.ArrayConst ([], kind) |> Fabel.Value
-                | _ -> failwithf "Expecting array type but got %A" i.returnType
-            | List -> CoreLibCall ("List", None, true, args)
-                      |> makeCall com i.range i.returnType
-            |> Some
         | "item" ->
             match kind with
             | Seq -> ccall "Seq" meth args
@@ -339,6 +321,24 @@ module private AstPass =
             | List -> match i.callee with Some x -> i.args@[x] | None -> i.args
                       |> ccall "Seq" meth
             |> Some
+        // Constructors ('cons' only applies to List)
+        | "empty" | "cons" ->
+            match kind with
+            | Seq -> ccall "Seq" meth args
+            | Array ->
+                match i.returnType with
+                | Fabel.PrimitiveType (Fabel.Array kind) ->
+                    Fabel.ArrayConst (U2.Case1 [], kind) |> Fabel.Value
+                | _ -> failwithf "Expecting array type but got %A" i.returnType
+            | List -> CoreLibCall ("List", None, true, args)
+                      |> makeCall com i.range i.returnType
+            |> Some
+        | "zeroCreate" ->
+            match i.args with
+            | [Fabel.Value(Fabel.NumberConst(U2.Case1 i, kind))] ->
+                Fabel.ArrayConst(U2.Case2 i, Fabel.TypedArray kind) |> Fabel.Value |> Some
+            | _ -> failwithf "Unexpected arguments for Array.zeroCreate: %A" i.args
+        // Conversions
         | "toSeq" | "ofSeq" ->
             let meth =
                 match kind with
@@ -346,13 +346,14 @@ module private AstPass =
                 | List -> if meth = "toSeq" then "ofList" else "toList"
                 | Array -> if meth = "toSeq" then "ofArray" else "toArray"
             ccall "Seq" meth args |> Some
+        // Default to Seq implementation in core lib
         | SetContains implementedSeqNonBuildFunctions meth ->
             ccall "Seq" meth (deleg args) |> Some
         | SetContains implementedSeqBuildFunctions meth ->
             match kind with
             | Seq -> ccall "Seq" meth (deleg args)
             | List -> ccall "Seq" meth (deleg args) |> toList
-            | Array -> ccall "Seq" meth (deleg args) |> toArray (List.last args)
+            | Array -> ccall "Seq" meth (deleg args) |> toArray
             |> Some
         | _ -> None
 

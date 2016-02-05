@@ -125,6 +125,36 @@ let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
             | None ->
                 makeExpr (getDiff ctx.moduleFullName fullName) None
 
+let private buildArray (com: IBabelCompiler) ctx (args: U2<Fabel.Expr list, int>) kind =
+    match kind with
+    | Fabel.TypedArray kind ->
+        let cons =
+            match kind with
+            | Int8 -> "Int8Array" 
+            | UInt8 -> "Uint8Array" 
+            | UInt8Clamped -> "Uint8ClampedArray" 
+            | Int16 -> "Int16Array" 
+            | UInt16 -> "Uint16Array" 
+            | Int32 -> "Int32Array" 
+            | UInt32 -> "Uint32Array" 
+            | Float32 -> "Float32Array"
+            | Float64 -> "Float64Array"
+            |> Babel.Identifier
+        let args =
+            match args with
+            | U2.Case1 args -> List.map (com.TransformExpr ctx >> U2.Case1) args
+            | U2.Case2 length -> Babel.NumericLiteral(U2.Case1 length) :> Babel.Expression
+                                    |> U2.Case1 |> List.singleton
+        Babel.NewExpression(cons, args) :> Babel.Expression
+    | Fabel.DynamicArray | Fabel.Tuple ->
+        match args with
+        | U2.Case1 args ->
+            List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
+            |> Babel.ArrayExpression :> Babel.Expression
+        | U2.Case2 length ->
+            let length = Babel.NumericLiteral(U2.Case1 length) :> Babel.Expression
+            upcast Babel.NewExpression(Babel.Identifier "Array", [length |> U2.Case1])
+
 let private assign range left right =
     Babel.AssignmentExpression(AssignEqual, left, right, ?loc=range)
     :> Babel.Expression
@@ -273,11 +303,7 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
         | Fabel.BoolConst x -> upcast Babel.BooleanLiteral (x)
         | Fabel.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
         | Fabel.Lambda (args, body) -> funcArrow com ctx args body
-        | Fabel.ArrayConst (items, kind) ->
-            // TODO: Typed arrays
-            let items = items |> List.map (fun x ->
-                com.TransformExpr ctx x |> U2<_,Babel.SpreadElement>.Case1 |> Some)
-            upcast Babel.ArrayExpression(items)
+        | Fabel.ArrayConst (args, kind) -> buildArray com ctx args kind
         | Fabel.TypeRef typ ->
             match typ with
             | Fabel.DeclaredType typEnt ->

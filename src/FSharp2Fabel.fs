@@ -196,11 +196,11 @@ let rec private transformExpr com ctx fsExpr =
             | Fabel.PrimitiveType (Fabel.Number numberKind) ->
                 Fabel.TypedArray numberKind
             | _ -> Fabel.DynamicArray
-        (argExprs |> List.map (transformExpr com ctx), arrayKind)
+        (argExprs |> List.map (transformExpr com ctx) |> U2.Case1, arrayKind)
         |> Fabel.ArrayConst |> Fabel.Value
 
     | BasicPatterns.NewTuple(_, argExprs) ->
-        (argExprs |> List.map (transformExpr com ctx), Fabel.Tuple)
+        (argExprs |> List.map (transformExpr com ctx) |> U2.Case1, Fabel.Tuple)
         |> Fabel.ArrayConst |> Fabel.Value
 
     | BasicPatterns.ObjectExpr(_objType, _baseCallExpr, _overrides, interfaceImplementations) ->
@@ -226,7 +226,7 @@ let rec private transformExpr com ctx fsExpr =
         | ListUnion ->
             let buildArgs args =
                 let args = args |> List.rev |> (List.map (transformExpr com ctx))
-                Fabel.Value (Fabel.ArrayConst (args, Fabel.DynamicArray))
+                Fabel.Value (Fabel.ArrayConst (U2.Case1 args, Fabel.DynamicArray))
             let rec ofArray accArgs = function
                 | [] ->
                     CoreLibCall("List", Some "ofArray", false, [buildArgs accArgs])
@@ -248,7 +248,7 @@ let rec private transformExpr com ctx fsExpr =
                 | [] -> [tag]
                 | [arg] -> [tag;arg]
                 // If there's more than one data field, make a tuple
-                | args -> [tag; Fabel.ArrayConst(args, Fabel.Tuple) |> Fabel.Value]
+                | args -> [tag; Fabel.ArrayConst(U2.Case1 args, Fabel.Tuple) |> Fabel.Value]
             Fabel.Apply (makeTypeRef unionType, argExprs, Fabel.ApplyCons,
                     makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
