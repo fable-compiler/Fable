@@ -142,9 +142,12 @@ let private buildArray (com: IBabelCompiler) ctx (args: U2<Fabel.Expr list, int>
             |> Babel.Identifier
         let args =
             match args with
-            | U2.Case1 args -> List.map (com.TransformExpr ctx >> U2.Case1) args
-            | U2.Case2 length -> Babel.NumericLiteral(U2.Case1 length) :> Babel.Expression
-                                    |> U2.Case1 |> List.singleton
+            | U2.Case1 args ->
+                List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
+                |> Babel.ArrayExpression :> Babel.Expression |> U2.Case1 |> List.singleton
+            | U2.Case2 length ->
+                Babel.NumericLiteral(U2.Case1 length) :> Babel.Expression
+                |> U2.Case1 |> List.singleton
         Babel.NewExpression(cons, args) :> Babel.Expression
     | Fabel.DynamicArray | Fabel.Tuple ->
         match args with

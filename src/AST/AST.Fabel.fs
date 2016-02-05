@@ -240,15 +240,16 @@ module Util =
     let makeIdent name: Ident = {name=name; typ=UnknownType}
     let makeIdentExpr name = makeIdent name |> IdentValue |> Value 
 
-    let makeBinOp, makeUnOp, makeLogOp, makeEqOp =
+    let makeBinOp, makeUnOp, makeLogOp, makeEqOp, makeNoStrictEqOp, makeNeqOp, makeNoStrictNeqOp =
         let makeOp range typ args op =
             Apply (Value op, args, ApplyMeth, typ, range)
         (fun range typ args op -> makeOp range typ args (BinaryOp op)),
         (fun range typ args op -> makeOp range typ args (UnaryOp op)),
         (fun range args op -> makeOp range (PrimitiveType Boolean) args (LogicalOp op)),
-        (fun range args strict ->
-            (if strict then BinaryEqualStrict else BinaryEqual) |> BinaryOp
-            |> makeOp range (PrimitiveType Boolean) args)
+        (fun range args -> makeOp range (PrimitiveType Boolean) args (BinaryOp BinaryEqualStrict)),
+        (fun range args -> makeOp range (PrimitiveType Boolean) args (BinaryOp BinaryEqual)),
+        (fun range args -> makeOp range (PrimitiveType Boolean) args (BinaryOp BinaryUnequalStrict)),
+        (fun range args -> makeOp range (PrimitiveType Boolean) args (BinaryOp BinaryUnequal))
 
     let rec makeSequential range statements =
         match statements with

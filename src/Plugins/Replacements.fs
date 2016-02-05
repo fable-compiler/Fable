@@ -163,74 +163,105 @@ module private AstPass =
         match i.methodName with
         | "value" | "get" | "toObj" | "ofObj" | "toNullable" | "ofNullable" ->
            Some callee
-        | "isSome" | "isNone" ->
-            let op =
-                if i.methodName = "isSome" then BinaryUnequal else BinaryEqual
-                |> Fabel.BinaryOp |> Fabel.Value
-            Fabel.Apply(op, [callee; Fabel.Value Fabel.Null], Fabel.ApplyMeth, i.returnType, i.range)
-            |> Some
-        | _ -> None
-
-    let maps com (i: Fabel.ApplyInfo) =
-        match i.methodName with
-        // | "add" -> Instance "set"
-        // | "containsKey" -> Instance "has"
-        // | "count" -> Getter "size"
-        // | "isEmpty" ->
-        //     let op = Fabel.UnaryOp UnaryNot |> Fabel.Value
-        //     Fabel.Apply (op, [i.callee.Value], false, i.returnType, i.range)
-        //     |> Inline
-        // | "item" -> Instance "get"
-        // | "remove" -> Instance "delete"
-        // | "tryFind" -> Instance "get"
-        | "empty" -> failwith "TODO"
-        | "exists" -> failwith "TODO"
-        | "filter" -> failwith "TODO"
-        | "find" -> failwith "TODO"
-        | "findKey" -> failwith "TODO"
-        | "fold" -> failwith "TODO"
-        | "foldBack" -> failwith "TODO"
-        | "forall" -> failwith "TODO"
-        | "iter" -> failwith "TODO"
-        | "map" -> failwith "TODO"
-        | "ofArray" -> failwith "TODO"
-        | "ofList" -> failwith "TODO"
-        | "ofSeq" -> failwith "TODO"
-        | "partitition" -> failwith "TODO"
-        | "pick" -> failwith "TODO"
-        | "toArray" -> failwith "TODO"
-        | "toList" -> failwith "TODO"
-        | "toSeq" -> failwith "TODO"
-        | "tryFindKey" -> failwith "TODO"
-        | "tryPick" -> failwith "TODO"
+        | "isSome" -> makeNoStrictNeqOp i.range [callee; Fabel.Value Fabel.Null] |> Some
+        | "isNone" -> makeNoStrictEqOp i.range [callee; Fabel.Value Fabel.Null] |> Some
         | _ -> None
         
-// TODO: Static methods
-// let add k v (m:Map<_,_>) = m.Add(k,v)
-// let containsKey k (m:Map<_,_>) = m.ContainsKey(k)
-// let empty<'Key,'Value  when 'Key : comparison> = Map<'Key,'Value>.Empty
-// let exists f (m:Map<_,_>) = m.Exists(f)
-// let filter f (m:Map<_,_>) = m.Filter(f)
-// let find k (m:Map<_,_>) = m.[k]
-// let findKey f (m : Map<_,_>) = m |> toSeq |> Seq.pick (fun (k,v) -> if f k v then Some(k) else None)
-// let fold<'Key,'T,'State when 'Key : comparison> f (z:'State) (m:Map<'Key,'T>) =
-// let foldBack<'Key,'T,'State  when 'Key : comparison> f (m:Map<'Key,'T>) (z:'State) =
-// let forall f (m:Map<_,_>) = m.ForAll(f)
-// let isEmpty (m:Map<_,_>) = m.IsEmpty
-// let iter f (m:Map<_,_>) = m.Iterate(f)
-// let map f (m:Map<_,_>) = m.Map(f)
-// let ofArray (array: ('Key * 'Value) array) =
-// let ofList (l: ('Key * 'Value) list) = Map<_,_>.ofList(l)
-// let ofSeq l = Map<_,_>.Create(l)
-// let partition f (m:Map<_,_>) = m.Partition(f)
-// let pick f (m:Map<_,_>) = match tryPick f m with None -> failwith "key not found" | Some res -> res
-// let remove k (m:Map<_,_>) = m.Remove(k)
-// let toArray (m:Map<_,_>) = m.ToArray()
-// let toList (m:Map<_,_>) = m.ToList()
-// let toSeq (m:Map<_,_>) = m |> Seq.map (fun kvp -> kvp.Key, kvp.Value)
-// let tryFind k (m:Map<_,_>) = m.TryFind(k)
-// let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
-// let tryPick f (m:Map<_,_>) = m.TryPick(f)
+    let toList com (i: Fabel.ApplyInfo) expr =
+        CoreLibCall ("Seq", Some "toList", false, [expr])
+        |> makeCall com i.range i.returnType
+
+    let toArray com (i: Fabel.ApplyInfo) expr =
+        let dynamicArray =
+            CoreLibCall ("Seq", Some "toArray", false, [expr])
+            |> makeCall com i.range i.returnType
+        match i.returnType with
+        | Fabel.PrimitiveType(Fabel.Array(Fabel.TypedArray _ as kind)) ->
+            Fabel.ArrayConst(U2.Case1 [dynamicArray], kind) |> Fabel.Value
+        | _ -> dynamicArray
+
+    let mapAndSets com (i: Fabel.ApplyInfo) =
+        let instanceArgs () =
+            match i.callee with
+            | Some c -> c, i.args
+            | None -> List.last i.args, List.take (i.args.Length-1) i.args
+        let prop (prop: string) callee =
+            makeGet i.range i.returnType callee (makeConst prop)
+        let icall meth =
+            let callee, args = instanceArgs()
+            InstanceCall (callee, meth, args)
+            |> makeCall com i.range i.returnType
+        let icallAndReturn meth =
+            let callee, args = instanceArgs()
+            let icall =
+                InstanceCall (callee, meth, args)
+                |> makeCall com i.range i.returnType
+            makeSequential i.range [icall; callee]
+        let modName =
+            if i.ownerFullName.EndsWith("Map")
+            then "Map" else "Set"
+        let _of colType expr =
+            CoreLibCall(modName, Some ("of" + colType), false, [expr])
+            |> makeCall com i.range i.returnType
+        match i.methodName with
+        // Instance and static shared methods
+        | "add" -> icall "set" |> Some
+        | "contains" | "containsKey" -> icall "has" |> Some
+        | "remove" -> icallAndReturn "delete" |> Some
+        | "count" -> prop "size" i.callee.Value |> Some
+        | "isEmpty" ->
+            let callee = match i.callee with Some c -> c | None -> i.args.Head
+            makeEqOp i.range [prop "size" callee; makeConst 0] |> Some
+        // Map only instance and static methods
+        | "tryFind" | "find" -> icall "get" |> Some
+        | "item" -> icall "get" |> Some
+        // Set only instance and static methods
+        // | "isProperSubsetOf" -> failwith "TODO"
+        // | "isProperSupersetOf" -> failwith "TODO"
+        // | "isSubsetOf" -> failwith "TODO"
+        // | "isSupersetOf" -> failwith "TODO"
+        // | "maximumElement" | "maxElement" -> failwith "TODO"
+        // | "minimumElement" | "minElement" -> failwith "TODO"
+        // Set only static methods
+        // | "+" | "-" -> failwith "TODO"        
+        // Constructors
+        | "empty" ->
+            GlobalCall(modName, None, true, [])
+            |> makeCall com i.range i.returnType |> Some
+        | ".cons" ->
+            CoreLibCall(modName, Some "ofSeq", false, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        // Conversions
+        | "toArray" -> toArray com i i.args.Head |> Some
+        | "toList" -> toList com i i.args.Head |> Some
+        | "toSeq" -> Some i.args.Head
+        | "ofArray" -> _of "Array" i.args.Head |> Some
+        | "ofList" | "ofSeq" -> _of "Seq" i.args.Head |> Some
+        // Non-build static methods shared with Seq
+        | "exists" | "fold" | "foldBack" | "forall" | "iter" ->
+            CoreLibCall("Seq", Some i.methodName, false, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        // Build static methods shared with Seq
+        | "filter" | "map" ->
+            CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
+            |> makeCall com i.range i.returnType
+            |> _of "Seq" |> Some
+        // Static method
+        | "partitition" ->
+            CoreLibCall(modName, Some i.methodName, false, deleg i.args)
+            |> makeCall com i.range i.returnType |> Some
+        // Map only static methods (make delegate)
+        | "findKey" | "tryFindKey" | "pick" | "tryPick" ->
+            CoreLibCall("Map", Some i.methodName, false, deleg i.args)
+            |> makeCall com i.range i.returnType |> Some
+        // Set only static methods
+        // | "singleton" -> failwith "TODO"
+        // | "difference" -> failwith "TODO"
+        // | "intersect" -> failwith "TODO"
+        // | "intersectMany" -> failwith "TODO"
+        // | "union" -> failwith "TODO"
+        // | "unionMany" -> failwith "TODO"
+        | _ -> None
 
     type CollectionKind = Seq | List | Array
     
@@ -277,15 +308,6 @@ module private AstPass =
         let ccall modName meth args =
             CoreLibCall (modName, Some meth, false, args)
             |> makeCall com i.range i.returnType
-        let toList expr =
-            List.singleton expr |> ccall "Seq" "toList"
-        let toArray expr =
-            let dynamicArray = ccall "Seq" "toArray" [expr]
-            match i.returnType with
-            | Fabel.PrimitiveType(Fabel.Array(Fabel.TypedArray _ as kind)) ->
-                Fabel.ArrayConst(U2.Case1 [dynamicArray], kind) |> Fabel.Value
-            | _ -> dynamicArray
-            // TODO: Build preallocated array
         let kind =
             match i.ownerFullName with
             | EndsWith "Seq" _ -> Seq
@@ -300,9 +322,9 @@ module private AstPass =
         | "isEmpty" ->
             match kind with
             | Seq -> ccall "Seq" meth args
-            | Array -> makeEqOp i.range [prop "length" args.Head; makeConst 0] true
+            | Array -> makeEqOp i.range [prop "length" args.Head; makeConst 0]
             | List -> let c, _ = instanceArgs c args
-                      makeEqOp i.range [prop "tail" c; Fabel.Value Fabel.Null] false
+                      makeNoStrictEqOp i.range [prop "tail" c; Fabel.Value Fabel.Null]
             |> Some
         | "head" | "tail" | "length" ->
             match kind with
@@ -352,8 +374,8 @@ module private AstPass =
         | SetContains implementedSeqBuildFunctions meth ->
             match kind with
             | Seq -> ccall "Seq" meth (deleg args)
-            | List -> ccall "Seq" meth (deleg args) |> toList
-            | Array -> ccall "Seq" meth (deleg args) |> toArray
+            | List -> ccall "Seq" meth (deleg args) |> toList com i
+            | Array -> ccall "Seq" meth (deleg args) |> toArray com i
             |> Some
         | _ -> None
 
@@ -413,8 +435,8 @@ module private AstPass =
             "IntrinsicFunctions" => intrinsicFunctions
             fsharp + "Core.Operators" => operators
             fsharp + "Core.Option" => options
-            // fsharp + "Collections.Set" => fsharpSet
-            fsharp + "Collections.Map" => maps
+            fsharp + "Collections.Map" => mapAndSets
+            fsharp + "Collections.Set" => mapAndSets
             fsharp + "Collections.Array" => collectionsFirstPass
             fsharp + "Collections.List" => collectionsFirstPass
             fsharp + "Collections.Seq" => collectionsSecondPass
