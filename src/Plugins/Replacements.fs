@@ -116,6 +116,7 @@ module private AstPass =
         | "^^^" -> binaryOp r typ args BinaryXorBitwise
         | "~~~" -> unaryOp r typ args UnaryNotBitwise
         | "not" -> unaryOp r typ args UnaryNot
+        | "~-" -> unaryOp r typ args UnaryMinus
         // Math functions
         | "abs" -> math r typ args "abs"
         | "acos" -> math r typ args "acos"
@@ -142,7 +143,7 @@ module private AstPass =
         | ":=" -> Fabel.Set(args.Head, Some(makeConst "cell"), args.Tail.Head, r) |> Some
         | "ref" -> Fabel.ObjExpr([("cell", args.Head)], r) |> Some
         // Conversions
-        | "float" | "seq" | "id" -> Some args.Head
+        | "float" | "seq" | "id" | "int" -> Some args.Head
         // Ignore: wrap to keep Unit type (see Fabel2Babel.transformFunction)
         | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
         // Ranges
@@ -339,7 +340,14 @@ module private AstPass =
         | "getSlice" ->
             match kind with
             | Seq | Array -> failwithf "GetSlice called in non-list in: %A" i.range
-            | List -> icall "getSlice" (i.callee.Value, i.args) |> Some 
+            | List -> icall "getSlice" (i.callee.Value, i.args) |> Some
+        | "toSeq" | "ofSeq" ->
+            let meth =
+                match kind with
+                | Seq -> failwithf "Unexpected method called on seq %s in %A" meth i.range
+                | List -> if meth = "toSeq" then "ofList" else "toList"
+                | Array -> if meth = "toSeq" then "ofArray" else "toArray"
+            ccall "Seq" meth args |> Some
         | SetContains implementedSeqNonBuildFunctions meth ->
             ccall "Seq" meth (deleg args) |> Some
         | SetContains implementedSeqBuildFunctions meth ->

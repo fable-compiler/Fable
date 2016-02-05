@@ -27,6 +27,13 @@ let ``List.Tail works``() =
 let ``List.Item works``() =
       let xs = [1; 2; 3; 4]
       equal 4 xs.[3]
+
+[<Test>]
+let ``List slice works``() =
+      let xs = [1; 2; 3; 4]
+      xs.[..2] |> List.sum |> equal 6
+      xs.[2..] |> List.sum |> equal 7
+      xs.[1..2] |> List.sum |> equal 5
       
 [<Test>]
 let ``List cons works``() =
@@ -246,42 +253,168 @@ let ``List.mapi2 works``() =
       let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
       List.sum zs |> equal 16
 
-(*
 [<Test>]
 let ``List.max works``() =
-         let xs = [1; 2]
-         xs |> List.max
+      let xs = [1; 2]
+      xs |> List.max
+      |> equal 2
 
 [<Test>]
 let ``List.maxBy works``() =
-         let xs = [1; 2]
-         xs |> List.maxBy (fun x -> -x)
+      let xs = [1; 2]
+      xs |> List.maxBy (fun x -> -x)
+      |> equal 1
 
 [<Test>]
 let ``List.min works``() =
-         let xs = [1; 2]
-         xs |> List.min
+      let xs = [1; 2]
+      xs |> List.min
+      |> equal 1
 
 [<Test>]
 let ``List.minBy works``() =
-         let xs = [1; 2]
-         xs |> List.minBy (fun x -> -x)
+      let xs = [1; 2]
+      xs |> List.minBy (fun x -> -x)
+      |> equal 2
 
 [<Test>]
 let ``List.item works``() =
-         [1; 2] |> List.item 1 |> equal 2
-
-[<Test>]
-let ``List.ofArray works``() =
-         let xs = [|1; 2|]
-         let ys = List.ofArray xs
-         ys.Head
+      [1; 2] |> List.item 1 |> equal 2
 
 [<Test>]
 let ``List.ofSeq works``() =
-         let xs = [|1; 2|] :> _ seq
-         let ys = List.ofSeq xs
-         ys.Head
+      // let xs = [|1; 2|] :> _ seq
+      let ys = List.ofSeq <| seq { yield 1; yield 2 }
+      ys.Head |> equal 1
+
+[<Test>]
+let ``List.pick works``() =
+      let xs = [1; 2]
+      xs |> List.pick (fun x ->
+            match x with
+            | 2 -> Some x
+            | _ -> None)
+      |> equal 2 
+
+[<Test>]
+let ``List.reduce works``() =
+      let xs = [1; 2]
+      xs |> List.reduce (+)
+      |> equal 3
+
+[<Test>]
+let ``List.reduceBack works``() =
+      let xs = [1; 2]
+      xs |> List.reduceBack (+)
+      |> equal 3 
+
+[<Test>]
+let ``List.replicate works``() =
+      List.replicate 3 3
+      |> List.sum |> equal 9
+
+[<Test>]
+let ``List.rev works``() =
+      let xs = [1; 2]
+      let ys = xs |> List.rev
+      equal 2 ys.Head
+
+[<Test>]
+let ``List.scan works``() =
+      let xs = [1; 2; 3; 4]
+      let ys = xs |> List.scan (+) 0
+      ys.[3] + ys.[4]
+      |> equal 16
+
+[<Test>]
+let ``List.sort works``() =
+      let xs = [3; 4; 1; 2]
+      let ys = xs |> List.sort
+      ys.Head + ys.Tail.Head
+      |> equal 3
+
+[<Test>]
+let ``List.sortBy works``() =
+      let xs = [3; 1; 4; 2]
+      let ys = xs |> List.sortBy (fun x -> -x)
+      ys.Head + ys.Tail.Head
+      |> equal 7
+
+[<Test>]
+let ``List.sortWith works``() =
+      let xs = [3; 4; 1; 2]
+      let ys = xs |> List.sortWith (fun x y -> int(x - y))
+      ys.Head + ys.Tail.Head
+      |> equal 3
+
+[<Test>]
+let ``List.sum works``() =
+      [1; 2] |> List.sum
+      |> equal 3
+
+[<Test>]
+let ``List.sumBy works``() =
+      [1; 2] |> List.sumBy (fun x -> x*2)
+      |> equal 6
+
+[<Test>]
+let ``List.tail works``() =
+      let xs = [1; 2]
+      let ys = xs |> List.tail
+      equal 1 ys.Length
+
+[<Test>]
+let ``List.toSeq works``() =
+      [1; 2]
+      |> List.toSeq
+      |> Seq.tail |> Seq.head
+      |> equal 2
+      
+[<Test>]
+let ``List.tryPick works``() =
+      [1; 2]
+      |> List.tryPick (function
+            | 2 -> Some 2
+            | _ -> None)
+      |> function
+      | Some x -> x
+      | None -> 0
+      |> equal 2
+
+[<Test>]
+let ``List.tryFind works``() =
+      [1; 2]
+      |> List.tryFind ((=) 5)
+      |> equal None
+
+(*
+[<Test>]
+let ``List.tryFindIndex works``() =
+      let xs = [1; 2]
+      let ys = xs |> List.tryFindIndex ((=) 2)
+      ys.Value |> float
+      |> equal 1.
+
+// TODO: Sort these tests alphabetically
+[<Test>]
+let ``List.scanBack works``() =
+      let xs = [1; 2; 3]
+      let ys = List.scanBack (+) xs 0
+      ys.Head + ys.Tail.Head
+      |> equal 11
+
+[<Test>]
+let ``List.ofArray works``() =
+      let xs = [|1; 2|]
+      let ys = List.ofArray xs
+      ys.Head |> equal 1
+      
+[<Test>]
+let ``List.toArray works``() =
+      let xs = [1; 2]
+      let ys = xs |> List.toArray
+      ys.[0] + ys.[1]
+      |> equal 3
 
 [<Test>]
 let ``List.partition works``() =
@@ -294,116 +427,6 @@ let ``List.permute works``() =
          let xs = [1; 2]
          let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
          ys.Head
-
-[<Test>]
-let ``List.pick works``() =
-         let xs = [1; 2]
-         xs |> List.pick (fun x ->
-            match x with
-            | 2 -> Some x
-            | _ -> None)
-
-[<Test>]
-let ``List.reduce works``() =
-         let xs = [1; 2]
-         xs |> List.reduce (+)
-
-[<Test>]
-let ``List.reduceBack works``() =
-         let xs = [1; 2]
-         xs |> List.reduceBack (+)
-
-[<Test>]
-let ``List.replicate works``() =
-         let xs = List.replicate 2 1
-         xs.Head + xs.Tail.Head
-
-[<Test>]
-let ``List.rev works``() =
-         let xs = [1; 2]
-         let ys = xs |> List.rev
-         ys.Head
-
-[<Test>]
-let ``List.scan works``() =
-         let xs = [1; 2; 3; 4]
-         let ys = xs |> List.scan (+) 0
-         ys.Head + ys.Tail.Head
-
-[<Test>]
-let ``List.scanBack works``() =
-         let xs = [1; 2; 3]
-         let ys = List.scanBack (+) xs 0
-         ys.Head + ys.Tail.Head
-
-[<Test>]
-let ``List.sort works``() =
-         let xs = [3; 4; 1; 2]
-         let ys = xs |> List.sort
-         ys.Head + ys.Tail.Head
-
-[<Test>]
-let ``List.sortBy works``() =
-         let xs = [3; 1; 4; 2]
-         let ys = xs |> List.sortBy (fun x -> -x)
-         ys.Head + ys.Tail.Head
-
-[<Test>]
-let ``List.sortWith works``() =
-         let xs = [3; 4; 1; 2]
-         let ys = xs |> List.sortWith (fun x y -> int(x - y))
-         ys.Head + ys.Tail.Head
-
-[<Test>]
-let ``List.sum works``() =
-         let xs = [1; 2]
-         xs |> List.sum
-
-[<Test>]
-let ``List.sumBy works``() =
-         let xs = [1; 2]
-         xs |> List.sumBy (fun x -> x*2)
-
-[<Test>]
-let ``List.tail works``() =
-         let xs = [1; 2]
-         let ys = xs |> List.tail
-         ys.Head
-
-[<Test>]
-let ``List.toArray works``() =
-         let xs = [1; 2]
-         let ys = xs |> List.toArray
-         ys.[0] + ys.[1]
-
-[<Test>]
-let ``List.toSeq works``() =
-         let xs = [1; 2]
-         let ys = xs |> List.toSeq
-         ys.GetEnumerator().MoveNext()
-
-[<Test>]
-let ``List.tryFind works``() =
-         let xs = [1; 2]
-         let ys = xs |> List.tryFind ((=) 1)
-         ys.IsSome
-
-[<Test>]
-let ``List.tryFindIndex works``() =
-         let xs = [1; 2]
-         let ys = xs |> List.tryFindIndex ((=) 2)
-         ys.Value |> float
-
-[<Test>]
-let ``List.tryPick works``() =
-         let xs = [1; 2]
-         let r = xs |> List.tryPick (fun x ->
-            match x with
-            | 2 -> Some x
-            | _ -> None)
-         match r with
-         | Some x -> x
-         | None -> 0
 
 [<Test>]
 let ``List.unzip works``() =
