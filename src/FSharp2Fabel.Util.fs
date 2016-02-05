@@ -54,7 +54,8 @@ module Patterns =
             Some(ident, value, body)
         | _ -> None
 
-    // TODO: Explanation
+    // These are closures created by F# compiler in pipelines, e.g. given `let add x y z = x+y+z`
+    // `3 |> add 1 2` will become `let x = 1 in let y = 2 in fun z -> add(x,y,z)`
     let (|Closure|_|) fsExpr =
         let checkArgs (identAndRepls: (FSharpMemberOrFunctionOrValue*FSharpExpr) list) args =
             if identAndRepls.Length <> (List.length args) then false else
@@ -430,7 +431,8 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
         }
         match Replacements.tryReplace com applyInfo with
         | Some _ as repl -> repl
-        | None -> failwithf "Cannot find replacement for %s" meth.FullName
+        | None -> failwithf "Cannot find replacement for %s.%s"
+                            applyInfo.ownerFullName applyInfo.methodName
 
 let makeGetFrom com (fsExpr: FSharpExpr) callee propExpr =
     Fabel.Apply (callee, [propExpr], Fabel.ApplyGet, makeType com fsExpr.Type, makeRangeFrom fsExpr)

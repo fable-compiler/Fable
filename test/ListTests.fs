@@ -282,10 +282,29 @@ let ``List.item works``() =
       [1; 2] |> List.item 1 |> equal 2
 
 [<Test>]
+let ``List.ofArray works``() =
+      let xs = [|1; 2|]
+      let ys = List.ofArray xs
+      ys.Head |> equal 1
+
+[<Test>]
 let ``List.ofSeq works``() =
       // let xs = [|1; 2|] :> _ seq
       let ys = List.ofSeq <| seq { yield 1; yield 2 }
       ys.Head |> equal 1
+
+[<Test>]
+let ``List.partition works``() =
+      let xs = [1; 2; 3; 4; 5; 6]
+      let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
+      List.sum zs |> equal 9
+      
+[<Test>]
+let ``List.permute works``() =
+      let xs = [1; 2; 3; 4; 5; 6]
+      let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
+      equal 4 ys.[2]
+      equal 6 ys.[4]
 
 [<Test>]
 let ``List.pick works``() =
@@ -322,9 +341,17 @@ let ``List.rev works``() =
 [<Test>]
 let ``List.scan works``() =
       let xs = [1; 2; 3; 4]
-      let ys = xs |> List.scan (+) 0
+      let ys = (0, xs) ||> List.scan (fun acc x -> acc - x)
       ys.[3] + ys.[4]
-      |> equal 16
+      |> equal -16
+      
+
+[<Test>]
+let ``List.scanBack works``() =
+      let xs = [1; 2; 3]
+      let ys = List.scanBack (fun x acc -> acc - x) xs 0
+      ys.Head + ys.Tail.Head
+      |> equal -11
 
 [<Test>]
 let ``List.sort works``() =
@@ -364,6 +391,13 @@ let ``List.tail works``() =
       equal 1 ys.Length
 
 [<Test>]
+let ``List.toArray works``() =
+      let xs = [1; 2]
+      let ys = xs |> List.toArray
+      ys.[0] + ys.[1]
+      |> equal 3
+
+[<Test>]
 let ``List.toSeq works``() =
       [1; 2]
       |> List.toSeq
@@ -387,73 +421,42 @@ let ``List.tryFind works``() =
       |> List.tryFind ((=) 5)
       |> equal None
 
-(*
 [<Test>]
 let ``List.tryFindIndex works``() =
       let xs = [1; 2]
       let ys = xs |> List.tryFindIndex ((=) 2)
-      ys.Value |> float
-      |> equal 1.
-
-// TODO: Sort these tests alphabetically
-[<Test>]
-let ``List.scanBack works``() =
-      let xs = [1; 2; 3]
-      let ys = List.scanBack (+) xs 0
-      ys.Head + ys.Tail.Head
-      |> equal 11
-
-[<Test>]
-let ``List.ofArray works``() =
-      let xs = [|1; 2|]
-      let ys = List.ofArray xs
-      ys.Head |> equal 1
-      
-[<Test>]
-let ``List.toArray works``() =
-      let xs = [1; 2]
-      let ys = xs |> List.toArray
-      ys.[0] + ys.[1]
-      |> equal 3
-
-[<Test>]
-let ``List.partition works``() =
-         let xs = [1; 2]
-         let ys, zs = xs |> List.partition (fun x -> x <= 1)
-         ys.Head - zs.Head
-
-[<Test>]
-let ``List.permute works``() =
-         let xs = [1; 2]
-         let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
-         ys.Head
+      ys.Value |> equal 1
 
 [<Test>]
 let ``List.unzip works``() =
-         let xs = [1, 2]
-         let ys, zs = xs |> List.unzip
-         ys.Head + zs.Head
+      let xs = [1, 2]
+      let ys, zs = xs |> List.unzip
+      ys.Head + zs.Head
+      |> equal 3
 
 [<Test>]
 let ``List.unzip3 works``() =
-         let xs = [1, 2, 3]
-         let ys, zs, ks = xs |> List.unzip3
-         ys.Head + zs.Head + ks.Head
+      let xs = [(1, 2, 3); (4, 5, 6)]
+      let ys, zs, ks = xs |> List.unzip3
+      ys.[1] + zs.[1] + ks.[1]
+      |> equal 15
 
 [<Test>]
 let ``List.zip works``() =
-         let xs = [1; 2; 3]
-         let ys = [1; 2; 3]
-         let zs = List.zip xs ys
-         let x, y = zs.Head
-         x + y
+      let xs = [1; 2; 3]
+      let ys = [4; 5; 6]
+      let zs = List.zip xs ys
+      let x, y = zs.Tail.Head
+      equal 2 x
+      equal 5 y
 
 [<Test>]
 let ``List.zip3 works``() =
-         let xs = [1; 2; 3]
-         let ys = [1; 2; 3]
-         let zs = [1; 2; 3]
-         let ks = List.zip3 xs ys zs
-         let x, y, z = ks.Head
-         x + y + z
-*)
+      let xs = [1; 2; 3]
+      let ys = [4; 5; 6]
+      let zs = [7; 8; 9]
+      let ks = List.zip3 xs ys zs
+      let x, y, z = List.last ks
+      equal 3 x
+      equal 6 y
+      equal 9 z
