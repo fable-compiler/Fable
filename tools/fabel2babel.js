@@ -22,15 +22,19 @@ var transformMacroExpressions = {
               macro += "$" + i;
           }
       }
-      
-      var buildArgs = {};
-      var buildMacro = template(macro);
-  
-      for (var i = 0; i < path.node.expressions.length; i++) {
-          buildArgs["$" + i] = path.node.expressions[i];
+      try {
+        var buildArgs = {};
+        var buildMacro = template(macro);
+    
+        for (var i = 0; i < path.node.expressions.length; i++) {
+            buildArgs["$" + i] = path.node.expressions[i];
+        }
+        path.replaceWithMultiple(buildMacro(buildArgs));
       }
-      
-      path.replaceWithMultiple(buildMacro(buildArgs));
+      catch (err) {
+          console.log("BABEL ERROR: Failed to parse emit expression: " + macro);
+          process.exit(1); 
+      }
     }
   }
 };
