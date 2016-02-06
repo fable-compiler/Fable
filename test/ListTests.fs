@@ -1,5 +1,5 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.ListTests
+module FunScript.Tests.Lists
 open NUnit.Framework
 open Fabel.Tests.Util
 

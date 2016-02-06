@@ -86,6 +86,9 @@ module private AstPass =
         checkType args (fun () ->
             let op = Fabel.LogicalOp op |> Fabel.Value
             Fabel.Apply(op, args, Fabel.ApplyMeth, typ, range))
+            
+    let emit (i: Fabel.ApplyInfo) emit args =
+        Fabel.Apply(Fabel.Emit(emit) |> Fabel.Value, i.args, Fabel.ApplyMeth, i.returnType, i.range)
 
     let operators com (info: Fabel.ApplyInfo) =
         // TODO: Check primitive args also here?
@@ -97,9 +100,16 @@ module private AstPass =
         // F# Compiler actually converts all logical operations to IfThenElse expressions
         | "&&" -> logicalOp r typ args LogicalAnd
         | "||" -> logicalOp r typ args LogicalOr
-        // TODO: If we're comparing against null, we should use non-strict equality
-        | "<>" | "neq" -> binaryOp r typ args BinaryUnequalStrict
-        | "=" | "eq"-> binaryOp r typ args BinaryEqualStrict
+        | "<>" | "neq" ->
+            match args with
+            | [Fabel.Value Fabel.Null; _]
+            | [_; Fabel.Value Fabel.Null] -> makeNoStrictNeqOp r args |> Some
+            | _ -> makeNeqOp r args |> Some
+        | "=" | "eq" ->
+            match args with
+            | [Fabel.Value Fabel.Null; _]
+            | [_; Fabel.Value Fabel.Null] -> makeNoStrictEqOp r args |> Some
+            | _ -> makeEqOp r args |> Some
         | "<" | "lt" -> binaryOp r typ args BinaryLess
         | "<=" | "lte" -> binaryOp r typ args BinaryLessOrEqual
         | ">" | "gt" -> binaryOp r typ args BinaryGreater
@@ -126,8 +136,18 @@ module private AstPass =
         | "round" | "sin" | "sqrt" | "tan" ->
             math r typ args info.methodName
         | "compare" ->
-            let emit = Fabel.Emit("$0 < $1 ? -1 : ($0 == $1 ? 0 : 1)") |> Fabel.Value
-            Fabel.Apply(emit, args, Fabel.ApplyMeth, typ, r) |> Some
+            emit info "$0 < $1 ? -1 : ($0 == $1 ? 0 : 1)" args |> Some
+        // Function composition
+        | ">>" | "<<" ->
+            // If expression is a holder we have to protect the variable declarations
+            let wrap expr placeholder =
+                match expr with
+                | Fabel.Sequential _ -> sprintf "(function(){return %s}())" placeholder
+                | _ -> placeholder
+            let args = if info.methodName = ">>" then args else List.rev args
+            let f0 = wrap args.Head "$0"
+            let f1 = wrap args.Tail.Head "$1"
+            emit info (sprintf "x=>%s(%s(x))" f1 f0) args |> Some
         // Reference
         | "!" -> makeGet r Fabel.UnknownType args.Head (makeConst "cell") |> Some
         | ":=" -> Fabel.Set(args.Head, Some(makeConst "cell"), args.Tail.Head, r) |> Some
@@ -175,9 +195,10 @@ module private AstPass =
         let dynamicArray =
             CoreLibCall ("Seq", Some "toArray", false, [expr])
             |> makeCall com i.range i.returnType
-        match i.returnType with
-        | Fabel.PrimitiveType(Fabel.Array(Fabel.TypedArray _ as kind)) ->
-            Fabel.ArrayConst(U2.Case1 [dynamicArray], kind) |> Fabel.Value
+        match i.methodTypeArgs with
+        | [Fabel.PrimitiveType(Fabel.Number numberKind)] ->
+            let arrayKind = Fabel.TypedArray numberKind
+            Fabel.ArrayConst(Fabel.ArrayConversion dynamicArray, arrayKind) |> Fabel.Value
         | _ -> dynamicArray
 
     let mapAndSets com (i: Fabel.ApplyInfo) =
@@ -239,7 +260,7 @@ module private AstPass =
         | "ofList" | "ofSeq" -> _of "Seq" i.args.Head |> Some
         // Non-build static methods shared with Seq
         | "exists" | "fold" | "foldBack" | "forall" | "iter" ->
-            CoreLibCall("Seq", Some i.methodName, false, i.args)
+            CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
             |> makeCall com i.range i.returnType |> Some
         // Build static methods shared with Seq
         | "filter" | "map" ->
@@ -291,9 +312,9 @@ module private AstPass =
 
     let implementedArrayFunctions =
         set [ "sortInPlaceBy"; "permute" ]
-
+        
     let nativeArrayFunctions =
-        dict [ "concat" => "concat"; "exists" => "some"; "filter" => "filter";
+        dict [ "exists" => "some"; "filter" => "filter";
                "find" => "find"; "findIndex" => "findIndex"; "forall" => "every";
                "indexed" => "entries"; "iter" => "forEach"; "map" => "map";
                "reduce" => "reduce"; "reduceBack" => "reduceRight";
@@ -326,7 +347,7 @@ module private AstPass =
             | List -> let c, _ = instanceArgs c args
                       makeNoStrictEqOp i.range [prop "tail" c; Fabel.Value Fabel.Null]
             |> Some
-        | "head" | "tail" | "length" ->
+        | "head" | "tail" | "length" | "get_Length" ->
             match kind with
             | Seq -> ccall "Seq" meth (staticArgs c args)
             | List -> let c, _ = instanceArgs c args in prop meth c
@@ -350,7 +371,7 @@ module private AstPass =
             | Array ->
                 match i.returnType with
                 | Fabel.PrimitiveType (Fabel.Array kind) ->
-                    Fabel.ArrayConst (U2.Case1 [], kind) |> Fabel.Value
+                    Fabel.ArrayConst (Fabel.ArrayAlloc 0, kind) |> Fabel.Value
                 | _ -> failwithf "Expecting array type but got %A" i.returnType
             | List -> CoreLibCall ("List", None, true, args)
                       |> makeCall com i.range i.returnType
@@ -358,7 +379,7 @@ module private AstPass =
         | "zeroCreate" ->
             match i.args with
             | [Fabel.Value(Fabel.NumberConst(U2.Case1 i, kind))] ->
-                Fabel.ArrayConst(U2.Case2 i, Fabel.TypedArray kind) |> Fabel.Value |> Some
+                Fabel.ArrayConst(Fabel.ArrayAlloc i, Fabel.TypedArray kind) |> Fabel.Value |> Some
             | _ -> failwithf "Unexpected arguments for Array.zeroCreate: %A" i.args
         // Conversions
         | "toSeq" | "ofSeq" ->
@@ -437,6 +458,7 @@ module private AstPass =
             fsharp + "Core.Option" => options
             fsharp + "Collections.Map" => mapAndSets
             fsharp + "Collections.Set" => mapAndSets
+            "System.Array" => collectionsSecondPass
             fsharp + "Collections.Array" => collectionsFirstPass
             fsharp + "Collections.List" => collectionsFirstPass
             fsharp + "Collections.Seq" => collectionsSecondPass

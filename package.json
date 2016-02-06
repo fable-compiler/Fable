@@ -7,6 +7,7 @@
     "babel-core": "^6.4.5",
     "babel-plugin-transform-do-expressions": "^6.3.13",
     "babel-plugin-transform-es2015-arrow-functions": "^6.4.0",
+    "babel-plugin-transform-es2015-block-scoping": "^6.4.0",
     "babel-plugin-transform-es2015-classes": "^6.4.5",
     "babel-plugin-transform-es2015-computed-properties": "^6.4.0",
     "babel-plugin-transform-es2015-for-of": "^6.3.13",

@@ -108,6 +108,11 @@ and ApplyInfo = {
     
 and ApplyKind =
     | ApplyMeth | ApplyGet | ApplyCons
+    
+and ArrayConsKind =
+    | ArrayValues of Expr list
+    | ArrayAlloc of length: int
+    | ArrayConversion of Expr
 
 and Ident = { name: string; typ: Type }
 
@@ -122,7 +127,7 @@ and ValueKind =
     | StringConst of string
     | BoolConst of bool
     | RegexConst of source: string * flags: RegexFlag list
-    | ArrayConst of args: U2<Expr list, int> * kind: ArrayKind
+    | ArrayConst of ArrayConsKind * kind: ArrayKind
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
@@ -292,6 +297,13 @@ module Util =
     
     let makeGet range typ callee propExpr =
         Apply (callee, [propExpr], ApplyGet, typ, range)
+        
+    let makeArray typ argExprs =
+        let arrayKind =
+            match typ with
+            | PrimitiveType (Number numberKind) -> TypedArray numberKind
+            | _ -> DynamicArray
+        ArrayConst(ArrayValues argExprs, arrayKind) |> Value        
         
     let makeCall com range typ kind =
         let getCallee meth args owner =

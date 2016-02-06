@@ -1,5 +1,5 @@
 [<NUnit.Framework.TestFixture>] 
-module Fabel.Tests.AsyncTests
+module Fabel.Tests.Async
 open System
 open NUnit.Framework
 open Fabel.Tests.Util

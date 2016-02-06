@@ -61,41 +61,51 @@ module Patterns =
             if identAndRepls.Length <> (List.length args) then false else
             (args, identAndRepls)
             ||> List.forall2 (fun arg (ident, _) ->
+                if ident.IsMutable then false else 
                 match arg with
-                | Value arg when (not ident.IsMutable) ->
+                | Coerce(_, Value arg) | Value arg ->
                     ident.IsEffectivelySameAs arg
                 | _ -> false)
+        let checkArgs2 lambdaArgs methArgs =
+            (lambdaArgs, methArgs)
+            ||> List.forall2 (fun larg marg ->
+                match marg with
+                | Coerce(_, Value marg) | Value marg -> marg.IsEffectivelySameAs larg
+                | _ -> false)                
         let rec visit identAndRepls = function
             | Let((letArg, letValue), letBody) ->
                 let identAndRepls = identAndRepls@[(letArg, letValue)]
                 match letBody with
-                | Lambda(lambdaArg1, Call(None, meth, _, _, Rev (last1::args))) ->
-                    if checkArgs identAndRepls (List.rev args)
-                    then Some([lambdaArg1], meth, (List.map snd identAndRepls)@[last1])
+                | Lambda(lambdaArg1, Call(None, meth, typArgs, methTypArgs, Rev (last1::args))) ->
+                    if checkArgs identAndRepls (List.rev args) &&
+                        checkArgs2 [lambdaArg1] [last1]
+                    then Some(1, meth, typArgs, methTypArgs, List.map snd identAndRepls)
                     else None
                 | Lambda(lambdaArg1,
-                         Lambda(lambdaArg2, Call(None, meth, _, _, Rev (last2::last1::args)))) ->
-                    if checkArgs identAndRepls (List.rev args)
-                    then Some([lambdaArg1;lambdaArg2], meth, (List.map snd identAndRepls)@[last1;last2])
+                         Lambda(lambdaArg2, Call(None, meth, typArgs, methTypArgs, Rev (last2::last1::args)))) ->
+                    if checkArgs identAndRepls (List.rev args) &&
+                        checkArgs2 [lambdaArg1;lambdaArg2] [last1;last2]
+                    then Some(2, meth, typArgs, methTypArgs, List.map snd identAndRepls)
                     else None
                 | Lambda(lambdaArg1,
                          Lambda(lambdaArg2,
-                            Lambda(lambdaArg3,Call(None, meth, _, _, Rev (last3::last2::last1::args))))) ->
-                    if checkArgs identAndRepls (List.rev args)
-                    then Some([lambdaArg1;lambdaArg2;lambdaArg3], meth, (List.map snd identAndRepls)@[last1;last2;last3])
+                            Lambda(lambdaArg3,Call(None, meth, typArgs, methTypArgs, Rev (last3::last2::last1::args))))) ->
+                    if checkArgs identAndRepls (List.rev args) &&
+                        checkArgs2 [lambdaArg1;lambdaArg2;lambdaArg3] [last1;last2;last3]
+                    then Some(3, meth, typArgs, methTypArgs, List.map snd identAndRepls)
                     else None
                 | _ -> visit identAndRepls letBody
             | _ -> None
         match fsExpr with
-        | Lambda(larg1, Call(None, meth, _, _, ([Value marg1] as margs)))
-            when larg1.IsEffectivelySameAs marg1 ->
-                Some([larg1], meth, margs)
-        | Lambda(larg1, Lambda(larg2, Call(None, meth, _, _, ([Value marg1;Value marg2] as margs))))
-            when larg1.IsEffectivelySameAs marg1 && larg2.IsEffectivelySameAs marg2 ->
-            Some([larg1;larg2], meth, margs)
-        | Lambda(larg1, Lambda(larg2, Lambda(larg3,Call(None, meth, _, _, ([Value marg1;Value marg2;Value marg3] as margs)))))
-            when larg1.IsEffectivelySameAs marg1 && larg2.IsEffectivelySameAs marg2 && larg3.IsEffectivelySameAs marg3 ->
-            Some([larg1;larg2;larg3], meth, margs)
+        | Lambda(larg1, Call(None, meth, typArgs, methTypArgs, [marg1]))
+            when checkArgs2 [larg1] [marg1] ->
+                Some(1, meth, typArgs, methTypArgs, [])
+        | Lambda(larg1, Lambda(larg2, Call(None, meth, typArgs, methTypArgs, [marg1;marg2])))
+            when checkArgs2 [larg1;larg2] [marg1;marg2] ->
+                Some(2, meth, typArgs, methTypArgs, [])
+        | Lambda(larg1, Lambda(larg2, Lambda(larg3, Call(None, meth, typArgs, methTypArgs, [marg1;marg2;marg3]))))
+            when checkArgs2 [larg1;larg2;larg3] [marg1;marg2;marg3] ->
+                Some(3, meth, typArgs, methTypArgs, [])
         | _ -> visit [] fsExpr
 
     let (|Pipe|_|) = function
@@ -122,21 +132,30 @@ module Patterns =
             | _ -> None
         | _ -> None
         
+    // TODO: Make it recursive 
+    let (|Composition|_|) = function
+        | Call(None, comp, _, _,
+                [Closure(1, meth1, typArgs1, methTypArgs1, args1);
+                 Closure(1, meth2, typArgs2, methTypArgs2, args2)]) ->
+            match comp.FullName with
+            | "Microsoft.FSharp.Core.Operators.( >> )" ->
+                Some (meth1, typArgs1, methTypArgs1, args1, meth2, typArgs2, methTypArgs2, args2)
+            | "Microsoft.FSharp.Core.Operators.( << )" ->
+                Some (meth2, typArgs2, methTypArgs2, args2, meth1, typArgs1, methTypArgs1, args1)
+            | _ -> None
+        | _ -> None
+
     let (|ErasableLambda|_|) fsExpr =
-        let checkArgs lambdaArgs methArgs =
-            (lambdaArgs, methArgs)
-            ||> List.forall2 (fun larg marg ->
-                match marg with Value marg -> marg.IsEffectivelySameAs larg | _ -> false)
         match fsExpr with
-        | Pipe(Closure ([larg1;larg2;larg3] as lambdaArgs, meth, Rev (last3::last2::last1::methArgs)), ([e1;e2;e3] as exprs))
-            when checkArgs lambdaArgs [last1;last2;last3] ->
-            Some (meth, (List.rev methArgs)@exprs)
-        | Pipe(Closure ([larg1;larg2] as lambdaArgs, meth, Rev (last2::last1::methArgs)), ([e1;e2] as exprs))
-            when checkArgs lambdaArgs [last1;last2] ->
-            Some (meth, (List.rev methArgs)@exprs)
-        | Pipe(Closure ([larg1] as lambdaArgs, meth, Rev (last1::methArgs)), ([e1] as exprs))
-            when checkArgs lambdaArgs [last1] ->
-            Some (meth, (List.rev methArgs)@exprs)
+        | Pipe(Closure (arity, meth, typArgs, methTypArgs, methArgs), exprs)
+            when arity = exprs.Length ->
+                Some (meth, typArgs, methTypArgs, methArgs@exprs)
+        | Pipe(Closure (arity, meth, typArgs, methTypArgs, methArgs), exprs)
+            when arity = exprs.Length ->
+                Some (meth, typArgs, methTypArgs, methArgs@exprs)
+        | Pipe(Closure (arity, meth, typArgs, methTypArgs, methArgs), exprs)
+            when arity = exprs.Length ->
+                Some (meth, typArgs, methTypArgs, methArgs@exprs)
         | _ -> None
     
     let (|NonAbbreviatedType|) (t: FSharpType) =
@@ -157,6 +176,7 @@ module Patterns =
         | "System.Single" -> Some Float32
         | "System.Double"
         | "Microsoft.FSharp.Core.float`1" -> Some Float64
+        | "Microsoft.FSharp.Core.float32`1" -> Some Float32
         | _ -> None
         
     let (|Location|_|) (com: IFabelCompiler) (ent: FSharpEntity) =
@@ -414,7 +434,8 @@ let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
         if x.IsOutArg then failwithf "Out parameters are not supported: %s" meth.FullName)
     args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
     
-let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue) callee args =
+let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
+               (typArgs, methTypArgs) callee args =
     if not <| isReplaceCandidate com meth then
         None // TODO: Check Emit attributes
     else
@@ -425,9 +446,9 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
             callee = callee
             args = args
             returnType = makeType com fsExpr.Type
-            decorators = []     // TODO
-            calleeTypeArgs = [] // TODO
-            methodTypeArgs = [] // TODO
+            decorators = meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList
+            calleeTypeArgs = typArgs |> List.map (makeType com) 
+            methodTypeArgs = methTypArgs |> List.map (makeType com)
         }
         match Replacements.tryReplace com applyInfo with
         | Some _ as repl -> repl
@@ -437,13 +458,13 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
 let makeGetFrom com (fsExpr: FSharpExpr) callee propExpr =
     Fabel.Apply (callee, [propExpr], Fabel.ApplyGet, makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
+// TODO: Check `inline` annotation?
 // TODO: If it's an imported method with ParamArray, spread the last argument
-let makeCallFrom (com: IFabelCompiler) ctx fsExpr callee (meth: FSharpMemberOrFunctionOrValue) (args: FSharpExpr list) =
-    let callee, args =
-        Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
+let makeCallFrom (com: IFabelCompiler) ctx fsExpr (meth: FSharpMemberOrFunctionOrValue)
+                 (typArgs, methTypArgs) callee args =
     (** -Check for replacements *)
     let resolved =
-        tryReplace com fsExpr meth callee args
+        tryReplace com fsExpr meth (typArgs, methTypArgs) callee args
     (** -If no Emit attribute nor replacement has been found then: *)
     match resolved with
     | Some exprKind -> exprKind

@@ -125,7 +125,7 @@ let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
             | None ->
                 makeExpr (getDiff ctx.moduleFullName fullName) None
 
-let private buildArray (com: IBabelCompiler) ctx (args: U2<Fabel.Expr list, int>) kind =
+let private buildArray (com: IBabelCompiler) ctx consKind kind =
     match kind with
     | Fabel.TypedArray kind ->
         let cons =
@@ -141,22 +141,26 @@ let private buildArray (com: IBabelCompiler) ctx (args: U2<Fabel.Expr list, int>
             | Float64 -> "Float64Array"
             |> Babel.Identifier
         let args =
-            match args with
-            | U2.Case1 args ->
+            match consKind with
+            | Fabel.ArrayValues args ->
                 List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
                 |> Babel.ArrayExpression :> Babel.Expression |> U2.Case1 |> List.singleton
-            | U2.Case2 length ->
+            | Fabel.ArrayAlloc length ->
                 Babel.NumericLiteral(U2.Case1 length) :> Babel.Expression
                 |> U2.Case1 |> List.singleton
+            | Fabel.ArrayConversion (TransformExpr com ctx arr) ->
+                [U2.Case1 arr]
         Babel.NewExpression(cons, args) :> Babel.Expression
     | Fabel.DynamicArray | Fabel.Tuple ->
-        match args with
-        | U2.Case1 args ->
+        match consKind with
+        | Fabel.ArrayValues args ->
             List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
             |> Babel.ArrayExpression :> Babel.Expression
-        | U2.Case2 length ->
+        | Fabel.ArrayAlloc length ->
             let length = Babel.NumericLiteral(U2.Case1 length) :> Babel.Expression
             upcast Babel.NewExpression(Babel.Identifier "Array", [length |> U2.Case1])
+        | Fabel.ArrayConversion (TransformExpr com ctx arr) ->
+            arr
 
 let private assign range left right =
     Babel.AssignmentExpression(AssignEqual, left, right, ?loc=range)
@@ -194,11 +198,8 @@ let private funcArrow (com: IBabelCompiler) ctx args body =
 let private iife (com: IBabelCompiler) ctx (expr: Fabel.Expr) =
     Babel.CallExpression (funcExpression com ctx [] expr, [], ?loc=expr.Range)
 
-let private varDeclaration range var value =
-    Babel.VariableDeclaration (
-        Babel.VariableDeclarationKind.Var,
-        [Babel.VariableDeclarator (var, value, ?loc=range)],
-        ?loc = range)
+let private varDeclaration range (var: Babel.Pattern) value =
+    Babel.VariableDeclaration (var, value, ?loc=range)
         
 let private macroExpression range (txt: string) args =
     let args = Array.ofList args
@@ -231,10 +232,7 @@ let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
             upcast Babel.WhileStatement (guard, block com ctx body.Range [body], ?loc=range)
         | Fabel.ForOf (var, TransformExpr com ctx enumerable, body) ->
             // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right 
-            let var =
-                Babel.VariableDeclaration(
-                    Babel.VariableDeclarationKind.Var,
-                    [Babel.VariableDeclarator (ident var)])
+            let var = Babel.VariableDeclaration (ident var)
             upcast Babel.ForOfStatement (
                 U2.Case1 var, enumerable, block com ctx body.Range [body], ?loc=range)
         | Fabel.For (var, TransformExpr com ctx start,
@@ -306,7 +304,7 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
         | Fabel.BoolConst x -> upcast Babel.BooleanLiteral (x)
         | Fabel.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
         | Fabel.Lambda (args, body) -> funcArrow com ctx args body
-        | Fabel.ArrayConst (args, kind) -> buildArray com ctx args kind
+        | Fabel.ArrayConst (cons, kind) -> buildArray com ctx cons kind
         | Fabel.TypeRef typ ->
             match typ with
             | Fabel.DeclaredType typEnt ->

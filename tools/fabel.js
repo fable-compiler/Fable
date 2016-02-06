@@ -37,6 +37,7 @@ var transformMacroExpressions = {
 
 var babelPlugins = [
     transformMacroExpressions,
+    // "transform-es2015-block-scoping", // This creates too many function wrappers
     "transform-do-expressions",
     "transform-es2015-arrow-functions",
     "transform-es2015-classes",
@@ -158,6 +159,7 @@ try {
         }
         catch (err) {
             console.log("BABEL ERROR: " + err);
+            process.exit(1);
         }
     });    
 }

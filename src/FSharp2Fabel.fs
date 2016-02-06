@@ -19,13 +19,24 @@ let rec private transformExpr com ctx fsExpr =
         Fabel.ForOf (ident, value, transformExpr com newContext body)
         |> makeLoop (makeRangeFrom fsExpr)
 
-    | ErasableLambda (meth, methArgs) ->
-        makeCallFrom com ctx fsExpr None meth methArgs
+    | ErasableLambda (meth, typArgs, methTypArgs, methArgs) ->
+        makeCallFrom com ctx fsExpr meth (typArgs, methTypArgs)
+            None (List.map (com.Transform ctx) methArgs)
 
     // Pipe must come after ErasableLambda
     | Pipe (Transform com ctx callee, args) ->
         let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
         makeApply range typ callee (List.map (transformExpr com ctx) args)
+        
+    | Composition (meth1, typArgs1, methTypArgs1, args1, meth2, typArgs2, methTypArgs2, args2) ->
+        let lambdaArg = makeIdent "$arg"
+        let expr1 =
+            (List.map (com.Transform ctx) args1)@[Fabel.Value (Fabel.IdentValue lambdaArg)]
+            |> makeCallFrom com ctx fsExpr meth1 (typArgs1, methTypArgs1) None
+        let expr2 =
+            (List.map (com.Transform ctx) args2)@[expr1]
+            |> makeCallFrom com ctx fsExpr meth2 (typArgs2, methTypArgs2) None
+        Fabel.Lambda([lambdaArg], expr2) |> Fabel.Value
             
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -53,6 +64,16 @@ let rec private transformExpr com ctx fsExpr =
         |> makeLoop (makeRangeFrom fsExpr)
 
     (** Values *)
+
+    // Some arrays (like ushort[]) won't fit the NewArray pattern 
+    | BasicPatterns.Const(:? System.Collections.IEnumerable as arr, typ)
+        when typ.HasTypeDefinition && typ.TypeDefinition.IsArrayType ->
+        let mutable argExprs = []
+        let enumerator = arr.GetEnumerator()
+        while enumerator.MoveNext() do
+            argExprs <- (makeConst enumerator.Current)::argExprs
+        makeArray (makeType com typ) (argExprs |> List.rev)
+
     | BasicPatterns.Const(value, _typ) ->
         makeConst value
 
@@ -110,9 +131,9 @@ let rec private transformExpr com ctx fsExpr =
         let callee = makeGet range (Fabel.PrimitiveType (Fabel.Function argExprs.Length)) callee (makeConst traitName)
         Fabel.Apply (callee, args, Fabel.ApplyMeth, makeType com fsExpr.Type, range)
 
-    // TODO: Check `inline` annotation?
-    | BasicPatterns.Call(callee, meth, _typeArgs1, _typeArgs2, args) ->
-        makeCallFrom com ctx fsExpr callee meth args
+    | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
+        let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
+        makeCallFrom com ctx fsExpr meth (typArgs, methTypArgs) callee args
 
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
         let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
@@ -191,24 +212,18 @@ let rec private transformExpr com ctx fsExpr =
 
     (** Instantiation *)
     | BasicPatterns.NewArray(FabelType com typ, argExprs) ->
-        let arrayKind =
-            match typ with
-            | Fabel.PrimitiveType (Fabel.Number numberKind) ->
-                Fabel.TypedArray numberKind
-            | _ -> Fabel.DynamicArray
-        (argExprs |> List.map (transformExpr com ctx) |> U2.Case1, arrayKind)
-        |> Fabel.ArrayConst |> Fabel.Value
+        makeArray typ (argExprs |> List.map (transformExpr com ctx))
 
     | BasicPatterns.NewTuple(_, argExprs) ->
-        (argExprs |> List.map (transformExpr com ctx) |> U2.Case1, Fabel.Tuple)
+        (argExprs |> List.map (transformExpr com ctx) |> Fabel.ArrayValues, Fabel.Tuple)
         |> Fabel.ArrayConst |> Fabel.Value
 
     | BasicPatterns.ObjectExpr(_objType, _baseCallExpr, _overrides, interfaceImplementations) ->
         failwith "TODO: ObjectExpr"
 
     // TODO: Check for erased constructors with property assignment (Call + Sequential)
-    | BasicPatterns.NewObject(meth, _typeArgs, args) ->
-        makeCallFrom com ctx fsExpr None meth args
+    | BasicPatterns.NewObject(meth, typArgs, args) ->
+        makeCallFrom com ctx fsExpr meth (typArgs, []) None (List.map (com.Transform ctx) args)
 
     // TODO: Create constructors for Records
     | BasicPatterns.NewRecord(FabelType com recordType, argExprs) ->
@@ -226,7 +241,7 @@ let rec private transformExpr com ctx fsExpr =
         | ListUnion ->
             let buildArgs args =
                 let args = args |> List.rev |> (List.map (transformExpr com ctx))
-                Fabel.Value (Fabel.ArrayConst (U2.Case1 args, Fabel.DynamicArray))
+                Fabel.Value (Fabel.ArrayConst (Fabel.ArrayValues args, Fabel.DynamicArray))
             let rec ofArray accArgs = function
                 | [] ->
                     CoreLibCall("List", Some "ofArray", false, [buildArgs accArgs])
@@ -248,7 +263,7 @@ let rec private transformExpr com ctx fsExpr =
                 | [] -> [tag]
                 | [arg] -> [tag;arg]
                 // If there's more than one data field, make a tuple
-                | args -> [tag; Fabel.ArrayConst(U2.Case1 args, Fabel.Tuple) |> Fabel.Value]
+                | args -> [tag; Fabel.ArrayConst(Fabel.ArrayValues args, Fabel.Tuple) |> Fabel.Value]
             Fabel.Apply (makeTypeRef unionType, argExprs, Fabel.ApplyCons,
                     makeType com fsExpr.Type, makeRangeFrom fsExpr)
 

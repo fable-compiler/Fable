@@ -191,7 +191,8 @@ type VariableDeclarationKind = Var | Let | Const
 
 type VariableDeclaration(kind, declarations, ?loc) =
     inherit Declaration("VariableDeclaration", ?loc = loc)
-    new (declaration, ?loc) = VariableDeclaration(Var, [declaration], ?loc = loc)
+    new (var, ?init, ?loc) =
+        VariableDeclaration(Var, [VariableDeclarator(var, ?init=init, ?loc=loc)], ?loc=loc)
     member x.declarations: VariableDeclarator list = declarations
     member x.kind =
         match kind with Var -> "var" | Let -> "let" | Const -> "const"
