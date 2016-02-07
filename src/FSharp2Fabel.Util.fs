@@ -36,11 +36,23 @@ module Patterns =
     let (|FieldName|) (fi: FSharpField) = fi.Name
     let (|ExprType|) (expr: Fabel.Expr) = expr.Type
     
+    let (|NonAbbreviatedType|) (t: FSharpType) =
+        let rec abbr (t: FSharpType) =
+            if t.IsAbbreviation then abbr t.AbbreviatedType else t
+        abbr t    
+    
     let (|CoreValue|_|) = function
-        | BasicPatterns.Value v ->
+        | Value v ->
             match v.FullName with
             | "Microsoft.FSharp.Core.Operators.seq" -> Some "Seq"
             | "Microsoft.FSharp.Core.ExtraTopLevelOperators.async" -> Some "Async"
+            | _ -> None
+        | _ -> None
+
+    let (|LiteralValue|_|) = function
+        | ILFieldGet (None, typ, fieldName) when typ.HasTypeDefinition ->
+            match typ.TypeDefinition.FullName, fieldName with
+            | "System.String", "Empty" -> Some (box "")
             | _ -> None
         | _ -> None
     
@@ -53,9 +65,20 @@ module Patterns =
             when meth.DisplayName = "GetEnumerator" ->
             Some(ident, value, body)
         | _ -> None
+        
+    let (|AppliedStringFormat|_|) = function
+        | Application(Let((_,Call(None, meth, [], _,
+                                [Coerce(NonAbbreviatedType t, NewObject(_,typArgs,
+                                            [Const (:? string as template,_)]))])), _), [], exprs)
+            when t.HasTypeDefinition ->
+            if t.TypeDefinition.DisplayName = "PrintfFormat" &&
+                (List.last typArgs).GenericArguments.Count = exprs.Length
+            then Some(meth, template, exprs)
+            else None
+        | _ -> None
 
-    // These are closures created by F# compiler in pipelines, e.g. given `let add x y z = x+y+z`
-    // `3 |> add 1 2` will become `let x = 1 in let y = 2 in fun z -> add(x,y,z)`
+    // These are closures created by F# compiler, e.g. given `let add x y z = x+y+z`
+    // `3 |> add 1 2` will become `let x=1 in let y=2 in fun z -> add(x,y,z)`
     let (|Closure|_|) fsExpr =
         let checkArgs (identAndRepls: (FSharpMemberOrFunctionOrValue*FSharpExpr) list) args =
             if identAndRepls.Length <> (List.length args) then false else
@@ -157,11 +180,6 @@ module Patterns =
             when arity = exprs.Length ->
                 Some (meth, typArgs, methTypArgs, methArgs@exprs)
         | _ -> None
-    
-    let (|NonAbbreviatedType|) (t: FSharpType) =
-        let rec abbr (t: FSharpType) =
-            if t.IsAbbreviation then abbr t.AbbreviatedType else t
-        abbr t
 
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
@@ -452,15 +470,15 @@ let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue
         }
         match Replacements.tryReplace com applyInfo with
         | Some _ as repl -> repl
-        | None -> failwithf "Cannot find replacement for %s.%s"
-                            applyInfo.ownerFullName applyInfo.methodName
+        | None -> failwithf "Cannot find replacement for %s.%s at %A"
+                    applyInfo.ownerFullName applyInfo.methodName fsExpr.Range
 
 let makeGetFrom com (fsExpr: FSharpExpr) callee propExpr =
     Fabel.Apply (callee, [propExpr], Fabel.ApplyGet, makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
 // TODO: Check `inline` annotation?
 // TODO: If it's an imported method with ParamArray, spread the last argument
-let makeCallFrom (com: IFabelCompiler) ctx fsExpr (meth: FSharpMemberOrFunctionOrValue)
+let makeCallFrom (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
                  (typArgs, methTypArgs) callee args =
     (** -Check for replacements *)
     let resolved =

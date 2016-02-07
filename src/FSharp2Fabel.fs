@@ -8,19 +8,34 @@ open Fabel.AST
 open Fabel.AST.Fabel.Util
 open Fabel.FSharp2Fabel.Util
 
-let rec private transformExpr com ctx fsExpr =
+let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
     match fsExpr with
     (** ## Custom patterns *)
     // async, seq
     | CoreValue modName ->
         makeCoreRef com modName
+        
+    // String.Empty
+    | LiteralValue v ->
+        makeConst v
     
     | ForOf (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
         Fabel.ForOf (ident, value, transformExpr com newContext body)
         |> makeLoop (makeRangeFrom fsExpr)
+        
+    | AppliedStringFormat (meth, template, args) ->
+        let args =
+            List.map (com.Transform ctx) args
+            |> makeArray Fabel.UnknownType
+            |> List.singleton
+            |> List.append [makeConst template]
+        CoreLibCall("String", Some "fsFormat", false, args)
+        |> makeCall com None (Fabel.PrimitiveType Fabel.String)
+        |> List.singleton
+        |> makeCallFrom com fsExpr meth ([],[]) None 
 
     | ErasableLambda (meth, typArgs, methTypArgs, methArgs) ->
-        makeCallFrom com ctx fsExpr meth (typArgs, methTypArgs)
+        makeCallFrom com fsExpr meth (typArgs, methTypArgs)
             None (List.map (com.Transform ctx) methArgs)
 
     // Pipe must come after ErasableLambda
@@ -32,10 +47,10 @@ let rec private transformExpr com ctx fsExpr =
         let lambdaArg = makeIdent "$arg"
         let expr1 =
             (List.map (com.Transform ctx) args1)@[Fabel.Value (Fabel.IdentValue lambdaArg)]
-            |> makeCallFrom com ctx fsExpr meth1 (typArgs1, methTypArgs1) None
+            |> makeCallFrom com fsExpr meth1 (typArgs1, methTypArgs1) None
         let expr2 =
             (List.map (com.Transform ctx) args2)@[expr1]
-            |> makeCallFrom com ctx fsExpr meth2 (typArgs2, methTypArgs2) None
+            |> makeCallFrom com fsExpr meth2 (typArgs2, methTypArgs2) None
         Fabel.Lambda([lambdaArg], expr2) |> Fabel.Value
             
     (** ## Erased *)
@@ -133,7 +148,7 @@ let rec private transformExpr com ctx fsExpr =
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
-        makeCallFrom com ctx fsExpr meth (typArgs, methTypArgs) callee args
+        makeCallFrom com fsExpr meth (typArgs, methTypArgs) callee args
 
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
         let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
@@ -162,10 +177,7 @@ let rec private transformExpr com ctx fsExpr =
         makeDelegate delegateBodyExpr
 
     (** ## Getters and Setters *)
-    | BasicPatterns.ILFieldGet (callee, typ, fieldName) ->
-        failwithf "Found unsupported ILField reference in %A: %A" fsExpr.Range fsExpr
-
-    // TODO: Check if it's FSharpException
+    // TODO: Check if it's FSharpException?
     // TODO: Change name of automatically generated fields
     | BasicPatterns.FSharpFieldGet (callee, FabelType com calleeType, FieldName fieldName) ->
         let callee =
@@ -223,7 +235,7 @@ let rec private transformExpr com ctx fsExpr =
 
     // TODO: Check for erased constructors with property assignment (Call + Sequential)
     | BasicPatterns.NewObject(meth, typArgs, args) ->
-        makeCallFrom com ctx fsExpr meth (typArgs, []) None (List.map (com.Transform ctx) args)
+        makeCallFrom com fsExpr meth (typArgs, []) None (List.map (com.Transform ctx) args)
 
     // TODO: Create constructors for Records
     | BasicPatterns.NewRecord(FabelType com recordType, argExprs) ->
@@ -359,6 +371,7 @@ let rec private transformExpr com ctx fsExpr =
             Fabel.Sequential (assignments @ [transformExpr com ctx decisionExpr], makeRangeFrom fsExpr)
 
     (** Not implemented *)
+    | BasicPatterns.ILFieldGet _
     | BasicPatterns.Quote _ // (quotedExpr)
     | BasicPatterns.AddressOf _ // (lvalueExpr)
     | BasicPatterns.AddressSet _ // (lvalueExpr, rvalueExpr)

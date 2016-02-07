@@ -38,12 +38,10 @@ type TemplateElement(value: string, tail, ?loc) =
     member x.tail: bool = tail
     member x.value = dict [ ("raw", value); ("cooked", value) ]
 
-type TemplateLiteral(quasis, expressions, ?macro, ?loc) =
+type TemplateLiteral(quasis, expressions, ?loc) =
     inherit Literal("TemplateLiteral", ?loc = loc)
     member x.quasis: TemplateElement list = quasis
     member x.expressions: Expression list = expressions
-    /// Not in babel-specs, used to simulate a macro template
-    member x.macro = defaultArg macro false
     
 type TaggedTemplateExpression(tag, quasi, ?loc) =
     inherit Expression("TaggedTemplateExpression", ?loc = loc)
@@ -78,9 +76,12 @@ type RegExpLiteral(pattern, flags, ?loc) =
 type NullLiteral(?loc) =
     inherit Literal("NullLiteral", ?loc = loc)
 
-type StringLiteral(value, ?loc) =
+type StringLiteral(value, ?macro, ?args, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)
     member x.value: string = value
+    /// Not in babel-specs, used to simulate a macro template
+    member x.macro = defaultArg macro false
+    member x.args: Expression list = defaultArg args []
 
 type BooleanLiteral(value, ?loc) =
     inherit Literal("BooleanLiteral", ?loc = loc)

@@ -34,7 +34,7 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    Shell.Exec("node", "tools/fabel.js --projFile test/Fabel.Tests.fsproj")
+    Shell.Exec("node", "tools/fabel2babel.js --projFile test/Fabel.Tests.fsproj")
     |> function
     | 0 ->
         Shell.Exec("node", "node_modules/mocha/bin/mocha build/test")

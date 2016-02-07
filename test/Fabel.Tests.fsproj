@@ -42,6 +42,7 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
+    <Compile Include="StringTests.fs" />
     <Compile Include="AsyncTests.fs" />
     <Compile Include="SeqExpressionTests.fs" />
     <!--<Compile Include="SeqTests.fs" />-->

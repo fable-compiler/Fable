@@ -10,29 +10,20 @@ var spawn = require('child_process').spawn;
 // Custom plugin to simulate macro expressions
 var transformMacroExpressions = {
   visitor: {
-    TemplateLiteral(path) {
+    StringLiteral(path) {
       if (!path.node.macro)
           return;
   
-      var macro = "";
-      var quasisLength = path.node.quasis.length;
-      for (var i = 0; i < quasisLength; i++) {
-          macro += path.node.quasis[i].value.raw;
-          if (i < quasisLength - 1) {
-              macro += "$" + i;
-          }
-      }
       try {
         var buildArgs = {};
-        var buildMacro = template(macro);
-    
-        for (var i = 0; i < path.node.expressions.length; i++) {
-            buildArgs["$" + i] = path.node.expressions[i];
+        var buildMacro = template(path.node.value);
+        for (var i = 0; i < path.node.args.length; i++) {
+            buildArgs["$" + i] = path.node.args[i];
         }
         path.replaceWithMultiple(buildMacro(buildArgs));
       }
       catch (err) {
-          console.log("BABEL ERROR: Failed to parse emit expression: " + macro);
+          console.log("BABEL ERROR: Failed to parse macro: " + path.node.value);
           process.exit(1); 
       }
     }
