@@ -38,6 +38,8 @@ var babelPlugins = [
     "transform-es2015-classes",
     "transform-es2015-computed-properties",
     "transform-es2015-for-of",
+    "transform-es2015-object-super",
+    "transform-es2015-parameters",
     "transform-es2015-spread",
     "transform-es2015-modules-umd"
 ];

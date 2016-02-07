@@ -49,14 +49,17 @@ let private foldRanges (baseRange: SourceLocation) (decls: Babel.Statement list)
     |> Seq.fold (fun _ x -> x) baseRange
     |> (+) baseRange
     
-let private cleanArgs (com: IBabelCompiler) ctx args =
+let private prepareArgs (com: IBabelCompiler) ctx args =
     let rec cleanNull = function
         | [] -> []
         | (Fabel.Value Fabel.Null)::args -> cleanNull args
         | args -> args
     args
     |> List.rev |> cleanNull |> List.rev
-    |> List.map (com.TransformExpr ctx >> U2<_,_>.Case1)
+    |> List.map (function
+        | Fabel.Value (Fabel.Spread expr) ->
+            Babel.SpreadElement(com.TransformExpr ctx expr) |> U2.Case2
+        | _ as expr -> com.TransformExpr ctx expr |> U2.Case1)
     
 let private ident (id: Fabel.Ident) =
     Babel.Identifier id.name
@@ -295,7 +298,8 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
                     else typEnt.FullName
                 typeRef com ctx typEnt.File typFullName
             | _ -> failwithf "Not supported type reference: %A" typ
-        | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _ | Fabel.Emit _ ->
+        | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _
+        | Fabel.Emit _ | Fabel.Spread _ ->
             failwithf "Unexpected stand-alone value: %A" expr
 
     | Fabel.ObjExpr (props, range) ->
@@ -328,10 +332,10 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
         | _ ->
             match kind with
             | Fabel.ApplyMeth ->
-                Babel.CallExpression (com.TransformExpr ctx callee, cleanArgs com ctx args, ?loc=range)
+                Babel.CallExpression (com.TransformExpr ctx callee, prepareArgs com ctx args, ?loc=range)
                 :> Babel.Expression
             | Fabel.ApplyCons ->
-                Babel.NewExpression (com.TransformExpr ctx callee, cleanArgs com ctx args, ?loc=range)
+                Babel.NewExpression (com.TransformExpr ctx callee, prepareArgs com ctx args, ?loc=range)
                 :> Babel.Expression
             | Fabel.ApplyGet ->
                 getExpr com ctx callee args.Head
@@ -352,7 +356,6 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
     | Fabel.Loop _ | Fabel.Set _  | Fabel.VarDeclaration _ ->
         failwithf "Statement when expression expected in %A: %A" expr.Range expr 
     
-// TODO: Check if we need to spread the last argument
 let private transformFunction com ctx args body =
     let args: Babel.Pattern list =
         List.map (fun x -> upcast ident x) args
@@ -381,13 +384,22 @@ let private transformTestSuite com ctx decls: Babel.CallExpression =
     
 // TODO: Set interfaces with $Fabel.Util.setInterfaces(Class.prototyp, [interfaces])
 let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation option) decls =
-    let declareMember range kind name args body isStatic =
+    let declareMember range kind name args body isStatic hasRestParams =
         let name, computed: Babel.Expression * bool =
             if Naming.identForbiddenChars.IsMatch name
             then upcast Babel.StringLiteral name, true
             else upcast Babel.Identifier name, false
-        let args, body = transformFunction com ctx args body
-        let body = match body with U2.Case1 e -> e | U2.Case2 e -> returnBlock e
+        let args, body =
+            let args, body = transformFunction com ctx args body
+            let args =
+                if not hasRestParams then args else
+                let args = List.rev args
+                (Babel.RestElement(args.Head) :> Babel.Pattern) :: args.Tail |> List.rev
+            let body =
+                match body with
+                | U2.Case1 e -> e
+                | U2.Case2 e -> returnBlock e
+            args, body
         // TODO: Optimization: remove null statement that F# compiler adds at the bottom of constructors
         Babel.ClassMethod(range, kind, name, args, body, computed, isStatic)
     let baseClass = baseClass |> Option.map (fun loc ->
@@ -401,7 +413,7 @@ let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation o
                 | Fabel.Method name -> Babel.ClassFunction, name, m.IsStatic
                 | Fabel.Getter name -> Babel.ClassGetter, name, m.IsStatic
                 | Fabel.Setter name -> Babel.ClassSetter, name, m.IsStatic
-            declareMember m.Range kind name m.Arguments m.Body isStatic
+            declareMember m.Range kind name m.Arguments m.Body isStatic m.HasRestParams
         | Fabel.ActionDeclaration _
         | Fabel.EntityDeclaration _ as decl ->
             failwithf "Unexpected declaration in class: %A" decl)

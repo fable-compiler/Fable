@@ -66,7 +66,7 @@ and MemberKind =
     | Getter of name: string
     | Setter of name: string
 
-and Member(kind, range, args, body, decorators, isPublic, isStatic) =
+and Member(kind, range, args, body, decorators, isPublic, isStatic, hasRestParams) =
     member x.Kind: MemberKind = kind
     member x.Range: SourceLocation = range
     member x.Arguments: Ident list = args
@@ -74,6 +74,7 @@ and Member(kind, range, args, body, decorators, isPublic, isStatic) =
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
     member x.IsStatic: bool = isStatic
+    member x.HasRestParams: bool = hasRestParams
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
     override x.ToString() = sprintf "%A" kind
@@ -120,6 +121,7 @@ and ValueKind =
     | Null
     | This of Type
     | Super of Type
+    | Spread of Expr
     | TypeRef of Type
     | IdentValue of Ident
     | ImportRef of import: string * isNs: bool * prop: string option
@@ -136,6 +138,7 @@ and ValueKind =
     member x.Type =
         match x with
         | Null -> PrimitiveType Unit
+        | Spread x -> x.Type
         | This typ | Super typ | IdentValue {typ=typ} -> typ
         | ImportRef _ | TypeRef _ | Emit _ -> UnknownType
         | NumberConst (_,kind) -> PrimitiveType (Number kind)
@@ -360,7 +363,7 @@ module Util =
         let args: Ident list = [makeIdent "t"; makeIdent "d"]
         let emit = Emit "this.tag=t;this.data=d;" |> Value
         let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
-        Member(Constructor, range, args, body, [], true, false)
+        Member(Constructor, range, args, body, [], true, false, false)
         |> MemberDeclaration
         
     let makeDelegate (expr: Expr) =

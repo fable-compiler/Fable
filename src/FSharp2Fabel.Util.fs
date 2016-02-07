@@ -448,8 +448,6 @@ let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClau
 let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
     if meth.CurriedParameterGroups.Count <> 1 then false else
     let args = meth.CurriedParameterGroups.[0]
-    args |> Seq.iter (fun x ->
-        if x.IsOutArg then failwithf "Out parameters are not supported: %s" meth.FullName)
     args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
     
 let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
@@ -480,6 +478,14 @@ let makeGetFrom com (fsExpr: FSharpExpr) callee propExpr =
 // TODO: If it's an imported method with ParamArray, spread the last argument
 let makeCallFrom (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
                  (typArgs, methTypArgs) callee args =
+    let args =
+        if not (hasRestParams meth) then args else
+        let args = List.rev args
+        match args.Head with
+        | Fabel.Value(Fabel.ArrayConst(Fabel.ArrayValues items, _)) ->
+            (List.rev args.Tail)@items
+        | _ ->
+            (Fabel.Spread args.Head |> Fabel.Value)::args.Tail |> List.rev
     (** -Check for replacements *)
     let resolved =
         tryReplace com fsExpr meth (typArgs, methTypArgs) callee args

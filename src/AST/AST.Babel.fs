@@ -48,13 +48,6 @@ type TaggedTemplateExpression(tag, quasi, ?loc) =
     member x.tag: Expression = tag
     member x.quasi: TemplateLiteral = quasi
 
-(** ##Patterns *)
-
-// type ObjectPattern
-// type ArrayPattern
-// type RestElement
-// type AssignmentPattern
-
 (** ##Identifier *)
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier(name, ?loc) =
@@ -284,9 +277,9 @@ type AwaitExpression(argument, ?loc) =
     inherit Expression("AwaitExpression", ?loc = loc)
     member x.argument: Expression option = argument
 
-// type RestProperty(argument, ?loc) =
-//     inherit Node("RestProperty", ?loc = loc)
-//     member x.argument: Expression = argument
+type RestProperty(argument, ?loc) =
+    inherit Node("RestProperty", ?loc = loc)
+    member x.argument: Expression = argument
 
 /// e.g., var z = { x: 1, ...y } // Copy all properties from y 
 type SpreadProperty(argument, ?loc) =
@@ -442,6 +435,33 @@ type LogicalExpression(operator, left, right, ?loc) =
         match operator with
         | LogicalOr -> "||"
         | LogicalAnd-> "&&"
+        
+
+(** ##Patterns *)
+// type AssignmentProperty(key, value, ?loc) =
+//     inherit ObjectProperty("AssignmentProperty", ?loc = loc)
+//     member x.value: Pattern = value
+
+// type ObjectPattern(properties, ?loc) =
+//     inherit Node("ObjectPattern", ?loc = loc)
+//     member x.properties: U2<AssignmentProperty, RestProperty> list = properties
+//     interface Pattern
+
+type ArrayPattern(elements, ?loc) =
+    inherit Node("ArrayPattern", ?loc = loc)
+    member x.elements: Pattern option list = elements
+    interface Pattern
+
+type AssignmentPattern(left, right, ?loc) =
+    inherit Node("AssignmentPattern", ?loc = loc)
+    member x.left: Pattern = left
+    member x.right: Expression = right
+    interface Pattern
+
+type RestElement(argument, ?loc) =
+    inherit Node("RestElement", ?loc = loc)
+    member x.argument: Pattern = argument
+    interface Pattern        
 
 (** ##Classes *)
 type ClassMethodKind =

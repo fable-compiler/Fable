@@ -483,7 +483,7 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
             Fabel.Member(memberKind,
                 makeRange meth.DeclarationLocation, args, transformExpr com ctx body,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-                meth.Accessibility.IsPublic, not meth.IsInstanceMember)
+                meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParams meth)
             |> Fabel.MemberDeclaration
         declInfo.AddMethod (entMember, sanitizeEntityName meth.EnclosingEntity)
     declInfo
