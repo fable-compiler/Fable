@@ -31,6 +31,11 @@ type IFabelCompiler =
 module Patterns =
     open BasicPatterns
 
+    let rec countFuncArgs (fn: FSharpType) =
+        if fn.IsFunctionType
+        then countFuncArgs (Seq.last fn.GenericArguments) + 1
+        else 0
+
     let (|Rev|) = List.rev
     let (|Transform|) (com: IFabelCompiler) = com.Transform
     let (|FieldName|) (fi: FSharpField) = fi.Name
@@ -72,7 +77,7 @@ module Patterns =
                                             [Const (:? string as template,_)]))])), _), [], exprs)
             when t.HasTypeDefinition ->
             if t.TypeDefinition.DisplayName = "PrintfFormat" &&
-                (List.last typArgs).GenericArguments.Count = exprs.Length
+                countFuncArgs typArgs.Head = exprs.Length
             then Some(meth, template, exprs)
             else None
         | _ -> None
@@ -186,7 +191,6 @@ module Patterns =
         | "System.Byte" -> Some UInt8
         | "System.Int16" -> Some Int16
         | "System.UInt16" -> Some UInt16
-        | "System.Char" -> Some UInt16
         | "System.Int32" -> Some Int32
         | "System.UInt32" -> Some UInt32
         | "System.Int64" -> Some Float64
@@ -314,8 +318,7 @@ module Types =
         match tdef.FullName with
         | NumberKind kind -> Fabel.Number kind |> Fabel.PrimitiveType
         | "System.Boolean" -> Fabel.Boolean |> Fabel.PrimitiveType
-        | "System.Char" -> Fabel.Number UInt16 |> Fabel.PrimitiveType
-        | "System.String" -> Fabel.String |> Fabel.PrimitiveType
+        | "System.Char" | "System.String" -> Fabel.String |> Fabel.PrimitiveType
         | "System.Text.RegularExpressions.Regex" -> Fabel.Regex |> Fabel.PrimitiveType
         | "Microsoft.FSharp.Core.Unit" -> Fabel.Unit |> Fabel.PrimitiveType
         | "System.Collections.Generic.List`1" -> Fabel.DynamicArray |> Fabel.Array |> Fabel.PrimitiveType
@@ -323,10 +326,6 @@ module Types =
         | _ -> com.GetEntity tdef |> Fabel.DeclaredType
 
     and makeType (com: IFabelCompiler) (NonAbbreviatedType t) =
-        let rec countFuncArgs (fn: FSharpType) =
-            if fn.IsFunctionType
-            then countFuncArgs (Seq.last fn.GenericArguments) + 1
-            else 0
         if t.IsGenericParameter then Fabel.UnknownType else
         if t.IsTupleType then Fabel.Tuple |> Fabel.Array |> Some
         elif t.IsFunctionType then Fabel.Function (countFuncArgs t) |> Some

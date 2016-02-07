@@ -142,10 +142,9 @@ let ``String item works``() =
 [<Test>]    
 let ``String.ToCharArray works``() =
       let arr = "abcd".ToCharArray()
-      arr.[3] |> int
-      |> equal 100
-      arr |> Array.map int |> Array.sum
-      |> equal 394
+      equal "c" (string arr.[2])
+      arr |> Array.map (fun _ -> 1) |> Array.sum
+      |> equal arr.Length
 
 [<Test>]
 let ``String.Join works``() =

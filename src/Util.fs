@@ -11,6 +11,12 @@ type CompilerOptions =
     static member Default projFile = {
         code=null; symbols=[||]; outDir="."; lib="."; projFile=projFile        
     }
+    static member Sanitize opts = {
+        opts with
+            symbols = if opts.symbols <> null then opts.symbols else [||]
+            outDir = if opts.outDir <> null then opts.outDir else "."
+            lib = if opts.lib <> null then opts.lib else "."
+    }
 
 type ICompiler =
     abstract Options: CompilerOptions

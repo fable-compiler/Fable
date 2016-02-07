@@ -289,6 +289,7 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
         | Fabel.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
         | Fabel.Lambda (args, body) -> funcArrow com ctx args body
         | Fabel.ArrayConst (cons, kind) -> buildArray com ctx cons kind
+        | Fabel.Emit emit -> macroExpression None emit []
         | Fabel.TypeRef typ ->
             match typ with
             | Fabel.DeclaredType typEnt ->
@@ -298,8 +299,7 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
                     else typEnt.FullName
                 typeRef com ctx typEnt.File typFullName
             | _ -> failwithf "Not supported type reference: %A" typ
-        | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _
-        | Fabel.Emit _ | Fabel.Spread _ ->
+        | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _ | Fabel.Spread _ ->
             failwithf "Unexpected stand-alone value: %A" expr
 
     | Fabel.ObjExpr (props, range) ->
@@ -379,9 +379,6 @@ let private transformFunction com ctx args body =
             transformExpr com ctx body |> U2.Case2
     args, body
     
-let private transformTestSuite com ctx decls: Babel.CallExpression =
-    failwith "TODO: TestSuite members"
-    
 // TODO: Set interfaces with $Fabel.Util.setInterfaces(Class.prototyp, [interfaces])
 let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation option) decls =
     let declareMember range kind name args body isStatic hasRestParams =
@@ -420,6 +417,15 @@ let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation o
     |> List.map U2<_,Babel.ClassProperty>.Case1
     |> fun meths -> Babel.ClassExpression(classRange, Babel.ClassBody(classRange, meths), ?super=baseClass)
 
+// TODO: Exit process with code
+let private declareEntryPoint com ctx (funcExpr: Babel.Expression) =
+    let argv =
+        "typeof process != 'undefined' && Array.isArray(process.argv) ? process.argv.slice(2) : []"
+        |> macroExpression None <| []
+    Babel.ExpressionStatement(
+        Babel.CallExpression (funcExpr, [argv |> U2.Case1], ?loc=funcExpr.loc))
+    :> Babel.Statement
+
 // TODO: Keep track of sanitized member names to be sure they don't clash? 
 let private declareModMember range (var, name) isPublic modIdent expr =
     let var = match var with Some x -> x | None -> identFromName name
@@ -442,7 +448,9 @@ let private transformModMember com ctx modIdent (m: Fabel.Member) =
             failwithf "Unexpected member in module: %A" m.Kind
     let memberRange =
         match expr.loc with Some loc -> m.Range + loc | None -> m.Range
-    declareModMember memberRange (None, name) m.IsPublic modIdent expr
+    if m.TryGetDecorator("EntryPoint").IsSome
+    then declareEntryPoint com ctx expr
+    else declareModMember memberRange (None, name) m.IsPublic modIdent expr
 
 // Compile tests using Mocha.js BDD interface
 let private transformTest com ctx (test: Fabel.Member) name =
@@ -456,8 +464,8 @@ let private transformTest com ctx (test: Fabel.Member) name =
     // it('Test name', function() { /* Tests */ });
     Babel.ExpressionStatement(
         Babel.CallExpression(Babel.Identifier "it",
-            [U2.Case1 testName; U2.Case1 testBody], testRange))
-        :> Babel.Statement
+            [U2.Case1 testName; U2.Case1 testBody], testRange), testRange)
+    :> Babel.Statement
 
 let private transformTestFixture com ctx (fixture: Fabel.Entity) testDecls testRange =
     let testDesc =

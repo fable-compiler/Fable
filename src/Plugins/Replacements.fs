@@ -90,21 +90,13 @@ module private AstPass =
     let emit (i: Fabel.ApplyInfo) emit args =
         Fabel.Apply(Fabel.Emit(emit) |> Fabel.Value, args, Fabel.ApplyMeth, i.returnType, i.range)
         
-    // TODO: Assuming UInt16 is char, make it explicit?
     let toString com (i: Fabel.ApplyInfo) (arg: Fabel.Expr) =
         match arg.Type with
-        | Fabel.PrimitiveType (Fabel.Number UInt16) ->
-            GlobalCall ("String", Some "fromCharCode", false, [arg])
+        | Fabel.PrimitiveType (Fabel.String) ->
+            arg
         | _ ->
             InstanceCall (arg, "toString", [])
-        |> makeCall com i.range i.returnType
-
-    let toChar com (i: Fabel.ApplyInfo) idx (arg: Fabel.Expr) =
-        match arg.Type with
-        | Fabel.PrimitiveType Fabel.String ->
-            InstanceCall(arg, "charCodeAt", [idx])
             |> makeCall com i.range i.returnType
-        | _ -> arg
 
     let toInt, toFloat =
         let toNumber com (i: Fabel.ApplyInfo) typ (arg: Fabel.Expr) =
@@ -186,8 +178,7 @@ module private AstPass =
         | "seq" | "id" -> Some args.Head
         | "int" -> toInt com info args.Head |> Some
         | "float" -> toFloat com info args.Head |> Some
-        | "char" -> toChar com info (makeConst 0) args.Head |> Some
-        | "string" -> toString com info args.Head |> Some
+        | "char" | "string" -> toString com info args.Head |> Some
         // Ignore: wrap to keep Unit type (see Fabel2Babel.transformFunction)
         | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
         // Ranges
@@ -202,7 +193,7 @@ module private AstPass =
             |> makeGet r typ args.Head |> Some
         // Strings
         | "sprintf" -> Some args.Head
-        | "printf" ->
+            | "printf" | "printfn" ->
             GlobalCall("console", Some "log", false, info.args)
             |> makeCall com r typ |> Some
         // Exceptions
@@ -232,6 +223,9 @@ module private AstPass =
         | "toLower" -> icall "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall "toLowerCase" |> Some
         | "indexOf" | "lastIndexOf" | "trim" -> icall i.methodName |> Some
+        | "toCharArray" ->
+            InstanceCall(i.callee.Value, "split", [makeConst ""])
+            |> makeCall com i.range i.returnType |> Some
         | _ -> None
 
     let console com (i: Fabel.ApplyInfo) =
@@ -243,8 +237,7 @@ module private AstPass =
 
     let intrinsicFunctions com (i: Fabel.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
-        | "getString", TwoArgs (str, idx) ->
-            toChar com i idx str |> Some
+        | "getString", TwoArgs (ar, idx)
         | "getArray", TwoArgs (ar, idx) ->
             makeGet i.range i.returnType ar idx |> Some
         | "setArray", ThreeArgs (ar, idx, value) ->
@@ -528,10 +521,11 @@ module private AstPass =
 
     let mappings =
         dict [
-            "System.Math" => operators
-            "System.Object" => objects
-            "System.Exception" => exceptions
-            "System.String" => strings
+            system + "Math" => operators
+            system + "Object" => objects
+            system + "Exception" => exceptions
+            system + "String" => strings
+            fsharp + "Core.String" => strings
             fsharp + "Core.PrintfFormat" => strings
             "IntrinsicFunctions" => intrinsicFunctions
             fsharp + "Core.Operators" => operators
@@ -539,7 +533,7 @@ module private AstPass =
             fsharp + "Core.Option" => options
             fsharp + "Collections.Map" => mapAndSets
             fsharp + "Collections.Set" => mapAndSets
-            "System.Array" => collectionsSecondPass
+            system + "Array" => collectionsSecondPass
             fsharp + "Collections.Array" => collectionsFirstPass
             fsharp + "Collections.List" => collectionsFirstPass
             fsharp + "Collections.Seq" => collectionsSecondPass
@@ -561,6 +555,7 @@ module private CoreLibPass =
             system + "DateTime" => ("Time", Static)
             system + "TimeSpan" => ("Time", Static)
             system + "String" => ("String", Static)
+            fsharp + "Core.String" => ("String", Static)
             system + "Text.RegularExpressions.Regex" => ("RegExp", Static)
             genericCollections + "List" => ("ResizeArray", Static)
             genericCollections + "IList" => ("ResizeArray", Static)

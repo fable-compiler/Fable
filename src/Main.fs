@@ -49,6 +49,7 @@ let main argv =
         if argv.[0] = "--projFile"
         then readOptions argv.[1]
         else JsonConvert.DeserializeObject<_>(argv.[0])
+        |> CompilerOptions.Sanitize 
         |> function
             | opts when opts.code <> null ->
                 let projFile = Path.ChangeExtension(Path.GetTempFileName(), "fsx")

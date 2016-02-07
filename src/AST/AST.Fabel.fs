@@ -6,8 +6,7 @@ type Decorator =
     | Decorator of fullName: string * args: obj list
     member x.FullName = match x with Decorator (prop,_) -> prop
     member x.Arguments = match x with Decorator (_,prop) -> prop
-    member x.Name =
-        x.FullName.Substring (x.FullName.LastIndexOf '.' + 1)
+    member x.Name = x.FullName.Substring (x.FullName.LastIndexOf '.' + 1)
 
 (** ##Types *)
 type PrimitiveTypeKind =
@@ -274,13 +273,13 @@ module Util =
         match value with
         | :? bool as x -> BoolConst x
         | :? string as x -> StringConst x
+        | :? char as x -> StringConst (string x)
         // Integer types
         | :? int as x -> NumberConst (U2.Case1 x, Int32)
         | :? byte as x -> NumberConst (U2.Case1 (int x), UInt8Clamped)
         | :? sbyte as x -> NumberConst (U2.Case1 (int x), Int8)
         | :? int16 as x -> NumberConst (U2.Case1 (int x), Int16)
         | :? uint16 as x -> NumberConst (U2.Case1 (int x), UInt16)
-        | :? char as x -> NumberConst (U2.Case1 (int x), UInt16)
         | :? uint32 as x -> NumberConst (U2.Case1 (int x), UInt32)
         // Float types
         | :? float as x -> NumberConst (U2.Case2 x, Float64)
