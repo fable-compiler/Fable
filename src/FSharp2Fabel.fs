@@ -69,7 +69,8 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
 
     (** Values *)
 
-    // Some arrays (like ushort[]) won't fit the NewArray pattern 
+    // Arrays with small data (ushort, byte) won't fit the NewArray pattern
+    // as they would require too much memory
     | BasicPatterns.Const(:? System.Collections.IEnumerable as arr, typ)
         when typ.HasTypeDefinition && typ.TypeDefinition.IsArrayType ->
         let mutable argExprs = []

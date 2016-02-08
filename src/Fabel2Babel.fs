@@ -423,7 +423,8 @@ let private declareEntryPoint com ctx (funcExpr: Babel.Expression) =
         "typeof process != 'undefined' && Array.isArray(process.argv) ? process.argv.slice(2) : []"
         |> macroExpression None <| []
     Babel.ExpressionStatement(
-        Babel.CallExpression (funcExpr, [argv |> U2.Case1], ?loc=funcExpr.loc))
+        Babel.CallExpression (funcExpr, [argv |> U2.Case1], ?loc=funcExpr.loc),
+        ?loc=funcExpr.loc)
     :> Babel.Statement
 
 // TODO: Keep track of sanitized member names to be sure they don't clash? 
@@ -606,7 +607,6 @@ let transformFiles (com: ICompiler) (files: Fabel.File list) =
                                     rootRange) :> Babel.Expression),
                             rootRange) :> Babel.ModuleDeclaration |> U2.Case2
             // Add imports
-            // TODO: Import namespaces `import * as $M1 from foo`
             let rootDecls =
                 ctx.imports |> Seq.fold (fun acc import ->
                     let importVar, isNs = import.Value

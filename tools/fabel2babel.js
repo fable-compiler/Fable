@@ -41,7 +41,7 @@ var babelPlugins = [
     "transform-es2015-object-super",
     "transform-es2015-parameters",
     "transform-es2015-spread",
-    "transform-es2015-modules-umd"
+    "transform-es2015-modules-commonjs"
 ];
 
 function ensureDirExists(dir, cont) {
