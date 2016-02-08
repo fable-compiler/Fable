@@ -31,11 +31,6 @@ type IFabelCompiler =
 module Patterns =
     open BasicPatterns
 
-    let rec countFuncArgs (fn: FSharpType) =
-        if fn.IsFunctionType
-        then countFuncArgs (Seq.last fn.GenericArguments) + 1
-        else 0
-
     let (|Rev|) = List.rev
     let (|Transform|) (com: IFabelCompiler) = com.Transform
     let (|FieldName|) (fi: FSharpField) = fi.Name
@@ -69,17 +64,6 @@ module Patterns =
                     Let((ident, _), body)), _)))
             when meth.DisplayName = "GetEnumerator" ->
             Some(ident, value, body)
-        | _ -> None
-        
-    let (|AppliedStringFormat|_|) = function
-        | Application(Let((_,Call(None, meth, [], _,
-                                [Coerce(NonAbbreviatedType t, NewObject(_,typArgs,
-                                            [Const (:? string as template,_)]))])), _), [], exprs)
-            when t.HasTypeDefinition ->
-            if t.TypeDefinition.DisplayName = "PrintfFormat" &&
-                countFuncArgs typArgs.Head = exprs.Length
-            then Some(meth, template, exprs)
-            else None
         | _ -> None
 
     // These are closures created by F# compiler, e.g. given `let add x y z = x+y+z`
@@ -326,6 +310,10 @@ module Types =
         | _ -> com.GetEntity tdef |> Fabel.DeclaredType
 
     and makeType (com: IFabelCompiler) (NonAbbreviatedType t) =
+        let rec countFuncArgs (fn: FSharpType) =
+            if fn.IsFunctionType
+            then countFuncArgs (Seq.last fn.GenericArguments) + 1
+            else 0
         if t.IsGenericParameter then Fabel.UnknownType else
         if t.IsTupleType then Fabel.Tuple |> Fabel.Array |> Some
         elif t.IsFunctionType then Fabel.Function (countFuncArgs t) |> Some

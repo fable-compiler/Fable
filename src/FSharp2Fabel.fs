@@ -23,17 +23,6 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         Fabel.ForOf (ident, value, transformExpr com newContext body)
         |> makeLoop (makeRangeFrom fsExpr)
         
-    | AppliedStringFormat (meth, template, args) ->
-        let args =
-            List.map (com.Transform ctx) args
-            |> makeArray Fabel.UnknownType
-            |> List.singleton
-            |> List.append [makeConst template]
-        CoreLibCall("String", Some "fsFormat", false, args)
-        |> makeCall com None (Fabel.PrimitiveType Fabel.String)
-        |> List.singleton
-        |> makeCallFrom com fsExpr meth ([],[]) None 
-
     | ErasableLambda (meth, typArgs, methTypArgs, methArgs) ->
         makeCallFrom com fsExpr meth (typArgs, methTypArgs)
             None (List.map (com.Transform ctx) methArgs)

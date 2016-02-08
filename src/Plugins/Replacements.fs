@@ -192,10 +192,14 @@ module private AstPass =
             |> makeConst
             |> makeGet r typ args.Head |> Some
         // Strings
-        | "sprintf" -> Some args.Head
-            | "printf" | "printfn" ->
-            GlobalCall("console", Some "log", false, info.args)
-            |> makeCall com r typ |> Some
+        | "sprintf" | "printf" | "printfn" ->
+            let emit = 
+                match info.methodName with
+                | "sprintf" -> "x=>x"
+                | "printf" | "printfn" | _ -> "x=>{console.log(x)}"
+                |> Fabel.Emit |> Fabel.Value
+            Fabel.Apply(args.Head, [emit], Fabel.ApplyMeth, typ, r)
+            |> Some
         // Exceptions
         | "failwith" | "failwithf" | "raise" | "invalidOp" ->
             Fabel.Throw (args.Head, r) |> Some
@@ -208,7 +212,7 @@ module private AstPass =
             |> makeCall com i.range i.returnType
         match i.methodName with
         | ".ctor" ->
-            CoreLibCall("String", Some "fsFormatCurried", false, i.args)
+            CoreLibCall("String", Some "fsFormat", false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | "get_Length" ->
             let c, _ = instanceArgs i.callee i.args
