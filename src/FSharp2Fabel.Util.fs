@@ -39,20 +39,20 @@ module Patterns =
     let (|NonAbbreviatedType|) (t: FSharpType) =
         let rec abbr (t: FSharpType) =
             if t.IsAbbreviation then abbr t.AbbreviatedType else t
-        abbr t    
+        abbr t
     
-    let (|CoreValue|_|) = function
+    // Special values like seq, async, String.Empty...
+    let (|SpecialValue|_|) com = function
         | Value v ->
             match v.FullName with
-            | "Microsoft.FSharp.Core.Operators.seq" -> Some "Seq"
-            | "Microsoft.FSharp.Core.ExtraTopLevelOperators.async" -> Some "Async"
+            | "Microsoft.FSharp.Core.Operators.seq" ->
+                makeCoreRef com "Seq" |> Some
+            | "Microsoft.FSharp.Core.ExtraTopLevelOperators.async" ->
+                makeCoreRef com "Async" |> Some
             | _ -> None
-        | _ -> None
-
-    let (|LiteralValue|_|) = function
         | ILFieldGet (None, typ, fieldName) when typ.HasTypeDefinition ->
             match typ.TypeDefinition.FullName, fieldName with
-            | "System.String", "Empty" -> Some (box "")
+            | "System.String", "Empty" -> Some (makeConst "")
             | _ -> None
         | _ -> None
     

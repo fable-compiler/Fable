@@ -11,13 +11,8 @@ open Fabel.FSharp2Fabel.Util
 let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
     match fsExpr with
     (** ## Custom patterns *)
-    // async, seq
-    | CoreValue modName ->
-        makeCoreRef com modName
-        
-    // String.Empty
-    | LiteralValue v ->
-        makeConst v
+    | SpecialValue com replacement ->
+        replacement
     
     | ForOf (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
         Fabel.ForOf (ident, value, transformExpr com newContext body)
