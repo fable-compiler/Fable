@@ -91,10 +91,15 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         then getBoundExpr com ctx v
         elif v.IsMemberThisValue
         then makeType com v.FullType |> Fabel.This |> Fabel.Value
-        else let typeRef =
-                makeTypeFromDef com v.EnclosingEntity
-                |> Fabel.TypeRef |> Fabel.Value
-             makeGetFrom com fsExpr typeRef (makeConst v.DisplayName)
+        else
+            v.Attributes
+            |> Seq.choose (makeDecorator com)
+            |> tryImported v.DisplayName
+            |> function
+                | Some expr -> expr
+                | None ->
+                    let typeRef = makeTypeFromDef com v.EnclosingEntity |> makeTypeRef
+                    makeGetFrom com fsExpr typeRef (makeConst v.DisplayName)
 
     | BasicPatterns.DefaultValue (FabelType com typ) ->
         let valueKind =
@@ -222,7 +227,6 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         makeCallFrom com fsExpr meth (typArgs, []) None (List.map (com.Transform ctx) args)
 
-    // TODO: Create constructors for Records
     | BasicPatterns.NewRecord(FabelType com recordType, argExprs) ->
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         Fabel.Apply (makeTypeRef recordType, argExprs, Fabel.ApplyCons,
@@ -268,7 +272,6 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
     | BasicPatterns.TypeTest (FabelType com typ as fsTyp, Transform com ctx expr) ->
         makeTypeTest com (makeRangeFrom fsExpr) typ expr 
 
-    // TODO: Move to Replacements?
     | BasicPatterns.UnionCaseTest (Transform com ctx unionExpr, FabelType com unionType, unionCase) ->
         let boolType = Fabel.PrimitiveType Fabel.Boolean
         match unionType with
@@ -374,20 +377,22 @@ type private EntChild =
         | None -> false
 
 type private DeclInfo(init: Fabel.Declaration list) =
+    let ignoredAtts = set ["Erase"; "Import"; "Global"]
     let mutable child: EntChild option = None
     let decls = ResizeArray<Fabel.Declaration>(init)
     let childDecls = ResizeArray<Fabel.Declaration>()
-    let extMods = ResizeArray<Fabel.ExternalEntity>()
     /// Interface, inherits from System.Attribute, has "Erase" decorator...
     member self.IsIgnoredEntity (ent: FSharpEntity) =
-        if ent.IsInterface then true else
-        match ent.Attributes, ent.BaseType with
-        | ContainsAtt "Erase" _, _ -> true
-        | _, Some (NonAbbreviatedType t) when t.HasTypeDefinition ->
-            match t.TypeDefinition.TryFullName with
-            | Some "System.Attribute" -> true
-            | _ -> false
-        | _ -> false
+        let hasIgnoredAtt atts =
+            atts |> tryFindAtt (ignoredAtts.Contains) |> Option.isSome
+        if ent.IsInterface || (hasIgnoredAtt ent.Attributes)
+        then true
+        else match ent.BaseType with
+             | Some (NonAbbreviatedType t) when t.HasTypeDefinition ->
+                 match t.TypeDefinition.TryFullName with
+                 | Some "System.Attribute" -> true
+                 | _ -> false
+             | _ -> false
     /// Is compiler generated or belongs to ignored entity?
     /// (remember F# compiler puts class methods in enclosing modules)
     member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
@@ -403,10 +408,6 @@ type private DeclInfo(init: Fabel.Declaration list) =
     member self.AddInitAction (actionDecl: Fabel.Declaration) =
         self.ClearChild ()
         decls.Add actionDecl
-    member self.AddExternal (extMod: Fabel.ExternalEntity) =
-        self.ClearChild ()
-        child <- Some (Ignored extMod.FullName)
-        extMods.Add extMod
     member self.ClearChild () =
         match child with
         | Some (Compiled (child, range)) ->
@@ -415,17 +416,16 @@ type private DeclInfo(init: Fabel.Declaration list) =
         | _ -> ()
         child <- None
         childDecls.Clear ()
-    member self.AddChild (newChild, newChildRange, newChildDecls, childExtMods) =
+    member self.AddChild (newChild, newChildRange, newChildDecls) =
         self.ClearChild ()
         child <- Some (Compiled (newChild, newChildRange))
         childDecls.AddRange newChildDecls
-        extMods.AddRange childExtMods
     member self.AddIgnored (ent: FSharpEntity) =
         self.ClearChild ()
         child <- Some (Ignored (sanitizeEntityName ent))
-    member self.GetDeclarationsAndExternalModules () =
+    member self.GetDeclarations () =
         self.ClearChild ()
-        List.ofSeq decls, List.ofSeq extMods        
+        List.ofSeq decls        
     
 let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
@@ -475,31 +475,17 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
    
 let rec private transformEntityDecl
     (com: IFabelCompiler) ctx (declInfo: DeclInfo) (ent: FSharpEntity) subDecls =
-    match ent.Attributes with
-    | ContainsAtt "Global" _ ->
-        Fabel.GlobalModule ent.FullName
-        |> declInfo.AddExternal
-        declInfo
-    | ContainsAtt "Import" args ->
-        match args with
-        | (:? string as modName)::rest when not(System.String.IsNullOrWhiteSpace modName) ->
-            let isNs = match rest with [:? bool as isNs] -> isNs | _ -> false
-            Fabel.ImportModule(ent.FullName, modName, isNs)
-            |> declInfo.AddExternal
-            declInfo
-        | _ -> failwith "Import attributes must have a single non-empty string argument"
-    | _ when declInfo.IsIgnoredEntity ent ->
-        declInfo.AddIgnored ent
-        declInfo
-    | _ ->
+    if declInfo.IsIgnoredEntity ent
+    then declInfo.AddIgnored ent; declInfo
+    else
         let entRange = makeRange ent.DeclarationLocation
         // Unions don't have a constructor, generate it // TODO: Records
         let init =
             if not ent.IsFSharpUnion then []
             else [(makeUnionCons <| entRange.Collapse ())]
         let ctx = { ctx with parentEntities = ent::ctx.parentEntities }
-        let childDecls, childExtMods = transformDeclarations com ctx init subDecls
-        declInfo.AddChild (com.GetEntity ent, entRange, childDecls, childExtMods)
+        let childDecls = transformDeclarations com ctx init subDecls
+        declInfo.AddChild (com.GetEntity ent, entRange, childDecls)
         declInfo
 
 and private transformDeclarations (com: IFabelCompiler) ctx init decls =
@@ -513,7 +499,7 @@ and private transformDeclarations (com: IFabelCompiler) ctx init decls =
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx expr) ->
                 declInfo.AddInitAction (Fabel.ActionDeclaration expr); declInfo
         ) (DeclInfo init)
-    declInfo.GetDeclarationsAndExternalModules ()
+    declInfo.GetDeclarations ()
         
 let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
     let emptyContext parent = {
@@ -549,10 +535,12 @@ let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
         interface ICompiler with
             member __.Options = com.Options }    
     fsProj.AssemblyContents.ImplementationFiles
+    |> List.where (fun file ->
+        (System.IO.Path.GetFileName file.FileName).StartsWith("Fabel.Import") |> not)
     |> List.map (fun file ->
         let rootEnt, rootDecls = getRootDecls None file.Declarations
-        let rootDecls, extDecls = transformDeclarations com (emptyContext rootEnt) [] rootDecls
+        let rootDecls = transformDeclarations com (emptyContext rootEnt) [] rootDecls
         match rootEnt with
         | Some rootEnt -> makeEntity com rootEnt
         | None -> Fabel.Entity.CreateRootModule file.FileName
-        |> fun rootEnt -> Fabel.File(file.FileName, rootEnt, rootDecls, extDecls))
+        |> fun rootEnt -> Fabel.File(file.FileName, rootEnt, rootDecls))

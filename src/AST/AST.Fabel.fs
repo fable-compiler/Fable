@@ -85,11 +85,10 @@ and ExternalEntity =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
     
-and File(fileName, root, decls, extEntities) =
+and File(fileName, root, decls) =
     member x.FileName: string = fileName
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
-    member x.ExternalEntities: ExternalEntity list = extEntities
     
 (** ##Expressions *)
 and ArrayKind = TypedArray of NumberKind | DynamicArray | Tuple
@@ -121,9 +120,9 @@ and ValueKind =
     | This of Type
     | Super of Type
     | Spread of Expr
-    | TypeRef of Type
+    | TypeRef of Entity
     | IdentValue of Ident
-    | ImportRef of import: string * isNs: bool * prop: string option
+    | ImportRef of import: string * asDefault: bool * prop: string option
     | NumberConst of U2<int,float> * NumberKind
     | StringConst of string
     | BoolConst of bool
@@ -235,15 +234,14 @@ module Util =
     
     type CallKind =
         | InstanceCall of callee: Expr * meth: string * args: Expr list
-        | ImportCall of importRef: string * isNs: bool * modName: string option * meth: string option * isCons: bool * args: Expr list
+        | ImportCall of importRef: string * asDefault: bool * modName: string option * meth: string option * isCons: bool * args: Expr list
         | CoreLibCall of modName: string * meth: string option * isCons: bool * args: Expr list
         | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
     let makeLoop range loopKind = Loop (loopKind, range)
-    let makeTypeRef typ = Value (TypeRef typ)
     let makeCoreRef com modname =
-        Value (ImportRef (Naming.getCoreLibPath com, true, Some modname))
-
+        Value (ImportRef (Naming.getCoreLibPath com, false, Some modname))
+    
     let makeIdent name: Ident = {name=name; typ=UnknownType}
     let makeIdentExpr name = makeIdent name |> IdentValue |> Value 
 
@@ -302,7 +300,29 @@ module Util =
             match typ with
             | PrimitiveType (Number numberKind) -> TypedArray numberKind
             | _ -> DynamicArray
-        ArrayConst(ArrayValues argExprs, arrayKind) |> Value        
+        ArrayConst(ArrayValues argExprs, arrayKind) |> Value
+        
+    let tryImported name (decs: #seq<Decorator>) =
+        decs |> Seq.tryPick (fun x ->
+            match x.Name with
+            | "Global" ->
+                makeIdent name |> IdentValue |> Value |> Some
+            | "Import" ->
+                match x.Arguments with
+                | (:? string as path)::rest ->
+                    let asDefault = match rest with [:? bool as b] -> b | _ -> false
+                    ImportRef(path, asDefault, None) |> Value |> Some
+                | _ -> failwith "Import attributes must have a single non-empty string argument"
+            | _ -> None)
+
+    let makeTypeRef typ =
+        match typ with
+        | DeclaredType ent ->
+            match tryImported ent.Name ent.Decorators with
+            | Some expr -> expr
+            | None -> Value (TypeRef ent)
+        | _ ->
+            failwithf "Unexpected reference to type: %A" typ
         
     let makeCall com range typ kind =
         let getCallee meth args owner =
@@ -320,8 +340,8 @@ module Util =
             let fnTyp = PrimitiveType (List.length args |> Function)
             Apply (callee, [makeConst meth], ApplyGet, fnTyp, None)
             |> apply ApplyMeth args
-        | ImportCall (importRef, isNs, modOption, meth, isCons, args) ->
-            Value (ImportRef (importRef, isNs, modOption))
+        | ImportCall (importRef, asDefault, modOption, meth, isCons, args) ->
+            Value (ImportRef (importRef, asDefault, modOption))
             |> getCallee meth args
             |> apply (getKind isCons) args
         | CoreLibCall (modName, meth, isCons, args) ->

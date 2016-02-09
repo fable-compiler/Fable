@@ -194,9 +194,8 @@ module Patterns =
         atts |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
             | Some fullName ->
-                if fullName.Substring(fullName.LastIndexOf "." + 1) |> f
-                then Some att
-                else None
+                fullName.Substring(fullName.LastIndexOf "." + 1).Replace("Attribute", "")
+                |> f |> function true -> Some att | false -> None
             | None -> None)
         
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
@@ -219,13 +218,13 @@ module Patterns =
 
     let (|OptionUnion|ListUnion|ErasedUnion|OtherType|) (typ: Fabel.Type) =
         match typ with
-        | Fabel.DeclaredType typ ->
-            match typ.FullName with
+        | Fabel.DeclaredType ent ->
+            match ent.FullName with
             | "Microsoft.FSharp.Core.Option" -> OptionUnion
             | "Microsoft.FSharp.Collections.List" -> ListUnion
-            | _ when Option.isSome (typ.TryGetDecorator "Erase") -> ErasedUnion
+            | _ when Option.isSome (ent.TryGetDecorator "Erase") -> ErasedUnion
             | _ -> OtherType
-        | _ -> OtherType
+        | _ -> failwithf "Unexpected union type: %A" typ
 
 [<AutoOpen>]
 module Types =
@@ -368,7 +367,8 @@ let isReplaceCandidate (com: IFabelCompiler) (meth: FSharpMemberOrFunctionOrValu
 
 let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
     let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
-        meth.IsProperty
+        meth.EnclosingEntity.IsInterface
+        || meth.IsProperty
         || meth.IsEvent
         || meth.IsImplicitConstructor
         |> not
@@ -390,12 +390,7 @@ let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
                 |> function
                 | Some i when i > 0 -> sprintf "_%i" i
                 | _ -> ""
-    let methName =
-        let methName = Naming.removeBrackets meth.DisplayName
-        // If this is a test, the name will be descriptive, so don't lower the first letter
-        meth.Attributes |> tryFindAtt (fun attName -> attName.StartsWith ("Test"))
-        |> function Some _ -> methName | None -> Naming.lowerFirst methName
-    methName + (overloadSuffix meth)
+    (Naming.removeBrackets meth.DisplayName) + (overloadSuffix meth)
 
 let makeRange (r: Range.range) = {
     // source = Some r.FileName
@@ -432,34 +427,36 @@ let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClau
         | None -> None
     Fabel.TryCatch (body, catchClause, finalizer, makeRangeFrom fsExpr)
 
+let makeGetFrom com (fsExpr: FSharpExpr) callee propExpr =
+    Fabel.Apply (callee, [propExpr], Fabel.ApplyGet, makeType com fsExpr.Type, makeRangeFrom fsExpr)
+
 let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
     if meth.CurriedParameterGroups.Count <> 1 then false else
     let args = meth.CurriedParameterGroups.[0]
     args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
     
-let tryReplace (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
-               (typArgs, methTypArgs) callee args =
-    if not <| isReplaceCandidate com meth then
-        None // TODO: Check Emit attributes
-    else
-        let applyInfo: Fabel.ApplyInfo = {
-            ownerFullName = sanitizeEntityName meth.EnclosingEntity
-            methodName = sanitizeMethodName com meth
-            range = makeRangeFrom fsExpr
-            callee = callee
-            args = args
-            returnType = makeType com fsExpr.Type
-            decorators = meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList
-            calleeTypeArgs = typArgs |> List.map (makeType com) 
-            methodTypeArgs = methTypArgs |> List.map (makeType com)
-        }
-        match Replacements.tryReplace com applyInfo with
-        | Some _ as repl -> repl
-        | None -> failwithf "Cannot find replacement for %s.%s at %A"
-                    applyInfo.ownerFullName applyInfo.methodName fsExpr.Range
+let (|Replaced|_|) (com: IFabelCompiler) fsExpr (typArgs, methTypArgs) (callee, args)
+                 (meth: FSharpMemberOrFunctionOrValue) =
+    if not (isReplaceCandidate com meth) then None else
+    let applyInfo: Fabel.ApplyInfo = {
+        ownerFullName = sanitizeEntityName meth.EnclosingEntity
+        methodName = sanitizeMethodName com meth |> Naming.lowerFirst
+        range = makeRangeFrom fsExpr
+        callee = callee
+        args = args
+        returnType = makeType com fsExpr.Type
+        decorators = meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList
+        calleeTypeArgs = typArgs |> List.map (makeType com) 
+        methodTypeArgs = methTypArgs |> List.map (makeType com)
+    }
+    match Replacements.tryReplace com applyInfo with
+    | Some _ as repl -> repl
+    | None -> failwithf "Cannot find replacement for %s.%s at %A"
+                applyInfo.ownerFullName applyInfo.methodName fsExpr.Range
 
-let makeGetFrom com (fsExpr: FSharpExpr) callee propExpr =
-    Fabel.Apply (callee, [propExpr], Fabel.ApplyGet, makeType com fsExpr.Type, makeRangeFrom fsExpr)
+// TODO                    
+let (|Emitted|_|) (meth: FSharpMemberOrFunctionOrValue) =
+    None
 
 // TODO: Check `inline` annotation?
 // TODO: If it's an imported method with ParamArray, spread the last argument
@@ -473,13 +470,12 @@ let makeCallFrom (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
             (List.rev args.Tail)@items
         | _ ->
             (Fabel.Spread args.Head |> Fabel.Value)::args.Tail |> List.rev
-    (** -Check for replacements *)
-    let resolved =
-        tryReplace com fsExpr meth (typArgs, methTypArgs) callee args
-    (** -If no Emit attribute nor replacement has been found then: *)
-    match resolved with
-    | Some exprKind -> exprKind
-    | None ->
+    match meth with
+    (** -Check for replacements, emits... *)
+    | Replaced com fsExpr (typArgs, methTypArgs) (callee, args) replaced -> replaced
+    | Emitted replaced -> replaced
+    (** -If the call is not resolved, then: *)
+    | _ ->
         let methName = sanitizeMethodName com meth |> makeConst
         let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
     (**     *Check if this an extension *)
@@ -490,8 +486,7 @@ let makeCallFrom (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
             |> function
             | Some callee, args -> callee, args
             | None, args ->
-                let ownerType = makeTypeFromDef com meth.EnclosingEntity
-                Fabel.Value (Fabel.TypeRef ownerType), args
+                makeTypeFromDef com meth.EnclosingEntity |> makeTypeRef, args
     (**     *Check if this a getter or setter  *)
         if meth.IsPropertyGetterMethod then
             makeGetFrom com fsExpr callee methName
