@@ -5,93 +5,118 @@ var path = require("path");
 
 var templates = {
 file:
-`namespace Fabel.Import.[FILENAME]
-
-type ImportAttribute(path: string) =
-    inherit System.Attribute()
+`namespace Fabel.Import
+open System
     
-[DECLARATIONS]
-
-[<AutoOpen>]
-module Extensions =
-    let ___<'T> : 'T = failwith "JS only"
-    
-[EXTENSIONS]
+[MODULES]
 `, 
     
 interface:
-`type [NAME] =
-[PARENTS]`,
+`    type [NAME] =
+`,
 
 module:
-`// Use $(lib) macro to reference lib folder, e.g. "$(lib)jquery" 
-[<Import("[NAME]")>]
-type [NAME] =
-[PARENTS]`,
+`module [NAME] =
+    type private ImportAttribute(path) =
+        inherit System.Attribute()
+
+[INTERFACES]
+`,
     
-extension:
-`    type [NAME] with
-[MEMBERS]`,
+moduleProxy:
+`
+    type Global =
+[MEMBERS]
+
+    [<Import("[NAME]")>]
+    let Global: Global = failwith "JS only"`,
 
 property:
-`        [STATIC]member [SELF][NAME] with get(): [TYPE] = ___ and set(v) = ___`,
+`        abstract [NAME]: [TYPE][OPTION] with get, set`,
     
 method:
-`        [STATIC]member [SELF][NAME]([PARAMETERS]): [TYPE] = ___`,
+`        abstract [NAME]: [PARAMETERS] -> [TYPE]`,
 
 constructor:
-`        static member createNew([PARAMETERS]): [TYPE] = ___`
+`        abstract createNew: [PARAMETERS] -> [TYPE]`
 }
 
-function printExtensions(ast) {
-    // TODO: rest params
+// TODO: rest params
+function printParameters(parameters) {
     function printParameter(x) {
-        return (x.optional ? "?" : "") +
-            x.name + ": " + x.type;
+        if (x.rest) {
+            var type = /ResizeArray<(.*?)>/.exec(x.type)[1] + "[]";
+            return "[<ParamArray>] " + x.name + ": " + type;
+        }
+        else {
+            return (x.optional ? "?" : "") + x.name + ": " + x.type;
+        }
     }
-    function printMember(x, template) {
-        return template
-            .replace("[STATIC]", x.static ? "static " : "")
-            .replace("[SELF]", x.static ? "" : "__.")
-            .replace("[NAME]", x.name)
-            .replace("[TYPE]", x.type)
-            .replace("[PARAMETERS]", x.parameters.map(printParameter).join(", "));
-    }
-    return ast.entities.map(function(x) {
-        var members = x.constructors.map(function(x) {
-           return printMember(x, templates.constructor); 
-        })
-        .concat(x.properties.map(function(x) {
-           return printMember(x, templates.property); 
-        }))
-        .concat(x.methods.map(function(x) {
-           return printMember(x, templates.method); 
-        }));
-        return templates.extension
-            .replace("[NAME]", x.name)
-            .replace("[MEMBERS]", members.join("\n"));
-    }).join("\n\n");
+    return Array.isArray(parameters) && parameters.length > 0
+        ? parameters.map(printParameter).join(" * ")
+        : "unit";
 }
 
-function printDeclarations(ast) {
-    function printDeclaration(decl) {
-        var template = decl.module ? templates.module : templates.interface;
-        return template
-            .replace(/\[NAME\]/g, decl.name)
-            .replace("[PARENTS]", decl.parents.length === 0
-                ? "    interface end"
-                : decl.parents.map(function(x) {
-                    return "    inherit " + x;
-                }).join("\n"));
-    }
-    return ast.entities.map(printDeclaration).join("\n\n");
+function printConstructor(x) {
+    return templates.constructor
+        .replace("[TYPE]", x.type)
+        .replace("[PARAMETERS]", printParameters(x.parameters));
 }
 
-function printFile(ast, filename) {
-    return templates.file
-        .replace("[FILENAME]", filename)
-        .replace("[DECLARATIONS]", printDeclarations(ast))
-        .replace("[EXTENSIONS]", printExtensions(ast));
+function printMethod(x) {
+    return templates.method
+        .replace("[NAME]", x.name)
+        .replace("[TYPE]", x.type)
+        .replace("[PARAMETERS]", printParameters(x.parameters));
+}
+
+function printProperty(x) {
+    return templates.property
+        .replace("[NAME]", x.name)
+        .replace("[TYPE]", x.type)
+        .replace("[OPTION]", x.optional ? " option" : "");
+}
+
+function printParent(name) {
+    return "        inherit " + name;
+}
+
+function printMembers(ent) {
+    return [
+        ent.parents && ent.parents.length > 0
+            ? ent.parents.map(printParent).join("\n") : "",
+        ent.constructors && ent.constructors.length > 0
+            ? ent.constructors.map(printConstructor).join("\n") : "",
+        ent.properties && ent.properties.length > 0
+            ? ent.properties.map(printProperty).join("\n") : "",
+        ent.methods && ent.methods.length > 0
+            ? ent.methods.map(printMethod).join("\n") : "",
+    ].filter(x => x.length > 0).join("\n");
+}
+function printInterface(ifc) {
+    var template = templates.interface.replace("[NAME]", ifc.name);
+    var members = printMembers(ifc);
+    return template += (members.length == 0
+        ? "        interface end"
+        : members);
+}
+
+function printModule(mod) {
+    var template = templates.module
+        .replace(/\[NAME\]/g, mod.name)
+        .replace("[INTERFACES]", mod.interfaces.map(printInterface).join("\n\n"));
+        
+    var members = printMembers(mod);
+    if (members.length > 0) {
+        template += templates.moduleProxy
+            .replace("[NAME]", mod.name)
+            .replace("[MEMBERS]", members)
+    }
+    return template; 
+}
+
+function printFile(modules) {
+    return templates.file.replace("[MODULES]", modules.map(printModule).join("\n\n"));
 }
 
 function hasFlag(flags, flag) {
@@ -109,10 +134,18 @@ function getType(type) {
         case ts.SyntaxKind.VoidKeyword:
             return "unit";
         case ts.SyntaxKind.ArrayType:
-            return "ResizeArray<"+getType(type.elementType)+">";
+            return "ResizeArray<" + getType(type.elementType) + ">";
+        case ts.SyntaxKind.FunctionType:
+            var cbParams = type.parameters.map(x=>getType(x.type)).join(", ");
+            cbParams = cbParams.length > 0 ? cbParams + ", " : "";
+            return "Func<" + cbParams + getType(type.type) + ">";
         case ts.SyntaxKind.FirstTypeNode:
-            // TODO: Array<T>
-            return type.typeName.text;
+            var name = type.typeName.text;
+            if (name == "Date") { return "DateTime"; }            
+            var arrMatch = /Array<(.*?)>/.exec(name);
+            if (arrMatch != null) { return  "ResizeArray<"+arrMatch[1]+">"; }
+            return name;
+        // TODO: Functions
         default:
             return "obj";
     }
@@ -132,39 +165,40 @@ function getParents(node) {
 }
 
 // TODO: get comments
-function getProperty(node, isStatic) {
+function getProperty(node) {
     return {
         name: node.name.text,
         type: getType(node.type),
-        static: isStatic || hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static),
-        parameters: []
+        optional: node.questionToken != null
+        // static: hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static)
     };
 }
 
+// TODO: Check if it's const
 function getVariables(node) {
     var variables = [];
-    if (Array.isArray(node.declarationList)) {
-        for (var i = 0; i < node.declarationList.length; i++) {
-            var declarations = node.declarationList[i].declarations;
-            for (var j = 0; j < declarations.length; j++) {
-                variables.push({
-                    name: declarations[j].name.text,
-                    type: getType(declarations[j].type),
-                    static: true,
-                    parameters: []
-                });
-            }
+    var declarationList = Array.isArray(node.declarationList)
+        ? node.declarationList : [node.declarationList];
+    for (var i = 0; i < declarationList.length; i++) {
+        var declarations = declarationList[i].declarations;
+        for (var j = 0; j < declarations.length; j++) {
+            variables.push({
+                name: declarations[j].name.text,
+                type: getType(declarations[j].type),
+                static: true,
+                parameters: []
+            });
         }
     }
     return variables;
 }
 
 // TODO: get comments
-function getMethod(node, isStatic) {
+function getMethod(node) {
     return {
-        name: node.name.text,
+        name: node.name ? node.name.text : null,
         type: getType(node.type),
-        static: isStatic || hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static),
+        // static: hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static),
         parameters: node.parameters.map(function (param) {
             return {
                 name: param.name.text,
@@ -176,19 +210,27 @@ function getMethod(node, isStatic) {
     };
 }
 
-function getEntity(node, isModule) {
+function getInterface(node) {
     return {
       name: node.name.text,
+      parents: [],
       properties: [],
       methods: [],
-      constructors: [],  
-      parents: [],
-      module: isModule
-    };   
+      constructors: []
+    };
+}
+
+function getModule(node) {
+    return {
+      name: node.name.text,
+      interfaces: [],
+      properties: [],
+      methods: [],
+    };
 }
 
 function visitInterface(node) {
-    var ifc = getEntity(node, false);
+    var ifc = getInterface(node, false);
     node.members.forEach(function(node) {
         switch (node.kind) {
             case ts.SyntaxKind.PropertySignature:
@@ -205,15 +247,17 @@ function visitInterface(node) {
     return ifc;
 }
 
-function visitModule(node, file) {
-    var mod = getEntity(node, true);
+function visitModule(node) {
+    var mod = getModule(node, true);
     node.body.statements.forEach(function(node) {
+        // TODO: Classes
         switch (node.kind) {
             case ts.SyntaxKind.InterfaceDeclaration:
-                file.entities.push(visitInterface(node));
+                mod.interfaces.push(visitInterface(node));
                 break;
             case ts.SyntaxKind.VariableStatement:
-                mod.properties.push(getVariables(node, true));
+                getVariables(node).forEach(x =>
+                    mod.properties.push(x));
                 break;
             case ts.SyntaxKind.FunctionDeclaration:
                 mod.methods.push(getMethod(node, true));
@@ -224,28 +268,23 @@ function visitModule(node, file) {
 }
 
 function visitFile(node) {
-    var file = {
-      entities: []
-    };
+    var modules = [];
     ts.forEachChild(node, function(node) {
         switch (node.kind) {
-            case ts.SyntaxKind.InterfaceDeclaration:
-                file.entities.push(visitInterface(node));
-                break;
             case ts.SyntaxKind.ModuleDeclaration:
-                file.entities.push(visitModule(node, file));
+                modules.push(visitModule(node));
                 break;
         }
     });
-    return file;
+    return modules;
 }
 
 var fileNames = process.argv.slice(2);
 fileNames.forEach(function(fileName) {
     var code = fs.readFileSync(fileName).toString();
     var sourceFile = ts.createSourceFile(fileName, code, ts.ScriptTarget.ES6, /*setParentNodes */ true);
-    var file = visitFile(sourceFile);
-    var ffi = printFile(file, path.basename(fileName).replace(".d.ts",""))
+    var modules = visitFile(sourceFile);
+    var ffi = printFile(modules, path.basename(fileName).replace(".d.ts",""))
     console.log(ffi);
 });
 process.exit(0);
