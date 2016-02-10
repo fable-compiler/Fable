@@ -115,8 +115,8 @@ module List =
     | hd :: [] -> hd
     | hd :: tl -> last tl
     | _ -> failwith "Empty list."
-  let singleton (a:List<'c>) =
-    [ a.Head ]
+  let singleton (a:'c) =
+     [a]
   let where f (a:List<'c>) =
     a |> List.toSeq |> Seq.where f |> Seq.toList
   let take count (a:List<'c>) =
