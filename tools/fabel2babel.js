@@ -40,8 +40,7 @@ var babelPlugins = [
     "transform-es2015-for-of",
     "transform-es2015-object-super",
     "transform-es2015-parameters",
-    "transform-es2015-spread",
-    "transform-es2015-modules-commonjs"
+    "transform-es2015-spread"
 ];
 
 function ensureDirExists(dir, cont) {
@@ -113,6 +112,17 @@ try {
     }
     else if (typeof opts.code !== "string") {
         throw "No correct --projFile or --code argument provided";
+    }
+    
+    // Module target
+    if (opts.env === "browser") {
+        babelPlugins.push("transform-es2015-modules-amd");
+    }
+    else if (opts.env === "node") {
+        babelPlugins.push("transform-es2015-modules-commonjs");
+    }
+    else {
+        babelPlugins.push("transform-es2015-modules-umd");
     }
     
     fabelCmdArgs.push(JSON.stringify(opts));

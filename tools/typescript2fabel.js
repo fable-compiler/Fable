@@ -123,6 +123,11 @@ function hasFlag(flags, flag) {
     return flags != null && (flags & flag) == flag;
 }
 
+function getName(node) {
+    // TODO wrap keywords: ``keyword``
+    return node.name.text;
+}
+
 function getType(type) {
     switch (type.kind) {
         case ts.SyntaxKind.StringKeyword:
@@ -167,7 +172,7 @@ function getParents(node) {
 // TODO: get comments
 function getProperty(node) {
     return {
-        name: node.name.text,
+        name: getName(node),
         type: getType(node.type),
         optional: node.questionToken != null
         // static: hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static)
@@ -196,7 +201,7 @@ function getVariables(node) {
 // TODO: get comments
 function getMethod(node) {
     return {
-        name: node.name ? node.name.text : null,
+        name: node.name ? getName(node) : null,
         type: getType(node.type),
         // static: hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static),
         parameters: node.parameters.map(function (param) {
@@ -212,7 +217,7 @@ function getMethod(node) {
 
 function getInterface(node) {
     return {
-      name: node.name.text,
+      name: getName(node),
       parents: [],
       properties: [],
       methods: [],
@@ -222,7 +227,7 @@ function getInterface(node) {
 
 function getModule(node) {
     return {
-      name: node.name.text,
+      name: getName(node),
       interfaces: [],
       properties: [],
       methods: [],
