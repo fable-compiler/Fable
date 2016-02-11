@@ -1,6 +1,9 @@
 init:
   - git config --global core.autocrlf input
 
+build:
+  verbosity: detailed  
+  
 # Test against this version of Node.js
 environment:
   nodejs_version: "5.1"
@@ -21,3 +24,5 @@ artifacts:
   - path: build
     name: build
 
+test_script:
+  - .\node_modules\.bin\mocha --require chai --reporter mocha-appveyor build/test --no-exit
