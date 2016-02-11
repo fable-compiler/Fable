@@ -308,17 +308,19 @@ let ``Seq.toList works``() =
     ys.Head + ys.Tail.Head
     |> equal 3.
 
-// [<Test>]
-// let ``Seq.tryFind works``() =
-//     let xs = [1.; 2.]
-//     let ys = xs |> Seq.tryFind ((=) 1.)
-//     ys.IsSome |> equal true
-// 
-// [<Test>]
-// let ``Seq.tryFindIndex works``() =
-//     let xs = [1.; 2.]
-//     let ys = xs |> Seq.tryFindIndex ((=) 2.)
-//     ys.Value |> equal 1
+[<Test>]
+let ``Seq.tryFind works``() =
+    [1.; 2.]
+    |> Seq.tryFind ((=) 1.)
+    |> Option.isSome
+    |> equal true
+
+[<Test>]
+let ``Seq.tryFindIndex works``() =
+    [1.; 2.]
+    |> Seq.tryFindIndex ((=) 2.)
+    |> Option.get
+    |> equal 1
 
 [<Test>]
 let ``Seq.tryPick works``() =
