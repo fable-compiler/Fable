@@ -97,6 +97,9 @@ try {
     var fabelCwd = process.cwd();
     var fabelCmd = process.platform === "win32" ? "cmd" : "mono";
     var fabelCmdArgs = [__dirname + "/../build/main/Fabel.exe"];
+	if ( process.platform === "win32") {
+	  fabelCmdArgs.unshift("/C");
+	}
 
     if (typeof opts.projFile === "string") {
         fabelCwd = path.dirname(fabelCwd + "/" + opts.projFile);
