@@ -49,6 +49,10 @@ module private Util =
 
 module private AstPass =
     open Util
+    
+    let (|Null|_|) = function
+        | Fabel.Value Fabel.Null -> Some null
+        | _ -> None
 
     let (|OneArg|_|) (callee: Fabel.Expr option, args: Fabel.Expr list) =
         match callee, args with None, [arg] -> Some arg | _ -> None
@@ -89,6 +93,9 @@ module private AstPass =
             
     let emit (i: Fabel.ApplyInfo) emit args =
         Fabel.Apply(Fabel.Emit(emit) |> Fabel.Value, args, Fabel.ApplyMeth, i.returnType, i.range)
+
+    let emitNoInfo emit args =
+        Fabel.Apply(Fabel.Emit(emit) |> Fabel.Value, args, Fabel.ApplyMeth, Fabel.UnknownType, None)
         
     let toString com (i: Fabel.ApplyInfo) (arg: Fabel.Expr) =
         match arg.Type with
@@ -246,11 +253,16 @@ module private AstPass =
             makeGet i.range i.returnType ar idx |> Some
         | "setArray", ThreeArgs (ar, idx, value) ->
             Fabel.Set (ar, Some idx, value, i.range) |> Some
-        | "getArraySlice", ThreeArgs (ar, x, y) ->
-            InstanceCall (ar, "slice", [x;y]) |> makeCall com i.range i.returnType |> Some
-        | "setArraySlice", _ ->
-            // DynamicArray must use splice and TypedArray set
-            failwith "TODO: SetArraySlice"
+        | "getArraySlice", ThreeArgs (ar, lower, upper) ->
+            let upper =
+                match upper with
+                | Null _ -> emitNoInfo "$0.length" [ar]
+                | _ -> emitNoInfo "$0 + 1" [upper]
+            InstanceCall (ar, "slice", [lower; upper])
+            |> makeCall com i.range i.returnType |> Some
+        | "setArraySlice", (None, args) ->
+            CoreLibCall("Array", Some "setSlice", false, args)
+            |> makeCall com i.range i.returnType |> Some
         | _ -> None
 
     let options com (i: Fabel.ApplyInfo) =
@@ -534,7 +546,8 @@ module private AstPass =
         | "System.Math"
         | "Microsoft.FSharp.Core.Operators"
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
-        | "IntrinsicFunctions" -> intrinsicFunctions com info
+        | "IntrinsicFunctions"
+        | "OperatorIntrinsics" -> intrinsicFunctions com info
         | "System.Array"
         | "System.Collections.Generic.List"
         | "System.Collections.Generic.IList"
