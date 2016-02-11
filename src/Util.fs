@@ -110,14 +110,3 @@ module Json =
             | _, [|v|] -> serializer.Serialize(writer, v) 
             | _ -> writer.WriteNull()        
 
-module List =
-  let rec last = function
-    | hd :: [] -> hd
-    | hd :: tl -> last tl
-    | _ -> failwith "Empty list."
-  let singleton (a:'c) =
-     [a]
-  let where f (a:List<'c>) =
-    a |> List.toSeq |> Seq.where f |> Seq.toList
-  let take count (a:List<'c>) =
-    a |> List.toSeq |> Seq.take count |> Seq.toList
