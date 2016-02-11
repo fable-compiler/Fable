@@ -9,6 +9,23 @@ $ ./build.sh MochaTest  // on unix
 node node_modules/mocha/bin/mocha build/test
 ```
 
-For now only `TestFixture` and `Test` attributes, and `Assert.AreEqual` are available, but more features will be available soon.
+To debug the generated JS code, run the command below instead and **attach** an IDE to the node session. If you use Visual Studio Code, you can find detailed instructions [here](https://code.visualstudio.com/docs/editor/debugging).
 
-> As attributes are only read by name, it's possible to use the attributes without the `NUnit` dependency if needed.
+```
+node node_modules/mocha/bin/mocha build/test --debug-brk
+```
+
+You can debug the F# source too but, unfortunately, it seems VS Code doesn't like very much the generated source maps, so for this and other node apps you'll have more luck with [node-inspector](https://github.com/node-inspector/node-inspector). In a different terminal window, type the following and use Chrome to browse to the indicated URL.
+
+```
+npm install -g node-inspector  // Only first time, to install node-inspector globally
+
+node-inspector
+```
+
+After that, run the Mocha tests with the `--debug-brk` option as shown above. If you go to Chrome debugger, you'll see the JS test files but the F# ones won't be loaded yet. Just set a breakpoint at one of the JS files and, when hit, the debugger will automatically search the original code. From that moment on, the F# files will already be displayed so you can set the breakpoints directly there.
+
+
+> NOTE: For now only `TestFixture` and `Test` attributes, and `Assert.AreEqual` are available, but more features will be available soon.
+
+> NOTE: As attributes are only read by name, it's possible to use the attributes without the `NUnit` dependency if needed.

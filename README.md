@@ -29,11 +29,13 @@ If everything works, follow [these instructions](docs/compiling.md) to compile a
 
 ## Caveats
 
-- **Options** are erased in compiled code. This have several benefits like removing overhead and interact with native JS functions in a safer way (`null` will be `None`). However, it will lead to unexpected results if you do weird things like `Some null`. For practical purposes, Fabel considers `null`, `None`, `undefined` and `F# unit` to be the same thing.
+- **Options are erased** in compiled code. This have several benefits like removing overhead and interact with native JS functions in a safer way (`null` will be `None`). However, it will lead to unexpected results if you do weird things like `Some null`. For practical purposes, Fabel considers `null`, `None`, `undefined` and `F# unit` to be the same thing.
 
 - At the moment, comparison for objects defaults to JS reference comparison so there's **no structure comparison** for records and unions, but this may change in the future upon users' feedback.
 
 - **Map and Set** default to the new ES6 Map and Set classes which must increase performance, but the downside is adding and removing operations are **mutable**.
+
+- When debugging the F# code using source maps you may see the debugger jump directly to the last expression in many functions. This is normal and due to the optimizations performed on the generated code.
 
 To know more, read [Semantics](docs/semantics.md).
     

@@ -3,623 +3,483 @@ module FunScript.Tests.Seqs
 open NUnit.Framework
 open Fabel.Tests.Util
 
-let sumFirstTwo zs =
+let sumFirstTwo (zs: seq<float>) =
    let first = Seq.head zs
    let second = Seq.skip 1 zs |> Seq.head
    first + second
 
 [<Test>]
 let ``Seq.length works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         float (Seq.length xs)
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.length xs
+    |> equal 4
 
 [<Test>]
 let ``Seq.delay works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let ys = Seq.delay (fun () -> xs :> _ seq)
-         ys |> Seq.head
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = Seq.delay (fun () -> xs :> _ seq)
+    ys |> Seq.head
+    |> equal 1.
 
 [<Test>]
 let ``Seq.unfold works``() =
-   check  
-      <@@ 
-         1 |> Seq.unfold (fun x ->
-            if x <= 5 then Some(x, x + 1)
-            else None)
-         |> Seq.length
-         |> float
-      @@>
+    1 |> Seq.unfold (fun x ->
+       if x <= 5 then Some(x, x + 1)
+       else None)
+    |> Seq.length
+    |> equal 5
 
 [<Test>]
 let ``Seq.empty works``() =
-   check  
-      <@@ 
-         let xs = Seq.empty<int>
-         xs.GetEnumerator().MoveNext()
-      @@>
+    let xs = Seq.empty<int>
+    Seq.length xs
+    |> equal 0
 
 [<Test>]
 let ``Seq.append works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let ys = [0.]
-         let zs = Seq.append ys xs
-         sumFirstTwo zs
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = [0.]
+    let zs = Seq.append ys xs
+    sumFirstTwo zs
+    |> equal 1.
 
 [<Test>]
 let ``Seq.average works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         Seq.average xs
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.average xs
+    |> equal 2.5
 
 [<Test>]
 let ``Seq.averageBy works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         Seq.averageBy ((*) 2.) xs
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.averageBy ((*) 2.) xs
+    |> equal 5.
 
 [<Test>]
 let ``Seq.choose works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let zs = xs |> Seq.choose (fun x ->
-            if x > 2. then Some x
-            else None) 
-         sumFirstTwo zs
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let zs = xs |> Seq.choose (fun x ->
+       if x > 2. then Some x
+       else None) 
+    sumFirstTwo zs
+    |> equal 7.
 
 [<Test>]
 let ``Seq.concat works``() =
-   check  
-      <@@ 
-         let xs = [[1.]; [2.]; [3.]; [4.]]
-         let ys = xs |> Seq.concat
-         sumFirstTwo ys
-      @@>
+    let xs = [[1.]; [2.]; [3.]; [4.]]
+    let ys = xs |> Seq.concat
+    sumFirstTwo ys
+    |> equal 3.
 
 [<Test>]
 let ``Seq.collect works``() =
-   check  
-      <@@ 
-         let xs = [[1.]; [2.]; [3.]; [4.]]
-         let ys = xs |> Seq.collect id
-         sumFirstTwo ys
-      @@>
+    let xs = [[1.]; [2.]; [3.]; [4.]]
+    let ys = xs |> Seq.collect id
+    sumFirstTwo ys
+    |> equal 3.
 
 [<Test>]
 let ``Seq.exists works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         xs |> Seq.exists (fun x -> x = 2.)
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.exists (fun x -> x = 2.)
+    |> equal true
 
 [<Test>]
 let ``Seq.exists2 works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let ys = [1.; 2.; 3.; 4.]
-         Seq.exists2 (fun x y -> x * y = 16.) xs ys
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = [1.; 2.; 3.; 4.]
+    Seq.exists2 (fun x y -> x * y = 16.) xs ys
+    |> equal true
 
 [<Test>]
 let ``Seq.filter works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let ys = xs |> Seq.filter (fun x -> x > 5.)
-         ys |> Seq.isEmpty
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = xs |> Seq.filter (fun x -> x > 5.)
+    ys |> Seq.isEmpty
+    |> equal true
 
 [<Test>]
 let ``Seq.find works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         xs |> Seq.find ((=) 2.)
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.find ((=) 2.)
+    |> equal 2.
 
 [<Test>]
 let ``Seq.findIndex works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         xs |> Seq.findIndex ((=) 2.)
-         |> float
-      @@>
-
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.findIndex ((=) 2.)
+    |> equal 1
+    
 [<Test>]
 let ``Seq.fold works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let total = xs |> Seq.fold (+) 0.
-         total
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let total = xs |> Seq.fold (+) 0.
+    total |> equal 10.
 
 [<Test>]
 let ``Seq.forall works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         Seq.forall (fun x -> x < 5.) xs
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.forall (fun x -> x < 5.) xs
+    |> equal true
 
 [<Test>]
 let ``Seq.forall2 works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let ys = [1.; 2.; 3.; 4.]
-         Seq.forall2 (=) xs ys
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = [1.; 2.; 3.; 4.]
+    Seq.forall2 (=) xs ys
+    |> equal true
 
 [<Test>]
 let ``Seq.head works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         Seq.head xs
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.head xs
+    |> equal 1.
 
 [<Test>]
 let ``Seq.init works``() =
-   check  
-      <@@ 
-         let xs = Seq.init 4 float
-         sumFirstTwo xs
-      @@>
-
+    let xs = Seq.init 4 float
+    sumFirstTwo xs
+    |> equal 1.
+    
 [<Test>]
 let ``Seq.isEmpty works``() =
-   check  
-      <@@ 
-         let xs = [1]
-         Seq.isEmpty xs
-      @@>
+    let xs = [1]
+    Seq.isEmpty xs
+    |> equal false
 
 [<Test>]
 let ``Seq.iter works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let total = ref 0.
-         xs |> Seq.iter (fun x ->
-            total := !total + x
-         )
-         !total
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let total = ref 0.
+    xs |> Seq.iter (fun x ->
+       total := !total + x
+    )
+    !total |> equal 10.
 
 [<Test>]
 let ``Seq.iter2 works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let total = ref 0.
-         Seq.iter2 (fun x y ->
-            total := !total + x + y
-         ) xs xs
-         !total
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let total = ref 0.
+    Seq.iter2 (fun x y ->
+       total := !total + x + y
+    ) xs xs
+    !total |> equal 20.
 
 [<Test>]
 let ``Seq.iteri works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let total = ref 0.
-         xs |> Seq.iteri (fun i x ->
-            total := !total + (float i) * x
-         )
-         !total
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let total = ref 0.
+    xs |> Seq.iteri (fun i x ->
+       total := !total + (float i) * x
+    )
+    !total |> equal 20.
 
 [<Test>]
 let ``Seq.map works``() =
-   check  
-      <@@ 
-         let xs = [1.]
-         let ys = xs |> Seq.map ((*) 2.)
-         ys |> Seq.head
-      @@>
+    let xs = [1.]
+    let ys = xs |> Seq.map ((*) 2.)
+    ys |> Seq.head
+    |> equal 2.
 
 [<Test>]
 let ``Seq.map2 works``() =
-   check  
-      <@@ 
-         let xs = [1.]
-         let ys = [2.]
-         let zs = Seq.map2 (*) xs ys
-         zs |> Seq.head
-      @@>
+    let xs = [1.]
+    let ys = [2.]
+    let zs = Seq.map2 (*) xs ys
+    zs |> Seq.head
+    |> equal 2.
 
 [<Test>]
 let ``Seq.mapi works``() =
-   check  
-      <@@ 
-         let xs = [1.]
-         let ys = xs |> Seq.mapi (fun i x -> float i + x)
-         ys |> Seq.head
-      @@>
+    let xs = [1.]
+    let ys = xs |> Seq.mapi (fun i x -> float i + x)
+    ys |> Seq.head
+    |> equal 1.
 
 [<Test>]
 let ``Seq.max works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         xs |> Seq.max
-      @@>
+    let xs = [1.; 2.]
+    xs |> Seq.max
+    |> equal 2.
 
 [<Test>]
 let ``Seq.maxBy works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         xs |> Seq.maxBy (fun x -> -x)
-      @@>
+    let xs = [1.; 2.]
+    xs |> Seq.maxBy (fun x -> -x)
+    |> equal 1.
 
 [<Test>]
 let ``Seq.min works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         xs |> Seq.min
-      @@>
+    let xs = [1.; 2.]
+    xs |> Seq.min
+    |> equal 1.
 
 [<Test>]
 let ``Seq.minBy works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         xs |> Seq.minBy (fun x -> -x)
-      @@>
+    let xs = [1.; 2.]
+    xs |> Seq.minBy (fun x -> -x)
+    |> equal 2.
 
 [<Test>]
-let ``Seq.nth works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         Seq.nth 1 xs
-      @@>
+let ``Seq.item works``() =
+    let xs = [1.; 2.]
+    Seq.item 1 xs
+    |> equal 2.
 
 [<Test>]
 let ``Seq.ofArray works``() =
-   check  
-      <@@ 
-         let xs = [|1.; 2.|]
-         let ys = Seq.ofArray xs
-         ys |> Seq.head
-      @@>
+    let xs = [|1.; 2.|]
+    let ys = Seq.ofArray xs
+    ys |> Seq.head
+    |> equal 1.
 
 [<Test>]
 let ``Seq.ofList works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         let ys = Seq.ofList xs
-         ys |> Seq.head
-      @@>
+    let xs = [1.; 2.]
+    let ys = Seq.ofList xs
+    ys |> Seq.head
+    |> equal 1.
 
 [<Test>]
 let ``Seq.pick works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         xs |> Seq.pick (fun x ->
-            match x with
-            | 2. -> Some x
-            | _ -> None)
-      @@>
+    let xs = [1.; 2.]
+    xs |> Seq.pick (fun x ->
+       match x with
+       | 2. -> Some x
+       | _ -> None)
+    |> equal 2.
 
 [<Test>]
 let ``Seq.reduce works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         xs |> Seq.reduce (+)
-      @@>
+    let xs = [1.; 2.]
+    xs |> Seq.reduce (+)
+    |> equal 3.
 
 [<Test>]
 let ``Seq.scan works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         let ys = xs |> Seq.scan (+) 0.
-         sumFirstTwo ys
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = xs |> Seq.scan (+) 0.
+    sumFirstTwo ys
+    |> equal 1.
 
 let ``Seq.sort works``() =
-   check  
-      <@@ 
-         let xs = [3.; 4.; 1.; 2.]
-         let ys = xs |> Seq.sort
-         sumFirstTwo ys
-      @@>
+    let xs = [3.; 4.; 1.; 2.]
+    let ys = xs |> Seq.sort
+    sumFirstTwo ys
+    |> equal 3.
 
 [<Test>]
 let ``Seq.sortBy works``() =
-   check  
-      <@@ 
-         let xs = [3.; 1.; 4.; 2.]
-         let ys = xs |> Seq.sortBy (fun x -> -x)
-         sumFirstTwo ys
-      @@>
+    let xs = [3.; 1.; 4.; 2.]
+    let ys = xs |> Seq.sortBy (fun x -> -x)
+    sumFirstTwo ys
+    |> equal 7.
 
 [<Test>]
 let ``Seq.sum works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         xs |> Seq.sum
-      @@>
+    let xs = [1.; 2.]
+    xs |> Seq.sum
+    |> equal 3.
 
 [<Test>]
 let ``Seq.sumBy works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         xs |> Seq.sumBy ((*) 2.)
-      @@>
+    let xs = [1.; 2.]
+    xs |> Seq.sumBy ((*) 2.)
+    |> equal 6.
 
 [<Test>]
 let ``Seq.skip works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.]
-         let ys = xs |> Seq.skip 1
-         ys |> Seq.head
-      @@>
+    let xs = [1.; 2.; 3.]
+    let ys = xs |> Seq.skip 1
+    ys |> Seq.head
+    |> equal 2.
 
 [<Test>]
 let ``Seq.toArray works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.]
-         let ys = xs |> Seq.toArray
-         ys.[0] + ys.[1]
-      @@>
+    let xs = [1.; 2.; 3.]
+    let ys = xs |> Seq.toArray
+    ys.[0] + ys.[1]
+    |> equal 3.
 
 [<Test>]
 let ``Seq.toList works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.]
-         let ys = xs |> Seq.toList
-         ys.Head + ys.Tail.Head
-      @@>
+    let xs = [1.; 2.; 3.]
+    let ys = xs |> Seq.toList
+    ys.Head + ys.Tail.Head
+    |> equal 3.
 
-[<Test>]
-let ``Seq.tryFind works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         let ys = xs |> Seq.tryFind ((=) 1.)
-         ys.IsSome
-      @@>
-
-[<Test>]
-let ``Seq.tryFindIndex works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         let ys = xs |> Seq.tryFindIndex ((=) 2.)
-         ys.Value |> float
-      @@>
+// [<Test>]
+// let ``Seq.tryFind works``() =
+//     let xs = [1.; 2.]
+//     let ys = xs |> Seq.tryFind ((=) 1.)
+//     ys.IsSome |> equal true
+// 
+// [<Test>]
+// let ``Seq.tryFindIndex works``() =
+//     let xs = [1.; 2.]
+//     let ys = xs |> Seq.tryFindIndex ((=) 2.)
+//     ys.Value |> equal 1
 
 [<Test>]
 let ``Seq.tryPick works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.]
-         let r = xs |> Seq.tryPick (fun x ->
-            match x with
-            | 2. -> Some x
-            | _ -> None)
-         match r with
-         | Some x -> x
-         | None -> 0.
-      @@>
+    let xs = [1.; 2.]
+    let r = xs |> Seq.tryPick (fun x ->
+       match x with
+       | 2. -> Some x
+       | _ -> None)
+    match r with
+    | Some x -> x
+    | None -> 0.
+    |> equal 2.
 
 [<Test>]
 let ``Seq.zip works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.]
-         let ys = [1.; 2.; 3.]
-         let zs = Seq.zip xs ys
-         let x, y = zs |> Seq.head
-         x + y
-      @@>
+    let xs = [1.; 2.; 3.]
+    let ys = [1.; 2.; 3.]
+    let zs = Seq.zip xs ys
+    let x, y = zs |> Seq.head
+    x + y
+    |> equal 2.
 
 [<Test>]
 let ``Seq.zip3 works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.]
-         let ys = [1.; 2.; 3.]
-         let zs = [1.; 2.; 3.]
-         let ks = Seq.zip3 xs ys zs
-         let x, y, z = ks |> Seq.head
-         x + y + z
-      @@>
+    let xs = [1.; 2.; 3.]
+    let ys = [1.; 2.; 3.]
+    let zs = [1.; 2.; 3.]
+    let ks = Seq.zip3 xs ys zs
+    let x, y, z = ks |> Seq.head
+    x + y + z
+    |> equal 3.
 
 let ``Seq.cache works``() =
-   check
-      <@@
-         let count = ref 0
-         let xs = 
-            1 |> Seq.unfold(fun i -> 
-               count := !count + 1
-               if i <= 10 then Some(i, i+1)
-               else None)
-         xs |> Seq.length |> ignore
-         xs |> Seq.length |> ignore
-         !count
-      @@>
+    let count = ref 0
+    let xs = 
+       1 |> Seq.unfold(fun i -> 
+          count := !count + 1
+          if i <= 10 then Some(i, i+1)
+          else None)
+    xs |> Seq.length |> ignore
+    xs |> Seq.length |> ignore
+    !count
+    |> equal 22
 
 [<Test>]
 let ``Seq.cast works``() =
-   check  
-      <@@ 
-         let xs = [1; 2; 3; 4]
-         let ys = Seq.cast<int> xs
-         ys |> Seq.head |> float
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = Seq.cast<int> xs
+    ys |> Seq.head
+    |> equal 1
 
 [<Test>]
 let ``Seq.compareWith works``() =
-   check  
-      <@@ 
-         let xs = [1; 2; 3; 4]
-         let ys = [1; 2; 3; 4]
-         let diff = Seq.compareWith (fun x y -> x - y) xs ys 
-         float diff
-      @@>
-
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 5]
+    let zs = [1; 2; 3; 3]
+    Seq.compareWith (fun x y -> x - y) xs xs 
+    |> equal 0
+    Seq.compareWith (fun x y -> x - y) xs ys 
+    |> equal -1
+    Seq.compareWith (fun x y -> x - y) xs zs 
+    |> equal 1
+    
 [<Test>]
 let ``Seq.countBy works``() =
-   check  
-      <@@ 
-         let xs = [1; 2; 3; 4]
-         let ys = xs |> Seq.countBy (fun x -> x % 2)
-         ys |> Seq.length |> float
-      @@>
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> Seq.countBy (fun x -> x % 2)
+    ys |> Seq.length
+    |> equal 2
 
 [<Test>]
 let ``Seq.distinct works``() =
-   check  
-      <@@ 
-         let xs = [1; 1; 1; 2; 2; 3; 3]
-         let ys = xs |> Seq.distinct
-         ys |> Seq.length |> float
-      @@>
+    let xs = [1; 1; 1; 2; 2; 3; 3]
+    let ys = xs |> Seq.distinct
+    ys |> Seq.length
+    |> equal 3
 
 [<Test>]
 let ``Seq.distinctBy works``() =
-   check  
-      <@@ 
-         let xs = [1; 1; 1; 2; 2; 3; 3]
-         let ys = xs |> Seq.distinctBy (fun x -> x % 2)
-         ys |> Seq.length |> float
-      @@>
+    [1; 1; 1; 2; 2; 3; 3]
+    |> Seq.distinctBy (fun x -> x % 2)
+    |> Seq.length
+    |> equal 2
 
 [<Test>]
 let ``Seq.exactlyOne works``() =
-   check  
-      <@@ 
-         let xs = [1.]
-         xs |> Seq.exactlyOne
-      @@>
+    let xs = [1.]
+    xs |> Seq.exactlyOne
 
 [<Test>]
 let ``Seq.groupBy works``() =
-   check  
-      <@@ 
-         let xs = [1; 2; 3; 4]
-         let ys = xs |> Seq.groupBy (fun x -> x % 2)
-         ys |> Seq.length |> float
-      @@>
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> Seq.groupBy (fun x -> x % 2)
+    ys |> Seq.length
+    |> equal 2
 
 [<Test>]
 let ``Seq.initInfinite works``() =
-   check  
-      <@@ 
-         Seq.initInfinite (fun i -> 2. * float i)
-         |> Seq.take 10
-         |> Seq.sum
-      @@>
+    Seq.initInfinite (fun i -> 2. * float i)
+    |> Seq.take 10
+    |> Seq.sum
+    |> equal 90.
 
 [<Test>]
 let ``Seq.last works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         xs |> Seq.last
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.last
+    |> equal 4.
 
 [<Test>]
 let ``Seq.pairwise works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         xs |> Seq.pairwise
-         |> Seq.map (fun (x, y) -> x * y)
-         |> Seq.sum
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.pairwise
+    |> Seq.map (fun (x, y) -> x * y)
+    |> Seq.sum
+    |> equal 20.
 
 [<Test>]
 let ``Seq.readonly works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.]
-         xs |> Seq.readonly
-         |> Seq.head
-      @@>
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.readonly
+    |> Seq.head
+    |> equal 1.
 
 [<Test>]
 let ``Seq.singleton works``() =
-   check  
-      <@@ 
-         let xs = Seq.singleton 1.
-         xs |> Seq.head
-      @@>
+    Seq.singleton 1.
+    |> Seq.head
+    |> equal 1.
 
 [<Test>]
 let ``Seq.skipWhile works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.; 5.]
-         xs |> Seq.skipWhile (fun i -> i <= 3.)
-         |> Seq.head
-      @@>
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.skipWhile (fun i -> i <= 3.)
+    |> Seq.head
+    |> equal 4.
 
 [<Test>]
 let ``Seq.take works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.; 5.]
-         xs |> Seq.take 2
-         |> Seq.last
-      @@>
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.take 2
+    |> Seq.last
+    |> equal 2.
 
 [<Test>]
 let ``Seq.takeWhile works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.; 5.]
-         xs |> Seq.takeWhile (fun i -> i < 3.)
-         |> Seq.last
-      @@>
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.takeWhile (fun i -> i < 3.)
+    |> Seq.last
+    |> equal 2.
 
 [<Test>]
 let ``Seq.truncate works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.; 5.]
-         xs |> Seq.truncate 2
-         |> Seq.last
-      @@>
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.truncate 2
+    |> Seq.last
+    |> equal 2.
 
 [<Test>]
 let ``Seq.where works``() =
-   check  
-      <@@ 
-         let xs = [1.; 2.; 3.; 4.; 5.]
-         xs |> Seq.where (fun i -> i <= 3.)
-         |> Seq.length 
-         |> float
-      @@>
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.where (fun i -> i <= 3.)
+    |> Seq.length 
+    |> equal 3
