@@ -46,6 +46,11 @@ let parseFSharpProject (com: ICompiler) =
 [<EntryPoint>]
 let main argv =
     let opts =
+        let argv =
+            // Temporary hack because of a bug in VS Code 0.10.8
+            if argv.[0].StartsWith("--projFile") && argv.[0].Length > 10
+            then [|"--projFile"; argv.[0].Substring(10)|]
+            else argv
         if argv.[0] = "--projFile"
         then readOptions argv.[1]
         else JsonConvert.DeserializeObject<_>(argv.[0])

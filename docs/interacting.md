@@ -131,6 +131,6 @@ The accepted parameters are:
     fromLib         The module is to be found in the path passed as "lib"
     	            to the compiler
                     
-    get             The value is the name of a property on the module route,
+    get             The value is the name of a property on the module root,
                     used mainly for classes.
 ```
