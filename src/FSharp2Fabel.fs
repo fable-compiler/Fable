@@ -479,10 +479,18 @@ let rec private transformEntityDecl
     then declInfo.AddIgnored ent; declInfo
     else
         let entRange = makeRange ent.DeclarationLocation
-        // Unions don't have a constructor, generate it // TODO: Records
+        // Unions don't have a constructor, generate it
         let init =
-            if not ent.IsFSharpUnion then []
-            else [(makeUnionCons <| entRange.Collapse ())]
+            if ent.IsFSharpUnion
+            then [entRange.Collapse() |> makeUnionCons]
+            elif ent.IsFSharpRecord
+            then
+                ent.FSharpFields
+                |> Seq.map (fun x -> x.DisplayName)
+                |> Seq.toList
+                |> makeRecordCons (entRange.Collapse())
+                |> List.singleton
+            else []
         let ctx = { ctx with parentEntities = ent::ctx.parentEntities }
         let childDecls = transformDeclarations com ctx init subDecls
         declInfo.AddChild (com.GetEntity ent, entRange, childDecls)

@@ -5,20 +5,31 @@ open Fabel.Tests.Util
 open System.Collections.Generic
 
 [<Test>]
-let ``Array slices work``() =  
+let ``Array slice with upper index work``() =  
     let xs = [| 1; 2; 3; 4; 5; 6 |]
     let ys = [| 8; 8; 8; 8; 8; 8; 8; 8; |]
     xs.[..2] |> Array.sum |> equal 6
     xs.[..2] <- ys
     xs |> Array.sum |> equal 39
-    let xs = [| 1; 2; 3; 4; 5 |]
-    xs.[4..] |> Array.sum |> equal 5
+    
+[<Test>]
+let ``Array slice with lower index work``() =  
+    let xs = [| 1; 2; 3; 4; 5; 6 |]
+    let ys = [| 8; 8; 8; 8; 8; 8; 8; 8; |]
+    xs.[4..] |> Array.sum |> equal 11
     xs.[4..] <- ys
-    xs |> Array.sum |> equal 18
-    let xs = [| 1; 2; 3; 4; 5 |]
+    xs |> Array.sum |> equal 26
+    
+[<Test>]
+let ``Array slice with both indices work``() =  
+    let xs = [| 1; 2; 3; 4; 5; 6 |]
+    let ys = [| 8; 8; 8; 8; 8; 8; 8; 8; |]
     xs.[1..3] |> Array.sum |> equal 9
     xs.[1..3] <- ys
-    xs |> Array.sum |> equal 30
+    xs |> Array.sum |> equal 36
+    
+[<Test>]
+let ``Array slice with non-numeric arrays work``() =
     let xs = [|"A";"B";"C";"D"|]
     xs.[1..2] <- [|"X";"X";"X";"X"|]
     equal xs.[2] "X"

@@ -43,12 +43,13 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
-    <Compile Include="StringTests.fs" />
+    <Compile Include="ArrayTests.fs" />
     <Compile Include="AsyncTests.fs" />
+    <Compile Include="ListTests.fs" />
+    <Compile Include="RecordTypeTests.fs" />
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
-    <Compile Include="ListTests.fs" />
-    <Compile Include="ArrayTests.fs" />
+    <Compile Include="StringTests.fs" />
     <!--<Compile Include="MapTests.fs" />
     <Compile Include="SetTests.fs" />-->
   </ItemGroup>

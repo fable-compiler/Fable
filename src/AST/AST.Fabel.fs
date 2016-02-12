@@ -381,7 +381,15 @@ module Util =
     let makeUnionCons range =
         let args: Ident list = [makeIdent "t"; makeIdent "d"]
         let emit = Emit "this.tag=t;this.data=d;" |> Value
-        let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
+        let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, Some range)
+        Member(Constructor, range, args, body, [], true, false, false)
+        |> MemberDeclaration
+
+    let makeRecordCons range props =
+        let args, body =
+            props |> List.mapi (fun i _ -> sprintf "$arg%i" i |> makeIdent),
+            props |> Seq.mapi (fun i x -> sprintf "this['%s']=$arg%i" x i) |> String.concat ";"
+        let body = Apply (Value (Emit body), [], ApplyMeth, PrimitiveType Unit, Some range)
         Member(Constructor, range, args, body, [], true, false, false)
         |> MemberDeclaration
         
