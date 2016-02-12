@@ -6,7 +6,7 @@ open Fabel.Tests.Util
 [<Test>]
 let ``List.Length works``() =
       let xs = [1; 2; 3; 4]
-      equal 5 xs.Length
+      equal 4 xs.Length
 
 [<Test>]
 let ``List.IsEmpty works``() =
