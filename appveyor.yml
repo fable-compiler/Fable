@@ -25,4 +25,5 @@ artifacts:
     name: build
 
 test_script:
-  - .\node_modules\.bin\mocha --require chai --reporter mocha-appveyor build/test --no-exit
+  - .\node_modules\.bin\mocha build/test --no-exit
+
