@@ -25,5 +25,5 @@ artifacts:
     name: build
 
 test_script:
-  - .\node_modules\.bin\mocha build/test --no-exit
+  - node node_modules\mocha\bin\mocha build/test
 
