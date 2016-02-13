@@ -367,10 +367,9 @@ let ``Seq.cache works``() =
 
 [<Test>]
 let ``Seq.cast works``() =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = [box 1; box 2; box 3]
     let ys = Seq.cast<int> xs
-    ys |> Seq.head
-    |> equal 1
+    ys |> Seq.head |> equal 1
 
 [<Test>]
 let ``Seq.compareWith works``() =
@@ -409,6 +408,7 @@ let ``Seq.distinctBy works``() =
 let ``Seq.exactlyOne works``() =
     let xs = [1.]
     xs |> Seq.exactlyOne
+    |> equal 1.
 
 [<Test>]
 let ``Seq.groupBy works``() =

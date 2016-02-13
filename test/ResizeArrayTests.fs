@@ -11,7 +11,7 @@ let ``ResizeArray zero creation works``() =
 [<Test>]
 let ``ResizeArray zero creation with size works``() =
     let li = ResizeArray<string>(5)
-    equal 5 li.Count
+    equal 0 li.Count
 
 [<Test>]
 let ``ResizeArray creation with seq works``() =
@@ -42,7 +42,7 @@ let ``ResizeArray iteration with index works``() =
     let mutable x = 0
     for i = 0 to li.Count - 1 do
        x <- x + li.[i]
-    equal 10
+    equal 10 x
 
 [<Test>]
 let ``ResizeArray folding works``() =

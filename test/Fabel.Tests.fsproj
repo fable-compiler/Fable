@@ -52,10 +52,10 @@
     <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
+    <Compile Include="SetTests.fs" />
     <Compile Include="StringTests.fs" />
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
-    <!--<Compile Include="SetTests.fs" />-->
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

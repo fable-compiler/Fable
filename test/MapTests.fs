@@ -78,6 +78,7 @@ let ``Map.forAll works``() =
 let ``Map.exists works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
     xs |> Map.exists (fun k v -> k = 2)
+    |> equal true
 
 [<Test>]
 let ``Map.filter works``() =

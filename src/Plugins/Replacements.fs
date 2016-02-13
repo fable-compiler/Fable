@@ -182,12 +182,13 @@ module private AstPass =
         | ":=" -> Fabel.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
         | "ref" -> Fabel.ObjExpr([("contents", args.Head)], r) |> Some
         // Conversions
-        | "seq" | "id" -> Some args.Head
+        | "seq" | "id" | "box" | "unbox" -> Some args.Head
         | "int" -> toInt com info args.Head |> Some
         | "float" -> toFloat com info args.Head |> Some
         | "char" | "string" -> toString com info args.Head |> Some
-        | "dict" ->
-            CoreLibCall("Map", Some "ofSeq", false, args)
+        | "dict" | "set" ->
+            let modName = if info.methodName = "dict" then "Map" else "Set"
+            CoreLibCall(modName, Some "ofSeq", false, args)
             |> makeCall com r typ |> Some
         // Ignore: wrap to keep Unit type (see Fabel2Babel.transformFunction)
         | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
@@ -345,7 +346,8 @@ module private AstPass =
             match i.callee with
             | Some c -> c, i.args
             | None -> List.last i.args, List.take (i.args.Length-1) i.args
-        let prop (prop: string) callee =
+        let prop (prop: string) =
+            let callee, _ = instanceArgs()
             makeGet i.range i.returnType callee (makeConst prop)
         let icall meth =
             let callee, args = instanceArgs()
@@ -359,16 +361,18 @@ module private AstPass =
             |> makeCall com i.range i.returnType
         match i.methodName with
         // Instance and static shared methods
-        | "add" -> icall "set" |> Some
-        | "count" -> prop "size" i.callee.Value |> Some
+        | "add" ->
+            match modName with
+            | "Map" -> icall "set" |> Some
+            | _ -> icall "add" |> Some
+        | "count" -> prop "size" |> Some
         | "contains" | "containsKey" -> icall "has" |> Some
         | "remove" ->
             let callee, args = instanceArgs()
             CoreLibCall(modName, Some "removeInPlace", false, [args.Head; callee])
             |> makeCall com i.range i.returnType |> Some
         | "isEmpty" ->
-            let callee = match i.callee with Some c -> c | None -> i.args.Head
-            makeEqOp i.range [prop "size" callee; makeConst 0] BinaryEqualStrict |> Some
+            makeEqOp i.range [prop "size"; makeConst 0] BinaryEqualStrict |> Some
         // Map only instance and static methods
         | "tryFind" | "find" -> icall "get" |> Some
         | "item" -> icall "get" |> Some
@@ -535,14 +539,15 @@ module private AstPass =
             | _ -> failwithf "Unexpected arguments for Array.zeroCreate: %A" i.args
         // ResizeArray only
         | ".ctor" ->
+            let makeEmptyArray () =
+                (Fabel.ArrayValues [], Fabel.DynamicArray)
+                |> Fabel.ArrayConst |> Fabel.Value |> Some
             match i.args with
-            | [] -> (Fabel.ArrayValues [], Fabel.DynamicArray)
-                    |> Fabel.ArrayConst |> Fabel.Value |> Some
+            | [] -> makeEmptyArray ()
             | _ ->
                 match i.args.Head.Type with
                 | Fabel.PrimitiveType (Fabel.Number Int32) ->
-                    (Fabel.ArrayAlloc i.args.Head, Fabel.DynamicArray)
-                    |> Fabel.ArrayConst |> Fabel.Value |> Some
+                    makeEmptyArray ()
                 | _ -> ccall "Seq" "toArray" i.args |> Some
         | "add" ->
             icall "push" (c.Value, args) |> Some
