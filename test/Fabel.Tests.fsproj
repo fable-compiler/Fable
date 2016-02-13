@@ -50,6 +50,7 @@
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
     <Compile Include="StringTests.fs" />
+    <Compile Include="TupleTypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
     <!--<Compile Include="MapTests.fs" />
     <Compile Include="SetTests.fs" />-->
