@@ -58,10 +58,14 @@ module Patterns =
     
     let (|ForOf|_|) = function
         | Let((_, value),
-              Let((_, Call(_, meth, _, [], [])),
+              Let((_, Call(None, meth, _, [], [])),
                 TryFinally(
                   WhileLoop(_,
                     Let((ident, _), body)), _)))
+        | Let((_, Call(Some value, meth, _, [], [])),
+                TryFinally(
+                    WhileLoop(_,
+                        Let((ident, _), body)), _))
             when meth.DisplayName = "GetEnumerator" ->
             Some(ident, value, body)
         | _ -> None

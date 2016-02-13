@@ -110,7 +110,7 @@ and ApplyKind =
     
 and ArrayConsKind =
     | ArrayValues of Expr list
-    | ArrayAlloc of length: int
+    | ArrayAlloc of Expr
     | ArrayConversion of Expr
 
 and Ident = { name: string; typ: Type }

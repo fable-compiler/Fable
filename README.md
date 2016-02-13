@@ -33,7 +33,7 @@ If everything works, follow [these instructions](docs/compiling.md) to compile a
 
 - **Options are erased** in compiled code. This have several benefits like removing overhead and interact with native JS functions in a safer way (`null` will be `None`). However, it will lead to unexpected results if you do weird things like `Some null`. For practical purposes, Fabel considers `null`, `None`, `undefined` and `F# unit` to be the same thing.
 
-- Information about generic types is not included in the generated JavaScript, so code that depends on this information to be known at runtime for method dispatching may have unexpected behaviour.
+- **Information about generic types is not included** in the generated JavaScript, so code that depends on this information to be known at runtime for method dispatching may have unexpected behaviour.
 
 - At the moment, comparison for objects defaults to JS reference comparison so there's **no structure comparison** for records and unions, but this may change in the future upon users' feedback.
 

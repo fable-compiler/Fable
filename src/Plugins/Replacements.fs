@@ -453,6 +453,13 @@ module private AstPass =
             makeGet i.range i.returnType i.callee.Value i.args.Head |> Some
         | "set_Item" ->
             Fabel.Set (i.callee.Value, Some i.args.Head, i.args.Tail.Head, i.range) |> Some
+        | "sort" ->
+            match c, kind with
+            | Some c, _ -> icall "sort" (c, deleg args)
+            | None, Seq -> ccall "Seq" meth (deleg args)
+            | None, List -> ccall "Seq" meth (deleg args) |> toList com i
+            | None, Array -> ccall "Seq" meth (deleg args) |> toArray com i
+            |> Some
         // Constructors ('cons' only applies to List)
         | "empty" | "cons" ->
             match kind with
@@ -460,16 +467,46 @@ module private AstPass =
             | Array ->
                 match i.returnType with
                 | Fabel.PrimitiveType (Fabel.Array kind) ->
-                    Fabel.ArrayConst (Fabel.ArrayAlloc 0, kind) |> Fabel.Value
+                    Fabel.ArrayConst (Fabel.ArrayAlloc (makeConst 0), kind) |> Fabel.Value
                 | _ -> failwithf "Expecting array type but got %A" i.returnType
             | List -> CoreLibCall ("List", None, true, args)
                       |> makeCall com i.range i.returnType
             |> Some
         | "zeroCreate" ->
-            match i.args with
-            | [Fabel.Value(Fabel.NumberConst(U2.Case1 i, kind))] ->
-                Fabel.ArrayConst(Fabel.ArrayAlloc i, Fabel.TypedArray kind) |> Fabel.Value |> Some
+            match i.methodTypeArgs with
+            | [Fabel.PrimitiveType(Fabel.Number numberKind)] ->
+                Fabel.ArrayConst(Fabel.ArrayAlloc i.args.Head, Fabel.TypedArray numberKind)
+                |> Fabel.Value |> Some
             | _ -> failwithf "Unexpected arguments for Array.zeroCreate: %A" i.args
+        // ResizeArray only
+        | ".ctor" ->
+            match i.args with
+            | [] -> (Fabel.ArrayValues [], Fabel.DynamicArray)
+                    |> Fabel.ArrayConst |> Fabel.Value |> Some
+            | _ ->
+                match i.args.Head.Type with
+                | Fabel.PrimitiveType (Fabel.Number Int32) ->
+                    (Fabel.ArrayAlloc i.args.Head, Fabel.DynamicArray)
+                    |> Fabel.ArrayConst |> Fabel.Value |> Some
+                | _ -> ccall "Seq" "toArray" i.args |> Some
+        | "add" ->
+            icall "push" (c.Value, args) |> Some
+        | "addRange" ->
+            ccall "Array" "addRangeInPlace" [args.Head; c.Value] |> Some
+        | "clear" ->
+            icall "splice" (c.Value, [makeConst 0]) |> Some
+        | "contains" ->
+            emit i "$0.indexOf($1) > -1" (c.Value::args) |> Some
+        | "indexOf" ->
+            icall "indexOf" (c.Value, args) |> Some
+        | "insert" ->
+            icall "splice" (c.Value, [args.Head; makeConst 0; args.Tail.Head]) |> Some
+        | "remove" ->
+            ccall "Array" "removeInPlace" [args.Head; c.Value] |> Some
+        | "removeAt" ->
+            icall "splice" (c.Value, [args.Head; makeConst 1]) |> Some
+        | "reverse" ->
+            icall "reverse" (c.Value, []) |> Some
         // Conversions
         | "toSeq" | "ofSeq" ->
             let meth =
@@ -577,8 +614,8 @@ module private CoreLibPass =
             system + "String" => ("String", Static)
             fsharp + "Core.String" => ("String", Static)
             system + "Text.RegularExpressions.Regex" => ("RegExp", Static)
-            genericCollections + "List" => ("ResizeArray", Static)
-            genericCollections + "IList" => ("ResizeArray", Static)
+            // genericCollections + "List" => ("ResizeArray", Static)
+            // genericCollections + "IList" => ("ResizeArray", Static)
             genericCollections + "Dictionary" => ("Dictionary", Static)
             genericCollections + "IDictionary" => ("Dictionary", Static)
             fsharp + "Collections.Seq" => ("Seq", Static)

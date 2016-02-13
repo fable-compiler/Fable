@@ -45,6 +45,10 @@ let parseFSharpProject (com: ICompiler) =
 
 [<EntryPoint>]
 let main argv =
+    let jsonSettings = 
+        JsonSerializerSettings(
+            Converters=[|Json.ErasedUnionConverter()|],
+            StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
     let opts =
         let argv =
             // Temporary hack because of a bug in VS Code 0.10.8
@@ -67,7 +71,7 @@ let main argv =
     |> FSharp2Fabel.transformFiles com 
     |> Fabel2Babel.transformFiles com
     |> Seq.iter (fun ast ->
-        JsonConvert.SerializeObject (ast, Json.ErasedUnionConverter())
+        JsonConvert.SerializeObject (ast, jsonSettings)
         |> Console.Out.WriteLine
         Console.Out.Flush ())
     0 // return an integer exit code

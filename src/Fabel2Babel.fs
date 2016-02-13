@@ -139,20 +139,17 @@ let private buildArray (com: IBabelCompiler) ctx consKind kind =
             | Fabel.ArrayValues args ->
                 List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
                 |> Babel.ArrayExpression :> Babel.Expression |> U2.Case1 |> List.singleton
-            | Fabel.ArrayAlloc length ->
-                Babel.NumericLiteral(U2.Case1 length) :> Babel.Expression
-                |> U2.Case1 |> List.singleton
-            | Fabel.ArrayConversion (TransformExpr com ctx arr) ->
-                [U2.Case1 arr]
+            | Fabel.ArrayAlloc arg
+            | Fabel.ArrayConversion arg ->
+                [U2.Case1 (com.TransformExpr ctx arg)]
         Babel.NewExpression(cons, args) :> Babel.Expression
     | Fabel.DynamicArray | Fabel.Tuple ->
         match consKind with
         | Fabel.ArrayValues args ->
             List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
             |> Babel.ArrayExpression :> Babel.Expression
-        | Fabel.ArrayAlloc length ->
-            let length = Babel.NumericLiteral(U2.Case1 length) :> Babel.Expression
-            upcast Babel.NewExpression(Babel.Identifier "Array", [length |> U2.Case1])
+        | Fabel.ArrayAlloc (TransformExpr com ctx arg) ->
+            upcast Babel.NewExpression(Babel.Identifier "Array", [U2.Case1 arg])
         | Fabel.ArrayConversion (TransformExpr com ctx arr) ->
             arr
 

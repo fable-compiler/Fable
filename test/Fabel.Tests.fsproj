@@ -47,6 +47,7 @@
     <Compile Include="AsyncTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
+    <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
     <Compile Include="StringTests.fs" />
