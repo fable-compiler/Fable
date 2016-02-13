@@ -45,6 +45,7 @@
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="AsyncTests.fs" />
+    <Compile Include="DictionaryTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="ResizeArrayTests.fs" />

@@ -186,6 +186,9 @@ module private AstPass =
         | "int" -> toInt com info args.Head |> Some
         | "float" -> toFloat com info args.Head |> Some
         | "char" | "string" -> toString com info args.Head |> Some
+        | "dict" ->
+            CoreLibCall("Map", Some "ofSeq", false, args)
+            |> makeCall com r typ |> Some
         // Ignore: wrap to keep Unit type (see Fabel2Babel.transformFunction)
         | "ignore" -> Fabel.Wrapped (args.Head, Fabel.PrimitiveType Fabel.Unit) |> Some
         // Ranges
@@ -242,7 +245,10 @@ module private AstPass =
     let console com (i: Fabel.ApplyInfo) =
         match i.methodName with
         | "Write" | "WriteLine" ->
-            GlobalCall("console", Some "log", false, i.args)
+            let inner =
+                CoreLibCall("String", Some "format", false, i.args)
+                |> makeCall com i.range (Fabel.PrimitiveType Fabel.String)
+            GlobalCall("console", Some "log", false, [inner])
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
 
@@ -287,6 +293,52 @@ module private AstPass =
             let arrayKind = Fabel.TypedArray numberKind
             Fabel.ArrayConst(Fabel.ArrayConversion dynamicArray, arrayKind) |> Fabel.Value
         | _ -> dynamicArray
+
+    let rawCollections com (i: Fabel.ApplyInfo) =
+        match i.methodName with
+        | "get_Count" ->
+            CoreLibCall ("Seq", Some "length", false, [i.callee.Value])
+            |> makeCall com i.range i.returnType |> Some
+        | _ -> None
+
+    let keyValuePairs com (i: Fabel.ApplyInfo) =
+        let get (k: obj) =
+            makeGet i.range i.returnType i.callee.Value (makeConst k) |> Some
+        match i.methodName with
+        | "get_Key" | "key" -> get 0
+        | "get_Value" | "value" -> get 1
+        | _ -> None
+
+    let dictionaries com (i: Fabel.ApplyInfo) =
+        let icall meth =
+            InstanceCall (i.callee.Value, meth, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        match i.methodName with
+        | ".ctor" ->
+            let makeMap args =
+                GlobalCall("Map", None, true, args) |> makeCall com i.range i.returnType
+            match i.args with
+            | [] -> makeMap [] |> Some
+            | _ ->
+                match i.args.Head.Type with
+                | Fabel.PrimitiveType (Fabel.Number Int32) ->
+                    makeMap [] |> Some
+                | _ -> makeMap i.args |> Some
+        | "isReadOnly" ->
+            Fabel.BoolConst false |> Fabel.Value |> Some
+        | "get_Count" ->
+            makeGet i.range i.returnType i.callee.Value (makeConst "size") |> Some
+        | "containsValue" ->
+            CoreLibCall ("Map", Some "containsValue", false, [i.args.Head; i.callee.Value])
+            |> makeCall com i.range i.returnType |> Some
+        | "get_Item" -> icall "get"
+        | "get_Keys" -> icall "keys"
+        | "get_Values" -> icall "values"
+        | "containsKey" -> icall "has"
+        | "clear" -> icall "clear"
+        | "add" -> icall "set"
+        | "remove" -> icall "delete"
+        | _ -> None
 
     let mapAndSets com (i: Fabel.ApplyInfo) =
         let instanceArgs () =
@@ -492,7 +544,7 @@ module private AstPass =
         | "add" ->
             icall "push" (c.Value, args) |> Some
         | "addRange" ->
-            ccall "Array" "addRangeInPlace" [args.Head; c.Value] |> Some
+            ccall "Array" "addRangeInPlace" (c.Value::args) |> Some
         | "clear" ->
             icall "splice" (c.Value, [makeConst 0]) |> Some
         | "contains" ->
@@ -502,7 +554,7 @@ module private AstPass =
         | "insert" ->
             icall "splice" (c.Value, [args.Head; makeConst 0; args.Tail.Head]) |> Some
         | "remove" ->
-            ccall "Array" "removeInPlace" [args.Head; c.Value] |> Some
+            ccall "Array" "removeInPlace" (c.Value::args) |> Some
         | "removeAt" ->
             icall "splice" (c.Value, [args.Head; makeConst 1]) |> Some
         | "reverse" ->
@@ -577,6 +629,8 @@ module private AstPass =
         | "System.String"
         | "Microsoft.FSharp.Core.String"
         | "Microsoft.FSharp.Core.PrintfFormat" -> strings com info
+        | "System.Console"
+        | "System.Diagnostics.Debug" -> console com info
         | "Microsoft.FSharp.Core.Option" -> options com info
         | "System.Object" -> objects com info
         | "System.Exception" -> exceptions com info
@@ -585,10 +639,14 @@ module private AstPass =
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
         | "IntrinsicFunctions"
         | "OperatorIntrinsics" -> intrinsicFunctions com info
+        | "System.Collections.Generic.Dictionary"
+        | "System.Collections.Generic.IDictionary" -> dictionaries com info
+        | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info 
+        | "KeyCollection" | "ValueCollection"
+        | "System.Collections.Generic.ICollection" -> rawCollections com info
         | "System.Array"
         | "System.Collections.Generic.List"
-        | "System.Collections.Generic.IList"
-        | "System.Collections.Generic.ICollection" -> collectionsSecondPass com info Array
+        | "System.Collections.Generic.IList" -> collectionsSecondPass com info Array
         | "Microsoft.FSharp.Collections.Array" -> collectionsFirstPass com info Array
         | "Microsoft.FSharp.Collections.List" -> collectionsFirstPass com info List
         | "Microsoft.FSharp.Collections.Seq" -> collectionsSecondPass com info Seq
@@ -605,24 +663,16 @@ module private CoreLibPass =
     // TODO: Decimal
     let mappings =
         dict [
-            system + "Random" => ("Random", Both)
+            // system + "Random" => ("Random", Both)
+            // system + "DateTime" => ("Time", Static)
+            // system + "TimeSpan" => ("Time", Static)
             fsharp + "Control.Async" => ("Async", Both)
             fsharp + "Control.AsyncBuilder" => ("Async", Both)
             fsharp + "Core.CompilerServices.RuntimeHelpers" => ("Seq", Static)
-            system + "DateTime" => ("Time", Static)
-            system + "TimeSpan" => ("Time", Static)
             system + "String" => ("String", Static)
             fsharp + "Core.String" => ("String", Static)
             system + "Text.RegularExpressions.Regex" => ("RegExp", Static)
-            // genericCollections + "List" => ("ResizeArray", Static)
-            // genericCollections + "IList" => ("ResizeArray", Static)
-            genericCollections + "Dictionary" => ("Dictionary", Static)
-            genericCollections + "IDictionary" => ("Dictionary", Static)
             fsharp + "Collections.Seq" => ("Seq", Static)
-            // fsharp + "Collections.List" => ("List", Both)
-            // fsharp + "Collections.Array" => ("Array", Both)
-            // fsharp + "Collections.Set" => ("Set", Static)
-            // fsharp + "Collections.Map" => ("Map", Static)
         ]
 
 open Util
