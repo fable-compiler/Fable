@@ -47,6 +47,7 @@
     <Compile Include="AsyncTests.fs" />
     <Compile Include="DictionaryTests.fs" />
     <Compile Include="ListTests.fs" />
+    <Compile Include="MapTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="SeqExpressionTests.fs" />
@@ -54,8 +55,7 @@
     <Compile Include="StringTests.fs" />
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
-    <!--<Compile Include="MapTests.fs" />
-    <Compile Include="SetTests.fs" />-->
+    <!--<Compile Include="SetTests.fs" />-->
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

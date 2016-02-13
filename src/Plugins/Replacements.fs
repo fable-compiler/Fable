@@ -178,9 +178,9 @@ module private AstPass =
             let f1 = wrap args.Tail.Head "$1"
             emit info (sprintf "x=>%s(%s(x))" f1 f0) args |> Some
         // Reference
-        | "!" -> makeGet r Fabel.UnknownType args.Head (makeConst "cell") |> Some
-        | ":=" -> Fabel.Set(args.Head, Some(makeConst "cell"), args.Tail.Head, r) |> Some
-        | "ref" -> Fabel.ObjExpr([("cell", args.Head)], r) |> Some
+        | "!" -> makeGet r Fabel.UnknownType args.Head (makeConst "contents") |> Some
+        | ":=" -> Fabel.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
+        | "ref" -> Fabel.ObjExpr([("contents", args.Head)], r) |> Some
         // Conversions
         | "seq" | "id" -> Some args.Head
         | "int" -> toInt com info args.Head |> Some
@@ -351,12 +351,6 @@ module private AstPass =
             let callee, args = instanceArgs()
             InstanceCall (callee, meth, args)
             |> makeCall com i.range i.returnType
-        let icallAndReturn meth =
-            let callee, args = instanceArgs()
-            let icall =
-                InstanceCall (callee, meth, args)
-                |> makeCall com i.range i.returnType
-            makeSequential i.range [icall; callee]
         let modName =
             if i.ownerFullName.EndsWith("Map")
             then "Map" else "Set"
@@ -366,9 +360,12 @@ module private AstPass =
         match i.methodName with
         // Instance and static shared methods
         | "add" -> icall "set" |> Some
-        | "contains" | "containsKey" -> icall "has" |> Some
-        | "remove" -> icallAndReturn "delete" |> Some
         | "count" -> prop "size" i.callee.Value |> Some
+        | "contains" | "containsKey" -> icall "has" |> Some
+        | "remove" ->
+            let callee, args = instanceArgs()
+            CoreLibCall(modName, Some "removeInPlace", false, [args.Head; callee])
+            |> makeCall com i.range i.returnType |> Some
         | "isEmpty" ->
             let callee = match i.callee with Some c -> c | None -> i.args.Head
             makeEqOp i.range [prop "size" callee; makeConst 0] BinaryEqualStrict |> Some
@@ -388,7 +385,7 @@ module private AstPass =
         | "empty" ->
             GlobalCall(modName, None, true, [])
             |> makeCall com i.range i.returnType |> Some
-        | ".cons" ->
+        | ".ctor" ->
             CoreLibCall(modName, Some "ofSeq", false, i.args)
             |> makeCall com i.range i.returnType |> Some
         // Conversions
@@ -399,15 +396,21 @@ module private AstPass =
         | "ofList" | "ofSeq" -> _of "Seq" i.args.Head |> Some
         // Non-build static methods shared with Seq
         | "exists" | "fold" | "foldBack" | "forall" | "iter" ->
-            CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
+            let modName = if modName = "Map" then "Map" else "Seq"
+            CoreLibCall(modName, Some i.methodName, false, deleg i.args)
             |> makeCall com i.range i.returnType |> Some
         // Build static methods shared with Seq
         | "filter" | "map" ->
-            CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
-            |> makeCall com i.range i.returnType
-            |> _of "Seq" |> Some
+            match modName with
+            | "Map" ->
+                CoreLibCall(modName, Some i.methodName, false, deleg i.args)
+                |> makeCall com i.range i.returnType |> Some
+            | _ ->
+                CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
+                |> makeCall com i.range i.returnType
+                |> _of "Seq" |> Some
         // Static method
-        | "partitition" ->
+        | "partition" ->
             CoreLibCall(modName, Some i.methodName, false, deleg i.args)
             |> makeCall com i.range i.returnType |> Some
         // Map only static methods (make delegate)
@@ -544,7 +547,7 @@ module private AstPass =
         | "add" ->
             icall "push" (c.Value, args) |> Some
         | "addRange" ->
-            ccall "Array" "addRangeInPlace" (c.Value::args) |> Some
+            ccall "Array" "addRangeInPlace" [args.Head; c.Value] |> Some
         | "clear" ->
             icall "splice" (c.Value, [makeConst 0]) |> Some
         | "contains" ->
@@ -554,7 +557,7 @@ module private AstPass =
         | "insert" ->
             icall "splice" (c.Value, [args.Head; makeConst 0; args.Tail.Head]) |> Some
         | "remove" ->
-            ccall "Array" "removeInPlace" (c.Value::args) |> Some
+            ccall "Array" "removeInPlace" [args.Head; c.Value] |> Some
         | "removeAt" ->
             icall "splice" (c.Value, [args.Head; makeConst 1]) |> Some
         | "reverse" ->
