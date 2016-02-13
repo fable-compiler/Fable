@@ -30,10 +30,49 @@ var transformMacroExpressions = {
   }
 };
 
+// In pattern matching targets, some variables may have the same name
+// but we can safely remove the duplicates after do expressions have
+// been resolved and the variable declarations hoisted
+var removeDuplicatedVarDeclarators = {
+  visitor: {
+    VariableDeclaration(path) {
+      var buffer = [];
+      var duplicated = [];
+      
+      for (var i = 0; i < path.node.declarations.length; i++) {
+          var decl = path.node.declarations[i];
+          if (typeof decl.id.name === "string") {
+              if (buffer.indexOf(decl.id.name) > -1 && decl.init == null) {
+                  duplicated.push(i);
+              }
+              else {
+                  buffer.push(decl.id.name);
+              }
+          }
+      }
+  
+      try {
+        if (duplicated.length > 0) {
+            var node = path.node;
+            for (var j = duplicated.length - 1; j >= 0; j--) {
+                node.declarations.splice(duplicated[j], 1);
+            }
+            path.replaceWith(node);
+        }
+      }
+      catch (err) {
+          console.log("BABEL ERROR: Failed to remove duplicated variables");
+          process.exit(1); 
+      }
+    }
+  }
+};
+
 var babelPlugins = [
     transformMacroExpressions,
     // "transform-es2015-block-scoping", // This creates too many function wrappers
     "transform-do-expressions",
+    removeDuplicatedVarDeclarators,
     "transform-es2015-arrow-functions",
     "transform-es2015-classes",
     "transform-es2015-computed-properties",

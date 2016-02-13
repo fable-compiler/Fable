@@ -293,26 +293,6 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
             makeBinOp (makeRangeFrom fsExpr) boolType [left; right] BinaryEqualStrict
 
     (** Pattern Matching *)
-    | BasicPatterns.DecisionTreeSuccess (decIndex, decBindings) ->
-        match Map.tryFind decIndex ctx.decisionTargets with
-        | None -> failwith "Missing decision target"
-        // If we get a reference to a function, call it
-        | Some (TargetRef targetRef) ->
-            Fabel.Apply (Fabel.IdentValue targetRef |> Fabel.Value,
-                (decBindings |> List.map (transformExpr com ctx)),
-                Fabel.ApplyMeth, makeType com fsExpr.Type, makeRangeFrom fsExpr)
-        // If we get an implementation without bindings, just transform it
-        | Some (TargetImpl ([], Transform com ctx decBody)) -> decBody
-        // If we have bindings, create the assignments
-        | Some (TargetImpl (decVars, decBody)) ->
-            let newContext, assignments =
-                List.foldBack2 (fun var (Transform com ctx binding) (accContext, accAssignments) ->
-                    let (BindIdent com accContext (newContext, ident)) = var
-                    let assignment = Fabel.VarDeclaration (ident, binding, var.IsMutable)
-                    newContext, (assignment::accAssignments)) decVars decBindings (ctx, [])
-            assignments @ [transformExpr com newContext decBody]
-            |> makeSequential (makeRangeFrom fsExpr)
-
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
         let rec getTargetRefsCount map = function
             | BasicPatterns.IfThenElse (_, thenExpr, elseExpr) ->
@@ -325,38 +305,48 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
             | _ as e ->
                 failwithf "Unexpected DecisionTree branch in %A: %A" e.Range e
         let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
-        // Convert targets referred more than once into functions
-        // and just pass the F# implementation for the others
-        let ctx, assignments =
+        let ctx, decisionTargets =
             targetRefsCount
-            |> Map.filter (fun k v -> v > 1)
             |> Map.fold (fun (ctx, acc) k v ->
                 let targetVars, targetExpr = decisionTargets.[k]
                 let targetVars, targetCtx =
                     (targetVars, ([], ctx)) ||> List.foldBack (fun var (vars, ctx) ->
                         let ctx, var = bindIdentFrom com ctx var
                         var::vars, ctx)
-                let lambda =
-                    Fabel.Lambda (targetVars, com.Transform targetCtx targetExpr)
-                    |> Fabel.Value
-                let ctx, ident = bindIdent ctx lambda.Type (sprintf "target%i" k)
-                ctx, Map.add k (ident, lambda) acc) (ctx, Map.empty<_,_>)
-        let decisionTargets =
-            targetRefsCount |> Map.map (fun k v ->
+                let targetExpr = transformExpr com targetCtx targetExpr
+                // Convert targets referred more than once into functions
+                // and just pass the bindings + expression body for the others
                 match v with
-                | 1 -> TargetImpl decisionTargets.[k]
-                | _ -> TargetRef (fst assignments.[k]))
+                | 1 ->
+                    ctx, Map.add k (TargetExpr targetExpr) acc
+                | _ ->
+                    let lambda = Fabel.Lambda (targetVars, targetExpr) |> Fabel.Value
+                    let ctx, lambdaIdent = bindIdent ctx lambda.Type (sprintf "target%i" k)
+                    ctx, Map.add k (TargetRef (lambdaIdent, lambda)) acc)
+                (ctx, Map.empty<_,_>)
         let ctx = { ctx with decisionTargets = decisionTargets }
-        if assignments.Count = 0 then
-            transformExpr com ctx decisionExpr
-        else
-            let assignments =
-                assignments
-                |> Seq.map (fun pair -> pair.Value)
-                |> Seq.map (fun (ident, lambda) ->
-                    Fabel.VarDeclaration (ident, lambda, false))
-                |> Seq.toList
-            Fabel.Sequential (assignments @ [transformExpr com ctx decisionExpr], makeRangeFrom fsExpr)
+        let decisionExpr = transformExpr com ctx decisionExpr
+        (decisionTargets, [])
+        ||> Map.foldBack (fun k v acc ->
+            match v with
+            | TargetExpr _ -> acc
+            | TargetRef (ident, lambda) ->
+                Fabel.VarDeclaration (ident, lambda, false)::acc)
+        |> function
+        | [] -> decisionExpr
+        | lambdaAssignments ->
+            (lambdaAssignments @ [decisionExpr], makeRangeFrom fsExpr)
+            |> Fabel.Sequential
+
+    | BasicPatterns.DecisionTreeSuccess (decIndex, decBindings) ->
+        match Map.tryFind decIndex ctx.decisionTargets with
+        | None -> failwith "Missing decision target"
+        // If we get a reference to a function, call it
+        | Some (TargetRef (targetRef, _)) ->
+            Fabel.Apply (Fabel.IdentValue targetRef |> Fabel.Value,
+                (decBindings |> List.map (transformExpr com ctx)),
+                Fabel.ApplyMeth, makeType com fsExpr.Type, makeRangeFrom fsExpr)
+        | Some (TargetExpr decExpr) -> decExpr
 
     (** Not implemented *)
     | BasicPatterns.ILFieldGet _
@@ -431,18 +421,22 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     if declInfo.IsIgnoredMethod meth |> not then
         let memberKind =
-            let name = sanitizeMethodName com meth
-            // TODO: Another way to check module values?
-            if meth.EnclosingEntity.IsFSharpModule then
-                match meth.XmlDocSig.[0] with
-                | 'P' -> Fabel.Getter name
-                | _ -> Fabel.Method name
+            // TODO: Hack for ToSring overrides, make it more systematic?
+            if meth.IsOverrideOrExplicitInterfaceImplementation && meth.DisplayName = "ToString"
+            then Fabel.Method "toString"
             else
-                // TODO: Check overloads
-                if meth.IsImplicitConstructor then Fabel.Constructor
-                elif meth.IsPropertyGetterMethod then Fabel.Getter name
-                elif meth.IsPropertySetterMethod then Fabel.Setter name
-                else Fabel.Method name
+                let name = sanitizeMethodName com meth
+                // TODO: Another way to check module values?
+                if meth.EnclosingEntity.IsFSharpModule then
+                    match meth.XmlDocSig.[0] with
+                    | 'P' -> Fabel.Getter name
+                    | _ -> Fabel.Method name
+                else
+                    // TODO: Check overloads
+                    if meth.IsImplicitConstructor then Fabel.Constructor
+                    elif meth.IsPropertyGetterMethod then Fabel.Getter name
+                    elif meth.IsPropertySetterMethod then Fabel.Setter name
+                    else Fabel.Method name
         let ctx, args =
             let args = if meth.IsInstanceMember then Seq.skip 1 args |> Seq.toList else args
             match args with

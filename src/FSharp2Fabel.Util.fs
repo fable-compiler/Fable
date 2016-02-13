@@ -9,8 +9,8 @@ open Fabel.Plugins
 open Fabel.AST.Fabel.Util
 
 type DecisionTarget =
-    | TargetRef of Fabel.Ident
-    | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
+    | TargetRef of Fabel.Ident * Fabel.Expr
+    | TargetExpr of Fabel.Expr
 
 type Context =
     {
@@ -321,7 +321,7 @@ module Types =
             | Some fabelType -> fabelType |> Fabel.PrimitiveType
             | None ->
                 if not t.HasTypeDefinition
-                then failwithf "Unexpected non-declared F# type: %A" t
+                then Fabel.UnknownType // failwithf "Unexpected non-declared F# type: %A" t
                 else makeTypeFromDef com t.TypeDefinition
 
     let (|FabelType|) = makeType

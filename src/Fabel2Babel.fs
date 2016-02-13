@@ -240,26 +240,12 @@ let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
         upcast Babel.TryStatement (block com ctx expr.Range [body],
             ?handler=handler, ?finalizer=finalizer, ?loc=range)
 
-    | Fabel.IfThenElse (TransformExpr com ctx guardExpr,
-                        TransformStatement com ctx thenExpr, elseExpr, range) ->
-        let elseExpr =
-            match elseExpr with
-            | Fabel.Value Fabel.Null -> None
-            | _ -> Some (com.TransformStatement ctx elseExpr)
-        upcast Babel.IfStatement (
-            guardExpr, thenExpr, ?alternate=elseExpr, ?loc=range)
-
-    | Fabel.Sequential _ ->
-        failwithf "Sequence when single statement expected in %A: %A" expr.Range expr
-        
     | Fabel.Throw (TransformExpr com ctx ex, range) ->
         upcast Babel.ThrowStatement(ex, ?loc=range)
-        
-    | Fabel.Wrapped (expr, _) ->
-        com.TransformStatement ctx expr        
 
     // Expressions become ExpressionStatements
-    | Fabel.Value _ | Fabel.Apply _ | Fabel.ObjExpr _ ->
+    | Fabel.Value _ | Fabel.Apply _ | Fabel.ObjExpr _ | Fabel.Sequential _
+    | Fabel.Wrapped _ | Fabel.IfThenElse _ ->
         upcast Babel.ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range)
 
 let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Expression =

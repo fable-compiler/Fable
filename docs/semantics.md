@@ -41,5 +41,8 @@ Overloads are allowed in class implementations (no for interfaces), but they'll 
 ## Secondary constructors
 TODO
 
+## Inheritance
+TODO: Overridden methods, custom operators
+
 ## Lambdas
 TODO

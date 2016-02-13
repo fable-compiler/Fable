@@ -533,7 +533,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" -> Fabel.ObjExpr ([], i.range) |> Some
         | "toString" -> toString com i i.callee.Value |> Some
-        | _ -> failwith "TODO: Object methods"
+        | _ -> failwithf "TODO: Object method: %s" i.methodName
 
     let tryReplace com (info: Fabel.ApplyInfo) =
         match info.ownerFullName with
