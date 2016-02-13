@@ -1,5 +1,7 @@
 ## F# |> BABEL
 
+[![Build status](https://ci.appveyor.com/api/projects/status/kjo95sx0k5js50m7?svg=true)](https://ci.appveyor.com/project/alfonsogarciacaro/fabel)
+
 Fabel brings together the power of the [F# compiler](http://fsharp.github.io/FSharp.Compiler.Service/) and [Babel](http://babeljs.io) to make JavaScript a true backend for F#. Some of its main features are:
 
 - Works directly on F# source code, no compilation to .NET bytecode needed
