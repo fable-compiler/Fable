@@ -496,7 +496,7 @@ let rec private transformEntityDecl
     then declInfo.AddIgnored ent; declInfo
     else
         let entRange = makeRange ent.DeclarationLocation
-        // Unions don't have a constructor, generate it
+        // Unions and Records don't have a constructor, generate it
         let init =
             if ent.IsFSharpUnion
             then [entRange.Collapse() |> makeUnionCons]
