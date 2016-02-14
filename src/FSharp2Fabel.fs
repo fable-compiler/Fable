@@ -8,6 +8,27 @@ open Fabel.AST
 open Fabel.AST.Fabel.Util
 open Fabel.FSharp2Fabel.Util
 
+// Special values like seq, async, String.Empty...
+let private (|SpecialValue|_|) com = function
+    | BasicPatterns.Value v ->
+        match v.FullName with
+        | "Microsoft.FSharp.Core.Operators.seq" ->
+            makeCoreRef com "Seq" |> Some
+        | "Microsoft.FSharp.Core.ExtraTopLevelOperators.async" ->
+            makeCoreRef com "Async" |> Some
+        | _ -> None
+    | BasicPatterns.ILFieldGet (None, typ, fieldName) as fsExpr when typ.HasTypeDefinition ->
+        match typ.TypeDefinition.FullName, fieldName with
+        | "System.String", "Empty" -> Some (makeConst "")
+        | "System.TimeSpan", "Zero" ->
+            Fabel.Wrapped(makeConst 0, makeType com fsExpr.Type) |> Some
+        | "System.DateTime", "MaxValue"
+        | "System.DateTime", "MinValue" ->
+            CoreLibCall("Date", Some (Naming.lowerFirst fieldName), false, [])
+            |> makeCall com (makeRangeFrom fsExpr) (makeType com fsExpr.Type) |> Some 
+        | _ -> None
+    | _ -> None
+
 let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
     match fsExpr with
     (** ## Custom patterns *)
@@ -74,8 +95,11 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
             argExprs <- (makeConst enumerator.Current)::argExprs
         makeArray (makeType com typ) (argExprs |> List.rev)
 
-    | BasicPatterns.Const(value, _typ) ->
-        makeConst value
+    | BasicPatterns.Const(value, FabelType com typ) ->
+        let e = makeConst value
+        if e.Type = typ then e
+        // Enumerations are compiled as const but they have a different type
+        else Fabel.Wrapped (e, typ)
 
     | BasicPatterns.BaseValue typ ->
         makeType com typ |> Fabel.Super |> Fabel.Value 
@@ -421,10 +445,9 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     if declInfo.IsIgnoredMethod meth |> not then
         let memberKind =
-            // TODO: Hack for ToSring overrides, make it more systematic?
-            if meth.IsOverrideOrExplicitInterfaceImplementation && meth.DisplayName = "ToString"
-            then Fabel.Method "toString"
-            else
+            match meth with
+            | Override methName -> Fabel.Method methName
+            | _ ->
                 let name = sanitizeMethodName com meth
                 // TODO: Another way to check module values?
                 if meth.EnclosingEntity.IsFSharpModule then

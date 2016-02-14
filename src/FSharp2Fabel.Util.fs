@@ -41,21 +41,6 @@ module Patterns =
             if t.IsAbbreviation then abbr t.AbbreviatedType else t
         abbr t
     
-    // Special values like seq, async, String.Empty...
-    let (|SpecialValue|_|) com = function
-        | Value v ->
-            match v.FullName with
-            | "Microsoft.FSharp.Core.Operators.seq" ->
-                makeCoreRef com "Seq" |> Some
-            | "Microsoft.FSharp.Core.ExtraTopLevelOperators.async" ->
-                makeCoreRef com "Async" |> Some
-            | _ -> None
-        | ILFieldGet (None, typ, fieldName) when typ.HasTypeDefinition ->
-            match typ.TypeDefinition.FullName, fieldName with
-            | "System.String", "Empty" -> Some (makeConst "")
-            | _ -> None
-        | _ -> None
-    
     let (|ForOf|_|) = function
         | Let((_, value),
               Let((_, Call(None, meth, _, [], [])),
@@ -205,6 +190,14 @@ module Patterns =
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList) 
+
+    let (|Override|_|) =
+        let meths = set ["ToString"; "Equals"; "CompareTo"; "Dispose"]
+        fun (meth: FSharpMemberOrFunctionOrValue) ->
+            if meth.IsOverrideOrExplicitInterfaceImplementation &&
+                meths.Contains(meth.DisplayName)
+            then Some(Naming.lowerFirst meth.DisplayName)
+            else None
 
     let (|Namespace|_|) (ns: string) (decl: FSharpImplementationFileDeclaration) =
         let rec matchNamespace (nsParts: string list) decl =
@@ -394,7 +387,10 @@ let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
                 |> function
                 | Some i when i > 0 -> sprintf "_%i" i
                 | _ -> ""
-    (Naming.removeBrackets meth.DisplayName) + (overloadSuffix meth)
+    meth.DisplayName
+    |> Naming.removeBrackets
+    |> Naming.removeGetPrefix
+    |> (+) <| overloadSuffix meth
 
 let makeRange (r: Range.range) = {
     // source = Some r.FileName

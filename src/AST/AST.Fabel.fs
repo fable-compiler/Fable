@@ -48,6 +48,8 @@ and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
         | -1 -> ""
         | 0 -> failwithf "Unexpected entity full name: %s" fullName
         | _ as i -> fullName.Substring(0, i)
+    member x.HasInterface (fullName: string) =
+        List.exists ((=) fullName) interfaces
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
     static member CreateRootModule fileName =

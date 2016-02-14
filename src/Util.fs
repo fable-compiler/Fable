@@ -26,9 +26,11 @@ module Naming =
     open System.IO
     open System.Text.RegularExpressions
     
-    let removeBrackets =
-        let bracketRegex = Regex(@"^\( (.*) \)$")
-        fun s -> bracketRegex.Replace(s, "$1")
+    let removeBrackets, removeGetPrefix =
+        let reg1 = Regex(@"^\( (.*) \)$")
+        let reg2 = Regex(@"^get_")
+        (fun s -> reg1.Replace(s, "$1")),
+        (fun s -> reg2.Replace(s, ""))
         
     let lowerFirst (s: string) =
         s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
