@@ -10,12 +10,6 @@ module private Util =
 
     let inline (=>) first second = first, second
 
-    let (|StartsWith|_|) pattern (str: string) =
-        if str.StartsWith pattern then Some pattern else None
-
-    let (|EndsWith|_|) pattern (str: string) =
-        if str.EndsWith pattern then Some pattern else None
-        
     let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k,'v>) key =
         let success, value = dic.TryGetValue key
         if success then Some value else None
@@ -26,16 +20,6 @@ module private Util =
     // The core lib expects non-curried lambdas
     let deleg = List.mapi (fun i x ->
         if i=0 then (makeDelegate x) else x)
-
-    let getter range typ propertyName (callee, args) =
-        match args with
-        | [] -> makeGet range typ callee (makeConst propertyName)
-        | _ -> failwith "No argument expected for getter"
-
-    let setter range propertyName (callee, args) =
-        match args with
-        | [value] -> Fabel.Set (callee, Some (makeConst propertyName), value, range)
-        | _ -> failwith "Single argument expected for setter"
 
     let instanceArgs (callee: Fabel.Expr option) (args: Fabel.Expr list) =
         match callee with
@@ -52,6 +36,11 @@ module private AstPass =
     
     let (|Null|_|) = function
         | Fabel.Value Fabel.Null -> Some null
+        | _ -> None
+        
+    let (|TypeName|_|) (expr: Fabel.Expr) =
+        match expr.Type with
+        | Fabel.DeclaredType ent -> Some ent.Name
         | _ -> None
 
     let (|OneArg|_|) (callee: Fabel.Expr option, args: Fabel.Expr list) =
@@ -97,6 +86,9 @@ module private AstPass =
     let emitNoInfo emit args =
         Fabel.Apply(Fabel.Emit(emit) |> Fabel.Value, args, Fabel.ApplyMeth, Fabel.UnknownType, None)
         
+    let wrap typ expr =
+        Fabel.Wrapped (expr, typ)
+
     let toString com (i: Fabel.ApplyInfo) (arg: Fabel.Expr) =
         match arg.Type with
         | Fabel.PrimitiveType (Fabel.String) ->
@@ -182,7 +174,7 @@ module private AstPass =
         | ":=" -> Fabel.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
         | "ref" -> Fabel.ObjExpr([("contents", args.Head)], r) |> Some
         // Conversions
-        | "seq" | "id" | "box" | "unbox" -> Some args.Head
+        | "seq" | "id" | "box" | "unbox" -> wrap typ args.Head |> Some
         | "int" -> toInt com info args.Head |> Some
         | "float" -> toFloat com info args.Head |> Some
         | "char" | "string" -> toString com info args.Head |> Some
@@ -253,6 +245,46 @@ module private AstPass =
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
 
+    let regex com (i: Fabel.ApplyInfo) =
+        let prop p callee =
+            makeGet i.range i.returnType callee (makeConst p)
+        let isGroup =
+            match i.callee with
+            | Some (TypeName "Group") -> true
+            | _ -> false
+        match i.methodName with
+        | ".ctor" ->
+            // TODO: Use RegexConst if no options have been passed?
+            CoreLibCall("RegExp", Some "create", false, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "get_Options" ->
+            CoreLibCall("RegExp", Some "options", false, [i.callee.Value])
+            |> makeCall com i.range i.returnType |> Some
+        // Capture
+        | "get_Index" ->
+            if isGroup
+            then failwithf "Accessing index of Regex groups is not supported"
+            else prop "index" i.callee.Value |> Some
+        | "get_Value" ->
+            if isGroup
+            then i.callee.Value |> wrap i.returnType |> Some
+            else prop 0 i.callee.Value |> Some
+        | "get_Length" ->
+            if isGroup
+            then prop "length" i.callee.Value |> Some
+            else prop 0 i.callee.Value |> prop "length" |> Some
+        // Group
+        | "get_Success" ->
+            makeEqOp i.range [i.callee.Value; Fabel.Value Fabel.Null] BinaryUnequal |> Some
+        // Match
+        | "get_Groups" -> wrap i.returnType i.callee.Value |> Some
+        // MatchCollection & GroupCollection
+        | "get_Item" ->
+            makeGet i.range i.returnType i.callee.Value i.args.Head |> Some
+        | "get_Count" ->
+            prop "length" i.callee.Value |> Some
+        | _ -> None
+
     let intrinsicFunctions com (i: Fabel.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
         | "getString", TwoArgs (ar, idx)
@@ -276,7 +308,7 @@ module private AstPass =
         let callee = match i.callee with Some c -> c | None -> i.args.Head
         match i.methodName with
         | "value" | "get" | "toObj" | "ofObj" | "toNullable" | "ofNullable" ->
-           Some callee
+           wrap i.returnType callee |> Some
         | "isSome" -> makeEqOp i.range [callee; Fabel.Value Fabel.Null] BinaryUnequal |> Some
         | "isNone" -> makeEqOp i.range [callee; Fabel.Value Fabel.Null] BinaryEqual |> Some
         | _ -> None
@@ -496,15 +528,15 @@ module private AstPass =
             | Seq -> ccall "Seq" meth (staticArgs c args)
             | List -> let c, _ = instanceArgs c args in prop meth c
             | Array ->
-                let c, args = instanceArgs c args
-                if meth = "head" then getter i.range i.returnType (makeConst 0) (c, args)
-                elif meth = "tail" then icall "slice" (i.args.Head, [makeConst 1])
+                let c, _ = instanceArgs c args
+                if meth = "head" then makeGet i.range i.returnType c (makeConst 0)
+                elif meth = "tail" then icall "slice" (c, [makeConst 1])
                 else prop "length" c
             |> Some
         | "item" ->
             match kind with
             | Seq -> ccall "Seq" meth args
-            | Array -> getter i.range i.returnType (makeConst args.Head) (args.Tail.Head, [])
+            | Array -> makeGet i.range i.returnType args.Tail.Head args.Head
             | List -> match i.callee with Some x -> i.args@[x] | None -> i.args
                       |> ccall "Seq" meth
             |> Some
@@ -647,6 +679,12 @@ module private AstPass =
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
         | "IntrinsicFunctions"
         | "OperatorIntrinsics" -> intrinsicFunctions com info
+        | "System.Text.RegularExpressions.Capture"
+        | "System.Text.RegularExpressions.Match"
+        | "System.Text.RegularExpressions.Group"
+        | "System.Text.RegularExpressions.MatchCollection"
+        | "System.Text.RegularExpressions.GroupCollection"
+        | "System.Text.RegularExpressions.Regex" -> regex com info
         | "System.Collections.Generic.Dictionary"
         | "System.Collections.Generic.IDictionary" -> dictionaries com info
         | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info 
