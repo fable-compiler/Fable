@@ -22,6 +22,11 @@ and Type =
     | UnknownType
     | DeclaredType of Entity
     | PrimitiveType of PrimitiveTypeKind
+    member x.FullName =
+        match x with
+        | UnknownType -> "unknown"
+        | DeclaredType ent -> ent.FullName
+        | PrimitiveType kind -> sprintf "%A" kind
 
 (** ##Entities *)
 and EntityLocation = { file: string; fullName: string }

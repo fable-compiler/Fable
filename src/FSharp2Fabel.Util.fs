@@ -164,14 +164,17 @@ module Patterns =
         | "System.Byte" -> Some UInt8
         | "System.Int16" -> Some Int16
         | "System.UInt16" -> Some UInt16
-        | "System.Int32" -> Some Int32
+        | "System.Int32"
+        // Units of measure
+        | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
         | "System.UInt32" -> Some UInt32
         | "System.Int64" -> Some Float64
         | "System.UInt64" -> Some Float64
         | "System.Single" -> Some Float32
         | "System.Double"
-        | "Microsoft.FSharp.Core.float`1" -> Some Float64
-        | "Microsoft.FSharp.Core.float32`1" -> Some Float32
+        // Units of measure
+        | Naming.StartsWith "Microsoft.FSharp.Core.float" _ -> Some Float64
+        | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
         | _ -> None
         
     let (|Location|_|) (com: IFabelCompiler) (ent: FSharpEntity) =
@@ -190,14 +193,6 @@ module Patterns =
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList) 
-
-    let (|Override|_|) =
-        let meths = set ["ToString"; "Equals"; "CompareTo"; "Dispose"]
-        fun (meth: FSharpMemberOrFunctionOrValue) ->
-            if meth.IsOverrideOrExplicitInterfaceImplementation &&
-                meths.Contains(meth.DisplayName)
-            then Some(Naming.lowerFirst meth.DisplayName)
-            else None
 
     let (|Namespace|_|) (ns: string) (decl: FSharpImplementationFileDeclaration) =
         let rec matchNamespace (nsParts: string list) decl =
@@ -226,9 +221,9 @@ module Patterns =
 [<AutoOpen>]
 module Types =
     let sanitizeEntityName (ent: FSharpEntity) =
-        let ns = match ent.Namespace with
-                 | Some ns -> ns + "." | None -> ""
-        ns + ent.DisplayName
+        match ent.FullName.LastIndexOf(".") with
+        | -1 -> ent.DisplayName
+        | i -> ent.FullName.Substring(0, i + 1) + ent.DisplayName
         
     let getBaseClassLocation (tdef: FSharpEntity) =
         match tdef.BaseType with
@@ -265,12 +260,8 @@ module Types =
             elif tdef.IsFSharpUnion then Fabel.Union
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fabel.Module
             else Fabel.Class (getBaseClassLocation tdef)
-        // Take only interfaces with internal declaration
         let infcs =
             tdef.DeclaredInterfaces
-            |> Seq.filter (fun (NonAbbreviatedType x) ->
-                x.HasTypeDefinition &&
-                com.GetInternalFile x.TypeDefinition |> Option.isSome)
             |> Seq.map (fun x -> sanitizeEntityName x.TypeDefinition)
             |> Seq.toList
         let decs =
@@ -356,13 +347,21 @@ module Identifiers =
 
 // module Fabel.FSharp2Fabel.Util
 
-let isReplaceCandidate (com: IFabelCompiler) (meth: FSharpMemberOrFunctionOrValue) =
-    // Is external method or contains Replace attribute?
-    match com.GetInternalFile meth.EnclosingEntity, meth.Attributes with
-    | None, _ | _, ContainsAtt "Replace" _-> true
-    | _ -> false
+// Is external entity?
+let isExternalEntity (com: IFabelCompiler) (ent: FSharpEntity) =
+    match com.GetInternalFile ent with None -> true | Some _ -> false
 
 let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
+    let lowerFirstKnownInterfaces (meth: FSharpMemberOrFunctionOrValue) name =
+        if meth.IsOverrideOrExplicitInterfaceImplementation &&
+            meth.ImplementedAbstractSignatures.Count = 1
+        then
+            let sign = meth.ImplementedAbstractSignatures.[0].DeclaringType
+            if sign.HasTypeDefinition &&
+                sign.TypeDefinition |> sanitizeEntityName |> Naming.knownInterfaces.Contains
+            then Naming.lowerFirst name
+            else name
+        else name
     let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
         meth.EnclosingEntity.IsInterface
         || meth.IsProperty
@@ -370,7 +369,7 @@ let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
         || meth.IsImplicitConstructor
         |> not
     let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
-        (isOverloadable meth && not <| isReplaceCandidate com meth)
+        (isOverloadable meth && not(isExternalEntity com meth.EnclosingEntity))
         |> function
         | false -> ""
         | true ->
@@ -390,6 +389,9 @@ let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
     meth.DisplayName
     |> Naming.removeBrackets
     |> Naming.removeGetPrefix
+    // For known interfaces (IDisposable, etc), lower first letter
+    // to make the method more idiomatic in JS
+    |> lowerFirstKnownInterfaces meth
     |> (+) <| overloadSuffix meth
 
 let makeRange (r: Range.range) = {
@@ -435,24 +437,31 @@ let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
     let args = meth.CurriedParameterGroups.[0]
     args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
     
-let (|Replaced|_|) (com: IFabelCompiler) fsExpr (typArgs, methTypArgs) (callee, args)
-                 (meth: FSharpMemberOrFunctionOrValue) =
-    if not (isReplaceCandidate com meth) then None else
+let replace com fsExpr ownerName methName (atts, typArgs, methTypArgs) (callee, args) =
     let applyInfo: Fabel.ApplyInfo = {
-        ownerFullName = sanitizeEntityName meth.EnclosingEntity
-        methodName = sanitizeMethodName com meth |> Naming.lowerFirst
+        ownerFullName = ownerName
+        methodName = Naming.lowerFirst methName
         range = makeRangeFrom fsExpr
         callee = callee
         args = args
         returnType = makeType com fsExpr.Type
-        decorators = meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList
+        decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
         calleeTypeArgs = typArgs |> List.map (makeType com) 
         methodTypeArgs = methTypArgs |> List.map (makeType com)
     }
     match Replacements.tryReplace com applyInfo with
-    | Some _ as repl -> repl
+    | Some repl -> repl
     | None -> failwithf "Cannot find replacement for %s.%s at %A"
                 applyInfo.ownerFullName applyInfo.methodName fsExpr.Range
+    
+let (|Replaced|_|) (com: IFabelCompiler) fsExpr
+                   (typArgs, methTypArgs) (callee, args)
+                   (meth: FSharpMemberOrFunctionOrValue) =
+    if isExternalEntity com meth.EnclosingEntity
+    then replace com fsExpr
+            (sanitizeEntityName meth.EnclosingEntity) (sanitizeMethodName com meth)
+            (meth.Attributes, typArgs, methTypArgs) (callee, args) |> Some
+    else None
 
 // TODO                    
 let (|Emitted|_|) (meth: FSharpMemberOrFunctionOrValue) =

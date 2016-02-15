@@ -264,12 +264,7 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
         | Fabel.Lambda (args, body) -> funcArrow com ctx args body
         | Fabel.ArrayConst (cons, kind) -> buildArray com ctx cons kind
         | Fabel.Emit emit -> macroExpression None emit []
-        | Fabel.TypeRef typEnt ->
-            let typFullName =
-                if Option.isSome (typEnt.TryGetDecorator "Erase") 
-                then typEnt.FullName.Substring(0, typEnt.FullName.LastIndexOf ".")
-                else typEnt.FullName
-            typeRef com ctx typEnt.File typFullName
+        | Fabel.TypeRef typEnt -> typeRef com ctx typEnt.File typEnt.FullName
         | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _ | Fabel.Spread _ ->
             failwithf "Unexpected stand-alone value: %A" expr
 
@@ -350,7 +345,6 @@ let private transformFunction com ctx args body =
             transformExpr com ctx body |> U2.Case2
     args, body
     
-// TODO: Set interfaces with $Fabel.Util.setInterfaces(Class.prototyp, [interfaces])
 let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation option) decls =
     let declareMember range kind name args body isStatic hasRestParams =
         let name, computed: Babel.Expression * bool =
@@ -388,14 +382,10 @@ let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation o
     |> List.map U2<_,Babel.ClassProperty>.Case1
     |> fun meths -> Babel.ClassExpression(classRange, Babel.ClassBody(classRange, meths), ?super=baseClass)
 
-// TODO: Exit process with code
 let private declareEntryPoint com ctx (funcExpr: Babel.Expression) =
-    let argv =
-        "typeof process != 'undefined' && Array.isArray(process.argv) ? process.argv.slice(2) : []"
-        |> macroExpression None <| []
-    Babel.ExpressionStatement(
-        Babel.CallExpression (funcExpr, [argv |> U2.Case1], ?loc=funcExpr.loc),
-        ?loc=funcExpr.loc)
+    let argv = macroExpression None "process.argv.slice(2)" []
+    let main = Babel.CallExpression (funcExpr, [U2.Case1 argv], ?loc=funcExpr.loc) :> Babel.Expression
+    Babel.ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
     :> Babel.Statement
 
 // TODO: Keep track of sanitized member names to be sure they don't clash? 
@@ -484,6 +474,27 @@ let rec private transformModule com ctx modIdent (ent: Fabel.Entity) entDecls en
     |> declareModMember nestedRange (Some nestedIdent, ent.Name) ent.IsPublic modIdent
 
 and private transformModDecls com ctx modIdent decls =
+    let declareClass com ctx (ent: Fabel.Entity) entDecls entRange baseClass isClass =
+        // TODO: For now, we're ignoring compiler generated interfaces for union and records
+        let ifcs = ent.Interfaces |> List.filter (fun x ->
+            isClass || (not (Naming.automaticInterfaces.Contains x)))
+        let classDecl =
+            // Don't create a new context for class declarations
+            transformClass com ctx entRange baseClass entDecls
+            |> declareModMember entRange (None, ent.Name) ent.IsPublic modIdent
+        if ifcs.Length = 0
+        then [classDecl]
+        else
+            [
+                yield get (com.GetImport ctx false (Naming.getCoreLibPath com)) "Util"
+                yield typeRef com ctx ent.File ent.FullName
+                yield ifcs
+                    |> List.map (fun x -> Babel.StringLiteral x :> Babel.Expression |> U2.Case1 |> Some)
+                    |> Babel.ArrayExpression :> Babel.Expression
+            ]
+            |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
+            |> Babel.ExpressionStatement :> Babel.Statement
+            |> consBack [classDecl]
     decls |> List.fold (fun acc decl ->
         match decl with
         | Test (test, name) ->
@@ -507,12 +518,12 @@ and private transformModDecls com ctx modIdent decls =
             // Interfaces, attribute or erased declarations shouldn't reach this point
             | Fabel.Interface ->
                 failwithf "Cannot emit interface declaration into JS: %s" ent.FullName
-            | Fabel.Class _ | Fabel.Union | Fabel.Record ->
-                let baseClass = match ent.Kind with Fabel.Class x -> x | _ -> None
-                // Don't create a new context for class declarations
-                transformClass com ctx entRange baseClass entDecls
-                |> declareModMember entRange (None, ent.Name) ent.IsPublic modIdent
-                |> consBack acc
+            | Fabel.Class baseClass ->
+                declareClass com ctx ent entDecls entRange baseClass true
+                |> List.append <| acc
+            | Fabel.Union | Fabel.Record ->                
+                declareClass com ctx ent entDecls entRange None false
+                |> List.append <| acc
             | Fabel.Module ->
                 transformModule com ctx modIdent ent entDecls entRange
                 |> consBack acc) []

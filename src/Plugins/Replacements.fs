@@ -16,6 +16,9 @@ module private Util =
 
     let (|SetContains|_|) set item =
         if Set.contains item set then Some item else None
+        
+    let (|KnownInterfaces|_|) fullName =
+        if Naming.knownInterfaces.Contains fullName then Some fullName else None
 
     // The core lib expects non-curried lambdas
     let deleg = List.mapi (fun i x ->
@@ -139,11 +142,9 @@ module private AstPass =
 
     let toString com (i: Fabel.ApplyInfo) (arg: Fabel.Expr) =
         match arg.Type with
-        | Fabel.PrimitiveType (Fabel.String) ->
-            arg
-        | _ ->
-            InstanceCall (arg, "toString", [])
-            |> makeCall com i.range i.returnType
+        | Fabel.PrimitiveType (Fabel.String) -> arg
+        | _ -> InstanceCall (arg, "toString", [])
+               |> makeCall com i.range i.returnType
 
     let toInt, toFloat =
         let toNumber com (i: Fabel.ApplyInfo) typ (arg: Fabel.Expr) =
@@ -727,14 +728,15 @@ module private AstPass =
         | "message" -> i.callee
         | _ -> None
 
-    let objects com (i: Fabel.ApplyInfo) =
+    let knownInterfaces com (i: Fabel.ApplyInfo) =
         match i.methodName with
         | ".ctor" -> Fabel.ObjExpr ([], i.range) |> Some
-        | "toString" -> toString com i i.callee.Value |> Some
-        | _ -> failwithf "TODO: Object method: %s" i.methodName
+        | meth -> InstanceCall (i.callee.Value, meth, i.args)
+                  |> makeCall com i.range i.returnType |> Some
 
     let tryReplace com (info: Fabel.ApplyInfo) =
         match info.ownerFullName with
+        | KnownInterfaces _ -> knownInterfaces com info
         | "System.String"
         | "Microsoft.FSharp.Core.String"
         | "Microsoft.FSharp.Core.PrintfFormat" -> strings com info
@@ -743,13 +745,12 @@ module private AstPass =
         | "System.DateTime" -> dates com info 
         | "System.TimeSpan" -> timeSpans com info 
         | "Microsoft.FSharp.Core.Option" -> options com info
-        | "System.Object" -> objects com info
         | "System.Exception" -> exceptions com info
         | "System.Math"
         | "Microsoft.FSharp.Core.Operators"
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
-        | "IntrinsicFunctions"
-        | "OperatorIntrinsics" -> intrinsicFunctions com info
+        | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
+        | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info
         | "System.Text.RegularExpressions.Capture"
         | "System.Text.RegularExpressions.Match"
         | "System.Text.RegularExpressions.Group"
@@ -759,7 +760,8 @@ module private AstPass =
         | "System.Collections.Generic.Dictionary"
         | "System.Collections.Generic.IDictionary" -> dictionaries com info
         | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info 
-        | "KeyCollection" | "ValueCollection"
+        | "System.Collections.Generic.Dictionary`2.KeyCollection"
+        | "System.Collections.Generic.Dictionary`2.ValueCollection"
         | "System.Collections.Generic.ICollection" -> rawCollections com info
         | "System.Array"
         | "System.Collections.Generic.List"
@@ -785,25 +787,35 @@ module private CoreLibPass =
             system + "TimeSpan" => ("TimeSpan", Static)
             fsharp + "Control.Async" => ("Async", Both)
             fsharp + "Control.AsyncBuilder" => ("Async", Both)
+            fsharp + "Control.Observable" => ("Observable", Static)
             fsharp + "Core.CompilerServices.RuntimeHelpers" => ("Seq", Static)
             system + "String" => ("String", Static)
             fsharp + "Core.String" => ("String", Static)
             system + "Text.RegularExpressions.Regex" => ("RegExp", Static)
             fsharp + "Collections.Seq" => ("Seq", Static)
+            fsharp + "Core.Choice" => ("Choice", Both)
         ]
 
 open Util
 
-// TODO: Constructors
 let private coreLibPass com (info: Fabel.ApplyInfo) =
     match info.ownerFullName with
     | DicContains CoreLibPass.mappings (modName, kind) ->
-        match kind, info.callee with
-        | CoreLibPass.Both, Some callee -> 
-            InstanceCall (callee, info.methodName, info.args)
-            |> makeCall com info.range info.returnType
-        | _ ->
-            CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args)
+        match kind with
+        | CoreLibPass.Both ->
+            match info.methodName, info.callee with
+            | ".ctor", None ->
+                CoreLibCall(modName, None, true, deleg info.args)
+                |> makeCall com info.range info.returnType
+            | _, Some callee ->
+                InstanceCall (callee, info.methodName, deleg info.args)
+                |> makeCall com info.range info.returnType
+            | _, None ->
+                CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args |> deleg)
+                |> makeCall com info.range info.returnType
+        | CoreLibPass.Static ->
+            let meth = if info.methodName = ".ctor" then "create" else info.methodName
+            CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args |> deleg)
             |> makeCall com info.range info.returnType
         |> Some
     | _ -> None

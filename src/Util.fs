@@ -26,6 +26,17 @@ module Naming =
     open System.IO
     open System.Text.RegularExpressions
     
+    let (|StartsWith|_|) pattern (txt: string) =
+        if txt.StartsWith pattern then Some pattern else None
+    
+    let knownInterfaces =
+        set [ "System.Object"; "System.IComparable"; "System.IDisposable";
+            "System.IObservable"; "System.IObserver"]
+             
+    let automaticInterfaces =
+        set [ "System.IEquatable"; "System.Collections.IStructuralEquatable";
+            "System.IComparable"; "System.Collections.IStructuralComparable" ]
+    
     let removeBrackets, removeGetPrefix =
         let reg1 = Regex(@"^\( (.*) \)$")
         let reg2 = Regex(@"^get_")
@@ -34,7 +45,7 @@ module Naming =
         
     let lowerFirst (s: string) =
         s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
-        
+
     let getFieldIndex fieldName =
         match Regex.Match(fieldName, @"\d+$") with
         | m when m.Success -> int m.Value

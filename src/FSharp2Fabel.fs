@@ -35,6 +35,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
     | SpecialValue com replacement ->
         replacement
     
+    // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
     | ForOf (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
         Fabel.ForOf (ident, value, transformExpr com newContext body)
         |> makeLoop (makeRangeFrom fsExpr)
@@ -256,7 +257,8 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         Fabel.Apply (makeTypeRef recordType, argExprs, Fabel.ApplyCons,
             makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
-    | BasicPatterns.NewUnionCase(FabelType com unionType, unionCase, argExprs) ->
+    | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
+        let unionType = makeType com fsType
         match unionType with
         | ErasedUnion | OptionUnion ->
             match List.map (transformExpr com ctx) argExprs with
@@ -289,8 +291,10 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
                 | [arg] -> [tag;arg]
                 // If there's more than one data field, make a tuple
                 | args -> [tag; Fabel.ArrayConst(Fabel.ArrayValues args, Fabel.Tuple) |> Fabel.Value]
-            Fabel.Apply (makeTypeRef unionType, argExprs, Fabel.ApplyCons,
-                    makeType com fsExpr.Type, makeRangeFrom fsExpr)
+            if isExternalEntity com fsType.TypeDefinition
+            then replace com fsExpr (unionType.FullName) ".ctor" ([],[],[]) (None,argExprs)
+            else Fabel.Apply (makeTypeRef unionType, argExprs, Fabel.ApplyCons,
+                            makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FabelType com typ as fsTyp, Transform com ctx expr) ->
@@ -445,21 +449,18 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     if declInfo.IsIgnoredMethod meth |> not then
         let memberKind =
-            match meth with
-            | Override methName -> Fabel.Method methName
-            | _ ->
-                let name = sanitizeMethodName com meth
-                // TODO: Another way to check module values?
-                if meth.EnclosingEntity.IsFSharpModule then
-                    match meth.XmlDocSig.[0] with
-                    | 'P' -> Fabel.Getter name
-                    | _ -> Fabel.Method name
-                else
-                    // TODO: Check overloads
-                    if meth.IsImplicitConstructor then Fabel.Constructor
-                    elif meth.IsPropertyGetterMethod then Fabel.Getter name
-                    elif meth.IsPropertySetterMethod then Fabel.Setter name
-                    else Fabel.Method name
+            let name = sanitizeMethodName com meth
+            // TODO: Another way to check module values?
+            if meth.EnclosingEntity.IsFSharpModule then
+                match meth.XmlDocSig.[0] with
+                | 'P' -> Fabel.Getter name
+                | _ -> Fabel.Method name
+            else
+                // TODO: Check overloads
+                if meth.IsImplicitConstructor then Fabel.Constructor
+                elif meth.IsPropertyGetterMethod then Fabel.Getter name
+                elif meth.IsPropertySetterMethod then Fabel.Setter name
+                else Fabel.Method name
         let ctx, args =
             let args = if meth.IsInstanceMember then Seq.skip 1 args |> Seq.toList else args
             match args with

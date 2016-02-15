@@ -41,7 +41,6 @@ constructor:
 `        abstract createNew: [PARAMETERS] -> [TYPE]`
 }
 
-// TODO: rest params
 function printParameters(parameters) {
     function printParameter(x) {
         if (x.rest) {
