@@ -240,7 +240,13 @@ function visitInterface(node) {
             case ts.SyntaxKind.PropertySignature:
                 ifc.properties.push(getProperty(node));
                 break;
+            case ts.SyntaxKind.PropertyDeclaration:
+                ifc.properties.push(getProperty(node));
+                break;
             case ts.SyntaxKind.MethodSignature:
+                ifc.methods.push(getMethod(node));
+                break;
+            case ts.SyntaxKind.MethodDeclaration:
                 ifc.methods.push(getMethod(node));
                 break;
             case ts.SyntaxKind.ConstructSignature:
@@ -251,7 +257,7 @@ function visitInterface(node) {
     return ifc;
 }
 
-function visitModule(node) {
+function visitModule(node, modules) {
     var mod = getModule(node, true);
     node.body.statements.forEach(function(node) {
         // TODO: Classes
@@ -266,6 +272,12 @@ function visitModule(node) {
             case ts.SyntaxKind.FunctionDeclaration:
                 mod.methods.push(getMethod(node, true));
                 break;
+            case ts.SyntaxKind.ModuleDeclaration:
+                modules.push(visitModule(node, modules));
+                break;
+            case ts.SyntaxKind.ClassDeclaration:
+                mod.interfaces.push(visitInterface(node));
+                break;
         }
     });
     return mod;
@@ -276,7 +288,7 @@ function visitFile(node) {
     ts.forEachChild(node, function(node) {
         switch (node.kind) {
             case ts.SyntaxKind.ModuleDeclaration:
-                modules.push(visitModule(node));
+                modules.push(visitModule(node, modules));
                 break;
         }
     });
