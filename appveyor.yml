@@ -26,4 +26,4 @@ artifacts:
 
 test_script:
   - node tools/fabel2babel.js --projFile test/Fabel.Tests.fsproj
-  - node node_modules\mocha\bin\mocha build/test
+  - npm run test

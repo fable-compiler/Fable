@@ -207,7 +207,7 @@ try {
             }
         }
         catch (err) {
-            console.log("BABEL ERROR: " + err);
+            console.log("BABEL ERROR in " + babelAst.fileName + ": " + err);
             process.exit(1);
         }
     });    
