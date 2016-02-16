@@ -68,19 +68,23 @@ let private identFromName name =
     let name = Naming.sanitizeIdent (fun _ -> false) name
     Babel.Identifier name
     
-let private get left propName =
+let private sanitizeName propName: Babel.Expression * bool =
     if Naming.identForbiddenChars.IsMatch propName
-    then Babel.MemberExpression(left, Babel.StringLiteral propName, true)
-    else Babel.MemberExpression(left, Babel.Identifier propName, false)
-    :> Babel.Expression
+    then upcast Babel.StringLiteral propName, true
+    else upcast Babel.Identifier propName, false
+
+let private sanitizeProp com ctx = function
+    | Fabel.Value (Fabel.StringConst name)
+        when Naming.identForbiddenChars.IsMatch name = false ->
+        Babel.Identifier (name) :> Babel.Expression, false
+    | TransformExpr com ctx property -> property, true
+
+let private get left propName =
+    let expr, computed = sanitizeName propName
+    Babel.MemberExpression(left, expr, computed) :> Babel.Expression
     
 let private getExpr com ctx (TransformExpr com ctx expr) (property: Fabel.Expr) =
-    let property, computed =
-        match property with
-        | Fabel.Value (Fabel.StringConst name)
-            when Naming.identForbiddenChars.IsMatch name = false ->
-            Babel.Identifier (name) :> Babel.Expression, false
-        | TransformExpr com ctx property -> property, true
+    let property, computed = sanitizeProp com ctx property
     match expr with
     | :? Babel.EmptyExpression -> property
     | _ -> Babel.MemberExpression (expr, property, computed) :> Babel.Expression
@@ -153,6 +157,11 @@ let private buildArray (com: IBabelCompiler) ctx consKind kind =
         | Fabel.ArrayConversion (TransformExpr com ctx arr) ->
             arr
 
+let private buildStringArray strings =
+    strings
+    |> List.map (fun x -> Babel.StringLiteral x :> Babel.Expression |> U2.Case1 |> Some)
+    |> Babel.ArrayExpression :> Babel.Expression
+
 let private assign range left right =
     Babel.AssignmentExpression(AssignEqual, left, right, ?loc=range)
     :> Babel.Expression
@@ -195,6 +204,19 @@ let private varDeclaration range (var: Babel.Pattern) value =
 let private macroExpression range (txt: string) args =
     Babel.StringLiteral(txt, macro=true, args=args, ?loc=range)
     :> Babel.Expression
+    
+let private getMemberArgs (com: IBabelCompiler) ctx args body hasRestParams =
+    let args, body = com.TransformFunction ctx args body
+    let args =
+        if not hasRestParams then args else
+        let args = List.rev args
+        (Babel.RestElement(args.Head) :> Babel.Pattern) :: args.Tail |> List.rev
+    let body =
+        match body with
+        | U2.Case1 e -> e
+        | U2.Case2 e -> returnBlock e
+    args, body
+    // TODO: Optimization: remove null statement that F# compiler adds at the bottom of constructors
 
 let private transformStatement com ctx (expr: Fabel.Expr): Babel.Statement =
     match expr with
@@ -268,16 +290,33 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
         | Fabel.LogicalOp _ | Fabel.BinaryOp _ | Fabel.UnaryOp _ | Fabel.Spread _ ->
             failwithf "Unexpected stand-alone value: %A" expr
 
-    | Fabel.ObjExpr (props, range) ->
-        props
-        |> List.map (fun (key, value) ->
-            let key =
-                if Naming.identForbiddenChars.IsMatch key
-                then Babel.StringLiteral key :> Babel.Expression
-                else Babel.Identifier key :> Babel.Expression
-            Babel.ObjectProperty(key, com.TransformExpr ctx value, ?loc=value.Range)
-            |> U3.Case1 )
-        |> fun props -> upcast Babel.ObjectExpression(props, ?loc=range)
+    | Fabel.ObjExpr (members, interfaces, range) ->
+        members
+        |> List.map (fun m ->
+            let makeMethod kind name =
+                let name, computed = sanitizeName name
+                let args, body = getMemberArgs com ctx m.Arguments m.Body m.HasRestParams
+                Babel.ObjectMethod(kind, name, args, body, computed, ?loc=Some m.Range)
+                |> U3.Case2
+            match m.Kind with
+            | Fabel.Constructor -> failwithf "Unexpected constructor in Object Expression: %A" range
+            | Fabel.Method name -> makeMethod Babel.ObjectMeth name
+            | Fabel.Setter name -> makeMethod Babel.ObjectSetter name
+            | Fabel.Getter (name, false) -> makeMethod Babel.ObjectGetter name
+            | Fabel.Getter (name, true) ->
+                let key, _ = sanitizeName name
+                Babel.ObjectProperty(key, com.TransformExpr ctx m.Body, ?loc=Some m.Range) |> U3.Case1)
+        |> fun props ->
+            match interfaces with
+            | [] -> props
+            | interfaces ->
+                let ifcsSymbol =
+                    get (com.GetImport ctx false (Naming.getCoreLibPath com)) "Symbol"
+                    |> get <| "interfaces"
+                Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
+                |> U3.Case1 |> consBack props
+        |> fun props ->
+            upcast Babel.ObjectExpression(props, ?loc=range)
         
     | Fabel.Wrapped (expr, _) ->
         com.TransformExpr ctx expr
@@ -347,22 +386,8 @@ let private transformFunction com ctx args body =
     
 let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation option) decls =
     let declareMember range kind name args body isStatic hasRestParams =
-        let name, computed: Babel.Expression * bool =
-            if Naming.identForbiddenChars.IsMatch name
-            then upcast Babel.StringLiteral name, true
-            else upcast Babel.Identifier name, false
-        let args, body =
-            let args, body = transformFunction com ctx args body
-            let args =
-                if not hasRestParams then args else
-                let args = List.rev args
-                (Babel.RestElement(args.Head) :> Babel.Pattern) :: args.Tail |> List.rev
-            let body =
-                match body with
-                | U2.Case1 e -> e
-                | U2.Case2 e -> returnBlock e
-            args, body
-        // TODO: Optimization: remove null statement that F# compiler adds at the bottom of constructors
+        let name, computed = sanitizeName name
+        let args, body = getMemberArgs com ctx args body hasRestParams
         Babel.ClassMethod(range, kind, name, args, body, computed, isStatic)
     let baseClass = baseClass |> Option.map (fun loc ->
         typeRef com ctx (Some loc.file) loc.fullName)
@@ -373,7 +398,7 @@ let private transformClass com ctx classRange (baseClass: Fabel.EntityLocation o
                 match m.Kind with
                 | Fabel.Constructor -> Babel.ClassConstructor, "constructor", false
                 | Fabel.Method name -> Babel.ClassFunction, name, m.IsStatic
-                | Fabel.Getter name -> Babel.ClassGetter, name, m.IsStatic
+                | Fabel.Getter (name, _) -> Babel.ClassGetter, name, m.IsStatic
                 | Fabel.Setter name -> Babel.ClassSetter, name, m.IsStatic
             declareMember m.Range kind name m.Arguments m.Body isStatic m.HasRestParams
         | Fabel.ActionDeclaration _
@@ -399,7 +424,7 @@ let private declareModMember range (var, name) isPublic modIdent expr =
 let private transformModMember com ctx modIdent (m: Fabel.Member) =
     let expr, name =
         match m.Kind with
-        | Fabel.Getter name ->
+        | Fabel.Getter (name, _) ->
             let args, body = transformFunction com ctx [] m.Body
             match body with
             | U2.Case2 e -> e, name
@@ -449,7 +474,7 @@ let rec private transformModule com ctx modIdent (ent: Fabel.Entity) entDecls en
                 | Fabel.ActionDeclaration ent -> None
                 | Fabel.MemberDeclaration m ->
                     match m.Kind with
-                    | Fabel.Method name | Fabel.Getter name -> Some name
+                    | Fabel.Method name | Fabel.Getter (name, _) -> Some name
                     | Fabel.Constructor | Fabel.Setter _ -> None)
             |> Set.ofSeq
         identFromName ent.Name,
@@ -485,13 +510,9 @@ and private transformModDecls com ctx modIdent decls =
         if ifcs.Length = 0
         then [classDecl]
         else
-            [
-                yield get (com.GetImport ctx false (Naming.getCoreLibPath com)) "Util"
-                yield typeRef com ctx ent.File ent.FullName
-                yield ifcs
-                    |> List.map (fun x -> Babel.StringLiteral x :> Babel.Expression |> U2.Case1 |> Some)
-                    |> Babel.ArrayExpression :> Babel.Expression
-            ]
+            [ get (com.GetImport ctx false (Naming.getCoreLibPath com)) "Util"
+              typeRef com ctx ent.File ent.FullName
+              buildStringArray ifcs ]
             |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
             |> Babel.ExpressionStatement :> Babel.Statement
             |> consBack [classDecl]

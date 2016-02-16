@@ -245,8 +245,37 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         (argExprs |> List.map (transformExpr com ctx) |> Fabel.ArrayValues, Fabel.Tuple)
         |> Fabel.ArrayConst |> Fabel.Value
 
-    | BasicPatterns.ObjectExpr(_objType, _baseCallExpr, _overrides, interfaceImplementations) ->
-        failwith "TODO: ObjectExpr"
+    | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
+        let lowerFirstKnownInterfaces typName name =
+            if Naming.knownInterfaces.Contains typName
+            then Naming.lowerFirst name
+            else name
+        match baseCallExpr with
+        | BasicPatterns.Call(None, meth, [], [], []) when meth.EnclosingEntity.FullName = "System.Object" ->
+            let members =
+                (objType, overrides)::otherOverrides
+                |> List.map (fun (typ, overrides) ->
+                    let typName = sanitizeEntityName typ.TypeDefinition
+                    overrides |> List.map (fun over ->
+                        let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
+                        let ctx, args' = getMethodArgs com ctx true args
+                        let kind =
+                            let name =
+                                over.Signature.Name
+                                |> Naming.removeBrackets
+                                |> Naming.removeGetPrefix
+                                |> lowerFirstKnownInterfaces typName
+                            if over.Signature.Name.StartsWith "get_"
+                            then Fabel.Getter (name, false)
+                            else Fabel.Method name
+                        Fabel.Member(kind, range, args', transformExpr com ctx over.Body,
+                            [], true, false, hasRestParams args)))
+                |> List.concat
+            let interfaces =
+                objType::(otherOverrides |> List.map fst)
+                |> List.map (fun x -> sanitizeEntityName x.TypeDefinition)
+            Fabel.ObjExpr (members, interfaces, makeRangeFrom fsExpr)
+        | _ -> failwithf "Object expression from classes are not supported: %A" fsExpr.Range
 
     // TODO: Check for erased constructors with property assignment (Call + Sequential)
     | BasicPatterns.NewObject(meth, typArgs, args) ->
@@ -453,40 +482,20 @@ let private transformMemberDecl (com: IFabelCompiler) ctx (declInfo: DeclInfo)
             // TODO: Another way to check module values?
             if meth.EnclosingEntity.IsFSharpModule then
                 match meth.XmlDocSig.[0] with
-                | 'P' -> Fabel.Getter name
+                | 'P' -> Fabel.Getter (name, true)
                 | _ -> Fabel.Method name
             else
-                // TODO: Check overloads
                 if meth.IsImplicitConstructor then Fabel.Constructor
-                elif meth.IsPropertyGetterMethod then Fabel.Getter name
+                elif meth.IsPropertyGetterMethod then Fabel.Getter (name, false)
                 elif meth.IsPropertySetterMethod then Fabel.Setter name
                 else Fabel.Method name
-        let ctx, args =
-            let args = if meth.IsInstanceMember then Seq.skip 1 args |> Seq.toList else args
-            match args with
-            | [] -> ctx, []
-            | [[singleArg]] ->
-                makeType com singleArg.FullType |> function
-                | Fabel.PrimitiveType Fabel.Unit -> ctx, []
-                | _ -> let ctx, arg = bindIdentFrom com ctx singleArg
-                       ctx, [arg]
-            | _ ->
-                List.foldBack (fun tupledArg (ctx, accArgs) ->
-                    match tupledArg with
-                    | [] -> failwith "Unexpected empty tupled in curried arguments"
-                    | [nonTupledArg] ->
-                        let ctx, arg = bindIdentFrom com ctx nonTupledArg
-                        ctx, arg::accArgs
-                    | _ ->
-                        // The F# compiler "untuples" the args in methods
-                        let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
-                        ctx, untupledArg@accArgs
-                ) args (ctx, []) // TODO: Reset Context?
+        let ctx, args' =
+            getMethodArgs com ctx meth.IsInstanceMember args
         let entMember = 
             Fabel.Member(memberKind,
-                makeRange meth.DeclarationLocation, args, transformExpr com ctx body,
+                makeRange meth.DeclarationLocation, args', transformExpr com ctx body,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-                meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParams meth)
+                meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParams args)
             |> Fabel.MemberDeclaration
         declInfo.AddMethod (entMember, sanitizeEntityName meth.EnclosingEntity)
     declInfo

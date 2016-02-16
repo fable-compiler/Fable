@@ -237,7 +237,7 @@ module Types =
                 Fabel.file = t.TypeDefinition.DeclarationLocation.FileName
                 Fabel.fullName = t.TypeDefinition.FullName
             }
-
+            
     // Some attributes (like ComDefaultInterface) will throw an exception
     // when trying to access ConstructorArguments
     let makeDecorator (com: IFabelCompiler) (att: FSharpAttribute) =
@@ -350,7 +350,7 @@ module Identifiers =
 // Is external entity?
 let isExternalEntity (com: IFabelCompiler) (ent: FSharpEntity) =
     match com.GetInternalFile ent with None -> true | Some _ -> false
-
+    
 let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
     let lowerFirstKnownInterfaces (meth: FSharpMemberOrFunctionOrValue) name =
         if meth.IsOverrideOrExplicitInterfaceImplementation &&
@@ -417,6 +417,27 @@ let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
         let newContext, arg = bindIdentFrom com ctx var
         newContext, arg::accArgs) vars (ctx, [])
 
+let getMethodArgs com ctx isInstance (args: FSharpMemberOrFunctionOrValue list list) =
+    let args = if isInstance then Seq.skip 1 args |> Seq.toList else args
+    match args with
+    | [] -> ctx, []
+    | [[singleArg]] ->
+        makeType com singleArg.FullType |> function
+        | Fabel.PrimitiveType Fabel.Unit -> ctx, []
+        | _ -> let ctx, arg = bindIdentFrom com ctx singleArg in ctx, [arg]
+    | _ ->
+        List.foldBack (fun tupledArg (ctx, accArgs) ->
+            match tupledArg with
+            | [] -> failwith "Unexpected empty tupled in curried arguments"
+            | [nonTupledArg] ->
+                let ctx, arg = bindIdentFrom com ctx nonTupledArg
+                ctx, arg::accArgs
+            | _ ->
+                // The F# compiler "untuples" the args in methods
+                let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
+                ctx, untupledArg@accArgs
+        ) args (ctx, []) // TODO: Reset Context?
+
 let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
     let catchClause =
         match catchClause with
@@ -432,7 +453,15 @@ let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClau
 let makeGetFrom com (fsExpr: FSharpExpr) callee propExpr =
     Fabel.Apply (callee, [propExpr], Fabel.ApplyGet, makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
-let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
+let hasRestParams (args: FSharpMemberOrFunctionOrValue list list) =
+    match args with
+    | [args] when args.Length > 0 ->
+        let last = Seq.last args
+        last.Attributes |> Seq.exists (fun att ->
+            att.AttributeType.FullName = "System.ParamArrayAttribute")
+    | _ -> false
+
+let hasRestParamsFrom (meth: FSharpMemberOrFunctionOrValue) =
     if meth.CurriedParameterGroups.Count <> 1 then false else
     let args = meth.CurriedParameterGroups.[0]
     args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
@@ -472,7 +501,7 @@ let (|Emitted|_|) (meth: FSharpMemberOrFunctionOrValue) =
 let makeCallFrom (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
                  (typArgs, methTypArgs) callee args =
     let args =
-        if not (hasRestParams meth) then args else
+        if not (hasRestParamsFrom meth) then args else
         let args = List.rev args
         match args.Head with
         | Fabel.Value(Fabel.ArrayConst(Fabel.ArrayValues items, _)) ->

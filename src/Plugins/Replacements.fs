@@ -214,7 +214,7 @@ module private AstPass =
         // Reference
         | "!" -> makeGet r Fabel.UnknownType args.Head (makeConst "contents") |> Some
         | ":=" -> Fabel.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
-        | "ref" -> Fabel.ObjExpr([("contents", args.Head)], r) |> Some
+        | "ref" -> makeJsObject r.Value [("contents", args.Head)] |> Some
         // Conversions
         | "seq" | "id" | "box" | "unbox" -> wrap typ args.Head |> Some
         | "int" -> toInt com info args.Head |> Some
@@ -730,7 +730,7 @@ module private AstPass =
 
     let knownInterfaces com (i: Fabel.ApplyInfo) =
         match i.methodName with
-        | ".ctor" -> Fabel.ObjExpr ([], i.range) |> Some
+        | ".ctor" -> Fabel.ObjExpr ([], [], i.range) |> Some
         | meth -> InstanceCall (i.callee.Value, meth, i.args)
                   |> makeCall com i.range i.returnType |> Some
 

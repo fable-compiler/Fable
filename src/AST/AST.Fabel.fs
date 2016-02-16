@@ -69,20 +69,20 @@ and Declaration =
 and MemberKind =
     | Constructor
     | Method of name: string
-    | Getter of name: string
+    | Getter of name: string * isField: bool
     | Setter of name: string
 
-and Member(kind, range, args, body, decorators, isPublic, isStatic, hasRestParams) =
+and Member(kind, range, args, body, ?decorators, ?isPublic, ?isStatic, ?hasRestParams) =
     member x.Kind: MemberKind = kind
     member x.Range: SourceLocation = range
     member x.Arguments: Ident list = args
     member x.Body: Expr = body
-    member x.Decorators: Decorator list = decorators
-    member x.IsPublic: bool = isPublic
-    member x.IsStatic: bool = isStatic
-    member x.HasRestParams: bool = hasRestParams
+    member x.Decorators: Decorator list = defaultArg decorators []
+    member x.IsPublic: bool = defaultArg isPublic true
+    member x.IsStatic: bool = defaultArg isStatic false
+    member x.HasRestParams: bool = defaultArg hasRestParams false
     member x.TryGetDecorator decorator =
-        decorators |> List.tryFind (fun x -> x.Name = decorator)
+        x.Decorators |> List.tryFind (fun x -> x.Name = decorator)
     override x.ToString() = sprintf "%A" kind
         
 and ExternalEntity =
@@ -163,7 +163,7 @@ and LoopKind =
 and Expr =
     // Pure Expressions
     | Value of value: ValueKind
-    | ObjExpr of members: (string*Expr) list * range: SourceLocation option
+    | ObjExpr of members: Member list * interfaces: string list * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
     | Apply of callee: Expr * args: Expr list * kind: ApplyKind * typ: Type * range: SourceLocation option
 
@@ -199,7 +199,7 @@ and Expr =
         match x with
         | Value _ -> None
         | VarDeclaration (_,e,_) | Wrapped (e,_) -> e.Range
-        | ObjExpr (_,range) 
+        | ObjExpr (_,_,range) 
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
         | Throw (_,range)
@@ -270,8 +270,7 @@ module Util =
             | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
             // Calls to System.Object..ctor in class constructors
             // TODO: Remove also calls to System.Exception..ctor in constructors?
-            // TODO: Move these optimizations to Fabel2Babel layer? (remove also Null as last expr)
-            | ObjExpr ([],_), _ -> makeSequential range rest
+            | ObjExpr ([],[],_), _ -> makeSequential range rest
             | _ -> Sequential (statements, range)
                 
     let makeConst (value: obj) =
@@ -433,3 +432,9 @@ module Util =
                 | _ -> callee
             i, Apply (callee, [expr], ApplyMeth, typ, range))
         |> snd
+        
+    let makeJsObject range (props: (string * Expr) list) =
+        let members = props |> List.map (fun (name, body) ->
+            Member(Getter (name, true), range, [], body))
+        ObjExpr(members, [], Some range)
+ 
