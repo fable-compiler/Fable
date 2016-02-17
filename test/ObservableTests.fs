@@ -4,10 +4,6 @@ open System
 open NUnit.Framework
 open Fabel.Tests.Util
 
-type MyDisposable(f) =
-    interface IDisposable with
-        member x.Dispose() = f()
-
 type MyObserver<'T>(f) =
     interface IObserver<'T> with
         member x.OnNext v = f v
@@ -22,8 +18,8 @@ type MyObservable<'T>() =
     interface IObservable<'T> with
         member x.Subscribe w =
             listeners.Add(w)
-            new MyDisposable(fun () -> listeners.Remove(w) |> ignore)
-            :> IDisposable
+            { new IDisposable with 
+                member x.Dispose() = listeners.Remove(w) |> ignore }
             
 let subscribe (source: IObservable<'T>) (f: 'T->unit) =
     source.Subscribe(MyObserver(f))

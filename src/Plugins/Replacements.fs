@@ -279,7 +279,7 @@ module private AstPass =
 
     let console com (i: Fabel.ApplyInfo) =
         match i.methodName with
-        | "Write" | "WriteLine" ->
+        | "write" | "writeLine" ->
             let inner =
                 CoreLibCall("String", Some "format", false, i.args)
                 |> makeCall com i.range (Fabel.PrimitiveType Fabel.String)
@@ -329,6 +329,7 @@ module private AstPass =
 
     let intrinsicFunctions com (i: Fabel.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
+        | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
         | "getString", TwoArgs (ar, idx)
         | "getArray", TwoArgs (ar, idx) ->
             makeGet i.range i.returnType ar idx |> Some

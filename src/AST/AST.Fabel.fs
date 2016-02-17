@@ -377,8 +377,7 @@ module Util =
         | DeclaredType typEnt ->
             match typEnt.Kind with
             | Interface ->
-                // TODO: Test
-                CoreLibCall ("Util", Some "hasInterface", false, [makeConst typEnt.FullName])
+                CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
                 |> makeCall com range boolType 
             | _ ->
                 makeBinOp range boolType [expr; makeTypeRef typ] BinaryInstanceOf 

@@ -9,8 +9,8 @@ open Fabel.Plugins
 open Fabel.AST.Fabel.Util
 
 type DecisionTarget =
-    | TargetRef of Fabel.Ident * Fabel.Expr
-    | TargetExpr of Fabel.Expr
+    | TargetRef of Fabel.Ident
+    | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
 
 type Context =
     {
