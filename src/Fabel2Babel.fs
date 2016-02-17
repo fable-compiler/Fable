@@ -328,11 +328,13 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
     | Fabel.Apply (callee, args, kind, _, range) ->
         match callee, args with
         // Logical, Binary and Unary Operations
-        | Fabel.Value (Fabel.LogicalOp op), [TransformExpr com ctx left; TransformExpr com ctx right] ->
+        // If the operation has been wrapped in a lambda, there may be arguments in excess,
+        // take that into account in matching patterns
+        | Fabel.Value (Fabel.LogicalOp op), (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
             upcast Babel.LogicalExpression (op, left, right, ?loc=range)
-        | Fabel.Value (Fabel.UnaryOp op), [TransformExpr com ctx operand as expr] ->
+        | Fabel.Value (Fabel.UnaryOp op), (TransformExpr com ctx operand as expr)::_ ->
             upcast Babel.UnaryExpression (op, operand, ?loc=range)
-        | Fabel.Value (Fabel.BinaryOp op), [TransformExpr com ctx left; TransformExpr com ctx right] ->
+        | Fabel.Value (Fabel.BinaryOp op), (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
             upcast Babel.BinaryExpression (op, left, right, ?loc=range)
         // Emit expressions
         | Fabel.Value (Fabel.Emit emit), args ->

@@ -155,6 +155,10 @@ and ValueKind =
         | UnaryOp _ -> PrimitiveType (Function 1)
         | BinaryOp _ | LogicalOp _ -> PrimitiveType (Function 2)
         | Lambda (args, _) -> PrimitiveType (Function args.Length)
+    member x.Range: SourceLocation option =
+        match x with
+        | Lambda (_, body) -> body.Range
+        | _ -> None
     
 and LoopKind =
     | While of guard: Expr * body: Expr
@@ -198,7 +202,7 @@ and Expr =
             
     member x.Range: SourceLocation option =
         match x with
-        | Value _ -> None
+        | Value v -> v.Range
         | VarDeclaration (_,e,_) | Wrapped (e,_) -> e.Range
         | ObjExpr (_,_,range) 
         | Apply (_,_,_,_,range)

@@ -109,6 +109,8 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         then getBoundExpr com ctx v
         elif v.IsMemberThisValue
         then Fabel.This |> Fabel.Value
+        elif isExternalEntity com v.EnclosingEntity
+        then wrapInLambda com fsExpr v
         else
             v.Attributes
             |> Seq.choose (makeDecorator com)

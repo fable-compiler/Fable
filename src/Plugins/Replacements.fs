@@ -49,13 +49,13 @@ module private AstPass =
         | _ -> None
 
     let (|OneArg|_|) (callee: Fabel.Expr option, args: Fabel.Expr list) =
-        match callee, args with None, [arg] -> Some arg | _ -> None
+        match callee, args with None, arg::_ -> Some arg | _ -> None
 
     let (|TwoArgs|_|) (callee: Fabel.Expr option, args: Fabel.Expr list) =
-        match callee, args with None, [left;right] -> Some (left, right) | _ -> None
+        match callee, args with None, left::right::_ -> Some (left, right) | _ -> None
 
     let (|ThreeArgs|_|) (callee: Fabel.Expr option, args: Fabel.Expr list) =
-        match callee, args with None, [arg1;arg2;arg3] -> Some (arg1, arg2, arg3) | _ -> None
+        match callee, args with None, arg1::arg2::arg3::_ -> Some (arg1, arg2, arg3) | _ -> None
 
     let applyOp com (i: Fabel.ApplyInfo) (args: Fabel.Expr list) meth =
         match args.Head.Type with

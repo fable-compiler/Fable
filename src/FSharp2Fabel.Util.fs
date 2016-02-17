@@ -511,7 +511,6 @@ let (|Emitted|_|) com fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue
     | _ -> None
 
 // TODO: Check `inline` annotation?
-// TODO: If it's an imported method with ParamArray, spread the last argument
 let makeCallFrom (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
                  (typArgs, methTypArgs) callee args =
     let args =
@@ -552,3 +551,16 @@ let makeCallFrom (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
             let calleeType = Fabel.PrimitiveType (Fabel.Function args.Length) 
             let callee = makeGet range calleeType callee methName
             Fabel.Apply (callee, args, Fabel.ApplyMeth, typ, range)
+
+let wrapInLambda com (fsExpr: FSharpExpr) (meth: FSharpMemberOrFunctionOrValue) =
+    let arity =
+        match makeType com fsExpr.Type with
+        | Fabel.PrimitiveType (Fabel.Function arity) -> arity
+        | _ -> failwithf "Expecting a function value but got %A" fsExpr
+    // TODO: More arguments just in case?
+    let lambdaArgs =
+        [1..arity] |> List.map (fun i -> makeIdent (sprintf "$arg%i" i))
+    let lambdaBody =
+        let args = lambdaArgs |> List.map (Fabel.IdentValue >> Fabel.Value)
+        makeCallFrom com fsExpr meth ([],[]) None args
+    Fabel.Lambda (lambdaArgs, lambdaBody) |> Fabel.Value
