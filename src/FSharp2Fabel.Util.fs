@@ -16,10 +16,10 @@ type Context =
     {
     scope: (string * Fabel.Expr) list
     decisionTargets: Map<int, DecisionTarget>
-    parentEntities: FSharpEntity list
+    owner: Fabel.Entity option
     }
-    member ctx.Reset() =
-        { ctx with scope=[]; decisionTargets=Map.empty<_,_> }
+    static member Empty =
+        { scope=[]; decisionTargets=Map.empty<_,_>; owner=None }
     
 type IFabelCompiler =
     inherit ICompiler
@@ -35,6 +35,7 @@ module Patterns =
     let (|Transform|) (com: IFabelCompiler) = com.Transform
     let (|FieldName|) (fi: FSharpField) = fi.Name
     let (|ExprType|) (expr: Fabel.Expr) = expr.Type
+    let (|EntityKind|) (ent: Fabel.Entity) = ent.Kind
     
     let (|NonAbbreviatedType|) (t: FSharpType) =
         let rec abbr (t: FSharpType) =
@@ -226,17 +227,15 @@ module Types =
         | i -> ent.FullName.Substring(0, i + 1) + ent.DisplayName
         
     let getBaseClassLocation (tdef: FSharpEntity) =
+        let ignored = set ["System.Object"; "System.Exception"]
         match tdef.BaseType with
         | None -> None
+        | Some (NonAbbreviatedType t)
+            when not t.HasTypeDefinition || ignored.Contains t.TypeDefinition.FullName ->
+            None
         | Some (NonAbbreviatedType t) ->
-            (not t.HasTypeDefinition ||
-                t.TypeDefinition.FullName = "System.Object")
-            |> function
-            | true -> None
-            | false -> Some {
-                Fabel.file = t.TypeDefinition.DeclarationLocation.FileName
-                Fabel.fullName = t.TypeDefinition.FullName
-            }
+            Some { Fabel.file = t.TypeDefinition.DeclarationLocation.FileName
+                   Fabel.fullName = t.TypeDefinition.FullName }
             
     // Some attributes (like ComDefaultInterface) will throw an exception
     // when trying to access ConstructorArguments
@@ -255,9 +254,9 @@ module Types =
     let makeEntity (com: IFabelCompiler) (tdef: FSharpEntity) =
         let kind =
             if tdef.IsInterface then Fabel.Interface
-            // elif tdef.IsFSharpExceptionDeclaration then Fabel.Exception
             elif tdef.IsFSharpRecord then Fabel.Record
             elif tdef.IsFSharpUnion then Fabel.Union
+            elif tdef.IsFSharpExceptionDeclaration then Fabel.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fabel.Module
             else Fabel.Class (getBaseClassLocation tdef)
         let infcs =
@@ -351,6 +350,12 @@ module Identifiers =
 let isExternalEntity (com: IFabelCompiler) (ent: FSharpEntity) =
     match com.GetInternalFile ent with None -> true | Some _ -> false
     
+let getMemberKind name (meth: FSharpMemberOrFunctionOrValue) =
+    if meth.IsImplicitConstructor then Fabel.Constructor
+    elif meth.IsPropertyGetterMethod then Fabel.Getter (name, false)
+    elif meth.IsPropertySetterMethod then Fabel.Setter name
+    else Fabel.Method name
+    
 let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
     let lowerFirstKnownInterfaces (meth: FSharpMemberOrFunctionOrValue) name =
         if meth.IsOverrideOrExplicitInterfaceImplementation &&
@@ -373,8 +378,11 @@ let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
         |> function
         | false -> ""
         | true ->
+            let kind = getMemberKind "" meth
             meth.EnclosingEntity.MembersFunctionsAndValues
-            |> Seq.filter (fun x -> isOverloadable x && x.DisplayName = meth.DisplayName)
+            |> Seq.filter (fun x -> isOverloadable x &&
+                                    (getMemberKind "" x) = kind &&
+                                    x.DisplayName = meth.DisplayName)
             |> Seq.toArray
             |> function
             | overloads when overloads.Length = 1 -> ""
@@ -387,8 +395,9 @@ let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
                 | Some i when i > 0 -> sprintf "_%i" i
                 | _ -> ""
     meth.DisplayName
-    |> Naming.removeBrackets
-    |> Naming.removeGetPrefix
+    |> Naming.removeParens
+    |> Naming.removeGetSetPrefix
+    |> Naming.sanitizeActivePattern
     // For known interfaces (IDisposable, etc), lower first letter
     // to make the method more idiomatic in JS
     |> lowerFirstKnownInterfaces meth
@@ -436,13 +445,13 @@ let getMethodArgs com ctx isInstance (args: FSharpMemberOrFunctionOrValue list l
                 // The F# compiler "untuples" the args in methods
                 let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
                 ctx, untupledArg@accArgs
-        ) args (ctx, []) // TODO: Reset Context?
+        ) args (ctx, [])
 
 let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
     let catchClause =
         match catchClause with
-        | Some (BindIdent com ctx (catchContext, catchVar), Transform com ctx catchBody) ->
-            Some (catchVar, catchBody)
+        | Some (BindIdent com ctx (catchContext, catchVar), catchBody) ->
+            Some (catchVar, com.Transform catchContext catchBody)
         | None -> None
     let finalizer =
         match finalBody with
@@ -491,10 +500,15 @@ let (|Replaced|_|) (com: IFabelCompiler) fsExpr
             (sanitizeEntityName meth.EnclosingEntity) (sanitizeMethodName com meth)
             (meth.Attributes, typArgs, methTypArgs) (callee, args) |> Some
     else None
-
-// TODO                    
-let (|Emitted|_|) (meth: FSharpMemberOrFunctionOrValue) =
-    None
+               
+let (|Emitted|_|) com fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+    match meth.Attributes with
+    | ContainsAtt "Emit" [:? string as macro] ->
+        let args = match callee with None -> args | Some c -> c::args
+        let range, typ = makeRangeFrom fsExpr, makeType com fsExpr.Type
+        Fabel.Apply(Fabel.Emit(macro) |> Fabel.Value, args, Fabel.ApplyMeth, typ, range)
+        |> Some
+    | _ -> None
 
 // TODO: Check `inline` annotation?
 // TODO: If it's an imported method with ParamArray, spread the last argument
@@ -511,7 +525,7 @@ let makeCallFrom (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
     match meth with
     (** -Check for replacements, emits... *)
     | Replaced com fsExpr (typArgs, methTypArgs) (callee, args) replaced -> replaced
-    | Emitted replaced -> replaced
+    | Emitted com fsExpr (callee, args) emitted -> emitted
     (** -If the call is not resolved, then: *)
     | _ ->
         let methName = sanitizeMethodName com meth |> makeConst

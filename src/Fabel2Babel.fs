@@ -86,7 +86,11 @@ let private get left propName =
 let private getExpr com ctx (TransformExpr com ctx expr) (property: Fabel.Expr) =
     let property, computed = sanitizeProp com ctx property
     match expr with
-    | :? Babel.EmptyExpression -> property
+    | :? Babel.EmptyExpression ->
+        match property with
+        | :? Babel.StringLiteral as lit when not lit.macro ->
+            identFromName lit.value :> Babel.Expression
+        | _ -> property
     | _ -> Babel.MemberExpression (expr, property, computed) :> Babel.Expression
 
 let private typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
@@ -275,8 +279,8 @@ let private transformExpr (com: IBabelCompiler) ctx (expr: Fabel.Expr): Babel.Ex
             match prop with
             | Some prop -> get (com.GetImport ctx asDefault import) prop
             | None -> com.GetImport ctx asDefault import
-        | Fabel.This _ -> upcast Babel.ThisExpression ()
-        | Fabel.Super _ -> upcast Babel.Super ()
+        | Fabel.This -> upcast Babel.ThisExpression ()
+        | Fabel.Super -> upcast Babel.Super ()
         | Fabel.Null -> upcast Babel.NullLiteral ()
         | Fabel.IdentValue {name=name} -> upcast Babel.Identifier (name)
         | Fabel.NumberConst (x,_) -> upcast Babel.NumericLiteral x
@@ -542,7 +546,7 @@ and private transformModDecls com ctx modIdent decls =
             | Fabel.Class baseClass ->
                 declareClass com ctx ent entDecls entRange baseClass true
                 |> List.append <| acc
-            | Fabel.Union | Fabel.Record ->                
+            | Fabel.Union | Fabel.Record | Fabel.Exception ->                
                 declareClass com ctx ent entDecls entRange None false
                 |> List.append <| acc
             | Fabel.Module ->

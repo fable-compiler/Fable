@@ -237,16 +237,17 @@ module private AstPass =
             |> makeConst
             |> makeGet r typ args.Head |> Some
         // Strings
-        | "sprintf" | "printf" | "printfn" ->
+        | "sprintf" | "printf" | "printfn" | "failwithf" ->
             let emit = 
                 match info.methodName with
                 | "sprintf" -> "x=>x"
-                | "printf" | "printfn" | _ -> "x=>{console.log(x)}"
+                | "printf" | "printfn" -> "x=>{console.log(x)}"
+                | "failwithf" | _ -> "x=>{throw x}" 
                 |> Fabel.Emit |> Fabel.Value
             Fabel.Apply(args.Head, [emit], Fabel.ApplyMeth, typ, r)
             |> Some
         // Exceptions
-        | "failwith" | "failwithf" | "raise" | "invalidOp" ->
+        | "failwith" | "raise" | "invalidOp" ->
             Fabel.Throw (args.Head, r) |> Some
         | _ -> None
 
@@ -607,14 +608,14 @@ module private AstPass =
         | "item" ->
             match i.callee, kind with
             | Some callee, Array ->
-                makeGet i.range i.returnType callee i.args.Head
+                if i.args.Length = 1
+                then makeGet i.range i.returnType callee i.args.Head
+                else Fabel.Set (i.callee.Value, Some i.args.Head, i.args.Tail.Head, i.range) 
             | _, Seq -> ccall "Seq" meth args
             | _, Array -> makeGet i.range i.returnType args.Tail.Head args.Head
             | _, List -> match i.callee with Some x -> i.args@[x] | None -> i.args
                          |> ccall "Seq" meth
             |> Some
-        | "set_Item" ->
-            Fabel.Set (i.callee.Value, Some i.args.Head, i.args.Tail.Head, i.range) |> Some
         | "sort" ->
             match c, kind with
             | Some c, _ -> icall "sort" (c, deleg args)
@@ -723,10 +724,10 @@ module private AstPass =
         | _ -> None
         
     let exceptions com (i: Fabel.ApplyInfo) =
-        match i.methodName with
-        // TODO: Constructor with inner exception
-        | ".ctor" -> Some i.args.Head
-        | "message" -> i.callee
+        match i.methodName, i.args with
+        | ".ctor", [arg] -> Some arg
+        | ".ctor", [] -> Fabel.ObjExpr ([], [], i.range) |> Some
+        | "message", [] -> i.callee
         | _ -> None
 
     let knownInterfaces com (i: Fabel.ApplyInfo) =

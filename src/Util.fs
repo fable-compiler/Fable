@@ -37,11 +37,13 @@ module Naming =
         set [ "System.IEquatable"; "System.Collections.IStructuralEquatable";
             "System.IComparable"; "System.Collections.IStructuralComparable" ]
     
-    let removeBrackets, removeGetPrefix =
+    let removeParens, removeGetSetPrefix, sanitizeActivePattern =
         let reg1 = Regex(@"^\( (.*) \)$")
-        let reg2 = Regex(@"^get_")
+        let reg2 = Regex(@"^[gs]et_")
+        let reg3 = Regex(@"^\|[^\|]+?(?:\|[^\|]+)*(?:\|_)?\|$")
         (fun s -> reg1.Replace(s, "$1")),
-        (fun s -> reg2.Replace(s, ""))
+        (fun s -> reg2.Replace(s, "")),
+        (fun (s: string) -> if reg3.IsMatch(s) then s.Replace("|", "$") else s)
         
     let lowerFirst (s: string) =
         s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
@@ -58,7 +60,7 @@ module Naming =
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
     let identForbiddenChars =
-        Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
+        Regex @"^[^a-zA-Z_$]|[^0-9a-zA-Z_$]"
         
     let trimDots (s: string) =
         match s.StartsWith ".", s.EndsWith "." with
@@ -82,7 +84,7 @@ module Naming =
             check 0
         // Replace Forbidden Chars
         let sanitizedName =
-            identForbiddenChars.Replace(removeBrackets name, "_")
+            identForbiddenChars.Replace(removeParens name, "_")
         // Check if it's a keyword
         jsKeywords.Contains sanitizedName
         |> function true -> "_" + sanitizedName | false -> sanitizedName

@@ -73,12 +73,14 @@ var babelPlugins = [
     // "transform-es2015-block-scoping", // This creates too many function wrappers
     "transform-do-expressions",
     removeDuplicatedVarDeclarators,
+    "transform-es5-property-mutators",
     "transform-es2015-arrow-functions",
     "transform-es2015-classes",
     "transform-es2015-computed-properties",
     "transform-es2015-for-of",
     "transform-es2015-object-super",
     "transform-es2015-parameters",
+    "transform-es2015-shorthand-properties",
     "transform-es2015-spread"
 ];
 

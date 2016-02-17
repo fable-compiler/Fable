@@ -35,7 +35,8 @@ and EntityKind =
     | Module
     | Class of baseClass: EntityLocation option
     | Union
-    | Record    
+    | Record
+    | Exception
     | Interface
 
 and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
@@ -124,8 +125,8 @@ and Ident = { name: string; typ: Type }
 
 and ValueKind =
     | Null
-    | This of Type
-    | Super of Type
+    | This
+    | Super
     | Spread of Expr
     | TypeRef of Entity
     | IdentValue of Ident
@@ -144,8 +145,8 @@ and ValueKind =
         match x with
         | Null -> PrimitiveType Unit
         | Spread x -> x.Type
-        | This typ | Super typ | IdentValue {typ=typ} -> typ
-        | ImportRef _ | TypeRef _ | Emit _ -> UnknownType
+        | IdentValue {typ=typ} -> typ
+        | This | Super | ImportRef _ | TypeRef _ | Emit _ -> UnknownType
         | NumberConst (_,kind) -> PrimitiveType (Number kind)
         | StringConst _ -> PrimitiveType String
         | RegexConst _ -> PrimitiveType Regex
@@ -269,7 +270,6 @@ module Util =
             | Value Null, _ -> makeSequential range rest
             | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
             // Calls to System.Object..ctor in class constructors
-            // TODO: Remove also calls to System.Exception..ctor in constructors?
             | ObjExpr ([],[],_), _ -> makeSequential range rest
             | _ -> Sequential (statements, range)
                 
@@ -389,6 +389,12 @@ module Util =
         let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, Some range)
         Member(Constructor, range, args, body, [], true, false, false)
         |> MemberDeclaration
+        
+    let makeExceptionCons range =
+        let emit = Emit "for (var i=0; i<arguments.length; i++) { this['Data'+i]=arguments[i]; }" |> Value
+        let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, Some range)
+        Member(Constructor, range, [], body, [], true, false, false)
+        |> MemberDeclaration
 
     let makeRecordCons range props =
         let args, body =
@@ -418,6 +424,7 @@ module Util =
         | _ ->
             expr // Do nothing
             
+    // Check if we're applying agains a F# let binding
     let makeApply range typ callee exprs =
         let lasti = (List.length exprs) - 1
         ((0, callee), exprs)
@@ -426,7 +433,7 @@ module Util =
             let callee =
                 match callee with
                 | Sequential _ ->
-                    // Surround with a lambda
+                    // F# let binding: Surround with a lambda
                     Apply (Lambda ([], callee) |> Value, [], ApplyMeth, typ, range)
                 | _ -> callee
             i, Apply (callee, [expr], ApplyMeth, typ, range))

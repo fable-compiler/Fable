@@ -2,6 +2,7 @@ module Fabel.Main
 
 open System
 open System.IO
+open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
@@ -35,9 +36,12 @@ let parseFSharpProject (com: ICompiler) =
     let checkProjectResults =
         checker.ParseAndCheckProject(projOptions)
         |> Async.RunSynchronously
-    if not checkProjectResults.HasCriticalErrors
+    let errors =
+        checkProjectResults.Errors
+        |> Array.filter (fun x -> x.Severity = FSharpErrorSeverity.Error)
+    if errors.Length = 0
     then checkProjectResults
-    else checkProjectResults.Errors
+    else errors
         |> Seq.map (fun e -> "\t" + e.Message)
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
