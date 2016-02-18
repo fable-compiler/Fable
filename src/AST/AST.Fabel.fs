@@ -423,7 +423,7 @@ module Util =
         match expr, expr.Type with
         | Value (Lambda (args, body)), _ ->
             flattenLambda args body
-        | _, PrimitiveType (Function arity) ->
+        | _, PrimitiveType (Function arity) when arity > 1 ->
             let lambdaArgs =
                 [1..arity] |> List.map (fun i -> {name=sprintf "$arg%i" i; typ=UnknownType}) 
             let lambdaBody = 

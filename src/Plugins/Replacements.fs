@@ -395,13 +395,23 @@ module private AstPass =
         | _ -> None
 
     let options com (i: Fabel.ApplyInfo) =
+        let toArray r optExpr =
+            Fabel.Apply(Fabel.Emit("$0 != null ? [$0]: []") |> Fabel.Value, [optExpr],
+                Fabel.ApplyMeth, Fabel.PrimitiveType (Fabel.Array Fabel.DynamicArray), r)
         let callee = match i.callee with Some c -> c | None -> i.args.Head
         match i.methodName with
         | "value" | "get" | "toObj" | "ofObj" | "toNullable" | "ofNullable" ->
            wrap i.returnType callee |> Some
         | "isSome" -> makeEqOp i.range [callee; Fabel.Value Fabel.Null] BinaryUnequal |> Some
         | "isNone" -> makeEqOp i.range [callee; Fabel.Value Fabel.Null] BinaryEqual |> Some
-        | _ -> None
+        | "map" | "bind" -> emit i "$1 != null ? $0($1) : $1" i.args |> Some
+        | "toArray" -> toArray i.range i.args.Head |> Some
+        | meth ->
+            let args =
+                let args = List.rev i.args
+                (toArray i.range args.Head)::args.Tail |> List.rev
+            CoreLibCall("Seq", Some meth, false, deleg args)
+            |> makeCall com i.range i.returnType |> Some
         
     let timeSpans com (i: Fabel.ApplyInfo) =
         // let callee = match i.callee with Some c -> c | None -> i.args.Head
