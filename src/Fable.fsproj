@@ -6,12 +6,12 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{486D9B44-99FB-436F-9F5D-0F685453E14C}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>Fabel</RootNamespace>
-    <AssemblyName>Fabel</AssemblyName>
+    <RootNamespace>Fable</RootNamespace>
+    <AssemblyName>Fable</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <Name>Fabel</Name>
+    <Name>Fable</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -31,7 +31,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>Fabel.XML</DocumentationFile>
+    <DocumentationFile>Fable.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
@@ -47,12 +47,12 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="AST\AST.Common.fs" />
-    <Compile Include="AST\AST.Fabel.fs" />
+    <Compile Include="AST\AST.Fable.fs" />
     <Compile Include="AST\AST.Babel.fs" />
     <Compile Include="Plugins\Replacements.fs" />
-    <Compile Include="FSharp2Fabel.Util.fs" />
-    <Compile Include="FSharp2Fabel.fs" />
-    <Compile Include="Fabel2Babel.fs" />
+    <Compile Include="FSharp2Fable.Util.fs" />
+    <Compile Include="FSharp2Fable.fs" />
+    <Compile Include="Fable2Babel.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config" />
   </ItemGroup>

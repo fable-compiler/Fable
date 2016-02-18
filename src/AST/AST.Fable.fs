@@ -1,5 +1,5 @@
-namespace Fabel.AST.Fabel
-open Fabel.AST
+namespace Fable.AST.Fable
+open Fable.AST
 
 (** ##Decorators *)
 type Decorator =
@@ -242,7 +242,7 @@ and Expr =
     //         | None, None -> [body]
     
 module Util =
-    open Fabel
+    open Fable
     
     type CallKind =
         | InstanceCall of callee: Expr * meth: string * args: Expr list

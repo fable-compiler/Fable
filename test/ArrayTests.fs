@@ -1,7 +1,7 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.Arrays
+module Fable.Tests.Arrays
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 open System.Collections.Generic
 
 [<Test>]

@@ -1,4 +1,4 @@
-namespace Fabel
+namespace Fable
 
 type CompilerOptions =
     {
@@ -54,7 +54,7 @@ module Naming =
         | _ -> 0
     
     let getCoreLibPath (com: ICompiler) =
-        Path.Combine(com.Options.lib, "fabel-core.js")
+        Path.Combine(com.Options.lib, "fable-core.js")
 
     let fromLib (com: ICompiler) path =
         Path.Combine(com.Options.lib, path)

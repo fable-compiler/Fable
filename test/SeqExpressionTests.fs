@@ -1,8 +1,8 @@
 [<NUnit.Framework.TestFixture>] 
-module Fabel.Tests.``Seq Expressions``
+module Fable.Tests.``Seq Expressions``
 open System
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 [<Test>]
 let ``empty seq expressions work``() =

@@ -1,5 +1,5 @@
 {
-  "name": "fabel",
+  "name": "fable",
   "version": "1.0.0",
   "description": "F# to JS compiler",
   "main": "index.js",
@@ -31,7 +31,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alfonsogarciacaro/Fabel.git"
+    "url": "git+https://github.com/alfonsogarciacaro/Fable.git"
   },
   "keywords": [
     "fsharp",
@@ -40,7 +40,7 @@
     "transpiler"
   ],
   "bugs": {
-    "url": "https://github.com/alfonsogarciacaro/Fabel/issues"
+    "url": "https://github.com/alfonsogarciacaro/Fable/issues"
   },
-  "homepage": "https://github.com/alfonsogarciacaro/Fabel#readme"
+  "homepage": "https://github.com/alfonsogarciacaro/Fable#readme"
 }

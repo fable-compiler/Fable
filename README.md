@@ -1,8 +1,8 @@
 ## F# |> BABEL
 
-[![Build status](https://ci.appveyor.com/api/projects/status/kjo95sx0k5js50m7?svg=true)](https://ci.appveyor.com/project/alfonsogarciacaro/fabel)
+[![Build status](https://ci.appveyor.com/api/projects/status/kjo95sx0k5js50m7?svg=true)](https://ci.appveyor.com/project/alfonsogarciacaro/fable)
 
-Fabel brings together the power of the [F# compiler](http://fsharp.github.io/FSharp.Compiler.Service/) and [Babel](http://babeljs.io) to make JavaScript a true backend for F#. Some of its main features are:
+Fable brings together the power of the [F# compiler](http://fsharp.github.io/FSharp.Compiler.Service/) and [Babel](http://babeljs.io) to make JavaScript a true backend for F#. Some of its main features are:
 
 - Works directly on F# source code, no compilation to .NET bytecode needed
 - Optimizes F# code to generate as clean JavaScript as possible
@@ -31,7 +31,7 @@ If everything works, follow [these instructions](docs/compiling.md) to compile a
 
 ## Caveats
 
-- **Options are erased** in compiled code. This have several benefits like removing overhead and interact with native JS functions in a safer way (`null` will be `None`). However, it will lead to unexpected results if you do weird things like `Some null`. For practical purposes, Fabel considers `null`, `None`, `undefined` and `F# unit` to be the same thing.
+- **Options are erased** in compiled code. This have several benefits like removing overhead and interact with native JS functions in a safer way (`null` will be `None`). However, it will lead to unexpected results if you do weird things like `Some null`. For practical purposes, Fable considers `null`, `None`, `undefined` and `F# unit` to be the same thing.
 
 - **Information about generic types is not included** in the generated JavaScript, so code that depends on this information to be known at runtime for method dispatching may have unexpected behaviour.
 

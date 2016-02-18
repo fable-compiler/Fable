@@ -1,6 +1,6 @@
 # Testing
 
-This somehow breaks the _unopinionated_ rule, but as a way to share cross-platform code a feature has been introduced to compile [NUnit](http://www.nunit.org) tests to [Mocha](https://mochajs.org). This is used for Fabel own tests. To compile and run them, type:
+This somehow breaks the _unopinionated_ rule, but as a way to share cross-platform code a feature has been introduced to compile [NUnit](http://www.nunit.org) tests to [Mocha](https://mochajs.org). This is used for Fable own tests. To compile and run them, type:
 
 ```
 > build.cmd MochaTest   // on windows    

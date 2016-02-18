@@ -5,7 +5,7 @@ To trigger the `F# > JS` compilation a node script is used. To run it, from a te
 ```
 npm install     // Just the first time, install npm dependencies
 
-node tools/fabel2babel.js --projFile paht/to/YourProject.fsproj
+node tools/fable2babel.js --projFile paht/to/YourProject.fsproj
 ```
 
 > You can also pass a F# script file `.fsx` instead.
@@ -22,17 +22,17 @@ Besides `--projFile`, the following options are available:
     --symbols   Array of symbols passed to the F# compiler for
                 conditional compilation.
     --lib       Where the compiler can find external JS libraries,
-                mainly used to locate fabel-core.js.
+                mainly used to locate fable-core.js.
     --env       'browser' for amd modules and 'node' for commonjs,
                 if not specified, will default to umd.
 ```
 
-However, it's usually more convenient to put them in JSON format in a file named `fabelconfig.json` in the same folder as the F# project and let the compiler read them automatically for you.
+However, it's usually more convenient to put them in JSON format in a file named `fableconfig.json` in the same folder as the F# project and let the compiler read them automatically for you.
 
 
 ## Polyfill
 
-After going through Babel pipeline, the code won't include any syntax foreign to ES5. However several ES6 classes (like `Symbol`) are used so it's advisable to include a polyfill like [core-js](https://github.com/zloirock/core-js) to make sure the code works fine in any browser. Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/) with a lazy-sequence generator, but this is not needed as one is already included in [fabel-core.js](/lib/fabel-core.js).
+After going through Babel pipeline, the code won't include any syntax foreign to ES5. However several ES6 classes (like `Symbol`) are used so it's advisable to include a polyfill like [core-js](https://github.com/zloirock/core-js) to make sure the code works fine in any browser. Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/) with a lazy-sequence generator, but this is not needed as one is already included in [fable-core.js](/lib/fable-core.js).
 
 
 ## Modules

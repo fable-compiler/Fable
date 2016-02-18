@@ -1,4 +1,4 @@
-namespace Fabel.Import.Node
+namespace Fable.Import.Node
 open System
 
 type private ImportAttribute(path: string) =

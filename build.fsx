@@ -26,7 +26,7 @@ Target "NUnitTest" (fun _ ->
     |> MSBuildRelease testBuildDir "Build"
     |> Log "Release-Output: "
     
-    [testBuildDir + "Fabel.Tests.dll"]
+    [testBuildDir + "Fable.Tests.dll"]
     |> NUnit (fun p ->
         { p with
             DisableShadowCopy = true
@@ -34,7 +34,7 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    Shell.Exec("node", "tools/fabel2babel.js --projFile test/Fabel.Tests.fsproj")
+    Shell.Exec("node", "tools/fable2babel.js --projFile test/Fable.Tests.fsproj")
     |> function
     | 0 ->
         Shell.Exec("node", "node_modules/mocha/bin/mocha build/test")
@@ -45,7 +45,7 @@ Target "MochaTest" (fun _ ->
 )
 
 Target "Release" (fun _ ->
-    let xmlPath = Path.Combine(Path.GetFullPath mainBuildDir, "Fabel.xml")
+    let xmlPath = Path.Combine(Path.GetFullPath mainBuildDir, "Fable.xml")
     !! "src/**/*.fsproj"
     |> MSBuild mainBuildDir "Build"
         ["Configuration","Release"; "DocumentationFile", xmlPath]

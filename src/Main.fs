@@ -1,4 +1,4 @@
-module Fabel.Main
+module Fable.Main
 
 open System
 open System.IO
@@ -6,12 +6,12 @@ open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
-open Fabel
+open Fable
 
 let readOptions projFile =
     let projDir = Path.GetDirectoryName(projFile)
-    if File.Exists(Path.Combine(projDir, "fabelconfig.json")) then
-        let json = File.ReadAllText(Path.Combine(projDir, "fabelconfig.json"))
+    if File.Exists(Path.Combine(projDir, "fableconfig.json")) then
+        let json = File.ReadAllText(Path.Combine(projDir, "fableconfig.json"))
         let opts = JsonConvert.DeserializeObject<CompilerOptions>(json)
         { opts with projFile = projFile }
     else
@@ -72,8 +72,8 @@ let main argv =
     let com = { new ICompiler with
                     member __.Options = opts }
     parseFSharpProject com
-    |> FSharp2Fabel.transformFiles com 
-    |> Fabel2Babel.transformFiles com
+    |> FSharp2Fable.transformFiles com 
+    |> Fable2Babel.transformFiles com
     |> Seq.iter (fun ast ->
         JsonConvert.SerializeObject (ast, jsonSettings)
         |> Console.Out.WriteLine

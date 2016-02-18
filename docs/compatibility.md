@@ -2,7 +2,7 @@
 
 > The project is still in development, so expect many changes in this document.
 
-As a rule of thumb, the [core library](/lib/fabel-core.js) should be as small as possible, so the compiler will fall back to native JS methods when possible
+As a rule of thumb, the [core library](/lib/fable-core.js) should be as small as possible, so the compiler will fall back to native JS methods when possible
 
 ## Common operators
 TODO

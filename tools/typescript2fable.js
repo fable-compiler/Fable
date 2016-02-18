@@ -5,7 +5,7 @@ var path = require("path");
 
 var templates = {
 file:
-`namespace Fabel.Import
+`namespace Fable.Import
 open System
     
 [MODULES]

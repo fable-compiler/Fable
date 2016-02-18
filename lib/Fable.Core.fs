@@ -1,4 +1,4 @@
-namespace Fabel.Core
+namespace Fable.Core
 open System
 
 type EraseAttribute() =

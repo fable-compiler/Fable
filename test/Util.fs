@@ -1,4 +1,4 @@
-module Fabel.Tests.Util
+module Fable.Tests.Util
 
 open NUnit.Framework
 

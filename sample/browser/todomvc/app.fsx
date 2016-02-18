@@ -3,8 +3,8 @@
 // to explain how to program dynamically with F# and Fable. 
 
 // Load and open Fable.Core to get access to Fable attributes and operators
-#load "../../../lib/Fabel.Core.fs"
-open Fabel.Core
+#load "../../../lib/Fable.Core.fs"
+open Fable.Core
 
 type Todo = {
     mutable title: string

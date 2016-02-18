@@ -1,8 +1,8 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.Strings
+module Fable.Tests.Strings
 open System
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 [<Test>]
 let ``sprintf works``() =
@@ -17,9 +17,9 @@ let ``sprintf works``() =
 
 [<Test>]
 let ``String.Format works``() =
-      let arg1, arg2, arg3 = "F#", "Fabel", "Babel"
+      let arg1, arg2, arg3 = "F#", "Fable", "Babel"
       String.Format("{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
-      |> equal "Babel is to Fabel what Fabel is to F#"
+      |> equal "Babel is to Fable what Fable is to F#"
 
 // TODO: Implement DateTime first
 // [<Test>]

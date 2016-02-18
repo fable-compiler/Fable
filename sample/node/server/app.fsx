@@ -1,9 +1,9 @@
 // Simple static server with node
 
 // Load and open Fable.Core to get access to Fable attributes and operators
-#load "../../../lib/Fabel.Core.fs"
+#load "../../../lib/Fable.Core.fs"
 open System
-open Fabel.Core
+open Fable.Core
 
 let [<Global>] ``process`` = obj()
 let [<Import("http")>] http = obj()

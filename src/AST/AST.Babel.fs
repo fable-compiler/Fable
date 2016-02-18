@@ -1,5 +1,5 @@
-namespace Fabel.AST.Babel
-open Fabel.AST
+namespace Fable.AST.Babel
+open Fable.AST
 
 /// The type field is a string representing the AST variant type. 
 /// Each subtype of Node is documented below with the specific string of its type field. 

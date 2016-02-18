@@ -1,8 +1,8 @@
 [<NUnit.Framework.TestFixture>] 
-module Fabel.Tests.DateTime
+module Fable.Tests.DateTime
 open System
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 let toSigFigs nSigFigs x =
     let absX = abs x

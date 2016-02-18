@@ -3,14 +3,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fabel", "src\Fabel.fsproj", "{486D9B44-99FB-436F-9F5D-0F685453E14C}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable", "src\Fable.fsproj", "{486D9B44-99FB-436F-9F5D-0F685453E14C}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fabel.Tests", "test\Fabel.Tests.fsproj", "{6EF06954-FBDF-42C7-815C-B13BA2926C93}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests", "test\Fable.Tests.fsproj", "{6EF06954-FBDF-42C7-815C-B13BA2926C93}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{0FE9BBC0-4866-444E-A429-C30CEDB7C03C}"
 	ProjectSection(SolutionItems) = preProject
-		tools\fabel2babel.js = tools\fabel2babel.js
-		tools\typescript2fabel.js = tools\typescript2fabel.js
+		tools\fable2babel.js = tools\fable2babel.js
+		tools\typescript2fable.js = tools\typescript2fable.js
 	EndProjectSection
 EndProject
 Global

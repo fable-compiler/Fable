@@ -1,6 +1,6 @@
 # Semantics
 
-Fabel makes some changes in the semantics to make the result much closer to the JavaScript world, but hopefully for practical purposes most of them should be transparent to the programmer. However, it's good to know about them when interacting with JS.
+Fable makes some changes in the semantics to make the result much closer to the JavaScript world, but hopefully for practical purposes most of them should be transparent to the programmer. However, it's good to know about them when interacting with JS.
 
 ## Primitives
 `string` and `char` compile to JS "string" while `bool` becomes "boolean". All numeric primitives compile to JS "number" (but see _Arrays_ below).

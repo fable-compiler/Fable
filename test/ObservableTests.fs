@@ -1,8 +1,8 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.Observable
+module Fable.Tests.Observable
 open System
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 type MyObserver<'T>(f) =
     interface IObserver<'T> with

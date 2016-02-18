@@ -11,10 +11,10 @@ There are three ways to interact with the JavaScript world:
 
 ## Dynamic programming
 
-`Fabel.Core` implements the F# dynamic operators so you can easily access an object property by name (without static check) as follows:
+`Fable.Core` implements the F# dynamic operators so you can easily access an object property by name (without static check) as follows:
 
 ```
-open Fabel.Core
+open Fable.Core
 
 printfn "Value: %O" jsObject?property
 
@@ -24,15 +24,15 @@ jsObject?property <- 5 // Assignment is also possible
 However, the F# compiler won't let you apply the property, so to convince it that's actually a function use the operator `$` and pass the arguments as a tuple.
 
 ```
-open Fabel.Core
+open Fable.Core
 
 let result = jsObject?method $ (1, 2)
 ```
 
-If you want to call the function with the `new` keyword, use the `Fabel.Core.createNew` function instead.
+If you want to call the function with the `new` keyword, use the `Fable.Core.createNew` function instead.
 
 ```
-open Fabel.Core
+open Fable.Core
 
 let instance = createNew jsObject?method (1, 2)
 ```
@@ -44,7 +44,7 @@ You can use the `Emit` attribute to decorate a function. Every call to the funct
 
 ```
 // F#
-open Fabel.Core
+open Fable.Core
 
 [<Emit("$0 + $1")>]
 let add (x: int) (y: string): float = failwith "JS only"
@@ -57,7 +57,7 @@ let result = add 1 "2"
 var result = 1 + "2"
 ```
 
-The content of `Emit` will actually be parsed by Babel so it will still validated somehow. However, it's not advised to abuse of this method, because the code in the template will remain obscure to Fabel preventing some optimizations.
+The content of `Emit` will actually be parsed by Babel so it will still validated somehow. However, it's not advised to abuse of this method, because the code in the template will remain obscure to Fable preventing some optimizations.
 
 
 ## Foreign interfaces
@@ -108,7 +108,7 @@ A good starting point for foreign interfaces are [Typescript definition files](h
 ```
 npm install typescript      // First time if not installed globally
 
-node tools/typescript2fabel.js
+node tools/typescript2fable.js
 ```
 
 > As most times, some tweaking by hand will be needed, it's planned to keep a repo with curated definitions of the most commonly used libraries (core JS, node, React...)

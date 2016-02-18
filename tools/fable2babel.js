@@ -135,18 +135,18 @@ try {
         opts[key] = value;
     }
     
-    var fabelCwd = process.cwd();
-    var fabelCmd = process.platform === "win32" ? "cmd" : "mono";
-    var fabelCmdArgs = [__dirname + "/../build/main/Fabel.exe"];
+    var fableCwd = process.cwd();
+    var fableCmd = process.platform === "win32" ? "cmd" : "mono";
+    var fableCmdArgs = [__dirname + "/../build/main/Fable.exe"];
 	if ( process.platform === "win32") {
-	  fabelCmdArgs.unshift("/C");
+	  fableCmdArgs.unshift("/C");
 	}
 
     if (typeof opts.projFile === "string") {
-        fabelCwd = path.dirname(fabelCwd + "/" + opts.projFile);
+        fableCwd = path.dirname(fableCwd + "/" + opts.projFile);
         opts.projFile = path.basename(opts.projFile);
         
-        var cfgFile = path.join(fabelCwd, "fabelconfig.json");
+        var cfgFile = path.join(fableCwd, "fableconfig.json");
         if (fs.existsSync(cfgFile)) {
             var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
             for (var key in cfg) {
@@ -169,10 +169,10 @@ try {
         babelPlugins.push("transform-es2015-modules-umd");
     }
     
-    fabelCmdArgs.push(JSON.stringify(opts));
-    console.log(fabelCmd + " " + fabelCmdArgs.join(" "));
+    fableCmdArgs.push(JSON.stringify(opts));
+    console.log(fableCmd + " " + fableCmdArgs.join(" "));
     
-    var proc = spawn(fabelCmd, fabelCmdArgs, { cwd: fabelCwd });
+    var proc = spawn(fableCmd, fableCmdArgs, { cwd: fableCwd });
 
     proc.on('exit', function(code) {
         console.log("Finished with code " + code);
@@ -202,7 +202,7 @@ try {
         try {
             var babelAst = JSON.parse(json);
             if (opts.projFile) {
-                babelifyToFile(fabelCwd, path.join(fabelCwd, opts.outDir), babelAst);
+                babelifyToFile(fableCwd, path.join(fableCwd, opts.outDir), babelAst);
             }
             else {
                 babelifyToConsole(babelAst);
