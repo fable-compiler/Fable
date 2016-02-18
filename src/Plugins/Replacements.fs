@@ -159,6 +159,52 @@ module private AstPass =
                 else arg
         (fun com i arg -> toNumber com i "Int" arg),
         (fun com i arg -> toNumber com i "Float" arg)
+        
+    let fabelCore com (i: Fabel.ApplyInfo) =
+        let destruct = function
+            | Fabel.Value (Fabel.ArrayConst (Fabel.ArrayValues exprs, Fabel.Tuple)) -> exprs
+            | expr -> [expr]
+        match i.methodName with
+        | "?" ->
+            makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
+        | "?<-" ->
+            match i.callee, i.args with
+            | ThreeArgs (callee, prop, value) ->
+                Fabel.Set (callee, Some prop, value, i.range) |> Some
+            | _ -> None
+        | "$" ->
+            Fabel.Apply(i.args.Head, destruct i.args.Tail.Head,
+                Fabel.ApplyMeth, i.returnType, i.range) |> Some
+        | "==>" ->
+            (Fabel.ArrayValues (List.take 2 i.args), Fabel.Tuple)
+            |> Fabel.ArrayConst |> Fabel.Value |> Some
+        | "createNew" ->
+            Fabel.Apply(i.args.Head, destruct i.args.Tail.Head,
+                Fabel.ApplyCons, i.returnType, i.range) |> Some
+        | "createObj" ->
+            let (|Fields|_|) = function
+                | Fabel.Value(Fabel.ArrayConst(Fabel.ArrayValues exprs, _)) ->
+                    exprs
+                    |> List.choose (function
+                        | Fabel.Value
+                            (Fabel.ArrayConst
+                                (Fabel.ArrayValues [Fabel.Value(Fabel.StringConst key); value],
+                                    Fabel.Tuple)) -> Some(key, value)
+                        | _ -> None)
+                    |> function
+                        | fields when fields.Length = exprs.Length -> Some fields
+                        | _ -> None
+                | _ -> None
+            match i.args.Head with
+            | Fabel.Apply(_, [Fields fields], _, _, _) ->
+                makeJsObject i.range.Value fields |> Some
+            | _ ->
+                CoreLibCall("Util", Some "createObj", false, i.args)
+                |> makeCall com i.range i.returnType |> Some
+        | "createEmpty" ->
+            Fabel.ObjExpr ([], [], i.range)
+            |> wrap i.returnType |> Some
+        | _ -> None
             
     let operators com (info: Fabel.ApplyInfo) =
         // TODO: Check primitive args also here?
@@ -610,7 +656,7 @@ module private AstPass =
             | Some callee, Array ->
                 if i.args.Length = 1
                 then makeGet i.range i.returnType callee i.args.Head
-                else Fabel.Set (i.callee.Value, Some i.args.Head, i.args.Tail.Head, i.range) 
+                else Fabel.Set (i.callee.Value, Some i.args.Head, i.args.Tail.Head, i.range)
             | _, Seq -> ccall "Seq" meth args
             | _, Array -> makeGet i.range i.returnType args.Tail.Head args.Head
             | _, List -> match i.callee with Some x -> i.args@[x] | None -> i.args
@@ -739,6 +785,7 @@ module private AstPass =
     let tryReplace com (info: Fabel.ApplyInfo) =
         match info.ownerFullName with
         | KnownInterfaces _ -> knownInterfaces com info
+        | Naming.StartsWith "Fabel.Core" _ -> fabelCore com info
         | "System.String"
         | "Microsoft.FSharp.Core.String"
         | "Microsoft.FSharp.Core.PrintfFormat" -> strings com info

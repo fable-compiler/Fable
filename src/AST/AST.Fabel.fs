@@ -312,23 +312,29 @@ module Util =
             | _ -> DynamicArray
         ArrayConst(ArrayValues argExprs, arrayKind) |> Value
         
-    let tryImported name (decs: #seq<Decorator>) =
+    let tryImported com name (decs: #seq<Decorator>) =
         decs |> Seq.tryPick (fun x ->
             match x.Name with
             | "Global" ->
                 makeIdent name |> IdentValue |> Value |> Some
             | "Import" ->
                 match x.Arguments with
-                | (:? string as path)::rest ->
-                    let asDefault = match rest with [:? bool as b] -> b | _ -> false
-                    ImportRef(path, asDefault, None) |> Value |> Some
+                | (:? string as path)::_ ->
+                    let path, asDefault, prop =
+                        let path, args = Naming.getUrlParams path
+                        let asDefault = args.TryFind("asDefault") = Some("true")
+                        let prop = args.TryFind("get")
+                        match args.TryFind("fromLib") with
+                        | Some "true" -> Naming.fromLib com path, asDefault, prop
+                        | _ -> path, asDefault, prop
+                    ImportRef(path, asDefault, prop) |> Value |> Some
                 | _ -> failwith "Import attributes must have a single non-empty string argument"
             | _ -> None)
 
-    let makeTypeRef typ =
+    let makeTypeRef com typ =
         match typ with
         | DeclaredType ent ->
-            match tryImported ent.Name ent.Decorators with
+            match tryImported com ent.Name ent.Decorators with
             | Some expr -> expr
             | None -> Value (TypeRef ent)
         | _ ->
@@ -384,7 +390,7 @@ module Util =
                 CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
                 |> makeCall com range boolType 
             | _ ->
-                makeBinOp range boolType [expr; makeTypeRef typ] BinaryInstanceOf 
+                makeBinOp range boolType [expr; makeTypeRef com typ] BinaryInstanceOf 
         | _ -> failwithf "Unsupported type test in %A: %A" range typ
 
     let makeUnionCons range =

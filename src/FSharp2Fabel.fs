@@ -114,11 +114,11 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         else
             v.Attributes
             |> Seq.choose (makeDecorator com)
-            |> tryImported v.DisplayName
+            |> tryImported com v.DisplayName
             |> function
                 | Some expr -> expr
                 | None ->
-                    let typeRef = makeTypeFromDef com v.EnclosingEntity |> makeTypeRef
+                    let typeRef = makeTypeFromDef com v.EnclosingEntity |> makeTypeRef com
                     makeGetFrom com fsExpr typeRef (makeConst v.DisplayName)
 
     | BasicPatterns.DefaultValue (FabelType com typ) ->
@@ -201,7 +201,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeTypeRef calleeType
+            | None -> makeTypeRef com calleeType
         makeGetFrom com fsExpr callee (makeConst fieldName)
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
@@ -229,7 +229,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeTypeRef calleeType
+            | None -> makeTypeRef com calleeType
         Fabel.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -289,7 +289,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
 
     | BasicPatterns.NewRecord(FabelType com recordType, argExprs) ->
         let argExprs = argExprs |> List.map (transformExpr com ctx)
-        Fabel.Apply (makeTypeRef recordType, argExprs, Fabel.ApplyCons,
+        Fabel.Apply (makeTypeRef com recordType, argExprs, Fabel.ApplyCons,
             makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
@@ -328,7 +328,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
                 | args -> [tag; Fabel.ArrayConst(Fabel.ArrayValues args, Fabel.Tuple) |> Fabel.Value]
             if isExternalEntity com fsType.TypeDefinition
             then replace com fsExpr (unionType.FullName) ".ctor" ([],[],[]) (None,argExprs)
-            else Fabel.Apply (makeTypeRef unionType, argExprs, Fabel.ApplyCons,
+            else Fabel.Apply (makeTypeRef com unionType, argExprs, Fabel.ApplyCons,
                             makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
     (** ## Type test *)
@@ -591,7 +591,8 @@ let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
             member __.Options = com.Options }    
     fsProj.AssemblyContents.ImplementationFiles
     |> List.where (fun file ->
-        (System.IO.Path.GetFileName file.FileName).StartsWith("Fabel.Import") |> not)
+        let fileName = System.IO.Path.GetFileName file.FileName
+        fileName.StartsWith("Fabel.Import") || fileName = "Fabel.Core.fs" |> not)
     |> List.map (fun file ->
         let rootEnt, rootDecls = getRootDecls None file.Declarations
         let rootDecls = transformDeclarations com Context.Empty [] rootDecls

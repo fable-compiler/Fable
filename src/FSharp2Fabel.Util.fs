@@ -348,7 +348,10 @@ module Identifiers =
 
 // Is external entity?
 let isExternalEntity (com: IFabelCompiler) (ent: FSharpEntity) =
-    match com.GetInternalFile ent with None -> true | Some _ -> false
+    if ent.FullName.StartsWith("Fabel.Core")
+    then true
+    else match com.GetInternalFile ent with
+         | None -> true | Some _ -> false
     
 let getMemberKind name (meth: FSharpMemberOrFunctionOrValue) =
     if meth.IsImplicitConstructor then Fabel.Constructor
@@ -537,7 +540,7 @@ let makeCallFrom (com: IFabelCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
             |> function
             | Some callee, args -> callee, args
             | None, args ->
-                makeTypeFromDef com meth.EnclosingEntity |> makeTypeRef, args
+                makeTypeFromDef com meth.EnclosingEntity |> makeTypeRef com, args
     (**     *Check if this a getter or setter  *)
         if meth.IsPropertyGetterMethod then
             makeGetFrom com fsExpr callee methName

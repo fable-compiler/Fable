@@ -55,7 +55,10 @@ module Naming =
     
     let getCoreLibPath (com: ICompiler) =
         Path.Combine(com.Options.lib, "fabel-core.js")
-        
+
+    let fromLib (com: ICompiler) path =
+        Path.Combine(com.Options.lib, path)
+
     // TODO: Use $F for CoreLib?
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
@@ -90,6 +93,17 @@ module Naming =
         |> function true -> "_" + sanitizedName | false -> sanitizedName
         // Check if it already exists in scope
         |> preventConflicts conflicts
+        
+    let getUrlParams (txt: string) =
+        match txt.IndexOf("?") with
+        | -1 -> txt, Map.empty<_,_>
+        | i ->
+            txt.Substring(i + 1).Split('&')
+            |> Seq.choose (fun pair ->
+                match pair.Split('=') with
+                | [|key;value|] -> Some (key,value)
+                | _ -> None)
+            |> fun args -> txt.Substring(0, i), Map(args)
 
     /// Creates a relative path from one file or folder to another.
     /// from http://stackoverflow.com/a/340454/3922220
