@@ -262,6 +262,7 @@ module Types =
         let infcs =
             tdef.DeclaredInterfaces
             |> Seq.map (fun x -> sanitizeEntityName x.TypeDefinition)
+            |> Seq.distinct
             |> Seq.toList
         let decs =
             tdef.Attributes

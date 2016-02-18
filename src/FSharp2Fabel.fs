@@ -188,8 +188,9 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
         makeSequential (makeRangeFrom fsExpr) [first; second]
 
     (** ## Lambdas *)
-    | BasicPatterns.Lambda (BindIdent com ctx (ctx, arg), body) ->
-        Fabel.Lambda ([arg], transformExpr com ctx body) |> Fabel.Value
+    | BasicPatterns.Lambda (var, body) ->
+        let ctx, args = makeLambdaArgs com ctx [var]
+        Fabel.Lambda (args, transformExpr com ctx body) |> Fabel.Value
 
     | BasicPatterns.NewDelegate(_delegateType, Transform com ctx delegateBodyExpr) ->
         makeDelegate delegateBodyExpr
@@ -280,6 +281,7 @@ let rec private transformExpr (com: IFabelCompiler) ctx fsExpr =
             let interfaces =
                 objType::(otherOverrides |> List.map fst)
                 |> List.map (fun x -> sanitizeEntityName x.TypeDefinition)
+                |> List.distinct
             Fabel.ObjExpr (members, interfaces, makeRangeFrom fsExpr)
         | _ -> failwithf "Object expression from classes are not supported: %A" fsExpr.Range
 

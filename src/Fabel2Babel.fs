@@ -568,7 +568,6 @@ let private makeCompiler (com: ICompiler) (files: Fabel.File list) =
             Map.tryFind fileName fileMap
             |> function Some file -> file
                       | None -> failwithf "File not parsed: %s" fileName
-        // TODO: Expand $(lib) macro
         member bcom.GetImport ctx asDefault moduleName =
             match ctx.imports.TryGetValue moduleName with
             | true, (import, _) ->

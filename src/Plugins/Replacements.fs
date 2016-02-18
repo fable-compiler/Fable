@@ -248,7 +248,7 @@ module private AstPass =
             |> makeCall com r typ |> Some
         // Function composition
         | ">>" | "<<" ->
-            // If expression is a holder we have to protect the variable declarations
+            // If expression is a let binding we have to wrap it in a function
             let wrap expr placeholder =
                 match expr with
                 | Fabel.Sequential _ -> sprintf "(function(){return %s}())" placeholder

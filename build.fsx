@@ -58,12 +58,6 @@ Target "Debug" (fun _ ->
     |> Log "Debug-Output: "
 )
 
-Target "Sample" (fun _ ->
-    !! "sample/**/*.fsproj"
-    |> MSBuildDebug "build/sample" "Build"
-    |> Log "Debug-Output: "
-)
-
 // Build order
 "Clean"
   ==> "Release"

@@ -35,7 +35,7 @@ If everything works, follow [these instructions](docs/compiling.md) to compile a
 
 - **Information about generic types is not included** in the generated JavaScript, so code that depends on this information to be known at runtime for method dispatching may have unexpected behaviour.
 
-- At the moment, comparison for objects defaults to JS reference comparison so there's **no structure comparison** for records and unions, but this may change in the future upon users' feedback.
+- At the moment, comparison for objects defaults to JS reference comparison so there's **no structural comparison** for records and unions, but this may change in the future upon users' feedback.
 
 - **Map and Set** default to the new ES6 Map and Set classes which must increase performance, but the downside is adding and removing operations are **mutable**.
 

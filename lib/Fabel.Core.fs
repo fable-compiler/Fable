@@ -4,7 +4,7 @@ open System
 type EraseAttribute() =
     inherit Attribute()
 
-type GlobalAttribute(path: string) =
+type GlobalAttribute() =
     inherit Attribute()
 
 type ImportAttribute(path: string) =
@@ -23,9 +23,9 @@ module Operators =
     
     let (==>) (key: string) (v: obj): string*obj = failwith "JS only"
     
-    let createNew<'T> (o: obj) (args: obj): 'T = failwith "JS only"
+    let createNew (o: obj) (args: obj): obj = failwith "JS only"
     
-    let createObj (fields: (string*obj) list): obj = failwith "JS only"
+    let createObj (fields: #seq<string*obj>): obj = failwith "JS only"
     
     let createEmpty<'T> : 'T = failwith "JS only"
 
