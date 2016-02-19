@@ -1,5 +1,5 @@
 [<NUnit.Framework.TestFixture>] 
-module Fabel.Tests.Arithmetic
+module Fable.Tests.Arithmetic
 open System
 open NUnit.Framework
 

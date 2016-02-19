@@ -1,5 +1,5 @@
-namespace Fabel.AST.Babel
-open Fabel.AST
+namespace Fable.AST.Babel
+open Fable.AST
 
 /// The type field is a string representing the AST variant type. 
 /// Each subtype of Node is documented below with the specific string of its type field. 
@@ -306,13 +306,13 @@ type ObjectProperty(key, value, ?shorthand, ?computed, ?loc) =
     inherit ObjectMember("ObjectProperty", key, value, ?computed=computed, ?loc=loc)
     member x.shorthand: bool = defaultArg shorthand false
 
-type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMethod
+type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
 type ObjectMethod(kind, key, arguments, body, ?computed, ?generator, ?async, ?loc) =
     inherit ObjectMember("ObjectMethod", key, ?computed=computed, ?loc=loc)
     member x.kind = match kind with ObjectGetter -> "get"
                                   | ObjectSetter -> "set"
-                                  | ObjectMethod -> "method"
+                                  | ObjectMeth -> "method"
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
     member x.generator: bool = defaultArg generator false

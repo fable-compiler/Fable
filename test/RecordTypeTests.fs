@@ -1,7 +1,7 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.RecordTypes
+module Fable.Tests.RecordTypes
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 type Person =
     { name: string; luckyNumber: int }

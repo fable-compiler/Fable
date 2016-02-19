@@ -1,4 +1,5 @@
 {
+    "env": "node",
     "outDir": ".",
     "lib": "../../../lib",
     "symbols": []

@@ -1,7 +1,7 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.UnionTypes
+module Fable.Tests.UnionTypes
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 type Gender = Male | Female
 

@@ -1,4 +1,4 @@
-namespace Fabel.AST
+namespace Fable.AST
 
 // Utility
 type EraseAttribute() = inherit System.Attribute()

@@ -1,7 +1,7 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.Sets
+module Fable.Tests.Sets
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 [<Test>]
 let ``set function works``() =

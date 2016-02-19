@@ -1,5 +1,5 @@
-namespace Fabel.AST.Fabel
-open Fabel.AST
+namespace Fable.AST.Fable
+open Fable.AST
 
 (** ##Decorators *)
 type Decorator =
@@ -35,7 +35,8 @@ and EntityKind =
     | Module
     | Class of baseClass: EntityLocation option
     | Union
-    | Record    
+    | Record
+    | Exception
     | Interface
 
 and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
@@ -69,20 +70,20 @@ and Declaration =
 and MemberKind =
     | Constructor
     | Method of name: string
-    | Getter of name: string
+    | Getter of name: string * isField: bool
     | Setter of name: string
 
-and Member(kind, range, args, body, decorators, isPublic, isStatic, hasRestParams) =
+and Member(kind, range, args, body, ?decorators, ?isPublic, ?isStatic, ?hasRestParams) =
     member x.Kind: MemberKind = kind
     member x.Range: SourceLocation = range
     member x.Arguments: Ident list = args
     member x.Body: Expr = body
-    member x.Decorators: Decorator list = decorators
-    member x.IsPublic: bool = isPublic
-    member x.IsStatic: bool = isStatic
-    member x.HasRestParams: bool = hasRestParams
+    member x.Decorators: Decorator list = defaultArg decorators []
+    member x.IsPublic: bool = defaultArg isPublic true
+    member x.IsStatic: bool = defaultArg isStatic false
+    member x.HasRestParams: bool = defaultArg hasRestParams false
     member x.TryGetDecorator decorator =
-        decorators |> List.tryFind (fun x -> x.Name = decorator)
+        x.Decorators |> List.tryFind (fun x -> x.Name = decorator)
     override x.ToString() = sprintf "%A" kind
         
 and ExternalEntity =
@@ -124,8 +125,8 @@ and Ident = { name: string; typ: Type }
 
 and ValueKind =
     | Null
-    | This of Type
-    | Super of Type
+    | This
+    | Super
     | Spread of Expr
     | TypeRef of Entity
     | IdentValue of Ident
@@ -144,8 +145,8 @@ and ValueKind =
         match x with
         | Null -> PrimitiveType Unit
         | Spread x -> x.Type
-        | This typ | Super typ | IdentValue {typ=typ} -> typ
-        | ImportRef _ | TypeRef _ | Emit _ -> UnknownType
+        | IdentValue {typ=typ} -> typ
+        | This | Super | ImportRef _ | TypeRef _ | Emit _ -> UnknownType
         | NumberConst (_,kind) -> PrimitiveType (Number kind)
         | StringConst _ -> PrimitiveType String
         | RegexConst _ -> PrimitiveType Regex
@@ -154,6 +155,10 @@ and ValueKind =
         | UnaryOp _ -> PrimitiveType (Function 1)
         | BinaryOp _ | LogicalOp _ -> PrimitiveType (Function 2)
         | Lambda (args, _) -> PrimitiveType (Function args.Length)
+    member x.Range: SourceLocation option =
+        match x with
+        | Lambda (_, body) -> body.Range
+        | _ -> None
     
 and LoopKind =
     | While of guard: Expr * body: Expr
@@ -163,7 +168,7 @@ and LoopKind =
 and Expr =
     // Pure Expressions
     | Value of value: ValueKind
-    | ObjExpr of members: (string*Expr) list * range: SourceLocation option
+    | ObjExpr of members: Member list * interfaces: string list * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
     | Apply of callee: Expr * args: Expr list * kind: ApplyKind * typ: Type * range: SourceLocation option
 
@@ -197,9 +202,9 @@ and Expr =
             
     member x.Range: SourceLocation option =
         match x with
-        | Value _ -> None
+        | Value v -> v.Range
         | VarDeclaration (_,e,_) | Wrapped (e,_) -> e.Range
-        | ObjExpr (_,range) 
+        | ObjExpr (_,_,range) 
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
         | Throw (_,range)
@@ -237,7 +242,7 @@ and Expr =
     //         | None, None -> [body]
     
 module Util =
-    open Fabel
+    open Fable
     
     type CallKind =
         | InstanceCall of callee: Expr * meth: string * args: Expr list
@@ -269,9 +274,7 @@ module Util =
             | Value Null, _ -> makeSequential range rest
             | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
             // Calls to System.Object..ctor in class constructors
-            // TODO: Remove also calls to System.Exception..ctor in constructors?
-            // TODO: Move these optimizations to Fabel2Babel layer? (remove also Null as last expr)
-            | ObjExpr ([],_), _ -> makeSequential range rest
+            | ObjExpr ([],[],_), _ -> makeSequential range rest
             | _ -> Sequential (statements, range)
                 
     let makeConst (value: obj) =
@@ -309,23 +312,29 @@ module Util =
             | _ -> DynamicArray
         ArrayConst(ArrayValues argExprs, arrayKind) |> Value
         
-    let tryImported name (decs: #seq<Decorator>) =
+    let tryImported com name (decs: #seq<Decorator>) =
         decs |> Seq.tryPick (fun x ->
             match x.Name with
             | "Global" ->
                 makeIdent name |> IdentValue |> Value |> Some
             | "Import" ->
                 match x.Arguments with
-                | (:? string as path)::rest ->
-                    let asDefault = match rest with [:? bool as b] -> b | _ -> false
-                    ImportRef(path, asDefault, None) |> Value |> Some
+                | (:? string as path)::_ ->
+                    let path, asDefault, prop =
+                        let path, args = Naming.getUrlParams path
+                        let asDefault = args.TryFind("asDefault") = Some("true")
+                        let prop = args.TryFind("get")
+                        match args.TryFind("fromLib") with
+                        | Some "true" -> Naming.fromLib com path, asDefault, prop
+                        | _ -> path, asDefault, prop
+                    ImportRef(path, asDefault, prop) |> Value |> Some
                 | _ -> failwith "Import attributes must have a single non-empty string argument"
             | _ -> None)
 
-    let makeTypeRef typ =
+    let makeTypeRef com typ =
         match typ with
         | DeclaredType ent ->
-            match tryImported ent.Name ent.Decorators with
+            match tryImported com ent.Name ent.Decorators with
             | Some expr -> expr
             | None -> Value (TypeRef ent)
         | _ ->
@@ -378,11 +387,10 @@ module Util =
         | DeclaredType typEnt ->
             match typEnt.Kind with
             | Interface ->
-                // TODO: Test
-                CoreLibCall ("Util", Some "hasInterface", false, [makeConst typEnt.FullName])
+                CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
                 |> makeCall com range boolType 
             | _ ->
-                makeBinOp range boolType [expr; makeTypeRef typ] BinaryInstanceOf 
+                makeBinOp range boolType [expr; makeTypeRef com typ] BinaryInstanceOf 
         | _ -> failwithf "Unsupported type test in %A: %A" range typ
 
     let makeUnionCons range =
@@ -390,6 +398,12 @@ module Util =
         let emit = Emit "this.tag=t;this.data=d;" |> Value
         let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, Some range)
         Member(Constructor, range, args, body, [], true, false, false)
+        |> MemberDeclaration
+        
+    let makeExceptionCons range =
+        let emit = Emit "for (var i=0; i<arguments.length; i++) { this['Data'+i]=arguments[i]; }" |> Value
+        let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, Some range)
+        Member(Constructor, range, [], body, [], true, false, false)
         |> MemberDeclaration
 
     let makeRecordCons range props =
@@ -409,7 +423,7 @@ module Util =
         match expr, expr.Type with
         | Value (Lambda (args, body)), _ ->
             flattenLambda args body
-        | _, PrimitiveType (Function arity) ->
+        | _, PrimitiveType (Function arity) when arity > 1 ->
             let lambdaArgs =
                 [1..arity] |> List.map (fun i -> {name=sprintf "$arg%i" i; typ=UnknownType}) 
             let lambdaBody = 
@@ -420,6 +434,7 @@ module Util =
         | _ ->
             expr // Do nothing
             
+    // Check if we're applying agains a F# let binding
     let makeApply range typ callee exprs =
         let lasti = (List.length exprs) - 1
         ((0, callee), exprs)
@@ -428,8 +443,14 @@ module Util =
             let callee =
                 match callee with
                 | Sequential _ ->
-                    // Surround with a lambda
+                    // F# let binding: Surround with a lambda
                     Apply (Lambda ([], callee) |> Value, [], ApplyMeth, typ, range)
                 | _ -> callee
             i, Apply (callee, [expr], ApplyMeth, typ, range))
         |> snd
+        
+    let makeJsObject range (props: (string * Expr) list) =
+        let members = props |> List.map (fun (name, body) ->
+            Member(Getter (name, true), range, [], body))
+        ObjExpr(members, [], Some range)
+ 

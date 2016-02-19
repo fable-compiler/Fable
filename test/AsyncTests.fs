@@ -1,8 +1,8 @@
 [<NUnit.Framework.TestFixture>] 
-module Fabel.Tests.Async
+module Fable.Tests.Async
 open System
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 [<Test>]
 let ``Simple async translates without exception``() =

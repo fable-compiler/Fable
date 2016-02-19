@@ -1,7 +1,7 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.Regex
+module Fable.Tests.Regex
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 open System.Text.RegularExpressions
 
 [<Test>]

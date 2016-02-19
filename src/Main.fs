@@ -1,16 +1,17 @@
-module Fabel.Main
+module Fable.Main
 
 open System
 open System.IO
+open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
-open Fabel
+open Fable
 
 let readOptions projFile =
     let projDir = Path.GetDirectoryName(projFile)
-    if File.Exists(Path.Combine(projDir, "fabelconfig.json")) then
-        let json = File.ReadAllText(Path.Combine(projDir, "fabelconfig.json"))
+    if File.Exists(Path.Combine(projDir, "fableconfig.json")) then
+        let json = File.ReadAllText(Path.Combine(projDir, "fableconfig.json"))
         let opts = JsonConvert.DeserializeObject<CompilerOptions>(json)
         { opts with projFile = projFile }
     else
@@ -35,9 +36,12 @@ let parseFSharpProject (com: ICompiler) =
     let checkProjectResults =
         checker.ParseAndCheckProject(projOptions)
         |> Async.RunSynchronously
-    if not checkProjectResults.HasCriticalErrors
+    let errors =
+        checkProjectResults.Errors
+        |> Array.filter (fun x -> x.Severity = FSharpErrorSeverity.Error)
+    if errors.Length = 0
     then checkProjectResults
-    else checkProjectResults.Errors
+    else errors
         |> Seq.map (fun e -> "\t" + e.Message)
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
@@ -68,8 +72,8 @@ let main argv =
     let com = { new ICompiler with
                     member __.Options = opts }
     parseFSharpProject com
-    |> FSharp2Fabel.transformFiles com 
-    |> Fabel2Babel.transformFiles com
+    |> FSharp2Fable.transformFiles com 
+    |> Fable2Babel.transformFiles com
     |> Seq.iter (fun ast ->
         JsonConvert.SerializeObject (ast, jsonSettings)
         |> Console.Out.WriteLine

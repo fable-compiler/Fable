@@ -1,7 +1,7 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.ResizeArrays
+module Fable.Tests.ResizeArrays
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 [<Test>]
 let ``ResizeArray zero creation works``() =

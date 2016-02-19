@@ -1,4 +1,4 @@
-namespace Fabel
+namespace Fable
 
 type CompilerOptions =
     {
@@ -37,11 +37,13 @@ module Naming =
         set [ "System.IEquatable"; "System.Collections.IStructuralEquatable";
             "System.IComparable"; "System.Collections.IStructuralComparable" ]
     
-    let removeBrackets, removeGetPrefix =
+    let removeParens, removeGetSetPrefix, sanitizeActivePattern =
         let reg1 = Regex(@"^\( (.*) \)$")
-        let reg2 = Regex(@"^get_")
+        let reg2 = Regex(@"^[gs]et_")
+        let reg3 = Regex(@"^\|[^\|]+?(?:\|[^\|]+)*(?:\|_)?\|$")
         (fun s -> reg1.Replace(s, "$1")),
-        (fun s -> reg2.Replace(s, ""))
+        (fun s -> reg2.Replace(s, "")),
+        (fun (s: string) -> if reg3.IsMatch(s) then s.Replace("|", "$") else s)
         
     let lowerFirst (s: string) =
         s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
@@ -52,13 +54,16 @@ module Naming =
         | _ -> 0
     
     let getCoreLibPath (com: ICompiler) =
-        Path.Combine(com.Options.lib, "fabel-core.js")
-        
+        Path.Combine(com.Options.lib, "fable-core.js")
+
+    let fromLib (com: ICompiler) path =
+        Path.Combine(com.Options.lib, path)
+
     // TODO: Use $F for CoreLib?
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
     let identForbiddenChars =
-        Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
+        Regex @"^[^a-zA-Z_$]|[^0-9a-zA-Z_$]"
         
     let trimDots (s: string) =
         match s.StartsWith ".", s.EndsWith "." with
@@ -82,12 +87,23 @@ module Naming =
             check 0
         // Replace Forbidden Chars
         let sanitizedName =
-            identForbiddenChars.Replace(removeBrackets name, "_")
+            identForbiddenChars.Replace(removeParens name, "_")
         // Check if it's a keyword
         jsKeywords.Contains sanitizedName
         |> function true -> "_" + sanitizedName | false -> sanitizedName
         // Check if it already exists in scope
         |> preventConflicts conflicts
+        
+    let getUrlParams (txt: string) =
+        match txt.IndexOf("?") with
+        | -1 -> txt, Map.empty<_,_>
+        | i ->
+            txt.Substring(i + 1).Split('&')
+            |> Seq.choose (fun pair ->
+                match pair.Split('=') with
+                | [|key;value|] -> Some (key,value)
+                | _ -> None)
+            |> fun args -> txt.Substring(0, i), Map(args)
 
     /// Creates a relative path from one file or folder to another.
     /// from http://stackoverflow.com/a/340454/3922220

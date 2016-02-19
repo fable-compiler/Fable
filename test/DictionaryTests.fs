@@ -1,9 +1,9 @@
 [<NUnit.Framework.TestFixture>] 
-module Fabel.Tests.Dictionaries
+module Fable.Tests.Dictionaries
 open System
 open System.Collections.Generic
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 [<Test>]
 let ``Dictionary creation works``() =

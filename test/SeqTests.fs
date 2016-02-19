@@ -1,7 +1,7 @@
 [<NUnit.Framework.TestFixture>] 
-module FunScript.Tests.Seqs
+module Fable.Tests.Seqs
 open NUnit.Framework
-open Fabel.Tests.Util
+open Fable.Tests.Util
 
 let sumFirstTwo (zs: seq<float>) =
    let first = Seq.head zs

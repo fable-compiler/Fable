@@ -1,8 +1,9 @@
 # Personal
 .vscode/
-quick-test.fsx
-test/*.js
-test/*.js.map
+sample/**/*.js.map
+sample/browser/todomvc/app.js
+sample/node/console/console.js
+sample/node/server/app.js
 
 # Node
 node_modules/

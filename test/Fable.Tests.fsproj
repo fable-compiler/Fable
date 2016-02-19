@@ -7,11 +7,11 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>6ef06954-fbdf-42c7-815c-b13ba2926c93</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>Fabel.Tests</RootNamespace>
-    <AssemblyName>Fabel.Tests</AssemblyName>
+    <RootNamespace>Fable.Tests</RootNamespace>
+    <AssemblyName>Fable.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <Name>Fabel.Tests</Name>
+    <Name>Fable.Tests</Name>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
