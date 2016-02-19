@@ -44,7 +44,8 @@ constructor:
 function printParameters(parameters) {
     function printParameter(x) {
         if (x.rest) {
-            var type = /ResizeArray<(.*?)>/.exec(x.type)[1] + "[]";
+			var execed = /ResizeArray<(.*?)>/.exec(x.type);
+            var type = (execed == null) ? "unknown" : execed[1] + "[]";
             return "[<ParamArray>] " + x.name + ": " + type;
         }
         else {
@@ -124,7 +125,7 @@ function hasFlag(flags, flag) {
 
 function getName(node) {
     // TODO wrap keywords: ``keyword``
-    return node.name.text;
+    return (node.name == undefined) ? "Unknown" : node.name.text;
 }
 
 function getType(type) {
@@ -240,7 +241,13 @@ function visitInterface(node) {
             case ts.SyntaxKind.PropertySignature:
                 ifc.properties.push(getProperty(node));
                 break;
+            case ts.SyntaxKind.PropertyDeclaration:
+                ifc.properties.push(getProperty(node));
+                break;
             case ts.SyntaxKind.MethodSignature:
+                ifc.methods.push(getMethod(node));
+                break;
+            case ts.SyntaxKind.MethodDeclaration:
                 ifc.methods.push(getMethod(node));
                 break;
             case ts.SyntaxKind.ConstructSignature:
@@ -251,7 +258,7 @@ function visitInterface(node) {
     return ifc;
 }
 
-function visitModule(node) {
+function visitModule(node, modules) {
     var mod = getModule(node, true);
     node.body.statements.forEach(function(node) {
         // TODO: Classes
@@ -266,6 +273,12 @@ function visitModule(node) {
             case ts.SyntaxKind.FunctionDeclaration:
                 mod.methods.push(getMethod(node, true));
                 break;
+            case ts.SyntaxKind.ModuleDeclaration:
+                modules.push(visitModule(node, modules));
+                break;
+            case ts.SyntaxKind.ClassDeclaration:
+                mod.interfaces.push(visitInterface(node));
+                break;
         }
     });
     return mod;
@@ -273,10 +286,28 @@ function visitModule(node) {
 
 function visitFile(node) {
     var modules = [];
-    ts.forEachChild(node, function(node) {
+	var emptyModule = getModule(node, true);
+    ts.forEachChild(node, function(node) {			    
         switch (node.kind) {
+            case ts.SyntaxKind.InterfaceDeclaration:
+				if (modules.length == 0 ) { modules.push( emptyModule ); }
+                emptyModule.interfaces.push(visitInterface(node));
+                break;
+            case ts.SyntaxKind.VariableStatement:
+				if (modules.length == 0 ) { modules.push( emptyModule ); }
+                getVariables(node).forEach(x =>
+                    emptyModule.properties.push(x));
+                break;
+            case ts.SyntaxKind.FunctionDeclaration:
+				if (modules.length == 0 ) { modules.push( emptyModule ); }
+                emptyModule.methods.push(getMethod(node, true));
+                break;
             case ts.SyntaxKind.ModuleDeclaration:
-                modules.push(visitModule(node));
+                modules.push(visitModule(node, modules));
+                break;
+            case ts.SyntaxKind.ClassDeclaration:
+				if (modules.length == 0 ) { modules.push( emptyModule ); }
+                emptyModule.interfaces.push(visitInterface(node));
                 break;
         }
     });
