@@ -83,7 +83,7 @@ a very unexpected way, giving developers even more possibilities to build great 
 
 The awesome F# community has played a big role in making this possible. I've met incredible
 people and it's impossible to list all the names without forgetting anyone, but I'd like to
-give a particular mention to Zach Bray for his work on FunScript, Don Syme (the fact tha the developer
+give a particular mention to Zach Bray for his work on FunScript, Don Syme (the fact that the developer
 of the language himself shows interest in your work no matter how humble it is, is really a big push!)
 and Krzysztof Cieślak (I always have to look up the name to spell it correctly) because he's shown that
 F# is a perfect fit for a big project targeting JS.
