@@ -1,7 +1,7 @@
 # F# |> BABEL
 
 ### The compiler that emits JavaScript you can be proud of!
-[![Build status](https://ci.appveyor.com/api/projects/status/kjo95sx0k5js50m7?svg=true)](https://ci.appveyor.com/project/alfonsogarciacaro/fable)
+[![Build status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true)](https://ci.appveyor.com/project/alfonsogarciacaro/fable)
 
 Fable brings together the power of the [F# compiler](http://fsharp.github.io/FSharp.Compiler.Service/)
 and [Babel](http://babeljs.io) to make JavaScript a true backend for F#.
