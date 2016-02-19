@@ -1,14 +1,14 @@
 # Compiling to JS
 
-To trigger the `F# > JS` compilation a node script is used. To run it, from a terminal on the project root folder, type:
+A node script is used to trigger the compilation from F# to JS.
+To execute it, make sure you've installed the dependencies with
+`npm install` and from a terminal on the project root folder, type:
 
 ```
-npm install     // Just the first time, install npm dependencies
-
 node tools/fable2babel.js --projFile paht/to/YourProject.fsproj
 ```
 
-> You can also pass a F# script file `.fsx` instead.
+> You can also pass a F# script file (`.fsx`) instead.
 
 
 ## Project options
@@ -23,16 +23,23 @@ Besides `--projFile`, the following options are available:
                 conditional compilation.
     --lib       Where the compiler can find external JS libraries,
                 mainly used to locate fable-core.js.
-    --env       'browser' for amd modules and 'node' for commonjs,
-                if not specified, will default to umd.
+    --env       'browser' for amd modules and 'node' for commonjs.
+                If not specified, it will default to umd.
 ```
 
-However, it's usually more convenient to put them in JSON format in a file named `fableconfig.json` in the same folder as the F# project and let the compiler read them automatically for you.
+However, it's usually more convenient to put them in JSON format in a file
+named `fableconfig.json` in the same folder as the F# project and let the
+compiler read them automatically for you.
 
 
 ## Polyfill
 
-After going through Babel pipeline, the code won't include any syntax foreign to ES5. However several ES6 classes (like `Symbol`) are used so it's advisable to include a polyfill like [core-js](https://github.com/zloirock/core-js) to make sure the code works fine in any browser. Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/) with a lazy-sequence generator, but this is not needed as one is already included in [fable-core.js](/lib/fable-core.js).
+After going through Babel pipeline, the code won't include any syntax foreign
+to ES5. However several ES6 classes (like `Symbol`) are used so it's advisable
+to include a polyfill like [core-js](https://github.com/zloirock/core-js) to
+make sure the code works fine in any browser. Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/)
+with a lazy-sequence generator, but this is not needed as one is already included
+in [fable-core.js](/lib/fable-core.js).
 
 
 ## Modules
@@ -69,4 +76,59 @@ $M1.MyModule1.myProperty !== $M1.MyModule2.myProperty
 
 > The generated modules are exported as default. So the imports will have the form `import $M1 from "another/file"`
 
-> To know more about the transformations in the compilation process, see [Semantics](semantics.md).
+## Samples
+
+Some samples are included in the repo and more will be coming soon. To compile
+and run a sample follow these steps:
+
+### Node samples
+
+Let's say you want to build the node static server. From the project root folder, type:
+
+```
+npm install --prefix sample/node/server  // Install dependencies the first time
+
+node tools/fable2babel.js --projFile sample/node/server/app.fsx
+```
+
+> Note there's a `fableconfig.json` file next to the F# file with the options
+  for Fable compiler.
+  
+You can now run the compiled file as any other node script. In this case, you'll
+get a static server running locally at the specific port (or 8080 if no argument
+is passed).
+
+```
+node sample/node/server/app.js 8090
+```
+
+### Browser samples
+
+This time we'll compile the todomvc sample with [Vue](http://vuejs.org).
+Again, from the project root folder type:
+
+ ```
+npm install --prefix sample/browser/todomvc  // Only first time
+
+node tools/fable2babel.js --projFile sample/browser/todomvc/app.fsx
+```
+
+To start the web app we need a server so the one we built above comes
+in handy. Type again:
+
+```
+node sample/node/server/app.js 8090
+```
+
+and browse to:
+
+```
+http://localhost:8090/sample/browser/todomvc
+```
+
+> Note: if you don't run the server from the root folder, `fable-core.js`
+  won't be found.
+  
+Now it's your turn the build your own sample and show it to the world!
+Check [Compatibility](compatibility.md) and [Interacting with JavaScript](interacting.md)
+to learn what you need to take into account when diving into JS.

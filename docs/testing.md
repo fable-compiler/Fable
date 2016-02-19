@@ -3,13 +3,11 @@
 This somehow breaks the _unopinionated_ rule, but as a way to share cross-platform code a feature has been introduced to compile [NUnit](http://www.nunit.org) tests to [Mocha](https://mochajs.org). This is used for Fable own tests. To compile and run them, type:
 
 ```
-> build.cmd MochaTest   // on windows    
-$ ./build.sh MochaTest  // on unix
-
-npm run test
+build.cmd MochaTest   // on windows    
+./build.sh MochaTest  // on unix
 ```
 
-To debug the generated JS code, run the command below instead and **attach** an IDE to the node session. If you use Visual Studio Code, you can find detailed instructions [here](https://code.visualstudio.com/docs/editor/debugging).
+To debug the generated JS code, run the command below and **attach** an IDE to the node session. If you use Visual Studio Code, you can find detailed instructions [here](https://code.visualstudio.com/docs/editor/debugging).
 
 ```
 npm run test-debug
@@ -26,6 +24,6 @@ node-inspector
 After that, run `npm run test-debug` as shown above. If you go to Chrome debugger, you'll see the JS test files but the F# ones won't be loaded yet. Just set a breakpoint at one of the JS files and, when hit, the debugger will automatically search the original code. From that moment on, the F# files will already be displayed so you can set the breakpoints directly there.
 
 
-> NOTE: For now only `TestFixture` and `Test` attributes, and `Assert.AreEqual` are available, but more features will be available soon.
+> Note: For now only `TestFixture` and `Test` attributes, and `Assert.AreEqual` are available, but more features will be available soon.
 
-> NOTE: As attributes are only read by name, it's possible to use the attributes without the `NUnit` dependency if needed.
+> Note: As attributes are only read by name, it's possible to use custom-defined attributes without the `NUnit` dependency if needed.

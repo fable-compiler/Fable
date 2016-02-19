@@ -28,5 +28,15 @@ module Operators =
     let createObj (fields: #seq<string*obj>): obj = failwith "JS only"
     
     let createEmpty<'T> : 'T = failwith "JS only"
+    
+module Testing =
+    type TestAttribute() =
+        inherit Attribute()
+    
+    type TestFixtureAttribute() =
+        inherit Attribute()
+        
+    type Assert =
+        static member AreEqual(x: 'T, y: 'T): unit = failwith "JS only"
 
     

@@ -204,6 +204,9 @@ module private AstPass =
         | "createEmpty" ->
             Fable.ObjExpr ([], [], i.range)
             |> wrap i.returnType |> Some
+        | "areEqual" ->
+            ImportCall("assert", true, None, Some "equal", false, i.args)
+            |> makeCall com i.range i.returnType |> Some
         | _ -> None
             
     let operators com (info: Fable.ApplyInfo) =
@@ -332,6 +335,7 @@ module private AstPass =
                 |> makeCall com i.range (Fable.PrimitiveType Fable.String)
             GlobalCall("console", Some "log", false, [inner])
             |> makeCall com i.range i.returnType |> Some
+        | "assert" -> failwith "TODO: Assertions"
         | _ -> None
 
     let regex com (i: Fable.ApplyInfo) =
