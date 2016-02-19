@@ -29,8 +29,8 @@ Some of its main features are:
 ## Installing
 
 The project is still in testing phase and hasn't been packaged yet. If you wan to try it out,
-make sure you have [F# 4.0 with .NET/Mono](http://fsharp.org) and an updated version of [node.js](https://nodejs.org) installed,
-download the repo and then run:
+make sure you have [F# 4.0 with .NET/Mono](http://fsharp.org) and an updated version of [node.js](https://nodejs.org) installed.
+Download the repo and run:
 ```
 build.cmd Release   // on windows    
 ./build.sh Release  // on unix
@@ -86,8 +86,7 @@ people and it's impossible to list all the names without forgetting anyone, but 
 give a particular mention to Zach Bray for his work on FunScript, Don Syme (the fact tha the developer
 of the language himself shows interest in your work no matter how humble it is, is really a big push!)
 and Krzysztof Cieślak (I always have to look up the name to spell it correctly) because he's shown that
-F# is a perfect fit for a big project for the JS platform.
+F# is a perfect fit for a big project targeting JS.
 
-And finally I'd like thank my partner (is it too old-fashioned to say wife?) for enduring me
+And finally I'd like to thank my partner (is it too old-fashioned to say wife?) for bearing with me
 everyday.
-    
