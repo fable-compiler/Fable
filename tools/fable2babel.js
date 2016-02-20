@@ -126,13 +126,13 @@ try {
     var opts = {
         lib: ".",
         outDir: ".",
-        symbols: []
+        symbols: [],
+        watch: false
     }
 
-    for (var i=2; i < process.argv.length; i+=2) {
-        var key = process.argv[i].substring(2),
-            value = process.argv[i+1];
-        opts[key] = value;
+    for (var i=2; i < process.argv.length; i++) {
+        var key = process.argv[i].substring(2);
+        opts[key] = key == "watch" ? true : opts[key] = process.argv[++i];
     }
     
     var fableCwd = process.cwd();
@@ -174,13 +174,23 @@ try {
     
     var proc = spawn(fableCmd, fableCmdArgs, { cwd: fableCwd });
 
+    if (opts.watch) {
+        proc.stdin.setEncoding('utf-8');
+        fs.watch(fableCwd, { persistent: true, recursive: true }, function(ev, filename) {
+            var ext = path.extname(filename).toLowerCase();
+            if (ev == "change" && (ext == ".fs" || ext == ".fsx")) {
+                proc.stdin.write(path.join(fableCwd, filename) + "\n");
+            }
+        });
+    }
+
     proc.on('exit', function(code) {
         console.log("Finished with code " + code);
         process.exit(code);
     });    
 
     proc.stderr.on('data', function(data) {
-        console.log("FABEL ERROR: " + data.toString().substring(0, 300) + "...");
+        console.log("FABLE ERROR: " + data.toString().substring(0, 300) + "...");
     });    
 
     var buffer = "";
@@ -207,6 +217,7 @@ try {
             else {
                 babelifyToConsole(babelAst);
             }
+            console.log("Compiled " + babelAst.fileName);
         }
         catch (err) {
             console.log("BABEL ERROR in " + babelAst.fileName + ": " + err);

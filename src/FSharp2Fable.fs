@@ -465,10 +465,11 @@ type private DeclInfo(init: Fable.Declaration list) =
                  | Some "System.Attribute" -> true
                  | _ -> false
              | _ -> false
-    /// Is compiler generated or belongs to ignored entity?
+    /// Is compiler generated (CompareTo...) or belongs to ignored entity?
     /// (remember F# compiler puts class methods in enclosing modules)
     member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
-        if meth.IsCompilerGenerated || (hasIgnoredAtt meth.Attributes)
+        if (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.DisplayName)
+            || (hasIgnoredAtt meth.Attributes)
         then true
         else match child with
              | Some (Ignored fullName) ->
@@ -563,7 +564,7 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
         ) (DeclInfo init)
     declInfo.GetDeclarations ()
         
-let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
+let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpCheckProjectResults) =
     let rec getRootDecls rootEnt = function
         | [FSharpImplementationFileDeclaration.Entity (e, subDecls)]
             when e.IsNamespace || e.IsFSharpModule ->
@@ -596,9 +597,13 @@ let transformFiles (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
         let fileName = System.IO.Path.GetFileName file.FileName
         fileName.StartsWith("Fable.Import") || fileName = "Fable.Core.fs" |> not)
     |> List.map (fun file ->
-        let rootEnt, rootDecls = getRootDecls None file.Declarations
-        let rootDecls = transformDeclarations com Context.Empty [] rootDecls
-        match rootEnt with
-        | Some rootEnt -> makeEntity com rootEnt
-        | None -> Fable.Entity.CreateRootModule file.FileName
-        |> fun rootEnt -> Fable.File(file.FileName, rootEnt, rootDecls))
+        let rootEnt, rootDecls =
+            let rootEnt, rootDecls =
+                let rootEnt, rootDecls = getRootDecls None file.Declarations
+                match fileMask with
+                | Some mask when file.FileName <> mask -> rootEnt, []
+                | _ -> rootEnt, transformDeclarations com Context.Empty [] rootDecls
+            match rootEnt with
+            | Some rootEnt -> makeEntity com rootEnt, rootDecls
+            | None -> Fable.Entity.CreateRootModule file.FileName, rootDecls
+        Fable.File(file.FileName, rootEnt, rootDecls))

@@ -7,9 +7,10 @@ type CompilerOptions =
         symbols: string[]
         outDir: string
         lib: string
+        watch: bool
     }
     static member Default projFile = {
-        code=null; symbols=[||]; outDir="."; lib="."; projFile=projFile        
+        code=null; symbols=[||]; outDir="."; lib="."; projFile=projFile; watch=false
     }
     static member Sanitize opts = {
         opts with
@@ -36,6 +37,9 @@ module Naming =
     let automaticInterfaces =
         set [ "System.IEquatable"; "System.Collections.IStructuralEquatable";
             "System.IComparable"; "System.Collections.IStructuralComparable" ]
+    
+    let ignoredCompilerGenerated =
+        set [ "CompareTo"; "Equals"; "GetHashCode" ]
     
     let isJsCons = (=) "createNew"
     

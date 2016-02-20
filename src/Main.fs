@@ -17,7 +17,7 @@ let readOptions projFile =
     else
         CompilerOptions.Default projFile
 
-let parseFSharpProject (com: ICompiler) =
+let getCheckerAndOptions (com: ICompiler) =
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
     let projOptions =
         let projCode, projFile =
@@ -33,8 +33,12 @@ let parseFSharpProject (com: ICompiler) =
         | _ ->
             let properties = [("DefineConstants", String.concat ";" com.Options.symbols)]
             ProjectCracker.GetProjectOptionsFromProjectFile(projFile, properties)
+    checker, projOptions
+
+let parseFSharpProject (checker: FSharpChecker) projOptions =
     let checkProjectResults =
-        checker.ParseAndCheckProject(projOptions)
+        { projOptions with LoadTime=DateTime.Now }
+        |> checker.ParseAndCheckProject
         |> Async.RunSynchronously
     let errors =
         checkProjectResults.Errors
@@ -46,13 +50,23 @@ let parseFSharpProject (com: ICompiler) =
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> failwith
+        
+let jsonSettings = 
+    JsonSerializerSettings(
+        Converters=[|Json.ErasedUnionConverter()|],
+        StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
+
+let compile com checker projOptions fileMask =
+    parseFSharpProject checker projOptions 
+    |> FSharp2Fable.transformFiles com fileMask
+    |> Fable2Babel.transformFiles com
+    |> Seq.iter (fun ast ->
+        JsonConvert.SerializeObject (ast, jsonSettings)
+        |> Console.Out.WriteLine
+        Console.Out.Flush())
 
 [<EntryPoint>]
 let main argv =
-    let jsonSettings = 
-        JsonSerializerSettings(
-            Converters=[|Json.ErasedUnionConverter()|],
-            StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
     let opts =
         if argv.[0] = "--projFile"
         then readOptions argv.[1]
@@ -64,13 +78,11 @@ let main argv =
                 File.WriteAllText(projFile, opts.code)
                 { opts with projFile = projFile }
             | opts -> opts
-    let com = { new ICompiler with
-                    member __.Options = opts }
-    parseFSharpProject com
-    |> FSharp2Fable.transformFiles com 
-    |> Fable2Babel.transformFiles com
-    |> Seq.iter (fun ast ->
-        JsonConvert.SerializeObject (ast, jsonSettings)
-        |> Console.Out.WriteLine
-        Console.Out.Flush ())
-    0 // return an integer exit code
+    let com = { new ICompiler with member __.Options = opts }
+    let checker, projOptions = getCheckerAndOptions com
+    // First full compilation
+    compile com checker projOptions None
+    while opts.watch do
+        let file = Console.In.ReadLine()
+        compile com checker projOptions (Some file)
+    0
