@@ -325,6 +325,15 @@ module private AstPass =
         | "toCharArray" ->
             InstanceCall(i.callee.Value, "split", [makeConst ""])
             |> makeCall com i.range i.returnType |> Some
+        | "iter" | "iteri" | "forall" | "exists" ->
+            CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "map" | "mapi" | "collect"  ->
+            CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
+            |> makeCall com i.range Fable.UnknownType
+            |> List.singleton
+            |> emit i "Array.from($0).join('')"
+            |> Some
         | _ -> None
 
     let console com (i: Fable.ApplyInfo) =
@@ -451,8 +460,8 @@ module private AstPass =
 
     let toArray com (i: Fable.ApplyInfo) expr =
         let dynamicArray =
-            CoreLibCall ("Seq", Some "toArray", false, [expr])
-            |> makeCall com i.range i.returnType
+            GlobalCall ("Array", Some "from", false, [expr])
+            |> makeCall com i.range (Fable.PrimitiveType(Fable.Array Fable.DynamicArray))
         match i.methodTypeArgs with
         | [Fable.PrimitiveType(Fable.Number numberKind)] ->
             let arrayKind = Fable.TypedArray numberKind
@@ -603,7 +612,7 @@ module private AstPass =
               "exactlyOne"; "exists"; "exists2"; "fold"; "fold2"; "foldBack"; "foldBack2";
               "forall"; "forall2"; "head"; "item"; "iter"; "iteri"; "iter2"; "iteri2";
               "isEmpty"; "last"; "length"; "max"; "maxBy"; "min"; "minBy";
-              "reduce"; "reduceBack"; "sum"; "sumBy"; "tail"; "toArray"; "toList";
+              "reduce"; "reduceBack"; "sum"; "sumBy"; "tail"; "toList";
               "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; "unfold" ]
 
     // Functions that must return a collection of the same type
@@ -712,7 +721,7 @@ module private AstPass =
                 match i.args.Head.Type with
                 | Fable.PrimitiveType (Fable.Number Int32) ->
                     makeEmptyArray ()
-                | _ -> ccall "Seq" "toArray" i.args |> Some
+                | _ -> emit i "Array.from($0)" i.args |> Some
         | "add" ->
             icall "push" (c.Value, args) |> Some
         | "addRange" ->
@@ -733,12 +742,18 @@ module private AstPass =
             icall "reverse" (c.Value, []) |> Some
         // Conversions
         | "toSeq" | "ofSeq" ->
-            let meth =
-                match kind with
-                | Seq -> failwithf "Unexpected method called on seq %s in %A" meth i.range
-                | List -> if meth = "toSeq" then "ofList" else "toList"
-                | Array -> if meth = "toSeq" then "ofArray" else "toArray"
-            ccall "Seq" meth args |> Some
+            match kind with
+            | Seq ->
+                failwithf "Unexpected method called on seq %s in %A" meth i.range
+            | List ->
+                ccall "Seq" (if meth = "toSeq" then "ofList" else "toList") args
+            | Array ->
+                if meth = "toSeq"
+                then ccall "Seq" "ofArray" args
+                else toArray com i args.Head
+            |> Some
+        | "toArray" ->
+            toArray com i i.args.Head |> Some
         // Default to Seq implementation in core lib
         | SetContains implementedSeqNonBuildFunctions meth ->
             ccall "Seq" meth (deleg args) |> Some

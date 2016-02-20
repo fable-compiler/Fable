@@ -321,7 +321,7 @@ module Util =
                 match x.Arguments with
                 | (:? string as path)::_ ->
                     let path, asDefault, prop =
-                        let path, args = Naming.getUrlParams path
+                        let path, args = Naming.getQueryParams path
                         let asDefault = args.TryFind("asDefault") = Some("true")
                         let prop = args.TryFind("get")
                         match args.TryFind("fromLib") with

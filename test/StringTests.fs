@@ -4,6 +4,8 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+// Format
+
 [<Test>]
 let ``sprintf works``() =
       // Immediately applied
@@ -21,15 +23,31 @@ let ``String.Format works``() =
       String.Format("{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
       |> equal "Babel is to Fable what Fable is to F#"
 
-// TODO: Implement DateTime first
-// [<Test>]
-// let ``String.Format with extra formatting works``() =
-//       let i = 0.5466788
-//       let dt = DateTime(2014, 9, 26).AddMinutes(19.)
-//       String.Format("{0:F2} {0:P2} {1:yy/MM/dd HH:mm}", i, dt)
-//       |> equal "0.55 54.67 % 14/09/26 00:19"
+[<Test>]
+let ``String.Format with extra formatting works``() =
+      let i = 0.5466788
+      let dt = DateTime(2014, 9, 26).AddMinutes(19.)
+      String.Format("{0:F2} {0:P2} {1:yy/MM/dd HH:mm}", i, dt)
+      |> equal "0.55 54.67 % 14/09/26 00:19"
 
-// TODO: Conversions char, string, int, float
+// Conversions
+
+[<Test>]
+let ``Conversion to char works``() =
+      let c = char "h"
+      equal "h" (string c)
+
+[<Test>]
+let ``Conversion to int works``() =
+      equal 5 (int "5")
+      equal "5" (string 5)
+
+[<Test>]
+let ``Conversion to float works``() =
+      equal 5. (float "5.0")
+      (string 5.).StartsWith("5") |> equal true
+      equal 5.25 (float "5.25")
+      (string 5.25).StartsWith("5.25") |> equal true
 
 // System.String - static methods
 
@@ -155,53 +173,52 @@ let ``String.Join works``() =
 
 // String - F# module functions
  
-// [<TestCase("!!!"); TestCase("a!a"); TestCase("aaa")>]
-// let ``String.forall and exists work``(str) =
-//       str |> String.forall (fun c -> charToInt c = charToInt '!') 
-//       |> equal true 
-// 
-// [<Test>]
-// let ``String.init works``() =
-//       String.init 3 (fun i -> "a")
-//       |> equal true 
-// 
-// [<Test>]
-// let ``String.collect works``() =
-//       "abc" |> String.collect (fun c -> "bcd")
-//       |> equal true 
-// 
-// [<Test>]
-// let ``String.iter works``() =
-//       let res = ref ""
-//       "Hello world!" |> String.iter (fun c -> res := !res + c.ToString())
-//       !res
-//       |> equal true 
-// 
-// [<Test>]
-// let ``String.iteri works``() =
-//       let res = ref ""
-//       "Hello world!" |> String.iteri (fun c i -> res := !res + i.ToString() + c.ToString())
-//       !res
-//       |> equal true 
-// 
-// [<Test>]
-// let ``String.length (function) works``() =
-//    check
-//       <@@ 
-//       "AbC" |> String.length |> float
-//       |> equal true
-// 
-// [<Test>]
-// let ``String.map works``() =
-//       "Hello world!" |> String.map (fun c -> if charToInt c = charToInt 'H' then '_' else c)
-//       |> equal true 
-// 
-// [<Test>]
-// let ``String.mapi works``() =
-//       "Hello world!" |> String.mapi (fun i c -> if i = 1 || charToInt c = charToInt 'H' then '_' else c)
-//       |> equal true 
-// 
-// [<Test>]
-// let ``String.replicate works``() =
-//       String.replicate 10 "hi there"
-//       |> equal true 
+[<Test>]
+let ``String.forall and exists work``() =
+      "!!!" |> String.forall (fun c -> c = '!') |> equal true 
+      "a!a" |> String.forall (fun c -> c = '!') |> equal false 
+      "aaa" |> String.forall (fun c -> c = '!') |> equal false 
+
+[<Test>]
+let ``String.init works``() =
+      String.init 3 (fun i -> "a")
+      |> equal "aaa" 
+
+[<Test>]
+let ``String.collect works``() =
+      "abc" |> String.collect (fun c -> "bcd")
+      |> equal "bcdbcdbcd" 
+
+[<Test>]
+let ``String.iter works``() =
+      let res = ref ""
+      "Hello world!"
+      |> String.iter (fun c -> res := !res + c.ToString())
+      equal "Hello world!" !res 
+
+[<Test>]
+let ``String.iteri works``() =
+      let mutable res = ""
+      "Hello world!"
+      |> String.iteri (fun c i -> res <- res + i.ToString() + c.ToString())
+      equal "H0e1l2l3o4 5w6o7r8l9d10!11" res 
+
+[<Test>]
+let ``String.length (function) works``() =
+      "AbC" |> String.length
+      |> equal 3
+
+[<Test>]
+let ``String.map works``() =
+      "Hello world!" |> String.map (fun c -> if c = 'H' then '_' else c)
+      |> equal "_ello world!" 
+
+[<Test>]
+let ``String.mapi works``() =
+      "Hello world!" |> String.mapi (fun i c -> if i = 1 || c = 'H' then '_' else c)
+      |> equal "__llo world!" 
+
+[<Test>]
+let ``String.replicate works``() =
+      String.replicate 3 "hi there"
+      |> equal "hi therehi therehi there" 

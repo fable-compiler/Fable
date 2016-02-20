@@ -23,12 +23,10 @@ The usual string format (with a few limitations) and printing methods in F# and 
 `Console/Debug.WriteLine`, `String.Format`, `printfn`, `sprintf`... as well as the
 string instance methods.
 
-> TODO: Functions in F# String module are not implemented yet.
-
 ## Regular Expressions
 You can use the `Regex` class in the same way as .NET, but the regex will always
-behave as if passed `RegexOptions.ECMAScript` (e.g., no negative look-behind
-or named groups):
+behave as if passed `RegexOptions.ECMAScript` flag (e.g., no negative look-behind
+or named groups).
 
 ## DateTime
 You can use `DateTime` and `TimeSpan` with the same semantics as in .NET.
@@ -53,6 +51,11 @@ which means they're fully compatible with compliant JS code and native methods.
 The downside is you cannot implement the `IEnumerable` interface in a data structure,
 but you can use `seq, array and list comprehensions` normally.
 
+## Seq, List and Array modules
+All methods in F# `Seq` module have been implemented. There may be some methods still missing
+in `List` and `Array` modules, but in that case the compiler will default to the corresponding
+`Seq` function and build a new list or array from the response if necessary.
+
 ## Map and Set
 Maps and Sets fall back to the [ES6 corresponding classes](http://babeljs.io/docs/learn-es2015/#map-set-weak-map-weak-set)
 for performance, but this means adding and removing operations are mutable, so a bit of care is needed when manipulating them.
@@ -74,7 +77,10 @@ Pattern matching will work normally in JS and it will generate optimized
 code to prevent overhead. You can match union types, records, classes or
 interfaces (with `:? MyClass as x`), lists, etc. Destructuring, guards and
 multiple targets are also fine. The only one problem detected so far has been
-with arrays (like `match ar with [|item1; item2|]`), and will be fixed soon. 
+with arrays (like `match ar with [|item1; item2|]`), and will be fixed soon.
+
+## Active patterns
+Active patterns can be used normally.
 
 ## Generics
 Generic information disappears in generated code. However, they're accessible
@@ -122,12 +128,11 @@ delegate, this will be done automatically by the compiler.
 Events are not implemented yet, please use [Observable](/test/ObservableTests.fs) instead.
 
 ## Object Expressions
-You can use object expressions but only to implement interfaces (but not to override
-methods of a concrete type).
+You can use object expressions to implement interfaces (but not to override methods of a concrete type).
 
 ## Units of measure
-Units of measure should be compatible (at least for ints and floats) but they will
+Units of measure should be compatible (at least for `int` and `float`) but they will
 be erased from the generated JS code.
 
 You can check the [tests](/test) when in doubt. If there's a test for something,
-it's supported.
+it's supported :)
