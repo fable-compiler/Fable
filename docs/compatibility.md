@@ -61,8 +61,6 @@ Maps and Sets fall back to the [ES6 corresponding classes](http://babeljs.io/doc
 for performance, but this means adding and removing operations are mutable, so a bit of care is needed when manipulating them.
 `System.Collections.Generic.Dictionary` compile to ES6 `Map` too,
 
-> TODO: Some methods in `Set`, like `isProperSubsetOf`, still need to be implemented.
-
 ## Async
 `async computation expressions` work as expected. However, `RunSynchronously` is not available and,
 as JS is single-threaded, `Start` and `StartImmediate` will have the same effect.

@@ -61,52 +61,52 @@ let ``Set.Remove works``() =
     let xs = (Set.empty |> Set.add 1).Remove 1
     xs.IsEmpty |> equal true
 
-// [<Test>]
-// let ``Set.singleton works``() =
-//     let xs = Set.singleton 1
-//     xs.Count |> equal 1
-// 
-// [<Test>]
-// let ``Set.union works``() =
-//     let xs = Set.singleton 1
-//     let ys = Set.singleton 2
-//     let zs = xs |> Set.union ys
-//     (zs.Contains 1 && zs.Contains 2)
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set (+) works``() =
-//     let xs = Set.singleton 1
-//     let ys = Set.singleton 2
-//     let zs = xs + ys
-//     (zs.Contains 1 && zs.Contains 2)
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.unionMany works``() =
-//     let xs = Set.singleton 1
-//     let ys = Set.singleton 2
-//     let zs = Set.singleton 3
-//     let ks = Set.unionMany [xs; ys; zs]
-//     (ks.Contains 1 && ks.Contains 2 && ks.Contains 3)
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.intersect works``() =
-//     let xs = set [1; 2]
-//     let ys = Set.singleton 2
-//     let zs = xs |> Set.intersect ys
-//     (zs.Contains 2 && not(zs.Contains 1))
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.intersectMany works``() =
-//     let xs = set [1; 2]
-//     let ys = Set.singleton 2
-//     let zs = set [2; 3]
-//     let ks = Set.intersectMany [xs; ys; zs] 
-//     (ks.Contains 2 && not(ks.Contains 1 || ks.Contains 3))
-//     |> equal true
+[<Test>]
+let ``Set.singleton works``() =
+    let xs = Set.singleton 1
+    xs.Count |> equal 1
+
+[<Test>]
+let ``Set.union works``() =
+    let xs = Set.singleton 1
+    let ys = Set.singleton 2
+    let zs = xs |> Set.union ys
+    (zs.Contains 1 && zs.Contains 2)
+    |> equal true
+
+[<Test>]
+let ``Set (+) works``() =
+    let xs = Set.singleton 1
+    let ys = Set.singleton 2
+    let zs = xs + ys
+    (zs.Contains 1 && zs.Contains 2)
+    |> equal true
+
+[<Test>]
+let ``Set.unionMany works``() =
+    let xs = Set.singleton 1
+    let ys = Set.singleton 2
+    let zs = Set.singleton 3
+    let ks = Set.unionMany [xs; ys; zs]
+    (ks.Contains 1 && ks.Contains 2 && ks.Contains 3)
+    |> equal true
+
+[<Test>]
+let ``Set.intersect works``() =
+    let xs = set [1; 2]
+    let ys = Set.singleton 2
+    let zs = xs |> Set.intersect ys
+    (zs.Contains 2 && not(zs.Contains 1))
+    |> equal true
+
+[<Test>]
+let ``Set.intersectMany works``() =
+    let xs = set [1; 2]
+    let ys = Set.singleton 2
+    let zs = set [2; 3]
+    let ks = Set.intersectMany [xs; ys; zs] 
+    (ks.Contains 2 && not(ks.Contains 1 || ks.Contains 3))
+    |> equal true
 
 [<Test>]
 let ``Set.iterate works``() =
@@ -159,99 +159,99 @@ let ``Set.map works``() =
     ys.Contains 1.
     |> equal false
 
-// [<Test>]
-// let ``Set.minElement works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     xs |> Set.minElement
-//     |> equal 1.
-// 
-// [<Test>]
-// let ``Set.MinimumElement works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     xs.MinimumElement
-//     |> equal 1.
-// 
-// [<Test>]
-// let ``Set.maxElement works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     xs |> Set.maxElement
-//     |> equal 4.
-// 
-// [<Test>]
-// let ``Set.MaximumElement works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     xs.MaximumElement
-//     |> equal 4.
-// 
-// [<Test>]
-// let ``Set.difference works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     let zs = Set.difference xs ys
-//     zs.Count |> equal 2
-// 
-// [<Test>]
-// let ``Set (-) works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     let zs = xs - ys
-//     zs.Count |> equal 2
-// 
-// [<Test>]
-// let ``Set.isSubset works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     Set.isSubset ys xs
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.IsSubset works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     ys.IsSubsetOf xs
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.isSuperset works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     Set.isSuperset xs ys
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.IsSuperset works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     xs.IsSupersetOf ys
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.isProperSubset works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     Set.isProperSubset ys xs
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.IsProperSubset works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     ys.IsProperSubsetOf xs
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.isProperSuperset works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     Set.isProperSuperset xs ys
-//     |> equal true
-// 
-// [<Test>]
-// let ``Set.IsProperSuperset works``() =
-//     let xs = set [1.; 2.; 3.; 4.]
-//     let ys = set [1.; 2.]
-//     xs.IsProperSupersetOf ys
-//     |> equal true
+[<Test>]
+let ``Set.minElement works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    xs |> Set.minElement
+    |> equal 1.
+
+[<Test>]
+let ``Set.MinimumElement works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    xs.MinimumElement
+    |> equal 1.
+
+[<Test>]
+let ``Set.maxElement works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    xs |> Set.maxElement
+    |> equal 4.
+
+[<Test>]
+let ``Set.MaximumElement works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    xs.MaximumElement
+    |> equal 4.
+
+[<Test>]
+let ``Set.difference works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    let zs = Set.difference xs ys
+    zs.Count |> equal 2
+
+[<Test>]
+let ``Set (-) works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    let zs = xs - ys
+    zs.Count |> equal 2
+
+[<Test>]
+let ``Set.isSubset works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    Set.isSubset ys xs
+    |> equal true
+
+[<Test>]
+let ``Set.IsSubset works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    ys.IsSubsetOf xs
+    |> equal true
+
+[<Test>]
+let ``Set.isSuperset works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    Set.isSuperset xs ys
+    |> equal true
+
+[<Test>]
+let ``Set.IsSuperset works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    xs.IsSupersetOf ys
+    |> equal true
+
+[<Test>]
+let ``Set.isProperSubset works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    Set.isProperSubset ys xs
+    |> equal true
+
+[<Test>]
+let ``Set.IsProperSubset works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    ys.IsProperSubsetOf xs
+    |> equal true
+
+[<Test>]
+let ``Set.isProperSuperset works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    Set.isProperSuperset xs ys
+    |> equal true
+
+[<Test>]
+let ``Set.IsProperSuperset works``() =
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    xs.IsProperSupersetOf ys
+    |> equal true
 
 [<Test>]
 let ``Set.ofList works``() =

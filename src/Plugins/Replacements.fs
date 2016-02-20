@@ -47,6 +47,9 @@ module private AstPass =
         match typ with
         | Fable.DeclaredType ent -> Some ent.FullName
         | _ -> None
+        
+    let (|KeyValue|_|) (key: string) (value: string) (s: string) =
+        if s = key then Some value else None
 
     let (|OneArg|_|) (callee: Fable.Expr option, args: Fable.Expr list) =
         match callee, args with None, arg::_ -> Some arg | _ -> None
@@ -80,8 +83,9 @@ module private AstPass =
                 | "||" -> Fable.LogicalOp LogicalOr
                 | _ -> failwithf "Unknown operator: %s" meth
             Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
-        | FullName "System.DateTime" ->
-            CoreLibCall ("Date", Some meth, false, args)
+        | FullName (KeyValue "System.DateTime" "Date" modName)
+        | FullName (KeyValue "Microsoft.FSharp.Collections.Set" "Set" modName) ->
+            CoreLibCall (modName, Some meth, false, args)
             |> makeCall com i.range i.returnType |> Some
         | Fable.DeclaredType ent ->
             let typRef = Fable.Value (Fable.TypeRef ent)
@@ -550,14 +554,11 @@ module private AstPass =
         | "tryFind" | "find" -> icall "get" |> Some
         | "item" -> icall "get" |> Some
         // Set only instance and static methods
-        // | "isProperSubsetOf" -> failwith "TODO"
-        // | "isProperSupersetOf" -> failwith "TODO"
-        // | "isSubsetOf" -> failwith "TODO"
-        // | "isSupersetOf" -> failwith "TODO"
-        // | "maximumElement" | "maxElement" -> failwith "TODO"
-        // | "minimumElement" | "minElement" -> failwith "TODO"
-        // Set only static methods
-        // | "+" | "-" -> failwith "TODO"        
+        | KeyValue "maximumElement" "max" meth | KeyValue "maxElement" "max" meth
+        | KeyValue "minimumElement" "min" meth | KeyValue "minElement" "min" meth ->
+            let args = match i.callee with Some x -> [x] | None -> i.args
+            CoreLibCall("Seq", Some meth, false, args)
+            |> makeCall com i.range i.returnType |> Some
         // Constructors
         | "empty" ->
             GlobalCall(modName, None, true, [])
@@ -595,12 +596,8 @@ module private AstPass =
             CoreLibCall("Map", Some i.methodName, false, deleg i.args)
             |> makeCall com i.range i.returnType |> Some
         // Set only static methods
-        // | "singleton" -> failwith "TODO"
-        // | "difference" -> failwith "TODO"
-        // | "intersect" -> failwith "TODO"
-        // | "intersectMany" -> failwith "TODO"
-        // | "union" -> failwith "TODO"
-        // | "unionMany" -> failwith "TODO"
+        | "singleton" ->
+            emit i "new Set([$0])" i.args |> Some
         | _ -> None
 
     type CollectionKind =
@@ -871,6 +868,7 @@ module private CoreLibPass =
             fsharp + "Core.String" => ("String", Static)
             system + "Text.RegularExpressions.Regex" => ("RegExp", Static)
             fsharp + "Collections.Seq" => ("Seq", Static)
+            fsharp + "Collections.Set" => ("Set", Static)
             fsharp + "Core.Choice" => ("Choice", Both)
         ]
 
