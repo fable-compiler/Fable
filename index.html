@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>Fable by fsprojects</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <h1>Fable</h1>
+        <h2>F# to JavaScript Compiler</h2>
+        <a href="https://github.com/fsprojects/Fable" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
+<a id="f--babel" class="anchor" href="#f--babel" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>F# |&gt; BABEL</h1>
+
+<h3>
+<a id="the-compiler-that-emits-javascript-you-can-be-proud-of" class="anchor" href="#the-compiler-that-emits-javascript-you-can-be-proud-of" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The compiler that emits JavaScript you can be proud of!</h3>
+
+<p><a href="https://ci.appveyor.com/project/alfonsogarciacaro/fable"><img src="https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true" alt="Build status"></a></p>
+
+<p>Fable brings together the power of the <a href="http://fsharp.github.io/FSharp.Compiler.Service/">F# compiler</a>
+and <a href="http://babeljs.io">Babel</a> to make JavaScript a true backend for F#.
+Some of its main features are:</p>
+
+<ul>
+<li>Works directly on F# source code, no compilation to .NET bytecode needed</li>
+<li>Optimizes F# code to generate as clean JavaScript as possible</li>
+<li>Passes location data to Babel to generate source maps</li>
+<li>Compatible with all Babel plugins and other JS development tools, like Webpack</li>
+<li><a href="docs/compatibility.md">Support for most of the F# core library and a bit of .NET Base Class Library</a></li>
+<li>Tiny core library included without runtime</li>
+<li>Organizes code using ES6 modules </li>
+<li>Interacts seamlessly with other JavaScript libraries</li>
+<li>Bonus: <a href="docs/testing.md">compile NUnit tests to Mocha</a>
+</li>
+</ul>
+
+<h2>
+<a id="philosophy" class="anchor" href="#philosophy" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Philosophy</h2>
+
+<ul>
+<li>
+<strong>Clean code</strong>: The compiler must emit JavaScript as readable as possible
+which plays well with other JS code and development tools, even if this
+means sacrificing a bit F# semantics. </li>
+<li>
+<strong>Unopinionated</strong>: The project shouldn't compromise with a specific platform
+and adapt to standard JavaScript in any environment: browser or node.</li>
+<li>
+<strong>Open to the community</strong>: If the project is to survive, it needs the support of the community. For that, maintainers should compromise to keep the project documented and make it easy for people to contribute. A plugin system is also planned.</li>
+</ul>
+
+<h2>
+<a id="installing" class="anchor" href="#installing" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Installing</h2>
+
+<p>The project is still in testing phase and hasn't been packaged yet. If you wan to try it out,
+make sure you have <a href="http://fsharp.org">F# 4.0 with .NET/Mono</a> and an updated version of <a href="https://nodejs.org">node.js</a> installed.
+Download the repo and run:</p>
+
+<pre><code>build.cmd Release   // on windows    
+./build.sh Release  // on unix
+
+npm install         // both platforms, installs node dependencies
+</code></pre>
+
+<p>If everything works, follow <a href="docs/compiling.md">these instructions</a> to compile a F# project or script file to JS.</p>
+
+<h2>
+<a id="contributing" class="anchor" href="#contributing" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Contributing</h2>
+
+<p>At the moment, the best way to contribute is to battle-test the project, report issues,
+create samples and help promoting it. Please focus on what is possible right now rather than
+asking for many new features :)</p>
+
+<p>Issues with the label <code>discussion</code> will be also added to ask the opinion of the community
+on different topics like the logo, roadmap, etc.</p>
+
+<p>Soon documents explaining the (quite simple) architecture of the compiler will be included,
+making it easier to participate in the development of the compiler itself. A plugin system
+is also planned to allow editing the intermediate AST in order to, for example, enable type providers. </p>
+
+<h2>
+<a id="caveats" class="anchor" href="#caveats" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Caveats</h2>
+
+<ul>
+<li><p><strong>Options are erased</strong> in compiled code. This has several benefits like removing overhead
+and interacting with native JS functions in a safer way (<code>null</code> will be <code>None</code>).
+However, it will lead to unexpected results if you do weird things like wrapping <code>null</code> in <code>Some</code>.
+For practical purposes, Fable considers <code>null</code>, <code>undefined</code>, <code>None</code> and <code>unit</code> to be the same thing.</p></li>
+<li><p><strong>Information about generic types is not included</strong> in the generated JavaScript, so code that
+depends on this information to be known at runtime for method dispatching may have unexpected behaviour.</p></li>
+<li><p>At the moment, comparison for non-primitive values defaults to JS reference comparison so there's
+<strong>no structural comparison</strong> for records, unions, tuples or collections. This may change in the future
+upon users' feedback.</p></li>
+<li><p><strong>Map and Set</strong> default to the new ES6 Map and Set classes which must increase performance,
+but with the downside that adding and removing operations are <strong>mutable</strong>.</p></li>
+<li><p><strong>Debugging the F# code is not perfect</strong>. For example, you may see the debugger jump directly
+to the last expression in many functions. This is normal and due to the optimizations performed
+on the generated code.</p></li>
+</ul>
+
+<p>To know more, read <a href="docs/compatibility.md">Compatibility</a>.</p>
+
+<h2>
+<a id="acknowledgements" class="anchor" href="#acknowledgements" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Acknowledgements</h2>
+
+<p>Of course, this project wouldn't have been possible without the fantastic work of the <a href="http://fsharp.github.io/FSharp.Compiler.Service/">F# compiler</a>
+and <a href="http://babeljs.io">Babel</a> teams. I hope they feel proud seeing how their work has met in
+a very unexpected way, giving developers even more possibilities to build great apps.</p>
+
+<p>The awesome F# community has played a big role in making this possible. I've met incredible
+people and it's impossible to list all the names without forgetting anyone, but I'd like to
+give a particular mention to <a href="https://github.com/ZachBray">Zach Bray</a> for his work on <a href="http://funscript.info/">FunScript</a>, <a href="https://github.com/dsyme">Don Syme</a> (the fact that the designer
+of the language himself shows interest in your work, no matter how humble it is, is really a big push!)
+and <a href="https://github.com/Krzysztof-Cieslak">Krzysztof Cieślak</a> (I always have to look up the name to spell it correctly) because he's shown that
+F# is a perfect fit for a <a href="http://ionide.io/">big project targeting JS</a>.</p>
+
+<p>And finally I'd like to thank my partner (is it too old-fashioned to say wife?) for bearing with me
+everyday.</p>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/fsprojects/Fable/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/fsprojects/Fable/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/fsprojects/Fable"></a> is maintained by <a href="https://github.com/fsprojects">fsprojects</a>.</p>
+
+          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
+    </div>
+
+  
+  </body>
+</html>
