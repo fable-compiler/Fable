@@ -177,10 +177,115 @@ function printFile(modules) {
 function hasFlag(flags, flag) {
     return flags != null && (flags & flag) == flag;
 }
+var reserved = [
+    "atomic",
+    "break",
+    "checked",
+    "component",
+    "const",
+    "constraint",
+    "constructor",
+    "continue",
+    "eager",
+    "event",
+    "external",
+    "fixed",
+    "functor",
+    "include",
+    "method",
+    "mixin",
+    "object",
+    "parallel",
+    "process",
+    "protected",
+    "pure",
+    "sealed",
+    "tailcall",
+    "trait",
+    "virtual",
+    "volatile",
+    "asr",
+    "land",
+    "lor",
+    "lsl",
+    "lsr",
+    "lxor",
+    "mod",
+    "sig"
+]
+
+var keywords = [
+    "abstract",
+    "and",
+    "as",
+    "assert",
+    "base",
+    "begin",
+    "class",
+    "default",
+    "delegate",
+    "do",
+    "done",
+    "downcast",
+    "downto",
+    "elif",
+    "else",
+    "end",
+    "exception",
+    "extern",
+    "false",
+    "finally",
+    "for",
+    "fun",
+    "function",
+    "global",
+    "if",
+    "in",
+    "inherit",
+    "inline",
+    "interface",
+    "internal",
+    "lazy",
+    "let",
+    "match",
+    "member",
+    "module",
+    "mutable",
+    "namespace",
+    "new",
+    "null",
+    "of",
+    "open",
+    "or",
+    "override",
+    "private",
+    "public",
+    "rec",
+    "return",
+    "sig",
+    "static",
+    "struct",
+    "then",
+    "to",
+    "true",
+    "try",
+    "type",
+    "upcast",
+    "use",
+    "val",
+    "void",
+    "when",
+    "while",
+    "with",
+    "yield"
+]
 
 function getName(node) {
-    // TODO wrap keywords: ``keyword``
-    return (node.name == undefined) ? "Unknown" : node.name.text;
+    return (node.name == undefined)
+            ? "Unknown"
+            : ((keywords.indexOf(node.name.text) > 0 || reserved.indexOf(node.name.text) > 0)
+                ? "``" + node.name.text + "``"
+                : node.name.text);
 }
 
 var domMappings = [
