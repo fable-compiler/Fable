@@ -178,8 +178,8 @@ function printParameters(parameters, typeParameters) {
 
     function printParameter(x) {
         if (x.rest) {
-            var execed = /ResizeArray<(.*?)>/.exec(x.type)[1] + "[]";
-            var type = (execed == null) ? "obj" : execed[1] + "[]";
+            var execed = /ResizeArray<(.*?)>/.exec(x.type)[1];
+            var type = (execed == null ? "obj" : execed) + "[]";
             return "[<ParamArray>] " + escapeKeyword(x.name) + ": " + (typeParameters.indexOf(type) > -1 ? "'" : "") + type;
         }
         else {
@@ -566,7 +566,7 @@ function visitModule(node, modules) {
 function visitFile(node) {
     var modules = [];
 	var emptyModule = getModule(node, true);
-    ts.forEachChild(node, function(node) {			    
+    ts.forEachChild(node, function(node) {
         switch (node.kind) {
             case ts.SyntaxKind.InterfaceDeclaration:
 				if (modules.length == 0 ) { modules.push( emptyModule ); }
