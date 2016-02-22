@@ -137,10 +137,10 @@ try {
     
     var fableCwd = process.cwd();
     var fableCmd = process.platform === "win32" ? "cmd" : "mono";
-    var fableCmdArgs = [__dirname + "/../build/main/Fable.exe"];
-	if ( process.platform === "win32") {
-	  fableCmdArgs.unshift("/C");
-	}
+    var fableCmdArgs = [path.resolve(__dirname, ["..", "build", "main", "Fable.exe"].join(path.sep))];
+    if (process.platform === "win32") {
+        fableCmdArgs.unshift("/C");
+    }
 
     if (typeof opts.projFile === "string") {
         fableCwd = path.dirname(fableCwd + "/" + opts.projFile);
@@ -171,7 +171,12 @@ try {
     
     var addArg = function(k, v) {
         if (v != null) {
-            fableCmdArgs.push("--" + k, v.toString());
+            var val = v.toString();
+            if (k == 'projFile' && process.platform === "win32"
+                && val.indexOf('/') <= -1 && val.indexOf('\\') <= -1) {
+                val = './' + val;
+            }
+            fableCmdArgs.push("--" + k, val);
         }
     };
     for (var k in opts) {
