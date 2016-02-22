@@ -169,7 +169,21 @@ try {
         babelPlugins.push("transform-es2015-modules-umd");
     }
     
-    fableCmdArgs.push(JSON.stringify(opts));
+    var addArg = function(k, v) {
+        if (v != null) {
+            fableCmdArgs.push("--" + k, v.toString());
+        }
+    };
+    for (var k in opts) {
+        if (Array.isArray(opts[k])) {
+            opts[k].forEach(function (v) {
+                addArg(k,v);
+            });
+        }
+        else {
+            addArg(k, opts[k]);
+        }
+    }
     console.log(fableCmd + " " + fableCmdArgs.join(" "));
     
     var proc = spawn(fableCmd, fableCmdArgs, { cwd: fableCwd });
@@ -185,7 +199,7 @@ try {
     }
 
     proc.on('exit', function(code) {
-        console.log("Finished with code " + code);
+        console.log("Finished");
         process.exit(code);
     });    
 
@@ -209,19 +223,30 @@ try {
             buffer = txt.substring(closing + 1);
         }
         
+        var err = null;
         try {
             var babelAst = JSON.parse(json);
-            if (opts.projFile) {
-                babelifyToFile(fableCwd, path.join(fableCwd, opts.outDir), babelAst);
+            if (babelAst.type == "Error") {
+                err = babelAst.message;
             }
             else {
-                babelifyToConsole(babelAst);
+                if (opts.projFile) {
+                    babelifyToFile(fableCwd, path.join(fableCwd, opts.outDir), babelAst);
+                    console.log("Compiled " + babelAst.fileName);
+                }
+                else {
+                    babelifyToConsole(babelAst);
+                }
             }
-            console.log("Compiled " + babelAst.fileName);
         }
-        catch (err) {
-            console.log("BABEL ERROR in " + babelAst.fileName + ": " + err);
-            process.exit(1);
+        catch (e) {
+            err = e;
+        }
+        if (err != null) {
+            console.log(err);
+            if (!opts.watch) {
+                process.exit(1);
+            }
         }
     });    
 }

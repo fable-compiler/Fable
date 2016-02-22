@@ -1,7 +1,6 @@
 namespace Fable
 
-type CompilerOptions =
-    {
+type CompilerOptions = {
         code: string
         projFile: string
         symbols: string[]
@@ -9,15 +8,10 @@ type CompilerOptions =
         lib: string
         watch: bool
     }
-    static member Default projFile = {
-        code=null; symbols=[||]; outDir="."; lib="."; projFile=projFile; watch=false
-    }
-    static member Sanitize opts = {
-        opts with
-            symbols = if opts.symbols <> null then opts.symbols else [||]
-            outDir = if opts.outDir <> null then opts.outDir else "."
-            lib = if opts.lib <> null then opts.lib else "."
-    }
+    
+type CompilerError(msg) =
+    member x.``type`` = "Error"
+    member x.message: string = msg
 
 type ICompiler =
     abstract Options: CompilerOptions
