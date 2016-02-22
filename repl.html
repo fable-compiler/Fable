@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+    <link rel="stylesheet" type="text/css" href="stylesheets/codemirror.css">
+    <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/pure-min.css">
+    <script src="javascripts/codemirror.js"></script>
+    <script src="javascripts/mode/javascript.js"></script>
+    <script src="javascripts/mode/mllike.js"></script>
+    <style>
+    .padding-20 {
+        padding: 20px;
+    }
+    .margin-side-20 {
+        margin: 0 20px;
+        width: 100%;
+    }
+    </style>
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>Fable by fsprojects</title>
+  </head>
+
+  <body>
+    <header class="padding-20">
+      <div class="inner">
+        <h1>Fable</h1>
+        <a href="https://github.com/fsprojects/Fable" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix margin-side-20">
+            <p>Press Ctrl+Enter to compile. Powered by <a href="http://codemirror.net">CodeMirror</a></p>
+            <div class="pure-g">
+                <div id="fsharp-editor" class="pure-u-1-2"></div>
+                <div id="js-editor" class="pure-u-1-2"></div>
+            </div>
+      </div>
+    </div>
+    
+    <script id="fsharp-init" type="text/plain">let (|Even|Odd|) i =
+    if i % 2 = 0 then Even else Odd
+    
+match 5 with
+| Even -> "Even!"
+| Odd -> "Odd?"
+|> printfn "%s"</script>
+    
+    <script id="js-init" type="text/plain">import * as $M1 from "./fable-core.js";
+export default function ($M0) {
+  var matchValue, activePatternResult;
+
+  var $Even$Odd$ = $M0.$Even$Odd$ = function (i) {
+    return i % 2 === 0 ? new $M1.Choice("Choice1Of2") : new $M1.Choice("Choice2Of2");
+  };
+
+  (() => {
+    var clo1;
+    return;
+  })()((matchValue = 5, activePatternResult = $Even$Odd$(matchValue), activePatternResult.tag === "Choice2Of2" ? "Odd?" : "Even!"));
+  return $M0;
+}({});</script>    
+    
+    <script>
+        var fsharpEditor = CodeMirror(document.getElementById("fsharp-editor"), {
+            value: document.getElementById("fsharp-init").textContent,
+            mode:  "text/x-fsharp",
+            lineNumbers: true
+        });
+        fsharpEditor.setSize(null, 500);
+        
+        var jsEditor = CodeMirror(document.getElementById("js-editor"), {
+            value: document.getElementById("js-init").textContent,
+            mode:  "javascript",
+            lineNumbers: true,
+            lineWrapping: true
+        });        
+        jsEditor.setSize(null, 500);
+        
+        fsharpEditor.setOption("extraKeys", {
+            "Ctrl-Enter": function(cm) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', "http://fable-compiler.cloudapp.net:8080", true);
+                xhr.onload = function(e) {
+                    if (this.status == 200) {
+                        jsEditor.setValue(this.responseText);
+                    }
+                };
+                xhr.send(fsharpEditor.getValue());
+            }
+        });
+    </script>
+  </body>
+</html>
