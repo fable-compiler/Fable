@@ -64,9 +64,13 @@ export default function ($M0) {
     return i % 2 === 0 ? new $M1.Choice("Choice1Of2") : new $M1.Choice("Choice2Of2");
   };
 
-  (() => {
+  (function () {
     var clo1;
-    return;
+    return clo1 = $M1.String.fsFormat("%s")(function (x) {
+      console.log(x);
+    }), function (arg10) {
+      clo1(arg10);
+    };
   })()((matchValue = 5, activePatternResult = $Even$Odd$(matchValue), activePatternResult.tag === "Choice2Of2" ? "Odd?" : "Even!"));
   return $M0;
 }({});</script>    
