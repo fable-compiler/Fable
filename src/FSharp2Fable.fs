@@ -556,7 +556,9 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
         decls |> List.fold (fun (declInfo: DeclInfo) decl ->
             match decl with
             | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-                transformEntityDecl com ctx declInfo e sub
+                if e.IsFSharpAbbreviation
+                then declInfo
+                else transformEntityDecl com ctx declInfo e sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                 transformMemberDecl com ctx declInfo meth args body
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx expr) ->
