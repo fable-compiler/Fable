@@ -283,7 +283,7 @@ function hasFlag(flags, flag) {
 
 function getName(node) {
     return (node.name == undefined)
-            ? "Unknown"
+            ? "Global"
             : ((keywords.indexOf(node.name.text) > 0 || reserved.indexOf(node.name.text) > 0)
                 ? "``" + node.name.text + "``"
                 : node.name.text);
