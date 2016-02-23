@@ -89,7 +89,7 @@ module Main =
                 "computed" ==>
                     createObj [
                         // We use the (?) operator for dynamic programming
-                        // Notice we use parens if we want to pase the runtime
+                        // Notice we use parens if we want to pass the runtime
                         // value instead the identifier
                         "filteredTodos" ==> fun () ->
                             filters?(this?visibility) $ this?todos
@@ -153,7 +153,6 @@ module Main =
                                     // The compiler expects unit in this branch too
                                     // so we ignore the result of calling `nextTick`
                         ]
-                    
             ]
         )
         

@@ -531,7 +531,8 @@ let makeCallFrom (com: IFableCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
     | Emitted com fsExpr (callee, args) emitted -> emitted
     (** -If the call is not resolved, then: *)
     | _ ->
-        let methName = sanitizeMethodName com meth |> makeConst
+        let methName = sanitizeMethodName com meth
+        let methExpr = makeConst methName
         let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
     (**     *Check if this an extension *)
         let callee, args =
@@ -544,16 +545,18 @@ let makeCallFrom (com: IFableCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
                 makeTypeFromDef com meth.EnclosingEntity |> makeTypeRef com, args
     (**     *Check if this a getter or setter  *)
         if meth.IsPropertyGetterMethod then
-            makeGetFrom com fsExpr callee methName
+            makeGetFrom com fsExpr callee methExpr
         elif meth.IsPropertySetterMethod then
-            Fable.Set (callee, Some methName, args.Head, range)
-    (**     *Check if this is an implicit constructor *)
-        elif meth.IsImplicitConstructor then
+            Fable.Set (callee, Some methExpr, args.Head, range)
+    (**     *Check if this is an implicit constructor or a replacement
+             for JS constructors *)
+        elif meth.IsImplicitConstructor ||
+             (meth.EnclosingEntity.IsInterface && Naming.isJsCons methName) then
             Fable.Apply (callee, args, Fable.ApplyCons, typ, range)
     (**     *If nothing of the above applies, call the method normally *)
         else
             let calleeType = Fable.PrimitiveType (Fable.Function args.Length) 
-            let callee = makeGet range calleeType callee methName
+            let callee = makeGet range calleeType callee methExpr
             Fable.Apply (callee, args, Fable.ApplyMeth, typ, range)
 
 let wrapInLambda com (fsExpr: FSharpExpr) (meth: FSharpMemberOrFunctionOrValue) =

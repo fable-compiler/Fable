@@ -18,13 +18,21 @@ Besides `--projFile`, the following options are available:
 ```
     --code      If you want to pass directly a string of code instead.
                 The result will be displayed on-screen.
+
     --outDir    Where do you want to put the compiled JS files.
+
     --symbols   Array of symbols passed to the F# compiler for
                 conditional compilation.
+
     --lib       Where the compiler can find external JS libraries,
                 mainly used to locate fable-core.js.
+
     --env       'browser' for amd modules and 'node' for commonjs.
                 If not specified, it will default to umd.
+
+    --watch     Key-only parameter. The first compilation will take
+                some seconds to warm up but setting this option files
+                modified later will be compiled much faster.
 ```
 
 However, it's usually more convenient to put them in JSON format in a file

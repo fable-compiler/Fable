@@ -99,6 +99,14 @@ module string_decoder =
     let StringDecoder: NodeStringDecoder = failwith "JS only"
 ```
 
+> If the module or value is accessible globally in JavaScript,
+  you can use the `Global` attribute without parameters instead.
+
+> If a method accepts a lambda make sure to use `System.Func` in the signature to force
+  the compiler _uncurry_ any lambda passed as parameter.
+
+> To simulate a JS constructor, name the method `createNew`.
+
 However, modules usually expose functions and many times these functions
 have elements like optional or rest parameter that are not supported by
 F# module functions. Another possible technique then is to wrap the
@@ -128,9 +136,6 @@ module path =
 
 Note that this time the `Import` attribute is on the `Global` value, not the module.
 
-If a method accepts a lambda make sure to use `System.Func` in the signature to force
-the compiler _uncurry_ any lambda passed as parameter.
-
 A good starting point for foreign interfaces are [Typescript definition files](http://definitelytyped.org)
 and there's a script (still in development) to make the bulk work of translating
 the file into F#. You can test it as follows:
@@ -146,7 +151,7 @@ node tools/typescript2fable.js path/to/definition.d.ts > path/to/outfile.fs
 
 ### Import parameters
 
-The import attribute accepts arguments passed as if they were URL parameters, like follows:
+The import attribute accepts query parameters, like:
 
 ```
 [<Import("myModule?asDefault=true&fromLib=true")>]
