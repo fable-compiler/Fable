@@ -597,7 +597,7 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
     fsProj.AssemblyContents.ImplementationFiles
     |> List.where (fun file ->
         let fileName = System.IO.Path.GetFileName file.FileName
-        fileName.StartsWith("Fable.Import") || fileName = "Fable.Core.fs" |> not)
+        (fileName.StartsWith("Fable.Import") || fileName = "Fable.Core.fs") |> not)
     |> List.map (fun file ->
         let rootEnt, rootDecls =
             let rootEnt, rootDecls =

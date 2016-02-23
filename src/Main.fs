@@ -8,36 +8,47 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open Fable
 
-let readOptions projFile =
-    let projDir = Path.GetDirectoryName(projFile)
-    if File.Exists(Path.Combine(projDir, "fableconfig.json")) then
-        let json = File.ReadAllText(Path.Combine(projDir, "fableconfig.json"))
-        let opts = JsonConvert.DeserializeObject<CompilerOptions>(json)
-        { opts with projFile = projFile }
-    else
-        CompilerOptions.Default projFile
+let readOptions argv =
+    let def opts key defArg f =
+        defaultArg (Map.tryFind key opts |> Option.map f) defArg
+    let rec readOpts opts = function
+        | [] -> opts
+        | (opt: string)::rest ->
+            let k = opt.Substring(2)
+            match Map.tryFind k opts with
+            | None -> Map.add k rest.Head opts
+            | Some v -> Map.add k (v + "," + rest.Head) opts
+            |> readOpts <| rest.Tail
+    let opts = readOpts Map.empty<_,_> (List.ofArray argv)
+    {
+        code = def opts "code" null id
+        outDir = def opts "outDir" "." id
+        lib = def opts "lib" "." id
+        projFile = def opts "projFile" null id
+        watch = def opts "watch" false bool.Parse
+        symbols = def opts "symbols" [||] (fun x -> x.Split(','))
+    }
 
-let getCheckerAndOptions (com: ICompiler) =
-    let checker = FSharpChecker.Create(keepAssemblyContents=true)
-    let projOptions =
-        let projCode, projFile =
-            if com.Options.code <> null
-            then com.Options.code, com.Options.projFile
-            else File.ReadAllText com.Options.projFile, com.Options.projFile
-        match (Path.GetExtension projFile).ToLower() with
+let parseFSharpProject (com: ICompiler) (checker: FSharpChecker) (projCode: string option) =
+    let checkProjectResults =
+        let projCode =
+            match projCode with
+            | None -> File.ReadAllText com.Options.projFile
+            | Some projCode ->
+                File.WriteAllText(com.Options.projFile, projCode)
+                projCode
+        match (Path.GetExtension com.Options.projFile).ToLower() with
         | ".fsx" ->
             let otherFlags =
                 com.Options.symbols |> Array.map (sprintf "--define:%s")
-            checker.GetProjectOptionsFromScript(projFile, projCode, otherFlags=otherFlags)
+            checker.GetProjectOptionsFromScript(
+                com.Options.projFile, projCode, DateTime.UtcNow, otherFlags=otherFlags)
             |> Async.RunSynchronously
         | _ ->
-            let properties = [("DefineConstants", String.concat ";" com.Options.symbols)]
-            ProjectCracker.GetProjectOptionsFromProjectFile(projFile, properties)
-    checker, projOptions
-
-let parseFSharpProject (checker: FSharpChecker) projOptions =
-    let checkProjectResults =
-        { projOptions with LoadTime=DateTime.Now }
+            let properties =
+                [("DefineConstants", String.concat ";" com.Options.symbols)]
+            ProjectCracker.GetProjectOptionsFromProjectFile(
+                com.Options.projFile, properties, DateTime.UtcNow)
         |> checker.ParseAndCheckProject
         |> Async.RunSynchronously
     let errors =
@@ -46,43 +57,53 @@ let parseFSharpProject (checker: FSharpChecker) projOptions =
     if errors.Length = 0
     then checkProjectResults
     else errors
-        |> Seq.map (fun e -> "\t" + e.Message)
+        |> Seq.map (fun e -> "> " + e.Message)
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> failwith
-        
-let jsonSettings = 
-    JsonSerializerSettings(
-        Converters=[|Json.ErasedUnionConverter()|],
-        StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
 
-let compile com checker projOptions fileMask =
-    parseFSharpProject checker projOptions 
-    |> FSharp2Fable.transformFiles com fileMask
-    |> Fable2Babel.transformFiles com
-    |> Seq.iter (fun ast ->
-        JsonConvert.SerializeObject (ast, jsonSettings)
-        |> Console.Out.WriteLine
-        Console.Out.Flush())
+let compile com checker projCode fileMask =
+    let printFile =
+        let jsonSettings = 
+            JsonSerializerSettings(
+                Converters=[|Json.ErasedUnionConverter()|],
+                StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
+        fun file ->
+            JsonConvert.SerializeObject (file, jsonSettings)
+            |> Console.Out.WriteLine
+    let printError =
+        CompilerError
+        >> JsonConvert.SerializeObject
+        >> Console.Out.WriteLine
+    try
+        parseFSharpProject com checker projCode
+        |> FSharp2Fable.transformFiles com fileMask
+        |> Fable2Babel.transformFiles com
+        |> function
+            | files when Seq.isEmpty files ->
+                printError "No code available to compile"
+            | files ->
+                Seq.iter printFile files
+    with ex ->
+        printError ex.Message
 
 [<EntryPoint>]
 let main argv =
     let opts =
-        if argv.[0] = "--projFile"
-        then readOptions argv.[1]
-        else JsonConvert.DeserializeObject<_>(argv.[0])
-        |> CompilerOptions.Sanitize 
+        readOptions argv
         |> function
             | opts when opts.code <> null ->
-                let projFile = Path.ChangeExtension(Path.GetTempFileName(), "fsx")
-                File.WriteAllText(projFile, opts.code)
-                { opts with projFile = projFile }
+                { opts with projFile = Path.ChangeExtension(Path.GetTempFileName(), "fsx") }
             | opts -> opts
     let com = { new ICompiler with member __.Options = opts }
-    let checker, projOptions = getCheckerAndOptions com
+    let checker = FSharpChecker.Create(keepAssemblyContents=true)
     // First full compilation
-    compile com checker projOptions None
+    compile com checker (Option.ofObj opts.code) None
     while opts.watch do
-        let file = Console.In.ReadLine()
-        compile com checker projOptions (Some file)
+        let input = Console.In.ReadLine()
+        let projCode, fileMask =
+            if com.Options.code = null
+            then None, Some input
+            else input.Replace("\\n","\n") |> Some, None
+        compile com checker projCode fileMask
     0
