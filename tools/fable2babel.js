@@ -143,7 +143,7 @@ try {
     }
 
     if (typeof opts.projFile === "string") {
-        fableCwd = path.dirname(fableCwd + "/" + opts.projFile);
+        fableCwd = path.dirname(path.isAbsolute(opts.projFile) ? opts.projFile : path.join(fableCwd, opts.projFile));
         opts.projFile = path.basename(opts.projFile);
         
         var cfgFile = path.join(fableCwd, "fableconfig.json");
@@ -171,12 +171,7 @@ try {
     
     var addArg = function(k, v) {
         if (v != null) {
-            var val = v.toString();
-            if (k == 'projFile' && process.platform === "win32"
-                && val.indexOf('/') <= -1 && val.indexOf('\\') <= -1) {
-                val = './' + val;
-            }
-            fableCmdArgs.push("--" + k, val);
+            fableCmdArgs.push("--" + k, v.toString());
         }
     };
     for (var k in opts) {
