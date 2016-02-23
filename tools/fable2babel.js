@@ -137,10 +137,10 @@ try {
     
     var fableCwd = process.cwd();
     var fableCmd = process.platform === "win32" ? "cmd" : "mono";
-    var fableCmdArgs = [__dirname + "/../build/main/Fable.exe"];
-	if ( process.platform === "win32") {
-	  fableCmdArgs.unshift("/C");
-	}
+    var fableCmdArgs = [path.resolve(__dirname, ["..", "build", "main", "Fable.exe"].join(path.sep))];
+    if (process.platform === "win32") {
+        fableCmdArgs.unshift("/C");
+    }
 
     if (typeof opts.projFile === "string") {
         fableCwd = path.dirname(fableCwd + "/" + opts.projFile);
@@ -169,7 +169,26 @@ try {
         babelPlugins.push("transform-es2015-modules-umd");
     }
     
-    fableCmdArgs.push(JSON.stringify(opts));
+    var addArg = function(k, v) {
+        if (v != null) {
+            var val = v.toString();
+            if (k == 'projFile' && process.platform === "win32"
+                && val.indexOf('/') <= -1 && val.indexOf('\\') <= -1) {
+                val = './' + val;
+            }
+            fableCmdArgs.push("--" + k, val);
+        }
+    };
+    for (var k in opts) {
+        if (Array.isArray(opts[k])) {
+            opts[k].forEach(function (v) {
+                addArg(k,v);
+            });
+        }
+        else {
+            addArg(k, opts[k]);
+        }
+    }
     console.log(fableCmd + " " + fableCmdArgs.join(" "));
     
     var proc = spawn(fableCmd, fableCmdArgs, { cwd: fableCwd });
@@ -185,7 +204,7 @@ try {
     }
 
     proc.on('exit', function(code) {
-        console.log("Finished with code " + code);
+        console.log("Finished");
         process.exit(code);
     });    
 
@@ -209,19 +228,30 @@ try {
             buffer = txt.substring(closing + 1);
         }
         
+        var err = null;
         try {
             var babelAst = JSON.parse(json);
-            if (opts.projFile) {
-                babelifyToFile(fableCwd, path.join(fableCwd, opts.outDir), babelAst);
+            if (babelAst.type == "Error") {
+                err = babelAst.message;
             }
             else {
-                babelifyToConsole(babelAst);
+                if (opts.projFile) {
+                    babelifyToFile(fableCwd, path.join(fableCwd, opts.outDir), babelAst);
+                    console.log("Compiled " + babelAst.fileName);
+                }
+                else {
+                    babelifyToConsole(babelAst);
+                }
             }
-            console.log("Compiled " + babelAst.fileName);
         }
-        catch (err) {
-            console.log("BABEL ERROR in " + babelAst.fileName + ": " + err);
-            process.exit(1);
+        catch (e) {
+            err = e;
+        }
+        if (err != null) {
+            console.log(err);
+            if (!opts.watch) {
+                process.exit(1);
+            }
         }
     });    
 }
