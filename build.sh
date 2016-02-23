@@ -7,6 +7,8 @@ else
   MONO="mono"
 fi
 
+npm install
+
 $MONO .paket/paket.bootstrapper.exe
 exit_code=$?
 if [ $exit_code -ne 0 ]; then
