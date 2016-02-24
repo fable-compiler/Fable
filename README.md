@@ -34,8 +34,6 @@ Download the repo and run:
 ```
 build.cmd Release   // on windows    
 ./build.sh Release  // on unix
-
-npm install         // both platforms, installs node dependencies
 ```
 If everything works, follow [these instructions](docs/compiling.md) to compile a F# project or script file to JS.
 

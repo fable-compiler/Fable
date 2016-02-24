@@ -141,8 +141,6 @@ and there's a script (still in development) to make the bulk work of translating
 the file into F#. You can test it as follows:
 
 ```
-npm install typescript      // First time if not installed globally
-
 node tools/typescript2fable.js path/to/definition.d.ts > path/to/outfile.fs
 ```
 
