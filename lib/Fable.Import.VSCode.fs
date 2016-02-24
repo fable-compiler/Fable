@@ -434,7 +434,7 @@ module vscode =
             abstract executeCommand: command: string * [<ParamArray>] rest: obj[] -> Thenable<'T>
             abstract getCommands: ?filterInternal: bool -> Thenable<ResizeArray<string>>
 
-        let [<Import("commands")>] Globals: Globals = failwith "JS only"
+        let [<Import("vscode?get=commands")>] Globals: Globals = failwith "JS only"
 
 
     module window =
@@ -461,7 +461,7 @@ module vscode =
             abstract setStatusBarMessage: text: string * hideWhenDone: Thenable<obj> -> Disposable
             abstract createStatusBarItem: ?alignment: StatusBarAlignment * ?priority: float -> StatusBarItem
 
-        let [<Import("window")>] Globals: Globals = failwith "JS only"
+        let [<Import("vscode?get=window")>] Globals: Globals = failwith "JS only"
 
 
     module workspace =
@@ -482,7 +482,7 @@ module vscode =
             abstract openTextDocument: fileName: string -> Thenable<TextDocument>
             abstract getConfiguration: ?section: string -> WorkspaceConfiguration
 
-        let [<Import("workspace")>] Globals: Globals = failwith "JS only"
+        let [<Import("vscode?get=workspace")>] Globals: Globals = failwith "JS only"
 
 
     module languages =
@@ -506,7 +506,7 @@ module vscode =
             abstract registerSignatureHelpProvider: selector: DocumentSelector * provider: SignatureHelpProvider * [<ParamArray>] triggerCharacters: string[] -> Disposable
             abstract setLanguageConfiguration: language: string * configuration: LanguageConfiguration -> Disposable
 
-        let [<Import("languages")>] Globals: Globals = failwith "JS only"
+        let [<Import("vscode?get=languages")>] Globals: Globals = failwith "JS only"
 
 
     module extensions =
@@ -515,5 +515,5 @@ module vscode =
             abstract getExtension: extensionId: string -> Extension<obj>
             abstract getExtension: extensionId: string -> Extension<'T>
 
-        let [<Import("extensions")>] Globals: Globals = failwith "JS only"
+        let [<Import("vscode?get=extensions")>] Globals: Globals = failwith "JS only"
 

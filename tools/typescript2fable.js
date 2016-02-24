@@ -304,6 +304,7 @@ function printInterface(prefix, modName) {
     }
 }
 
+// TODO: Import path for nested modules
 function printModule(prefix) {
     return function(mod) {
         var template = prefix + templates.module

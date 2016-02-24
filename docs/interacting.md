@@ -50,7 +50,7 @@ let data =
         "visibility" ==> "all"
     ]
 ```
-> The [todomvc sample](../sample/browser/todomvc/app.fsx) is a good example
+> The [todomvc sample](/sample/browser/todomvc/app.fsx) is a good example
   on how to program dynamically with Fable.
 
 
@@ -137,14 +137,14 @@ module path =
 Note that this time the `Import` attribute is on the `Globals` value, not the module.
 
 A good starting point for foreign interfaces are [Typescript definition files](http://definitelytyped.org)
-and there's a script (still in development) to make the bulk work of translating
-the file into F#. You can test it as follows:
+and there's a script to make the bulk work of translating the file into F#. You can test it as follows:
 
 ```
 node tools/typescript2fable.js path/to/definition.d.ts > path/to/outfile.fs
 ```
 
-> As most times, some tweaking by hand will be needed, it's planned to keep a repo with curated definitions of the most commonly used libraries (core JS, node, React...)
+> As most times, some tweaking by hand will be needed, it's planned to keep a repository with curated definitions
+of the most commonly used libraries (core JS, node, React...). As of now you can find some parsed files [here](/lib).
 
 
 ### Import parameters
