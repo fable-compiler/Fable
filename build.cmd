@@ -1,6 +1,8 @@
 @echo off
 cls
 
+call npm install
+
 .paket\paket.bootstrapper.exe
 if errorlevel 1 (
   exit /b %errorlevel%
