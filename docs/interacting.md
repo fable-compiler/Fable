@@ -110,12 +110,12 @@ module string_decoder =
 However, modules usually expose functions and many times these functions
 have elements like optional or rest parameter that are not supported by
 F# module functions. Another possible technique then is to wrap the
-functions in an interface an create a dummy value named `Global` to
+functions in an interface an create a dummy value named `Globals` to
 hold an instance of that interface:
 
 ```
 module path =
-    type Global =
+    type Globals =
         abstract sep: string with get, set
         abstract delimiter: string with get, set
         abstract normalize: p: string -> string
@@ -131,10 +131,10 @@ module path =
         abstract format: pathObject: ParsedPath -> string
 
     [<Import("path")>]
-    let Global: Global = failwith "JS only"
+    let Globals: Globals = failwith "JS only"
 ```
 
-Note that this time the `Import` attribute is on the `Global` value, not the module.
+Note that this time the `Import` attribute is on the `Globals` value, not the module.
 
 A good starting point for foreign interfaces are [Typescript definition files](http://definitelytyped.org)
 and there's a script (still in development) to make the bulk work of translating
