@@ -33,9 +33,11 @@ test_script:
   - if not exist "C:\temp" mkdir C:\temp
   - copy test C:\temp
   - node tools\fable2babel.js --projFile "C:\Temp\HelloWorld.fsproj"
+  - npm install --prefix sample/node/server
+  - node tools/fable2babel.js --projFile sample/node/server/app.fsx
   - npm install --prefix sample/browser/todomvc
   - node tools/fable2babel.js --projFile sample/browser/todomvc/app.fsx
-  - node sample/browser/todomvc/app.js 8090
+  - node sample/node/server/app.js 8090
  
   
  
