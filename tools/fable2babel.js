@@ -144,7 +144,7 @@ try {
 
     if (typeof opts.projFile === "string") {
         fableCwd = path.dirname(path.isAbsolute(opts.projFile) ? opts.projFile : path.join(fableCwd, opts.projFile));
-        opts.projFile = path.basename(opts.projFile);
+        opts.projFile = "./" + path.basename(opts.projFile);
         
         var cfgFile = path.join(fableCwd, "fableconfig.json");
         if (fs.existsSync(cfgFile)) {
@@ -184,7 +184,7 @@ try {
             addArg(k, opts[k]);
         }
     }
-    console.log(fableCmd + " " + fableCmdArgs.join(" "));
+    console.log(fableCwd + ">" + fableCmd + " " + fableCmdArgs.join(" "));
     
     var proc = spawn(fableCmd, fableCmdArgs, { cwd: fableCwd });
 
