@@ -184,7 +184,7 @@ try {
             addArg(k, opts[k]);
         }
     }
-    console.log(fableCmd + " " + fableCmdArgs.join(" "));
+    console.log(fableCwd + ">" + fableCmd + " " + fableCmdArgs.join(" "));
     
     var proc = spawn(fableCmd, fableCmdArgs, { cwd: fableCwd });
 
