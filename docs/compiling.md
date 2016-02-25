@@ -125,7 +125,7 @@ To start the web app we need a server so the one we built above comes
 in handy. Type again:
 
 ```
-node sample/node/server/app.js 8090
+node sample/browser/todomvc/app.js 8090
 ```
 
 and browse to:
