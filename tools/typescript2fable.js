@@ -13,7 +13,6 @@ type private ImportAttribute(path) =
 
 type private GlobalAttribute() =
     inherit Attribute()
-    
 `,
 
 interface:
@@ -31,6 +30,9 @@ classMethod:
 
 module:
 `module [NAME] =
+    type U2<'a, 'b> = Case1 of 'a | Case2 of 'b
+    type U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c
+
 `,
 
 moduleProxyType:
@@ -283,23 +285,29 @@ function printInterface(prefix, modName) {
             .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
             .replace("[NAME]", escapeKeyword(ifc.name))
             .replace("[DECORATOR]", printClassDecorator(ifc, modName))
-            .replace("[CONSTRUCTOR]", ifc.kind == "class"
-                ? "(" + printParameters(ifc.constructorParameters) + ")" : "");
+            .replace("[CONSTRUCTOR]", "");
 
         if (ifc.kind == "alias") {
             return template += prefix + "    " + ifc.alias;
         }
-        else if (ifc.kind == "class") {
-            var classMembers = printClassMembers(ifc, prefix + "    ");
-            return template += (classMembers.length == 0
-                ? prefix + "    class end"
-                : classMembers);
-        }
+        //else if (ifc.kind == "class") {
+        //    var classMembers = printClassMembers(ifc, prefix + "    ");
+        //    return template += (classMembers.length == 0
+        //        ? prefix + "    class end"
+        //        : classMembers);
+        //}
         else {
             var members = printMembers(ifc, prefix + "    ");
-            return template += (members.length == 0
+
+            template += (members.length == 0
                 ? prefix + "    interface end"
                 : members);
+
+            if (ifc.kind == "class"){
+                template += "\n    " + prefix + "abstract createNew: " + printParameters(ifc.constructorParameters, " * ") + " -> " + escapeKeyword(ifc.name)
+            }
+
+            return template;
         }
     }
 }
@@ -309,7 +317,7 @@ function printModule(prefix) {
     return function(mod) {
         var template = prefix + templates.module
             .replace("[NAME]", escapeKeyword(mod.name));
-            
+
         template += mod.interfaces.map(printInterface(prefix + "    ", mod.name)).join("\n\n") + "\n\n";
 
         var members = printMembers(mod, prefix + "        ");
@@ -319,9 +327,9 @@ function printModule(prefix) {
                 members + "\n\n" +
                 prefix + "    " + templates.moduleProxyDeclaration.replace("[NAME]", mod.name);
         }
-        
+
         template += mod.modules.map(printModule(prefix + "    ")).join("\n\n");
-        
+
         return template;
     }
 }
@@ -363,7 +371,21 @@ function printTypeArguments(typeArgs) {
     return typeArgs.length == 0 ? "" : "<" + typeArgs.map(getType).join(", ") + ">";
 }
 
+function findTypeParameters(node) {
+    if (!node) {
+        return []
+    }
+
+    if (!node.typeParameters) {
+        return findTypeParameters(node.parent)
+    }
+
+    return node.typeParameters.map(function (t) { return t.name.text });
+}
+
 function getType(type) {
+    var typeParameters = findTypeParameters(type);
+
     switch (type.kind) {
         case ts.SyntaxKind.StringKeyword:
             return "string";
@@ -401,12 +423,22 @@ function getType(type) {
             }
             var arrMatch = /Array<(.*?)>/.exec(name);
             if (arrMatch != null) {
-                return  "ResizeArray<"+arrMatch[1]+">";
+                return "ResizeArray<" + arrMatch[1] + ">";
             }
-            var result = name + printTypeArguments(type.typeArguments);
-            
+
+            if (name == "Array" && type.typeArguments.length > 0) {
+                var result = "ResizeArray" + printTypeArguments(type.typeArguments);
+            }
+            else {
+                var result = name + printTypeArguments(type.typeArguments);
+            }
+
+            if (typeParameters.indexOf(result) > -1) {
+                return "'" + result;
+            }
+
             // HACK: Consider one-letter identifiers as type arguments
-            return result.length > 1 ? result : "'" + result;
+            return result;
     }
 }
 
