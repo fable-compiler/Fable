@@ -29,4 +29,7 @@ test_script:
   - npm run test
   - cd test
   - node ../tools/fable2babel.js --projFile HelloWorld.fsx
+  - cd ..
+  - copy test C:\temp
+  - node tools\fable2babel.js --projFile "C:\Temp\HelloWorld.fsproj"
  
