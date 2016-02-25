@@ -35,7 +35,7 @@ test_script:
   - node tools\fable2babel.js --projFile "C:\Temp\HelloWorld.fsproj"
   - npm install --prefix sample/browser/todomvc
   - node tools/fable2babel.js --projFile sample/browser/todomvc/app.fsx
-  - node sample/node/server/app.js 8090
+  - node sample/browser/todomvc/app.js 8090
  
   
  
