@@ -27,3 +27,6 @@ artifacts:
 test_script:
   - node tools/fable2babel.js --projFile test/Fable.Tests.fsproj
   - npm run test
+  - cd test
+  - node ../tools/fable2babel.js --projFile HelloWorld.fsx
+ 
