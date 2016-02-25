@@ -41,6 +41,9 @@ test_script:
   - npm install
   - cd ..\..\..
   - node tools/fable2babel.js --projFile sample/browser/todomvc/app.fsx
-  - node sample/node/server/app.js 8090
+  - start node sample/node/server/app.js 8090
+  - timeout /t 60
+  - taskkill /im node.exe /f
+
 
  
