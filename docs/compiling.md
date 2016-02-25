@@ -122,7 +122,8 @@ node tools/fable2babel.js --projFile sample/browser/todomvc/app.fsx
 ```
 
 To start the web app we need a server so the one we built above comes
-in handy. Type again:
+in handy. We will use the one from the Node samples so make sure you did all steps there.
+Type again:
 
 ```
 node sample/node/server/app.js 8090
