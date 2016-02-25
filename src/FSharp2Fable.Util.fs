@@ -275,6 +275,9 @@ module Types =
         // Guard: F# abbreviations shouldn't be passed as argument
         if tdef.IsFSharpAbbreviation
         then failwith "Abbreviation passed to makeTypeFromDef"
+        // Delegate
+        elif tdef.IsDelegate
+        then Fable.Function (tdef.GenericParameters.Count - 1) |> Fable.PrimitiveType
         // Array
         elif tdef.IsArrayType then
             match tdef.GenericParameters.[0].FullName with
@@ -514,6 +517,16 @@ let (|Emitted|_|) com fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue
         |> Some
     | _ -> None
 
+let (|Imported|_|) com fsExpr args (meth: FSharpMemberOrFunctionOrValue) =
+    meth.Attributes
+    |> Seq.choose (makeDecorator com)
+    |> tryImported com meth.DisplayName
+    |> function
+        | Some expr ->
+            let range, typ = makeRangeFrom fsExpr, makeType com fsExpr.Type
+            Fable.Apply(expr, args, Fable.ApplyMeth, typ, range) |> Some
+        | None -> None
+
 // TODO: Check `inline` annotation?
 // TODO: Check if it's `createNew` placeholder
 let makeCallFrom (com: IFableCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
@@ -530,6 +543,7 @@ let makeCallFrom (com: IFableCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
     (** -Check for replacements, emits... *)
     | Replaced com fsExpr (typArgs, methTypArgs) (callee, args) replaced -> replaced
     | Emitted com fsExpr (callee, args) emitted -> emitted
+    | Imported com fsExpr args imported -> imported
     (** -If the call is not resolved, then: *)
     | _ ->
         let methName = sanitizeMethodName com meth

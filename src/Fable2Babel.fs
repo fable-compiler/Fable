@@ -416,8 +416,9 @@ let private transformClass com ctx classRange (baseClass: Fable.EntityLocation o
 let private declareEntryPoint com ctx (funcExpr: Babel.Expression) =
     let argv = macroExpression None "process.argv.slice(2)" []
     let main = Babel.CallExpression (funcExpr, [U2.Case1 argv], ?loc=funcExpr.loc) :> Babel.Expression
-    Babel.ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
-    :> Babel.Statement
+    // Don't exit the process after leaving main, as there may be a server running
+    // Babel.ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
+    Babel.ExpressionStatement(main, ?loc=funcExpr.loc) :> Babel.Statement
 
 // TODO: Keep track of sanitized member names to be sure they don't clash? 
 let private declareModMember range (var, name) isPublic modIdent expr =

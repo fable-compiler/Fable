@@ -289,10 +289,13 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         makeCallFrom com fsExpr meth (typArgs, []) None (List.map (com.Transform ctx) args)
 
-    | BasicPatterns.NewRecord(FableType com recordType, argExprs) ->
+    | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
+        let recordType = makeType com fsType
         let argExprs = argExprs |> List.map (transformExpr com ctx)
-        Fable.Apply (makeTypeRef com recordType, argExprs, Fable.ApplyCons,
-            makeType com fsExpr.Type, makeRangeFrom fsExpr)
+        if isExternalEntity com fsType.TypeDefinition
+        then replace com fsExpr (recordType.FullName) ".ctor" ([],[],[]) (None,argExprs)
+        else Fable.Apply (makeTypeRef com recordType, argExprs, Fable.ApplyCons,
+                        makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
         let unionType = makeType com fsType

@@ -381,8 +381,9 @@ module Util =
             | String _ -> checkType "string" expr
             | Number _ -> checkType "number" expr
             | Boolean -> checkType "boolean" expr
-            | Unit ->
-                makeBinOp range boolType [expr; Value Null] BinaryEqual
+            | Unit -> makeBinOp range boolType [expr; Value Null] BinaryEqual
+            | Function _ -> checkType "function" expr
+            // TODO: Regex and Array?
             | _ -> failwithf "Unsupported type test: %A" typ
         | DeclaredType typEnt ->
             match typEnt.Kind with

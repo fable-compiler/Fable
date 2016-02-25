@@ -1,22 +1,9 @@
 namespace Fable.Import
 open System
+open Fabel.Core
+open Fabel.Import.JS
 
 module vscode =
-    type private ImportAttribute(path) =
-        inherit Attribute()
-
-    type private GlobalAttribute() =
-        inherit Attribute()
-
-    type private EraseAttribute() =
-        inherit Attribute()
-
-    type [<Erase>] U2<'a, 'b> =
-        | Case1 of 'a | Case2 of 'b
-
-    type [<Erase>] U3<'a, 'b, 'c> =
-        | Case1 of 'a | Case2 of 'b | Case3 of 'c
-
     type Command =
         abstract title: string with get, set
         abstract command: string with get, set

@@ -1,20 +1,6 @@
 namespace Fable.Import.JS
 open System
-
-type private ImportAttribute(path) =
-    inherit Attribute()
-
-type private GlobalAttribute() =
-    inherit Attribute()
-
-type EraseAttribute() =
-    inherit System.Attribute()
-
-type [<Erase>] U2<'a, 'b> =
-    | Case1 of 'a | Case2 of 'b
-
-type [<Erase>] U3<'a, 'b, 'c> =
-    | Case1 of 'a | Case2 of 'b | Case3 of 'c
+open Fabel.Core
 
 type PropertyDescriptor =
     abstract configurable: bool option with get, set

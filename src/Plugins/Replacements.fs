@@ -796,10 +796,23 @@ module private AstPass =
         | _ -> None
         
     let exceptions com (i: Fable.ApplyInfo) =
-        match i.methodName, i.args with
-        | ".ctor", [arg] -> Some arg
-        | ".ctor", [] -> Fable.ObjExpr ([], [], i.range) |> Some
-        | "message", [] -> i.callee
+        match i.methodName with
+        | ".ctor" ->
+            match i.args with
+            | [] -> Fable.ObjExpr ([], [], i.range)
+            | [arg] -> arg
+            | args -> makeArray Fable.UnknownType args
+            |> Some
+        | "message" -> i.callee
+        | _ -> None
+        
+    let cancels com (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | ".ctor" -> Fable.ObjExpr ([], [], i.range) |> Some
+        | "token" -> i.callee
+        | "cancel" -> emit i "$0.isCancelled = true" [i.callee.Value] |> Some
+        | "cancelAfter" -> emit i "setTimeout(function () { $0.isCancelled = true }, $1)" [i.callee.Value; i.args.Head] |> Some
+        | "isCancellationRequested" -> emit i "$0.isCancelled" [i.callee.Value] |> Some 
         | _ -> None
 
     let knownInterfaces com (i: Fable.ApplyInfo) =
@@ -820,7 +833,10 @@ module private AstPass =
         | "System.DateTime" -> dates com info 
         | "System.TimeSpan" -> timeSpans com info 
         | "Microsoft.FSharp.Core.Option" -> options com info
+        | "Microsoft.FSharp.Core.MatchFailureException"
         | "System.Exception" -> exceptions com info
+        | "System.Threading.CancellationToken"
+        | "System.Threading.CancellationTokenSource" -> cancels com info
         | "System.Math"
         | "Microsoft.FSharp.Core.Operators"
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
