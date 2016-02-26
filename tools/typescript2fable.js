@@ -215,15 +215,15 @@ function printMethod(prefix) {
 
 function printEnum(prefix) {
     return function (x) {
-        var cases = x.cases.reduce(function(previousValue, currentValue, index, array) {
+        var cases = x.cases.map(function(currentValue) {
             var cv = templates.enumCase
-                        .replace("[NAMME]", currentValue)
-                        .replace("[ID]", index)
-            return previousValue + "\n" + cv;
-        });
+                        .replace("[NAME]", currentValue.name)
+                        .replace("[ID]", currentValue.value)
+            return prefix + cv;
+        }).join("\n");
         var e = prefix + templates.enum
-                    .replace("[NAME]", x.Name)
-        return e + "\n" + cases;
+                    .replace("[NAME]", x.name)
+        return e + "\n" + cases + "\n";
     }
 }
 
@@ -253,7 +253,7 @@ function printMembers(ent, prefix) {
         ent.methods && ent.methods.length > 0
             ? ent.methods.map(printMethod(prefix)).join("\n") : "",
         ent.enums && ent.enums.length > 0
-            ? ent.enums.map(printEnum(prefix)).join("\n") : "",
+            ? ent.enums.map(printEnum(prefix)).join("\n") : ""
     ].filter(x => x.length > 0).join("\n");
 }
 
@@ -466,7 +466,11 @@ function getProperty(node) {
 function getEnum(node) {
     return {
         name : getName(node),
-        cases : node.members.map(function (n){ getName(n)})
+        cases : node.members.map(function (n){ return {
+            name : getName(n),
+            value : n.initializer.text
+
+        }  })
     }
 }
 
@@ -593,7 +597,7 @@ function visitModule(node) {
                 mod.modules.push(visitModule(node));
                 break;
             case ts.SyntaxKind.EnumDeclaration:
-                mod.modules.push(getEnum(node));
+                mod.enums.push(getEnum(node));
                 break;
         }
     });
