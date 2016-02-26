@@ -94,9 +94,9 @@ and run a sample follow these steps:
 Let's say you want to build the node static server. From the project root folder, type:
 
 ```
-cd sample\node\server
+cd sample/node/server
 npm install  // Install dependencies the first time
-cd ..\..\..
+cd ../../..
 node tools/fable2babel.js --projFile sample/node/server/app.fsx
 ```
 
@@ -117,9 +117,9 @@ This time we'll compile the todomvc sample with [Vue](http://vuejs.org).
 Again, from the project root folder type:
 
  ```
-cd sample\browser\todomvc
+cd sample/browser/todomvc
 npm install  // Only first time
-cd ..\..\..
+cd ../../..
 node tools/fable2babel.js --projFile sample/browser/todomvc/app.fsx
 ```
 
