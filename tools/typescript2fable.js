@@ -336,8 +336,11 @@ function printModule(prefix) {
         var template = prefix + templates.module
             .replace("[NAME]", escapeKeyword(mod.name));
 
-        template = append(template, mod.interfaces.map(
-            printInterface(prefix + "    ", mod.name)).join("\n\n"));
+        var interfaces = mod.interfaces && mod.interfaces.length > 0
+                            ? mod.interfaces.map(printInterface(prefix + "    ", mod.name)).join("\n\n")
+                            : "";
+
+        template = append(template, interfaces);
 
         var members = printMembers(mod, prefix + "        ");
         if (members.length > 0) {
@@ -347,7 +350,7 @@ function printModule(prefix) {
                 prefix + "    " + templates.moduleProxyDeclaration.replace("[NAME]", mod.name);
         }
 
-        template += mod.modules.map(printModule(prefix + "    ")).join("\n\n");
+        template += mod.modules && mod.modules.length > 0 ? mod.modules.map(printModule(prefix + "    ")).join("\n\n") : "";
 
         return template;
     }
