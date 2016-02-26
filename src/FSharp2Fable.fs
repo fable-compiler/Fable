@@ -506,7 +506,12 @@ type private DeclInfo(init: Fable.Declaration list) =
     
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    if declInfo.IsIgnoredMethod meth |> not then
+    match meth with
+    | meth when declInfo.IsIgnoredMethod meth -> ()
+    | meth when isInline meth ->
+        let args = args |> Seq.collect id |> Seq.map (fun x -> x.DisplayName)
+        com.AddInlineExpr meth.FullName (List.ofSeq args, body)
+    | _ ->
         let memberKind =
             let name = sanitizeMethodName com meth
             // TODO: Another way to check module values?
@@ -575,8 +580,9 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
             when e.IsNamespace || e.IsFSharpModule ->
             getRootDecls (Some e) subDecls
         | _ as decls -> rootEnt, decls
-    let entities =
-        System.Collections.Concurrent.ConcurrentDictionary<string, Fable.Entity>()
+    let entities, inlineExprs =
+        System.Collections.Concurrent.ConcurrentDictionary<string, Fable.Entity>(),
+        System.Collections.Concurrent.ConcurrentDictionary<string, string list * FSharpExpr>()
     let fileNames =
         fsProj.AssemblyContents.ImplementationFiles
         |> Seq.map (fun x -> x.FileName) |> Set.ofSeq
@@ -595,6 +601,12 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
                     if Set.contains file fileNames then Some file else None
             member fcom.GetEntity tdef =
                 entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
+            member fcom.TryGetInlineExpr fullName =
+                let success, expr = inlineExprs.TryGetValue fullName
+                if success then Some expr else None
+            member fcom.AddInlineExpr fullName inlineExpr =
+                inlineExprs.TryAdd(fullName, inlineExpr)
+                |> ignore
         interface ICompiler with
             member __.Options = com.Options }    
     fsProj.AssemblyContents.ImplementationFiles

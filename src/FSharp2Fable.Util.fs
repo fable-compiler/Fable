@@ -26,6 +26,8 @@ type IFableCompiler =
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
     abstract GetInternalFile: FSharpEntity -> string option
     abstract GetEntity: FSharpEntity -> Fable.Entity
+    abstract TryGetInlineExpr: string -> (string list * FSharpExpr) option
+    abstract AddInlineExpr: string -> (string list * FSharpExpr) -> unit
     
 [<AutoOpen>]
 module Patterns =
@@ -350,6 +352,13 @@ module Identifiers =
 
 // module Fable.FSharp2Fable.Util
 
+let isInline (meth: FSharpMemberOrFunctionOrValue) =
+    match meth.InlineAnnotation with
+    | FSharpInlineAnnotation.NeverInline
+    | FSharpInlineAnnotation.OptionalInline -> false
+    | FSharpInlineAnnotation.PseudoValue
+    | FSharpInlineAnnotation.AlwaysInline -> true
+
 // Is external entity?
 let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
     if ent.FullName.StartsWith("Fable.Core")
@@ -527,6 +536,17 @@ let (|Imported|_|) com fsExpr args (meth: FSharpMemberOrFunctionOrValue) =
             Fable.Apply(expr, args, Fable.ApplyMeth, typ, range) |> Some
         | None -> None
 
+let (|Inlined|_|) (com: IFableCompiler) fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+    if not(isInline meth) then None else
+    match com.TryGetInlineExpr meth.FullName with
+    | Some (vars, fsExpr) ->
+        let args = match callee with Some x -> x::args | None -> args
+        let ctx =
+            (Context.Empty, vars, args)
+            |||> Seq.fold2 (fun ctx var arg -> bindExpr ctx var arg)
+        com.Transform ctx fsExpr |> Some
+    | None -> None
+
 let (|CreateNew|_|) com fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
     match callee, meth.DisplayName with
     | Some callee, "createNew" when meth.EnclosingEntity.IsInterface ->
@@ -548,9 +568,10 @@ let makeCallFrom (com: IFableCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
     match meth with
     (** -Check for replacements, emits... *)
     | Replaced com fsExpr (typArgs, methTypArgs) (callee, args) replaced -> replaced
-    | Emitted com fsExpr (callee, args) emitted -> emitted
+    | Emitted com fsExpr (callee, args) expr -> expr
+    | Imported com fsExpr args expr -> expr
+    | Inlined com fsExpr (callee, args) expr -> expr
     | CreateNew com fsExpr (callee, args) cons -> cons
-    | Imported com fsExpr args imported -> imported
     (** -If the call is not resolved, then: *)
     | _ ->
         let methName = sanitizeMethodName com meth
