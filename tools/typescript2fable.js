@@ -213,6 +213,20 @@ function printMethod(prefix) {
     }
 }
 
+function printEnum(prefix) {
+    return function (x) {
+        var cases = x.cases.reduce(function(previousValue, currentValue, index, array) {
+            var cv = templates.enumCase
+                        .replace("[NAMME]", currentValue)
+                        .replace("[ID]", index)
+            return previousValue + "\n" + cv;
+        });
+        var e = prefix + templates.enum
+                    .replace("[NAME]", x.Name)
+        return e + "\n" + cases;
+    }
+}
+
 function printProperty(prefix) {
     return function (x) {
         return prefix + templates.property
@@ -238,6 +252,8 @@ function printMembers(ent, prefix) {
             ? ent.properties.map(printProperty(prefix)).join("\n") : "",
         ent.methods && ent.methods.length > 0
             ? ent.methods.map(printMethod(prefix)).join("\n") : "",
+        ent.enums && ent.enums.length > 0
+            ? ent.enums.map(printEnum(prefix)).join("\n") : "",
     ].filter(x => x.length > 0).join("\n");
 }
 
@@ -444,6 +460,13 @@ function getProperty(node) {
     };
 }
 
+function getEnum(node) {
+    return {
+        name : getName(node),
+        cases : node.members.map(function (n){ getName(n)})
+    }
+}
+
 // TODO: Check if it's const
 function getVariables(node) {
     var variables = [];
@@ -565,6 +588,9 @@ function visitModule(node) {
                 break;
             case ts.SyntaxKind.ModuleDeclaration:
                 mod.modules.push(visitModule(node));
+                break;
+            case ts.SyntaxKind.EnumDeclaration:
+                mod.modules.push(getEnum(node));
                 break;
         }
     });
