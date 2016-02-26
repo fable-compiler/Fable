@@ -408,9 +408,14 @@ module Util =
         |> MemberDeclaration
 
     let makeRecordCons range props =
+        let sanitizeField x =
+            if Naming.identForbiddenChars.IsMatch x
+            then "['" + (x.Replace("'", "\\'")) + "']"
+            else "." + x
         let args, body =
             props |> List.mapi (fun i _ -> sprintf "$arg%i" i |> makeIdent),
-            props |> Seq.mapi (fun i x -> sprintf "this['%s']=$arg%i" x i) |> String.concat ";"
+            props |> Seq.mapi (fun i x ->
+                sprintf "this%s=$arg%i" (sanitizeField x) i) |> String.concat ";"
         let body = Apply (Value (Emit body), [], ApplyMeth, PrimitiveType Unit, Some range)
         Member(Constructor, range, args, body, [], true, false, false)
         |> MemberDeclaration

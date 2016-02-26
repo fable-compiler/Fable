@@ -527,8 +527,14 @@ let (|Imported|_|) com fsExpr args (meth: FSharpMemberOrFunctionOrValue) =
             Fable.Apply(expr, args, Fable.ApplyMeth, typ, range) |> Some
         | None -> None
 
+let (|CreateNew|_|) com fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+    match callee, meth.DisplayName with
+    | Some callee, "createNew" when meth.EnclosingEntity.IsInterface ->
+        let range, typ = makeRangeFrom fsExpr, makeType com fsExpr.Type
+        Fable.Apply(callee, args, Fable.ApplyCons, typ, range) |> Some
+    | _ -> None
+
 // TODO: Check `inline` annotation?
-// TODO: Check if it's `createNew` placeholder
 let makeCallFrom (com: IFableCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
                  (typArgs, methTypArgs) callee args =
     let args =
@@ -543,6 +549,7 @@ let makeCallFrom (com: IFableCompiler) fsExpr (meth: FSharpMemberOrFunctionOrVal
     (** -Check for replacements, emits... *)
     | Replaced com fsExpr (typArgs, methTypArgs) (callee, args) replaced -> replaced
     | Emitted com fsExpr (callee, args) emitted -> emitted
+    | CreateNew com fsExpr (callee, args) cons -> cons
     | Imported com fsExpr args imported -> imported
     (** -If the call is not resolved, then: *)
     | _ ->
