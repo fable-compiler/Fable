@@ -1,4 +1,4 @@
-module Fable.Plugins.Replacements
+module Fable.Replacements
 open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
@@ -862,7 +862,7 @@ module private AstPass =
         | "Microsoft.FSharp.Collections.Seq" -> collectionsSecondPass com info Seq
         | "Microsoft.FSharp.Collections.Map"
         | "Microsoft.FSharp.Collections.Set" -> mapAndSets com info
-        | "NUnit.Framework.Assert" -> asserts com info
+        // | "NUnit.Framework.Assert" -> asserts com info
         | _ -> None
 
 module private CoreLibPass =

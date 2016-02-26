@@ -2,6 +2,7 @@ module Fable.Main
 
 open System
 open System.IO
+open System.Reflection
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -27,7 +28,21 @@ let readOptions argv =
         projFile = def opts "projFile" null id
         watch = def opts "watch" false bool.Parse
         symbols = def opts "symbols" [||] (fun x -> x.Split(','))
+        plugins = def opts "plugins" [||] (fun x -> x.Split(','))
     }
+    
+// TODO: Error management
+let loadPlugins (opts: CompilerOptions): IPlugin list =
+    opts.plugins
+    |> Seq.collect (fun path ->
+        try
+            (Assembly.LoadFile path).GetTypes()
+            |> Seq.filter typeof<IPlugin>.IsAssignableFrom
+            |> Seq.map Activator.CreateInstance
+        with
+        | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
+    |> Seq.cast<_>
+    |> Seq.toList
 
 let parseFSharpProject (com: ICompiler) (checker: FSharpChecker) (projCode: string option) =
     let checkProjectResults =
@@ -77,8 +92,8 @@ let compile com checker projCode fileMask =
         >> Console.Out.WriteLine
     try
         parseFSharpProject com checker projCode
-        |> FSharp2Fable.transformFiles com fileMask
-        |> Fable2Babel.transformFiles com
+        |> FSharp2Fable.Compiler.transformFiles com fileMask
+        |> Fable2Babel.Compiler.transformFiles com
         |> function
             | files when Seq.isEmpty files ->
                 printError "No code available to compile"
@@ -95,7 +110,10 @@ let main argv =
             | opts when opts.code <> null ->
                 { opts with projFile = Path.ChangeExtension(Path.GetTempFileName(), "fsx") }
             | opts -> opts
-    let com = { new ICompiler with member __.Options = opts }
+    let plugins = loadPlugins opts
+    let com = { new ICompiler with
+                member __.Options = opts
+                member __.Plugins = plugins }
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
     // First full compilation
     compile com checker (Option.ofObj opts.code) None

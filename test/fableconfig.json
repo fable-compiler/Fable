@@ -2,5 +2,6 @@
     "outDir": "../build/test",
     "symbols": [],
     "lib": "../../lib",
-    "env": "node"
+    "env": "node",
+    "plugins": ["../build/plugins/Fable.Plugins.NUnit.dll"]
 }

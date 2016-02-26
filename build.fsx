@@ -1,11 +1,12 @@
 #r "packages/FAKE/tools/FakeLib.dll"
 
-open Fake
 open System.IO
+open Fake
 
 // Directories
-let mainBuildDir  = "build/main/"
-let testBuildDir   = "build/test/"
+let mainBuildDir = "build/main/"
+let testBuildDir = "build/test/"
+let pluginsBuildDir = "build/plugins/"
 
 // Filesets
 let appReferences  = !! "src/**/*.fsproj"
@@ -15,7 +16,7 @@ let version = "0.1"  // or retrieve from CI server
 
 // Targets
 Target "Clean" (fun _ ->
-    !! mainBuildDir ++ testBuildDir
+    !! mainBuildDir ++ testBuildDir ++ pluginsBuildDir
         ++ "src/**/bin/" ++ "test/**/bin/"
         ++ "src/**/obj/" ++ "test/**/obj/"
     |> CleanDirs
@@ -56,6 +57,21 @@ Target "Debug" (fun _ ->
     !! "src/**/*.fsproj"
     |> MSBuildDebug mainBuildDir "Build"
     |> Log "Debug-Output: "
+)
+
+Target "Plugins" (fun _ ->
+    CreateDir "build/plugins"
+    
+    [ "plugins/Fable.Plugins.NUnit.fsx" ]
+    |> Seq.iter (fun fsx ->
+        [fsx]
+        |> FscHelper.compile [
+            FscHelper.Out ("build/" + Path.ChangeExtension(fsx, ".dll"))
+            FscHelper.Target FscHelper.TargetType.Library
+        ]
+        |> function
+            | 0 -> ()
+            | _ -> failwithf "Cannot compile plugin %s" fsx)
 )
 
 // Build order
