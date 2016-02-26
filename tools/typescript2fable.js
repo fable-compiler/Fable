@@ -1,4 +1,7 @@
-﻿/* global process */
+﻿/// <reference path="../typings/node.d.ts"/>
+/// <reference path="../typings/typescript.d.ts"/>
+
+/* global process */
 var ts = require("typescript");
 var fs = require("fs");
 var path = require("path");
@@ -9,7 +12,7 @@ file:
 open System
 open Fabel.Core
 open Fabel.Import.JS
-    
+
 `,
 
 interface:
@@ -51,7 +54,13 @@ method:
 `abstract [NAME]: [PARAMETERS] -> [TYPE]`,
 
 constructor:
-`abstract createNew: [PARAMETERS] -> [TYPE]`
+`abstract createNew: [PARAMETERS] -> [TYPE]`,
+
+enum:
+`type [NAME] = `,
+
+enumCase:
+`    | [NAME] = [ID]`
 };
 
 var reserved = [
@@ -310,7 +319,7 @@ function printModule(prefix) {
     return function(mod) {
         var template = prefix + templates.module
             .replace("[NAME]", escapeKeyword(mod.name));
-            
+
         template = append(template, mod.interfaces.map(
             printInterface(prefix + "    ", mod.name)).join("\n\n"));
 
@@ -321,9 +330,9 @@ function printModule(prefix) {
                 members + "\n\n" +
                 prefix + "    " + templates.moduleProxyDeclaration.replace("[NAME]", mod.name);
         }
-        
+
         template += mod.modules.map(printModule(prefix + "    ")).join("\n\n");
-        
+
         return template;
     }
 }
@@ -393,7 +402,7 @@ function getType(type) {
             if (type.expression && type.expression.kind == ts.SyntaxKind.PropertyAccessExpression) {
                 return type.expression.expression.text + "." + type.expression.name.text;
             }
-            
+
             var name = type.typeName ? type.typeName.text : (type.expression ? type.expression.text : null)
             if (!name) {
                 if (type.typeName && type.typeName.left && type.typeName.right) {
@@ -401,11 +410,11 @@ function getType(type) {
                 }
                 return "obj"
             }
-            
+
             if (name in mappedTypes) {
                 name = mappedTypes[name];
             }
-            
+
             var result = name + printTypeArguments(type.typeArguments);
             // HACK: Consider one-letter identifiers as type arguments
             return result.length > 1 ? result : "'" + result;
@@ -497,7 +506,8 @@ function getModule(name) {
       interfaces: [],
       properties: [],
       methods: [],
-      modules: []
+      modules: [],
+      enums: []
     };
 }
 
