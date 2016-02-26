@@ -137,6 +137,6 @@ http://localhost:8090/sample/browser/todomvc
 > Note: if you don't run the server from the root folder, `fable-core.js`
   won't be found.
   
-Now it's your turn the build your own sample and show it to the world!
+Now it's your turn to build your own sample and show it to the world!
 Check [Compatibility](compatibility.md) and [Interacting with JavaScript](interacting.md)
 to learn what you need to take into account when diving into JS.

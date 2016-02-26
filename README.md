@@ -32,8 +32,8 @@ The project is still in testing phase and hasn't been packaged yet. If you wan t
 make sure you have [F# 4.0 with .NET/Mono](http://fsharp.org) and an updated version of [node.js](https://nodejs.org) installed.
 Download the repo and run:
 ```
-build.cmd Release   // on windows    
-./build.sh Release  // on unix
+build.cmd   // on windows    
+./build.sh  // on unix
 ```
 If everything works, follow [these instructions](docs/compiling.md) to compile a F# project or script file to JS.
 

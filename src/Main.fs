@@ -36,7 +36,7 @@ let loadPlugins (opts: CompilerOptions): IPlugin list =
     opts.plugins
     |> Seq.collect (fun path ->
         try
-            (Assembly.LoadFile path).GetTypes()
+            (Path.GetFullPath path |> Assembly.LoadFile).GetTypes()
             |> Seq.filter typeof<IPlugin>.IsAssignableFrom
             |> Seq.map Activator.CreateInstance
         with

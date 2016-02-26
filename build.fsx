@@ -35,17 +35,21 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    Shell.Exec("node", "tools/fable2babel.js --projFile test/Fable.Tests.fsproj")
+    let compileArgs = "tools/fable2babel.js --projFile test/Fable.Tests.fsproj"
+    let testArgs = "node_modules/mocha/bin/mocha build/test"
+    trace ("node " + compileArgs)
+    Shell.Exec("node", compileArgs)
     |> function
     | 0 ->
-        Shell.Exec("node", "node_modules/mocha/bin/mocha build/test")
+        trace ("node " + testArgs)
+        Shell.Exec("node", testArgs)
         |> function
         | 0 -> ()
         | _ -> failwith "Mocha tests failed"
     | _ -> failwith "Cannot compile tests to JS"
 )
 
-Target "Release" (fun _ ->
+Target "MainRelease" (fun _ ->
     let xmlPath = Path.Combine(Path.GetFullPath mainBuildDir, "Fable.xml")
     !! "src/**/*.fsproj"
     |> MSBuild mainBuildDir "Build"
@@ -53,7 +57,7 @@ Target "Release" (fun _ ->
     |> Log "Release-Output: "
 )
 
-Target "Debug" (fun _ ->
+Target "MainDebug" (fun _ ->
     !! "src/**/*.fsproj"
     |> MSBuildDebug mainBuildDir "Build"
     |> Log "Debug-Output: "
@@ -71,12 +75,16 @@ Target "Plugins" (fun _ ->
         ]
         |> function
             | 0 -> ()
-            | _ -> failwithf "Cannot compile plugin %s" fsx)
+            | _ -> failwithf "Cannot compile %s" fsx)
 )
+
+Target "Release" ignore
 
 // Build order
 "Clean"
+  ==> "MainRelease"
+  ==> "Plugins"
   ==> "Release"
 
 // Start build
-RunTargetOrDefault "Debug"
+RunTargetOrDefault "Release"
