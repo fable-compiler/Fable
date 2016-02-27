@@ -515,6 +515,7 @@ let (|Emitted|_|) com fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue
     | _ -> None
 
 // TODO: Check `inline` annotation?
+// TODO: Check if it's `createNew` placeholder
 let makeCallFrom (com: IFableCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
                  (typArgs, methTypArgs) callee args =
     let args =
@@ -564,7 +565,6 @@ let wrapInLambda com (fsExpr: FSharpExpr) (meth: FSharpMemberOrFunctionOrValue) 
         match makeType com fsExpr.Type with
         | Fable.PrimitiveType (Fable.Function arity) -> arity
         | _ -> failwithf "Expecting a function value but got %A" fsExpr
-    // TODO: More arguments just in case?
     let lambdaArgs =
         [1..arity] |> List.map (fun i -> makeIdent (sprintf "$arg%i" i))
     let lambdaBody =

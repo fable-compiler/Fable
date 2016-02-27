@@ -27,3 +27,11 @@ artifacts:
 test_script:
   - node tools/fable2babel.js --projFile test/Fable.Tests.fsproj
   - npm run test
+  - cd test
+  - node ../tools/fable2babel.js --projFile HelloWorld.fsx
+  - cd ..
+  - if not exist "C:\temp" mkdir C:\temp
+  - copy test C:\temp
+  - node tools\fable2babel.js --projFile "C:\Temp\HelloWorld.fsproj"
+  
+ 

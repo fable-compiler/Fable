@@ -12,7 +12,7 @@ Some of its main features are:
 - Passes location data to Babel to generate source maps
 - Compatible with all Babel plugins and other JS development tools, like Webpack
 - [Support for most of the F# core library and a bit of .NET Base Class Library](docs/compatibility.md)
-- Tiny core library included without runtime
+- Tiny core library included (less than 10KB minified and gzipped) with no runtime
 - Organizes code using ES6 modules 
 - Interacts seamlessly with other JavaScript libraries
 - Bonus: [compile NUnit tests to Mocha](docs/testing.md)
@@ -34,8 +34,6 @@ Download the repo and run:
 ```
 build.cmd Release   // on windows    
 ./build.sh Release  // on unix
-
-npm install         // both platforms, installs node dependencies
 ```
 If everything works, follow [these instructions](docs/compiling.md) to compile a F# project or script file to JS.
 

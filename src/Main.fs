@@ -41,18 +41,8 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker) (projCode: stri
         | ".fsx" ->
             let otherFlags =
                 com.Options.symbols |> Array.map (sprintf "--define:%s")
-            let comOptionsprojFile =
-              try
-                let test = Path.GetDirectoryName( com.Options.projFile )
-                if test <> "" then
-                  com.Options.projFile
-                else
-                  "." + Path.DirectorySeparatorChar.ToString() + com.Options.projFile
-              with
-              | _ -> "." + Path.DirectorySeparatorChar.ToString() + com.Options.projFile
-
             checker.GetProjectOptionsFromScript(
-                comOptionsprojFile, projCode, DateTime.UtcNow, otherFlags=otherFlags)
+                com.Options.projFile, projCode, DateTime.UtcNow, otherFlags=otherFlags)
             |> Async.RunSynchronously
         | _ ->
             let properties =
