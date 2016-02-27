@@ -125,7 +125,7 @@ to make random numbers and we always get floats between 0 and 1. If we want inte
 in a specific range (excluding the upper limit), the same page gives us a way to do it:
 
 ```
-Math.random() * (max - min) + min;
+Math.floor(Math.random() * (max - min)) + min;
 ```
 
 To be compatible with .NET code, even if we don't actually need a constructor,
