@@ -4,6 +4,7 @@ type CompilerOptions = {
         code: string
         projFile: string
         symbols: string[]
+        plugins: string[]
         outDir: string
         lib: string
         watch: bool
@@ -13,9 +14,13 @@ type CompilerError(msg) =
     member x.``type`` = "Error"
     member x.message: string = msg
 
+type IPlugin =
+    interface end
+
 type ICompiler =
     abstract Options: CompilerOptions
-
+    abstract Plugins: IPlugin list
+    
 module Naming =
     open System
     open System.IO

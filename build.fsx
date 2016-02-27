@@ -1,11 +1,12 @@
 #r "packages/FAKE/tools/FakeLib.dll"
 
-open Fake
 open System.IO
+open Fake
 
 // Directories
-let mainBuildDir  = "build/main/"
-let testBuildDir   = "build/test/"
+let mainBuildDir = "build/main/"
+let testBuildDir = "build/test/"
+let pluginsBuildDir = "build/plugins/"
 
 // Filesets
 let appReferences  = !! "src/**/*.fsproj"
@@ -15,7 +16,7 @@ let version = "0.1"  // or retrieve from CI server
 
 // Targets
 Target "Clean" (fun _ ->
-    !! mainBuildDir ++ testBuildDir
+    !! mainBuildDir ++ testBuildDir ++ pluginsBuildDir
         ++ "src/**/bin/" ++ "test/**/bin/"
         ++ "src/**/obj/" ++ "test/**/obj/"
     |> CleanDirs
@@ -34,17 +35,21 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    Shell.Exec("node", "tools/fable2babel.js --projFile test/Fable.Tests.fsproj")
+    let compileArgs = "tools/fable2babel.js --projFile test/Fable.Tests.fsproj"
+    let testArgs = "node_modules/mocha/bin/mocha build/test"
+    trace ("node " + compileArgs)
+    Shell.Exec("node", compileArgs)
     |> function
     | 0 ->
-        Shell.Exec("node", "node_modules/mocha/bin/mocha build/test")
+        trace ("node " + testArgs)
+        Shell.Exec("node", testArgs)
         |> function
         | 0 -> ()
         | _ -> failwith "Mocha tests failed"
     | _ -> failwith "Cannot compile tests to JS"
 )
 
-Target "Release" (fun _ ->
+Target "MainRelease" (fun _ ->
     let xmlPath = Path.Combine(Path.GetFullPath mainBuildDir, "Fable.xml")
     !! "src/**/*.fsproj"
     |> MSBuild mainBuildDir "Build"
@@ -52,15 +57,34 @@ Target "Release" (fun _ ->
     |> Log "Release-Output: "
 )
 
-Target "Debug" (fun _ ->
+Target "MainDebug" (fun _ ->
     !! "src/**/*.fsproj"
     |> MSBuildDebug mainBuildDir "Build"
     |> Log "Debug-Output: "
 )
 
+Target "Plugins" (fun _ ->
+    CreateDir "build/plugins"
+    
+    [ "plugins/Fable.Plugins.NUnit.fsx" ]
+    |> Seq.iter (fun fsx ->
+        [fsx]
+        |> FscHelper.compile [
+            FscHelper.Out ("build/" + Path.ChangeExtension(fsx, ".dll"))
+            FscHelper.Target FscHelper.TargetType.Library
+        ]
+        |> function
+            | 0 -> ()
+            | _ -> failwithf "Cannot compile %s" fsx)
+)
+
+Target "Release" ignore
+
 // Build order
 "Clean"
+  ==> "MainRelease"
+  ==> "Plugins"
   ==> "Release"
 
 // Start build
-RunTargetOrDefault "Debug"
+RunTargetOrDefault "Release"

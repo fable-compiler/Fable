@@ -1,9 +1,9 @@
-module Fable.Plugins.Replacements
+module Fable.Replacements
 open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
 
-module private Util =
+module Util =
     let [<Literal>] system = "System."
     let [<Literal>] fsharp = "Microsoft.FSharp."
     let [<Literal>] genericCollections = "System.Collections.Generic."
@@ -20,23 +20,6 @@ module private Util =
     let (|KnownInterfaces|_|) fullName =
         if Naming.knownInterfaces.Contains fullName then Some fullName else None
 
-    // The core lib expects non-curried lambdas
-    let deleg = List.mapi (fun i x ->
-        if i=0 then (makeDelegate x) else x)
-
-    let instanceArgs (callee: Fable.Expr option) (args: Fable.Expr list) =
-        match callee with
-        | Some callee -> (callee, args)
-        | None -> (args.Head, args.Tail)
-
-    let staticArgs (callee: Fable.Expr option) (args: Fable.Expr list) =
-        match callee with
-        | Some callee -> callee::args
-        | None -> args
-
-module private AstPass =
-    open Util
-    
     let (|Null|_|) = function
         | Fable.Value Fable.Null -> Some null
         | _ -> None
@@ -59,6 +42,63 @@ module private AstPass =
 
     let (|ThreeArgs|_|) (callee: Fable.Expr option, args: Fable.Expr list) =
         match callee, args with None, arg1::arg2::arg3::_ -> Some (arg1, arg2, arg3) | _ -> None
+
+    // The core lib expects non-curried lambdas
+    let deleg = List.mapi (fun i x ->
+        if i=0 then (makeDelegate x) else x)
+
+    let instanceArgs (callee: Fable.Expr option) (args: Fable.Expr list) =
+        match callee with
+        | Some callee -> (callee, args)
+        | None -> (args.Head, args.Tail)
+
+    let staticArgs (callee: Fable.Expr option) (args: Fable.Expr list) =
+        match callee with
+        | Some callee -> callee::args
+        | None -> args
+        
+    let emit (i: Fable.ApplyInfo) emit args =
+        Fable.Apply(Fable.Emit(emit) |> Fable.Value, args, Fable.ApplyMeth, i.returnType, i.range)
+
+    let emitNoInfo emit args =
+        Fable.Apply(Fable.Emit(emit) |> Fable.Value, args, Fable.ApplyMeth, Fable.UnknownType, None)
+        
+    let wrap typ expr =
+        Fable.Wrapped (expr, typ)
+
+    let toString com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
+        match arg.Type with
+        | Fable.PrimitiveType (Fable.String) -> arg
+        | _ -> InstanceCall (arg, "toString", [])
+               |> makeCall com i.range i.returnType
+
+    let toInt, toFloat =
+        let toNumber com (i: Fable.ApplyInfo) typ (arg: Fable.Expr) =
+            match arg.Type with
+            | Fable.PrimitiveType Fable.String ->
+                GlobalCall ("Number", Some ("parse"+typ), false, [arg])
+                |> makeCall com i.range i.returnType
+            | _ ->
+                if typ = "Int"
+                then GlobalCall ("Math", Some "floor", false, [arg])
+                     |> makeCall com i.range i.returnType
+                else arg
+        (fun com i arg -> toNumber com i "Int" arg),
+        (fun com i arg -> toNumber com i "Float" arg)
+
+    let toList com (i: Fable.ApplyInfo) expr =
+        CoreLibCall ("Seq", Some "toList", false, [expr])
+        |> makeCall com i.range i.returnType
+
+    let toArray com (i: Fable.ApplyInfo) expr =
+        let dynamicArray =
+            GlobalCall ("Array", Some "from", false, [expr])
+            |> makeCall com i.range (Fable.PrimitiveType(Fable.Array Fable.DynamicArray))
+        match i.methodTypeArgs with
+        | [Fable.PrimitiveType(Fable.Number numberKind)] ->
+            let arrayKind = Fable.TypedArray numberKind
+            Fable.ArrayConst(Fable.ArrayConversion dynamicArray, arrayKind) |> Fable.Value
+        | _ -> dynamicArray
 
     let applyOp com (i: Fable.ApplyInfo) (args: Fable.Expr list) meth =
         match args.Head.Type with
@@ -135,35 +175,9 @@ module private AstPass =
             // TODO: Record and Union structural comparison?
             | _ -> None
             
-    let emit (i: Fable.ApplyInfo) emit args =
-        Fable.Apply(Fable.Emit(emit) |> Fable.Value, args, Fable.ApplyMeth, i.returnType, i.range)
-
-    let emitNoInfo emit args =
-        Fable.Apply(Fable.Emit(emit) |> Fable.Value, args, Fable.ApplyMeth, Fable.UnknownType, None)
-        
-    let wrap typ expr =
-        Fable.Wrapped (expr, typ)
-
-    let toString com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
-        match arg.Type with
-        | Fable.PrimitiveType (Fable.String) -> arg
-        | _ -> InstanceCall (arg, "toString", [])
-               |> makeCall com i.range i.returnType
-
-    let toInt, toFloat =
-        let toNumber com (i: Fable.ApplyInfo) typ (arg: Fable.Expr) =
-            match arg.Type with
-            | Fable.PrimitiveType Fable.String ->
-                GlobalCall ("Number", Some ("parse"+typ), false, [arg])
-                |> makeCall com i.range i.returnType
-            | _ ->
-                if typ = "Int"
-                then GlobalCall ("Math", Some "floor", false, [arg])
-                     |> makeCall com i.range i.returnType
-                else arg
-        (fun com i arg -> toNumber com i "Int" arg),
-        (fun com i arg -> toNumber com i "Float" arg)
-        
+module private AstPass =
+    open Util
+    
     let fableCore com (i: Fable.ApplyInfo) =
         let destruct = function
             | Fable.Value (Fable.ArrayConst (Fable.ArrayValues exprs, Fable.Tuple)) -> exprs
@@ -458,20 +472,6 @@ module private AstPass =
             |> Some
         | _ -> None
         
-    let toList com (i: Fable.ApplyInfo) expr =
-        CoreLibCall ("Seq", Some "toList", false, [expr])
-        |> makeCall com i.range i.returnType
-
-    let toArray com (i: Fable.ApplyInfo) expr =
-        let dynamicArray =
-            GlobalCall ("Array", Some "from", false, [expr])
-            |> makeCall com i.range (Fable.PrimitiveType(Fable.Array Fable.DynamicArray))
-        match i.methodTypeArgs with
-        | [Fable.PrimitiveType(Fable.Number numberKind)] ->
-            let arrayKind = Fable.TypedArray numberKind
-            Fable.ArrayConst(Fable.ArrayConversion dynamicArray, arrayKind) |> Fable.Value
-        | _ -> dynamicArray
-
     let rawCollections com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "count" ->
@@ -862,7 +862,7 @@ module private AstPass =
         | "Microsoft.FSharp.Collections.Seq" -> collectionsSecondPass com info Seq
         | "Microsoft.FSharp.Collections.Map"
         | "Microsoft.FSharp.Collections.Set" -> mapAndSets com info
-        | "NUnit.Framework.Assert" -> asserts com info
+        // | "NUnit.Framework.Assert" -> asserts com info
         | _ -> None
 
 module private CoreLibPass =

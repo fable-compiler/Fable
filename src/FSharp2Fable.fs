@@ -1,12 +1,17 @@
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Fable.FSharp2Fable
+module Fable.FSharp2Fable.Compiler
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
+
+open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
-open Fable.FSharp2Fable.Util
+
+open Patterns
+open Types
+open Identifiers
+open Util
 
 // Special values like seq, async, String.Empty...
 let private (|SpecialValue|_|) com = function
@@ -586,6 +591,10 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
     let fileNames =
         fsProj.AssemblyContents.ImplementationFiles
         |> Seq.map (fun x -> x.FileName) |> Set.ofSeq
+    let replacePlugins =
+        com.Plugins |> List.choose (function
+            | :? IReplacePlugin as plugin -> Some plugin
+            | _ -> None)
     let com =
         { new IFableCompiler with
             member fcom.Transform ctx fsExpr =
@@ -607,8 +616,11 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
             member fcom.AddInlineExpr fullName inlineExpr =
                 inlineExprs.TryAdd(fullName, inlineExpr)
                 |> ignore
+            member fcom.ReplacePlugins =
+                replacePlugins
         interface ICompiler with
-            member __.Options = com.Options }    
+            member __.Options = com.Options
+            member __.Plugins = com.Plugins }    
     fsProj.AssemblyContents.ImplementationFiles
     |> List.where (fun file ->
         let fileName = System.IO.Path.GetFileName file.FileName
