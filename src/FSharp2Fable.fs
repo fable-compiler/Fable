@@ -1,12 +1,17 @@
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Fable.FSharp2Fable
+module Fable.FSharp2Fable.Compiler
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
+
+open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
-open Fable.FSharp2Fable.Util
+
+open Patterns
+open Types
+open Identifiers
+open Util
 
 // Special values like seq, async, String.Empty...
 let private (|SpecialValue|_|) com = function
@@ -289,10 +294,13 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         makeCallFrom com fsExpr meth (typArgs, []) None (List.map (com.Transform ctx) args)
 
-    | BasicPatterns.NewRecord(FableType com recordType, argExprs) ->
+    | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
+        let recordType = makeType com fsType
         let argExprs = argExprs |> List.map (transformExpr com ctx)
-        Fable.Apply (makeTypeRef com recordType, argExprs, Fable.ApplyCons,
-            makeType com fsExpr.Type, makeRangeFrom fsExpr)
+        if isExternalEntity com fsType.TypeDefinition
+        then replace com fsExpr (recordType.FullName) ".ctor" ([],[],[]) (None,argExprs)
+        else Fable.Apply (makeTypeRef com recordType, argExprs, Fable.ApplyCons,
+                        makeType com fsExpr.Type, makeRangeFrom fsExpr)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
         let unionType = makeType com fsType
@@ -503,7 +511,12 @@ type private DeclInfo(init: Fable.Declaration list) =
     
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    if declInfo.IsIgnoredMethod meth |> not then
+    match meth with
+    | meth when declInfo.IsIgnoredMethod meth -> ()
+    | meth when isInline meth ->
+        let args = args |> Seq.collect id |> Seq.map (fun x -> x.DisplayName)
+        com.AddInlineExpr meth.FullName (List.ofSeq args, body)
+    | _ ->
         let memberKind =
             let name = sanitizeMethodName com meth
             // TODO: Another way to check module values?
@@ -572,11 +585,16 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
             when e.IsNamespace || e.IsFSharpModule ->
             getRootDecls (Some e) subDecls
         | _ as decls -> rootEnt, decls
-    let entities =
-        System.Collections.Concurrent.ConcurrentDictionary<string, Fable.Entity>()
+    let entities, inlineExprs =
+        System.Collections.Concurrent.ConcurrentDictionary<string, Fable.Entity>(),
+        System.Collections.Concurrent.ConcurrentDictionary<string, string list * FSharpExpr>()
     let fileNames =
         fsProj.AssemblyContents.ImplementationFiles
         |> Seq.map (fun x -> x.FileName) |> Set.ofSeq
+    let replacePlugins =
+        com.Plugins |> List.choose (function
+            | :? IReplacePlugin as plugin -> Some plugin
+            | _ -> None)
     let com =
         { new IFableCompiler with
             member fcom.Transform ctx fsExpr =
@@ -592,8 +610,17 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
                     if Set.contains file fileNames then Some file else None
             member fcom.GetEntity tdef =
                 entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
+            member fcom.TryGetInlineExpr fullName =
+                let success, expr = inlineExprs.TryGetValue fullName
+                if success then Some expr else None
+            member fcom.AddInlineExpr fullName inlineExpr =
+                inlineExprs.TryAdd(fullName, inlineExpr)
+                |> ignore
+            member fcom.ReplacePlugins =
+                replacePlugins
         interface ICompiler with
-            member __.Options = com.Options }    
+            member __.Options = com.Options
+            member __.Plugins = com.Plugins }    
     fsProj.AssemblyContents.ImplementationFiles
     |> List.where (fun file ->
         let fileName = System.IO.Path.GetFileName file.FileName

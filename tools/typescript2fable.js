@@ -7,12 +7,8 @@ var templates = {
 file:
 `namespace Fable.Import
 open System
-
-type private ImportAttribute(path) =
-    inherit Attribute()
-
-type private GlobalAttribute() =
-    inherit Attribute()
+open Fabel.Core
+open Fabel.Import.JS
     
 `,
 
@@ -164,11 +160,12 @@ var keywords = [
 var mappedTypes = {
   Date: "DateTime",
   Object: "obj",
-  Function: "(obj->obj)"
+  Function: "(obj->obj)",
+  Array: "ResizeArray"
 };
 
 function escapeKeyword(x) {
-    return keywords.indexOf(x) == -1 && reserved.indexOf(x) == -1
+    return keywords.indexOf(x) == -1 && reserved.indexOf(x) == -1 && x.indexOf('$') == -1
         ? x
         : "``" + x + "``";
 }
@@ -273,7 +270,7 @@ function printClassDecorator(ifc, modName) {
     return ifc.kind == "class"
         ? templates.classDecorator
             .replace("[MOD_NAME]", modName)
-            .replace("[CLASS_NAME]", ifc.name)
+            .replace("[CLASS_NAME]", ifc.name.replace(/<.*>/, ""))
         : "";
 }
 
@@ -304,13 +301,18 @@ function printInterface(prefix, modName) {
     }
 }
 
+function append(template, txt) {
+    return txt.length > 0 ? template + txt + "\n\n" : template;
+}
+
 // TODO: Import path for nested modules
 function printModule(prefix) {
     return function(mod) {
         var template = prefix + templates.module
             .replace("[NAME]", escapeKeyword(mod.name));
             
-        template += mod.interfaces.map(printInterface(prefix + "    ", mod.name)).join("\n\n") + "\n\n";
+        template = append(template, mod.interfaces.map(
+            printInterface(prefix + "    ", mod.name)).join("\n\n"));
 
         var members = printMembers(mod, prefix + "        ");
         if (members.length > 0) {
@@ -343,10 +345,10 @@ function printGlobalProperties(properties) {
 }
 
 function printFile(file) {
-    return templates.file +
-        file.interfaces.map(printInterface("")).join("\n\n") + "\n\n" +
-        printGlobalProperties(file.properties) + "\n\n" +
-        file.modules.map(printModule("")).join("\n\n");
+    var template = templates.file;
+    template = append(template, file.interfaces.map(printInterface("")).join("\n\n"));
+    template = append(template, printGlobalProperties(file.properties));
+    return template + file.modules.map(printModule("")).join("\n\n");
 }
 
 function hasFlag(flags, flag) {
@@ -385,10 +387,13 @@ function getType(type) {
             return "Func<" + cbParams + getType(type.type) + ">";
         case ts.SyntaxKind.UnionType:
             return "U" + type.types.length + printTypeArguments(type.types);
+        case ts.SyntaxKind.ParenthesizedType:
+            return getType(type.type);
         default:
             if (type.expression && type.expression.kind == ts.SyntaxKind.PropertyAccessExpression) {
                 return type.expression.expression.text + "." + type.expression.name.text;
             }
+            
             var name = type.typeName ? type.typeName.text : (type.expression ? type.expression.text : null)
             if (!name) {
                 if (type.typeName && type.typeName.left && type.typeName.right) {
@@ -396,15 +401,12 @@ function getType(type) {
                 }
                 return "obj"
             }
-            if (name in mappedTypes) {
-                return mappedTypes[name];
-            }
-            var arrMatch = /Array<(.*?)>/.exec(name);
-            if (arrMatch != null) {
-                return  "ResizeArray<"+arrMatch[1]+">";
-            }
-            var result = name + printTypeArguments(type.typeArguments);
             
+            if (name in mappedTypes) {
+                name = mappedTypes[name];
+            }
+            
+            var result = name + printTypeArguments(type.typeArguments);
             // HACK: Consider one-letter identifiers as type arguments
             return result.length > 1 ? result : "'" + result;
     }
@@ -571,7 +573,9 @@ function visitFile(node) {
                 // TODO: For now, ignore global functions
                 break;
             case ts.SyntaxKind.ModuleDeclaration:
-                modules.push(visitModule(node));
+                var mod = visitModule(node);
+                if (mod.interfaces.length || mod.methods.length || mod.modules.length || mod.properties.length)
+                    modules.push(mod);
                 break;
             case ts.SyntaxKind.InterfaceDeclaration:
 				interfaces.push(visitInterface(node));

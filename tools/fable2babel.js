@@ -127,6 +127,7 @@ try {
         lib: ".",
         outDir: ".",
         symbols: [],
+        plugins: [],
         watch: false
     }
 
@@ -146,12 +147,18 @@ try {
         fableCwd = path.dirname(path.isAbsolute(opts.projFile) ? opts.projFile : path.join(fableCwd, opts.projFile));
         opts.projFile = "./" + path.basename(opts.projFile);
         
-        var cfgFile = path.join(fableCwd, "fableconfig.json");
-        if (fs.existsSync(cfgFile)) {
-            var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
-            for (var key in cfg) {
-                opts[key] = cfg[key];
+        try {
+            var cfgFile = path.join(fableCwd, "fableconfig.json");
+            if (fs.existsSync(cfgFile)) {
+                var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
+                for (var key in cfg) {
+                    opts[key] = cfg[key];
+                }
             }
+        }
+        catch (err) {
+            console.log("ERROR: Cannot parse fableconfig file");
+            process.exit(1);
         }
     }
     else if (typeof opts.code !== "string") {

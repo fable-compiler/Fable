@@ -1,18 +1,8 @@
 namespace Fable.Import.Node
 open System
+open Fabel.Core
+open Fabel.Import.JS
 
-type private ImportAttribute(path) =
-    inherit Attribute()
-
-type private GlobalAttribute() =
-    inherit Attribute()
-    
-type EraseAttribute() =
-    inherit System.Attribute()
-    
-type [<Erase>] U2<'a, 'b> =
-    | Case1 of 'a | Case2 of 'b  
-    
 type Error =
     abstract stack: string option with get, set
 

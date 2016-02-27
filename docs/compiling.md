@@ -94,8 +94,9 @@ and run a sample follow these steps:
 Let's say you want to build the node static server. From the project root folder, type:
 
 ```
-npm install --prefix sample/node/server  // Install dependencies the first time
-
+cd sample/node/server
+npm install  // Install dependencies the first time
+cd ../../..
 node tools/fable2babel.js --projFile sample/node/server/app.fsx
 ```
 
@@ -116,8 +117,9 @@ This time we'll compile the todomvc sample with [Vue](http://vuejs.org).
 Again, from the project root folder type:
 
  ```
-npm install --prefix sample/browser/todomvc  // Only first time
-
+cd sample/browser/todomvc
+npm install  // Only first time
+cd ../../..
 node tools/fable2babel.js --projFile sample/browser/todomvc/app.fsx
 ```
 
@@ -137,6 +139,6 @@ http://localhost:8090/sample/browser/todomvc
 > Note: if you don't run the server from the root folder, `fable-core.js`
   won't be found.
   
-Now it's your turn the build your own sample and show it to the world!
+Now it's your turn to build your own sample and show it to the world!
 Check [Compatibility](compatibility.md) and [Interacting with JavaScript](interacting.md)
 to learn what you need to take into account when diving into JS.

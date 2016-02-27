@@ -14,7 +14,7 @@ Some of its main features are:
 - [Support for most of the F# core library and a bit of .NET Base Class Library](docs/compatibility.md)
 - Tiny core library included (less than 10KB minified and gzipped) with no runtime
 - Organizes code using ES6 modules 
-- Interacts seamlessly with other JavaScript libraries
+- [Interacts seamlessly with other JavaScript libraries](docs/interacting.md)
 - Bonus: [compile NUnit tests to Mocha](docs/testing.md)
 
 ## Philosophy
@@ -32,23 +32,19 @@ The project is still in testing phase and hasn't been packaged yet. If you wan t
 make sure you have [F# 4.0 with .NET/Mono](http://fsharp.org) and an updated version of [node.js](https://nodejs.org) installed.
 Download the repo and run:
 ```
-build.cmd Release   // on windows    
-./build.sh Release  // on unix
+build.cmd   // on windows    
+./build.sh  // on unix
 ```
 If everything works, follow [these instructions](docs/compiling.md) to compile a F# project or script file to JS.
 
 ## Contributing
 
 At the moment, the best way to contribute is to battle-test the project, report issues,
-create samples and help promoting it. Please focus on what is possible right now rather than
-asking for many new features :)
+create samples and help promoting it. A [plugin system](docs/plugins.md) is also available
+to allow you extend Fable according to you needs.
 
 Issues with the label `discussion` will be also added to ask the opinion of the community
 on different topics like the logo, roadmap, etc.
-
-Soon documents explaining the (quite simple) architecture of the compiler will be included,
-making it easier to participate in the development of the compiler itself. A plugin system
-is also planned to allow editing the intermediate AST in order to, for example, enable type providers. 
 
 ## Caveats
 
