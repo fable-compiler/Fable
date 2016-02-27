@@ -84,7 +84,7 @@ module Util =
         match expr with
         | :? Babel.EmptyExpression ->
             match property with
-            | :? Babel.StringLiteral as lit when not lit.macro ->
+            | :? Babel.StringLiteral as lit ->
                 identFromName lit.value :> Babel.Expression
             | _ -> property
         | _ -> Babel.MemberExpression (expr, property, computed) :> Babel.Expression
@@ -202,8 +202,7 @@ module Util =
         Babel.VariableDeclaration (var, value, ?loc=range)
             
     let macroExpression range (txt: string) args =
-        Babel.StringLiteral(txt, macro=true, args=args, ?loc=range)
-        :> Babel.Expression
+        Babel.MacroExpression(txt, args, ?loc=range) :> Babel.Expression
         
     let getMemberArgs (com: IBabelCompiler) ctx args body hasRestParams =
         let args, body = com.TransformFunction ctx args body

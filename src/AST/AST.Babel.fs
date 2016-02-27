@@ -32,6 +32,13 @@ type Pattern = interface end
 type EmptyExpression() =
     inherit Expression("EmptyExpression")
 
+/// Not in Babel specs, disguised as StringLiteral    
+type MacroExpression(value, args, ?loc) =
+    inherit Literal("StringLiteral", ?loc = loc)
+    member x.value: string = value
+    member x.args: Expression list = args
+    member x.macro = true
+
 (** ##Template Literals *)
 type TemplateElement(value: string, tail, ?loc) =
     inherit Node("TemplateElement", ?loc = loc)
@@ -69,12 +76,9 @@ type RegExpLiteral(pattern, flags, ?loc) =
 type NullLiteral(?loc) =
     inherit Literal("NullLiteral", ?loc = loc)
 
-type StringLiteral(value, ?macro, ?args, ?loc) =
+type StringLiteral(value, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)
     member x.value: string = value
-    /// Not in babel-specs, used to simulate a macro template
-    member x.macro = defaultArg macro false
-    member x.args: Expression list = defaultArg args []
 
 type BooleanLiteral(value, ?loc) =
     inherit Literal("BooleanLiteral", ?loc = loc)
