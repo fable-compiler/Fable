@@ -318,7 +318,7 @@ module private AstPass =
             Fable.Throw (args.Head, r) |> Some
         // Type ref
         | "typeof" ->
-            makeTypeRef com info.methodTypeArgs.Head |> Some
+            makeTypeRef com info.range info.methodTypeArgs.Head |> Some
         | _ -> None
 
     let strings com (i: Fable.ApplyInfo) =
@@ -430,7 +430,7 @@ module private AstPass =
             let typRef, args =
                 match args with
                 | [] | [Fable.Value Fable.Null] ->
-                    makeTypeRef com i.methodTypeArgs.Head, []
+                    makeTypeRef com i.range i.methodTypeArgs.Head, []
                 | typRef::args -> typRef, args
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None

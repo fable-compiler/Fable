@@ -607,7 +607,7 @@ module Util =
                 |> function
                 | Some callee, args -> callee, args
                 | None, args ->
-                    makeTypeFromDef com meth.EnclosingEntity |> makeTypeRef com, args
+                    makeTypeFromDef com meth.EnclosingEntity |> makeTypeRef com range, args
         (**     *Check if this a getter or setter  *)
             if meth.IsPropertyGetterMethod then
                 makeGetFrom com ctx fsExpr callee methExpr

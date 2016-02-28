@@ -341,15 +341,20 @@ module Util =
             | _ -> None)
 
     // TODO: Pass range information to display it on the exception here?
-    let makeTypeRef com typ =
+    let makeTypeRef com range typ =
         match typ with
+        | PrimitiveType _ ->
+            failwithf "Cannot reference a primitive type: %A" range
+        | UnknownType ->
+            failwithf "%s %s: %A"
+                "Cannot reference unknown type."
+                "If this a generic argument, try to make function inline"
+                range
         | DeclaredType ent ->
             match tryImported com ent.Name ent.Decorators with
             | Some expr -> expr
             | None -> Value (TypeRef ent)
-        | _ ->
-            failwithf "Unexpected reference to type: %A" typ
-        
+
     let makeCall com range typ kind =
         let getCallee meth args owner =
             match meth with
@@ -401,7 +406,7 @@ module Util =
                 CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
                 |> makeCall com range boolType 
             | _ ->
-                makeBinOp range boolType [expr; makeTypeRef com typ] BinaryInstanceOf 
+                makeBinOp range boolType [expr; makeTypeRef com range typ] BinaryInstanceOf 
         | _ -> failwithf "Unsupported type test in %A: %A" range typ
 
     let makeUnionCons range =
