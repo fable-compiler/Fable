@@ -3,6 +3,28 @@ open System
 open Fabel.Core
 open Fabel.Import.JS
 
+type Thenable<'R> =
+    abstract ``then``: ?onfulfilled: Func<'R, U2<TResult, Thenable<TResult>>> * ?onrejected: Func<obj, U2<TResult, Thenable<TResult>>> -> Thenable<TResult>
+    abstract ``then``: ?onfulfilled: Func<'R, U2<TResult, Thenable<TResult>>> * ?onrejected: Func<obj, unit> -> Thenable<TResult>
+
+and Promise<'T> =
+    inherit Thenable<'T>
+    abstract ``then``: ?onfulfilled: Func<'T, U2<TResult, Thenable<TResult>>> * ?onrejected: Func<obj, U2<TResult, Thenable<TResult>>> -> Promise<TResult>
+    abstract ``then``: ?onfulfilled: Func<'T, U2<TResult, Thenable<TResult>>> * ?onrejected: Func<obj, unit> -> Promise<TResult>
+    abstract catch: ?onrejected: Func<obj, U2<'T, Thenable<'T>>> -> Promise<'T>
+
+and PromiseConstructor =
+    abstract createNew: executor: Func<Func<U2<'T, Thenable<'T>>, unit>, Func<obj, unit>, unit> -> Promise<'T>
+    abstract all: values: ResizeArray<U2<'T, Thenable<'T>>> -> Promise<ResizeArray<'T>>
+    abstract race: values: ResizeArray<U2<'T, Thenable<'T>>> -> Promise<'T>
+    abstract reject: reason: obj -> Promise<unit>
+    abstract reject: reason: obj -> Promise<'T>
+    abstract resolve: value: U2<'T, Thenable<'T>> -> Promise<'T>
+    abstract resolve: unit -> Promise<unit>
+
+module Globals =
+    let [<Global>] Promise: PromiseConstructor = failwith "JS only"
+
 module vscode =
     type Command =
         abstract title: string with get, set
@@ -99,7 +121,7 @@ module vscode =
     and DecorationRenderOptions =
         inherit ThemableDecorationRenderOptions
         abstract isWholeLine: bool option with get, set
-        abstract overviewRulerLane: obj (* TODO: OverviewRulerLane*) option with get, set
+        abstract overviewRulerLane: OverviewRulerLane option with get, set
         abstract light: ThemableDecorationRenderOptions option with get, set
         abstract dark: ThemableDecorationRenderOptions option with get, set
 
@@ -114,8 +136,8 @@ module vscode =
         abstract options: TextEditorOptions with get, set
         abstract edit: callback: Func<TextEditorEdit, unit> -> Thenable<bool>
         abstract setDecorations: decorationType: TextEditorDecorationType * rangesOrOptions: U2<ResizeArray<Range>, ResizeArray<DecorationOptions>> -> unit
-        abstract revealRange: range: Range * ?revealType: obj (* TODO: TextEditorRevealType *) -> unit
-        abstract show: ?column: obj (* TODO: ViewColumn *) -> unit
+        abstract revealRange: range: Range * ?revealType: TextEditorRevealType -> unit
+        abstract show: ?column: ViewColumn -> unit
         abstract hide: unit -> unit
 
     and TextEditorEdit =
@@ -183,7 +205,7 @@ module vscode =
         abstract pattern: string option with get, set
 
     and DocumentSelector =
-        U3<string, DocumentFilter, ResizeArray<obj>>
+        U3<string, DocumentFilter, ResizeArray<U2<string, DocumentFilter>>>
 
     and CodeActionContext =
         abstract diagnostics: ResizeArray<Diagnostic> with get, set
@@ -410,6 +432,82 @@ module vscode =
 
     type Globals =
         abstract version: string with get, set
+        type TextEditorRevealType = 
+            | Default = 0
+            | InCenter = 1
+            | InCenterIfOutsideViewport = 2
+
+        type OverviewRulerLane = 
+            | Left = 1
+            | Center = 2
+            | Right = 4
+            | Full = 7
+
+        type DocumentHighlightKind = 
+            | Text = 0
+            | Read = 1
+            | Write = 2
+
+        type SymbolKind = 
+            | File = 0
+            | Module = 1
+            | Namespace = 2
+            | Package = 3
+            | Class = 4
+            | Method = 5
+            | Property = 6
+            | Field = 7
+            | Constructor = 8
+            | Enum = 9
+            | Interface = 10
+            | Function = 11
+            | Variable = 12
+            | Constant = 13
+            | String = 14
+            | Number = 15
+            | Boolean = 16
+            | Array = 17
+
+        type CompletionItemKind = 
+            | Text = 0
+            | Method = 1
+            | Function = 2
+            | Constructor = 3
+            | Field = 4
+            | Variable = 5
+            | Class = 6
+            | Interface = 7
+            | Module = 8
+            | Property = 9
+            | Unit = 10
+            | Value = 11
+            | Enum = 12
+            | Keyword = 13
+            | Snippet = 14
+            | Color = 15
+            | File = 16
+            | Reference = 17
+
+        type IndentAction = 
+            | None = 0
+            | Indent = 1
+            | IndentOutdent = 2
+            | Outdent = 3
+
+        type DiagnosticSeverity = 
+            | Error = 0
+            | Warning = 1
+            | Information = 2
+            | Hint = 3
+
+        type ViewColumn = 
+            | One = 1
+            | Two = 2
+            | Three = 3
+
+        type StatusBarAlignment = 
+            | Left = 0
+            | Right = 1
 
     let [<Import("vscode")>] Globals: Globals = failwith "JS only"
 
