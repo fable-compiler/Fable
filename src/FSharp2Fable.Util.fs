@@ -14,11 +14,12 @@ type DecisionTarget =
 type Context =
     {
     scope: (string * Fable.Expr) list
+    typeArgs: (string * Fable.Type) list
     decisionTargets: Map<int, DecisionTarget>
     owner: Fable.Entity option
     }
     static member Empty =
-        { scope=[]; decisionTargets=Map.empty<_,_>; owner=None }
+        { scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; owner=None }
     
 type IReplacePlugin =
     inherit Fable.IPlugin
@@ -306,21 +307,24 @@ module Types =
         // Declared Type
         | _ -> com.GetEntity tdef |> Fable.DeclaredType
 
-    and makeType (com: IFableCompiler) (NonAbbreviatedType t) =
+    and makeType (com: IFableCompiler) (ctx: Context) (NonAbbreviatedType t) =
+        let resolveGenParam (genParam: FSharpGenericParameter) =
+            ctx.typeArgs
+            |> List.tryFind (fun (name,_) -> name = genParam.Name)
+            |> function Some (_,typ) -> typ | None -> Fable.UnknownType
         let rec countFuncArgs (fn: FSharpType) =
             if fn.IsFunctionType
             then countFuncArgs (Seq.last fn.GenericArguments) + 1
             else 0
-        if t.IsGenericParameter then Fable.UnknownType else
-        if t.IsTupleType then Fable.Tuple |> Fable.Array |> Some
-        elif t.IsFunctionType then Fable.Function (countFuncArgs t) |> Some
-        else None
-        |> function
-            | Some fableType -> fableType |> Fable.PrimitiveType
-            | None ->
-                if not t.HasTypeDefinition
-                then Fable.UnknownType // failwithf "Unexpected non-declared F# type: %A" t
-                else makeTypeFromDef com t.TypeDefinition
+        if t.IsGenericParameter
+        then resolveGenParam t.GenericParameter
+        elif t.IsTupleType
+        then Fable.Tuple |> Fable.Array |> Fable.PrimitiveType
+        elif t.IsFunctionType
+        then Fable.Function (countFuncArgs t) |> Fable.PrimitiveType
+        elif t.HasTypeDefinition
+        then makeTypeFromDef com t.TypeDefinition
+        else Fable.UnknownType // failwithf "Unexpected non-declared F# type: %A" t
 
     let (|FableType|) = makeType
 
@@ -340,7 +344,7 @@ module Identifiers =
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
-        bindIdent ctx (makeType com fsRef.FullType) fsRef.DisplayName
+        bindIdent ctx (makeType com ctx fsRef.FullType) fsRef.DisplayName
     
     let (|BindIdent|) = bindIdentFrom
 
@@ -441,7 +445,7 @@ module Util =
         let isUnitVar =
             match vars with
             | [var] ->
-                match makeType com var.FullType with
+                match makeType com ctx var.FullType with
                 | Fable.PrimitiveType Fable.Unit -> true
                 | _ -> false
             | _ -> false
@@ -456,7 +460,7 @@ module Util =
         match args with
         | [] -> ctx, []
         | [[singleArg]] ->
-            makeType com singleArg.FullType |> function
+            makeType com ctx singleArg.FullType |> function
             | Fable.PrimitiveType Fable.Unit -> ctx, []
             | _ -> let ctx, arg = bindIdentFrom com ctx singleArg in ctx, [arg]
         | _ ->
@@ -484,8 +488,8 @@ module Util =
             | None -> None
         Fable.TryCatch (body, catchClause, finalizer, makeRangeFrom fsExpr)
 
-    let makeGetFrom com (fsExpr: FSharpExpr) callee propExpr =
-        Fable.Apply (callee, [propExpr], Fable.ApplyGet, makeType com fsExpr.Type, makeRangeFrom fsExpr)
+    let makeGetFrom com ctx (fsExpr: FSharpExpr) callee propExpr =
+        Fable.Apply (callee, [propExpr], Fable.ApplyGet, makeType com ctx fsExpr.Type, makeRangeFrom fsExpr)
 
     let hasRestParams (args: FSharpMemberOrFunctionOrValue list list) =
         match args with
@@ -500,7 +504,7 @@ module Util =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
         
-    let replace (com: IFableCompiler) fsExpr ownerName methName (atts, typArgs, methTypArgs) (callee, args) =
+    let replace (com: IFableCompiler) ctx fsExpr ownerName methName (atts, typArgs, methTypArgs) (callee, args) =
         let pluginReplace i =
             com.ReplacePlugins |> Seq.tryPick (fun plugin -> plugin.TryReplace com i)
         let applyInfo: Fable.ApplyInfo = {
@@ -509,10 +513,10 @@ module Util =
             range = makeRangeFrom fsExpr
             callee = callee
             args = args
-            returnType = makeType com fsExpr.Type
+            returnType = makeType com ctx fsExpr.Type
             decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
-            calleeTypeArgs = typArgs |> List.map (makeType com) 
-            methodTypeArgs = methTypArgs |> List.map (makeType com)
+            calleeTypeArgs = typArgs |> List.map (makeType com ctx) 
+            methodTypeArgs = methTypArgs |> List.map (makeType com ctx)
         }
         match applyInfo with
         | Try pluginReplace repl -> repl
@@ -520,35 +524,36 @@ module Util =
         | _ -> failwithf "Cannot find replacement for %s.%s at %A"
                 applyInfo.ownerFullName applyInfo.methodName fsExpr.Range
         
-    let (|Replaced|_|) (com: IFableCompiler) fsExpr
+    let (|Replaced|_|) (com: IFableCompiler) ctx fsExpr
                     (typArgs, methTypArgs) (callee, args)
                     (meth: FSharpMemberOrFunctionOrValue) =
         if isExternalEntity com meth.EnclosingEntity
-        then replace com fsExpr
+        then replace com ctx fsExpr
                 (sanitizeEntityName meth.EnclosingEntity) (sanitizeMethodName com meth)
                 (meth.Attributes, typArgs, methTypArgs) (callee, args) |> Some
         else None
                 
-    let (|Emitted|_|) com fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+    let (|Emitted|_|) com ctx fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match meth.Attributes with
         | ContainsAtt "Emit" [:? string as macro] ->
             let args = match callee with None -> args | Some c -> c::args
-            let range, typ = makeRangeFrom fsExpr, makeType com fsExpr.Type
+            let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
             Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, range)
             |> Some
         | _ -> None
 
-    let (|Imported|_|) com fsExpr args (meth: FSharpMemberOrFunctionOrValue) =
+    let (|Imported|_|) com ctx fsExpr args (meth: FSharpMemberOrFunctionOrValue) =
         meth.Attributes
         |> Seq.choose (makeDecorator com)
         |> tryImported com meth.DisplayName
         |> function
             | Some expr ->
-                let range, typ = makeRangeFrom fsExpr, makeType com fsExpr.Type
+                let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
                 Fable.Apply(expr, args, Fable.ApplyMeth, typ, range) |> Some
             | None -> None
-            
-    let (|Inlined|_|) (com: IFableCompiler) fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+
+    let (|Inlined|_|) (com: IFableCompiler) fsExpr methTypArgs
+                      (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         if not(isInline meth) then None else
         match com.TryGetInlineExpr meth.FullName with
         | Some (vars, fsExpr) ->
@@ -556,17 +561,23 @@ module Util =
             let ctx =
                 (Context.Empty, vars, args)
                 |||> Seq.fold2 (fun ctx var arg -> bindExpr ctx var arg)
+            let ctx =
+                let typeArgs =
+                    ([], meth.GenericParameters, List.map (makeType com ctx) methTypArgs)
+                    |||> Seq.fold2 (fun acc genPar typArg ->
+                        (genPar.Name, typArg)::acc)
+                { ctx with typeArgs = typeArgs }
             com.Transform ctx fsExpr |> Some
         | None -> None
 
-    let (|CreateNew|_|) com fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+    let (|CreateNew|_|) com ctx fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match callee, meth.DisplayName with
         | Some callee, "createNew" when meth.EnclosingEntity.IsInterface ->
-            let range, typ = makeRangeFrom fsExpr, makeType com fsExpr.Type
+            let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
             Fable.Apply(callee, args, Fable.ApplyCons, typ, range) |> Some
         | _ -> None
 
-    let makeCallFrom (com: IFableCompiler) fsExpr (meth: FSharpMemberOrFunctionOrValue)
+    let makeCallFrom (com: IFableCompiler) ctx fsExpr (meth: FSharpMemberOrFunctionOrValue)
                     (typArgs, methTypArgs) callee args =
         let args =
             if not (hasRestParamsFrom meth) then args else
@@ -578,16 +589,16 @@ module Util =
                 (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
         match meth with
         (** -Check for replacements, emits... *)
-        | Replaced com fsExpr (typArgs, methTypArgs) (callee, args) replaced -> replaced
-        | Emitted com fsExpr (callee, args) emitted -> emitted
-        | Imported com fsExpr args imported -> imported
-        | Inlined com fsExpr (callee, args) expr -> expr
-        | CreateNew com fsExpr (callee, args) cons -> cons
+        | Replaced com ctx fsExpr (typArgs, methTypArgs) (callee, args) replaced -> replaced
+        | Emitted com ctx fsExpr (callee, args) emitted -> emitted
+        | Imported com ctx fsExpr args imported -> imported
+        | Inlined com fsExpr methTypArgs (callee, args) expr -> expr
+        | CreateNew com ctx fsExpr (callee, args) cons -> cons
         (** -If the call is not resolved, then: *)
         | _ ->
             let methName = sanitizeMethodName com meth
             let methExpr = makeConst methName
-            let typ, range = makeType com fsExpr.Type, makeRangeFrom fsExpr
+            let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         (**     *Check if this an extension *)
             let callee, args =
                 if meth.IsExtensionMember
@@ -599,7 +610,7 @@ module Util =
                     makeTypeFromDef com meth.EnclosingEntity |> makeTypeRef com, args
         (**     *Check if this a getter or setter  *)
             if meth.IsPropertyGetterMethod then
-                makeGetFrom com fsExpr callee methExpr
+                makeGetFrom com ctx fsExpr callee methExpr
             elif meth.IsPropertySetterMethod then
                 Fable.Set (callee, Some methExpr, args.Head, range)
         (**     *Check if this is an implicit constructor or a replacement
@@ -613,14 +624,14 @@ module Util =
                 let callee = makeGet range calleeType callee methExpr
                 Fable.Apply (callee, args, Fable.ApplyMeth, typ, range)
 
-    let wrapInLambda com (fsExpr: FSharpExpr) (meth: FSharpMemberOrFunctionOrValue) =
+    let wrapInLambda com ctx (fsExpr: FSharpExpr) (meth: FSharpMemberOrFunctionOrValue) =
         let arity =
-            match makeType com fsExpr.Type with
+            match makeType com ctx fsExpr.Type with
             | Fable.PrimitiveType (Fable.Function arity) -> arity
             | _ -> failwithf "Expecting a function value but got %A" fsExpr
         let lambdaArgs =
             [1..arity] |> List.map (fun i -> makeIdent (sprintf "$arg%i" i))
         let lambdaBody =
             let args = lambdaArgs |> List.map (Fable.IdentValue >> Fable.Value)
-            makeCallFrom com fsExpr meth ([],[]) None args
+            makeCallFrom com ctx fsExpr meth ([],[]) None args
         Fable.Lambda (lambdaArgs, lambdaBody) |> Fable.Value

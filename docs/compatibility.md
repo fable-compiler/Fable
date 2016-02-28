@@ -82,8 +82,8 @@ Active patterns can be used normally.
 
 ## Generics
 Generic information disappears in generated code. However, they're accessible
-to the compiler so functions like `typeof<MyType>` are possible with concrete
-types (they'll be accessible to plugins too).
+to the compiler, so calls like `typeof<MyType>` are possible with concrete
+types or with generics in **inline** functions.
 
 ## Attributes
 Decorators are coming to JavaScript. However, there are competing proposals

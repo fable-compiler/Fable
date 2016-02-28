@@ -340,6 +340,7 @@ module Util =
                 | _ -> failwith "Import attributes must have a single non-empty string argument"
             | _ -> None)
 
+    // TODO: Pass range information to display it on the exception here?
     let makeTypeRef com typ =
         match typ with
         | DeclaredType ent ->

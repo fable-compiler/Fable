@@ -316,6 +316,9 @@ module private AstPass =
         // Exceptions
         | "failwith" | "raise" | "invalidOp" ->
             Fable.Throw (args.Head, r) |> Some
+        // Type ref
+        | "typeof" ->
+            makeTypeRef com info.methodTypeArgs.Head |> Some
         | _ -> None
 
     let strings com (i: Fable.ApplyInfo) =
@@ -423,6 +426,13 @@ module private AstPass =
         | "setArraySlice", (None, args) ->
             CoreLibCall("Array", Some "setSlice", false, args)
             |> makeCall com i.range i.returnType |> Some
+        | "createInstance", (None, args) ->
+            let typRef, args =
+                match args with
+                | [] | [Fable.Value Fable.Null] ->
+                    makeTypeRef com i.methodTypeArgs.Head, []
+                | typRef::args -> typRef, args
+            Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
     let options com (i: Fable.ApplyInfo) =
@@ -840,6 +850,7 @@ module private AstPass =
         | "System.Math"
         | "Microsoft.FSharp.Core.Operators"
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
+        | "System.Activator"
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info
         | "System.Text.RegularExpressions.Capture"
@@ -862,7 +873,6 @@ module private AstPass =
         | "Microsoft.FSharp.Collections.Seq" -> collectionsSecondPass com info Seq
         | "Microsoft.FSharp.Collections.Map"
         | "Microsoft.FSharp.Collections.Set" -> mapAndSets com info
-        // | "NUnit.Framework.Assert" -> asserts com info
         | _ -> None
 
 module private CoreLibPass =
@@ -870,10 +880,8 @@ module private CoreLibPass =
 
     type MapKind = Static | Both
 
-    // TODO: Decimal
     let mappings =
         dict [
-            // system + "Random" => ("Random", Both)
             system + "DateTime" => ("Date", Static)
             system + "TimeSpan" => ("TimeSpan", Static)
             fsharp + "Control.Async" => ("Async", Both)
