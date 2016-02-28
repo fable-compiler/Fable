@@ -29,7 +29,7 @@ and IDeclarePlugin =
         -> (Babel.Statement list) option
     abstract member TryDeclareRoot:
         com: IBabelCompiler -> ctx: Context -> file: Fable.File
-        -> (SourceLocation * U2<Babel.Statement, Babel.ModuleDeclaration>) option
+        -> (U2<Babel.Statement, Babel.ModuleDeclaration> list) option
 
 module Util =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
@@ -39,12 +39,6 @@ module Util =
         
     let consBack tail head = head::tail
 
-    let foldRanges (baseRange: SourceLocation) (decls: Babel.Statement list) =
-        decls
-        |> Seq.choose (fun x -> x.loc)
-        |> Seq.fold (fun _ x -> x) baseRange
-        |> (+) baseRange
-        
     let prepareArgs (com: IBabelCompiler) ctx args =
         let rec cleanNull = function
             | [] -> []
@@ -408,6 +402,19 @@ module Util =
         |> List.map U2<_,Babel.ClassProperty>.Case1
         |> fun meths -> Babel.ClassExpression(classRange, Babel.ClassBody(classRange, meths), ?super=baseClass)
 
+    let declareInterfaces (com: IBabelCompiler) ctx (ent: Fable.Entity) isClass =
+        // TODO: For now, we're ignoring compiler generated interfaces for union and records
+        let ifcs = ent.Interfaces |> List.filter (fun x ->
+            isClass || (not (Naming.automaticInterfaces.Contains x)))
+        if ifcs.Length = 0
+        then None
+        else [ get (com.GetImport ctx false (Naming.getCoreLibPath com)) "Util"
+               typeRef com ctx ent.File ent.FullName
+               buildStringArray ifcs ]
+            |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
+            |> Babel.ExpressionStatement :> Babel.Statement
+            |> Some
+
     let declareEntryPoint com ctx (funcExpr: Babel.Expression) =
         let argv = macroExpression None "process.argv.slice(2)" []
         let main = Babel.CallExpression (funcExpr, [U2.Case1 argv], ?loc=funcExpr.loc) :> Babel.Expression
@@ -416,12 +423,11 @@ module Util =
         Babel.ExpressionStatement(main, ?loc=funcExpr.loc) :> Babel.Statement
 
     // TODO: Keep track of sanitized member names to be sure they don't clash? 
-    let declareModMember range (var, name) isPublic modIdent expr =
-        let var = match var with Some x -> x | None -> identFromName name
+    let declareModMember range name isPublic modIdent expr =
         match isPublic, modIdent with
         | true, Some modIdent -> assign (Some range) (get modIdent name) expr 
         | _ -> expr
-        |> varDeclaration (Some range) var :> Babel.Statement
+        |> varDeclaration (Some range) (identFromName name) :> Babel.Statement
 
     let transformModMember com ctx modIdent (m: Fable.Member) =
         let expr, name =
@@ -439,65 +445,48 @@ module Util =
             match expr.loc with Some loc -> m.Range + loc | None -> m.Range
         if m.TryGetDecorator("EntryPoint").IsSome
         then declareEntryPoint com ctx expr
-        else declareModMember memberRange (None, name) m.IsPublic modIdent expr
-                    
-    let rec transformModule com ctx modIdent (ent: Fable.Entity) entDecls entRange =
-        let nestedIdent, protectedIdent =
+        else declareModMember memberRange name m.IsPublic modIdent expr
+        
+    let declareClass com ctx modIdent (ent: Fable.Entity) entDecls entRange baseClass isClass =
+        let classDecl =
+            // Don't create a new context for class declarations
+            transformClass com ctx entRange baseClass entDecls
+            |> declareModMember entRange ent.Name ent.IsPublic modIdent
+        match declareInterfaces com ctx ent isClass with
+        | None -> [classDecl]
+        | Some ifcDecl -> ifcDecl::[classDecl]
+
+    let rec transformModule com ctx (ent: Fable.Entity) entDecls entRange =
+        let protectedIdent =
             let memberNames =
                 entDecls |> Seq.choose (function
                     | Fable.EntityDeclaration (ent,_,_) -> Some ent.Name
-                    | Fable.ActionDeclaration ent -> None
+                    | Fable.ActionDeclaration _ -> None
                     | Fable.MemberDeclaration m ->
                         match m.Kind with
                         | Fable.Method name | Fable.Getter (name, _) -> Some name
                         | Fable.Constructor | Fable.Setter _ -> None)
                 |> Set.ofSeq
-            identFromName ent.Name,
             // Protect module identifier against members with same name
             Babel.Identifier (Naming.sanitizeIdent memberNames.Contains ent.Name)
-        let nestedDecls =
+        let modDecls =
             let ctx = { ctx with moduleFullName = ent.FullName }
             transformModDecls com ctx (Some protectedIdent) entDecls
-        let nestedRange =
-            foldRanges entRange nestedDecls
         Babel.CallExpression(
             Babel.FunctionExpression([protectedIdent],
-                Babel.BlockStatement (nestedDecls, ?loc=Some nestedRange),
-                ?loc=Some nestedRange),
+                Babel.BlockStatement (modDecls, ?loc=Some entRange),
+                ?loc=Some entRange),
             [U2.Case1 (upcast Babel.ObjectExpression [])],
-            nestedRange)
-        // var NestedMod = ParentMod.NestedMod = function (/* protected */ NestedMod_1) {
-        //     var privateVar = 1;
-        //     var publicVar = NestedMod_1.publicVar = 2;
-        //     var NestedMod = NestedMod_1.NestedMod = {};
-        // }({});
-        |> declareModMember nestedRange (Some nestedIdent, ent.Name) ent.IsPublic modIdent
+            entRange)
 
     and transformModDecls (com: IBabelCompiler) ctx modIdent decls =
         let pluginDeclare decl =
             com.DeclarePlugins |> Seq.tryPick (fun plugin -> plugin.TryDeclare com ctx decl)
-        let declareClass com ctx (ent: Fable.Entity) entDecls entRange baseClass isClass =
-            // TODO: For now, we're ignoring compiler generated interfaces for union and records
-            let ifcs = ent.Interfaces |> List.filter (fun x ->
-                isClass || (not (Naming.automaticInterfaces.Contains x)))
-            let classDecl =
-                // Don't create a new context for class declarations
-                transformClass com ctx entRange baseClass entDecls
-                |> declareModMember entRange (None, ent.Name) ent.IsPublic modIdent
-            if ifcs.Length = 0
-            then [classDecl]
-            else
-                [ get (com.GetImport ctx false (Naming.getCoreLibPath com)) "Util"
-                  typeRef com ctx ent.File ent.FullName
-                  buildStringArray ifcs ]
-                |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
-                |> Babel.ExpressionStatement :> Babel.Statement
-                |> consBack [classDecl]
         decls |> List.fold (fun acc decl ->
             match decl with
             | Try pluginDeclare statements ->
                 statements@acc
-            | Fable.ActionDeclaration e ->
+            | Fable.ActionDeclaration (e,_) ->
                 transformStatement com ctx e
                 |> consBack acc
             | Fable.MemberDeclaration m ->
@@ -507,15 +496,16 @@ module Util =
                 match ent.Kind with
                 // Interfaces, attribute or erased declarations shouldn't reach this point
                 | Fable.Interface ->
-                    failwithf "Cannot emit interface declaration into JS: %s" ent.FullName
+                    failwithf "Cannot emit interface declaration: %s" ent.FullName
                 | Fable.Class baseClass ->
-                    declareClass com ctx ent entDecls entRange baseClass true
+                    declareClass com ctx modIdent ent entDecls entRange baseClass true
                     |> List.append <| acc
                 | Fable.Union | Fable.Record | Fable.Exception ->                
-                    declareClass com ctx ent entDecls entRange None false
+                    declareClass com ctx modIdent ent entDecls entRange None false
                     |> List.append <| acc
                 | Fable.Module ->
-                    transformModule com ctx modIdent ent entDecls entRange
+                    transformModule com ctx ent entDecls entRange
+                    |> declareModMember entRange ent.Name ent.IsPublic modIdent
                     |> consBack acc) []
         |> fun decls ->
             match modIdent with
@@ -556,7 +546,7 @@ module Compiler =
     open Util
 
     let transformFiles (com: ICompiler) (files: Fable.File list) =
-        let babelCom = makeCompiler com files
+        let com = makeCompiler com files
         files |> Seq.choose (fun file ->
             match file.Declarations with
             | [] -> None
@@ -566,28 +556,17 @@ module Compiler =
                     moduleFullName = file.Root.FullName
                     imports = System.Collections.Generic.Dictionary<_,_>()
                 }
-                let rootRange, rootMod =
-                    babelCom.DeclarePlugins
-                    |> Seq.tryPick (fun plugin -> plugin.TryDeclareRoot babelCom ctx file)
+                let rootDecls =
+                    com.DeclarePlugins
+                    |> Seq.tryPick (fun plugin -> plugin.TryDeclareRoot com ctx file)
                     |> function
-                    | Some (rootRange, rootMod) -> rootRange, rootMod
+                    | Some rootDecls -> rootDecls
                     | None ->
-                        let rootIdent =
-                            Naming.getImportModuleIdent -1 |> Babel.Identifier |> Some
-                        let rootDecls =
-                            transformModDecls babelCom ctx rootIdent file.Declarations
-                        let rootRange =
-                            foldRanges SourceLocation.Empty rootDecls
-                        rootRange,
-                        Babel.ExportDefaultDeclaration(
-                                U2.Case2 (Babel.CallExpression(
-                                            Babel.FunctionExpression(
-                                                [rootIdent.Value],
-                                                Babel.BlockStatement(rootDecls, ?loc=Some rootRange),
-                                                ?loc=Some rootRange),
-                                            [U2.Case1 (upcast Babel.ObjectExpression [])],
-                                            rootRange) :> Babel.Expression),
-                                    rootRange) :> Babel.ModuleDeclaration |> U2.Case2
+                        transformModule com ctx file.Root file.Declarations file.Range
+                        :> Babel.Expression |> U2.Case2
+                        |> fun x -> Babel.ExportDefaultDeclaration(x, file.Range)
+                        :> Babel.ModuleDeclaration |> U2.Case2
+                        |> List.singleton
                 // Add imports
                 let rootDecls =
                     ctx.imports |> Seq.fold (fun acc import ->
@@ -605,5 +584,5 @@ module Compiler =
                             Babel.StringLiteral import.Key)
                         :> Babel.ModuleDeclaration
                         |> U2.Case2
-                        |> consBack acc) [rootMod]
-                Babel.Program (file.FileName, rootRange, rootDecls) |> Some)         
+                        |> consBack acc) rootDecls
+                Babel.Program (file.FileName, file.Range, rootDecls) |> Some)         

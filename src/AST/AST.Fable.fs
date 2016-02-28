@@ -63,9 +63,14 @@ and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
-    | ActionDeclaration of Expr
-    | EntityDeclaration of Entity * nested: Declaration list * range: SourceLocation
+    | ActionDeclaration of Expr * SourceLocation
+    | EntityDeclaration of Entity * Declaration list * SourceLocation
     | MemberDeclaration of Member
+    member x.Range =
+        match x with
+        | ActionDeclaration (_,r) -> r
+        | EntityDeclaration (_,_,r) -> r
+        | MemberDeclaration m -> m.Range
 
 and MemberKind =
     | Constructor
@@ -97,6 +102,10 @@ and File(fileName, root, decls) =
     member x.FileName: string = fileName
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
+    member x.Range =
+        match decls with
+        | [] -> SourceLocation.Empty
+        | decls -> SourceLocation.Empty + (List.last decls).Range
     
 (** ##Expressions *)
 and ArrayKind = TypedArray of NumberKind | DynamicArray | Tuple

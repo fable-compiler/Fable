@@ -498,8 +498,12 @@ type private DeclInfo(init: Fable.Declaration list) =
         | _ -> ()
         child <- None
         childDecls.Clear ()
-    member self.AddChild (newChild, newChildRange, newChildDecls) =
+    member self.AddChild (newChild, newChildRange, newChildDecls: Fable.Declaration list) =
         self.ClearChild ()
+        let newChildRange =
+            match newChildDecls with
+            | [] -> newChildRange
+            | decls -> newChildRange + (List.last decls).Range
         child <- Some (Compiled (newChild, newChildRange))
         childDecls.AddRange newChildDecls
     member self.AddIgnored (ent: FSharpEntity) =
@@ -574,8 +578,8 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
                 else transformEntityDecl com ctx declInfo e sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                 transformMemberDecl com ctx declInfo meth args body
-            | FSharpImplementationFileDeclaration.InitAction (Transform com ctx expr) ->
-                declInfo.AddInitAction (Fable.ActionDeclaration expr); declInfo
+            | FSharpImplementationFileDeclaration.InitAction (Transform com ctx e as fe) ->
+                declInfo.AddInitAction (Fable.ActionDeclaration (e, makeRange fe.Range)); declInfo
         ) (DeclInfo init)
     declInfo.GetDeclarations ()
         

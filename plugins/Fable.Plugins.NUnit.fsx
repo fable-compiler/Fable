@@ -64,8 +64,9 @@ type NUnitPlugin() =
         member x.TryDeclareRoot com ctx file =
             if file.Root.TryGetDecorator "TestFixture" |> Option.isNone then None else
             let rootDecls = Util.transformModDecls com ctx None file.Declarations
-            let rootRange = Util.foldRanges SourceLocation.Empty rootDecls
-            (rootRange, transformTestFixture com ctx file.Root rootDecls rootRange |> U2.Case1)
+            transformTestFixture com ctx file.Root rootDecls file.Range
+            |> U2.Case1
+            |> List.singleton
             |> Some
         member x.TryDeclare com ctx decl =
             match decl with
@@ -76,7 +77,6 @@ type NUnitPlugin() =
                 let testDecls =
                     let ctx = { ctx with moduleFullName = fixture.FullName } 
                     Util.transformModDecls com ctx None testDecls
-                let testRange = Util.foldRanges testRange testDecls
                 transformTestFixture com ctx fixture testDecls testRange
                 |> List.singleton |> Some
             | _ -> None

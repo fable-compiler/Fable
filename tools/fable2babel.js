@@ -132,8 +132,22 @@ try {
     }
 
     for (var i=2; i < process.argv.length; i++) {
-        var key = process.argv[i].substring(2);
-        opts[key] = key == "watch" ? true : opts[key] = process.argv[++i];
+        var key = process.argv[i];
+        if (i == 2 && key.indexOf("--") != 0) {
+            opts.projFile = key;    
+        }
+        else {
+            key = key.substring(2);
+            if (key == "watch") {
+                opts[key] = true;
+            }
+            else if (Array.isArray(opts[key])) {
+                opts[key].push(process.argv[++i]);
+            }
+            else {
+                opts[key] = process.argv[++i];
+            }
+        }
     }
     
     var fableCwd = process.cwd();
