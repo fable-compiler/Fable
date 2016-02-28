@@ -1,7 +1,4 @@
-﻿/// <reference path="../typings/node.d.ts"/>
-/// <reference path="../typings/typescript.d.ts"/>
-
-/* global process */
+﻿/* global process */
 var ts = require("typescript");
 var fs = require("fs");
 var path = require("path");
@@ -336,11 +333,8 @@ function printModule(prefix) {
         var template = prefix + templates.module
             .replace("[NAME]", escapeKeyword(mod.name));
 
-        var interfaces = mod.interfaces && mod.interfaces.length > 0
-                            ? mod.interfaces.map(printInterface(prefix + "    ", mod.name)).join("\n\n")
-                            : "";
-
-        template = append(template, interfaces);
+        template = append(template, mod.interfaces.map(
+            printInterface(prefix + "    ", mod.name)).join("\n\n"));
 
         var members = printMembers(mod, prefix + "        ");
         if (members.length > 0) {
@@ -350,7 +344,7 @@ function printModule(prefix) {
                 prefix + "    " + templates.moduleProxyDeclaration.replace("[NAME]", mod.name);
         }
 
-        template += mod.modules && mod.modules.length > 0 ? mod.modules.map(printModule(prefix + "    ")).join("\n\n") : "";
+        template += mod.modules.map(printModule(prefix + "    ")).join("\n\n");
 
         return template;
     }
@@ -466,11 +460,12 @@ function getProperty(node) {
 function getEnum(node) {
     return {
         name : getName(node),
-        cases : node.members.map(function (n){ return {
-            name : getName(n),
-            value : n.initializer.text
-
-        }  })
+        cases : node.members.map(function (n, i) {
+            return {
+                name : getName(n),
+                value : n.initializer ? n.initializer.text : i
+            }
+        })
     }
 }
 
@@ -617,7 +612,10 @@ function visitFile(node) {
                 break;
             case ts.SyntaxKind.ModuleDeclaration:
                 var mod = visitModule(node);
-                if (mod.interfaces.length || mod.methods.length || mod.modules.length || mod.properties.length)
+                var isEmpty = Object.keys(mod).reduce(function(acc, k) {
+                    return acc && !(Array.isArray(mod[k]) && mod[k].length > 0); 
+                }, true);
+                if (!isEmpty)
                     modules.push(mod);
                 break;
             case ts.SyntaxKind.InterfaceDeclaration:
@@ -638,12 +636,16 @@ function visitFile(node) {
     };
 }
 
-var fileNames = process.argv.slice(2);
-fileNames.forEach(function(fileName) {
+try {
+    var fileName = process.argv[2];
     var code = fs.readFileSync(fileName).toString();
     var sourceFile = ts.createSourceFile(fileName, code, ts.ScriptTarget.ES6, /*setParentNodes */ true);
     var fileInfo = visitFile(sourceFile);
     var ffi = printFile(fileInfo, path.basename(fileName).replace(".d.ts",""))
     console.log(ffi);
-});
-process.exit(0);
+    process.exit(0);
+}
+catch (err) {
+    console.log(err);
+    process.exit(1);
+}
