@@ -13,6 +13,35 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{0FE9BBC0
 		tools\typescript2fable.js = tools\typescript2fable.js
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{ECD00593-4FAB-4A4F-9EAE-6CE27C2ABF41}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		appveyor.yml = appveyor.yml
+		before_build.cmd = before_build.cmd
+		build.cmd = build.cmd
+		build.fsx = build.fsx
+		build.sh = build.sh
+		package.json = package.json
+		paket.dependencies = paket.dependencies
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{5D520E85-1D3E-400D-80D7-C3E83BD9BF58}"
+	ProjectSection(SolutionItems) = preProject
+		docs\compatibility.md = docs\compatibility.md
+		docs\compiling.md = docs\compiling.md
+		docs\faq.md = docs\faq.md
+		docs\interacting.md = docs\interacting.md
+		docs\plugins.md = docs\plugins.md
+		docs\testing.md = docs\testing.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "plugins", "plugins", "{119E4E0A-6076-403E-AC1B-1DE5874D71CC}"
+	ProjectSection(SolutionItems) = preProject
+		plugins\Fable.Plugins.NUnit.fsx = plugins\Fable.Plugins.NUnit.fsx
+		plugins\Fable.Plugins.Random.fsx = plugins\Fable.Plugins.Random.fsx
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
