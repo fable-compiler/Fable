@@ -9,7 +9,7 @@ file:
 open System
 open Fabel.Core
 open Fabel.Import.JS
-    
+
 `,
 
 interface:
@@ -51,7 +51,13 @@ method:
 `abstract [NAME]: [PARAMETERS] -> [TYPE]`,
 
 constructor:
-`abstract createNew: [PARAMETERS] -> [TYPE]`
+`abstract createNew: [PARAMETERS] -> [TYPE]`,
+
+enum:
+`type [NAME] = `,
+
+enumCase:
+`    | [NAME] = [ID]`
 };
 
 var reserved = [
@@ -204,6 +210,20 @@ function printMethod(prefix) {
     }
 }
 
+function printEnum(prefix) {
+    return function (x) {
+        var cases = x.cases.map(function(currentValue) {
+            var cv = templates.enumCase
+                        .replace("[NAME]", currentValue.name)
+                        .replace("[ID]", currentValue.value)
+            return prefix + cv;
+        }).join("\n");
+        var e = prefix + templates.enum
+                    .replace("[NAME]", x.name)
+        return e + "\n" + cases + "\n";
+    }
+}
+
 function printProperty(prefix) {
     return function (x) {
         return prefix + templates.property
@@ -229,6 +249,8 @@ function printMembers(ent, prefix) {
             ? ent.properties.map(printProperty(prefix)).join("\n") : "",
         ent.methods && ent.methods.length > 0
             ? ent.methods.map(printMethod(prefix)).join("\n") : "",
+        ent.enums && ent.enums.length > 0
+            ? ent.enums.map(printEnum(prefix)).join("\n") : ""
     ].filter(x => x.length > 0).join("\n");
 }
 
@@ -310,7 +332,7 @@ function printModule(prefix) {
     return function(mod) {
         var template = prefix + templates.module
             .replace("[NAME]", escapeKeyword(mod.name));
-            
+
         template = append(template, mod.interfaces.map(
             printInterface(prefix + "    ", mod.name)).join("\n\n"));
 
@@ -321,9 +343,9 @@ function printModule(prefix) {
                 members + "\n\n" +
                 prefix + "    " + templates.moduleProxyDeclaration.replace("[NAME]", mod.name);
         }
-        
+
         template += mod.modules.map(printModule(prefix + "    ")).join("\n\n");
-        
+
         return template;
     }
 }
@@ -393,7 +415,7 @@ function getType(type) {
             if (type.expression && type.expression.kind == ts.SyntaxKind.PropertyAccessExpression) {
                 return type.expression.expression.text + "." + type.expression.name.text;
             }
-            
+
             var name = type.typeName ? type.typeName.text : (type.expression ? type.expression.text : null)
             if (!name) {
                 if (type.typeName && type.typeName.left && type.typeName.right) {
@@ -401,11 +423,11 @@ function getType(type) {
                 }
                 return "obj"
             }
-            
+
             if (name in mappedTypes) {
                 name = mappedTypes[name];
             }
-            
+
             var result = name + printTypeArguments(type.typeArguments);
             // HACK: Consider one-letter identifiers as type arguments
             return result.length > 1 ? result : "'" + result;
@@ -433,6 +455,18 @@ function getProperty(node) {
         optional: node.questionToken != null,
         static: node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false
     };
+}
+
+function getEnum(node) {
+    return {
+        name : getName(node),
+        cases : node.members.map(function (n, i) {
+            return {
+                name : getName(n),
+                value : n.initializer ? n.initializer.text : i
+            }
+        })
+    }
 }
 
 // TODO: Check if it's const
@@ -497,7 +531,8 @@ function getModule(name) {
       interfaces: [],
       properties: [],
       methods: [],
-      modules: []
+      modules: [],
+      enums: []
     };
 }
 
@@ -556,6 +591,9 @@ function visitModule(node) {
             case ts.SyntaxKind.ModuleDeclaration:
                 mod.modules.push(visitModule(node));
                 break;
+            case ts.SyntaxKind.EnumDeclaration:
+                mod.enums.push(getEnum(node));
+                break;
         }
     });
     return mod;
@@ -574,7 +612,10 @@ function visitFile(node) {
                 break;
             case ts.SyntaxKind.ModuleDeclaration:
                 var mod = visitModule(node);
-                if (mod.interfaces.length || mod.methods.length || mod.modules.length || mod.properties.length)
+                var isEmpty = Object.keys(mod).reduce(function(acc, k) {
+                    return acc && !(Array.isArray(mod[k]) && mod[k].length > 0); 
+                }, true);
+                if (!isEmpty)
                     modules.push(mod);
                 break;
             case ts.SyntaxKind.InterfaceDeclaration:
@@ -595,12 +636,16 @@ function visitFile(node) {
     };
 }
 
-var fileNames = process.argv.slice(2);
-fileNames.forEach(function(fileName) {
+try {
+    var fileName = process.argv[2];
     var code = fs.readFileSync(fileName).toString();
     var sourceFile = ts.createSourceFile(fileName, code, ts.ScriptTarget.ES6, /*setParentNodes */ true);
     var fileInfo = visitFile(sourceFile);
     var ffi = printFile(fileInfo, path.basename(fileName).replace(".d.ts",""))
     console.log(ffi);
-});
-process.exit(0);
+    process.exit(0);
+}
+catch (err) {
+    console.log(err);
+    process.exit(1);
+}
