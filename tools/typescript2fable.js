@@ -169,7 +169,7 @@ var mappedTypes = {
 };
 
 function escapeKeyword(x) {
-    return !/^'|<.+?>/.test(x) && (keywords.indexOf(x) >= 0 || reserved.indexOf(x) >= 0 || /[^\w]/.test(x))
+    return !/^'|<.+?>/.test(x) && (keywords.indexOf(x) >= 0 || reserved.indexOf(x) >= 0 || /[^\w.]/.test(x))
         ? "``" + x + "``"
         : x;
 }
