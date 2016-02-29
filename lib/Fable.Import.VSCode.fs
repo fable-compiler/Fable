@@ -4,13 +4,13 @@ open Fable.Core
 open Fable.Import.JS
 
 type Thenable<'R> =
-    abstract ``then``: ?onfulfilled: Func<'R, U2<TResult, Thenable<TResult>>> * ?onrejected: Func<obj, U2<TResult, Thenable<TResult>>> -> Thenable<TResult>
-    abstract ``then``: ?onfulfilled: Func<'R, U2<TResult, Thenable<TResult>>> * ?onrejected: Func<obj, unit> -> Thenable<TResult>
+    abstract ``then``: ?onfulfilled: Func<'R, U2<'TResult, Thenable<'TResult>>> * ?onrejected: Func<obj, U2<'TResult, Thenable<'TResult>>> -> Thenable<'TResult>
+    abstract ``then``: ?onfulfilled: Func<'R, U2<'TResult, Thenable<'TResult>>> * ?onrejected: Func<obj, unit> -> Thenable<'TResult>
 
 and Promise<'T> =
     inherit Thenable<'T>
-    abstract ``then``: ?onfulfilled: Func<'T, U2<TResult, Thenable<TResult>>> * ?onrejected: Func<obj, U2<TResult, Thenable<TResult>>> -> Promise<TResult>
-    abstract ``then``: ?onfulfilled: Func<'T, U2<TResult, Thenable<TResult>>> * ?onrejected: Func<obj, unit> -> Promise<TResult>
+    abstract ``then``: ?onfulfilled: Func<'T, U2<'TResult, Thenable<'TResult>>> * ?onrejected: Func<obj, U2<'TResult, Thenable<'TResult>>> -> Promise<'TResult>
+    abstract ``then``: ?onfulfilled: Func<'T, U2<'TResult, Thenable<'TResult>>> * ?onrejected: Func<obj, unit> -> Promise<'TResult>
     abstract catch: ?onrejected: Func<obj, U2<'T, Thenable<'T>>> -> Promise<'T>
 
 and PromiseConstructor =
@@ -102,6 +102,17 @@ module vscode =
         abstract key: string with get, set
         abstract dispose: unit -> unit
 
+    and TextEditorRevealType =
+        | Default = 0
+        | InCenter = 1
+        | InCenterIfOutsideViewport = 2
+
+    and OverviewRulerLane =
+        | Left = 1
+        | Center = 2
+        | Right = 4
+        | Full = 7
+
     and ThemableDecorationRenderOptions =
         abstract backgroundColor: string option with get, set
         abstract outlineColor: string option with get, set
@@ -174,7 +185,7 @@ module vscode =
         interface end
 
     and FileSystemWatcher =
-        // inherit Disposable // TODO
+        // inherit Disposable // TODO: Interfaces cannot extend classes in F#
         abstract ignoreCreateEvents: bool with get, set
         abstract ignoreChangeEvents: bool with get, set
         abstract ignoreDeleteEvents: bool with get, set
@@ -238,12 +249,37 @@ module vscode =
     and HoverProvider =
         abstract provideHover: document: TextDocument * position: Position * token: CancellationToken -> U2<Hover, Thenable<Hover>>
 
+    and DocumentHighlightKind =
+        | Text = 0
+        | Read = 1
+        | Write = 2
+
     and [<Import("vscode?get=DocumentHighlight")>] DocumentHighlight(range: Range, ?kind: DocumentHighlightKind) =
         member __.range with get(): Range = failwith "JS only" and set(v: Range): unit = failwith "JS only"
         member __.kind with get(): DocumentHighlightKind = failwith "JS only" and set(v: DocumentHighlightKind): unit = failwith "JS only"
 
     and DocumentHighlightProvider =
         abstract provideDocumentHighlights: document: TextDocument * position: Position * token: CancellationToken -> U2<ResizeArray<DocumentHighlight>, Thenable<ResizeArray<DocumentHighlight>>>
+
+    and SymbolKind =
+        | File = 0
+        | Module = 1
+        | Namespace = 2
+        | Package = 3
+        | Class = 4
+        | Method = 5
+        | Property = 6
+        | Field = 7
+        | Constructor = 8
+        | Enum = 9
+        | Interface = 10
+        | Function = 11
+        | Variable = 12
+        | Constant = 13
+        | String = 14
+        | Number = 15
+        | Boolean = 16
+        | Array = 17
 
     and [<Import("vscode?get=SymbolInformation")>] SymbolInformation(name: string, kind: SymbolKind, range: Range, ?uri: Uri, ?containerName: string) =
         member __.name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -313,6 +349,26 @@ module vscode =
     and SignatureHelpProvider =
         abstract provideSignatureHelp: document: TextDocument * position: Position * token: CancellationToken -> U2<SignatureHelp, Thenable<SignatureHelp>>
 
+    and CompletionItemKind =
+        | Text = 0
+        | Method = 1
+        | Function = 2
+        | Constructor = 3
+        | Field = 4
+        | Variable = 5
+        | Class = 6
+        | Interface = 7
+        | Module = 8
+        | Property = 9
+        | Unit = 10
+        | Value = 11
+        | Enum = 12
+        | Keyword = 13
+        | Snippet = 14
+        | Color = 15
+        | File = 16
+        | Reference = 17
+
     and [<Import("vscode?get=CompletionItem")>] CompletionItem(label: string) =
         member __.label with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.kind with get(): CompletionItemKind = failwith "JS only" and set(v: CompletionItemKind): unit = failwith "JS only"
@@ -339,6 +395,12 @@ module vscode =
         abstract increaseIndentPattern: RegExp with get, set
         abstract indentNextLinePattern: RegExp option with get, set
         abstract unIndentedLinePattern: RegExp option with get, set
+
+    and IndentAction =
+        | None = 0
+        | Indent = 1
+        | IndentOutdent = 2
+        | Outdent = 3
 
     and EnterAction =
         abstract indentAction: IndentAction with get, set
@@ -367,6 +429,12 @@ module vscode =
         member __.uri with get(): Uri = failwith "JS only" and set(v: Uri): unit = failwith "JS only"
         member __.range with get(): Range = failwith "JS only" and set(v: Range): unit = failwith "JS only"
 
+    and DiagnosticSeverity =
+        | Error = 0
+        | Warning = 1
+        | Information = 2
+        | Hint = 3
+
     and [<Import("vscode?get=Diagnostic")>] Diagnostic(range: Range, message: string, ?severity: DiagnosticSeverity) =
         member __.range with get(): Range = failwith "JS only" and set(v: Range): unit = failwith "JS only"
         member __.message with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -382,6 +450,11 @@ module vscode =
         abstract clear: unit -> unit
         abstract dispose: unit -> unit
 
+    and ViewColumn =
+        | One = 1
+        | Two = 2
+        | Three = 3
+
     and OutputChannel =
         abstract name: string with get, set
         abstract append: value: string -> unit
@@ -390,6 +463,10 @@ module vscode =
         abstract show: ?column: ViewColumn -> unit
         abstract hide: unit -> unit
         abstract dispose: unit -> unit
+
+    and StatusBarAlignment =
+        | Left = 0
+        | Right = 1
 
     and StatusBarItem =
         abstract alignment: StatusBarAlignment with get, set
@@ -432,86 +509,8 @@ module vscode =
 
     type Globals =
         abstract version: string with get, set
-        type TextEditorRevealType = 
-            | Default = 0
-            | InCenter = 1
-            | InCenterIfOutsideViewport = 2
-
-        type OverviewRulerLane = 
-            | Left = 1
-            | Center = 2
-            | Right = 4
-            | Full = 7
-
-        type DocumentHighlightKind = 
-            | Text = 0
-            | Read = 1
-            | Write = 2
-
-        type SymbolKind = 
-            | File = 0
-            | Module = 1
-            | Namespace = 2
-            | Package = 3
-            | Class = 4
-            | Method = 5
-            | Property = 6
-            | Field = 7
-            | Constructor = 8
-            | Enum = 9
-            | Interface = 10
-            | Function = 11
-            | Variable = 12
-            | Constant = 13
-            | String = 14
-            | Number = 15
-            | Boolean = 16
-            | Array = 17
-
-        type CompletionItemKind = 
-            | Text = 0
-            | Method = 1
-            | Function = 2
-            | Constructor = 3
-            | Field = 4
-            | Variable = 5
-            | Class = 6
-            | Interface = 7
-            | Module = 8
-            | Property = 9
-            | Unit = 10
-            | Value = 11
-            | Enum = 12
-            | Keyword = 13
-            | Snippet = 14
-            | Color = 15
-            | File = 16
-            | Reference = 17
-
-        type IndentAction = 
-            | None = 0
-            | Indent = 1
-            | IndentOutdent = 2
-            | Outdent = 3
-
-        type DiagnosticSeverity = 
-            | Error = 0
-            | Warning = 1
-            | Information = 2
-            | Hint = 3
-
-        type ViewColumn = 
-            | One = 1
-            | Two = 2
-            | Three = 3
-
-        type StatusBarAlignment = 
-            | Left = 0
-            | Right = 1
 
     let [<Import("vscode")>] Globals: Globals = failwith "JS only"
-
-
     module commands =
         type Globals =
             abstract registerCommand: command: string * callback: Func<obj, obj> * ?thisArg: obj -> Disposable

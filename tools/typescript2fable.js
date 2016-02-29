@@ -50,9 +50,6 @@ property:
 method:
 `abstract [NAME]: [PARAMETERS] -> [TYPE]`,
 
-enum:
-`type [NAME] = `,
-
 enumCase:
 `    | [NAME] = [ID]`
 };
@@ -168,6 +165,8 @@ var mappedTypes = {
   Array: "ResizeArray"
 };
 
+var typeCache = {};
+
 function escapeKeyword(x) {
     return !/^'|<.+?>/.test(x) && (keywords.indexOf(x) >= 0 || reserved.indexOf(x) >= 0 || /[^\w.]/.test(x))
         ? "``" + x + "``"
@@ -202,20 +201,6 @@ function printMethod(prefix) {
     }
 }
 
-function printEnum(prefix) {
-    return function (x) {
-        var cases = x.cases.map(function(currentValue) {
-            var cv = templates.enumCase
-                        .replace("[NAME]", currentValue.name)
-                        .replace("[ID]", currentValue.value)
-            return prefix + cv;
-        }).join("\n");
-        var e = prefix + templates.enum
-                    .replace("[NAME]", x.name)
-        return e + "\n" + cases + "\n";
-    }
-}
-
 function printProperty(prefix) {
     return function (x) {
         return prefix + templates.property
@@ -225,22 +210,91 @@ function printProperty(prefix) {
     }
 }
 
+function printParents(prefix, node) {
+    if (node.name.indexOf("Component") == 0) {
+        debugger;
+    }
+    
+    if (!node.parents || node.parents.length == 0) {
+        return "";
+    }
+    
+    var lines = [];
+    var baseClasses = {};
+    var interfaces = {};
+    
+    for (var i = 0; i < node.parents.length; i++) {
+        var parentName = node.parents[i];
+        var parent = typeCache[parentName.replace(/<.*?>/,"")];
+        if (parent == null) {
+            // TODO: Consider non cached types interfaces by default
+            interfaces[parentName] = null;
+        }
+        else {
+            if (parent.kind == "class") {
+                baseClasses[parentName] = parent;
+            }
+            else if (parent.kind == "interface") {
+                interfaces[parentName] = parent;
+            }
+        }
+    }
+    
+    if (node.kind == "class") {
+        Object.keys(baseClasses).forEach((x, i) => {
+            if (i == 0) {
+                // TODO: Check base class constructor arguments?
+                lines.push(prefix + "inherit " + x + "()");
+            }
+            else {
+                lines.push(prefix + "// inherit " + x + " // TODO: Multiple inheritance, unexpected");
+            }
+        });
+        Object.keys(interfaces).forEach(x => {
+            lines.push(prefix + "// inherit " + x + " // TODO: Interface implementation");
+        });
+    }
+    else if (node.kind == "interface") {
+        Object.keys(baseClasses).forEach(x => {
+            lines.push(prefix + "// inherit " + x + " // TODO: Interfaces cannot extend classes in F#");
+        });
+        Object.keys(interfaces).forEach(x => {
+            lines.push(prefix + "inherit " + x);
+        });
+    }
+    
+    return lines.join("\n");
+}
+
 function printParent(prefix, kind) {
     return function(name) {
-        return prefix + "inherit " + name + (kind == "class" ? "()" : "");
+        var parent = typeCache[name.replace(/<.*?>/,"")];
+        switch (kind) {
+            case "class":
+                if (parent && parent.kind == "class")
+                    return prefix + "inherit " + name + "()";
+                break;
+            case "interface":
+                if (!parent || parent.kind == "interface")
+                    return prefix + "inherit " + name;
+                break;
+        }
+        return "";
     }
+}
+
+function printArray(arr, mapper) {
+    return arr && arr.length > 0
+        ? arr.map(mapper).filter(x => x.length > 0).join("\n")
+        : "";
 }
 
 function printMembers(ent, prefix) {
     return [
-        ent.parents && ent.parents.length > 0
-            ? ent.parents.map(printParent(prefix)).join("\n") : "",
-        ent.properties && ent.properties.length > 0
-            ? ent.properties.map(printProperty(prefix)).join("\n") : "",
-        ent.methods && ent.methods.length > 0
-            ? ent.methods.map(printMethod(prefix)).join("\n") : "",
-        ent.enums && ent.enums.length > 0
-            ? ent.enums.map(printEnum(prefix)).join("\n") : ""
+        printParents(prefix, ent),
+        // printArray(ent.parents, printParent(prefix, ent.kind)),
+        printArray(ent.properties, printProperty(prefix)),
+        printArray(ent.methods, printMethod(prefix))
     ].filter(x => x.length > 0).join("\n");
 }
 
@@ -268,13 +322,10 @@ function printClassProperty(prefix) {
 
 function printClassMembers(ent, prefix) {
     return [
-        // TODO: class parents and interfaces
-        ent.parents && ent.parents.length > 0
-            ? ent.parents.map(printParent(prefix, "class")).join("\n") : "",
-        ent.properties && ent.properties.length > 0
-            ? ent.properties.map(printClassProperty(prefix)).join("\n") : "",
-        ent.methods && ent.methods.length > 0
-            ? ent.methods.map(printClassMethod(prefix)).join("\n") : "",
+        printParents(prefix, ent),
+        // printArray(ent.parents, printParent(prefix, ent.kind)),
+        printArray(ent.properties, printClassProperty(prefix)),
+        printArray(ent.methods, printClassMethod(prefix)),
     ].filter(x => x.length > 0).join("\n");
 }
 
@@ -295,20 +346,28 @@ function printInterface(prefix, modName) {
             .replace("[CONSTRUCTOR]", ifc.kind == "class"
                 ? "(" + printParameters(ifc.constructorParameters) + ")" : "");
 
-        if (ifc.kind == "alias") {
-            return template += prefix + "    " + ifc.alias;
-        }
-        else if (ifc.kind == "class") {
-            var classMembers = printClassMembers(ifc, prefix + "    ");
-            return template += (classMembers.length == 0
-                ? prefix + "    class end"
-                : classMembers);
-        }
-        else {
-            var members = printMembers(ifc, prefix + "    ");
-            return template += (members.length == 0
-                ? prefix + "    interface end"
-                : members);
+        switch (ifc.kind) {
+            case "alias":
+                return template += prefix + "    " + ifc.parents[0];
+            case "enum":
+                return template + ifc.properties.map(function(currentValue) {
+                    var cv = templates.enumCase
+                                .replace("[NAME]", currentValue.name)
+                                .replace("[ID]", currentValue.value)
+                    return prefix + cv;
+                }).join("\n");
+            case "class":
+                var classMembers = printClassMembers(ifc, prefix + "    ");
+                return template += (classMembers.length == 0
+                    ? prefix + "    class end"
+                    : classMembers);
+            // case "interface":
+            default:
+                var members = printMembers(ifc, prefix + "    ");
+                return template += (members.length == 0
+                    ? prefix + "    interface end"
+                    : members);
+            
         }
     }
 }
@@ -377,7 +436,19 @@ function printTypeArguments(typeArgs) {
     return typeArgs.length == 0 ? "" : "<" + typeArgs.map(getType).join(", ") + ">";
 }
 
+ function findTypeParameters(node, acc) {
+    acc = acc || [];
+    if (!node) {
+        return acc;
+    }
+    if (Array.isArray(node.typeParameters)) {
+        node.typeParameters.forEach(x => acc.push(x.name.text));
+    }
+    return findTypeParameters(node.parent, acc);
+ }
+
 function getType(type) {
+    var typeParameters = findTypeParameters(type);
     switch (type.kind) {
         case ts.SyntaxKind.StringKeyword:
             return "string";
@@ -421,8 +492,7 @@ function getType(type) {
             }
 
             var result = name + printTypeArguments(type.typeArguments);
-            // HACK: Consider one-letter identifiers as type arguments
-            return result.length > 1 ? result : "'" + result;
+            return (typeParameters.indexOf(result) > -1 ? "'" : "") + result;
     }
 }
 
@@ -451,13 +521,16 @@ function getProperty(node) {
 
 function getEnum(node) {
     return {
-        name : getName(node),
-        cases : node.members.map(function (n, i) {
+        kind: "enum",
+        name: getName(node),
+        properties: node.members.map(function (n, i) {
             return {
                 name : getName(n),
                 value : n.initializer ? n.initializer.text : i
             }
-        })
+        }),
+        parents: [],
+        methods: []
     }
 }
 
@@ -520,14 +593,16 @@ function getInterface(node, kind) {
             return "'" + x.name.text
         }).join(", ") + ">";
     }
-    return {
+    var ifc = {
       name: getName(node) + printTypeParameters(node.typeParameters),
       kind: kind || "interface",
-      alias: kind == "alias" ? getType(node.type) : null,
-      parents: getParents(node),
+      parents: kind == "alias" ? [getType(node.type)] : getParents(node),
       properties: [],
       methods: []
     };
+    // TODO: Respect namespace?
+    typeCache[ifc.name.replace(/<.*?>/,"")] = ifc;
+    return ifc;
 }
 
 function visitInterface(node, kind) {
@@ -571,8 +646,7 @@ function visitModule(node, parent) {
       interfaces: [],
       properties: [],
       methods: [],
-      modules: [],
-      enums: []
+      modules: []
     };
     node.body.statements.forEach(function(node) {
         switch (node.kind) {
@@ -598,7 +672,7 @@ function visitModule(node, parent) {
                     mod.modules.push(visitModule(node, mod.name));
                 break;
             case ts.SyntaxKind.EnumDeclaration:
-                mod.enums.push(getEnum(node));
+                mod.interfaces.push(getEnum(node));
                 break;
         }
     });
