@@ -7,8 +7,8 @@ var templates = {
 file:
 `namespace Fable.Import
 open System
-open Fabel.Core
-open Fabel.Import.JS
+open Fable.Core
+open Fable.Import.JS
 
 `,
 
@@ -234,8 +234,16 @@ function printProperty(prefix) {
 }
 
 function printParent(prefix, kind) {
-    return function(name) {
-        return prefix + "inherit " + name + (kind == "class" ? "()" : "");
+    return function (name, index) {
+        if (index > 0) {
+            return prefix + "// TODO: Multiple inheritance?";
+        }
+
+        if (kind == "class") {
+            return prefix + "inherit " + name + "()";
+        }
+
+        return prefix + "inherit I" + name;
     }
 }
 
@@ -265,6 +273,17 @@ function printClassMethod(prefix) {
     }
 }
 
+function printClassConstructor(prefix) {
+    return function (x) {
+        return prefix + templates.classMethod
+            .replace("[STATIC]", x.static ? "static " : "")
+            .replace("[INSTANCE]", x.static ? "" : "__.")
+            .replace("[NAME]", "createNew")
+            .replace("[TYPE]", escapeKeyword(escapeKeyword(x.type)))
+            .replace("[PARAMETERS]", printParameters(x.parameters, ", ", "unit"));
+    }
+}
+
 function printClassProperty(prefix) {
     return function (x) {
         return prefix + templates.classProperty
@@ -278,9 +297,8 @@ function printClassProperty(prefix) {
 
 function printClassMembers(ent, prefix) {
     return [
-        // TODO: class parents and interfaces
-        ent.parents && ent.parents.length > 0
-            ? ent.parents.map(printParent(prefix, "class")).join("\n") : "",
+        ent.constructors && ent.constructors.length > 0
+            ? ent.constructors.map(printClassConstructor(prefix)).join("\n") : "",
         ent.properties && ent.properties.length > 0
             ? ent.properties.map(printClassProperty(prefix)).join("\n") : "",
         ent.methods && ent.methods.length > 0
@@ -298,27 +316,43 @@ function printClassDecorator(ifc, modName) {
 
 function printInterface(prefix, modName) {
     return function (ifc, i) {
-        var template = prefix + templates.interface
-            .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
-            .replace("[NAME]", escapeKeyword(ifc.name))
-            .replace("[DECORATOR]", printClassDecorator(ifc, modName))
-            .replace("[CONSTRUCTOR]", ifc.kind == "class"
-                ? "(" + printParameters(ifc.constructorParameters) + ")" : "");
 
         if (ifc.kind == "alias") {
+            var template = prefix + templates.interface
+                .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
+                .replace("[NAME]", escapeKeyword(ifc.name))
+                .replace("[DECORATOR]", printClassDecorator(ifc, modName))
+                .replace("[CONSTRUCTOR]", ifc.kind == "class"
+                    ? "(" + printParameters(ifc.constructorParameters) + ")" : "");
+
             return template += prefix + "    " + ifc.alias;
         }
-        else if (ifc.kind == "class") {
-            var classMembers = printClassMembers(ifc, prefix + "    ");
-            return template += (classMembers.length == 0
-                ? prefix + "    class end"
-                : classMembers);
-        }
         else {
-            var members = printMembers(ifc, prefix + "    ");
-            return template += (members.length == 0
+            var interfaceTemplate = prefix + templates.interface
+                .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
+                .replace("[NAME]", "I" + escapeKeyword(ifc.name))
+                .replace("[DECORATOR]", printClassDecorator(ifc, modName))
+                .replace("[CONSTRUCTOR]", "");
+
+            var interfaceMembers = printMembers(ifc, prefix + "    ");
+            interfaceTemplate += (interfaceMembers.length == 0
                 ? prefix + "    interface end"
-                : members);
+                : interfaceMembers);
+
+            var classTemplate = prefix + templates.interface
+                .replace("[TYPE_KEYWORD]", i + 1 === 0 ? "type" : "and")
+                .replace("[NAME]", escapeKeyword(ifc.name))
+                .replace("[DECORATOR]", (ifc.kind == "class" ? "" : "[<AbstractClass>] ") + printClassDecorator(ifc, modName))
+                .replace("[CONSTRUCTOR]", "()");
+
+            var classMembers = printClassMembers(ifc, prefix + "        ");
+            classTemplate += ifc.parents && ifc.parents.length > 0 ? ifc.parents.map(printParent(prefix + "    ", "class")).join("\n") + "\n" : "",
+            classTemplate += prefix + "    interface I" + escapeKeyword(ifc.name) + (classMembers.length > 0 ? " with" : "") + "\n";
+            if (ifc.constructorParameters) {
+            }
+            classTemplate += classMembers;
+
+            return interfaceTemplate + "\n\n" + classTemplate
         }
     }
 }
@@ -387,7 +421,21 @@ function printTypeArguments(typeArgs) {
     return typeArgs.length == 0 ? "" : "<" + typeArgs.map(getType).join(", ") + ">";
 }
 
+function findTypeParameters(node) {
+    if (!node) {
+        return []
+    }
+
+    if (!node.typeParameters) {
+        return findTypeParameters(node.parent)
+    }
+
+    return node.typeParameters.map(function (t) { return t.name.text });
+}
+
 function getType(type) {
+    var typeParameters = findTypeParameters(type);
+
     switch (type.kind) {
         case ts.SyntaxKind.StringKeyword:
             return "string";
@@ -429,8 +477,12 @@ function getType(type) {
             }
 
             var result = name + printTypeArguments(type.typeArguments);
-            // HACK: Consider one-letter identifiers as type arguments
-            return result.length > 1 ? result : "'" + result;
+
+            if (typeParameters.indexOf(result) > -1) {
+                return "'" + result;
+            }
+
+            return result;
     }
 }
 
@@ -538,7 +590,7 @@ function getModule(name) {
 
 function visitInterface(node, kind) {
     var ifc = getInterface(node, kind);
-    (node.members || []).forEach(function(node) {
+    (node.members || []).forEach(function (node) {
         switch (node.kind) {
             case ts.SyntaxKind.PropertySignature:
             case ts.SyntaxKind.PropertyDeclaration:
@@ -601,7 +653,7 @@ function visitModule(node) {
 
 function visitFile(node) {
     var properties = [], interfaces = [], modules = [];
-    ts.forEachChild(node, function(node) {
+    ts.forEachChild(node, function (node) {
         switch (node.kind) {
             case ts.SyntaxKind.VariableStatement:
                 getVariables(node).forEach(x =>
