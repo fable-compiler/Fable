@@ -1,7 +1,7 @@
 namespace Fable.Import
 open System
-open Fabel.Core
-open Fabel.Import.JS
+open Fable.Core
+open Fable.Import.JS
     
 module React =
     type ReactType =
@@ -88,7 +88,7 @@ module React =
         abstract displayName: string option with get, set
 
     and ComponentClass<'P> =
-        abstract createNew: ?props: 'P * ?context: obj -> Component<'P, obj>
+        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> Component<'P, obj>
         abstract propTypes: ValidationMap<'P> option with get, set
         abstract contextTypes: ValidationMap<obj> option with get, set
         abstract childContextTypes: ValidationMap<obj> option with get, set
@@ -96,7 +96,7 @@ module React =
 
     and ClassicComponentClass<'P> =
         inherit ComponentClass<'P>
-        abstract createNew: ?props: 'P * ?context: obj -> ClassicComponent<'P, obj>
+        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> ClassicComponent<'P, obj>
         abstract displayName: string option with get, set
         abstract getDefaultProps: unit -> 'P
 

@@ -1,7 +1,7 @@
 namespace Fable.Import
 open System
-open Fabel.Core
-open Fabel.Import.JS
+open Fable.Core
+open Fable.Import.JS
 
 type Thenable<'R> =
     abstract ``then``: ?onfulfilled: Func<'R, U2<TResult, Thenable<TResult>>> * ?onrejected: Func<obj, U2<TResult, Thenable<TResult>>> -> Thenable<TResult>
@@ -14,7 +14,7 @@ and Promise<'T> =
     abstract catch: ?onrejected: Func<obj, U2<'T, Thenable<'T>>> -> Promise<'T>
 
 and PromiseConstructor =
-    abstract createNew: executor: Func<Func<U2<'T, Thenable<'T>>, unit>, Func<obj, unit>, unit> -> Promise<'T>
+    [<Emit("new $0($1...)")>] abstract createNew: executor: Func<Func<U2<'T, Thenable<'T>>, unit>, Func<obj, unit>, unit> -> Promise<'T>
     abstract all: values: ResizeArray<U2<'T, Thenable<'T>>> -> Promise<ResizeArray<'T>>
     abstract race: values: ResizeArray<U2<'T, Thenable<'T>>> -> Promise<'T>
     abstract reject: reason: obj -> Promise<unit>
@@ -278,7 +278,7 @@ module vscode =
         member __.has(uri: Uri): bool = failwith "JS only"
         member __.set(uri: Uri, edits: ResizeArray<TextEdit>): unit = failwith "JS only"
         member __.get(uri: Uri): ResizeArray<TextEdit> = failwith "JS only"
-        member __.entries(): ResizeArray<obj> = failwith "JS only"
+        member __.entries(): ResizeArray<Uri * ResizeArray<TextEdit>> = failwith "JS only"
 
     and RenameProvider =
         abstract provideRenameEdits: document: TextDocument * position: Position * newName: string * token: CancellationToken -> U2<WorkspaceEdit, Thenable<WorkspaceEdit>>
@@ -328,7 +328,7 @@ module vscode =
         abstract resolveCompletionItem: item: CompletionItem * token: CancellationToken -> U2<CompletionItem, Thenable<CompletionItem>>
 
     and CharacterPair =
-        obj
+        string * string
 
     and CommentRule =
         abstract lineComment: string option with get, set
@@ -378,7 +378,7 @@ module vscode =
         abstract name: string with get, set
         abstract set: uri: Uri * diagnostics: ResizeArray<Diagnostic> -> unit
         abstract delete: uri: Uri -> unit
-        abstract set: entries: ResizeArray<obj> -> unit
+        abstract set: entries: ResizeArray<Uri * ResizeArray<Diagnostic>> -> unit
         abstract clear: unit -> unit
         abstract dispose: unit -> unit
 

@@ -7,8 +7,8 @@ var templates = {
 file:
 `namespace Fable.Import
 open System
-open Fabel.Core
-open Fabel.Import.JS
+open Fable.Core
+open Fable.Import.JS
 
 `,
 
@@ -50,9 +50,6 @@ property:
 method:
 `abstract [NAME]: [PARAMETERS] -> [TYPE]`,
 
-constructor:
-`abstract createNew: [PARAMETERS] -> [TYPE]`,
-
 enum:
 `type [NAME] = `,
 
@@ -75,6 +72,7 @@ var reserved = [
     "fixed",
     "functor",
     "include",
+    "measure",
     "method",
     "mixin",
     "object",
@@ -171,9 +169,9 @@ var mappedTypes = {
 };
 
 function escapeKeyword(x) {
-    return keywords.indexOf(x) == -1 && reserved.indexOf(x) == -1 && x.indexOf('$') == -1
-        ? x
-        : "``" + x + "``";
+    return !/^'|<.+?>/.test(x) && (keywords.indexOf(x) >= 0 || reserved.indexOf(x) >= 0 || /[^\w]/.test(x))
+        ? "``" + x + "``"
+        : x;
 }
 
 function printParameters(parameters, sep, def) {
@@ -193,17 +191,11 @@ function printParameters(parameters, sep, def) {
         : def;
 }
 
-function printConstructor(prefix) {
-    return function (x) {
-        return prefix + templates.constructor
-            .replace("[TYPE]", escapeKeyword(escapeKeyword(x.type)))
-            .replace("[PARAMETERS]", printParameters(x.parameters, " * ", "unit"));
-    }
-}
-
 function printMethod(prefix) {
     return function (x) {
-        return prefix + templates.method
+        return prefix +
+            (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") +
+            templates.method
             .replace("[NAME]", escapeKeyword(x.name))
             .replace("[TYPE]", escapeKeyword(x.type))
             .replace("[PARAMETERS]", printParameters(x.parameters, " * ", "unit"));
@@ -243,8 +235,6 @@ function printMembers(ent, prefix) {
     return [
         ent.parents && ent.parents.length > 0
             ? ent.parents.map(printParent(prefix)).join("\n") : "",
-        ent.constructors && ent.constructors.length > 0
-            ? ent.constructors.map(printConstructor(prefix)).join("\n") : "",
         ent.properties && ent.properties.length > 0
             ? ent.properties.map(printProperty(prefix)).join("\n") : "",
         ent.methods && ent.methods.length > 0
@@ -327,7 +317,6 @@ function append(template, txt) {
     return txt.length > 0 ? template + txt + "\n\n" : template;
 }
 
-// TODO: Import path for nested modules
 function printModule(prefix) {
     return function(mod) {
         var template = prefix + templates.module
@@ -341,7 +330,8 @@ function printModule(prefix) {
             template +=
                 prefix + "    " + templates.moduleProxyType +
                 members + "\n\n" +
-                prefix + "    " + templates.moduleProxyDeclaration.replace("[NAME]", mod.name);
+                prefix + "    " + templates.moduleProxyDeclaration.replace("[NAME]",
+                    (mod.parent ? mod.parent + "?get=" : "") + mod.name);
         }
 
         template += mod.modules.map(printModule(prefix + "    ")).join("\n\n");
@@ -409,6 +399,8 @@ function getType(type) {
             return "Func<" + cbParams + getType(type.type) + ">";
         case ts.SyntaxKind.UnionType:
             return "U" + type.types.length + printTypeArguments(type.types);
+        case ts.SyntaxKind.TupleType:
+            return type.elementTypes.map(getType).join(" * ");
         case ts.SyntaxKind.ParenthesizedType:
             return getType(type.type);
         default:
@@ -498,13 +490,27 @@ function getParameter(param) {
 }
 
 // TODO: get comments
-function getMethod(node) {
-    return {
-        name: getName(node),
+function getMethod(node, name) {
+    var meth = {
+        name: name || getName(node),
         type: getType(node.type),
         static: node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false,
         parameters: node.parameters.map(getParameter)
     };
+    var firstParam = node.parameters[0], secondParam = node.parameters[1];
+    if (secondParam && secondParam.type.kind == ts.SyntaxKind.StringLiteral) {
+        // The only case I've seen following this pattern is
+        // createElementNS(namespaceURI: "http://www.w3.org/2000/svg", qualifiedName: "a"): SVGAElement
+        meth.parameters = meth.parameters.slice(2);
+        meth.emit = `$0.${meth.name}('${firstParam.type.text}', '${secondParam.type.text}'${meth.parameters.length?',$1...':''})`;
+        meth.name += '_' + secondParam.type.text;
+    }
+    else if (firstParam && firstParam.type.kind == ts.SyntaxKind.StringLiteral) {
+        meth.parameters = meth.parameters.slice(1);
+        meth.emit = `$0.${meth.name}('${firstParam.type.text}'${meth.parameters.length?',$1...':''})`;
+        meth.name += '_' + firstParam.type.text;
+    }
+    return meth;
 }
 
 function getInterface(node, kind) {
@@ -520,19 +526,7 @@ function getInterface(node, kind) {
       alias: kind == "alias" ? getType(node.type) : null,
       parents: getParents(node),
       properties: [],
-      methods: [],
-      constructors: []
-    };
-}
-
-function getModule(name) {
-    return {
-      name: name,
-      interfaces: [],
-      properties: [],
-      methods: [],
-      modules: [],
-      enums: []
+      methods: []
     };
 }
 
@@ -558,7 +552,9 @@ function visitInterface(node, kind) {
                 }
                 break;
             case ts.SyntaxKind.ConstructSignature:
-                ifc.constructors.push(getMethod(node));
+                var meth = getMethod(node, "createNew");
+                meth.emit = "new $0($1...)";
+                ifc.methods.push(meth);
                 break;
             case ts.SyntaxKind.Constructor:
                 ifc.constructorParameters = node.parameters.map(getParameter);
@@ -568,8 +564,16 @@ function visitInterface(node, kind) {
     return ifc;
 }
 
-function visitModule(node) {
-    var mod = getModule(getName(node));
+function visitModule(node, parent) {
+    var mod = {
+      name: getName(node),
+      parent: parent,
+      interfaces: [],
+      properties: [],
+      methods: [],
+      modules: [],
+      enums: []
+    };
     node.body.statements.forEach(function(node) {
         switch (node.kind) {
             case ts.SyntaxKind.InterfaceDeclaration:
@@ -589,7 +593,9 @@ function visitModule(node) {
                 mod.methods.push(getMethod(node));
                 break;
             case ts.SyntaxKind.ModuleDeclaration:
-                mod.modules.push(visitModule(node));
+                // TODO: Support modules with depth > 1?
+                if (!mod.parent)
+                    mod.modules.push(visitModule(node, mod.name));
                 break;
             case ts.SyntaxKind.EnumDeclaration:
                 mod.enums.push(getEnum(node));
