@@ -1,0 +1,11 @@
+language: csharp
+
+sudo: false  # use the new container-based Travis infrastructure
+
+before_script:
+  - nvm install 5.0
+  - nvm use 5.0
+
+script:
+  - ./build.sh All
+
