@@ -161,31 +161,31 @@ module React =
             member __.displayName with get(): string option = failwith "JS only" and set(v: string option): unit = failwith "JS only"
 
     and IComponentClass<'P> =
-        abstract createNew: ?props: 'P * ?context: obj -> Component<'P, obj>
         abstract propTypes: ValidationMap<'P> option with get, set
         abstract contextTypes: ValidationMap<obj> option with get, set
         abstract childContextTypes: ValidationMap<obj> option with get, set
         abstract defaultProps: 'P option with get, set
+        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> Component<'P, obj>
 
     and [<AbstractClass>] ComponentClass<'P>() =
         interface IComponentClass<'P> with
-            member __.createNew(?props: 'P, ?context: obj): Component<'P, obj> = failwith "JS only"
             member __.propTypes with get(): ValidationMap<'P> option = failwith "JS only" and set(v: ValidationMap<'P> option): unit = failwith "JS only"
             member __.contextTypes with get(): ValidationMap<obj> option = failwith "JS only" and set(v: ValidationMap<obj> option): unit = failwith "JS only"
             member __.childContextTypes with get(): ValidationMap<obj> option = failwith "JS only" and set(v: ValidationMap<obj> option): unit = failwith "JS only"
             member __.defaultProps with get(): 'P option = failwith "JS only" and set(v: 'P option): unit = failwith "JS only"
+            member __.createNew(?props: 'P, ?context: obj): Component<'P, obj> = failwith "JS only"
 
     and IClassicComponentClass<'P> =
         inherit IComponentClass<'P>
-        abstract createNew: ?props: 'P * ?context: obj -> ClassicComponent<'P, obj>
         abstract displayName: string option with get, set
+        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> ClassicComponent<'P, obj>
         abstract getDefaultProps: unit -> 'P
 
     and [<AbstractClass>] ClassicComponentClass<'P>() =
         inherit ComponentClass<'P>()
         interface IClassicComponentClass<'P> with
-            member __.createNew(?props: 'P, ?context: obj): ClassicComponent<'P, obj> = failwith "JS only"
             member __.displayName with get(): string option = failwith "JS only" and set(v: string option): unit = failwith "JS only"
+            member __.createNew(?props: 'P, ?context: obj): ClassicComponent<'P, obj> = failwith "JS only"
             member __.getDefaultProps(): 'P = failwith "JS only"
 
     and IComponentLifecycle<'P, 'S> =
@@ -1981,5 +1981,5 @@ module React =
         abstract cloneElement: element: ReactElement<'P> * ?props: 'P * [<ParamArray>] children: ReactNode[] -> ReactElement<'P>
         abstract isValidElement: ``object``: obj -> bool
 
-    let [<Import("React")>] Globals: Globals = failwith "JS only"
+    let [<Import("react")>] Globals: Globals = failwith "JS only"
 

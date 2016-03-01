@@ -40,8 +40,6 @@ module Naming =
     let ignoredCompilerGenerated =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
     
-    let isJsCons = (=) "createNew"
-    
     let removeParens, removeGetSetPrefix, sanitizeActivePattern =
         let reg1 = Regex(@"^\( (.*) \)$")
         let reg2 = Regex(@"^[gs]et_")
