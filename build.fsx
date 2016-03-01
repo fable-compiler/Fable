@@ -63,9 +63,12 @@ Target "MainDebug" (fun _ ->
     |> Log "Debug-Output: "
 )
 
+Target "CopyLib" (fun _ ->
+    FileUtils.cp "lib/fable-core.js" mainBuildDir
+)
+
 Target "Plugins" (fun _ ->
     CreateDir "build/plugins"
-    
     [ "plugins/Fable.Plugins.NUnit.fsx" ]
     |> Seq.iter (fun fsx ->
         [fsx]
@@ -84,6 +87,7 @@ Target "Release" ignore
 "Clean"
   ==> "MainRelease"
   ==> "Plugins"
+  ==> "CopyLib"
   ==> "Release"
 
 // Start build
