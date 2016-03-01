@@ -1,7 +1,5 @@
 # Compatibility
 
-> The project is still in development, so expect many changes in this document.
-
 The compiler follows two rough guidelines when transforming the code:
 
 * Keep the [core library](/lib/fable-core.js) small, so fall back to native JS methods when possible.

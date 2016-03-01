@@ -1,7 +1,7 @@
 namespace Fable.Import.Node
 open System
-open Fabel.Core
-open Fabel.Import.JS
+open Fable.Core
+open Fable.Import.JS
 
 type Error =
     abstract stack: string option with get, set

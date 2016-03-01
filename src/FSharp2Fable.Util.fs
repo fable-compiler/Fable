@@ -570,13 +570,6 @@ module Util =
             com.Transform ctx fsExpr |> Some
         | None -> None
 
-    let (|CreateNew|_|) com ctx fsExpr (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
-        match callee, meth.DisplayName with
-        | Some callee, "createNew" when meth.EnclosingEntity.IsInterface ->
-            let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            Fable.Apply(callee, args, Fable.ApplyCons, typ, range) |> Some
-        | _ -> None
-
     let makeCallFrom (com: IFableCompiler) ctx fsExpr (meth: FSharpMemberOrFunctionOrValue)
                     (typArgs, methTypArgs) callee args =
         let args =
@@ -593,7 +586,6 @@ module Util =
         | Emitted com ctx fsExpr (callee, args) emitted -> emitted
         | Imported com ctx fsExpr args imported -> imported
         | Inlined com fsExpr methTypArgs (callee, args) expr -> expr
-        | CreateNew com ctx fsExpr (callee, args) cons -> cons
         (** -If the call is not resolved, then: *)
         | _ ->
             let methName = sanitizeMethodName com meth
@@ -613,10 +605,8 @@ module Util =
                 makeGetFrom com ctx fsExpr callee methExpr
             elif meth.IsPropertySetterMethod then
                 Fable.Set (callee, Some methExpr, args.Head, range)
-        (**     *Check if this is an implicit constructor or a replacement
-                for JS constructors *)
-            elif meth.IsImplicitConstructor ||
-                (meth.EnclosingEntity.IsInterface && Naming.isJsCons methName) then
+        (**     *Check if this is an implicit constructor *)
+            elif meth.IsImplicitConstructor then
                 Fable.Apply (callee, args, Fable.ApplyCons, typ, range)
         (**     *If nothing of the above applies, call the method normally *)
             else

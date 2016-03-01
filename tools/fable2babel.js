@@ -16,10 +16,16 @@ var transformMacroExpressions = {
   
       try {
         var buildArgs = {};
-        var buildMacro = template(path.node.value);
         for (var i = 0; i < path.node.args.length; i++) {
             buildArgs["$" + i] = path.node.args[i];
         }
+        var buildMacro = template(path.node.value.replace(/\$(\d+)\.\.\./, function (m, i) {
+            var rep = [], j = parseInt(i);
+            for (; j < buildArgs.length; j++) {
+                rep.push("$"+j);
+            }
+            return rep.join(",");
+        }));
         path.replaceWithMultiple(buildMacro(buildArgs));
       }
       catch (err) {
