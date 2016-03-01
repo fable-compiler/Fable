@@ -214,15 +214,15 @@ function printParents(prefix, node) {
     if (node.name.indexOf("Component") == 0) {
         debugger;
     }
-    
+
     if (!node.parents || node.parents.length == 0) {
         return "";
     }
-    
+
     var lines = [];
     var baseClasses = {};
     var interfaces = {};
-    
+
     for (var i = 0; i < node.parents.length; i++) {
         var parentName = node.parents[i];
         var parent = typeCache[parentName.replace(/<.*?>/,"")];
@@ -239,7 +239,7 @@ function printParents(prefix, node) {
             }
         }
     }
-    
+
     if (node.kind == "class") {
         Object.keys(baseClasses).forEach((x, i) => {
             if (i == 0) {
@@ -262,24 +262,21 @@ function printParents(prefix, node) {
             lines.push(prefix + "inherit " + x);
         });
     }
-    
+
     return lines.join("\n");
 }
 
 function printParent(prefix, kind) {
-    return function(name) {
-        var parent = typeCache[name.replace(/<.*?>/,"")];
-        switch (kind) {
-            case "class":
-                if (parent && parent.kind == "class")
-                    return prefix + "inherit " + name + "()";
-                break;
-            case "interface":
-                if (!parent || parent.kind == "interface")
-                    return prefix + "inherit " + name;
-                break;
+    return function (name, index) {
+        if (index > 0) {
+            return prefix + "// TODO: Multiple inheritance?";
         }
-        return "";
+
+        if (kind == "class") {
+            return prefix + "inherit " + name + "()";
+        }
+
+        return prefix + "inherit I" + name;
     }
 }
 
@@ -291,7 +288,9 @@ function printArray(arr, mapper) {
 
 function printMembers(ent, prefix) {
     return [
-        printParents(prefix, ent),
+        ent.parents && ent.parents.length > 0
+            ? ent.parents.map(printParent(prefix)).join("\n") : "",
+
         // printArray(ent.parents, printParent(prefix, ent.kind)),
         printArray(ent.properties, printProperty(prefix)),
         printArray(ent.methods, printMethod(prefix))
@@ -322,7 +321,7 @@ function printClassProperty(prefix) {
 
 function printClassMembers(ent, prefix) {
     return [
-        printParents(prefix, ent),
+        //printParents(prefix, ent),
         // printArray(ent.parents, printParent(prefix, ent.kind)),
         printArray(ent.properties, printClassProperty(prefix)),
         printArray(ent.methods, printClassMethod(prefix)),
@@ -339,7 +338,7 @@ function printClassDecorator(ifc, modName) {
 
 function printInterface(prefix, modName) {
     return function (ifc, i) {
-        var template = prefix + templates.interface
+        var defaultTemplate = prefix + templates.interface
             .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
             .replace("[NAME]", escapeKeyword(ifc.name))
             .replace("[DECORATOR]", printClassDecorator(ifc, modName))
@@ -348,26 +347,46 @@ function printInterface(prefix, modName) {
 
         switch (ifc.kind) {
             case "alias":
-                return template += prefix + "    " + ifc.parents[0];
+                return defaultTemplate += prefix + "    " + ifc.parents[0];
             case "enum":
-                return template + ifc.properties.map(function(currentValue) {
+                return defaultTemplate + ifc.properties.map(function (currentValue) {
                     var cv = templates.enumCase
                                 .replace("[NAME]", currentValue.name)
                                 .replace("[ID]", currentValue.value)
                     return prefix + cv;
                 }).join("\n");
             case "class":
-                var classMembers = printClassMembers(ifc, prefix + "    ");
-                return template += (classMembers.length == 0
-                    ? prefix + "    class end"
-                    : classMembers);
-            // case "interface":
+            case "interface": {
+                var interfaceTemplate = prefix + templates.interface
+                    .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
+                    .replace("[NAME]", "I" + escapeKeyword(ifc.name))
+                    .replace("[DECORATOR]", printClassDecorator(ifc, modName))
+                    .replace("[CONSTRUCTOR]", "");
+
+                var interfaceMembers = printMembers(ifc, prefix + "    ");
+                interfaceTemplate += (interfaceMembers.length == 0
+                    ? prefix + "    interface end"
+                    : interfaceMembers);
+
+                var classTemplate = prefix + templates.interface
+                    .replace("[TYPE_KEYWORD]", i + 1 === 0 ? "type" : "and")
+                    .replace("[NAME]", escapeKeyword(ifc.name))
+                    .replace("[DECORATOR]", (ifc.kind == "class" ? "" : "[<AbstractClass>] ") + printClassDecorator(ifc, modName))
+                    .replace("[CONSTRUCTOR]", "()");
+
+                var classMembers = printClassMembers(ifc, prefix + "        ");
+                classTemplate += ifc.parents && ifc.parents.length > 0 ? ifc.parents.map(printParent(prefix + "    ", "class")).join("\n") + "\n" : "",
+                classTemplate += prefix + "    interface I" + escapeKeyword(ifc.name) + (classMembers.length > 0 ? " with" : "") + "\n";
+                classTemplate += classMembers;
+
+                return interfaceTemplate + "\n\n" + classTemplate;
+            }
             default:
                 var members = printMembers(ifc, prefix + "    ");
-                return template += (members.length == 0
+                return defaultTemplate += (members.length == 0
                     ? prefix + "    interface end"
                     : members);
-            
+
         }
     }
 }
@@ -693,7 +712,7 @@ function visitFile(node) {
             case ts.SyntaxKind.ModuleDeclaration:
                 var mod = visitModule(node);
                 var isEmpty = Object.keys(mod).reduce(function(acc, k) {
-                    return acc && !(Array.isArray(mod[k]) && mod[k].length > 0); 
+                    return acc && !(Array.isArray(mod[k]) && mod[k].length > 0);
                 }, true);
                 if (!isEmpty)
                     modules.push(mod);
