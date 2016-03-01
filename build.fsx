@@ -80,11 +80,19 @@ Target "Plugins" (fun _ ->
 
 Target "Release" ignore
 
+Target "All" ignore
+
 // Build order
 "Clean"
   ==> "MainRelease"
   ==> "Plugins"
   ==> "Release"
 
+"Plugins"
+  ==> "NUnitTest"
+  ==> "MochaTest"
+  ==> "All"
+
 // Start build
 RunTargetOrDefault "Release"
+
