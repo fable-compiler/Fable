@@ -57,13 +57,13 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker) (projCode: stri
             let otherFlags =
                 com.Options.symbols |> Array.map (sprintf "--define:%s")
             checker.GetProjectOptionsFromScript(
-                com.Options.projFile, projCode, DateTime.UtcNow, otherFlags=otherFlags)
+                com.Options.projFile, projCode, otherFlags=otherFlags)
             |> Async.RunSynchronously
         | _ ->
             let properties =
                 [("DefineConstants", String.concat ";" com.Options.symbols)]
             ProjectCracker.GetProjectOptionsFromProjectFile(
-                com.Options.projFile, properties, DateTime.UtcNow)
+                com.Options.projFile, properties)
         |> checker.ParseAndCheckProject
         |> Async.RunSynchronously
     let errors =
@@ -72,7 +72,9 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker) (projCode: stri
     if errors.Length = 0
     then checkProjectResults
     else errors
-        |> Seq.map (fun e -> "> " + e.Message)
+        |> Seq.map (fun e ->
+            sprintf "> %s: L%i (%s)"
+                e.Message e.StartLineAlternate (Path.GetFileName e.FileName))
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> failwith

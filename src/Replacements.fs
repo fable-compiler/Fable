@@ -19,6 +19,13 @@ module Util =
         
     let (|KnownInterfaces|_|) fullName =
         if Naming.knownInterfaces.Contains fullName then Some fullName else None
+        
+    let (|CoreMeth|_|) com coreMod meth expr =
+        match expr with
+        | Fable.Apply(Fable.Value(Fable.ImportRef(import, false , Some coreMod')),
+                      [Fable.Value(Fable.StringConst meth')], Fable.ApplyGet,_,_)
+            when import = (Naming.getCoreLibPath com) && coreMod = coreMod' && meth = meth' -> Some expr
+        | _ -> None
 
     let (|Null|_|) = function
         | Fable.Value Fable.Null -> Some null
@@ -91,14 +98,16 @@ module Util =
         |> makeCall com i.range i.returnType
 
     let toArray com (i: Fable.ApplyInfo) expr =
-        let dynamicArray =
+        let dynamicArray expr =
             GlobalCall ("Array", Some "from", false, [expr])
             |> makeCall com i.range (Fable.PrimitiveType(Fable.Array Fable.DynamicArray))
-        match i.methodTypeArgs with
-        | [Fable.PrimitiveType(Fable.Number numberKind)] ->
+        match expr, i.methodTypeArgs with
+        | Fable.Apply(CoreMeth com "List" "ofArray" _, [arr], Fable.ApplyMeth,_,_), _ ->
+            arr // Optimization
+        | _, [Fable.PrimitiveType(Fable.Number numberKind)] ->
             let arrayKind = Fable.TypedArray numberKind
-            Fable.ArrayConst(Fable.ArrayConversion dynamicArray, arrayKind) |> Fable.Value
-        | _ -> dynamicArray
+            Fable.ArrayConst(Fable.ArrayConversion (dynamicArray expr), arrayKind) |> Fable.Value
+        | _ -> dynamicArray expr
 
     let applyOp com (i: Fable.ApplyInfo) (args: Fable.Expr list) meth =
         match args.Head.Type with
@@ -627,7 +636,7 @@ module private AstPass =
         set [ "append"; "choose"; "collect"; "concat"; "distinctBy"; "distinctBy";
               "filter"; "where"; "groupBy"; "init";
               "map"; "mapi"; "map2"; "mapi2"; "map3";
-              "ofArray"; "ofList"; "pairwise"; "permute"; "replicate"; "rev";
+              "ofArray"; "pairwise"; "permute"; "replicate"; "rev";
               "scan"; "scanBack"; "singleton"; "skip"; "skipWhile";
               "take"; "takeWhile"; "sort"; "sortBy"; "sortWith";
               "sortDescending"; "sortByDescending"; "zip"; "zip3" ]
@@ -750,10 +759,8 @@ module private AstPass =
         // Conversions
         | "toSeq" | "ofSeq" ->
             match kind with
-            | Seq ->
-                failwithf "Unexpected method called on seq %s in %A" meth i.range
-            | List ->
-                ccall "Seq" (if meth = "toSeq" then "ofList" else "toList") args
+            | Seq -> failwithf "Unexpected method called on seq %s in %A" meth i.range
+            | List -> ccall "Seq" (if meth = "toSeq" then "ofList" else "toList") args
             | Array ->
                 if meth = "toSeq"
                 then ccall "Seq" "ofArray" args
@@ -761,6 +768,12 @@ module private AstPass =
             |> Some
         | "toArray" ->
             toArray com i i.args.Head |> Some
+        | "ofList" ->
+            match kind with
+            | List -> failwithf "Unexpected method called on list %s in %A" meth i.range
+            | Seq -> ccall "Seq" "ofList" args
+            | Array -> toArray com i i.args.Head
+            |> Some
         // Default to Seq implementation in core lib
         | SetContains implementedSeqNonBuildFunctions meth ->
             ccall "Seq" meth (deleg args) |> Some

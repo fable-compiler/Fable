@@ -184,14 +184,14 @@ module vscode =
     and Event<'T> =
         interface end
 
-    and FileSystemWatcher =
-        // inherit Disposable // TODO: Interfaces cannot extend classes in F#
-        abstract ignoreCreateEvents: bool with get, set
-        abstract ignoreChangeEvents: bool with get, set
-        abstract ignoreDeleteEvents: bool with get, set
-        abstract onDidCreate: Event<Uri> with get, set
-        abstract onDidChange: Event<Uri> with get, set
-        abstract onDidDelete: Event<Uri> with get, set
+    and [<AbstractClass>] FileSystemWatcher() =
+        inherit Disposable()
+        member __.ignoreCreateEvents with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        member __.ignoreChangeEvents with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        member __.ignoreDeleteEvents with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        member __.onDidCreate with get(): Event<Uri> = failwith "JS only" and set(v: Event<Uri>): unit = failwith "JS only"
+        member __.onDidChange with get(): Event<Uri> = failwith "JS only" and set(v: Event<Uri>): unit = failwith "JS only"
+        member __.onDidDelete with get(): Event<Uri> = failwith "JS only" and set(v: Event<Uri>): unit = failwith "JS only"
 
     and QuickPickItem =
         abstract label: string with get, set
