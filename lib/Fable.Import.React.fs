@@ -2,6 +2,7 @@ namespace Fable.Import
 open System
 open Fable.Core
 open Fable.Import.JS
+open Fable.Import.Browser
     
 module React =
     type ReactType =

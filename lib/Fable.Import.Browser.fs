@@ -1,4 +1,4 @@
-namespace Fable.Import
+namespace Fable.Import.Browser
 open System
 open Fable.Core
 open Fable.Import.JS

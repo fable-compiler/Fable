@@ -350,11 +350,18 @@ module Util =
             Babel.BlockStatement (statements |> List.map (com.TransformStatement ctx), ?loc=range)
             |> fun block -> upcast Babel.DoExpression (block, ?loc=range)
 
-        | Fable.TryCatch _ | Fable.Throw _ ->
+        | Fable.Set (callee, property, TransformExpr com ctx value, range) ->
+            let left =
+                match property with
+                | None -> com.TransformExpr ctx callee
+                | Some property -> getExpr com ctx callee property
+            assign range left value
+
+        | Fable.TryCatch _ | Fable.Throw _ | Fable.Loop _ ->
             upcast (iife com ctx expr)
 
-        | Fable.Loop _ | Fable.Set _  | Fable.VarDeclaration _ ->
-            failwithf "Statement when expression expected in %A: %A" expr.Range expr 
+        | Fable.VarDeclaration _ ->
+            failwithf "Unexpected variable declaration in %A" expr.Range 
         
     let transformFunction com ctx args body =
         let args: Babel.Pattern list =

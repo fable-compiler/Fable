@@ -2,6 +2,7 @@
 .vscode/
 sample/**/*.js.map
 sample/browser/todomvc/app.js
+sample/browser/todomvc2/app.js
 sample/browser/react/app.js
 sample/node/console/console.js
 sample/node/server/app.js

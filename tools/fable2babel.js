@@ -272,7 +272,7 @@ try {
             else {
                 if (opts.projFile) {
                     babelifyToFile(fableCwd, path.join(fableCwd, opts.outDir), babelAst);
-                    console.log("Compiled " + babelAst.fileName);
+                    console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
                 }
                 else {
                     babelifyToConsole(babelAst);
