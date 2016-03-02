@@ -1013,6 +1013,23 @@ and PromiseConstructor =
     abstract resolve: value: U2<'T, PromiseLike<'T>> -> Promise<'T>
     abstract resolve: unit -> Promise<unit>
 
+and ReflectConstructor =
+    abstract apply: target: Function * thisArgument: obj * argumentsList: ArrayLike<obj> -> obj
+    abstract construct: target: Function * argumentsList: ArrayLike<obj> * ?newTarget: obj -> obj
+    abstract defineProperty: target: obj * propertyKey: PropertyKey * attributes: PropertyDescriptor -> bool
+    abstract deleteProperty: target: obj * propertyKey: PropertyKey -> bool
+    abstract enumerate: target: obj -> IterableIterator<obj>
+    abstract get: target: obj * propertyKey: PropertyKey * ?receiver: obj -> obj
+    abstract getOwnPropertyDescriptor: target: obj * propertyKey: PropertyKey -> PropertyDescriptor
+    abstract getPrototypeOf: target: obj -> obj
+    abstract has: target: obj * propertyKey: string -> bool
+    abstract has: target: obj * propertyKey: Symbol -> bool
+    abstract isExtensible: target: obj -> bool
+    abstract ownKeys: target: obj -> Array<PropertyKey>
+    abstract preventExtensions: target: obj -> bool
+    abstract set: target: obj * propertyKey: PropertyKey * value: obj * ?receiver: obj -> bool
+    abstract setPrototypeOf: target: obj * proto: obj -> bool
+
 module Globals =
     let [<Global>] NaN: float = failwith "JS only"
     let [<Global>] Infinity: float = failwith "JS only"
@@ -1052,26 +1069,6 @@ module Globals =
     let [<Global>] WeakSet: WeakSetConstructor = failwith "JS only"
     let [<Global>] Proxy: ProxyConstructor = failwith "JS only"
     let [<Global>] Promise: PromiseConstructor = failwith "JS only"
-
-module Reflect =
-    type Globals =
-        abstract apply: target: Function * thisArgument: obj * argumentsList: ArrayLike<obj> -> obj
-        abstract construct: target: Function * argumentsList: ArrayLike<obj> * ?newTarget: obj -> obj
-        abstract defineProperty: target: obj * propertyKey: PropertyKey * attributes: PropertyDescriptor -> bool
-        abstract deleteProperty: target: obj * propertyKey: PropertyKey -> bool
-        abstract enumerate: target: obj -> IterableIterator<obj>
-        abstract get: target: obj * propertyKey: PropertyKey * ?receiver: obj -> obj
-        abstract getOwnPropertyDescriptor: target: obj * propertyKey: PropertyKey -> PropertyDescriptor
-        abstract getPrototypeOf: target: obj -> obj
-        abstract has: target: obj * propertyKey: string -> bool
-        abstract has: target: obj * propertyKey: Symbol -> bool
-        abstract isExtensible: target: obj -> bool
-        abstract ownKeys: target: obj -> Array<PropertyKey>
-        abstract preventExtensions: target: obj -> bool
-        abstract set: target: obj * propertyKey: PropertyKey * value: obj * ?receiver: obj -> bool
-        abstract setPrototypeOf: target: obj * proto: obj -> bool
-
-    [<Import("Reflect")>]
-    let Globals: Globals = failwith "JS only"
+    let [<Global>] Reflect: ReflectConstructor = failwith "JS only"
 
 
