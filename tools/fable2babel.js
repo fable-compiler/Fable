@@ -7,6 +7,11 @@ var babel = require("babel-core");
 var template = require("babel-template");
 var spawn = require('child_process').spawn;
 
+var fableBinDir = path.resolve(__dirname, ["..", "build", "main"].join(path.sep));
+var fableBinExe = "Fable.exe";
+var fableConfig = "fableconfig.json";
+var fableCoreLib = "fable-core.js";
+
 // Custom plugin to simulate macro expressions
 var transformMacroExpressions = {
   visitor: {
@@ -136,6 +141,8 @@ try {
         plugins: [],
         watch: false
     }
+    
+    // TODO: Show help if no arguments passed
 
     for (var i=2; i < process.argv.length; i++) {
         var key = process.argv[i];
@@ -158,7 +165,7 @@ try {
     
     var fableCwd = process.cwd();
     var fableCmd = process.platform === "win32" ? "cmd" : "mono";
-    var fableCmdArgs = [path.resolve(__dirname, ["..", "build", "main", "Fable.exe"].join(path.sep))];
+    var fableCmdArgs = [path.join(fableBinDir, fableBinExe)];
     if (process.platform === "win32") {
         fableCmdArgs.unshift("/C");
     }
@@ -168,7 +175,7 @@ try {
         opts.projFile = "./" + path.basename(opts.projFile);
         
         try {
-            var cfgFile = path.join(fableCwd, "fableconfig.json");
+            var cfgFile = path.join(fableCwd, fableConfig);
             if (fs.existsSync(cfgFile)) {
                 var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
                 for (var key in cfg) {
@@ -183,6 +190,12 @@ try {
     }
     else if (typeof opts.code !== "string") {
         throw "No correct --projFile or --code argument provided";
+    }
+    
+    // Copy fable-core.js if not present
+    if (opts.projFile && opts.lib === "." && !fs.existsSync(path.join(fableCwd, fableCoreLib))) {
+        fs.createReadStream(path.join(fableBinDir, fableCoreLib))
+            .pipe(fs.createWriteStream(path.join(fableCwd, fableCoreLib)));
     }
     
     // Module target
@@ -211,7 +224,7 @@ try {
             addArg(k, opts[k]);
         }
     }
-    console.log(fableCwd + ">" + fableCmd + " " + fableCmdArgs.join(" "));
+    console.log(fableCwd + "> " + fableCmd + " " + fableCmdArgs.join(" "));
     
     var proc = spawn(fableCmd, fableCmdArgs, { cwd: fableCwd });
 
@@ -259,7 +272,7 @@ try {
             else {
                 if (opts.projFile) {
                     babelifyToFile(fableCwd, path.join(fableCwd, opts.outDir), babelAst);
-                    console.log("Compiled " + babelAst.fileName);
+                    console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
                 }
                 else {
                     babelifyToConsole(babelAst);

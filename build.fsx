@@ -35,18 +35,8 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    let compileArgs = "tools/fable2babel.js --projFile test/Fable.Tests.fsproj"
-    let testArgs = "node_modules/mocha/bin/mocha build/test"
-    trace ("node " + compileArgs)
-    Shell.Exec("node", compileArgs)
-    |> function
-    | 0 ->
-        trace ("node " + testArgs)
-        Shell.Exec("node", testArgs)
-        |> function
-        | 0 -> ()
-        | _ -> failwith "Mocha tests failed"
-    | _ -> failwith "Cannot compile tests to JS"
+    NpmHelper.Npm (fun p -> { p with Command = (NpmHelper.Run "test-compile")})
+    NpmHelper.Npm (fun p -> { p with Command = (NpmHelper.Run "test")})
 )
 
 Target "MainRelease" (fun _ ->
@@ -63,9 +53,12 @@ Target "MainDebug" (fun _ ->
     |> Log "Debug-Output: "
 )
 
+Target "CopyLib" (fun _ ->
+    FileUtils.cp "lib/fable-core.js" mainBuildDir
+)
+
 Target "Plugins" (fun _ ->
     CreateDir "build/plugins"
-    
     [ "plugins/Fable.Plugins.NUnit.fsx" ]
     |> Seq.iter (fun fsx ->
         [fsx]
@@ -86,11 +79,12 @@ Target "All" ignore
 "Clean"
   ==> "MainRelease"
   ==> "Plugins"
+  ==> "CopyLib"
   ==> "Release"
 
 "Plugins"
-  ==> "NUnitTest"
   ==> "MochaTest"
+  ==> "NUnitTest"
   ==> "All"
 
 // Start build

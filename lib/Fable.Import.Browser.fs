@@ -1,25 +1,25 @@
-namespace Fable.Import
+namespace Fable.Import.Browser
 open System
 open Fable.Core
 open Fable.Import.JS
 
-type String =
-    abstract localeCompare: that: string * locales: ResizeArray<string> * ?options: Intl.CollatorOptions -> float
-    abstract localeCompare: that: string * locale: string * ?options: Intl.CollatorOptions -> float
+// type String =
+//     abstract localeCompare: that: string * locales: ResizeArray<string> * ?options: Intl.CollatorOptions -> float
+//     abstract localeCompare: that: string * locale: string * ?options: Intl.CollatorOptions -> float
+// 
+// type Number =
+//     abstract toLocaleString: ?locales: ResizeArray<string> * ?options: Intl.NumberFormatOptions -> string
+//     abstract toLocaleString: ?locale: string * ?options: Intl.NumberFormatOptions -> string
+// 
+// type Date =
+//     abstract toLocaleString: ?locales: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
+//     abstract toLocaleDateString: ?locales: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
+//     abstract toLocaleTimeString: ?locale: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
+//     abstract toLocaleString: ?locale: string * ?options: Intl.DateTimeFormatOptions -> string
+//     abstract toLocaleDateString: ?locale: string * ?options: Intl.DateTimeFormatOptions -> string
+//     abstract toLocaleTimeString: ?locale: string * ?options: Intl.DateTimeFormatOptions -> string
 
-and Number =
-    abstract toLocaleString: ?locales: ResizeArray<string> * ?options: Intl.NumberFormatOptions -> string
-    abstract toLocaleString: ?locale: string * ?options: Intl.NumberFormatOptions -> string
-
-and Date =
-    abstract toLocaleString: ?locales: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
-    abstract toLocaleDateString: ?locales: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
-    abstract toLocaleTimeString: ?locale: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
-    abstract toLocaleString: ?locale: string * ?options: Intl.DateTimeFormatOptions -> string
-    abstract toLocaleDateString: ?locale: string * ?options: Intl.DateTimeFormatOptions -> string
-    abstract toLocaleTimeString: ?locale: string * ?options: Intl.DateTimeFormatOptions -> string
-
-and Algorithm =
+type Algorithm =
     abstract name: string option with get, set
 
 and AriaRequestEventInit =
@@ -996,7 +996,6 @@ and Coordinates =
     abstract speed: float with get, set
 
 and Crypto =
-    inherit obj
     inherit RandomSource
     abstract subtle: SubtleCrypto with get, set
 
@@ -2368,7 +2367,6 @@ and HTMLBodyElement =
     [<Emit("$0.addEventListener('beforeprint',$1...)")>] abstract addEventListener_beforeprint: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('beforeunload',$1...)")>] abstract addEventListener_beforeunload: listener: Func<BeforeUnloadEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('blur',$1...)")>] abstract addEventListener_blur: listener: Func<FocusEvent, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('blur',$1...)")>] abstract addEventListener_blur: listener: Func<FocusEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('canplay',$1...)")>] abstract addEventListener_canplay: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('canplaythrough',$1...)")>] abstract addEventListener_canplaythrough: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('change',$1...)")>] abstract addEventListener_change: listener: Func<Event, obj> * ?useCapture: bool -> unit
@@ -2391,8 +2389,6 @@ and HTMLBodyElement =
     [<Emit("$0.addEventListener('emptied',$1...)")>] abstract addEventListener_emptied: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('ended',$1...)")>] abstract addEventListener_ended: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('error',$1...)")>] abstract addEventListener_error: listener: Func<ErrorEvent, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('error',$1...)")>] abstract addEventListener_error: listener: Func<ErrorEvent, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('focus',$1...)")>] abstract addEventListener_focus: listener: Func<FocusEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('focus',$1...)")>] abstract addEventListener_focus: listener: Func<FocusEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('gotpointercapture',$1...)")>] abstract addEventListener_gotpointercapture: listener: Func<PointerEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('hashchange',$1...)")>] abstract addEventListener_hashchange: listener: Func<HashChangeEvent, obj> * ?useCapture: bool -> unit
@@ -2400,7 +2396,6 @@ and HTMLBodyElement =
     [<Emit("$0.addEventListener('keydown',$1...)")>] abstract addEventListener_keydown: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('keypress',$1...)")>] abstract addEventListener_keypress: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('keyup',$1...)")>] abstract addEventListener_keyup: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('load',$1...)")>] abstract addEventListener_load: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('load',$1...)")>] abstract addEventListener_load: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('loadeddata',$1...)")>] abstract addEventListener_loadeddata: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('loadedmetadata',$1...)")>] abstract addEventListener_loadedmetadata: listener: Func<Event, obj> * ?useCapture: bool -> unit
@@ -2861,7 +2856,6 @@ and HTMLFrameElement =
     [<Emit("$0.addEventListener('keypress',$1...)")>] abstract addEventListener_keypress: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('keyup',$1...)")>] abstract addEventListener_keyup: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('load',$1...)")>] abstract addEventListener_load: listener: Func<Event, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('load',$1...)")>] abstract addEventListener_load: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('loadeddata',$1...)")>] abstract addEventListener_loadeddata: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('loadedmetadata',$1...)")>] abstract addEventListener_loadedmetadata: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('loadstart',$1...)")>] abstract addEventListener_loadstart: listener: Func<Event, obj> * ?useCapture: bool -> unit
@@ -2965,7 +2959,6 @@ and HTMLFrameSetElement =
     [<Emit("$0.addEventListener('beforeprint',$1...)")>] abstract addEventListener_beforeprint: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('beforeunload',$1...)")>] abstract addEventListener_beforeunload: listener: Func<BeforeUnloadEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('blur',$1...)")>] abstract addEventListener_blur: listener: Func<FocusEvent, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('blur',$1...)")>] abstract addEventListener_blur: listener: Func<FocusEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('canplay',$1...)")>] abstract addEventListener_canplay: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('canplaythrough',$1...)")>] abstract addEventListener_canplaythrough: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('change',$1...)")>] abstract addEventListener_change: listener: Func<Event, obj> * ?useCapture: bool -> unit
@@ -2988,8 +2981,6 @@ and HTMLFrameSetElement =
     [<Emit("$0.addEventListener('emptied',$1...)")>] abstract addEventListener_emptied: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('ended',$1...)")>] abstract addEventListener_ended: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('error',$1...)")>] abstract addEventListener_error: listener: Func<ErrorEvent, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('error',$1...)")>] abstract addEventListener_error: listener: Func<ErrorEvent, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('focus',$1...)")>] abstract addEventListener_focus: listener: Func<FocusEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('focus',$1...)")>] abstract addEventListener_focus: listener: Func<FocusEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('gotpointercapture',$1...)")>] abstract addEventListener_gotpointercapture: listener: Func<PointerEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('hashchange',$1...)")>] abstract addEventListener_hashchange: listener: Func<HashChangeEvent, obj> * ?useCapture: bool -> unit
@@ -2997,7 +2988,6 @@ and HTMLFrameSetElement =
     [<Emit("$0.addEventListener('keydown',$1...)")>] abstract addEventListener_keydown: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('keypress',$1...)")>] abstract addEventListener_keypress: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('keyup',$1...)")>] abstract addEventListener_keyup: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('load',$1...)")>] abstract addEventListener_load: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('load',$1...)")>] abstract addEventListener_load: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('loadeddata',$1...)")>] abstract addEventListener_loadeddata: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('loadedmetadata',$1...)")>] abstract addEventListener_loadedmetadata: listener: Func<Event, obj> * ?useCapture: bool -> unit
@@ -3157,7 +3147,6 @@ and HTMLIFrameElement =
     [<Emit("$0.addEventListener('keydown',$1...)")>] abstract addEventListener_keydown: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('keypress',$1...)")>] abstract addEventListener_keypress: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('keyup',$1...)")>] abstract addEventListener_keyup: listener: Func<KeyboardEvent, obj> * ?useCapture: bool -> unit
-    [<Emit("$0.addEventListener('load',$1...)")>] abstract addEventListener_load: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('load',$1...)")>] abstract addEventListener_load: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('loadeddata',$1...)")>] abstract addEventListener_loadeddata: listener: Func<Event, obj> * ?useCapture: bool -> unit
     [<Emit("$0.addEventListener('loadedmetadata',$1...)")>] abstract addEventListener_loadedmetadata: listener: Func<Event, obj> * ?useCapture: bool -> unit
@@ -4679,7 +4668,6 @@ and NavigationEventWithReferrer =
     abstract referer: string with get, set
 
 and Navigator =
-    inherit obj
     inherit NavigatorID
     inherit NavigatorOnLine
     inherit NavigatorContentUtils
@@ -7825,7 +7813,6 @@ and WindowSessionStorage =
     abstract sessionStorage: Storage with get, set
 
 and WindowTimers =
-    inherit obj
     inherit WindowTimersExtension
     abstract clearInterval: handle: float -> unit
     abstract clearTimeout: handle: float -> unit
@@ -7874,7 +7861,7 @@ and IDBIndexParameters =
 and NodeListOf<'TNode> =
     inherit NodeList
     abstract length: float with get, set
-    abstract item: index: float -> TNode
+    abstract item: index: float -> 'TNode
 
 and BlobPropertyBag =
     abstract ``type``: string option with get, set
@@ -8426,95 +8413,95 @@ module Globals =
     let [<Global>] name: string = failwith "JS only"
     let [<Global>] navigator: Navigator = failwith "JS only"
     let [<Global>] offscreenBuffering: U2<string, bool> = failwith "JS only"
-    let [<Global>] onabort: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onafterprint: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onbeforeprint: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onbeforeunload: Func<BeforeUnloadEvent, obj> = failwith "JS only"
-    let [<Global>] onblur: Func<FocusEvent, obj> = failwith "JS only"
-    let [<Global>] oncanplay: Func<Event, obj> = failwith "JS only"
-    let [<Global>] oncanplaythrough: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onchange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onclick: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] oncompassneedscalibration: Func<Event, obj> = failwith "JS only"
-    let [<Global>] oncontextmenu: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] ondblclick: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] ondevicemotion: Func<DeviceMotionEvent, obj> = failwith "JS only"
-    let [<Global>] ondeviceorientation: Func<DeviceOrientationEvent, obj> = failwith "JS only"
-    let [<Global>] ondrag: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] ondragend: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] ondragenter: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] ondragleave: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] ondragover: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] ondragstart: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] ondrop: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] ondurationchange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onemptied: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onended: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onerror: ErrorEventHandler = failwith "JS only"
-    let [<Global>] onfocus: Func<FocusEvent, obj> = failwith "JS only"
-    let [<Global>] onhashchange: Func<HashChangeEvent, obj> = failwith "JS only"
-    let [<Global>] oninput: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onkeydown: Func<KeyboardEvent, obj> = failwith "JS only"
-    let [<Global>] onkeypress: Func<KeyboardEvent, obj> = failwith "JS only"
-    let [<Global>] onkeyup: Func<KeyboardEvent, obj> = failwith "JS only"
-    let [<Global>] onload: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onloadeddata: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onloadedmetadata: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onloadstart: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onmessage: Func<MessageEvent, obj> = failwith "JS only"
-    let [<Global>] onmousedown: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] onmouseenter: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] onmouseleave: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] onmousemove: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] onmouseout: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] onmouseover: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] onmouseup: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] onmousewheel: Func<MouseWheelEvent, obj> = failwith "JS only"
-    let [<Global>] onmsgesturechange: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] onmsgesturedoubletap: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] onmsgestureend: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] onmsgesturehold: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] onmsgesturestart: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] onmsgesturetap: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] onmsinertiastart: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] onmspointercancel: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] onmspointerdown: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] onmspointerenter: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] onmspointerleave: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] onmspointermove: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] onmspointerout: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] onmspointerover: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] onmspointerup: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] onoffline: Func<Event, obj> = failwith "JS only"
-    let [<Global>] ononline: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onorientationchange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onpagehide: Func<PageTransitionEvent, obj> = failwith "JS only"
-    let [<Global>] onpageshow: Func<PageTransitionEvent, obj> = failwith "JS only"
-    let [<Global>] onpause: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onplay: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onplaying: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onpopstate: Func<PopStateEvent, obj> = failwith "JS only"
-    let [<Global>] onprogress: Func<ProgressEvent, obj> = failwith "JS only"
-    let [<Global>] onratechange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onreadystatechange: Func<ProgressEvent, obj> = failwith "JS only"
-    let [<Global>] onreset: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onresize: Func<UIEvent, obj> = failwith "JS only"
-    let [<Global>] onscroll: Func<UIEvent, obj> = failwith "JS only"
-    let [<Global>] onseeked: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onseeking: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onselect: Func<UIEvent, obj> = failwith "JS only"
-    let [<Global>] onstalled: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onstorage: Func<StorageEvent, obj> = failwith "JS only"
-    let [<Global>] onsubmit: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onsuspend: Func<Event, obj> = failwith "JS only"
-    let [<Global>] ontimeupdate: Func<Event, obj> = failwith "JS only"
-    let [<Global>] ontouchcancel: obj = failwith "JS only"
-    let [<Global>] ontouchend: obj = failwith "JS only"
-    let [<Global>] ontouchmove: obj = failwith "JS only"
-    let [<Global>] ontouchstart: obj = failwith "JS only"
-    let [<Global>] onunload: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onvolumechange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] onwaiting: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onabort: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onafterprint: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onbeforeprint: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onbeforeunload: Func<BeforeUnloadEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onblur: Func<FocusEvent, obj> = failwith "JS only"
+    let [<Global>] mutable oncanplay: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable oncanplaythrough: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onchange: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onclick: Func<MouseEvent, obj> = failwith "JS only"
+    let [<Global>] mutable oncompassneedscalibration: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable oncontextmenu: Func<PointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondblclick: Func<MouseEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondevicemotion: Func<DeviceMotionEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondeviceorientation: Func<DeviceOrientationEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondrag: Func<DragEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondragend: Func<DragEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondragenter: Func<DragEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondragleave: Func<DragEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondragover: Func<DragEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondragstart: Func<DragEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondrop: Func<DragEvent, obj> = failwith "JS only"
+    let [<Global>] mutable ondurationchange: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onemptied: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onended: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onerror: ErrorEventHandler = failwith "JS only"
+    let [<Global>] mutable onfocus: Func<FocusEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onhashchange: Func<HashChangeEvent, obj> = failwith "JS only"
+    let [<Global>] mutable oninput: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onkeydown: Func<KeyboardEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onkeypress: Func<KeyboardEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onkeyup: Func<KeyboardEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onload: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onloadeddata: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onloadedmetadata: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onloadstart: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onmessage: Func<MessageEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmousedown: Func<MouseEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmouseenter: Func<MouseEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmouseleave: Func<MouseEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmousemove: Func<MouseEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmouseout: Func<MouseEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmouseover: Func<MouseEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmouseup: Func<MouseEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmousewheel: Func<MouseWheelEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmsgesturechange: Func<MSGestureEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmsgesturedoubletap: Func<MSGestureEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmsgestureend: Func<MSGestureEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmsgesturehold: Func<MSGestureEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmsgesturestart: Func<MSGestureEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmsgesturetap: Func<MSGestureEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmsinertiastart: Func<MSGestureEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmspointercancel: Func<MSPointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmspointerdown: Func<MSPointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmspointerenter: Func<MSPointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmspointerleave: Func<MSPointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmspointermove: Func<MSPointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmspointerout: Func<MSPointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmspointerover: Func<MSPointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onmspointerup: Func<MSPointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onoffline: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable ononline: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onorientationchange: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onpagehide: Func<PageTransitionEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpageshow: Func<PageTransitionEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpause: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onplay: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onplaying: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onpopstate: Func<PopStateEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onprogress: Func<ProgressEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onratechange: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onreadystatechange: Func<ProgressEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onreset: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onresize: Func<UIEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onscroll: Func<UIEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onseeked: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onseeking: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onselect: Func<UIEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onstalled: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onstorage: Func<StorageEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onsubmit: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onsuspend: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable ontimeupdate: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable ontouchcancel: obj = failwith "JS only"
+    let [<Global>] mutable ontouchend: obj = failwith "JS only"
+    let [<Global>] mutable ontouchmove: obj = failwith "JS only"
+    let [<Global>] mutable ontouchstart: obj = failwith "JS only"
+    let [<Global>] mutable onunload: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onvolumechange: Func<Event, obj> = failwith "JS only"
+    let [<Global>] mutable onwaiting: Func<Event, obj> = failwith "JS only"
     let [<Global>] opener: Window = failwith "JS only"
     let [<Global>] orientation: U2<string, float> = failwith "JS only"
     let [<Global>] outerHeight: float = failwith "JS only"
@@ -8539,22 +8526,22 @@ module Globals =
     let [<Global>] toolbar: BarProp = failwith "JS only"
     let [<Global>] top: Window = failwith "JS only"
     let [<Global>] window: Window = failwith "JS only"
-    let [<Global>] URL: URL = failwith "JS only"
     let [<Global>] sessionStorage: Storage = failwith "JS only"
     let [<Global>] localStorage: Storage = failwith "JS only"
     let [<Global>] console: Console = failwith "JS only"
-    let [<Global>] onpointercancel: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] onpointerdown: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] onpointerenter: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] onpointerleave: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] onpointermove: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] onpointerout: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] onpointerover: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] onpointerup: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] onwheel: Func<WheelEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpointercancel: Func<PointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpointerdown: Func<PointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpointerenter: Func<PointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpointerleave: Func<PointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpointermove: Func<PointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpointerout: Func<PointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpointerover: Func<PointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onpointerup: Func<PointerEvent, obj> = failwith "JS only"
+    let [<Global>] mutable onwheel: Func<WheelEvent, obj> = failwith "JS only"
     let [<Global>] indexedDB: IDBFactory = failwith "JS only"
     let [<Global>] msIndexedDB: IDBFactory = failwith "JS only"
 
+[<Global>]
 module Intl =
     type CollatorOptions =
         abstract usage: string option with get, set
@@ -8641,10 +8628,6 @@ module Intl =
         abstract format: ?date: U2<DateTime, float> -> string
         abstract resolvedOptions: unit -> ResolvedDateTimeFormatOptions
 
-    type Globals =
-        abstract Collator: obj with get, set
-        abstract NumberFormat: obj with get, set
-        abstract DateTimeFormat: obj with get, set
-
-    let [<Import("Intl")>] Globals: Globals = failwith "JS only"
-
+    let Collator: obj = failwith "JS only"
+    let NumberFormat: obj = failwith "JS only"
+    let DateTimeFormat: obj = failwith "JS only"

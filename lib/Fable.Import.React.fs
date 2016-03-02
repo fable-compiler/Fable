@@ -2,6 +2,7 @@ namespace Fable.Import
 open System
 open Fable.Core
 open Fable.Import.JS
+open Fable.Import.Browser
     
 module React =
     type ReactType =
@@ -61,8 +62,18 @@ module React =
     and ReactInstance =
         U2<Component<obj, obj>, Element>
 
+    and [<AbstractClass>] AComponentLifecycle<'P, 'S>() =
+        interface ComponentLifecycle<'P, 'S> with
+            member __.componentWillMount(): unit = failwith "JS only"
+            member __.componentDidMount(): unit = failwith "JS only"
+            member __.componentWillReceiveProps(nextProps: 'P, nextContext: obj): unit = failwith "JS only"
+            member __.shouldComponentUpdate(nextProps: 'P, nextState: 'S, nextContext: obj): bool = failwith "JS only"
+            member __.componentWillUpdate(nextProps: 'P, nextState: 'S, nextContext: obj): unit = failwith "JS only"
+            member __.componentDidUpdate(prevProps: 'P, prevState: 'S, prevContext: obj): unit = failwith "JS only"
+            member __.componentWillUnmount(): unit = failwith "JS only"
+
     and [<Import("react?get=Component")>] Component<'P, 'S>(?props: 'P, ?context: obj) =
-        inherit ComponentLifecycle<'P, 'S>()
+        inherit AComponentLifecycle<'P, 'S>()
         member __.props with get(): 'P = failwith "JS only" and set(v: 'P): unit = failwith "JS only"
         member __.state with get(): 'S = failwith "JS only" and set(v: 'S): unit = failwith "JS only"
         member __.context with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
@@ -70,16 +81,16 @@ module React =
         member __.setState(f: Func<'S, 'P, 'S>, ?callback: Func<obj>): unit = failwith "JS only"
         member __.setState(state: 'S, ?callback: Func<obj>): unit = failwith "JS only"
         member __.forceUpdate(?callBack: Func<obj>): unit = failwith "JS only"
-        member __.render(): JSX.Element = failwith "JS only"
+        member __.render(): obj (* JSX.Element *) = failwith "JS only"
 
-    and ClassicComponent<'P, 'S> =
-        inherit Component<'P, 'S>
-        abstract replaceState: nextState: 'S * ?callback: Func<obj> -> unit
-        abstract isMounted: unit -> bool
-        abstract getInitialState: unit -> 'S
+    and [<AbstractClass>] ClassicComponent<'P, 'S>() =
+        inherit Component<'P, 'S>()
+        member __.replaceState(nextState: 'S, ?callback: Func<obj>): unit = failwith "JS only"
+        member __.isMounted(): bool = failwith "JS only"
+        member __.getInitialState(): 'S = failwith "JS only"
 
     and ChildContextProvider<'CC> =
-        abstract getChildContext: unit -> CC
+        abstract getChildContext: unit -> 'CC
 
     and StatelessComponent<'P> =
         abstract propTypes: ValidationMap<'P> option with get, set
@@ -88,16 +99,16 @@ module React =
         abstract displayName: string option with get, set
 
     and ComponentClass<'P> =
-        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> Component<'P, obj>
         abstract propTypes: ValidationMap<'P> option with get, set
         abstract contextTypes: ValidationMap<obj> option with get, set
         abstract childContextTypes: ValidationMap<obj> option with get, set
         abstract defaultProps: 'P option with get, set
+        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> Component<'P, obj>
 
     and ClassicComponentClass<'P> =
         inherit ComponentClass<'P>
-        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> ClassicComponent<'P, obj>
         abstract displayName: string option with get, set
+        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> ClassicComponent<'P, obj>
         abstract getDefaultProps: unit -> 'P
 
     and ComponentLifecycle<'P, 'S> =
@@ -1037,11 +1048,11 @@ module React =
 
 module JSX =
     type Element =
-        inherit React.ReactElement
+        inherit React.ReactElement<obj>
 
-    and ElementClass =
-        inherit React.Component
-        abstract render: unit -> JSX.Element
+    and [<AbstractClass>] ElementClass() =
+        inherit React.Component<obj, obj>()
+        member __.render(): Element = failwith "JS only"
 
     and ElementAttributesProperty =
         abstract props: obj with get, set
@@ -1053,119 +1064,119 @@ module JSX =
         abstract ref: U2<string, Func<'T, unit>> option with get, set
 
     and IntrinsicElements =
-        abstract a: React.HTMLProps with get, set
-        abstract abbr: React.HTMLProps with get, set
-        abstract address: React.HTMLProps with get, set
-        abstract area: React.HTMLProps with get, set
-        abstract article: React.HTMLProps with get, set
-        abstract aside: React.HTMLProps with get, set
-        abstract audio: React.HTMLProps with get, set
-        abstract b: React.HTMLProps with get, set
-        abstract ``base``: React.HTMLProps with get, set
-        abstract bdi: React.HTMLProps with get, set
-        abstract bdo: React.HTMLProps with get, set
-        abstract big: React.HTMLProps with get, set
-        abstract blockquote: React.HTMLProps with get, set
-        abstract body: React.HTMLProps with get, set
-        abstract br: React.HTMLProps with get, set
-        abstract button: React.HTMLProps with get, set
-        abstract canvas: React.HTMLProps with get, set
-        abstract caption: React.HTMLProps with get, set
-        abstract cite: React.HTMLProps with get, set
-        abstract code: React.HTMLProps with get, set
-        abstract col: React.HTMLProps with get, set
-        abstract colgroup: React.HTMLProps with get, set
-        abstract data: React.HTMLProps with get, set
-        abstract datalist: React.HTMLProps with get, set
-        abstract dd: React.HTMLProps with get, set
-        abstract del: React.HTMLProps with get, set
-        abstract details: React.HTMLProps with get, set
-        abstract dfn: React.HTMLProps with get, set
-        abstract dialog: React.HTMLProps with get, set
-        abstract div: React.HTMLProps with get, set
-        abstract dl: React.HTMLProps with get, set
-        abstract dt: React.HTMLProps with get, set
-        abstract em: React.HTMLProps with get, set
-        abstract embed: React.HTMLProps with get, set
-        abstract fieldset: React.HTMLProps with get, set
-        abstract figcaption: React.HTMLProps with get, set
-        abstract figure: React.HTMLProps with get, set
-        abstract footer: React.HTMLProps with get, set
-        abstract form: React.HTMLProps with get, set
-        abstract h1: React.HTMLProps with get, set
-        abstract h2: React.HTMLProps with get, set
-        abstract h3: React.HTMLProps with get, set
-        abstract h4: React.HTMLProps with get, set
-        abstract h5: React.HTMLProps with get, set
-        abstract h6: React.HTMLProps with get, set
-        abstract head: React.HTMLProps with get, set
-        abstract header: React.HTMLProps with get, set
-        abstract hgroup: React.HTMLProps with get, set
-        abstract hr: React.HTMLProps with get, set
-        abstract html: React.HTMLProps with get, set
-        abstract i: React.HTMLProps with get, set
-        abstract iframe: React.HTMLProps with get, set
-        abstract img: React.HTMLProps with get, set
-        abstract input: React.HTMLProps with get, set
-        abstract ins: React.HTMLProps with get, set
-        abstract kbd: React.HTMLProps with get, set
-        abstract keygen: React.HTMLProps with get, set
-        abstract label: React.HTMLProps with get, set
-        abstract legend: React.HTMLProps with get, set
-        abstract li: React.HTMLProps with get, set
-        abstract link: React.HTMLProps with get, set
-        abstract main: React.HTMLProps with get, set
-        abstract map: React.HTMLProps with get, set
-        abstract mark: React.HTMLProps with get, set
-        abstract menu: React.HTMLProps with get, set
-        abstract menuitem: React.HTMLProps with get, set
-        abstract meta: React.HTMLProps with get, set
-        abstract meter: React.HTMLProps with get, set
-        abstract nav: React.HTMLProps with get, set
-        abstract noscript: React.HTMLProps with get, set
-        abstract ``object``: React.HTMLProps with get, set
-        abstract ol: React.HTMLProps with get, set
-        abstract optgroup: React.HTMLProps with get, set
-        abstract option: React.HTMLProps with get, set
-        abstract output: React.HTMLProps with get, set
-        abstract p: React.HTMLProps with get, set
-        abstract param: React.HTMLProps with get, set
-        abstract picture: React.HTMLProps with get, set
-        abstract pre: React.HTMLProps with get, set
-        abstract progress: React.HTMLProps with get, set
-        abstract q: React.HTMLProps with get, set
-        abstract rp: React.HTMLProps with get, set
-        abstract rt: React.HTMLProps with get, set
-        abstract ruby: React.HTMLProps with get, set
-        abstract s: React.HTMLProps with get, set
-        abstract samp: React.HTMLProps with get, set
-        abstract script: React.HTMLProps with get, set
-        abstract section: React.HTMLProps with get, set
-        abstract select: React.HTMLProps with get, set
-        abstract small: React.HTMLProps with get, set
-        abstract source: React.HTMLProps with get, set
-        abstract span: React.HTMLProps with get, set
-        abstract strong: React.HTMLProps with get, set
-        abstract style: React.HTMLProps with get, set
-        abstract sub: React.HTMLProps with get, set
-        abstract summary: React.HTMLProps with get, set
-        abstract sup: React.HTMLProps with get, set
-        abstract table: React.HTMLProps with get, set
-        abstract tbody: React.HTMLProps with get, set
-        abstract td: React.HTMLProps with get, set
-        abstract textarea: React.HTMLProps with get, set
-        abstract tfoot: React.HTMLProps with get, set
-        abstract th: React.HTMLProps with get, set
-        abstract thead: React.HTMLProps with get, set
-        abstract time: React.HTMLProps with get, set
-        abstract title: React.HTMLProps with get, set
-        abstract tr: React.HTMLProps with get, set
-        abstract track: React.HTMLProps with get, set
-        abstract u: React.HTMLProps with get, set
-        abstract ul: React.HTMLProps with get, set
-        abstract var: React.HTMLProps with get, set
-        abstract video: React.HTMLProps with get, set
-        abstract wbr: React.HTMLProps with get, set
+        abstract a: React.HTMLProps<HTMLAnchorElement> with get, set
+        abstract abbr: React.HTMLProps<HTMLElement> with get, set
+        abstract address: React.HTMLProps<HTMLElement> with get, set
+        abstract area: React.HTMLProps<HTMLAreaElement> with get, set
+        abstract article: React.HTMLProps<HTMLElement> with get, set
+        abstract aside: React.HTMLProps<HTMLElement> with get, set
+        abstract audio: React.HTMLProps<HTMLAudioElement> with get, set
+        abstract b: React.HTMLProps<HTMLElement> with get, set
+        abstract ``base``: React.HTMLProps<HTMLBaseElement> with get, set
+        abstract bdi: React.HTMLProps<HTMLElement> with get, set
+        abstract bdo: React.HTMLProps<HTMLElement> with get, set
+        abstract big: React.HTMLProps<HTMLElement> with get, set
+        abstract blockquote: React.HTMLProps<HTMLElement> with get, set
+        abstract body: React.HTMLProps<HTMLBodyElement> with get, set
+        abstract br: React.HTMLProps<HTMLBRElement> with get, set
+        abstract button: React.HTMLProps<HTMLButtonElement> with get, set
+        abstract canvas: React.HTMLProps<HTMLCanvasElement> with get, set
+        abstract caption: React.HTMLProps<HTMLElement> with get, set
+        abstract cite: React.HTMLProps<HTMLElement> with get, set
+        abstract code: React.HTMLProps<HTMLElement> with get, set
+        abstract col: React.HTMLProps<HTMLTableColElement> with get, set
+        abstract colgroup: React.HTMLProps<HTMLTableColElement> with get, set
+        abstract data: React.HTMLProps<HTMLElement> with get, set
+        abstract datalist: React.HTMLProps<HTMLDataListElement> with get, set
+        abstract dd: React.HTMLProps<HTMLElement> with get, set
+        abstract del: React.HTMLProps<HTMLElement> with get, set
+        abstract details: React.HTMLProps<HTMLElement> with get, set
+        abstract dfn: React.HTMLProps<HTMLElement> with get, set
+        abstract dialog: React.HTMLProps<HTMLElement> with get, set
+        abstract div: React.HTMLProps<HTMLDivElement> with get, set
+        abstract dl: React.HTMLProps<HTMLDListElement> with get, set
+        abstract dt: React.HTMLProps<HTMLElement> with get, set
+        abstract em: React.HTMLProps<HTMLElement> with get, set
+        abstract embed: React.HTMLProps<HTMLEmbedElement> with get, set
+        abstract fieldset: React.HTMLProps<HTMLFieldSetElement> with get, set
+        abstract figcaption: React.HTMLProps<HTMLElement> with get, set
+        abstract figure: React.HTMLProps<HTMLElement> with get, set
+        abstract footer: React.HTMLProps<HTMLElement> with get, set
+        abstract form: React.HTMLProps<HTMLFormElement> with get, set
+        abstract h1: React.HTMLProps<HTMLHeadingElement> with get, set
+        abstract h2: React.HTMLProps<HTMLHeadingElement> with get, set
+        abstract h3: React.HTMLProps<HTMLHeadingElement> with get, set
+        abstract h4: React.HTMLProps<HTMLHeadingElement> with get, set
+        abstract h5: React.HTMLProps<HTMLHeadingElement> with get, set
+        abstract h6: React.HTMLProps<HTMLHeadingElement> with get, set
+        abstract head: React.HTMLProps<HTMLHeadElement> with get, set
+        abstract header: React.HTMLProps<HTMLElement> with get, set
+        abstract hgroup: React.HTMLProps<HTMLElement> with get, set
+        abstract hr: React.HTMLProps<HTMLHRElement> with get, set
+        abstract html: React.HTMLProps<HTMLHtmlElement> with get, set
+        abstract i: React.HTMLProps<HTMLElement> with get, set
+        abstract iframe: React.HTMLProps<HTMLIFrameElement> with get, set
+        abstract img: React.HTMLProps<HTMLImageElement> with get, set
+        abstract input: React.HTMLProps<HTMLInputElement> with get, set
+        abstract ins: React.HTMLProps<HTMLModElement> with get, set
+        abstract kbd: React.HTMLProps<HTMLElement> with get, set
+        abstract keygen: React.HTMLProps<HTMLElement> with get, set
+        abstract label: React.HTMLProps<HTMLLabelElement> with get, set
+        abstract legend: React.HTMLProps<HTMLLegendElement> with get, set
+        abstract li: React.HTMLProps<HTMLLIElement> with get, set
+        abstract link: React.HTMLProps<HTMLLinkElement> with get, set
+        abstract main: React.HTMLProps<HTMLElement> with get, set
+        abstract map: React.HTMLProps<HTMLMapElement> with get, set
+        abstract mark: React.HTMLProps<HTMLElement> with get, set
+        abstract menu: React.HTMLProps<HTMLElement> with get, set
+        abstract menuitem: React.HTMLProps<HTMLElement> with get, set
+        abstract meta: React.HTMLProps<HTMLMetaElement> with get, set
+        abstract meter: React.HTMLProps<HTMLElement> with get, set
+        abstract nav: React.HTMLProps<HTMLElement> with get, set
+        abstract noscript: React.HTMLProps<HTMLElement> with get, set
+        abstract ``object``: React.HTMLProps<HTMLObjectElement> with get, set
+        abstract ol: React.HTMLProps<HTMLOListElement> with get, set
+        abstract optgroup: React.HTMLProps<HTMLOptGroupElement> with get, set
+        abstract option: React.HTMLProps<HTMLOptionElement> with get, set
+        abstract output: React.HTMLProps<HTMLElement> with get, set
+        abstract p: React.HTMLProps<HTMLParagraphElement> with get, set
+        abstract param: React.HTMLProps<HTMLParamElement> with get, set
+        abstract picture: React.HTMLProps<HTMLElement> with get, set
+        abstract pre: React.HTMLProps<HTMLPreElement> with get, set
+        abstract progress: React.HTMLProps<HTMLProgressElement> with get, set
+        abstract q: React.HTMLProps<HTMLQuoteElement> with get, set
+        abstract rp: React.HTMLProps<HTMLElement> with get, set
+        abstract rt: React.HTMLProps<HTMLElement> with get, set
+        abstract ruby: React.HTMLProps<HTMLElement> with get, set
+        abstract s: React.HTMLProps<HTMLElement> with get, set
+        abstract samp: React.HTMLProps<HTMLElement> with get, set
+        abstract script: React.HTMLProps<HTMLElement> with get, set
+        abstract section: React.HTMLProps<HTMLElement> with get, set
+        abstract select: React.HTMLProps<HTMLSelectElement> with get, set
+        abstract small: React.HTMLProps<HTMLElement> with get, set
+        abstract source: React.HTMLProps<HTMLSourceElement> with get, set
+        abstract span: React.HTMLProps<HTMLSpanElement> with get, set
+        abstract strong: React.HTMLProps<HTMLElement> with get, set
+        abstract style: React.HTMLProps<HTMLStyleElement> with get, set
+        abstract sub: React.HTMLProps<HTMLElement> with get, set
+        abstract summary: React.HTMLProps<HTMLElement> with get, set
+        abstract sup: React.HTMLProps<HTMLElement> with get, set
+        abstract table: React.HTMLProps<HTMLTableElement> with get, set
+        abstract tbody: React.HTMLProps<HTMLTableSectionElement> with get, set
+        abstract td: React.HTMLProps<HTMLTableDataCellElement> with get, set
+        abstract textarea: React.HTMLProps<HTMLTextAreaElement> with get, set
+        abstract tfoot: React.HTMLProps<HTMLTableSectionElement> with get, set
+        abstract th: React.HTMLProps<HTMLTableHeaderCellElement> with get, set
+        abstract thead: React.HTMLProps<HTMLTableSectionElement> with get, set
+        abstract time: React.HTMLProps<HTMLElement> with get, set
+        abstract title: React.HTMLProps<HTMLTitleElement> with get, set
+        abstract tr: React.HTMLProps<HTMLTableRowElement> with get, set
+        abstract track: React.HTMLProps<HTMLTrackElement> with get, set
+        abstract u: React.HTMLProps<HTMLElement> with get, set
+        abstract ul: React.HTMLProps<HTMLUListElement> with get, set
+        abstract var: React.HTMLProps<HTMLElement> with get, set
+        abstract video: React.HTMLProps<HTMLVideoElement> with get, set
+        abstract wbr: React.HTMLProps<HTMLElement> with get, set
         abstract svg: React.SVGProps with get, set
         abstract circle: React.SVGProps with get, set
         abstract clipPath: React.SVGProps with get, set
@@ -1185,3 +1196,5 @@ module JSX =
         abstract stop: React.SVGProps with get, set
         abstract text: React.SVGProps with get, set
         abstract tspan: React.SVGProps with get, set
+
+

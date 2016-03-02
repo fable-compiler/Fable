@@ -26,7 +26,8 @@
   "devDependencies": {},
   "scripts": {
     "test": "mocha build/test",
-    "test-debug": "mocha build/test --debug-brk"
+    "test-debug": "mocha build/test --debug-brk",
+    "test-compile": "node tools/fable2babel.js --projFile test/Fable.Tests.fsproj"
   },
   "author": "alfonsogarciacaro",
   "license": "ISC",

@@ -2,6 +2,9 @@
 // doesn't show much the benefits of using F#. It's mainly intended
 // to explain how to program dynamically with F# and Fable. 
 
+// Check sample/browser/todomvc2 for an alternate version
+// taking more advantage of static type checking
+
 // Load and open Fable.Core to get access to Fable attributes and operators
 #load "../../../lib/Fable.Core.fs"
 open Fable.Core

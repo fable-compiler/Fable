@@ -18,6 +18,8 @@ type SourceLocation =
         { start = r1.start; ``end`` = r2.``end`` }
     static member Empty =
         { start = Position.Empty; ``end`` = Position.Empty }
+    override x.ToString() =
+        sprintf "(%i,%i)-(%i,%i)" x.start.line x.start.column x.``end``.line x.``end``.column
 
 type NumberKind =
     | Int8 | UInt8 | UInt8Clamped | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64

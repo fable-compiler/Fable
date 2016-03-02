@@ -210,77 +210,98 @@ function printProperty(prefix) {
     }
 }
 
-function printParents(prefix, node) {
-    if (node.name.indexOf("Component") == 0) {
-        debugger;
+function spliceInterfaceMembers(node, interface) {
+    var ifcProperties = [], ifcMethods = [];
+    for (var i = node.properties.length - 1; i >= 0; i--) {
+        if (ifc.properties.find(x => x.name == node.properties[i].name)) {
+            ifcMethods.push(node.properties[i]);
+            node.properties.splice(i,1);
+        }
     }
-    
+    for (var i = node.methods.length - 1; i >= 0; i--) {
+        if (ifc.methods.find(x => x.name == node.methods[i].name)) {
+            ifcMethods.push(node.methods[i]);
+            node.methods.splice(i,1);
+        }
+    }
+    return {
+        properties: ifcProperties,
+        methods: ifcMethods
+    }
+}
+
+function printParents(prefix, node, template) {
     if (!node.parents || node.parents.length == 0) {
-        return "";
+        return template;
     }
     
-    var lines = [];
-    var baseClasses = {};
-    var interfaces = {};
-    
+    var baseClasses = {}, interfaces = {};
     for (var i = 0; i < node.parents.length; i++) {
         var parentName = node.parents[i];
         var parent = typeCache[parentName.replace(/<.*?>/,"")];
-        if (parent == null) {
-            // TODO: Consider non cached types interfaces by default
-            interfaces[parentName] = null;
+        // Consider non cached types interfaces by default
+        if (!parent || parent.kind == "interface") {
+            interfaces[parentName] = parent;
+        }
+        else if (parent.kind == "class") {
+            baseClasses[parentName] = parent;
+        }
+    }
+    
+    var lines = [];
+    if (node.kind == "class") {
+        if (Object.keys(baseClasses).length) {
+            Object.keys(baseClasses).forEach((x, i) => {
+                lines.push(i == 0
+                    ? prefix + "inherit " + x + "()" // TODO: Check base class constructor arguments?
+                    : prefix + "// inherit " + x + " // TODO: Multiple inheritance, unexpected"
+                );
+            });
         }
         else {
-            if (parent.kind == "class") {
-                baseClasses[parentName] = parent;
-            }
-            else if (parent.kind == "interface") {
-                interfaces[parentName] = parent;
-            }
+            Object.keys(interfaces).forEach(k => {
+                var ifc = interfaces[k];
+                if (ifc != null && (ifc.properties.length || ifc.methods.length)) {
+                    // In TypeScript definitions, classes don't implement interface members
+                    // so we need to create an intermediate abstract class
+                    // TODO: Use another way to distiguish the abstract class instead of A- prefix?
+                    var typeKeyword = /^\s*(\w+)/.exec(template)[1]
+                    var abstractClass =
+                        `${prefix.substring(prefix.length-4)}${typeKeyword} [<AbstractClass>] A${ifc.name}() =\n` +
+                        `${prefix}interface ${ifc.name} with\n`;
+
+                    template = append(abstractClass, printClassMembers(ifc, prefix + "    ")) + template;
+                    lines.push(`${prefix}inherit A${ifc.name}()`);
+                }
+                else if (k != "obj") {
+                    lines.push(prefix + "interface " + k);
+                }
+            });
         }
-    }
-    
-    if (node.kind == "class") {
-        Object.keys(baseClasses).forEach((x, i) => {
-            if (i == 0) {
-                // TODO: Check base class constructor arguments?
-                lines.push(prefix + "inherit " + x + "()");
-            }
-            else {
-                lines.push(prefix + "// inherit " + x + " // TODO: Multiple inheritance, unexpected");
-            }
-        });
-        Object.keys(interfaces).forEach(x => {
-            lines.push(prefix + "// inherit " + x + " // TODO: Interface implementation");
-        });
     }
     else if (node.kind == "interface") {
-        Object.keys(baseClasses).forEach(x => {
-            lines.push(prefix + "// inherit " + x + " // TODO: Interfaces cannot extend classes in F#");
-        });
-        Object.keys(interfaces).forEach(x => {
-            lines.push(prefix + "inherit " + x);
-        });
+        if (Object.keys(baseClasses).length) {
+            Object.keys(baseClasses).forEach((x, i) => {
+                if (i == 0) {
+                    // Interfaces cannot extend classes in F#
+                    // We need to make this an abstract class
+                    template = template.replace(/(\w+) (.+?) =/, "$1 [<AbstractClass>] $2() =")
+                    lines.push(prefix + "inherit " + x + "()");
+                    node.kind = "class";
+                }
+                else {
+                    // TODO: Write warn about multiple inheritance
+                }
+            });
+        }
+        else {
+            Object.keys(interfaces).filter(x => x != "obj").forEach(x => {
+                lines.push(prefix + "inherit " + x);
+            });
+        }   
     }
     
-    return lines.join("\n");
-}
-
-function printParent(prefix, kind) {
-    return function(name) {
-        var parent = typeCache[name.replace(/<.*?>/,"")];
-        switch (kind) {
-            case "class":
-                if (parent && parent.kind == "class")
-                    return prefix + "inherit " + name + "()";
-                break;
-            case "interface":
-                if (!parent || parent.kind == "interface")
-                    return prefix + "inherit " + name;
-                break;
-        }
-        return "";
-    }
+    return template + (lines.length ? lines.join("\n") + "\n" : "");
 }
 
 function printArray(arr, mapper) {
@@ -291,8 +312,6 @@ function printArray(arr, mapper) {
 
 function printMembers(ent, prefix) {
     return [
-        printParents(prefix, ent),
-        // printArray(ent.parents, printParent(prefix, ent.kind)),
         printArray(ent.properties, printProperty(prefix)),
         printArray(ent.methods, printMethod(prefix))
     ].filter(x => x.length > 0).join("\n");
@@ -322,8 +341,6 @@ function printClassProperty(prefix) {
 
 function printClassMembers(ent, prefix) {
     return [
-        printParents(prefix, ent),
-        // printArray(ent.parents, printParent(prefix, ent.kind)),
         printArray(ent.properties, printClassProperty(prefix)),
         printArray(ent.methods, printClassMethod(prefix)),
     ].filter(x => x.length > 0).join("\n");
@@ -345,6 +362,10 @@ function printInterface(prefix, modName) {
             .replace("[DECORATOR]", printClassDecorator(ifc, modName))
             .replace("[CONSTRUCTOR]", ifc.kind == "class"
                 ? "(" + printParameters(ifc.constructorParameters) + ")" : "");
+                
+        var tmp = printParents(prefix + "    ", ifc, template);
+        var hasParents = tmp != template;
+        template = tmp;
 
         switch (ifc.kind) {
             case "alias":
@@ -358,13 +379,13 @@ function printInterface(prefix, modName) {
                 }).join("\n");
             case "class":
                 var classMembers = printClassMembers(ifc, prefix + "    ");
-                return template += (classMembers.length == 0
+                return template += (classMembers.length == 0 && !hasParents
                     ? prefix + "    class end"
                     : classMembers);
             // case "interface":
             default:
                 var members = printMembers(ifc, prefix + "    ");
-                return template += (members.length == 0
+                return template += (members.length == 0 && !hasParents
                     ? prefix + "    interface end"
                     : members);
             
@@ -475,22 +496,22 @@ function getType(type) {
         case ts.SyntaxKind.ParenthesizedType:
             return getType(type.type);
         default:
+            var name = type.typeName ? type.typeName.text : (type.expression ? type.expression.text : null)
             if (type.expression && type.expression.kind == ts.SyntaxKind.PropertyAccessExpression) {
-                return type.expression.expression.text + "." + type.expression.name.text;
+                name = type.expression.expression.text + "." + type.expression.name.text;
+            }
+            if (type.typeName && type.typeName.left && type.typeName.right) {
+                name = type.typeName.left.text + "." + type.typeName.right.text;
             }
 
-            var name = type.typeName ? type.typeName.text : (type.expression ? type.expression.text : null)
             if (!name) {
-                if (type.typeName && type.typeName.left && type.typeName.right) {
-                    return type.typeName.left.text + "." + type.typeName.right.text;
-                }
                 return "obj"
             }
 
             if (name in mappedTypes) {
                 name = mappedTypes[name];
             }
-
+            
             var result = name + printTypeArguments(type.typeArguments);
             return (typeParameters.indexOf(result) > -1 ? "'" : "") + result;
     }
