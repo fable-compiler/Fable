@@ -19,18 +19,21 @@ interface:
 classDecorator:
 `[<Import("[MOD_NAME]?get=[CLASS_NAME]")>] `,
 
+abstractDecorator:
+`[<AbstractClass; Erase>] `,
+
 classProperty:
 `[STATIC]member [INSTANCE][NAME] with get(): [TYPE][OPTION] = failwith "JS only" and set(v: [TYPE][OPTION]): unit = failwith "JS only"`,
 
 classMethod:
-`[STATIC]member [INSTANCE][NAME]([PARAMETERS]): [TYPE] = failwith "JS only"`,
+`[STATIC][MEMBER_KEYWORD] [INSTANCE][NAME]([PARAMETERS]): [TYPE] = failwith "JS only"`,
 
 module:
 `module [NAME] =
 `,
 
 moduleProxyType:
-`type Globals =
+`type [<Erase>] Globals =
 `,
 
 moduleProxyDeclaration:
@@ -192,25 +195,25 @@ function printParameters(parameters, sep, def) {
 
 function printMethod(prefix) {
     return function (x) {
-        return prefix +
-            (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") +
-            templates.method
-            .replace("[NAME]", escapeKeyword(x.name))
-            .replace("[TYPE]", escapeKeyword(x.type))
-            .replace("[PARAMETERS]", printParameters(x.parameters, " * ", "unit"));
+        return prefix + (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") + templates.method
+                .replace("[NAME]", escapeKeyword(x.name))
+                .replace("[TYPE]", escapeKeyword(x.type))
+                .replace("[PARAMETERS]", printParameters(x.parameters, " * ", "unit"));
     }
 }
 
 function printProperty(prefix) {
     return function (x) {
-        return prefix + templates.property
+        var param = Array.isArray(x.parameters) && x.parameters.length === 1
+                    ? printParameters(x.parameters) + " -> " : "";
+        return prefix + (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") + templates.property
             .replace("[NAME]", escapeKeyword(x.name))
-            .replace("[TYPE]", escapeKeyword(x.type))
+            .replace("[TYPE]", param + escapeKeyword(x.type))
             .replace("[OPTION]", x.optional ? " option" : "");
     }
 }
 
-function spliceInterfaceMembers(node, interface) {
+function spliceInterfaceMembers(node, ifc) {
     var ifcProperties = [], ifcMethods = [];
     for (var i = node.properties.length - 1; i >= 0; i--) {
         if (ifc.properties.find(x => x.name == node.properties[i].name)) {
@@ -243,13 +246,13 @@ function printParents(prefix, node, template) {
         if (!parent || parent.kind == "interface") {
             interfaces[parentName] = parent;
         }
-        else if (parent.kind == "class") {
+        else if (parent.kind == "class" || parent.kind == "abstract") {
             baseClasses[parentName] = parent;
         }
     }
     
     var lines = [];
-    if (node.kind == "class") {
+    if (node.kind == "class" || node.kind == "abstract") {
         if (Object.keys(baseClasses).length) {
             Object.keys(baseClasses).forEach((x, i) => {
                 lines.push(i == 0
@@ -267,7 +270,7 @@ function printParents(prefix, node, template) {
                     // TODO: Use another way to distiguish the abstract class instead of A- prefix?
                     var typeKeyword = /^\s*(\w+)/.exec(template)[1]
                     var abstractClass =
-                        `${prefix.substring(prefix.length-4)}${typeKeyword} [<AbstractClass>] A${ifc.name}() =\n` +
+                        `${prefix.substring(prefix.length-4)}${typeKeyword} ${templates.abstractDecorator} A${ifc.name}() =\n` +
                         `${prefix}interface ${ifc.name} with\n`;
 
                     template = append(abstractClass, printClassMembers(ifc, prefix + "    ")) + template;
@@ -285,12 +288,12 @@ function printParents(prefix, node, template) {
                 if (i == 0) {
                     // Interfaces cannot extend classes in F#
                     // We need to make this an abstract class
-                    template = template.replace(/(\w+) (.+?) =/, "$1 [<AbstractClass>] $2() =")
+                    template = template.replace(/(\w+) (.+?) =/, `$1 ${templates.abstractDecorator}$2() =`)
                     lines.push(prefix + "inherit " + x + "()");
-                    node.kind = "class";
+                    node.kind = "abstract";
                 }
                 else {
-                    // TODO: Write warn about multiple inheritance
+                    lines.push(prefix + "// inherit " + x + " // TODO: Multiple inheritance, unexpected");
                 }
             });
         }
@@ -319,8 +322,9 @@ function printMembers(ent, prefix) {
 
 function printClassMethod(prefix) {
     return function (x) {
-        return prefix + templates.classMethod
+        return prefix + (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") + templates.classMethod
             .replace("[STATIC]", x.static ? "static " : "")
+            .replace("[MEMBER_KEYWORD]", x.optional ? "default" : "member")
             .replace("[INSTANCE]", x.static ? "" : "__.")
             .replace("[NAME]", escapeKeyword(x.name))
             .replace("[TYPE]", escapeKeyword(x.type))
@@ -330,7 +334,7 @@ function printClassMethod(prefix) {
 
 function printClassProperty(prefix) {
     return function (x) {
-        return prefix + templates.classProperty
+        return prefix + (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") + templates.classProperty
             .replace("[STATIC]", x.static ? "static " : "")
             .replace("[INSTANCE]", x.static ? "" : "__.")
             .replace("[NAME]", escapeKeyword(x.name))
@@ -346,12 +350,49 @@ function printClassMembers(ent, prefix) {
     ].filter(x => x.length > 0).join("\n");
 }
 
+function printAbstractMethod(prefix) {
+    return function (x) {
+        // Methods with Emit (createNew, Item) cannot be overriden
+        // so always declare them as members
+        if (x.emit) {
+            return printClassMethod(prefix)(x);
+        }
+        else {
+            var tmp = printMethod(prefix)(x);
+            // If the method is optional, give a default implementation
+            return tmp + (x.optional ? "\n" + printClassMethod(prefix)(x) : "");
+        }
+    }
+}
+
+function printAbstractMembers(ent, prefix) {
+    return [
+        printArray(ent.properties, printClassProperty(prefix)),
+        printArray(ent.methods, printAbstractMethod(prefix)),
+    ].filter(x => x.length > 0).join("\n");
+}
+
 function printClassDecorator(ifc, modName) {
-    return ifc.kind == "class"
-        ? templates.classDecorator
-            .replace("[MOD_NAME]", modName)
-            .replace("[CLASS_NAME]", ifc.name.replace(/<.*>/, ""))
-        : "";
+    switch (ifc.kind) {
+        case "class":
+            return templates.classDecorator
+                .replace("[MOD_NAME]", modName)
+                .replace("[CLASS_NAME]", ifc.name.replace(/<.*>/, ""));
+        case "abstract":
+            return templates.abstractDecorator;    
+        default:
+            return "";
+    }
+}
+
+function printConstructor(ifc) {
+    switch (ifc.kind) {
+        case "class":
+        case "abstract":
+            return "(" + printParameters(ifc.constructorParameters) + ")";
+        default:
+            return "";
+    }
 }
 
 function printInterface(prefix, modName) {
@@ -360,8 +401,7 @@ function printInterface(prefix, modName) {
             .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
             .replace("[NAME]", escapeKeyword(ifc.name))
             .replace("[DECORATOR]", printClassDecorator(ifc, modName))
-            .replace("[CONSTRUCTOR]", ifc.kind == "class"
-                ? "(" + printParameters(ifc.constructorParameters) + ")" : "");
+            .replace("[CONSTRUCTOR]", printConstructor(ifc));
                 
         var tmp = printParents(prefix + "    ", ifc, template);
         var hasParents = tmp != template;
@@ -382,6 +422,11 @@ function printInterface(prefix, modName) {
                 return template += (classMembers.length == 0 && !hasParents
                     ? prefix + "    class end"
                     : classMembers);
+            case "abstract":
+                var abstractMembers = printAbstractMembers(ifc, prefix + "    ");
+                return template += (abstractMembers.length == 0 && !hasParents
+                    ? prefix + "    class end"
+                    : abstractMembers);
             // case "interface":
             default:
                 var members = printMembers(ifc, prefix + "    ");
@@ -448,8 +493,13 @@ function hasFlag(flags, flag) {
 }
 
 function getName(node) {
-    // TODO: Throw exception if there's no name?
-    return node.name ? node.name.text : null;
+    if (node.expression && node.expression.kind == ts.SyntaxKind.PropertyAccessExpression) {
+        return node.expression.expression.text + "." + node.expression.name.text;
+    }
+    else {
+        // TODO: Throw exception if there's no name?
+        return node.name ? node.name.text : (node.expression ? node.expression.text : null);
+    }
 }
 
 function printTypeArguments(typeArgs) {
@@ -507,7 +557,6 @@ function getType(type) {
             if (!name) {
                 return "obj"
             }
-
             if (name in mappedTypes) {
                 name = mappedTypes[name];
             }
@@ -531,9 +580,9 @@ function getParents(node) {
 }
 
 // TODO: get comments
-function getProperty(node) {
+function getProperty(node, name) {
     return {
-        name: getName(node),
+        name: name || getName(node),
         type: getType(node.type),
         optional: node.questionToken != null,
         static: node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false
@@ -588,6 +637,7 @@ function getMethod(node, name) {
     var meth = {
         name: name || getName(node),
         type: getType(node.type),
+        optional: node.questionToken != null,
         static: node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false,
         parameters: node.parameters.map(getParameter)
     };
@@ -629,28 +679,47 @@ function getInterface(node, kind) {
 function visitInterface(node, kind) {
     var ifc = getInterface(node, kind);
     (node.members || []).forEach(function(node) {
+        var member, name;
         switch (node.kind) {
             case ts.SyntaxKind.PropertySignature:
             case ts.SyntaxKind.PropertyDeclaration:
-                // TODO: How can we handle computed property names?
-                if (node.name.kind != ts.SyntaxKind.ComputedPropertyName) {
-                    ifc.properties.push(getProperty(node));
+                if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
+                    name = getName(node.name);
+                    member = getProperty(node, "["+name+"]");
+                    member.emit = "$0["+name+"]{{=$1}}";
                 }
+                else {
+                    member = getProperty(node);
+                }
+                ifc.properties.push(member);
                 break;
             case ts.SyntaxKind.CallSignature:
                 // TODO
                 break;
             case ts.SyntaxKind.MethodSignature:
             case ts.SyntaxKind.MethodDeclaration:
-                // TODO: How can we handle computed property names?
-                if (node.name.kind != ts.SyntaxKind.ComputedPropertyName) {
-                    ifc.methods.push(getMethod(node));
+                if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
+                    name = getName(node.name);
+                    member = getMethod(node, "["+name+"]");
+                    member.emit = "$0["+name+"]($1...)";
+                }
+                else {
+                    member = getMethod(node);
+                }
+                ifc.methods.push(member);
+                if (member.optional) {
+                    ifc.kind = "abstract";
                 }
                 break;
             case ts.SyntaxKind.ConstructSignature:
-                var meth = getMethod(node, "createNew");
-                meth.emit = "new $0($1...)";
-                ifc.methods.push(meth);
+                member = getMethod(node, "createNew");
+                member.emit = "new $0($1...)";
+                ifc.methods.push(member);
+                break;
+            case ts.SyntaxKind.IndexSignature:
+                member = getMethod(node, "Item");
+                member.emit = "$0[$1]{{=$2}}";
+                ifc.properties.push(member);
                 break;
             case ts.SyntaxKind.Constructor:
                 ifc.constructorParameters = node.parameters.map(getParameter);

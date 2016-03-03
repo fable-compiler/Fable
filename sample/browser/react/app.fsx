@@ -9,10 +9,27 @@ open System
 open Fable.Core
 open Fable.Import
 
-// Make the function inline so createObj and List.toArray can be optimized
-let inline createElement (a : string) b c =
+// Helper methods
+let inline dom (a: string) b c =
     React.Globals.createElement (a, createObj b, List.toArray c)
 
-createElement "div" ["className" ==> "root"] [unbox "Hello World!"]
+let inline el<'T,'P when 'T :> React.Component<'P,obj>> (b: 'P) c =
+    React.Globals.createElement (U2.Case1(unbox typeof<'T>), b, List.toArray c)
+
+// This won't work as `React.createClass` expects a plain object not a class instance
+// type CC() =
+//     inherit React.ComponentSpec<obj, obj>()
+//     override x.render() = upcast createElement "div" [] [unbox "Hello World!"]
+
+type CCProps = {
+    msg: string
+}
+
+type CC() =
+    inherit React.Component<CCProps,obj>()
+    member x.render() =
+        dom "div" [] [unbox x.props.msg]
+
+el<CC,_> { msg = "Hello World!" } []
 |> React.DOMServer.Globals.renderToString
 |> Console.WriteLine
