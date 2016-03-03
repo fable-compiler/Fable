@@ -35,12 +35,13 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
+    let npmFilePath =
+        match environVarOrNone "TRAVIS" with
+        | Some _ -> environVar "NPM_PATH"
+        | None -> NpmHelper.defaultNpmParams.NpmFilePath
     let buildParam command p =
-        { p with
-            NpmHelper.NpmFilePath =
-                environVarOrDefault "NPM_PATH" NpmHelper.defaultNpmParams.NpmFilePath
-            NpmHelper.Command =
-                NpmHelper.Run command }
+        { p with NpmHelper.NpmFilePath = npmFilePath
+                 NpmHelper.Command = NpmHelper.Run command }
     NpmHelper.Npm (buildParam "test-compile")
     NpmHelper.Npm (buildParam "test")
 )

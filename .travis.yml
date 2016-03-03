@@ -5,10 +5,6 @@ sudo: false  # use the new container-based Travis infrastructure
 before_script:
   - nvm install 5.0
   - nvm use 5.0
-  - which npm
-
-env:
-  - NPM_PATH=~/.nvm/versions/node/v5.0/lib/npm
 
 script:
   - ./build.sh All
