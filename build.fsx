@@ -2,6 +2,7 @@
 
 open System.IO
 open Fake
+open System
 
 // Directories
 let mainBuildDir = "build/main/"
@@ -35,18 +36,15 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    let compileArgs = "tools/fable2babel.js --projFile test/Fable.Tests.fsproj"
-    let testArgs = "node_modules/mocha/bin/mocha build/test"
-    trace ("node " + compileArgs)
-    Shell.Exec("node", compileArgs)
-    |> function
-    | 0 ->
-        trace ("node " + testArgs)
-        Shell.Exec("node", testArgs)
-        |> function
-        | 0 -> ()
-        | _ -> failwith "Mocha tests failed"
-    | _ -> failwith "Cannot compile tests to JS"
+    let npmFilePath =
+        match environVarOrNone "TRAVIS" with
+        | Some _ -> "/home/travis/.nvm/versions/node/v5.0.0/bin/npm" // this is where npm is on Travis now
+        | None -> NpmHelper.defaultNpmParams.NpmFilePath
+    let buildParam command p =
+        { p with NpmHelper.NpmFilePath = npmFilePath
+                 NpmHelper.Command = NpmHelper.Run command }
+    NpmHelper.Npm (buildParam "test-compile")
+    NpmHelper.Npm (buildParam "test")
 )
 
 Target "MainRelease" (fun _ ->
