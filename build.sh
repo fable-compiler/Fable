@@ -7,6 +7,9 @@ else
   MONO="mono"
 fi
 
+which node
+which npm
+
 npm install
 
 $MONO .paket/paket.bootstrapper.exe
