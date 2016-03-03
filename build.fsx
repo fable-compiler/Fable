@@ -35,8 +35,14 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    NpmHelper.Npm (fun p -> { p with Command = (NpmHelper.Run "test-compile")})
-    NpmHelper.Npm (fun p -> { p with Command = (NpmHelper.Run "test")})
+    let buildParam command p =
+        { p with
+            NpmHelper.NpmFilePath =
+                environVarOrDefault "NPM_PATH" NpmHelper.defaultNpmParams.NpmFilePath
+            NpmHelper.Command =
+                NpmHelper.Run command }
+    NpmHelper.Npm (buildParam "test-compile")
+    NpmHelper.Npm (buildParam "test")
 )
 
 Target "MainRelease" (fun _ ->
