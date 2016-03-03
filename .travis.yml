@@ -8,4 +8,3 @@ before_script:
 
 script:
   - ./build.sh All
-
