@@ -548,7 +548,9 @@ module Util =
                 let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
                 Fable.Apply(expr, args, Fable.ApplyMeth, typ, range) |> Some
             | None -> None
-            
+
+    // This is mostly to erase base constructors calls when implementing a dummy
+    // abstract class from import files            
     let (|Erased|_|) (meth: FSharpMemberOrFunctionOrValue) =
         if meth.IsImplicitConstructor && isErasedEntity meth.EnclosingEntity
         then Fable.Null |> Fable.Value |> Some

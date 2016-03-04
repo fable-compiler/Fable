@@ -170,6 +170,17 @@ var mappedTypes = {
 
 var typeCache = {};
 
+function arrayEquals(ar1, ar2, f) {
+    if (ar1.length !== ar2.length) {
+        return false;
+    }
+    for (var i = 0; i < ar1.length; i++) {
+        if (!f(ar1[i], ar2[i]))
+            return false;
+    }
+    return true;
+}
+
 function escapeKeyword(x) {
     return !/^'|<.+?>/.test(x) && (keywords.indexOf(x) >= 0 || reserved.indexOf(x) >= 0 || /[^\w.]/.test(x))
         ? "``" + x + "``"
@@ -265,16 +276,19 @@ function printParents(prefix, node, template) {
             Object.keys(interfaces).forEach(k => {
                 var ifc = interfaces[k];
                 if (ifc != null && (ifc.properties.length || ifc.methods.length)) {
-                    // In TypeScript definitions, classes don't implement interface members
-                    // so we need to create an intermediate abstract class
-                    // TODO: Use another way to distiguish the abstract class instead of A- prefix?
-                    var typeKeyword = /^\s*(\w+)/.exec(template)[1]
-                    var abstractClass =
-                        `${prefix.substring(prefix.length-4)}${typeKeyword} ${templates.abstractDecorator} A${ifc.name}() =\n` +
-                        `${prefix}interface ${ifc.name} with\n`;
-
-                    template = append(abstractClass, printClassMembers(ifc, prefix + "    ")) + template;
-                    lines.push(`${prefix}inherit A${ifc.name}()`);
+                    var tmpSet = new Set();
+                    lines.push(`${prefix}interface ${ifc.name} with`);
+                    ifc.properties.forEach(x => {
+                        tmpSet.add(x.name);
+                        lines.push(printClassProperty(prefix + "    ")(x));
+                    });
+                    ifc.methods.forEach(x => {
+                        tmpSet.add(x.name);
+                        lines.push(printClassMethod(prefix + "    ")(x));
+                    });
+                    // Clean methods and properties from the class
+                    node.properties = node.properties.filter(x => !tmpSet.has(x.name));
+                    node.methods = node.methods.filter(x => !tmpSet.has(x.name));
                 }
                 else if (k != "obj") {
                     lines.push(prefix + "interface " + k);
@@ -324,7 +338,7 @@ function printClassMethod(prefix) {
     return function (x) {
         return prefix + (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") + templates.classMethod
             .replace("[STATIC]", x.static ? "static " : "")
-            .replace("[MEMBER_KEYWORD]", x.optional ? "default" : "member")
+            .replace("[MEMBER_KEYWORD]", "member") // x.optional ? "default" : "member")
             .replace("[INSTANCE]", x.static ? "" : "__.")
             .replace("[NAME]", escapeKeyword(x.name))
             .replace("[TYPE]", escapeKeyword(x.type))
@@ -347,28 +361,6 @@ function printClassMembers(ent, prefix) {
     return [
         printArray(ent.properties, printClassProperty(prefix)),
         printArray(ent.methods, printClassMethod(prefix)),
-    ].filter(x => x.length > 0).join("\n");
-}
-
-function printAbstractMethod(prefix) {
-    return function (x) {
-        // Methods with Emit (createNew, Item) cannot be overriden
-        // so always declare them as members
-        if (x.emit) {
-            return printClassMethod(prefix)(x);
-        }
-        else {
-            var tmp = printMethod(prefix)(x);
-            // If the method is optional, give a default implementation
-            return tmp + (x.optional ? "\n" + printClassMethod(prefix)(x) : "");
-        }
-    }
-}
-
-function printAbstractMembers(ent, prefix) {
-    return [
-        printArray(ent.properties, printClassProperty(prefix)),
-        printArray(ent.methods, printAbstractMethod(prefix)),
     ].filter(x => x.length > 0).join("\n");
 }
 
@@ -423,7 +415,7 @@ function printInterface(prefix, modName) {
                     ? prefix + "    class end"
                     : classMembers);
             case "abstract":
-                var abstractMembers = printAbstractMembers(ifc, prefix + "    ");
+                var abstractMembers = printMembers(ifc, prefix + "    ");
                 return template += (abstractMembers.length == 0 && !hasParents
                     ? prefix + "    class end"
                     : abstractMembers);
@@ -706,10 +698,14 @@ function visitInterface(node, kind) {
                 else {
                     member = getMethod(node);
                 }
-                ifc.methods.push(member);
-                if (member.optional) {
-                    ifc.kind = "abstract";
+                // Sometimes TypeScript definitions contain duplicated methods
+                for (var m of ifc.methods) {
+                    if (m.name === member.name && arrayEquals(
+                        m.parameters, member.parameters, (x,y) => x.type == y.type))
+                        return;
                 }
+                ifc.methods.push(member);
+                // if (member.optional) { ifc.kind = "abstract"; }
                 break;
             case ts.SyntaxKind.ConstructSignature:
                 member = getMethod(node, "createNew");

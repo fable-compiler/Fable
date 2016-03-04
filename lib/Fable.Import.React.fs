@@ -63,7 +63,14 @@ module React =
         U2<Component<obj, obj>, Element>
 
     and [<Import("react?get=Component")>] Component<'P, 'S>(?props: 'P, ?context: obj) =
-        inherit ComponentLifecycle<'P, 'S>()
+        interface ComponentLifecycle<'P, 'S> with
+            member __.componentWillMount(): unit = failwith "JS only"
+            member __.componentDidMount(): unit = failwith "JS only"
+            member __.componentWillReceiveProps(nextProps: 'P, nextContext: obj): unit = failwith "JS only"
+            member __.shouldComponentUpdate(nextProps: 'P, nextState: 'S, nextContext: obj): bool = failwith "JS only"
+            member __.componentWillUpdate(nextProps: 'P, nextState: 'S, nextContext: obj): unit = failwith "JS only"
+            member __.componentDidUpdate(prevProps: 'P, prevState: 'S, prevContext: obj): unit = failwith "JS only"
+            member __.componentWillUnmount(): unit = failwith "JS only"
         member __.props with get(): 'P = failwith "JS only" and set(v: 'P): unit = failwith "JS only"
         member __.state with get(): 'S = failwith "JS only" and set(v: 'S): unit = failwith "JS only"
         member __.context with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
@@ -71,14 +78,13 @@ module React =
         member __.setState(f: Func<'S, 'P, 'S>, ?callback: Func<obj>): unit = failwith "JS only"
         member __.setState(state: 'S, ?callback: Func<obj>): unit = failwith "JS only"
         member __.forceUpdate(?callBack: Func<obj>): unit = failwith "JS only"
-        member __.render(): obj (* JSX.Element *) = failwith "JS only"
+        member __.render(): ReactElement<'P> = failwith "JS only"
 
     and [<AbstractClass; Erase>] ClassicComponent<'P, 'S>() =
         inherit Component<'P, 'S>()
         abstract replaceState: nextState: 'S * ?callback: Func<obj> -> unit
         abstract isMounted: unit -> bool
         abstract getInitialState: unit -> 'S
-        default __.getInitialState(): 'S = failwith "JS only"
 
     and ChildContextProvider<'CC> =
         abstract getChildContext: unit -> 'CC
@@ -96,53 +102,35 @@ module React =
         abstract defaultProps: 'P option with get, set
         [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> Component<'P, obj>
 
-    and [<AbstractClass; Erase>]  AComponentClass<'P>() =
-        interface ComponentClass<'P> with
-            member __.propTypes with get(): ValidationMap<'P> option = failwith "JS only" and set(v: ValidationMap<'P> option): unit = failwith "JS only"
-            member __.contextTypes with get(): ValidationMap<obj> option = failwith "JS only" and set(v: ValidationMap<obj> option): unit = failwith "JS only"
-            member __.childContextTypes with get(): ValidationMap<obj> option = failwith "JS only" and set(v: ValidationMap<obj> option): unit = failwith "JS only"
-            member __.defaultProps with get(): 'P option = failwith "JS only" and set(v: 'P option): unit = failwith "JS only"
-            [<Emit("new $0($1...)")>] member __.createNew(?props: 'P, ?context: obj): Component<'P, obj> = failwith "JS only"
-
-    and [<AbstractClass; Erase>] ClassicComponentClass<'P>() =
-        inherit AComponentClass<'P>()
-        member __.displayName with get(): string option = failwith "JS only" and set(v: string option): unit = failwith "JS only"
-        [<Emit("new $0($1...)")>] member __.createNew(?props: 'P, ?context: obj): ClassicComponent<'P, obj> = failwith "JS only"
+    and ClassicComponentClass<'P> =
+        inherit ComponentClass<'P>
+        abstract displayName: string option with get, set
+        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> ClassicComponent<'P, obj>
         abstract getDefaultProps: unit -> 'P
-        default __.getDefaultProps(): 'P = failwith "JS only"
 
-    and [<AbstractClass; Erase>] ComponentLifecycle<'P, 'S>() =
+    and ComponentLifecycle<'P, 'S> =
         abstract componentWillMount: unit -> unit
-        default __.componentWillMount(): unit = failwith "JS only"
         abstract componentDidMount: unit -> unit
-        default __.componentDidMount(): unit = failwith "JS only"
         abstract componentWillReceiveProps: nextProps: 'P * nextContext: obj -> unit
-        default __.componentWillReceiveProps(nextProps: 'P, nextContext: obj): unit = failwith "JS only"
         abstract shouldComponentUpdate: nextProps: 'P * nextState: 'S * nextContext: obj -> bool
-        default __.shouldComponentUpdate(nextProps: 'P, nextState: 'S, nextContext: obj): bool = failwith "JS only"
         abstract componentWillUpdate: nextProps: 'P * nextState: 'S * nextContext: obj -> unit
-        default __.componentWillUpdate(nextProps: 'P, nextState: 'S, nextContext: obj): unit = failwith "JS only"
         abstract componentDidUpdate: prevProps: 'P * prevState: 'S * prevContext: obj -> unit
-        default __.componentDidUpdate(prevProps: 'P, prevState: 'S, prevContext: obj): unit = failwith "JS only"
         abstract componentWillUnmount: unit -> unit
-        default __.componentWillUnmount(): unit = failwith "JS only"
 
-    and [<AbstractClass; Erase>] Mixin<'P, 'S>() =
-        inherit ComponentLifecycle<'P, 'S>()
-        member __.mixins with get(): Mixin<'P, 'S> option = failwith "JS only" and set(v: Mixin<'P, 'S> option): unit = failwith "JS only"
-        member __.statics with get(): obj option = failwith "JS only" and set(v: obj option): unit = failwith "JS only"
-        member __.displayName with get(): string option = failwith "JS only" and set(v: string option): unit = failwith "JS only"
-        member __.propTypes with get(): ValidationMap<obj> option = failwith "JS only" and set(v: ValidationMap<obj> option): unit = failwith "JS only"
-        member __.contextTypes with get(): ValidationMap<obj> option = failwith "JS only" and set(v: ValidationMap<obj> option): unit = failwith "JS only"
-        member __.childContextTypes with get(): ValidationMap<obj> option = failwith "JS only" and set(v: ValidationMap<obj> option): unit = failwith "JS only"
+    and Mixin<'P, 'S> =
+        inherit ComponentLifecycle<'P, 'S>
+        abstract mixins: Mixin<'P, 'S> option with get, set
+        abstract statics: obj option with get, set
+        abstract displayName: string option with get, set
+        abstract propTypes: ValidationMap<obj> option with get, set
+        abstract contextTypes: ValidationMap<obj> option with get, set
+        abstract childContextTypes: ValidationMap<obj> option with get, set
         abstract getDefaultProps: unit -> 'P
-        default __.getDefaultProps(): 'P = failwith "JS only"
         abstract getInitialState: unit -> 'S
-        default __.getInitialState(): 'S = failwith "JS only"
 
-    and [<AbstractClass; Erase>] ComponentSpec<'P, 'S>() =
-        inherit Mixin<'P, 'S>()
-        [<Emit("$0[$1]{{=$2}}")>] member __.Item with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    and ComponentSpec<'P, 'S> =
+        inherit Mixin<'P, 'S>
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: propertyName: string -> obj with get, set
         abstract render: unit -> ReactElement<obj>
 
     and SyntheticEvent =
@@ -1063,9 +1051,9 @@ module JSX =
     type Element =
         inherit React.ReactElement<obj>
 
-    and [<AbstractClass>] ElementClass() =
+    and [<AbstractClass; Erase>] ElementClass() =
         inherit React.Component<obj, obj>()
-        member __.render(): Element = failwith "JS only"
+        abstract render: unit -> Element
 
     and ElementAttributesProperty =
         abstract props: obj with get, set
