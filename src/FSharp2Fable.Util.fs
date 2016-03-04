@@ -185,11 +185,6 @@ module Patterns =
         | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
         | _ -> None
         
-    let (|Location|_|) (com: IFableCompiler) (ent: FSharpEntity) =
-        match com.GetInternalFile ent with
-        | Some file -> Some { Fable.file=file; Fable.fullName=ent.FullName }
-        | None -> None
-
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
@@ -234,20 +229,24 @@ module Types =
         | -1 -> ent.DisplayName
         | i -> ent.FullName.Substring(0, i + 1) + ent.DisplayName
         
-    let getBaseClassLocation (tdef: FSharpEntity) =
-        let ignored = set ["System.Object"; "System.Exception"]
+    let isErasedEntity (tdef: FSharpEntity) =
+        tryFindAtt ((=) "Erase") tdef.Attributes |> Option.isSome
+        
+    let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
+        let isIgnored (t: FSharpType) =
+            not t.HasTypeDefinition ||
+            (com.GetInternalFile t.TypeDefinition).IsNone ||
+            isErasedEntity t.TypeDefinition
         match tdef.BaseType with
         | None -> None
-        | Some (NonAbbreviatedType t)
-            when not t.HasTypeDefinition || ignored.Contains t.TypeDefinition.FullName ->
-            None
         | Some (NonAbbreviatedType t) ->
-            Some { Fable.file = t.TypeDefinition.DeclarationLocation.FileName
-                   Fable.fullName = t.TypeDefinition.FullName }
+            if isIgnored t then None else
+            let typeRef = makeType com Context.Empty t |> makeTypeRef com SourceLocation.Empty
+            Some (sanitizeEntityName t.TypeDefinition, typeRef)
             
     // Some attributes (like ComDefaultInterface) will throw an exception
     // when trying to access ConstructorArguments
-    let makeDecorator (com: IFableCompiler) (att: FSharpAttribute) =
+    and makeDecorator (com: IFableCompiler) (att: FSharpAttribute) =
         try
             let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
             let fullName =
@@ -259,14 +258,14 @@ module Types =
         with _ ->
             None
 
-    let makeEntity (com: IFableCompiler) (tdef: FSharpEntity) =
+    and makeEntity (com: IFableCompiler) (tdef: FSharpEntity) =
         let kind =
             if tdef.IsInterface then Fable.Interface
             elif tdef.IsFSharpRecord then Fable.Record
             elif tdef.IsFSharpUnion then Fable.Union
             elif tdef.IsFSharpExceptionDeclaration then Fable.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
-            else Fable.Class (getBaseClassLocation tdef)
+            else Fable.Class (getBaseClass com tdef)
         let infcs =
             tdef.DeclaredInterfaces
             |> Seq.map (fun x -> sanitizeEntityName x.TypeDefinition)
@@ -279,7 +278,7 @@ module Types =
         Fable.Entity (kind, com.GetInternalFile tdef,
             sanitizeEntityName tdef, infcs, decs, tdef.Accessibility.IsPublic)
 
-    let rec makeTypeFromDef (com: IFableCompiler) (tdef: FSharpEntity) =
+    and makeTypeFromDef (com: IFableCompiler) (tdef: FSharpEntity) =
         // Guard: F# abbreviations shouldn't be passed as argument
         if tdef.IsFSharpAbbreviation
         then failwith "Abbreviation passed to makeTypeFromDef"
@@ -374,10 +373,7 @@ module Util =
 
     // Is external entity?
     let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
-        if ent.FullName.StartsWith("Fable.Core")
-        then true
-        else match com.GetInternalFile ent with
-             |  None -> true | Some _ -> false
+        match com.GetInternalFile ent with None -> true | Some _ -> false
         
     let getMemberKind name (meth: FSharpMemberOrFunctionOrValue) =
         if meth.IsImplicitConstructor then Fable.Constructor
@@ -397,10 +393,11 @@ module Util =
                 else name
             else name
         let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
-            meth.EnclosingEntity.IsInterface
-            || meth.IsProperty
+            (meth.IsProperty
             || meth.IsEvent
             || meth.IsImplicitConstructor
+            || meth.EnclosingEntity.IsInterface
+            || isErasedEntity meth.EnclosingEntity)
             |> not
         let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
             (isOverloadable meth && not(isExternalEntity com meth.EnclosingEntity))
@@ -552,6 +549,13 @@ module Util =
                 Fable.Apply(expr, args, Fable.ApplyMeth, typ, range) |> Some
             | None -> None
 
+    // This is mostly to erase base constructors calls when implementing a dummy
+    // abstract class from import files            
+    let (|Erased|_|) (meth: FSharpMemberOrFunctionOrValue) =
+        if meth.IsImplicitConstructor && isErasedEntity meth.EnclosingEntity
+        then Fable.Null |> Fable.Value |> Some
+        else None
+
     let (|Inlined|_|) (com: IFableCompiler) fsExpr methTypArgs
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         if not(isInline meth) then None else
@@ -586,6 +590,7 @@ module Util =
         | Emitted com ctx fsExpr (callee, args) emitted -> emitted
         | Imported com ctx fsExpr args imported -> imported
         | Inlined com fsExpr methTypArgs (callee, args) expr -> expr
+        | Erased nullExpr -> nullExpr
         (** -If the call is not resolved, then: *)
         | _ ->
             let methName = sanitizeMethodName com meth

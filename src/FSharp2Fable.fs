@@ -114,6 +114,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         then getBoundExpr com ctx v
         elif v.IsMemberThisValue
         then Fable.This |> Fable.Value
+        // External entities contain functions that will be replaced,
+        // when they appear as a stand alone values, they must be wrapped in a lambda
         elif isExternalEntity com v.EnclosingEntity
         then wrapInLambda com ctx fsExpr v
         else
@@ -168,7 +170,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             sanitizeEntityName meth.EnclosingEntity
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
         match ctx.owner with
-        | Some (EntityKind(Fable.Class(Some b)) as ent) when (methOwnerName meth) = b.fullName ->
+        | Some (EntityKind(Fable.Class(Some (baseFullName,_))) as ent) when (methOwnerName meth) = baseFullName ->
             if not meth.IsImplicitConstructor then
                 failwithf "Inheritance is only possible with base class implicit constructor: %s" ent.FullName
             let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
@@ -596,7 +598,9 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
         System.Collections.Concurrent.ConcurrentDictionary<string, string list * FSharpExpr>()
     let fileNames =
         fsProj.AssemblyContents.ImplementationFiles
-        |> Seq.map (fun x -> x.FileName) |> Set.ofSeq
+        |> Seq.map (fun x -> x.FileName)
+        |> Seq.where (fun file -> (System.IO.Path.GetFileName file) <> "Fable.Core.fs")
+        |> Set.ofSeq
     let replacePlugins =
         com.Plugins |> List.choose (function
             | :? IReplacePlugin as plugin -> Some plugin
@@ -626,11 +630,13 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
                 replacePlugins
         interface ICompiler with
             member __.Options = com.Options
-            member __.Plugins = com.Plugins }    
+            member __.Plugins = com.Plugins }
     fsProj.AssemblyContents.ImplementationFiles
     |> List.where (fun file ->
-        let fileName = System.IO.Path.GetFileName file.FileName
-        (fileName.StartsWith("Fable.Import") || fileName = "Fable.Core.fs") |> not)
+        // Fable.Import files are not considered external (the methods are not replaced)
+        // but we ignore them for compilation
+        ((System.IO.Path.GetFileName file.FileName).StartsWith("Fable.Import") |> not)
+        && fileNames.Contains file.FileName)
     |> List.map (fun file ->
         try
             let rootEnt, rootDecls =

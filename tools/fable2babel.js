@@ -20,17 +20,27 @@ var transformMacroExpressions = {
           return;
   
       try {
-        var buildArgs = {};
-        for (var i = 0; i < path.node.args.length; i++) {
-            buildArgs["$" + i] = path.node.args[i];
+        var buildArgs = {}, args = path.node.args;
+        for (var i = 0; i < args.length; i++) {
+            buildArgs["$" + i] = args[i];
         }
-        var buildMacro = template(path.node.value.replace(/\$(\d+)\.\.\./, function (m, i) {
-            var rep = [], j = parseInt(i);
-            for (; j < buildArgs.length; j++) {
-                rep.push("$"+j);
-            }
-            return rep.join(",");
-        }));
+        
+        var tmp = path.node.value
+            // Replace spread aguments like in `$0($1...)`
+            .replace(/\$(\d+)\.\.\./, function (m, i) {
+                var rep = [], j = parseInt(i);
+                for (; j < args.length; j++) {
+                    rep.push("$" + j);
+                }
+                return rep.join(",");
+            })
+            // Replace optional arguments like in `$0[$1]{{=$2}}` 
+            .replace(/\{\{([^\}]*\$(\d+).*?)\}\}/g, function (_, g1, g2) {
+                var i = parseInt(g2);
+                return i < args.length ? g1 : "";
+            });
+        
+        var buildMacro = template(tmp);
         path.replaceWithMultiple(buildMacro(buildArgs));
       }
       catch (err) {

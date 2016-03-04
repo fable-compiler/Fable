@@ -39,11 +39,12 @@ module Util =
         
     let consBack tail head = head::tail
 
+    let rec cleanNull = function
+        | [] -> []
+        | (Fable.Value Fable.Null)::args -> cleanNull args
+        | args -> args
+
     let prepareArgs (com: IBabelCompiler) ctx args =
-        let rec cleanNull = function
-            | [] -> []
-            | (Fable.Value Fable.Null)::args -> cleanNull args
-            | args -> args
         args
         |> List.rev |> cleanNull |> List.rev
         |> List.map (function
@@ -327,7 +328,9 @@ module Util =
                 upcast Babel.BinaryExpression (op, left, right, ?loc=range)
             // Emit expressions
             | Fable.Value (Fable.Emit emit), args ->
-                List.map (com.TransformExpr ctx) args
+                args
+                |> List.rev |> cleanNull |> List.rev
+                |> List.map (com.TransformExpr ctx)
                 |> macroExpression range emit
             | _ ->
                 match kind with
@@ -386,13 +389,12 @@ module Util =
                 transformExpr com ctx body |> U2.Case2
         args, body
         
-    let transformClass com ctx classRange (baseClass: Fable.EntityLocation option) decls =
+    let transformClass com ctx classRange baseClass decls =
         let declareMember range kind name args body isStatic hasRestParams =
             let name, computed = sanitizeName name
             let args, body = getMemberArgs com ctx args body hasRestParams
             Babel.ClassMethod(range, kind, name, args, body, computed, isStatic)
-        let baseClass = baseClass |> Option.map (fun loc ->
-            typeRef com ctx (Some loc.file) loc.fullName)
+        let baseClass = baseClass |> Option.map (snd >> transformExpr com ctx)
         decls
         |> List.map (function
             | Fable.MemberDeclaration m ->

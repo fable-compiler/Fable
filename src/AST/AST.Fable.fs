@@ -29,11 +29,9 @@ and Type =
         | PrimitiveType kind -> sprintf "%A" kind
 
 (** ##Entities *)
-and EntityLocation = { file: string; fullName: string }
-
 and EntityKind =
     | Module
-    | Class of baseClass: EntityLocation option
+    | Class of baseClass: (string*Expr) option
     | Union
     | Record
     | Exception

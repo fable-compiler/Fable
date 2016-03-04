@@ -62,7 +62,7 @@ module React =
     and ReactInstance =
         U2<Component<obj, obj>, Element>
 
-    and [<AbstractClass>] AComponentLifecycle<'P, 'S>() =
+    and [<Import("react?get=Component")>] Component<'P, 'S>(?props: 'P, ?context: obj) =
         interface ComponentLifecycle<'P, 'S> with
             member __.componentWillMount(): unit = failwith "JS only"
             member __.componentDidMount(): unit = failwith "JS only"
@@ -71,9 +71,6 @@ module React =
             member __.componentWillUpdate(nextProps: 'P, nextState: 'S, nextContext: obj): unit = failwith "JS only"
             member __.componentDidUpdate(prevProps: 'P, prevState: 'S, prevContext: obj): unit = failwith "JS only"
             member __.componentWillUnmount(): unit = failwith "JS only"
-
-    and [<Import("react?get=Component")>] Component<'P, 'S>(?props: 'P, ?context: obj) =
-        inherit AComponentLifecycle<'P, 'S>()
         member __.props with get(): 'P = failwith "JS only" and set(v: 'P): unit = failwith "JS only"
         member __.state with get(): 'S = failwith "JS only" and set(v: 'S): unit = failwith "JS only"
         member __.context with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
@@ -81,13 +78,13 @@ module React =
         member __.setState(f: Func<'S, 'P, 'S>, ?callback: Func<obj>): unit = failwith "JS only"
         member __.setState(state: 'S, ?callback: Func<obj>): unit = failwith "JS only"
         member __.forceUpdate(?callBack: Func<obj>): unit = failwith "JS only"
-        member __.render(): obj (* JSX.Element *) = failwith "JS only"
+        member __.render(): ReactElement<'P> = failwith "JS only"
 
-    and [<AbstractClass>] ClassicComponent<'P, 'S>() =
+    and [<AbstractClass; Erase>] ClassicComponent<'P, 'S>() =
         inherit Component<'P, 'S>()
-        member __.replaceState(nextState: 'S, ?callback: Func<obj>): unit = failwith "JS only"
-        member __.isMounted(): bool = failwith "JS only"
-        member __.getInitialState(): 'S = failwith "JS only"
+        abstract replaceState: nextState: 'S * ?callback: Func<obj> -> unit
+        abstract isMounted: unit -> bool
+        abstract getInitialState: unit -> 'S
 
     and ChildContextProvider<'CC> =
         abstract getChildContext: unit -> 'CC
@@ -133,6 +130,7 @@ module React =
 
     and ComponentSpec<'P, 'S> =
         inherit Mixin<'P, 'S>
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: propertyName: string -> obj with get, set
         abstract render: unit -> ReactElement<obj>
 
     and SyntheticEvent =
@@ -610,6 +608,7 @@ module React =
         abstract wrapMargin: obj option with get, set
         abstract wrapOption: obj option with get, set
         abstract writingMode: obj option with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: propertyName: string -> obj with get, set
 
     and HTMLAttributes =
         inherit DOMAttributes
@@ -754,6 +753,7 @@ module React =
         abstract results: float option with get, set
         abstract security: string option with get, set
         abstract unselectable: bool option with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: key: string -> obj with get, set
 
     and SVGAttributes =
         inherit HTMLAttributes
@@ -954,7 +954,7 @@ module React =
         abstract isRequired: Validator<'T> with get, set
 
     and ValidationMap<'T> =
-        interface end
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: key: string -> Validator<'T> with get, set
 
     and ReactPropTypes =
         abstract any: Requireable<obj> with get, set
@@ -995,11 +995,12 @@ module React =
         abstract pageY: float with get, set
 
     and TouchList =
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Touch with get, set
         abstract length: float with get, set
         abstract item: index: float -> Touch
         abstract identifiedTouch: identifier: float -> Touch
 
-    type Globals =
+    type [<Erase>] Globals =
         abstract DOM: ReactDOM with get, set
         abstract PropTypes: ReactPropTypes with get, set
         abstract Children: ReactChildren with get, set
@@ -1019,7 +1020,7 @@ module React =
 
 
     module DOM =
-        type Globals =
+        type [<Erase>] Globals =
             abstract version: string with get, set
             abstract findDOMNode: instance: ReactInstance -> 'E
             abstract findDOMNode: instance: ReactInstance -> Element
@@ -1038,10 +1039,10 @@ module React =
 
 
     module DOMServer =
-        type Globals =
+        type [<Erase>] Globals =
             abstract version: string with get, set
-            abstract renderToString: element: ReactElement<obj> -> string
-            abstract renderToStaticMarkup: element: ReactElement<obj> -> string
+            abstract renderToString<'a> : element: ReactElement<'a> -> string
+            abstract renderToStaticMarkup<'a> : element: ReactElement<'a> -> string
 
         let [<Import("react-dom/server")>] Globals: Globals = failwith "JS only"
 
@@ -1050,9 +1051,9 @@ module JSX =
     type Element =
         inherit React.ReactElement<obj>
 
-    and [<AbstractClass>] ElementClass() =
+    and [<AbstractClass; Erase>] ElementClass() =
         inherit React.Component<obj, obj>()
-        member __.render(): Element = failwith "JS only"
+        abstract render: unit -> Element
 
     and ElementAttributesProperty =
         abstract props: obj with get, set
