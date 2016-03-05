@@ -83,6 +83,18 @@ module Util =
                 identFromName lit.value :> Babel.Expression
             | _ -> property
         | _ -> Babel.MemberExpression (expr, property, computed) :> Babel.Expression
+        
+    let rec accessExpr (members: string list) (baseExpr: Babel.Expression option) =
+        match baseExpr with
+        | Some baseExpr ->
+            match members with
+            | [] -> baseExpr
+            | m::ms -> get baseExpr m |> Some |> accessExpr ms 
+        | None ->
+            match members with
+            // Temporary placeholder to be deleted by getExpr
+            | [] -> upcast Babel.EmptyExpression()
+            | m::ms -> identFromName m :> Babel.Expression |> Some |> accessExpr ms
 
     let typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
         let getDiff s1 s2 =
@@ -93,16 +105,6 @@ module Util =
                 | x1::xs1, x2::xs2 when x1 = x2 -> removeCommon xs1 xs2
                 | _ -> xs2
             removeCommon (split s1) (split s2)
-        let rec makeExpr (members: string list) (baseExpr: Babel.Expression option) =
-            match baseExpr with
-            | Some baseExpr ->
-                match members with
-                | [] -> baseExpr
-                | m::ms -> get baseExpr m |> Some |> makeExpr ms 
-            | None ->
-                match members with
-                | [] -> upcast Babel.EmptyExpression()
-                | m::ms -> identFromName m :> Babel.Expression |> Some |> makeExpr ms
         match file with
         | None -> failwithf "Cannot reference type: %s" fullName
         | Some file ->
@@ -114,9 +116,9 @@ module Util =
                 |> (+) "./"
                 |> com.GetImport ctx true
                 |> Some
-                |> makeExpr (getDiff file.Root.FullName fullName)
+                |> accessExpr (getDiff file.Root.FullName fullName)
             else
-                makeExpr (getDiff ctx.moduleFullName fullName) None
+                accessExpr (getDiff ctx.moduleFullName fullName) None
 
     let buildArray (com: IBabelCompiler) ctx consKind kind =
         match kind with
@@ -266,9 +268,9 @@ module Util =
         | Fable.Value kind ->
             match kind with
             | Fable.ImportRef (import, asDefault, prop) ->
-                match prop with
-                | Some prop -> get (com.GetImport ctx asDefault import) prop
-                | None -> com.GetImport ctx asDefault import
+                let parts = match prop with None -> [] | Some prop -> prop.Split('.') |> Array.toList
+                com.GetImport ctx asDefault import
+                |> Some |> accessExpr parts
             | Fable.This -> upcast Babel.ThisExpression ()
             | Fable.Super -> upcast Babel.Super ()
             | Fable.Null -> upcast Babel.NullLiteral ()

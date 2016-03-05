@@ -16,12 +16,6 @@ interface:
 `[TYPE_KEYWORD] [DECORATOR][NAME][CONSTRUCTOR] =
 `,
 
-classDecorator:
-`[<Import("[MOD_NAME]?get=[CLASS_NAME]")>] `,
-
-abstractDecorator:
-`[<AbstractClass; Erase>] `,
-
 classProperty:
 `[STATIC]member [INSTANCE][NAME] with get(): [TYPE][OPTION] = failwith "JS only" and set(v: [TYPE][OPTION]): unit = failwith "JS only"`,
 
@@ -32,20 +26,9 @@ module:
 `module [NAME] =
 `,
 
-moduleProxyType:
-`type [<Erase>] Globals =
+moduleProxy:
+`type [IMPORT]Globals =
 `,
-
-moduleProxyDeclaration:
-`let [<Import("[NAME]")>] Globals: Globals = failwith "JS only"
-`,
-
-globalModule:
-`module Globals =
-`,
-
-globalProperty:
-`    let [<Global>] [NAME]: [TYPE] = failwith "JS only"`,
 
 property:
 `abstract [NAME]: [TYPE][OPTION] with get, set`,
@@ -161,42 +144,63 @@ var keywords = [
     "yield"
 ];
 
+var typeCache = {};
+
+var genReg = /<.+?>$/;
 var mappedTypes = {
   Date: "DateTime",
   Object: "obj",
-  Function: "(obj->obj)",
   Array: "ResizeArray"
 };
 
-var typeCache = {};
-
-function arrayEquals(ar1, ar2, f) {
-    if (ar1.length !== ar2.length) {
-        return false;
-    }
-    for (var i = 0; i < ar1.length; i++) {
-        if (!f(ar1[i], ar2[i]))
-            return false;
-    }
-    return true;
+function escape(x) {
+    var genParams = genReg.exec(x);
+    var name = x.replace(genReg,"")
+    name = (keywords.indexOf(name) >= 0 || reserved.indexOf(name) >= 0 || /[^\w.']/.test(name))
+        ? "``" + name + "``"
+        : name;
+    return name + (genParams ? genParams[0] : "");
 }
 
-function escapeKeyword(x) {
-    return !/^'|<.+?>/.test(x) && (keywords.indexOf(x) >= 0 || reserved.indexOf(x) >= 0 || /[^\w.]/.test(x))
-        ? "``" + x + "``"
-        : x;
+function append(template, txt) {
+    return typeof txt == "string" && txt.length > 0 ? template + txt + "\n\n" : template;
+}
+
+function joinPath(path, name) {
+    return typeof path == "string" && path.length > 0 ? path + "." + name : name;
+}
+
+function isDuplicate(member, other) {
+    function arrayEquals(ar1, ar2, f) {
+        ar1 = ar1 || [], ar2 = ar2 || [];
+        if (ar1.length !== ar2.length) {
+            return false;
+        }
+        for (var i = 0; i < ar1.length; i++) {
+            if (!f(ar1[i], ar2[i]))
+                return false;
+        }
+        return true;
+    }
+
+    for (var m of other) {
+        if (m.name === member.name && arrayEquals(
+            m.parameters, member.parameters, (x,y) => x.type == y.type))
+            return true;
+    }
+    return false;
 }
 
 function printParameters(parameters, sep, def) {
     sep = sep || ", ", def = def || "";
     function printParameter(x) {
         if (x.rest) {
-            var execed = /ResizeArray<(.*?)>/.exec(x.type)[1];
-            var type = (execed == null ? "obj" : execed) + "[]";
-            return "[<ParamArray>] " + escapeKeyword(x.name) + ": " + type;
+            var execed = /ResizeArray<(.*?)>/.exec(escape(x.type));
+            var type = (execed == null ? "obj" : escape(execed[1])) + "[]";
+            return "[<ParamArray>] " + escape(x.name) + ": " + type;
         }
         else {
-            return (x.optional ? "?" : "") + escapeKeyword(x.name) + ": " + x.type;
+            return (x.optional ? "?" : "") + escape(x.name) + ": " + escape(x.type);
         }
     }
     return Array.isArray(parameters) && parameters.length > 0
@@ -207,8 +211,8 @@ function printParameters(parameters, sep, def) {
 function printMethod(prefix) {
     return function (x) {
         return prefix + (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") + templates.method
-                .replace("[NAME]", escapeKeyword(x.name))
-                .replace("[TYPE]", escapeKeyword(x.type))
+                .replace("[NAME]", escape(x.name))
+                .replace("[TYPE]", escape(x.type))
                 .replace("[PARAMETERS]", printParameters(x.parameters, " * ", "unit"));
     }
 }
@@ -218,105 +222,55 @@ function printProperty(prefix) {
         var param = Array.isArray(x.parameters) && x.parameters.length === 1
                     ? printParameters(x.parameters) + " -> " : "";
         return prefix + (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") + templates.property
-            .replace("[NAME]", escapeKeyword(x.name))
-            .replace("[TYPE]", param + escapeKeyword(x.type))
+            .replace("[NAME]", escape(x.name))
+            .replace("[TYPE]", param + escape(x.type))
             .replace("[OPTION]", x.optional ? " option" : "");
     }
 }
 
-function spliceInterfaceMembers(node, ifc) {
-    var ifcProperties = [], ifcMethods = [];
-    for (var i = node.properties.length - 1; i >= 0; i--) {
-        if (ifc.properties.find(x => x.name == node.properties[i].name)) {
-            ifcMethods.push(node.properties[i]);
-            node.properties.splice(i,1);
-        }
-    }
-    for (var i = node.methods.length - 1; i >= 0; i--) {
-        if (ifc.methods.find(x => x.name == node.methods[i].name)) {
-            ifcMethods.push(node.methods[i]);
-            node.methods.splice(i,1);
-        }
-    }
-    return {
-        properties: ifcProperties,
-        methods: ifcMethods
-    }
-}
-
 function printParents(prefix, node, template) {
-    if (!node.parents || node.parents.length == 0) {
-        return template;
-    }
-    
-    var baseClasses = {}, interfaces = {};
-    for (var i = 0; i < node.parents.length; i++) {
-        var parentName = node.parents[i];
-        var parent = typeCache[parentName.replace(/<.*?>/,"")];
-        // Consider non cached types interfaces by default
-        if (!parent || parent.kind == "interface") {
-            interfaces[parentName] = parent;
+    function printParentMembers(prefix, lines, parent, child) {
+        if (child.kind == "class") {
+            lines.push(`${prefix}interface ${parent.name} with`);
+            parent.properties.forEach(x => lines.push(printClassProperty(prefix + "    ")(x)));
+            parent.methods.forEach(x => lines.push(printClassMethod(prefix + "    ")(x)));
         }
-        else if (parent.kind == "class" || parent.kind == "abstract") {
-            baseClasses[parentName] = parent;
+        else {
+            parent.properties.forEach(x => lines.push(printProperty(prefix)(x)));
+            parent.methods.forEach(x => lines.push(printMethod(prefix)(x)));
         }
+        // Clean methods and properties from the child
+        child.properties = child.properties.filter(x => !isDuplicate(x, parent.properties));
+        child.methods = child.methods.filter(x => !isDuplicate(x, parent.methods));
     }
     
     var lines = [];
-    if (node.kind == "class" || node.kind == "abstract") {
-        if (Object.keys(baseClasses).length) {
-            Object.keys(baseClasses).forEach((x, i) => {
-                lines.push(i == 0
-                    ? prefix + "inherit " + x + "()" // TODO: Check base class constructor arguments?
-                    : prefix + "// inherit " + x + " // TODO: Multiple inheritance, unexpected"
-                );
-            });
+    node.parents.forEach(function(parentName) {
+        var nameNoArgs = parentName.replace(genReg, "");
+        var parent = typeCache[nameNoArgs.indexOf(".") > 0 ? nameNoArgs : joinPath(node.path, nameNoArgs)];
+        if (node.kind == "class") {
+            if (parent && parent.kind == "class") {
+                lines.push(prefix + "inherit " + parentName + "()"); // TODO: Check base class constructor arguments?
+            }
+            else {
+                if (parent != null && (parent.properties.length || parent.methods.length)) {
+                    printParentMembers(prefix, lines, parent, node);
+                }
+                else if (parentName != "obj") {
+                    lines.push(prefix + "interface " + parentName);
+                }
+            }
         }
-        else {
-            Object.keys(interfaces).forEach(k => {
-                var ifc = interfaces[k];
-                if (ifc != null && (ifc.properties.length || ifc.methods.length)) {
-                    var tmpSet = new Set();
-                    lines.push(`${prefix}interface ${ifc.name} with`);
-                    ifc.properties.forEach(x => {
-                        tmpSet.add(x.name);
-                        lines.push(printClassProperty(prefix + "    ")(x));
-                    });
-                    ifc.methods.forEach(x => {
-                        tmpSet.add(x.name);
-                        lines.push(printClassMethod(prefix + "    ")(x));
-                    });
-                    // Clean methods and properties from the class
-                    node.properties = node.properties.filter(x => !tmpSet.has(x.name));
-                    node.methods = node.methods.filter(x => !tmpSet.has(x.name));
-                }
-                else if (k != "obj") {
-                    lines.push(prefix + "interface " + k);
-                }
-            });
+        else if (node.kind == "interface") {
+            if (parent && parent.kind == "class") {
+                // Interfaces cannot extend classes, just copy the members
+                printParentMembers(prefix, lines, parent, node);
+            }
+            else if (parentName != "obj") {
+                lines.push(prefix + "inherit " + parentName);
+            }
         }
-    }
-    else if (node.kind == "interface") {
-        if (Object.keys(baseClasses).length) {
-            Object.keys(baseClasses).forEach((x, i) => {
-                if (i == 0) {
-                    // Interfaces cannot extend classes in F#
-                    // We need to make this an abstract class
-                    template = template.replace(/(\w+) (.+?) =/, `$1 ${templates.abstractDecorator}$2() =`)
-                    lines.push(prefix + "inherit " + x + "()");
-                    node.kind = "abstract";
-                }
-                else {
-                    lines.push(prefix + "// inherit " + x + " // TODO: Multiple inheritance, unexpected");
-                }
-            });
-        }
-        else {
-            Object.keys(interfaces).filter(x => x != "obj").forEach(x => {
-                lines.push(prefix + "inherit " + x);
-            });
-        }   
-    }
+    });
     
     return template + (lines.length ? lines.join("\n") + "\n" : "");
 }
@@ -327,7 +281,7 @@ function printArray(arr, mapper) {
         : "";
 }
 
-function printMembers(ent, prefix) {
+function printMembers(prefix, ent) {
     return [
         printArray(ent.properties, printProperty(prefix)),
         printArray(ent.methods, printMethod(prefix))
@@ -338,10 +292,10 @@ function printClassMethod(prefix) {
     return function (x) {
         return prefix + (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") + templates.classMethod
             .replace("[STATIC]", x.static ? "static " : "")
-            .replace("[MEMBER_KEYWORD]", "member") // x.optional ? "default" : "member")
+            .replace("[MEMBER_KEYWORD]", "member")
             .replace("[INSTANCE]", x.static ? "" : "__.")
-            .replace("[NAME]", escapeKeyword(x.name))
-            .replace("[TYPE]", escapeKeyword(x.type))
+            .replace("[NAME]", escape(x.name))
+            .replace("[TYPE]", escape(x.type))
             .replace("[PARAMETERS]", printParameters(x.parameters));
     }
 }
@@ -351,49 +305,42 @@ function printClassProperty(prefix) {
         return prefix + (x.emit ? '[<Emit("' + x.emit +'")>] ' : "") + templates.classProperty
             .replace("[STATIC]", x.static ? "static " : "")
             .replace("[INSTANCE]", x.static ? "" : "__.")
-            .replace("[NAME]", escapeKeyword(x.name))
-            .replace(/\[TYPE\]/g, escapeKeyword(x.type))
+            .replace("[NAME]", escape(x.name))
+            .replace(/\[TYPE\]/g, escape(x.type))
             .replace(/\[OPTION\]/g, x.optional ? " option" : "");
     }
 }
 
-function printClassMembers(ent, prefix) {
+function printClassMembers(prefix, ent) {
     return [
         printArray(ent.properties, printClassProperty(prefix)),
         printArray(ent.methods, printClassMethod(prefix)),
     ].filter(x => x.length > 0).join("\n");
 }
 
-function printClassDecorator(ifc, modName) {
-    switch (ifc.kind) {
-        case "class":
-            return templates.classDecorator
-                .replace("[MOD_NAME]", modName)
-                .replace("[CLASS_NAME]", ifc.name.replace(/<.*>/, ""));
-        case "abstract":
-            return templates.abstractDecorator;    
-        default:
-            return "";
+function printImport(path, name) {
+    if (!name) {
+        return "";
+    }
+    else {
+        var fullPath = joinPath(path, name.replace(genReg, ""));
+        var period = fullPath.indexOf('.');
+        var importPath = period >= 0
+            ? fullPath.substr(0, period) + "?get=" + fullPath.substr(period + 1)
+            : fullPath;
+        return `[<Import("${importPath}")>] `;
     }
 }
 
-function printConstructor(ifc) {
-    switch (ifc.kind) {
-        case "class":
-        case "abstract":
-            return "(" + printParameters(ifc.constructorParameters) + ")";
-        default:
-            return "";
-    }
-}
-
-function printInterface(prefix, modName) {
+function printInterface(prefix) {
     return function (ifc, i) {
         var template = prefix + templates.interface
             .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
-            .replace("[NAME]", escapeKeyword(ifc.name))
-            .replace("[DECORATOR]", printClassDecorator(ifc, modName))
-            .replace("[CONSTRUCTOR]", printConstructor(ifc));
+            .replace("[NAME]", escape(ifc.name))
+            .replace("[DECORATOR]", ifc.kind === "class"
+                ? printImport(ifc.path, ifc.name) : "")
+            .replace("[CONSTRUCTOR]", ifc.kind === "class"
+                ? "(" + printParameters(ifc.constructorParameters) + ")" : "");
                 
         var tmp = printParents(prefix + "    ", ifc, template);
         var hasParents = tmp != template;
@@ -410,18 +357,13 @@ function printInterface(prefix, modName) {
                     return prefix + cv;
                 }).join("\n");
             case "class":
-                var classMembers = printClassMembers(ifc, prefix + "    ");
+                var classMembers = printClassMembers(prefix + "    ", ifc);
                 return template += (classMembers.length == 0 && !hasParents
                     ? prefix + "    class end"
                     : classMembers);
-            case "abstract":
-                var abstractMembers = printMembers(ifc, prefix + "    ");
-                return template += (abstractMembers.length == 0 && !hasParents
-                    ? prefix + "    class end"
-                    : abstractMembers);
             // case "interface":
             default:
-                var members = printMembers(ifc, prefix + "    ");
+                var members = printMembers(prefix + "    ", ifc);
                 return template += (members.length == 0 && !hasParents
                     ? prefix + "    interface end"
                     : members);
@@ -430,26 +372,24 @@ function printInterface(prefix, modName) {
     }
 }
 
-function append(template, txt) {
-    return txt.length > 0 ? template + txt + "\n\n" : template;
+function printGlobals(prefix, ent) {
+    var members = printClassMembers(prefix + "    " + (ent.name ? "" : "[<Global>] " ), ent);
+    if (members.length > 0) {
+        return prefix + templates.moduleProxy.replace(
+            "[IMPORT]", printImport(ent.path, ent.name)) + members; 
+    }
+    return "";
 }
 
 function printModule(prefix) {
     return function(mod) {
         var template = prefix + templates.module
-            .replace("[NAME]", escapeKeyword(mod.name));
+            .replace("[NAME]", escape(mod.name));
 
         template = append(template, mod.interfaces.map(
-            printInterface(prefix + "    ", mod.name)).join("\n\n"));
+            printInterface(prefix + "    ")).join("\n\n"));
 
-        var members = printMembers(mod, prefix + "        ");
-        if (members.length > 0) {
-            template +=
-                prefix + "    " + templates.moduleProxyType +
-                members + "\n\n" +
-                prefix + "    " + templates.moduleProxyDeclaration.replace("[NAME]",
-                    (mod.parent ? mod.parent + "?get=" : "") + mod.name);
-        }
+        template = append(template, printGlobals(prefix + "    ", mod));
 
         template += mod.modules.map(printModule(prefix + "    ")).join("\n\n");
 
@@ -457,26 +397,10 @@ function printModule(prefix) {
     }
 }
 
-function printGlobalProperty(x) {
-    return templates.globalProperty
-        .replace("[NAME]", escapeKeyword(x.name))
-        .replace("[TYPE]", escapeKeyword(x.type));
-}
-
-function printGlobalProperties(properties) {
-    if (properties.length == 0) {
-        return "";
-    }
-    else {
-        return templates.globalModule +
-            properties.map(printGlobalProperty).join("\n");
-    }
-}
-
 function printFile(file) {
     var template = templates.file;
     template = append(template, file.interfaces.map(printInterface("")).join("\n\n"));
-    template = append(template, printGlobalProperties(file.properties));
+    template = append(template, printGlobals("", file));
     return template + file.modules.map(printModule("")).join("\n\n");
 }
 
@@ -537,6 +461,8 @@ function getType(type) {
             return type.elementTypes.map(getType).join(" * ");
         case ts.SyntaxKind.ParenthesizedType:
             return getType(type.type);
+        // case ts.SyntaxKind.TypeQuery:
+        //     return type.exprName.text + "Constructor";
         default:
             var name = type.typeName ? type.typeName.text : (type.expression ? type.expression.text : null)
             if (type.expression && type.expression.kind == ts.SyntaxKind.PropertyAccessExpression) {
@@ -572,9 +498,10 @@ function getParents(node) {
 }
 
 // TODO: get comments
-function getProperty(node, name) {
+function getProperty(node, opts) {
+    opts = opts || {};
     return {
-        name: name || getName(node),
+        name: opts.name || getName(node),
         type: getType(node.type),
         optional: node.questionToken != null,
         static: node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false
@@ -625,23 +552,24 @@ function getParameter(param) {
 }
 
 // TODO: get comments
-function getMethod(node, name) {
+function getMethod(node, opts) {
+    opts = opts || {};
     var meth = {
-        name: name || getName(node),
+        name: opts.name || getName(node),
         type: getType(node.type),
         optional: node.questionToken != null,
-        static: node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false,
+        static: opts.static || (node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false),
         parameters: node.parameters.map(getParameter)
     };
     var firstParam = node.parameters[0], secondParam = node.parameters[1];
-    if (secondParam && secondParam.type.kind == ts.SyntaxKind.StringLiteral) {
+    if (secondParam && secondParam.type.kind == ts.SyntaxKind.StringLiteralType) {
         // The only case I've seen following this pattern is
         // createElementNS(namespaceURI: "http://www.w3.org/2000/svg", qualifiedName: "a"): SVGAElement
         meth.parameters = meth.parameters.slice(2);
         meth.emit = `$0.${meth.name}('${firstParam.type.text}', '${secondParam.type.text}'${meth.parameters.length?',$1...':''})`;
         meth.name += '_' + secondParam.type.text;
     }
-    else if (firstParam && firstParam.type.kind == ts.SyntaxKind.StringLiteral) {
+    else if (firstParam && firstParam.type.kind == ts.SyntaxKind.StringLiteralType) {
         meth.parameters = meth.parameters.slice(1);
         meth.emit = `$0.${meth.name}('${firstParam.type.text}'${meth.parameters.length?',$1...':''})`;
         meth.name += '_' + firstParam.type.text;
@@ -649,27 +577,28 @@ function getMethod(node, name) {
     return meth;
 }
 
-function getInterface(node, kind) {
+function getInterface(node, opts) {
     function printTypeParameters(typeParams) {
         typeParams = typeParams || [];
         return typeParams.length == 0 ? "" : "<" + typeParams.map(function (x) {
             return "'" + x.name.text
         }).join(", ") + ">";
     }
+    opts = opts || {};
     var ifc = {
       name: getName(node) + printTypeParameters(node.typeParameters),
-      kind: kind || "interface",
-      parents: kind == "alias" ? [getType(node.type)] : getParents(node),
+      kind: opts.kind || "interface",
+      parents: opts.kind == "alias" ? [getType(node.type)] : getParents(node),
       properties: [],
-      methods: []
+      methods: [],
+      path: opts.path
     };
-    // TODO: Respect namespace?
-    typeCache[ifc.name.replace(/<.*?>/,"")] = ifc;
+    typeCache[joinPath(ifc.path, ifc.name.replace(genReg,""))] = ifc;
     return ifc;
 }
 
-function visitInterface(node, kind) {
-    var ifc = getInterface(node, kind);
+function visitInterface(node, opts) {
+    var ifc = getInterface(node, opts);
     (node.members || []).forEach(function(node) {
         var member, name;
         switch (node.kind) {
@@ -677,7 +606,7 @@ function visitInterface(node, kind) {
             case ts.SyntaxKind.PropertyDeclaration:
                 if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
                     name = getName(node.name);
-                    member = getProperty(node, "["+name+"]");
+                    member = getProperty(node, { name: "["+name+"]" });
                     member.emit = "$0["+name+"]{{=$1}}";
                 }
                 else {
@@ -686,34 +615,31 @@ function visitInterface(node, kind) {
                 ifc.properties.push(member);
                 break;
             case ts.SyntaxKind.CallSignature:
-                // TODO
+                member = getMethod(node, { name: "callSelf" });
+                member.emit = "$0($1...)";
+                ifc.methods.push(member);
                 break;
             case ts.SyntaxKind.MethodSignature:
             case ts.SyntaxKind.MethodDeclaration:
                 if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
                     name = getName(node.name);
-                    member = getMethod(node, "["+name+"]");
+                    member = getMethod(node, { name: "["+name+"]" });
                     member.emit = "$0["+name+"]($1...)";
                 }
                 else {
                     member = getMethod(node);
                 }
                 // Sometimes TypeScript definitions contain duplicated methods
-                for (var m of ifc.methods) {
-                    if (m.name === member.name && arrayEquals(
-                        m.parameters, member.parameters, (x,y) => x.type == y.type))
-                        return;
-                }
-                ifc.methods.push(member);
-                // if (member.optional) { ifc.kind = "abstract"; }
+                if (!isDuplicate(member, ifc.methods))
+                    ifc.methods.push(member);
                 break;
             case ts.SyntaxKind.ConstructSignature:
-                member = getMethod(node, "createNew");
+                member = getMethod(node, { name: "createNew" });
                 member.emit = "new $0($1...)";
                 ifc.methods.push(member);
                 break;
             case ts.SyntaxKind.IndexSignature:
-                member = getMethod(node, "Item");
+                member = getMethod(node, { name: "Item" });
                 member.emit = "$0[$1]{{=$2}}";
                 ifc.properties.push(member);
                 break;
@@ -725,37 +651,37 @@ function visitInterface(node, kind) {
     return ifc;
 }
 
-function visitModule(node, parent) {
+function visitModule(node, opts) {
+    opts = opts || {};
     var mod = {
       name: getName(node),
-      parent: parent,
+      path: opts.path,
       interfaces: [],
       properties: [],
       methods: [],
       modules: []
     };
+    var modPath = joinPath(mod.path, mod.name);
     node.body.statements.forEach(function(node) {
         switch (node.kind) {
             case ts.SyntaxKind.InterfaceDeclaration:
-                mod.interfaces.push(visitInterface(node));
+                mod.interfaces.push(visitInterface(node, { kind: "interface", path: modPath }));
                 break;
             case ts.SyntaxKind.ClassDeclaration:
-                mod.interfaces.push(visitInterface(node, "class"));
+                mod.interfaces.push(visitInterface(node, { kind: "class", path: modPath }));
                 break;
             case ts.SyntaxKind.TypeAliasDeclaration:
-                mod.interfaces.push(visitInterface(node, "alias"));
+                mod.interfaces.push(visitInterface(node, { kind: "alias", path: modPath }));
                 break;
             case ts.SyntaxKind.VariableStatement:
                 getVariables(node).forEach(x =>
                     mod.properties.push(x));
                 break;
             case ts.SyntaxKind.FunctionDeclaration:
-                mod.methods.push(getMethod(node));
+                mod.methods.push(getMethod(node, { static: true }));
                 break;
             case ts.SyntaxKind.ModuleDeclaration:
-                // TODO: Support modules with depth > 1?
-                if (!mod.parent)
-                    mod.modules.push(visitModule(node, mod.name));
+                mod.modules.push(visitModule(node, { path: modPath }));
                 break;
             case ts.SyntaxKind.EnumDeclaration:
                 mod.interfaces.push(getEnum(node));
@@ -766,7 +692,7 @@ function visitModule(node, parent) {
 }
 
 function visitFile(node) {
-    var properties = [], interfaces = [], modules = [];
+    var properties = [], methods = [], interfaces = [], modules = [];
     ts.forEachChild(node, function(node) {
         switch (node.kind) {
             case ts.SyntaxKind.VariableStatement:
@@ -774,7 +700,7 @@ function visitFile(node) {
                     properties.push(x));
                 break;
             case ts.SyntaxKind.FunctionDeclaration:
-                // TODO: For now, ignore global functions
+                methods.push(getMethod(node, { static: true }));
                 break;
             case ts.SyntaxKind.ModuleDeclaration:
                 var mod = visitModule(node);
@@ -785,14 +711,23 @@ function visitFile(node) {
                     modules.push(mod);
                 break;
             case ts.SyntaxKind.InterfaceDeclaration:
-				interfaces.push(visitInterface(node));
+                var ifc = visitInterface(node);
+                // Fix interface duplications in lib.core.es6.d.ts
+                var prev = interfaces.filter(x => x.name == ifc.name)[0];
+                if (prev != null) {
+                    prev.properties = prev.properties.concat(ifc.properties);
+                    prev.methods = prev.methods.concat(ifc.methods);
+                }
+                else {
+				    interfaces.push(visitInterface(node));
+                }
                 break;
             case ts.SyntaxKind.TypeAliasDeclaration:
-                interfaces.push(visitInterface(node, "alias"));
+                interfaces.push(visitInterface(node, { kind: "alias" }));
                 break;
-            // case ts.SyntaxKind.ClassDeclaration:
-			// 	interfaces.push(visitInterface(node, "class"));
-            //     break;
+            case ts.SyntaxKind.ClassDeclaration:
+				interfaces.push(visitInterface(node, { kind: "class" }));
+                break;
         }
     });
     return {
@@ -803,11 +738,13 @@ function visitFile(node) {
 }
 
 try {
-    var fileName = process.argv[2];
-    var code = fs.readFileSync(fileName).toString();
-    var sourceFile = ts.createSourceFile(fileName, code, ts.ScriptTarget.ES6, /*setParentNodes */ true);
+    var filePath = process.argv[2];
+    // fileName = (fileName = path.basename(filePath).replace(".d.ts",""), fileName[0].toUpperCase() + fileName.substr(1));
+    // `readonly` keyword is causing problems, remove it
+    var code = fs.readFileSync(filePath).toString().replace(/readonly/g, "");
+    var sourceFile = ts.createSourceFile(filePath, code, ts.ScriptTarget.ES6, /*setParentNodes*/ true);
     var fileInfo = visitFile(sourceFile);
-    var ffi = printFile(fileInfo, path.basename(fileName).replace(".d.ts",""))
+    var ffi = printFile(fileInfo)
     console.log(ffi);
     process.exit(0);
 }

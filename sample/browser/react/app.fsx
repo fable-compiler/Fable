@@ -31,5 +31,5 @@ type CC() =
         dom "div" [] [unbox x.props.msg]
 
 el<CC,_> { msg = "Hello World!" } []
-|> React.DOMServer.Globals.renderToString
+|> ReactDom.Server.renderToString
 |> Console.WriteLine

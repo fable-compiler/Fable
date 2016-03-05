@@ -21,7 +21,7 @@
     "babel-plugin-transform-es5-property-mutators": "^6.5.0",
     "babel-template": "^6.5.0",
     "mocha": "^2.4.5",
-    "typescript": "*"
+    "typescript": "^1.8.7"
   },
   "devDependencies": {},
   "scripts": {

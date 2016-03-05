@@ -8,8 +8,8 @@
 #load "../../../lib/Fable.Import.Browser.fs"
 
 open Fable.Core
-module JS = Fable.Import.JS.Globals
-module Browser = Fable.Import.Browser.Globals
+type JS = Fable.Import.JS.Globals
+type Browser = Fable.Import.Browser.Globals
 
 // Use this dummy module to hold references to Vue and Router objects
 // exposed globally by loading the corresponding libraries with HTML script tags

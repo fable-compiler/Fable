@@ -228,15 +228,14 @@ module Types =
         match ent.FullName.LastIndexOf(".") with
         | -1 -> ent.DisplayName
         | i -> ent.FullName.Substring(0, i + 1) + ent.DisplayName
-        
-    let isErasedEntity (tdef: FSharpEntity) =
-        tryFindAtt ((=) "Erase") tdef.Attributes |> Option.isSome
-        
+
+    let isImportedEntity (tdef: FSharpEntity) =
+        tryFindAtt (fun att -> att = "Global" || att = "Import") tdef.Attributes |> Option.isSome
+
     let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
         let isIgnored (t: FSharpType) =
-            not t.HasTypeDefinition ||
-            (com.GetInternalFile t.TypeDefinition).IsNone ||
-            isErasedEntity t.TypeDefinition
+            not t.HasTypeDefinition
+            || (com.GetInternalFile t.TypeDefinition).IsNone
         match tdef.BaseType with
         | None -> None
         | Some (NonAbbreviatedType t) ->
@@ -397,7 +396,7 @@ module Util =
             || meth.IsEvent
             || meth.IsImplicitConstructor
             || meth.EnclosingEntity.IsInterface
-            || isErasedEntity meth.EnclosingEntity)
+            || isImportedEntity meth.EnclosingEntity)
             |> not
         let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
             (isOverloadable meth && not(isExternalEntity com meth.EnclosingEntity))
@@ -538,23 +537,21 @@ module Util =
             Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, range)
             |> Some
         | _ -> None
-
-    let (|Imported|_|) com ctx fsExpr args (meth: FSharpMemberOrFunctionOrValue) =
+        
+    let (|Imported|_|) com ctx fsExpr (args: Fable.Expr list) (meth: FSharpMemberOrFunctionOrValue) =
         meth.Attributes
         |> Seq.choose (makeDecorator com)
         |> tryImported com meth.DisplayName
         |> function
             | Some expr ->
                 let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-                Fable.Apply(expr, args, Fable.ApplyMeth, typ, range) |> Some
+                if meth.IsPropertyGetterMethod
+                then expr
+                elif meth.IsPropertySetterMethod
+                then Fable.Set (expr, None, args.Head, range)
+                else Fable.Apply(expr, args, Fable.ApplyMeth, typ, range)
+                |> Some
             | None -> None
-
-    // This is mostly to erase base constructors calls when implementing a dummy
-    // abstract class from import files            
-    let (|Erased|_|) (meth: FSharpMemberOrFunctionOrValue) =
-        if meth.IsImplicitConstructor && isErasedEntity meth.EnclosingEntity
-        then Fable.Null |> Fable.Value |> Some
-        else None
 
     let (|Inlined|_|) (com: IFableCompiler) fsExpr methTypArgs
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
@@ -590,11 +587,9 @@ module Util =
         | Emitted com ctx fsExpr (callee, args) emitted -> emitted
         | Imported com ctx fsExpr args imported -> imported
         | Inlined com fsExpr methTypArgs (callee, args) expr -> expr
-        | Erased nullExpr -> nullExpr
         (** -If the call is not resolved, then: *)
         | _ ->
-            let methName = sanitizeMethodName com meth
-            let methExpr = makeConst methName
+            let methExpr = sanitizeMethodName com meth |> makeConst
             let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         (**     *Check if this an extension *)
             let callee, args =

@@ -7,11 +7,11 @@ open Fable.Import.JS
 //     abstract localeCompare: that: string * locales: ResizeArray<string> * ?options: Intl.CollatorOptions -> float
 //     abstract localeCompare: that: string * locale: string * ?options: Intl.CollatorOptions -> float
 // 
-// type Number =
+// and Number =
 //     abstract toLocaleString: ?locales: ResizeArray<string> * ?options: Intl.NumberFormatOptions -> string
 //     abstract toLocaleString: ?locale: string * ?options: Intl.NumberFormatOptions -> string
 // 
-// type Date =
+// and Date =
 //     abstract toLocaleString: ?locales: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
 //     abstract toLocaleDateString: ?locales: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
 //     abstract toLocaleTimeString: ?locale: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
@@ -183,7 +183,7 @@ and WheelEventInit =
     abstract deltaMode: float option with get, set
 
 and EventListener =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: evt: Event -> unit
 
 and ANGLE_instanced_arrays =
     abstract VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE: float with get, set
@@ -351,6 +351,7 @@ and AudioTrackList =
     abstract onaddtrack: Func<TrackEvent, obj> with get, set
     abstract onchange: Func<Event, obj> with get, set
     abstract onremovetrack: Func<TrackEvent, obj> with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> AudioTrack with get, set
     abstract getTrackById: id: string -> AudioTrack
     abstract item: index: float -> AudioTrack
     [<Emit("$0.addEventListener('addtrack',$1...)")>] abstract addEventListener_addtrack: listener: Func<TrackEvent, obj> * ?useCapture: bool -> unit
@@ -383,6 +384,7 @@ and Blob =
 
 and CDATASection =
     inherit Text
+
 
 and CSS =
     abstract supports: property: string * ?value: string -> bool
@@ -456,6 +458,7 @@ and CSSRule =
 
 and CSSRuleList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> CSSRule with get, set
     abstract item: index: float -> CSSRule
 
 and CSSStyleDeclaration =
@@ -804,6 +807,7 @@ and CSSStyleDeclaration =
     abstract writingMode: string with get, set
     abstract zIndex: string with get, set
     abstract zoom: string with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
     abstract getPropertyPriority: propertyName: string -> string
     abstract getPropertyValue: propertyName: string -> string
     abstract item: index: float -> string
@@ -840,6 +844,7 @@ and CSSStyleSheet =
 
 and CSSSupportsRule =
     inherit CSSConditionRule
+
 
 and CanvasGradient =
     abstract addColorStop: offset: float * color: string -> unit
@@ -906,8 +911,10 @@ and CanvasRenderingContext2D =
 and ChannelMergerNode =
     inherit AudioNode
 
+
 and ChannelSplitterNode =
     inherit AudioNode
+
 
 and CharacterData =
     inherit Node
@@ -931,6 +938,7 @@ and ClientRect =
 
 and ClientRectList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> ClientRect with get, set
     abstract item: index: float -> ClientRect
 
 and ClipboardEvent =
@@ -1066,14 +1074,16 @@ and DOMSettableTokenList =
 
 and DOMStringList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
     abstract contains: str: string -> bool
     abstract item: index: float -> string
 
 and DOMStringMap =
-    interface end
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: name: string -> string with get, set
 
 and DOMTokenList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
     abstract add: [<ParamArray>] token: string[] -> unit
     abstract contains: token: string -> bool
     abstract item: index: float -> string
@@ -1103,6 +1113,7 @@ and DataTransferItem =
 
 and DataTransferItemList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> DataTransferItem with get, set
     abstract add: data: File -> DataTransferItem
     abstract clear: unit -> unit
     abstract item: index: float -> DataTransferItem
@@ -2157,6 +2168,7 @@ and File =
 
 and FileList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> File with get, set
     abstract item: index: float -> File
 
 and FileReader =
@@ -2284,6 +2296,7 @@ and HTMLAreasCollection =
 
 and HTMLAudioElement =
     inherit HTMLMediaElement
+
 
 and HTMLBRElement =
     inherit HTMLElement
@@ -2488,6 +2501,7 @@ and HTMLCanvasElement =
 
 and HTMLCollection =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Element with get, set
     abstract item: ?nameOrIndex: obj * ?optionalIndex: obj -> Element
     abstract namedItem: name: string -> Element
 
@@ -2518,6 +2532,7 @@ and HTMLDivElement =
 
 and HTMLDocument =
     inherit Document
+
 
 and HTMLElement =
     inherit Element
@@ -2773,6 +2788,7 @@ and HTMLFormElement =
     abstract name: string with get, set
     abstract noValidate: bool with get, set
     abstract target: string with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: name: string -> obj with get, set
     abstract checkValidity: unit -> bool
     abstract item: ?name: obj * ?index: obj -> obj
     abstract namedItem: name: string -> obj
@@ -3758,6 +3774,7 @@ and HTMLSelectElement =
     abstract value: string with get, set
     abstract willValidate: bool with get, set
     abstract selectedOptions: HTMLCollection with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: name: string -> obj with get, set
     abstract add: element: HTMLElement * ?before: U2<HTMLElement, float> -> unit
     abstract checkValidity: unit -> bool
     abstract item: ?name: obj * ?index: obj -> obj
@@ -3774,6 +3791,7 @@ and HTMLSourceElement =
 
 and HTMLSpanElement =
     inherit HTMLElement
+
 
 and HTMLStyleElement =
     inherit HTMLElement
@@ -3814,6 +3832,7 @@ and HTMLTableColElement =
 
 and HTMLTableDataCellElement =
     inherit HTMLTableCellElement
+
 
 and HTMLTableElement =
     inherit HTMLElement
@@ -3923,6 +3942,7 @@ and HTMLUListElement =
 
 and HTMLUnknownElement =
     inherit HTMLElement
+
 
 and HTMLVideoElement =
     inherit HTMLMediaElement
@@ -4465,6 +4485,7 @@ and MSPointerEvent =
 
 and MSRangeCollection =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Range with get, set
     abstract item: index: float -> Range
 
 and MSSiteModeEvent =
@@ -4515,6 +4536,7 @@ and MSWebViewSettings =
 and MediaElementAudioSourceNode =
     inherit AudioNode
 
+
 and MediaError =
     abstract code: float with get, set
     abstract msExtendedCode: float with get, set
@@ -4527,6 +4549,7 @@ and MediaError =
 and MediaList =
     abstract length: float with get, set
     abstract mediaText: string with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
     abstract appendMedium: newMedium: string -> unit
     abstract deleteMedium: oldMedium: string -> unit
     abstract item: index: float -> string
@@ -4577,6 +4600,7 @@ and MimeType =
 
 and MimeTypeArray =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Plugin with get, set
     abstract item: index: float -> Plugin
     abstract namedItem: ``type``: string -> Plugin
 
@@ -4646,6 +4670,7 @@ and MutationRecord =
 
 and NamedNodeMap =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Attr with get, set
     abstract getNamedItem: name: string -> Attr
     abstract getNamedItemNS: namespaceURI: string * localName: string -> Attr
     abstract item: index: float -> Attr
@@ -4765,6 +4790,7 @@ and NodeIterator =
 
 and NodeList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Node with get, set
     abstract item: index: float -> Node
 
 and OES_element_index_uint =
@@ -4832,14 +4858,14 @@ and PerfWidgetExternal =
     abstract paintRequestsPerSecond: float with get, set
     abstract performanceCounter: float with get, set
     abstract performanceCounterFrequency: float with get, set
-    abstract addEventListener: eventType: string * callback: (obj->obj) -> unit
+    abstract addEventListener: eventType: string * callback: Function -> unit
     abstract getMemoryUsage: unit -> float
     abstract getProcessCpuUsage: unit -> float
     abstract getRecentCpuUsage: last: float -> obj
     abstract getRecentFrames: last: float -> obj
     abstract getRecentMemoryUsage: last: float -> obj
     abstract getRecentPaintRequests: last: float -> obj
-    abstract removeEventListener: eventType: string * callback: (obj->obj) -> unit
+    abstract removeEventListener: eventType: string * callback: Function -> unit
     abstract repositionWindow: x: float * y: float -> unit
     abstract resizeWindow: width: float * height: float -> unit
 
@@ -4869,8 +4895,10 @@ and PerformanceEntry =
 and PerformanceMark =
     inherit PerformanceEntry
 
+
 and PerformanceMeasure =
     inherit PerformanceEntry
+
 
 and PerformanceNavigation =
     abstract redirectCount: float with get, set
@@ -4962,11 +4990,13 @@ and Plugin =
     abstract length: float with get, set
     abstract name: string with get, set
     abstract version: string with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> MimeType with get, set
     abstract item: index: float -> MimeType
     abstract namedItem: ``type``: string -> MimeType
 
 and PluginArray =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Plugin with get, set
     abstract item: index: float -> Plugin
     abstract namedItem: name: string -> Plugin
     abstract refresh: ?reload: bool -> unit
@@ -5392,14 +5422,18 @@ and SVGFEFloodElement =
 and SVGFEFuncAElement =
     inherit SVGComponentTransferFunctionElement
 
+
 and SVGFEFuncBElement =
     inherit SVGComponentTransferFunctionElement
+
 
 and SVGFEFuncGElement =
     inherit SVGComponentTransferFunctionElement
 
+
 and SVGFEFuncRElement =
     inherit SVGComponentTransferFunctionElement
+
 
 and SVGFEGaussianBlurElement =
     inherit SVGElement
@@ -5678,6 +5712,7 @@ and SVGMatrix =
 and SVGMetadataElement =
     inherit SVGElement
 
+
 and SVGNumber =
     abstract value: float with get, set
 
@@ -5769,6 +5804,7 @@ and SVGPathSegArcRel =
 
 and SVGPathSegClosePath =
     inherit SVGPathSeg
+
 
 and SVGPathSegCurvetoCubicAbs =
     inherit SVGPathSeg
@@ -6129,6 +6165,7 @@ and SVGSymbolElement =
 and SVGTSpanElement =
     inherit SVGTextPositioningElement
 
+
 and SVGTextContentElement =
     inherit SVGElement
     inherit SVGStylable
@@ -6330,6 +6367,7 @@ and SourceBuffer =
 and SourceBufferList =
     inherit EventTarget
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> SourceBuffer with get, set
     abstract item: index: float -> SourceBuffer
 
 and StereoPannerNode =
@@ -6338,6 +6376,8 @@ and StereoPannerNode =
 
 and Storage =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: key: string -> obj with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
     abstract clear: unit -> unit
     abstract getItem: key: string -> obj
     abstract key: index: float -> string
@@ -6367,10 +6407,12 @@ and StyleSheet =
 
 and StyleSheetList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> StyleSheet with get, set
     abstract item: ?index: float -> StyleSheet
 
 and StyleSheetPageList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> CSSPageRule with get, set
     abstract item: index: float -> CSSPageRule
 
 and SubtleCrypto =
@@ -6454,6 +6496,7 @@ and TextRange =
 
 and TextRangeCollection =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> TextRange with get, set
     abstract item: index: float -> TextRange
 
 and TextTrack =
@@ -6500,6 +6543,7 @@ and TextTrackCue =
 
 and TextTrackCueList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> TextTrackCue with get, set
     abstract getCueById: id: string -> TextTrackCue
     abstract item: index: float -> TextTrackCue
 
@@ -6507,6 +6551,7 @@ and TextTrackList =
     inherit EventTarget
     abstract length: float with get, set
     abstract onaddtrack: Func<TrackEvent, obj> with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> TextTrack with get, set
     abstract item: index: float -> TextTrack
     [<Emit("$0.addEventListener('addtrack',$1...)")>] abstract addEventListener_addtrack: listener: Func<TrackEvent, obj> * ?useCapture: bool -> unit
     abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
@@ -6538,6 +6583,7 @@ and TouchEvent =
 
 and TouchList =
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Touch with get, set
     abstract item: index: float -> Touch
 
 and TrackEvent =
@@ -6612,6 +6658,7 @@ and VideoTrackList =
     abstract onchange: Func<Event, obj> with get, set
     abstract onremovetrack: Func<TrackEvent, obj> with get, set
     abstract selectedIndex: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> VideoTrack with get, set
     abstract getTrackById: id: string -> VideoTrack
     abstract item: index: float -> VideoTrack
     [<Emit("$0.addEventListener('addtrack',$1...)")>] abstract addEventListener_addtrack: listener: Func<TrackEvent, obj> * ?useCapture: bool -> unit
@@ -6645,6 +6692,7 @@ and WebGLActiveInfo =
 and WebGLBuffer =
     inherit WebGLObject
 
+
 and WebGLContextEvent =
     inherit Event
     abstract statusMessage: string with get, set
@@ -6652,14 +6700,17 @@ and WebGLContextEvent =
 and WebGLFramebuffer =
     inherit WebGLObject
 
+
 and WebGLObject =
     interface end
 
 and WebGLProgram =
     inherit WebGLObject
 
+
 and WebGLRenderbuffer =
     inherit WebGLObject
+
 
 and WebGLRenderingContext =
     abstract canvas: HTMLCanvasElement with get, set
@@ -7110,6 +7161,7 @@ and WebGLRenderingContext =
 and WebGLShader =
     inherit WebGLObject
 
+
 and WebGLShaderPrecisionFormat =
     abstract precision: float with get, set
     abstract rangeMax: float with get, set
@@ -7117,6 +7169,7 @@ and WebGLShaderPrecisionFormat =
 
 and WebGLTexture =
     inherit WebGLObject
+
 
 and WebGLUniformLocation =
     interface end
@@ -7342,6 +7395,7 @@ and Window =
     abstract top: Window with get, set
     abstract window: Window with get, set
     abstract URL: URL with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Window with get, set
     abstract alert: ?message: obj -> unit
     abstract blur: unit -> unit
     abstract cancelAnimationFrame: handle: float -> unit
@@ -7479,6 +7533,7 @@ and Worker =
 
 and XMLDocument =
     inherit Document
+
 
 and XMLHttpRequest =
     inherit EventTarget
@@ -7861,6 +7916,7 @@ and IDBIndexParameters =
 and NodeListOf<'TNode> =
     inherit NodeList
     abstract length: float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> 'TNode with get, set
     abstract item: index: float -> 'TNode
 
 and BlobPropertyBag =
@@ -7896,650 +7952,651 @@ and HTMLTemplateElement =
 and HTMLPictureElement =
     inherit HTMLElement
 
+
 and EventListenerOrEventListenerObject =
     U2<EventListener, EventListenerObject>
 
 and ErrorEventHandler =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: message: string * ?filename: string * ?lineno: float * ?colno: float * ?error: Error -> unit
 
 and PositionCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: position: Position -> unit
 
 and PositionErrorCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: error: PositionError -> unit
 
 and MediaQueryListListener =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: mql: MediaQueryList -> unit
 
 and MSLaunchUriCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: unit -> unit
 
 and FrameRequestCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: time: float -> unit
 
 and MSUnsafeFunctionCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: unit -> obj
 
 and MSExecAtPriorityFunctionCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: [<ParamArray>] args: obj[] -> obj
 
 and MutationCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: mutations: ResizeArray<MutationRecord> * observer: MutationObserver -> unit
 
 and DecodeSuccessCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: decodedData: AudioBuffer -> unit
 
 and DecodeErrorCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: error: DOMException -> unit
 
 and FunctionStringCallback =
-    interface end
+    [<Emit("$0($1...)")>] abstract callSelf: data: string -> unit
 
-module Globals =
-    let [<Global>] ANGLE_instanced_arrays: obj = failwith "JS only"
-    let [<Global>] AnalyserNode: obj = failwith "JS only"
-    let [<Global>] AnimationEvent: obj = failwith "JS only"
-    let [<Global>] ApplicationCache: obj = failwith "JS only"
-    let [<Global>] AriaRequestEvent: obj = failwith "JS only"
-    let [<Global>] Attr: obj = failwith "JS only"
-    let [<Global>] AudioBuffer: obj = failwith "JS only"
-    let [<Global>] AudioBufferSourceNode: obj = failwith "JS only"
-    let [<Global>] AudioContext: obj = failwith "JS only"
-    let [<Global>] AudioDestinationNode: obj = failwith "JS only"
-    let [<Global>] AudioListener: obj = failwith "JS only"
-    let [<Global>] AudioNode: obj = failwith "JS only"
-    let [<Global>] AudioParam: obj = failwith "JS only"
-    let [<Global>] AudioProcessingEvent: obj = failwith "JS only"
-    let [<Global>] AudioTrack: obj = failwith "JS only"
-    let [<Global>] AudioTrackList: obj = failwith "JS only"
-    let [<Global>] BarProp: obj = failwith "JS only"
-    let [<Global>] BeforeUnloadEvent: obj = failwith "JS only"
-    let [<Global>] BiquadFilterNode: obj = failwith "JS only"
-    let [<Global>] Blob: obj = failwith "JS only"
-    let [<Global>] CDATASection: obj = failwith "JS only"
-    let [<Global>] CSS: CSS = failwith "JS only"
-    let [<Global>] CSSConditionRule: obj = failwith "JS only"
-    let [<Global>] CSSFontFaceRule: obj = failwith "JS only"
-    let [<Global>] CSSGroupingRule: obj = failwith "JS only"
-    let [<Global>] CSSImportRule: obj = failwith "JS only"
-    let [<Global>] CSSKeyframeRule: obj = failwith "JS only"
-    let [<Global>] CSSKeyframesRule: obj = failwith "JS only"
-    let [<Global>] CSSMediaRule: obj = failwith "JS only"
-    let [<Global>] CSSNamespaceRule: obj = failwith "JS only"
-    let [<Global>] CSSPageRule: obj = failwith "JS only"
-    let [<Global>] CSSRule: obj = failwith "JS only"
-    let [<Global>] CSSRuleList: obj = failwith "JS only"
-    let [<Global>] CSSStyleDeclaration: obj = failwith "JS only"
-    let [<Global>] CSSStyleRule: obj = failwith "JS only"
-    let [<Global>] CSSStyleSheet: obj = failwith "JS only"
-    let [<Global>] CSSSupportsRule: obj = failwith "JS only"
-    let [<Global>] CanvasGradient: obj = failwith "JS only"
-    let [<Global>] CanvasPattern: obj = failwith "JS only"
-    let [<Global>] CanvasRenderingContext2D: obj = failwith "JS only"
-    let [<Global>] ChannelMergerNode: obj = failwith "JS only"
-    let [<Global>] ChannelSplitterNode: obj = failwith "JS only"
-    let [<Global>] CharacterData: obj = failwith "JS only"
-    let [<Global>] ClientRect: obj = failwith "JS only"
-    let [<Global>] ClientRectList: obj = failwith "JS only"
-    let [<Global>] ClipboardEvent: obj = failwith "JS only"
-    let [<Global>] CloseEvent: obj = failwith "JS only"
-    let [<Global>] CommandEvent: obj = failwith "JS only"
-    let [<Global>] Comment: obj = failwith "JS only"
-    let [<Global>] CompositionEvent: obj = failwith "JS only"
-    let [<Global>] Console: obj = failwith "JS only"
-    let [<Global>] ConvolverNode: obj = failwith "JS only"
-    let [<Global>] Coordinates: obj = failwith "JS only"
-    let [<Global>] Crypto: obj = failwith "JS only"
-    let [<Global>] CryptoKey: obj = failwith "JS only"
-    let [<Global>] CryptoKeyPair: obj = failwith "JS only"
-    let [<Global>] CustomEvent: obj = failwith "JS only"
-    let [<Global>] DOMError: obj = failwith "JS only"
-    let [<Global>] DOMException: obj = failwith "JS only"
-    let [<Global>] DOMImplementation: obj = failwith "JS only"
-    let [<Global>] DOMParser: obj = failwith "JS only"
-    let [<Global>] DOMSettableTokenList: obj = failwith "JS only"
-    let [<Global>] DOMStringList: obj = failwith "JS only"
-    let [<Global>] DOMStringMap: obj = failwith "JS only"
-    let [<Global>] DOMTokenList: obj = failwith "JS only"
-    let [<Global>] DataCue: obj = failwith "JS only"
-    let [<Global>] DataTransfer: obj = failwith "JS only"
-    let [<Global>] DataTransferItem: obj = failwith "JS only"
-    let [<Global>] DataTransferItemList: obj = failwith "JS only"
-    let [<Global>] DeferredPermissionRequest: obj = failwith "JS only"
-    let [<Global>] DelayNode: obj = failwith "JS only"
-    let [<Global>] DeviceAcceleration: obj = failwith "JS only"
-    let [<Global>] DeviceMotionEvent: obj = failwith "JS only"
-    let [<Global>] DeviceOrientationEvent: obj = failwith "JS only"
-    let [<Global>] DeviceRotationRate: obj = failwith "JS only"
-    let [<Global>] Document: obj = failwith "JS only"
-    let [<Global>] DocumentFragment: obj = failwith "JS only"
-    let [<Global>] DocumentType: obj = failwith "JS only"
-    let [<Global>] DragEvent: obj = failwith "JS only"
-    let [<Global>] DynamicsCompressorNode: obj = failwith "JS only"
-    let [<Global>] EXT_texture_filter_anisotropic: obj = failwith "JS only"
-    let [<Global>] Element: obj = failwith "JS only"
-    let [<Global>] ErrorEvent: obj = failwith "JS only"
-    let [<Global>] Event: obj = failwith "JS only"
-    let [<Global>] EventTarget: obj = failwith "JS only"
-    let [<Global>] External: obj = failwith "JS only"
-    let [<Global>] File: obj = failwith "JS only"
-    let [<Global>] FileList: obj = failwith "JS only"
-    let [<Global>] FileReader: obj = failwith "JS only"
-    let [<Global>] FocusEvent: obj = failwith "JS only"
-    let [<Global>] FormData: obj = failwith "JS only"
-    let [<Global>] GainNode: obj = failwith "JS only"
-    let [<Global>] Gamepad: obj = failwith "JS only"
-    let [<Global>] GamepadButton: obj = failwith "JS only"
-    let [<Global>] GamepadEvent: obj = failwith "JS only"
-    let [<Global>] Geolocation: obj = failwith "JS only"
-    let [<Global>] HTMLAllCollection: obj = failwith "JS only"
-    let [<Global>] HTMLAnchorElement: obj = failwith "JS only"
-    let [<Global>] HTMLAppletElement: obj = failwith "JS only"
-    let [<Global>] HTMLAreaElement: obj = failwith "JS only"
-    let [<Global>] HTMLAreasCollection: obj = failwith "JS only"
-    let [<Global>] HTMLAudioElement: obj = failwith "JS only"
-    let [<Global>] HTMLBRElement: obj = failwith "JS only"
-    let [<Global>] HTMLBaseElement: obj = failwith "JS only"
-    let [<Global>] HTMLBaseFontElement: obj = failwith "JS only"
-    let [<Global>] HTMLBlockElement: obj = failwith "JS only"
-    let [<Global>] HTMLBodyElement: obj = failwith "JS only"
-    let [<Global>] HTMLButtonElement: obj = failwith "JS only"
-    let [<Global>] HTMLCanvasElement: obj = failwith "JS only"
-    let [<Global>] HTMLCollection: obj = failwith "JS only"
-    let [<Global>] HTMLDDElement: obj = failwith "JS only"
-    let [<Global>] HTMLDListElement: obj = failwith "JS only"
-    let [<Global>] HTMLDTElement: obj = failwith "JS only"
-    let [<Global>] HTMLDataListElement: obj = failwith "JS only"
-    let [<Global>] HTMLDirectoryElement: obj = failwith "JS only"
-    let [<Global>] HTMLDivElement: obj = failwith "JS only"
-    let [<Global>] HTMLDocument: obj = failwith "JS only"
-    let [<Global>] HTMLElement: obj = failwith "JS only"
-    let [<Global>] HTMLEmbedElement: obj = failwith "JS only"
-    let [<Global>] HTMLFieldSetElement: obj = failwith "JS only"
-    let [<Global>] HTMLFontElement: obj = failwith "JS only"
-    let [<Global>] HTMLFormElement: obj = failwith "JS only"
-    let [<Global>] HTMLFrameElement: obj = failwith "JS only"
-    let [<Global>] HTMLFrameSetElement: obj = failwith "JS only"
-    let [<Global>] HTMLHRElement: obj = failwith "JS only"
-    let [<Global>] HTMLHeadElement: obj = failwith "JS only"
-    let [<Global>] HTMLHeadingElement: obj = failwith "JS only"
-    let [<Global>] HTMLHtmlElement: obj = failwith "JS only"
-    let [<Global>] HTMLIFrameElement: obj = failwith "JS only"
-    let [<Global>] HTMLImageElement: obj = failwith "JS only"
-    let [<Global>] HTMLInputElement: obj = failwith "JS only"
-    let [<Global>] HTMLIsIndexElement: obj = failwith "JS only"
-    let [<Global>] HTMLLIElement: obj = failwith "JS only"
-    let [<Global>] HTMLLabelElement: obj = failwith "JS only"
-    let [<Global>] HTMLLegendElement: obj = failwith "JS only"
-    let [<Global>] HTMLLinkElement: obj = failwith "JS only"
-    let [<Global>] HTMLMapElement: obj = failwith "JS only"
-    let [<Global>] HTMLMarqueeElement: obj = failwith "JS only"
-    let [<Global>] HTMLMediaElement: obj = failwith "JS only"
-    let [<Global>] HTMLMenuElement: obj = failwith "JS only"
-    let [<Global>] HTMLMetaElement: obj = failwith "JS only"
-    let [<Global>] HTMLModElement: obj = failwith "JS only"
-    let [<Global>] HTMLNextIdElement: obj = failwith "JS only"
-    let [<Global>] HTMLOListElement: obj = failwith "JS only"
-    let [<Global>] HTMLObjectElement: obj = failwith "JS only"
-    let [<Global>] HTMLOptGroupElement: obj = failwith "JS only"
-    let [<Global>] HTMLOptionElement: obj = failwith "JS only"
-    let [<Global>] HTMLParagraphElement: obj = failwith "JS only"
-    let [<Global>] HTMLParamElement: obj = failwith "JS only"
-    let [<Global>] HTMLPhraseElement: obj = failwith "JS only"
-    let [<Global>] HTMLPreElement: obj = failwith "JS only"
-    let [<Global>] HTMLProgressElement: obj = failwith "JS only"
-    let [<Global>] HTMLQuoteElement: obj = failwith "JS only"
-    let [<Global>] HTMLScriptElement: obj = failwith "JS only"
-    let [<Global>] HTMLSelectElement: obj = failwith "JS only"
-    let [<Global>] HTMLSourceElement: obj = failwith "JS only"
-    let [<Global>] HTMLSpanElement: obj = failwith "JS only"
-    let [<Global>] HTMLStyleElement: obj = failwith "JS only"
-    let [<Global>] HTMLTableCaptionElement: obj = failwith "JS only"
-    let [<Global>] HTMLTableCellElement: obj = failwith "JS only"
-    let [<Global>] HTMLTableColElement: obj = failwith "JS only"
-    let [<Global>] HTMLTableDataCellElement: obj = failwith "JS only"
-    let [<Global>] HTMLTableElement: obj = failwith "JS only"
-    let [<Global>] HTMLTableHeaderCellElement: obj = failwith "JS only"
-    let [<Global>] HTMLTableRowElement: obj = failwith "JS only"
-    let [<Global>] HTMLTableSectionElement: obj = failwith "JS only"
-    let [<Global>] HTMLTextAreaElement: obj = failwith "JS only"
-    let [<Global>] HTMLTitleElement: obj = failwith "JS only"
-    let [<Global>] HTMLTrackElement: obj = failwith "JS only"
-    let [<Global>] HTMLUListElement: obj = failwith "JS only"
-    let [<Global>] HTMLUnknownElement: obj = failwith "JS only"
-    let [<Global>] HTMLVideoElement: obj = failwith "JS only"
-    let [<Global>] HashChangeEvent: obj = failwith "JS only"
-    let [<Global>] History: obj = failwith "JS only"
-    let [<Global>] IDBCursor: obj = failwith "JS only"
-    let [<Global>] IDBCursorWithValue: obj = failwith "JS only"
-    let [<Global>] IDBDatabase: obj = failwith "JS only"
-    let [<Global>] IDBFactory: obj = failwith "JS only"
-    let [<Global>] IDBIndex: obj = failwith "JS only"
-    let [<Global>] IDBKeyRange: obj = failwith "JS only"
-    let [<Global>] IDBObjectStore: obj = failwith "JS only"
-    let [<Global>] IDBOpenDBRequest: obj = failwith "JS only"
-    let [<Global>] IDBRequest: obj = failwith "JS only"
-    let [<Global>] IDBTransaction: obj = failwith "JS only"
-    let [<Global>] IDBVersionChangeEvent: obj = failwith "JS only"
-    let [<Global>] ImageData: obj = failwith "JS only"
-    let [<Global>] KeyboardEvent: obj = failwith "JS only"
-    let [<Global>] Location: obj = failwith "JS only"
-    let [<Global>] LongRunningScriptDetectedEvent: obj = failwith "JS only"
-    let [<Global>] MSApp: MSApp = failwith "JS only"
-    let [<Global>] MSAppAsyncOperation: obj = failwith "JS only"
-    let [<Global>] MSBlobBuilder: obj = failwith "JS only"
-    let [<Global>] MSCSSMatrix: obj = failwith "JS only"
-    let [<Global>] MSGesture: obj = failwith "JS only"
-    let [<Global>] MSGestureEvent: obj = failwith "JS only"
-    let [<Global>] MSGraphicsTrust: obj = failwith "JS only"
-    let [<Global>] MSHTMLWebViewElement: obj = failwith "JS only"
-    let [<Global>] MSInputMethodContext: obj = failwith "JS only"
-    let [<Global>] MSManipulationEvent: obj = failwith "JS only"
-    let [<Global>] MSMediaKeyError: obj = failwith "JS only"
-    let [<Global>] MSMediaKeyMessageEvent: obj = failwith "JS only"
-    let [<Global>] MSMediaKeyNeededEvent: obj = failwith "JS only"
-    let [<Global>] MSMediaKeySession: obj = failwith "JS only"
-    let [<Global>] MSMediaKeys: obj = failwith "JS only"
-    let [<Global>] MSMimeTypesCollection: obj = failwith "JS only"
-    let [<Global>] MSPluginsCollection: obj = failwith "JS only"
-    let [<Global>] MSPointerEvent: obj = failwith "JS only"
-    let [<Global>] MSRangeCollection: obj = failwith "JS only"
-    let [<Global>] MSSiteModeEvent: obj = failwith "JS only"
-    let [<Global>] MSStream: obj = failwith "JS only"
-    let [<Global>] MSStreamReader: obj = failwith "JS only"
-    let [<Global>] MSWebViewAsyncOperation: obj = failwith "JS only"
-    let [<Global>] MSWebViewSettings: obj = failwith "JS only"
-    let [<Global>] MediaElementAudioSourceNode: obj = failwith "JS only"
-    let [<Global>] MediaError: obj = failwith "JS only"
-    let [<Global>] MediaList: obj = failwith "JS only"
-    let [<Global>] MediaQueryList: obj = failwith "JS only"
-    let [<Global>] MediaSource: obj = failwith "JS only"
-    let [<Global>] MessageChannel: obj = failwith "JS only"
-    let [<Global>] MessageEvent: obj = failwith "JS only"
-    let [<Global>] MessagePort: obj = failwith "JS only"
-    let [<Global>] MimeType: obj = failwith "JS only"
-    let [<Global>] MimeTypeArray: obj = failwith "JS only"
-    let [<Global>] MouseEvent: obj = failwith "JS only"
-    let [<Global>] MouseWheelEvent: obj = failwith "JS only"
-    let [<Global>] MutationEvent: obj = failwith "JS only"
-    let [<Global>] MutationObserver: obj = failwith "JS only"
-    let [<Global>] MutationRecord: obj = failwith "JS only"
-    let [<Global>] NamedNodeMap: obj = failwith "JS only"
-    let [<Global>] NavigationCompletedEvent: obj = failwith "JS only"
-    let [<Global>] NavigationEvent: obj = failwith "JS only"
-    let [<Global>] NavigationEventWithReferrer: obj = failwith "JS only"
-    let [<Global>] Navigator: obj = failwith "JS only"
-    let [<Global>] Node: obj = failwith "JS only"
-    let [<Global>] NodeFilter: obj = failwith "JS only"
-    let [<Global>] NodeIterator: obj = failwith "JS only"
-    let [<Global>] NodeList: obj = failwith "JS only"
-    let [<Global>] OES_element_index_uint: obj = failwith "JS only"
-    let [<Global>] OES_standard_derivatives: obj = failwith "JS only"
-    let [<Global>] OES_texture_float: obj = failwith "JS only"
-    let [<Global>] OES_texture_float_linear: obj = failwith "JS only"
-    let [<Global>] OfflineAudioCompletionEvent: obj = failwith "JS only"
-    let [<Global>] OfflineAudioContext: obj = failwith "JS only"
-    let [<Global>] OscillatorNode: obj = failwith "JS only"
-    let [<Global>] PageTransitionEvent: obj = failwith "JS only"
-    let [<Global>] PannerNode: obj = failwith "JS only"
-    let [<Global>] PerfWidgetExternal: obj = failwith "JS only"
-    let [<Global>] Performance: obj = failwith "JS only"
-    let [<Global>] PerformanceEntry: obj = failwith "JS only"
-    let [<Global>] PerformanceMark: obj = failwith "JS only"
-    let [<Global>] PerformanceMeasure: obj = failwith "JS only"
-    let [<Global>] PerformanceNavigation: obj = failwith "JS only"
-    let [<Global>] PerformanceNavigationTiming: obj = failwith "JS only"
-    let [<Global>] PerformanceResourceTiming: obj = failwith "JS only"
-    let [<Global>] PerformanceTiming: obj = failwith "JS only"
-    let [<Global>] PeriodicWave: obj = failwith "JS only"
-    let [<Global>] PermissionRequest: obj = failwith "JS only"
-    let [<Global>] PermissionRequestedEvent: obj = failwith "JS only"
-    let [<Global>] Plugin: obj = failwith "JS only"
-    let [<Global>] PluginArray: obj = failwith "JS only"
-    let [<Global>] PointerEvent: obj = failwith "JS only"
-    let [<Global>] PopStateEvent: obj = failwith "JS only"
-    let [<Global>] Position: obj = failwith "JS only"
-    let [<Global>] PositionError: obj = failwith "JS only"
-    let [<Global>] ProcessingInstruction: obj = failwith "JS only"
-    let [<Global>] ProgressEvent: obj = failwith "JS only"
-    let [<Global>] Range: obj = failwith "JS only"
-    let [<Global>] SVGAElement: obj = failwith "JS only"
-    let [<Global>] SVGAngle: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedAngle: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedBoolean: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedEnumeration: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedInteger: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedLength: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedLengthList: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedNumber: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedNumberList: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedPreserveAspectRatio: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedRect: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedString: obj = failwith "JS only"
-    let [<Global>] SVGAnimatedTransformList: obj = failwith "JS only"
-    let [<Global>] SVGCircleElement: obj = failwith "JS only"
-    let [<Global>] SVGClipPathElement: obj = failwith "JS only"
-    let [<Global>] SVGComponentTransferFunctionElement: obj = failwith "JS only"
-    let [<Global>] SVGDefsElement: obj = failwith "JS only"
-    let [<Global>] SVGDescElement: obj = failwith "JS only"
-    let [<Global>] SVGElement: obj = failwith "JS only"
-    let [<Global>] SVGElementInstance: obj = failwith "JS only"
-    let [<Global>] SVGElementInstanceList: obj = failwith "JS only"
-    let [<Global>] SVGEllipseElement: obj = failwith "JS only"
-    let [<Global>] SVGFEBlendElement: obj = failwith "JS only"
-    let [<Global>] SVGFEColorMatrixElement: obj = failwith "JS only"
-    let [<Global>] SVGFEComponentTransferElement: obj = failwith "JS only"
-    let [<Global>] SVGFECompositeElement: obj = failwith "JS only"
-    let [<Global>] SVGFEConvolveMatrixElement: obj = failwith "JS only"
-    let [<Global>] SVGFEDiffuseLightingElement: obj = failwith "JS only"
-    let [<Global>] SVGFEDisplacementMapElement: obj = failwith "JS only"
-    let [<Global>] SVGFEDistantLightElement: obj = failwith "JS only"
-    let [<Global>] SVGFEFloodElement: obj = failwith "JS only"
-    let [<Global>] SVGFEFuncAElement: obj = failwith "JS only"
-    let [<Global>] SVGFEFuncBElement: obj = failwith "JS only"
-    let [<Global>] SVGFEFuncGElement: obj = failwith "JS only"
-    let [<Global>] SVGFEFuncRElement: obj = failwith "JS only"
-    let [<Global>] SVGFEGaussianBlurElement: obj = failwith "JS only"
-    let [<Global>] SVGFEImageElement: obj = failwith "JS only"
-    let [<Global>] SVGFEMergeElement: obj = failwith "JS only"
-    let [<Global>] SVGFEMergeNodeElement: obj = failwith "JS only"
-    let [<Global>] SVGFEMorphologyElement: obj = failwith "JS only"
-    let [<Global>] SVGFEOffsetElement: obj = failwith "JS only"
-    let [<Global>] SVGFEPointLightElement: obj = failwith "JS only"
-    let [<Global>] SVGFESpecularLightingElement: obj = failwith "JS only"
-    let [<Global>] SVGFESpotLightElement: obj = failwith "JS only"
-    let [<Global>] SVGFETileElement: obj = failwith "JS only"
-    let [<Global>] SVGFETurbulenceElement: obj = failwith "JS only"
-    let [<Global>] SVGFilterElement: obj = failwith "JS only"
-    let [<Global>] SVGForeignObjectElement: obj = failwith "JS only"
-    let [<Global>] SVGGElement: obj = failwith "JS only"
-    let [<Global>] SVGGradientElement: obj = failwith "JS only"
-    let [<Global>] SVGImageElement: obj = failwith "JS only"
-    let [<Global>] SVGLength: obj = failwith "JS only"
-    let [<Global>] SVGLengthList: obj = failwith "JS only"
-    let [<Global>] SVGLineElement: obj = failwith "JS only"
-    let [<Global>] SVGLinearGradientElement: obj = failwith "JS only"
-    let [<Global>] SVGMarkerElement: obj = failwith "JS only"
-    let [<Global>] SVGMaskElement: obj = failwith "JS only"
-    let [<Global>] SVGMatrix: obj = failwith "JS only"
-    let [<Global>] SVGMetadataElement: obj = failwith "JS only"
-    let [<Global>] SVGNumber: obj = failwith "JS only"
-    let [<Global>] SVGNumberList: obj = failwith "JS only"
-    let [<Global>] SVGPathElement: obj = failwith "JS only"
-    let [<Global>] SVGPathSeg: obj = failwith "JS only"
-    let [<Global>] SVGPathSegArcAbs: obj = failwith "JS only"
-    let [<Global>] SVGPathSegArcRel: obj = failwith "JS only"
-    let [<Global>] SVGPathSegClosePath: obj = failwith "JS only"
-    let [<Global>] SVGPathSegCurvetoCubicAbs: obj = failwith "JS only"
-    let [<Global>] SVGPathSegCurvetoCubicRel: obj = failwith "JS only"
-    let [<Global>] SVGPathSegCurvetoCubicSmoothAbs: obj = failwith "JS only"
-    let [<Global>] SVGPathSegCurvetoCubicSmoothRel: obj = failwith "JS only"
-    let [<Global>] SVGPathSegCurvetoQuadraticAbs: obj = failwith "JS only"
-    let [<Global>] SVGPathSegCurvetoQuadraticRel: obj = failwith "JS only"
-    let [<Global>] SVGPathSegCurvetoQuadraticSmoothAbs: obj = failwith "JS only"
-    let [<Global>] SVGPathSegCurvetoQuadraticSmoothRel: obj = failwith "JS only"
-    let [<Global>] SVGPathSegLinetoAbs: obj = failwith "JS only"
-    let [<Global>] SVGPathSegLinetoHorizontalAbs: obj = failwith "JS only"
-    let [<Global>] SVGPathSegLinetoHorizontalRel: obj = failwith "JS only"
-    let [<Global>] SVGPathSegLinetoRel: obj = failwith "JS only"
-    let [<Global>] SVGPathSegLinetoVerticalAbs: obj = failwith "JS only"
-    let [<Global>] SVGPathSegLinetoVerticalRel: obj = failwith "JS only"
-    let [<Global>] SVGPathSegList: obj = failwith "JS only"
-    let [<Global>] SVGPathSegMovetoAbs: obj = failwith "JS only"
-    let [<Global>] SVGPathSegMovetoRel: obj = failwith "JS only"
-    let [<Global>] SVGPatternElement: obj = failwith "JS only"
-    let [<Global>] SVGPoint: obj = failwith "JS only"
-    let [<Global>] SVGPointList: obj = failwith "JS only"
-    let [<Global>] SVGPolygonElement: obj = failwith "JS only"
-    let [<Global>] SVGPolylineElement: obj = failwith "JS only"
-    let [<Global>] SVGPreserveAspectRatio: obj = failwith "JS only"
-    let [<Global>] SVGRadialGradientElement: obj = failwith "JS only"
-    let [<Global>] SVGRect: obj = failwith "JS only"
-    let [<Global>] SVGRectElement: obj = failwith "JS only"
-    let [<Global>] SVGSVGElement: obj = failwith "JS only"
-    let [<Global>] SVGScriptElement: obj = failwith "JS only"
-    let [<Global>] SVGStopElement: obj = failwith "JS only"
-    let [<Global>] SVGStringList: obj = failwith "JS only"
-    let [<Global>] SVGStyleElement: obj = failwith "JS only"
-    let [<Global>] SVGSwitchElement: obj = failwith "JS only"
-    let [<Global>] SVGSymbolElement: obj = failwith "JS only"
-    let [<Global>] SVGTSpanElement: obj = failwith "JS only"
-    let [<Global>] SVGTextContentElement: obj = failwith "JS only"
-    let [<Global>] SVGTextElement: obj = failwith "JS only"
-    let [<Global>] SVGTextPathElement: obj = failwith "JS only"
-    let [<Global>] SVGTextPositioningElement: obj = failwith "JS only"
-    let [<Global>] SVGTitleElement: obj = failwith "JS only"
-    let [<Global>] SVGTransform: obj = failwith "JS only"
-    let [<Global>] SVGTransformList: obj = failwith "JS only"
-    let [<Global>] SVGUnitTypes: SVGUnitTypes = failwith "JS only"
-    let [<Global>] SVGUseElement: obj = failwith "JS only"
-    let [<Global>] SVGViewElement: obj = failwith "JS only"
-    let [<Global>] SVGZoomAndPan: obj = failwith "JS only"
-    let [<Global>] SVGZoomEvent: obj = failwith "JS only"
-    let [<Global>] Screen: obj = failwith "JS only"
-    let [<Global>] ScriptNotifyEvent: obj = failwith "JS only"
-    let [<Global>] ScriptProcessorNode: obj = failwith "JS only"
-    let [<Global>] Selection: obj = failwith "JS only"
-    let [<Global>] SourceBuffer: obj = failwith "JS only"
-    let [<Global>] SourceBufferList: obj = failwith "JS only"
-    let [<Global>] StereoPannerNode: obj = failwith "JS only"
-    let [<Global>] Storage: obj = failwith "JS only"
-    let [<Global>] StorageEvent: obj = failwith "JS only"
-    let [<Global>] StyleMedia: obj = failwith "JS only"
-    let [<Global>] StyleSheet: obj = failwith "JS only"
-    let [<Global>] StyleSheetList: obj = failwith "JS only"
-    let [<Global>] StyleSheetPageList: obj = failwith "JS only"
-    let [<Global>] SubtleCrypto: obj = failwith "JS only"
-    let [<Global>] Text: obj = failwith "JS only"
-    let [<Global>] TextEvent: obj = failwith "JS only"
-    let [<Global>] TextMetrics: obj = failwith "JS only"
-    let [<Global>] TextRange: obj = failwith "JS only"
-    let [<Global>] TextRangeCollection: obj = failwith "JS only"
-    let [<Global>] TextTrack: obj = failwith "JS only"
-    let [<Global>] TextTrackCue: obj = failwith "JS only"
-    let [<Global>] TextTrackCueList: obj = failwith "JS only"
-    let [<Global>] TextTrackList: obj = failwith "JS only"
-    let [<Global>] TimeRanges: obj = failwith "JS only"
-    let [<Global>] Touch: obj = failwith "JS only"
-    let [<Global>] TouchEvent: obj = failwith "JS only"
-    let [<Global>] TouchList: obj = failwith "JS only"
-    let [<Global>] TrackEvent: obj = failwith "JS only"
-    let [<Global>] TransitionEvent: obj = failwith "JS only"
-    let [<Global>] TreeWalker: obj = failwith "JS only"
-    let [<Global>] UIEvent: obj = failwith "JS only"
-    let [<Global>] URL: URL = failwith "JS only"
-    let [<Global>] UnviewableContentIdentifiedEvent: obj = failwith "JS only"
-    let [<Global>] ValidityState: obj = failwith "JS only"
-    let [<Global>] VideoPlaybackQuality: obj = failwith "JS only"
-    let [<Global>] VideoTrack: obj = failwith "JS only"
-    let [<Global>] VideoTrackList: obj = failwith "JS only"
-    let [<Global>] WEBGL_compressed_texture_s3tc: obj = failwith "JS only"
-    let [<Global>] WEBGL_debug_renderer_info: obj = failwith "JS only"
-    let [<Global>] WEBGL_depth_texture: obj = failwith "JS only"
-    let [<Global>] WaveShaperNode: obj = failwith "JS only"
-    let [<Global>] WebGLActiveInfo: obj = failwith "JS only"
-    let [<Global>] WebGLBuffer: obj = failwith "JS only"
-    let [<Global>] WebGLContextEvent: obj = failwith "JS only"
-    let [<Global>] WebGLFramebuffer: obj = failwith "JS only"
-    let [<Global>] WebGLObject: obj = failwith "JS only"
-    let [<Global>] WebGLProgram: obj = failwith "JS only"
-    let [<Global>] WebGLRenderbuffer: obj = failwith "JS only"
-    let [<Global>] WebGLRenderingContext: obj = failwith "JS only"
-    let [<Global>] WebGLShader: obj = failwith "JS only"
-    let [<Global>] WebGLShaderPrecisionFormat: obj = failwith "JS only"
-    let [<Global>] WebGLTexture: obj = failwith "JS only"
-    let [<Global>] WebGLUniformLocation: obj = failwith "JS only"
-    let [<Global>] WebKitCSSMatrix: obj = failwith "JS only"
-    let [<Global>] WebKitPoint: obj = failwith "JS only"
-    let [<Global>] WebSocket: obj = failwith "JS only"
-    let [<Global>] WheelEvent: obj = failwith "JS only"
-    let [<Global>] Window: obj = failwith "JS only"
-    let [<Global>] Worker: obj = failwith "JS only"
-    let [<Global>] XMLDocument: obj = failwith "JS only"
-    let [<Global>] XMLHttpRequest: obj = failwith "JS only"
-    let [<Global>] XMLHttpRequestUpload: obj = failwith "JS only"
-    let [<Global>] XMLSerializer: obj = failwith "JS only"
-    let [<Global>] XPathEvaluator: obj = failwith "JS only"
-    let [<Global>] XPathExpression: obj = failwith "JS only"
-    let [<Global>] XPathNSResolver: obj = failwith "JS only"
-    let [<Global>] XPathResult: obj = failwith "JS only"
-    let [<Global>] XSLTProcessor: obj = failwith "JS only"
-    let [<Global>] HTMLTemplateElement: obj = failwith "JS only"
-    let [<Global>] HTMLPictureElement: obj = failwith "JS only"
-    let [<Global>] Audio: obj = failwith "JS only"
-    let [<Global>] Image: obj = failwith "JS only"
-    let [<Global>] Option: obj = failwith "JS only"
-    let [<Global>] animationStartTime: float = failwith "JS only"
-    let [<Global>] applicationCache: ApplicationCache = failwith "JS only"
-    let [<Global>] clientInformation: Navigator = failwith "JS only"
-    let [<Global>] closed: bool = failwith "JS only"
-    let [<Global>] crypto: Crypto = failwith "JS only"
-    let [<Global>] defaultStatus: string = failwith "JS only"
-    let [<Global>] devicePixelRatio: float = failwith "JS only"
-    let [<Global>] doNotTrack: string = failwith "JS only"
-    let [<Global>] document: Document = failwith "JS only"
-    let [<Global>] ``event``: Event = failwith "JS only"
-    let [<Global>] ``external``: External = failwith "JS only"
-    let [<Global>] frameElement: Element = failwith "JS only"
-    let [<Global>] frames: Window = failwith "JS only"
-    let [<Global>] history: History = failwith "JS only"
-    let [<Global>] innerHeight: float = failwith "JS only"
-    let [<Global>] innerWidth: float = failwith "JS only"
-    let [<Global>] length: float = failwith "JS only"
-    let [<Global>] location: Location = failwith "JS only"
-    let [<Global>] locationbar: BarProp = failwith "JS only"
-    let [<Global>] menubar: BarProp = failwith "JS only"
-    let [<Global>] msAnimationStartTime: float = failwith "JS only"
-    let [<Global>] name: string = failwith "JS only"
-    let [<Global>] navigator: Navigator = failwith "JS only"
-    let [<Global>] offscreenBuffering: U2<string, bool> = failwith "JS only"
-    let [<Global>] mutable onabort: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onafterprint: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onbeforeprint: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onbeforeunload: Func<BeforeUnloadEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onblur: Func<FocusEvent, obj> = failwith "JS only"
-    let [<Global>] mutable oncanplay: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable oncanplaythrough: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onchange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onclick: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] mutable oncompassneedscalibration: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable oncontextmenu: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondblclick: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondevicemotion: Func<DeviceMotionEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondeviceorientation: Func<DeviceOrientationEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondrag: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondragend: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondragenter: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondragleave: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondragover: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondragstart: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondrop: Func<DragEvent, obj> = failwith "JS only"
-    let [<Global>] mutable ondurationchange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onemptied: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onended: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onerror: ErrorEventHandler = failwith "JS only"
-    let [<Global>] mutable onfocus: Func<FocusEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onhashchange: Func<HashChangeEvent, obj> = failwith "JS only"
-    let [<Global>] mutable oninput: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onkeydown: Func<KeyboardEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onkeypress: Func<KeyboardEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onkeyup: Func<KeyboardEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onload: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onloadeddata: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onloadedmetadata: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onloadstart: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onmessage: Func<MessageEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmousedown: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmouseenter: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmouseleave: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmousemove: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmouseout: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmouseover: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmouseup: Func<MouseEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmousewheel: Func<MouseWheelEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmsgesturechange: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmsgesturedoubletap: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmsgestureend: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmsgesturehold: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmsgesturestart: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmsgesturetap: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmsinertiastart: Func<MSGestureEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmspointercancel: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmspointerdown: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmspointerenter: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmspointerleave: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmspointermove: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmspointerout: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmspointerover: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onmspointerup: Func<MSPointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onoffline: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable ononline: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onorientationchange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onpagehide: Func<PageTransitionEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onpageshow: Func<PageTransitionEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onpause: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onplay: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onplaying: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onpopstate: Func<PopStateEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onprogress: Func<ProgressEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onratechange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onreadystatechange: Func<ProgressEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onreset: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onresize: Func<UIEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onscroll: Func<UIEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onseeked: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onseeking: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onselect: Func<UIEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onstalled: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onstorage: Func<StorageEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onsubmit: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onsuspend: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable ontimeupdate: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable ontouchcancel: obj = failwith "JS only"
-    let [<Global>] mutable ontouchend: obj = failwith "JS only"
-    let [<Global>] mutable ontouchmove: obj = failwith "JS only"
-    let [<Global>] mutable ontouchstart: obj = failwith "JS only"
-    let [<Global>] mutable onunload: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onvolumechange: Func<Event, obj> = failwith "JS only"
-    let [<Global>] mutable onwaiting: Func<Event, obj> = failwith "JS only"
-    let [<Global>] opener: Window = failwith "JS only"
-    let [<Global>] orientation: U2<string, float> = failwith "JS only"
-    let [<Global>] outerHeight: float = failwith "JS only"
-    let [<Global>] outerWidth: float = failwith "JS only"
-    let [<Global>] pageXOffset: float = failwith "JS only"
-    let [<Global>] pageYOffset: float = failwith "JS only"
-    let [<Global>] parent: Window = failwith "JS only"
-    let [<Global>] performance: Performance = failwith "JS only"
-    let [<Global>] personalbar: BarProp = failwith "JS only"
-    let [<Global>] screen: Screen = failwith "JS only"
-    let [<Global>] screenLeft: float = failwith "JS only"
-    let [<Global>] screenTop: float = failwith "JS only"
-    let [<Global>] screenX: float = failwith "JS only"
-    let [<Global>] screenY: float = failwith "JS only"
-    let [<Global>] scrollX: float = failwith "JS only"
-    let [<Global>] scrollY: float = failwith "JS only"
-    let [<Global>] scrollbars: BarProp = failwith "JS only"
-    let [<Global>] self: Window = failwith "JS only"
-    let [<Global>] status: string = failwith "JS only"
-    let [<Global>] statusbar: BarProp = failwith "JS only"
-    let [<Global>] styleMedia: StyleMedia = failwith "JS only"
-    let [<Global>] toolbar: BarProp = failwith "JS only"
-    let [<Global>] top: Window = failwith "JS only"
-    let [<Global>] window: Window = failwith "JS only"
-    let [<Global>] sessionStorage: Storage = failwith "JS only"
-    let [<Global>] localStorage: Storage = failwith "JS only"
-    let [<Global>] console: Console = failwith "JS only"
-    let [<Global>] mutable onpointercancel: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onpointerdown: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onpointerenter: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onpointerleave: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onpointermove: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onpointerout: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onpointerover: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onpointerup: Func<PointerEvent, obj> = failwith "JS only"
-    let [<Global>] mutable onwheel: Func<WheelEvent, obj> = failwith "JS only"
-    let [<Global>] indexedDB: IDBFactory = failwith "JS only"
-    let [<Global>] msIndexedDB: IDBFactory = failwith "JS only"
+type Globals =
+    [<Global>] static member ANGLE_instanced_arrays with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AnalyserNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AnimationEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ApplicationCache with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AriaRequestEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Attr with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioBuffer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioBufferSourceNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioContext with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioDestinationNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioListener with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioParam with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioProcessingEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioTrack with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member AudioTrackList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member BarProp with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member BeforeUnloadEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member BiquadFilterNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Blob with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CDATASection with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSS with get(): CSS = failwith "JS only" and set(v: CSS): unit = failwith "JS only"
+    [<Global>] static member CSSConditionRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSFontFaceRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSGroupingRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSImportRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSKeyframeRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSKeyframesRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSMediaRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSNamespaceRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSPageRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSRuleList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSStyleDeclaration with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSStyleRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSStyleSheet with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CSSSupportsRule with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CanvasGradient with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CanvasPattern with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CanvasRenderingContext2D with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ChannelMergerNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ChannelSplitterNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CharacterData with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ClientRect with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ClientRectList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ClipboardEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CloseEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CommandEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Comment with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CompositionEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Console with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ConvolverNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Coordinates with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Crypto with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CryptoKey with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CryptoKeyPair with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member CustomEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DOMError with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DOMException with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DOMImplementation with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DOMParser with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DOMSettableTokenList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DOMStringList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DOMStringMap with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DOMTokenList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DataCue with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DataTransfer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DataTransferItem with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DataTransferItemList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DeferredPermissionRequest with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DelayNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DeviceAcceleration with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DeviceMotionEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DeviceOrientationEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DeviceRotationRate with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Document with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DocumentFragment with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DocumentType with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DragEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member DynamicsCompressorNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member EXT_texture_filter_anisotropic with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Element with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ErrorEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Event with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member EventTarget with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member External with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member File with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member FileList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member FileReader with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member FocusEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member FormData with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member GainNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Gamepad with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member GamepadButton with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member GamepadEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Geolocation with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLAllCollection with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLAnchorElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLAppletElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLAreaElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLAreasCollection with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLAudioElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLBRElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLBaseElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLBaseFontElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLBlockElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLBodyElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLButtonElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLCanvasElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLCollection with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLDDElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLDListElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLDTElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLDataListElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLDirectoryElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLDivElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLDocument with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLEmbedElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLFieldSetElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLFontElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLFormElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLFrameElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLFrameSetElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLHRElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLHeadElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLHeadingElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLHtmlElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLIFrameElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLImageElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLInputElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLIsIndexElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLLIElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLLabelElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLLegendElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLLinkElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLMapElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLMarqueeElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLMediaElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLMenuElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLMetaElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLModElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLNextIdElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLOListElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLObjectElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLOptGroupElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLOptionElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLParagraphElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLParamElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLPhraseElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLPreElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLProgressElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLQuoteElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLScriptElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLSelectElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLSourceElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLSpanElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLStyleElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTableCaptionElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTableCellElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTableColElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTableDataCellElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTableElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTableHeaderCellElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTableRowElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTableSectionElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTextAreaElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTitleElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTrackElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLUListElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLUnknownElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLVideoElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HashChangeEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member History with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBCursor with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBCursorWithValue with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBDatabase with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBFactory with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBIndex with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBKeyRange with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBObjectStore with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBOpenDBRequest with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBRequest with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBTransaction with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member IDBVersionChangeEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ImageData with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member KeyboardEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Location with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member LongRunningScriptDetectedEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSApp with get(): MSApp = failwith "JS only" and set(v: MSApp): unit = failwith "JS only"
+    [<Global>] static member MSAppAsyncOperation with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSBlobBuilder with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSCSSMatrix with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSGesture with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSGestureEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSGraphicsTrust with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSHTMLWebViewElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSInputMethodContext with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSManipulationEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSMediaKeyError with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSMediaKeyMessageEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSMediaKeyNeededEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSMediaKeySession with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSMediaKeys with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSMimeTypesCollection with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSPluginsCollection with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSPointerEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSRangeCollection with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSSiteModeEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSStream with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSStreamReader with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSWebViewAsyncOperation with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MSWebViewSettings with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MediaElementAudioSourceNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MediaError with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MediaList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MediaQueryList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MediaSource with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MessageChannel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MessageEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MessagePort with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MimeType with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MimeTypeArray with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MouseEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MouseWheelEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MutationEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MutationObserver with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member MutationRecord with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member NamedNodeMap with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member NavigationCompletedEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member NavigationEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member NavigationEventWithReferrer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Navigator with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Node with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member NodeFilter with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member NodeIterator with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member NodeList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member OES_element_index_uint with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member OES_standard_derivatives with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member OES_texture_float with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member OES_texture_float_linear with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member OfflineAudioCompletionEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member OfflineAudioContext with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member OscillatorNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PageTransitionEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PannerNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PerfWidgetExternal with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Performance with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PerformanceEntry with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PerformanceMark with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PerformanceMeasure with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PerformanceNavigation with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PerformanceNavigationTiming with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PerformanceResourceTiming with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PerformanceTiming with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PeriodicWave with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PermissionRequest with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PermissionRequestedEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Plugin with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PluginArray with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PointerEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PopStateEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Position with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member PositionError with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ProcessingInstruction with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ProgressEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Range with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAngle with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedAngle with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedBoolean with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedEnumeration with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedInteger with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedLength with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedLengthList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedNumber with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedNumberList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedPreserveAspectRatio with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedRect with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedString with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGAnimatedTransformList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGCircleElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGClipPathElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGComponentTransferFunctionElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGDefsElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGDescElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGElementInstance with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGElementInstanceList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGEllipseElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEBlendElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEColorMatrixElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEComponentTransferElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFECompositeElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEConvolveMatrixElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEDiffuseLightingElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEDisplacementMapElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEDistantLightElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEFloodElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEFuncAElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEFuncBElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEFuncGElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEFuncRElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEGaussianBlurElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEImageElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEMergeElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEMergeNodeElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEMorphologyElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEOffsetElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFEPointLightElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFESpecularLightingElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFESpotLightElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFETileElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFETurbulenceElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGFilterElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGForeignObjectElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGGElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGGradientElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGImageElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGLength with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGLengthList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGLineElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGLinearGradientElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGMarkerElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGMaskElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGMatrix with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGMetadataElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGNumber with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGNumberList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSeg with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegArcAbs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegArcRel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegClosePath with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegCurvetoCubicAbs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegCurvetoCubicRel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegCurvetoCubicSmoothAbs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegCurvetoCubicSmoothRel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegCurvetoQuadraticAbs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegCurvetoQuadraticRel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegCurvetoQuadraticSmoothAbs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegCurvetoQuadraticSmoothRel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegLinetoAbs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegLinetoHorizontalAbs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegLinetoHorizontalRel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegLinetoRel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegLinetoVerticalAbs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegLinetoVerticalRel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegMovetoAbs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPathSegMovetoRel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPatternElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPoint with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPointList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPolygonElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPolylineElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGPreserveAspectRatio with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGRadialGradientElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGRect with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGRectElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGSVGElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGScriptElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGStopElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGStringList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGStyleElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGSwitchElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGSymbolElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGTSpanElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGTextContentElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGTextElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGTextPathElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGTextPositioningElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGTitleElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGTransform with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGTransformList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGUnitTypes with get(): SVGUnitTypes = failwith "JS only" and set(v: SVGUnitTypes): unit = failwith "JS only"
+    [<Global>] static member SVGUseElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGViewElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGZoomAndPan with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SVGZoomEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Screen with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ScriptNotifyEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ScriptProcessorNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Selection with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SourceBuffer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SourceBufferList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member StereoPannerNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Storage with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member StorageEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member StyleMedia with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member StyleSheet with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member StyleSheetList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member StyleSheetPageList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SubtleCrypto with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Text with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TextEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TextMetrics with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TextRange with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TextRangeCollection with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TextTrack with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TextTrackCue with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TextTrackCueList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TextTrackList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TimeRanges with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Touch with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TouchEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TouchList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TrackEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TransitionEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member TreeWalker with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member UIEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member UnviewableContentIdentifiedEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ValidityState with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member VideoPlaybackQuality with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member VideoTrack with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member VideoTrackList with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WEBGL_compressed_texture_s3tc with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WEBGL_debug_renderer_info with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WEBGL_depth_texture with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WaveShaperNode with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLActiveInfo with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLBuffer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLContextEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLFramebuffer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLObject with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLProgram with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLRenderbuffer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLRenderingContext with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLShader with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLShaderPrecisionFormat with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLTexture with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebGLUniformLocation with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebKitCSSMatrix with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebKitPoint with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WebSocket with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member WheelEvent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Window with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Worker with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member XMLDocument with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member XMLHttpRequest with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member XMLHttpRequestUpload with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member XMLSerializer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member XPathEvaluator with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member XPathExpression with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member XPathNSResolver with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member XPathResult with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member XSLTProcessor with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLTemplateElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member HTMLPictureElement with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Audio with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Image with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Option with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member animationStartTime with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member applicationCache with get(): ApplicationCache = failwith "JS only" and set(v: ApplicationCache): unit = failwith "JS only"
+    [<Global>] static member clientInformation with get(): Navigator = failwith "JS only" and set(v: Navigator): unit = failwith "JS only"
+    [<Global>] static member closed with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+    [<Global>] static member crypto with get(): Crypto = failwith "JS only" and set(v: Crypto): unit = failwith "JS only"
+    [<Global>] static member defaultStatus with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+    [<Global>] static member devicePixelRatio with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member doNotTrack with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+    [<Global>] static member document with get(): Document = failwith "JS only" and set(v: Document): unit = failwith "JS only"
+    [<Global>] static member ``event`` with get(): Event = failwith "JS only" and set(v: Event): unit = failwith "JS only"
+    [<Global>] static member ``external`` with get(): External = failwith "JS only" and set(v: External): unit = failwith "JS only"
+    [<Global>] static member frameElement with get(): Element = failwith "JS only" and set(v: Element): unit = failwith "JS only"
+    [<Global>] static member frames with get(): Window = failwith "JS only" and set(v: Window): unit = failwith "JS only"
+    [<Global>] static member history with get(): History = failwith "JS only" and set(v: History): unit = failwith "JS only"
+    [<Global>] static member innerHeight with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member innerWidth with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member length with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member location with get(): Location = failwith "JS only" and set(v: Location): unit = failwith "JS only"
+    [<Global>] static member locationbar with get(): BarProp = failwith "JS only" and set(v: BarProp): unit = failwith "JS only"
+    [<Global>] static member menubar with get(): BarProp = failwith "JS only" and set(v: BarProp): unit = failwith "JS only"
+    [<Global>] static member msAnimationStartTime with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+    [<Global>] static member navigator with get(): Navigator = failwith "JS only" and set(v: Navigator): unit = failwith "JS only"
+    [<Global>] static member offscreenBuffering with get(): U2<string, bool> = failwith "JS only" and set(v: U2<string, bool>): unit = failwith "JS only"
+    [<Global>] static member onabort with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onafterprint with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onbeforeprint with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onbeforeunload with get(): Func<BeforeUnloadEvent, obj> = failwith "JS only" and set(v: Func<BeforeUnloadEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onblur with get(): Func<FocusEvent, obj> = failwith "JS only" and set(v: Func<FocusEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member oncanplay with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member oncanplaythrough with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onchange with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onclick with get(): Func<MouseEvent, obj> = failwith "JS only" and set(v: Func<MouseEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member oncompassneedscalibration with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member oncontextmenu with get(): Func<PointerEvent, obj> = failwith "JS only" and set(v: Func<PointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondblclick with get(): Func<MouseEvent, obj> = failwith "JS only" and set(v: Func<MouseEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondevicemotion with get(): Func<DeviceMotionEvent, obj> = failwith "JS only" and set(v: Func<DeviceMotionEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondeviceorientation with get(): Func<DeviceOrientationEvent, obj> = failwith "JS only" and set(v: Func<DeviceOrientationEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondrag with get(): Func<DragEvent, obj> = failwith "JS only" and set(v: Func<DragEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondragend with get(): Func<DragEvent, obj> = failwith "JS only" and set(v: Func<DragEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondragenter with get(): Func<DragEvent, obj> = failwith "JS only" and set(v: Func<DragEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondragleave with get(): Func<DragEvent, obj> = failwith "JS only" and set(v: Func<DragEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondragover with get(): Func<DragEvent, obj> = failwith "JS only" and set(v: Func<DragEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondragstart with get(): Func<DragEvent, obj> = failwith "JS only" and set(v: Func<DragEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondrop with get(): Func<DragEvent, obj> = failwith "JS only" and set(v: Func<DragEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member ondurationchange with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onemptied with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onended with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onerror with get(): ErrorEventHandler = failwith "JS only" and set(v: ErrorEventHandler): unit = failwith "JS only"
+    [<Global>] static member onfocus with get(): Func<FocusEvent, obj> = failwith "JS only" and set(v: Func<FocusEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onhashchange with get(): Func<HashChangeEvent, obj> = failwith "JS only" and set(v: Func<HashChangeEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member oninput with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onkeydown with get(): Func<KeyboardEvent, obj> = failwith "JS only" and set(v: Func<KeyboardEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onkeypress with get(): Func<KeyboardEvent, obj> = failwith "JS only" and set(v: Func<KeyboardEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onkeyup with get(): Func<KeyboardEvent, obj> = failwith "JS only" and set(v: Func<KeyboardEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onload with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onloadeddata with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onloadedmetadata with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onloadstart with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onmessage with get(): Func<MessageEvent, obj> = failwith "JS only" and set(v: Func<MessageEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmousedown with get(): Func<MouseEvent, obj> = failwith "JS only" and set(v: Func<MouseEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmouseenter with get(): Func<MouseEvent, obj> = failwith "JS only" and set(v: Func<MouseEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmouseleave with get(): Func<MouseEvent, obj> = failwith "JS only" and set(v: Func<MouseEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmousemove with get(): Func<MouseEvent, obj> = failwith "JS only" and set(v: Func<MouseEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmouseout with get(): Func<MouseEvent, obj> = failwith "JS only" and set(v: Func<MouseEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmouseover with get(): Func<MouseEvent, obj> = failwith "JS only" and set(v: Func<MouseEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmouseup with get(): Func<MouseEvent, obj> = failwith "JS only" and set(v: Func<MouseEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmousewheel with get(): Func<MouseWheelEvent, obj> = failwith "JS only" and set(v: Func<MouseWheelEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmsgesturechange with get(): Func<MSGestureEvent, obj> = failwith "JS only" and set(v: Func<MSGestureEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmsgesturedoubletap with get(): Func<MSGestureEvent, obj> = failwith "JS only" and set(v: Func<MSGestureEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmsgestureend with get(): Func<MSGestureEvent, obj> = failwith "JS only" and set(v: Func<MSGestureEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmsgesturehold with get(): Func<MSGestureEvent, obj> = failwith "JS only" and set(v: Func<MSGestureEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmsgesturestart with get(): Func<MSGestureEvent, obj> = failwith "JS only" and set(v: Func<MSGestureEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmsgesturetap with get(): Func<MSGestureEvent, obj> = failwith "JS only" and set(v: Func<MSGestureEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmsinertiastart with get(): Func<MSGestureEvent, obj> = failwith "JS only" and set(v: Func<MSGestureEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmspointercancel with get(): Func<MSPointerEvent, obj> = failwith "JS only" and set(v: Func<MSPointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmspointerdown with get(): Func<MSPointerEvent, obj> = failwith "JS only" and set(v: Func<MSPointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmspointerenter with get(): Func<MSPointerEvent, obj> = failwith "JS only" and set(v: Func<MSPointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmspointerleave with get(): Func<MSPointerEvent, obj> = failwith "JS only" and set(v: Func<MSPointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmspointermove with get(): Func<MSPointerEvent, obj> = failwith "JS only" and set(v: Func<MSPointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmspointerout with get(): Func<MSPointerEvent, obj> = failwith "JS only" and set(v: Func<MSPointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmspointerover with get(): Func<MSPointerEvent, obj> = failwith "JS only" and set(v: Func<MSPointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onmspointerup with get(): Func<MSPointerEvent, obj> = failwith "JS only" and set(v: Func<MSPointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onoffline with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member ononline with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onorientationchange with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onpagehide with get(): Func<PageTransitionEvent, obj> = failwith "JS only" and set(v: Func<PageTransitionEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onpageshow with get(): Func<PageTransitionEvent, obj> = failwith "JS only" and set(v: Func<PageTransitionEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onpause with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onplay with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onplaying with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onpopstate with get(): Func<PopStateEvent, obj> = failwith "JS only" and set(v: Func<PopStateEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onprogress with get(): Func<ProgressEvent, obj> = failwith "JS only" and set(v: Func<ProgressEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onratechange with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onreadystatechange with get(): Func<ProgressEvent, obj> = failwith "JS only" and set(v: Func<ProgressEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onreset with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onresize with get(): Func<UIEvent, obj> = failwith "JS only" and set(v: Func<UIEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onscroll with get(): Func<UIEvent, obj> = failwith "JS only" and set(v: Func<UIEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onseeked with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onseeking with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onselect with get(): Func<UIEvent, obj> = failwith "JS only" and set(v: Func<UIEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onstalled with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onstorage with get(): Func<StorageEvent, obj> = failwith "JS only" and set(v: Func<StorageEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onsubmit with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onsuspend with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member ontimeupdate with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member ontouchcancel with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ontouchend with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ontouchmove with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member ontouchstart with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member onunload with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onvolumechange with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member onwaiting with get(): Func<Event, obj> = failwith "JS only" and set(v: Func<Event, obj>): unit = failwith "JS only"
+    [<Global>] static member opener with get(): Window = failwith "JS only" and set(v: Window): unit = failwith "JS only"
+    [<Global>] static member orientation with get(): U2<string, float> = failwith "JS only" and set(v: U2<string, float>): unit = failwith "JS only"
+    [<Global>] static member outerHeight with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member outerWidth with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member pageXOffset with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member pageYOffset with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member parent with get(): Window = failwith "JS only" and set(v: Window): unit = failwith "JS only"
+    [<Global>] static member performance with get(): Performance = failwith "JS only" and set(v: Performance): unit = failwith "JS only"
+    [<Global>] static member personalbar with get(): BarProp = failwith "JS only" and set(v: BarProp): unit = failwith "JS only"
+    [<Global>] static member screen with get(): Screen = failwith "JS only" and set(v: Screen): unit = failwith "JS only"
+    [<Global>] static member screenLeft with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member screenTop with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member screenX with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member screenY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member scrollX with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member scrollY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    [<Global>] static member scrollbars with get(): BarProp = failwith "JS only" and set(v: BarProp): unit = failwith "JS only"
+    [<Global>] static member self with get(): Window = failwith "JS only" and set(v: Window): unit = failwith "JS only"
+    [<Global>] static member status with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+    [<Global>] static member statusbar with get(): BarProp = failwith "JS only" and set(v: BarProp): unit = failwith "JS only"
+    [<Global>] static member styleMedia with get(): StyleMedia = failwith "JS only" and set(v: StyleMedia): unit = failwith "JS only"
+    [<Global>] static member toolbar with get(): BarProp = failwith "JS only" and set(v: BarProp): unit = failwith "JS only"
+    [<Global>] static member top with get(): Window = failwith "JS only" and set(v: Window): unit = failwith "JS only"
+    [<Global>] static member window with get(): Window = failwith "JS only" and set(v: Window): unit = failwith "JS only"
+    [<Global>] static member URL with get(): URL = failwith "JS only" and set(v: URL): unit = failwith "JS only"
+    [<Global>] static member sessionStorage with get(): Storage = failwith "JS only" and set(v: Storage): unit = failwith "JS only"
+    [<Global>] static member localStorage with get(): Storage = failwith "JS only" and set(v: Storage): unit = failwith "JS only"
+    [<Global>] static member console with get(): Console = failwith "JS only" and set(v: Console): unit = failwith "JS only"
+    [<Global>] static member onpointercancel with get(): Func<PointerEvent, obj> = failwith "JS only" and set(v: Func<PointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onpointerdown with get(): Func<PointerEvent, obj> = failwith "JS only" and set(v: Func<PointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onpointerenter with get(): Func<PointerEvent, obj> = failwith "JS only" and set(v: Func<PointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onpointerleave with get(): Func<PointerEvent, obj> = failwith "JS only" and set(v: Func<PointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onpointermove with get(): Func<PointerEvent, obj> = failwith "JS only" and set(v: Func<PointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onpointerout with get(): Func<PointerEvent, obj> = failwith "JS only" and set(v: Func<PointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onpointerover with get(): Func<PointerEvent, obj> = failwith "JS only" and set(v: Func<PointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onpointerup with get(): Func<PointerEvent, obj> = failwith "JS only" and set(v: Func<PointerEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member onwheel with get(): Func<WheelEvent, obj> = failwith "JS only" and set(v: Func<WheelEvent, obj>): unit = failwith "JS only"
+    [<Global>] static member indexedDB with get(): IDBFactory = failwith "JS only" and set(v: IDBFactory): unit = failwith "JS only"
+    [<Global>] static member msIndexedDB with get(): IDBFactory = failwith "JS only" and set(v: IDBFactory): unit = failwith "JS only"
 
 [<Global>]
 module Intl =
@@ -8631,3 +8688,5 @@ module Intl =
     let Collator: obj = failwith "JS only"
     let NumberFormat: obj = failwith "JS only"
     let DateTimeFormat: obj = failwith "JS only"
+
+

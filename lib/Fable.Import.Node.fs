@@ -6,20 +6,536 @@ open Fable.Import.JS
 type Error =
     abstract stack: string option with get, set
 
-and MapConstructor =
-    interface end
+// and MapConstructor =
+//     interface end
+// 
+// and WeakMapConstructor =
+//     interface end
+// 
+// and SetConstructor =
+//     interface end
+// 
+// and WeakSetConstructor =
+//     interface end
+    
+module NodeJS =
+    type ErrnoException =
+        inherit Error
+        abstract errno: float option with get, set
+        abstract code: string option with get, set
+        abstract path: string option with get, set
+        abstract syscall: string option with get, set
+        abstract stack: string option with get, set
 
-and WeakMapConstructor =
-    interface end
+    and EventEmitter =
+        abstract addListener: ``event``: string * listener: Function -> EventEmitter
+        abstract on: ``event``: string * listener: Function -> EventEmitter
+        abstract once: ``event``: string * listener: Function -> EventEmitter
+        abstract removeListener: ``event``: string * listener: Function -> EventEmitter
+        abstract removeAllListeners: ?``event``: string -> EventEmitter
+        abstract setMaxListeners: n: float -> unit
+        abstract listeners: ``event``: string -> ResizeArray<Function>
+        abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
 
-and SetConstructor =
-    interface end
+    and ReadableStream =
+        inherit EventEmitter
+        abstract readable: bool with get, set
+        abstract read: ?size: float -> U2<string, Buffer>
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: string -> unit
+        abstract unshift: chunk: Buffer -> unit
+        abstract wrap: oldStream: ReadableStream -> ReadableStream
 
-and WeakSetConstructor =
-    interface end
+    and WritableStream =
+        inherit EventEmitter
+        abstract writable: bool with get, set
+        abstract write: buffer: U2<Buffer, string> * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: str: string * ?cb: Function -> unit
+        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
 
-and NodeRequireFunction =
-    interface end
+    and ReadWriteStream =
+        inherit ReadableStream
+        inherit WritableStream
+
+    and Process =
+        inherit EventEmitter
+        abstract stdout: WritableStream with get, set
+        abstract stderr: WritableStream with get, set
+        abstract stdin: ReadableStream with get, set
+        abstract argv: ResizeArray<string> with get, set
+        abstract execPath: string with get, set
+        abstract env: obj with get, set
+        abstract version: string with get, set
+        abstract versions: obj with get, set
+        abstract config: obj with get, set
+        abstract pid: float with get, set
+        abstract title: string with get, set
+        abstract arch: string with get, set
+        abstract platform: string with get, set
+        abstract abort: unit -> unit
+        abstract chdir: directory: string -> unit
+        abstract cwd: unit -> string
+        abstract exit: ?code: float -> unit
+        abstract getgid: unit -> float
+        abstract setgid: id: float -> unit
+        abstract setgid: id: string -> unit
+        abstract getuid: unit -> float
+        abstract setuid: id: float -> unit
+        abstract setuid: id: string -> unit
+        abstract kill: pid: float * ?signal: string -> unit
+        abstract memoryUsage: unit -> obj
+        abstract nextTick: callback: Function -> unit
+        abstract umask: ?mask: float -> float
+        abstract uptime: unit -> float
+        abstract hrtime: ?time: ResizeArray<float> -> ResizeArray<float>
+        abstract send: message: obj * ?sendHandle: obj -> unit
+
+    and Global =
+        abstract Array: obj with get, set
+        abstract ArrayBuffer: obj with get, set
+        abstract Boolean: obj with get, set
+        abstract Buffer: obj with get, set
+        abstract DataView: obj with get, set
+        abstract Date: obj with get, set
+        abstract Error: obj with get, set
+        abstract EvalError: obj with get, set
+        abstract Float32Array: obj with get, set
+        abstract Float64Array: obj with get, set
+        abstract Function: obj with get, set
+        abstract GLOBAL: Global with get, set
+        abstract Infinity: obj with get, set
+        abstract Int16Array: obj with get, set
+        abstract Int32Array: obj with get, set
+        abstract Int8Array: obj with get, set
+        abstract Intl: obj with get, set
+        abstract JSON: obj with get, set
+        abstract Map: MapConstructor with get, set
+        abstract Math: obj with get, set
+        abstract NaN: obj with get, set
+        abstract Number: obj with get, set
+        abstract Object: obj with get, set
+        abstract Promise: Function with get, set
+        abstract RangeError: obj with get, set
+        abstract ReferenceError: obj with get, set
+        abstract RegExp: obj with get, set
+        abstract Set: SetConstructor with get, set
+        abstract String: obj with get, set
+        abstract Symbol: Function with get, set
+        abstract SyntaxError: obj with get, set
+        abstract TypeError: obj with get, set
+        abstract URIError: obj with get, set
+        abstract Uint16Array: obj with get, set
+        abstract Uint32Array: obj with get, set
+        abstract Uint8Array: obj with get, set
+        abstract Uint8ClampedArray: Function with get, set
+        abstract WeakMap: WeakMapConstructor with get, set
+        abstract WeakSet: WeakSetConstructor with get, set
+        abstract clearImmediate: Func<obj, unit> with get, set
+        abstract clearInterval: Func<Timer, unit> with get, set
+        abstract clearTimeout: Func<Timer, unit> with get, set
+        abstract console: obj with get, set
+        abstract decodeURI: obj with get, set
+        abstract decodeURIComponent: obj with get, set
+        abstract encodeURI: obj with get, set
+        abstract encodeURIComponent: obj with get, set
+        abstract escape: Func<string, string> with get, set
+        abstract eval: obj with get, set
+        abstract ``global``: Global with get, set
+        abstract isFinite: obj with get, set
+        abstract isNaN: obj with get, set
+        abstract parseFloat: obj with get, set
+        abstract parseInt: obj with get, set
+        abstract ``process``: Process with get, set
+        abstract root: Global with get, set
+        abstract setImmediate: Func<Func<obj, unit>, obj, obj> with get, set
+        abstract setInterval: Func<Func<obj, unit>, float, obj, Timer> with get, set
+        abstract setTimeout: Func<Func<obj, unit>, float, obj, Timer> with get, set
+        abstract undefined: obj with get, set
+        abstract unescape: Func<string, string> with get, set
+        abstract gc: Func<unit> with get, set
+
+    and Timer =
+        abstract ref: unit -> unit
+        abstract unref: unit -> unit
+        
+open NodeJS
+
+
+module net =
+    type Socket =
+        abstract writable: bool with get, set
+        abstract _write: chunk: obj * encoding: string * callback: Function -> unit
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
+        abstract bufferSize: float with get, set
+        abstract remoteAddress: string with get, set
+        abstract remoteFamily: string with get, set
+        abstract remotePort: float with get, set
+        abstract localAddress: string with get, set
+        abstract localPort: float with get, set
+        abstract bytesRead: float with get, set
+        abstract bytesWritten: float with get, set
+        abstract write: buffer: Buffer -> bool
+        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: str: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?fd: string -> bool
+        abstract connect: port: float * ?host: string * ?connectionListener: Function -> unit
+        abstract connect: path: string * ?connectionListener: Function -> unit
+        abstract setEncoding: ?encoding: string -> unit
+        abstract destroy: unit -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract setTimeout: timeout: float * ?callback: Function -> unit
+        abstract setNoDelay: ?noDelay: bool -> unit
+        abstract setKeepAlive: ?enable: bool * ?initialDelay: float -> unit
+        abstract address: unit -> obj
+        abstract unref: unit -> unit
+        abstract ref: unit -> unit
+        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: str: string * ?cb: Function -> unit
+        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
+        abstract ``end``: ?data: obj * ?encoding: string -> unit
+
+    and Server =
+        inherit Socket
+        abstract maxConnections: float with get, set
+        abstract connections: float with get, set
+        abstract listen: port: float * ?host: string * ?backlog: float * ?listeningListener: Function -> Server
+        abstract listen: path: string * ?listeningListener: Function -> Server
+        abstract listen: handle: obj * ?listeningListener: Function -> Server
+        abstract close: ?callback: Function -> Server
+        abstract address: unit -> obj
+
+    type [<Import("net")>] Globals =
+        static member Socket with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        static member createServer(?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
+        static member createServer(?options: obj, ?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
+        static member connect(options: obj, ?connectionListener: Function): Socket = failwith "JS only"
+        static member connect(port: float, ?host: string, ?connectionListener: Function): Socket = failwith "JS only"
+        static member connect(path: string, ?connectionListener: Function): Socket = failwith "JS only"
+        static member createConnection(options: obj, ?connectionListener: Function): Socket = failwith "JS only"
+        static member createConnection(port: float, ?host: string, ?connectionListener: Function): Socket = failwith "JS only"
+        static member createConnection(path: string, ?connectionListener: Function): Socket = failwith "JS only"
+        static member isIP(input: string): float = failwith "JS only"
+        static member isIPv4(input: string): bool = failwith "JS only"
+        static member isIPv6(input: string): bool = failwith "JS only"
+
+
+module crypto =
+    type CredentialDetails =
+        abstract pfx: string with get, set
+        abstract key: string with get, set
+        abstract passphrase: string with get, set
+        abstract cert: string with get, set
+        abstract ca: obj with get, set
+        abstract crl: obj with get, set
+        abstract ciphers: string with get, set
+
+    and Credentials =
+        abstract context: obj option with get, set
+
+    and Hash =
+        abstract update: data: obj * ?input_encoding: string -> Hash
+        [<Emit("$0.digest('buffer')")>] abstract digest_buffer: unit -> Buffer
+        abstract digest: encoding: string -> obj
+        abstract digest: unit -> Buffer
+
+    and Hmac =
+        abstract update: data: obj * ?input_encoding: string -> Hmac
+        [<Emit("$0.digest('buffer')")>] abstract digest_buffer: unit -> Buffer
+        abstract digest: encoding: string -> obj
+        abstract digest: unit -> Buffer
+
+    and Cipher =
+        abstract update: data: Buffer -> Buffer
+        abstract update: data: string * ?input_encoding: string * ?output_encoding: string -> string
+        abstract final: unit -> Buffer
+        abstract final: output_encoding: string -> string
+        abstract setAutoPadding: auto_padding: bool -> unit
+
+    and Decipher =
+        abstract update: data: Buffer -> Buffer
+        abstract update: data: string * ?input_encoding: string * ?output_encoding: string -> string
+        abstract final: unit -> Buffer
+        abstract final: output_encoding: string -> string
+        abstract setAutoPadding: auto_padding: bool -> unit
+
+    and Signer =
+        inherit NodeJS.WritableStream
+        abstract update: data: obj -> unit
+        abstract sign: private_key: string * output_format: string -> string
+
+    and Verify =
+        inherit NodeJS.WritableStream
+        abstract update: data: obj -> unit
+        abstract verify: ``object``: string * signature: string * ?signature_format: string -> bool
+
+    and DiffieHellman =
+        abstract generateKeys: ?encoding: string -> string
+        abstract computeSecret: other_public_key: string * ?input_encoding: string * ?output_encoding: string -> string
+        abstract getPrime: ?encoding: string -> string
+        abstract getGenerator: encoding: string -> string
+        abstract getPublicKey: ?encoding: string -> string
+        abstract getPrivateKey: ?encoding: string -> string
+        abstract setPublicKey: public_key: string * ?encoding: string -> unit
+        abstract setPrivateKey: public_key: string * ?encoding: string -> unit
+
+    type [<Import("crypto")>] Globals =
+        static member createCredentials(details: CredentialDetails): Credentials = failwith "JS only"
+        static member createHash(algorithm: string): Hash = failwith "JS only"
+        static member createHmac(algorithm: string, key: string): Hmac = failwith "JS only"
+        static member createHmac(algorithm: string, key: Buffer): Hmac = failwith "JS only"
+        static member createCipher(algorithm: string, password: obj): Cipher = failwith "JS only"
+        static member createCipheriv(algorithm: string, key: obj, iv: obj): Cipher = failwith "JS only"
+        static member createDecipher(algorithm: string, password: obj): Decipher = failwith "JS only"
+        static member createDecipheriv(algorithm: string, key: obj, iv: obj): Decipher = failwith "JS only"
+        static member createSign(algorithm: string): Signer = failwith "JS only"
+        static member createVerify(algorith: string): Verify = failwith "JS only"
+        static member createDiffieHellman(prime_length: float): DiffieHellman = failwith "JS only"
+        static member createDiffieHellman(prime: float, ?encoding: string): DiffieHellman = failwith "JS only"
+        static member getDiffieHellman(group_name: string): DiffieHellman = failwith "JS only"
+        static member pbkdf2(password: string, salt: string, iterations: float, keylen: float, callback: Func<Error, Buffer, obj>): unit = failwith "JS only"
+        static member pbkdf2(password: string, salt: string, iterations: float, keylen: float, digest: string, callback: Func<Error, Buffer, obj>): unit = failwith "JS only"
+        static member pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float): Buffer = failwith "JS only"
+        static member pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float, digest: string): Buffer = failwith "JS only"
+        static member randomBytes(size: float): Buffer = failwith "JS only"
+        static member randomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
+        static member pseudoRandomBytes(size: float): Buffer = failwith "JS only"
+        static member pseudoRandomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
+
+
+module events =
+    type [<Import("events?get=EventEmitter")>] EventEmitter() =
+        interface NodeJS.EventEmitter with
+            member __.addListener(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
+            member __.on(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
+            member __.once(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
+            member __.removeListener(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
+            member __.removeAllListeners(?``event``: string): NodeJS.EventEmitter = failwith "JS only"
+            member __.setMaxListeners(n: float): unit = failwith "JS only"
+            member __.listeners(``event``: string): ResizeArray<Function> = failwith "JS only"
+            member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
+        member __.listenerCount(emitter: EventEmitter, ``event``: string): float = failwith "JS only"
+
+
+module stream =
+    type Stream =
+        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+
+    and ReadableOptions =
+        abstract highWaterMark: float option with get, set
+        abstract encoding: string option with get, set
+        abstract objectMode: bool option with get, set
+
+    and [<Import("stream?get=Readable")>] Readable(?opts: ReadableOptions) =
+        inherit events.EventEmitter()
+        interface ReadableStream with
+            member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+            member __.read(?size: float): U2<string, Buffer> = failwith "JS only"
+            member __.setEncoding(encoding: string): unit = failwith "JS only"
+            member __.pause(): unit = failwith "JS only"
+            member __.resume(): unit = failwith "JS only"
+            member __.pipe(destination: 'T, ?options: obj): 'T = failwith "JS only"
+            member __.unpipe(?destination: 'T): unit = failwith "JS only"
+            member __.unshift(chunk: string): unit = failwith "JS only"
+            member __.unshift(chunk: Buffer): unit = failwith "JS only"
+            member __.wrap(oldStream: ReadableStream): ReadableStream = failwith "JS only"
+        member __._read(size: float): unit = failwith "JS only"
+        member __.unshift(chunk: obj): unit = failwith "JS only"
+        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = failwith "JS only"
+        member __.push(chunk: obj, ?encoding: string): bool = failwith "JS only"
+
+    and WritableOptions =
+        abstract highWaterMark: float option with get, set
+        abstract decodeStrings: bool option with get, set
+        abstract objectMode: bool option with get, set
+
+    and [<Import("stream?get=Writable")>] Writable(?opts: WritableOptions) =
+        inherit events.EventEmitter()
+        interface WritableStream with
+            member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+            member __.write(buffer: U2<Buffer, string>, ?cb: Function): bool = failwith "JS only"
+            member __.write(str: string, ?encoding: string, ?cb: Function): bool = failwith "JS only"
+            member __.``end``(): unit = failwith "JS only"
+            member __.``end``(buffer: Buffer, ?cb: Function): unit = failwith "JS only"
+            member __.``end``(str: string, ?cb: Function): unit = failwith "JS only"
+            member __.``end``(str: string, ?encoding: string, ?cb: Function): unit = failwith "JS only"
+        member __._write(chunk: obj, encoding: string, callback: Function): unit = failwith "JS only"
+        member __.write(chunk: obj, ?cb: Function): bool = failwith "JS only"
+        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = failwith "JS only"
+        member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
+        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
+
+    and DuplexOptions =
+        inherit ReadableOptions
+        inherit WritableOptions
+        abstract allowHalfOpen: bool option with get, set
+
+    and [<Import("stream?get=Duplex")>] Duplex(?opts: DuplexOptions) =
+        inherit Readable()
+        // interface NodeJS.ReadWriteStream
+        member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        member __._write(chunk: obj, encoding: string, callback: Function): unit = failwith "JS only"
+        member __.write(chunk: obj, ?cb: Function): bool = failwith "JS only"
+        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = failwith "JS only"
+        member __.``end``(): unit = failwith "JS only"
+        member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
+        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
+
+    and TransformOptions =
+        inherit ReadableOptions
+        inherit WritableOptions
+
+
+    and [<Import("stream?get=Transform")>] Transform(?opts: TransformOptions) =
+        inherit events.EventEmitter()
+        // interface NodeJS.ReadWriteStream
+        member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        member __._transform(chunk: obj, encoding: string, callback: Function): unit = failwith "JS only"
+        member __._flush(callback: Function): unit = failwith "JS only"
+        member __.read(?size: float): obj = failwith "JS only"
+        member __.setEncoding(encoding: string): unit = failwith "JS only"
+        member __.pause(): unit = failwith "JS only"
+        member __.resume(): unit = failwith "JS only"
+        member __.pipe(destination: 'T, ?options: obj): 'T = failwith "JS only"
+        member __.unpipe(?destination: 'T): unit = failwith "JS only"
+        member __.unshift(chunk: obj): unit = failwith "JS only"
+        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = failwith "JS only"
+        member __.push(chunk: obj, ?encoding: string): bool = failwith "JS only"
+        member __.write(chunk: obj, ?cb: Function): bool = failwith "JS only"
+        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = failwith "JS only"
+        member __.``end``(): unit = failwith "JS only"
+        member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
+        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
+
+    and [<Import("stream?get=PassThrough")>] PassThrough() =
+        inherit Transform()
+
+
+module tls =
+    type TlsOptions =
+        abstract pfx: obj option with get, set
+        abstract key: obj option with get, set
+        abstract passphrase: string option with get, set
+        abstract cert: obj option with get, set
+        abstract ca: obj option with get, set
+        abstract crl: obj option with get, set
+        abstract ciphers: string option with get, set
+        abstract honorCipherOrder: obj option with get, set
+        abstract requestCert: bool option with get, set
+        abstract rejectUnauthorized: bool option with get, set
+        abstract NPNProtocols: obj option with get, set
+        abstract SNICallback: Func<string, obj> option with get, set
+
+    and ConnectionOptions =
+        abstract host: string option with get, set
+        abstract port: float option with get, set
+        abstract socket: net.Socket option with get, set
+        abstract pfx: obj option with get, set
+        abstract key: obj option with get, set
+        abstract passphrase: string option with get, set
+        abstract cert: obj option with get, set
+        abstract ca: obj option with get, set
+        abstract rejectUnauthorized: bool option with get, set
+        abstract NPNProtocols: obj option with get, set
+        abstract servername: string option with get, set
+
+    and Server =
+        inherit net.Server
+        abstract maxConnections: float with get, set
+        abstract connections: float with get, set
+        abstract listen: port: float * ?host: string * ?backlog: float * ?listeningListener: Function -> Server
+        abstract listen: path: string * ?listeningListener: Function -> Server
+        abstract listen: handle: obj * ?listeningListener: Function -> Server
+        abstract listen: port: float * ?host: string * ?callback: Function -> Server
+        abstract close: unit -> Server
+        abstract address: unit -> obj
+        abstract addContext: hostName: string * credentials: obj -> unit
+
+    and ClearTextStream =
+        abstract writable: bool with get, set
+        abstract _write: chunk: obj * encoding: string * callback: Function -> unit
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
+        abstract authorized: bool with get, set
+        abstract authorizationError: Error with get, set
+        abstract getCipher: obj with get, set
+        abstract address: obj with get, set
+        abstract remoteAddress: string with get, set
+        abstract remotePort: float with get, set
+        abstract getPeerCertificate: unit -> obj
+
+    and SecurePair =
+        abstract encrypted: obj with get, set
+        abstract cleartext: obj with get, set
+
+    and SecureContextOptions =
+        abstract pfx: obj option with get, set
+        abstract key: obj option with get, set
+        abstract passphrase: string option with get, set
+        abstract cert: obj option with get, set
+        abstract ca: obj option with get, set
+        abstract crl: obj option with get, set
+        abstract ciphers: string option with get, set
+        abstract honorCipherOrder: bool option with get, set
+
+    and SecureContext =
+        abstract context: obj with get, set
+
+    type [<Import("tls")>] Globals =
+        static member CLIENT_RENEG_LIMIT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member CLIENT_RENEG_WINDOW with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member createServer(options: TlsOptions, ?secureConnectionListener: Func<ClearTextStream, unit>): Server = failwith "JS only"
+        static member connect(options: TlsOptions, ?secureConnectionListener: Func<unit>): ClearTextStream = failwith "JS only"
+        static member connect(port: float, ?host: string, ?options: ConnectionOptions, ?secureConnectListener: Func<unit>): ClearTextStream = failwith "JS only"
+        static member connect(port: float, ?options: ConnectionOptions, ?secureConnectListener: Func<unit>): ClearTextStream = failwith "JS only"
+        static member createSecurePair(?credentials: crypto.Credentials, ?isServer: bool, ?requestCert: bool, ?rejectUnauthorized: bool): SecurePair = failwith "JS only"
+        static member createSecureContext(details: SecureContextOptions): SecureContext = failwith "JS only"
+
+
+module child_process =
+    type ChildProcess =
+        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
+        abstract stdin: stream.Writable with get, set
+        abstract stdout: stream.Readable with get, set
+        abstract stderr: stream.Readable with get, set
+        abstract pid: float with get, set
+        abstract kill: ?signal: string -> unit
+        abstract send: message: obj * ?sendHandle: obj -> unit
+        abstract disconnect: unit -> unit
+        abstract unref: unit -> unit
+
+    type [<Import("child_process")>] Globals =
+        static member spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = failwith "JS only"
+        static member exec(command: string, options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        static member exec(command: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        static member execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        static member execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        static member execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        static member fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = failwith "JS only"
+        static member spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = failwith "JS only"
+        static member execSync(command: string, ?options: obj): U2<string, Buffer> = failwith "JS only"
+        static member execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = failwith "JS only"
+
+
+type NodeRequireFunction =
+    [<Emit("$0($1...)")>] abstract callSelf: id: string -> obj
 
 and NodeRequire =
     inherit NodeRequireFunction
@@ -40,7 +556,9 @@ and NodeModule =
 and Buffer =
     inherit NodeBuffer
 
+
 and NodeBuffer =
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
     abstract length: float with get, set
     abstract write: string: string * ?offset: float * ?length: float * ?encoding: string -> float
     abstract toString: ?encoding: string * ?start: float * ?``end``: float -> string
@@ -87,365 +605,62 @@ and NodeBuffer =
     abstract writeDoubleBE: value: float * offset: float * ?noAssert: bool -> float
     abstract fill: value: obj * ?offset: float * ?``end``: float -> Buffer
 
-module NodeJS =
-    type ErrnoException =
-        inherit Error
-        abstract errno: float option with get, set
-        abstract code: string option with get, set
-        abstract path: string option with get, set
-        abstract syscall: string option with get, set
-        abstract stack: string option with get, set
-
-    and EventEmitter =
-        abstract addListener: ``event``: string * listener: (obj->obj) -> EventEmitter
-        abstract on: ``event``: string * listener: (obj->obj) -> EventEmitter
-        abstract once: ``event``: string * listener: (obj->obj) -> EventEmitter
-        abstract removeListener: ``event``: string * listener: (obj->obj) -> EventEmitter
-        abstract removeAllListeners: ?``event``: string -> EventEmitter
-        abstract setMaxListeners: n: float -> unit
-        abstract listeners: ``event``: string -> ResizeArray<(obj->obj)>
-        abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
-
-    and ReadableStream =
-        inherit EventEmitter
-        abstract readable: bool with get, set
-        abstract read: ?size: float -> U2<string, Buffer>
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: U2<string, Buffer> -> unit
-        abstract wrap: oldStream: ReadableStream -> ReadableStream
-
-    and WritableStream =
-        inherit EventEmitter
-        abstract writable: bool with get, set
-        abstract write: buffer: U2<Buffer, string> * ?cb: (obj->obj) -> bool
-        abstract write: str: string * ?encoding: string * ?cb: (obj->obj) -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: buffer: Buffer * ?cb: (obj->obj) -> unit
-        abstract ``end``: str: string * ?cb: (obj->obj) -> unit
-        abstract ``end``: str: string * ?encoding: string * ?cb: (obj->obj) -> unit
-
-    and ReadWriteStream =
-        inherit ReadableStream
-        inherit WritableStream
-
-    and Process =
-        inherit EventEmitter
-        abstract stdout: WritableStream with get, set
-        abstract stderr: WritableStream with get, set
-        abstract stdin: ReadableStream with get, set
-        abstract argv: ResizeArray<string> with get, set
-        abstract execPath: string with get, set
-        abstract env: obj with get, set
-        abstract version: string with get, set
-        abstract versions: obj with get, set
-        abstract config: obj with get, set
-        abstract pid: float with get, set
-        abstract title: string with get, set
-        abstract arch: string with get, set
-        abstract platform: string with get, set
-        abstract abort: unit -> unit
-        abstract chdir: directory: string -> unit
-        abstract cwd: unit -> string
-        abstract exit: ?code: float -> unit
-        abstract getgid: unit -> float
-        abstract setgid: id: float -> unit
-        abstract setgid: id: string -> unit
-        abstract getuid: unit -> float
-        abstract setuid: id: float -> unit
-        abstract setuid: id: string -> unit
-        abstract kill: pid: float * ?signal: string -> unit
-        abstract memoryUsage: unit -> obj
-        abstract nextTick: callback: (obj->obj) -> unit
-        abstract umask: ?mask: float -> float
-        abstract uptime: unit -> float
-        abstract hrtime: ?time: ResizeArray<float> -> ResizeArray<float>
-        abstract send: message: obj * ?sendHandle: obj -> unit
-
-    and Global =
-        abstract Array: obj with get, set
-        abstract ArrayBuffer: obj with get, set
-        abstract Boolean: obj with get, set
-        abstract Buffer: obj with get, set
-        abstract DataView: obj with get, set
-        abstract Date: obj with get, set
-        abstract Error: obj with get, set
-        abstract EvalError: obj with get, set
-        abstract Float32Array: obj with get, set
-        abstract Float64Array: obj with get, set
-        abstract Function: obj with get, set
-        abstract GLOBAL: Global with get, set
-        abstract Infinity: obj with get, set
-        abstract Int16Array: obj with get, set
-        abstract Int32Array: obj with get, set
-        abstract Int8Array: obj with get, set
-        abstract Intl: obj with get, set
-        abstract JSON: obj with get, set
-        abstract Map: MapConstructor with get, set
-        abstract Math: obj with get, set
-        abstract NaN: obj with get, set
-        abstract Number: obj with get, set
-        abstract Object: obj with get, set
-        abstract Promise: (obj->obj) with get, set
-        abstract RangeError: obj with get, set
-        abstract ReferenceError: obj with get, set
-        abstract RegExp: obj with get, set
-        abstract Set: SetConstructor with get, set
-        abstract String: obj with get, set
-        abstract Symbol: (obj->obj) with get, set
-        abstract SyntaxError: obj with get, set
-        abstract TypeError: obj with get, set
-        abstract URIError: obj with get, set
-        abstract Uint16Array: obj with get, set
-        abstract Uint32Array: obj with get, set
-        abstract Uint8Array: obj with get, set
-        abstract Uint8ClampedArray: (obj->obj) with get, set
-        abstract WeakMap: WeakMapConstructor with get, set
-        abstract WeakSet: WeakSetConstructor with get, set
-        abstract clearImmediate: Func<obj, unit> with get, set
-        abstract clearInterval: Func<Timer, unit> with get, set
-        abstract clearTimeout: Func<Timer, unit> with get, set
-        abstract console: obj with get, set
-        abstract decodeURI: obj with get, set
-        abstract decodeURIComponent: obj with get, set
-        abstract encodeURI: obj with get, set
-        abstract encodeURIComponent: obj with get, set
-        abstract escape: Func<string, string> with get, set
-        abstract eval: obj with get, set
-        abstract ``global``: Global with get, set
-        abstract isFinite: obj with get, set
-        abstract isNaN: obj with get, set
-        abstract parseFloat: obj with get, set
-        abstract parseInt: obj with get, set
-        abstract ``process``: Process with get, set
-        abstract root: Global with get, set
-        abstract setImmediate: Func<Func<obj, unit>, obj, obj> with get, set
-        abstract setInterval: Func<Func<obj, unit>, float, obj, Timer> with get, set
-        abstract setTimeout: Func<Func<obj, unit>, float, obj, Timer> with get, set
-        abstract undefined: obj with get, set
-        abstract unescape: Func<string, string> with get, set
-        abstract gc: Func<unit> with get, set
-
-    and Timer =
-        abstract ref: unit -> unit
-        abstract unref: unit -> unit
-
-module Globals =
-    let [<Global>] ``process``: NodeJS.Process = failwith "JS only"
-    let [<Global>] ``global``: NodeJS.Global = failwith "JS only"
-    let [<Global>] ___filename: string = failwith "JS only"
-    let [<Global>] ___dirname: string = failwith "JS only"
-    let [<Global>] require: NodeRequire = failwith "JS only"
-    let [<Global>] ``module``: NodeModule = failwith "JS only"
-    let [<Global>] exports: obj = failwith "JS only"
-    let [<Global>] SlowBuffer: obj = failwith "JS only"
-    let [<Global>] Buffer: obj = failwith "JS only"
+type Globals =
+    [<Global>] static member ``process`` with get(): NodeJS.Process = failwith "JS only" and set(v: NodeJS.Process): unit = failwith "JS only"
+    [<Global>] static member ``global`` with get(): NodeJS.Global = failwith "JS only" and set(v: NodeJS.Global): unit = failwith "JS only"
+    [<Global>] static member ___filename with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+    [<Global>] static member ___dirname with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+    [<Global>] static member require with get(): NodeRequire = failwith "JS only" and set(v: NodeRequire): unit = failwith "JS only"
+    [<Global>] static member ``module`` with get(): NodeModule = failwith "JS only" and set(v: NodeModule): unit = failwith "JS only"
+    [<Global>] static member exports with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member SlowBuffer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    [<Global>] static member Buffer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
 
 
 module buffer =
-    type Globals =
-        abstract INSPECT_MAX_BYTES: float with get, set
+    type [<Import("buffer")>] Globals =
+        static member INSPECT_MAX_BYTES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
 
-    let [<Import("buffer")>] Globals: Globals = failwith "JS only"
+
 
 module querystring =
-    type Globals =
-        abstract stringify: obj: obj * ?sep: string * ?eq: string -> string
-        abstract parse: str: string * ?sep: string * ?eq: string * ?options: obj -> obj
-        abstract escape: str: string -> string
-        abstract unescape: str: string -> string
-
-    let [<Import("querystring")>] Globals: Globals = failwith "JS only"
-
-module events =
-    type [<Import("events?get=EventEmitter")>] EventEmitter() =
-        member __.listenerCount(emitter: EventEmitter, ``event``: string): float = failwith "JS only"
-        interface NodeJS.EventEmitter with
-            member __.addListener(``event``: string, listener: (obj->obj)): NodeJS.EventEmitter = failwith "JS only"
-            member __.on(``event``: string, listener: (obj->obj)): NodeJS.EventEmitter = failwith "JS only"
-            member __.once(``event``: string, listener: (obj->obj)): NodeJS.EventEmitter = failwith "JS only"
-            member __.removeListener(``event``: string, listener: (obj->obj)): NodeJS.EventEmitter = failwith "JS only"
-            member __.removeAllListeners(?``event``: string): NodeJS.EventEmitter = failwith "JS only"
-            member __.setMaxListeners(n: float): unit = failwith "JS only"
-            member __.listeners(``event``: string): ResizeArray<(obj->obj)> = failwith "JS only"
-            member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
-
-module stream =
-    type Stream =
-        // inherit events.EventEmitter() // TODO
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-
-    and ReadableOptions =
-        abstract highWaterMark: float option with get, set
-        abstract encoding: string option with get, set
-        abstract objectMode: bool option with get, set
-
-    and [<Import("stream?get=Readable")>] Readable(?opts: ReadableOptions) =
-        inherit events.EventEmitter()
-        member __._read(size: float): unit = failwith "JS only"
-        member __.push(chunk: obj, ?encoding: string): bool = failwith "JS only"
-        // interface NodeJS.ReadableStream // TODO
-        member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __.read(?size: float): U2<string,Buffer> = failwith "JS only"
-        member __.setEncoding(encoding: string): unit = failwith "JS only"
-        member __.pause(): unit = failwith "JS only"
-        member __.resume(): unit = failwith "JS only"
-        member __.pipe(destination: 'T, ?options: obj): 'T = failwith "JS only"
-        member __.unpipe(?destination: 'T): unit = failwith "JS only"
-        member __.unshift(chunk: U2<string, Buffer>): unit = failwith "JS only"
-        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = failwith "JS only"
-
-    and WritableOptions =
-        abstract highWaterMark: float option with get, set
-        abstract decodeStrings: bool option with get, set
-        abstract objectMode: bool option with get, set
-
-    and [<Import("stream?get=Writable")>] Writable(?opts: WritableOptions) =
-        inherit events.EventEmitter()
-        // interface NodeJS.WritableStream // TODO
-        member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __._write(chunk: obj, encoding: string, callback: (obj->obj)): unit = failwith "JS only"
-        member __.write(chunk: obj, ?cb: (obj->obj)): bool = failwith "JS only"
-        member __.write(chunk: obj, ?encoding: string, ?cb: (obj->obj)): bool = failwith "JS only"
-        member __.``end``(): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?cb: (obj->obj)): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?encoding: string, ?cb: (obj->obj)): unit = failwith "JS only"
-
-    and DuplexOptions =
-        inherit ReadableOptions
-        inherit WritableOptions
-        abstract allowHalfOpen: bool option with get, set
-
-    and [<Import("stream?get=Duplex")>] Duplex(?opts: DuplexOptions) =
-        inherit Readable()
-        // interface NodeJS.ReadWriteStream // TODO
-        member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __._write(chunk: obj, encoding: string, callback: (obj->obj)): unit = failwith "JS only"
-        member __.write(chunk: obj, ?cb: (obj->obj)): bool = failwith "JS only"
-        member __.write(chunk: obj, ?encoding: string, ?cb: (obj->obj)): bool = failwith "JS only"
-        member __.``end``(): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?cb: (obj->obj)): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?encoding: string, ?cb: (obj->obj)): unit = failwith "JS only"
-
-    and TransformOptions =
-        inherit ReadableOptions
-        inherit WritableOptions
-
-    and [<Import("stream?get=Transform")>] Transform(?opts: TransformOptions) =
-        inherit events.EventEmitter()
-        // interface NodeJS.ReadWriteStream // TODO
-        member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __._transform(chunk: obj, encoding: string, callback: (obj->obj)): unit = failwith "JS only"
-        member __._flush(callback: (obj->obj)): unit = failwith "JS only"
-        member __.read(?size: float): obj = failwith "JS only"
-        member __.setEncoding(encoding: string): unit = failwith "JS only"
-        member __.pause(): unit = failwith "JS only"
-        member __.resume(): unit = failwith "JS only"
-        member __.pipe(destination: 'T, ?options: obj): 'T = failwith "JS only"
-        member __.unpipe(?destination: 'T): unit = failwith "JS only"
-        member __.unshift(chunk: obj): unit = failwith "JS only"
-        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = failwith "JS only"
-        member __.push(chunk: obj, ?encoding: string): bool = failwith "JS only"
-        member __.write(chunk: obj, ?cb: (obj->obj)): bool = failwith "JS only"
-        member __.write(chunk: obj, ?encoding: string, ?cb: (obj->obj)): bool = failwith "JS only"
-        member __.``end``(): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?cb: (obj->obj)): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?encoding: string, ?cb: (obj->obj)): unit = failwith "JS only"
-
-    and [<Import("stream?get=PassThrough")>] PassThrough(?opts) =
-        inherit Transform()
-
-
-module net =
-    type Socket =
-        // inherit stream.Duplex // TODO
-        abstract bufferSize: float with get, set
-        abstract remoteAddress: string with get, set
-        abstract remoteFamily: string with get, set
-        abstract remotePort: float with get, set
-        abstract localAddress: string with get, set
-        abstract localPort: float with get, set
-        abstract bytesRead: float with get, set
-        abstract bytesWritten: float with get, set
-        abstract write: buffer: Buffer -> bool
-        abstract write: buffer: Buffer * ?cb: (obj->obj) -> bool
-        abstract write: str: string * ?cb: (obj->obj) -> bool
-        abstract write: str: string * ?encoding: string * ?cb: (obj->obj) -> bool
-        abstract write: str: string * ?encoding: string * ?fd: string -> bool
-        abstract connect: port: float * ?host: string * ?connectionListener: (obj->obj) -> unit
-        abstract connect: path: string * ?connectionListener: (obj->obj) -> unit
-        abstract setEncoding: ?encoding: string -> unit
-        abstract write: data: obj * ?encoding: string * ?callback: (obj->obj) -> unit
-        abstract destroy: unit -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract setTimeout: timeout: float * ?callback: (obj->obj) -> unit
-        abstract setNoDelay: ?noDelay: bool -> unit
-        abstract setKeepAlive: ?enable: bool * ?initialDelay: float -> unit
-        abstract address: unit -> obj
-        abstract unref: unit -> unit
-        abstract ref: unit -> unit
-        abstract ``end``: unit -> unit
-        abstract ``end``: buffer: Buffer * ?cb: (obj->obj) -> unit
-        abstract ``end``: str: string * ?cb: (obj->obj) -> unit
-        abstract ``end``: str: string * ?encoding: string * ?cb: (obj->obj) -> unit
-        abstract ``end``: ?data: obj * ?encoding: string -> unit
-
-    and Server =
-        inherit Socket
-        abstract maxConnections: float with get, set
-        abstract connections: float with get, set
-        abstract listen: port: float * ?host: string * ?backlog: float * ?listeningListener: (obj->obj) -> Server
-        abstract listen: path: string * ?listeningListener: (obj->obj) -> Server
-        abstract listen: handle: obj * ?listeningListener: (obj->obj) -> Server
-        abstract close: ?callback: (obj->obj) -> Server
-        abstract address: unit -> obj
-
-    type Globals =
-        abstract Socket: obj with get, set
-        abstract createServer: ?connectionListener: Func<Socket, unit> -> Server
-        abstract createServer: ?options: obj * ?connectionListener: Func<Socket, unit> -> Server
-        abstract connect: options: obj * ?connectionListener: (obj->obj) -> Socket
-        abstract connect: port: float * ?host: string * ?connectionListener: (obj->obj) -> Socket
-        abstract connect: path: string * ?connectionListener: (obj->obj) -> Socket
-        abstract createConnection: options: obj * ?connectionListener: (obj->obj) -> Socket
-        abstract createConnection: port: float * ?host: string * ?connectionListener: (obj->obj) -> Socket
-        abstract createConnection: path: string * ?connectionListener: (obj->obj) -> Socket
-        abstract isIP: input: string -> float
-        abstract isIPv4: input: string -> bool
-        abstract isIPv6: input: string -> bool
-
-    let [<Import("net")>] Globals: Globals = failwith "JS only"
+    type [<Import("querystring")>] Globals =
+        static member stringify(obj: obj, ?sep: string, ?eq: string): string = failwith "JS only"
+        static member parse(str: string, ?sep: string, ?eq: string, ?options: obj): obj = failwith "JS only"
+        static member escape(str: string): string = failwith "JS only"
+        static member unescape(str: string): string = failwith "JS only"
 
 module http =
     type Server =
-        // inherit events.EventEmitter() // TODO
+        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract maxHeadersCount: float with get, set
-        abstract listen: port: float * ?hostname: string * ?backlog: float * ?callback: (obj->obj) -> Server
-        abstract listen: port: float * ?hostname: string * ?callback: (obj->obj) -> Server
-        abstract listen: path: string * ?callback: (obj->obj) -> Server
-        abstract listen: handle: obj * ?listeningListener: (obj->obj) -> Server
+        abstract listen: port: float * ?hostname: string * ?backlog: float * ?callback: Function -> Server
+        abstract listen: port: float * ?hostname: string * ?callback: Function -> Server
+        abstract listen: path: string * ?callback: Function -> Server
+        abstract listen: handle: obj * ?listeningListener: Function -> Server
         abstract close: ?cb: obj -> Server
         abstract address: unit -> obj
 
     and ServerRequest =
-        // inherit IncomingMessage // TODO
+        inherit IncomingMessage
         abstract connection: net.Socket with get, set
 
     and ServerResponse =
-        // inherit events.EventEmitter() // TODO
-        // inherit stream.Writable // TODO
+        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
+        abstract writable: bool with get, set
+        abstract _write: chunk: obj * encoding: string * callback: Function -> unit
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
         abstract statusCode: float with get, set
         abstract statusMessage: string with get, set
         abstract sendDate: bool with get, set
         abstract write: buffer: Buffer -> bool
-        abstract write: buffer: Buffer * ?cb: (obj->obj) -> bool
-        abstract write: str: string * ?cb: (obj->obj) -> bool
-        abstract write: str: string * ?encoding: string * ?cb: (obj->obj) -> bool
+        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: str: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?fd: string -> bool
         abstract writeContinue: unit -> unit
         abstract writeHead: statusCode: float * ?reasonPhrase: string * ?headers: obj -> unit
@@ -455,34 +670,48 @@ module http =
         abstract removeHeader: name: string -> unit
         abstract write: chunk: obj * ?encoding: string -> obj
         abstract addTrailers: headers: obj -> unit
-        abstract ``end``: unit -> unit
-        abstract ``end``: buffer: Buffer * ?cb: (obj->obj) -> unit
-        abstract ``end``: str: string * ?cb: (obj->obj) -> unit
-        abstract ``end``: str: string * ?encoding: string * ?cb: (obj->obj) -> unit
+        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: str: string * ?cb: Function -> unit
+        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
         abstract ``end``: ?data: obj * ?encoding: string -> unit
 
     and ClientRequest =
-        // inherit events.EventEmitter() // TODO
-        // inherit stream.Writable // TODO
+        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
+        abstract writable: bool with get, set
+        abstract _write: chunk: obj * encoding: string * callback: Function -> unit
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
         abstract write: buffer: Buffer -> bool
-        abstract write: buffer: Buffer * ?cb: (obj->obj) -> bool
-        abstract write: str: string * ?cb: (obj->obj) -> bool
-        abstract write: str: string * ?encoding: string * ?cb: (obj->obj) -> bool
+        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: str: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?fd: string -> bool
         abstract write: chunk: obj * ?encoding: string -> unit
         abstract abort: unit -> unit
-        abstract setTimeout: timeout: float * ?callback: (obj->obj) -> unit
+        abstract setTimeout: timeout: float * ?callback: Function -> unit
         abstract setNoDelay: ?noDelay: bool -> unit
         abstract setSocketKeepAlive: ?enable: bool * ?initialDelay: float -> unit
-        abstract ``end``: unit -> unit
-        abstract ``end``: buffer: Buffer * ?cb: (obj->obj) -> unit
-        abstract ``end``: str: string * ?cb: (obj->obj) -> unit
-        abstract ``end``: str: string * ?encoding: string * ?cb: (obj->obj) -> unit
+        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: str: string * ?cb: Function -> unit
+        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
         abstract ``end``: ?data: obj * ?encoding: string -> unit
 
     and IncomingMessage =
-        // inherit events.EventEmitter() // TODO
-        // inherit stream.Readable // TODO
+        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
+        abstract readable: bool with get, set
+        abstract _read: size: float -> unit
+        abstract read: ?size: float -> obj
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: obj -> unit
+        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
+        abstract push: chunk: obj * ?encoding: string -> bool
         abstract httpVersion: string with get, set
         abstract headers: obj with get, set
         abstract rawHeaders: ResizeArray<string> with get, set
@@ -493,10 +722,11 @@ module http =
         abstract statusCode: float option with get, set
         abstract statusMessage: string option with get, set
         abstract socket: net.Socket with get, set
-        abstract setTimeout: msecs: float * callback: (obj->obj) -> NodeJS.Timer
+        abstract setTimeout: msecs: float * callback: Function -> NodeJS.Timer
 
     and ClientResponse =
         inherit IncomingMessage
+
 
     and AgentOptions =
         abstract keepAlive: bool option with get, set
@@ -510,43 +740,14 @@ module http =
         member __.requests with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
         member __.destroy(): unit = failwith "JS only"
 
-    type Globals =
-        abstract METHODS: ResizeArray<string> with get, set
-        abstract STATUS_CODES: obj with get, set
-        abstract globalAgent: Agent with get, set
-        abstract createServer: ?requestListener: Func<IncomingMessage, ServerResponse, unit> -> Server
-        abstract createClient: ?port: float * ?host: string -> obj
-        abstract request: options: obj * ?callback: Func<IncomingMessage, unit> -> ClientRequest
-        abstract get: options: obj * ?callback: Func<IncomingMessage, unit> -> ClientRequest
-
-    let [<Import("http")>] Globals: Globals = failwith "JS only"
-
-
-module child_process =
-    type ChildProcess =
-        // inherit events.EventEmitter() // TODO
-        abstract stdin: stream.Writable with get, set
-        abstract stdout: stream.Readable with get, set
-        abstract stderr: stream.Readable with get, set
-        abstract pid: float with get, set
-        abstract kill: ?signal: string -> unit
-        abstract send: message: obj * ?sendHandle: obj -> unit
-        abstract disconnect: unit -> unit
-        abstract unref: unit -> unit
-
-    type Globals =
-        abstract spawn: command: string * ?args: ResizeArray<string> * ?options: obj -> ChildProcess
-        abstract exec: command: string * options: obj * ?callback: Func<Error, Buffer, Buffer, unit> -> ChildProcess
-        abstract exec: command: string * ?callback: Func<Error, Buffer, Buffer, unit> -> ChildProcess
-        abstract execFile: file: string * ?callback: Func<Error, Buffer, Buffer, unit> -> ChildProcess
-        abstract execFile: file: string * ?args: ResizeArray<string> * ?callback: Func<Error, Buffer, Buffer, unit> -> ChildProcess
-        abstract execFile: file: string * ?args: ResizeArray<string> * ?options: obj * ?callback: Func<Error, Buffer, Buffer, unit> -> ChildProcess
-        abstract fork: modulePath: string * ?args: ResizeArray<string> * ?options: obj -> ChildProcess
-        abstract spawnSync: command: string * ?args: ResizeArray<string> * ?options: obj -> obj
-        abstract execSync: command: string * ?options: obj -> U2<string, Buffer>
-        abstract execFileSync: command: string * ?args: ResizeArray<string> * ?options: obj -> U2<string, Buffer>
-
-    let [<Import("child_process")>] Globals: Globals = failwith "JS only"
+    type [<Import("http")>] Globals =
+        static member METHODS with get(): ResizeArray<string> = failwith "JS only" and set(v: ResizeArray<string>): unit = failwith "JS only"
+        static member STATUS_CODES with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        static member globalAgent with get(): Agent = failwith "JS only" and set(v: Agent): unit = failwith "JS only"
+        static member createServer(?requestListener: Func<IncomingMessage, ServerResponse, unit>): Server = failwith "JS only"
+        static member createClient(?port: float, ?host: string): obj = failwith "JS only"
+        static member request(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
+        static member get(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
 
 
 module cluster =
@@ -565,25 +766,24 @@ module cluster =
         member __.destroy(?signal: string): unit = failwith "JS only"
         member __.disconnect(): unit = failwith "JS only"
 
-    type Globals =
-        abstract settings: ClusterSettings with get, set
-        abstract isMaster: bool with get, set
-        abstract isWorker: bool with get, set
-        abstract worker: Worker with get, set
-        abstract workers: ResizeArray<Worker> with get, set
-        abstract setupMaster: ?settings: ClusterSettings -> unit
-        abstract fork: ?env: obj -> Worker
-        abstract disconnect: ?callback: (obj->obj) -> unit
-        abstract addListener: ``event``: string * listener: (obj->obj) -> unit
-        abstract on: ``event``: string * listener: (obj->obj) -> obj
-        abstract once: ``event``: string * listener: (obj->obj) -> unit
-        abstract removeListener: ``event``: string * listener: (obj->obj) -> unit
-        abstract removeAllListeners: ?``event``: string -> unit
-        abstract setMaxListeners: n: float -> unit
-        abstract listeners: ``event``: string -> ResizeArray<(obj->obj)>
-        abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
+    type [<Import("cluster")>] Globals =
+        static member settings with get(): ClusterSettings = failwith "JS only" and set(v: ClusterSettings): unit = failwith "JS only"
+        static member isMaster with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        static member isWorker with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        static member worker with get(): Worker = failwith "JS only" and set(v: Worker): unit = failwith "JS only"
+        static member workers with get(): ResizeArray<Worker> = failwith "JS only" and set(v: ResizeArray<Worker>): unit = failwith "JS only"
+        static member setupMaster(?settings: ClusterSettings): unit = failwith "JS only"
+        static member fork(?env: obj): Worker = failwith "JS only"
+        static member disconnect(?callback: Function): unit = failwith "JS only"
+        static member addListener(``event``: string, listener: Function): unit = failwith "JS only"
+        static member on(``event``: string, listener: Function): obj = failwith "JS only"
+        static member once(``event``: string, listener: Function): unit = failwith "JS only"
+        static member removeListener(``event``: string, listener: Function): unit = failwith "JS only"
+        static member removeAllListeners(?``event``: string): unit = failwith "JS only"
+        static member setMaxListeners(n: float): unit = failwith "JS only"
+        static member listeners(``event``: string): ResizeArray<Function> = failwith "JS only"
+        static member emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
 
-    let [<Import("cluster")>] Globals: Globals = failwith "JS only"
 
 
 module zlib =
@@ -595,266 +795,224 @@ module zlib =
         abstract strategy: float option with get, set
         abstract dictionary: obj option with get, set
 
-    and Gzip() =
-        inherit stream.Transform()
+    and Gzip =
+        abstract readable: bool with get, set
+        abstract writable: bool with get, set
+        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
+        abstract _flush: callback: Function -> unit
+        abstract read: ?size: float -> obj
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: obj -> unit
+        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
+        abstract push: chunk: obj * ?encoding: string -> bool
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
-    and Gunzip() =
-        inherit stream.Transform()
 
-    and Deflate() =
-        inherit stream.Transform()
+    and Gunzip =
+        abstract readable: bool with get, set
+        abstract writable: bool with get, set
+        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
+        abstract _flush: callback: Function -> unit
+        abstract read: ?size: float -> obj
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: obj -> unit
+        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
+        abstract push: chunk: obj * ?encoding: string -> bool
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
-    and Inflate() =
-        inherit stream.Transform()
 
-    and DeflateRaw() =
-        inherit stream.Transform()
+    and Deflate =
+        abstract readable: bool with get, set
+        abstract writable: bool with get, set
+        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
+        abstract _flush: callback: Function -> unit
+        abstract read: ?size: float -> obj
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: obj -> unit
+        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
+        abstract push: chunk: obj * ?encoding: string -> bool
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
-    and InflateRaw() =
-        inherit stream.Transform()
 
-    and Unzip() =
-        inherit stream.Transform()
+    and Inflate =
+        abstract readable: bool with get, set
+        abstract writable: bool with get, set
+        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
+        abstract _flush: callback: Function -> unit
+        abstract read: ?size: float -> obj
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: obj -> unit
+        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
+        abstract push: chunk: obj * ?encoding: string -> bool
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
-    type Globals =
-        abstract Z_NO_FLUSH: float with get, set
-        abstract Z_PARTIAL_FLUSH: float with get, set
-        abstract Z_SYNC_FLUSH: float with get, set
-        abstract Z_FULL_FLUSH: float with get, set
-        abstract Z_FINISH: float with get, set
-        abstract Z_BLOCK: float with get, set
-        abstract Z_TREES: float with get, set
-        abstract Z_OK: float with get, set
-        abstract Z_STREAM_END: float with get, set
-        abstract Z_NEED_DICT: float with get, set
-        abstract Z_ERRNO: float with get, set
-        abstract Z_STREAM_ERROR: float with get, set
-        abstract Z_DATA_ERROR: float with get, set
-        abstract Z_MEM_ERROR: float with get, set
-        abstract Z_BUF_ERROR: float with get, set
-        abstract Z_VERSION_ERROR: float with get, set
-        abstract Z_NO_COMPRESSION: float with get, set
-        abstract Z_BEST_SPEED: float with get, set
-        abstract Z_BEST_COMPRESSION: float with get, set
-        abstract Z_DEFAULT_COMPRESSION: float with get, set
-        abstract Z_FILTERED: float with get, set
-        abstract Z_HUFFMAN_ONLY: float with get, set
-        abstract Z_RLE: float with get, set
-        abstract Z_FIXED: float with get, set
-        abstract Z_DEFAULT_STRATEGY: float with get, set
-        abstract Z_BINARY: float with get, set
-        abstract Z_TEXT: float with get, set
-        abstract Z_ASCII: float with get, set
-        abstract Z_UNKNOWN: float with get, set
-        abstract Z_DEFLATED: float with get, set
-        abstract Z_NULL: float with get, set
-        abstract createGzip: ?options: ZlibOptions -> Gzip
-        abstract createGunzip: ?options: ZlibOptions -> Gunzip
-        abstract createDeflate: ?options: ZlibOptions -> Deflate
-        abstract createInflate: ?options: ZlibOptions -> Inflate
-        abstract createDeflateRaw: ?options: ZlibOptions -> DeflateRaw
-        abstract createInflateRaw: ?options: ZlibOptions -> InflateRaw
-        abstract createUnzip: ?options: ZlibOptions -> Unzip
-        abstract deflate: buf: Buffer * callback: Func<Error, obj, unit> -> unit
-        abstract deflateSync: buf: Buffer * ?options: ZlibOptions -> obj
-        abstract deflateRaw: buf: Buffer * callback: Func<Error, obj, unit> -> unit
-        abstract deflateRawSync: buf: Buffer * ?options: ZlibOptions -> obj
-        abstract gzip: buf: Buffer * callback: Func<Error, obj, unit> -> unit
-        abstract gzipSync: buf: Buffer * ?options: ZlibOptions -> obj
-        abstract gunzip: buf: Buffer * callback: Func<Error, obj, unit> -> unit
-        abstract gunzipSync: buf: Buffer * ?options: ZlibOptions -> obj
-        abstract inflate: buf: Buffer * callback: Func<Error, obj, unit> -> unit
-        abstract inflateSync: buf: Buffer * ?options: ZlibOptions -> obj
-        abstract inflateRaw: buf: Buffer * callback: Func<Error, obj, unit> -> unit
-        abstract inflateRawSync: buf: Buffer * ?options: ZlibOptions -> obj
-        abstract unzip: buf: Buffer * callback: Func<Error, obj, unit> -> unit
-        abstract unzipSync: buf: Buffer * ?options: ZlibOptions -> obj
 
-    let [<Import("zlib")>] Globals: Globals = failwith "JS only"
+    and DeflateRaw =
+        abstract readable: bool with get, set
+        abstract writable: bool with get, set
+        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
+        abstract _flush: callback: Function -> unit
+        abstract read: ?size: float -> obj
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: obj -> unit
+        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
+        abstract push: chunk: obj * ?encoding: string -> bool
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
+
+
+    and InflateRaw =
+        abstract readable: bool with get, set
+        abstract writable: bool with get, set
+        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
+        abstract _flush: callback: Function -> unit
+        abstract read: ?size: float -> obj
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: obj -> unit
+        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
+        abstract push: chunk: obj * ?encoding: string -> bool
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
+
+
+    and Unzip =
+        abstract readable: bool with get, set
+        abstract writable: bool with get, set
+        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
+        abstract _flush: callback: Function -> unit
+        abstract read: ?size: float -> obj
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: obj -> unit
+        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
+        abstract push: chunk: obj * ?encoding: string -> bool
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
+
+
+    type [<Import("zlib")>] Globals =
+        static member Z_NO_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_PARTIAL_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_SYNC_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_FULL_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_FINISH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_BLOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_TREES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_STREAM_END with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_NEED_DICT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_ERRNO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_STREAM_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_DATA_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_MEM_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_BUF_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_VERSION_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_NO_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_BEST_SPEED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_BEST_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_DEFAULT_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_FILTERED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_HUFFMAN_ONLY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_RLE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_FIXED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_DEFAULT_STRATEGY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_BINARY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_TEXT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_ASCII with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_UNKNOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_DEFLATED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member Z_NULL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member createGzip(?options: ZlibOptions): Gzip = failwith "JS only"
+        static member createGunzip(?options: ZlibOptions): Gunzip = failwith "JS only"
+        static member createDeflate(?options: ZlibOptions): Deflate = failwith "JS only"
+        static member createInflate(?options: ZlibOptions): Inflate = failwith "JS only"
+        static member createDeflateRaw(?options: ZlibOptions): DeflateRaw = failwith "JS only"
+        static member createInflateRaw(?options: ZlibOptions): InflateRaw = failwith "JS only"
+        static member createUnzip(?options: ZlibOptions): Unzip = failwith "JS only"
+        static member deflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        static member deflateSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        static member deflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        static member deflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        static member gzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        static member gzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        static member gunzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        static member gunzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        static member inflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        static member inflateSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        static member inflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        static member inflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        static member unzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        static member unzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+
 
 
 module os =
-    type Globals =
-        abstract EOL: string with get, set
-        abstract tmpdir: unit -> string
-        abstract hostname: unit -> string
-        abstract ``type``: unit -> string
-        abstract platform: unit -> string
-        abstract arch: unit -> string
-        abstract release: unit -> string
-        abstract uptime: unit -> float
-        abstract loadavg: unit -> ResizeArray<float>
-        abstract totalmem: unit -> float
-        abstract freemem: unit -> float
-        abstract cpus: unit -> ResizeArray<obj>
-        abstract networkInterfaces: unit -> obj
-
-    let [<Import("os")>] Globals: Globals = failwith "JS only"
-
-
-module crypto =
-    type CredentialDetails =
-        abstract pfx: string with get, set
-        abstract key: string with get, set
-        abstract passphrase: string with get, set
-        abstract cert: string with get, set
-        abstract ca: obj with get, set
-        abstract crl: obj with get, set
-        abstract ciphers: string with get, set
-
-    and Credentials =
-        abstract context: obj option with get, set
-
-    and Hash =
-        abstract update: data: obj * ?input_encoding: string -> Hash
-        abstract digest: encoding: obj -> Buffer
-        abstract digest: encoding: string -> obj
-        abstract digest: unit -> Buffer
-
-    and Hmac =
-        abstract update: data: obj * ?input_encoding: string -> Hmac
-        abstract digest: encoding: obj -> Buffer
-        abstract digest: encoding: string -> obj
-        abstract digest: unit -> Buffer
-
-    and Cipher =
-        abstract update: data: Buffer -> Buffer
-        abstract update: data: string * ?input_encoding: string * ?output_encoding: string -> string
-        abstract final: unit -> Buffer
-        abstract final: output_encoding: string -> string
-        abstract setAutoPadding: auto_padding: bool -> unit
-
-    and Decipher =
-        abstract update: data: Buffer -> Buffer
-        abstract update: data: string * ?input_encoding: string * ?output_encoding: string -> string
-        abstract final: unit -> Buffer
-        abstract final: output_encoding: string -> string
-        abstract setAutoPadding: auto_padding: bool -> unit
-
-    and Signer =
-        inherit NodeJS.WritableStream
-        abstract update: data: obj -> unit
-        abstract sign: private_key: string * output_format: string -> string
-
-    and Verify =
-        inherit NodeJS.WritableStream
-        abstract update: data: obj -> unit
-        abstract verify: ``object``: string * signature: string * ?signature_format: string -> bool
-
-    and DiffieHellman =
-        abstract generateKeys: ?encoding: string -> string
-        abstract computeSecret: other_public_key: string * ?input_encoding: string * ?output_encoding: string -> string
-        abstract getPrime: ?encoding: string -> string
-        abstract getGenerator: encoding: string -> string
-        abstract getPublicKey: ?encoding: string -> string
-        abstract getPrivateKey: ?encoding: string -> string
-        abstract setPublicKey: public_key: string * ?encoding: string -> unit
-        abstract setPrivateKey: public_key: string * ?encoding: string -> unit
-
-    type Globals =
-        abstract createCredentials: details: CredentialDetails -> Credentials
-        abstract createHash: algorithm: string -> Hash
-        abstract createHmac: algorithm: string * key: string -> Hmac
-        abstract createHmac: algorithm: string * key: Buffer -> Hmac
-        abstract createCipher: algorithm: string * password: obj -> Cipher
-        abstract createCipheriv: algorithm: string * key: obj * iv: obj -> Cipher
-        abstract createDecipher: algorithm: string * password: obj -> Decipher
-        abstract createDecipheriv: algorithm: string * key: obj * iv: obj -> Decipher
-        abstract createSign: algorithm: string -> Signer
-        abstract createVerify: algorith: string -> Verify
-        abstract createDiffieHellman: prime_length: float -> DiffieHellman
-        abstract createDiffieHellman: prime: float * ?encoding: string -> DiffieHellman
-        abstract getDiffieHellman: group_name: string -> DiffieHellman
-        abstract pbkdf2: password: string * salt: string * iterations: float * keylen: float * callback: Func<Error, Buffer, obj> -> unit
-        abstract pbkdf2: password: string * salt: string * iterations: float * keylen: float * digest: string * callback: Func<Error, Buffer, obj> -> unit
-        abstract pbkdf2Sync: password: string * salt: string * iterations: float * keylen: float -> Buffer
-        abstract pbkdf2Sync: password: string * salt: string * iterations: float * keylen: float * digest: string -> Buffer
-        abstract randomBytes: size: float -> Buffer
-        abstract randomBytes: size: float * callback: Func<Error, Buffer, unit> -> unit
-        abstract pseudoRandomBytes: size: float -> Buffer
-        abstract pseudoRandomBytes: size: float * callback: Func<Error, Buffer, unit> -> unit
-
-    let [<Import("crypto")>] Globals: Globals = failwith "JS only"
-
-
-module tls =
-    type TlsOptions =
-        abstract pfx: obj option with get, set
-        abstract key: obj option with get, set
-        abstract passphrase: string option with get, set
-        abstract cert: obj option with get, set
-        abstract ca: obj option with get, set
-        abstract crl: obj option with get, set
-        abstract ciphers: string option with get, set
-        abstract honorCipherOrder: obj option with get, set
-        abstract requestCert: bool option with get, set
-        abstract rejectUnauthorized: bool option with get, set
-        abstract NPNProtocols: obj option with get, set
-        abstract SNICallback: Func<string, obj> option with get, set
-
-    and ConnectionOptions =
-        abstract host: string option with get, set
-        abstract port: float option with get, set
-        abstract socket: net.Socket option with get, set
-        abstract pfx: obj option with get, set
-        abstract key: obj option with get, set
-        abstract passphrase: string option with get, set
-        abstract cert: obj option with get, set
-        abstract ca: obj option with get, set
-        abstract rejectUnauthorized: bool option with get, set
-        abstract NPNProtocols: obj option with get, set
-        abstract servername: string option with get, set
-
-    and Server =
-        inherit net.Server
-        abstract maxConnections: float with get, set
-        abstract connections: float with get, set
-        abstract listen: port: float * ?host: string * ?backlog: float * ?listeningListener: (obj->obj) -> Server
-        abstract listen: path: string * ?listeningListener: (obj->obj) -> Server
-        abstract listen: handle: obj * ?listeningListener: (obj->obj) -> Server
-        abstract listen: port: float * ?host: string * ?callback: (obj->obj) -> Server
-        abstract close: unit -> Server
-        abstract address: unit -> obj
-        abstract addContext: hostName: string * credentials: obj -> unit
-
-    and ClearTextStream =
-        // inherit stream.Duplex // TODO
-        abstract authorized: bool with get, set
-        abstract authorizationError: Error with get, set
-        abstract getCipher: obj with get, set
-        abstract address: obj with get, set
-        abstract remoteAddress: string with get, set
-        abstract remotePort: float with get, set
-        abstract getPeerCertificate: unit -> obj
-
-    and SecurePair =
-        abstract encrypted: obj with get, set
-        abstract cleartext: obj with get, set
-
-    and SecureContextOptions =
-        abstract pfx: obj option with get, set
-        abstract key: obj option with get, set
-        abstract passphrase: string option with get, set
-        abstract cert: obj option with get, set
-        abstract ca: obj option with get, set
-        abstract crl: obj option with get, set
-        abstract ciphers: string option with get, set
-        abstract honorCipherOrder: bool option with get, set
-
-    and SecureContext =
-        abstract context: obj with get, set
-
-    type Globals =
-        abstract CLIENT_RENEG_LIMIT: float with get, set
-        abstract CLIENT_RENEG_WINDOW: float with get, set
-        abstract createServer: options: TlsOptions * ?secureConnectionListener: Func<ClearTextStream, unit> -> Server
-        abstract connect: options: TlsOptions * ?secureConnectionListener: Func<unit> -> ClearTextStream
-        abstract connect: port: float * ?host: string * ?options: ConnectionOptions * ?secureConnectListener: Func<unit> -> ClearTextStream
-        abstract connect: port: float * ?options: ConnectionOptions * ?secureConnectListener: Func<unit> -> ClearTextStream
-        abstract createSecurePair: ?credentials: crypto.Credentials * ?isServer: bool * ?requestCert: bool * ?rejectUnauthorized: bool -> SecurePair
-        abstract createSecureContext: details: SecureContextOptions -> SecureContext
-
-    let [<Import("tls")>] Globals: Globals = failwith "JS only"
+    type [<Import("os")>] Globals =
+        static member EOL with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        static member tmpdir(): string = failwith "JS only"
+        static member hostname(): string = failwith "JS only"
+        static member ``type``(): string = failwith "JS only"
+        static member platform(): string = failwith "JS only"
+        static member arch(): string = failwith "JS only"
+        static member release(): string = failwith "JS only"
+        static member uptime(): float = failwith "JS only"
+        static member loadavg(): ResizeArray<float> = failwith "JS only"
+        static member totalmem(): float = failwith "JS only"
+        static member freemem(): float = failwith "JS only"
+        static member cpus(): ResizeArray<obj> = failwith "JS only"
+        static member networkInterfaces(): obj = failwith "JS only"
 
 
 module https =
@@ -897,14 +1055,14 @@ module https =
     and Server =
         inherit tls.Server
 
-    type Globals =
-        abstract Agent: obj with get, set
-        abstract globalAgent: Agent with get, set
-        abstract createServer: options: ServerOptions * ?requestListener: (obj->obj) -> Server
-        abstract request: options: RequestOptions * ?callback: Func<http.IncomingMessage, unit> -> http.ClientRequest
-        abstract get: options: RequestOptions * ?callback: Func<http.IncomingMessage, unit> -> http.ClientRequest
 
-    let [<Import("https")>] Globals: Globals = failwith "JS only"
+    type [<Import("https")>] Globals =
+        static member Agent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        static member globalAgent with get(): Agent = failwith "JS only" and set(v: Agent): unit = failwith "JS only"
+        static member createServer(options: ServerOptions, ?requestListener: Function): Server = failwith "JS only"
+        static member request(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = failwith "JS only"
+        static member get(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = failwith "JS only"
+
 
 
 module punycode =
@@ -912,15 +1070,14 @@ module punycode =
         abstract decode: string: string -> string
         abstract encode: codePoints: ResizeArray<float> -> string
 
-    type Globals =
-        abstract ucs2: ucs2 with get, set
-        abstract version: obj with get, set
-        abstract decode: string: string -> string
-        abstract encode: string: string -> string
-        abstract toUnicode: domain: string -> string
-        abstract toASCII: domain: string -> string
+    type [<Import("punycode")>] Globals =
+        static member ucs2 with get(): ucs2 = failwith "JS only" and set(v: ucs2): unit = failwith "JS only"
+        static member version with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        static member decode(string: string): string = failwith "JS only"
+        static member encode(string: string): string = failwith "JS only"
+        static member toUnicode(domain: string): string = failwith "JS only"
+        static member toASCII(domain: string): string = failwith "JS only"
 
-    let [<Import("punycode")>] Globals: Globals = failwith "JS only"
 
 
 module repl =
@@ -929,24 +1086,23 @@ module repl =
         abstract input: NodeJS.ReadableStream option with get, set
         abstract output: NodeJS.WritableStream option with get, set
         abstract terminal: bool option with get, set
-        abstract eval: (obj->obj) option with get, set
+        abstract eval: Function option with get, set
         abstract useColors: bool option with get, set
         abstract useGlobal: bool option with get, set
         abstract ignoreUndefined: bool option with get, set
-        abstract writer: (obj->obj) option with get, set
+        abstract writer: Function option with get, set
 
-    type Globals =
-        abstract start: options: ReplOptions -> events.EventEmitter
+    type [<Import("repl")>] Globals =
+        static member start(options: ReplOptions): events.EventEmitter = failwith "JS only"
 
-    let [<Import("repl")>] Globals: Globals = failwith "JS only"
 
 
 module readline =
     type ReadLine =
-        // inherit events.EventEmitter() // TODO
+        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract setPrompt: prompt: string -> unit
         abstract prompt: ?preserveCursor: bool -> unit
-        abstract question: query: string * callback: (obj->obj) -> unit
+        abstract question: query: string * callback: Function -> unit
         abstract pause: unit -> unit
         abstract resume: unit -> unit
         abstract close: unit -> unit
@@ -955,13 +1111,12 @@ module readline =
     and ReadLineOptions =
         abstract input: NodeJS.ReadableStream with get, set
         abstract output: NodeJS.WritableStream with get, set
-        abstract completer: (obj->obj) option with get, set
+        abstract completer: Function option with get, set
         abstract terminal: bool option with get, set
 
-    type Globals =
-        abstract createInterface: options: ReadLineOptions -> ReadLine
+    type [<Import("readline")>] Globals =
+        static member createInterface(options: ReadLineOptions): ReadLine = failwith "JS only"
 
-    let [<Import("readline")>] Globals: Globals = failwith "JS only"
 
 
 module vm =
@@ -972,14 +1127,13 @@ module vm =
         abstract runInThisContext: unit -> unit
         abstract runInNewContext: ?sandbox: Context -> unit
 
-    type Globals =
-        abstract runInThisContext: code: string * ?filename: string -> unit
-        abstract runInNewContext: code: string * ?sandbox: Context * ?filename: string -> unit
-        abstract runInContext: code: string * context: Context * ?filename: string -> unit
-        abstract createContext: ?initSandbox: Context -> Context
-        abstract createScript: code: string * ?filename: string -> Script
+    type [<Import("vm")>] Globals =
+        static member runInThisContext(code: string, ?filename: string): unit = failwith "JS only"
+        static member runInNewContext(code: string, ?sandbox: Context, ?filename: string): unit = failwith "JS only"
+        static member runInContext(code: string, context: Context, ?filename: string): unit = failwith "JS only"
+        static member createContext(?initSandbox: Context): Context = failwith "JS only"
+        static member createScript(code: string, ?filename: string): Script = failwith "JS only"
 
-    let [<Import("vm")>] Globals: Globals = failwith "JS only"
 
 module url =
     type Url =
@@ -1008,32 +1162,28 @@ module url =
         abstract hash: string option with get, set
         abstract path: string option with get, set
 
-    type Globals =
-        abstract parse: urlStr: string * ?parseQueryString: bool * ?slashesDenoteHost: bool -> Url
-        abstract format: url: UrlOptions -> string
-        abstract resolve: from: string * ``to``: string -> string
+    type [<Import("url")>] Globals =
+        static member parse(urlStr: string, ?parseQueryString: bool, ?slashesDenoteHost: bool): Url = failwith "JS only"
+        static member format(url: UrlOptions): string = failwith "JS only"
+        static member resolve(from: string, ``to``: string): string = failwith "JS only"
 
-    let [<Import("url")>] Globals: Globals = failwith "JS only"
 
 
 module dns =
+    type [<Import("dns")>] Globals =
+        static member lookup(domain: string, family: float, callback: Func<Error, string, float, unit>): string = failwith "JS only"
+        static member lookup(domain: string, callback: Func<Error, string, float, unit>): string = failwith "JS only"
+        static member resolve(domain: string, rrtype: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        static member resolve(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        static member resolve4(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        static member resolve6(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        static member resolveMx(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        static member resolveTxt(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        static member resolveSrv(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        static member resolveNs(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        static member resolveCname(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        static member reverse(ip: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
 
-
-    type Globals =
-        abstract lookup: domain: string * family: float * callback: Func<Error, string, float, unit> -> string
-        abstract lookup: domain: string * callback: Func<Error, string, float, unit> -> string
-        abstract resolve: domain: string * rrtype: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-        abstract resolve: domain: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-        abstract resolve4: domain: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-        abstract resolve6: domain: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-        abstract resolveMx: domain: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-        abstract resolveTxt: domain: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-        abstract resolveSrv: domain: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-        abstract resolveNs: domain: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-        abstract resolveCname: domain: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-        abstract reverse: ip: string * callback: Func<Error, ResizeArray<string>, unit> -> ResizeArray<string>
-
-    let [<Import("dns")>] Globals: Globals = failwith "JS only"
 
 module dgram =
     type RemoteInfo =
@@ -1047,7 +1197,7 @@ module dgram =
         abstract port: float with get, set
 
     and Socket =
-        // inherit events.EventEmitter() // TODO
+        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract send: buf: Buffer * offset: float * length: float * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
         abstract bind: port: float * ?address: string * ?callback: Func<unit> -> unit
         abstract close: unit -> unit
@@ -1058,10 +1208,9 @@ module dgram =
         abstract addMembership: multicastAddress: string * ?multicastInterface: string -> unit
         abstract dropMembership: multicastAddress: string * ?multicastInterface: string -> unit
 
-    type Globals =
-        abstract createSocket: ``type``: string * ?callback: Func<Buffer, RemoteInfo, unit> -> Socket
+    type [<Import("dgram")>] Globals =
+        static member createSocket(``type``: string, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = failwith "JS only"
 
-    let [<Import("dgram")>] Globals: Globals = failwith "JS only"
 
 
 module fs =
@@ -1089,127 +1238,142 @@ module fs =
         abstract isSocket: unit -> bool
 
     and FSWatcher =
-        // inherit events.EventEmitter() // TODO
+        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract close: unit -> unit
 
     and ReadStream =
-        // inherit stream.Readable // TODO
+        abstract readable: bool with get, set
+        abstract _read: size: float -> unit
+        abstract read: ?size: float -> obj
+        abstract setEncoding: encoding: string -> unit
+        abstract pause: unit -> unit
+        abstract resume: unit -> unit
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract unpipe: ?destination: 'T -> unit
+        abstract unshift: chunk: obj -> unit
+        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
+        abstract push: chunk: obj * ?encoding: string -> bool
         abstract close: unit -> unit
 
     and WriteStream =
-        // inherit stream.Writable // TODO
+        abstract writable: bool with get, set
+        abstract _write: chunk: obj * encoding: string * callback: Function -> unit
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
+        abstract ``end``: unit -> unit
+        abstract ``end``: chunk: obj * ?cb: Function -> unit
+        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
         abstract bytesWritten: float with get, set
         abstract close: unit -> unit
 
-    type Globals =
-        abstract F_OK: float with get, set
-        abstract R_OK: float with get, set
-        abstract W_OK: float with get, set
-        abstract X_OK: float with get, set
-        abstract rename: oldPath: string * newPath: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract renameSync: oldPath: string * newPath: string -> unit
-        abstract truncate: path: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract truncate: path: string * len: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract truncateSync: path: string * ?len: float -> unit
-        abstract ftruncate: fd: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract ftruncate: fd: float * len: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract ftruncateSync: fd: float * ?len: float -> unit
-        abstract chown: path: string * uid: float * gid: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract chownSync: path: string * uid: float * gid: float -> unit
-        abstract fchown: fd: float * uid: float * gid: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract fchownSync: fd: float * uid: float * gid: float -> unit
-        abstract lchown: path: string * uid: float * gid: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract lchownSync: path: string * uid: float * gid: float -> unit
-        abstract chmod: path: string * mode: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract chmod: path: string * mode: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract chmodSync: path: string * mode: float -> unit
-        abstract chmodSync: path: string * mode: string -> unit
-        abstract fchmod: fd: float * mode: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract fchmod: fd: float * mode: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract fchmodSync: fd: float * mode: float -> unit
-        abstract fchmodSync: fd: float * mode: string -> unit
-        abstract lchmod: path: string * mode: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract lchmod: path: string * mode: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract lchmodSync: path: string * mode: float -> unit
-        abstract lchmodSync: path: string * mode: string -> unit
-        abstract stat: path: string * ?callback: Func<NodeJS.ErrnoException, Stats, obj> -> unit
-        abstract lstat: path: string * ?callback: Func<NodeJS.ErrnoException, Stats, obj> -> unit
-        abstract fstat: fd: float * ?callback: Func<NodeJS.ErrnoException, Stats, obj> -> unit
-        abstract statSync: path: string -> Stats
-        abstract lstatSync: path: string -> Stats
-        abstract fstatSync: fd: float -> Stats
-        abstract link: srcpath: string * dstpath: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract linkSync: srcpath: string * dstpath: string -> unit
-        abstract symlink: srcpath: string * dstpath: string * ?``type``: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract symlinkSync: srcpath: string * dstpath: string * ?``type``: string -> unit
-        abstract readlink: path: string * ?callback: Func<NodeJS.ErrnoException, string, obj> -> unit
-        abstract readlinkSync: path: string -> string
-        abstract realpath: path: string * ?callback: Func<NodeJS.ErrnoException, string, obj> -> unit
-        abstract realpath: path: string * cache: obj * callback: Func<NodeJS.ErrnoException, string, obj> -> unit
-        abstract realpathSync: path: string * ?cache: obj -> string
-        abstract unlink: path: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract unlinkSync: path: string -> unit
-        abstract rmdir: path: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract rmdirSync: path: string -> unit
-        abstract mkdir: path: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract mkdir: path: string * mode: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract mkdir: path: string * mode: string * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract mkdirSync: path: string * ?mode: float -> unit
-        abstract mkdirSync: path: string * ?mode: string -> unit
-        abstract readdir: path: string * ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit> -> unit
-        abstract readdirSync: path: string -> ResizeArray<string>
-        abstract close: fd: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract closeSync: fd: float -> unit
-        abstract ``open``: path: string * flags: string * ?callback: Func<NodeJS.ErrnoException, float, obj> -> unit
-        abstract ``open``: path: string * flags: string * mode: float * ?callback: Func<NodeJS.ErrnoException, float, obj> -> unit
-        abstract ``open``: path: string * flags: string * mode: string * ?callback: Func<NodeJS.ErrnoException, float, obj> -> unit
-        abstract openSync: path: string * flags: string * ?mode: float -> float
-        abstract openSync: path: string * flags: string * ?mode: string -> float
-        abstract utimes: path: string * atime: float * mtime: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract utimes: path: string * atime: DateTime * mtime: DateTime * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract utimesSync: path: string * atime: float * mtime: float -> unit
-        abstract utimesSync: path: string * atime: DateTime * mtime: DateTime -> unit
-        abstract futimes: fd: float * atime: float * mtime: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract futimes: fd: float * atime: DateTime * mtime: DateTime * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract futimesSync: fd: float * atime: float * mtime: float -> unit
-        abstract futimesSync: fd: float * atime: DateTime * mtime: DateTime -> unit
-        abstract fsync: fd: float * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract fsyncSync: fd: float -> unit
-        abstract write: fd: float * buffer: Buffer * offset: float * length: float * position: float * ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit> -> unit
-        abstract write: fd: float * buffer: Buffer * offset: float * length: float * ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit> -> unit
-        abstract write: fd: float * data: obj * ?callback: Func<NodeJS.ErrnoException, float, string, unit> -> unit
-        abstract write: fd: float * data: obj * offset: float * ?callback: Func<NodeJS.ErrnoException, float, string, unit> -> unit
-        abstract write: fd: float * data: obj * offset: float * encoding: string * ?callback: Func<NodeJS.ErrnoException, float, string, unit> -> unit
-        abstract writeSync: fd: float * buffer: Buffer * offset: float * length: float * position: float -> float
-        abstract read: fd: float * buffer: Buffer * offset: float * length: float * position: float * ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit> -> unit
-        abstract readSync: fd: float * buffer: Buffer * offset: float * length: float * position: float -> float
-        abstract readFile: filename: string * encoding: string * callback: Func<NodeJS.ErrnoException, string, unit> -> unit
-        abstract readFile: filename: string * options: obj * callback: Func<NodeJS.ErrnoException, string, unit> -> unit
-        abstract readFile: filename: string * options: obj * callback: Func<NodeJS.ErrnoException, Buffer, unit> -> unit
-        abstract readFile: filename: string * callback: Func<NodeJS.ErrnoException, Buffer, unit> -> unit
-        abstract readFileSync: filename: string * encoding: string -> string
-        abstract readFileSync: filename: string * options: obj -> string
-        abstract readFileSync: filename: string * ?options: obj -> Buffer
-        abstract writeFile: filename: string * data: obj * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract writeFile: filename: string * data: obj * options: obj * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract writeFileSync: filename: string * data: obj * ?options: obj -> unit
-        abstract appendFile: filename: string * data: obj * options: obj * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract appendFile: filename: string * data: obj * ?callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract appendFileSync: filename: string * data: obj * ?options: obj -> unit
-        abstract watchFile: filename: string * listener: Func<Stats, Stats, unit> -> unit
-        abstract watchFile: filename: string * options: obj * listener: Func<Stats, Stats, unit> -> unit
-        abstract unwatchFile: filename: string * ?listener: Func<Stats, Stats, unit> -> unit
-        abstract watch: filename: string * ?listener: Func<string, string, obj> -> FSWatcher
-        abstract watch: filename: string * options: obj * ?listener: Func<string, string, obj> -> FSWatcher
-        abstract exists: path: string * ?callback: Func<bool, unit> -> unit
-        abstract existsSync: path: string -> bool
-        abstract access: path: string * callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract access: path: string * mode: float * callback: Func<NodeJS.ErrnoException, unit> -> unit
-        abstract accessSync: path: string * ?mode: float -> unit
-        abstract createReadStream: path: string * ?options: obj -> ReadStream
-        abstract createWriteStream: path: string * ?options: obj -> WriteStream
+    type [<Import("fs")>] Globals =
+        static member F_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member R_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member W_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member X_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member rename(oldPath: string, newPath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member renameSync(oldPath: string, newPath: string): unit = failwith "JS only"
+        static member truncate(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member truncate(path: string, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member truncateSync(path: string, ?len: float): unit = failwith "JS only"
+        static member ftruncate(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member ftruncate(fd: float, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member ftruncateSync(fd: float, ?len: float): unit = failwith "JS only"
+        static member chown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member chownSync(path: string, uid: float, gid: float): unit = failwith "JS only"
+        static member fchown(fd: float, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member fchownSync(fd: float, uid: float, gid: float): unit = failwith "JS only"
+        static member lchown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member lchownSync(path: string, uid: float, gid: float): unit = failwith "JS only"
+        static member chmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member chmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member chmodSync(path: string, mode: float): unit = failwith "JS only"
+        static member chmodSync(path: string, mode: string): unit = failwith "JS only"
+        static member fchmod(fd: float, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member fchmod(fd: float, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member fchmodSync(fd: float, mode: float): unit = failwith "JS only"
+        static member fchmodSync(fd: float, mode: string): unit = failwith "JS only"
+        static member lchmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member lchmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member lchmodSync(path: string, mode: float): unit = failwith "JS only"
+        static member lchmodSync(path: string, mode: string): unit = failwith "JS only"
+        static member stat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
+        static member lstat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
+        static member fstat(fd: float, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
+        static member statSync(path: string): Stats = failwith "JS only"
+        static member lstatSync(path: string): Stats = failwith "JS only"
+        static member fstatSync(fd: float): Stats = failwith "JS only"
+        static member link(srcpath: string, dstpath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member linkSync(srcpath: string, dstpath: string): unit = failwith "JS only"
+        static member symlink(srcpath: string, dstpath: string, ?``type``: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member symlinkSync(srcpath: string, dstpath: string, ?``type``: string): unit = failwith "JS only"
+        static member readlink(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
+        static member readlinkSync(path: string): string = failwith "JS only"
+        static member realpath(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
+        static member realpath(path: string, cache: obj, callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
+        static member realpathSync(path: string, ?cache: obj): string = failwith "JS only"
+        static member unlink(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member unlinkSync(path: string): unit = failwith "JS only"
+        static member rmdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member rmdirSync(path: string): unit = failwith "JS only"
+        static member mkdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member mkdir(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member mkdir(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member mkdirSync(path: string, ?mode: float): unit = failwith "JS only"
+        static member mkdirSync(path: string, ?mode: string): unit = failwith "JS only"
+        static member readdir(path: string, ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit>): unit = failwith "JS only"
+        static member readdirSync(path: string): ResizeArray<string> = failwith "JS only"
+        static member close(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member closeSync(fd: float): unit = failwith "JS only"
+        static member ``open``(path: string, flags: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
+        static member ``open``(path: string, flags: string, mode: float, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
+        static member ``open``(path: string, flags: string, mode: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
+        static member openSync(path: string, flags: string, ?mode: float): float = failwith "JS only"
+        static member openSync(path: string, flags: string, ?mode: string): float = failwith "JS only"
+        static member utimes(path: string, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member utimes(path: string, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member utimesSync(path: string, atime: float, mtime: float): unit = failwith "JS only"
+        static member utimesSync(path: string, atime: DateTime, mtime: DateTime): unit = failwith "JS only"
+        static member futimes(fd: float, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member futimes(fd: float, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member futimesSync(fd: float, atime: float, mtime: float): unit = failwith "JS only"
+        static member futimesSync(fd: float, atime: DateTime, mtime: DateTime): unit = failwith "JS only"
+        static member fsync(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member fsyncSync(fd: float): unit = failwith "JS only"
+        static member write(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
+        static member write(fd: float, buffer: Buffer, offset: float, length: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
+        static member write(fd: float, data: obj, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
+        static member write(fd: float, data: obj, offset: float, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
+        static member write(fd: float, data: obj, offset: float, encoding: string, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
+        static member writeSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = failwith "JS only"
+        static member read(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
+        static member readSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = failwith "JS only"
+        static member readFile(filename: string, encoding: string, callback: Func<NodeJS.ErrnoException, string, unit>): unit = failwith "JS only"
+        static member readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, string, unit>): unit = failwith "JS only"
+        static member readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = failwith "JS only"
+        static member readFile(filename: string, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = failwith "JS only"
+        static member readFileSync(filename: string, encoding: string): string = failwith "JS only"
+        static member readFileSync(filename: string, options: obj): string = failwith "JS only"
+        static member readFileSync(filename: string, ?options: obj): Buffer = failwith "JS only"
+        static member writeFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member writeFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member writeFileSync(filename: string, data: obj, ?options: obj): unit = failwith "JS only"
+        static member appendFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member appendFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member appendFileSync(filename: string, data: obj, ?options: obj): unit = failwith "JS only"
+        static member watchFile(filename: string, listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
+        static member watchFile(filename: string, options: obj, listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
+        static member unwatchFile(filename: string, ?listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
+        static member watch(filename: string, ?listener: Func<string, string, obj>): FSWatcher = failwith "JS only"
+        static member watch(filename: string, options: obj, ?listener: Func<string, string, obj>): FSWatcher = failwith "JS only"
+        static member exists(path: string, ?callback: Func<bool, unit>): unit = failwith "JS only"
+        static member existsSync(path: string): bool = failwith "JS only"
+        static member access(path: string, callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member access(path: string, mode: float, callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        static member accessSync(path: string, ?mode: float): unit = failwith "JS only"
+        static member createReadStream(path: string, ?options: obj): ReadStream = failwith "JS only"
+        static member createWriteStream(path: string, ?options: obj): WriteStream = failwith "JS only"
 
-    let [<Import("fs")>] Globals: Globals = failwith "JS only"
 
 
 module path =
@@ -1220,60 +1384,53 @@ module path =
         abstract ext: string with get, set
         abstract name: string with get, set
 
-    type Globals =
-        abstract sep: string with get, set
-        abstract delimiter: string with get, set
-        abstract normalize: p: string -> string
-        abstract join: [<ParamArray>] paths: obj[] -> string
-        abstract join: [<ParamArray>] paths: string[] -> string
-        abstract resolve: [<ParamArray>] pathSegments: obj[] -> string
-        abstract isAbsolute: path: string -> bool
-        abstract relative: from: string * ``to``: string -> string
-        abstract dirname: p: string -> string
-        abstract basename: p: string * ?ext: string -> string
-        abstract extname: p: string -> string
-        abstract parse: pathString: string -> ParsedPath
-        abstract format: pathObject: ParsedPath -> string
+    type [<Import("path")>] Globals =
+        static member sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        static member delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        static member normalize(p: string): string = failwith "JS only"
+        static member join([<ParamArray>] paths: obj[]): string = failwith "JS only"
+        static member join([<ParamArray>] paths: string[]): string = failwith "JS only"
+        static member resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
+        static member isAbsolute(path: string): bool = failwith "JS only"
+        static member relative(from: string, ``to``: string): string = failwith "JS only"
+        static member dirname(p: string): string = failwith "JS only"
+        static member basename(p: string, ?ext: string): string = failwith "JS only"
+        static member extname(p: string): string = failwith "JS only"
+        static member parse(pathString: string): ParsedPath = failwith "JS only"
+        static member format(pathObject: ParsedPath): string = failwith "JS only"
 
-    let [<Import("path")>] Globals: Globals = failwith "JS only"
     module posix =
+        type [<Import("path?get=posix")>] Globals =
+            static member sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+            static member delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+            static member normalize(p: string): string = failwith "JS only"
+            static member join([<ParamArray>] paths: obj[]): string = failwith "JS only"
+            static member resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
+            static member isAbsolute(p: string): bool = failwith "JS only"
+            static member relative(from: string, ``to``: string): string = failwith "JS only"
+            static member dirname(p: string): string = failwith "JS only"
+            static member basename(p: string, ?ext: string): string = failwith "JS only"
+            static member extname(p: string): string = failwith "JS only"
+            static member parse(p: string): ParsedPath = failwith "JS only"
+            static member format(pP: ParsedPath): string = failwith "JS only"
 
-
-        type Globals =
-            abstract sep: string with get, set
-            abstract delimiter: string with get, set
-            abstract normalize: p: string -> string
-            abstract join: [<ParamArray>] paths: obj[] -> string
-            abstract resolve: [<ParamArray>] pathSegments: obj[] -> string
-            abstract isAbsolute: p: string -> bool
-            abstract relative: from: string * ``to``: string -> string
-            abstract dirname: p: string -> string
-            abstract basename: p: string * ?ext: string -> string
-            abstract extname: p: string -> string
-            abstract parse: p: string -> ParsedPath
-            abstract format: pP: ParsedPath -> string
-
-        let [<Import("posix")>] Globals: Globals = failwith "JS only"
 
 
     module win32 =
+        type [<Import("path?get=win32")>] Globals =
+            static member sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+            static member delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+            static member normalize(p: string): string = failwith "JS only"
+            static member join([<ParamArray>] paths: obj[]): string = failwith "JS only"
+            static member resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
+            static member isAbsolute(p: string): bool = failwith "JS only"
+            static member relative(from: string, ``to``: string): string = failwith "JS only"
+            static member dirname(p: string): string = failwith "JS only"
+            static member basename(p: string, ?ext: string): string = failwith "JS only"
+            static member extname(p: string): string = failwith "JS only"
+            static member parse(p: string): ParsedPath = failwith "JS only"
+            static member format(pP: ParsedPath): string = failwith "JS only"
 
-
-        type Globals =
-            abstract sep: string with get, set
-            abstract delimiter: string with get, set
-            abstract normalize: p: string -> string
-            abstract join: [<ParamArray>] paths: obj[] -> string
-            abstract resolve: [<ParamArray>] pathSegments: obj[] -> string
-            abstract isAbsolute: p: string -> bool
-            abstract relative: from: string * ``to``: string -> string
-            abstract dirname: p: string -> string
-            abstract basename: p: string * ?ext: string -> string
-            abstract extname: p: string -> string
-            abstract parse: p: string -> ParsedPath
-            abstract format: pP: ParsedPath -> string
-
-        let [<Import("win32")>] Globals: Globals = failwith "JS only"
 
 
 module string_decoder =
@@ -1281,10 +1438,8 @@ module string_decoder =
         abstract write: buffer: Buffer -> string
         abstract detectIncompleteChar: buffer: Buffer -> float
 
-    type Globals =
-        abstract StringDecoder: obj with get, set
-
-    let [<Import("string_decoder")>] Globals: Globals = failwith "JS only"
+    type [<Import("string_decoder")>] Globals =
+        static member StringDecoder with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
 
 
 module util =
@@ -1294,55 +1449,51 @@ module util =
         abstract colors: bool option with get, set
         abstract customInspect: bool option with get, set
 
-    type Globals =
-        abstract format: format: obj * [<ParamArray>] param: obj[] -> string
-        abstract debug: string: string -> unit
-        abstract error: [<ParamArray>] param: obj[] -> unit
-        abstract puts: [<ParamArray>] param: obj[] -> unit
-        abstract print: [<ParamArray>] param: obj[] -> unit
-        abstract log: string: string -> unit
-        abstract inspect: ``object``: obj * ?showHidden: bool * ?depth: float * ?color: bool -> string
-        abstract inspect: ``object``: obj * options: InspectOptions -> string
-        abstract isArray: ``object``: obj -> bool
-        abstract isRegExp: ``object``: obj -> bool
-        abstract isDate: ``object``: obj -> bool
-        abstract isError: ``object``: obj -> bool
-        abstract inherits: ``constructor``: obj * superConstructor: obj -> unit
-        abstract debuglog: key: string -> Func<string, obj, unit>
+    type [<Import("util")>] Globals =
+        static member format(format: obj, [<ParamArray>] param: obj[]): string = failwith "JS only"
+        static member debug(string: string): unit = failwith "JS only"
+        static member error([<ParamArray>] param: obj[]): unit = failwith "JS only"
+        static member puts([<ParamArray>] param: obj[]): unit = failwith "JS only"
+        static member print([<ParamArray>] param: obj[]): unit = failwith "JS only"
+        static member log(string: string): unit = failwith "JS only"
+        static member inspect(``object``: obj, ?showHidden: bool, ?depth: float, ?color: bool): string = failwith "JS only"
+        static member inspect(``object``: obj, options: InspectOptions): string = failwith "JS only"
+        static member isArray(``object``: obj): bool = failwith "JS only"
+        static member isRegExp(``object``: obj): bool = failwith "JS only"
+        static member isDate(``object``: obj): bool = failwith "JS only"
+        static member isError(``object``: obj): bool = failwith "JS only"
+        static member inherits(``constructor``: obj, superConstructor: obj): unit = failwith "JS only"
+        static member debuglog(key: string): Func<string, obj, unit> = failwith "JS only"
 
-    let [<Import("util")>] Globals: Globals = failwith "JS only"
 
 
 module ``assert`` =
-    type Globals =
-        abstract ``internal``: value: obj * ?message: string -> unit
+    type [<Import("assert")>] Globals =
+        static member ``internal``(value: obj, ?message: string): unit = failwith "JS only"
 
-    let [<Import("assert")>] Globals: Globals = failwith "JS only"
     module ``internal`` =
-        type [<Import("internal?get=AssertionError")>] AssertionError(?options: obj) =
+        type [<Import("assert?get=internal.AssertionError")>] AssertionError(?options: obj) =
+            // interface Error
             member __.name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
             member __.message with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
             member __.actual with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
             member __.expected with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
             member __.operator with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
             member __.generatedMessage with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-            interface Error with
-                member __.stack with get(): string option = failwith "JS only" and set(v): unit = failwith "JS only"
 
-        type Globals =
-            abstract throws: obj with get, set
-            abstract doesNotThrow: obj with get, set
-            abstract fail: ?actual: obj * ?expected: obj * ?message: string * ?operator: string -> unit
-            abstract ok: value: obj * ?message: string -> unit
-            abstract equal: actual: obj * expected: obj * ?message: string -> unit
-            abstract notEqual: actual: obj * expected: obj * ?message: string -> unit
-            abstract deepEqual: actual: obj * expected: obj * ?message: string -> unit
-            abstract notDeepEqual: acutal: obj * expected: obj * ?message: string -> unit
-            abstract strictEqual: actual: obj * expected: obj * ?message: string -> unit
-            abstract notStrictEqual: actual: obj * expected: obj * ?message: string -> unit
-            abstract ifError: value: obj -> unit
+        type [<Import("assert?get=internal")>] Globals =
+            static member throws with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+            static member doesNotThrow with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+            static member fail(?actual: obj, ?expected: obj, ?message: string, ?operator: string): unit = failwith "JS only"
+            static member ok(value: obj, ?message: string): unit = failwith "JS only"
+            static member equal(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            static member notEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            static member deepEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            static member notDeepEqual(acutal: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            static member strictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            static member notStrictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            static member ifError(value: obj): unit = failwith "JS only"
 
-        let [<Import("internal")>] Globals: Globals = failwith "JS only"
 
 
 module tty =
@@ -1356,256 +1507,253 @@ module tty =
         abstract columns: float with get, set
         abstract rows: float with get, set
 
-    type Globals =
-        abstract isatty: fd: float -> bool
+    type [<Import("tty")>] Globals =
+        static member isatty(fd: float): bool = failwith "JS only"
 
-    let [<Import("tty")>] Globals: Globals = failwith "JS only"
 
 
 module domain =
     type [<Import("domain?get=Domain")>] Domain() =
         inherit events.EventEmitter()
-        member __.run(fn: (obj->obj)): unit = failwith "JS only"
+        member __.run(fn: Function): unit = failwith "JS only"
         member __.add(emitter: events.EventEmitter): unit = failwith "JS only"
         member __.remove(emitter: events.EventEmitter): unit = failwith "JS only"
         member __.bind(cb: Func<Error, obj, obj>): obj = failwith "JS only"
         member __.intercept(cb: Func<obj, obj>): obj = failwith "JS only"
         member __.dispose(): unit = failwith "JS only"
-        member __.addListener(``event``: string, listener: (obj->obj)): Domain = failwith "JS only"
-        member __.on(``event``: string, listener: (obj->obj)): Domain = failwith "JS only"
-        member __.once(``event``: string, listener: (obj->obj)): Domain = failwith "JS only"
-        member __.removeListener(``event``: string, listener: (obj->obj)): Domain = failwith "JS only"
+        member __.addListener(``event``: string, listener: Function): Domain = failwith "JS only"
+        member __.on(``event``: string, listener: Function): Domain = failwith "JS only"
+        member __.once(``event``: string, listener: Function): Domain = failwith "JS only"
+        member __.removeListener(``event``: string, listener: Function): Domain = failwith "JS only"
         member __.removeAllListeners(?``event``: string): Domain = failwith "JS only"
 
-    type Globals =
-        abstract create: unit -> Domain
+    type [<Import("domain")>] Globals =
+        static member create(): Domain = failwith "JS only"
 
-    let [<Import("domain")>] Globals: Globals = failwith "JS only"
 
 
 module constants =
-    type Globals =
-        abstract E2BIG: float with get, set
-        abstract EACCES: float with get, set
-        abstract EADDRINUSE: float with get, set
-        abstract EADDRNOTAVAIL: float with get, set
-        abstract EAFNOSUPPORT: float with get, set
-        abstract EAGAIN: float with get, set
-        abstract EALREADY: float with get, set
-        abstract EBADF: float with get, set
-        abstract EBADMSG: float with get, set
-        abstract EBUSY: float with get, set
-        abstract ECANCELED: float with get, set
-        abstract ECHILD: float with get, set
-        abstract ECONNABORTED: float with get, set
-        abstract ECONNREFUSED: float with get, set
-        abstract ECONNRESET: float with get, set
-        abstract EDEADLK: float with get, set
-        abstract EDESTADDRREQ: float with get, set
-        abstract EDOM: float with get, set
-        abstract EEXIST: float with get, set
-        abstract EFAULT: float with get, set
-        abstract EFBIG: float with get, set
-        abstract EHOSTUNREACH: float with get, set
-        abstract EIDRM: float with get, set
-        abstract EILSEQ: float with get, set
-        abstract EINPROGRESS: float with get, set
-        abstract EINTR: float with get, set
-        abstract EINVAL: float with get, set
-        abstract EIO: float with get, set
-        abstract EISCONN: float with get, set
-        abstract EISDIR: float with get, set
-        abstract ELOOP: float with get, set
-        abstract EMFILE: float with get, set
-        abstract EMLINK: float with get, set
-        abstract EMSGSIZE: float with get, set
-        abstract ENAMETOOLONG: float with get, set
-        abstract ENETDOWN: float with get, set
-        abstract ENETRESET: float with get, set
-        abstract ENETUNREACH: float with get, set
-        abstract ENFILE: float with get, set
-        abstract ENOBUFS: float with get, set
-        abstract ENODATA: float with get, set
-        abstract ENODEV: float with get, set
-        abstract ENOENT: float with get, set
-        abstract ENOEXEC: float with get, set
-        abstract ENOLCK: float with get, set
-        abstract ENOLINK: float with get, set
-        abstract ENOMEM: float with get, set
-        abstract ENOMSG: float with get, set
-        abstract ENOPROTOOPT: float with get, set
-        abstract ENOSPC: float with get, set
-        abstract ENOSR: float with get, set
-        abstract ENOSTR: float with get, set
-        abstract ENOSYS: float with get, set
-        abstract ENOTCONN: float with get, set
-        abstract ENOTDIR: float with get, set
-        abstract ENOTEMPTY: float with get, set
-        abstract ENOTSOCK: float with get, set
-        abstract ENOTSUP: float with get, set
-        abstract ENOTTY: float with get, set
-        abstract ENXIO: float with get, set
-        abstract EOPNOTSUPP: float with get, set
-        abstract EOVERFLOW: float with get, set
-        abstract EPERM: float with get, set
-        abstract EPIPE: float with get, set
-        abstract EPROTO: float with get, set
-        abstract EPROTONOSUPPORT: float with get, set
-        abstract EPROTOTYPE: float with get, set
-        abstract ERANGE: float with get, set
-        abstract EROFS: float with get, set
-        abstract ESPIPE: float with get, set
-        abstract ESRCH: float with get, set
-        abstract ETIME: float with get, set
-        abstract ETIMEDOUT: float with get, set
-        abstract ETXTBSY: float with get, set
-        abstract EWOULDBLOCK: float with get, set
-        abstract EXDEV: float with get, set
-        abstract WSAEINTR: float with get, set
-        abstract WSAEBADF: float with get, set
-        abstract WSAEACCES: float with get, set
-        abstract WSAEFAULT: float with get, set
-        abstract WSAEINVAL: float with get, set
-        abstract WSAEMFILE: float with get, set
-        abstract WSAEWOULDBLOCK: float with get, set
-        abstract WSAEINPROGRESS: float with get, set
-        abstract WSAEALREADY: float with get, set
-        abstract WSAENOTSOCK: float with get, set
-        abstract WSAEDESTADDRREQ: float with get, set
-        abstract WSAEMSGSIZE: float with get, set
-        abstract WSAEPROTOTYPE: float with get, set
-        abstract WSAENOPROTOOPT: float with get, set
-        abstract WSAEPROTONOSUPPORT: float with get, set
-        abstract WSAESOCKTNOSUPPORT: float with get, set
-        abstract WSAEOPNOTSUPP: float with get, set
-        abstract WSAEPFNOSUPPORT: float with get, set
-        abstract WSAEAFNOSUPPORT: float with get, set
-        abstract WSAEADDRINUSE: float with get, set
-        abstract WSAEADDRNOTAVAIL: float with get, set
-        abstract WSAENETDOWN: float with get, set
-        abstract WSAENETUNREACH: float with get, set
-        abstract WSAENETRESET: float with get, set
-        abstract WSAECONNABORTED: float with get, set
-        abstract WSAECONNRESET: float with get, set
-        abstract WSAENOBUFS: float with get, set
-        abstract WSAEISCONN: float with get, set
-        abstract WSAENOTCONN: float with get, set
-        abstract WSAESHUTDOWN: float with get, set
-        abstract WSAETOOMANYREFS: float with get, set
-        abstract WSAETIMEDOUT: float with get, set
-        abstract WSAECONNREFUSED: float with get, set
-        abstract WSAELOOP: float with get, set
-        abstract WSAENAMETOOLONG: float with get, set
-        abstract WSAEHOSTDOWN: float with get, set
-        abstract WSAEHOSTUNREACH: float with get, set
-        abstract WSAENOTEMPTY: float with get, set
-        abstract WSAEPROCLIM: float with get, set
-        abstract WSAEUSERS: float with get, set
-        abstract WSAEDQUOT: float with get, set
-        abstract WSAESTALE: float with get, set
-        abstract WSAEREMOTE: float with get, set
-        abstract WSASYSNOTREADY: float with get, set
-        abstract WSAVERNOTSUPPORTED: float with get, set
-        abstract WSANOTINITIALISED: float with get, set
-        abstract WSAEDISCON: float with get, set
-        abstract WSAENOMORE: float with get, set
-        abstract WSAECANCELLED: float with get, set
-        abstract WSAEINVALIDPROCTABLE: float with get, set
-        abstract WSAEINVALIDPROVIDER: float with get, set
-        abstract WSAEPROVIDERFAILEDINIT: float with get, set
-        abstract WSASYSCALLFAILURE: float with get, set
-        abstract WSASERVICE_NOT_FOUND: float with get, set
-        abstract WSATYPE_NOT_FOUND: float with get, set
-        abstract WSA_E_NO_MORE: float with get, set
-        abstract WSA_E_CANCELLED: float with get, set
-        abstract WSAEREFUSED: float with get, set
-        abstract SIGHUP: float with get, set
-        abstract SIGINT: float with get, set
-        abstract SIGILL: float with get, set
-        abstract SIGABRT: float with get, set
-        abstract SIGFPE: float with get, set
-        abstract SIGKILL: float with get, set
-        abstract SIGSEGV: float with get, set
-        abstract SIGTERM: float with get, set
-        abstract SIGBREAK: float with get, set
-        abstract SIGWINCH: float with get, set
-        abstract SSL_OP_ALL: float with get, set
-        abstract SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION: float with get, set
-        abstract SSL_OP_CIPHER_SERVER_PREFERENCE: float with get, set
-        abstract SSL_OP_CISCO_ANYCONNECT: float with get, set
-        abstract SSL_OP_COOKIE_EXCHANGE: float with get, set
-        abstract SSL_OP_CRYPTOPRO_TLSEXT_BUG: float with get, set
-        abstract SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS: float with get, set
-        abstract SSL_OP_EPHEMERAL_RSA: float with get, set
-        abstract SSL_OP_LEGACY_SERVER_CONNECT: float with get, set
-        abstract SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER: float with get, set
-        abstract SSL_OP_MICROSOFT_SESS_ID_BUG: float with get, set
-        abstract SSL_OP_MSIE_SSLV2_RSA_PADDING: float with get, set
-        abstract SSL_OP_NETSCAPE_CA_DN_BUG: float with get, set
-        abstract SSL_OP_NETSCAPE_CHALLENGE_BUG: float with get, set
-        abstract SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG: float with get, set
-        abstract SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG: float with get, set
-        abstract SSL_OP_NO_COMPRESSION: float with get, set
-        abstract SSL_OP_NO_QUERY_MTU: float with get, set
-        abstract SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION: float with get, set
-        abstract SSL_OP_NO_SSLv2: float with get, set
-        abstract SSL_OP_NO_SSLv3: float with get, set
-        abstract SSL_OP_NO_TICKET: float with get, set
-        abstract SSL_OP_NO_TLSv1: float with get, set
-        abstract SSL_OP_NO_TLSv1_1: float with get, set
-        abstract SSL_OP_NO_TLSv1_2: float with get, set
-        abstract SSL_OP_PKCS1_CHECK_1: float with get, set
-        abstract SSL_OP_PKCS1_CHECK_2: float with get, set
-        abstract SSL_OP_SINGLE_DH_USE: float with get, set
-        abstract SSL_OP_SINGLE_ECDH_USE: float with get, set
-        abstract SSL_OP_SSLEAY_080_CLIENT_DH_BUG: float with get, set
-        abstract SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG: float with get, set
-        abstract SSL_OP_TLS_BLOCK_PADDING_BUG: float with get, set
-        abstract SSL_OP_TLS_D5_BUG: float with get, set
-        abstract SSL_OP_TLS_ROLLBACK_BUG: float with get, set
-        abstract ENGINE_METHOD_DSA: float with get, set
-        abstract ENGINE_METHOD_DH: float with get, set
-        abstract ENGINE_METHOD_RAND: float with get, set
-        abstract ENGINE_METHOD_ECDH: float with get, set
-        abstract ENGINE_METHOD_ECDSA: float with get, set
-        abstract ENGINE_METHOD_CIPHERS: float with get, set
-        abstract ENGINE_METHOD_DIGESTS: float with get, set
-        abstract ENGINE_METHOD_STORE: float with get, set
-        abstract ENGINE_METHOD_PKEY_METHS: float with get, set
-        abstract ENGINE_METHOD_PKEY_ASN1_METHS: float with get, set
-        abstract ENGINE_METHOD_ALL: float with get, set
-        abstract ENGINE_METHOD_NONE: float with get, set
-        abstract DH_CHECK_P_NOT_SAFE_PRIME: float with get, set
-        abstract DH_CHECK_P_NOT_PRIME: float with get, set
-        abstract DH_UNABLE_TO_CHECK_GENERATOR: float with get, set
-        abstract DH_NOT_SUITABLE_GENERATOR: float with get, set
-        abstract NPN_ENABLED: float with get, set
-        abstract RSA_PKCS1_PADDING: float with get, set
-        abstract RSA_SSLV23_PADDING: float with get, set
-        abstract RSA_NO_PADDING: float with get, set
-        abstract RSA_PKCS1_OAEP_PADDING: float with get, set
-        abstract RSA_X931_PADDING: float with get, set
-        abstract RSA_PKCS1_PSS_PADDING: float with get, set
-        abstract POINT_CONVERSION_COMPRESSED: float with get, set
-        abstract POINT_CONVERSION_UNCOMPRESSED: float with get, set
-        abstract POINT_CONVERSION_HYBRID: float with get, set
-        abstract O_RDONLY: float with get, set
-        abstract O_WRONLY: float with get, set
-        abstract O_RDWR: float with get, set
-        abstract S_IFMT: float with get, set
-        abstract S_IFREG: float with get, set
-        abstract S_IFDIR: float with get, set
-        abstract S_IFCHR: float with get, set
-        abstract S_IFLNK: float with get, set
-        abstract O_CREAT: float with get, set
-        abstract O_EXCL: float with get, set
-        abstract O_TRUNC: float with get, set
-        abstract O_APPEND: float with get, set
-        abstract F_OK: float with get, set
-        abstract R_OK: float with get, set
-        abstract W_OK: float with get, set
-        abstract X_OK: float with get, set
-        abstract UV_UDP_REUSEADDR: float with get, set
+    type [<Import("constants")>] Globals =
+        static member E2BIG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EACCES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EADDRINUSE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EADDRNOTAVAIL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EAFNOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EAGAIN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EALREADY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EBADF with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EBADMSG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EBUSY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ECANCELED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ECHILD with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ECONNABORTED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ECONNREFUSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ECONNRESET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EDEADLK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EDESTADDRREQ with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EDOM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EEXIST with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EFAULT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EFBIG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EHOSTUNREACH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EIDRM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EILSEQ with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EINPROGRESS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EINTR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EINVAL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EIO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EISCONN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EISDIR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ELOOP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EMFILE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EMLINK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EMSGSIZE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENAMETOOLONG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENETDOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENETRESET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENETUNREACH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENFILE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOBUFS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENODATA with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENODEV with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOENT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOEXEC with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOLCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOLINK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOMEM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOMSG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOPROTOOPT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOSPC with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOSR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOSTR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOSYS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOTCONN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOTDIR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOTEMPTY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOTSOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOTSUP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENOTTY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENXIO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EOPNOTSUPP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EOVERFLOW with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EPERM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EPIPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EPROTO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EPROTONOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EPROTOTYPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ERANGE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EROFS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ESPIPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ESRCH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ETIME with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ETIMEDOUT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ETXTBSY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EWOULDBLOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member EXDEV with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEINTR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEBADF with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEACCES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEFAULT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEINVAL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEMFILE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEWOULDBLOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEINPROGRESS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEALREADY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENOTSOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEDESTADDRREQ with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEMSGSIZE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEPROTOTYPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENOPROTOOPT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEPROTONOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAESOCKTNOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEOPNOTSUPP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEPFNOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEAFNOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEADDRINUSE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEADDRNOTAVAIL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENETDOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENETUNREACH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENETRESET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAECONNABORTED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAECONNRESET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENOBUFS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEISCONN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENOTCONN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAESHUTDOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAETOOMANYREFS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAETIMEDOUT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAECONNREFUSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAELOOP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENAMETOOLONG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEHOSTDOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEHOSTUNREACH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENOTEMPTY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEPROCLIM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEUSERS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEDQUOT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAESTALE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEREMOTE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSASYSNOTREADY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAVERNOTSUPPORTED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSANOTINITIALISED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEDISCON with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAENOMORE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAECANCELLED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEINVALIDPROCTABLE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEINVALIDPROVIDER with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEPROVIDERFAILEDINIT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSASYSCALLFAILURE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSASERVICE_NOT_FOUND with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSATYPE_NOT_FOUND with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSA_E_NO_MORE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSA_E_CANCELLED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member WSAEREFUSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGHUP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGINT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGILL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGABRT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGFPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGKILL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGSEGV with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGTERM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGBREAK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SIGWINCH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_ALL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_CIPHER_SERVER_PREFERENCE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_CISCO_ANYCONNECT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_COOKIE_EXCHANGE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_CRYPTOPRO_TLSEXT_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_EPHEMERAL_RSA with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_LEGACY_SERVER_CONNECT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_MICROSOFT_SESS_ID_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_MSIE_SSLV2_RSA_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NETSCAPE_CA_DN_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NETSCAPE_CHALLENGE_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NO_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NO_QUERY_MTU with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NO_SSLv2 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NO_SSLv3 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NO_TICKET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NO_TLSv1 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NO_TLSv1_1 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_NO_TLSv1_2 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_PKCS1_CHECK_1 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_PKCS1_CHECK_2 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_SINGLE_DH_USE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_SINGLE_ECDH_USE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_SSLEAY_080_CLIENT_DH_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_TLS_BLOCK_PADDING_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_TLS_D5_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member SSL_OP_TLS_ROLLBACK_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_DSA with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_DH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_RAND with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_ECDH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_ECDSA with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_CIPHERS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_DIGESTS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_STORE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_PKEY_METHS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_PKEY_ASN1_METHS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_ALL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member ENGINE_METHOD_NONE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member DH_CHECK_P_NOT_SAFE_PRIME with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member DH_CHECK_P_NOT_PRIME with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member DH_UNABLE_TO_CHECK_GENERATOR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member DH_NOT_SUITABLE_GENERATOR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member NPN_ENABLED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member RSA_PKCS1_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member RSA_SSLV23_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member RSA_NO_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member RSA_PKCS1_OAEP_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member RSA_X931_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member RSA_PKCS1_PSS_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member POINT_CONVERSION_COMPRESSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member POINT_CONVERSION_UNCOMPRESSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member POINT_CONVERSION_HYBRID with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member O_RDONLY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member O_WRONLY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member O_RDWR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member S_IFMT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member S_IFREG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member S_IFDIR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member S_IFCHR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member S_IFLNK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member O_CREAT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member O_EXCL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member O_TRUNC with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member O_APPEND with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member F_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member R_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member W_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member X_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        static member UV_UDP_REUSEADDR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
 
-    let [<Import("constants")>] Globals: Globals = failwith "JS only"
 
