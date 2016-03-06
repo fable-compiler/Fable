@@ -1,6 +1,0 @@
-{
-    "env": "browser",
-    "outDir": ".",
-    "lib": "../../../lib",
-    "symbols": []
-}

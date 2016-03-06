@@ -1,0 +1,41 @@
+{
+  "name": "fable-compiler",
+  "version": "0.0.1",
+  "description": "F# to JavaScript compiler",
+  "main": "index.js",
+  "bin": {
+    "fable": "./index.js"
+  },
+  "dependencies": {
+    "babel-core": "^6.4.5",
+    "babel-template": "^6.5.0",
+    "babel-plugin-transform-do-expressions": "^6.3.13",
+    "babel-plugin-transform-es2015-arrow-functions": "^6.4.0",
+    "babel-plugin-transform-es2015-block-scoping": "^6.4.0",
+    "babel-plugin-transform-es2015-classes": "^6.4.5",
+    "babel-plugin-transform-es2015-computed-properties": "^6.4.0",
+    "babel-plugin-transform-es2015-for-of": "^6.3.13",
+    "babel-plugin-transform-es2015-modules-amd": "^6.5.0",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.5.2",
+    "babel-plugin-transform-es2015-modules-umd": "^6.4.3",
+    "babel-plugin-transform-es2015-object-super": "^6.5.0",
+    "babel-plugin-transform-es2015-parameters": "^6.4.5",
+    "babel-plugin-transform-es2015-shorthand-properties": "^6.5.0",
+    "babel-plugin-transform-es2015-spread": "^6.4.0",
+    "babel-plugin-transform-es5-property-mutators": "^6.5.0"
+  },
+  "devDependencies": {
+    "mocha": "^2.4.5"
+  },
+  "author": "Alfonso Garcia-Caro",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fsprojects/Fable.git"
+  },
+  "keywords": [ "fable", "fsharp", "F#" ],
+  "bugs": {
+    "url": "https://github.com/fsprojects/Fable/issues"
+  },
+  "homepage": "https://github.com/fsprojects/Fable#readme"
+}

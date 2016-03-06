@@ -1,2 +1,0 @@
-printfn "%s" "Hello world!"
-

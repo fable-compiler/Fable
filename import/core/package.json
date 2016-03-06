@@ -1,0 +1,10 @@
+{
+  "name": "fable-core",
+  "version": "0.0.1",
+  "description": "Core definitions for Fable: F# to JS compiler",
+  "repository": "https://github.com/fsprojects/Fable/import/core",
+  "license": "Apache-2.0",
+  "author": "Alfonso Garcia-Caro",  
+  "keywords": [ "fable", "fsharp", "F#" ],
+  "homepage": "https://github.com/fsprojects/Fable#readme"
+}

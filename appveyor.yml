@@ -15,7 +15,7 @@ install:
 
 os: Visual Studio 2015
 before_build:
-  - cmd: before_build.cmd
+  - cmd: set PATH=C:\Program Files (x86)\MSBuild\14.0\Bin;%PATH%
 build_script:
   - cmd: build.cmd
 test: off
@@ -23,15 +23,5 @@ version: 0.0.1.{build}
 artifacts:
   - path: build
     name: build
-
-test_script:
-  - node tools/fable2babel.js --projFile test/Fable.Tests.fsproj
-  - npm run test
-  - cd test\helloworld
-  - node ../../tools/fable2babel.js --projFile HelloWorld.fsx
-  - cd ..\..
-  - if not exist "C:\temp" mkdir C:\temp
-  - copy test\helloworld C:\temp
-  - node tools\fable2babel.js --projFile "C:\Temp\HelloWorld.fsproj"
   
  

@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<doc>
+<assembly><name>Fable</name></assembly>
+<members>
+<member name="T:Fable.AST.Position">
+<summary>
+ Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ExportAllDeclaration">
+<summary>
+ An export batch declaration, e.g., export * from &quot;mod&quot;;.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ExportDefaultDeclaration">
+<summary>
+ An export default declaration, e.g., export default function () {}; or export default 1;. 
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ExportNamedDeclaration">
+<summary>
+ An export named declaration, e.g., export {foo, bar};, export {foo} from &quot;mod&quot;; or export var foo = 1;.
+ Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ExportSpecifier">
+<summary>
+ An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}. 
+ The exported field refers to the name exported in the module. 
+ The local field refers to the binding into the local module scope. 
+ If it is a basic named export, such as in export {foo}, both exported and local are equivalent Identifier nodes; 
+ in this case an Identifier node representing foo. If it is an aliased export, such as in export {bar as foo}, 
+ the exported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ImportDeclaration">
+<summary>
+ e.g., import foo from &quot;mod&quot;;.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ImportNamespaceSpecifier">
+<summary>
+ A namespace import specifier, e.g., * as foo in import * as foo from &quot;mod.js&quot;.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ImportDefaultSpecifier">
+<summary>
+ A default import specifier, e.g., foo in import foo from &quot;mod.js&quot;.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ImportSpecifier">
+<summary>
+ An imported variable binding, e.g., {foo} in import {foo} from &quot;mod&quot; or {foo as bar} in import {foo as bar} from &quot;mod&quot;. 
+ The imported field refers to the name of the export imported from the module. 
+ The local field refers to the binding imported into the local module scope. 
+ If it is a basic named import, such as in import {foo} from &quot;mod&quot;, both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo. 
+ If it is an aliased import, such as in import {foo as bar} from &quot;mod&quot;, the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ModuleSpecifier">
+<summary>
+ A specifier in an import or export declaration.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ClassExpression">
+<summary>
+ Anonymous class: e.g., var myClass = class { }
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ClassProperty">
+<summary>
+ ES Class Fields &amp; Static Properties
+ https://github.com/jeffmo/es-class-fields-and-static-properties
+ e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.SequenceExpression">
+<summary>
+ A comma-separated sequence of expressions.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.CallExpression">
+<summary>
+ A function or method call expression.  
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ConditionalExpression">
+<summary>
+ A conditional expression, i.e., a ternary ?/: expression.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.MemberExpression">
+<summary>
+ If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression. 
+ If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.SpreadProperty">
+<summary>
+ e.g., var z = { x: 1, ...y } // Copy all properties from y 
+</summary>
+</member>
+<member name="P:Fable.AST.Babel.YieldExpression.delegate">
+<summary>
+ Delegates to another generator? (yield*)
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.DoExpression">
+<summary>
+ e.g., x = do { var t = f(); t * t + 1 };
+ http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
+ Doesn&apos;t seem to work well with block-scoped variables (let, const)
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ArrowFunctionExpression">
+<summary>
+ A fat arrow function expression, e.g., let foo = (bar) =&gt; { /* body */ }.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.Super">
+<summary>
+ A super pseudo-expression.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.FunctionDeclaration">
+<summary>
+ A function declaration. Note that id cannot be null.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ForOfStatement">
+<summary>
+ When passing a VariableDeclaration, the bound value must go through
+ the `right` parameter instead of `init` property in VariableDeclarator
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ForInStatement">
+<summary>
+ When passing a VariableDeclaration, the bound value must go through
+ the `right` parameter instead of `init` property in VariableDeclarator
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.TryStatement">
+<summary>
+ If handler is null then finalizer must be a BlockStatement.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.CatchClause">
+<summary>
+ A catch clause following a try block.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.SwitchCase">
+<summary>
+ A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.EmptyStatement">
+<summary>
+ An empty statement, i.e., a solitary semicolon.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.BlockStatement">
+<summary>
+ A block statement, i.e., a sequence of statements surrounded by braces.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ExpressionStatement">
+<summary>
+ An expression statement, i.e., a statement consisting of a single expression.
+</summary>
+</member>
+<member name="P:Fable.AST.Babel.Program.fileName">
+<summary>
+ Doesn&apos;t belong to babel specs
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.Program">
+<summary>
+ A complete program source tree.
+ Parsers must specify sourceType as &quot;module&quot; if the source has been parsed as an ES6 module. 
+ Otherwise, sourceType must be &quot;script&quot;.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.Directive">
+<summary>
+ e.g. &quot;use strict&quot;;
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.Identifier">
+<summary>
+ Note that an identifier may be an expression or a destructuring pattern.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.MacroExpression">
+<summary>
+ Not in Babel specs, disguised as StringLiteral    
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.EmptyExpression">
+<summary>
+ Placeholder, doesn&apos;t belong to Babel specs
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.ModuleDeclaration">
+<summary>
+ A module import or export declaration.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.Declaration">
+<summary>
+ Note that declarations are considered statements; this is because declarations can appear in any statement context.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.Expression">
+<summary>
+ Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
+</summary>
+</member>
+<member name="T:Fable.AST.Babel.Node">
+<summary>
+ The type field is a string representing the AST variant type. 
+ Each subtype of Node is documented below with the specific string of its type field. 
+ You can use this field to determine which interface a node implements.
+ The loc field represents the source location information of the node. 
+ If the node contains no information about the source location, the field is null; 
+ otherwise it is an object consisting of a start position (the position of the first character of the parsed source region) 
+ and an end position (the position of the first character after the parsed source region):
+</summary>
+</member>
+<member name="M:Fable.FSharp2Fable.Compiler.DeclInfo.IsIgnoredMethod(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpMemberOrFunctionOrValue)">
+<summary>
+ Is compiler generated (CompareTo...) or belongs to ignored entity?
+ (remember F# compiler puts class methods in enclosing modules)
+</summary>
+</member>
+<member name="M:Fable.FSharp2Fable.Compiler.DeclInfo.IsIgnoredEntity(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpEntity)">
+<summary>
+ Interface, inherits from System.Attribute, has &quot;Erase&quot; decorator...
+</summary>
+</member>
+<member name="M:Fable.FSharp2Fable.Identifiers.getBoundExpr``1(``0,Fable.FSharp2Fable.Context,Microsoft.FSharp.Compiler.SourceCodeServices.FSharpMemberOrFunctionOrValue)">
+<summary>
+ Get corresponding identifier to F# value in current scope
+</summary>
+</member>
+<member name="M:Fable.FSharp2Fable.Identifiers.bindIdentFrom(Fable.FSharp2Fable.IFableCompiler,Fable.FSharp2Fable.Context,Microsoft.FSharp.Compiler.SourceCodeServices.FSharpMemberOrFunctionOrValue)">
+<summary>
+ Sanitize F# identifier and create new context
+</summary>
+</member>
+<member name="M:Fable.FSharp2Fable.Identifiers.bindIdent(Fable.FSharp2Fable.Context,Fable.AST.Fable.Type,System.String)">
+<summary>
+ Make a sanitized identifier from a tentative name
+</summary>
+</member>
+<member name="M:Fable.Fable2Babel.Util.iife(Fable.Fable2Babel.IBabelCompiler,Fable.Fable2Babel.Context,Fable.AST.Fable.Expr)">
+<summary>
+ Immediately Invoked Function Expression
+</summary>
+</member>
+<member name="M:Fable.Naming.getRelativePath(System.String,System.String)">
+<summary>
+ Creates a relative path from one file or folder to another.
+ from http://stackoverflow.com/a/340454/3922220
+</summary>
+</member>
+</members>
+</doc>
