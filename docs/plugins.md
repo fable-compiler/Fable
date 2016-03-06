@@ -39,7 +39,7 @@ what we'll be doing here. Create a file named `Fable.Plugins.Random.fsx` and
 put a reference to `Fable.exe` as follows (fix the path according to where
 you place the plugin):
 
-```
+```fsharp
 namespace Fable.Plugins
 
 #r "../build/main/Fable.exe"
@@ -61,7 +61,7 @@ take care of the transformation itself.
 In most cases we'll want to implement `IReplacePlugin` to replace external calls.
 We don't have to write too much boilerplate for that:
 
-```
+```fsharp
 type RandomPlugin() =
     interface IReplacePlugin with
         member x.TryReplace com (info: Fable.ApplyInfo) =
@@ -76,7 +76,7 @@ contains the compiler options and we don't need to worry about it for now.
 The second one is more interesting and contains a lot of information about
 the call we need to replace. `ApplyInfo` has the following definition:
 
-```
+```fsharp
 type ApplyInfo = {
         methodName: string
         ownerFullName: string
@@ -104,7 +104,7 @@ is static) and the arguments, already transformed into Fable expressions.
 With this information, let's identify calls to `System.Random`. This time we'll
 only try to replace two methods: the contructor and `Next`.
 
-```
+```fsharp
 member x.TryReplace com (info: Fable.ApplyInfo) =
     match info.ownerFullName with
     | "System.Random" ->
@@ -124,14 +124,14 @@ for that. Unlike .NET, with JS `Math.random()` we don't need to create an instan
 to make random numbers and we always get floats between 0 and 1. If we want integers
 in a specific range (excluding the upper limit), the same page gives us a way to do it:
 
-```
+```fsharp
 Math.floor(Math.random() * (max - min)) + min;
 ```
 
 To be compatible with .NET code, even if we don't actually need a constructor,
 we have to fake one. We'll do that by just returning an empty object.
 
-```
+```fsharp
 | ".ctor" ->
     let o = Fable.ObjExpr ([], [], info.range)
     Fable.Wrapped (o, info.returnType) |> Some
@@ -150,7 +150,7 @@ Now we need to deal with "next". According to .NET documentation, `Random.Next`
 has three overloads so we need to check the arguments and use default values
 for the lower and upper limits of the range if they're not provided.
 
-```
+```fsharp
 | "next" ->
     let min, max =
         match info.args with
@@ -166,7 +166,7 @@ We could translate the JS expression above using `Fable.Expr` elements but for
 the sake of simplicity let's just use an `Emit` expression like we do with the
 `EmitAttribute` and let Babel do the parsing work for us. This would be a way to do it:
 
-```
+```fsharp
 let emitExpr =
     Fable.Emit("Math.floor(Math.random() * ($1 - $0)) + $0")
     |> Fable.Value
@@ -184,7 +184,7 @@ Then we apply the expression to the arguments indicating the `range` and the `re
 It would be also possible to save a few keystrokes using a helper method from
 `Fable.Replacements` module.
 
-```
+```fsharp
 "Math.floor(Math.random() * ($1 - $0)) + $0"
 |> Fable.Replacements.Util.emit info <| [min; max]
 |> Some
@@ -199,7 +199,7 @@ fsc plugins/Fable.Plugins.Random.fsx --target:library --out:build/plugins/Fable.
 
 To test it, create a `Test.fsx` file in a `temp` folder and type the following:
 
-```
+```fsharp
 let r = System.Random()
 
 printfn "%i" <| r.Next()
@@ -209,7 +209,7 @@ printfn "%i" <| r.Next(40, 50)
 
 In the same `temp` folder, create a `fableconfig.json` file with these options:
 
-```
+```fsharp
 {
     "env": "node",
     "lib": "../lib",
