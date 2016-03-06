@@ -11,7 +11,7 @@ let pluginsBuildDir = "build/plugins"
 let samplesBuildDir = "build/samples"
 
 // version info
-let version = "0.0.1"  // or retrieve from CI server
+let version = "0.0.2"  // or retrieve from CI server
 
 module Util =
     let run workingDir fileName args =
@@ -23,12 +23,16 @@ module Util =
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
 
 module Npm =
-    let run workingDir command args =
-        sprintf "run %s -- %s" command (String.concat " " args)
+    let script workingDir script args =
+        sprintf "run %s -- %s" script (String.concat " " args)
         |> Util.run workingDir "npm"
 
     let install workingDir modules =
         sprintf "install %s" (String.concat " " modules)
+        |> Util.run workingDir "npm"
+
+    let command workingDir command args =
+        sprintf "%s %s" command (String.concat " " args)
         |> Util.run workingDir "npm"
         
 module Node =
@@ -109,6 +113,11 @@ Target "Samples" (fun _ ->
         Npm.install outDir []
         Node.run "build/fable" "." [Path.Combine(outDir, Path.GetFileName path) |> Path.GetFullPath]
     )
+)
+
+Target "Publish" (fun _ ->
+    Npm.command "build/fable" "version" [version]
+    Npm.command "build/fable" "publish" []
 )
 
 Target "All" ignore

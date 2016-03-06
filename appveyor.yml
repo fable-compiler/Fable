@@ -7,11 +7,13 @@ build:
 # Test against this version of Node.js
 environment:
   nodejs_version: "5.4"
+  npm_version: "3.7"
 
 # Install scripts. (runs after repo cloning)
 install:
   # Get the latest stable version of Node.js or io.js
   - ps: Install-Product node $env:nodejs_version
+  - ps: Install-Product npm $env:npm_version
 
 os: Visual Studio 2015
 before_build:
