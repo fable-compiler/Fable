@@ -55,12 +55,15 @@ module Naming =
         match Regex.Match(fieldName, @"\d+$") with
         | m when m.Success -> int m.Value
         | _ -> 0
+
+    let normalizePath (path: string) =
+        path.Replace("\\", "/")
     
     let getCoreLibPath (com: ICompiler) =
-        Path.Combine(com.Options.lib, "fable-core.js")
+        Path.Combine(com.Options.lib, "fable-core.js") |> normalizePath
 
     let fromLib (com: ICompiler) path =
-        Path.Combine(com.Options.lib, path)
+        Path.Combine(com.Options.lib, path) |> normalizePath
 
     // TODO: Use $F for CoreLib?
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
@@ -121,8 +124,8 @@ module Naming =
             match toUri.Scheme.ToUpperInvariant() with
             | "FILE" -> relativePath.Replace(
                             IO.Path.AltDirectorySeparatorChar,
-                            IO.Path.DirectorySeparatorChar)
-            | _ -> relativePath
+                            IO.Path.DirectorySeparatorChar)  |> normalizePath
+            | _ -> relativePath |> normalizePath
             
     let getImportPath (com: ICompiler) (filePath: string) (importPath: string) =
         if not(importPath.StartsWith ".")
@@ -139,7 +142,7 @@ module Naming =
                     match Path.Combine(relPath, importPath) with
                     | path when path.StartsWith "." -> path
                     | path -> "./" + path 
-
+                    |> normalizePath
 
 module Json =
     open FSharp.Reflection

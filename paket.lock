@@ -5,5 +5,8 @@ NUGET
     FSharp.Compiler.Service (2.0.0.6)
     FSharp.Compiler.Service.ProjectCracker (2.0.0.6)
     Newtonsoft.Json (8.0.2)
+    Node.js (5.3.0)
+    Npm.js (2.13.1)
+      Node.js (>= 0.12.7)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)

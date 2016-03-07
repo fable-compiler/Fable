@@ -253,12 +253,12 @@ try {
     }
 
     proc.on('exit', function(code) {
-        console.log("Finished");
-        process.exit(code);
+        // Don't exit the process here as there may be pending messages
     });    
 
     proc.stderr.on('data', function(data) {
         console.log("FABLE ERROR: " + data.toString().substring(0, 300) + "...");
+        process.exit(1);
     });    
 
     var buffer = "";
@@ -275,6 +275,12 @@ try {
         else {
             json = buffer + txt.substring(0, closing + 1);
             buffer = txt.substring(closing + 1);
+        }
+        
+        // An empty string is the signal to finish the program
+        if (/^\s*$/.test(json)) {
+            console.log("Finished");
+            process.exit(0);
         }
         
         var err = null;

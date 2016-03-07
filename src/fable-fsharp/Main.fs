@@ -88,6 +88,7 @@ let compile com checker projCode fileMask =
         fun file ->
             JsonConvert.SerializeObject (file, jsonSettings)
             |> Console.Out.WriteLine
+            Console.Out.Flush()
     let printError =
         CompilerError
         >> JsonConvert.SerializeObject
@@ -96,11 +97,7 @@ let compile com checker projCode fileMask =
         parseFSharpProject com checker projCode
         |> FSharp2Fable.Compiler.transformFiles com fileMask
         |> Fable2Babel.Compiler.transformFiles com
-        |> function
-            | files when Seq.isEmpty files ->
-                printError "No code available to compile"
-            | files ->
-                Seq.iter printFile files
+        |> Seq.iter printFile
     with ex ->
         printError ex.Message
 
@@ -126,4 +123,8 @@ let main argv =
             then None, Some input
             else input.Replace("\\n","\n") |> Some, None
         compile com checker projCode fileMask
+    // Wait a bit so node has time to process remaining messages
+    System.Threading.Thread.Sleep(500)
+    // Send empty string to finish node process
+    Console.Out.WriteLine()
     0
