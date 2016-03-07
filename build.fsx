@@ -11,7 +11,7 @@ let pluginsBuildDir = "build/plugins"
 let samplesBuildDir = "build/samples"
 
 // version info
-let version = "0.0.3"  // or retrieve from CI server
+let version = "0.0.6"  // or retrieve from CI server
 
 module Util =
     let run workingDir fileName args =
@@ -27,6 +27,19 @@ module Util =
         then FileUtils.rm_rf dir
         // Use this in Windows to prevent conflicts with paths too long
         else run "." "cmd" ("/C rmdir /s /q " + Path.GetFullPath dir)
+
+    /// Reads a file line by line and rewrites it using unix line breaks
+    ///  - uses a temp file to store the contents in order to prevent OutOfMemory exceptions
+    let convertFileToUnixLineBreaks(fileName : string) = 
+        use reader = new StreamReader(fileName, encoding)
+        let tempFileName = Path.GetTempFileName()
+        use writer = new StreamWriter(tempFileName, false, encoding)
+        while not reader.EndOfStream do
+          writer.Write (reader.ReadLine() + "\n")
+        reader.Close()
+        writer.Close()
+        File.Delete(fileName)
+        File.Move(tempFileName, fileName)
 
 module Npm =
     let npmFilePath =
@@ -135,6 +148,7 @@ Target "Samples" (fun _ ->
 )
 
 Target "Publish" (fun _ ->
+    Util.convertFileToUnixLineBreaks (__SOURCE_DIRECTORY__ + "/build/fable/index.js")
     Npm.command "build/fable" "version" [version]
     Npm.command "build/fable" "publish" []
 )
