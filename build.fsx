@@ -100,7 +100,9 @@ Target "MochaTest" (fun _ ->
         "--plugins"; Path.GetFullPath "build/plugins/Fable.Plugins.NUnit.dll"
         ]
     Npm.install testsBuildDir ["mocha"]
-    Node.run testsBuildDir (Path.GetFullPath "node_modules/mocha/bin/mocha") ["."]
+    Path.Combine(testsBuildDir, "node_modules/mocha/bin/mocha")
+    |> Path.GetFullPath
+    |> Node.run testsBuildDir <| ["."]
 )
 
 Target "Plugins" (fun _ ->
