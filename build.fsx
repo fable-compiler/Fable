@@ -11,9 +11,11 @@ let pluginsBuildDir = "build/plugins"
 let samplesBuildDir = "build/samples"
 
 // version info
-let version = "0.0.6"  // or retrieve from CI server
+let version = "0.0.7"  // or retrieve from CI server
 
 module Util =
+    open System.Net
+
     let run workingDir fileName args =
         let ok = 
             execProcess (fun info ->
@@ -21,6 +23,18 @@ module Util =
                 info.WorkingDirectory <- workingDir
                 info.Arguments <- args) TimeSpan.MaxValue
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
+
+    let downloadArtifact path =
+        let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/fable-compiler.zip"
+        let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
+        use client = new WebClient()
+        use stream = client.OpenRead(url)
+        use writer = new StreamWriter(tempFile)
+        stream.CopyTo(writer.BaseStream)
+        FileUtils.mkdir path
+        CleanDir path
+        run path "unzip" (sprintf "-q %s" tempFile)
+        File.Delete tempFile
 
     let rmdir dir =
         if EnvironmentHelper.isUnix
@@ -147,10 +161,17 @@ Target "Samples" (fun _ ->
     )
 )
 
+Target "DeleteNodeModules" (fun _ ->
+    // Delete node_modules to make the artifact lighter
+    Util.rmdir "build/fable/node_modules"
+)
+
 Target "Publish" (fun _ ->
-    Util.convertFileToUnixLineBreaks (__SOURCE_DIRECTORY__ + "/build/fable/index.js")
-    Npm.command "build/fable" "version" [version]
-    Npm.command "build/fable" "publish" []
+    let workingDir = "temp/build"
+    Util.downloadArtifact workingDir
+    Util.convertFileToUnixLineBreaks (Path.Combine(workingDir, "index.js"))
+    Npm.command workingDir "version" [version]
+    Npm.command workingDir "publish" []
 )
 
 Target "All" ignore
@@ -161,6 +182,7 @@ Target "All" ignore
   ==> "FableJs"
   ==> "Plugins"
   ==> "MochaTest"
+  =?> ("DeleteNodeModules", environVar "APPVEYOR" = "True")
   ==> "All"
 
 // Start build
