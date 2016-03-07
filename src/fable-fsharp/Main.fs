@@ -88,7 +88,6 @@ let compile com checker projCode fileMask =
         fun file ->
             JsonConvert.SerializeObject (file, jsonSettings)
             |> Console.Out.WriteLine
-            Console.Out.Flush()
     let printError =
         CompilerError
         >> JsonConvert.SerializeObject

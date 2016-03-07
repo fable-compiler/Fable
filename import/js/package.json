@@ -5,6 +5,6 @@
   "repository": "https://github.com/fsprojects/Fable/import/js",  
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",  
-  "keywords": [ "fable", "fsharp", "F#" ],
+  "keywords": [ "fable", "fable-compiler", "fsharp", "F#" ],
   "homepage": "https://github.com/fsprojects/Fable#readme"
 }
