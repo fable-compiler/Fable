@@ -163,6 +163,39 @@ function babelifyToFile(projDir, projectDir, babelAst) {
     fs.writeFileSync(targetFile + ".map", JSON.stringify(parsed.map));
 }
 
+function processJson(opts, projectDir, json) {
+    // An empty string is the signal to finish the program
+    if (/^\s*$/.test(json)) {
+        process.exit(0);
+    }
+    
+    var err = null;
+    try {
+        var babelAst = JSON.parse(json);
+        if (babelAst.type == "Error") {
+            err = babelAst.message;
+        }
+        else {
+            if (opts.projFile) {
+                babelifyToFile(projectDir, opts.outDir, babelAst);
+                console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
+            }
+            else {
+                babelifyToConsole(babelAst);
+            }
+        }
+    }
+    catch (e) {
+        err = e;
+    }
+    if (err != null) {
+        console.log(err);
+        if (!opts.watch) {
+            process.exit(1);
+        }
+    }
+}
+
 try {
     var projectDir = ".",
         opts = cli.parse(),
@@ -252,49 +285,16 @@ try {
 
     var buffer = "";
     proc.stdout.on("data", function(data) {
-        var txt = data.toString();
-        // New lines are parsed as literals \n,
-        // so this complicated RegExp isn't necessary
-        // var json, closing = /\}\n(?![^$\{][\s\S]*")/.exec(txt);
-        var json, closing = txt.indexOf("\n");
-        if (closing == -1) {
-            buffer += txt;
-            return;
-        }
-        else {
-            json = buffer + txt.substring(0, closing + 1);
-            buffer = txt.substring(closing + 1);
-        }
-        
-        // An empty string is the signal to finish the program
-        if (/^\s*$/.test(json)) {
-            console.log("Finished");
-            process.exit(0);
-        }
-        
-        var err = null;
-        try {
-            var babelAst = JSON.parse(json);
-            if (babelAst.type == "Error") {
-                err = babelAst.message;
+        var txt = data.toString(), newLine = 0;
+        while (newLine >= 0) {
+            var newLine = txt.indexOf("\n");
+            if (newLine == -1) {
+                buffer += txt;
             }
             else {
-                if (opts.projFile) {
-                    babelifyToFile(projectDir, opts.outDir, babelAst);
-                    console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
-                }
-                else {
-                    babelifyToConsole(babelAst);
-                }
-            }
-        }
-        catch (e) {
-            err = e;
-        }
-        if (err != null) {
-            console.log(err);
-            if (!opts.watch) {
-                process.exit(1);
+                processJson(opts, projectDir, buffer + txt.substring(0, newLine));
+                txt = txt.substring(newLine + 1);
+                buffer = "";
             }
         }
     });    

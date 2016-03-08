@@ -121,8 +121,6 @@ let main argv =
             then None, Some input
             else input.Replace("\\n","\n") |> Some, None
         compile com checker projCode fileMask
-    // Wait a bit so node has time to process remaining messages
-    System.Threading.Thread.Sleep(500)
     // Send empty string to finish node process
     Console.Out.WriteLine()
     0
