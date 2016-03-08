@@ -11,7 +11,7 @@ let pluginsBuildDir = "build/plugins"
 let samplesBuildDir = "build/samples"
 
 // version info
-let version = "0.0.7"  // or retrieve from CI server
+let version = "0.0.8"  // or retrieve from CI server
 
 module Util =
     open System.Net
@@ -25,7 +25,7 @@ module Util =
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
 
     let downloadArtifact path =
-        let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/fable-compiler.zip"
+        let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build.zip"
         let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
         use client = new WebClient()
         use stream = client.OpenRead(url)

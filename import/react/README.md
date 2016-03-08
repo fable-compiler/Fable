@@ -5,7 +5,7 @@ Fable bindings for React
 ## Installation
 
 ```sh
-$ npm install --save react
+$ npm install --save react react-dom
 $ npm install --save-dev fable-core fable-import-js fable-import-browser fable-import-react
 ```
 

@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "babel-core": "^6.4.5",
-    "babel-template": "^6.5.0",
     "babel-plugin-transform-do-expressions": "^6.3.13",
     "babel-plugin-transform-es2015-arrow-functions": "^6.4.0",
     "babel-plugin-transform-es2015-block-scoping": "^6.4.0",
@@ -22,7 +21,9 @@
     "babel-plugin-transform-es2015-parameters": "^6.4.5",
     "babel-plugin-transform-es2015-shorthand-properties": "^6.5.0",
     "babel-plugin-transform-es2015-spread": "^6.4.0",
-    "babel-plugin-transform-es5-property-mutators": "^6.5.0"
+    "babel-plugin-transform-es5-property-mutators": "^6.5.0",
+    "babel-template": "^6.5.0",
+    "command-line-args": "^2.1.6"
   },
   "devDependencies": {
     "mocha": "^2.4.5"
@@ -33,7 +34,11 @@
     "type": "git",
     "url": "https://github.com/fsprojects/Fable.git"
   },
-  "keywords": [ "fable", "fsharp", "F#" ],
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#"
+  ],
   "bugs": {
     "url": "https://github.com/fsprojects/Fable/issues"
   },

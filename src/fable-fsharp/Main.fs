@@ -18,7 +18,7 @@ let readOptions argv =
             let k = opt.Substring(2)
             match Map.tryFind k opts with
             | None -> Map.add k rest.Head opts
-            | Some v -> Map.add k (v + "," + rest.Head) opts
+            | Some v -> Map.add k (v + "|" + rest.Head) opts
             |> readOpts <| rest.Tail
     let opts = readOpts Map.empty<_,_> (List.ofArray argv)
     {
@@ -27,11 +27,10 @@ let readOptions argv =
         lib = def opts "lib" "." id
         projFile = def opts "projFile" null id
         watch = def opts "watch" false bool.Parse
-        symbols = def opts "symbols" [||] (fun x -> x.Split(','))
-        plugins = def opts "plugins" [||] (fun x -> x.Split(','))
+        symbols = def opts "symbols" [||] (fun x -> x.Split('|'))
+        plugins = def opts "plugins" [||] (fun x -> x.Split('|'))
     }
-    
-// TODO: Error management
+
 let loadPlugins (opts: CompilerOptions): IPlugin list =
     opts.plugins
     |> Seq.collect (fun path ->
