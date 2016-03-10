@@ -460,3 +460,11 @@ let ``List.zip3 works``() =
       equal 3 x
       equal 6 y
       equal 9 z
+
+[<Test>]
+let ``List "snail" to append works``() =
+      let xs = [1; 2; 3; 4]
+      let ys = [0]
+      let zs = ys @ xs
+      zs.Head + zs.Tail.Head
+      |> equal 1
