@@ -328,6 +328,10 @@ module private AstPass =
         // Type ref
         | "typeof" ->
             makeTypeRef com info.range info.methodTypeArgs.Head |> Some
+        // Concatenates two lists
+        | "@" ->
+          CoreLibCall("List", Some "append", false, args)
+          |> makeCall com r typ |> Some			
         | _ -> None
 
     let strings com (i: Fable.ApplyInfo) =
