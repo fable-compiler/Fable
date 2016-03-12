@@ -3,20 +3,26 @@
   "name": "fable-sample-react",
   "version": "0.0.1",
   "description": "",
-  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack public/client.js public/bundle.js",
+    "start": "node server.js"
   },
-  "author": "@davidtme",
+  "author": "Alfonso Garcia-Caro",
   "license": "Apache-2.0",
   "dependencies": {
+    "body-parser": "^1.15.0",
+    "express": "^4.13.4",
+    "marked": "^0.3.5",
     "react": "^0.14.7",
     "react-dom": "^0.14.7"
   },
   "devDependencies": {
     "fable-core": "0.0.1",
     "fable-import-browser": "0.0.1",
+    "fable-import-express": "0.0.2",
     "fable-import-js": "0.0.1",
+    "fable-import-node": "0.0.1",
     "fable-import-react": "0.0.1"
   }
 }

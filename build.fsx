@@ -25,7 +25,7 @@ module Util =
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
 
     let downloadArtifact path =
-        let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build.zip"
+        let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
         let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
         use client = new WebClient()
         use stream = client.OpenRead(url)
@@ -146,7 +146,10 @@ Target "Plugins" (fun _ ->
 )
 
 Target "Samples" (fun _ ->
-    CleanDir samplesBuildDir
+    !! samplesBuildDir
+        ++ "samples/**/node_modules/"
+        ++ "samples/**/bin/" ++ "samples/**/obj/"
+    |> CleanDirs
     let samplesBasePath = Path.GetFullPath "samples"
     let samplesBuilDir = Path.GetFullPath samplesBuildDir
     

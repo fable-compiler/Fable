@@ -1,8 +1,11 @@
 {
   "name": "fable-import-node",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Fable bindings for Node native objects",
-  "repository": "https://github.com/fsprojects/Fable/import/node",  
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/fsprojects/Fable/import/node"   
+  },
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",  
   "keywords": [ "fable", "fable-compiler", "fsharp", "F#" ],

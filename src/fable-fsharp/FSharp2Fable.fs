@@ -33,6 +33,28 @@ let private (|SpecialValue|_|) com ctx = function
             |> makeCall com (makeRangeFrom fsExpr) (makeType com ctx fsExpr.Type) |> Some 
         | _ -> None
     | _ -> None
+    
+let private (|BaseCons|_|) com ctx = function
+    | BasicPatterns.Call(None, meth, _, _, args) ->
+        let methOwnerName (meth: FSharpMemberOrFunctionOrValue) =
+            sanitizeEntityName meth.EnclosingEntity
+        match ctx.baseClass with
+        | Some baseFullName when isConstructor meth && (methOwnerName meth) = baseFullName ->
+            if not meth.IsImplicitConstructor then
+                failwithf "Inheritance is only possible with base class implicit constructor: %s" baseFullName
+            Some (meth, args)
+        | _ -> None
+    | _ -> None
+
+let private (|FSharpExceptionGet|_|) = function
+    | BasicPatterns.FSharpFieldGet (Some callee, fsType, fieldInfo)
+        when fsType.HasTypeDefinition && fsType.TypeDefinition.IsFSharpExceptionDeclaration ->
+            Some (callee, fsType.TypeDefinition, fieldInfo)        
+        
+            // let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
+            // let i = fsType.TypeDefinition.FSharpFields |> Seq.findIndex (fun x -> x.Name = fieldName)
+            // makeGet range typ callee (sprintf "data%i" i |> makeConst)
+    | _ -> None
 
 let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
     match fsExpr with
@@ -63,6 +85,16 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             (List.map (com.Transform ctx) args2)@[expr1]
             |> makeCallFrom com ctx fsExpr meth2 (typArgs2, methTypArgs2) None
         Fable.Lambda([lambdaArg], expr2) |> Fable.Value
+
+    | BaseCons com ctx (meth, args) ->
+        let args = List.map (com.Transform ctx) args
+        let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
+        Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
+
+    | FSharpExceptionGet (Transform com ctx exExpr, exEnt, FieldName fieldName) ->
+        let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
+        let i = exEnt.FSharpFields |> Seq.findIndex (fun x -> x.Name = fieldName)
+        makeGet range typ exExpr (sprintf "data%i" i |> makeConst)
             
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -166,16 +198,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Apply (callee, args, Fable.ApplyMeth, makeType com ctx fsExpr.Type, range)
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
-        let methOwnerName (meth: FSharpMemberOrFunctionOrValue) =
-            sanitizeEntityName meth.EnclosingEntity
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
-        match ctx.owner with
-        | Some (EntityKind(Fable.Class(Some (baseFullName,_))) as ent) when (methOwnerName meth) = baseFullName ->
-            if not meth.IsImplicitConstructor then
-                failwithf "Inheritance is only possible with base class implicit constructor: %s" ent.FullName
-            let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-            Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
-        | _ -> makeCallFrom com ctx fsExpr meth (typArgs, methTypArgs) callee args
+        makeCallFrom com ctx fsExpr meth (typArgs, methTypArgs) callee args
 
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
@@ -205,19 +229,18 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeDelegate delegateBodyExpr
 
     (** ## Getters and Setters *)
-    // TODO: Check if it's FSharpException?
     // TODO: Change name of automatically generated fields
-    | BasicPatterns.FSharpFieldGet (callee, FableType com ctx calleeType, FieldName fieldName) ->
+    | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeTypeRef com (makeRange fsExpr.Range) calleeType
+            | None -> makeType com ctx calleeType
+                      |> makeTypeRef com (makeRange fsExpr.Range)
         makeGetFrom com ctx fsExpr callee (makeConst fieldName)
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         makeGetFrom com ctx fsExpr tupleExpr (makeConst tupleElemIndex)
 
-    // Single field: data; Multiple fields: data[0], data[1]...
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, FableType com ctx unionType, unionCase, FieldName fieldName) ->
         match unionType with
         | ErasedUnion | OptionUnion -> unionExpr
@@ -226,10 +249,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                     unionExpr (Naming.lowerFirst fieldName |> makeConst)
         | OtherType ->
             let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-            let dataProp = makeGet range typ unionExpr (makeConst "data")
-            match Naming.getFieldIndex fieldName with
-            | 0 -> dataProp
-            | i -> makeGet range typ dataProp (makeConst (i-1))
+            let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
+            makeGet range typ unionExpr (sprintf "data%i" i |> makeConst)
 
     | BasicPatterns.ILFieldSet (callee, typ, fieldName, value) ->
         failwithf "Found unsupported ILField reference in %A: %A" fsExpr.Range fsExpr
@@ -335,11 +356,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             let argExprs =
                 // Include Tag name in args
                 let tag = makeConst unionCase.Name
-                match List.map (transformExpr com ctx) argExprs with
-                | [] -> [tag]
-                | [arg] -> [tag;arg]
-                // If there's more than one data field, make a tuple
-                | args -> [tag; Fable.ArrayConst(Fable.ArrayValues args, Fable.Tuple) |> Fable.Value]
+                tag::(List.map (transformExpr com ctx) argExprs)
             if isExternalEntity com fsType.TypeDefinition
             then replace com ctx fsExpr (unionType.FullName) ".ctor" ([],[],[]) (None,argExprs)
             else Fable.Apply (makeTypeRef com range unionType, argExprs, Fable.ApplyCons,
@@ -447,75 +464,62 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
 
 // The F# compiler considers class methods as children of the enclosing module.
 // We use this type to correct that, see type DeclInfo below.
-type private EntChild =
-    | Compiled of Fable.Entity * SourceLocation
-    | Ignored of fullName: string
-    static member matchesFullName child str =
-        match child with
-        | Some (Compiled (ent, _)) -> ent.FullName = str
-        | Some (Ignored fullName) -> fullName = str
-        | None -> false
+type private TmpDecl =
+    | Decl of Fable.Declaration
+    | Ent of Fable.Entity * SourceLocation * ResizeArray<Fable.Declaration>
+    | IgnoredEnt
 
 type private DeclInfo(init: Fable.Declaration list) =
     let ignoredAtts = set ["Erase"; "Import"; "Global"; "Emit"]
-    let mutable child: EntChild option = None
-    let decls = ResizeArray<Fable.Declaration>(init)
-    let childDecls = ResizeArray<Fable.Declaration>()
+    let decls = ResizeArray<_>(Seq.map Decl init)
+    let children = System.Collections.Generic.Dictionary<string, TmpDecl>()
+    let tryFindChild (ent: FSharpEntity) =
+        if children.ContainsKey ent.FullName
+        then Some children.[ent.FullName] else None
     let hasIgnoredAtt atts =
         atts |> tryFindAtt (ignoredAtts.Contains) |> Option.isSome
-    member self.CurrentEntity =
-       match child with
-       | Some (Compiled (ent, _)) -> Some ent
-       | _ -> None
-    /// Interface, inherits from System.Attribute, has "Erase" decorator...
     member self.IsIgnoredEntity (ent: FSharpEntity) =
-        if ent.IsInterface || (hasIgnoredAtt ent.Attributes)
-        then true
-        else match ent.BaseType with
-             | Some (NonAbbreviatedType t) when t.HasTypeDefinition ->
-                 match t.TypeDefinition.TryFullName with
-                 | Some "System.Attribute" -> true
-                 | _ -> false
-             | _ -> false
+        ent.IsInterface || (hasIgnoredAtt ent.Attributes) || isAttributeEntity ent
     /// Is compiler generated (CompareTo...) or belongs to ignored entity?
     /// (remember F# compiler puts class methods in enclosing modules)
     member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
         if (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.DisplayName)
             || (hasIgnoredAtt meth.Attributes)
         then true
-        else match child with
-             | Some (Ignored fullName) ->
-                 (sanitizeEntityName meth.EnclosingEntity) = fullName
+        else match tryFindChild meth.EnclosingEntity with
+             | Some IgnoredEnt -> true
              | _ -> false
-    member self.AddMethod (methDecl: Fable.Declaration, parentName: string) =
-        EntChild.matchesFullName child parentName
-        |> function true -> childDecls.Add methDecl
-                  | false -> self.ClearChild (); decls.Add methDecl
+    member self.AddMethod (meth: FSharpMemberOrFunctionOrValue, methDecl: Fable.Declaration) =
+        match tryFindChild meth.EnclosingEntity with
+        | None -> decls.Add(Decl methDecl)
+        | Some (Ent (_, _, entDecls)) -> entDecls.Add methDecl
+        | Some _ -> () // TODO: fail?
     member self.AddInitAction (actionDecl: Fable.Declaration) =
-        self.ClearChild ()
-        decls.Add actionDecl
-    member self.ClearChild () =
-        match child with
-        | Some (Compiled (child, range)) ->
-            Fable.EntityDeclaration (child, List.ofSeq childDecls, range)
-            |> decls.Add
-        | _ -> ()
-        child <- None
-        childDecls.Clear ()
-    member self.AddChild (newChild, newChildRange, newChildDecls: Fable.Declaration list) =
-        self.ClearChild ()
-        let newChildRange =
-            match newChildDecls with
-            | [] -> newChildRange
-            | decls -> newChildRange + (List.last decls).Range
-        child <- Some (Compiled (newChild, newChildRange))
-        childDecls.AddRange newChildDecls
-    member self.AddIgnored (ent: FSharpEntity) =
-        self.ClearChild ()
-        child <- Some (Ignored (sanitizeEntityName ent))
-    member self.GetDeclarations () =
-        self.ClearChild ()
-        List.ofSeq decls        
+        decls.Add(Decl actionDecl)
+    member self.AddChild (com: IFableCompiler, newChild, newChildDecls: _ list) =
+        let ent = Ent (
+                    com.GetEntity newChild,
+                    makeRange newChild.DeclarationLocation,
+                    ResizeArray<_> newChildDecls)
+        children.Add(newChild.FullName, ent)
+        decls.Add(ent)
+    member self.AddIgnoredChild (ent: FSharpEntity) =
+        children.Add(ent.FullName, IgnoredEnt)
+    member self.TryGetOwner (meth: FSharpMemberOrFunctionOrValue) =
+        match tryFindChild meth.EnclosingEntity with
+        | Some (Ent (ent, _, _)) -> Some ent
+        | _ -> None
+    member self.GetDeclarations (): Fable.Declaration list =
+        decls |> Seq.map (function
+            | IgnoredEnt -> failwith "Unexpected ignored entity"
+            | Decl decl -> decl
+            | Ent (ent, range, decls) ->
+                let range =
+                    match decls.Count with
+                    | 0 -> range
+                    | _ -> range + (Seq.last decls).Range
+                Fable.EntityDeclaration(ent, List.ofSeq decls, range))
+        |> Seq.toList
     
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
@@ -533,13 +537,13 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                  | 'P' -> Fable.Getter (name, true)
                  | _ -> Fable.Method name
             else getMemberKind name meth
-        let ctx, args' =
-            getMethodArgs com ctx meth.IsInstanceMember args
+        let ctx, args' = getMethodArgs com ctx meth.IsInstanceMember args
         let body =
             let ctx =
-                if meth.IsImplicitConstructor
-                then { ctx with owner=declInfo.CurrentEntity }
-                else ctx
+                match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
+                | true, Some(EntityKind(Fable.Class(Some(fullName, _)))) ->
+                    { ctx with baseClass = Some fullName }
+                | _ -> ctx
             transformExpr com ctx body
         let entMember = 
             Fable.Member(memberKind,
@@ -547,29 +551,28 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
                 meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParams args)
             |> Fable.MemberDeclaration
-        declInfo.AddMethod (entMember, sanitizeEntityName meth.EnclosingEntity)
+        declInfo.AddMethod (meth, entMember)
     declInfo
    
 let rec private transformEntityDecl
     (com: IFableCompiler) ctx (declInfo: DeclInfo) (ent: FSharpEntity) subDecls =
     if declInfo.IsIgnoredEntity ent
-    then declInfo.AddIgnored ent; declInfo
+    then declInfo.AddIgnoredChild ent; declInfo
     else
-        let entRange = makeRange ent.DeclarationLocation
         // Unions and Records don't have a constructor, generate it
         let init =
             if ent.IsFSharpUnion
-            then [entRange.Collapse() |> makeUnionCons]
+            then [makeUnionCons()]
             elif ent.IsFSharpExceptionDeclaration
-            then [entRange.Collapse() |> makeExceptionCons]
+            then [makeExceptionCons()]
             elif ent.IsFSharpRecord
             then ent.FSharpFields
                  |> Seq.map (fun x -> x.DisplayName) |> Seq.toList
-                 |> makeRecordCons (entRange.Collapse())
+                 |> makeRecordCons
                  |> List.singleton
             else []
         let childDecls = transformDeclarations com ctx init subDecls
-        declInfo.AddChild (com.GetEntity ent, entRange, childDecls)
+        declInfo.AddChild (com, ent, childDecls)
         declInfo
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =
@@ -585,7 +588,7 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx e as fe) ->
                 declInfo.AddInitAction (Fable.ActionDeclaration (e, makeRange fe.Range)); declInfo
         ) (DeclInfo init)
-    declInfo.GetDeclarations ()
+    declInfo.GetDeclarations()
         
 let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpCheckProjectResults) =
     let rec getRootDecls rootEnt = function

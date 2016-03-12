@@ -5,14 +5,14 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>6ef06954-fbdf-42c7-815c-b13ba2926c93</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>Fable.Tests</RootNamespace>
-    <AssemblyName>Fable.Tests</AssemblyName>
+    <ProjectGuid>1e44403b-7834-4842-91b1-53a5fa731c58</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>fable</RootNamespace>
+    <AssemblyName>fable-sample-react</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <Name>Fable.Tests</Name>
-    <TargetFrameworkProfile />
+    <Name>fable-sample-react</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,6 +22,9 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Debug\console.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,6 +33,9 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Release\console.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -41,13 +47,16 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="core/Fable.Core.fs" />
-    <Compile Include="js/Fable.Import.JS.fs" />
-    <Compile Include="browser/Fable.Import.Browser.fs" />
-    <Compile Include="node/Fable.Import.Node.fs" />
-    <Compile Include="react/Fable.Import.React.fs" />
-    <Compile Include="vscode/Fable.Import.VSCode.fs" />
-    <Compile Include="express/Fable.Import.Express.fs" />
+    <Compile Include="node_modules/fable-core/Fable.Core.fs" />
+    <Compile Include="node_modules/fable-import-js/Fable.Import.JS.fs" />
+    <Compile Include="node_modules/fable-import-node/Fable.Import.Node.fs" />
+    <Compile Include="node_modules/fable-import-express/Fable.Import.Express.fs" />
+    <Compile Include="node_modules/fable-import-browser/Fable.Import.Browser.fs" />
+    <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />
+    <Compile Include="public/react-helper.fs" />
+    <Compile Include="public/models.fs" />
+    <Compile Include="public/client.fs" />
+    <Compile Include="server.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

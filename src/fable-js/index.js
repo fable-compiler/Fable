@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/// <reference path="../../typings/node/node.d.ts" />
+
 var fs = require("fs");
 var path = require("path");
 var babel = require("babel-core");
@@ -35,7 +37,7 @@ var fableCoreLib = "fable-core.js";
 // Custom plugin to simulate macro expressions
 var transformMacroExpressions = {
   visitor: {
-    StringLiteral(path) {
+    StringLiteral: function(path) {
       if (!path.node.macro)
           return;
   
@@ -76,7 +78,7 @@ var transformMacroExpressions = {
 // been resolved and the variable declarations hoisted
 var removeDuplicatedVarDeclarators = {
   visitor: {
-    VariableDeclaration(path) {
+    VariableDeclaration: function(path) {
       var buffer = [];
       var duplicated = [];
       
@@ -150,7 +152,7 @@ function babelifyToFile(projDir, projectDir, babelAst) {
     var opts = {
         sourceMaps: true,
         sourceMapTarget: path.basename(targetFile),
-        sourceFileName: babelAst.fileName,
+        sourceFileName: path.basename(babelAst.fileName),
         plugins: babelPlugins
     };
 

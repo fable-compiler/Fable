@@ -1,9 +1,11 @@
-﻿#!/usr/bin/env node
-/* global process */
+#!/usr/bin/env node
 
-var ts = require("typescript");
+/// <reference path="../../typings/typescript/typescript.d.ts" />
+/// <reference path="../../typings/node/node.d.ts" />
+
 var fs = require("fs");
 var path = require("path");
+var ts = require("typescript");
 
 var templates = {
 file:
@@ -725,10 +727,10 @@ function visitFile(node) {
                 }
                 break;
             case ts.SyntaxKind.TypeAliasDeclaration:
-                interfaces.push(visitInterface(node, { kind: "alias" }));
+                interfaces.push(visitInterface(node, { kind: "alias" }));
                 break;
             case ts.SyntaxKind.ClassDeclaration:
-				interfaces.push(visitInterface(node, { kind: "class" }));
+				interfaces.push(visitInterface(node, { kind: "class" }));
                 break;
         }
     });

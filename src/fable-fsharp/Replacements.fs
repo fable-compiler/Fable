@@ -27,6 +27,12 @@ module Util =
             when import = (Naming.getCoreLibPath com) && coreMod = coreMod' && meth = meth' -> Some expr
         | _ -> None
 
+    let (|CoreCons|_|) com coreMod expr =
+        match expr with
+        | Fable.Apply(Fable.Value(Fable.ImportRef(import, false , Some coreMod')),_, Fable.ApplyCons,_,_)
+            when import = (Naming.getCoreLibPath com) && coreMod = coreMod' -> Some expr
+        | _ -> None
+
     let (|Null|_|) = function
         | Fable.Value Fable.Null -> Some null
         | _ -> None
@@ -102,8 +108,11 @@ module Util =
             GlobalCall ("Array", Some "from", false, [expr])
             |> makeCall com i.range (Fable.PrimitiveType(Fable.Array Fable.DynamicArray))
         match expr, i.methodTypeArgs with
+        // Optimization
         | Fable.Apply(CoreMeth com "List" "ofArray" _, [arr], Fable.ApplyMeth,_,_), _ ->
-            arr // Optimization
+            arr
+        | CoreCons com "List" _, _ ->
+            Fable.ArrayConst(Fable.ArrayValues [], Fable.DynamicArray) |> Fable.Value
         | _, [Fable.PrimitiveType(Fable.Number numberKind)] ->
             let arrayKind = Fable.TypedArray numberKind
             Fable.ArrayConst(Fable.ArrayConversion (dynamicArray expr), arrayKind) |> Fable.Value
@@ -236,6 +245,13 @@ module private AstPass =
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
             
+    let references com (i: Fable.ApplyInfo) =
+        let r = ref 5
+        match i.methodName with
+        | ".ctor" -> makeJsObject i.range.Value [("contents", i.args.Head)] |> Some
+        | "contents" | "value" -> makeGet i.range Fable.UnknownType i.args.Head (makeConst "contents") |> Some
+        | _ -> None
+    
     let operators com (info: Fable.ApplyInfo) =
         // TODO: Check primitive args also here?
         let math range typ args methName =
@@ -323,7 +339,7 @@ module private AstPass =
             Fable.Apply(args.Head, [emit], Fable.ApplyMeth, typ, r)
             |> Some
         // Exceptions
-        | "failwith" | "raise" | "invalidOp" ->
+        | "failwith" | "raise" | "reraise" | "invalidOp" ->
             Fable.Throw (args.Head, r) |> Some
         // Type ref
         | "typeof" ->
@@ -423,6 +439,7 @@ module private AstPass =
 
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
+        | "checkThis", _ -> Fable.Null |> Fable.Value |> Some
         | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
         | "getString", TwoArgs (ar, idx)
         | "getArray", TwoArgs (ar, idx) ->
@@ -867,6 +884,7 @@ module private AstPass =
         | "System.Math"
         | "Microsoft.FSharp.Core.Operators"
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
+        | "Microsoft.FSharp.Core.Ref" -> references com info
         | "System.Activator"
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info

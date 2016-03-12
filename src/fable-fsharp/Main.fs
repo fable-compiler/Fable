@@ -45,14 +45,14 @@ let loadPlugins (opts: CompilerOptions): IPlugin list =
 
 let parseFSharpProject (com: ICompiler) (checker: FSharpChecker) (projCode: string option) =
     let checkProjectResults =
-        let projCode =
-            match projCode with
-            | None -> File.ReadAllText com.Options.projFile
-            | Some projCode ->
-                File.WriteAllText(com.Options.projFile, projCode)
-                projCode
         match (Path.GetExtension com.Options.projFile).ToLower() with
         | ".fsx" ->
+            let projCode =
+                match projCode with
+                | None -> File.ReadAllText com.Options.projFile
+                | Some projCode ->
+                    File.WriteAllText(com.Options.projFile, projCode)
+                    projCode
             let otherFlags =
                 com.Options.symbols |> Array.map (sprintf "--define:%s")
             checker.GetProjectOptionsFromScript(

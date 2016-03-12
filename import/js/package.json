@@ -1,8 +1,11 @@
 {
   "name": "fable-import-js",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Fable bindings for JS native objects",
-  "repository": "https://github.com/fsprojects/Fable/import/js",  
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/fsprojects/Fable/import/js"   
+  },
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",  
   "keywords": [ "fable", "fable-compiler", "fsharp", "F#" ],

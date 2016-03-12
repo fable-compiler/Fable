@@ -25,7 +25,7 @@
   
   exports.Choice = function Choice(t, d) {
     this.tag = t;
-    this.data0 = d;
+    this.data = d;
   };
 
   var Util = exports.Util = {};
@@ -1891,12 +1891,12 @@
       Obs.choose(function (v) {
         var res = f(v);
         return res.tag == "Choice1Of2"
-          ? res.data0 : null;
+          ? res.data : null;
       }, w),
       Obs.choose(function (v) {
         var res = f(v);
         return res.tag == "Choice2Of2"
-          ? res.data0 : null;
+          ? res.data : null;
       }, w),
     ];
   };

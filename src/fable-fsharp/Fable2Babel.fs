@@ -16,7 +16,7 @@ type IBabelCompiler =
     inherit ICompiler
     abstract DeclarePlugins: IDeclarePlugin list
     abstract GetFableFile: string -> Fable.File
-    abstract GetImport: Context -> bool -> string -> Babel.Expression
+    abstract GetImport: Context -> isExternal: bool -> asDefault: bool -> path: string -> Babel.Expression
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
     abstract TransformFunction: Context -> Fable.Ident list -> Fable.Expr ->
@@ -39,14 +39,16 @@ module Util =
         
     let consBack tail head = head::tail
 
-    let rec cleanNull = function
-        | [] -> []
-        | (Fable.Value Fable.Null)::args -> cleanNull args
-        | args -> args
+    let cleanNullArgs args =
+        let rec cleanNull = function
+            | [] -> []
+            | (Fable.Value Fable.Null)::args
+            | (Fable.Wrapped(Fable.Value Fable.Null,_))::args -> cleanNull args
+            | args -> args
+        List.rev args |> cleanNull |> List.rev
 
     let prepareArgs (com: IBabelCompiler) ctx args =
-        args
-        |> List.rev |> cleanNull |> List.rev
+        cleanNullArgs args
         |> List.map (function
             | Fable.Value (Fable.Spread expr) ->
                 Babel.SpreadElement(com.TransformExpr ctx expr) |> U2.Case2
@@ -110,11 +112,9 @@ module Util =
         | Some file ->
             let file = com.GetFableFile file
             if ctx.file <> file.FileName then
-                ctx.file
-                |> Naming.getRelativePath file.FileName
-                |> fun x -> System.IO.Path.ChangeExtension(x, ".js")
-                |> (+) "./"
-                |> com.GetImport ctx true
+                Naming.getRelativePath file.FileName ctx.file
+                |> fun x -> "./" + System.IO.Path.ChangeExtension(x, ".js")
+                |> com.GetImport ctx false true
                 |> Some
                 |> accessExpr (getDiff file.Root.FullName fullName)
             else
@@ -269,7 +269,7 @@ module Util =
             match kind with
             | Fable.ImportRef (import, asDefault, prop) ->
                 let parts = match prop with None -> [] | Some prop -> prop.Split('.') |> Array.toList
-                com.GetImport ctx asDefault import
+                com.GetImport ctx true asDefault import
                 |> Some |> accessExpr parts
             | Fable.This -> upcast Babel.ThisExpression ()
             | Fable.Super -> upcast Babel.Super ()
@@ -307,7 +307,7 @@ module Util =
                 | [] -> props
                 | interfaces ->
                     let ifcsSymbol =
-                        get (com.GetImport ctx false (Naming.getCoreLibPath com)) "Symbol"
+                        get (com.GetImport ctx true false (Naming.getCoreLibPath com)) "Symbol"
                         |> get <| "interfaces"
                     Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
                     |> U3.Case1 |> consBack props
@@ -330,8 +330,7 @@ module Util =
                 upcast Babel.BinaryExpression (op, left, right, ?loc=range)
             // Emit expressions
             | Fable.Value (Fable.Emit emit), args ->
-                args
-                |> List.rev |> cleanNull |> List.rev
+                cleanNullArgs args
                 |> List.map (com.TransformExpr ctx)
                 |> macroExpression range emit
             | _ ->
@@ -419,7 +418,7 @@ module Util =
             isClass || (not (Naming.automaticInterfaces.Contains x)))
         if ifcs.Length = 0
         then None
-        else [ get (com.GetImport ctx false (Naming.getCoreLibPath com)) "Util"
+        else [ get (com.GetImport ctx true false (Naming.getCoreLibPath com)) "Util"
                typeRef com ctx ent.File ent.FullName
                buildStringArray ifcs ]
             |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
@@ -451,7 +450,7 @@ module Util =
             | Fable.Method name ->
                 upcast funcExpression com ctx m.Arguments m.Body, name
             | Fable.Constructor | Fable.Setter _ ->
-                failwithf "Unexpected member in module: %A" m.Kind
+                failwithf "Unexpected member in module %A: %A" modIdent m.Kind
         let memberRange =
             match expr.loc with Some loc -> m.Range + loc | None -> m.Range
         if m.TryGetDecorator("EntryPoint").IsSome
@@ -538,14 +537,17 @@ module Util =
                 Map.tryFind fileName fileMap
                 |> function Some file -> file
                           | None -> failwithf "File not parsed: %s" fileName
-            member bcom.GetImport ctx asDefault moduleName =
-                let moduleName = Naming.getImportPath bcom ctx.file moduleName
-                match ctx.imports.TryGetValue moduleName with
+            member bcom.GetImport ctx isExternal asDefault importPath =
+                let importPath =
+                    if isExternal
+                    then Naming.getExternalImportPath bcom ctx.file importPath
+                    else importPath
+                match ctx.imports.TryGetValue importPath with
                 | true, (import, _) ->
                     upcast Babel.Identifier import
                 | false, _ ->
                     let import = Naming.getImportModuleIdent ctx.imports.Count
-                    ctx.imports.Add(moduleName, (import, asDefault))
+                    ctx.imports.Add(importPath, (import, asDefault))
                     upcast Babel.Identifier import
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e

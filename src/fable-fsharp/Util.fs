@@ -51,11 +51,6 @@ module Naming =
     let lowerFirst (s: string) =
         s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
 
-    let getFieldIndex fieldName =
-        match Regex.Match(fieldName, @"\d+$") with
-        | m when m.Success -> int m.Value
-        | _ -> 0
-
     let normalizePath (path: string) =
         path.Replace("\\", "/")
     
@@ -127,7 +122,7 @@ module Naming =
                             IO.Path.DirectorySeparatorChar)  |> normalizePath
             | _ -> relativePath |> normalizePath
             
-    let getImportPath (com: ICompiler) (filePath: string) (importPath: string) =
+    let getExternalImportPath (com: ICompiler) (filePath: string) (importPath: string) =
         if not(importPath.StartsWith ".")
         then importPath
         else

@@ -1,17 +1,23 @@
 {
   "name": "ts2fable",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "TypeScript definition files parser for fable-compiler",
-  "main": "index.js",
+  "main": "ts2fable.js",
+  "bin": {
+    "ts2fable": "./ts2fable.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fsprojects/Fable.git"
+    "url": "https://github.com/fsprojects/Fable/src/ts2fable"
   },
   "keywords": [
     "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#",
     "TypeScript"
   ],
   "author": "Alfonso Garcia-Caro (https://twitter.com/alfonsogcnunez)",
@@ -19,5 +25,8 @@
   "bugs": {
     "url": "https://github.com/fsprojects/Fable/issues"
   },
-  "homepage": "https://github.com/fsprojects/Fable#readme"
+  "homepage": "https://github.com/fsprojects/Fable#readme",
+  "dependencies": {
+    "typescript": "^1.8.7"
+  }
 }

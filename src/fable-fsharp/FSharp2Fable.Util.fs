@@ -16,10 +16,10 @@ type Context =
     scope: (string * Fable.Expr) list
     typeArgs: (string * Fable.Type) list
     decisionTargets: Map<int, DecisionTarget>
-    owner: Fable.Entity option
+    baseClass: string option
     }
     static member Empty =
-        { scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; owner=None }
+        { scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None }
     
 type IReplacePlugin =
     inherit Fable.IPlugin
@@ -166,7 +166,7 @@ module Patterns =
             when arity = exprs.Length ->
                 Some (meth, typArgs, methTypArgs, methArgs@exprs)
         | _ -> None
-
+        
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
         | "System.Byte" -> Some UInt8
@@ -231,6 +231,15 @@ module Types =
 
     let isImportedEntity (tdef: FSharpEntity) =
         tryFindAtt (fun att -> att = "Global" || att = "Import") tdef.Attributes |> Option.isSome
+
+    // TODO: Exclude attributes meant to be compiled to JS
+    let rec isAttributeEntity (ent: FSharpEntity) =
+        match ent.BaseType with
+        | Some (NonAbbreviatedType t) when t.HasTypeDefinition ->
+            match t.TypeDefinition.TryFullName with
+            | Some "System.Attribute" -> true
+            | _ -> isAttributeEntity t.TypeDefinition
+        | _ -> false
 
     let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
         let isIgnored (t: FSharpType) =
@@ -369,6 +378,9 @@ module Util =
         | FSharpInlineAnnotation.OptionalInline -> false
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline -> true
+
+    let isConstructor (meth: FSharpMemberOrFunctionOrValue) =
+        meth.DisplayName = "( .ctor )"
 
     // Is external entity?
     let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =

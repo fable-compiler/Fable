@@ -608,8 +608,8 @@ and NodeBuffer =
 type Globals =
     [<Global>] static member ``process`` with get(): NodeJS.Process = failwith "JS only" and set(v: NodeJS.Process): unit = failwith "JS only"
     [<Global>] static member ``global`` with get(): NodeJS.Global = failwith "JS only" and set(v: NodeJS.Global): unit = failwith "JS only"
-    [<Global>] static member ___filename with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-    [<Global>] static member ___dirname with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+    [<Global>] static member __filename with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+    [<Global>] static member __dirname with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
     [<Global>] static member require with get(): NodeRequire = failwith "JS only" and set(v: NodeRequire): unit = failwith "JS only"
     [<Global>] static member ``module`` with get(): NodeModule = failwith "JS only" and set(v: NodeModule): unit = failwith "JS only"
     [<Global>] static member exports with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"

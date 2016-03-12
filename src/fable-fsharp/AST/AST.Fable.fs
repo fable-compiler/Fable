@@ -10,7 +10,7 @@ type Decorator =
 
 (** ##Types *)
 type PrimitiveTypeKind =
-    | Unit // unit, null, undefined (non-strict equality)
+    | Unit
     | Number of NumberKind
     | String
     | Regex
@@ -150,7 +150,7 @@ and ValueKind =
     | Emit of string
     member x.Type =
         match x with
-        | Null -> PrimitiveType Unit
+        | Null -> UnknownType
         | Spread x -> x.Type
         | IdentValue {typ=typ} -> typ
         | This | Super | ImportRef _ | TypeRef _ | Emit _ -> UnknownType
@@ -202,10 +202,7 @@ and Expr =
             match exprs with
             | [] -> PrimitiveType Unit
             | exprs -> (Seq.last exprs).Type
-        | TryCatch (body,_,finalizer,_) ->
-            match finalizer with
-            | Some _ -> PrimitiveType Unit
-            | None -> body.Type
+        | TryCatch (body,_,_,_) -> body.Type
             
     member x.Range: SourceLocation option =
         match x with
@@ -407,20 +404,19 @@ module Util =
                 makeBinOp range boolType [expr; makeTypeRef com range typ] BinaryInstanceOf 
         | _ -> failwithf "Unsupported type test in %A: %A" range typ
 
-    let makeUnionCons range =
-        let args: Ident list = [makeIdent "t"; makeIdent "d"]
-        let emit = Emit "this.tag=t;this.data=d;" |> Value
-        let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, Some range)
-        Member(Constructor, range, args, body, [], true, false, false)
+    let makeUnionCons () =
+        let emit = Emit "this.tag=arguments[0]; for (var i=1; i<arguments.length; i++) { this['data'+(i-1)]=arguments[i]; }" |> Value
+        let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
+        Member(Constructor, SourceLocation.Empty, [], body, [], true)
         |> MemberDeclaration
         
-    let makeExceptionCons range =
-        let emit = Emit "for (var i=0; i<arguments.length; i++) { this['Data'+i]=arguments[i]; }" |> Value
-        let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, Some range)
-        Member(Constructor, range, [], body, [], true, false, false)
+    let makeExceptionCons () =
+        let emit = Emit "for (var i=0; i<arguments.length; i++) { this['data'+i]=arguments[i]; }" |> Value
+        let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
+        Member(Constructor, SourceLocation.Empty, [], body, [], true)
         |> MemberDeclaration
 
-    let makeRecordCons range props =
+    let makeRecordCons props =
         let sanitizeField x =
             if Naming.identForbiddenChars.IsMatch x
             then "['" + (x.Replace("'", "\\'")) + "']"
@@ -429,8 +425,8 @@ module Util =
             props |> List.mapi (fun i _ -> sprintf "$arg%i" i |> makeIdent),
             props |> Seq.mapi (fun i x ->
                 sprintf "this%s=$arg%i" (sanitizeField x) i) |> String.concat ";"
-        let body = Apply (Value (Emit body), [], ApplyMeth, PrimitiveType Unit, Some range)
-        Member(Constructor, range, args, body, [], true, false, false)
+        let body = Apply (Value (Emit body), [], ApplyMeth, PrimitiveType Unit, None)
+        Member(Constructor, SourceLocation.Empty, args, body, [], true, false, false)
         |> MemberDeclaration
         
     let makeDelegate (expr: Expr) =
