@@ -220,7 +220,8 @@ try {
             if (fs.existsSync(cfgFile)) {
                 var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
                 for (var key in cfg) {
-                    opts[key] = cfg[key];
+                    if (typeof cfg[key] !== "object")
+                        opts[key] = cfg[key];
                 }
             }
         }

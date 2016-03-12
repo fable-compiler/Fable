@@ -529,21 +529,33 @@ function getEnum(node) {
 
 // TODO: Check if it's const
 function getVariables(node) {
-    var variables = [];
+    var variables = [], anonymousTypes = [], name, type;
     var declarationList = Array.isArray(node.declarationList)
         ? node.declarationList : [node.declarationList];
     for (var i = 0; i < declarationList.length; i++) {
         var declarations = declarationList[i].declarations;
         for (var j = 0; j < declarations.length; j++) {
+            name = declarations[j].name.text;
+            if (declarations[j].type.kind == ts.SyntaxKind.TypeLiteral) {
+                type = visitInterface(declarations[j].type, { name: name + "Type", anonymous: true });
+                anonymousTypes.push(type);
+                type = type.name;                
+            }
+            else {
+                type = getType(declarations[j].type);
+            }
             variables.push({
-                name: declarations[j].name.text,
-                type: getType(declarations[j].type),
+                name: name,
+                type: type,
                 static: true,
                 parameters: []
             });
         }
     }
-    return variables;
+    return {
+        variables: variables,
+        anonymousTypes: anonymousTypes
+    };
 }
 
 function getParameter(param) {
@@ -590,14 +602,15 @@ function getInterface(node, opts) {
     }
     opts = opts || {};
     var ifc = {
-      name: getName(node) + printTypeParameters(node.typeParameters),
+      name: opts.name || (getName(node) + printTypeParameters(node.typeParameters)),
       kind: opts.kind || "interface",
       parents: opts.kind == "alias" ? [getType(node.type)] : getParents(node),
       properties: [],
       methods: [],
       path: opts.path
     };
-    typeCache[joinPath(ifc.path, ifc.name.replace(genReg,""))] = ifc;
+    if (!opts.anonymous)
+        typeCache[joinPath(ifc.path, ifc.name.replace(genReg,""))] = ifc;
     return ifc;
 }
 
@@ -607,7 +620,7 @@ function visitInterface(node, opts) {
         var member, name;
         switch (node.kind) {
             case ts.SyntaxKind.PropertySignature:
-            case ts.SyntaxKind.PropertyDeclaration:
+            // case ts.SyntaxKind.PropertyDeclaration:
                 if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
                     name = getName(node.name);
                     member = getProperty(node, { name: "["+name+"]" });
@@ -624,7 +637,7 @@ function visitInterface(node, opts) {
                 ifc.methods.push(member);
                 break;
             case ts.SyntaxKind.MethodSignature:
-            case ts.SyntaxKind.MethodDeclaration:
+            // case ts.SyntaxKind.MethodDeclaration:
                 if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
                     name = getName(node.name);
                     member = getMethod(node, { name: "["+name+"]" });
@@ -678,8 +691,9 @@ function visitModule(node, opts) {
                 mod.interfaces.push(visitInterface(node, { kind: "alias", path: modPath }));
                 break;
             case ts.SyntaxKind.VariableStatement:
-                getVariables(node).forEach(x =>
-                    mod.properties.push(x));
+                var varsAndTypes = getVariables(node);
+                varsAndTypes.variables.forEach(x => mod.properties.push(x));
+                varsAndTypes.anonymousTypes.forEach(x => mod.interfaces.push(x));
                 break;
             case ts.SyntaxKind.FunctionDeclaration:
                 mod.methods.push(getMethod(node, { static: true }));
@@ -700,8 +714,9 @@ function visitFile(node) {
     ts.forEachChild(node, function(node) {
         switch (node.kind) {
             case ts.SyntaxKind.VariableStatement:
-                getVariables(node).forEach(x =>
-                    properties.push(x));
+                var varsAndTypes = getVariables(node);
+                varsAndTypes.variables.forEach(x => properties.push(x));
+                varsAndTypes.anonymousTypes.forEach(x => interfaces.push(x));
                 break;
             case ts.SyntaxKind.FunctionDeclaration:
                 methods.push(getMethod(node, { static: true }));

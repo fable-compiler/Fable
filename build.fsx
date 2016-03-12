@@ -11,7 +11,7 @@ let pluginsBuildDir = "build/plugins"
 let samplesBuildDir = "build/samples"
 
 // version info
-let version = "0.0.8"  // or retrieve from CI server
+let version = "0.0.9"  // or retrieve from CI server
 
 module Util =
     open System.Net

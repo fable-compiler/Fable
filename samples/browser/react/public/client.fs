@@ -20,7 +20,7 @@ module Util =
             | Get url -> url, "GET", None
             | Post (url, data) ->
                 url, "POST", Some(JS.Globals.JSON.stringify data)
-        let req: XMLHttpRequest = unbox(createNew Globals.XMLHttpRequest ())
+        let req = Globals.XMLHttpRequest.createNew()
         req.onreadystatechange <- fun _ ->
             if req.readyState = 4. then
                 match req.status with
