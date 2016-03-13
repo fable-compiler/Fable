@@ -1,0 +1,25 @@
+{
+  "private": true,
+  "name": "fable-tests",
+  "version": "0.1.0",
+  "description": "Tests for fable-compiler",
+  "main": "index.js",
+  "scripts": {
+    "test": "node node_modules/mocha/bin/mocha ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fsprojects/Fable/src/tests"
+  },
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#"
+  ],
+  "author": "Alfonso Garcia-Caro",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "mocha": "^2.4.5"
+  }
+}

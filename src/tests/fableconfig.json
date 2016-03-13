@@ -1,0 +1,8 @@
+{
+    "env": "node",
+    "projFile": "Fable.Tests.fsproj",
+    "plugins": "../plugins/Fable.Plugins.NUnit.dll",
+    "scripts": {
+        "postbuild": "npm test"
+    }
+}

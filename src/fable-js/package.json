@@ -42,5 +42,9 @@
   "bugs": {
     "url": "https://github.com/fsprojects/Fable/issues"
   },
-  "homepage": "https://github.com/fsprojects/Fable#readme"
+  "homepage": "https://github.com/fsprojects/Fable#readme",
+  "engineStrict" : true,
+  "engines" : {
+      "node" : ">=4.4.0"
+   }
 }

@@ -20,6 +20,7 @@
     "fable-import": "^0.0.2",
     "fable-import-express": "^0.0.5",
     "fable-import-react": "^0.0.3",
-    "source-map-loader": "^0.1.5"
+    "source-map-loader": "^0.1.5",
+    "webpack": "^1.12.14"
   }
 }

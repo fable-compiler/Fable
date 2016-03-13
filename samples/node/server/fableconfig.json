@@ -1,0 +1,5 @@
+{
+    "env": "node",
+    "sourceMaps": true,
+    "projFile": "index.fsx"
+}

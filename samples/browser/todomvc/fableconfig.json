@@ -1,0 +1,5 @@
+{
+    "env": "browser",
+    "sourceMaps": true,
+    "projFile": "index.fsx"
+}

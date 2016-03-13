@@ -57,22 +57,22 @@ module Util =
         File.Move(tempFileName, fileName)
 
 module Npm =
-    let npmFilePath =
+    let npmFilePath args =
         if EnvironmentHelper.isUnix
-        then "npm"
-        else NpmHelper.defaultNpmParams.NpmFilePath |> Path.GetFullPath
+        then "npm", args
+        else "cmd", ("/C npm " + args)
 
     let script workingDir script args =
         sprintf "run %s -- %s" script (String.concat " " args)
-        |> Util.run workingDir npmFilePath
+        |> npmFilePath ||> Util.run workingDir
 
     let install workingDir modules =
         sprintf "install %s" (String.concat " " modules)
-        |> Util.run workingDir npmFilePath
+        |> npmFilePath ||> Util.run workingDir
 
     let command workingDir command args =
         sprintf "%s %s" command (String.concat " " args)
-        |> Util.run workingDir npmFilePath
+        |> npmFilePath ||> Util.run workingDir
         
 module Node =
     let nodeFilePath =
@@ -121,16 +121,11 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
+    let fableDir = Path.GetFullPath "build/Fable"
     let testsBuildDir = Path.GetFullPath testsBuildDir
-    Node.run "build/fable" "." [
-        Path.GetFullPath "src/tests/Fable.Tests.fsproj"
-        "--outDir"; testsBuildDir
-        "--plugins"; Path.GetFullPath "build/plugins/Fable.Plugins.NUnit.dll"
-        ]
-    Npm.install testsBuildDir ["mocha"]
-    Path.Combine(testsBuildDir, "node_modules/mocha/bin/mocha")
-    |> Path.GetFullPath
-    |> Node.run testsBuildDir <| ["."]
+    FileUtils.cp_r "src/tests" testsBuildDir
+    Npm.install testsBuildDir []
+    Node.run testsBuildDir fableDir []
 )
 
 Target "Plugins" (fun _ ->
@@ -151,17 +146,18 @@ Target "Samples" (fun _ ->
         ++ "samples/**/node_modules/"
         ++ "samples/**/bin/" ++ "samples/**/obj/"
     |> CleanDirs
+    let fableDir = Path.GetFullPath "build/Fable"
     let samplesBasePath = Path.GetFullPath "samples"
     let samplesBuilDir = Path.GetFullPath samplesBuildDir
     
-    !! "samples/**/*.fsproj" ++ "samples/**/index.fsx"
+    !! "samples/**/fableconfig.json"
     |> Seq.iter (fun path ->
         let pathDir = Path.GetDirectoryName path
         let outDir = pathDir.Replace(samplesBasePath, samplesBuildDir)
         FileUtils.cp_r pathDir outDir
         if Path.Combine(outDir, "package.json") |> File.Exists then
             Npm.install outDir []
-        Node.run "build/fable" "." [Path.Combine(outDir, Path.GetFileName path) |> Path.GetFullPath]
+        Node.run outDir fableDir []
     )
 )
 

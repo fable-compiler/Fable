@@ -6,7 +6,7 @@ var fs = require("fs");
 var path = require("path");
 var babel = require("babel-core");
 var template = require("babel-template");
-var spawn = require('child_process').spawn;
+var child_process = require('child_process');
 var commandLineArgs = require('command-line-args');
 
 var appDescription = {
@@ -172,12 +172,24 @@ function babelifyToFile(babelAst, opts) {
     }
 }
 
-function processJson(json, opts) {
-    // An empty string is the signal to finish the program
-    if (/^\s*$/.test(json)) {
+function postbuild(opts) {
+    if (opts.scripts && opts.scripts.postbuild) {
+        console.log(opts.scripts.postbuild);
+        child_process.exec(opts.scripts.postbuild, { cwd: opts.projDir }, function(err, stdout, stderr) {
+            if (err) {
+                console.error(err);
+                process.exit(1);
+            }
+            console.log(stdout);
+            process.exit(0);
+        });
+    }
+    else {
         process.exit(0);
     }
-    
+}
+
+function processJson(json, opts) {
     var err = null;
     try {
         var babelAst = JSON.parse(json);
@@ -216,7 +228,7 @@ try {
         process.exit(0);
     }
 
-    opts.projDir = ".";
+    opts.projDir = path.resolve(".");
     if (opts.projFile) {
         opts.projDir = path.dirname(
             path.isAbsolute(opts.projFile)
@@ -281,29 +293,35 @@ try {
     }
     // console.log(opts.projDir + "> " + fableCmd + " " + fableCmdArgs.join(" "));
         
-    var proc = spawn(fableCmd, fableCmdArgs, { cwd: opts.projDir });
+    var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: opts.projDir });
 
     if (opts.watch) {
-        proc.stdin.setEncoding('utf-8');
+        fableProc.stdin.setEncoding('utf-8');
         fs.watch(opts.projDir, { persistent: true, recursive: true }, function(ev, filename) {
             var ext = path.extname(filename).toLowerCase();
             if (ev == "change" && (ext == ".fs" || ext == ".fsx")) {
-                proc.stdin.write(path.join(opts.projDir, filename) + "\n");
+                fableProc.stdin.write(path.join(opts.projDir, filename) + "\n");
             }
         });
     }
 
-    proc.on('exit', function(code) {
-        // Don't exit the process here as there may be pending messages
+    fableProc.on('exit', function(code) {
+        // There may be pending messages, do nothing here
     });    
 
-    proc.stderr.on('data', function(data) {
+    fableProc.stderr.on('data', function(data) {
+        if (opts.fableExit) {
+            return;
+        }
         console.log("FABLE ERROR: " + data.toString().substring(0, 300) + "...");
         process.exit(1);
     });    
 
     var buffer = "";
-    proc.stdout.on("data", function(data) {
+    fableProc.stdout.on("data", function(data) {
+        if (opts.fableExit) {
+            return;
+        }
         var txt = data.toString(), newLine = 0;
         while (newLine >= 0) {
             var newLine = txt.indexOf("\n");
@@ -311,9 +329,18 @@ try {
                 buffer += txt;
             }
             else {
-                processJson(buffer + txt.substring(0, newLine), opts);
+                var json = buffer + txt.substring(0, newLine);
                 txt = txt.substring(newLine + 1);
                 buffer = "";
+
+                // An empty string is the signal to finish the program
+                if (/^\s*$/.test(json)) {
+                    opts.fableExit = true;
+                    postbuild(opts);
+                }
+                else {
+                    processJson(json, opts);
+                }
             }
         }
     });    

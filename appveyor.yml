@@ -3,6 +3,9 @@ init:
 
 build:
   verbosity: detailed
+  
+environment:
+  nodejs_version: "4.4"
 
 os: Visual Studio 2015
 before_build:
