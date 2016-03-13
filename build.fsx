@@ -121,7 +121,7 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    let fableDir = Path.GetFullPath "build/Fable"
+    let fableDir = Path.GetFullPath "build/fable"
     let testsBuildDir = Path.GetFullPath testsBuildDir
     FileUtils.cp_r "src/tests" testsBuildDir
     Npm.install testsBuildDir []
@@ -146,7 +146,7 @@ Target "Samples" (fun _ ->
         ++ "samples/**/node_modules/"
         ++ "samples/**/bin/" ++ "samples/**/obj/"
     |> CleanDirs
-    let fableDir = Path.GetFullPath "build/Fable"
+    let fableDir = Path.GetFullPath "build/fable"
     let samplesBasePath = Path.GetFullPath "samples"
     let samplesBuilDir = Path.GetFullPath samplesBuildDir
     
