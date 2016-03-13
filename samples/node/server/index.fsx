@@ -1,9 +1,7 @@
 // Simple static server with node
 
 // Load and open Fable.Core to get access to Fable attributes and operators
-#load "node_modules/fable-core/Fable.Core.fs"
-#load "node_modules/fable-import-js/Fable.Import.JS.fs"
-#load "node_modules/fable-import-node/Fable.Import.Node.fs"
+#r "node_modules/fable-import/Fable.Import.dll"
 
 open System
 open Fable.Core

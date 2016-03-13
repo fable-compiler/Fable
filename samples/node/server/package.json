@@ -5,8 +5,6 @@
     "serve-static": "^1.10.2"
   },
   "devDependencies": {
-    "fable-core": "0.0.1",
-    "fable-import-js": "0.0.1",
-    "fable-import-node": "0.0.1"
+    "fable-import": "^0.0.2"
   }
 }

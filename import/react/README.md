@@ -6,7 +6,7 @@ Fable bindings for React
 
 ```sh
 $ npm install --save react react-dom
-$ npm install --save-dev fable-core fable-import-js fable-import-browser fable-import-react
+$ npm install --save-dev fable-import fable-import-react
 ```
 
 ## Usage
@@ -15,9 +15,7 @@ $ npm install --save-dev fable-core fable-import-js fable-import-browser fable-i
 
 ```xml
   <ItemGroup>
-    <Compile Include="node_modules/fable-core/Fable.Core.fs" />
-    <Compile Include="node_modules/fable-import-js/Fable.Import.JS.fs" />
-    <Compile Include="node_modules/fable-import-browser/Fable.Import.Browser.fs" />
+    <Reference Include="node_modules/fable-import/Fable.Import.dll" />
     <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />
   </ItemGroup>
 ```
@@ -25,13 +23,9 @@ $ npm install --save-dev fable-core fable-import-js fable-import-browser fable-i
 ### In a F# script (.fsx)
 
 ```fsharp
-#load "node_modules/fable-core/Fable.Core.fs"
-#load "node_modules/fable-import-js/Fable.Import.JS.fs"
-#load "node_modules/fable-import-browser/Fable.Import.Browser.fs"
+#r "node_modules/fable-import/Fable.Import.dll"
 #load "node_modules/fable-import-react/Fable.Import.React.fs"
 
 open Fable.Core
 open Fable.Import
-open Fable.Import.JS
-open Fable.Import.Browser
 ```

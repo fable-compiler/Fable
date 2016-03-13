@@ -1,13 +1,18 @@
 {
-  "name": "fable-core",
+  "name": "fable-import",
   "version": "0.0.2",
-  "description": "Core definitions for Fable: F# to JS compiler",
+  "description": "Fable bindings for native JS objects, browser and node APIs",
   "repository": {
-      "type": "git",
-      "url": "https://github.com/fsprojects/Fable/import/core"   
+    "type": "git",
+    "url": "https://github.com/fsprojects/Fable/import/core"
   },
   "license": "Apache-2.0",
-  "author": "Alfonso Garcia-Caro",  
-  "keywords": [ "fable", "fable-compiler", "fsharp", "F#" ],
+  "author": "Alfonso Garcia-Caro",
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#"
+  ],
   "homepage": "https://github.com/fsprojects/Fable#readme"
 }

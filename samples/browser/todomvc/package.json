@@ -9,6 +9,6 @@
     "vue": "^1.0.1"
   },
   "devDependencies": {
-    "fable-core": "0.0.1"
+    "fable-import": "^0.0.2"
   }
 }

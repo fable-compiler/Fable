@@ -19,6 +19,7 @@ var cli = commandLineArgs([
   { name: 'projFile', defaultOption: true, description: "The F# project (.fsproj) or script (.fsx) to compile." },
   { name: 'code', description: "Pass a string of code directly to Fable instead." },
   { name: 'outDir', defaultValue: '.', description: "Where to put compiled JS files." },
+  { name: 'sourceMaps', alias: 'm', description: "Generate source maps: [true|inline|false] " },
   { name: 'env', description: "'browser' for [bold]{amd} modules and 'node' for [bold]{commonjs} (defaults to [bold]{umd})." },
   { name: 'lib', defaultValue: '.', description: "Where to find the core library, " +
                         "if not set [underline]{fable-core.js} will be copied automatically to outDir." },
@@ -145,27 +146,33 @@ function babelifyToConsole(babelAst) {
     console.log(parsed.code);
 }
 
-function babelifyToFile(projDir, projectDir, babelAst) {
-    var targetFile = path.join(projectDir, path.relative(projDir, babelAst.fileName));
+function babelifyToFile(babelAst, opts) {
+    var targetFile = path.join(opts.outDir, path.relative(opts.projDir, babelAst.fileName));
     targetFile = targetFile.replace(path.extname(babelAst.fileName), ".js")
     
-    var opts = {
-        sourceMaps: true,
+    var babelOpts = {
+        sourceMaps: opts.sourceMaps,
         sourceMapTarget: path.basename(targetFile),
         sourceFileName: path.basename(babelAst.fileName),
         plugins: babelPlugins
     };
-
-    var parsed = babel.transformFromAst(babelAst, null, opts);
     
+    // The F# code is only necessary when generating source maps
+    var fsCode = opts.sourceMaps
+        ? fs.readFileSync(babelAst.fileName) : null;
+
+    var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
     ensureDirExists(path.dirname(targetFile));
     fs.writeFileSync(targetFile, parsed.code);
-    fs.appendFileSync(targetFile, "\n//# sourceMappingURL=" + path.basename(targetFile)+".map");
     
-    fs.writeFileSync(targetFile + ".map", JSON.stringify(parsed.map));
+    // Use strict equality so it evals to false when opts.sourceMaps === "inline"
+    if (opts.sourceMaps === true) {
+        fs.appendFileSync(targetFile, "\n//# sourceMappingURL=" + path.basename(targetFile)+".map");
+        fs.writeFileSync(targetFile + ".map", JSON.stringify(parsed.map));
+    }
 }
 
-function processJson(opts, projectDir, json) {
+function processJson(json, opts) {
     // An empty string is the signal to finish the program
     if (/^\s*$/.test(json)) {
         process.exit(0);
@@ -179,7 +186,7 @@ function processJson(opts, projectDir, json) {
         }
         else {
             if (opts.projFile) {
-                babelifyToFile(projectDir, opts.outDir, babelAst);
+                babelifyToFile(babelAst, opts);
                 console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
             }
             else {
@@ -199,8 +206,7 @@ function processJson(opts, projectDir, json) {
 }
 
 try {
-    var projectDir = ".",
-        opts = cli.parse(),
+    var opts = cli.parse(),
         fableCmd = process.platform === "win32" ? "cmd" : "mono",
         fableCmdArgs = process.platform === "win32" ? ["/C", fableBin] : [fableBin];
 
@@ -209,19 +215,19 @@ try {
         process.exit(0);
     }
 
+    opts.projDir = ".";
     if (opts.projFile) {
-        projectDir = path.dirname(path.isAbsolute(opts.projFile)
-                    ? opts.projFile
-                    : path.join(process.cwd(), opts.projFile));
+        opts.projDir = path.dirname(path.isAbsolute(opts.projFile)
+                        ? opts.projFile
+                        : path.join(process.cwd(), opts.projFile));
         opts.projFile = "./" + path.basename(opts.projFile);
         
         try {
-            var cfgFile = path.join(projectDir, fableConfig);
+            var cfgFile = path.join(opts.projDir, fableConfig);
             if (fs.existsSync(cfgFile)) {
                 var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
                 for (var key in cfg) {
-                    if (typeof cfg[key] !== "object")
-                        opts[key] = cfg[key];
+                    opts[key] = cfg[key];
                 }
             }
         }
@@ -231,7 +237,7 @@ try {
         }
         opts.outDir = path.isAbsolute(opts.outDir)
                     ? opts.outDir
-                    : path.join(projectDir, opts.outDir);
+                    : path.join(opts.projDir, opts.outDir);
         
         // Copy fable-core.js if set to "." but not present in outDir
         ensureDirExists(opts.outDir);
@@ -263,16 +269,16 @@ try {
         else
             fableCmdArgs.push("--" + k, opts[k]);
     }
-    // console.log(projectDir + "> " + fableCmd + " " + fableCmdArgs.join(" "));
+    // console.log(opts.projDir + "> " + fableCmd + " " + fableCmdArgs.join(" "));
         
-    var proc = spawn(fableCmd, fableCmdArgs, { cwd: projectDir });
+    var proc = spawn(fableCmd, fableCmdArgs, { cwd: opts.projDir });
 
     if (opts.watch) {
         proc.stdin.setEncoding('utf-8');
-        fs.watch(projectDir, { persistent: true, recursive: true }, function(ev, filename) {
+        fs.watch(opts.projDir, { persistent: true, recursive: true }, function(ev, filename) {
             var ext = path.extname(filename).toLowerCase();
             if (ev == "change" && (ext == ".fs" || ext == ".fsx")) {
-                proc.stdin.write(path.join(projectDir, filename) + "\n");
+                proc.stdin.write(path.join(opts.projDir, filename) + "\n");
             }
         });
     }
@@ -295,7 +301,7 @@ try {
                 buffer += txt;
             }
             else {
-                processJson(opts, projectDir, buffer + txt.substring(0, newLine));
+                processJson(buffer + txt.substring(0, newLine), opts);
                 txt = txt.substring(newLine + 1);
                 buffer = "";
             }

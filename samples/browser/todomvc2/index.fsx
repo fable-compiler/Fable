@@ -3,9 +3,7 @@
 // but takes advantage of static type checking
 
 // Load Fable.Core and bindings to JS global objects
-#load "node_modules/fable-core/Fable.Core.fs"
-#load "node_modules/fable-import-js/Fable.Import.JS.fs"
-#load "node_modules/fable-import-browser/Fable.Import.Browser.fs"
+#r "node_modules/fable-import/Fable.Import.dll"
 
 open Fable.Core
 type JS = Fable.Import.JS.Globals

@@ -39,9 +39,11 @@ let private (|BaseCons|_|) com ctx = function
         let methOwnerName (meth: FSharpMemberOrFunctionOrValue) =
             sanitizeEntityName meth.EnclosingEntity
         match ctx.baseClass with
-        | Some baseFullName when isConstructor meth && (methOwnerName meth) = baseFullName ->
+        | Some baseFullName when meth.DisplayName = "( .ctor )"
+                            && (methOwnerName meth) = baseFullName ->
             if not meth.IsImplicitConstructor then
-                failwithf "Inheritance is only possible with base class implicit constructor: %s" baseFullName
+                failwithf "Inheritance is only possible with base class implicit constructor: %s"
+                          baseFullName
             Some (meth, args)
         | _ -> None
     | _ -> None
@@ -148,7 +150,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         then Fable.This |> Fable.Value
         // External entities contain functions that will be replaced,
         // when they appear as a stand alone values, they must be wrapped in a lambda
-        elif isExternalEntity com v.EnclosingEntity
+        elif isReplaceCandidate com v.EnclosingEntity
         then wrapInLambda com ctx fsExpr v
         else
             v.Attributes
@@ -322,7 +324,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
         let recordType, range = makeType com ctx fsType, makeRange fsExpr.Range
         let argExprs = argExprs |> List.map (transformExpr com ctx)
-        if isExternalEntity com fsType.TypeDefinition
+        if isReplaceCandidate com fsType.TypeDefinition
         then replace com ctx fsExpr (recordType.FullName) ".ctor" ([],[],[]) (None,argExprs)
         else Fable.Apply (makeTypeRef com range recordType, argExprs, Fable.ApplyCons,
                         makeType com ctx fsExpr.Type, Some range)
@@ -357,7 +359,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 // Include Tag name in args
                 let tag = makeConst unionCase.Name
                 tag::(List.map (transformExpr com ctx) argExprs)
-            if isExternalEntity com fsType.TypeDefinition
+            if isReplaceCandidate com fsType.TypeDefinition
             then replace com ctx fsExpr (unionType.FullName) ".ctor" ([],[],[]) (None,argExprs)
             else Fable.Apply (makeTypeRef com range unionType, argExprs, Fable.ApplyCons,
                             makeType com ctx fsExpr.Type, Some range)
@@ -602,7 +604,6 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
     let fileNames =
         fsProj.AssemblyContents.ImplementationFiles
         |> Seq.map (fun x -> x.FileName)
-        |> Seq.where (fun file -> (System.IO.Path.GetFileName file) <> "Fable.Core.fs")
         |> Set.ofSeq
     let replacePlugins =
         com.Plugins |> List.choose (function
@@ -636,10 +637,7 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
             member __.Plugins = com.Plugins }
     fsProj.AssemblyContents.ImplementationFiles
     |> List.where (fun file ->
-        // Fable.Import files are not considered external (the methods are not replaced)
-        // but we ignore them for compilation
-        ((System.IO.Path.GetFileName file.FileName).StartsWith("Fable.Import") |> not)
-        && fileNames.Contains file.FileName)
+        not (Naming.ignoredFilesRegex.IsMatch file.FileName))
     |> List.map (fun file ->
         try
             let rootEnt, rootDecls =

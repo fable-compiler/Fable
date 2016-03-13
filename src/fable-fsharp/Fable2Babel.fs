@@ -62,13 +62,13 @@ module Util =
         Babel.Identifier name
         
     let sanitizeName propName: Babel.Expression * bool =
-        if Naming.identForbiddenChars.IsMatch propName
+        if Naming.identForbiddenCharsRegex.IsMatch propName
         then upcast Babel.StringLiteral propName, true
         else upcast Babel.Identifier propName, false
 
     let sanitizeProp com ctx = function
         | Fable.Value (Fable.StringConst name)
-            when Naming.identForbiddenChars.IsMatch name = false ->
+            when Naming.identForbiddenCharsRegex.IsMatch name = false ->
             Babel.Identifier (name) :> Babel.Expression, false
         | TransformExpr com ctx property -> property, true
 

@@ -229,9 +229,6 @@ module Types =
         | -1 -> ent.DisplayName
         | i -> ent.FullName.Substring(0, i + 1) + ent.DisplayName
 
-    let isImportedEntity (tdef: FSharpEntity) =
-        tryFindAtt (fun att -> att = "Global" || att = "Import") tdef.Attributes |> Option.isSome
-
     // TODO: Exclude attributes meant to be compiled to JS
     let rec isAttributeEntity (ent: FSharpEntity) =
         match ent.BaseType with
@@ -244,7 +241,7 @@ module Types =
     let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
         let isIgnored (t: FSharpType) =
             not t.HasTypeDefinition
-            || (com.GetInternalFile t.TypeDefinition).IsNone
+            || Option.isNone (com.GetInternalFile t.TypeDefinition)
         match tdef.BaseType with
         | None -> None
         | Some (NonAbbreviatedType t) ->
@@ -379,13 +376,16 @@ module Util =
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline -> true
 
-    let isConstructor (meth: FSharpMemberOrFunctionOrValue) =
-        meth.DisplayName = "( .ctor )"
-
-    // Is external entity?
-    let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
-        match com.GetInternalFile ent with None -> true | Some _ -> false
+    let isImported (ent: FSharpEntity) =
+        let isImportedAtt att =
+            att = "Global" || att = "Import"
+        ent.FullName.StartsWith "Fable.Import"
+        || Option.isSome(tryFindAtt isImportedAtt ent.Attributes)
         
+    let isReplaceCandidate (com: IFableCompiler) (ent: FSharpEntity) =
+        not(isImported ent)
+        && (ent.FullName.StartsWith "Fable.Core" || Option.isNone(com.GetInternalFile ent))
+
     let getMemberKind name (meth: FSharpMemberOrFunctionOrValue) =
         if meth.IsImplicitConstructor then Fable.Constructor
         elif meth.IsPropertyGetterMethod then Fable.Getter (name, false)
@@ -406,20 +406,21 @@ module Util =
         let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
             (meth.IsProperty
             || meth.IsEvent
-            || meth.IsImplicitConstructor
-            || meth.EnclosingEntity.IsInterface
-            || isImportedEntity meth.EnclosingEntity)
+            || meth.IsImplicitConstructor)
             |> not
         let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
-            (isOverloadable meth && not(isExternalEntity com meth.EnclosingEntity))
-            |> function
-            | false -> ""
-            | true ->
+            if not(isOverloadable meth)
+                || meth.EnclosingEntity.IsInterface
+                || isImported meth.EnclosingEntity
+                || isReplaceCandidate com meth.EnclosingEntity
+            then ""
+            else
                 let kind = getMemberKind "" meth
                 meth.EnclosingEntity.MembersFunctionsAndValues
-                |> Seq.filter (fun x -> isOverloadable x &&
-                                        (getMemberKind "" x) = kind &&
-                                        x.DisplayName = meth.DisplayName)
+                |> Seq.filter (fun x ->
+                    isOverloadable x
+                    && (getMemberKind "" x) = kind
+                    && x.DisplayName = meth.DisplayName)
                 |> Seq.toArray
                 |> function
                 | overloads when overloads.Length = 1 -> ""
@@ -535,7 +536,7 @@ module Util =
     let (|Replaced|_|) (com: IFableCompiler) ctx fsExpr
                     (typArgs, methTypArgs) (callee, args)
                     (meth: FSharpMemberOrFunctionOrValue) =
-        if isExternalEntity com meth.EnclosingEntity
+        if isReplaceCandidate com meth.EnclosingEntity
         then replace com ctx fsExpr
                 (sanitizeEntityName meth.EnclosingEntity) (sanitizeMethodName com meth)
                 (meth.Attributes, typArgs, methTypArgs) (callee, args) |> Some

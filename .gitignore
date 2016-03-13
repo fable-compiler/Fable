@@ -1,5 +1,7 @@
 # Personal
 .vscode/
+import/core/FSharp.Core.dll
+import/core/Fable.Import.dll.*
 
 # Node
 node_modules/

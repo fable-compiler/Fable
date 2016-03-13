@@ -11,7 +11,7 @@ let pluginsBuildDir = "build/plugins"
 let samplesBuildDir = "build/samples"
 
 // version info
-let version = "0.0.9"  // or retrieve from CI server
+let version = "0.0.10"  // or retrieve from CI server
 
 module Util =
     open System.Net
@@ -175,6 +175,12 @@ Target "Publish" (fun _ ->
     Util.convertFileToUnixLineBreaks (Path.Combine(workingDir, "index.js"))
     Npm.command workingDir "version" [version]
     Npm.command workingDir "publish" []
+)
+
+Target "Import" (fun _ ->
+    !! "import/core/Fable.Import.fsproj"
+    |> MSBuildRelease "import/core" "Build"
+    |> Log "Import-Output: "
 )
 
 Target "All" ignore

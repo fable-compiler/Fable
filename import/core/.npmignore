@@ -1,0 +1,4 @@
+bin/
+obj/
+FSharp.Core.dll
+Fable.Import.dll.*

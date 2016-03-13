@@ -1,11 +1,11 @@
-# fable-core
+# fable-import
 
-Core definitions for fable-compiler (F# to JS): attributes, dynamic operators...
+Fable bindings for native JS objects, browser and node APIs
 
 ## Installation
 
 ```sh
-$ npm install --save-dev fable-core
+$ npm install --save-dev fable-import
 ```
 
 ## Usage
@@ -14,14 +14,15 @@ $ npm install --save-dev fable-core
 
 ```xml
   <ItemGroup>
-    <Compile Include="node_modules/fable-core/Fable.Core.fs" />
+    <Reference Include="node_modules/fable-import/Fable.Import.dll" />
   </ItemGroup>
 ```
 
 ### In a F# script (.fsx)
 
 ```fsharp
-#load "node_modules/fable-core/Fable.Core.fs"
+#r "node_modules/fable-import/Fable.Import.dll"
 
 open Fable.Core
+open Fable.Import
 ```

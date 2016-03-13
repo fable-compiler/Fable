@@ -418,7 +418,7 @@ module Util =
 
     let makeRecordCons props =
         let sanitizeField x =
-            if Naming.identForbiddenChars.IsMatch x
+            if Naming.identForbiddenCharsRegex.IsMatch x
             then "['" + (x.Replace("'", "\\'")) + "']"
             else "." + x
         let args, body =
