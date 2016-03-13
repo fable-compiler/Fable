@@ -4,17 +4,20 @@ open Fable.Core
 open Fable.Import
 
 [<Emit("this.state = $0")>]
-let setInitialState (state: obj): unit = failwith "JS only"
+let private setInitialState (state: obj): unit = failwith "JS only"
 
-type StatefulComponent<'P,'S>(props: 'P, state: 'S) =
+type Component<'P,'S>(props: 'P, ?state: 'S) =
     inherit React.Component<'P,'S>(props)
     do setInitialState state
 
-let inline com<'T,'P,'S when 'T :> React.Component<'P,'S>> (b: 'P) (c: React.ReactElement<obj> list): React.ReactElement<obj> =
-    unbox(React.Globals.createElement (U2.Case1(unbox typeof<'T>), b, unbox(List.toArray c)))
+let inline fn (f: 'Props -> React.ReactElement<obj>) (props: 'Props) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    unbox(React.Globals.createElement(U2.Case1(unbox f), props, unbox(List.toArray children)))
 
-let inline dom (a: string) (b: (string*obj) list) (c: React.ReactElement<obj> list): React.ReactElement<obj> =
-    unbox(React.Globals.createElement (a, createObj b, unbox(List.toArray c)))
+let inline com<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    unbox(React.Globals.createElement(U2.Case1(unbox typeof<'T>), props, unbox(List.toArray children)))
+
+let inline dom (tag: string) (props: (string*obj) list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    unbox(React.Globals.createElement(tag, createObj props, unbox(List.toArray children)))
 
 let inline a b c = dom "a" b c
 let inline abbr b c = dom "abbr" b c
@@ -148,4 +151,3 @@ let inline rect b c = dom "rect" b c
 let inline stop b c = dom "stop" b c
 let inline text b c = dom "text" b c
 let inline tspan b c = dom "tspan" b c
-

@@ -11,7 +11,7 @@ let pluginsBuildDir = "build/plugins"
 let samplesBuildDir = "build/samples"
 
 // version info
-let version = "0.0.10"  // or retrieve from CI server
+let version = "0.0.11"  // or retrieve from CI server
 
 module Util =
     open System.Net
@@ -181,6 +181,20 @@ Target "Import" (fun _ ->
     !! "import/core/Fable.Import.fsproj"
     |> MSBuildRelease "import/core" "Build"
     |> Log "Import-Output: "
+)
+
+Target "CleanSamples" (fun _ ->
+    !! "/samples/**/*.js.map"
+    |> Seq.where (fun file -> not(file.Contains "node_modules"))
+    |> Seq.iter FileUtils.rm
+
+    !! "/samples/**/*.js"
+    |> Seq.where (fun file -> not(file.Contains "node_modules"))
+    |> Seq.where (fun file ->
+        Path.GetFileName file = "fable-core.js"
+        || File.Exists(Path.ChangeExtension(file, ".fs"))
+        || File.Exists(Path.ChangeExtension(file, ".fsx")))
+    |> Seq.iter FileUtils.rm
 )
 
 Target "All" ignore

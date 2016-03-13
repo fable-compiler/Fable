@@ -44,28 +44,103 @@ module R = ReactHelper
 [<Import("marked?asDefault=true")>]
 let marked (s: string) (opts: obj): string = failwith "JS only"
 
-type CVProps = {author: string; key: DateTime option; children: obj}
-
-type CommentView(props) =
-    inherit React.Component<CVProps,obj>(props)
-    member x.rawMarkup () =
-        let rawMarkup =
-            marked (string x.props.children) (createObj ["sanitize"==>true])
-        createObj ["__html" ==> rawMarkup]
-    
-    member x.render() =
-        R.div ["className" ==> "comment"] [
-            R.h2 ["className" ==> "commentAuthor"] [unbox x.props.author]
-            R.span ["dangerouslySetInnerHTML" ==> x.rawMarkup()] []
-        ]
+type CVProps = {author: string; key: DateTime option}
 
 type CBProps = { url: string; pollInterval: float }
 type CBState = { data: Comment[] }
 
+type CFProps = { onCommentSubmit: Comment -> unit }
+type CFState = { author: string option; text: string option }
+
+// type CommentView(props) =
+//     inherit R.Component<CVProps,obj>(props)
+//     member x.rawMarkup () =
+//         let rawMarkup =
+//             marked (string x.props?children) (createObj ["sanitize"==>true])
+//         createObj ["__html" ==> rawMarkup]
+//     member x.render() =
+//         R.div ["className" ==> "comment"] [
+//             R.h2 ["className" ==> "commentAuthor"] [unbox x.props.author]
+//             R.span ["dangerouslySetInnerHTML" ==> x.rawMarkup()] []
+//         ]
+        
+let CommentView (props: CVProps) =
+    let rawMarkup =
+        let m = marked (string props?children) (createObj ["sanitize"==>true])
+        createObj [ "__html" ==> m ]
+    R.div ["className" ==> "comment"] [
+        R.h2 ["className" ==> "commentAuthor"] [unbox props.author]
+        R.span ["dangerouslySetInnerHTML" ==> rawMarkup] []
+    ]
+
+// type CommentList(props) =
+//     inherit R.Component<CBState, obj>(props)
+//     member x.render () =
+//         let commentNodes =
+//             x.props.data
+//             |> Array.map (fun comment ->
+//                 R.fn CommentView {
+//                     author = comment.author
+//                     key = comment.id
+//                 } [ unbox comment.text ])
+//         R.div ["className" ==> "commentList"] [unbox commentNodes]
+        
+let CommentList(props: CBState) =
+    let commentNodes =
+        props.data
+        |> Array.map (fun comment ->
+            R.fn CommentView {
+                author = comment.author
+                key = comment.id
+            } [ unbox comment.text ])
+    R.div ["className" ==> "commentList"] [unbox commentNodes]
+
+type CommentForm(props) =
+    inherit R.Component<CFProps, CFState>(props, { author = None; text = None })
+
+    member x.handleAuthorChange (e: React.SyntheticEvent) =
+        let str = unbox e.target?value
+        x.setState { x.state with author = str}
+
+    member x.handleTextChange (e: React.SyntheticEvent) =
+        let str = unbox e.target?value
+        x.setState { x.state with text = str}
+
+    member x.handleSubmit (e: React.SyntheticEvent) =
+        e.preventDefault()
+        match x.state with
+        // | {author = Some(NonEmpty author); text = Some(NonEmpty text)} ->
+        | { author = Some author; text = Some text }
+                when author.Trim() <> "" && text.Trim() <> "" ->
+            x.props.onCommentSubmit { id = None; author = author; text = text }
+            x.setState { author = None; text = None }
+        | _ -> ()
+    
+    member x.render () =
+        R.form [
+            "className" ==> "commentForm"
+            "onSubmit" ==> x.handleSubmit
+            ] [
+                R.input [
+                    "type" ==> "text"
+                    "placeholder" ==> "Your name"
+                    "value" ==> x.state.author
+                    "onChange" ==> x.handleAuthorChange
+                ] []
+                R.input [
+                    "type" ==> "text"
+                    "placeholder" ==> "Say something..."
+                    "value" ==> x.state.text
+                    "onChange" ==> x.handleTextChange
+                ] []
+                R.input [
+                    "type" ==> "submit"
+                    "value" ==> "Post"
+                ] []
+            ]
+
 type CommentBox(props) =
-    // inherit R.StatefulComponent<CBProps, CBState>(props, { data = [||] })
-    inherit React.Component<CBProps, CBState>(props)
-    do R.setInitialState { data = [||] }
+    inherit R.Component<CBProps, CBState>(props, { data = [||] })
     
     member x.loadCommentsFromServer () =
         ajax (Get x.props.url)
@@ -95,72 +170,10 @@ type CommentBox(props) =
     member x.render () =
         R.div ["className" ==> "commentBox"] [
             R.h1 [] [unbox "Comments"]
-            R.com<CommentList,_,_> {data = x.state.data} []
+            R.fn CommentList {data = x.state.data} []
             R.com<CommentForm,_,_> {onCommentSubmit = x.handleCommentSubmit} []
         ]
         
-and CommentList(props) =
-    inherit React.Component<CBState, obj>(props)
-    member x.render () =
-        let commentNodes =
-            x.props.data
-            |> Array.map (fun comment ->
-                R.com<CommentView,_,_> {
-                    author = comment.author
-                    key = comment.id
-                    children = null
-                } [unbox comment.text])
-        R.div ["className" ==> "commentList"] [unbox commentNodes]
-
-and CFProps = { onCommentSubmit: Comment -> unit }
-and CFState = { author: string; text: string }
-
-and CommentForm(props) =
-    // inherit R.StatefulComponent<CFProps, CFState>(props, { author = None; text = None })
-    inherit React.Component<CFProps, CFState>(props)
-    do R.setInitialState { author = ""; text = "" }
-
-    member x.handleAuthorChange e =
-        let str = unbox e?target?value
-        x.setState { x.state with author = str}
-
-    member x.handleTextChange e =
-        let str = unbox e?target?value
-        x.setState { x.state with text = str}
-
-    member x.handleSubmit (e: React.FormEvent) =
-        e.preventDefault()
-        match x.state with
-        // | {author = (NonEmpty author); text = (NonEmpty text)} ->
-        | { author = author; text = text }
-            when author.Trim() <> "" && text.Trim() <> "" ->
-            x.props.onCommentSubmit({id=None; author=author; text=text})
-            x.setState {author=""; text=""}
-        | _ -> ()
-    
-    member x.render () =
-        R.form [
-            "className" ==> "commentForm"
-            "onSubmit" ==> x.handleSubmit
-            ] [
-                R.input [
-                    "type" ==> "text"
-                    "placeholder" ==> "Your name"
-                    "value" ==> x.state.author
-                    "onChange" ==> x.handleAuthorChange
-                ] []
-                R.input [
-                    "type" ==> "text"
-                    "placeholder" ==> "Say something..."
-                    "value" ==> x.state.text
-                    "onChange" ==> x.handleTextChange
-                ] []
-                R.input [
-                    "type" ==> "submit"
-                    "value" ==> "Post"
-                ] []
-            ]
-
 ReactDom.Globals.render(
     R.com<CommentBox,_,_> { url="/api/comments"; pollInterval=2000. } [],
     Browser.Globals.document.getElementById "content")

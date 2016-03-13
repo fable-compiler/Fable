@@ -1,8 +1,9 @@
+var path = require("path");
 module.exports = {
-  context: __dirname + "/public", 
+  context: path.join(__dirname, "public"), 
   entry:  "./client",
   output: {
-    path: __dirname + "/public",
+    path: path.join(__dirname, "public"),
     filename: "bundle.js"
   },
   devtool: "source-map",

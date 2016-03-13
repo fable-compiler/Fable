@@ -591,6 +591,10 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
                 declInfo.AddInitAction (Fable.ActionDeclaration (e, makeRange fe.Range)); declInfo
         ) (DeclInfo init)
     declInfo.GetDeclarations()
+    
+// Make inlineExprs static so they can be reused in --watch compilations
+let private inlineExprs =
+    System.Collections.Concurrent.ConcurrentDictionary<string, string list * FSharpExpr>()
         
 let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpCheckProjectResults) =
     let rec getRootDecls rootEnt = function
@@ -598,9 +602,8 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
             when e.IsNamespace || e.IsFSharpModule ->
             getRootDecls (Some e) subDecls
         | _ as decls -> rootEnt, decls
-    let entities, inlineExprs =
-        System.Collections.Concurrent.ConcurrentDictionary<string, Fable.Entity>(),
-        System.Collections.Concurrent.ConcurrentDictionary<string, string list * FSharpExpr>()
+    let entities =
+        System.Collections.Concurrent.ConcurrentDictionary<string, Fable.Entity>()
     let fileNames =
         fsProj.AssemblyContents.ImplementationFiles
         |> Seq.map (fun x -> x.FileName)
@@ -628,7 +631,9 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
                 let success, expr = inlineExprs.TryGetValue fullName
                 if success then Some expr else None
             member fcom.AddInlineExpr fullName inlineExpr =
-                inlineExprs.TryAdd(fullName, inlineExpr)
+                inlineExprs.AddOrUpdate(fullName,
+                    System.Func<_,_>(fun _ -> inlineExpr),
+                    System.Func<_,_,_>(fun _ _ -> inlineExpr))
                 |> ignore
             member fcom.ReplacePlugins =
                 replacePlugins
