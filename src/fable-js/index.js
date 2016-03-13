@@ -12,7 +12,7 @@ var commandLineArgs = require('command-line-args');
 var appDescription = {
     title: "Fable",
     description: "F# to JavaScript compiler",
-    footer: "All arguments but --projFile (default) can be defined in a fableconfig.json file"
+    footer: "All arguments can be defined in a fableconfig.json file"
 };
 
 var cli = commandLineArgs([
@@ -185,12 +185,13 @@ function processJson(json, opts) {
             err = babelAst.message;
         }
         else {
-            if (opts.projFile) {
-                babelifyToFile(babelAst, opts);
-                console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
+            // When a code string is passed, just display the result on screen
+            if (opts.code) {
+                babelifyToConsole(babelAst);
             }
             else {
-                babelifyToConsole(babelAst);
+                babelifyToFile(babelAst, opts);
+                console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
             }
         }
     }
@@ -210,41 +211,49 @@ try {
         fableCmd = process.platform === "win32" ? "cmd" : "mono",
         fableCmdArgs = process.platform === "win32" ? ["/C", fableBin] : [fableBin];
 
-    if (opts.help || (!opts.projFile && !opts.code)) {
+    if (opts.help) {
         console.log(cli.getUsage(appDescription));
         process.exit(0);
     }
 
     opts.projDir = ".";
     if (opts.projFile) {
-        opts.projDir = path.dirname(path.isAbsolute(opts.projFile)
-                        ? opts.projFile
-                        : path.join(process.cwd(), opts.projFile));
+        opts.projDir = path.dirname(
+            path.isAbsolute(opts.projFile)
+            ? opts.projFile : path.join(process.cwd(), opts.projFile)
+        );
         opts.projFile = "./" + path.basename(opts.projFile);
+    }
         
-        try {
-            var cfgFile = path.join(opts.projDir, fableConfig);
-            if (fs.existsSync(cfgFile)) {
-                var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
-                for (var key in cfg) {
-                    opts[key] = cfg[key];
-                }
+    // Parse fableconfig.json
+    try {
+        var cfgFile = path.join(opts.projDir, fableConfig);
+        if (fs.existsSync(cfgFile)) {
+            var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
+            for (var key in cfg) {
+                opts[key] = cfg[key];
             }
         }
-        catch (err) {
-            console.log("ERROR: Cannot parse fableconfig file");
-            process.exit(1);
-        }
-        opts.outDir = path.isAbsolute(opts.outDir)
-                    ? opts.outDir
-                    : path.join(opts.projDir, opts.outDir);
+    }
+    catch (err) {
+        console.log("ERROR: Cannot parse fableconfig file");
+        process.exit(1);
+    }
+    
+    if (!opts.projFile && !opts.code) {
+        console.log("ERROR: Please provide a F# project (.fsproj) or script (.fsx) file");
+        process.exit(1);
+    }
+    
+    opts.outDir = path.isAbsolute(opts.outDir)
+                ? opts.outDir
+                : path.join(opts.projDir, opts.outDir);
         
-        // Copy fable-core.js if set to "." but not present in outDir
-        ensureDirExists(opts.outDir);
-        if (opts.lib === "." && !fs.existsSync(path.join(opts.outDir, fableCoreLib))) {
-            fs.createReadStream(path.join(__dirname, fableCoreLib))
-                .pipe(fs.createWriteStream(path.join(opts.outDir, fableCoreLib)));
-        }
+    // Copy fable-core.js if lib is "."
+    ensureDirExists(opts.outDir);
+    if (opts.lib === ".") {
+        fs.createReadStream(path.join(__dirname, fableCoreLib))
+            .pipe(fs.createWriteStream(path.join(opts.outDir, fableCoreLib)));
     }
         
     // Module target and extra plugins
@@ -263,10 +272,11 @@ try {
         babelPlugins.push(require("babel-plugin-transform-es2015-modules-umd"));
     }
     
+    // Call Fable.exe
     for (var k in opts) {
         if (Array.isArray(opts[k]))
             opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, v) })
-        else
+        else if (typeof opts[k] !== "object")
             fableCmdArgs.push("--" + k, opts[k]);
     }
     // console.log(opts.projDir + "> " + fableCmd + " " + fableCmdArgs.join(" "));
