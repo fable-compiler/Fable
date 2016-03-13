@@ -11,6 +11,7 @@ var templates = {
 file:
 `namespace Fable.Import
 open System
+open System.Text.RegularExpressions
 open Fable.Core
 open Fable.Import.JS
 
@@ -64,6 +65,7 @@ var reserved = [
     "mixin",
     "object",
     "parallel",
+    "params",
     "process",
     "protected",
     "pure",
@@ -154,7 +156,10 @@ var genReg = /<.+?>$/;
 var mappedTypes = {
   Date: "DateTime",
   Object: "obj",
-  Array: "ResizeArray"
+  Array: "ResizeArray",
+  RegExp: "Regex",
+  String: "string",
+  Number: "float"
 };
 
 function escape(x) {

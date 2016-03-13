@@ -465,6 +465,12 @@ module private AstPass =
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
+    let funcs com (i: Fable.ApplyInfo) =
+        match i.methodName, i.callee with
+        | "invoke", Some callee ->
+            Fable.Apply(callee, i.args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+        | _ -> None
+
     let options com (i: Fable.ApplyInfo) =
         let toArray r optExpr =
             Fable.Apply(Fable.Emit("$0 != null ? [$0]: []") |> Fable.Value, [optExpr],
@@ -875,7 +881,9 @@ module private AstPass =
         | "System.Console"
         | "System.Diagnostics.Debug" -> console com info
         | "System.DateTime" -> dates com info 
-        | "System.TimeSpan" -> timeSpans com info 
+        | "System.TimeSpan" -> timeSpans com info
+        | "System.Action"
+        | "System.Func" -> funcs com info
         | "Microsoft.FSharp.Core.Option" -> options com info
         | "Microsoft.FSharp.Core.MatchFailureException"
         | "System.Exception" -> exceptions com info

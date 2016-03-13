@@ -79,7 +79,8 @@ module Patterns =
             (lambdaArgs, methArgs)
             ||> List.forall2 (fun larg marg ->
                 match marg with
-                | Coerce(_, Value marg) | Value marg -> marg.IsEffectivelySameAs larg
+                | Coerce(_, Value marg) | Value marg ->
+                    marg.IsEffectivelySameAs larg
                 | _ -> false)                
         let rec visit identAndRepls = function
             | Let((letArg, letValue), letBody) ->
@@ -451,16 +452,7 @@ module Util =
         Some (makeRange fsExpr.Range)
 
     let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
-        let isUnitVar =
-            match vars with
-            | [var] ->
-                match makeType com ctx var.FullType with
-                | Fable.PrimitiveType Fable.Unit -> true
-                | _ -> false
-            | _ -> false
-        if isUnitVar
-        then ctx, []
-        else List.foldBack (fun var (ctx, accArgs) ->
+        List.foldBack (fun var (ctx, accArgs) ->
             let newContext, arg = bindIdentFrom com ctx var
             newContext, arg::accArgs) vars (ctx, [])
 

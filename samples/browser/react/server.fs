@@ -1,11 +1,12 @@
 module Server
 
-module Util =
-    open System
-    open Fable.Core
-    open Fable.Import
-    open Fable.Import.Node.http
+open System
+open Models
+open Fable.Core
+open Fable.Import
+open Fable.Import.express
 
+module Util =
     let handleError onErr onSuccess err =
         match unbox err with
         | Some err -> onErr err |> ignore
@@ -14,59 +15,49 @@ module Util =
     let failExit err =
         Console.WriteLine (string err)
         Node.Globals.``process``.exit 1.
-       
-    type ExpressHelper =
-        static member inline use3rdParty (app: express.Express, middleWare) =
-            app?``use`` $ middleWare |> ignore
 
-        static member inline useStatic (app: express.Express, targetPath: string, sourcePath: string) =
-            app?``use`` $ (targetPath, express.Globals.``static`` $ sourcePath) |> ignore
-
-        static member inline useFn (app: express.Express, f: Func<ServerRequest, ServerResponse, (unit->unit), unit>) =
-            ignore(app?``use`` $ f)
-        
-        static member inline get (app: express.Express, path: string, f: Func<ServerRequest, ServerResponse, unit>) =
-            ignore(app?get $ (path, f))
-
-        static member inline post (app: express.Express, path: string, f: Func<ServerRequest, ServerResponse, unit>) =
-            ignore(app?post $ (path, f))
-
-        static member inline listen (app: express.Express, port: int, cb: unit->unit) =
-            app?listen $ (port, cb) |> ignore
-        
 open Util
-open Models
-open Fable.Core
-open Fable.Import
-open Fable.Import.Node
-type E = ExpressHelper
 
 let app = express.Globals.callSelf()
-let COMMENTS_FILE = path.Globals.join(Globals.__dirname, "comments.json")
+let COMMENTS_FILE = Node.path.Globals.join(Node.Globals.__dirname, "comments.json")
 
+// Just use dynamic programming to set body-parser middleware
 let [<Import("body-parser?asDefault=true")>] bodyParser = obj()
 
-E.use3rdParty(app, bodyParser?json $ ())
-E.use3rdParty(app, bodyParser?urlencoded $ (createObj ["extended" ==> true]))
+// As app.use expects a ParamArray, the explicit unbox is necessary
+// so the compiler doesn't think it's an array
+bodyParser?json $ ()
+|> unbox<RequestHandler> |> app.``use``
+|> ignore
 
-E.useStatic(app, "/", path.Globals.join(Globals.__dirname, "public"))
+bodyParser?urlencoded $ (createObj ["extended" ==> true])
+|> unbox<RequestHandler> |> app.``use``
+|> ignore
+
+// Serve static files from public folder
+Node.path.Globals.join(Node.Globals.__dirname, "public")
+|> express.Globals.``static``.callSelf
+|> fun sta -> app.``use``("/", sta)
+|> ignore
 
 // Additional middleware which will set headers that we need on each request.
-E.useFn(app, fun req res next ->
+app.``use``(fun (req: Request) (res: Response) (next: obj->unit) ->
     // Set permissive CORS header - this allows this server to be used only as
     // an API server in conjunction with something like webpack-dev-server.
     res.setHeader("Access-Control-Allow-Origin", "*")
     // Disable caching so we'll always get the latest comments.
     res.setHeader("Cache-Control", "no-cache")
-    next())
+    box <| next())
+|> ignore
 
-E.get(app, "/api/comments/", fun req res ->
-    fs.Globals.readFile(COMMENTS_FILE, fun err data ->
+app.get(U2.Case1 "/api/comments/", fun req res _ ->
+    box <| Node.fs.Globals.readFile(COMMENTS_FILE, fun err data ->
         err |> handleError failExit (fun () ->
             string data |> JS.Globals.JSON.parse |> ($) res?json)))
+|> ignore
 
-E.post(app, "/api/comments", fun req res ->
-    fs.Globals.readFile(COMMENTS_FILE, fun err data ->
+app.post(U2.Case1 "/api/comments/", fun req res _ ->
+    box <| Node.fs.Globals.readFile(COMMENTS_FILE, fun err data ->
         err |> handleError failExit (fun () ->
             let comments: ResizeArray<_> =
                 string data |> JS.Globals.JSON.parse |> unbox
@@ -78,17 +69,19 @@ E.post(app, "/api/comments", fun req res ->
                 author = string req?body?author
                 text = string req?body?text
             }
-            fs.Globals.writeFile(
+            Node.fs.Globals.writeFile(
                 COMMENTS_FILE,
                 // The F# compiler gets confused about which overload of JSON.stringify
                 // to use here so just apply the method dynamically
                 JS.Globals.JSON.stringify $ (comments, None, 4.),
                 fun err -> err |> handleError failExit (fun () -> res?json $ comments)))))
+|> ignore
 
 let port =
-    match unbox Globals.``process``.env?PORT with
+    match unbox Node.Globals.``process``.env?PORT with
     | Some x -> x
     | None -> 3000
 
-E.listen(app, port, fun () ->
-    printfn "Server started: http://localhost:%i/" port)
+app.listen(port, unbox (fun () ->
+    printfn "Server started: http://localhost:%i/" port))
+|> ignore
