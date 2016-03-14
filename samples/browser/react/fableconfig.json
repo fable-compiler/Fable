@@ -1,8 +1,8 @@
 {
     "env": "node",
     "sourceMaps": true,
-    "projFile": "fable-sample-react.fsproj",
+    "projFile": "./fable-sample-react.fsproj",
     "scripts": {
-        "postbuild": "node_modules/.bin/webpack"
+        "postbuild": "node node_modules/webpack/bin/webpack"
     }
 }

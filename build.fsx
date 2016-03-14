@@ -5,17 +5,14 @@ open System.IO
 open System.Text.RegularExpressions
 open Fake
 
-// Directories
-let fableBuildDir = "build/fable/bin"
-let testsBuildDir = "build/tests"
-let pluginsBuildDir = "build/plugins"
-let samplesBuildDir = "build/samples"
-
 // version info
 let version = "0.0.12"  // or retrieve from CI server
 
 module Util =
     open System.Net
+    
+    let join pathParts =
+        Path.Combine(Array.ofSeq pathParts)
 
     let run workingDir fileName args =
         let ok = 
@@ -75,14 +72,15 @@ module Npm =
         |> npmFilePath ||> Util.run workingDir
         
 module Node =
-    let nodeFilePath =
-        if EnvironmentHelper.isUnix
-        then "node"
-        else "./packages/Node.js/node.exe" |> Path.GetFullPath
-
     let run workingDir script args =
         let args = sprintf "%s %s" script (String.concat " " args)
-        Util.run workingDir nodeFilePath args
+        Util.run workingDir "node" args
+
+// Directories
+let fableBuildDir = Util.join ["build";"fable";"bin"]
+let testsBuildDir = Util.join ["build";"tests"]
+let pluginsBuildDir = Util.join ["build";"plugins"]
+let samplesBuildDir = Util.join ["build";"samples"]
 
 // Targets
 Target "Clean" (fun _ ->
@@ -121,7 +119,7 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    let fableDir = Path.GetFullPath "build/fable"
+    let fableDir = Util.join ["build";"fable"] |> Path.GetFullPath
     let testsBuildDir = Path.GetFullPath testsBuildDir
     FileUtils.cp_r "src/tests" testsBuildDir
     Npm.install testsBuildDir []
@@ -146,7 +144,7 @@ Target "Samples" (fun _ ->
         ++ "samples/**/node_modules/"
         ++ "samples/**/bin/" ++ "samples/**/obj/"
     |> CleanDirs
-    let fableDir = Path.GetFullPath "build/fable"
+    let fableDir = Util.join ["build";"fable"] |> Path.GetFullPath
     let samplesBasePath = Path.GetFullPath "samples"
     let samplesBuilDir = Path.GetFullPath samplesBuildDir
     
