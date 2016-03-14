@@ -175,13 +175,27 @@ function babelifyToFile(babelAst, opts) {
 function postbuild(opts) {
     if (opts.scripts && opts.scripts.postbuild) {
         console.log(opts.scripts.postbuild);
-        child_process.exec(opts.scripts.postbuild, { cwd: opts.projDir }, function(err, stdout, stderr) {
-            if (err) {
-                console.error(err);
-                process.exit(1);
-            }
-            console.log(stdout);
+        var cmd, args;
+        if (process.platform === "win32") {
+            cmd = "cmd";
+            args = opts.scripts.postbuild.split(" ").filter(function(x){return x});
+            args.splice(0,0,"/C")
+        }
+        else {
+            var i = opts.scripts.postbuild.indexOf(' ');
+            cmd = opts.scripts.postbuild.substring(0, i);
+            args = opts.scripts.postbuild.substring(i + 1).split(" ").filter(function(x){return x});
+        }
+        var postProc = child_process.spawn(cmd, args, { cwd: opts.projDir });
+        postProc.on('exit', function(code) {
             process.exit(0);
+        });
+        postProc.stderr.on('data', function(data) {
+            console.log(data.toString());
+            process.exit(1);
+        });
+        postProc.stdout.on("data", function(data) {
+            console.log(data.toString());
         });
     }
     else {
@@ -310,18 +324,12 @@ try {
     });    
 
     fableProc.stderr.on('data', function(data) {
-        if (opts.fableExit) {
-            return;
-        }
         console.log("FABLE ERROR: " + data.toString().substring(0, 300) + "...");
         process.exit(1);
     });    
 
     var buffer = "";
     fableProc.stdout.on("data", function(data) {
-        if (opts.fableExit) {
-            return;
-        }
         var txt = data.toString(), newLine = 0;
         while (newLine >= 0) {
             var newLine = txt.indexOf("\n");
@@ -335,7 +343,6 @@ try {
 
                 // An empty string is the signal to finish the program
                 if (/^\s*$/.test(json)) {
-                    opts.fableExit = true;
                     postbuild(opts);
                 }
                 else {
