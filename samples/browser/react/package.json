@@ -5,7 +5,8 @@
   "description": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server",
+    "dev": "node server & node node_modules/webpack-dev-server/bin/webpack-dev-server --hot --inline"
   },
   "author": "Alfonso Garcia-Caro",
   "license": "Apache-2.0",
@@ -17,10 +18,13 @@
     "react-dom": "^0.14.7"
   },
   "devDependencies": {
-    "fable-import": "^0.0.2",
-    "fable-import-express": "^0.0.5",
-    "fable-import-react": "^0.0.3",
+    "fable-import": "0.0.2",
+    "fable-import-express": "0.0.5",
+    "fable-import-react": "0.0.3",
+    "fable-react-hot-loader": "^0.1.0",
+    "json-loader": "^0.5.4",
     "source-map-loader": "^0.1.5",
-    "webpack": "^1.12.14"
+    "webpack": "^1.12.14",
+    "webpack-dev-server": "^1.14.1"
   }
 }

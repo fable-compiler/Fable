@@ -51,6 +51,7 @@
     <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />
     <Compile Include="public/react-helper.fs" />
     <Compile Include="public/models.fs" />
+    <Compile Include="public/components.fs" />
     <Compile Include="public/client.fs" />
     <Compile Include="server.fs" />
   </ItemGroup>

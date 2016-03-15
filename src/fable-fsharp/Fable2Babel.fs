@@ -390,7 +390,7 @@ module Util =
                 transformExpr com ctx body |> U2.Case2
         args, body
         
-    let transformClass com ctx classRange baseClass decls =
+    let transformClass com ctx classIdent classRange baseClass decls =
         let declareMember range kind name args body isStatic hasRestParams =
             let name, computed = sanitizeName name
             let args, body = getMemberArgs com ctx args body hasRestParams
@@ -410,7 +410,7 @@ module Util =
             | Fable.EntityDeclaration _ as decl ->
                 failwithf "Unexpected declaration in class: %A" decl)
         |> List.map U2<_,Babel.ClassProperty>.Case1
-        |> fun meths -> Babel.ClassExpression(classRange, Babel.ClassBody(classRange, meths), ?super=baseClass)
+        |> fun meths -> Babel.ClassExpression(classRange, Babel.ClassBody(classRange, meths), classIdent, ?super=baseClass)
 
     let declareInterfaces (com: IBabelCompiler) ctx (ent: Fable.Entity) isClass =
         // TODO: For now, we're ignoring compiler generated interfaces for union and records
@@ -460,7 +460,7 @@ module Util =
     let declareClass com ctx modIdent (ent: Fable.Entity) entDecls entRange baseClass isClass =
         let classDecl =
             // Don't create a new context for class declarations
-            transformClass com ctx entRange baseClass entDecls
+            transformClass com ctx (identFromName ent.Name) entRange baseClass entDecls
             |> declareModMember entRange ent.Name ent.IsPublic modIdent
         match declareInterfaces com ctx ent isClass with
         | None -> [classDecl]
