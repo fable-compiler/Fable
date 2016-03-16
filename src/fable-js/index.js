@@ -310,17 +310,22 @@ try {
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: opts.projDir });
 
     if (opts.watch) {
+        function tooClose(filename, prev) {
+            return prev != null &&
+                filename == prev[0] &&
+                (new Date() - prev[1]) < 1000;
+        }
+        var prev = null;
         fableProc.stdin.setEncoding('utf-8');
         var fsExtensions = [".fs", ".fsx", ".fsproj"];
-        var chokidar = require('chokidar');
-        var watcher = chokidar.watch(opts.projDir, {
-            ignored: /[\/\\]node_modules/,
-            persistent: true
-        });
-        watcher.on('change', function(filename) {
+        fs.watch(opts.projDir, { persistent: true, recursive: true }, function(ev, filename) {
             var ext = path.extname(filename).toLowerCase();
-            if (fsExtensions.indexOf(ext) >= 0) {
-                fableProc.stdin.write(path.resolve(filename) + "\n");
+            if (ev == "change" && fsExtensions.indexOf(ext) >= 0) {
+                filename = path.resolve(filename).replace(/\\/g,"/");
+                if (!tooClose(filename, prev)) {
+                    fableProc.stdin.write(filename + "\n");
+                }
+                prev = [filename, new Date()];
             }
         });
     }

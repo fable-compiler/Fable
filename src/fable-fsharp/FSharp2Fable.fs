@@ -658,7 +658,7 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
                 let rootEnt, rootDecls =
                     let rootEnt, rootDecls = getRootDecls None file.Declarations
                     match fileMask with
-                    | Some mask when file.FileName <> mask -> rootEnt, []
+                    | Some mask when (Naming.normalizePath file.FileName) <> mask -> rootEnt, []
                     | _ -> rootEnt, transformDeclarations com Context.Empty [] rootDecls
                 match rootEnt with
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
