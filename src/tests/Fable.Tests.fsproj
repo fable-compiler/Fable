@@ -41,7 +41,7 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util.fs" />
+    <Compile Include="Util/Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="AsyncTests.fs" />
@@ -49,6 +49,7 @@
     <Compile Include="DictionaryTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
+    <Compile Include="MiscTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="RegexTests.fs" />
@@ -76,13 +77,6 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" Condition="Exists('$(FSharpTargetsPath)')" />
-  <ItemGroup>
-    <Reference Include="nunit.framework">
-      <HintPath>..\..\packages\NUnit\lib\nunit.framework.dll</HintPath>
-      <Private>True</Private>
-      <Paket>True</Paket>
-    </Reference>
-  </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
@@ -90,4 +84,11 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Reference Include="nunit.framework">
+      <HintPath>..\..\packages\NUnit\lib\nunit.framework.dll</HintPath>
+      <Private>True</Private>
+      <Paket>True</Paket>
+    </Reference>
+  </ItemGroup>
 </Project>

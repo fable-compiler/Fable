@@ -44,6 +44,8 @@ let loadPlugins (opts: CompilerOptions): IPlugin list =
     |> Seq.toList
 
 let parseFSharpProject (com: ICompiler) (checker: FSharpChecker) (projCode: string option) =
+    if not(File.Exists com.Options.projFile) then
+        failwithf "Cannot find project file %s" com.Options.projFile
     let checkProjectResults =
         match (Path.GetExtension com.Options.projFile).ToLower() with
         | ".fsx" ->

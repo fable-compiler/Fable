@@ -307,8 +307,11 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                             | Naming.StartsWith "get_" _ -> Fable.Getter (name, false)
                             | Naming.StartsWith "set_" _ -> Fable.Setter name
                             | _ -> Fable.Method name
-                        Fable.Member(kind, range, args', transformExpr com ctx over.Body,
-                            [], true, false, hasRestParams args)))
+                        // TODO: FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+                        // information about ParamArray
+                        Fable.Member(kind, range, args',
+                                     transformExpr com ctx over.Body,
+                                     [], true, false, false)))
                 |> List.concat
             let interfaces =
                 objType::(otherOverrides |> List.map fst)
@@ -417,7 +420,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 let lambda =
                     Fable.Lambda (targetVars, com.Transform targetCtx targetExpr)
                     |> Fable.Value
-                let ctx, ident = bindIdent ctx lambda.Type (sprintf "target%i" k)
+                let ctx, ident = bindIdent ctx lambda.Type (sprintf "$target%i" k)
                 ctx, Map.add k (ident, lambda) acc) (ctx, Map.empty<_,_>)
         let decisionTargets =
             targetRefsCount |> Map.map (fun k v ->
@@ -528,8 +531,8 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     match meth with
     | meth when declInfo.IsIgnoredMethod meth -> ()
     | meth when isInline meth ->
-        let args = args |> Seq.collect id |> Seq.map (fun x -> x.DisplayName)
-        com.AddInlineExpr meth.FullName (List.ofSeq args, body)
+        let args = args |> Seq.collect id |> Seq.toList
+        com.AddInlineExpr meth.FullName (args, body)
     | _ ->
         let memberKind =
             let name = sanitizeMethodName com meth
@@ -547,11 +550,11 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                     { ctx with baseClass = Some fullName }
                 | _ -> ctx
             transformExpr com ctx body
-        let entMember = 
+        let entMember =
             Fable.Member(memberKind,
                 makeRange meth.DeclarationLocation, args', body,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-                meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParams args)
+                meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParamsFrom meth)
             |> Fable.MemberDeclaration
         declInfo.AddMethod (meth, entMember)
     declInfo
@@ -594,7 +597,8 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
     
 // Make inlineExprs static so they can be reused in --watch compilations
 let private inlineExprs =
-    System.Collections.Concurrent.ConcurrentDictionary<string, string list * FSharpExpr>()
+    System.Collections.Concurrent.ConcurrentDictionary<
+        string, FSharpMemberOrFunctionOrValue list * FSharpExpr>()
         
 let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpCheckProjectResults) =
     let rec getRootDecls rootEnt = function

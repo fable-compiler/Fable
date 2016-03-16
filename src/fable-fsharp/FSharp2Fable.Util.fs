@@ -13,7 +13,7 @@ type DecisionTarget =
 
 type Context =
     {
-    scope: (string * Fable.Expr) list
+    scope: (obj * Fable.Expr) list
     typeArgs: (string * Fable.Type) list
     decisionTargets: Map<int, DecisionTarget>
     baseClass: string option
@@ -30,8 +30,8 @@ type IFableCompiler =
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
     abstract GetInternalFile: FSharpEntity -> string option
     abstract GetEntity: FSharpEntity -> Fable.Entity
-    abstract TryGetInlineExpr: string -> (string list * FSharpExpr) option
-    abstract AddInlineExpr: string -> (string list * FSharpExpr) -> unit
+    abstract TryGetInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) option
+    abstract AddInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) -> unit
     abstract ReplacePlugins: IReplacePlugin list
     
 module Patterns =
@@ -337,7 +337,12 @@ module Identifiers =
     open Types
 
     /// Make a sanitized identifier from a tentative name
-    let bindIdent (ctx: Context) typ (tentativeName: string) =
+    let bindIdent (ctx: Context) typ (var: obj) =
+        let tentativeName =
+            match var with
+            | :? FSharpMemberOrFunctionOrValue as fsRef -> fsRef.DisplayName
+            | :? string as s -> s
+            | _ -> sprintf "$var%i" ctx.scope.Length
         let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
             List.exists (fun (_,x') ->
                 match x' with
@@ -345,21 +350,21 @@ module Identifiers =
                 | _ -> false) ctx.scope)
         let ident: Fable.Ident = { name=sanitizedName; typ=typ}
         let identValue = Fable.Value (Fable.IdentValue ident)
-        { ctx with scope = (tentativeName, identValue)::ctx.scope}, ident
+        { ctx with scope = (box var, identValue)::ctx.scope}, ident
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
-        bindIdent ctx (makeType com ctx fsRef.FullType) fsRef.DisplayName
+        bindIdent ctx (makeType com ctx fsRef.FullType) fsRef
     
     let (|BindIdent|) = bindIdentFrom
 
-    let bindExpr ctx fsName expr =
-        { ctx with scope = (fsName, expr)::ctx.scope}
+    let bindExpr ctx fsRef expr =
+        { ctx with scope = (fsRef, expr)::ctx.scope}
 
     /// Get corresponding identifier to F# value in current scope
     let getBoundExpr com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
         ctx.scope
-        |> List.tryFind (fun (fsName,_) -> fsName = fsRef.DisplayName)
+        |> List.tryFind (fun (fsName,_) -> obj.Equals(fsName, fsRef))
         |> function
         | Some (_,boundExpr) -> boundExpr
         | None -> failwithf "Detected non-bound identifier: %s in %A"
@@ -492,13 +497,14 @@ module Util =
     let makeGetFrom com ctx (fsExpr: FSharpExpr) callee propExpr =
         Fable.Apply (callee, [propExpr], Fable.ApplyGet, makeType com ctx fsExpr.Type, makeRangeFrom fsExpr)
 
-    let hasRestParams (args: FSharpMemberOrFunctionOrValue list list) =
-        match args with
-        | [args] when args.Length > 0 ->
-            let last = Seq.last args
-            last.Attributes |> Seq.exists (fun att ->
-                att.AttributeType.FullName = "System.ParamArrayAttribute")
-        | _ -> false
+    // TODO: This method doesn't work but it would be necessary to
+    // check FSharpObjectExprOverride.CurriedParameterGroups
+//    let hasRestParams (args: FSharpMemberOrFunctionOrValue list list) =
+//        match args with
+//        | [args] when args.Length > 0 ->
+//            tryFindAtt ((=) "ParamArray") (Seq.last args).Attributes
+//            |> Option.isSome
+//        | _ -> false
 
     let hasRestParamsFrom (meth: FSharpMemberOrFunctionOrValue) =
         if meth.CurriedParameterGroups.Count <> 1 then false else

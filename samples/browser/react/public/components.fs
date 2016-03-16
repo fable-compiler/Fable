@@ -109,9 +109,9 @@ type CommentForm(props) =
     member x.handleSubmit (e: React.SyntheticEvent) =
         e.preventDefault()
         match x.state with
-        // | {author = Some(NonEmpty author); text = Some(NonEmpty text)} ->
-        | { author = Some author; text = Some text }
-                when author.Trim() <> "" && text.Trim() <> "" ->
+        | {author = Some(NonEmpty author); text = Some(NonEmpty text)} ->
+        // | { author = Some author; text = Some text }
+        //         when author.Trim() <> "" && text.Trim() <> "" ->
             x.props.onCommentSubmit { id = None; author = author; text = text }
             x.setState { author = None; text = None }
         | _ -> ()
