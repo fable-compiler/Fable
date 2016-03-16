@@ -28,13 +28,12 @@ let ``Multiple active pattern calls work``() =
     | _ -> false
     |> equal true
     
-// TODO: ParamArray in object expression is not working at the moment
-//type IFoo =
-//    abstract Bar: s: string * [<ParamArray>] rest: obj[] -> string
-//    
-//[<Test>]
-//let ``ParamArray in object expression works``() =
-//    let o = { new IFoo with member x.Bar(s: string, [<ParamArray>] rest: obj[]) = String.Format(s, rest) }
-//    o.Bar("{0} + {0} = {2}", 2, 4)
-//    |> equal "2 + 2 = 4"
+type IFoo =
+   abstract Bar: s: string * [<ParamArray>] rest: obj[] -> string
+   
+[<Test>]
+let ``ParamArray in object expression works``() =
+   let o = { new IFoo with member x.Bar(s: string, [<ParamArray>] rest: obj[]) = String.Format(s, rest) }
+   o.Bar("{0} + {0} = {1}", 2, 4)
+   |> equal "2 + 2 = 4"
     

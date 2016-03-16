@@ -497,8 +497,8 @@ module Util =
     let makeGetFrom com ctx (fsExpr: FSharpExpr) callee propExpr =
         Fable.Apply (callee, [propExpr], Fable.ApplyGet, makeType com ctx fsExpr.Type, makeRangeFrom fsExpr)
 
-    // TODO: This method doesn't work but it would be necessary to
-    // check FSharpObjectExprOverride.CurriedParameterGroups
+    // TODO: This method doesn't work, the arguments don't keep
+    // the ParamArray attribute
 //    let hasRestParams (args: FSharpMemberOrFunctionOrValue list list) =
 //        match args with
 //        | [args] when args.Length > 0 ->
@@ -506,7 +506,7 @@ module Util =
 //            |> Option.isSome
 //        | _ -> false
 
-    let hasRestParamsFrom (meth: FSharpMemberOrFunctionOrValue) =
+    let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
         if meth.CurriedParameterGroups.Count <> 1 then false else
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
@@ -585,7 +585,7 @@ module Util =
     let makeCallFrom (com: IFableCompiler) ctx fsExpr (meth: FSharpMemberOrFunctionOrValue)
                     (typArgs, methTypArgs) callee args =
         let args =
-            if not (hasRestParamsFrom meth) then args else
+            if not (hasRestParams meth) then args else
             let args = List.rev args
             match args.Head with
             | Fable.Value(Fable.ArrayConst(Fable.ArrayValues items, _)) ->

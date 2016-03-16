@@ -308,10 +308,15 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                             | Naming.StartsWith "set_" _ -> Fable.Setter name
                             | _ -> Fable.Method name
                         // TODO: FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-                        // information about ParamArray
+                        // information about ParamArray, we need to check the source method.
+                        // Improve the way to do it.
+                        let hasRestParams =
+                            typ.TypeDefinition.MembersFunctionsAndValues
+                            |> Seq.tryFind (fun x -> x.DisplayName = over.Signature.Name)
+                            |> function Some m -> hasRestParams m | None -> false
                         Fable.Member(kind, range, args',
                                      transformExpr com ctx over.Body,
-                                     [], true, false, false)))
+                                     hasRestParams = hasRestParams)))
                 |> List.concat
             let interfaces =
                 objType::(otherOverrides |> List.map fst)
@@ -554,7 +559,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             Fable.Member(memberKind,
                 makeRange meth.DeclarationLocation, args', body,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-                meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParamsFrom meth)
+                meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParams meth)
             |> Fable.MemberDeclaration
         declInfo.AddMethod (meth, entMember)
     declInfo
