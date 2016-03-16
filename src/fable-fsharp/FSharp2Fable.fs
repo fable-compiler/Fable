@@ -650,9 +650,9 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
             member __.Options = com.Options
             member __.Plugins = com.Plugins }
     fsProj.AssemblyContents.ImplementationFiles
-    |> List.where (fun file ->
+    |> Seq.where (fun file ->
         not (Naming.ignoredFilesRegex.IsMatch file.FileName))
-    |> List.map (fun file ->
+    |> Seq.scan (fun acc file ->
         try
             let rootEnt, rootDecls =
                 let rootEnt, rootDecls =
@@ -663,6 +663,6 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
                 match rootEnt with
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName, rootDecls
-            Fable.File(file.FileName, rootEnt, rootDecls)
+            Fable.File(file.FileName, rootEnt, rootDecls)::acc
         with
-        | ex -> failwithf "%s (%s)" ex.Message file.FileName)
+        | ex -> failwithf "%s (%s)" ex.Message file.FileName) []

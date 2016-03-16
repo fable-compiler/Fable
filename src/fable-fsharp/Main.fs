@@ -25,7 +25,7 @@ let readOptions argv =
         code = def opts "code" null id
         outDir = def opts "outDir" "." id
         lib = def opts "lib" "." id
-        projFile = def opts "projFile" null id
+        projFile = def opts "projFile" null Path.GetFullPath
         watch = def opts "watch" false bool.Parse
         symbols = def opts "symbols" [||] (fun x -> x.Split('|'))
         plugins = def opts "plugins" [||] (fun x -> x.Split('|'))
@@ -42,29 +42,35 @@ let loadPlugins (opts: CompilerOptions): IPlugin list =
         | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.cast<_>
     |> Seq.toList
-
-let parseFSharpProject (com: ICompiler) (checker: FSharpChecker) (projCode: string option) =
-    if not(File.Exists com.Options.projFile) then
-        failwithf "Cannot find project file %s" com.Options.projFile
-    let checkProjectResults =
-        match (Path.GetExtension com.Options.projFile).ToLower() with
+    
+let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
+                      (prevResults: FSharpProjectOptions option) (fileMask: string option) =
+    match prevResults, fileMask with
+    | Some res, Some file when com.Options.projFile <> file -> res
+    | _ ->
+        let projFile = com.Options.projFile
+        if not(File.Exists projFile) then
+            failwithf "Cannot find project file %s" projFile
+        match (Path.GetExtension projFile).ToLower() with
         | ".fsx" ->
             let projCode =
-                match projCode with
-                | None -> File.ReadAllText com.Options.projFile
-                | Some projCode ->
-                    File.WriteAllText(com.Options.projFile, projCode)
+                match com.Options.code with
+                | null -> File.ReadAllText projFile
+                | projCode ->
+                    // TODO: use File System
+                    File.WriteAllText(projFile, projCode)
                     projCode
-            let otherFlags =
-                com.Options.symbols |> Array.map (sprintf "--define:%s")
-            checker.GetProjectOptionsFromScript(
-                com.Options.projFile, projCode, otherFlags=otherFlags)
+            let otherFlags = com.Options.symbols |> Array.map (sprintf "--define:%s")
+            checker.GetProjectOptionsFromScript(projFile, projCode, otherFlags=otherFlags)
             |> Async.RunSynchronously
         | _ ->
-            let properties =
-                [("DefineConstants", String.concat ";" com.Options.symbols)]
-            ProjectCracker.GetProjectOptionsFromProjectFile(
-                com.Options.projFile, properties)
+            let properties = [("DefineConstants", String.concat ";" com.Options.symbols)]
+            ProjectCracker.GetProjectOptionsFromProjectFile(projFile, properties)
+
+let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
+                       (projOptions: FSharpProjectOptions) =
+    let checkProjectResults =
+        projOptions
         |> checker.ParseAndCheckProject
         |> Async.RunSynchronously
     let errors =
@@ -79,14 +85,19 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker) (projCode: stri
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> failwith
+        
+let makeCompiler plugins opts =
+    { new ICompiler with
+        member __.Options = opts
+        member __.Plugins = plugins }
 
-let compile com checker projCode fileMask =
+let compile (com: ICompiler) checker projOpts fileMask =
     let printFile =
         let jsonSettings = 
-            JsonSerializerSettings(
+            JsonSerializerSettings( 
                 Converters=[|Json.ErasedUnionConverter()|],
                 StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
-        fun file ->
+        fun (file: AST.Babel.Program) ->
             JsonConvert.SerializeObject (file, jsonSettings)
             |> Console.Out.WriteLine
     let printError =
@@ -94,12 +105,30 @@ let compile com checker projCode fileMask =
         >> JsonConvert.SerializeObject
         >> Console.Out.WriteLine
     try
-        parseFSharpProject com checker projCode
+        let projOpts =
+            getProjectOptions com checker projOpts fileMask
+        projOpts
+        |> parseFSharpProject com checker
         |> FSharp2Fable.Compiler.transformFiles com fileMask
-        |> Fable2Babel.Compiler.transformFiles com
+        |> Seq.map (Fable2Babel.Compiler.transformFile com)
+        |> Seq.choose id
         |> Seq.iter printFile
+        Some projOpts
     with ex ->
         printError ex.Message
+        None
+        
+let rec awaitInput (com: ICompiler) checker projOpts =
+    let input = Console.In.ReadLine()
+    let com, fileMask =
+        if com.Options.code <> null then
+            makeCompiler com.Plugins {
+                com.Options with code = input.Replace("\\n","\n")
+            }, Some com.Options.projFile
+        else
+            com, Some input
+    compile com checker projOpts fileMask
+    |> awaitInput com checker
 
 [<EntryPoint>]
 let main argv =
@@ -109,20 +138,12 @@ let main argv =
             | opts when opts.code <> null ->
                 { opts with projFile = Path.ChangeExtension(Path.GetTempFileName(), "fsx") }
             | opts -> opts
-    let plugins = loadPlugins opts
-    let com = { new ICompiler with
-                member __.Options = opts
-                member __.Plugins = plugins }
+    let com = makeCompiler (loadPlugins opts) opts
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
     // First full compilation
-    compile com checker (Option.ofObj opts.code) None
-    while opts.watch do
-        let input = Console.In.ReadLine()
-        let projCode, fileMask =
-            if com.Options.code = null
-            then None, Some input
-            else input.Replace("\\n","\n") |> Some, None
-        compile com checker projCode fileMask
+    let projOpts = compile com checker None None
+    if opts.watch then
+        awaitInput com checker projOpts
     // Send empty string to finish node process
     Console.Out.WriteLine()
     0

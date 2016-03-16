@@ -311,10 +311,16 @@ try {
 
     if (opts.watch) {
         fableProc.stdin.setEncoding('utf-8');
-        fs.watch(opts.projDir, { persistent: true, recursive: true }, function(ev, filename) {
+        var fsExtensions = [".fs", ".fsx", ".fsproj"];
+        var chokidar = require('chokidar');
+        var watcher = chokidar.watch(opts.projDir, {
+            ignored: /[\/\\]node_modules/,
+            persistent: true
+        });
+        watcher.on('change', function(filename) {
             var ext = path.extname(filename).toLowerCase();
-            if (ev == "change" && (ext == ".fs" || ext == ".fsx")) {
-                fableProc.stdin.write(path.join(opts.projDir, filename) + "\n");
+            if (fsExtensions.indexOf(ext) >= 0) {
+                fableProc.stdin.write(path.resolve(filename) + "\n");
             }
         });
     }

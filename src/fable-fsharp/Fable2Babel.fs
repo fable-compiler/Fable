@@ -559,12 +559,13 @@ module Util =
 module Compiler =
     open Util
 
-    let transformFiles (com: ICompiler) (files: Fable.File list) =
-        let com = makeCompiler com files
-        files
-        |> Seq.filter (fun file -> not(List.isEmpty file.Declarations))
-        |> Seq.map (fun file ->
+    let transformFile (com: ICompiler) (accFiles: Fable.File list) =
+        match accFiles with
+        | [] -> None
+        | file::_ when List.isEmpty file.Declarations -> None
+        | file::_ ->
             try
+                let com = makeCompiler com accFiles
                 let ctx = {
                     file = file.FileName
                     moduleFullName = file.Root.FullName
@@ -600,5 +601,6 @@ module Compiler =
                         |> U2.Case2
                         |> consBack acc) rootDecls
                 Babel.Program (file.FileName, file.Range, rootDecls)
+                |> Some
             with
-            | ex -> failwithf "%s (%s)" ex.Message file.FileName)
+            | ex -> failwithf "%s (%s)" ex.Message file.FileName
