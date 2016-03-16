@@ -288,8 +288,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             if Naming.knownInterfaces.Contains typName
             then Naming.lowerFirst name
             else name
-        match baseCallExpr with
-        | BasicPatterns.Call(None, meth, [], [], []) when meth.EnclosingEntity.FullName = "System.Object" ->
+
+        let createFromMFV meth =
             let members =
                 (objType, overrides)::otherOverrides
                 |> List.map (fun (typ, overrides) ->
@@ -323,7 +323,13 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 |> List.map (fun x -> sanitizeEntityName x.TypeDefinition)
                 |> List.distinct
             Fable.ObjExpr (members, interfaces, makeRangeFrom fsExpr)
-        | _ -> failwithf "Object expression from classes are not supported: %A" fsExpr.Range
+
+        match baseCallExpr with
+        | BasicPatterns.Call(None, meth, [], [], []) when meth.EnclosingEntity.FullName = "System.Object" ->
+            createFromMFV meth
+        | _ ->
+            createFromMFV baseCallExpr.Type.TypeDefinition.MembersFunctionsAndValues
+            //failwithf "Object expression from classes are not supported: %A" fsExpr.Range
 
     // TODO: Check for erased constructors with property assignment (Call + Sequential)
     | BasicPatterns.NewObject(meth, typArgs, args) ->
