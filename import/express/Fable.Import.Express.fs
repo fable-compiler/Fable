@@ -116,16 +116,15 @@ module express =
         abstract ``type``: string with get, set
         abstract subtype: string with get, set
 
-    and Send =
-        [<Emit("$0($1...)")>] abstract callSelf: status: float * ?body: obj -> Response
-        [<Emit("$0($1...)")>] abstract callSelf: body: obj -> Response
-
     and Response =
         inherit http.ServerResponse
         inherit Express.Response
-        abstract send: Send with get, set
-        abstract json: Send with get, set
-        abstract jsonp: Send with get, set
+        abstract send: body: obj -> Response
+        abstract json: body: obj -> Response
+        abstract jsonp: body: obj -> Response
+        abstract send: status: float * ?body: obj -> Response
+        abstract json: status: float * ?body: obj -> Response
+        abstract jsonp: status: float * ?body: obj -> Response
         abstract headersSent: bool with get, set
         abstract locals: obj with get, set
         abstract charset: string with get, set

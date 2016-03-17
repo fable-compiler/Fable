@@ -18,6 +18,25 @@ module Util =
 
 open Util
 
+let port =
+    match unbox Node.Globals.``process``.env?PORT with
+    | Some x -> x | None -> 8080
+
+#if DEBUG
+let [<Import("./webpack.config?asDefault=true")>] config = obj()
+let [<Import("webpack?asDefault=true")>] webpack = obj()
+let [<Import("webpack-dev-server?asDefault=true")>] WebpackDevServer = obj()
+
+let appPort = 3000
+let webpackDevServer = createNew WebpackDevServer (webpack $ config, config?devServer)    
+webpackDevServer?listen $ (port, "localhost", Func<_,_>(fun err res ->
+    err |> handleError failExit (fun () ->
+        printfn "Webpack server started: http://localhost:%i/" port)
+)) |> ignore
+#else
+let appPort = port
+#endif
+
 let app = express.Globals.callSelf()
 let COMMENTS_FILE = Node.path.Globals.join(Node.Globals.__dirname, "comments.json")
 
@@ -77,11 +96,6 @@ app.post(U2.Case1 "/api/comments/", fun req res _ ->
                 fun err -> err |> handleError failExit (fun () -> res?json $ comments)))))
 |> ignore
 
-let port =
-    match unbox Node.Globals.``process``.env?PORT with
-    | Some x -> x
-    | None -> 3000
-
-app.listen(port, unbox (fun () ->
-    printfn "Server started: http://localhost:%i/" port))
+app.listen(appPort, unbox (fun () ->
+    printfn "API server started: http://localhost:%i/" appPort))
 |> ignore
