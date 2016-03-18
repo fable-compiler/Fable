@@ -13,7 +13,7 @@ type DecisionTarget =
 
 type Context =
     {
-    scope: (obj * Fable.Expr) list
+    scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
     typeArgs: (string * Fable.Type) list
     decisionTargets: Map<int, DecisionTarget>
     baseClass: string option
@@ -337,12 +337,7 @@ module Identifiers =
     open Types
 
     /// Make a sanitized identifier from a tentative name
-    let bindIdent (ctx: Context) typ (var: obj) =
-        let tentativeName =
-            match var with
-            | :? FSharpMemberOrFunctionOrValue as fsRef -> fsRef.DisplayName
-            | :? string as s -> s
-            | _ -> sprintf "$var%i" ctx.scope.Length
+    let bindIdent (ctx: Context) typ (fsRef: FSharpMemberOrFunctionOrValue option) tentativeName =
         let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
             List.exists (fun (_,x') ->
                 match x' with
@@ -350,21 +345,18 @@ module Identifiers =
                 | _ -> false) ctx.scope)
         let ident: Fable.Ident = { name=sanitizedName; typ=typ}
         let identValue = Fable.Value (Fable.IdentValue ident)
-        { ctx with scope = (box var, identValue)::ctx.scope}, ident
+        { ctx with scope = (fsRef, identValue)::ctx.scope}, ident
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
-        bindIdent ctx (makeType com ctx fsRef.FullType) fsRef
+        bindIdent ctx (makeType com ctx fsRef.FullType) (Some fsRef) fsRef.DisplayName
     
     let (|BindIdent|) = bindIdentFrom
-
-    let bindExpr ctx fsRef expr =
-        { ctx with scope = (fsRef, expr)::ctx.scope}
 
     /// Get corresponding identifier to F# value in current scope
     let getBoundExpr com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
         ctx.scope
-        |> List.tryFind (fun (fsName,_) -> obj.Equals(fsName, fsRef))
+        |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
         |> function
         | Some (_,boundExpr) -> boundExpr
         | None -> failwithf "Detected non-bound identifier: %s in %A"
@@ -572,7 +564,8 @@ module Util =
             let args = match callee with Some x -> x::args | None -> args
             let ctx =
                 (Context.Empty, vars, args)
-                |||> Seq.fold2 (fun ctx var arg -> bindExpr ctx var arg)
+                |||> Seq.fold2 (fun ctx var arg ->
+                    { ctx with scope = (None, arg)::ctx.scope })
             let ctx =
                 let typeArgs =
                     ([], meth.GenericParameters, List.map (makeType com ctx) methTypArgs)

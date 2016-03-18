@@ -425,7 +425,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 let lambda =
                     Fable.Lambda (targetVars, com.Transform targetCtx targetExpr)
                     |> Fable.Value
-                let ctx, ident = bindIdent ctx lambda.Type (sprintf "$target%i" k)
+                let ctx, ident = bindIdent ctx lambda.Type None (sprintf "$target%i" k)
                 ctx, Map.add k (ident, lambda) acc) (ctx, Map.empty<_,_>)
         let decisionTargets =
             targetRefsCount |> Map.map (fun k v ->
@@ -534,10 +534,11 @@ type private DeclInfo(init: Fable.Declaration list) =
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     match meth with
-    | meth when declInfo.IsIgnoredMethod meth -> ()
+    | meth when declInfo.IsIgnoredMethod meth -> ctx
     | meth when isInline meth ->
         let args = args |> Seq.collect id |> Seq.toList
         com.AddInlineExpr meth.FullName (args, body)
+        ctx
     | _ ->
         let memberKind =
             let name = sanitizeMethodName com meth
@@ -547,14 +548,14 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                  | 'P' -> Fable.Getter (name, true)
                  | _ -> Fable.Method name
             else getMemberKind name meth
-        let ctx, args' = getMethodArgs com ctx meth.IsInstanceMember args
+        let ctx', args' = getMethodArgs com ctx meth.IsInstanceMember args
         let body =
-            let ctx =
+            let ctx' =
                 match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
                 | true, Some(EntityKind(Fable.Class(Some(fullName, _)))) ->
-                    { ctx with baseClass = Some fullName }
-                | _ -> ctx
-            transformExpr com ctx body
+                    { ctx' with baseClass = Some fullName }
+                | _ -> ctx'
+            transformExpr com ctx' body
         let entMember =
             Fable.Member(memberKind,
                 makeRange meth.DeclarationLocation, args', body,
@@ -562,12 +563,21 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParams meth)
             |> Fable.MemberDeclaration
         declInfo.AddMethod (meth, entMember)
-    declInfo
+        // Bind sanitized module member names to context to prevent
+        // name clashes (they will become variables in JS)
+        match memberKind with
+        | Fable.Method name | Fable.Getter (name, _)
+            when meth.EnclosingEntity.IsFSharpModule ->
+            Naming.sanitizeIdent (fun _ -> false) name
+            |> bindIdent ctx Fable.UnknownType None |> fst
+        | _ -> ctx
+    |> fun ctx -> declInfo, ctx
    
 let rec private transformEntityDecl
     (com: IFableCompiler) ctx (declInfo: DeclInfo) (ent: FSharpEntity) subDecls =
-    if declInfo.IsIgnoredEntity ent
-    then declInfo.AddIgnoredChild ent; declInfo
+    if declInfo.IsIgnoredEntity ent then
+        declInfo.AddIgnoredChild ent
+        declInfo, ctx
     else
         // Unions and Records don't have a constructor, generate it
         let init =
@@ -583,21 +593,28 @@ let rec private transformEntityDecl
             else []
         let childDecls = transformDeclarations com ctx init subDecls
         declInfo.AddChild (com, ent, childDecls)
-        declInfo
+        // Bind sanitized entity name to context to prevent
+        // name clashes (it will become a variable in JS)
+        let ctx, _ =
+            ent.DisplayName
+            |> Naming.sanitizeIdent (fun _ -> false)
+            |> bindIdent ctx Fable.UnknownType None
+        declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =
-    let declInfo =
-        decls |> List.fold (fun (declInfo: DeclInfo) decl ->
+    let declInfo, _ =
+        decls |> List.fold (fun (declInfo: DeclInfo, ctx) decl ->
             match decl with
             | FSharpImplementationFileDeclaration.Entity (e, sub) ->
                 if e.IsFSharpAbbreviation
-                then declInfo
+                then declInfo, ctx
                 else transformEntityDecl com ctx declInfo e sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                 transformMemberDecl com ctx declInfo meth args body
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx e as fe) ->
-                declInfo.AddInitAction (Fable.ActionDeclaration (e, makeRange fe.Range)); declInfo
-        ) (DeclInfo init)
+                declInfo.AddInitAction (Fable.ActionDeclaration (e, makeRange fe.Range))
+                declInfo, ctx
+        ) (DeclInfo init, ctx)
     declInfo.GetDeclarations()
     
 // Make inlineExprs static so they can be reused in --watch compilations

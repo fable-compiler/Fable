@@ -36,4 +36,47 @@ let ``ParamArray in object expression works``() =
    let o = { new IFoo with member x.Bar(s: string, [<ParamArray>] rest: obj[]) = String.Format(s, rest) }
    o.Bar("{0} + {0} = {1}", 2, 4)
    |> equal "2 + 2 = 4"
+   
+module StyleBuilderHelper =
+    type StyleBuilderHelper = { TopOffset : int; BottomOffset : int }
+    type DomBuilder = { ElementType : string; StyleBuilderHelper : StyleBuilderHelper }
+    let test() =
+        let helper = { TopOffset = 1; BottomOffset = 2 }
+        let builder1 = { ElementType = "test"; StyleBuilderHelper = helper }
+        let builder2 = { builder1 with StyleBuilderHelper =  { builder1.StyleBuilderHelper with BottomOffset = 3 } }
+        match builder1, builder2 with
+        | { StyleBuilderHelper = { BottomOffset = 2 } },
+          { StyleBuilderHelper = { TopOffset = 1; BottomOffset = 3 } } -> true
+        | _ -> false
     
+[<Test>]
+let ``Module, members and properties with same name don't clash``() =
+    StyleBuilderHelper.test() |> equal true
+
+module Same =
+    let a = 5
+    module Same =
+        module Same =
+            let a = 10
+        let shouldEqual5 = a
+        let shouldEqual10 = Same.a
+        
+        let Same = 20
+        let shouldEqual20 = Same
+        let shouldEqual30 = let Same = 25 in Same + a
+        
+[<Test>]
+let ``Accessing members of parent module with same name works``() =
+    equal 5 Same.Same.shouldEqual5
+
+[<Test>]
+let ``Accessing members of child module with same name works``() =
+    equal 10 Same.Same.shouldEqual10
+
+[<Test>]
+let ``Accessing members with same name as module works``() =
+    equal 20 Same.Same.shouldEqual20
+    
+[<Test>]
+let ``Naming values with same name as module works``() =
+    equal 30 Same.Same.shouldEqual30

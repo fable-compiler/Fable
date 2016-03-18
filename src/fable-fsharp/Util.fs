@@ -69,6 +69,8 @@ module Naming =
     // TODO: Use $F for CoreLib?
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
+    let getCurrentModuleIdent () = "$M0"
+    
     let trimDots (s: string) =
         match s.StartsWith ".", s.EndsWith "." with
         | true, true -> s.Substring(1, s.Length - 2)

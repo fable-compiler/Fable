@@ -467,23 +467,12 @@ module Util =
         | Some ifcDecl -> ifcDecl::[classDecl]
 
     let rec transformModule com ctx (ent: Fable.Entity) entDecls entRange =
-        let protectedIdent =
-            let memberNames =
-                entDecls |> Seq.choose (function
-                    | Fable.EntityDeclaration (ent,_,_) -> Some ent.Name
-                    | Fable.ActionDeclaration _ -> None
-                    | Fable.MemberDeclaration m ->
-                        match m.Kind with
-                        | Fable.Method name | Fable.Getter (name, _) -> Some name
-                        | Fable.Constructor | Fable.Setter _ -> None)
-                |> Set.ofSeq
-            // Protect module identifier against members with same name
-            Babel.Identifier (Naming.sanitizeIdent memberNames.Contains ent.Name)
+        let modIdent = identFromName <| Naming.getCurrentModuleIdent()
         let modDecls =
             let ctx = { ctx with moduleFullName = ent.FullName }
-            transformModDecls com ctx (Some protectedIdent) entDecls
+            transformModDecls com ctx (Some modIdent) entDecls
         Babel.CallExpression(
-            Babel.FunctionExpression([protectedIdent],
+            Babel.FunctionExpression([modIdent],
                 Babel.BlockStatement (modDecls, ?loc=Some entRange),
                 ?loc=Some entRange),
             [U2.Case1 (upcast Babel.ObjectExpression [])],

@@ -188,7 +188,7 @@ function postbuild(opts) {
         }
         var postProc = child_process.spawn(cmd, args, { cwd: opts.projDir });
         postProc.on('exit', function(code) {
-            process.exit(0);
+            process.exit(code);
         });
         postProc.stderr.on('data', function(data) {
             console.log(data.toString());
