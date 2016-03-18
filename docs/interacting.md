@@ -144,7 +144,7 @@ node tools/typescript2fable.js path/to/definition.d.ts > path/to/outfile.fs
 ```
 
 > As most times, some tweaking by hand will be needed, it's planned to keep a repository with curated definitions
-of the most commonly used libraries (core JS, node, React...). As of now you can find some parsed files [here](/lib).
+of the most commonly used libraries (core JS, node, React...). As of now you can find some parsed files [here](/import).
 
 
 ### Import parameters
