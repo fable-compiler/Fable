@@ -565,7 +565,7 @@ module Util =
             let ctx =
                 (Context.Empty, vars, args)
                 |||> Seq.fold2 (fun ctx var arg ->
-                    { ctx with scope = (None, arg)::ctx.scope })
+                    { ctx with scope = (Some var, arg)::ctx.scope })
             let ctx =
                 let typeArgs =
                     ([], meth.GenericParameters, List.map (makeType com ctx) methTypArgs)

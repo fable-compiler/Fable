@@ -84,7 +84,8 @@ module Naming =
             "else"; "enum"; "export"; "extends"; "false"; "final"; "finally"; "float"; "for"; "function"; "goto"; "if"; "implements"; "import"; "in"; "instanceof"; "int"; "interface";
             "let"; "long"; "native"; "new"; "null"; "package"; "private"; "protected"; "public"; "return"; "self"; "short"; "static"; "super"; "switch"; "synchronized";
             "this"; "throw"; "throws"; "transient"; "true"; "try"; "typeof"; "undefined"; "var"; "void"; "volatile"; "while"; "with"; "yield" ]
-        
+
+    // TODO: Check it doesn't conflict with the pattern ^\$M\d+$ for modules
     let sanitizeIdent conflicts name =
         let preventConflicts conflicts name =
             let rec check n =
