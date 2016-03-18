@@ -9,7 +9,7 @@ There are three ways to interact with the JavaScript world:
 
 ## Dynamic programming
 
-[Fable.Core](../lib/Fable.Core.fs) implements the F# dynamic operators so
+[Fable.Core](../import/core/Fable.Core.fs) implements the F# dynamic operators so
 you can easily access an object property by name (without static check) as follows:
 
 ```
