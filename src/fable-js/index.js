@@ -18,16 +18,19 @@ var appDescription = {
 var cli = commandLineArgs([
   { name: 'projFile', defaultOption: true, description: "The F# project (.fsproj) or script (.fsx) to compile." },
   { name: 'code', description: "Pass a string of code directly to Fable instead." },
-  { name: 'outDir', defaultValue: '.', description: "Where to put compiled JS files." },
+  { name: 'outDir', description: "Where to put compiled JS files." },
   { name: 'sourceMaps', alias: 'm', description: "Generate source maps: [true|inline|false] " },
   { name: 'env', description: "'browser' for [bold]{amd} modules and 'node' for [bold]{commonjs} (defaults to [bold]{umd})." },
-  { name: 'lib', defaultValue: '.', description: "Where to find the core library, " +
+  { name: 'lib', description: "Where to find the core library, " +
                         "if not set [underline]{fable-core.js} will be copied automatically to outDir." },
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like 'DEBUG'." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without 'babel-plugin-' prefix, " +
                         "like 'angular2-annotations'). Must be installed in the current directory." },
   { name: 'watch', alias: 'w', type: Boolean, description: "Recompile project much faster on file modifications." },
+  { name: 'target', alias: 't', description: "Use options of a specific target in [underline]{fableconfig.json}." },
+  { name: 'debug', alias: 'd', description: "Shortcut for '--target debug'." },
+  { name: 'production', alias: 'p', description: "Shortcut for '--target production'." },
   { name: 'help', alias: 'h', description: "Display this usage guide." }
 ]);
 
@@ -172,7 +175,31 @@ function babelifyToFile(babelAst, opts) {
     }
 }
 
-function postbuild(opts) {
+function watch(opts, fableProc) {
+    function tooClose(filename, prev) {
+        return prev != null &&
+            filename == prev[0] &&
+            (new Date() - prev[1]) < 1000;
+    }
+    var prev = null;
+    fableProc.stdin.setEncoding('utf-8');
+    var fsExtensions = [".fs", ".fsx", ".fsproj"];
+    fs.watch(opts.projDir, { persistent: true, recursive: true }, function(ev, filename) {
+        var ext = path.extname(filename).toLowerCase();
+        if (ev == "change" && fsExtensions.indexOf(ext) >= 0) {
+            filename = path.resolve(filename).replace(/\\/g,"/");
+            if (!tooClose(filename, prev)) {
+                fableProc.stdin.write(filename + "\n");
+            }
+            prev = [filename, new Date()];
+        }
+    });
+}
+
+function postbuild(opts, fableProc) {
+    if (opts.watch) {
+        watch(opts, fableProc);
+    }
     if (opts.scripts && opts.scripts.postbuild) {
         console.log(opts.scripts.postbuild);
         var cmd, args;
@@ -188,18 +215,19 @@ function postbuild(opts) {
         }
         var postProc = child_process.spawn(cmd, args, { cwd: opts.projDir });
         postProc.on('exit', function(code) {
-            process.exit(code);
+            if (!opts.watch)
+                process.exit(code);
         });
         postProc.stderr.on('data', function(data) {
-            console.log(data.toString());
-            process.exit(1);
+            console.log("ERROR: " + data.toString());
         });
         postProc.stdout.on("data", function(data) {
             console.log(data.toString());
         });
     }
     else {
-        process.exit(0);
+        if (!opts.watch)
+            process.exit(0);
     }
 }
 
@@ -256,28 +284,42 @@ try {
         var cfgFile = path.join(opts.projDir, fableConfig);
         if (fs.existsSync(cfgFile)) {
             var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
-            for (var key in cfg) {
-                opts[key] = cfg[key];
+            for (var key in cfg)
+                if (key in opts == false)
+                    opts[key] = cfg[key];
+
+            // Check if a target is requested
+            if (opts.debug) { opts.target = "debug" }
+            if (opts.production) { opts.target = "production" }
+            if (opts.target) {
+                if (!opts.targets || !opts.targets[opts.target])
+                    throw "Target " + opts.target + " is missing";
+                
+                cfg = opts.targets[opts.target];
+                for (key in cfg)
+                    opts[key] = cfg[key];
             }
         }
     }
     catch (err) {
-        console.log("ERROR: Cannot parse fableconfig file");
+        console.log("ERROR: Cannot parse fableconfig.json: " + err);
         process.exit(1);
     }
     
     if (!opts.projFile && !opts.code) {
         console.log("ERROR: Please provide a F# project (.fsproj) or script (.fsx) file");
+        console.log("Use 'fable --help' to see available options");
         process.exit(1);
     }
     
+    opts.outDir = opts.outDir || ".";
     opts.outDir = path.isAbsolute(opts.outDir)
                 ? opts.outDir
                 : path.join(opts.projDir, opts.outDir);
         
     // Copy fable-core.js if lib is "."
     ensureDirExists(opts.outDir);
-    if (opts.lib === ".") {
+    if (!opts.lib || opts.lib === ".") {
         fs.createReadStream(path.join(__dirname, fableCoreLib))
             .pipe(fs.createWriteStream(path.join(opts.outDir, fableCoreLib)));
     }
@@ -309,27 +351,6 @@ try {
         
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: opts.projDir });
 
-    if (opts.watch) {
-        function tooClose(filename, prev) {
-            return prev != null &&
-                filename == prev[0] &&
-                (new Date() - prev[1]) < 1000;
-        }
-        var prev = null;
-        fableProc.stdin.setEncoding('utf-8');
-        var fsExtensions = [".fs", ".fsx", ".fsproj"];
-        fs.watch(opts.projDir, { persistent: true, recursive: true }, function(ev, filename) {
-            var ext = path.extname(filename).toLowerCase();
-            if (ev == "change" && fsExtensions.indexOf(ext) >= 0) {
-                filename = path.resolve(filename).replace(/\\/g,"/");
-                if (!tooClose(filename, prev)) {
-                    fableProc.stdin.write(filename + "\n");
-                }
-                prev = [filename, new Date()];
-            }
-        });
-    }
-
     fableProc.on('exit', function(code) {
         // There may be pending messages, do nothing here
     });    
@@ -352,9 +373,9 @@ try {
                 txt = txt.substring(newLine + 1);
                 buffer = "";
 
-                // An empty string is the signal to finish the program
+                // An empty string is the signal of the end of compilation
                 if (/^\s*$/.test(json)) {
-                    postbuild(opts);
+                    postbuild(opts, fableProc);
                 }
                 else {
                     processJson(json, opts);
@@ -365,5 +386,6 @@ try {
 }
 catch (err) {
     console.log("ARG ERROR: " + err);
+    console.log("Use 'fable --help' to see available options");
     process.exit(1);
 }

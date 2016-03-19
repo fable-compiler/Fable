@@ -25,9 +25,6 @@
     "babel-template": "^6.5.0",
     "command-line-args": "^2.1.6"
   },
-  "devDependencies": {
-    "mocha": "^2.4.5"
-  },
   "author": "Alfonso Garcia-Caro",
   "license": "Apache-2.0",
   "repository": {

@@ -467,7 +467,7 @@ module Util =
         | Some ifcDecl -> ifcDecl::[classDecl]
 
     let rec transformModule com ctx (ent: Fable.Entity) entDecls entRange =
-        let modIdent = identFromName <| Naming.getCurrentModuleIdent()
+        let modIdent = Naming.getCurrentModuleIdent() |> Babel.Identifier
         let modDecls =
             let ctx = { ctx with moduleFullName = ent.FullName }
             transformModDecls com ctx (Some modIdent) entDecls

@@ -1,9 +1,22 @@
 {
     "env": "node",
-    "sourceMaps": true,
     "projFile": "./fable-sample-react.fsproj",
-    "symbols": ["DEBUG"],
-    "scripts": {
-        "postbuild": "node node_modules/webpack/bin/webpack"
+    "babelPlugins": ["transform-runtime"],
+    "targets": {
+        "debug": {
+            "watch": true,
+            "sourceMaps": true,
+            "symbols": ["WEBPACK_DEV_SERVER"],
+            "scripts": {
+                "postbuild": "node server"
+            }
+        },
+        "production": {
+            "sourceMaps": false,
+            "symbols": [],
+            "scripts": {
+                "postbuild": "node node_modules/webpack/bin/webpack -p"
+            }
+        }
     }
 }

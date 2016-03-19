@@ -23,7 +23,6 @@ let readOptions argv =
     let opts = readOpts Map.empty<_,_> (List.ofArray argv)
     {
         code = def opts "code" null id
-        outDir = def opts "outDir" "." id
         lib = def opts "lib" "." id
         projFile = def opts "projFile" null Path.GetFullPath
         watch = def opts "watch" false bool.Parse
@@ -140,10 +139,11 @@ let main argv =
             | opts -> opts
     let com = makeCompiler (loadPlugins opts) opts
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
-    // First full compilation
+    // Full compilation
     let projOpts = compile com checker None None
+    // Send empty string to signal end of compilation
+    Console.Out.WriteLine()
+    // Keep on watching if necessary
     if opts.watch then
         awaitInput com checker projOpts
-    // Send empty string to finish node process
-    Console.Out.WriteLine()
     0

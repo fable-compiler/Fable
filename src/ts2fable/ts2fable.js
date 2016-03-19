@@ -763,6 +763,9 @@ function visitFile(node) {
 
 try {
     var filePath = process.argv[2];
+    if (filePath == null)
+        throw "Please provide the path to a TypeScript definition file";
+    
     // fileName = (fileName = path.basename(filePath).replace(".d.ts",""), fileName[0].toUpperCase() + fileName.substr(1));
     // `readonly` keyword is causing problems, remove it
     var code = fs.readFileSync(filePath).toString().replace(/readonly/g, "");
@@ -773,6 +776,6 @@ try {
     process.exit(0);
 }
 catch (err) {
-    console.log(err);
+    console.log("ERROR: " + err);
     process.exit(1);
 }

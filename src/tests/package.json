@@ -5,7 +5,7 @@
   "description": "Tests for fable-compiler",
   "main": "index.js",
   "scripts": {
-    "test": "node node_modules/mocha/bin/mocha ."
+    "test": "mocha ."
   },
   "repository": {
     "type": "git",

@@ -22,7 +22,7 @@ let port =
     match unbox Node.Globals.``process``.env?PORT with
     | Some x -> x | None -> 8080
 
-#if DEBUG
+#if WEBPACK_DEV_SERVER
 let [<Import("./webpack.config?asDefault=true")>] config = obj()
 let [<Import("webpack?asDefault=true")>] webpack = obj()
 let [<Import("webpack-dev-server?asDefault=true")>] WebpackDevServer = obj()

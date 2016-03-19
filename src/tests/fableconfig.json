@@ -3,6 +3,6 @@
     "projFile": "./Fable.Tests.fsproj",
     "plugins": "../plugins/Fable.Plugins.NUnit.dll",
     "scripts": {
-        "postbuild": "node node_modules/mocha/bin/mocha ."
+        "postbuild": "npm test"
     }
 }

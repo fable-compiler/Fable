@@ -10,6 +10,7 @@
   "author": "Alfonso Garcia-Caro",
   "license": "Apache-2.0",
   "dependencies": {
+    "babel-runtime": "^6.6.1",
     "body-parser": "^1.15.0",
     "express": "^4.13.4",
     "marked": "^0.3.5",
@@ -17,6 +18,7 @@
     "react-dom": "^0.14.7"
   },
   "devDependencies": {
+    "babel-plugin-transform-runtime": "^6.6.0",
     "fable-import": "^0.0.2",
     "fable-import-express": "^0.0.6",
     "fable-import-react": "^0.0.3",

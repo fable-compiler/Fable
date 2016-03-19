@@ -5,7 +5,6 @@ type CompilerOptions = {
         projFile: string
         symbols: string[]
         plugins: string[]
-        outDir: string
         lib: string
         watch: bool
     }
@@ -66,7 +65,6 @@ module Naming =
     let getCoreLibPath (com: ICompiler) =
         Path.Combine(com.Options.lib, "fable-core.js") |> normalizePath
 
-    // TODO: Use $F for CoreLib?
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     
     let getCurrentModuleIdent () = "$M0"
@@ -85,8 +83,8 @@ module Naming =
             "let"; "long"; "native"; "new"; "null"; "package"; "private"; "protected"; "public"; "return"; "self"; "short"; "static"; "super"; "switch"; "synchronized";
             "this"; "throw"; "throws"; "transient"; "true"; "try"; "typeof"; "undefined"; "var"; "void"; "volatile"; "while"; "with"; "yield" ]
 
-    // TODO: Check it doesn't conflict with the pattern ^\$M\d+$ for modules
     let sanitizeIdent conflicts name =
+        let modIdentRegex = Regex(@"^\$M\d+$", RegexOptions.Compiled)
         let preventConflicts conflicts name =
             let rec check n =
                 let name = if n > 0 then sprintf "%s_%i" name n else name
@@ -95,10 +93,10 @@ module Naming =
         // Replace Forbidden Chars
         let sanitizedName =
             identForbiddenCharsRegex.Replace(removeParens name, "_")
-        // Check if it's a keyword
-        jsKeywords.Contains sanitizedName
+        // Check if it's a keyword or clashes with module ident pattern
+        (jsKeywords.Contains sanitizedName || modIdentRegex.IsMatch sanitizedName)
         |> function true -> "_" + sanitizedName | false -> sanitizedName
-        // Check if it already exists in scope
+        // Check if it already exists
         |> preventConflicts conflicts
         
     let getQueryParams (txt: string) =

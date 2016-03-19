@@ -5,16 +5,22 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+let inline f x y = x + y
+
+[<Test>]
+let ``Inline methods work``() =
+    f 2 3 |> equal 5
+
 [<Test>]
 let ``Calls to core lib from a subfolder work``() =
     Helper.Format("{0} + {0} = {1}", 2, 4)
     |> equal "2 + 2 = 4"
 
-let f x y z = x + y + z
+let f' x y z = x + y + z
 
 [<Test>]
 let ``Conversion to delegate work``() =
-    let del = System.Func<_,_,_,_> f
+    let del = System.Func<_,_,_,_> f'
     del.Invoke(1,2,3)
     |> equal 6
 
@@ -65,6 +71,9 @@ module Same =
         let shouldEqual20 = Same
         let shouldEqual30 = let Same = 25 in Same + a
         
+        let ``$M0`` = 40
+        let shouldEqual50 = let ``$M1`` = 10 in ``$M0`` + ``$M1``
+        
 [<Test>]
 let ``Accessing members of parent module with same name works``() =
     equal 5 Same.Same.shouldEqual5
@@ -80,3 +89,7 @@ let ``Accessing members with same name as module works``() =
 [<Test>]
 let ``Naming values with same name as module works``() =
     equal 30 Same.Same.shouldEqual30
+
+[<Test>]
+let ``Members and values don't clash with module identifers``() =
+    equal 50 Same.Same.shouldEqual50
