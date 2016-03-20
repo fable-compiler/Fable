@@ -3,6 +3,8 @@
 This is just an adaptation of [React tutorial]() and [react-hot-boilerplate](https://github.com/gaearon/react-hot-boilerplate)
 to show how the workflow of building a React app with Fable would be.
 
+> Remember to run `npm install` before the first compilation!
+
 ## Server
 
 An [express](http://expressjs.com) server is available to interact with the app. When debugging,

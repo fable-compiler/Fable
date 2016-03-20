@@ -20,9 +20,9 @@
   },
   "devDependencies": {
     "babel-plugin-transform-runtime": "^6.6.0",
-    "fable-import": "^0.0.2",
-    "fable-import-express": "^0.0.6",
-    "fable-import-react": "^0.0.3",
+    "fable-import": "^0.0.3",
+    "fable-import-express": "^0.0.7",
+    "fable-import-react": "^0.0.4",
     "fable-react-hot-loader": "^0.1.0",
     "json-loader": "^0.5.4",
     "source-map-loader": "^0.1.5",
