@@ -1,6 +1,9 @@
 namespace Fable.Core
 open System
 
+type ReplaceAttribute() =
+    inherit Attribute()
+
 type EraseAttribute() =
     inherit Attribute()
 

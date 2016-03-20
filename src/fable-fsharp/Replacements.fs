@@ -585,14 +585,16 @@ module private AstPass =
         match i.methodName with
         // Instance and static shared methods
         | "add" ->
+            let args = match i.callee with Some c -> i.args@[c] | None -> i.args
             match modName with
-            | "Map" -> icall "set" |> Some
-            | _ -> icall "add" |> Some
+            | "Map" -> emit i "new Map($2).set($0,$1)" args |> Some
+            | _ -> emit i "new Set($1).add($0)" args |> Some
         | "count" -> prop "size" |> Some
         | "contains" | "containsKey" -> icall "has" |> Some
         | "remove" ->
+            let m = Map.empty<int,int>
             let callee, args = instanceArgs()
-            CoreLibCall(modName, Some "removeInPlace", false, [args.Head; callee])
+            CoreLibCall(modName, Some "remove", false, [args.Head; callee])
             |> makeCall com i.range i.returnType |> Some
         | "isEmpty" ->
             makeEqOp i.range [prop "size"; makeConst 0] BinaryEqualStrict |> Some

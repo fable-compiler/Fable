@@ -636,8 +636,10 @@ function visitInterface(node, opts) {
                 }
                 ifc.properties.push(member);
                 break;
+            // TODO: If interface only contains one `Invoke` method
+            // make it an alias of Func
             case ts.SyntaxKind.CallSignature:
-                member = getMethod(node, { name: "callSelf" });
+                member = getMethod(node, { name: "Invoke" });
                 member.emit = "$0($1...)";
                 ifc.methods.push(member);
                 break;
@@ -656,7 +658,7 @@ function visitInterface(node, opts) {
                     ifc.methods.push(member);
                 break;
             case ts.SyntaxKind.ConstructSignature:
-                member = getMethod(node, { name: "createNew" });
+                member = getMethod(node, { name: "Create" });
                 member.emit = "new $0($1...)";
                 ifc.methods.push(member);
                 break;

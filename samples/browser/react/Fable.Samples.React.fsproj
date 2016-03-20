@@ -49,7 +49,7 @@
   <ItemGroup>
     <Compile Include="node_modules/fable-import-express/Fable.Import.Express.fs" />
     <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />
-    <Compile Include="public/react-helper.fs" />
+    <Compile Include="public/Fable.ReactHelper.fs" />
     <Compile Include="public/models.fs" />
     <Compile Include="public/components.fs" />
     <Compile Include="public/client.fs" />

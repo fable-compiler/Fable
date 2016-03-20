@@ -26,9 +26,9 @@ and Object =
 
 and ObjectConstructor =
     abstract prototype: obj with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?value: obj -> obj
-    [<Emit("$0($1...)")>] abstract callSelf: unit -> obj
-    [<Emit("$0($1...)")>] abstract callSelf: value: obj -> obj
+    [<Emit("new $0($1...)")>] abstract Create: ?value: obj -> obj
+    [<Emit("$0($1...)")>] abstract Invoke: unit -> obj
+    [<Emit("$0($1...)")>] abstract Invoke: value: obj -> obj
     abstract getPrototypeOf: o: obj -> obj
     abstract getOwnPropertyDescriptor: o: obj * p: string -> PropertyDescriptor
     abstract getOwnPropertyNames: o: obj -> ResizeArray<string>
@@ -65,8 +65,8 @@ and Function =
 
 and FunctionConstructor =
     abstract prototype: Function with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: [<ParamArray>] args: string[] -> Function
-    [<Emit("$0($1...)")>] abstract callSelf: [<ParamArray>] args: string[] -> Function
+    [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: string[] -> Function
+    [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: string[] -> Function
 
 and IArguments =
     [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> obj with get, set
@@ -132,8 +132,8 @@ and String =
 
 and StringConstructor =
     abstract prototype: String with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?value: obj -> String
-    [<Emit("$0($1...)")>] abstract callSelf: ?value: obj -> string
+    [<Emit("new $0($1...)")>] abstract Create: ?value: obj -> String
+    [<Emit("$0($1...)")>] abstract Invoke: ?value: obj -> string
     abstract fromCharCode: [<ParamArray>] codes: float[] -> string
     abstract fromCodePoint: [<ParamArray>] codePoints: float[] -> string
     abstract raw: template: TemplateStringsArray * [<ParamArray>] substitutions: obj[] -> string
@@ -143,8 +143,8 @@ and Boolean =
 
 and BooleanConstructor =
     abstract prototype: Boolean with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?value: obj -> Boolean
-    [<Emit("$0($1...)")>] abstract callSelf: ?value: obj -> bool
+    [<Emit("new $0($1...)")>] abstract Create: ?value: obj -> Boolean
+    [<Emit("$0($1...)")>] abstract Invoke: ?value: obj -> bool
 
 and Number =
     abstract toString: ?radix: float -> string
@@ -163,8 +163,8 @@ and NumberConstructor =
     abstract EPSILON: float with get, set
     abstract MAX_SAFE_INTEGER: float with get, set
     abstract MIN_SAFE_INTEGER: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?value: obj -> Number
-    [<Emit("$0($1...)")>] abstract callSelf: ?value: obj -> float
+    [<Emit("new $0($1...)")>] abstract Create: ?value: obj -> Number
+    [<Emit("$0($1...)")>] abstract Invoke: ?value: obj -> float
     abstract isFinite: number: float -> bool
     abstract isInteger: number: float -> bool
     abstract isNaN: number: float -> bool
@@ -273,11 +273,11 @@ and Date =
 
 and DateConstructor =
     abstract prototype: DateTime with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DateTime
-    [<Emit("new $0($1...)")>] abstract createNew: value: float -> DateTime
-    [<Emit("new $0($1...)")>] abstract createNew: value: string -> DateTime
-    [<Emit("new $0($1...)")>] abstract createNew: year: float * month: float * ?date: float * ?hours: float * ?minutes: float * ?seconds: float * ?ms: float -> DateTime
-    [<Emit("$0($1...)")>] abstract callSelf: unit -> string
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DateTime
+    [<Emit("new $0($1...)")>] abstract Create: value: float -> DateTime
+    [<Emit("new $0($1...)")>] abstract Create: value: string -> DateTime
+    [<Emit("new $0($1...)")>] abstract Create: year: float * month: float * ?date: float * ?hours: float * ?minutes: float * ?seconds: float * ?ms: float -> DateTime
+    [<Emit("$0($1...)")>] abstract Invoke: unit -> string
     abstract parse: s: string -> float
     abstract UTC: year: float * month: float * ?date: float * ?hours: float * ?minutes: float * ?seconds: float * ?ms: float -> float
     abstract now: unit -> float
@@ -322,8 +322,8 @@ and RegExpConstructor =
     abstract ``$8``: string with get, set
     abstract ``$9``: string with get, set
     abstract lastMatch: string with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: pattern: string * ?flags: string -> RegExp
-    [<Emit("$0($1...)")>] abstract callSelf: pattern: string * ?flags: string -> RegExp
+    [<Emit("new $0($1...)")>] abstract Create: pattern: string * ?flags: string -> RegExp
+    [<Emit("$0($1...)")>] abstract Invoke: pattern: string * ?flags: string -> RegExp
     [<Emit("$0[Symbol.species]($1...)")>] abstract ``[Symbol.species]``: unit -> RegExpConstructor
 
 and Error =
@@ -332,8 +332,8 @@ and Error =
 
 and ErrorConstructor =
     abstract prototype: Error with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?message: string -> Error
-    [<Emit("$0($1...)")>] abstract callSelf: ?message: string -> Error
+    [<Emit("new $0($1...)")>] abstract Create: ?message: string -> Error
+    [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> Error
 
 and EvalError =
     inherit Error
@@ -341,8 +341,8 @@ and EvalError =
 
 and EvalErrorConstructor =
     abstract prototype: EvalError with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?message: string -> EvalError
-    [<Emit("$0($1...)")>] abstract callSelf: ?message: string -> EvalError
+    [<Emit("new $0($1...)")>] abstract Create: ?message: string -> EvalError
+    [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> EvalError
 
 and RangeError =
     inherit Error
@@ -350,8 +350,8 @@ and RangeError =
 
 and RangeErrorConstructor =
     abstract prototype: RangeError with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?message: string -> RangeError
-    [<Emit("$0($1...)")>] abstract callSelf: ?message: string -> RangeError
+    [<Emit("new $0($1...)")>] abstract Create: ?message: string -> RangeError
+    [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> RangeError
 
 and ReferenceError =
     inherit Error
@@ -359,8 +359,8 @@ and ReferenceError =
 
 and ReferenceErrorConstructor =
     abstract prototype: ReferenceError with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?message: string -> ReferenceError
-    [<Emit("$0($1...)")>] abstract callSelf: ?message: string -> ReferenceError
+    [<Emit("new $0($1...)")>] abstract Create: ?message: string -> ReferenceError
+    [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> ReferenceError
 
 and SyntaxError =
     inherit Error
@@ -368,8 +368,8 @@ and SyntaxError =
 
 and SyntaxErrorConstructor =
     abstract prototype: SyntaxError with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?message: string -> SyntaxError
-    [<Emit("$0($1...)")>] abstract callSelf: ?message: string -> SyntaxError
+    [<Emit("new $0($1...)")>] abstract Create: ?message: string -> SyntaxError
+    [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> SyntaxError
 
 and TypeError =
     inherit Error
@@ -377,8 +377,8 @@ and TypeError =
 
 and TypeErrorConstructor =
     abstract prototype: TypeError with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?message: string -> TypeError
-    [<Emit("$0($1...)")>] abstract callSelf: ?message: string -> TypeError
+    [<Emit("new $0($1...)")>] abstract Create: ?message: string -> TypeError
+    [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> TypeError
 
 and URIError =
     inherit Error
@@ -386,8 +386,8 @@ and URIError =
 
 and URIErrorConstructor =
     abstract prototype: URIError with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?message: string -> URIError
-    [<Emit("$0($1...)")>] abstract callSelf: ?message: string -> URIError
+    [<Emit("new $0($1...)")>] abstract Create: ?message: string -> URIError
+    [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> URIError
 
 and JSON =
     [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
@@ -458,12 +458,12 @@ and Array<'T> =
 
 and ArrayConstructor =
     abstract prototype: ResizeArray<obj> with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?arrayLength: float -> ResizeArray<obj>
-    [<Emit("new $0($1...)")>] abstract createNew: arrayLength: float -> ResizeArray<'T>
-    [<Emit("new $0($1...)")>] abstract createNew: [<ParamArray>] items: 'T[] -> ResizeArray<'T>
-    [<Emit("$0($1...)")>] abstract callSelf: ?arrayLength: float -> ResizeArray<obj>
-    [<Emit("$0($1...)")>] abstract callSelf: arrayLength: float -> ResizeArray<'T>
-    [<Emit("$0($1...)")>] abstract callSelf: [<ParamArray>] items: 'T[] -> ResizeArray<'T>
+    [<Emit("new $0($1...)")>] abstract Create: ?arrayLength: float -> ResizeArray<obj>
+    [<Emit("new $0($1...)")>] abstract Create: arrayLength: float -> ResizeArray<'T>
+    [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] items: 'T[] -> ResizeArray<'T>
+    [<Emit("$0($1...)")>] abstract Invoke: ?arrayLength: float -> ResizeArray<obj>
+    [<Emit("$0($1...)")>] abstract Invoke: arrayLength: float -> ResizeArray<'T>
+    [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] items: 'T[] -> ResizeArray<'T>
     abstract isArray: arg: obj -> obj
     abstract from: arrayLike: ArrayLike<'T> * mapfn: Func<'T, float, 'U> * ?thisArg: obj -> ResizeArray<'U>
     abstract from: iterable: Iterable<'T> * mapfn: Func<'T, float, 'U> * ?thisArg: obj -> ResizeArray<'U>
@@ -509,7 +509,7 @@ and ArrayBuffer =
 
 and ArrayBufferConstructor =
     abstract prototype: ArrayBuffer with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: byteLength: float -> ArrayBuffer
+    [<Emit("new $0($1...)")>] abstract Create: byteLength: float -> ArrayBuffer
     abstract isView: arg: obj -> obj
 
 and ArrayBufferView =
@@ -540,7 +540,7 @@ and DataView =
     abstract setUint32: byteOffset: float * value: float * ?littleEndian: bool -> unit
 
 and DataViewConstructor =
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?byteLength: float -> DataView
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?byteLength: float -> DataView
 
 and Int8Array =
     abstract BYTES_PER_ELEMENT: float with get, set
@@ -582,12 +582,12 @@ and Int8Array =
 and Int8ArrayConstructor =
     abstract prototype: Int8Array with get, set
     abstract BYTES_PER_ELEMENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: length: float -> Int8Array
-    [<Emit("new $0($1...)")>] abstract createNew: array: ArrayLike<float> -> Int8Array
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Int8Array
+    [<Emit("new $0($1...)")>] abstract Create: length: float -> Int8Array
+    [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Int8Array
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Int8Array
     abstract ``of``: [<ParamArray>] items: float[] -> Int8Array
     abstract from: arrayLike: ArrayLike<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Int8Array
-    [<Emit("new $0($1...)")>] abstract createNew: elements: Iterable<float> -> Int8Array
+    [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Int8Array
     abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Int8Array
 
 and Uint8Array =
@@ -630,12 +630,12 @@ and Uint8Array =
 and Uint8ArrayConstructor =
     abstract prototype: Uint8Array with get, set
     abstract BYTES_PER_ELEMENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: length: float -> Uint8Array
-    [<Emit("new $0($1...)")>] abstract createNew: array: ArrayLike<float> -> Uint8Array
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint8Array
+    [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint8Array
+    [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Uint8Array
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint8Array
     abstract ``of``: [<ParamArray>] items: float[] -> Uint8Array
     abstract from: arrayLike: ArrayLike<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint8Array
-    [<Emit("new $0($1...)")>] abstract createNew: elements: Iterable<float> -> Uint8Array
+    [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint8Array
     abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint8Array
 
 and Uint8ClampedArray =
@@ -678,12 +678,12 @@ and Uint8ClampedArray =
 and Uint8ClampedArrayConstructor =
     abstract prototype: Uint8ClampedArray with get, set
     abstract BYTES_PER_ELEMENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: length: float -> Uint8ClampedArray
-    [<Emit("new $0($1...)")>] abstract createNew: array: ArrayLike<float> -> Uint8ClampedArray
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint8ClampedArray
+    [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint8ClampedArray
+    [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Uint8ClampedArray
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint8ClampedArray
     abstract ``of``: [<ParamArray>] items: float[] -> Uint8ClampedArray
     abstract from: arrayLike: ArrayLike<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint8ClampedArray
-    [<Emit("new $0($1...)")>] abstract createNew: elements: Iterable<float> -> Uint8ClampedArray
+    [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint8ClampedArray
     abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint8ClampedArray
 
 and Int16Array =
@@ -726,12 +726,12 @@ and Int16Array =
 and Int16ArrayConstructor =
     abstract prototype: Int16Array with get, set
     abstract BYTES_PER_ELEMENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: length: float -> Int16Array
-    [<Emit("new $0($1...)")>] abstract createNew: array: ArrayLike<float> -> Int16Array
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Int16Array
+    [<Emit("new $0($1...)")>] abstract Create: length: float -> Int16Array
+    [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Int16Array
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Int16Array
     abstract ``of``: [<ParamArray>] items: float[] -> Int16Array
     abstract from: arrayLike: ArrayLike<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Int16Array
-    [<Emit("new $0($1...)")>] abstract createNew: elements: Iterable<float> -> Int16Array
+    [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Int16Array
     abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Int16Array
 
 and Uint16Array =
@@ -774,12 +774,12 @@ and Uint16Array =
 and Uint16ArrayConstructor =
     abstract prototype: Uint16Array with get, set
     abstract BYTES_PER_ELEMENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: length: float -> Uint16Array
-    [<Emit("new $0($1...)")>] abstract createNew: array: ArrayLike<float> -> Uint16Array
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint16Array
+    [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint16Array
+    [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Uint16Array
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint16Array
     abstract ``of``: [<ParamArray>] items: float[] -> Uint16Array
     abstract from: arrayLike: ArrayLike<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint16Array
-    [<Emit("new $0($1...)")>] abstract createNew: elements: Iterable<float> -> Uint16Array
+    [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint16Array
     abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint16Array
 
 and Int32Array =
@@ -822,12 +822,12 @@ and Int32Array =
 and Int32ArrayConstructor =
     abstract prototype: Int32Array with get, set
     abstract BYTES_PER_ELEMENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: length: float -> Int32Array
-    [<Emit("new $0($1...)")>] abstract createNew: array: ArrayLike<float> -> Int32Array
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Int32Array
+    [<Emit("new $0($1...)")>] abstract Create: length: float -> Int32Array
+    [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Int32Array
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Int32Array
     abstract ``of``: [<ParamArray>] items: float[] -> Int32Array
     abstract from: arrayLike: ArrayLike<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Int32Array
-    [<Emit("new $0($1...)")>] abstract createNew: elements: Iterable<float> -> Int32Array
+    [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Int32Array
     abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Int32Array
 
 and Uint32Array =
@@ -870,12 +870,12 @@ and Uint32Array =
 and Uint32ArrayConstructor =
     abstract prototype: Uint32Array with get, set
     abstract BYTES_PER_ELEMENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: length: float -> Uint32Array
-    [<Emit("new $0($1...)")>] abstract createNew: array: ArrayLike<float> -> Uint32Array
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint32Array
+    [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint32Array
+    [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Uint32Array
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint32Array
     abstract ``of``: [<ParamArray>] items: float[] -> Uint32Array
     abstract from: arrayLike: ArrayLike<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint32Array
-    [<Emit("new $0($1...)")>] abstract createNew: elements: Iterable<float> -> Uint32Array
+    [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint32Array
     abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint32Array
 
 and Float32Array =
@@ -918,12 +918,12 @@ and Float32Array =
 and Float32ArrayConstructor =
     abstract prototype: Float32Array with get, set
     abstract BYTES_PER_ELEMENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: length: float -> Float32Array
-    [<Emit("new $0($1...)")>] abstract createNew: array: ArrayLike<float> -> Float32Array
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Float32Array
+    [<Emit("new $0($1...)")>] abstract Create: length: float -> Float32Array
+    [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Float32Array
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Float32Array
     abstract ``of``: [<ParamArray>] items: float[] -> Float32Array
     abstract from: arrayLike: ArrayLike<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Float32Array
-    [<Emit("new $0($1...)")>] abstract createNew: elements: Iterable<float> -> Float32Array
+    [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Float32Array
     abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Float32Array
 
 and Float64Array =
@@ -966,12 +966,12 @@ and Float64Array =
 and Float64ArrayConstructor =
     abstract prototype: Float64Array with get, set
     abstract BYTES_PER_ELEMENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: length: float -> Float64Array
-    [<Emit("new $0($1...)")>] abstract createNew: array: ArrayLike<float> -> Float64Array
-    [<Emit("new $0($1...)")>] abstract createNew: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Float64Array
+    [<Emit("new $0($1...)")>] abstract Create: length: float -> Float64Array
+    [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Float64Array
+    [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Float64Array
     abstract ``of``: [<ParamArray>] items: float[] -> Float64Array
     abstract from: arrayLike: ArrayLike<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Float64Array
-    [<Emit("new $0($1...)")>] abstract createNew: elements: Iterable<float> -> Float64Array
+    [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Float64Array
     abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Float64Array
 
 and PropertyKey =
@@ -995,7 +995,7 @@ and SymbolConstructor =
     abstract toPrimitive: Symbol with get, set
     abstract toStringTag: Symbol with get, set
     abstract unscopables: Symbol with get, set
-    [<Emit("$0($1...)")>] abstract callSelf: ?description: U2<string, float> -> Symbol
+    [<Emit("$0($1...)")>] abstract Invoke: ?description: U2<string, float> -> Symbol
     abstract ``for``: key: string -> Symbol
     abstract keyFor: sym: Symbol -> string
 
@@ -1021,8 +1021,8 @@ and GeneratorFunction =
 
 and GeneratorFunctionConstructor =
     abstract prototype: GeneratorFunction with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: [<ParamArray>] args: string[] -> GeneratorFunction
-    [<Emit("$0($1...)")>] abstract callSelf: [<ParamArray>] args: string[] -> GeneratorFunction
+    [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: string[] -> GeneratorFunction
+    [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: string[] -> GeneratorFunction
 
 and Map<'K, 'V> =
     abstract size: float with get, set
@@ -1040,9 +1040,9 @@ and Map<'K, 'V> =
 
 and MapConstructor =
     abstract prototype: Map<obj, obj> with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Map<obj, obj>
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Map<'K, 'V>
-    [<Emit("new $0($1...)")>] abstract createNew: iterable: Iterable<'K * 'V> -> Map<'K, 'V>
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Map<obj, obj>
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Map<'K, 'V>
+    [<Emit("new $0($1...)")>] abstract Create: iterable: Iterable<'K * 'V> -> Map<'K, 'V>
 
 and WeakMap<'K, 'V> =
     [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
@@ -1054,9 +1054,9 @@ and WeakMap<'K, 'V> =
 
 and WeakMapConstructor =
     abstract prototype: WeakMap<obj, obj> with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WeakMap<obj, obj>
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WeakMap<'K, 'V>
-    [<Emit("new $0($1...)")>] abstract createNew: iterable: Iterable<'K * 'V> -> WeakMap<'K, 'V>
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WeakMap<obj, obj>
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WeakMap<'K, 'V>
+    [<Emit("new $0($1...)")>] abstract Create: iterable: Iterable<'K * 'V> -> WeakMap<'K, 'V>
 
 and Set<'T> =
     abstract size: float with get, set
@@ -1073,9 +1073,9 @@ and Set<'T> =
 
 and SetConstructor =
     abstract prototype: Set<obj> with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Set<obj>
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Set<'T>
-    [<Emit("new $0($1...)")>] abstract createNew: iterable: Iterable<'T> -> Set<'T>
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Set<obj>
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Set<'T>
+    [<Emit("new $0($1...)")>] abstract Create: iterable: Iterable<'T> -> Set<'T>
 
 and WeakSet<'T> =
     [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
@@ -1086,9 +1086,9 @@ and WeakSet<'T> =
 
 and WeakSetConstructor =
     abstract prototype: WeakSet<obj> with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WeakSet<obj>
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WeakSet<'T>
-    [<Emit("new $0($1...)")>] abstract createNew: iterable: Iterable<'T> -> WeakSet<'T>
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WeakSet<obj>
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WeakSet<'T>
+    [<Emit("new $0($1...)")>] abstract Create: iterable: Iterable<'T> -> WeakSet<'T>
 
 and ProxyHandler<'T> =
     abstract getPrototypeOf: target: 'T -> obj
@@ -1108,7 +1108,7 @@ and ProxyHandler<'T> =
 
 and ProxyConstructor =
     abstract revocable: target: 'T * handler: ProxyHandler<'T> -> obj
-    [<Emit("new $0($1...)")>] abstract createNew: target: 'T * handler: ProxyHandler<'T> -> 'T
+    [<Emit("new $0($1...)")>] abstract Create: target: 'T * handler: ProxyHandler<'T> -> 'T
 
 and Promise<'T> =
     [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
@@ -1120,7 +1120,7 @@ and Promise<'T> =
 and PromiseConstructor =
     abstract prototype: Promise<obj> with get, set
     [<Emit("$0[Symbol.species]{{=$1}}")>] abstract ``[Symbol.species]``: Function with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: executor: Func<Func<U2<'T, PromiseLike<'T>>, unit>, Func<obj, unit>, unit> -> Promise<'T>
+    [<Emit("new $0($1...)")>] abstract Create: executor: Func<Func<U2<'T, PromiseLike<'T>>, unit>, Func<obj, unit>, unit> -> Promise<'T>
     abstract all: values: U2<'T1, PromiseLike<'T1>> * U2<'T2, PromiseLike<'T2>> * U2<'T3, PromiseLike<'T3>> * U2<'T4, PromiseLike<'T4>> * U2<'T5, PromiseLike<'T5>> * U2<'T6, PromiseLike<'T6>> * U2<'T7, PromiseLike<'T7>> * U2<'T8, PromiseLike<'T8>> * U2<'T9, PromiseLike<'T9>> * U2<'T10, PromiseLike<'T10>> -> Promise<'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 * 'T7 * 'T8 * 'T9 * 'T10>
     abstract all: values: U2<'T1, PromiseLike<'T1>> * U2<'T2, PromiseLike<'T2>> * U2<'T3, PromiseLike<'T3>> * U2<'T4, PromiseLike<'T4>> * U2<'T5, PromiseLike<'T5>> * U2<'T6, PromiseLike<'T6>> * U2<'T7, PromiseLike<'T7>> * U2<'T8, PromiseLike<'T8>> * U2<'T9, PromiseLike<'T9>> -> Promise<'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 * 'T7 * 'T8 * 'T9>
     abstract all: values: U2<'T1, PromiseLike<'T1>> * U2<'T2, PromiseLike<'T2>> * U2<'T3, PromiseLike<'T3>> * U2<'T4, PromiseLike<'T4>> * U2<'T5, PromiseLike<'T5>> * U2<'T6, PromiseLike<'T6>> * U2<'T7, PromiseLike<'T7>> * U2<'T8, PromiseLike<'T8>> -> Promise<'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 * 'T7 * 'T8>

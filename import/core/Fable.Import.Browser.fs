@@ -182,8 +182,7 @@ and WheelEventInit =
     abstract deltaZ: float option with get, set
     abstract deltaMode: float option with get, set
 
-and EventListener =
-    [<Emit("$0($1...)")>] abstract callSelf: evt: Event -> unit
+and EventListener = Func<Event, unit>
 
 and ANGLE_instanced_arrays =
     abstract VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE: float with get, set
@@ -194,7 +193,7 @@ and ANGLE_instanced_arrays =
 and ANGLE_instanced_arraysType =
     abstract prototype: ANGLE_instanced_arrays with get, set
     abstract VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ANGLE_instanced_arrays
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ANGLE_instanced_arrays
 
 and AnalyserNode =
     inherit AudioNode
@@ -210,7 +209,7 @@ and AnalyserNode =
 
 and AnalyserNodeType =
     abstract prototype: AnalyserNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AnalyserNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AnalyserNode
 
 and AnimationEvent =
     inherit Event
@@ -220,7 +219,7 @@ and AnimationEvent =
 
 and AnimationEventType =
     abstract prototype: AnimationEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AnimationEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AnimationEvent
 
 and ApplicationCache =
     inherit EventTarget
@@ -260,7 +259,7 @@ and ApplicationCacheType =
     abstract OBSOLETE: float with get, set
     abstract UNCACHED: float with get, set
     abstract UPDATEREADY: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ApplicationCache
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ApplicationCache
 
 and AriaRequestEvent =
     inherit Event
@@ -269,7 +268,7 @@ and AriaRequestEvent =
 
 and AriaRequestEventType =
     abstract prototype: AriaRequestEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ``type``: string * ?eventInitDict: AriaRequestEventInit -> AriaRequestEvent
+    [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: AriaRequestEventInit -> AriaRequestEvent
 
 and Attr =
     inherit Node
@@ -280,7 +279,7 @@ and Attr =
 
 and AttrType =
     abstract prototype: Attr with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Attr
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Attr
 
 and AudioBuffer =
     abstract duration: float with get, set
@@ -291,7 +290,7 @@ and AudioBuffer =
 
 and AudioBufferType =
     abstract prototype: AudioBuffer with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioBuffer
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioBuffer
 
 and AudioBufferSourceNode =
     inherit AudioNode
@@ -308,7 +307,7 @@ and AudioBufferSourceNode =
 
 and AudioBufferSourceNodeType =
     abstract prototype: AudioBufferSourceNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioBufferSourceNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioBufferSourceNode
 
 and AudioContext =
     inherit EventTarget
@@ -338,7 +337,7 @@ and AudioContext =
 
 and AudioContextType =
     abstract prototype: AudioContext with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioContext
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioContext
 
 and AudioDestinationNode =
     inherit AudioNode
@@ -346,7 +345,7 @@ and AudioDestinationNode =
 
 and AudioDestinationNodeType =
     abstract prototype: AudioDestinationNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioDestinationNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioDestinationNode
 
 and AudioListener =
     abstract dopplerFactor: float with get, set
@@ -357,7 +356,7 @@ and AudioListener =
 
 and AudioListenerType =
     abstract prototype: AudioListener with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioListener
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioListener
 
 and AudioNode =
     inherit EventTarget
@@ -374,7 +373,7 @@ and AudioNode =
 
 and AudioNodeType =
     abstract prototype: AudioNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioNode
 
 and AudioParam =
     abstract defaultValue: float with get, set
@@ -388,7 +387,7 @@ and AudioParam =
 
 and AudioParamType =
     abstract prototype: AudioParam with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioParam
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioParam
 
 and AudioProcessingEvent =
     inherit Event
@@ -398,7 +397,7 @@ and AudioProcessingEvent =
 
 and AudioProcessingEventType =
     abstract prototype: AudioProcessingEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioProcessingEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioProcessingEvent
 
 and AudioTrack =
     abstract enabled: bool with get, set
@@ -410,7 +409,7 @@ and AudioTrack =
 
 and AudioTrackType =
     abstract prototype: AudioTrack with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioTrack
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioTrack
 
 and AudioTrackList =
     inherit EventTarget
@@ -428,14 +427,14 @@ and AudioTrackList =
 
 and AudioTrackListType =
     abstract prototype: AudioTrackList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> AudioTrackList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> AudioTrackList
 
 and BarProp =
     abstract visible: bool with get, set
 
 and BarPropType =
     abstract prototype: BarProp with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> BarProp
+    [<Emit("new $0($1...)")>] abstract Create: unit -> BarProp
 
 and BeforeUnloadEvent =
     inherit Event
@@ -443,7 +442,7 @@ and BeforeUnloadEvent =
 
 and BeforeUnloadEventType =
     abstract prototype: BeforeUnloadEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> BeforeUnloadEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> BeforeUnloadEvent
 
 and BiquadFilterNode =
     inherit AudioNode
@@ -456,7 +455,7 @@ and BiquadFilterNode =
 
 and BiquadFilterNodeType =
     abstract prototype: BiquadFilterNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> BiquadFilterNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> BiquadFilterNode
 
 and Blob =
     abstract size: float with get, set
@@ -467,7 +466,7 @@ and Blob =
 
 and BlobType =
     abstract prototype: Blob with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?blobParts: ResizeArray<obj> * ?options: BlobPropertyBag -> Blob
+    [<Emit("new $0($1...)")>] abstract Create: ?blobParts: ResizeArray<obj> * ?options: BlobPropertyBag -> Blob
 
 and CDATASection =
     inherit Text
@@ -475,7 +474,7 @@ and CDATASection =
 
 and CDATASectionType =
     abstract prototype: CDATASection with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CDATASection
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CDATASection
 
 and CSS =
     abstract supports: property: string * ?value: string -> bool
@@ -486,7 +485,7 @@ and CSSConditionRule =
 
 and CSSConditionRuleType =
     abstract prototype: CSSConditionRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSConditionRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSConditionRule
 
 and CSSFontFaceRule =
     inherit CSSRule
@@ -494,7 +493,7 @@ and CSSFontFaceRule =
 
 and CSSFontFaceRuleType =
     abstract prototype: CSSFontFaceRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSFontFaceRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSFontFaceRule
 
 and CSSGroupingRule =
     inherit CSSRule
@@ -504,7 +503,7 @@ and CSSGroupingRule =
 
 and CSSGroupingRuleType =
     abstract prototype: CSSGroupingRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSGroupingRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSGroupingRule
 
 and CSSImportRule =
     inherit CSSRule
@@ -514,7 +513,7 @@ and CSSImportRule =
 
 and CSSImportRuleType =
     abstract prototype: CSSImportRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSImportRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSImportRule
 
 and CSSKeyframeRule =
     inherit CSSRule
@@ -523,7 +522,7 @@ and CSSKeyframeRule =
 
 and CSSKeyframeRuleType =
     abstract prototype: CSSKeyframeRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSKeyframeRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSKeyframeRule
 
 and CSSKeyframesRule =
     inherit CSSRule
@@ -535,7 +534,7 @@ and CSSKeyframesRule =
 
 and CSSKeyframesRuleType =
     abstract prototype: CSSKeyframesRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSKeyframesRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSKeyframesRule
 
 and CSSMediaRule =
     inherit CSSConditionRule
@@ -543,7 +542,7 @@ and CSSMediaRule =
 
 and CSSMediaRuleType =
     abstract prototype: CSSMediaRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSMediaRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSMediaRule
 
 and CSSNamespaceRule =
     inherit CSSRule
@@ -552,7 +551,7 @@ and CSSNamespaceRule =
 
 and CSSNamespaceRuleType =
     abstract prototype: CSSNamespaceRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSNamespaceRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSNamespaceRule
 
 and CSSPageRule =
     inherit CSSRule
@@ -563,7 +562,7 @@ and CSSPageRule =
 
 and CSSPageRuleType =
     abstract prototype: CSSPageRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSPageRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSPageRule
 
 and CSSRule =
     abstract cssText: string with get, set
@@ -597,7 +596,7 @@ and CSSRuleType =
     abstract SUPPORTS_RULE: float with get, set
     abstract UNKNOWN_RULE: float with get, set
     abstract VIEWPORT_RULE: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSRule
 
 and CSSRuleList =
     abstract length: float with get, set
@@ -606,7 +605,7 @@ and CSSRuleList =
 
 and CSSRuleListType =
     abstract prototype: CSSRuleList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSRuleList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSRuleList
 
 and CSSStyleDeclaration =
     abstract alignContent: string with get, set
@@ -963,7 +962,7 @@ and CSSStyleDeclaration =
 
 and CSSStyleDeclarationType =
     abstract prototype: CSSStyleDeclaration with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSStyleDeclaration
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSStyleDeclaration
 
 and CSSStyleRule =
     inherit CSSRule
@@ -973,7 +972,7 @@ and CSSStyleRule =
 
 and CSSStyleRuleType =
     abstract prototype: CSSStyleRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSStyleRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSStyleRule
 
 and CSSStyleSheet =
     inherit StyleSheet
@@ -999,7 +998,7 @@ and CSSStyleSheet =
 
 and CSSStyleSheetType =
     abstract prototype: CSSStyleSheet with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSStyleSheet
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSStyleSheet
 
 and CSSSupportsRule =
     inherit CSSConditionRule
@@ -1007,21 +1006,21 @@ and CSSSupportsRule =
 
 and CSSSupportsRuleType =
     abstract prototype: CSSSupportsRule with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CSSSupportsRule
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CSSSupportsRule
 
 and CanvasGradient =
     abstract addColorStop: offset: float * color: string -> unit
 
 and CanvasGradientType =
     abstract prototype: CanvasGradient with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CanvasGradient
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CanvasGradient
 
 and CanvasPattern =
     interface end
 
 and CanvasPatternType =
     abstract prototype: CanvasPattern with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CanvasPattern
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CanvasPattern
 
 and CanvasRenderingContext2D =
     abstract canvas: HTMLCanvasElement with get, set
@@ -1081,7 +1080,7 @@ and CanvasRenderingContext2D =
 
 and CanvasRenderingContext2DType =
     abstract prototype: CanvasRenderingContext2D with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CanvasRenderingContext2D
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CanvasRenderingContext2D
 
 and ChannelMergerNode =
     inherit AudioNode
@@ -1089,7 +1088,7 @@ and ChannelMergerNode =
 
 and ChannelMergerNodeType =
     abstract prototype: ChannelMergerNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ChannelMergerNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ChannelMergerNode
 
 and ChannelSplitterNode =
     inherit AudioNode
@@ -1097,7 +1096,7 @@ and ChannelSplitterNode =
 
 and ChannelSplitterNodeType =
     abstract prototype: ChannelSplitterNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ChannelSplitterNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ChannelSplitterNode
 
 and CharacterData =
     inherit Node
@@ -1113,7 +1112,7 @@ and CharacterData =
 
 and CharacterDataType =
     abstract prototype: CharacterData with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CharacterData
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CharacterData
 
 and ClientRect =
     abstract bottom: float with get, set
@@ -1125,7 +1124,7 @@ and ClientRect =
 
 and ClientRectType =
     abstract prototype: ClientRect with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ClientRect
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ClientRect
 
 and ClientRectList =
     abstract length: float with get, set
@@ -1134,7 +1133,7 @@ and ClientRectList =
 
 and ClientRectListType =
     abstract prototype: ClientRectList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ClientRectList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ClientRectList
 
 and ClipboardEvent =
     inherit Event
@@ -1142,7 +1141,7 @@ and ClipboardEvent =
 
 and ClipboardEventType =
     abstract prototype: ClipboardEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ``type``: string * ?eventInitDict: ClipboardEventInit -> ClipboardEvent
+    [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: ClipboardEventInit -> ClipboardEvent
 
 and CloseEvent =
     inherit Event
@@ -1153,7 +1152,7 @@ and CloseEvent =
 
 and CloseEventType =
     abstract prototype: CloseEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CloseEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CloseEvent
 
 and CommandEvent =
     inherit Event
@@ -1162,7 +1161,7 @@ and CommandEvent =
 
 and CommandEventType =
     abstract prototype: CommandEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ``type``: string * ?eventInitDict: CommandEventInit -> CommandEvent
+    [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: CommandEventInit -> CommandEvent
 
 and Comment =
     inherit CharacterData
@@ -1170,7 +1169,7 @@ and Comment =
 
 and CommentType =
     abstract prototype: Comment with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Comment
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Comment
 
 and CompositionEvent =
     inherit UIEvent
@@ -1180,7 +1179,7 @@ and CompositionEvent =
 
 and CompositionEventType =
     abstract prototype: CompositionEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: typeArg: string * ?eventInitDict: CompositionEventInit -> CompositionEvent
+    [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: CompositionEventInit -> CompositionEvent
 
 and Console =
     abstract ``assert``: ?test: bool * ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
@@ -1206,7 +1205,7 @@ and Console =
 
 and ConsoleType =
     abstract prototype: Console with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Console
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Console
 
 and ConvolverNode =
     inherit AudioNode
@@ -1215,7 +1214,7 @@ and ConvolverNode =
 
 and ConvolverNodeType =
     abstract prototype: ConvolverNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ConvolverNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ConvolverNode
 
 and Coordinates =
     abstract accuracy: float with get, set
@@ -1228,7 +1227,7 @@ and Coordinates =
 
 and CoordinatesType =
     abstract prototype: Coordinates with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Coordinates
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Coordinates
 
 and Crypto =
     inherit RandomSource
@@ -1236,7 +1235,7 @@ and Crypto =
 
 and CryptoType =
     abstract prototype: Crypto with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Crypto
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Crypto
 
 and CryptoKey =
     abstract algorithm: KeyAlgorithm with get, set
@@ -1246,7 +1245,7 @@ and CryptoKey =
 
 and CryptoKeyType =
     abstract prototype: CryptoKey with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CryptoKey
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CryptoKey
 
 and CryptoKeyPair =
     abstract privateKey: CryptoKey with get, set
@@ -1254,7 +1253,7 @@ and CryptoKeyPair =
 
 and CryptoKeyPairType =
     abstract prototype: CryptoKeyPair with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> CryptoKeyPair
+    [<Emit("new $0($1...)")>] abstract Create: unit -> CryptoKeyPair
 
 and CustomEvent =
     inherit Event
@@ -1263,7 +1262,7 @@ and CustomEvent =
 
 and CustomEventType =
     abstract prototype: CustomEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: typeArg: string * ?eventInitDict: CustomEventInit -> CustomEvent
+    [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: CustomEventInit -> CustomEvent
 
 and DOMError =
     abstract name: string with get, set
@@ -1271,7 +1270,7 @@ and DOMError =
 
 and DOMErrorType =
     abstract prototype: DOMError with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DOMError
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DOMError
 
 and DOMException =
     abstract code: float with get, set
@@ -1335,7 +1334,7 @@ and DOMExceptionType =
     abstract URL_MISMATCH_ERR: float with get, set
     abstract VALIDATION_ERR: float with get, set
     abstract WRONG_DOCUMENT_ERR: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DOMException
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DOMException
 
 and DOMImplementation =
     abstract createDocument: namespaceURI: string * qualifiedName: string * doctype: DocumentType -> Document
@@ -1345,14 +1344,14 @@ and DOMImplementation =
 
 and DOMImplementationType =
     abstract prototype: DOMImplementation with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DOMImplementation
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DOMImplementation
 
 and DOMParser =
     abstract parseFromString: source: string * mimeType: string -> Document
 
 and DOMParserType =
     abstract prototype: DOMParser with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DOMParser
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DOMParser
 
 and DOMSettableTokenList =
     inherit DOMTokenList
@@ -1360,7 +1359,7 @@ and DOMSettableTokenList =
 
 and DOMSettableTokenListType =
     abstract prototype: DOMSettableTokenList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DOMSettableTokenList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DOMSettableTokenList
 
 and DOMStringList =
     abstract length: float with get, set
@@ -1370,14 +1369,14 @@ and DOMStringList =
 
 and DOMStringListType =
     abstract prototype: DOMStringList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DOMStringList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DOMStringList
 
 and DOMStringMap =
     [<Emit("$0[$1]{{=$2}}")>] abstract Item: name: string -> string with get, set
 
 and DOMStringMapType =
     abstract prototype: DOMStringMap with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DOMStringMap
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DOMStringMap
 
 and DOMTokenList =
     abstract length: float with get, set
@@ -1391,7 +1390,7 @@ and DOMTokenList =
 
 and DOMTokenListType =
     abstract prototype: DOMTokenList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DOMTokenList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DOMTokenList
 
 and DataCue =
     inherit TextTrackCue
@@ -1399,7 +1398,7 @@ and DataCue =
 
 and DataCueType =
     abstract prototype: DataCue with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DataCue
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DataCue
 
 and DataTransfer =
     abstract dropEffect: string with get, set
@@ -1413,7 +1412,7 @@ and DataTransfer =
 
 and DataTransferType =
     abstract prototype: DataTransfer with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DataTransfer
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DataTransfer
 
 and DataTransferItem =
     abstract kind: string with get, set
@@ -1423,7 +1422,7 @@ and DataTransferItem =
 
 and DataTransferItemType =
     abstract prototype: DataTransferItem with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DataTransferItem
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DataTransferItem
 
 and DataTransferItemList =
     abstract length: float with get, set
@@ -1435,7 +1434,7 @@ and DataTransferItemList =
 
 and DataTransferItemListType =
     abstract prototype: DataTransferItemList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DataTransferItemList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DataTransferItemList
 
 and DeferredPermissionRequest =
     abstract id: float with get, set
@@ -1446,7 +1445,7 @@ and DeferredPermissionRequest =
 
 and DeferredPermissionRequestType =
     abstract prototype: DeferredPermissionRequest with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DeferredPermissionRequest
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DeferredPermissionRequest
 
 and DelayNode =
     inherit AudioNode
@@ -1454,7 +1453,7 @@ and DelayNode =
 
 and DelayNodeType =
     abstract prototype: DelayNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DelayNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DelayNode
 
 and DeviceAcceleration =
     abstract x: float with get, set
@@ -1463,7 +1462,7 @@ and DeviceAcceleration =
 
 and DeviceAccelerationType =
     abstract prototype: DeviceAcceleration with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DeviceAcceleration
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DeviceAcceleration
 
 and DeviceMotionEvent =
     inherit Event
@@ -1475,7 +1474,7 @@ and DeviceMotionEvent =
 
 and DeviceMotionEventType =
     abstract prototype: DeviceMotionEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DeviceMotionEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DeviceMotionEvent
 
 and DeviceOrientationEvent =
     inherit Event
@@ -1487,7 +1486,7 @@ and DeviceOrientationEvent =
 
 and DeviceOrientationEventType =
     abstract prototype: DeviceOrientationEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DeviceOrientationEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DeviceOrientationEvent
 
 and DeviceRotationRate =
     abstract alpha: float with get, set
@@ -1496,7 +1495,7 @@ and DeviceRotationRate =
 
 and DeviceRotationRateType =
     abstract prototype: DeviceRotationRate with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DeviceRotationRate
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DeviceRotationRate
 
 and Document =
     inherit Node
@@ -2146,7 +2145,7 @@ and DocumentType =
     abstract notations: NamedNodeMap with get, set
     abstract publicId: string with get, set
     abstract systemId: string with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Document
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Document
     abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
 and DocumentFragment =
@@ -2156,11 +2155,11 @@ and DocumentFragment =
 
 and DocumentFragmentType =
     abstract prototype: DocumentFragment with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DocumentFragment
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DocumentFragment
 
 and DocumentTypeType =
     abstract prototype: DocumentType with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DocumentType
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DocumentType
 
 and DragEvent =
     inherit MouseEvent
@@ -2170,7 +2169,7 @@ and DragEvent =
 
 and DragEventType =
     abstract prototype: DragEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DragEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DragEvent
 
 and DynamicsCompressorNode =
     inherit AudioNode
@@ -2183,7 +2182,7 @@ and DynamicsCompressorNode =
 
 and DynamicsCompressorNodeType =
     abstract prototype: DynamicsCompressorNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> DynamicsCompressorNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> DynamicsCompressorNode
 
 and EXT_texture_filter_anisotropic =
     abstract MAX_TEXTURE_MAX_ANISOTROPY_EXT: float with get, set
@@ -2193,7 +2192,7 @@ and EXT_texture_filter_anisotropicType =
     abstract prototype: EXT_texture_filter_anisotropic with get, set
     abstract MAX_TEXTURE_MAX_ANISOTROPY_EXT: float with get, set
     abstract TEXTURE_MAX_ANISOTROPY_EXT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> EXT_texture_filter_anisotropic
+    [<Emit("new $0($1...)")>] abstract Create: unit -> EXT_texture_filter_anisotropic
 
 and Element =
     inherit Node
@@ -2489,7 +2488,7 @@ and Element =
 
 and ElementType =
     abstract prototype: Element with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Element
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Element
 
 and ErrorEvent =
     inherit Event
@@ -2502,7 +2501,7 @@ and ErrorEvent =
 
 and ErrorEventType =
     abstract prototype: ErrorEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ErrorEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ErrorEvent
 
 and Event =
     abstract bubbles: bool with get, set
@@ -2530,7 +2529,7 @@ and EventType =
     abstract AT_TARGET: float with get, set
     abstract BUBBLING_PHASE: float with get, set
     abstract CAPTURING_PHASE: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ``type``: string * ?eventInitDict: EventInit -> Event
+    [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: EventInit -> Event
 
 and EventTarget =
     abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
@@ -2539,14 +2538,14 @@ and EventTarget =
 
 and EventTargetType =
     abstract prototype: EventTarget with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> EventTarget
+    [<Emit("new $0($1...)")>] abstract Create: unit -> EventTarget
 
 and External =
     interface end
 
 and ExternalType =
     abstract prototype: External with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> External
+    [<Emit("new $0($1...)")>] abstract Create: unit -> External
 
 and File =
     inherit Blob
@@ -2555,7 +2554,7 @@ and File =
 
 and FileType =
     abstract prototype: File with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: parts: ResizeArray<U4<ArrayBuffer, ArrayBufferView, Blob, string>> * filename: string * ?properties: FilePropertyBag -> File
+    [<Emit("new $0($1...)")>] abstract Create: parts: ResizeArray<U4<ArrayBuffer, ArrayBufferView, Blob, string>> * filename: string * ?properties: FilePropertyBag -> File
 
 and FileList =
     abstract length: float with get, set
@@ -2564,7 +2563,7 @@ and FileList =
 
 and FileListType =
     abstract prototype: FileList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> FileList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> FileList
 
 and FileReader =
     inherit EventTarget
@@ -2578,7 +2577,7 @@ and FileReader =
 
 and FileReaderType =
     abstract prototype: FileReader with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> FileReader
+    [<Emit("new $0($1...)")>] abstract Create: unit -> FileReader
 
 and FocusEvent =
     inherit UIEvent
@@ -2587,14 +2586,14 @@ and FocusEvent =
 
 and FocusEventType =
     abstract prototype: FocusEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: typeArg: string * ?eventInitDict: FocusEventInit -> FocusEvent
+    [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: FocusEventInit -> FocusEvent
 
 and FormData =
     abstract append: name: obj * value: obj * ?blobName: string -> unit
 
 and FormDataType =
     abstract prototype: FormData with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?form: HTMLFormElement -> FormData
+    [<Emit("new $0($1...)")>] abstract Create: ?form: HTMLFormElement -> FormData
 
 and GainNode =
     inherit AudioNode
@@ -2602,7 +2601,7 @@ and GainNode =
 
 and GainNodeType =
     abstract prototype: GainNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> GainNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> GainNode
 
 and Gamepad =
     abstract axes: ResizeArray<float> with get, set
@@ -2615,7 +2614,7 @@ and Gamepad =
 
 and GamepadType =
     abstract prototype: Gamepad with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Gamepad
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Gamepad
 
 and GamepadButton =
     abstract pressed: bool with get, set
@@ -2623,7 +2622,7 @@ and GamepadButton =
 
 and GamepadButtonType =
     abstract prototype: GamepadButton with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> GamepadButton
+    [<Emit("new $0($1...)")>] abstract Create: unit -> GamepadButton
 
 and GamepadEvent =
     inherit Event
@@ -2631,7 +2630,7 @@ and GamepadEvent =
 
 and GamepadEventType =
     abstract prototype: GamepadEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> GamepadEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> GamepadEvent
 
 and Geolocation =
     abstract clearWatch: watchId: float -> unit
@@ -2640,7 +2639,7 @@ and Geolocation =
 
 and GeolocationType =
     abstract prototype: Geolocation with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Geolocation
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Geolocation
 
 and HTMLAllCollection =
     inherit HTMLCollection
@@ -2648,7 +2647,7 @@ and HTMLAllCollection =
 
 and HTMLAllCollectionType =
     abstract prototype: HTMLAllCollection with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLAllCollection
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAllCollection
 
 and HTMLAnchorElement =
     inherit HTMLElement
@@ -2679,7 +2678,7 @@ and HTMLAnchorElement =
 
 and HTMLAnchorElementType =
     abstract prototype: HTMLAnchorElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLAnchorElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAnchorElement
 
 and HTMLAppletElement =
     inherit HTMLElement
@@ -2708,7 +2707,7 @@ and HTMLAppletElement =
 
 and HTMLAppletElementType =
     abstract prototype: HTMLAppletElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLAppletElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAppletElement
 
 and HTMLAreaElement =
     inherit HTMLElement
@@ -2730,7 +2729,7 @@ and HTMLAreaElement =
 
 and HTMLAreaElementType =
     abstract prototype: HTMLAreaElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLAreaElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAreaElement
 
 and HTMLAreasCollection =
     inherit HTMLCollection
@@ -2739,7 +2738,7 @@ and HTMLAreasCollection =
 
 and HTMLAreasCollectionType =
     abstract prototype: HTMLAreasCollection with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLAreasCollection
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAreasCollection
 
 and HTMLAudioElement =
     inherit HTMLMediaElement
@@ -2747,7 +2746,7 @@ and HTMLAudioElement =
 
 and HTMLAudioElementType =
     abstract prototype: HTMLAudioElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLAudioElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAudioElement
 
 and HTMLBRElement =
     inherit HTMLElement
@@ -2755,7 +2754,7 @@ and HTMLBRElement =
 
 and HTMLBRElementType =
     abstract prototype: HTMLBRElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLBRElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBRElement
 
 and HTMLBaseElement =
     inherit HTMLElement
@@ -2764,7 +2763,7 @@ and HTMLBaseElement =
 
 and HTMLBaseElementType =
     abstract prototype: HTMLBaseElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLBaseElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBaseElement
 
 and HTMLBaseFontElement =
     inherit HTMLElement
@@ -2775,7 +2774,7 @@ and HTMLBaseFontElement =
 
 and HTMLBaseFontElementType =
     abstract prototype: HTMLBaseFontElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLBaseFontElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBaseFontElement
 
 and HTMLBlockElement =
     inherit HTMLElement
@@ -2785,7 +2784,7 @@ and HTMLBlockElement =
 
 and HTMLBlockElementType =
     abstract prototype: HTMLBlockElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLBlockElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBlockElement
 
 and HTMLBodyElement =
     inherit HTMLElement
@@ -2936,7 +2935,7 @@ and HTMLBodyElement =
 
 and HTMLBodyElementType =
     abstract prototype: HTMLBodyElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLBodyElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBodyElement
 
 and HTMLButtonElement =
     inherit HTMLElement
@@ -2961,7 +2960,7 @@ and HTMLButtonElement =
 
 and HTMLButtonElementType =
     abstract prototype: HTMLButtonElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLButtonElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLButtonElement
 
 and HTMLCanvasElement =
     inherit HTMLElement
@@ -2976,7 +2975,7 @@ and HTMLCanvasElement =
 
 and HTMLCanvasElementType =
     abstract prototype: HTMLCanvasElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLCanvasElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLCanvasElement
 
 and HTMLCollection =
     abstract length: float with get, set
@@ -2986,7 +2985,7 @@ and HTMLCollection =
 
 and HTMLCollectionType =
     abstract prototype: HTMLCollection with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLCollection
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLCollection
 
 and HTMLDDElement =
     inherit HTMLElement
@@ -2994,7 +2993,7 @@ and HTMLDDElement =
 
 and HTMLDDElementType =
     abstract prototype: HTMLDDElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLDDElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDDElement
 
 and HTMLDListElement =
     inherit HTMLElement
@@ -3002,7 +3001,7 @@ and HTMLDListElement =
 
 and HTMLDListElementType =
     abstract prototype: HTMLDListElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLDListElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDListElement
 
 and HTMLDTElement =
     inherit HTMLElement
@@ -3010,7 +3009,7 @@ and HTMLDTElement =
 
 and HTMLDTElementType =
     abstract prototype: HTMLDTElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLDTElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDTElement
 
 and HTMLDataListElement =
     inherit HTMLElement
@@ -3018,7 +3017,7 @@ and HTMLDataListElement =
 
 and HTMLDataListElementType =
     abstract prototype: HTMLDataListElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLDataListElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDataListElement
 
 and HTMLDirectoryElement =
     inherit HTMLElement
@@ -3026,7 +3025,7 @@ and HTMLDirectoryElement =
 
 and HTMLDirectoryElementType =
     abstract prototype: HTMLDirectoryElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLDirectoryElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDirectoryElement
 
 and HTMLDivElement =
     inherit HTMLElement
@@ -3035,7 +3034,7 @@ and HTMLDivElement =
 
 and HTMLDivElementType =
     abstract prototype: HTMLDivElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLDivElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDivElement
 
 and HTMLDocument =
     inherit Document
@@ -3043,7 +3042,7 @@ and HTMLDocument =
 
 and HTMLDocumentType =
     abstract prototype: HTMLDocument with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLDocument
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDocument
 
 and HTMLElement =
     inherit Element
@@ -3252,7 +3251,7 @@ and HTMLElement =
 
 and HTMLElementType =
     abstract prototype: HTMLElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLElement
 
 and HTMLEmbedElement =
     inherit HTMLElement
@@ -3274,7 +3273,7 @@ and HTMLEmbedElement =
 
 and HTMLEmbedElementType =
     abstract prototype: HTMLEmbedElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLEmbedElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLEmbedElement
 
 and HTMLFieldSetElement =
     inherit HTMLElement
@@ -3289,7 +3288,7 @@ and HTMLFieldSetElement =
 
 and HTMLFieldSetElementType =
     abstract prototype: HTMLFieldSetElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLFieldSetElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFieldSetElement
 
 and HTMLFontElement =
     inherit HTMLElement
@@ -3300,7 +3299,7 @@ and HTMLFontElement =
 
 and HTMLFontElementType =
     abstract prototype: HTMLFontElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLFontElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFontElement
 
 and HTMLFormElement =
     inherit HTMLElement
@@ -3324,7 +3323,7 @@ and HTMLFormElement =
 
 and HTMLFormElementType =
     abstract prototype: HTMLFormElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLFormElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFormElement
 
 and HTMLFrameElement =
     inherit HTMLElement
@@ -3452,7 +3451,7 @@ and HTMLFrameElement =
 
 and HTMLFrameElementType =
     abstract prototype: HTMLFrameElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLFrameElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFrameElement
 
 and HTMLFrameSetElement =
     inherit HTMLElement
@@ -3598,7 +3597,7 @@ and HTMLFrameSetElement =
 
 and HTMLFrameSetElementType =
     abstract prototype: HTMLFrameSetElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLFrameSetElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFrameSetElement
 
 and HTMLHRElement =
     inherit HTMLElement
@@ -3611,7 +3610,7 @@ and HTMLHRElement =
 
 and HTMLHRElementType =
     abstract prototype: HTMLHRElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLHRElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLHRElement
 
 and HTMLHeadElement =
     inherit HTMLElement
@@ -3619,7 +3618,7 @@ and HTMLHeadElement =
 
 and HTMLHeadElementType =
     abstract prototype: HTMLHeadElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLHeadElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLHeadElement
 
 and HTMLHeadingElement =
     inherit HTMLElement
@@ -3628,7 +3627,7 @@ and HTMLHeadingElement =
 
 and HTMLHeadingElementType =
     abstract prototype: HTMLHeadingElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLHeadingElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLHeadingElement
 
 and HTMLHtmlElement =
     inherit HTMLElement
@@ -3636,7 +3635,7 @@ and HTMLHtmlElement =
 
 and HTMLHtmlElementType =
     abstract prototype: HTMLHtmlElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLHtmlElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLHtmlElement
 
 and HTMLIFrameElement =
     inherit HTMLElement
@@ -3768,7 +3767,7 @@ and HTMLIFrameElement =
 
 and HTMLIFrameElementType =
     abstract prototype: HTMLIFrameElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLIFrameElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLIFrameElement
 
 and HTMLImageElement =
     inherit HTMLElement
@@ -3800,7 +3799,7 @@ and HTMLImageElement =
 
 and HTMLImageElementType =
     abstract prototype: HTMLImageElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLImageElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLImageElement
     abstract create: unit -> HTMLImageElement
 
 and HTMLInputElement =
@@ -3862,7 +3861,7 @@ and HTMLInputElement =
 
 and HTMLInputElementType =
     abstract prototype: HTMLInputElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLInputElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLInputElement
 
 and HTMLIsIndexElement =
     inherit HTMLElement
@@ -3872,7 +3871,7 @@ and HTMLIsIndexElement =
 
 and HTMLIsIndexElementType =
     abstract prototype: HTMLIsIndexElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLIsIndexElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLIsIndexElement
 
 and HTMLLIElement =
     inherit HTMLElement
@@ -3881,7 +3880,7 @@ and HTMLLIElement =
 
 and HTMLLIElementType =
     abstract prototype: HTMLLIElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLLIElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLLIElement
 
 and HTMLLabelElement =
     inherit HTMLElement
@@ -3890,7 +3889,7 @@ and HTMLLabelElement =
 
 and HTMLLabelElementType =
     abstract prototype: HTMLLabelElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLLabelElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLLabelElement
 
 and HTMLLegendElement =
     inherit HTMLElement
@@ -3899,7 +3898,7 @@ and HTMLLegendElement =
 
 and HTMLLegendElementType =
     abstract prototype: HTMLLegendElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLLegendElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLLegendElement
 
 and HTMLLinkElement =
     inherit HTMLElement
@@ -3917,7 +3916,7 @@ and HTMLLinkElement =
 
 and HTMLLinkElementType =
     abstract prototype: HTMLLinkElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLLinkElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLLinkElement
 
 and HTMLMapElement =
     inherit HTMLElement
@@ -3926,7 +3925,7 @@ and HTMLMapElement =
 
 and HTMLMapElementType =
     abstract prototype: HTMLMapElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLMapElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMapElement
 
 and HTMLMarqueeElement =
     inherit HTMLElement
@@ -4055,7 +4054,7 @@ and HTMLMarqueeElement =
 
 and HTMLMarqueeElementType =
     abstract prototype: HTMLMarqueeElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLMarqueeElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMarqueeElement
 
 and HTMLMediaElement =
     inherit HTMLElement
@@ -4229,7 +4228,7 @@ and HTMLMediaElementType =
     abstract NETWORK_IDLE: float with get, set
     abstract NETWORK_LOADING: float with get, set
     abstract NETWORK_NO_SOURCE: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLMediaElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMediaElement
 
 and HTMLMenuElement =
     inherit HTMLElement
@@ -4238,7 +4237,7 @@ and HTMLMenuElement =
 
 and HTMLMenuElementType =
     abstract prototype: HTMLMenuElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLMenuElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMenuElement
 
 and HTMLMetaElement =
     inherit HTMLElement
@@ -4251,7 +4250,7 @@ and HTMLMetaElement =
 
 and HTMLMetaElementType =
     abstract prototype: HTMLMetaElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLMetaElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMetaElement
 
 and HTMLModElement =
     inherit HTMLElement
@@ -4260,7 +4259,7 @@ and HTMLModElement =
 
 and HTMLModElementType =
     abstract prototype: HTMLModElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLModElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLModElement
 
 and HTMLNextIdElement =
     inherit HTMLElement
@@ -4268,7 +4267,7 @@ and HTMLNextIdElement =
 
 and HTMLNextIdElementType =
     abstract prototype: HTMLNextIdElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLNextIdElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLNextIdElement
 
 and HTMLOListElement =
     inherit HTMLElement
@@ -4278,7 +4277,7 @@ and HTMLOListElement =
 
 and HTMLOListElementType =
     abstract prototype: HTMLOListElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLOListElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLOListElement
 
 and HTMLObjectElement =
     inherit HTMLElement
@@ -4319,7 +4318,7 @@ and HTMLObjectElement =
 
 and HTMLObjectElementType =
     abstract prototype: HTMLObjectElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLObjectElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLObjectElement
 
 and HTMLOptGroupElement =
     inherit HTMLElement
@@ -4334,7 +4333,7 @@ and HTMLOptGroupElement =
 
 and HTMLOptGroupElementType =
     abstract prototype: HTMLOptGroupElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLOptGroupElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLOptGroupElement
 
 and HTMLOptionElement =
     inherit HTMLElement
@@ -4349,7 +4348,7 @@ and HTMLOptionElement =
 
 and HTMLOptionElementType =
     abstract prototype: HTMLOptionElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLOptionElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLOptionElement
     abstract create: unit -> HTMLOptionElement
 
 and HTMLParagraphElement =
@@ -4359,7 +4358,7 @@ and HTMLParagraphElement =
 
 and HTMLParagraphElementType =
     abstract prototype: HTMLParagraphElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLParagraphElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLParagraphElement
 
 and HTMLParamElement =
     inherit HTMLElement
@@ -4370,7 +4369,7 @@ and HTMLParamElement =
 
 and HTMLParamElementType =
     abstract prototype: HTMLParamElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLParamElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLParamElement
 
 and HTMLPhraseElement =
     inherit HTMLElement
@@ -4379,7 +4378,7 @@ and HTMLPhraseElement =
 
 and HTMLPhraseElementType =
     abstract prototype: HTMLPhraseElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLPhraseElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLPhraseElement
 
 and HTMLPreElement =
     inherit HTMLElement
@@ -4389,7 +4388,7 @@ and HTMLPreElement =
 
 and HTMLPreElementType =
     abstract prototype: HTMLPreElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLPreElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLPreElement
 
 and HTMLProgressElement =
     inherit HTMLElement
@@ -4400,7 +4399,7 @@ and HTMLProgressElement =
 
 and HTMLProgressElementType =
     abstract prototype: HTMLProgressElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLProgressElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLProgressElement
 
 and HTMLQuoteElement =
     inherit HTMLElement
@@ -4409,7 +4408,7 @@ and HTMLQuoteElement =
 
 and HTMLQuoteElementType =
     abstract prototype: HTMLQuoteElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLQuoteElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLQuoteElement
 
 and HTMLScriptElement =
     inherit HTMLElement
@@ -4424,7 +4423,7 @@ and HTMLScriptElement =
 
 and HTMLScriptElementType =
     abstract prototype: HTMLScriptElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLScriptElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLScriptElement
 
 and HTMLSelectElement =
     inherit HTMLElement
@@ -4454,7 +4453,7 @@ and HTMLSelectElement =
 
 and HTMLSelectElementType =
     abstract prototype: HTMLSelectElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLSelectElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLSelectElement
 
 and HTMLSourceElement =
     inherit HTMLElement
@@ -4465,7 +4464,7 @@ and HTMLSourceElement =
 
 and HTMLSourceElementType =
     abstract prototype: HTMLSourceElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLSourceElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLSourceElement
 
 and HTMLSpanElement =
     inherit HTMLElement
@@ -4473,7 +4472,7 @@ and HTMLSpanElement =
 
 and HTMLSpanElementType =
     abstract prototype: HTMLSpanElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLSpanElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLSpanElement
 
 and HTMLStyleElement =
     inherit HTMLElement
@@ -4484,7 +4483,7 @@ and HTMLStyleElement =
 
 and HTMLStyleElementType =
     abstract prototype: HTMLStyleElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLStyleElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLStyleElement
 
 and HTMLTableCaptionElement =
     inherit HTMLElement
@@ -4493,7 +4492,7 @@ and HTMLTableCaptionElement =
 
 and HTMLTableCaptionElementType =
     abstract prototype: HTMLTableCaptionElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTableCaptionElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableCaptionElement
 
 and HTMLTableCellElement =
     inherit HTMLElement
@@ -4514,7 +4513,7 @@ and HTMLTableCellElement =
 
 and HTMLTableCellElementType =
     abstract prototype: HTMLTableCellElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTableCellElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableCellElement
 
 and HTMLTableColElement =
     inherit HTMLElement
@@ -4526,7 +4525,7 @@ and HTMLTableColElement =
 
 and HTMLTableColElementType =
     abstract prototype: HTMLTableColElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTableColElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableColElement
 
 and HTMLTableDataCellElement =
     inherit HTMLTableCellElement
@@ -4534,7 +4533,7 @@ and HTMLTableDataCellElement =
 
 and HTMLTableDataCellElementType =
     abstract prototype: HTMLTableDataCellElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTableDataCellElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableDataCellElement
 
 and HTMLTableElement =
     inherit HTMLElement
@@ -4567,7 +4566,7 @@ and HTMLTableElement =
 
 and HTMLTableElementType =
     abstract prototype: HTMLTableElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTableElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableElement
 
 and HTMLTableHeaderCellElement =
     inherit HTMLTableCellElement
@@ -4575,7 +4574,7 @@ and HTMLTableHeaderCellElement =
 
 and HTMLTableHeaderCellElementType =
     abstract prototype: HTMLTableHeaderCellElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTableHeaderCellElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableHeaderCellElement
 
 and HTMLTableRowElement =
     inherit HTMLElement
@@ -4592,7 +4591,7 @@ and HTMLTableRowElement =
 
 and HTMLTableRowElementType =
     abstract prototype: HTMLTableRowElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTableRowElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableRowElement
 
 and HTMLTableSectionElement =
     inherit HTMLElement
@@ -4605,7 +4604,7 @@ and HTMLTableSectionElement =
 
 and HTMLTableSectionElementType =
     abstract prototype: HTMLTableSectionElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTableSectionElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableSectionElement
 
 and HTMLTextAreaElement =
     inherit HTMLElement
@@ -4637,7 +4636,7 @@ and HTMLTextAreaElement =
 
 and HTMLTextAreaElementType =
     abstract prototype: HTMLTextAreaElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTextAreaElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTextAreaElement
 
 and HTMLTitleElement =
     inherit HTMLElement
@@ -4645,7 +4644,7 @@ and HTMLTitleElement =
 
 and HTMLTitleElementType =
     abstract prototype: HTMLTitleElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTitleElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTitleElement
 
 and HTMLTrackElement =
     inherit HTMLElement
@@ -4667,7 +4666,7 @@ and HTMLTrackElementType =
     abstract LOADED: float with get, set
     abstract LOADING: float with get, set
     abstract NONE: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTrackElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTrackElement
 
 and HTMLUListElement =
     inherit HTMLElement
@@ -4676,7 +4675,7 @@ and HTMLUListElement =
 
 and HTMLUListElementType =
     abstract prototype: HTMLUListElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLUListElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLUListElement
 
 and HTMLUnknownElement =
     inherit HTMLElement
@@ -4684,7 +4683,7 @@ and HTMLUnknownElement =
 
 and HTMLUnknownElementType =
     abstract prototype: HTMLUnknownElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLUnknownElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLUnknownElement
 
 and HTMLVideoElement =
     inherit HTMLMediaElement
@@ -4822,7 +4821,7 @@ and HTMLVideoElement =
 
 and HTMLVideoElementType =
     abstract prototype: HTMLVideoElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLVideoElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLVideoElement
 
 and HashChangeEvent =
     inherit Event
@@ -4831,7 +4830,7 @@ and HashChangeEvent =
 
 and HashChangeEventType =
     abstract prototype: HashChangeEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ``type``: string * ?eventInitDict: HashChangeEventInit -> HashChangeEvent
+    [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: HashChangeEventInit -> HashChangeEvent
 
 and History =
     abstract length: float with get, set
@@ -4844,7 +4843,7 @@ and History =
 
 and HistoryType =
     abstract prototype: History with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> History
+    [<Emit("new $0($1...)")>] abstract Create: unit -> History
 
 and IDBCursor =
     abstract direction: string with get, set
@@ -4866,7 +4865,7 @@ and IDBCursorType =
     abstract NEXT_NO_DUPLICATE: string with get, set
     abstract PREV: string with get, set
     abstract PREV_NO_DUPLICATE: string with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBCursor
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBCursor
 
 and IDBCursorWithValue =
     inherit IDBCursor
@@ -4874,7 +4873,7 @@ and IDBCursorWithValue =
 
 and IDBCursorWithValueType =
     abstract prototype: IDBCursorWithValue with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBCursorWithValue
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBCursorWithValue
 
 and IDBDatabase =
     inherit EventTarget
@@ -4893,7 +4892,7 @@ and IDBDatabase =
 
 and IDBDatabaseType =
     abstract prototype: IDBDatabase with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBDatabase
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBDatabase
 
 and IDBFactory =
     abstract cmp: first: obj * second: obj -> float
@@ -4902,7 +4901,7 @@ and IDBFactory =
 
 and IDBFactoryType =
     abstract prototype: IDBFactory with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBFactory
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBFactory
 
 and IDBIndex =
     abstract keyPath: U2<string, ResizeArray<string>> with get, set
@@ -4918,7 +4917,7 @@ and IDBIndex =
 
 and IDBIndexType =
     abstract prototype: IDBIndex with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBIndex
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBIndex
 
 and IDBKeyRange =
     abstract lower: obj with get, set
@@ -4928,7 +4927,7 @@ and IDBKeyRange =
 
 and IDBKeyRangeType =
     abstract prototype: IDBKeyRange with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBKeyRange
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBKeyRange
     abstract bound: lower: obj * upper: obj * ?lowerOpen: bool * ?upperOpen: bool -> IDBKeyRange
     abstract lowerBound: bound: obj * ?``open``: bool -> IDBKeyRange
     abstract only: value: obj -> IDBKeyRange
@@ -4953,7 +4952,7 @@ and IDBObjectStore =
 
 and IDBObjectStoreType =
     abstract prototype: IDBObjectStore with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBObjectStore
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBObjectStore
 
 and IDBOpenDBRequest =
     inherit IDBRequest
@@ -4967,7 +4966,7 @@ and IDBOpenDBRequest =
 
 and IDBOpenDBRequestType =
     abstract prototype: IDBOpenDBRequest with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBOpenDBRequest
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBOpenDBRequest
 
 and IDBRequest =
     inherit EventTarget
@@ -4984,7 +4983,7 @@ and IDBRequest =
 
 and IDBRequestType =
     abstract prototype: IDBRequest with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBRequest
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBRequest
 
 and IDBTransaction =
     inherit EventTarget
@@ -5009,7 +5008,7 @@ and IDBTransactionType =
     abstract READ_ONLY: string with get, set
     abstract READ_WRITE: string with get, set
     abstract VERSION_CHANGE: string with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBTransaction
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBTransaction
 
 and IDBVersionChangeEvent =
     inherit Event
@@ -5018,7 +5017,7 @@ and IDBVersionChangeEvent =
 
 and IDBVersionChangeEventType =
     abstract prototype: IDBVersionChangeEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> IDBVersionChangeEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> IDBVersionChangeEvent
 
 and ImageData =
     abstract data: Uint8ClampedArray with get, set
@@ -5027,8 +5026,8 @@ and ImageData =
 
 and ImageDataType =
     abstract prototype: ImageData with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: width: float * height: float -> ImageData
-    [<Emit("new $0($1...)")>] abstract createNew: array: Uint8ClampedArray * width: float * height: float -> ImageData
+    [<Emit("new $0($1...)")>] abstract Create: width: float * height: float -> ImageData
+    [<Emit("new $0($1...)")>] abstract Create: array: Uint8ClampedArray * width: float * height: float -> ImageData
 
 and KeyboardEvent =
     inherit UIEvent
@@ -5061,7 +5060,7 @@ and KeyboardEventType =
     abstract DOM_KEY_LOCATION_NUMPAD: float with get, set
     abstract DOM_KEY_LOCATION_RIGHT: float with get, set
     abstract DOM_KEY_LOCATION_STANDARD: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: typeArg: string * ?eventInitDict: KeyboardEventInit -> KeyboardEvent
+    [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: KeyboardEventInit -> KeyboardEvent
 
 and Location =
     abstract hash: string with get, set
@@ -5080,7 +5079,7 @@ and Location =
 
 and LocationType =
     abstract prototype: Location with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Location
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Location
 
 and LongRunningScriptDetectedEvent =
     inherit Event
@@ -5089,7 +5088,7 @@ and LongRunningScriptDetectedEvent =
 
 and LongRunningScriptDetectedEventType =
     abstract prototype: LongRunningScriptDetectedEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> LongRunningScriptDetectedEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> LongRunningScriptDetectedEvent
 
 and MSApp =
     abstract CURRENT: string with get, set
@@ -5132,7 +5131,7 @@ and MSAppAsyncOperationType =
     abstract COMPLETED: float with get, set
     abstract ERROR: float with get, set
     abstract STARTED: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSAppAsyncOperation
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSAppAsyncOperation
 
 and MSBlobBuilder =
     abstract append: data: obj * ?endings: string -> unit
@@ -5140,7 +5139,7 @@ and MSBlobBuilder =
 
 and MSBlobBuilderType =
     abstract prototype: MSBlobBuilder with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSBlobBuilder
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSBlobBuilder
 
 and MSCSSMatrix =
     abstract a: float with get, set
@@ -5178,7 +5177,7 @@ and MSCSSMatrix =
 
 and MSCSSMatrixType =
     abstract prototype: MSCSSMatrix with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?text: string -> MSCSSMatrix
+    [<Emit("new $0($1...)")>] abstract Create: ?text: string -> MSCSSMatrix
 
 and MSGesture =
     abstract target: Element with get, set
@@ -5187,7 +5186,7 @@ and MSGesture =
 
 and MSGestureType =
     abstract prototype: MSGesture with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSGesture
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSGesture
 
 and MSGestureEvent =
     inherit UIEvent
@@ -5222,7 +5221,7 @@ and MSGestureEventType =
     abstract MSGESTURE_FLAG_END: float with get, set
     abstract MSGESTURE_FLAG_INERTIA: float with get, set
     abstract MSGESTURE_FLAG_NONE: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSGestureEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSGestureEvent
 
 and MSGraphicsTrust =
     abstract constrictionActive: bool with get, set
@@ -5230,7 +5229,7 @@ and MSGraphicsTrust =
 
 and MSGraphicsTrustType =
     abstract prototype: MSGraphicsTrust with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSGraphicsTrust
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSGraphicsTrust
 
 and MSHTMLWebViewElement =
     inherit HTMLElement
@@ -5260,7 +5259,7 @@ and MSHTMLWebViewElement =
 
 and MSHTMLWebViewElementType =
     abstract prototype: MSHTMLWebViewElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSHTMLWebViewElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSHTMLWebViewElement
 
 and MSInputMethodContext =
     inherit EventTarget
@@ -5281,7 +5280,7 @@ and MSInputMethodContext =
 
 and MSInputMethodContextType =
     abstract prototype: MSInputMethodContext with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSInputMethodContext
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSInputMethodContext
 
 and MSManipulationEvent =
     inherit UIEvent
@@ -5309,7 +5308,7 @@ and MSManipulationEventType =
     abstract MS_MANIPULATION_STATE_PRESELECT: float with get, set
     abstract MS_MANIPULATION_STATE_SELECTING: float with get, set
     abstract MS_MANIPULATION_STATE_STOPPED: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSManipulationEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSManipulationEvent
 
 and MSMediaKeyError =
     abstract code: float with get, set
@@ -5329,7 +5328,7 @@ and MSMediaKeyErrorType =
     abstract MS_MEDIA_KEYERR_OUTPUT: float with get, set
     abstract MS_MEDIA_KEYERR_SERVICE: float with get, set
     abstract MS_MEDIA_KEYERR_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSMediaKeyError
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSMediaKeyError
 
 and MSMediaKeyMessageEvent =
     inherit Event
@@ -5338,7 +5337,7 @@ and MSMediaKeyMessageEvent =
 
 and MSMediaKeyMessageEventType =
     abstract prototype: MSMediaKeyMessageEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSMediaKeyMessageEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSMediaKeyMessageEvent
 
 and MSMediaKeyNeededEvent =
     inherit Event
@@ -5346,7 +5345,7 @@ and MSMediaKeyNeededEvent =
 
 and MSMediaKeyNeededEventType =
     abstract prototype: MSMediaKeyNeededEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSMediaKeyNeededEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSMediaKeyNeededEvent
 
 and MSMediaKeySession =
     inherit EventTarget
@@ -5358,7 +5357,7 @@ and MSMediaKeySession =
 
 and MSMediaKeySessionType =
     abstract prototype: MSMediaKeySession with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSMediaKeySession
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSMediaKeySession
 
 and MSMediaKeys =
     abstract keySystem: string with get, set
@@ -5366,7 +5365,7 @@ and MSMediaKeys =
 
 and MSMediaKeysType =
     abstract prototype: MSMediaKeys with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: keySystem: string -> MSMediaKeys
+    [<Emit("new $0($1...)")>] abstract Create: keySystem: string -> MSMediaKeys
     abstract isTypeSupported: keySystem: string * ?``type``: string -> bool
 
 and MSMimeTypesCollection =
@@ -5374,7 +5373,7 @@ and MSMimeTypesCollection =
 
 and MSMimeTypesCollectionType =
     abstract prototype: MSMimeTypesCollection with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSMimeTypesCollection
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSMimeTypesCollection
 
 and MSPluginsCollection =
     abstract length: float with get, set
@@ -5382,7 +5381,7 @@ and MSPluginsCollection =
 
 and MSPluginsCollectionType =
     abstract prototype: MSPluginsCollection with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSPluginsCollection
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSPluginsCollection
 
 and MSPointerEvent =
     inherit MouseEvent
@@ -5404,7 +5403,7 @@ and MSPointerEvent =
 
 and MSPointerEventType =
     abstract prototype: MSPointerEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: typeArg: string * ?eventInitDict: PointerEventInit -> MSPointerEvent
+    [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: PointerEventInit -> MSPointerEvent
 
 and MSRangeCollection =
     abstract length: float with get, set
@@ -5413,7 +5412,7 @@ and MSRangeCollection =
 
 and MSRangeCollectionType =
     abstract prototype: MSRangeCollection with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSRangeCollection
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSRangeCollection
 
 and MSSiteModeEvent =
     inherit Event
@@ -5422,7 +5421,7 @@ and MSSiteModeEvent =
 
 and MSSiteModeEventType =
     abstract prototype: MSSiteModeEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSSiteModeEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSSiteModeEvent
 
 and MSStream =
     abstract ``type``: string with get, set
@@ -5431,7 +5430,7 @@ and MSStream =
 
 and MSStreamType =
     abstract prototype: MSStream with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSStream
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSStream
 
 and MSStreamReader =
     inherit EventTarget
@@ -5446,7 +5445,7 @@ and MSStreamReader =
 
 and MSStreamReaderType =
     abstract prototype: MSStreamReader with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSStreamReader
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSStreamReader
 
 and MSWebViewAsyncOperation =
     inherit EventTarget
@@ -5476,7 +5475,7 @@ and MSWebViewAsyncOperationType =
     abstract TYPE_CAPTURE_PREVIEW_TO_RANDOM_ACCESS_STREAM: float with get, set
     abstract TYPE_CREATE_DATA_PACKAGE_FROM_SELECTION: float with get, set
     abstract TYPE_INVOKE_SCRIPT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSWebViewAsyncOperation
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSWebViewAsyncOperation
 
 and MSWebViewSettings =
     abstract isIndexedDBEnabled: bool with get, set
@@ -5484,7 +5483,7 @@ and MSWebViewSettings =
 
 and MSWebViewSettingsType =
     abstract prototype: MSWebViewSettings with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MSWebViewSettings
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MSWebViewSettings
 
 and MediaElementAudioSourceNode =
     inherit AudioNode
@@ -5492,7 +5491,7 @@ and MediaElementAudioSourceNode =
 
 and MediaElementAudioSourceNodeType =
     abstract prototype: MediaElementAudioSourceNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MediaElementAudioSourceNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MediaElementAudioSourceNode
 
 and MediaError =
     abstract code: float with get, set
@@ -5510,7 +5509,7 @@ and MediaErrorType =
     abstract MEDIA_ERR_NETWORK: float with get, set
     abstract MEDIA_ERR_SRC_NOT_SUPPORTED: float with get, set
     abstract MS_MEDIA_ERR_ENCRYPTED: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MediaError
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MediaError
 
 and MediaList =
     abstract length: float with get, set
@@ -5523,7 +5522,7 @@ and MediaList =
 
 and MediaListType =
     abstract prototype: MediaList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MediaList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MediaList
 
 and MediaQueryList =
     abstract matches: bool with get, set
@@ -5533,7 +5532,7 @@ and MediaQueryList =
 
 and MediaQueryListType =
     abstract prototype: MediaQueryList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MediaQueryList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MediaQueryList
 
 and MediaSource =
     inherit EventTarget
@@ -5547,7 +5546,7 @@ and MediaSource =
 
 and MediaSourceType =
     abstract prototype: MediaSource with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MediaSource
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MediaSource
     abstract isTypeSupported: ``type``: string -> bool
 
 and MessageChannel =
@@ -5556,7 +5555,7 @@ and MessageChannel =
 
 and MessageChannelType =
     abstract prototype: MessageChannel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MessageChannel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MessageChannel
 
 and MessageEvent =
     inherit Event
@@ -5568,7 +5567,7 @@ and MessageEvent =
 
 and MessageEventType =
     abstract prototype: MessageEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ``type``: string * ?eventInitDict: MessageEventInit -> MessageEvent
+    [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: MessageEventInit -> MessageEvent
 
 and MessagePort =
     inherit EventTarget
@@ -5581,7 +5580,7 @@ and MessagePort =
 
 and MessagePortType =
     abstract prototype: MessagePort with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MessagePort
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MessagePort
 
 and MimeType =
     abstract description: string with get, set
@@ -5591,7 +5590,7 @@ and MimeType =
 
 and MimeTypeType =
     abstract prototype: MimeType with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MimeType
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MimeType
 
 and MimeTypeArray =
     abstract length: float with get, set
@@ -5601,7 +5600,7 @@ and MimeTypeArray =
 
 and MimeTypeArrayType =
     abstract prototype: MimeTypeArray with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MimeTypeArray
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MimeTypeArray
 
 and MouseEvent =
     inherit UIEvent
@@ -5634,7 +5633,7 @@ and MouseEvent =
 
 and MouseEventType =
     abstract prototype: MouseEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: typeArg: string * ?eventInitDict: MouseEventInit -> MouseEvent
+    [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: MouseEventInit -> MouseEvent
 
 and MouseWheelEvent =
     inherit MouseEvent
@@ -5645,7 +5644,7 @@ and MouseWheelEvent =
 
 and MouseWheelEventType =
     abstract prototype: MouseWheelEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MouseWheelEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MouseWheelEvent
 
 and MutationEvent =
     inherit Event
@@ -5664,7 +5663,7 @@ and MutationEventType =
     abstract ADDITION: float with get, set
     abstract MODIFICATION: float with get, set
     abstract REMOVAL: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MutationEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MutationEvent
 
 and MutationObserver =
     abstract disconnect: unit -> unit
@@ -5673,7 +5672,7 @@ and MutationObserver =
 
 and MutationObserverType =
     abstract prototype: MutationObserver with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: callback: MutationCallback -> MutationObserver
+    [<Emit("new $0($1...)")>] abstract Create: callback: MutationCallback -> MutationObserver
 
 and MutationRecord =
     abstract addedNodes: NodeList with get, set
@@ -5688,7 +5687,7 @@ and MutationRecord =
 
 and MutationRecordType =
     abstract prototype: MutationRecord with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> MutationRecord
+    [<Emit("new $0($1...)")>] abstract Create: unit -> MutationRecord
 
 and NamedNodeMap =
     abstract length: float with get, set
@@ -5703,7 +5702,7 @@ and NamedNodeMap =
 
 and NamedNodeMapType =
     abstract prototype: NamedNodeMap with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> NamedNodeMap
+    [<Emit("new $0($1...)")>] abstract Create: unit -> NamedNodeMap
 
 and NavigationCompletedEvent =
     inherit NavigationEvent
@@ -5712,7 +5711,7 @@ and NavigationCompletedEvent =
 
 and NavigationCompletedEventType =
     abstract prototype: NavigationCompletedEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> NavigationCompletedEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> NavigationCompletedEvent
 
 and NavigationEvent =
     inherit Event
@@ -5720,7 +5719,7 @@ and NavigationEvent =
 
 and NavigationEventType =
     abstract prototype: NavigationEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> NavigationEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> NavigationEvent
 
 and NavigationEventWithReferrer =
     inherit NavigationEvent
@@ -5728,7 +5727,7 @@ and NavigationEventWithReferrer =
 
 and NavigationEventWithReferrerType =
     abstract prototype: NavigationEventWithReferrer with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> NavigationEventWithReferrer
+    [<Emit("new $0($1...)")>] abstract Create: unit -> NavigationEventWithReferrer
 
 and Navigator =
     inherit NavigatorID
@@ -5763,7 +5762,7 @@ and Navigator =
 
 and NavigatorType =
     abstract prototype: Navigator with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Navigator
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Navigator
 
 and Node =
     inherit EventTarget
@@ -5838,7 +5837,7 @@ and NodeType =
     abstract NOTATION_NODE: float with get, set
     abstract PROCESSING_INSTRUCTION_NODE: float with get, set
     abstract TEXT_NODE: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Node
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Node
 
 and NodeFilter =
     abstract acceptNode: n: Node -> float
@@ -5872,7 +5871,7 @@ and NodeIterator =
 
 and NodeIteratorType =
     abstract prototype: NodeIterator with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> NodeIterator
+    [<Emit("new $0($1...)")>] abstract Create: unit -> NodeIterator
 
 and NodeList =
     abstract length: float with get, set
@@ -5881,14 +5880,14 @@ and NodeList =
 
 and NodeListType =
     abstract prototype: NodeList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> NodeList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> NodeList
 
 and OES_element_index_uint =
     interface end
 
 and OES_element_index_uintType =
     abstract prototype: OES_element_index_uint with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> OES_element_index_uint
+    [<Emit("new $0($1...)")>] abstract Create: unit -> OES_element_index_uint
 
 and OES_standard_derivatives =
     abstract FRAGMENT_SHADER_DERIVATIVE_HINT_OES: float with get, set
@@ -5896,21 +5895,21 @@ and OES_standard_derivatives =
 and OES_standard_derivativesType =
     abstract prototype: OES_standard_derivatives with get, set
     abstract FRAGMENT_SHADER_DERIVATIVE_HINT_OES: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> OES_standard_derivatives
+    [<Emit("new $0($1...)")>] abstract Create: unit -> OES_standard_derivatives
 
 and OES_texture_float =
     interface end
 
 and OES_texture_floatType =
     abstract prototype: OES_texture_float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> OES_texture_float
+    [<Emit("new $0($1...)")>] abstract Create: unit -> OES_texture_float
 
 and OES_texture_float_linear =
     interface end
 
 and OES_texture_float_linearType =
     abstract prototype: OES_texture_float_linear with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> OES_texture_float_linear
+    [<Emit("new $0($1...)")>] abstract Create: unit -> OES_texture_float_linear
 
 and OfflineAudioCompletionEvent =
     inherit Event
@@ -5918,7 +5917,7 @@ and OfflineAudioCompletionEvent =
 
 and OfflineAudioCompletionEventType =
     abstract prototype: OfflineAudioCompletionEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> OfflineAudioCompletionEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> OfflineAudioCompletionEvent
 
 and OfflineAudioContext =
     inherit AudioContext
@@ -5929,7 +5928,7 @@ and OfflineAudioContext =
 
 and OfflineAudioContextType =
     abstract prototype: OfflineAudioContext with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: numberOfChannels: float * length: float * sampleRate: float -> OfflineAudioContext
+    [<Emit("new $0($1...)")>] abstract Create: numberOfChannels: float * length: float * sampleRate: float -> OfflineAudioContext
 
 and OscillatorNode =
     inherit AudioNode
@@ -5945,7 +5944,7 @@ and OscillatorNode =
 
 and OscillatorNodeType =
     abstract prototype: OscillatorNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> OscillatorNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> OscillatorNode
 
 and PageTransitionEvent =
     inherit Event
@@ -5953,7 +5952,7 @@ and PageTransitionEvent =
 
 and PageTransitionEventType =
     abstract prototype: PageTransitionEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PageTransitionEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PageTransitionEvent
 
 and PannerNode =
     inherit AudioNode
@@ -5971,7 +5970,7 @@ and PannerNode =
 
 and PannerNodeType =
     abstract prototype: PannerNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PannerNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PannerNode
 
 and PerfWidgetExternal =
     abstract activeNetworkRequestCount: float with get, set
@@ -5998,7 +5997,7 @@ and PerfWidgetExternal =
 
 and PerfWidgetExternalType =
     abstract prototype: PerfWidgetExternal with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PerfWidgetExternal
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PerfWidgetExternal
 
 and Performance =
     abstract navigation: PerformanceNavigation with get, set
@@ -6019,7 +6018,7 @@ and Performance =
 
 and PerformanceType =
     abstract prototype: Performance with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Performance
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Performance
 
 and PerformanceEntry =
     abstract duration: float with get, set
@@ -6029,7 +6028,7 @@ and PerformanceEntry =
 
 and PerformanceEntryType =
     abstract prototype: PerformanceEntry with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PerformanceEntry
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceEntry
 
 and PerformanceMark =
     inherit PerformanceEntry
@@ -6037,7 +6036,7 @@ and PerformanceMark =
 
 and PerformanceMarkType =
     abstract prototype: PerformanceMark with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PerformanceMark
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceMark
 
 and PerformanceMeasure =
     inherit PerformanceEntry
@@ -6045,7 +6044,7 @@ and PerformanceMeasure =
 
 and PerformanceMeasureType =
     abstract prototype: PerformanceMeasure with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PerformanceMeasure
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceMeasure
 
 and PerformanceNavigation =
     abstract redirectCount: float with get, set
@@ -6062,7 +6061,7 @@ and PerformanceNavigationType =
     abstract TYPE_NAVIGATE: float with get, set
     abstract TYPE_RELOAD: float with get, set
     abstract TYPE_RESERVED: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PerformanceNavigation
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceNavigation
 
 and PerformanceNavigationTiming =
     inherit PerformanceEntry
@@ -6091,7 +6090,7 @@ and PerformanceNavigationTiming =
 
 and PerformanceNavigationTimingType =
     abstract prototype: PerformanceNavigationTiming with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PerformanceNavigationTiming
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceNavigationTiming
 
 and PerformanceResourceTiming =
     inherit PerformanceEntry
@@ -6109,7 +6108,7 @@ and PerformanceResourceTiming =
 
 and PerformanceResourceTimingType =
     abstract prototype: PerformanceResourceTiming with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PerformanceResourceTiming
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceResourceTiming
 
 and PerformanceTiming =
     abstract connectEnd: float with get, set
@@ -6137,14 +6136,14 @@ and PerformanceTiming =
 
 and PerformanceTimingType =
     abstract prototype: PerformanceTiming with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PerformanceTiming
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceTiming
 
 and PeriodicWave =
     interface end
 
 and PeriodicWaveType =
     abstract prototype: PeriodicWave with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PeriodicWave
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PeriodicWave
 
 and PermissionRequest =
     inherit DeferredPermissionRequest
@@ -6153,7 +6152,7 @@ and PermissionRequest =
 
 and PermissionRequestType =
     abstract prototype: PermissionRequest with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PermissionRequest
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PermissionRequest
 
 and PermissionRequestedEvent =
     inherit Event
@@ -6161,7 +6160,7 @@ and PermissionRequestedEvent =
 
 and PermissionRequestedEventType =
     abstract prototype: PermissionRequestedEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PermissionRequestedEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PermissionRequestedEvent
 
 and Plugin =
     abstract description: string with get, set
@@ -6175,7 +6174,7 @@ and Plugin =
 
 and PluginType =
     abstract prototype: Plugin with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Plugin
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Plugin
 
 and PluginArray =
     abstract length: float with get, set
@@ -6186,7 +6185,7 @@ and PluginArray =
 
 and PluginArrayType =
     abstract prototype: PluginArray with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PluginArray
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PluginArray
 
 and PointerEvent =
     inherit MouseEvent
@@ -6208,7 +6207,7 @@ and PointerEvent =
 
 and PointerEventType =
     abstract prototype: PointerEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: typeArg: string * ?eventInitDict: PointerEventInit -> PointerEvent
+    [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: PointerEventInit -> PointerEvent
 
 and PopStateEvent =
     inherit Event
@@ -6217,7 +6216,7 @@ and PopStateEvent =
 
 and PopStateEventType =
     abstract prototype: PopStateEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PopStateEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PopStateEvent
 
 and Position =
     abstract coords: Coordinates with get, set
@@ -6225,7 +6224,7 @@ and Position =
 
 and PositionType =
     abstract prototype: Position with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Position
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Position
 
 and PositionError =
     abstract code: float with get, set
@@ -6240,7 +6239,7 @@ and PositionErrorType =
     abstract PERMISSION_DENIED: float with get, set
     abstract POSITION_UNAVAILABLE: float with get, set
     abstract TIMEOUT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> PositionError
+    [<Emit("new $0($1...)")>] abstract Create: unit -> PositionError
 
 and ProcessingInstruction =
     inherit CharacterData
@@ -6248,7 +6247,7 @@ and ProcessingInstruction =
 
 and ProcessingInstructionType =
     abstract prototype: ProcessingInstruction with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ProcessingInstruction
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ProcessingInstruction
 
 and ProgressEvent =
     inherit Event
@@ -6259,7 +6258,7 @@ and ProgressEvent =
 
 and ProgressEventType =
     abstract prototype: ProgressEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ``type``: string * ?eventInitDict: ProgressEventInit -> ProgressEvent
+    [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: ProgressEventInit -> ProgressEvent
 
 and Range =
     abstract collapsed: bool with get, set
@@ -6301,7 +6300,7 @@ and RangeType =
     abstract END_TO_START: float with get, set
     abstract START_TO_END: float with get, set
     abstract START_TO_START: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Range
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Range
 
 and SVGAElement =
     inherit SVGElement
@@ -6316,7 +6315,7 @@ and SVGAElement =
 
 and SVGAElementType =
     abstract prototype: SVGAElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAElement
 
 and SVGAngle =
     abstract unitType: float with get, set
@@ -6338,7 +6337,7 @@ and SVGAngleType =
     abstract SVG_ANGLETYPE_RAD: float with get, set
     abstract SVG_ANGLETYPE_UNKNOWN: float with get, set
     abstract SVG_ANGLETYPE_UNSPECIFIED: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAngle
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAngle
 
 and SVGAnimatedAngle =
     abstract animVal: SVGAngle with get, set
@@ -6346,7 +6345,7 @@ and SVGAnimatedAngle =
 
 and SVGAnimatedAngleType =
     abstract prototype: SVGAnimatedAngle with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedAngle
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedAngle
 
 and SVGAnimatedBoolean =
     abstract animVal: bool with get, set
@@ -6354,7 +6353,7 @@ and SVGAnimatedBoolean =
 
 and SVGAnimatedBooleanType =
     abstract prototype: SVGAnimatedBoolean with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedBoolean
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedBoolean
 
 and SVGAnimatedEnumeration =
     abstract animVal: float with get, set
@@ -6362,7 +6361,7 @@ and SVGAnimatedEnumeration =
 
 and SVGAnimatedEnumerationType =
     abstract prototype: SVGAnimatedEnumeration with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedEnumeration
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedEnumeration
 
 and SVGAnimatedInteger =
     abstract animVal: float with get, set
@@ -6370,7 +6369,7 @@ and SVGAnimatedInteger =
 
 and SVGAnimatedIntegerType =
     abstract prototype: SVGAnimatedInteger with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedInteger
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedInteger
 
 and SVGAnimatedLength =
     abstract animVal: SVGLength with get, set
@@ -6378,7 +6377,7 @@ and SVGAnimatedLength =
 
 and SVGAnimatedLengthType =
     abstract prototype: SVGAnimatedLength with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedLength
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedLength
 
 and SVGAnimatedLengthList =
     abstract animVal: SVGLengthList with get, set
@@ -6386,7 +6385,7 @@ and SVGAnimatedLengthList =
 
 and SVGAnimatedLengthListType =
     abstract prototype: SVGAnimatedLengthList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedLengthList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedLengthList
 
 and SVGAnimatedNumber =
     abstract animVal: float with get, set
@@ -6394,7 +6393,7 @@ and SVGAnimatedNumber =
 
 and SVGAnimatedNumberType =
     abstract prototype: SVGAnimatedNumber with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedNumber
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedNumber
 
 and SVGAnimatedNumberList =
     abstract animVal: SVGNumberList with get, set
@@ -6402,7 +6401,7 @@ and SVGAnimatedNumberList =
 
 and SVGAnimatedNumberListType =
     abstract prototype: SVGAnimatedNumberList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedNumberList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedNumberList
 
 and SVGAnimatedPreserveAspectRatio =
     abstract animVal: SVGPreserveAspectRatio with get, set
@@ -6410,7 +6409,7 @@ and SVGAnimatedPreserveAspectRatio =
 
 and SVGAnimatedPreserveAspectRatioType =
     abstract prototype: SVGAnimatedPreserveAspectRatio with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedPreserveAspectRatio
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedPreserveAspectRatio
 
 and SVGAnimatedRect =
     abstract animVal: SVGRect with get, set
@@ -6418,7 +6417,7 @@ and SVGAnimatedRect =
 
 and SVGAnimatedRectType =
     abstract prototype: SVGAnimatedRect with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedRect
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedRect
 
 and SVGAnimatedString =
     abstract animVal: string with get, set
@@ -6426,7 +6425,7 @@ and SVGAnimatedString =
 
 and SVGAnimatedStringType =
     abstract prototype: SVGAnimatedString with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedString
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedString
 
 and SVGAnimatedTransformList =
     abstract animVal: SVGTransformList with get, set
@@ -6434,7 +6433,7 @@ and SVGAnimatedTransformList =
 
 and SVGAnimatedTransformListType =
     abstract prototype: SVGAnimatedTransformList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGAnimatedTransformList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedTransformList
 
 and SVGCircleElement =
     inherit SVGElement
@@ -6450,7 +6449,7 @@ and SVGCircleElement =
 
 and SVGCircleElementType =
     abstract prototype: SVGCircleElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGCircleElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGCircleElement
 
 and SVGClipPathElement =
     inherit SVGElement
@@ -6465,7 +6464,7 @@ and SVGClipPathElement =
 
 and SVGClipPathElementType =
     abstract prototype: SVGClipPathElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGClipPathElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGClipPathElement
 
 and SVGComponentTransferFunctionElement =
     inherit SVGElement
@@ -6491,7 +6490,7 @@ and SVGComponentTransferFunctionElementType =
     abstract SVG_FECOMPONENTTRANSFER_TYPE_LINEAR: float with get, set
     abstract SVG_FECOMPONENTTRANSFER_TYPE_TABLE: float with get, set
     abstract SVG_FECOMPONENTTRANSFER_TYPE_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGComponentTransferFunctionElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGComponentTransferFunctionElement
 
 and SVGDefsElement =
     inherit SVGElement
@@ -6504,7 +6503,7 @@ and SVGDefsElement =
 
 and SVGDefsElementType =
     abstract prototype: SVGDefsElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGDefsElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGDefsElement
 
 and SVGDescElement =
     inherit SVGElement
@@ -6514,7 +6513,7 @@ and SVGDescElement =
 
 and SVGDescElementType =
     abstract prototype: SVGDescElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGDescElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGDescElement
 
 and SVGElement =
     inherit Element
@@ -6583,7 +6582,7 @@ and SVGElement =
 
 and SVGElementType =
     abstract prototype: SVGElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGElement
 
 and SVGElementInstance =
     inherit EventTarget
@@ -6598,7 +6597,7 @@ and SVGElementInstance =
 
 and SVGElementInstanceType =
     abstract prototype: SVGElementInstance with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGElementInstance
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGElementInstance
 
 and SVGElementInstanceList =
     abstract length: float with get, set
@@ -6606,7 +6605,7 @@ and SVGElementInstanceList =
 
 and SVGElementInstanceListType =
     abstract prototype: SVGElementInstanceList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGElementInstanceList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGElementInstanceList
 
 and SVGEllipseElement =
     inherit SVGElement
@@ -6623,7 +6622,7 @@ and SVGEllipseElement =
 
 and SVGEllipseElementType =
     abstract prototype: SVGEllipseElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGEllipseElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGEllipseElement
 
 and SVGFEBlendElement =
     inherit SVGElement
@@ -6669,7 +6668,7 @@ and SVGFEBlendElementType =
     abstract SVG_FEBLEND_MODE_SCREEN: float with get, set
     abstract SVG_FEBLEND_MODE_SOFT_LIGHT: float with get, set
     abstract SVG_FEBLEND_MODE_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEBlendElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEBlendElement
 
 and SVGFEColorMatrixElement =
     inherit SVGElement
@@ -6691,7 +6690,7 @@ and SVGFEColorMatrixElementType =
     abstract SVG_FECOLORMATRIX_TYPE_MATRIX: float with get, set
     abstract SVG_FECOLORMATRIX_TYPE_SATURATE: float with get, set
     abstract SVG_FECOLORMATRIX_TYPE_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEColorMatrixElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEColorMatrixElement
 
 and SVGFEComponentTransferElement =
     inherit SVGElement
@@ -6701,7 +6700,7 @@ and SVGFEComponentTransferElement =
 
 and SVGFEComponentTransferElementType =
     abstract prototype: SVGFEComponentTransferElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEComponentTransferElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEComponentTransferElement
 
 and SVGFECompositeElement =
     inherit SVGElement
@@ -6731,7 +6730,7 @@ and SVGFECompositeElementType =
     abstract SVG_FECOMPOSITE_OPERATOR_OVER: float with get, set
     abstract SVG_FECOMPOSITE_OPERATOR_UNKNOWN: float with get, set
     abstract SVG_FECOMPOSITE_OPERATOR_XOR: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFECompositeElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFECompositeElement
 
 and SVGFEConvolveMatrixElement =
     inherit SVGElement
@@ -6760,7 +6759,7 @@ and SVGFEConvolveMatrixElementType =
     abstract SVG_EDGEMODE_NONE: float with get, set
     abstract SVG_EDGEMODE_UNKNOWN: float with get, set
     abstract SVG_EDGEMODE_WRAP: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEConvolveMatrixElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEConvolveMatrixElement
 
 and SVGFEDiffuseLightingElement =
     inherit SVGElement
@@ -6774,7 +6773,7 @@ and SVGFEDiffuseLightingElement =
 
 and SVGFEDiffuseLightingElementType =
     abstract prototype: SVGFEDiffuseLightingElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEDiffuseLightingElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEDiffuseLightingElement
 
 and SVGFEDisplacementMapElement =
     inherit SVGElement
@@ -6798,7 +6797,7 @@ and SVGFEDisplacementMapElementType =
     abstract SVG_CHANNEL_G: float with get, set
     abstract SVG_CHANNEL_R: float with get, set
     abstract SVG_CHANNEL_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEDisplacementMapElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEDisplacementMapElement
 
 and SVGFEDistantLightElement =
     inherit SVGElement
@@ -6807,7 +6806,7 @@ and SVGFEDistantLightElement =
 
 and SVGFEDistantLightElementType =
     abstract prototype: SVGFEDistantLightElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEDistantLightElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEDistantLightElement
 
 and SVGFEFloodElement =
     inherit SVGElement
@@ -6816,7 +6815,7 @@ and SVGFEFloodElement =
 
 and SVGFEFloodElementType =
     abstract prototype: SVGFEFloodElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEFloodElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFloodElement
 
 and SVGFEFuncAElement =
     inherit SVGComponentTransferFunctionElement
@@ -6824,7 +6823,7 @@ and SVGFEFuncAElement =
 
 and SVGFEFuncAElementType =
     abstract prototype: SVGFEFuncAElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEFuncAElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFuncAElement
 
 and SVGFEFuncBElement =
     inherit SVGComponentTransferFunctionElement
@@ -6832,7 +6831,7 @@ and SVGFEFuncBElement =
 
 and SVGFEFuncBElementType =
     abstract prototype: SVGFEFuncBElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEFuncBElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFuncBElement
 
 and SVGFEFuncGElement =
     inherit SVGComponentTransferFunctionElement
@@ -6840,7 +6839,7 @@ and SVGFEFuncGElement =
 
 and SVGFEFuncGElementType =
     abstract prototype: SVGFEFuncGElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEFuncGElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFuncGElement
 
 and SVGFEFuncRElement =
     inherit SVGComponentTransferFunctionElement
@@ -6848,7 +6847,7 @@ and SVGFEFuncRElement =
 
 and SVGFEFuncRElementType =
     abstract prototype: SVGFEFuncRElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEFuncRElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFuncRElement
 
 and SVGFEGaussianBlurElement =
     inherit SVGElement
@@ -6861,7 +6860,7 @@ and SVGFEGaussianBlurElement =
 
 and SVGFEGaussianBlurElementType =
     abstract prototype: SVGFEGaussianBlurElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEGaussianBlurElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEGaussianBlurElement
 
 and SVGFEImageElement =
     inherit SVGElement
@@ -6874,7 +6873,7 @@ and SVGFEImageElement =
 
 and SVGFEImageElementType =
     abstract prototype: SVGFEImageElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEImageElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEImageElement
 
 and SVGFEMergeElement =
     inherit SVGElement
@@ -6883,7 +6882,7 @@ and SVGFEMergeElement =
 
 and SVGFEMergeElementType =
     abstract prototype: SVGFEMergeElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEMergeElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEMergeElement
 
 and SVGFEMergeNodeElement =
     inherit SVGElement
@@ -6891,7 +6890,7 @@ and SVGFEMergeNodeElement =
 
 and SVGFEMergeNodeElementType =
     abstract prototype: SVGFEMergeNodeElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEMergeNodeElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEMergeNodeElement
 
 and SVGFEMorphologyElement =
     inherit SVGElement
@@ -6910,7 +6909,7 @@ and SVGFEMorphologyElementType =
     abstract SVG_MORPHOLOGY_OPERATOR_DILATE: float with get, set
     abstract SVG_MORPHOLOGY_OPERATOR_ERODE: float with get, set
     abstract SVG_MORPHOLOGY_OPERATOR_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEMorphologyElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEMorphologyElement
 
 and SVGFEOffsetElement =
     inherit SVGElement
@@ -6922,7 +6921,7 @@ and SVGFEOffsetElement =
 
 and SVGFEOffsetElementType =
     abstract prototype: SVGFEOffsetElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEOffsetElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEOffsetElement
 
 and SVGFEPointLightElement =
     inherit SVGElement
@@ -6932,7 +6931,7 @@ and SVGFEPointLightElement =
 
 and SVGFEPointLightElementType =
     abstract prototype: SVGFEPointLightElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFEPointLightElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEPointLightElement
 
 and SVGFESpecularLightingElement =
     inherit SVGElement
@@ -6947,7 +6946,7 @@ and SVGFESpecularLightingElement =
 
 and SVGFESpecularLightingElementType =
     abstract prototype: SVGFESpecularLightingElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFESpecularLightingElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFESpecularLightingElement
 
 and SVGFESpotLightElement =
     inherit SVGElement
@@ -6962,7 +6961,7 @@ and SVGFESpotLightElement =
 
 and SVGFESpotLightElementType =
     abstract prototype: SVGFESpotLightElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFESpotLightElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFESpotLightElement
 
 and SVGFETileElement =
     inherit SVGElement
@@ -6972,7 +6971,7 @@ and SVGFETileElement =
 
 and SVGFETileElementType =
     abstract prototype: SVGFETileElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFETileElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFETileElement
 
 and SVGFETurbulenceElement =
     inherit SVGElement
@@ -6999,7 +6998,7 @@ and SVGFETurbulenceElementType =
     abstract SVG_TURBULENCE_TYPE_FRACTALNOISE: float with get, set
     abstract SVG_TURBULENCE_TYPE_TURBULENCE: float with get, set
     abstract SVG_TURBULENCE_TYPE_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFETurbulenceElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFETurbulenceElement
 
 and SVGFilterElement =
     inherit SVGElement
@@ -7021,7 +7020,7 @@ and SVGFilterElement =
 
 and SVGFilterElementType =
     abstract prototype: SVGFilterElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGFilterElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFilterElement
 
 and SVGForeignObjectElement =
     inherit SVGElement
@@ -7038,7 +7037,7 @@ and SVGForeignObjectElement =
 
 and SVGForeignObjectElementType =
     abstract prototype: SVGForeignObjectElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGForeignObjectElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGForeignObjectElement
 
 and SVGGElement =
     inherit SVGElement
@@ -7051,7 +7050,7 @@ and SVGGElement =
 
 and SVGGElementType =
     abstract prototype: SVGGElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGGElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGGElement
 
 and SVGGradientElement =
     inherit SVGElement
@@ -7074,7 +7073,7 @@ and SVGGradientElementType =
     abstract SVG_SPREADMETHOD_REFLECT: float with get, set
     abstract SVG_SPREADMETHOD_REPEAT: float with get, set
     abstract SVG_SPREADMETHOD_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGGradientElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGGradientElement
 
 and SVGImageElement =
     inherit SVGElement
@@ -7093,7 +7092,7 @@ and SVGImageElement =
 
 and SVGImageElementType =
     abstract prototype: SVGImageElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGImageElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGImageElement
 
 and SVGLength =
     abstract unitType: float with get, set
@@ -7127,7 +7126,7 @@ and SVGLengthType =
     abstract SVG_LENGTHTYPE_PT: float with get, set
     abstract SVG_LENGTHTYPE_PX: float with get, set
     abstract SVG_LENGTHTYPE_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGLength
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGLength
 
 and SVGLengthList =
     abstract numberOfItems: float with get, set
@@ -7141,7 +7140,7 @@ and SVGLengthList =
 
 and SVGLengthListType =
     abstract prototype: SVGLengthList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGLengthList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGLengthList
 
 and SVGLineElement =
     inherit SVGElement
@@ -7158,7 +7157,7 @@ and SVGLineElement =
 
 and SVGLineElementType =
     abstract prototype: SVGLineElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGLineElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGLineElement
 
 and SVGLinearGradientElement =
     inherit SVGGradientElement
@@ -7169,7 +7168,7 @@ and SVGLinearGradientElement =
 
 and SVGLinearGradientElementType =
     abstract prototype: SVGLinearGradientElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGLinearGradientElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGLinearGradientElement
 
 and SVGMarkerElement =
     inherit SVGElement
@@ -7202,7 +7201,7 @@ and SVGMarkerElementType =
     abstract SVG_MARKER_ORIENT_ANGLE: float with get, set
     abstract SVG_MARKER_ORIENT_AUTO: float with get, set
     abstract SVG_MARKER_ORIENT_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGMarkerElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGMarkerElement
 
 and SVGMaskElement =
     inherit SVGElement
@@ -7221,7 +7220,7 @@ and SVGMaskElement =
 
 and SVGMaskElementType =
     abstract prototype: SVGMaskElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGMaskElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGMaskElement
 
 and SVGMatrix =
     abstract a: float with get, set
@@ -7244,7 +7243,7 @@ and SVGMatrix =
 
 and SVGMatrixType =
     abstract prototype: SVGMatrix with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGMatrix
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGMatrix
 
 and SVGMetadataElement =
     inherit SVGElement
@@ -7252,14 +7251,14 @@ and SVGMetadataElement =
 
 and SVGMetadataElementType =
     abstract prototype: SVGMetadataElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGMetadataElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGMetadataElement
 
 and SVGNumber =
     abstract value: float with get, set
 
 and SVGNumberType =
     abstract prototype: SVGNumber with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGNumber
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGNumber
 
 and SVGNumberList =
     abstract numberOfItems: float with get, set
@@ -7273,7 +7272,7 @@ and SVGNumberList =
 
 and SVGNumberListType =
     abstract prototype: SVGNumberList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGNumberList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGNumberList
 
 and SVGPathElement =
     inherit SVGElement
@@ -7309,7 +7308,7 @@ and SVGPathElement =
 
 and SVGPathElementType =
     abstract prototype: SVGPathElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathElement
 
 and SVGPathSeg =
     abstract pathSegType: float with get, set
@@ -7357,7 +7356,7 @@ and SVGPathSegType =
     abstract PATHSEG_MOVETO_ABS: float with get, set
     abstract PATHSEG_MOVETO_REL: float with get, set
     abstract PATHSEG_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSeg
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSeg
 
 and SVGPathSegArcAbs =
     inherit SVGPathSeg
@@ -7371,7 +7370,7 @@ and SVGPathSegArcAbs =
 
 and SVGPathSegArcAbsType =
     abstract prototype: SVGPathSegArcAbs with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegArcAbs
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegArcAbs
 
 and SVGPathSegArcRel =
     inherit SVGPathSeg
@@ -7385,7 +7384,7 @@ and SVGPathSegArcRel =
 
 and SVGPathSegArcRelType =
     abstract prototype: SVGPathSegArcRel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegArcRel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegArcRel
 
 and SVGPathSegClosePath =
     inherit SVGPathSeg
@@ -7393,7 +7392,7 @@ and SVGPathSegClosePath =
 
 and SVGPathSegClosePathType =
     abstract prototype: SVGPathSegClosePath with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegClosePath
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegClosePath
 
 and SVGPathSegCurvetoCubicAbs =
     inherit SVGPathSeg
@@ -7406,7 +7405,7 @@ and SVGPathSegCurvetoCubicAbs =
 
 and SVGPathSegCurvetoCubicAbsType =
     abstract prototype: SVGPathSegCurvetoCubicAbs with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegCurvetoCubicAbs
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoCubicAbs
 
 and SVGPathSegCurvetoCubicRel =
     inherit SVGPathSeg
@@ -7419,7 +7418,7 @@ and SVGPathSegCurvetoCubicRel =
 
 and SVGPathSegCurvetoCubicRelType =
     abstract prototype: SVGPathSegCurvetoCubicRel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegCurvetoCubicRel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoCubicRel
 
 and SVGPathSegCurvetoCubicSmoothAbs =
     inherit SVGPathSeg
@@ -7430,7 +7429,7 @@ and SVGPathSegCurvetoCubicSmoothAbs =
 
 and SVGPathSegCurvetoCubicSmoothAbsType =
     abstract prototype: SVGPathSegCurvetoCubicSmoothAbs with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegCurvetoCubicSmoothAbs
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoCubicSmoothAbs
 
 and SVGPathSegCurvetoCubicSmoothRel =
     inherit SVGPathSeg
@@ -7441,7 +7440,7 @@ and SVGPathSegCurvetoCubicSmoothRel =
 
 and SVGPathSegCurvetoCubicSmoothRelType =
     abstract prototype: SVGPathSegCurvetoCubicSmoothRel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegCurvetoCubicSmoothRel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoCubicSmoothRel
 
 and SVGPathSegCurvetoQuadraticAbs =
     inherit SVGPathSeg
@@ -7452,7 +7451,7 @@ and SVGPathSegCurvetoQuadraticAbs =
 
 and SVGPathSegCurvetoQuadraticAbsType =
     abstract prototype: SVGPathSegCurvetoQuadraticAbs with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegCurvetoQuadraticAbs
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoQuadraticAbs
 
 and SVGPathSegCurvetoQuadraticRel =
     inherit SVGPathSeg
@@ -7463,7 +7462,7 @@ and SVGPathSegCurvetoQuadraticRel =
 
 and SVGPathSegCurvetoQuadraticRelType =
     abstract prototype: SVGPathSegCurvetoQuadraticRel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegCurvetoQuadraticRel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoQuadraticRel
 
 and SVGPathSegCurvetoQuadraticSmoothAbs =
     inherit SVGPathSeg
@@ -7472,7 +7471,7 @@ and SVGPathSegCurvetoQuadraticSmoothAbs =
 
 and SVGPathSegCurvetoQuadraticSmoothAbsType =
     abstract prototype: SVGPathSegCurvetoQuadraticSmoothAbs with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegCurvetoQuadraticSmoothAbs
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoQuadraticSmoothAbs
 
 and SVGPathSegCurvetoQuadraticSmoothRel =
     inherit SVGPathSeg
@@ -7481,7 +7480,7 @@ and SVGPathSegCurvetoQuadraticSmoothRel =
 
 and SVGPathSegCurvetoQuadraticSmoothRelType =
     abstract prototype: SVGPathSegCurvetoQuadraticSmoothRel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegCurvetoQuadraticSmoothRel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoQuadraticSmoothRel
 
 and SVGPathSegLinetoAbs =
     inherit SVGPathSeg
@@ -7490,7 +7489,7 @@ and SVGPathSegLinetoAbs =
 
 and SVGPathSegLinetoAbsType =
     abstract prototype: SVGPathSegLinetoAbs with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegLinetoAbs
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoAbs
 
 and SVGPathSegLinetoHorizontalAbs =
     inherit SVGPathSeg
@@ -7498,7 +7497,7 @@ and SVGPathSegLinetoHorizontalAbs =
 
 and SVGPathSegLinetoHorizontalAbsType =
     abstract prototype: SVGPathSegLinetoHorizontalAbs with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegLinetoHorizontalAbs
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoHorizontalAbs
 
 and SVGPathSegLinetoHorizontalRel =
     inherit SVGPathSeg
@@ -7506,7 +7505,7 @@ and SVGPathSegLinetoHorizontalRel =
 
 and SVGPathSegLinetoHorizontalRelType =
     abstract prototype: SVGPathSegLinetoHorizontalRel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegLinetoHorizontalRel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoHorizontalRel
 
 and SVGPathSegLinetoRel =
     inherit SVGPathSeg
@@ -7515,7 +7514,7 @@ and SVGPathSegLinetoRel =
 
 and SVGPathSegLinetoRelType =
     abstract prototype: SVGPathSegLinetoRel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegLinetoRel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoRel
 
 and SVGPathSegLinetoVerticalAbs =
     inherit SVGPathSeg
@@ -7523,7 +7522,7 @@ and SVGPathSegLinetoVerticalAbs =
 
 and SVGPathSegLinetoVerticalAbsType =
     abstract prototype: SVGPathSegLinetoVerticalAbs with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegLinetoVerticalAbs
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoVerticalAbs
 
 and SVGPathSegLinetoVerticalRel =
     inherit SVGPathSeg
@@ -7531,7 +7530,7 @@ and SVGPathSegLinetoVerticalRel =
 
 and SVGPathSegLinetoVerticalRelType =
     abstract prototype: SVGPathSegLinetoVerticalRel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegLinetoVerticalRel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoVerticalRel
 
 and SVGPathSegList =
     abstract numberOfItems: float with get, set
@@ -7545,7 +7544,7 @@ and SVGPathSegList =
 
 and SVGPathSegListType =
     abstract prototype: SVGPathSegList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegList
 
 and SVGPathSegMovetoAbs =
     inherit SVGPathSeg
@@ -7554,7 +7553,7 @@ and SVGPathSegMovetoAbs =
 
 and SVGPathSegMovetoAbsType =
     abstract prototype: SVGPathSegMovetoAbs with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegMovetoAbs
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegMovetoAbs
 
 and SVGPathSegMovetoRel =
     inherit SVGPathSeg
@@ -7563,7 +7562,7 @@ and SVGPathSegMovetoRel =
 
 and SVGPathSegMovetoRelType =
     abstract prototype: SVGPathSegMovetoRel with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPathSegMovetoRel
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegMovetoRel
 
 and SVGPatternElement =
     inherit SVGElement
@@ -7585,7 +7584,7 @@ and SVGPatternElement =
 
 and SVGPatternElementType =
     abstract prototype: SVGPatternElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPatternElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPatternElement
 
 and SVGPoint =
     abstract x: float with get, set
@@ -7594,7 +7593,7 @@ and SVGPoint =
 
 and SVGPointType =
     abstract prototype: SVGPoint with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPoint
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPoint
 
 and SVGPointList =
     abstract numberOfItems: float with get, set
@@ -7608,7 +7607,7 @@ and SVGPointList =
 
 and SVGPointListType =
     abstract prototype: SVGPointList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPointList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPointList
 
 and SVGPolygonElement =
     inherit SVGElement
@@ -7622,7 +7621,7 @@ and SVGPolygonElement =
 
 and SVGPolygonElementType =
     abstract prototype: SVGPolygonElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPolygonElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPolygonElement
 
 and SVGPolylineElement =
     inherit SVGElement
@@ -7636,7 +7635,7 @@ and SVGPolylineElement =
 
 and SVGPolylineElementType =
     abstract prototype: SVGPolylineElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPolylineElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPolylineElement
 
 and SVGPreserveAspectRatio =
     abstract align: float with get, set
@@ -7672,7 +7671,7 @@ and SVGPreserveAspectRatioType =
     abstract SVG_PRESERVEASPECTRATIO_XMINYMAX: float with get, set
     abstract SVG_PRESERVEASPECTRATIO_XMINYMID: float with get, set
     abstract SVG_PRESERVEASPECTRATIO_XMINYMIN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGPreserveAspectRatio
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPreserveAspectRatio
 
 and SVGRadialGradientElement =
     inherit SVGGradientElement
@@ -7684,7 +7683,7 @@ and SVGRadialGradientElement =
 
 and SVGRadialGradientElementType =
     abstract prototype: SVGRadialGradientElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGRadialGradientElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGRadialGradientElement
 
 and SVGRect =
     abstract height: float with get, set
@@ -7694,7 +7693,7 @@ and SVGRect =
 
 and SVGRectType =
     abstract prototype: SVGRect with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGRect
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGRect
 
 and SVGRectElement =
     inherit SVGElement
@@ -7713,7 +7712,7 @@ and SVGRectElement =
 
 and SVGRectElementType =
     abstract prototype: SVGRectElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGRectElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGRectElement
 
 and SVGSVGElement =
     inherit SVGElement
@@ -7823,7 +7822,7 @@ and SVGSVGElement =
 
 and SVGSVGElementType =
     abstract prototype: SVGSVGElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGSVGElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGSVGElement
 
 and SVGScriptElement =
     inherit SVGElement
@@ -7834,7 +7833,7 @@ and SVGScriptElement =
 
 and SVGScriptElementType =
     abstract prototype: SVGScriptElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGScriptElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGScriptElement
 
 and SVGStopElement =
     inherit SVGElement
@@ -7844,7 +7843,7 @@ and SVGStopElement =
 
 and SVGStopElementType =
     abstract prototype: SVGStopElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGStopElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGStopElement
 
 and SVGStringList =
     abstract numberOfItems: float with get, set
@@ -7858,7 +7857,7 @@ and SVGStringList =
 
 and SVGStringListType =
     abstract prototype: SVGStringList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGStringList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGStringList
 
 and SVGStyleElement =
     inherit SVGElement
@@ -7870,7 +7869,7 @@ and SVGStyleElement =
 
 and SVGStyleElementType =
     abstract prototype: SVGStyleElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGStyleElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGStyleElement
 
 and SVGSwitchElement =
     inherit SVGElement
@@ -7883,7 +7882,7 @@ and SVGSwitchElement =
 
 and SVGSwitchElementType =
     abstract prototype: SVGSwitchElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGSwitchElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGSwitchElement
 
 and SVGSymbolElement =
     inherit SVGElement
@@ -7895,7 +7894,7 @@ and SVGSymbolElement =
 
 and SVGSymbolElementType =
     abstract prototype: SVGSymbolElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGSymbolElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGSymbolElement
 
 and SVGTSpanElement =
     inherit SVGTextPositioningElement
@@ -7903,7 +7902,7 @@ and SVGTSpanElement =
 
 and SVGTSpanElementType =
     abstract prototype: SVGTSpanElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGTSpanElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTSpanElement
 
 and SVGTextContentElement =
     inherit SVGElement
@@ -7932,7 +7931,7 @@ and SVGTextContentElementType =
     abstract LENGTHADJUST_SPACING: float with get, set
     abstract LENGTHADJUST_SPACINGANDGLYPHS: float with get, set
     abstract LENGTHADJUST_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGTextContentElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTextContentElement
 
 and SVGTextElement =
     inherit SVGTextPositioningElement
@@ -7941,7 +7940,7 @@ and SVGTextElement =
 
 and SVGTextElementType =
     abstract prototype: SVGTextElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGTextElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTextElement
 
 and SVGTextPathElement =
     inherit SVGTextContentElement
@@ -7965,7 +7964,7 @@ and SVGTextPathElementType =
     abstract TEXTPATH_SPACINGTYPE_AUTO: float with get, set
     abstract TEXTPATH_SPACINGTYPE_EXACT: float with get, set
     abstract TEXTPATH_SPACINGTYPE_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGTextPathElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTextPathElement
 
 and SVGTextPositioningElement =
     inherit SVGTextContentElement
@@ -7977,7 +7976,7 @@ and SVGTextPositioningElement =
 
 and SVGTextPositioningElementType =
     abstract prototype: SVGTextPositioningElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGTextPositioningElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTextPositioningElement
 
 and SVGTitleElement =
     inherit SVGElement
@@ -7987,7 +7986,7 @@ and SVGTitleElement =
 
 and SVGTitleElementType =
     abstract prototype: SVGTitleElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGTitleElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTitleElement
 
 and SVGTransform =
     abstract angle: float with get, set
@@ -8016,7 +8015,7 @@ and SVGTransformType =
     abstract SVG_TRANSFORM_SKEWY: float with get, set
     abstract SVG_TRANSFORM_TRANSLATE: float with get, set
     abstract SVG_TRANSFORM_UNKNOWN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGTransform
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTransform
 
 and SVGTransformList =
     abstract numberOfItems: float with get, set
@@ -8032,7 +8031,7 @@ and SVGTransformList =
 
 and SVGTransformListType =
     abstract prototype: SVGTransformList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGTransformList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTransformList
 
 and SVGUnitTypes =
     abstract SVG_UNIT_TYPE_OBJECTBOUNDINGBOX: float with get, set
@@ -8057,7 +8056,7 @@ and SVGUseElement =
 
 and SVGUseElementType =
     abstract prototype: SVGUseElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGUseElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGUseElement
 
 and SVGViewElement =
     inherit SVGElement
@@ -8069,7 +8068,7 @@ and SVGViewElement =
 
 and SVGViewElementType =
     abstract prototype: SVGViewElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGViewElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGViewElement
 
 and SVGZoomAndPan =
     abstract zoomAndPan: float with get, set
@@ -8089,7 +8088,7 @@ and SVGZoomEvent =
 
 and SVGZoomEventType =
     abstract prototype: SVGZoomEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SVGZoomEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SVGZoomEvent
 
 and Screen =
     inherit EventTarget
@@ -8116,7 +8115,7 @@ and Screen =
 
 and ScreenType =
     abstract prototype: Screen with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Screen
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Screen
 
 and ScriptNotifyEvent =
     inherit Event
@@ -8125,7 +8124,7 @@ and ScriptNotifyEvent =
 
 and ScriptNotifyEventType =
     abstract prototype: ScriptNotifyEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ScriptNotifyEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ScriptNotifyEvent
 
 and ScriptProcessorNode =
     inherit AudioNode
@@ -8136,7 +8135,7 @@ and ScriptProcessorNode =
 
 and ScriptProcessorNodeType =
     abstract prototype: ScriptProcessorNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ScriptProcessorNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ScriptProcessorNode
 
 and Selection =
     abstract anchorNode: Node with get, set
@@ -8163,7 +8162,7 @@ and Selection =
 
 and SelectionType =
     abstract prototype: Selection with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Selection
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Selection
 
 and SourceBuffer =
     inherit EventTarget
@@ -8182,7 +8181,7 @@ and SourceBuffer =
 
 and SourceBufferType =
     abstract prototype: SourceBuffer with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SourceBuffer
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SourceBuffer
 
 and SourceBufferList =
     inherit EventTarget
@@ -8192,7 +8191,7 @@ and SourceBufferList =
 
 and SourceBufferListType =
     abstract prototype: SourceBufferList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SourceBufferList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SourceBufferList
 
 and StereoPannerNode =
     inherit AudioNode
@@ -8200,7 +8199,7 @@ and StereoPannerNode =
 
 and StereoPannerNodeType =
     abstract prototype: StereoPannerNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> StereoPannerNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> StereoPannerNode
 
 and Storage =
     abstract length: float with get, set
@@ -8214,7 +8213,7 @@ and Storage =
 
 and StorageType =
     abstract prototype: Storage with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Storage
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Storage
 
 and StorageEvent =
     inherit Event
@@ -8226,7 +8225,7 @@ and StorageEvent =
 
 and StorageEventType =
     abstract prototype: StorageEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ``type``: string * ?eventInitDict: StorageEventInit -> StorageEvent
+    [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: StorageEventInit -> StorageEvent
 
 and StyleMedia =
     abstract ``type``: string with get, set
@@ -8234,7 +8233,7 @@ and StyleMedia =
 
 and StyleMediaType =
     abstract prototype: StyleMedia with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> StyleMedia
+    [<Emit("new $0($1...)")>] abstract Create: unit -> StyleMedia
 
 and StyleSheet =
     abstract disabled: bool with get, set
@@ -8247,7 +8246,7 @@ and StyleSheet =
 
 and StyleSheetType =
     abstract prototype: StyleSheet with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> StyleSheet
+    [<Emit("new $0($1...)")>] abstract Create: unit -> StyleSheet
 
 and StyleSheetList =
     abstract length: float with get, set
@@ -8256,7 +8255,7 @@ and StyleSheetList =
 
 and StyleSheetListType =
     abstract prototype: StyleSheetList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> StyleSheetList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> StyleSheetList
 
 and StyleSheetPageList =
     abstract length: float with get, set
@@ -8265,7 +8264,7 @@ and StyleSheetPageList =
 
 and StyleSheetPageListType =
     abstract prototype: StyleSheetPageList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> StyleSheetPageList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> StyleSheetPageList
 
 and SubtleCrypto =
     abstract decrypt: algorithm: U2<string, Algorithm> * key: CryptoKey * data: ArrayBufferView -> obj
@@ -8283,7 +8282,7 @@ and SubtleCrypto =
 
 and SubtleCryptoType =
     abstract prototype: SubtleCrypto with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> SubtleCrypto
+    [<Emit("new $0($1...)")>] abstract Create: unit -> SubtleCrypto
 
 and Text =
     inherit CharacterData
@@ -8293,7 +8292,7 @@ and Text =
 
 and TextType =
     abstract prototype: Text with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Text
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Text
 
 and TextEvent =
     inherit UIEvent
@@ -8324,14 +8323,14 @@ and TextEventType =
     abstract DOM_INPUT_METHOD_SCRIPT: float with get, set
     abstract DOM_INPUT_METHOD_UNKNOWN: float with get, set
     abstract DOM_INPUT_METHOD_VOICE: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TextEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TextEvent
 
 and TextMetrics =
     abstract width: float with get, set
 
 and TextMetricsType =
     abstract prototype: TextMetrics with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TextMetrics
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TextMetrics
 
 and TextRange =
     abstract boundingHeight: float with get, set
@@ -8374,7 +8373,7 @@ and TextRange =
 
 and TextRangeType =
     abstract prototype: TextRange with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TextRange
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TextRange
 
 and TextRangeCollection =
     abstract length: float with get, set
@@ -8383,7 +8382,7 @@ and TextRangeCollection =
 
 and TextRangeCollectionType =
     abstract prototype: TextRangeCollection with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TextRangeCollection
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TextRangeCollection
 
 and TextTrack =
     inherit EventTarget
@@ -8421,7 +8420,7 @@ and TextTrackType =
     abstract LOADING: float with get, set
     abstract NONE: float with get, set
     abstract SHOWING: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TextTrack
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TextTrack
 
 and TextTrackCue =
     inherit EventTarget
@@ -8440,7 +8439,7 @@ and TextTrackCue =
 
 and TextTrackCueType =
     abstract prototype: TextTrackCue with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: startTime: float * endTime: float * text: string -> TextTrackCue
+    [<Emit("new $0($1...)")>] abstract Create: startTime: float * endTime: float * text: string -> TextTrackCue
 
 and TextTrackCueList =
     abstract length: float with get, set
@@ -8450,7 +8449,7 @@ and TextTrackCueList =
 
 and TextTrackCueListType =
     abstract prototype: TextTrackCueList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TextTrackCueList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TextTrackCueList
 
 and TextTrackList =
     inherit EventTarget
@@ -8463,7 +8462,7 @@ and TextTrackList =
 
 and TextTrackListType =
     abstract prototype: TextTrackList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TextTrackList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TextTrackList
 
 and TimeRanges =
     abstract length: float with get, set
@@ -8472,7 +8471,7 @@ and TimeRanges =
 
 and TimeRangesType =
     abstract prototype: TimeRanges with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TimeRanges
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TimeRanges
 
 and Touch =
     abstract clientX: float with get, set
@@ -8486,7 +8485,7 @@ and Touch =
 
 and TouchType =
     abstract prototype: Touch with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Touch
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Touch
 
 and TouchEvent =
     inherit UIEvent
@@ -8500,7 +8499,7 @@ and TouchEvent =
 
 and TouchEventType =
     abstract prototype: TouchEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TouchEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TouchEvent
 
 and TouchList =
     abstract length: float with get, set
@@ -8509,7 +8508,7 @@ and TouchList =
 
 and TouchListType =
     abstract prototype: TouchList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TouchList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TouchList
 
 and TrackEvent =
     inherit Event
@@ -8517,7 +8516,7 @@ and TrackEvent =
 
 and TrackEventType =
     abstract prototype: TrackEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TrackEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TrackEvent
 
 and TransitionEvent =
     inherit Event
@@ -8527,7 +8526,7 @@ and TransitionEvent =
 
 and TransitionEventType =
     abstract prototype: TransitionEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TransitionEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TransitionEvent
 
 and TreeWalker =
     abstract currentNode: Node with get, set
@@ -8545,7 +8544,7 @@ and TreeWalker =
 
 and TreeWalkerType =
     abstract prototype: TreeWalker with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> TreeWalker
+    [<Emit("new $0($1...)")>] abstract Create: unit -> TreeWalker
 
 and UIEvent =
     inherit Event
@@ -8555,7 +8554,7 @@ and UIEvent =
 
 and UIEventType =
     abstract prototype: UIEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ``type``: string * ?eventInitDict: UIEventInit -> UIEvent
+    [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: UIEventInit -> UIEvent
 
 and URL =
     abstract createObjectURL: ``object``: obj * ?options: ObjectURLOptions -> string
@@ -8567,7 +8566,7 @@ and UnviewableContentIdentifiedEvent =
 
 and UnviewableContentIdentifiedEventType =
     abstract prototype: UnviewableContentIdentifiedEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> UnviewableContentIdentifiedEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> UnviewableContentIdentifiedEvent
 
 and ValidityState =
     abstract badInput: bool with get, set
@@ -8583,7 +8582,7 @@ and ValidityState =
 
 and ValidityStateType =
     abstract prototype: ValidityState with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> ValidityState
+    [<Emit("new $0($1...)")>] abstract Create: unit -> ValidityState
 
 and VideoPlaybackQuality =
     abstract corruptedVideoFrames: float with get, set
@@ -8594,7 +8593,7 @@ and VideoPlaybackQuality =
 
 and VideoPlaybackQualityType =
     abstract prototype: VideoPlaybackQuality with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> VideoPlaybackQuality
+    [<Emit("new $0($1...)")>] abstract Create: unit -> VideoPlaybackQuality
 
 and VideoTrack =
     abstract id: string with get, set
@@ -8606,7 +8605,7 @@ and VideoTrack =
 
 and VideoTrackType =
     abstract prototype: VideoTrack with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> VideoTrack
+    [<Emit("new $0($1...)")>] abstract Create: unit -> VideoTrack
 
 and VideoTrackList =
     inherit EventTarget
@@ -8625,7 +8624,7 @@ and VideoTrackList =
 
 and VideoTrackListType =
     abstract prototype: VideoTrackList with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> VideoTrackList
+    [<Emit("new $0($1...)")>] abstract Create: unit -> VideoTrackList
 
 and WEBGL_compressed_texture_s3tc =
     abstract COMPRESSED_RGBA_S3TC_DXT1_EXT: float with get, set
@@ -8639,7 +8638,7 @@ and WEBGL_compressed_texture_s3tcType =
     abstract COMPRESSED_RGBA_S3TC_DXT3_EXT: float with get, set
     abstract COMPRESSED_RGBA_S3TC_DXT5_EXT: float with get, set
     abstract COMPRESSED_RGB_S3TC_DXT1_EXT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WEBGL_compressed_texture_s3tc
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WEBGL_compressed_texture_s3tc
 
 and WEBGL_debug_renderer_info =
     abstract UNMASKED_RENDERER_WEBGL: float with get, set
@@ -8649,7 +8648,7 @@ and WEBGL_debug_renderer_infoType =
     abstract prototype: WEBGL_debug_renderer_info with get, set
     abstract UNMASKED_RENDERER_WEBGL: float with get, set
     abstract UNMASKED_VENDOR_WEBGL: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WEBGL_debug_renderer_info
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WEBGL_debug_renderer_info
 
 and WEBGL_depth_texture =
     abstract UNSIGNED_INT_24_8_WEBGL: float with get, set
@@ -8657,7 +8656,7 @@ and WEBGL_depth_texture =
 and WEBGL_depth_textureType =
     abstract prototype: WEBGL_depth_texture with get, set
     abstract UNSIGNED_INT_24_8_WEBGL: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WEBGL_depth_texture
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WEBGL_depth_texture
 
 and WaveShaperNode =
     inherit AudioNode
@@ -8666,7 +8665,7 @@ and WaveShaperNode =
 
 and WaveShaperNodeType =
     abstract prototype: WaveShaperNode with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WaveShaperNode
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WaveShaperNode
 
 and WebGLActiveInfo =
     abstract name: string with get, set
@@ -8675,7 +8674,7 @@ and WebGLActiveInfo =
 
 and WebGLActiveInfoType =
     abstract prototype: WebGLActiveInfo with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLActiveInfo
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLActiveInfo
 
 and WebGLBuffer =
     inherit WebGLObject
@@ -8683,7 +8682,7 @@ and WebGLBuffer =
 
 and WebGLBufferType =
     abstract prototype: WebGLBuffer with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLBuffer
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLBuffer
 
 and WebGLContextEvent =
     inherit Event
@@ -8691,7 +8690,7 @@ and WebGLContextEvent =
 
 and WebGLContextEventType =
     abstract prototype: WebGLContextEvent with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLContextEvent
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLContextEvent
 
 and WebGLFramebuffer =
     inherit WebGLObject
@@ -8699,14 +8698,14 @@ and WebGLFramebuffer =
 
 and WebGLFramebufferType =
     abstract prototype: WebGLFramebuffer with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLFramebuffer
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLFramebuffer
 
 and WebGLObject =
     interface end
 
 and WebGLObjectType =
     abstract prototype: WebGLObject with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLObject
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLObject
 
 and WebGLProgram =
     inherit WebGLObject
@@ -8714,7 +8713,7 @@ and WebGLProgram =
 
 and WebGLProgramType =
     abstract prototype: WebGLProgram with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLProgram
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLProgram
 
 and WebGLRenderbuffer =
     inherit WebGLObject
@@ -8722,7 +8721,7 @@ and WebGLRenderbuffer =
 
 and WebGLRenderbufferType =
     abstract prototype: WebGLRenderbuffer with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLRenderbuffer
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLRenderbuffer
 
 and WebGLRenderingContext =
     abstract canvas: HTMLCanvasElement with get, set
@@ -9469,7 +9468,7 @@ and WebGLRenderingContextType =
     abstract VERTEX_SHADER: float with get, set
     abstract VIEWPORT: float with get, set
     abstract ZERO: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLRenderingContext
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLRenderingContext
 
 and WebGLShader =
     inherit WebGLObject
@@ -9477,7 +9476,7 @@ and WebGLShader =
 
 and WebGLShaderType =
     abstract prototype: WebGLShader with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLShader
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLShader
 
 and WebGLShaderPrecisionFormat =
     abstract precision: float with get, set
@@ -9486,7 +9485,7 @@ and WebGLShaderPrecisionFormat =
 
 and WebGLShaderPrecisionFormatType =
     abstract prototype: WebGLShaderPrecisionFormat with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLShaderPrecisionFormat
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLShaderPrecisionFormat
 
 and WebGLTexture =
     inherit WebGLObject
@@ -9494,14 +9493,14 @@ and WebGLTexture =
 
 and WebGLTextureType =
     abstract prototype: WebGLTexture with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLTexture
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLTexture
 
 and WebGLUniformLocation =
     interface end
 
 and WebGLUniformLocationType =
     abstract prototype: WebGLUniformLocation with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> WebGLUniformLocation
+    [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLUniformLocation
 
 and WebKitCSSMatrix =
     abstract a: float with get, set
@@ -9539,7 +9538,7 @@ and WebKitCSSMatrix =
 
 and WebKitCSSMatrixType =
     abstract prototype: WebKitCSSMatrix with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?text: string -> WebKitCSSMatrix
+    [<Emit("new $0($1...)")>] abstract Create: ?text: string -> WebKitCSSMatrix
 
 and WebKitPoint =
     abstract x: float with get, set
@@ -9547,7 +9546,7 @@ and WebKitPoint =
 
 and WebKitPointType =
     abstract prototype: WebKitPoint with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: ?x: float * ?y: float -> WebKitPoint
+    [<Emit("new $0($1...)")>] abstract Create: ?x: float * ?y: float -> WebKitPoint
 
 and WebSocket =
     inherit EventTarget
@@ -9579,7 +9578,7 @@ and WebSocketType =
     abstract CLOSING: float with get, set
     abstract CONNECTING: float with get, set
     abstract OPEN: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: url: string * ?protocols: U2<string, ResizeArray<string>> -> WebSocket
+    [<Emit("new $0($1...)")>] abstract Create: url: string * ?protocols: U2<string, ResizeArray<string>> -> WebSocket
 
 and WheelEvent =
     inherit MouseEvent
@@ -9598,7 +9597,7 @@ and WheelEventType =
     abstract DOM_DELTA_LINE: float with get, set
     abstract DOM_DELTA_PAGE: float with get, set
     abstract DOM_DELTA_PIXEL: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: typeArg: string * ?eventInitDict: WheelEventInit -> WheelEvent
+    [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: WheelEventInit -> WheelEvent
 
 and Window =
     inherit EventTarget
@@ -9875,7 +9874,7 @@ and Window =
 
 and WindowType =
     abstract prototype: Window with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> Window
+    [<Emit("new $0($1...)")>] abstract Create: unit -> Window
 
 and Worker =
     inherit EventTarget
@@ -9889,7 +9888,7 @@ and Worker =
 
 and WorkerType =
     abstract prototype: Worker with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: stringUrl: string -> Worker
+    [<Emit("new $0($1...)")>] abstract Create: stringUrl: string -> Worker
 
 and XMLDocument =
     inherit Document
@@ -9897,7 +9896,7 @@ and XMLDocument =
 
 and XMLDocumentType =
     abstract prototype: XMLDocument with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> XMLDocument
+    [<Emit("new $0($1...)")>] abstract Create: unit -> XMLDocument
 
 and XMLHttpRequest =
     inherit EventTarget
@@ -9947,7 +9946,7 @@ and XMLHttpRequestType =
     abstract LOADING: float with get, set
     abstract OPENED: float with get, set
     abstract UNSENT: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> XMLHttpRequest
+    [<Emit("new $0($1...)")>] abstract Create: unit -> XMLHttpRequest
     abstract create: unit -> XMLHttpRequest
 
 and XMLHttpRequestUpload =
@@ -9957,14 +9956,14 @@ and XMLHttpRequestUpload =
 
 and XMLHttpRequestUploadType =
     abstract prototype: XMLHttpRequestUpload with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> XMLHttpRequestUpload
+    [<Emit("new $0($1...)")>] abstract Create: unit -> XMLHttpRequestUpload
 
 and XMLSerializer =
     abstract serializeToString: target: Node -> string
 
 and XMLSerializerType =
     abstract prototype: XMLSerializer with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> XMLSerializer
+    [<Emit("new $0($1...)")>] abstract Create: unit -> XMLSerializer
 
 and XPathEvaluator =
     abstract createExpression: expression: string * resolver: XPathNSResolver -> XPathExpression
@@ -9973,21 +9972,21 @@ and XPathEvaluator =
 
 and XPathEvaluatorType =
     abstract prototype: XPathEvaluator with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> XPathEvaluator
+    [<Emit("new $0($1...)")>] abstract Create: unit -> XPathEvaluator
 
 and XPathExpression =
     abstract evaluate: contextNode: Node * ``type``: float * result: XPathResult -> XPathExpression
 
 and XPathExpressionType =
     abstract prototype: XPathExpression with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> XPathExpression
+    [<Emit("new $0($1...)")>] abstract Create: unit -> XPathExpression
 
 and XPathNSResolver =
     abstract lookupNamespaceURI: prefix: string -> string
 
 and XPathNSResolverType =
     abstract prototype: XPathNSResolver with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> XPathNSResolver
+    [<Emit("new $0($1...)")>] abstract Create: unit -> XPathNSResolver
 
 and XPathResult =
     abstract booleanValue: bool with get, set
@@ -10022,7 +10021,7 @@ and XPathResultType =
     abstract STRING_TYPE: float with get, set
     abstract UNORDERED_NODE_ITERATOR_TYPE: float with get, set
     abstract UNORDERED_NODE_SNAPSHOT_TYPE: float with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> XPathResult
+    [<Emit("new $0($1...)")>] abstract Create: unit -> XPathResult
 
 and XSLTProcessor =
     abstract clearParameters: unit -> unit
@@ -10036,7 +10035,7 @@ and XSLTProcessor =
 
 and XSLTProcessorType =
     abstract prototype: XSLTProcessor with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> XSLTProcessor
+    [<Emit("new $0($1...)")>] abstract Create: unit -> XSLTProcessor
 
 and AbstractWorker =
     abstract onerror: Func<Event, obj> with get, set
@@ -10363,63 +10362,51 @@ and HTMLTemplateElement =
 
 and HTMLTemplateElementType =
     abstract prototype: HTMLTemplateElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLTemplateElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTemplateElement
 
 and HTMLPictureElement =
     inherit HTMLElement
 
-
 and HTMLPictureElementType =
     abstract prototype: HTMLPictureElement with get, set
-    [<Emit("new $0($1...)")>] abstract createNew: unit -> HTMLPictureElement
+    [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLPictureElement
 
 and EventListenerOrEventListenerObject =
     U2<EventListener, EventListenerObject>
 
-and ErrorEventHandler =
-    [<Emit("$0($1...)")>] abstract callSelf: message: string * ?filename: string * ?lineno: float * ?colno: float * ?error: Error -> unit
+and ErrorEventHandler = Func<string, string, float, float, Error, unit>
 
-and PositionCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: position: Position -> unit
+and PositionCallback = Func<Position, unit>
 
-and PositionErrorCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: error: PositionError -> unit
+and PositionErrorCallback = Func<PositionError, unit>
 
-and MediaQueryListListener =
-    [<Emit("$0($1...)")>] abstract callSelf: mql: MediaQueryList -> unit
+and MediaQueryListListener = Func<MediaQueryList, unit>
 
-and MSLaunchUriCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: unit -> unit
+and MSLaunchUriCallback = Func<unit, unit>
 
-and FrameRequestCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: time: float -> unit
+and FrameRequestCallback = Func<float, unit>
 
-and MSUnsafeFunctionCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: unit -> obj
+and MSUnsafeFunctionCallback = Func<unit, obj>
 
 and MSExecAtPriorityFunctionCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: [<ParamArray>] args: obj[] -> obj
+    [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: obj[] -> obj
 
-and MutationCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: mutations: ResizeArray<MutationRecord> * observer: MutationObserver -> unit
+and MutationCallback = Func<ResizeArray<MutationRecord>, MutationObserver, unit>
 
-and DecodeSuccessCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: decodedData: AudioBuffer -> unit
+and DecodeSuccessCallback = Func<AudioBuffer, unit>
 
-and DecodeErrorCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: error: DOMException -> unit
+and DecodeErrorCallback = Func<DOMException, unit>
 
-and FunctionStringCallback =
-    [<Emit("$0($1...)")>] abstract callSelf: data: string -> unit
+and FunctionStringCallback = Func<string, unit>
 
 and AudioType =
-    [<Emit("new $0($1...)")>] abstract createNew: ?src: string -> HTMLAudioElement
+    [<Emit("new $0($1...)")>] abstract Create: ?src: string -> HTMLAudioElement
 
 and ImageType =
-    [<Emit("new $0($1...)")>] abstract createNew: ?width: float * ?height: float -> HTMLImageElement
+    [<Emit("new $0($1...)")>] abstract Create: ?width: float * ?height: float -> HTMLImageElement
 
 and OptionType =
-    [<Emit("new $0($1...)")>] abstract createNew: ?text: string * ?value: string * ?defaultSelected: bool * ?selected: bool -> HTMLOptionElement
+    [<Emit("new $0($1...)")>] abstract Create: ?text: string * ?value: string * ?defaultSelected: bool * ?selected: bool -> HTMLOptionElement
 
 type Globals =
     [<Global>] static member ANGLE_instanced_arrays with get(): ANGLE_instanced_arraysType = failwith "JS only" and set(v: ANGLE_instanced_arraysType): unit = failwith "JS only"
@@ -11051,10 +11038,10 @@ module Intl =
         abstract resolvedOptions: unit -> ResolvedCollatorOptions
 
     and CollatorType =
-        [<Emit("new $0($1...)")>] abstract createNew: ?locales: ResizeArray<string> * ?options: CollatorOptions -> Collator
-        [<Emit("new $0($1...)")>] abstract createNew: ?locale: string * ?options: CollatorOptions -> Collator
-        [<Emit("$0($1...)")>] abstract callSelf: ?locales: ResizeArray<string> * ?options: CollatorOptions -> Collator
-        [<Emit("$0($1...)")>] abstract callSelf: ?locale: string * ?options: CollatorOptions -> Collator
+        [<Emit("new $0($1...)")>] abstract Create: ?locales: ResizeArray<string> * ?options: CollatorOptions -> Collator
+        [<Emit("new $0($1...)")>] abstract Create: ?locale: string * ?options: CollatorOptions -> Collator
+        [<Emit("$0($1...)")>] abstract Invoke: ?locales: ResizeArray<string> * ?options: CollatorOptions -> Collator
+        [<Emit("$0($1...)")>] abstract Invoke: ?locale: string * ?options: CollatorOptions -> Collator
         abstract supportedLocalesOf: locales: ResizeArray<string> * ?options: CollatorOptions -> ResizeArray<string>
         abstract supportedLocalesOf: locale: string * ?options: CollatorOptions -> ResizeArray<string>
 
@@ -11088,10 +11075,10 @@ module Intl =
         abstract resolvedOptions: unit -> ResolvedNumberFormatOptions
 
     and NumberFormatType =
-        [<Emit("new $0($1...)")>] abstract createNew: ?locales: ResizeArray<string> * ?options: NumberFormatOptions -> NumberFormat
-        [<Emit("new $0($1...)")>] abstract createNew: ?locale: string * ?options: NumberFormatOptions -> NumberFormat
-        [<Emit("$0($1...)")>] abstract callSelf: ?locales: ResizeArray<string> * ?options: NumberFormatOptions -> NumberFormat
-        [<Emit("$0($1...)")>] abstract callSelf: ?locale: string * ?options: NumberFormatOptions -> NumberFormat
+        [<Emit("new $0($1...)")>] abstract Create: ?locales: ResizeArray<string> * ?options: NumberFormatOptions -> NumberFormat
+        [<Emit("new $0($1...)")>] abstract Create: ?locale: string * ?options: NumberFormatOptions -> NumberFormat
+        [<Emit("$0($1...)")>] abstract Invoke: ?locales: ResizeArray<string> * ?options: NumberFormatOptions -> NumberFormat
+        [<Emit("$0($1...)")>] abstract Invoke: ?locale: string * ?options: NumberFormatOptions -> NumberFormat
         abstract supportedLocalesOf: locales: ResizeArray<string> * ?options: NumberFormatOptions -> ResizeArray<string>
         abstract supportedLocalesOf: locale: string * ?options: NumberFormatOptions -> ResizeArray<string>
 
@@ -11131,10 +11118,10 @@ module Intl =
         abstract resolvedOptions: unit -> ResolvedDateTimeFormatOptions
 
     and DateTimeFormatType =
-        [<Emit("new $0($1...)")>] abstract createNew: ?locales: ResizeArray<string> * ?options: DateTimeFormatOptions -> DateTimeFormat
-        [<Emit("new $0($1...)")>] abstract createNew: ?locale: string * ?options: DateTimeFormatOptions -> DateTimeFormat
-        [<Emit("$0($1...)")>] abstract callSelf: ?locales: ResizeArray<string> * ?options: DateTimeFormatOptions -> DateTimeFormat
-        [<Emit("$0($1...)")>] abstract callSelf: ?locale: string * ?options: DateTimeFormatOptions -> DateTimeFormat
+        [<Emit("new $0($1...)")>] abstract Create: ?locales: ResizeArray<string> * ?options: DateTimeFormatOptions -> DateTimeFormat
+        [<Emit("new $0($1...)")>] abstract Create: ?locale: string * ?options: DateTimeFormatOptions -> DateTimeFormat
+        [<Emit("$0($1...)")>] abstract Invoke: ?locales: ResizeArray<string> * ?options: DateTimeFormatOptions -> DateTimeFormat
+        [<Emit("$0($1...)")>] abstract Invoke: ?locale: string * ?options: DateTimeFormatOptions -> DateTimeFormat
         abstract supportedLocalesOf: locales: ResizeArray<string> * ?options: DateTimeFormatOptions -> ResizeArray<string>
         abstract supportedLocalesOf: locale: string * ?options: DateTimeFormatOptions -> ResizeArray<string>
 

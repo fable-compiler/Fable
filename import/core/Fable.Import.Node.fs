@@ -535,7 +535,7 @@ module child_process =
 
 
 type NodeRequireFunction =
-    [<Emit("$0($1...)")>] abstract callSelf: id: string -> obj
+    [<Emit("$0($1...)")>] abstract Invoke: id: string -> obj
 
 and NodeRequire =
     inherit NodeRequireFunction

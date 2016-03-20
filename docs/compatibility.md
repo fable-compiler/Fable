@@ -2,9 +2,9 @@
 
 The compiler follows two rough guidelines when transforming the code:
 
-* Keep the [core library](/lib/fable-core.js) small, so fall back to native JS methods when possible.
+* Keep the [core library](/src/fable-js/fable-core.js) small, so fall back to native JS methods when possible.
 * If it makes the JS code cleaner and more idiomatic, make small changes in F# semantics
-  that don't have big impact on developers' expectations.
+  that don't have a big impact on developers' expectations.
 
 ## Primitives
 `string` and `char` compile to JS "string" while `bool` becomes "boolean".
@@ -16,12 +16,12 @@ arrays are compiled to native JS arrays. Numeric arrays are compiled to
 [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray)
 which should provide a performance boost when interacting with HTML5 canvas or WebGL.
 
-## Strings, printing
+## String printing
 The usual string format (with a few limitations) and printing methods in F# and .NET are available:
 `Console/Debug.WriteLine`, `String.Format`, `printfn`, `sprintf`... as well as the
 string instance methods.
 
-## Regular Expressions
+## Regular expressions
 You can use the `Regex` class in the same way as .NET, but the regex will always
 behave as if passed `RegexOptions.ECMAScript` flag (e.g., no negative look-behind
 or named groups).
@@ -54,10 +54,10 @@ All methods in F# `Seq` module have been implemented. There may be some methods 
 in `List` and `Array` modules, but in that case the compiler will default to the corresponding
 `Seq` function and build a new list or array from the response if necessary.
 
-## Map and Set
+## Map, Set and Dictionary
 Maps and Sets fall back to the [ES6 corresponding classes](http://babeljs.io/docs/learn-es2015/#map-set-weak-map-weak-set)
-for performance, but this means adding and removing operations are mutable, so a bit of care is needed when manipulating them.
-`System.Collections.Generic.Dictionary` compile to ES6 `Map` too,
+for performance. Adding and removing will create new objects. `System.Collections.Generic.Dictionary` compile to ES6 `Map` too
+and allows mutable operations.
 
 ## Async
 `async computation expressions` work as expected. However, `RunSynchronously` is not available and,
@@ -72,14 +72,13 @@ It's possible to define custom computation expressions normally.
 Pattern matching will work normally in JS and it will generate optimized
 code to prevent overhead. You can match union types, records, classes or
 interfaces (with `:? MyClass as x`), lists, etc. Destructuring, guards and
-multiple targets are also fine. The only one problem detected so far has been
-with arrays (like `match ar with [|item1; item2|]`), and will be fixed soon.
+multiple targets are also fine.
 
 ## Active patterns
 Active patterns can be used normally.
 
 ## Generics
-Generic information disappears in generated code. However, they're accessible
+Generic information disappears in generated code. However, it's accessible
 to the compiler, so calls like `typeof<MyType>` are possible with concrete
 types or with generics in **inline** functions.
 
@@ -90,13 +89,16 @@ are only visible to the compiler which uses them, for example, when defining
 [foreign interfaces](interacting.md). An important note about attributes is
 the compiler will only read the name and won't care about the type. Thanks
 to that it's not necessary to add a dependency just to use, say, the `Import`
-attribute (it can be defined ad hoc in the same module/namespace). 
+attribute (it can be defined ad hoc in the same module/namespace).
+
+> It's planned to allow compilation of attributes in the near future
+using custom Babel plugins like [babel-plugin-angular2-annotations](https://github.com/shuhei/babel-plugin-angular2-annotations).
 
 ## Interfaces
 Interface methods are compiled to normal object methods (there's no explicit
 implementation so names may collide). The interface names will be attached
 to the type constructor as a Symbol-keyed property, so interface type testing
-will be possible in runtime to do patterns like [this one proposed by Yan Cui](http://theburningmonk.com/2012/03/f-extending-discriminated-unions-using-marker-interfaces/)
+will be possible at runtime to do patterns like [this one proposed by Yan Cui](http://theburningmonk.com/2012/03/f-extending-discriminated-unions-using-marker-interfaces/)
 to extend union types.
 
 ## Overloads

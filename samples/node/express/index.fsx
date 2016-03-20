@@ -6,7 +6,7 @@ open Fable.Core
 open Fable.Import
 open Fable.Import.express
 
-let app = express.Globals.callSelf()
+let app = express.Globals.Invoke()
 
 app.get(U2.Case1 "/hello/:name", fun (req: Request) (res: Response) _ ->
     res.send(sprintf "Hello %O" req.``params``?name)

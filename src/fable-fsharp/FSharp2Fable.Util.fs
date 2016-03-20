@@ -380,9 +380,12 @@ module Util =
         ent.FullName.StartsWith "Fable.Import"
         || Option.isSome(tryFindAtt isImportedAtt ent.Attributes)
         
+    let hasReplaceAtt (atts: #seq<FSharpAttribute>) =
+        tryFindAtt ((=) "Replace") atts |> Option.isSome
+        
     let isReplaceCandidate (com: IFableCompiler) (ent: FSharpEntity) =
-        not(isImported ent)
-        && (ent.FullName.StartsWith "Fable.Core" || Option.isNone(com.GetInternalFile ent))
+        hasReplaceAtt ent.Attributes
+        || (not(isImported ent) && Option.isNone(com.GetInternalFile ent))
 
     let getMemberKind name (meth: FSharpMemberOrFunctionOrValue) =
         if meth.IsImplicitConstructor then Fable.Constructor
@@ -526,7 +529,7 @@ module Util =
     let (|Replaced|_|) (com: IFableCompiler) ctx fsExpr
                     (typArgs, methTypArgs) (callee, args)
                     (meth: FSharpMemberOrFunctionOrValue) =
-        if isReplaceCandidate com meth.EnclosingEntity
+        if hasReplaceAtt meth.Attributes || isReplaceCandidate com meth.EnclosingEntity
         then replace com ctx fsExpr
                 (sanitizeEntityName meth.EnclosingEntity) (sanitizeMethodName com meth)
                 (meth.Attributes, typArgs, methTypArgs) (callee, args) |> Some

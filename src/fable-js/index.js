@@ -17,17 +17,18 @@ var appDescription = {
 
 var cli = commandLineArgs([
   { name: 'projFile', defaultOption: true, description: "The F# project (.fsproj) or script (.fsx) to compile." },
-  { name: 'code', description: "Pass a string of code directly to Fable instead." },
-  { name: 'outDir', description: "Where to put compiled JS files." },
-  { name: 'sourceMaps', alias: 'm', description: "Generate source maps: [true|inline|false] " },
+  { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like 'DEBUG'. " +
+                        "(will be added to 'DefineConstants' in [underline]{.fsproj})." },
   { name: 'env', description: "'browser' for [bold]{amd} modules and 'node' for [bold]{commonjs} (defaults to [bold]{umd})." },
-  { name: 'lib', description: "Where to find the core library, " +
-                        "if not set [underline]{fable-core.js} will be copied automatically to outDir." },
-  { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like 'DEBUG'." },
+  { name: 'sourceMaps', alias: 'm', description: "Generate source maps: [true|inline|false] " },
+  { name: 'watch', alias: 'w', type: Boolean, description: "Recompile project much faster on file modifications." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without 'babel-plugin-' prefix, " +
                         "like 'angular2-annotations'). Must be installed in the current directory." },
-  { name: 'watch', alias: 'w', type: Boolean, description: "Recompile project much faster on file modifications." },
+  { name: 'code', description: "Pass a string of code directly to Fable." },
+  { name: 'outDir', description: "Where to put compiled JS files. Defaults to project directory." },
+  { name: 'lib', description: "Where to find the core library. " +
+                        "If not set, [underline]{fable-core.js} will be copied automatically to outDir." },
   { name: 'target', alias: 't', description: "Use options of a specific target in [underline]{fableconfig.json}." },
   { name: 'debug', alias: 'd', description: "Shortcut for '--target debug'." },
   { name: 'production', alias: 'p', description: "Shortcut for '--target production'." },

@@ -1,6 +1,6 @@
 {
   "name": "fable-import-express",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Fable bindings for Express",
   "repository": {
     "type": "git",

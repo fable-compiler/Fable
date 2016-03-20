@@ -67,7 +67,7 @@ module express =
         abstract secure: bool option with get, set
 
     and Errback = Func<Error, unit>
-        // [<Emit("$0($1...)")>] abstract callSelf: err: Error -> unit
+        // [<Emit("$0($1...)")>] abstract Invoke: err: Error -> unit
 
     and Request =
         inherit http.ServerRequest
@@ -164,20 +164,20 @@ module express =
         abstract render: view: string * ?callback: Func<Error, string, unit> -> unit
 
     and NextFunction = Func<obj,unit>
-        // [<Emit("$0($1...)")>] abstract callSelf: unit -> unit
-        // [<Emit("$0($1...)")>] abstract callSelf: err: obj -> unit
+        // [<Emit("$0($1...)")>] abstract Invoke: unit -> unit
+        // [<Emit("$0($1...)")>] abstract Invoke: err: obj -> unit
 
     and ErrorRequestHandler = Func<obj, Request, Response, (obj->unit), obj>
-        // [<Emit("$0($1...)")>] abstract callSelf: err: obj * req: Request * res: Response * next: NextFunction -> obj
+        // [<Emit("$0($1...)")>] abstract Invoke: err: obj * req: Request * res: Response * next: NextFunction -> obj
 
     and RequestHandler = Func<Request, Response, (obj->unit), obj>
-        // [<Emit("$0($1...)")>] abstract callSelf: req: Request * res: Response * next: NextFunction -> obj
+        // [<Emit("$0($1...)")>] abstract Invoke: req: Request * res: Response * next: NextFunction -> obj
 
     and Handler = RequestHandler
     //     inherit RequestHandler
 
     and RequestParamHandler = Func<Request, Response, (obj->unit), obj, obj>
-        // [<Emit("$0($1...)")>] abstract callSelf: req: Request * res: Response * next: NextFunction * param: obj -> obj
+        // [<Emit("$0($1...)")>] abstract Invoke: req: Request * res: Response * next: NextFunction * param: obj -> obj
 
     and Application =
         inherit IRouter<Application>
@@ -220,7 +220,7 @@ module express =
         abstract application: obj with get, set
         abstract request: Request with get, set
         abstract response: Response with get, set
-        [<Emit("$0($1...)")>] abstract callSelf: unit -> Application
+        [<Emit("$0($1...)")>] abstract Invoke: unit -> Application
         abstract createApplication: unit -> Application
         abstract createServer: unit -> Application
 
@@ -249,11 +249,11 @@ module express =
     
         type Globals =
             member __.mime: mime.Globals = failwith "JS only"
-            [<Emit("$0($1...)")>] member __.callSelf(root: string, ?options: Options): Handler = failwith "JS only"
+            [<Emit("$0($1...)")>] member __.Invoke(root: string, ?options: Options): Handler = failwith "JS only"
 
     type Globals =
         member __.``static``: ``serve-static``.Globals = failwith "JS only"
         member __.Router(?options: obj): Router = failwith "JS only"
-        [<Emit("$0($1...)")>] member __.callSelf(): Express = failwith "JS only"
+        [<Emit("$0($1...)")>] member __.Invoke(): Express = failwith "JS only"
 
     let [<Import("express?asDefault=true")>] Globals: Globals = failwith "JS only"

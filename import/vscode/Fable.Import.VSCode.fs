@@ -14,7 +14,7 @@ and Promise<'T> =
     abstract catch: ?onrejected: Func<obj, U2<'T, Thenable<'T>>> -> Promise<'T>
 
 and PromiseConstructor =
-    [<Emit("new $0($1...)")>] abstract createNew: executor: Func<Func<U2<'T, Thenable<'T>>, unit>, Func<obj, unit>, unit> -> Promise<'T>
+    [<Emit("new $0($1...)")>] abstract Create: executor: Func<Func<U2<'T, Thenable<'T>>, unit>, Func<obj, unit>, unit> -> Promise<'T>
     abstract all: values: ResizeArray<U2<'T, Thenable<'T>>> -> Promise<ResizeArray<'T>>
     abstract race: values: ResizeArray<U2<'T, Thenable<'T>>> -> Promise<'T>
     abstract reject: reason: obj -> Promise<unit>
@@ -181,7 +181,7 @@ module vscode =
         member __.dispose(): obj = failwith "JS only"
 
     and Event<'T> =
-        [<Emit("$0($1...)")>] abstract callSelf: listener: Func<'T, obj> * ?thisArgs: obj * ?disposables: ResizeArray<Disposable> -> Disposable
+        [<Emit("$0($1...)")>] abstract Invoke: listener: Func<'T, obj> * ?thisArgs: obj * ?disposables: ResizeArray<Disposable> -> Disposable
 
     and FileSystemWatcher =
         abstract from: [<ParamArray>] disposableLikes: obj[] -> Disposable

@@ -22,5 +22,7 @@ version: 0.0.1.{build}
 artifacts:
   - path: build\fable
     name: fable
+  - path: samples
+    name: samples
   
  

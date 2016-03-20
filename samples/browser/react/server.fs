@@ -22,12 +22,16 @@ let port =
     match unbox Node.Globals.``process``.env?PORT with
     | Some x -> x | None -> 8080
 
+// When debuggin, use webpack-dev-server to allow Hot Module Reloading
 #if WEBPACK_DEV_SERVER
-let [<Import("./webpack.config?asDefault=true")>] config = obj()
-let [<Import("webpack?asDefault=true")>] webpack = obj()
-let [<Import("webpack-dev-server?asDefault=true")>] WebpackDevServer = obj()
+let config = Node.Globals.require.Invoke("./webpack.config")
+let webpack = Node.Globals.require.Invoke("webpack")
+let WebpackDevServer = Node.Globals.require.Invoke("webpack-dev-server")
 
+// If webpack-dev-server is active, deviate the app server to port 3000
+// webpack-dev-server will act as a proxy for /api/* calls (see webpack.config.js file)
 let appPort = 3000
+
 let webpackDevServer = createNew WebpackDevServer (webpack $ config, config?devServer)    
 webpackDevServer?listen $ (port, "localhost", Func<_,_>(fun err res ->
     err |> handleError failExit (fun () ->
@@ -37,11 +41,12 @@ webpackDevServer?listen $ (port, "localhost", Func<_,_>(fun err res ->
 let appPort = port
 #endif
 
-let app = express.Globals.callSelf()
+// App server
+let app = express.Globals.Invoke()
 let COMMENTS_FILE = Node.path.Globals.join(Node.Globals.__dirname, "comments.json")
 
 // Just use dynamic programming to set body-parser middleware
-let [<Import("body-parser?asDefault=true")>] bodyParser = obj()
+let bodyParser = Node.Globals.require.Invoke("body-parser")
 
 // As app.use expects a ParamArray, the explicit unbox is necessary
 // so the compiler doesn't think it's an array
@@ -55,7 +60,7 @@ bodyParser?urlencoded $ (createObj ["extended" ==> true])
 
 // Serve static files from public folder
 Node.path.Globals.join(Node.Globals.__dirname, "public")
-|> express.Globals.``static``.callSelf
+|> express.Globals.``static``.Invoke
 |> fun sta -> app.``use``("/", sta)
 |> ignore
 

@@ -12,15 +12,13 @@ module Util =
         | Get of url: string
         | Post of url: string * data: 'T
         
-    exception MyEx of pachin:int*string
-    
     let ajax meth onSuccess onError =
         let url, meth, data =
             match meth with
             | Get url -> url, "GET", None
             | Post (url, data) ->
                 url, "POST", Some(JS.Globals.JSON.stringify data)
-        let req = Globals.XMLHttpRequest.createNew()
+        let req = Globals.XMLHttpRequest.Create()
         req.onreadystatechange <- fun _ ->
             if req.readyState = 4. then
                 match req.status with
@@ -39,7 +37,11 @@ open Fable.Import
 
 open Util
 open Models
+
+// ReactHelper defines a DSL to make it easier to build
+// React components from F#
 module R = ReactHelper
+open ReactHelper.Props
 
 [<Import("marked?asDefault=true")>]
 let marked (s: string) (opts: obj): string = failwith "JS only"
@@ -51,50 +53,34 @@ type CBState = { data: Comment[] }
 
 type CFProps = { onCommentSubmit: Comment -> unit }
 type CFState = { author: string option; text: string option }
-
-// type CommentView(props) =
-//     inherit R.Component<CVProps,obj>(props)
-//     member x.rawMarkup () =
-//         let rawMarkup =
-//             marked (string x.props?children) (createObj ["sanitize"==>true])
-//         createObj ["__html" ==> rawMarkup]
-//     member x.render() =
-//         R.div ["className" ==> "comment"] [
-//             R.h2 ["className" ==> "commentAuthor"] [unbox x.props.author]
-//             R.span ["dangerouslySetInnerHTML" ==> x.rawMarkup()] []
-//         ]
         
+// For simple components we can just use just a render function
+// This is the recommended way by React team
 let CommentView (props: CVProps) =
     let rawMarkup =
         let m = marked (string props?children) (createObj ["sanitize"==>true])
         createObj [ "__html" ==> m ]
-    R.div ["className" ==> "comment"] [
-        R.h2 ["className" ==> "commentAuthor"] [unbox props.author]
-        R.span ["dangerouslySetInnerHTML" ==> rawMarkup] []
+    // ReactHelper provides functions to build components from HTML tags
+    // We can build the props list using union types from ReactHelper.Props
+    R.div [ClassName "comment"] [
+        R.h2 [ClassName "commentAuthor"] [unbox props.author]
+        R.span [DangerouslySetInnerHTML rawMarkup] []
     ]
 
-// type CommentList(props) =
-//     inherit R.Component<CBState, obj>(props)
-//     member x.render () =
-//         let commentNodes =
-//             x.props.data
-//             |> Array.map (fun comment ->
-//                 R.fn CommentView {
-//                     author = comment.author
-//                     key = comment.id
-//                 } [ unbox comment.text ])
-//         R.div ["className" ==> "commentList"] [unbox commentNodes]
-        
 let CommentList(props: CBState) =
     let commentNodes =
         props.data
         |> Array.map (fun comment ->
+            // Use ReactHelper.fn to render a component from a function
             R.fn CommentView {
                 author = comment.author
                 key = comment.id
             } [ unbox comment.text ])
-    R.div ["className" ==> "commentList"] [unbox commentNodes]
+    R.div [ClassName "commentList"] [unbox commentNodes]
 
+// For more complicated components we can just inherit from ReactHelper.Component
+// This is a simple wrapper around React.Component which lets us pass the initial
+// state in the constructor
 type CommentForm(props) =
     inherit R.Component<CFProps, CFState>(props, { author = None; text = None })
 
@@ -110,32 +96,30 @@ type CommentForm(props) =
         e.preventDefault()
         match x.state with
         | {author = Some(NonEmpty author); text = Some(NonEmpty text)} ->
-        // | { author = Some author; text = Some text }
-        //         when author.Trim() <> "" && text.Trim() <> "" ->
             x.props.onCommentSubmit { id = None; author = author; text = text }
             x.setState { author = None; text = None }
         | _ -> ()
     
     member x.render () =
         R.form [
-            "className" ==> "commentForm"
-            "onSubmit" ==> x.handleSubmit
+            ClassName "commentForm"
+            OnSubmit x.handleSubmit
             ] [
                 R.input [
-                    "type" ==> "text"
-                    "placeholder" ==> "Your name"
-                    "value" ==> x.state.author
-                    "onChange" ==> x.handleAuthorChange
+                    Type "text"
+                    Placeholder "Your name"
+                    Value (U2.Case1 x.state.author.Value)
+                    OnChange x.handleAuthorChange
                 ] []
                 R.input [
-                    "type" ==> "text"
-                    "placeholder" ==> "Say something..."
-                    "value" ==> x.state.text
-                    "onChange" ==> x.handleTextChange
+                    Type "text"
+                    Placeholder "Say something..."
+                    Value (U2.Case1 x.state.text.Value)
+                    OnChange x.handleTextChange
                 ] []
                 R.input [
-                    "type" ==> "submit"
-                    "value" ==> "Post"
+                    Type "submit"
+                    Value (U2.Case1 "Post")
                 ] []
             ]
 
@@ -168,8 +152,9 @@ type CommentBox(props) =
             x.loadCommentsFromServer, x.props.pollInterval)
             
     member x.render () =
-        R.div ["className" ==> "commentBox"] [
+        R.div [ClassName "commentBox"] [
             R.h1 [] [unbox "Comments"]
             R.fn CommentList {data = x.state.data} []
+            // Use ReactHelper.com to build a React Component from a type
             R.com<CommentForm,_,_> {onCommentSubmit = x.handleCommentSubmit} []
         ]

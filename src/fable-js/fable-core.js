@@ -1502,7 +1502,10 @@
   FSet.removeInPlace = function (item, xs) {
     xs.delete(item);
     return xs;
-  }
+  };
+  FSet.remove = function (item, xs) {
+    return FSet.removeInPlace(item, new Set(xs));
+  };
 
   var FMap = exports.Map = {};
   FMap.ofArray = function (xs) {
@@ -1581,6 +1584,9 @@
     }, map);
   };
   FMap.removeInPlace = FSet.removeInPlace;
+  FMap.remove = function (item, map) {
+    return FMap.removeInPlace(item, new Map(map));
+  };
   FMap.tryPick = function (f, map) {
     return Seq.tryPick(function (kv) {
       var res = f(kv[0], kv[1]);

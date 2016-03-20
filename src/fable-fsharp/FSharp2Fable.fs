@@ -573,6 +573,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         | _ -> ctx
     |> fun ctx -> declInfo, ctx
    
+// TODO: Check that nested entities' names don't clash with parent members
 let rec private transformEntityDecl
     (com: IFableCompiler) ctx (declInfo: DeclInfo) (ent: FSharpEntity) subDecls =
     if declInfo.IsIgnoredEntity ent then

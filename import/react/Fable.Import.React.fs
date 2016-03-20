@@ -33,15 +33,15 @@ module React =
         abstract ref: U2<string, Func<SVGElement, obj>> with get, set
 
     and Factory<'P> =
-        [<Emit("$0($1...)")>] abstract callSelf: ?props: 'P * [<ParamArray>] children: ReactNode[] -> ReactElement<'P>
+        [<Emit("$0($1...)")>] abstract Invoke: ?props: 'P * [<ParamArray>] children: ReactNode[] -> ReactElement<'P>
 
     and ClassicFactory<'P> =
         inherit Factory<'P>
-        [<Emit("$0($1...)")>] abstract callSelf: ?props: 'P * [<ParamArray>] children: ReactNode[] -> ClassicElement<'P>
+        [<Emit("$0($1...)")>] abstract Invoke: ?props: 'P * [<ParamArray>] children: ReactNode[] -> ClassicElement<'P>
 
     and DOMFactory<'P> =
         inherit Factory<'P>
-        [<Emit("$0($1...)")>] abstract callSelf: ?props: 'P * [<ParamArray>] children: ReactNode[] -> DOMElement<'P>
+        [<Emit("$0($1...)")>] abstract Invoke: ?props: 'P * [<ParamArray>] children: ReactNode[] -> DOMElement<'P>
 
     and HTMLFactory =
         DOMFactory<HTMLProps<HTMLElement>>
@@ -103,19 +103,19 @@ module React =
         abstract contextTypes: ValidationMap<obj> option with get, set
         abstract defaultProps: 'P option with get, set
         abstract displayName: string option with get, set
-        [<Emit("$0($1...)")>] abstract callSelf: ?props: 'P * ?context: obj -> ReactElement<obj>
+        [<Emit("$0($1...)")>] abstract Invoke: ?props: 'P * ?context: obj -> ReactElement<obj>
 
     and ComponentClass<'P> =
         abstract propTypes: ValidationMap<'P> option with get, set
         abstract contextTypes: ValidationMap<obj> option with get, set
         abstract childContextTypes: ValidationMap<obj> option with get, set
         abstract defaultProps: 'P option with get, set
-        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> Component<'P, obj>
+        [<Emit("new $0($1...)")>] abstract Create: ?props: 'P * ?context: obj -> Component<'P, obj>
 
     and ClassicComponentClass<'P> =
         inherit ComponentClass<'P>
         abstract displayName: string option with get, set
-        [<Emit("new $0($1...)")>] abstract createNew: ?props: 'P * ?context: obj -> ClassicComponent<'P, obj>
+        [<Emit("new $0($1...)")>] abstract Create: ?props: 'P * ?context: obj -> ClassicComponent<'P, obj>
         abstract getDefaultProps: unit -> 'P
 
     and ComponentLifecycle<'P, 'S> =
@@ -232,8 +232,7 @@ module React =
         abstract deltaY: float with get, set
         abstract deltaZ: float with get, set
 
-    and EventHandler<'E> =
-        [<Emit("$0($1...)")>] abstract callSelf: ``event``: 'E -> unit
+    and EventHandler<'E> = Func<'E, unit>
 
     and ReactEventHandler =
         EventHandler<SyntheticEvent>
@@ -827,140 +826,140 @@ module React =
         abstract y: U2<float, string> option with get, set
 
     and ReactDOM =
-        abstract a: HTMLFactory with get, set
-        abstract abbr: HTMLFactory with get, set
-        abstract address: HTMLFactory with get, set
-        abstract area: HTMLFactory with get, set
-        abstract article: HTMLFactory with get, set
-        abstract aside: HTMLFactory with get, set
-        abstract audio: HTMLFactory with get, set
-        abstract b: HTMLFactory with get, set
-        abstract ``base``: HTMLFactory with get, set
-        abstract bdi: HTMLFactory with get, set
-        abstract bdo: HTMLFactory with get, set
-        abstract big: HTMLFactory with get, set
-        abstract blockquote: HTMLFactory with get, set
-        abstract body: HTMLFactory with get, set
-        abstract br: HTMLFactory with get, set
-        abstract button: HTMLFactory with get, set
-        abstract canvas: HTMLFactory with get, set
-        abstract caption: HTMLFactory with get, set
-        abstract cite: HTMLFactory with get, set
-        abstract code: HTMLFactory with get, set
-        abstract col: HTMLFactory with get, set
-        abstract colgroup: HTMLFactory with get, set
-        abstract data: HTMLFactory with get, set
-        abstract datalist: HTMLFactory with get, set
-        abstract dd: HTMLFactory with get, set
-        abstract del: HTMLFactory with get, set
-        abstract details: HTMLFactory with get, set
-        abstract dfn: HTMLFactory with get, set
-        abstract dialog: HTMLFactory with get, set
-        abstract div: HTMLFactory with get, set
-        abstract dl: HTMLFactory with get, set
-        abstract dt: HTMLFactory with get, set
-        abstract em: HTMLFactory with get, set
-        abstract embed: HTMLFactory with get, set
-        abstract fieldset: HTMLFactory with get, set
-        abstract figcaption: HTMLFactory with get, set
-        abstract figure: HTMLFactory with get, set
-        abstract footer: HTMLFactory with get, set
-        abstract form: HTMLFactory with get, set
-        abstract h1: HTMLFactory with get, set
-        abstract h2: HTMLFactory with get, set
-        abstract h3: HTMLFactory with get, set
-        abstract h4: HTMLFactory with get, set
-        abstract h5: HTMLFactory with get, set
-        abstract h6: HTMLFactory with get, set
-        abstract head: HTMLFactory with get, set
-        abstract header: HTMLFactory with get, set
-        abstract hgroup: HTMLFactory with get, set
-        abstract hr: HTMLFactory with get, set
-        abstract html: HTMLFactory with get, set
-        abstract i: HTMLFactory with get, set
-        abstract iframe: HTMLFactory with get, set
-        abstract img: HTMLFactory with get, set
-        abstract input: HTMLFactory with get, set
-        abstract ins: HTMLFactory with get, set
-        abstract kbd: HTMLFactory with get, set
-        abstract keygen: HTMLFactory with get, set
-        abstract label: HTMLFactory with get, set
-        abstract legend: HTMLFactory with get, set
-        abstract li: HTMLFactory with get, set
-        abstract link: HTMLFactory with get, set
-        abstract main: HTMLFactory with get, set
-        abstract map: HTMLFactory with get, set
-        abstract mark: HTMLFactory with get, set
-        abstract menu: HTMLFactory with get, set
-        abstract menuitem: HTMLFactory with get, set
-        abstract meta: HTMLFactory with get, set
-        abstract meter: HTMLFactory with get, set
-        abstract nav: HTMLFactory with get, set
-        abstract noscript: HTMLFactory with get, set
-        abstract ``object``: HTMLFactory with get, set
-        abstract ol: HTMLFactory with get, set
-        abstract optgroup: HTMLFactory with get, set
-        abstract option: HTMLFactory with get, set
-        abstract output: HTMLFactory with get, set
-        abstract p: HTMLFactory with get, set
-        abstract param: HTMLFactory with get, set
-        abstract picture: HTMLFactory with get, set
-        abstract pre: HTMLFactory with get, set
-        abstract progress: HTMLFactory with get, set
-        abstract q: HTMLFactory with get, set
-        abstract rp: HTMLFactory with get, set
-        abstract rt: HTMLFactory with get, set
-        abstract ruby: HTMLFactory with get, set
-        abstract s: HTMLFactory with get, set
-        abstract samp: HTMLFactory with get, set
-        abstract script: HTMLFactory with get, set
-        abstract section: HTMLFactory with get, set
-        abstract select: HTMLFactory with get, set
-        abstract small: HTMLFactory with get, set
-        abstract source: HTMLFactory with get, set
-        abstract span: HTMLFactory with get, set
-        abstract strong: HTMLFactory with get, set
-        abstract style: HTMLFactory with get, set
-        abstract sub: HTMLFactory with get, set
-        abstract summary: HTMLFactory with get, set
-        abstract sup: HTMLFactory with get, set
-        abstract table: HTMLFactory with get, set
-        abstract tbody: HTMLFactory with get, set
-        abstract td: HTMLFactory with get, set
-        abstract textarea: HTMLFactory with get, set
-        abstract tfoot: HTMLFactory with get, set
-        abstract th: HTMLFactory with get, set
-        abstract thead: HTMLFactory with get, set
-        abstract time: HTMLFactory with get, set
-        abstract title: HTMLFactory with get, set
-        abstract tr: HTMLFactory with get, set
-        abstract track: HTMLFactory with get, set
-        abstract u: HTMLFactory with get, set
-        abstract ul: HTMLFactory with get, set
-        abstract var: HTMLFactory with get, set
-        abstract video: HTMLFactory with get, set
-        abstract wbr: HTMLFactory with get, set
-        abstract svg: SVGFactory with get, set
-        abstract circle: SVGFactory with get, set
-        abstract defs: SVGFactory with get, set
-        abstract ellipse: SVGFactory with get, set
-        abstract g: SVGFactory with get, set
-        abstract image: SVGFactory with get, set
-        abstract line: SVGFactory with get, set
-        abstract linearGradient: SVGFactory with get, set
-        abstract mask: SVGFactory with get, set
-        abstract path: SVGFactory with get, set
-        abstract pattern: SVGFactory with get, set
-        abstract polygon: SVGFactory with get, set
-        abstract polyline: SVGFactory with get, set
-        abstract radialGradient: SVGFactory with get, set
-        abstract rect: SVGFactory with get, set
-        abstract stop: SVGFactory with get, set
-        abstract text: SVGFactory with get, set
-        abstract tspan: SVGFactory with get, set
+        abstract a: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract abbr: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract address: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract area: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract article: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract aside: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract audio: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract b: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract ``base``: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract bdi: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract bdo: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract big: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract blockquote: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract body: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract br: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract button: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract canvas: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract caption: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract cite: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract code: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract col: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract colgroup: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract data: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract datalist: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract dd: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract del: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract details: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract dfn: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract dialog: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract div: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract dl: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract dt: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract em: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract embed: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract fieldset: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract figcaption: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract figure: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract footer: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract form: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract h1: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract h2: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract h3: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract h4: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract h5: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract h6: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract head: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract header: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract hgroup: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract hr: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract html: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract i: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract iframe: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract img: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract input: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract ins: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract kbd: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract keygen: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract label: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract legend: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract li: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract link: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract main: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract map: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract mark: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract menu: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract menuitem: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract meta: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract meter: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract nav: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract noscript: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract ``object``: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract ol: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract optgroup: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract option: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract output: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract p: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract param: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract picture: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract pre: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract progress: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract q: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract rp: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract rt: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract ruby: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract s: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract samp: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract script: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract section: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract select: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract small: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract source: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract span: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract strong: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract style: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract sub: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract summary: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract sup: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract table: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract tbody: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract td: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract textarea: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract tfoot: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract th: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract thead: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract time: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract title: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract tr: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract track: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract u: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract ul: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract var: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract video: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract wbr: ?props: HTMLProps<HTMLElement> * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract svg: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract circle: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract defs: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract ellipse: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract g: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract image: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract line: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract linearGradient: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract mask: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract path: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract pattern: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract polygon: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract polyline: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract radialGradient: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract rect: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract stop: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract text: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
+        abstract tspan: ?props: SVGProps * [<ParamArray>] children: ReactElement<obj>[] -> DOMElement<obj>
 
     and Validator<'T> =
-        [<Emit("$0($1...)")>] abstract callSelf: ``object``: 'T * key: string * componentName: string -> Error
+        [<Emit("$0($1...)")>] abstract Invoke: ``object``: 'T * key: string * componentName: string -> Error
 
     and Requireable<'T> =
         inherit Validator<'T>
@@ -1028,161 +1027,6 @@ module React =
         static member cloneElement(element: ClassicElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ClassicElement<'P> = failwith "JS only"
         static member cloneElement(element: ReactElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ReactElement<'P> = failwith "JS only"
         static member isValidElement(``object``: obj): bool = failwith "JS only"
-
-
-
-module JSX =
-    type Element =
-        inherit React.ReactElement<obj>
-
-
-    // and ElementClass =
-    //     inherit React.Component<obj, obj>
-    //     abstract render: unit -> Element
-
-    and ElementAttributesProperty =
-        abstract props: obj with get, set
-
-    and IntrinsicAttributes =
-        abstract key: U2<string, float> option with get, set
-
-    and IntrinsicClassAttributes<'T> =
-        abstract ref: U2<string, Func<'T, unit>> option with get, set
-
-    and IntrinsicElements =
-        abstract a: React.HTMLProps<HTMLAnchorElement> with get, set
-        abstract abbr: React.HTMLProps<HTMLElement> with get, set
-        abstract address: React.HTMLProps<HTMLElement> with get, set
-        abstract area: React.HTMLProps<HTMLAreaElement> with get, set
-        abstract article: React.HTMLProps<HTMLElement> with get, set
-        abstract aside: React.HTMLProps<HTMLElement> with get, set
-        abstract audio: React.HTMLProps<HTMLAudioElement> with get, set
-        abstract b: React.HTMLProps<HTMLElement> with get, set
-        abstract ``base``: React.HTMLProps<HTMLBaseElement> with get, set
-        abstract bdi: React.HTMLProps<HTMLElement> with get, set
-        abstract bdo: React.HTMLProps<HTMLElement> with get, set
-        abstract big: React.HTMLProps<HTMLElement> with get, set
-        abstract blockquote: React.HTMLProps<HTMLElement> with get, set
-        abstract body: React.HTMLProps<HTMLBodyElement> with get, set
-        abstract br: React.HTMLProps<HTMLBRElement> with get, set
-        abstract button: React.HTMLProps<HTMLButtonElement> with get, set
-        abstract canvas: React.HTMLProps<HTMLCanvasElement> with get, set
-        abstract caption: React.HTMLProps<HTMLElement> with get, set
-        abstract cite: React.HTMLProps<HTMLElement> with get, set
-        abstract code: React.HTMLProps<HTMLElement> with get, set
-        abstract col: React.HTMLProps<HTMLTableColElement> with get, set
-        abstract colgroup: React.HTMLProps<HTMLTableColElement> with get, set
-        abstract data: React.HTMLProps<HTMLElement> with get, set
-        abstract datalist: React.HTMLProps<HTMLDataListElement> with get, set
-        abstract dd: React.HTMLProps<HTMLElement> with get, set
-        abstract del: React.HTMLProps<HTMLElement> with get, set
-        abstract details: React.HTMLProps<HTMLElement> with get, set
-        abstract dfn: React.HTMLProps<HTMLElement> with get, set
-        abstract dialog: React.HTMLProps<HTMLElement> with get, set
-        abstract div: React.HTMLProps<HTMLDivElement> with get, set
-        abstract dl: React.HTMLProps<HTMLDListElement> with get, set
-        abstract dt: React.HTMLProps<HTMLElement> with get, set
-        abstract em: React.HTMLProps<HTMLElement> with get, set
-        abstract embed: React.HTMLProps<HTMLEmbedElement> with get, set
-        abstract fieldset: React.HTMLProps<HTMLFieldSetElement> with get, set
-        abstract figcaption: React.HTMLProps<HTMLElement> with get, set
-        abstract figure: React.HTMLProps<HTMLElement> with get, set
-        abstract footer: React.HTMLProps<HTMLElement> with get, set
-        abstract form: React.HTMLProps<HTMLFormElement> with get, set
-        abstract h1: React.HTMLProps<HTMLHeadingElement> with get, set
-        abstract h2: React.HTMLProps<HTMLHeadingElement> with get, set
-        abstract h3: React.HTMLProps<HTMLHeadingElement> with get, set
-        abstract h4: React.HTMLProps<HTMLHeadingElement> with get, set
-        abstract h5: React.HTMLProps<HTMLHeadingElement> with get, set
-        abstract h6: React.HTMLProps<HTMLHeadingElement> with get, set
-        abstract head: React.HTMLProps<HTMLHeadElement> with get, set
-        abstract header: React.HTMLProps<HTMLElement> with get, set
-        abstract hgroup: React.HTMLProps<HTMLElement> with get, set
-        abstract hr: React.HTMLProps<HTMLHRElement> with get, set
-        abstract html: React.HTMLProps<HTMLHtmlElement> with get, set
-        abstract i: React.HTMLProps<HTMLElement> with get, set
-        abstract iframe: React.HTMLProps<HTMLIFrameElement> with get, set
-        abstract img: React.HTMLProps<HTMLImageElement> with get, set
-        abstract input: React.HTMLProps<HTMLInputElement> with get, set
-        abstract ins: React.HTMLProps<HTMLModElement> with get, set
-        abstract kbd: React.HTMLProps<HTMLElement> with get, set
-        abstract keygen: React.HTMLProps<HTMLElement> with get, set
-        abstract label: React.HTMLProps<HTMLLabelElement> with get, set
-        abstract legend: React.HTMLProps<HTMLLegendElement> with get, set
-        abstract li: React.HTMLProps<HTMLLIElement> with get, set
-        abstract link: React.HTMLProps<HTMLLinkElement> with get, set
-        abstract main: React.HTMLProps<HTMLElement> with get, set
-        abstract map: React.HTMLProps<HTMLMapElement> with get, set
-        abstract mark: React.HTMLProps<HTMLElement> with get, set
-        abstract menu: React.HTMLProps<HTMLElement> with get, set
-        abstract menuitem: React.HTMLProps<HTMLElement> with get, set
-        abstract meta: React.HTMLProps<HTMLMetaElement> with get, set
-        abstract meter: React.HTMLProps<HTMLElement> with get, set
-        abstract nav: React.HTMLProps<HTMLElement> with get, set
-        abstract noscript: React.HTMLProps<HTMLElement> with get, set
-        abstract ``object``: React.HTMLProps<HTMLObjectElement> with get, set
-        abstract ol: React.HTMLProps<HTMLOListElement> with get, set
-        abstract optgroup: React.HTMLProps<HTMLOptGroupElement> with get, set
-        abstract option: React.HTMLProps<HTMLOptionElement> with get, set
-        abstract output: React.HTMLProps<HTMLElement> with get, set
-        abstract p: React.HTMLProps<HTMLParagraphElement> with get, set
-        abstract param: React.HTMLProps<HTMLParamElement> with get, set
-        abstract picture: React.HTMLProps<HTMLElement> with get, set
-        abstract pre: React.HTMLProps<HTMLPreElement> with get, set
-        abstract progress: React.HTMLProps<HTMLProgressElement> with get, set
-        abstract q: React.HTMLProps<HTMLQuoteElement> with get, set
-        abstract rp: React.HTMLProps<HTMLElement> with get, set
-        abstract rt: React.HTMLProps<HTMLElement> with get, set
-        abstract ruby: React.HTMLProps<HTMLElement> with get, set
-        abstract s: React.HTMLProps<HTMLElement> with get, set
-        abstract samp: React.HTMLProps<HTMLElement> with get, set
-        abstract script: React.HTMLProps<HTMLElement> with get, set
-        abstract section: React.HTMLProps<HTMLElement> with get, set
-        abstract select: React.HTMLProps<HTMLSelectElement> with get, set
-        abstract small: React.HTMLProps<HTMLElement> with get, set
-        abstract source: React.HTMLProps<HTMLSourceElement> with get, set
-        abstract span: React.HTMLProps<HTMLSpanElement> with get, set
-        abstract strong: React.HTMLProps<HTMLElement> with get, set
-        abstract style: React.HTMLProps<HTMLStyleElement> with get, set
-        abstract sub: React.HTMLProps<HTMLElement> with get, set
-        abstract summary: React.HTMLProps<HTMLElement> with get, set
-        abstract sup: React.HTMLProps<HTMLElement> with get, set
-        abstract table: React.HTMLProps<HTMLTableElement> with get, set
-        abstract tbody: React.HTMLProps<HTMLTableSectionElement> with get, set
-        abstract td: React.HTMLProps<HTMLTableDataCellElement> with get, set
-        abstract textarea: React.HTMLProps<HTMLTextAreaElement> with get, set
-        abstract tfoot: React.HTMLProps<HTMLTableSectionElement> with get, set
-        abstract th: React.HTMLProps<HTMLTableHeaderCellElement> with get, set
-        abstract thead: React.HTMLProps<HTMLTableSectionElement> with get, set
-        abstract time: React.HTMLProps<HTMLElement> with get, set
-        abstract title: React.HTMLProps<HTMLTitleElement> with get, set
-        abstract tr: React.HTMLProps<HTMLTableRowElement> with get, set
-        abstract track: React.HTMLProps<HTMLTrackElement> with get, set
-        abstract u: React.HTMLProps<HTMLElement> with get, set
-        abstract ul: React.HTMLProps<HTMLUListElement> with get, set
-        abstract var: React.HTMLProps<HTMLElement> with get, set
-        abstract video: React.HTMLProps<HTMLVideoElement> with get, set
-        abstract wbr: React.HTMLProps<HTMLElement> with get, set
-        abstract svg: React.SVGProps with get, set
-        abstract circle: React.SVGProps with get, set
-        abstract clipPath: React.SVGProps with get, set
-        abstract defs: React.SVGProps with get, set
-        abstract ellipse: React.SVGProps with get, set
-        abstract g: React.SVGProps with get, set
-        abstract image: React.SVGProps with get, set
-        abstract line: React.SVGProps with get, set
-        abstract linearGradient: React.SVGProps with get, set
-        abstract mask: React.SVGProps with get, set
-        abstract path: React.SVGProps with get, set
-        abstract pattern: React.SVGProps with get, set
-        abstract polygon: React.SVGProps with get, set
-        abstract polyline: React.SVGProps with get, set
-        abstract radialGradient: React.SVGProps with get, set
-        abstract rect: React.SVGProps with get, set
-        abstract stop: React.SVGProps with get, set
-        abstract text: React.SVGProps with get, set
-        abstract tspan: React.SVGProps with get, set
-
 
 module ReactDom =
     open React
