@@ -1,0 +1,18 @@
+{
+  "name": "fable-import-vscode",
+  "version": "0.0.1",
+  "description": "Fable bindings for Visual Studio Code",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fsprojects/Fable/import/vscode"
+  },
+  "license": "Apache-2.0",
+  "author": "Alfonso Garcia-Caro",
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#"
+  ],
+  "homepage": "https://github.com/fsprojects/Fable#readme"
+}
