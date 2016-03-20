@@ -24,7 +24,7 @@ var cli = commandLineArgs([
   { name: 'watch', alias: 'w', type: Boolean, description: "Recompile project much faster on file modifications." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without 'babel-plugin-' prefix, " +
-                        "like 'angular2-annotations'). Must be installed in the current directory." },
+                        "like 'angular2-annotations'). Must be installed in the project directory." },
   { name: 'code', description: "Pass a string of code directly to Fable." },
   { name: 'outDir', description: "Where to put compiled JS files. Defaults to project directory." },
   { name: 'lib', description: "Where to find the core library. " +
@@ -328,7 +328,7 @@ try {
     // Module target and extra plugins
     if (opts.babelPlugins) {
         opts.babelPlugins.forEach(function (x) {
-            babelPlugins.push(require("babel-plugin-" + x));
+            babelPlugins.push(require(path.join(opts.projDir, "node_modules", "babel-plugin-" + x)));
         });
     }
     if (opts.env === "browser") {

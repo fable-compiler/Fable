@@ -1,6 +1,7 @@
 {
     "env": "node",
     "projFile": "./Fable.Samples.React.fsproj",
+    "babelPlugins": ["transform-runtime"],
     "targets": {
         "debug": {
             "watch": true,
