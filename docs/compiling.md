@@ -46,11 +46,11 @@ the current directory.
 
 > Options in the CLI have preference over the config file.
 
-There are a couple of options exclusive for `fableconfig.json`.
+There are some options exclusive for `fableconfig.json`.
 
 * **scripts**: Commands that should be executed during specific phases of compilation.
-Currently only `postbuild` is accepted. For example, if you want to run tests defined
-in the npm `package.json` file you can write. 
+  Currently only `postbuild` is accepted. For example, if you want to run tests defined
+  in the npm `package.json` file you can write. 
 
 ```json
 {
@@ -61,10 +61,10 @@ in the npm `package.json` file you can write.
 ```
 
 * **targets**: You can group different options in targets. If you don't want,
-say, source maps when deploying for production, you can use a config file as
-seen below. When a target is specified, the options in the target will
-override the defualt ones. Activate the target by passing it to the CLI:
-`fable --target production`.
+  say, source maps when deploying for production, you can use a config file as
+  seen below. When a target is specified, the options in the target will
+  override the defualt ones. Activate the target by passing it to the CLI:
+  `fable --target production`.
 
 
 ```json
@@ -74,6 +74,17 @@ override the defualt ones. Activate the target by passing it to the CLI:
         "production": {
             "sourceMaps": false
         }
+    }
+}
+```
+
+* **engines**: Similar to the same field in node modules' `package.json`.
+  Use it to specify the minimum version of Fable required to compile the project.
+
+```json
+{
+    "engines": {
+        "fable": "0.1.2"
     }
 }
 ```

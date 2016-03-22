@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.1.1"  // or retrieve from CI server
+let version = "0.1.2"  // or retrieve from CI server
 
 module Util =
     open System.Net
@@ -97,6 +97,9 @@ Target "FableRelease" (fun _ ->
 )
 
 Target "FableDebug" (fun _ ->
+    let targetDir = "build/fable"
+    FileUtils.cp_r "src/fable-js" targetDir
+    Npm.command targetDir "version" [version]
     !! "src/fable-fsharp/Fable.fsproj"
     |> MSBuildDebug fableBuildDir "Build"
     |> Log "Debug-Output: "
@@ -106,6 +109,7 @@ Target "FableJs" (fun _ ->
     let targetDir = "build/fable"
     FileUtils.cp_r "src/fable-js" targetDir
     FileUtils.cp "README.md" targetDir
+    Npm.command targetDir "version" [version]
     Npm.install targetDir []
 )
 

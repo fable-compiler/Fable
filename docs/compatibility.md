@@ -126,7 +126,7 @@ delegate, this will be done automatically by the compiler.
 Events are not implemented yet, please use [Observable](/test/ObservableTests.fs) instead.
 
 ## Object Expressions
-You can use object expressions to implement interfaces (but not to override methods of a concrete type).
+Object expressions are compatible for the most general cases.
 
 ## Units of measure
 Units of measure should be compatible (at least for `int` and `float`) but they will

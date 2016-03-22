@@ -221,6 +221,29 @@ module Patterns =
             | _ when Option.isSome (ent.TryGetDecorator "Erase") -> ErasedUnion
             | _ -> OtherType
         | _ -> failwithf "Unexpected union type: %A" typ
+        
+    let isInline (meth: FSharpMemberOrFunctionOrValue) =
+        match meth.InlineAnnotation with
+        | FSharpInlineAnnotation.NeverInline
+        | FSharpInlineAnnotation.OptionalInline -> false
+        | FSharpInlineAnnotation.PseudoValue
+        | FSharpInlineAnnotation.AlwaysInline -> true
+
+    let isImported (ent: FSharpEntity) =
+        let isImportedAtt att =
+            att = "Global" || att = "Import"
+        ent.FullName.StartsWith "Fable.Import"
+        || Option.isSome(tryFindAtt isImportedAtt ent.Attributes)
+        
+    let hasReplaceAtt (atts: #seq<FSharpAttribute>) =
+        tryFindAtt ((=) "Replace") atts |> Option.isSome
+        
+    let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
+        not(isImported ent) && Option.isNone(com.GetInternalFile ent)
+
+    let isReplaceCandidate (com: IFableCompiler) (ent: FSharpEntity) =
+        hasReplaceAtt ent.Attributes || isExternalEntity com ent
+
 
 module Types =
     open Patterns
@@ -241,8 +264,7 @@ module Types =
 
     let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
         let isIgnored (t: FSharpType) =
-            not t.HasTypeDefinition
-            || Option.isNone (com.GetInternalFile t.TypeDefinition)
+            not t.HasTypeDefinition || isExternalEntity com t.TypeDefinition
         match tdef.BaseType with
         | None -> None
         | Some (NonAbbreviatedType t) ->
@@ -366,26 +388,6 @@ module Util =
     open Patterns
     open Types
     open Identifiers
-
-    let isInline (meth: FSharpMemberOrFunctionOrValue) =
-        match meth.InlineAnnotation with
-        | FSharpInlineAnnotation.NeverInline
-        | FSharpInlineAnnotation.OptionalInline -> false
-        | FSharpInlineAnnotation.PseudoValue
-        | FSharpInlineAnnotation.AlwaysInline -> true
-
-    let isImported (ent: FSharpEntity) =
-        let isImportedAtt att =
-            att = "Global" || att = "Import"
-        ent.FullName.StartsWith "Fable.Import"
-        || Option.isSome(tryFindAtt isImportedAtt ent.Attributes)
-        
-    let hasReplaceAtt (atts: #seq<FSharpAttribute>) =
-        tryFindAtt ((=) "Replace") atts |> Option.isSome
-        
-    let isReplaceCandidate (com: IFableCompiler) (ent: FSharpEntity) =
-        hasReplaceAtt ent.Attributes
-        || (not(isImported ent) && Option.isNone(com.GetInternalFile ent))
 
     let getMemberKind name (meth: FSharpMemberOrFunctionOrValue) =
         if meth.IsImplicitConstructor then Fable.Constructor

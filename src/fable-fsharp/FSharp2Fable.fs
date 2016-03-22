@@ -284,46 +284,74 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         |> Fable.ArrayConst |> Fable.Value
 
     | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
-        let lowerFirstKnownInterfaces typName name =
-            if Naming.knownInterfaces.Contains typName
-            then Naming.lowerFirst name
-            else name
-        match baseCallExpr with
-        | BasicPatterns.Call(None, meth, [], [], []) when meth.EnclosingEntity.FullName = "System.Object" ->
-            let members =
-                (objType, overrides)::otherOverrides
-                |> List.map (fun (typ, overrides) ->
-                    let typName = sanitizeEntityName typ.TypeDefinition
-                    overrides |> List.map (fun over ->
-                        let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
-                        let ctx, args' = getMethodArgs com ctx true args
-                        let kind =
-                            let name =
-                                over.Signature.Name
-                                |> Naming.removeParens
-                                |> Naming.removeGetSetPrefix
-                                |> lowerFirstKnownInterfaces typName
-                            match over.Signature.Name with
-                            | Naming.StartsWith "get_" _ -> Fable.Getter (name, false)
-                            | Naming.StartsWith "set_" _ -> Fable.Setter name
-                            | _ -> Fable.Method name
-                        // TODO: FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-                        // information about ParamArray, we need to check the source method.
-                        // Improve the way to do it.
-                        let hasRestParams =
-                            typ.TypeDefinition.MembersFunctionsAndValues
+        let lowerFirstKnownInterfaces typ name =
+            match typ with
+            | Some typ ->
+                let typName = sanitizeEntityName typ
+                if Naming.knownInterfaces.Contains typName
+                then Naming.lowerFirst name
+                else name
+            | None -> name
+        let baseClass, baseCons =
+            match baseCallExpr with
+            | BasicPatterns.Call(None, meth, _, _, args)
+                when not(isExternalEntity com meth.EnclosingEntity) ->
+                let args = List.map (com.Transform ctx) args
+                let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
+                let baseClass =
+                    makeTypeFromDef com meth.EnclosingEntity
+                    |> makeTypeRef com SourceLocation.Empty
+                    |> Some
+                let baseCons =
+                    Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
+                    |> fun c -> Fable.Member(Fable.Constructor, range, [], c, [], true, false, false)
+                    |> Some
+                baseClass, baseCons
+            | _ -> None, None
+        let members =
+            (objType, overrides)::otherOverrides
+            |> List.map (fun (typ, overrides) ->
+                overrides |> List.map (fun over ->
+                    let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
+                    let ctx, args' = getMethodArgs com ctx true args
+                    // Don't use the typ argument as the override may come
+                    // from another type, like ToString()
+                    let typ =
+                        if over.Signature.DeclaringType.HasTypeDefinition
+                        then Some over.Signature.DeclaringType.TypeDefinition
+                        else None
+                    let kind =
+                        let name =
+                            over.Signature.Name
+                            |> Naming.removeParens
+                            |> Naming.removeGetSetPrefix
+                            |> lowerFirstKnownInterfaces typ
+                        match over.Signature.Name with
+                        | Naming.StartsWith "get_" _ -> Fable.Getter (name, false)
+                        | Naming.StartsWith "set_" _ -> Fable.Setter name
+                        | _ -> Fable.Method name
+                    // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+                    // information about ParamArray, we need to check the source method.
+                    let hasRestParams =
+                        match typ with
+                        | None -> false
+                        | Some typ ->
+                            typ.MembersFunctionsAndValues
                             |> Seq.tryFind (fun x -> x.DisplayName = over.Signature.Name)
                             |> function Some m -> hasRestParams m | None -> false
-                        Fable.Member(kind, range, args',
-                                     transformExpr com ctx over.Body,
-                                     hasRestParams = hasRestParams)))
-                |> List.concat
-            let interfaces =
-                objType::(otherOverrides |> List.map fst)
-                |> List.map (fun x -> sanitizeEntityName x.TypeDefinition)
-                |> List.distinct
-            Fable.ObjExpr (members, interfaces, makeRangeFrom fsExpr)
-        | _ -> failwithf "Object expression from classes are not supported: %A" fsExpr.Range
+                    Fable.Member(kind, range, args',
+                                    transformExpr com ctx over.Body,
+                                    hasRestParams = hasRestParams)))
+            |> List.concat
+        let members =
+            match baseCons with
+            | Some baseCons -> baseCons::members
+            | None -> members
+        let interfaces =
+            objType::(otherOverrides |> List.map fst)
+            |> List.map (fun x -> sanitizeEntityName x.TypeDefinition)
+            |> List.distinct
+        Fable.ObjExpr (members, interfaces, baseClass, makeRangeFrom fsExpr)
 
     // TODO: Check for erased constructors with property assignment (Call + Sequential)
     | BasicPatterns.NewObject(meth, typArgs, args) ->
@@ -675,8 +703,9 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
             let rootEnt, rootDecls =
                 let rootEnt, rootDecls =
                     let rootEnt, rootDecls = getRootDecls None file.Declarations
+                    let arePathsEqual p1 p2 = (Naming.normalizePath p1) = (Naming.normalizePath p2)
                     match fileMask with
-                    | Some mask when (Naming.normalizePath file.FileName) <> mask -> rootEnt, []
+                    | Some mask when not(arePathsEqual file.FileName mask) -> rootEnt, []
                     | _ -> rootEnt, transformDeclarations com Context.Empty [] rootDecls
                 match rootEnt with
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls

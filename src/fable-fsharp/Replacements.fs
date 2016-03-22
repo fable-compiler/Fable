@@ -238,7 +238,7 @@ module private AstPass =
                 CoreLibCall("Util", Some "createObj", false, i.args)
                 |> makeCall com i.range i.returnType |> Some
         | "createEmpty" ->
-            Fable.ObjExpr ([], [], i.range)
+            Fable.ObjExpr ([], [], None, i.range)
             |> wrap i.returnType |> Some
         | "areEqual" ->
             ImportCall("assert", true, None, Some "equal", false, i.args)
@@ -439,7 +439,7 @@ module private AstPass =
 
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
-        | "checkThis", _ -> Fable.Null |> Fable.Value |> Some
+        | "checkThis", _ -> Fable.This |> Fable.Value |> Some
         | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
         | "getString", TwoArgs (ar, idx)
         | "getArray", TwoArgs (ar, idx) ->
@@ -851,7 +851,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.args with
-            | [] -> Fable.ObjExpr ([], [], i.range)
+            | [] -> Fable.ObjExpr ([], [], None, i.range)
             | [arg] -> arg
             | args -> makeArray Fable.UnknownType args
             |> Some
@@ -860,7 +860,7 @@ module private AstPass =
         
     let cancels com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | ".ctor" -> Fable.ObjExpr ([], [], i.range) |> Some
+        | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | "token" -> i.callee
         | "cancel" -> emit i "$0.isCancelled = true" [i.callee.Value] |> Some
         | "cancelAfter" -> emit i "setTimeout(function () { $0.isCancelled = true }, $1)" [i.callee.Value; i.args.Head] |> Some
@@ -869,7 +869,7 @@ module private AstPass =
 
     let knownInterfaces com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | ".ctor" -> Fable.ObjExpr ([], [], i.range) |> Some
+        | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | meth -> InstanceCall (i.callee.Value, meth, i.args)
                   |> makeCall com i.range i.returnType |> Some
 

@@ -175,7 +175,7 @@ and LoopKind =
 and Expr =
     // Pure Expressions
     | Value of value: ValueKind
-    | ObjExpr of members: Member list * interfaces: string list * range: SourceLocation option
+    | ObjExpr of members: Member list * interfaces: string list * baseClass: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
     | Apply of callee: Expr * args: Expr list * kind: ApplyKind * typ: Type * range: SourceLocation option
 
@@ -208,7 +208,7 @@ and Expr =
         match x with
         | Value v -> v.Range
         | VarDeclaration (_,e,_) | Wrapped (e,_) -> e.Range
-        | ObjExpr (_,_,range) 
+        | ObjExpr (_,_,_,range) 
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
         | Throw (_,range)
@@ -278,7 +278,7 @@ module Util =
             | Value Null, _ -> makeSequential range rest
             | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
             // Calls to System.Object..ctor in class constructors
-            | ObjExpr ([],[],_), _ -> makeSequential range rest
+            | ObjExpr ([],[],_,_), _ -> makeSequential range rest
             | _ -> Sequential (statements, range)
                 
     let makeConst (value: obj) =
@@ -467,5 +467,5 @@ module Util =
     let makeJsObject range (props: (string * Expr) list) =
         let members = props |> List.map (fun (name, body) ->
             Member(Getter (name, true), range, [], body))
-        ObjExpr(members, [], Some range)
+        ObjExpr(members, [], None, Some range)
  

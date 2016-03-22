@@ -157,7 +157,7 @@ function babelifyToFile(babelAst, opts) {
     var babelOpts = {
         sourceMaps: opts.sourceMaps,
         sourceMapTarget: path.basename(targetFile),
-        sourceFileName: path.basename(babelAst.fileName),
+        sourceFileName: path.relative(path.dirname(targetFile), babelAst.fileName).replace(/\\/g, '/'),
         plugins: babelPlugins
     };
     
@@ -184,11 +184,12 @@ function watch(opts, fableProc) {
     }
     var prev = null;
     fableProc.stdin.setEncoding('utf-8');
+    console.log("Watching " + opts.projDir);
     var fsExtensions = [".fs", ".fsx", ".fsproj"];
     fs.watch(opts.projDir, { persistent: true, recursive: true }, function(ev, filename) {
         var ext = path.extname(filename).toLowerCase();
-        if (ev == "change" && fsExtensions.indexOf(ext) >= 0) {
-            filename = path.resolve(filename).replace(/\\/g,"/");
+        if (/*ev == "change" &&*/ fsExtensions.indexOf(ext) >= 0) {
+            filename = path.join(opts.projDir, filename);
             if (!tooClose(filename, prev)) {
                 fableProc.stdin.write(filename + "\n");
             }
@@ -307,6 +308,27 @@ try {
         process.exit(1);
     }
     
+    if (opts.engines && opts.engines.fable) {
+        function checkVersions(vmin, vact) {
+            var vreg = /(\d+)(?:\.(\d+)(?:\.(\d+))?)?/;
+            vmin = vreg.exec(vmin);
+            vact = vreg.exec(vact);
+            var min, act;
+            // Assuming actual version will always have same or more components
+            for (var i = 1; i < vmin.length; i++) {
+                min = parseInt(vmin[i]);
+                act = parseInt(vact[i]);
+                if (!isNaN(min) && min > act) {
+                    console.log("Required version: " + vmin[0]);
+                    console.log("Actual version: " + vact[0]);
+                    console.log("Please upgrade fable-compiler");
+                    process.exit(1);
+                }
+            }
+        }
+        checkVersions(opts.engines.fable, require("./package.json").version);
+    }
+    
     if (!opts.projFile && !opts.code) {
         console.log("ERROR: Please provide a F# project (.fsproj) or script (.fsx) file");
         console.log("Use 'fable --help' to see available options");
@@ -327,7 +349,7 @@ try {
         
     // Module target and extra plugins
     if (opts.babelPlugins) {
-        opts.babelPlugins.forEach(function (x) {
+        (Array.isArray(opts.babelPlugins) ? opts.babelPlugins : [opts.babelPlugins]).forEach(function (x) {
             babelPlugins.push(require(path.join(opts.projDir, "node_modules", "babel-plugin-" + x)));
         });
     }
@@ -349,7 +371,7 @@ try {
             fableCmdArgs.push("--" + k, opts[k]);
     }
     // console.log(opts.projDir + "> " + fableCmd + " " + fableCmdArgs.join(" "));
-        
+    console.log("Start compilation...");        
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: opts.projDir });
 
     fableProc.on('exit', function(code) {

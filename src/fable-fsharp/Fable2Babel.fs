@@ -21,6 +21,8 @@ type IBabelCompiler =
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
     abstract TransformFunction: Context -> Fable.Ident list -> Fable.Expr ->
         (Babel.Pattern list) * U2<Babel.BlockStatement, Babel.Expression>
+    abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
+        Fable.Declaration list -> Babel.ClassExpression
         
 and IDeclarePlugin =
     inherit IPlugin
@@ -286,33 +288,39 @@ module Util =
             | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ | Fable.Spread _ ->
                 failwithf "Unexpected stand-alone value: %A" expr
 
-        | Fable.ObjExpr (members, interfaces, range) ->
-            members
-            |> List.map (fun m ->
-                let makeMethod kind name =
-                    let name, computed = sanitizeName name
-                    let args, body = getMemberArgs com ctx m.Arguments m.Body m.HasRestParams
-                    Babel.ObjectMethod(kind, name, args, body, computed, ?loc=Some m.Range)
-                    |> U3.Case2
-                match m.Kind with
-                | Fable.Constructor -> failwithf "Unexpected constructor in Object Expression: %A" range
-                | Fable.Method name -> makeMethod Babel.ObjectMeth name
-                | Fable.Setter name -> makeMethod Babel.ObjectSetter name
-                | Fable.Getter (name, false) -> makeMethod Babel.ObjectGetter name
-                | Fable.Getter (name, true) ->
-                    let key, _ = sanitizeName name
-                    Babel.ObjectProperty(key, com.TransformExpr ctx m.Body, ?loc=Some m.Range) |> U3.Case1)
-            |> fun props ->
-                match interfaces with
-                | [] -> props
-                | interfaces ->
-                    let ifcsSymbol =
-                        get (com.GetImport ctx true false (Naming.getCoreLibPath com)) "Symbol"
-                        |> get <| "interfaces"
-                    Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
-                    |> U3.Case1 |> consBack props
-            |> fun props ->
-                upcast Babel.ObjectExpression(props, ?loc=range)
+        | Fable.ObjExpr (members, interfaces, baseClass, range) ->
+            match baseClass with
+            | Some _ as baseClass ->
+                members
+                |> List.map Fable.MemberDeclaration
+                |> com.TransformClass ctx range baseClass
+                |> fun c -> upcast Babel.NewExpression(c, [], ?loc=range)
+            | None ->
+                members |> List.map (fun m ->
+                    let makeMethod kind name =
+                        let name, computed = sanitizeName name
+                        let args, body = getMemberArgs com ctx m.Arguments m.Body m.HasRestParams
+                        Babel.ObjectMethod(kind, name, args, body, computed, ?loc=Some m.Range)
+                        |> U3.Case2
+                    match m.Kind with
+                    | Fable.Constructor -> failwithf "Unexpected constructor in Object Expression: %A" range
+                        | Fable.Method name -> makeMethod Babel.ObjectMeth name
+                        | Fable.Setter name -> makeMethod Babel.ObjectSetter name
+                        | Fable.Getter (name, false) -> makeMethod Babel.ObjectGetter name
+                        | Fable.Getter (name, true) ->
+                            let key, _ = sanitizeName name
+                            Babel.ObjectProperty(key, com.TransformExpr ctx m.Body, ?loc=Some m.Range) |> U3.Case1)
+                |> fun props ->
+                    match interfaces with
+                    | [] -> props
+                    | interfaces ->
+                        let ifcsSymbol =
+                            get (com.GetImport ctx true false (Naming.getCoreLibPath com)) "Symbol"
+                            |> get <| "interfaces"
+                        Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
+                        |> U3.Case1 |> consBack props
+                |> fun props ->
+                    upcast Babel.ObjectExpression(props, ?loc=range)
             
         | Fable.Wrapped (expr, _) ->
             com.TransformExpr ctx expr
@@ -390,12 +398,12 @@ module Util =
                 transformExpr com ctx body |> U2.Case2
         args, body
         
-    let transformClass com ctx classIdent classRange baseClass decls =
+    let transformClass com ctx range ident baseClass decls =
         let declareMember range kind name args body isStatic hasRestParams =
             let name, computed = sanitizeName name
             let args, body = getMemberArgs com ctx args body hasRestParams
-            Babel.ClassMethod(range, kind, name, args, body, computed, isStatic)
-        let baseClass = baseClass |> Option.map (snd >> transformExpr com ctx)
+            Babel.ClassMethod(kind, name, args, body, computed, isStatic, range)
+        let baseClass = baseClass |> Option.map (transformExpr com ctx)
         decls
         |> List.map (function
             | Fable.MemberDeclaration m ->
@@ -410,7 +418,8 @@ module Util =
             | Fable.EntityDeclaration _ as decl ->
                 failwithf "Unexpected declaration in class: %A" decl)
         |> List.map U2<_,Babel.ClassProperty>.Case1
-        |> fun meths -> Babel.ClassExpression(classRange, Babel.ClassBody(classRange, meths), classIdent, ?super=baseClass)
+        |> fun meths -> Babel.ClassExpression(Babel.ClassBody(meths, ?loc=range),
+                            ?id=ident, ?super=baseClass, ?loc=range)
 
     let declareInterfaces (com: IBabelCompiler) ctx (ent: Fable.Entity) isClass =
         // TODO: For now, we're ignoring compiler generated interfaces for union and records
@@ -460,7 +469,8 @@ module Util =
     let declareClass com ctx modIdent (ent: Fable.Entity) entDecls entRange baseClass isClass =
         let classDecl =
             // Don't create a new context for class declarations
-            transformClass com ctx (identFromName ent.Name) entRange baseClass entDecls
+            let classIdent = identFromName ent.Name |> Some
+            transformClass com ctx (Some entRange) classIdent baseClass entDecls
             |> declareModMember entRange ent.Name ent.IsPublic modIdent
         match declareInterfaces com ctx ent isClass with
         | None -> [classDecl]
@@ -497,6 +507,7 @@ module Util =
                 | Fable.Interface ->
                     failwithf "Cannot emit interface declaration: %s" ent.FullName
                 | Fable.Class baseClass ->
+                    let baseClass = Option.map snd baseClass
                     declareClass com ctx modIdent ent entDecls entRange baseClass true
                     |> List.append <| acc
                 | Fable.Union | Fable.Record | Fable.Exception ->                
@@ -541,6 +552,8 @@ module Util =
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformFunction ctx args body = transformFunction bcom ctx args body
+            member bcom.TransformClass ctx r baseClass members =
+                transformClass bcom ctx r None baseClass members
         interface ICompiler with
             member __.Options = com.Options
             member __.Plugins = com.Plugins }

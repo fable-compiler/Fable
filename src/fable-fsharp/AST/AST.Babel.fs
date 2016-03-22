@@ -471,8 +471,8 @@ type RestElement(argument, ?loc) =
 type ClassMethodKind =
     | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(loc, kind, key, args, body, computed, ``static``) =
-    inherit Node("ClassMethod", loc)
+type ClassMethod(kind, key, args, body, computed, ``static``, ?loc) =
+    inherit Node("ClassMethod", ?loc = loc)
     member x.kind = match kind with ClassConstructor -> "constructor"
                                   | ClassGetter -> "get"
                                   | ClassSetter -> "set"
@@ -489,25 +489,25 @@ type ClassMethod(loc, kind, key, args, body, computed, ``static``) =
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
-type ClassProperty(loc, key, value) =
-    inherit Node("ClassProperty", loc)
+type ClassProperty(key, value, ?loc) =
+    inherit Node("ClassProperty", ?loc = loc)
     member x.key: Identifier = key
     member x.value: Expression = value
 
-type ClassBody(loc, body) =
-    inherit Node("ClassBody", loc)
+type ClassBody(body, ?loc) =
+    inherit Node("ClassBody", ?loc = loc)
     member x.body: U2<ClassMethod, ClassProperty> list = body
 
-type ClassDeclaration(loc, body, id, ?super) =
-    inherit Declaration("ClassDeclaration", loc)
+type ClassDeclaration(body, id, ?super, ?loc) =
+    inherit Declaration("ClassDeclaration", ?loc = loc)
     member x.body: ClassBody = body
     member x.id: Identifier = id
     member x.superClass: Expression option = super
     // member x.decorators: Decorator list = defaultArg decorators []
 
 /// Anonymous class: e.g., var myClass = class { }
-type ClassExpression(loc, body, ?id, ?super) =
-    inherit Expression("ClassExpression", loc)
+type ClassExpression(body, ?id, ?super, ?loc) =
+    inherit Expression("ClassExpression", ?loc = loc)
     member x.body: ClassBody = body
     member x.id: Identifier option = id    
     member x.superClass: Expression option = super

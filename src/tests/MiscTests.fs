@@ -42,6 +42,17 @@ let ``ParamArray in object expression works``() =
    let o = { new IFoo with member x.Bar(s: string, [<ParamArray>] rest: obj[]) = String.Format(s, rest) }
    o.Bar("{0} + {0} = {1}", 2, 4)
    |> equal "2 + 2 = 4"
+       
+type SomeClass(name: string) =
+    member x.Name = name
+    
+[<Test>]
+let ``Object expression from class works``() =
+    let o = { new SomeClass("World") with member x.ToString() = "Hello " + x.Name }
+    match box o with
+    | :? SomeClass as c -> c.ToString()
+    | _ -> "Unknown"
+    |> equal "Hello World"   
    
 module StyleBuilderHelper =
     type StyleBuilderHelper = { TopOffset : int; BottomOffset : int }
