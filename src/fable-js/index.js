@@ -275,6 +275,22 @@ function processJson(json, opts) {
 }
 
 function build(opts) {
+    // Module target and extra plugins
+    if (opts.babelPlugins) {
+        (Array.isArray(opts.babelPlugins) ? opts.babelPlugins : [opts.babelPlugins]).forEach(function (x) {
+            babelPlugins.push(require(path.join(process.cwd(), "node_modules", "babel-plugin-" + x)));
+        });
+    }
+    if (opts.env === "browser") {
+        babelPlugins.push(require("babel-plugin-transform-es2015-modules-amd"));
+    }
+    else if (opts.env === "node") {
+        babelPlugins.push(require("babel-plugin-transform-es2015-modules-commonjs"));
+    }
+    else {
+        babelPlugins.push(require("babel-plugin-transform-es2015-modules-umd"));
+    }
+    
     var fableCmd = process.platform === "win32" ? "cmd" : "mono";
     var fableCmdArgs = process.platform === "win32" ? ["/C", fableBin] : [fableBin];    
     
@@ -392,22 +408,6 @@ try {
             .pipe(fs.createWriteStream(path.join(opts.outDir, fableCoreLib)));
     }
         
-    // Module target and extra plugins
-    if (opts.babelPlugins) {
-        (Array.isArray(opts.babelPlugins) ? opts.babelPlugins : [opts.babelPlugins]).forEach(function (x) {
-            babelPlugins.push(require(path.join(process.cwd(), "node_modules", "babel-plugin-" + x)));
-        });
-    }
-    if (opts.env === "browser") {
-        babelPlugins.push(require("babel-plugin-transform-es2015-modules-amd"));
-    }
-    else if (opts.env === "node") {
-        babelPlugins.push(require("babel-plugin-transform-es2015-modules-commonjs"));
-    }
-    else {
-        babelPlugins.push(require("babel-plugin-transform-es2015-modules-umd"));
-    }
-    
     if (opts.scripts && opts.scripts.prebuild) {
         runCommand(opts.scripts.prebuild, function (exitCode) {
             if (exitCode == 0)
