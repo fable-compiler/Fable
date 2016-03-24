@@ -123,7 +123,7 @@ more than one argument to JS code, please wrap it in a delegate first (e.g.,
 delegate, this will be done automatically by the compiler.
 
 ## Event and Observable
-Events are not implemented yet, please use [Observable](/test/ObservableTests.fs) instead.
+Events are not implemented yet, please use [Observable](/src/tests/ObservableTests.fs) instead.
 
 ## Object Expressions
 Object expressions are compatible for the most general cases.
@@ -132,5 +132,5 @@ Object expressions are compatible for the most general cases.
 Units of measure should be compatible (at least for `int` and `float`) but they will
 be erased from the generated JS code.
 
-You can check the [tests](/test) when in doubt. If there's a test for something,
+You can check the [tests](/src/tests) when in doubt. If there's a test for something,
 it's supported :)

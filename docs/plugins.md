@@ -1,7 +1,7 @@
 # Plugins
 
 Is it very easy to add features to Fable using plugins. The best example is the plugin
-to transform [NUnit tests into Mocha](testing.md). In order to understand the plugin
+to transform [NUnit tests into Mocha](/src/plugins/Fable.Plugins.NUnit.fsx). In order to understand the plugin
 system we'll review briefly how Fable works.
 
 ## Overview of Fable's Architecture
@@ -225,4 +225,4 @@ node temp/Test
 
 Nice, isn't it? Now you have the capability to extend Fable to fit your own needs.
 If you need more help to create replacements you can have a look at the [Fable.Replacements
-module](/src/Replacements.fs). I'm looking forward to seeing the wonderful plugins you'll create!
+module](/src/fable-fsharp/Replacements.fs). I'm looking forward to seeing the wonderful plugins you'll create!
