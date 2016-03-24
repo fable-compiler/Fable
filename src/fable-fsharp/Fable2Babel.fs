@@ -115,7 +115,7 @@ module Util =
             let file = com.GetFableFile file
             if ctx.file <> file.FileName then
                 Naming.getRelativePath file.FileName ctx.file
-                |> fun x -> "./" + System.IO.Path.ChangeExtension(x, ".js")
+                |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
                 |> com.GetImport ctx false true
                 |> Some
                 |> accessExpr (getDiff file.Root.FullName fullName)

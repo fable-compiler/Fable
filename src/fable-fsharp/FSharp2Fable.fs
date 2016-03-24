@@ -703,7 +703,9 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
             let rootEnt, rootDecls =
                 let rootEnt, rootDecls =
                     let rootEnt, rootDecls = getRootDecls None file.Declarations
-                    let arePathsEqual p1 p2 = (Naming.normalizePath p1) = (Naming.normalizePath p2)
+                    let arePathsEqual p1 p2 =
+                        let normalize = System.IO.Path.GetFullPath >> Naming.normalizePath 
+                        (normalize p1) = (normalize p2)
                     match fileMask with
                     | Some mask when not(arePathsEqual file.FileName mask) -> rootEnt, []
                     | _ -> rootEnt, transformDeclarations com Context.Empty [] rootDecls

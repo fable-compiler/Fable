@@ -8,5 +8,8 @@
   "devDependencies": {
     "fable-import": "^0.0.3",
     "fable-import-express": "^0.0.7"
+  },
+  "engines": {
+      "fable": "^0.1.3"
   }
 }

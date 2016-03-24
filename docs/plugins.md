@@ -42,7 +42,7 @@ you place the plugin):
 ```fsharp
 namespace Fable.Plugins
 
-#r "../build/main/Fable.exe"
+#r "../../build/fable/bin/Fable.exe"
 
 open Fable.AST
 open Fable.FSharp2Fable
@@ -194,7 +194,7 @@ What remains is just putting everything together and compiling the plugin
 (use `fsc` or `fsharpc` according to your platform):
 
 ```
-fsc plugins/Fable.Plugins.Random.fsx --target:library --out:build/plugins/Fable.Plugins.Random.dll
+fsc src/plugins/Fable.Plugins.Random.fsx --target:library --out:build/plugins/Fable.Plugins.Random.dll
 ```
 
 To test it, create a `Test.fsx` file in a `temp` folder and type the following:
@@ -212,16 +212,15 @@ In the same `temp` folder, create a `fableconfig.json` file with these options:
 ```fsharp
 {
     "env": "node",
-    "lib": "../lib",
-    "plugins": ["../build/plugins/Fable.Plugins.Random.dll"]
+    "plugins": ["build/plugins/Fable.Plugins.Random.dll"]
 }
 ```
 
 Now, from the project root folder, compile and run the script with:
 
 ```
-node tools/fable2babel.js --projFile temp/Test.fsx
-node temp/Test.js
+fable temp/Test.fsx
+node temp/Test
 ```
 
 Nice, isn't it? Now you have the capability to extend Fable to fit your own needs.

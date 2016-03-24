@@ -63,7 +63,7 @@ module Naming =
         Path.Combine(com.Options.lib, path) |> normalizePath
 
     let getCoreLibPath (com: ICompiler) =
-        Path.Combine(com.Options.lib, "fable-core.js") |> normalizePath
+        Path.Combine(com.Options.lib, "fable-core") |> normalizePath
 
     let getImportModuleIdent i = sprintf "$M%i" (i+1)
     

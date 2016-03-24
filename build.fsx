@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.1.2"  // or retrieve from CI server
+let version = "0.1.3"  // or retrieve from CI server
 
 module Util =
     open System.Net
@@ -80,12 +80,15 @@ module Node =
 let fableBuildDir = Util.join ["build";"fable";"bin"]
 let testsBuildDir = Util.join ["build";"tests"]
 let pluginsBuildDir = Util.join ["build";"plugins"]
-let samplesBuildDir = Util.join ["build";"samples"]
 
 // Targets
 Target "Clean" (fun _ ->
-    !! "/build" ++ "src/**/bin/" ++ "src/**/obj/"
-    |> Seq.iter Util.rmdir
+    !! fableBuildDir ++ testsBuildDir ++ pluginsBuildDir
+        ++ "src/**/bin/" ++ "src/**/obj/"
+    |> CleanDirs
+    // Exclude node_modules
+    !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
+    |> Seq.iter FileUtils.rm
 )
 
 Target "FableRelease" (fun _ ->
@@ -97,12 +100,12 @@ Target "FableRelease" (fun _ ->
 )
 
 Target "FableDebug" (fun _ ->
-    let targetDir = "build/fable"
-    FileUtils.cp_r "src/fable-js" targetDir
-    Npm.command targetDir "version" [version]
     !! "src/fable-fsharp/Fable.fsproj"
     |> MSBuildDebug fableBuildDir "Build"
     |> Log "Debug-Output: "
+    let targetDir = "build/fable"
+    FileUtils.cp_r "src/fable-js" targetDir
+    Npm.command targetDir "version" [version]
 )
 
 Target "FableJs" (fun _ ->
@@ -123,11 +126,15 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    let fableDir = Util.join ["build";"fable"] |> Path.GetFullPath
-    let testsBuildDir = Path.GetFullPath testsBuildDir
-    FileUtils.cp_r "src/tests" testsBuildDir
+    Node.run "." "build/fable" [
+        "src/tests/Fable.Tests.fsproj"
+        "--env"; "node"
+        "--outDir"; testsBuildDir
+        "--plugins"; "build/plugins/Fable.Plugins.NUnit.dll"
+    ]
+    FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []
-    Node.run testsBuildDir fableDir []
+    Npm.script testsBuildDir "test" []
 )
 
 Target "Plugins" (fun _ ->
@@ -143,36 +150,17 @@ Target "Plugins" (fun _ ->
         |> function 0 -> () | _ -> failwithf "Cannot compile %s" fsx)
 )
 
-Target "Samples" (fun _ ->
-    !! samplesBuildDir
-        ++ "samples/**/node_modules/"
-        ++ "samples/**/bin/" ++ "samples/**/obj/"
-    |> CleanDirs
-    let fableDir = Util.join ["build";"fable"] |> Path.GetFullPath
-    let samplesBasePath = Path.GetFullPath "samples"
-    let samplesBuilDir = Path.GetFullPath samplesBuildDir
-    
-    !! "samples/**/fableconfig.json"
-    |> Seq.iter (fun path ->
-        let pathDir = Path.GetDirectoryName path
-        let outDir = pathDir.Replace(samplesBasePath, samplesBuildDir)
-        FileUtils.cp_r pathDir outDir
-        if Path.Combine(outDir, "package.json") |> File.Exists then
-            Npm.install outDir []
-        Node.run outDir fableDir []
-    )
-)
-
-Target "DeleteNodeModules" (fun _ ->
-    // Delete node_modules to make the artifact lighter
+Target "MakeArtifactLighter" (fun _ ->
     Util.rmdir "build/fable/node_modules"
+    !! "build/fable/bin/*.pdb" ++ "build/fable/bin/*.xml"
+    |> Seq.iter FileUtils.rm
 )
 
 Target "Publish" (fun _ ->
     let workingDir = "temp/build"
     Util.downloadArtifact workingDir
     Util.convertFileToUnixLineBreaks (Path.Combine(workingDir, "index.js"))
-    Npm.command workingDir "version" [version]
+    // Npm.command workingDir "version" [version]
     Npm.command workingDir "publish" []
 )
 
@@ -182,18 +170,12 @@ Target "Import" (fun _ ->
     |> Log "Import-Output: "
 )
 
-Target "CleanSamples" (fun _ ->
-    !! "/samples/**/*.js.map"
-    |> Seq.where (fun file -> not(file.Contains "node_modules"))
-    |> Seq.iter FileUtils.rm
-
-    !! "/samples/**/*.js"
-    |> Seq.where (fun file -> not(file.Contains "node_modules"))
-    |> Seq.where (fun file ->
-        Regex.IsMatch(file,"(?:bundle|fable-core)\.js$")
-        || File.Exists(Path.ChangeExtension(file, ".fs"))
-        || File.Exists(Path.ChangeExtension(file, ".fsx")))
-    |> Seq.iter FileUtils.rm
+Target "Samples" (fun _ ->
+    let fableDir = Util.join ["build";"fable"] |> Path.GetFullPath    
+    !! "samples/**/fableconfig.json"
+    |> Seq.iter (fun path ->
+        let pathDir = Path.GetDirectoryName path
+        Node.run pathDir fableDir [])
 )
 
 Target "All" ignore
@@ -204,7 +186,7 @@ Target "All" ignore
   ==> "FableJs"
   ==> "Plugins"
   ==> "MochaTest"
-  =?> ("DeleteNodeModules", environVar "APPVEYOR" = "True")
+  =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
 
 // Start build

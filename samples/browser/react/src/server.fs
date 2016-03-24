@@ -24,7 +24,8 @@ let port =
 
 // When debuggin, use webpack-dev-server to allow Hot Module Reloading
 #if WEBPACK_DEV_SERVER
-let config = Node.Globals.require.Invoke("./webpack.config")
+Node.Globals.``process``.env?WEBPACK_DEV_SERVER <- true
+let config = Node.Globals.require.Invoke("../webpack.config")
 let webpack = Node.Globals.require.Invoke("webpack")
 let WebpackDevServer = Node.Globals.require.Invoke("webpack-dev-server")
 
@@ -43,7 +44,7 @@ let appPort = port
 
 // App server
 let app = express.Globals.Invoke()
-let COMMENTS_FILE = Node.path.Globals.join(Node.Globals.__dirname, "comments.json")
+let COMMENTS_FILE = Node.path.Globals.join(Node.Globals.``process``.cwd(), "comments.json")
 
 // Just use dynamic programming to set body-parser middleware
 let bodyParser = Node.Globals.require.Invoke("body-parser")
@@ -59,7 +60,7 @@ bodyParser?urlencoded $ (createObj ["extended" ==> true])
 |> ignore
 
 // Serve static files from public folder
-Node.path.Globals.join(Node.Globals.__dirname, "public")
+Node.path.Globals.join(Node.Globals.``process``.cwd(), "public")
 |> express.Globals.``static``.Invoke
 |> fun sta -> app.``use``("/", sta)
 |> ignore

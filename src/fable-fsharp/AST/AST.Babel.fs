@@ -534,11 +534,11 @@ type ImportSpecifier(local, imported, ?loc) =
     inherit ModuleSpecifier("ImportSpecifier", local, ?loc = loc)
     member x.imported: Identifier = imported
 
-/// A default import specifier, e.g., foo in import foo from "mod.js".
+/// A default import specifier, e.g., foo in import foo from "mod".
 type ImportDefaultSpecifier(local, ?loc) =
     inherit ModuleSpecifier("ImportDefaultSpecifier", local, ?loc = loc)
     
-/// A namespace import specifier, e.g., * as foo in import * as foo from "mod.js".
+/// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
 type ImportNamespaceSpecifier(local, ?loc) =
     inherit ModuleSpecifier("ImportNamespaceSpecifier", local, ?loc = loc)
 

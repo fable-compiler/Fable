@@ -23,7 +23,8 @@
     "babel-plugin-transform-es2015-spread": "^6.4.0",
     "babel-plugin-transform-es5-property-mutators": "^6.5.0",
     "babel-template": "^6.5.0",
-    "command-line-args": "^2.1.6"
+    "command-line-args": "^2.1.6",
+    "semver": "^5.1.0"
   },
   "author": "Alfonso Garcia-Caro",
   "license": "Apache-2.0",

@@ -17,16 +17,15 @@ fable paht/to/your/project.fsproj
 
 Besides the default argument (`--projFile`), the following options are available:
 
-```
+```text
   --symbols           F# symbols for conditional compilation, like 'DEBUG'
                       (will be added to 'DefineConstants' in .fsproj).
   --env               'browser' for amd modules and 'node' for commonjs(defaults to umd).
   -m, --sourceMaps    Generate source maps: [true|inline|false]
   -w, --watch         Recompile project much faster on file modifications.
   --plugins           Paths to Fable plugins.
-  --babelPlugins      Additional Babel plugins (without 'babel-plugin-' prefix,
-                      like 'angular2-annotations'). Must be installed in the
-                      project directory.
+  --babelPlugins      Additional Babel plugins (without 'babel-plugin-' prefix, like
+                      'add-module-exports'). Must be installed in the current directory.
   --code              Pass a string of code directly to Fable.
   --outDir            Where to put compiled JS files. Defaults to project directory.
   --lib               Where to find the core library. If not set, fable-core.js
@@ -39,18 +38,16 @@ Besides the default argument (`--projFile`), the following options are available
 
 ## fableconfig.json
 
-Rather than passing all the options to the CLI, it's usually more convenient to put them
-in JSON format in a file named `fableconfig.json` in the same folder as the F# project.
-If you call `fable` without arguments, the compiler will try to load the config file from
-the current directory.
+Rather than passing all the options to the CLI, it may be more convenient to put them
+in JSON format in a file named `fableconfig.json` within the current directory and let the
+compiler read them for you. You can combine options from the CLI and `fableconfig.json`:
+when this happens the former will have preference.
 
-> Options in the CLI have preference over the config file.
-
-There are some options exclusive for `fableconfig.json`.
+There are some options exclusive to `fableconfig.json`.
 
 * **scripts**: Commands that should be executed during specific phases of compilation.
-  Currently only `postbuild` is accepted. For example, if you want to run tests defined
-  in the npm `package.json` file you can write. 
+  Currently only `prebuild` and `postbuild` are accepted. For example, if you want to
+  run tests defined in the npm `package.json` file you can write. 
 
 ```json
 {
@@ -78,13 +75,13 @@ There are some options exclusive for `fableconfig.json`.
 }
 ```
 
-* **engines**: Similar to the same field in node modules' `package.json`.
-  Use it to specify the minimum version of Fable required to compile the project.
+When using a node `package.json` file, it's also possible to specify the minimum
+version of Fable required to compile the project.
 
 ```json
 {
     "engines": {
-        "fable": "0.1.2"
+        "fable": "0.1.3"
     }
 }
 ```
@@ -139,7 +136,10 @@ module MyNs1.MyNs2.MyModule
 let myProperty = "Hello"
 ```
 
-To access `myProperty` the generated code will import the file with alias, say, `$M1` and directly access the property from it: `$M1.myProperty`. The route has been eluded as it's not necessary to prevent name conflicts. In the same way, if you have a file with two modules:
+To access `myProperty` the generated code will import the file with an alias, say `$M1`,
+and directly access the property from it: `$M1.myProperty`. The route has been eluded
+as it's not necessary to prevent name conflicts. In the same way, if you have a file
+with two modules:
 
 ```fsharp
 namespace MyNs1.MyNs2
@@ -151,13 +151,26 @@ module MyModule2 =
     let myProperty = "Bye"
 ```
 
-This time the compiler will omit the namespace but keep the F# module names, as they're necessary to prevent name conflicts in the same file:
+This time the compiler will omit the namespace but keep the F# module names,
+as they're necessary to prevent name conflicts in the same file:
 
-```fsharp
+```js
 $M1.MyModule1.myProperty !== $M1.MyModule2.myProperty
 ```
 
-> The generated modules are exported using the default export. So the imports will have the form `import $M1 from "another/file"`
+The generated modules are exported using the default export and should be imported accordingly:
+
+```js
+import $M1 from "another/file"              // ES6
+var $M1 = require("another/file").default   // CommonJS
+```
+
+If you need to export the modules as namespaces instead you can use the [add-module-exports](https://www.npmjs.com/package/babel-plugin-add-module-exports) plugin:
+
+```shell
+npm install babel-plugin-add-module-exports --save-dev
+fable MyProject.fsproj --babelPlugins add-module-exports
+```
 
 ## Debugging
 
@@ -178,13 +191,6 @@ automatically when building the project:
 ```shell
 build.cmd   // on windows
 ./build.sh  // on unix
-```
-
-To debug the generated JS code, run the command below and **attach** an IDE to the node session. If you use Visual Studio Code, you can find detailed instructions [here](https://code.visualstudio.com/docs/editor/debugging).
-
-```shell
-cd build/samples
-npm run test-debug
 ```
 
 > Note: For now only `TestFixture` and `Test` attributes, and `Assert.AreEqual` are available, but more features will be available soon.

@@ -47,16 +47,16 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="node_modules/fable-import-express/Fable.Import.Express.fs" />
-    <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />
-    <Compile Include="public/Fable.ReactHelper.fs" />
-    <Compile Include="public/models.fs" />
-    <Compile Include="public/components.fs" />
-    <Compile Include="public/client.fs" />
+    <Compile Include="../node_modules/fable-import-express/Fable.Import.Express.fs" />
+    <Compile Include="../node_modules/fable-import-react/Fable.Import.React.fs" />
+    <Compile Include="models.fs" />
     <Compile Include="server.fs" />
+    <Compile Include="client/Fable.ReactHelper.fs" />
+    <Compile Include="client/components.fs" />
+    <Compile Include="client/client.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="node_modules/fable-import/Fable.Import.dll" />
+    <Reference Include="../node_modules/fable-import/Fable.Import.dll" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

@@ -6,5 +6,8 @@
   },
   "devDependencies": {
     "fable-import": "^0.0.3"
+  },
+  "engines": {
+      "fable": "^0.1.3"
   }
 }

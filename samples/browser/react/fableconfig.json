@@ -1,19 +1,26 @@
 {
     "env": "node",
-    "projFile": "./Fable.Samples.React.fsproj",
+    "outDir": "out",
+    "sourceMaps": true,
+    "projFile": "src/Fable.Samples.React.fsproj",
+    "babelPlugins": ["transform-runtime", "add-module-exports"],
+    "scripts": {
+        "prebuild": "npm install",
+        "postbuild": "node node_modules/webpack/bin/webpack"
+    },
     "targets": {
         "debug": {
             "watch": true,
-            "sourceMaps": true,
             "symbols": ["WEBPACK_DEV_SERVER"],
             "scripts": {
-                "postbuild": "node server"
+                "prebuild": "npm install",
+                "postbuild": "node out/server"
             }
         },
         "production": {
             "sourceMaps": false,
-            "symbols": [],
             "scripts": {
+                "prebuild": "npm install",
                 "postbuild": "node node_modules/webpack/bin/webpack -p"
             }
         }
