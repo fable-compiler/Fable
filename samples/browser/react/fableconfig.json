@@ -13,14 +13,12 @@
             "watch": true,
             "symbols": ["WEBPACK_DEV_SERVER"],
             "scripts": {
-                "prebuild": "npm install",
                 "postbuild": "node out/server"
             }
         },
         "production": {
             "sourceMaps": false,
             "scripts": {
-                "prebuild": "npm install",
                 "postbuild": "node node_modules/webpack/bin/webpack -p"
             }
         }

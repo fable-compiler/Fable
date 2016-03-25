@@ -365,8 +365,15 @@ try {
                     throw "Target " + opts.target + " is missing";
                 
                 cfg = opts.targets[opts.target];
-                for (key in cfg)
-                    opts[key] = cfg[key];
+                for (key in cfg) {
+                    if (typeof opts[key] == "object") {
+                        for (var key2 in cfg[key])
+                            opts[key][key2] = cfg[key][key2];
+                    }
+                    else {
+                        opts[key] = cfg[key];
+                    }
+                }
             }
         }
     }
@@ -399,7 +406,7 @@ try {
     
     // Default values
     opts.lib = opts.lib || ".";
-    opts.outDir = opts.outDir || ".";    
+    opts.outDir = opts.outDir || path.dirname(opts.projFile);    
     
     // Copy fable-core.js if lib is "."
     ensureDirExists(opts.outDir);

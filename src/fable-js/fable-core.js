@@ -306,18 +306,23 @@
   FDate.compareTo = FDate.compare = Util.compareTo;
 
   var FString = exports.String = {};
-  FString.fsFormatRegExp = /%[+\-* ]?\d*(?:\.(\d+))?(\w)/;
+  FString.fsFormatRegExp = /%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
   FString.fsFormat = function (str) {
     var _cont;
     function formatOnce(str, rep) {
-      return str.replace(FString.fsFormatRegExp, function (_, precision, format) {
+      return str.replace(FString.fsFormatRegExp, function (_, flags, pad, precision, format) {
         switch (format) {
-          case "f": case "F": return precision ? rep.toFixed(precision) : rep.toFixed(6);
-          case "g": case "G": return rep.toPrecision(precision);
-          case "e": case "E": return rep.toExponential(precision);
-          case "A": return JSON.stringify(rep);
-          default: return rep;
+          case "f": case "F": rep = rep.toFixed(precision || 6); break;
+          case "g": case "G": rep = rep.toPrecision(precision); break;
+          case "e": case "E": rep = rep.toExponential(precision); break;
+          case "A": rep = JSON.stringify(rep); break;
         }
+        var plusPrefix = flags.indexOf('+') >= 0 && parseInt(rep) >= 0;
+        if (!isNaN(pad = parseInt(pad))) {
+          var ch = pad >= 0 && flags.indexOf('0') >= 0 ? '0' : ' ';
+          rep = FString.padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
+        }
+        return plusPrefix ? "+" + rep : rep;
       });
     }
     function makeFn(str) {
@@ -336,77 +341,70 @@
   FString.formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
   FString.format = function (str, args) {
     args = Util.getRestParams(arguments, 1);
-    return str.replace(FString.formatRegExp, function (match, idx, alignment, format) {
+    return str.replace(FString.formatRegExp, function (match, idx, pad, format) {
       var rep = args[idx];
-      if (rep != null && format != null) {
-        if (typeof rep === 'number') {
-          switch (format.substring(0, 1)) {
-            case "f":
-            case "F":
-              return format.length > 1
-                      ? rep.toFixed(format.substring(1))
-                      : rep.toFixed(2);
-            case "g":
-            case "G":
-              return format.length > 1
-                      ? rep.toPrecision(format.substring(1))
-                      : rep.toPrecision();
-            case "e":
-            case "E":
-              return format.length > 1
-                      ? rep.toExponential(format.substring(1))
-                      : rep.toExponential();
-            case "p":
-            case "P":
-              return (format.length > 1
-                      ? (rep * 100).toFixed(format.substring(1))
-                      : (rep * 100).toFixed(2)) + " %";
+      if (typeof rep === 'number') {
+        switch ((format || '').substring(0, 1)) {
+          case "f": case "F":
+            rep = format.length > 1 ? rep.toFixed(format.substring(1)) : rep.toFixed(2);
+            break;
+          case "g": case "G":
+            rep = format.length > 1 ? rep.toPrecision(format.substring(1)) : rep.toPrecision();
+            break;
+          case "e": case "E":
+            rep = format.length > 1 ? rep.toExponential(format.substring(1)) : rep.toExponential();
+            break;
+          case "p": case "P":
+            rep = (format.length > 1 ? (rep * 100).toFixed(format.substring(1)) : (rep * 100).toFixed(2)) + " %";
+            break;
+        }
+      }
+      else if (rep instanceof Date) {
+        if (format.length === 1) {
+          switch (format) {
+            case "D": rep = rep.toDateString(); break;
+            case "T": rep = rep.toLocaleTimeString(); break;
+            case "d": rep = rep.toLocaleDateString(); break;
+            case "t": rep = rep.toLocaleTimeString().replace(/:\d\d(?!:)/, ''); break;
           }
         }
-        else if (rep instanceof Date) {
-          if (format.length === 1) {
-            switch (format) {
-              case "D": return rep.toDateString();
-              case "T": return rep.toLocaleTimeString();
-              case "d": return rep.toLocaleDateString();
-              case "t": return rep.toLocaleTimeString().replace(/:\d\d(?!:)/, '');
-            }
+        rep = format.replace(/\w+/g, function (match2) {
+          var rep2 = match2;
+          switch (match2.substring(0, 1)) {
+            case "y":
+              rep2 = match2.length < 4
+                      ? FDate.year(rep) % 100
+                      : FDate.year(rep);
+              break;
+            case "h":
+              rep2 = rep.getHours() > 12
+                      ? FDate.hour(rep) % 12
+                      : FDate.hour(rep);
+              break;
+            case "M":
+              rep2 = FDate.month(rep);
+              break;
+            case "d":
+              rep2 = FDate.day(rep);
+              break;
+            case "H":
+              rep2 = FDate.hour(rep);
+              break;
+            case "m":
+              rep2 = FDate.minute(rep);
+              break;
+            case "s":
+              rep2 = FDate.second(rep);
+              break;
           }
-          return format.replace(/\w+/g, function (match2) {
-            var rep2 = match2;
-            switch (match2.substring(0, 1)) {
-              case "y":
-                rep2 = match2.length < 4
-                        ? FDate.year(rep) % 100
-                        : FDate.year(rep);
-                break;
-              case "h":
-                rep2 = rep.getHours() > 12
-                        ? FDate.hour(rep) % 12
-                        : FDate.hour(rep);
-                break;
-              case "M":
-                rep2 = FDate.month(rep);
-                break;
-              case "d":
-                rep2 = FDate.day(rep);
-                break;
-              case "H":
-                rep2 = FDate.hour(rep);
-                break;
-              case "m":
-                rep2 = FDate.minute(rep);
-                break;
-              case "s":
-                rep2 = FDate.second(rep);
-                break;
-            }
-            if (rep2 !== match2 && rep2 < 10 && match2.length > 1) {
-              rep2 = "0" + rep2;
-            }
-            return rep2;
-          });
-        }
+          if (rep2 !== match2 && rep2 < 10 && match2.length > 1) {
+            rep2 = "0" + rep2;
+          }
+          return rep2;
+        });
+      }
+      if (!isNaN(pad = parseInt((pad || '').substring(1)))) {
+        rep = FString.padLeft(rep, Math.abs(pad), ' ', pad < 0);
       }
       return rep;
     });
@@ -426,6 +424,19 @@
   };
   FString.isNullOrWhiteSpace = function (str) {
     return typeof str !== "string" || /^\s*$/.test(str);
+  };
+  FString.padLeft = function (str, len, ch, isRight) {
+    var i = -1;
+    ch = ch || ' ';
+    str = String(str);
+    len = len - str.length;
+    while (++i < len) {
+        str = isRight ? str + ch : ch + str;
+    }
+    return str;
+  };
+  FString.padRight = function (str, len, ch) {
+    return FString.padLeft(str, len, ch, true);
   };
   FString.replace = function (str, search, replace) {
     return str.replace(new RegExp(FRegExp.escape(search), "g"), replace);

@@ -7,10 +7,8 @@ open System
 open Fable.Core
 open Fable.Import.Node
 
-// Note we must set `asDefault` option when importing these
-// components to prevent they're imported as namespaces
-let [<Import("finalhandler?asDefault=true")>] finalhandler = obj()
-let [<Import("serve-static?asDefault=true")>] serveStatic = obj()
+let finalhandler = Globals.require.Invoke("finalhandler")
+let serveStatic = Globals.require.Invoke("serve-static")
 
 let port =
     match Globals.``process``.argv with

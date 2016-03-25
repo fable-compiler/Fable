@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.1.3"  // or retrieve from CI server
+let version = "0.1.4"  // or retrieve from CI server
 
 module Util =
     open System.Net
@@ -122,7 +122,8 @@ Target "NUnitTest" (fun _ ->
     |> Log "Release-Output: "
     
     [Path.Combine(testsBuildDir, "Fable.Tests.dll")]
-    |> NUnit (fun p -> { p with DisableShadowCopy = true })
+    |> NUnit (fun p -> { p with DisableShadowCopy = true 
+                                OutputFile = Path.Combine(testsBuildDir, "TestResult.xml") })
 )
 
 Target "MochaTest" (fun _ ->

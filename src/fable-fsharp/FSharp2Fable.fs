@@ -51,11 +51,7 @@ let private (|BaseCons|_|) com ctx = function
 let private (|FSharpExceptionGet|_|) = function
     | BasicPatterns.FSharpFieldGet (Some callee, fsType, fieldInfo)
         when fsType.HasTypeDefinition && fsType.TypeDefinition.IsFSharpExceptionDeclaration ->
-            Some (callee, fsType.TypeDefinition, fieldInfo)        
-        
-            // let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-            // let i = fsType.TypeDefinition.FSharpFields |> Seq.findIndex (fun x -> x.Name = fieldName)
-            // makeGet range typ callee (sprintf "data%i" i |> makeConst)
+            Some (callee, fsType.TypeDefinition, fieldInfo)
     | _ -> None
 
 let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
@@ -153,16 +149,14 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         elif isReplaceCandidate com v.EnclosingEntity
         then wrapInLambda com ctx fsExpr v
         else
-            v.Attributes
-            |> Seq.choose (makeDecorator com)
-            |> tryImported com v.DisplayName
-            |> function
-                | Some expr -> expr
-                | None ->
-                    let typeRef =
-                        makeTypeFromDef com v.EnclosingEntity
-                        |> makeTypeRef com (makeRange fsExpr.Range)
-                    makeGetFrom com ctx fsExpr typeRef (makeConst v.DisplayName)
+            match v with
+            | Emitted com ctx fsExpr (None, []) emitted -> emitted
+            | Imported com ctx fsExpr [] imported -> imported
+            | _ ->
+                let typeRef =
+                    makeTypeFromDef com v.EnclosingEntity
+                    |> makeTypeRef com (makeRange fsExpr.Range)
+                makeGetFrom com ctx fsExpr typeRef (makeConst v.DisplayName)
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         let valueKind =
