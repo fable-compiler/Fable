@@ -133,7 +133,7 @@ we have to fake one. We'll do that by just returning an empty object.
 
 ```fsharp
 | ".ctor" ->
-    let o = Fable.ObjExpr ([], [], info.range)
+    let o = Fable.ObjExpr ([], [], None, info.range)
     Fable.Wrapped (o, info.returnType) |> Some
 ```
 

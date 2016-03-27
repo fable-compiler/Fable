@@ -12,7 +12,7 @@ type RandomPlugin() =
             | "System.Random" ->
                 match info.methodName with
                 | ".ctor" ->
-                    let o = Fable.ObjExpr ([], [], info.range)
+                    let o = Fable.ObjExpr ([], [], None, info.range)
                     Fable.Wrapped (o, info.returnType) |> Some
                 | "next" ->
                     let min, max =
