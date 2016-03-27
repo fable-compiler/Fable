@@ -10,7 +10,7 @@ to pass its path as an argument to `fable`:
 ```shell
 npm install -g fable-compiler
 
-fable paht/to/your/project.fsproj
+fable path/to/your/project.fsproj
 ```
 
 ## CLI options
@@ -60,7 +60,7 @@ There are some options exclusive to `fableconfig.json`.
 * **targets**: You can group different options in targets. If you don't want,
   say, source maps when deploying for production, you can use a config file as
   seen below. When a target is specified, the options in the target will
-  override the defualt ones. Activate the target by passing it to the CLI:
+  override the default ones. Activate the target by passing it to the CLI:
   `fable --target production`.
 
 

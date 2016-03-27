@@ -17,7 +17,7 @@ using different module systems according to the target environment.
 [do-expressions](http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions)
 in particular greatly simplifies the compilation to JS from an expression-based language like F#.
 
-In between these two ASTs, Fables sneaks its own one. The reason for that
+In between these two ASTs, Fable sneaks its own one. The reason for that
 is to have something more manageable than the AST provided by the F# compiler
 for internal transformation and optimizations. Plugins will mostly work against
 this intermediate AST.
@@ -30,7 +30,7 @@ We are going to learn how to create a plugin to replace some of these calls.
 ## Creating your own plugin
 
 Fable's goal is to support most of the F# core library and some of the most
-used classes in .NET BCL, like `DateTime` o `Regex`. At the moment, it doesn't
+used classes in .NET BCL, like `DateTime` or `Regex`. At the moment, it doesn't
 support `System.Random` so let's write a plugin to fix the situation in case
 we need it for our projects.
 
@@ -102,7 +102,7 @@ The next two fields expose the instance object (which maybe `None` if the method
 is static) and the arguments, already transformed into Fable expressions.
 
 With this information, let's identify calls to `System.Random`. This time we'll
-only try to replace two methods: the contructor and `Next`.
+only try to replace two methods: the constructor and `Next`.
 
 ```fsharp
 member x.TryReplace com (info: Fable.ApplyInfo) =
@@ -138,7 +138,7 @@ we have to fake one. We'll do that by just returning an empty object.
 ```
 
 First we create an empty object expression using one of the union cases of
-`Fabel.Expr`. Though not strictly necessary in this case, it's important to get
+`Fable.Expr`. Though not strictly necessary in this case, it's important to get
 used to add the `range` information to the syntax elements we create so source maps
 can be generated correctly allowing us to debug the F# source.
 
