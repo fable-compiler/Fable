@@ -437,6 +437,11 @@ module private AstPass =
             prop "length" i.callee.Value |> Some
         | _ -> None
 
+    let languagePrimitives com (i: Fable.ApplyInfo) =
+        match i.methodName, (i.callee, i.args) with
+        | "enumOfValue", OneArg (arg) -> arg |> Some
+        | _ -> None
+
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
         | "checkThis", _ -> Fable.This |> Fable.Value |> Some
@@ -564,6 +569,34 @@ module private AstPass =
         | "remove" -> icall "delete"
         | _ -> None
 
+    let systemSets com (i: Fable.ApplyInfo) =
+        let icall meth =
+            InstanceCall (i.callee.Value, meth, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        match i.methodName with
+        | ".ctor" ->
+            let makeSet args =
+                GlobalCall("Set", None, true, args) |> makeCall com i.range i.returnType
+            match i.args with
+            | [] -> makeSet [] |> Some
+            | _ ->
+                match i.args.Head.Type with
+                | Fable.PrimitiveType (Fable.Number Int32) ->
+                    makeSet [] |> Some
+                | _ -> makeSet i.args |> Some
+        | "count" ->
+            makeGet i.range i.returnType i.callee.Value (makeConst "size") |> Some
+        | "isReadOnly" ->
+            Fable.BoolConst false |> Fable.Value |> Some
+        | "add" -> icall "add"
+        | "clear" -> icall "clear"
+        | "contains" -> icall "has"
+        | "copyTo" ->
+            CoreLibCall ("Set", Some "copyTo", false, i.callee.Value::i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "remove" -> icall "delete"
+        | _ -> None
+
     let mapAndSets com (i: Fable.ApplyInfo) =
         let instanceArgs () =
             match i.callee with
@@ -592,7 +625,6 @@ module private AstPass =
         | "count" -> prop "size" |> Some
         | "contains" | "containsKey" -> icall "has" |> Some
         | "remove" ->
-            let m = Map.empty<int,int>
             let callee, args = instanceArgs()
             CoreLibCall(modName, Some "remove", false, [args.Head; callee])
             |> makeCall com i.range i.returnType |> Some
@@ -896,6 +928,7 @@ module private AstPass =
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
         | "Microsoft.FSharp.Core.Ref" -> references com info
         | "System.Activator"
+        | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info
         | "System.Text.RegularExpressions.Capture"
@@ -906,6 +939,8 @@ module private AstPass =
         | "System.Text.RegularExpressions.Regex" -> regex com info
         | "System.Collections.Generic.Dictionary"
         | "System.Collections.Generic.IDictionary" -> dictionaries com info
+        | "System.Collections.Generic.HashSet"
+        | "System.Collections.Generic.ISet" -> systemSets com info
         | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info 
         | "System.Collections.Generic.Dictionary`2.KeyCollection"
         | "System.Collections.Generic.Dictionary`2.ValueCollection"
