@@ -54,7 +54,7 @@ module Util =
     let asserts com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "areEqual" ->
-            Fable.Util.ImportCall("assert", true, None, Some "equal", false, i.args)
+            Fable.Util.ImportCall("assert", true, None, Some "equal", false, List.rev i.args)
             |> Fable.Util.makeCall com i.range i.returnType |> Some
         | _ -> None
 
