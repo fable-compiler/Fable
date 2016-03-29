@@ -592,7 +592,6 @@ module private AstPass =
         | "count" -> prop "size" |> Some
         | "contains" | "containsKey" -> icall "has" |> Some
         | "remove" ->
-            let m = Map.empty<int,int>
             let callee, args = instanceArgs()
             CoreLibCall(modName, Some "remove", false, [args.Head; callee])
             |> makeCall com i.range i.returnType |> Some
