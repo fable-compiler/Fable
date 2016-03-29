@@ -564,6 +564,34 @@ module private AstPass =
         | "remove" -> icall "delete"
         | _ -> None
 
+    let systemSets com (i: Fable.ApplyInfo) =
+        let icall meth =
+            InstanceCall (i.callee.Value, meth, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        match i.methodName with
+        | ".ctor" ->
+            let makeSet args =
+                GlobalCall("Set", None, true, args) |> makeCall com i.range i.returnType
+            match i.args with
+            | [] -> makeSet [] |> Some
+            | _ ->
+                match i.args.Head.Type with
+                | Fable.PrimitiveType (Fable.Number Int32) ->
+                    makeSet [] |> Some
+                | _ -> makeSet i.args |> Some
+        | "count" ->
+            makeGet i.range i.returnType i.callee.Value (makeConst "size") |> Some
+        | "isReadOnly" ->
+            Fable.BoolConst false |> Fable.Value |> Some
+        | "add" -> icall "add"
+        | "clear" -> icall "clear"
+        | "contains" -> icall "has"
+        | "copyTo" ->
+            CoreLibCall ("Set", Some "copyTo", false, i.callee.Value::i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "remove" -> icall "delete"
+        | _ -> None
+
     let mapAndSets com (i: Fable.ApplyInfo) =
         let instanceArgs () =
             match i.callee with
@@ -905,6 +933,8 @@ module private AstPass =
         | "System.Text.RegularExpressions.Regex" -> regex com info
         | "System.Collections.Generic.Dictionary"
         | "System.Collections.Generic.IDictionary" -> dictionaries com info
+        | "System.Collections.Generic.HashSet"
+        | "System.Collections.Generic.ISet" -> systemSets com info
         | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info 
         | "System.Collections.Generic.Dictionary`2.KeyCollection"
         | "System.Collections.Generic.Dictionary`2.ValueCollection"

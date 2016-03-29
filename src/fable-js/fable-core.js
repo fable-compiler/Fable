@@ -1518,6 +1518,20 @@
   FSet.isSupersetOf = FSet.isSuperset = function (set1, set2) {
     return FSet.isSubset(set2, set1);
   };
+  FSet.copyTo = function (xs, arr, arrayIndex, count) {
+      if (!arr instanceof Array)
+          throw "Array is invalid";
+
+      count = count || arr.length;
+      var i = arrayIndex || 0;
+      var iter = xs[Symbol.iterator]();
+      while (count--) {
+          var el = iter.next();
+          if (el.done)
+              break;
+          arr[i++] = el.value;
+      };
+  };
   FSet.partition = function (f, xs) {
     return Seq.fold(function (acc, x) {
       var lacc = acc[0], racc = acc[1];
