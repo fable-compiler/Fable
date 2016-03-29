@@ -437,6 +437,11 @@ module private AstPass =
             prop "length" i.callee.Value |> Some
         | _ -> None
 
+    let languagePrimitives com (i: Fable.ApplyInfo) =
+        match i.methodName, (i.callee, i.args) with
+        | "enumOfValue", OneArg (arg) -> arg |> Some
+        | _ -> None
+
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
         | "checkThis", _ -> Fable.This |> Fable.Value |> Some
@@ -923,6 +928,7 @@ module private AstPass =
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
         | "Microsoft.FSharp.Core.Ref" -> references com info
         | "System.Activator"
+        | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info
         | "System.Text.RegularExpressions.Capture"
