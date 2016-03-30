@@ -708,7 +708,7 @@ module private AstPass =
               "replicate"; "rev"; "singleton"; "unzip"; "unzip3" ]
 
     let implementedArrayFunctions =
-        set [ "blit"; "copy"; "fill"; "partition"; "permute"; "sortInPlaceBy"; "sub"; "unzip"; "unzip3" ]
+        set [ "blit"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3" ]
         
     let nativeArrayFunctions =
         dict [ "exists" => "some"; "filter" => "filter";
@@ -847,30 +847,40 @@ module private AstPass =
         | _ -> None
         
     let collectionsFirstPass com (i: Fable.ApplyInfo) kind =
+        let icall meth (callee, args) =
+            InstanceCall (callee, meth, args)
+            |> makeCall com i.range i.returnType
+            |> Some
         match kind with
         | List ->
             match i.methodName with
-            | "getSlice" ->
-                InstanceCall (i.callee.Value, "slice", i.args) |> Some
+            | "getSlice" -> icall "slice" (i.callee.Value, i.args)
             | SetContains implementedListFunctions meth ->
-                CoreLibCall ("List", Some meth, false, deleg i.args) |> Some
+                CoreLibCall ("List", Some meth, false, deleg i.args)
+                |> makeCall com i.range i.returnType |> Some
             | _ -> None
         | Array ->
             match i.methodName with
-            | "take" ->
-                InstanceCall (i.args.Tail.Head, "slice", [makeConst 0; i.args.Head]) |> Some
-            | "skip" ->
-                InstanceCall (i.args.Tail.Head, "slice", [i.args.Head]) |> Some
+            | "take" -> icall "slice" (i.args.Tail.Head, [makeConst 0; i.args.Head])
+            | "skip" -> icall "slice" (i.args.Tail.Head, [i.args.Head])
+            | "copy" -> icall "slice" (i.args.Head, [])
+            | "sub" ->
+                // Array.sub array startIndex count
+                // array.slice(startIndex, startIndex + count)
+                emit i "$0.slice($1, $1 + $2)" i.args |> Some
+            | "fill" ->
+                // Array.fill target targetIndex count value
+                // target.fill(value, targetIndex, targetIndex + count)
+                emit i "$0.fill($3, $1, $1 + $2)" i.args |> Some
             | SetContains implementedArrayFunctions meth ->
-                CoreLibCall ("Array", Some meth, false, deleg i.args) |> Some
+                CoreLibCall ("Array", Some meth, false, deleg i.args)
+                |> makeCall com i.range i.returnType |> Some
             | DicContains nativeArrayFunctions meth ->
                 let revArgs = List.rev i.args
-                InstanceCall (revArgs.Head, meth, deleg (List.rev revArgs.Tail)) |> Some
+                icall meth (revArgs.Head, deleg (List.rev revArgs.Tail))
             | _ -> None
         | _ -> None
-        |> function
-            | Some callKind -> makeCall com i.range i.returnType callKind |> Some
-            | None -> collectionsSecondPass com i kind
+        |> function None -> collectionsSecondPass com i kind | someExpr -> someExpr
 
     let asserts com (i: Fable.ApplyInfo) =
         match i.methodName with

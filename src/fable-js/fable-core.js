@@ -573,12 +573,6 @@
       target[targetIndex++] = source[sourceIndex++]
     }
   };
-  FArray.copy = function (array) {
-    return array.slice();
-  };
-  FArray.fill = function (target, targetIndex, count, value) {
-    target.fill(value, targetIndex, targetIndex + count);
-  };
   FArray.partition = function (f, xs) {
     var ys = [], zs = [], j = 0, k = 0;
     for (var i = 0; i < xs.length; i++) {
@@ -636,9 +630,6 @@
       y = f(y);
       return (x < y ? -1 : (x == y ? 0 : 1)) * dir;
     });
-  };
-  FArray.sub = function (array, startIndex, count) {
-    return array.slice(startIndex, startIndex + count);
   };
   FArray.unzip = function (xs) {
     var bs = new Array(xs.length), cs = new Array(xs.length);
