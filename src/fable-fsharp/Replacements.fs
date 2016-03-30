@@ -176,13 +176,16 @@ module Util =
             
     let compare com (i: Fable.ApplyInfo) (args: Fable.Expr list) op =
         let op = Fable.BinaryOp op |> Fable.Value
-        match args.Head.Type with
-        | Fable.UnknownType
-        | Fable.PrimitiveType _  // TODO: Array comparison?
-        | FullName "System.TimeSpan"
-        | FullName "System.DateTime" ->
+
+        match args.Head with
+        | Type Fable.UnknownType
+        | Type (Fable.PrimitiveType _)  // TODO: Array comparison?
+        | Fable.Wrapped (Type (Fable.PrimitiveType _), _)  // For enums only ("Wrapped (_, DeclaredType <enumName> Class null)")
+        | Type (FullName "System.TimeSpan")
+        | Type (FullName "System.DateTime") ->
             Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
-        | Fable.DeclaredType ent ->
+
+        | Type (Fable.DeclaredType ent) ->
             match ent.Kind with
             | Fable.Class _ when ent.HasInterface "System.IComparable" ->
                 let comp =
@@ -190,6 +193,8 @@ module Util =
                     |> makeCall com i.range (Fable.PrimitiveType (Fable.Number Int32))
                 Fable.Apply(op, [comp; makeConst 0], Fable.ApplyMeth, i.returnType, i.range)
                 |> Some
+            | Fable.Class None ->  // For enums only ("DeclaredType <enumName> Class null")
+                Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some  
             // TODO: Record and Union structural comparison?
             | _ -> None
             
