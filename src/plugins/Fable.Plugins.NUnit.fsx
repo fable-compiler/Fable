@@ -39,7 +39,7 @@ module Util =
                 [U2.Case1 testName; U2.Case1 testBody], testRange), testRange)
         :> Babel.Statement
 
-    let transformTestFixture com ctx (fixture: Fable.Entity) testDecls testRange =
+    let transformTestFixture (fixture: Fable.Entity) testDecls testRange =
         let testDesc =
             Babel.StringLiteral fixture.Name :> Babel.Expression
         let testBody =
@@ -65,7 +65,7 @@ type NUnitPlugin() =
         member x.TryDeclareRoot com ctx file =
             if file.Root.TryGetDecorator "TestFixture" |> Option.isNone then None else
             let rootDecls = Util.transformModDecls com ctx None file.Declarations
-            transformTestFixture com ctx file.Root rootDecls file.Range
+            transformTestFixture file.Root rootDecls file.Range
             |> U2.Case1
             |> List.singleton
             |> Some
@@ -78,7 +78,7 @@ type NUnitPlugin() =
                 let testDecls =
                     let ctx = { ctx with moduleFullName = fixture.FullName } 
                     Util.transformModDecls com ctx None testDecls
-                transformTestFixture com ctx fixture testDecls testRange
+                transformTestFixture fixture testDecls testRange
                 |> List.singleton |> Some
             | _ -> None
 
