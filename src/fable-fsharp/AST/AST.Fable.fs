@@ -11,6 +11,7 @@ type Decorator =
 (** ##Types *)
 type PrimitiveTypeKind =
     | Unit
+    | Enum of string
     | Number of NumberKind
     | String
     | Regex
@@ -187,8 +188,8 @@ and Expr =
     | Sequential of Expr list * range: SourceLocation option
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
 
-    // This is mainly to hide the type of ignored expressions so they don't trigger
-    // a return in functions, but they'll be erased in compiled code
+    // This wraps expressions with a different type for compile-time checkings 
+    // E.g. enums, ignored expressions so they don't trigger a return in functions
     | Wrapped of Expr * Type
 
     member x.Type =

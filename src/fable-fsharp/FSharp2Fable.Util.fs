@@ -310,6 +310,9 @@ module Types =
         // Guard: F# abbreviations shouldn't be passed as argument
         if tdef.IsFSharpAbbreviation
         then failwith "Abbreviation passed to makeTypeFromDef"
+        // Enum
+        elif tdef.IsEnum
+        then Fable.Enum tdef.FullName |> Fable.PrimitiveType
         // Delegate
         elif tdef.IsDelegate
         then Fable.Function (tdef.GenericParameters.Count - 1) |> Fable.PrimitiveType
