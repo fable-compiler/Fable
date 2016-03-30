@@ -252,8 +252,11 @@ module express =
             [<Emit("$0($1...)")>] member __.Invoke(root: string, ?options: Options): Handler = failwith "JS only"
 
     type Globals =
+        [<Import("express?asDefault=true&get=static")>]
         member __.``static``: ``serve-static``.Globals = failwith "JS only"
         member __.Router(?options: obj): Router = failwith "JS only"
-        [<Emit("$0($1...)")>] member __.Invoke(): Express = failwith "JS only"
+        //[<Emit("$0($1...)")>]
+        [<Import("express?asDefault=true")>]
+        member __.Invoke(): Express = failwith "JS only"
 
     let [<Import("express?asDefault=true")>] Globals: Globals = failwith "JS only"
