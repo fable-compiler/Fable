@@ -175,20 +175,26 @@ module Util =
                 Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
             
     let compare com (i: Fable.ApplyInfo) (args: Fable.Expr list) op =
-        let op = Fable.BinaryOp op |> Fable.Value
+        let op = Option.map (Fable.BinaryOp >> Fable.Value) op
         match args.Head.Type with
         | Fable.UnknownType
         | Fable.PrimitiveType _  // TODO: Array comparison?
         | FullName "System.TimeSpan"
         | FullName "System.DateTime" ->
-            Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+            match op with
+            | None -> CoreLibCall("Util", Some "compareTo", false, args)
+                      |> makeCall com i.range i.returnType
+            | Some op -> Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range)
+            |> Some
         | Fable.DeclaredType ent ->
             match ent.Kind with
             | Fable.Class _ when ent.HasInterface "System.IComparable" ->
                 let comp =
                     InstanceCall(args.Head, "compareTo", args.Tail)
                     |> makeCall com i.range (Fable.PrimitiveType (Fable.Number Int32))
-                Fable.Apply(op, [comp; makeConst 0], Fable.ApplyMeth, i.returnType, i.range)
+                match op with
+                | None -> comp
+                | Some op -> Fable.Apply(op, [comp; makeConst 0], Fable.ApplyMeth, i.returnType, i.range)
                 |> Some
             // TODO: Record and Union structural comparison?
             | _ -> None
@@ -273,10 +279,10 @@ module private AstPass =
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryEqual |> Some
             | _ -> equals com info args true
         // Comparison
-        | "<"  | "lt" -> compare com info args BinaryLess
-        | "<=" | "lte" -> compare com info args BinaryLessOrEqual
-        | ">"  | "gt" -> compare com info args BinaryGreater
-        | ">=" | "gte" -> compare com info args BinaryGreaterOrEqual
+        | "<"  | "lt" -> compare com info args (Some BinaryLess)
+        | "<=" | "lte" -> compare com info args (Some BinaryLessOrEqual)
+        | ">"  | "gt" -> compare com info args (Some BinaryGreater)
+        | ">=" | "gte" -> compare com info args (Some BinaryGreaterOrEqual)
         // Operators
         | "+" | "-" | "*" | "/" | "%"
         | "<<<" | ">>>" | "&&&" | "|||" | "^^^"
@@ -289,9 +295,7 @@ module private AstPass =
         | "cos"  | "exp" | "floor" | "log" | "log10"
         | "round" | "sin" | "sqrt" | "tan" ->
             math r typ args info.methodName
-        | "compare" ->
-            CoreLibCall("Util", Some "compareTo", false, args)
-            |> makeCall com r typ |> Some
+        | "compare" -> compare com info args None
         // Function composition
         | ">>" | "<<" ->
             // If expression is a let binding we have to wrap it in a function
@@ -513,7 +517,7 @@ module private AstPass =
             let args =
                 let last = List.last i.args
                 match i.args.Length, last.Type with
-                | 7, FullName "System.DateTimeKind" ->
+                | 7, (Fable.PrimitiveType (Fable.Enum "System.DateTimeKind")) ->
                     (List.take 6 i.args)@[makeConst 0; last]
                 | _ -> i.args
             CoreLibCall("Date", Some "create", false, args)
