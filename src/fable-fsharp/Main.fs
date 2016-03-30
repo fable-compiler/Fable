@@ -17,18 +17,22 @@ let readOptions argv =
         | (opt: string)::rest ->
             let k = opt.Substring(2)
             match Map.tryFind k opts with
-            | None -> Map.add k rest.Head opts
-            | Some v -> Map.add k (v + "|" + rest.Head) opts
+            | None -> Map.add k (U2.Case1 rest.Head) opts
+            | Some (U2.Case1 v) -> Map.add k (U2.Case2 [rest.Head;v]) opts
+            | Some (U2.Case2 v) -> Map.add k (U2.Case2 (rest.Head::v)) opts
             |> readOpts <| rest.Tail
+    let un f = function U2.Case1 v -> f v | U2.Case2 _ -> failwith "Unexpected multiple argument"
+    let li f = function U2.Case1 v -> [f v] | U2.Case2 v -> List.map f v
     let opts = readOpts Map.empty<_,_> (List.ofArray argv)
     {
-        code = def opts "code" null id
-        lib = def opts "lib" "." id
-        projFile = def opts "projFile" null Path.GetFullPath
-        watch = def opts "watch" false bool.Parse
-        clamp = def opts "clamp" false bool.Parse
-        symbols = def opts "symbols" [||] (fun x -> x.Split('|'))
-        plugins = def opts "plugins" [||] (fun x -> x.Split('|'))
+        code = def opts "code" null (un id)
+        projFile = def opts "projFile" null (un Path.GetFullPath)
+        watch = def opts "watch" false (un bool.Parse)
+        clamp = def opts "clamp" false (un bool.Parse)
+        symbols = def opts "symbols" [] (li id)
+        plugins = def opts "plugins" [] (li id)
+        references = Map(def opts "references" [] (li (fun (x: string) ->
+            let xs = x.Split('=') in xs.[0], xs.[1])))
     }
 
 let loadPlugins (opts: CompilerOptions): IPlugin list =
@@ -42,12 +46,16 @@ let loadPlugins (opts: CompilerOptions): IPlugin list =
         | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.cast<_>
     |> Seq.toList
-    
+
 let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
                       (prevResults: FSharpProjectOptions option) (fileMask: string option) =
     match prevResults, fileMask with
     | Some res, Some file when com.Options.projFile <> file -> res
     | _ ->
+        let replaceConstants (otherOpts: string[]) =
+            otherOpts
+            |> Array.filter (fun s -> s.StartsWith "--define:" = false)
+            |> Array.append (List.map (sprintf "--define:%s") com.Options.symbols |> List.toArray)
         let projFile = com.Options.projFile
         if not(File.Exists projFile) then
             failwithf "Cannot find project file %s" projFile
@@ -61,12 +69,11 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
                         // TODO: use File System
                         File.WriteAllText(projFile, projCode)
                         projCode
-                let otherFlags = com.Options.symbols |> Array.map (sprintf "--define:%s")
-                checker.GetProjectOptionsFromScript(projFile, projCode, otherFlags=otherFlags)
+                checker.GetProjectOptionsFromScript(projFile, projCode)
                 |> Async.RunSynchronously
             | _ ->
-                let properties = [("DefineConstants", String.concat ";" com.Options.symbols)]
-                ProjectCracker.GetProjectOptionsFromProjectFile(projFile, properties)
+                ProjectCracker.GetProjectOptionsFromProjectFile(projFile)
+            |> fun opts -> { opts with OtherOptions = replaceConstants opts.OtherOptions}
         with
         | ex -> failwithf "Cannot read project options: %s" ex.Message
 
@@ -88,7 +95,7 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> failwith
-        
+
 let makeCompiler plugins opts =
     { new ICompiler with
         member __.Options = opts
@@ -96,8 +103,8 @@ let makeCompiler plugins opts =
 
 let compile (com: ICompiler) checker projOpts fileMask =
     let printFile =
-        let jsonSettings = 
-            JsonSerializerSettings( 
+        let jsonSettings =
+            JsonSerializerSettings(
                 Converters=[|Json.ErasedUnionConverter()|],
                 StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
         fun (file: AST.Babel.Program) ->
@@ -113,14 +120,14 @@ let compile (com: ICompiler) checker projOpts fileMask =
         projOpts
         |> parseFSharpProject com checker
         |> FSharp2Fable.Compiler.transformFiles com fileMask
-        |> Seq.map (Fable2Babel.Compiler.transformFile com)
+        |> Fable2Babel.Compiler.transformFile com
         |> Seq.choose id
         |> Seq.iter printFile
         Some projOpts
     with ex ->
         printError ex.Message
         None
-        
+
 let rec awaitInput (com: ICompiler) checker projOpts =
     let input = Console.In.ReadLine()
     let com, fileMask =

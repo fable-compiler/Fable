@@ -4,6 +4,16 @@ open NUnit.Framework
 open Fable.Tests.Util
 open System.Collections.Generic
 
+// TODO
+// [<Test>]
+// let ``Pattern matching with arrays works``() =
+//     match [||] with [||] -> true | _ -> false
+//     |> equal true
+//     match [|1|] with [||] -> 0 | [|x|] -> 1 | _ -> 2
+//     |> equal 1
+//     match [|"a";"b"|] with [||] -> 0 | [|"a";"b"|] -> 1 | _ -> 2
+//     |> equal 1
+
 [<Emit("$1.constructor.name == $0")>]
 let jsConstructorIs (s: string) (ar: 'T[]) = true 
 
@@ -15,6 +25,18 @@ let ``Typed Arrays work``() =
     xs |> jsConstructorIs "Int32Array" |> equal true
     ys |> jsConstructorIs "Float64Array" |> equal true
     zs |> jsConstructorIs "Array" |> equal true
+
+[<Test>]
+let ``Byte arrays are not clamped by default``() =
+    let ar = [|5uy|]
+    ar.[0] <- ar.[0] + 255uy
+    equal 4uy ar.[0]
+
+// [<Test>]
+// let ``Clamped byte arrays work``() =
+//     let ar = Fable.Tests.Clamped.create 1 5uy
+//     ar.[0] <- ar.[0] + 255uy
+//     equal 255uy ar.[0]
 
 [<Test>]
 let ``Array slice with upper index work``() =  

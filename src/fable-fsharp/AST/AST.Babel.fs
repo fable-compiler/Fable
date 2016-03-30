@@ -1,4 +1,5 @@
 namespace Fable.AST.Babel
+open Fable
 open Fable.AST
 
 /// The type field is a string representing the AST variant type. 

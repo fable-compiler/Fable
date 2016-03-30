@@ -3,9 +3,9 @@ namespace Fable
 type CompilerOptions = {
         code: string
         projFile: string
-        symbols: string[]
-        plugins: string[]
-        lib: string
+        symbols: string list
+        plugins: string list
+        references: Map<string, string>
         watch: bool
         clamp: bool
     }
@@ -20,6 +20,13 @@ type IPlugin =
 type ICompiler =
     abstract Options: CompilerOptions
     abstract Plugins: IPlugin list
+    
+type EraseAttribute() = inherit System.Attribute()
+[<Erase>] type U2<'a, 'b> = Case1 of 'a | Case2 of 'b
+[<Erase>] type U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c
+    
+module Patterns =
+    let (|Try|_|) (f: 'a -> 'b option) a = f a
     
 module Naming =
     open System
@@ -59,16 +66,25 @@ module Naming =
 
     let normalizePath (path: string) =
         path.Replace("\\", "/")
+        
+    let getCommonPrefix (xs: string list) =
+        let rec getCommonPrefix (prefix: string) = function
+            | [] -> prefix
+            | (x: string)::xs ->
+                let mutable i = 0
+                while i < prefix.Length && x.[i] = prefix.[i] do
+                    i <- i + 1
+                getCommonPrefix (prefix.Substring(0,i)) xs
+        match xs with
+        | [] -> ""
+        | [x] -> x
+        | x::xs -> getCommonPrefix x xs
+        
+    let coreLib = "fable-core"
+        
+    let exportsIdent = "$exports"
     
-    let fromLib (com: ICompiler) path =
-        Path.Combine(com.Options.lib, path) |> normalizePath
-
-    let getCoreLibPath (com: ICompiler) =
-        Path.Combine(com.Options.lib, "fable-core") |> normalizePath
-
-    let getImportModuleIdent i = sprintf "$M%i" (i+1)
-    
-    let getCurrentModuleIdent () = "$M0"
+    let getImportIdent i = sprintf "$import%i" i
     
     let trimDots (s: string) =
         match s.StartsWith ".", s.EndsWith "." with
@@ -84,8 +100,10 @@ module Naming =
             "let"; "long"; "native"; "new"; "null"; "package"; "private"; "protected"; "public"; "return"; "self"; "short"; "static"; "super"; "switch"; "synchronized";
             "this"; "throw"; "throws"; "transient"; "true"; "try"; "typeof"; "undefined"; "var"; "void"; "volatile"; "while"; "with"; "yield" ]
 
+    let isInvalidJsIdent name =
+        identForbiddenCharsRegex.IsMatch(name) || jsKeywords.Contains name
+
     let sanitizeIdent conflicts name =
-        let modIdentRegex = Regex(@"^\$M\d+$", RegexOptions.Compiled)
         let preventConflicts conflicts name =
             let rec check n =
                 let name = if n > 0 then sprintf "%s_%i" name n else name
@@ -95,7 +113,7 @@ module Naming =
         let sanitizedName =
             identForbiddenCharsRegex.Replace(removeParens name, "_")
         // Check if it's a keyword or clashes with module ident pattern
-        (jsKeywords.Contains sanitizedName || modIdentRegex.IsMatch sanitizedName)
+        jsKeywords.Contains sanitizedName
         |> function true -> "_" + sanitizedName | false -> sanitizedName
         // Check if it already exists
         |> preventConflicts conflicts

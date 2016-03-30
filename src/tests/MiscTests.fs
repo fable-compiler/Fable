@@ -45,14 +45,54 @@ let ``ParamArray in object expression works``() =
        
 type SomeClass(name: string) =
     member x.Name = name
+
+type AnotherClass(value: int) =
+    member x.Value = value
     
 [<Test>]
 let ``Object expression from class works``() =
-    let o = { new SomeClass("World") with member x.ToString() = "Hello " + x.Name }
+    let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
     match box o with
     | :? SomeClass as c -> c.ToString()
     | _ -> "Unknown"
-    |> equal "Hello World"   
+    |> equal "Hello World" 
+        
+module Extensions =
+    type IDisposable with
+        static member Create(f) =
+            { new IDisposable with
+                member __.Dispose() = f() }
+
+    type SomeClass with
+        member x.FullName = sprintf "%s Smith" x.Name
+        member x.NameTimes (i: int, j: int) = String.replicate (i + j) x.Name
+
+    type AnotherClass with
+        member x.FullName = sprintf "%i" x.Value
+
+open Extensions
+
+[<Test>]
+let ``Type extension static methods work``() =
+    let disposed = ref false
+    let disp = IDisposable.Create(fun () -> disposed := true)
+    disp.Dispose ()
+    equal true !disposed
+
+[<Test>]
+let ``Type extension properties work``() =
+    let c = SomeClass("John")
+    equal "John Smith" c.FullName
+
+[<Test>]
+let ``Type extension methods work``() =
+    let c = SomeClass("John")
+    c.NameTimes(1,2) |> equal "JohnJohnJohn"
+
+[<Test>]
+let ``Type extension methods with same name work``() =
+    let c = AnotherClass(3)
+    equal "3" c.FullName
    
 module StyleBuilderHelper =
     type StyleBuilderHelper = { TopOffset : int; BottomOffset : int }
@@ -89,7 +129,7 @@ module Same =
         
         let Same = 20
         let shouldEqual20 = Same
-        let shouldEqual30 = let Same = 25 in Same + a
+        let shouldEqual30 = let Same = 25 in Same + 5
         
 [<Test>]
 let ``Accessing members of parent module with same name works``() =
@@ -106,3 +146,27 @@ let ``Accessing members with same name as module works``() =
 [<Test>]
 let ``Naming values with same name as module works``() =
     equal 30 Same.Same.shouldEqual30
+
+type Point =
+    { x: float; y: float }
+    static member (+) (p1: Point, p2: Point) = { x=p1.x + p2.x; y=p1.y + p2.y }
+    static member (-) (p1: Point, p2: Point) = { x=p1.x - p2.x; y=p1.y - p2.y }
+
+[<Test>]
+let ``Custom operators with types work``(): unit =
+    let p1 = { x=5.; y=10. }
+    let p2 = { x=2.; y=1. }
+    equal 7. (p1 + p2).x
+    equal 9. (p1 - p2).y
+
+let (+) x y = x * y
+
+let (-) x y = x / y
+
+let (||||) x y = x + y
+
+[<Test>]
+let ``Custom operators work``() =
+    5 + 5 |> equal 25
+    10 - 2 |> equal 5
+    2 |||| 2 |> equal 4

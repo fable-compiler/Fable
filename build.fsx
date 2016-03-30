@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.1.6"  // or retrieve from CI server
+let version = "0.1.6"
 
 module Util =
     open System.Net
@@ -135,7 +135,7 @@ Target "NUnitTest" (fun _ ->
 Target "MochaTest" (fun _ ->
     Node.run "." "build/fable" [
         "src/tests/Fable.Tests.fsproj"
-        "--env"; "node"
+        "-m"; "commonjs"
         "--outDir"; testsBuildDir
         "--plugins"; "build/plugins/Fable.Plugins.NUnit.dll"
     ]
@@ -144,10 +144,10 @@ Target "MochaTest" (fun _ ->
     Npm.script testsBuildDir "test" []
     
     // Clampled and non-clamped arrays
-    Node.run "." "build/fable" ["src/tests/Other/nonClamped.fsx"; "--outDir"; "build/tests/Other"; "--env"; "node"]
-    Node.run "." "build/fable" ["src/tests/Other/clamped.fsx"; "--clamp"; "--outDir"; "build/tests/Other"; "--env"; "node"]
-    Node.run "." "build/tests/Other/nonClamped" []
-    Node.run "." "build/tests/Other/clamped" []
+    // Node.run "." "build/fable" ["src/tests/Other/nonClamped.fsx"; "--outDir"; "build/tests/Other"; "-m"; "commonjs"]
+    // Node.run "." "build/fable" ["src/tests/Other/clamped.fsx"; "--clamp"; "--outDir"; "build/tests/Other"; "-m"; "commonjs"]
+    // Node.run "." "build/tests/Other/nonClamped" []
+    // Node.run "." "build/tests/Other/clamped" []
 )
 
 Target "Plugins" (fun _ ->
@@ -178,7 +178,8 @@ Target "Publish" (fun _ ->
 )
 
 Target "Import" (fun _ ->
-    !! "import/core/Fable.Import.fsproj"
+    Util.run "." "uglifyjs" "import/core/fable-core.js -c -m -o import/core/fable-core.min.js"
+    !! "import/core/Fable.Core.fsproj"
     |> MSBuildRelease "import/core" "Build"
     |> Log "Import-Output: "
 )

@@ -4,6 +4,19 @@ open NUnit.Framework
 open Fable.Tests.Util
 
 [<Test>]
+let ``Pattern matching with lists works``() =
+    match [] with [] -> true | _ -> false
+    |> equal true
+    match [1] with [] -> 0 | [x] -> 1 | x::xs -> 2
+    |> equal 1
+    match [1;2;3] with [] -> 0 | _::x::xs -> x | _ -> 3
+    |> equal 2
+    match [1.;2.;3.;4.] with [] -> 0 | [x] -> 1 | x::xs -> xs.Length
+    |> equal 3
+    match ["a";"b"] with [] -> 0 | ["a";"b"] -> 1 | _ -> 2
+    |> equal 1
+
+[<Test>]
 let ``List.Length works``() =
       let xs = [1; 2; 3; 4]
       equal 4 xs.Length

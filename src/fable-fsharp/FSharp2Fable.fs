@@ -627,17 +627,34 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
         ) (DeclInfo init, ctx)
     declInfo.GetDeclarations()
     
+let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
+    rootEntities
+    |> Seq.groupBy (fun ent -> ent.DeclarationLocation.FileName)
+    |> Seq.map (fun (file, ents) -> 
+        let ent =
+            match List.ofSeq ents with
+            | [] -> failwith "Unexpected empty file"
+            | [ent] ->
+                if ent.IsFSharpModule
+                then ent.FullName
+                else defaultArg ent.Namespace ""
+            | ent::ents ->
+                let rootNs =
+                    ents
+                    |> List.map (fun ent -> ent.FullName)
+                    |> Naming.getCommonPrefix
+                if rootNs.EndsWith(".")
+                then rootNs.Substring(0, rootNs.Length - 1)
+                else rootNs
+        file, ent)
+    |> Map
+    
 // Make inlineExprs static so they can be reused in --watch compilations
 let private inlineExprs =
     System.Collections.Concurrent.ConcurrentDictionary<
         string, FSharpMemberOrFunctionOrValue list * FSharpExpr>()
-        
-let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpCheckProjectResults) =
-    let rec getRootDecls rootEnt = function
-        | [FSharpImplementationFileDeclaration.Entity (e, subDecls)]
-            when e.IsNamespace || e.IsFSharpModule ->
-            getRootDecls (Some e) subDecls
-        | _ as decls -> rootEnt, decls
+
+let private makeCompiler (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
     let entities =
         System.Collections.Concurrent.ConcurrentDictionary<string, Fable.Entity>()
     let fileNames =
@@ -648,42 +665,55 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
         com.Plugins |> List.choose (function
             | :? IReplacePlugin as plugin -> Some plugin
             | _ -> None)
-    let com =
-        { new IFableCompiler with
-            member fcom.Transform ctx fsExpr =
-                transformExpr fcom ctx fsExpr
-            member fcom.GetInternalFile tdef =
-                // In F# scripts the DeclarationLocation of referenced libraries
-                // becomes the .fsx file, so check first if the entity belongs
-                // to an assembly already compiled (external to the project)
-                match tdef.Assembly.FileName with
-                | Some _ -> None
-                | None ->
-                    let file = tdef.DeclarationLocation.FileName
-                    if Set.contains file fileNames then Some file else None
-            member fcom.GetEntity tdef =
-                entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
-            member fcom.TryGetInlineExpr fullName =
-                let success, expr = inlineExprs.TryGetValue fullName
-                if success then Some expr else None
-            member fcom.AddInlineExpr fullName inlineExpr =
-                inlineExprs.AddOrUpdate(fullName,
-                    System.Func<_,_>(fun _ -> inlineExpr),
-                    System.Func<_,_,_>(fun _ _ -> inlineExpr))
-                |> ignore
-            member fcom.ReplacePlugins =
-                replacePlugins
-        interface ICompiler with
-            member __.Options = com.Options
-            member __.Plugins = com.Plugins }
+    { new IFableCompiler with
+        member fcom.Transform ctx fsExpr =
+            transformExpr fcom ctx fsExpr
+        member fcom.GetInternalFile tdef =
+            // In F# scripts the DeclarationLocation of referenced libraries
+            // becomes the .fsx file, so check first if the entity belongs
+            // to an assembly already compiled (external to the project)
+            match tdef.Assembly.FileName with
+            | Some _ -> None
+            | None ->
+                let file = tdef.DeclarationLocation.FileName
+                if Set.contains file fileNames then Some file else None
+        member fcom.GetEntity tdef =
+            entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
+        member fcom.TryGetInlineExpr fullName =
+            let success, expr = inlineExprs.TryGetValue fullName
+            if success then Some expr else None
+        member fcom.AddInlineExpr fullName inlineExpr =
+            inlineExprs.AddOrUpdate(fullName,
+                System.Func<_,_>(fun _ -> inlineExpr),
+                System.Func<_,_,_>(fun _ _ -> inlineExpr))
+            |> ignore
+        member fcom.ReplacePlugins =
+            replacePlugins
+    interface ICompiler with
+        member __.Options = com.Options
+        member __.Plugins = com.Plugins }
+        
+let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpCheckProjectResults) =
+    let rec getRootDecls rootNs ent decls =
+        if rootNs = "" then ent, decls else
+        match decls with
+        | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
+            when ent.IsNamespace || ent.IsFSharpModule ->
+            if (defaultArg ent.TryFullName "") = rootNs
+            then Some ent, decls
+            else getRootDecls rootNs (Some ent) decls
+        | _ -> failwithf "Cannot find namespace %s" rootNs
+    let com = makeCompiler com fsProj
+    let fileMap = makeFileMap fsProj.AssemblySignature.Entities
     fsProj.AssemblyContents.ImplementationFiles
     |> Seq.where (fun file ->
         not (Naming.ignoredFilesRegex.IsMatch file.FileName))
-    |> Seq.scan (fun acc file ->
+    |> Seq.map (fun file ->
         try
             let rootEnt, rootDecls =
+                let rootNs = fileMap.[file.FileName]
                 let rootEnt, rootDecls =
-                    let rootEnt, rootDecls = getRootDecls None file.Declarations
+                    let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
                     let arePathsEqual p1 p2 =
                         let normalize = System.IO.Path.GetFullPath >> Naming.normalizePath 
                         (normalize p1) = (normalize p2)
@@ -692,7 +722,8 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
                     | _ -> rootEnt, transformDeclarations com Context.Empty [] rootDecls
                 match rootEnt with
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
-                | None -> Fable.Entity.CreateRootModule file.FileName, rootDecls
-            Fable.File(file.FileName, rootEnt, rootDecls)::acc
+                | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
+            Fable.File(file.FileName, rootEnt, rootDecls)
         with
-        | ex -> failwithf "%s (%s)" ex.Message file.FileName) []
+        | ex -> failwithf "%s (%s)" ex.Message file.FileName)
+    |> fun seq -> fileMap, seq
