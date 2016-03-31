@@ -138,6 +138,12 @@ Target "MochaTest" (fun _ ->
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []
     Npm.script testsBuildDir "test" []
+    
+    // Clampled and non-clamped arrays
+    Node.run "." "build/fable" ["src/tests/Other/nonClamped.fsx"; "--outDir"; "build/tests/Other"; "--env"; "node"]
+    Node.run "." "build/fable" ["src/tests/Other/clamped.fsx"; "--clamp"; "--outDir"; "build/tests/Other"; "--env"; "node"]
+    Node.run "." "build/tests/Other/nonClamped" []
+    Node.run "." "build/tests/Other/clamped" []
 )
 
 Target "Plugins" (fun _ ->

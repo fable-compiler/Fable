@@ -289,7 +289,7 @@ module Util =
         | :? char as x -> StringConst (string x)
         // Integer types
         | :? int as x -> NumberConst (U2.Case1 x, Int32)
-        | :? byte as x -> NumberConst (U2.Case1 (int x), UInt8Clamped)
+        | :? byte as x -> NumberConst (U2.Case1 (int x), UInt8)
         | :? sbyte as x -> NumberConst (U2.Case1 (int x), Int8)
         | :? int16 as x -> NumberConst (U2.Case1 (int x), Int16)
         | :? uint16 as x -> NumberConst (U2.Case1 (int x), UInt16)
@@ -310,12 +310,12 @@ module Util =
     let makeGet range typ callee propExpr =
         Apply (callee, [propExpr], ApplyGet, typ, range)
         
-    let makeArray typ argExprs =
+    let makeArray elementType arrExprs =
         let arrayKind =
-            match typ with
+            match elementType with
             | PrimitiveType (Number numberKind) -> TypedArray numberKind
             | _ -> DynamicArray
-        ArrayConst(ArrayValues argExprs, arrayKind) |> Value
+        ArrayConst(ArrayValues arrExprs, arrayKind) |> Value
         
     let tryImported com name (decs: #seq<Decorator>) =
         decs |> Seq.tryPick (fun x ->

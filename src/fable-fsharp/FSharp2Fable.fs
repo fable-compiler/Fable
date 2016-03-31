@@ -111,13 +111,15 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     // Arrays with small data (ushort, byte) won't fit the NewArray pattern
     // as they would require too much memory
-    | BasicPatterns.Const(:? System.Collections.IEnumerable as arr, typ)
-        when typ.HasTypeDefinition && typ.TypeDefinition.IsArrayType ->
-        let mutable argExprs = []
-        let enumerator = arr.GetEnumerator()
-        while enumerator.MoveNext() do
-            argExprs <- (makeConst enumerator.Current)::argExprs
-        makeArray (makeType com ctx typ) (argExprs |> List.rev)
+    | BasicPatterns.Const(:? System.Array as arr, typ) ->
+        let arrExprs = [
+            for i in 0 .. (arr.GetLength(0) - 1) ->
+                arr.GetValue(i) |> makeConst
+        ]
+        match arr.GetType().GetElementType().FullName with
+        | NumberKind kind -> Fable.Number kind |> Fable.PrimitiveType
+        | _ -> Fable.UnknownType
+        |> makeArray <| arrExprs
 
     | BasicPatterns.Const(value, FableType com ctx typ) ->
         let e = makeConst value
@@ -255,8 +257,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Set (valToSet, None, valueExpr, r)
 
     (** Instantiation *)
-    | BasicPatterns.NewArray(FableType com ctx typ, argExprs) ->
-        makeArray typ (argExprs |> List.map (transformExpr com ctx))
+    | BasicPatterns.NewArray(FableType com ctx elTyp, arrExprs) ->
+        makeArray elTyp (arrExprs |> List.map (transformExpr com ctx))
 
     | BasicPatterns.NewTuple(_, argExprs) ->
         (argExprs |> List.map (transformExpr com ctx) |> Fable.ArrayValues, Fable.Tuple)

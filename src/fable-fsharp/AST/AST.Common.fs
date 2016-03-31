@@ -22,7 +22,7 @@ type SourceLocation =
         sprintf "(%i,%i)-(%i,%i)" x.start.line x.start.column x.``end``.line x.``end``.column
 
 type NumberKind =
-    | Int8 | UInt8 | UInt8Clamped | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64
+    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64
 
 type RegexFlag =
     | RegexGlobal | RegexIgnoreCase | RegexMultiline | RegexSticky

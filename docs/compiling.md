@@ -26,6 +26,7 @@ Besides the default argument (`--projFile`), the following options are available
   --plugins           Paths to Fable plugins.
   --babelPlugins      Additional Babel plugins (without 'babel-plugin-' prefix, like
                       'add-module-exports'). Must be installed in the current directory.
+  --clamp             Compile unsigned byte arrays as Uint8ClampedArray.
   --code              Pass a string of code directly to Fable.
   --outDir            Where to put compiled JS files. Defaults to project directory.
   --lib               Where to find the core library. If not set, fable-core.js

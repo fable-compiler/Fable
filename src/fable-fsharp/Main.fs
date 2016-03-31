@@ -26,6 +26,7 @@ let readOptions argv =
         lib = def opts "lib" "." id
         projFile = def opts "projFile" null Path.GetFullPath
         watch = def opts "watch" false bool.Parse
+        clamp = def opts "clamp" false bool.Parse
         symbols = def opts "symbols" [||] (fun x -> x.Split('|'))
         plugins = def opts "plugins" [||] (fun x -> x.Split('|'))
     }

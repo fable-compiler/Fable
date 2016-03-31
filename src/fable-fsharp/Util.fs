@@ -7,6 +7,7 @@ type CompilerOptions = {
         plugins: string[]
         lib: string
         watch: bool
+        clamp: bool
     }
     
 type CompilerError(msg) =

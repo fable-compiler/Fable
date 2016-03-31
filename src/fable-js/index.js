@@ -26,6 +26,7 @@ var cli = commandLineArgs([
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without 'babel-plugin-' prefix, " +
                         "like 'angular2-annotations'). Must be installed in the project directory." },
+  { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'code', description: "Pass a string of code directly to Fable." },
   { name: 'outDir', description: "Where to put compiled JS files. Defaults to project directory." },
   { name: 'lib', description: "Where to find the core library. " +

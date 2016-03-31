@@ -128,8 +128,7 @@ module Util =
             let cons =
                 match kind with
                 | Int8 -> "Int8Array" 
-                | UInt8 -> "Uint8Array" 
-                | UInt8Clamped -> "Uint8ClampedArray" 
+                | UInt8 -> if com.Options.clamp then "Uint8ClampedArray" else "Uint8Array" 
                 | Int16 -> "Int16Array" 
                 | UInt16 -> "Uint16Array" 
                 | Int32 -> "Int32Array" 

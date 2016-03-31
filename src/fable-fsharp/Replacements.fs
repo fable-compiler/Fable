@@ -787,11 +787,13 @@ module private AstPass =
                       |> makeCall com i.range i.returnType
             |> Some
         | "zeroCreate" ->
-            match i.methodTypeArgs with
-            | [Fable.PrimitiveType(Fable.Number numberKind)] ->
-                Fable.ArrayConst(Fable.ArrayAlloc i.args.Head, Fable.TypedArray numberKind)
-                |> Fable.Value |> Some
-            | _ -> failwithf "Unexpected arguments for Array.zeroCreate: %A" i.args
+            let arrayKind =
+                match i.methodTypeArgs with
+                | [Fable.PrimitiveType(Fable.Number numberKind)] ->
+                    Fable.TypedArray numberKind
+                | _ -> Fable.DynamicArray
+            Fable.ArrayConst(Fable.ArrayAlloc i.args.Head, arrayKind)
+            |> Fable.Value |> Some
         // ResizeArray only
         | ".ctor" ->
             let makeEmptyArray () =
