@@ -265,6 +265,7 @@ module private AstPass =
             |> makeCall com range typ |> Some
         let r, typ, args = info.range, info.returnType, info.args
         match info.methodName with
+        | "async" -> makeCoreRef com "Async" |> Some
         // Negation
         | "not" -> makeUnOp r info.returnType args UnaryNot |> Some
         // Equality

@@ -15,13 +15,6 @@ open Util
 
 // Special values like seq, async, String.Empty...
 let private (|SpecialValue|_|) com ctx = function
-    | BasicPatterns.Value v ->
-        match v.FullName with
-        | "Microsoft.FSharp.Core.Operators.seq" ->
-            makeCoreRef com "Seq" |> Some
-        | "Microsoft.FSharp.Core.ExtraTopLevelOperators.async" ->
-            makeCoreRef com "Async" |> Some
-        | _ -> None
     | BasicPatterns.ILFieldGet (None, typ, fieldName) as fsExpr when typ.HasTypeDefinition ->
         match typ.TypeDefinition.FullName, fieldName with
         | "System.String", "Empty" -> Some (makeConst "")
@@ -66,7 +59,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         |> makeLoop (makeRangeFrom fsExpr)
         
     | ErasableLambda (meth, typArgs, methTypArgs, methArgs) ->
-        makeCallFrom com ctx fsExpr meth (typArgs, methTypArgs)
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeCallFrom com ctx r typ meth (typArgs, methTypArgs)
             None (List.map (com.Transform ctx) methArgs)
 
     // Pipe must come after ErasableLambda
@@ -76,12 +70,13 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         
     | Composition (meth1, typArgs1, methTypArgs1, args1, meth2, typArgs2, methTypArgs2, args2) ->
         let lambdaArg = makeIdent "$arg"
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         let expr1 =
             (List.map (com.Transform ctx) args1)@[Fable.Value (Fable.IdentValue lambdaArg)]
-            |> makeCallFrom com ctx fsExpr meth1 (typArgs1, methTypArgs1) None
+            |> makeCallFrom com ctx r typ meth1 (typArgs1, methTypArgs1) None
         let expr2 =
             (List.map (com.Transform ctx) args2)@[expr1]
-            |> makeCallFrom com ctx fsExpr meth2 (typArgs2, methTypArgs2) None
+            |> makeCallFrom com ctx r typ meth2 (typArgs2, methTypArgs2) None
         Fable.Lambda([lambdaArg], expr2) |> Fable.Value
 
     | BaseCons com ctx (meth, args) ->
@@ -140,23 +135,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.This |> Fable.Value 
 
     | BasicPatterns.Value v ->
-        if not v.IsModuleValueOrMember
-        then getBoundExpr com ctx v
-        elif v.IsMemberThisValue
-        then Fable.This |> Fable.Value
-        // External entities contain functions that will be replaced,
-        // when they appear as a stand alone values, they must be wrapped in a lambda
-        elif isReplaceCandidate com v.EnclosingEntity
-        then wrapInLambda com ctx fsExpr v
-        else
-            match v with
-            | Emitted com ctx fsExpr (None, []) emitted -> emitted
-            | Imported com ctx fsExpr [] imported -> imported
-            | _ ->
-                let typeRef =
-                    makeTypeFromDef com v.EnclosingEntity
-                    |> makeTypeRef com (makeRange fsExpr.Range)
-                makeGetFrom com ctx fsExpr typeRef (makeConst v.DisplayName)
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeValueFrom com ctx r typ v
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         let valueKind =
@@ -195,7 +175,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
-        makeCallFrom com ctx fsExpr meth (typArgs, methTypArgs) callee args
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
@@ -232,10 +213,12 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx calleeType
                       |> makeTypeRef com (makeRange fsExpr.Range)
-        makeGetFrom com ctx fsExpr callee (makeConst fieldName)
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeGetFrom com ctx r typ callee (makeConst fieldName)
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
-        makeGetFrom com ctx fsExpr tupleExpr (makeConst tupleElemIndex)
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeGetFrom com ctx r typ tupleExpr (makeConst tupleElemIndex)
 
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, FableType com ctx unionType, unionCase, FieldName fieldName) ->
         match unionType with
@@ -260,14 +243,16 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
-        makeGetFrom com ctx fsExpr unionExpr (makeConst "tag")
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeGetFrom com ctx r typ unionExpr (makeConst "tag")
 
     | BasicPatterns.UnionCaseSet (Transform com ctx unionExpr, _type, _case, FieldName caseField, Transform com ctx valueExpr) ->
         failwith "Unexpected UnionCaseSet"
 
     | BasicPatterns.ValueSet (valToSet, Transform com ctx valueExpr) ->
-        let valToSet = getBoundExpr com ctx valToSet
-        Fable.Set (valToSet, None, valueExpr, makeRangeFrom fsExpr)
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx valToSet.FullType
+        let valToSet = makeValueFrom com ctx r typ valToSet
+        Fable.Set (valToSet, None, valueExpr, r)
 
     (** Instantiation *)
     | BasicPatterns.NewArray(FableType com ctx typ, argExprs) ->
@@ -349,15 +334,18 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     // TODO: Check for erased constructors with property assignment (Call + Sequential)
     | BasicPatterns.NewObject(meth, typArgs, args) ->
-        makeCallFrom com ctx fsExpr meth (typArgs, []) None (List.map (com.Transform ctx) args)
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeCallFrom com ctx r typ meth (typArgs, []) None (List.map (com.Transform ctx) args)
 
     | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
         let recordType, range = makeType com ctx fsType, makeRange fsExpr.Range
         let argExprs = argExprs |> List.map (transformExpr com ctx)
-        if isReplaceCandidate com fsType.TypeDefinition
-        then replace com ctx fsExpr (recordType.FullName) ".ctor" ([],[],[]) (None,argExprs)
-        else Fable.Apply (makeTypeRef com range recordType, argExprs, Fable.ApplyCons,
-                        makeType com ctx fsExpr.Type, Some range)
+        if isReplaceCandidate com fsType.TypeDefinition then
+            let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+            replace com ctx r typ (recordType.FullName) ".ctor" ([],[],[]) (None,argExprs)
+        else
+            Fable.Apply (makeTypeRef com range recordType, argExprs, Fable.ApplyCons,
+                            makeType com ctx fsExpr.Type, Some range)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
         let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
@@ -389,10 +377,12 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 // Include Tag name in args
                 let tag = makeConst unionCase.Name
                 tag::(List.map (transformExpr com ctx) argExprs)
-            if isReplaceCandidate com fsType.TypeDefinition
-            then replace com ctx fsExpr (unionType.FullName) ".ctor" ([],[],[]) (None,argExprs)
-            else Fable.Apply (makeTypeRef com range unionType, argExprs, Fable.ApplyCons,
-                            makeType com ctx fsExpr.Type, Some range)
+            if isReplaceCandidate com fsType.TypeDefinition then
+                let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+                replace com ctx r typ (unionType.FullName) ".ctor" ([],[],[]) (None,argExprs)
+            else
+                Fable.Apply (makeTypeRef com range unionType, argExprs, Fable.ApplyCons,
+                                makeType com ctx fsExpr.Type, Some range)
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ as fsTyp, Transform com ctx expr) ->
@@ -564,12 +554,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     | _ ->
         let memberKind =
             let name = sanitizeMethodName com meth
-            // TODO: Another way to check module values?
-            if meth.EnclosingEntity.IsFSharpModule
-            then match meth.XmlDocSig.[0] with
-                 | 'P' -> Fable.Getter (name, true)
-                 | _ -> Fable.Method name
-            else getMemberKind name meth
+            getMemberKind name meth
         let ctx', args' = getMethodArgs com ctx meth.IsInstanceMember args
         let body =
             let ctx' =

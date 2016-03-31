@@ -70,6 +70,15 @@ module StyleBuilderHelper =
 let ``Module, members and properties with same name don't clash``() =
     StyleBuilderHelper.test() |> equal true
 
+module Mutable =
+    let mutable prop = 10
+    
+[<Test>]
+let ``Module mutable properties work``() =
+    equal 10 Mutable.prop
+    Mutable.prop <- 5
+    equal 5 Mutable.prop
+
 module Same =
     let a = 5
     module Same =
@@ -81,9 +90,6 @@ module Same =
         let Same = 20
         let shouldEqual20 = Same
         let shouldEqual30 = let Same = 25 in Same + a
-        
-        let ``$M0`` = 40
-        let shouldEqual50 = let ``$M1`` = 10 in ``$M0`` + ``$M1``
         
 [<Test>]
 let ``Accessing members of parent module with same name works``() =
@@ -100,7 +106,3 @@ let ``Accessing members with same name as module works``() =
 [<Test>]
 let ``Naming values with same name as module works``() =
     equal 30 Same.Same.shouldEqual30
-
-[<Test>]
-let ``Members and values don't clash with module identifers``() =
-    equal 50 Same.Same.shouldEqual50

@@ -11,7 +11,7 @@ type Decorator =
 (** ##Types *)
 type PrimitiveTypeKind =
     | Unit
-    | Enum of string
+    | Enum of fullName: string
     | Number of NumberKind
     | String
     | Regex

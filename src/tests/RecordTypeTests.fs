@@ -4,7 +4,7 @@ open NUnit.Framework
 open Fable.Tests.Util
 
 type Person =
-    { name: string; luckyNumber: int }
+    { name: string; mutable luckyNumber: int }
     member x.LuckyDay = x.luckyNumber % 30
     member x.SignDoc str = str + " by " + x.name
 
@@ -13,6 +13,8 @@ let ``Record property access can be generated``() =
     let x = { name = "Alfonso"; luckyNumber = 7 }
     equal "Alfonso" x.name
     equal 7 x.luckyNumber
+    x.luckyNumber <- 14
+    equal 14 x.luckyNumber
 
 [<Test>]
 let ``Record methods can be generated``() =

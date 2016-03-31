@@ -83,11 +83,13 @@ let pluginsBuildDir = Util.join ["build";"plugins"]
 
 // Targets
 Target "Clean" (fun _ ->
-    !! fableBuildDir ++ testsBuildDir ++ pluginsBuildDir
+    !! fableBuildDir ++ pluginsBuildDir
         ++ "src/**/bin/" ++ "src/**/obj/"
     |> CleanDirs
     // Exclude node_modules
     !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
+    |> Seq.iter FileUtils.rm
+    !! "build/tests/**/*.*" -- "build/tests/node_modules/**/*.*"
     |> Seq.iter FileUtils.rm
 )
 
