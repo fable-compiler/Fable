@@ -205,7 +205,8 @@ the `fable` command in the sample directory. Just be sure to install the npm dep
 the first time.
 
 ```shell
-npm install -g fable-compiler
+npm install
+fable
 ```
 
 Now it's your turn to build a great app with Fable and show it to the world!
