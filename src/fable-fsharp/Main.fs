@@ -51,21 +51,24 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
         let projFile = com.Options.projFile
         if not(File.Exists projFile) then
             failwithf "Cannot find project file %s" projFile
-        match (Path.GetExtension projFile).ToLower() with
-        | ".fsx" ->
-            let projCode =
-                match com.Options.code with
-                | null -> File.ReadAllText projFile
-                | projCode ->
-                    // TODO: use File System
-                    File.WriteAllText(projFile, projCode)
-                    projCode
-            let otherFlags = com.Options.symbols |> Array.map (sprintf "--define:%s")
-            checker.GetProjectOptionsFromScript(projFile, projCode, otherFlags=otherFlags)
-            |> Async.RunSynchronously
-        | _ ->
-            let properties = [("DefineConstants", String.concat ";" com.Options.symbols)]
-            ProjectCracker.GetProjectOptionsFromProjectFile(projFile, properties)
+        try
+            match (Path.GetExtension projFile).ToLower() with
+            | ".fsx" ->
+                let projCode =
+                    match com.Options.code with
+                    | null -> File.ReadAllText projFile
+                    | projCode ->
+                        // TODO: use File System
+                        File.WriteAllText(projFile, projCode)
+                        projCode
+                let otherFlags = com.Options.symbols |> Array.map (sprintf "--define:%s")
+                checker.GetProjectOptionsFromScript(projFile, projCode, otherFlags=otherFlags)
+                |> Async.RunSynchronously
+            | _ ->
+                let properties = [("DefineConstants", String.concat ";" com.Options.symbols)]
+                ProjectCracker.GetProjectOptionsFromProjectFile(projFile, properties)
+        with
+        | ex -> failwithf "Cannot read project options: %s" ex.Message
 
 let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
                        (projOptions: FSharpProjectOptions) =

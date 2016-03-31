@@ -99,6 +99,10 @@ Target "FableRelease" (fun _ ->
     |> MSBuild fableBuildDir "Build"
         ["Configuration","Release"; "DocumentationFile", xmlPath]
     |> Log "Release-Output: "
+    
+    // For some reason, ProjectCracker targets are not working after updating the package
+    !! "packages/FSharp.Compiler.Service.ProjectCracker/utilities/net45/FSharp.Compiler.Service.ProjectCrackerTool.exe*"
+    |> Seq.iter (fun x -> FileUtils.cp x "build/fable/bin")
 )
 
 Target "FableDebug" (fun _ ->
