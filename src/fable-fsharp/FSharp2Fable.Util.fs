@@ -559,11 +559,11 @@ module Util =
         |> tryImported com meth.DisplayName
         |> function
             | Some expr ->
-                if meth.IsPropertyGetterMethod
-                then expr
-                elif meth.IsPropertySetterMethod
-                then Fable.Set (expr, None, args.Head, r)
-                else Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
+                match getMemberKind "" meth with
+                | Fable.Getter _ -> expr
+                | Fable.Setter _ -> Fable.Set (expr, None, args.Head, r)
+                | Fable.Constructor
+                | Fable.Method _ -> Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
                 |> Some
             | None -> None
 
