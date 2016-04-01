@@ -31,6 +31,6 @@
     "webpack-dev-server": "^1.14.1"
   },
   "engines": {
-    "fable": "^0.1.5"
+    "fable": "^0.1.6"
   }
 }

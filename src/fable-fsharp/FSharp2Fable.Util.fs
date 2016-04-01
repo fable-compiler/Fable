@@ -606,8 +606,6 @@ module Util =
         (** -If the call is not resolved, then: *)
         | _ ->
             let methName = sanitizeMethodName com meth
-            if methName.Contains "properties" then
-                printfn "Hola"
         (**     *Check if this an extension *)
             let callee, args =
                 if meth.IsExtensionMember

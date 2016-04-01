@@ -4,6 +4,18 @@ open NUnit.Framework
 open Fable.Tests.Util
 open System.Collections.Generic
 
+[<Emit("$1.constructor.name == $0")>]
+let jsConstructorIs (s: string) (ar: 'T[]) = true 
+
+[<Test>]
+let ``Typed Arrays work``() =  
+    let xs = [| 1; 2; 3; |]
+    let ys = [| 1.; 2.; 3.; |]
+    let zs = [| "This is a string" |]
+    xs |> jsConstructorIs "Int32Array" |> equal true
+    ys |> jsConstructorIs "Float64Array" |> equal true
+    zs |> jsConstructorIs "Array" |> equal true
+
 [<Test>]
 let ``Array slice with upper index work``() =  
     let xs = [| 1; 2; 3; 4; 5; 6 |]
