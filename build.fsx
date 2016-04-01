@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.1.4"  // or retrieve from CI server
+let version = "0.1.5"  // or retrieve from CI server
 
 module Util =
     open System.Net
