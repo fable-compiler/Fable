@@ -315,7 +315,9 @@
           case "f": case "F": rep = rep.toFixed(precision || 6); break;
           case "g": case "G": rep = rep.toPrecision(precision); break;
           case "e": case "E": rep = rep.toExponential(precision); break;
-          case "A": rep = JSON.stringify(rep); break;
+          case "A": rep = JSON.stringify(rep, function(k, v) {
+                        return ArrayBuffer.isView(v) ? Array.from(v) : v;
+                    }); break;
         }
         var plusPrefix = flags.indexOf('+') >= 0 && parseInt(rep) >= 0;
         if (!isNaN(pad = parseInt(pad))) {
