@@ -152,7 +152,7 @@ Target "MochaTest" (fun _ ->
 
 Target "Plugins" (fun _ ->
     CreateDir pluginsBuildDir
-    [ "src/plugins/Fable.Plugins.NUnit.fsx" ]
+    [ "src/plugins/Fable.Plugins.NUnit.fsx"; "src/plugins/Fable.Plugins.VisualStudio.UnitTests.fsx" ]
     |> Seq.iter (fun fsx ->
         let dllFile = Path.ChangeExtension(Path.GetFileName fsx, ".dll")
         [fsx]
