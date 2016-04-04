@@ -498,8 +498,11 @@ module Util =
                 transformStatement com ctx e
                 |> consBack acc
             | Fable.MemberDeclaration m ->
-                transformModMember com ctx modIdent m
-                |> consBack acc
+                match m.Kind with
+                | Fable.Constructor | Fable.Setter _ -> acc
+                | _ ->
+                    transformModMember com ctx modIdent m
+                    |> consBack acc
             | Fable.EntityDeclaration (ent, entDecls, entRange) ->
                 match ent.Kind with
                 // Interfaces, attribute or erased declarations shouldn't reach this point
