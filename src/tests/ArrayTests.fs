@@ -32,11 +32,11 @@ let ``Byte arrays are not clamped by default``() =
     ar.[0] <- ar.[0] + 255uy
     equal 4uy ar.[0]
 
-// [<Test>]
-// let ``Clamped byte arrays work``() =
-//     let ar = Fable.Tests.Clamped.create 1 5uy
-//     ar.[0] <- ar.[0] + 255uy
-//     equal 255uy ar.[0]
+[<Test>]
+let ``Clamped byte arrays work``() =
+    let ar = Util.Helper.CreateClampedArray()
+    ar.[0] <- ar.[0] + 255uy
+    equal 255uy ar.[0]
 
 [<Test>]
 let ``Array slice with upper index work``() =  

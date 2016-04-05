@@ -796,6 +796,7 @@ module private AstPass =
                 | _ -> Fable.DynamicArray
             Fable.ArrayConst(Fable.ArrayAlloc i.args.Head, arrayKind)
             |> Fable.Value |> Some
+        // TODO: Array.create
         // ResizeArray only
         | ".ctor" ->
             let makeEmptyArray () =

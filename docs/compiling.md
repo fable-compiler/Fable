@@ -27,6 +27,7 @@ Option                  | Shorthand | Description
 `--symbols`             |           | F# symbols for conditional compilation, like `DEBUG`.
 `--plugins`             |           | Paths to Fable plugins.
 `--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
+`--refs`                |           | TODO: Project references
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
 `--target`              | `-t`      | Use options from a specific target in `fableconfig.json`.
 `--debug`               | `-d`      | Shortcut for `--target debug`.

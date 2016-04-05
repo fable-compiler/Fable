@@ -134,14 +134,21 @@ Target "NUnitTest" (fun _ ->
 
 Target "MochaTest" (fun _ ->
     Node.run "." "build/fable" [
+        "src/tests/Other/Fable.Tests.Clamp.fsproj";
+        "--outDir"; "build/tests/Other";
+        "--clamp"; "-m"; "commonjs"
+    ]
+    Node.run "." "build/fable" [
         "src/tests/Fable.Tests.fsproj"
         "-m"; "commonjs"
         "--outDir"; testsBuildDir
         "--plugins"; "build/plugins/Fable.Plugins.NUnit.dll"
+        "--refs"; "Fable.Tests.Clamp=./Other"
     ]
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []
     Npm.script testsBuildDir "test" []
+    
     
     // Clampled and non-clamped arrays
     // Node.run "." "build/fable" ["src/tests/Other/nonClamped.fsx"; "--outDir"; "build/tests/Other"; "-m"; "commonjs"]

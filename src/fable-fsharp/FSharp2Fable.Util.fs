@@ -222,9 +222,7 @@ module Patterns =
         tryFindAtt ((=) "Replace") atts |> Option.isSome
         
     let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
-        not(isImported ent)
-        && not(com.Options.references.ContainsKey ent.Assembly.SimpleName)
-        && Option.isNone(com.GetInternalFile ent)
+        not(isImported ent) && Option.isNone(com.GetInternalFile ent)
 
     let isReplaceCandidate (com: IFableCompiler) (ent: FSharpEntity) =
         ent.FullName.StartsWith "Fable.Core" || isExternalEntity com ent

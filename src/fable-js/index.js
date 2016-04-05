@@ -28,7 +28,7 @@ var cli = commandLineArgs([
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
-  { name: 'references', multiple: true, description: "External F# project references." },
+  { name: 'refs', multiple: true, description: "TODO: F# project references." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
@@ -409,11 +409,11 @@ try {
     // Default values
     opts.outDir = opts.outDir || path.dirname(opts.projFile);
     opts.ecma = opts.ecma || "es5";
-    if (typeof opts.references == "object") {
+    if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {
         var refs = [];
-        for (var k in opts.references)
-            refs.push(k + "=" + opts.references[k]);
-        opts.references = refs;
+        for (var k in opts.refs)
+            refs.push(k + "=" + opts.refs[k]);
+        opts.refs = refs;
     }
 
     if (!opts.projFile && !opts.code) {

@@ -15,7 +15,7 @@ type Context = {
 type IBabelCompiler =
     inherit ICompiler
     abstract DeclarePlugins: IDeclarePlugin list
-    abstract GetFileNamespace: string -> string
+    abstract GetProjectAndNamespace: string -> Fable.Project * string
     abstract GetImport: Context -> memb: string -> path: string -> Babel.Expression
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
@@ -99,7 +99,7 @@ module Util =
             | [] -> upcast Babel.EmptyExpression()
             | m::ms -> identFromName m :> Babel.Expression |> Some |> accessExpr ms
 
-    let typeRef (com: IBabelCompiler) ctx file fullName (memb: string option): Babel.Expression =
+    let typeRef (com: IBabelCompiler) ctx (ent: Fable.Entity) (memb: string option): Babel.Expression =
         let getParts ns fullName memb =
             let split (s: string) =
                 s.Split('.') |> Array.toList
@@ -109,20 +109,29 @@ module Util =
                 | _ -> xs2
             (@) (removeCommon (split ns) (split fullName))
                 (match memb with Some memb -> [memb] | None ->  [])
-        match file with
-        | None -> failwithf "Cannot reference type: %s" fullName
+        match ent.File with
+        | None -> failwithf "Cannot reference type: %s" ent.FullName
         | Some file when ctx.file <> file ->
+            let proj, ns = com.GetProjectAndNamespace file
             let importPath =
-                Naming.getRelativePath file ctx.file
-                |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
-            getParts (com.GetFileNamespace file) fullName memb
+                match proj.ImportPath with
+                | Some importPath ->
+                    let ext = Naming.getExternalImportPath com ctx.file importPath
+                    let rel = Naming.getRelativePath file proj.ProjectFileName
+                    System.IO.Path.Combine(ext, rel)
+                    |> Naming.normalizePath
+                    |> fun x -> System.IO.Path.ChangeExtension(x, null)
+                | None ->
+                    Naming.getRelativePath file ctx.file
+                    |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
+            getParts ns ent.FullName memb
             |> function
             | [] -> com.GetImport ctx "*" importPath
             | memb::parts ->
                 com.GetImport ctx memb importPath
                 |> Some |> accessExpr parts
         | _ ->
-            accessExpr (getParts ctx.moduleFullName fullName memb) None
+            accessExpr (getParts ctx.moduleFullName ent.FullName memb) None
 
     let buildArray (com: IBabelCompiler) ctx consKind kind =
         match kind with
@@ -282,7 +291,7 @@ module Util =
             | Fable.Lambda (args, body) -> upcast funcExpression com ctx args body
             | Fable.ArrayConst (cons, kind) -> buildArray com ctx cons kind
             | Fable.Emit emit -> macroExpression None emit []
-            | Fable.TypeRef typEnt -> typeRef com ctx typEnt.File typEnt.FullName None
+            | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
             | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ | Fable.Spread _ ->
                 failwithf "Unexpected stand-alone value: %A" expr
 
@@ -342,7 +351,7 @@ module Util =
             // Module or class static members
             | Fable.Value (Fable.TypeRef typEnt), [Fable.Value (Fable.StringConst memb)]
                 when kind = Fable.ApplyGet ->
-                typeRef com ctx typEnt.File typEnt.FullName (Some memb)
+                typeRef com ctx typEnt (Some memb)
             | _ ->
                 match kind with
                 | Fable.ApplyMeth ->
@@ -430,7 +439,7 @@ module Util =
         if ifcs.Length = 0
         then None
         else [ com.GetImport ctx "Util" Naming.coreLib
-               typeRef com ctx ent.File ent.FullName None
+               typeRef com ctx ent None
                buildStringArray ifcs ]
             |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
             |> Babel.ExpressionStatement :> Babel.Statement
@@ -548,7 +557,7 @@ module Util =
                 |> consBack decls
             |> List.rev
             
-    let makeCompiler (com: ICompiler) fileMap =
+    let makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         let declarePlugins =
             com.Plugins |> List.choose (function
                 | :? IDeclarePlugin as plugin -> Some plugin
@@ -556,10 +565,15 @@ module Util =
         { new IBabelCompiler with
             member bcom.DeclarePlugins =
                 declarePlugins
-            member bcom.GetFileNamespace fileName =
-                Map.tryFind fileName fileMap
-                |> function Some ns -> ns
-                          | None -> failwithf "File not parsed: %s" fileName
+            member bcom.GetProjectAndNamespace fileName =
+                projs
+                |> Seq.tryPick (fun p ->
+                    match Map.tryFind fileName p.FileMap with
+                    | None -> None
+                    | Some ns -> Some(p, ns))
+                |> function
+                | Some res -> res
+                | None -> failwithf "Cannot find file: %s" fileName                
             member bcom.GetImport ctx memb importPath =
                 let i =
                     match Seq.tryFindIndex ((=) (memb, importPath)) ctx.imports with
@@ -580,13 +594,13 @@ module Util =
 module Compiler =
     open Util
 
-    let transformFile (com: ICompiler) (fileMap, files) =
-        let com = makeCompiler com fileMap
+    let transformFile (com: ICompiler) (projs, files) =
+        let com = makeCompiler com projs
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 let ctx = {
                     file = file.FileName
-                    moduleFullName = fileMap.[file.FileName]
+                    moduleFullName = projs.Head.FileMap.[file.FileName]
                     imports = System.Collections.Generic.List<_>()
                 }
                 let rootDecls =

@@ -7,6 +7,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable", "fable-fsharp\Fable
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests", "tests\Fable.Tests.fsproj", "{6EF06954-FBDF-42C7-815C-B13BA2926C93}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Clamp", "tests\Other\Fable.Tests.Clamp.fsproj", "{1E44403B-7834-4842-91B1-53A5FA731C58}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{6EF06954-FBDF-42C7-815C-B13BA2926C93}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6EF06954-FBDF-42C7-815C-B13BA2926C93}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6EF06954-FBDF-42C7-815C-B13BA2926C93}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E44403B-7834-4842-91B1-53A5FA731C58}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E44403B-7834-4842-91B1-53A5FA731C58}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E44403B-7834-4842-91B1-53A5FA731C58}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E44403B-7834-4842-91B1-53A5FA731C58}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

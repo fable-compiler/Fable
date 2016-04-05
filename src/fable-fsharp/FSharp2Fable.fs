@@ -654,13 +654,11 @@ let private inlineExprs =
     System.Collections.Concurrent.ConcurrentDictionary<
         string, FSharpMemberOrFunctionOrValue list * FSharpExpr>()
 
-let private makeCompiler (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
+let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
     let entities =
         System.Collections.Concurrent.ConcurrentDictionary<string, Fable.Entity>()
-    let fileNames =
-        fsProj.AssemblyContents.ImplementationFiles
-        |> Seq.map (fun x -> x.FileName)
-        |> Set.ofSeq
+    let refAssemblies =
+        projs |> Seq.choose (fun p -> p.AssemblyFileName) |> Set
     let replacePlugins =
         com.Plugins |> List.choose (function
             | :? IReplacePlugin as plugin -> Some plugin
@@ -673,10 +671,12 @@ let private makeCompiler (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
             // becomes the .fsx file, so check first if the entity belongs
             // to an assembly already compiled (external to the project)
             match tdef.Assembly.FileName with
-            | Some _ -> None
-            | None ->
+            | Some assembly when not(refAssemblies.Contains assembly) -> None
+            | _ ->
                 let file = tdef.DeclarationLocation.FileName
-                if Set.contains file fileNames then Some file else None
+                if projs |> Seq.exists (fun p -> p.FileMap.ContainsKey file)
+                then Some file
+                else None
         member fcom.GetEntity tdef =
             entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
         member fcom.TryGetInlineExpr fullName =
@@ -693,25 +693,54 @@ let private makeCompiler (com: ICompiler) (fsProj: FSharpCheckProjectResults) =
         member __.Options = com.Options
         member __.Plugins = com.Plugins }
         
-let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpCheckProjectResults) =
+let transformFiles (com: ICompiler) (fileMask: string option)
+                   (projOpts: FSharpProjectOptions) (proj: FSharpCheckProjectResults) =
     let rec getRootDecls rootNs ent decls =
         if rootNs = "" then ent, decls else
         match decls with
         | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
             when ent.IsNamespace || ent.IsFSharpModule ->
-            if (defaultArg ent.TryFullName "") = rootNs
+            // TODO: Report Bug when ent.IsNamespace, FullName doesn't work
+            let fullName =
+                let fullName = defaultArg ent.TryFullName ""
+                if ent.IsFSharpModule then fullName else
+                [|defaultArg ent.Namespace ""; fullName|]
+                |> Array.filter (System.String.IsNullOrEmpty >> not)
+                |> String.concat "."
+            if fullName = rootNs
             then Some ent, decls
             else getRootDecls rootNs (Some ent) decls
         | _ -> failwithf "Cannot find namespace %s" rootNs
-    let com = makeCompiler com fsProj
-    let fileMap = makeFileMap fsProj.AssemblySignature.Entities
-    fsProj.AssemblyContents.ImplementationFiles
+
+    let curProj =
+        Fable.Project(com.Options.projFile, makeFileMap proj.AssemblySignature.Entities)
+    let projs =
+        projOpts.ReferencedProjects
+        |> Seq.map (fun (assemblyPath, opts) ->
+            let projName = System.IO.Path.GetFileNameWithoutExtension opts.ProjectFileName
+            proj.ProjectContext.GetReferencedAssemblies()
+            |> Seq.tryFind (fun a -> a.FileName = Some assemblyPath)
+            |> function
+            | Some assembly when not(com.Options.refs.ContainsKey projName) ->
+                failwithf "Cannot find import path for referenced project %s. %s"
+                            projName "Have you forgotten --refs argument?"
+            | Some assembly ->
+                Fable.Project(opts.ProjectFileName,
+                            makeFileMap assembly.Contents.Entities,
+                            assemblyPath, com.Options.refs.[projName])
+                |> Some
+            | None -> None)
+        |> Seq.choose id
+        |> fun refs -> curProj::(List.ofSeq refs)
+
+    let com = makeCompiler com projs
+    proj.AssemblyContents.ImplementationFiles
     |> Seq.where (fun file ->
         not (Naming.ignoredFilesRegex.IsMatch file.FileName))
     |> Seq.map (fun file ->
         try
             let rootEnt, rootDecls =
-                let rootNs = fileMap.[file.FileName]
+                let rootNs = curProj.FileMap.[file.FileName]
                 let rootEnt, rootDecls =
                     let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
                     let arePathsEqual p1 p2 =
@@ -726,4 +755,4 @@ let transformFiles (com: ICompiler) (fileMask: string option) (fsProj: FSharpChe
             Fable.File(file.FileName, rootEnt, rootDecls)
         with
         | ex -> failwithf "%s (%s)" ex.Message file.FileName)
-    |> fun seq -> fileMap, seq
+    |> fun seq -> projs, seq

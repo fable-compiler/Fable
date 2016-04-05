@@ -31,7 +31,7 @@ let readOptions argv =
         clamp = def opts "clamp" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id)
         plugins = def opts "plugins" [] (li id)
-        references = Map(def opts "references" [] (li (fun (x: string) ->
+        refs = Map(def opts "refs" [] (li (fun (x: string) ->
             let xs = x.Split('=') in xs.[0], xs.[1])))
     }
 
@@ -115,11 +115,9 @@ let compile (com: ICompiler) checker projOpts fileMask =
         >> JsonConvert.SerializeObject
         >> Console.Out.WriteLine
     try
-        let projOpts =
-            getProjectOptions com checker projOpts fileMask
-        projOpts
-        |> parseFSharpProject com checker
-        |> FSharp2Fable.Compiler.transformFiles com fileMask
+        let projOpts = getProjectOptions com checker projOpts fileMask
+        let proj = parseFSharpProject com checker projOpts
+        FSharp2Fable.Compiler.transformFiles com fileMask projOpts proj
         |> Fable2Babel.Compiler.transformFile com
         |> Seq.choose id
         |> Seq.iter printFile

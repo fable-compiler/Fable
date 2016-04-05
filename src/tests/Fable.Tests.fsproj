@@ -63,9 +63,6 @@
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="Other/Fable.Tests.Clamped.fsproj" />
-  </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
@@ -95,5 +92,12 @@
       <Private>True</Private>
       <Paket>True</Paket>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Other\Fable.Tests.Clamp.fsproj">
+      <Name>Fable.Tests.Clamp</Name>
+      <Project>{1e44403b-7834-4842-91b1-53a5fa731c58}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
 </Project>

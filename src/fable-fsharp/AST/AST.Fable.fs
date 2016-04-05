@@ -107,6 +107,13 @@ and File(fileName, root, decls) =
         | [] -> SourceLocation.Empty
         | decls -> SourceLocation.Empty + (List.last decls).Range
 
+and Project(projectFile, fileMap, ?assemblyFile, ?importPath) =
+    member __.ProjectFileName: string = projectFile
+    member __.FileMap: Map<string, string> = fileMap
+    member __.AssemblyFileName: string option = assemblyFile
+    member __.ImportPath: string option = importPath
+    member __.Name: string = System.IO.Path.GetFileNameWithoutExtension projectFile
+
 (** ##Expressions *)
 and ArrayKind = TypedArray of NumberKind | DynamicArray | Tuple
 
