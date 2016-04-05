@@ -15,17 +15,23 @@ module Util =
             | None -> None
         | _ -> None
 
+    let methodDecorators = Map.ofList ["TestFixtureSetUp", "before";
+                                       "SetUp", "beforeEach";
+                                       "Test", "it";
+                                       "TearDown", "afterEach";
+                                       "TestFixtureTearDown", "after"]
+
     let (|Test|_|) (decl: Fable.Declaration) =
         match decl with
         | Fable.MemberDeclaration m ->
-            match m.Kind, m.TryGetDecorator "Test" with
-            | Fable.Method name, Some _ -> Some (m, name)
+            match m.Kind, (m.Decorators |> List.tryFind (fun x -> Map.containsKey x.Name methodDecorators)) with
+            | Fable.Method name, Some decorator -> Some (m, name, decorator)
             | _ -> None
         | _ -> None
 
     // Compile tests using Mocha.js BDD interface
     // TODO: Check method signature
-    let transformTest com ctx (test: Fable.Member) name =
+    let transformTest com ctx (test: Fable.Member) name (decorator: Fable.Decorator) =
         let testName =
             Babel.StringLiteral name :> Babel.Expression
         let testBody =
@@ -33,9 +39,10 @@ module Util =
         let testRange =
             match testBody.loc with
             | Some loc -> test.Range + loc | None -> test.Range
+        let newMethodName = methodDecorators.Item(decorator.Name)
         // it('Test name', function() { /* Tests */ });
         Babel.ExpressionStatement(
-            Babel.CallExpression(Babel.Identifier "it",
+            Babel.CallExpression(Babel.Identifier newMethodName,
                 [U2.Case1 testName; U2.Case1 testBody], testRange), testRange)
         :> Babel.Statement
 
@@ -71,8 +78,8 @@ type NUnitPlugin() =
             |> Some
         member x.TryDeclare com ctx decl =
             match decl with
-            | Test (test, name) ->
-                transformTest com ctx test name
+            | Test (test, name, decorator) ->
+                transformTest com ctx test name decorator
                 |> List.singleton |> Some
             | TestFixture (fixture, testDecls, testRange) ->
                 let testDecls =
