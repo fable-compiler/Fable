@@ -4,6 +4,8 @@
   - "TestFixture" attribute changed to "TestClass"
   - "Test" attribute changed to "TestMethod"
   - "NUnit.Framework.Assert" changed to "Microsoft.VisualStudio.TestTools.UnitTesting.Assert"
+  - Names of methodDecorators changed to Visual Studio counterparts
+  - In transformTestMethod, generate testBody without arguments
 
   Both frameworks are very similar, the exception being VisualStudio doesn't 
   (currently?) supports static class members as test methods.
@@ -29,27 +31,35 @@ module Util =
             | None -> None
         | _ -> None
 
+    let methodDecorators = Map.ofList ["ClassInitialize", "before";
+                                       "TestInitialize", "beforeEach";
+                                       "TestMethod", "it";
+                                       "TestCleanup", "afterEach";
+                                       "ClassCleanup", "after"]
+
     let (|TestMethod|_|) (decl: Fable.Declaration) =
         match decl with
         | Fable.MemberDeclaration m ->
-            match m.Kind, m.TryGetDecorator "TestMethod" with
-            | Fable.Method name, Some _ -> Some (m, name)
+            match m.Kind, (m.Decorators |> List.tryFind (fun x -> Map.containsKey x.Name methodDecorators)) with
+            | Fable.Method name, Some decorator -> Some (m, name, decorator)
             | _ -> None
         | _ -> None
 
     // Compile tests using Mocha.js BDD interface
     // TODO: Check method signature
-    let transformTestMethod com ctx (testMethod: Fable.Member) name =
+    let transformTestMethod com ctx (testMethod: Fable.Member) name (decorator: Fable.Decorator) =
         let testName =
             Babel.StringLiteral name :> Babel.Expression
         let testBody =
-            Util.funcExpression com ctx testMethod.Arguments testMethod.Body :> Babel.Expression
+            // Don't pass arguments ("ClassInitialize" method has one)
+            Util.funcExpression com ctx [] testMethod.Body :> Babel.Expression
         let testRange =
             match testBody.loc with
             | Some loc -> testMethod.Range + loc | None -> testMethod.Range
+        let newMethodName = methodDecorators.Item(decorator.Name)
         // it('Test name', function() { /* Tests */ });
         Babel.ExpressionStatement(
-            Babel.CallExpression(Babel.Identifier "it",
+            Babel.CallExpression(Babel.Identifier newMethodName,
                 [U2.Case1 testName; U2.Case1 testBody], testRange), testRange)
         :> Babel.Statement
 
@@ -85,8 +95,8 @@ type VisualStudioUnitTestsPlugin() =
             |> Some
         member x.TryDeclare com ctx decl =
             match decl with
-            | TestMethod (test, name) ->
-                transformTestMethod com ctx test name
+            | TestMethod (test, name, decorator) ->
+                transformTestMethod com ctx test name decorator
                 |> List.singleton |> Some
             | TestClass (fixture, testDecls, testRange) ->
                 let testDecls =
