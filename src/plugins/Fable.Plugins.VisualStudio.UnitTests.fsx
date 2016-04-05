@@ -1,3 +1,19 @@
+(*
+  This code is a copy of Fable.Plugins.NUnit.fsx with the following changes
+
+  - "TestFixture" attribute changed to "TestClass"
+  - "Test" attribute changed to "TestMethod"
+  - "NUnit.Framework.Assert" changed to "Microsoft.VisualStudio.TestTools.UnitTesting.Assert"
+  - Names of methodDecorators changed to Visual Studio counterparts
+  - In transformTestMethod, generate testBody without arguments
+
+  Both frameworks are very similar, the exception being VisualStudio doesn't 
+  (currently?) supports static class members as test methods.
+  
+  This notice is to remember that future improvements to that code should be 
+  ported to this one.
+*)
+
 namespace Fable.Plugins
 
 #r "../../build/fable/bin/Fable.exe"
@@ -7,21 +23,21 @@ open Fable.FSharp2Fable
 open Fable.Fable2Babel
 
 module Util =
-    let (|TestFixture|_|) (decl: Fable.Declaration) =
+    let (|TestClass|_|) (decl: Fable.Declaration) =
         match decl with
         | Fable.EntityDeclaration (ent, entDecls, entRange) ->
-            match ent.TryGetDecorator "TestFixture" with
+            match ent.TryGetDecorator "TestClass" with
             | Some _ -> Some (ent, entDecls, entRange)
             | None -> None
         | _ -> None
 
-    let methodDecorators = Map.ofList ["TestFixtureSetUp", "before";
-                                       "SetUp", "beforeEach";
-                                       "Test", "it";
-                                       "TearDown", "afterEach";
-                                       "TestFixtureTearDown", "after"]
+    let methodDecorators = Map.ofList ["ClassInitialize", "before";
+                                       "TestInitialize", "beforeEach";
+                                       "TestMethod", "it";
+                                       "TestCleanup", "afterEach";
+                                       "ClassCleanup", "after"]
 
-    let (|Test|_|) (decl: Fable.Declaration) =
+    let (|TestMethod|_|) (decl: Fable.Declaration) =
         match decl with
         | Fable.MemberDeclaration m ->
             match m.Kind, (m.Decorators |> List.tryFind (fun x -> Map.containsKey x.Name methodDecorators)) with
@@ -31,14 +47,15 @@ module Util =
 
     // Compile tests using Mocha.js BDD interface
     // TODO: Check method signature
-    let transformTest com ctx (test: Fable.Member) name (decorator: Fable.Decorator) =
+    let transformTestMethod com ctx (testMethod: Fable.Member) name (decorator: Fable.Decorator) =
         let testName =
             Babel.StringLiteral name :> Babel.Expression
         let testBody =
-            Util.funcExpression com ctx test.Arguments test.Body :> Babel.Expression
+            // Don't pass arguments ("ClassInitialize" method has one)
+            Util.funcExpression com ctx [] testMethod.Body :> Babel.Expression
         let testRange =
             match testBody.loc with
-            | Some loc -> test.Range + loc | None -> test.Range
+            | Some loc -> testMethod.Range + loc | None -> testMethod.Range
         let newMethodName = methodDecorators.Item(decorator.Name)
         // it('Test name', function() { /* Tests */ });
         Babel.ExpressionStatement(
@@ -46,9 +63,9 @@ module Util =
                 [U2.Case1 testName; U2.Case1 testBody], testRange), testRange)
         :> Babel.Statement
 
-    let transformTestFixture (fixture: Fable.Entity) testDecls testRange =
+    let transformTestClass (testClass: Fable.Entity) testDecls testRange =
         let testDesc =
-            Babel.StringLiteral fixture.Name :> Babel.Expression
+            Babel.StringLiteral testClass.Name :> Babel.Expression
         let testBody =
             Babel.FunctionExpression([],
                 Babel.BlockStatement (testDecls, ?loc=Some testRange), ?loc=Some testRange)
@@ -67,30 +84,30 @@ module Util =
 
 open Util
 
-type NUnitPlugin() =
+type VisualStudioUnitTestsPlugin() =
     interface IDeclarePlugin with
         member x.TryDeclareRoot com ctx file =
-            if file.Root.TryGetDecorator "TestFixture" |> Option.isNone then None else
+            if file.Root.TryGetDecorator "TestClass" |> Option.isNone then None else
             let rootDecls = Util.transformModDecls com ctx None file.Declarations
-            transformTestFixture file.Root rootDecls file.Range
+            transformTestClass file.Root rootDecls file.Range
             |> U2.Case1
             |> List.singleton
             |> Some
         member x.TryDeclare com ctx decl =
             match decl with
-            | Test (test, name, decorator) ->
-                transformTest com ctx test name decorator
+            | TestMethod (test, name, decorator) ->
+                transformTestMethod com ctx test name decorator
                 |> List.singleton |> Some
-            | TestFixture (fixture, testDecls, testRange) ->
+            | TestClass (fixture, testDecls, testRange) ->
                 let testDecls =
                     let ctx = { ctx with moduleFullName = fixture.FullName } 
                     Util.transformModDecls com ctx None testDecls
-                transformTestFixture fixture testDecls testRange
+                transformTestClass fixture testDecls testRange
                 |> List.singleton |> Some
             | _ -> None
 
     interface IReplacePlugin with
         member x.TryReplace com info =
             match info.ownerFullName with
-            | "NUnit.Framework.Assert" -> asserts com info
+            | "Microsoft.VisualStudio.TestTools.UnitTesting.Assert" -> asserts com info
             | _ -> None
