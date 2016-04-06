@@ -24,8 +24,8 @@
   };
   
   exports.Choice = function Choice(t, d) {
-    this.tag = t;
-    this.data0 = d;
+    this.Case = t;
+    this.Fields = [d];
   };
 
   var Util = exports.Util = {};
@@ -1934,13 +1934,13 @@
     return [
       Obs.choose(function (v) {
         var res = f(v);
-        return res.tag == "Choice1Of2"
-          ? res.data0 : null;
+        return res.Case == "Choice1Of2"
+          ? res.Fields[0] : null;
       }, w),
       Obs.choose(function (v) {
         var res = f(v);
-        return res.tag == "Choice2Of2"
-          ? res.data0 : null;
+        return res.Case == "Choice2Of2"
+          ? res.Fields[0] : null;
       }, w),
     ];
   };

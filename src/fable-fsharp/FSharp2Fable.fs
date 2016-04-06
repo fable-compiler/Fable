@@ -231,7 +231,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         | OtherType ->
             let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
             let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
-            makeGet range typ unionExpr (sprintf "data%i" i |> makeConst)
+            let fields = makeGet range typ unionExpr ("Fields" |> makeConst)
+            makeGet range typ fields (i |> makeConst)
 
     | BasicPatterns.ILFieldSet (callee, typ, fieldName, value) ->
         failwithf "Found unsupported ILField reference in %A: %A" fsExpr.Range fsExpr
@@ -407,7 +408,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             let expr = makeGet None Fable.UnknownType unionExpr (makeConst "tail")
             makeBinOp (makeRangeFrom fsExpr) boolType [expr; Fable.Value Fable.Null] opKind 
         | OtherType ->
-            let left = makeGet None (Fable.PrimitiveType Fable.String) unionExpr (makeConst "tag")
+            let left = makeGet None (Fable.PrimitiveType Fable.String) unionExpr (makeConst "Case")
             let right = makeConst unionCase.Name
             makeBinOp (makeRangeFrom fsExpr) boolType [left; right] BinaryEqualStrict
 
