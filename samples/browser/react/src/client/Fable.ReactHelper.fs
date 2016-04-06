@@ -298,8 +298,8 @@ let propsToObj (props: #IProp[]) =
         s.Substring(0,1).ToLower() + s.Substring(1)
     let o = obj()
     for p in props do
-        let key = firstToLower (unbox p?tag)
-        o?(key) <- p?data0
+        let key = firstToLower (unbox p?Case)
+        o?(key) <- p?Fields?(0)
     o
 
 let inline fn (f: 'Props -> #React.ReactElement<obj>) (props: 'Props) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
