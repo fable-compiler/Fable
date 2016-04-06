@@ -81,3 +81,53 @@ let ``Union cases called Tag still work (bug due to Tag field)``() =
     | Tag x -> x
     | _ -> failwith "unexpected"
     |> equal "abc"
+
+type JsonTypeInner = {
+    Prop1: string
+    Prop2: int
+}
+
+type JsonTestUnion =
+    | IntType of int
+    | StringType of string
+    | TupleType of string * int
+    | ObjectType of JsonTypeInner
+
+[<Emit("JSON.parse($0)")>]
+let jsonParse (json: string) = failwith "JS Only"
+
+[<Emit("JSON.stringify($0)")>]
+let jsonStringify (json): string = failwith "JS Only"
+
+[<Test>]
+let ``Pattern matching json parse union cases still works``() =
+    // Test IntType
+    match jsonParse """{"Case":"IntType","Fields":[1]}""" with
+    | IntType x -> x
+    | _ -> failwith "unexpected"
+    |> equal 1
+    // Test StringType
+    match jsonParse """{"Case":"StringType","Fields":["value1"]}""" with
+    | StringType x -> x
+    | _ -> failwith "unexpected"
+    |> equal "value1"
+    // Test TupleType
+    match jsonParse """{"Case":"TupleType","Fields":["value1",2]}""" with
+    | TupleType(x, y) -> x, y
+    | _ -> failwith "unexpected"
+    |> fun (x, y) ->
+        x |> equal "value1"
+        y |> equal 2
+    // Test ObjectType
+    match jsonParse """{"Case":"ObjectType","Fields":[{"Prop1":"value1","Prop2":2}]}""" with
+    | ObjectType(x) -> x
+    | _ -> failwith "unexpected"
+    |> fun x ->
+        x.Prop1 |> equal "value1"
+        x.Prop2 |> equal 2
+
+[<Test>]
+let ``Union cases json stringify is as we expect``() =
+    ObjectType({Prop1 = "value1"; Prop2 = 2})
+    |> jsonStringify
+    |> equal """{"Case":"ObjectType","Fields":[{"Prop1":"value1","Prop2":2}]}"""

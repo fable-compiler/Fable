@@ -404,7 +404,7 @@ module Util =
         | _ -> failwithf "Unsupported type test in %A: %A" range typ
 
     let makeUnionCons () =
-        let emit = Emit "this.tag=arguments[0]; for (var i=1; i<arguments.length; i++) { this['data'+(i-1)]=arguments[i]; }" |> Value
+        let emit = Emit "this.Case=arguments[0]; this.Fields = []; for (var i=1; i<arguments.length; i++) { this.Fields[(i-1)]=arguments[i]; }" |> Value
         let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
         Member(Constructor, SourceLocation.Empty, [], body, [], true)
         |> MemberDeclaration
