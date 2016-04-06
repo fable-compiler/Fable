@@ -6,7 +6,7 @@
 // taking more advantage of static type checking
 
 // Load and open Fable.Core to get access to Fable attributes and operators
-#r "node_modules/fable-import/Fable.Import.dll"
+#r "node_modules/fable-core/Fable.Core.dll"
 open Fable.Core
 
 type Todo = {

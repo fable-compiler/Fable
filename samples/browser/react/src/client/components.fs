@@ -17,13 +17,13 @@ module Util =
             match meth with
             | Get url -> url, "GET", None
             | Post (url, data) ->
-                url, "POST", Some(JS.Globals.JSON.stringify data)
-        let req = Globals.XMLHttpRequest.Create()
+                url, "POST", Some(JS.JSON.stringify data)
+        let req = XMLHttpRequest.Create()
         req.onreadystatechange <- fun _ ->
             if req.readyState = 4. then
                 match req.status with
                 | 200. | 0. ->
-                    JS.Globals.JSON.parse req.responseText
+                    JS.JSON.parse req.responseText
                     |> unbox |> onSuccess
                 | _ -> onError req.status
             null
@@ -43,7 +43,7 @@ open Models
 module R = ReactHelper
 open ReactHelper.Props
 
-[<Import("marked?asDefault=true")>]
+[<Import("default","marked")>]
 let marked (s: string) (opts: obj): string = failwith "JS only"
 
 type CVProps = {author: string; key: DateTime option}
@@ -130,7 +130,7 @@ type CommentBox(props) =
         ajax (Get x.props.url)
             (fun data -> x.setState { data = data })
             (fun status ->
-                Browser.Globals.console.error(x.props.url, status))
+                Browser.console.error(x.props.url, status))
     
     member x.handleCommentSubmit (comment: Comment) =
         let comments = x.state.data
@@ -144,11 +144,11 @@ type CommentBox(props) =
             (fun data -> x.setState { data = data })
             (fun status ->
                 x.setState { data = comments }
-                Browser.Globals.console.error(x.props.url, status))
+                Browser.console.error(x.props.url, status))
 
     member x.componentDidMount () =
         x.loadCommentsFromServer ()
-        Browser.Globals.window.setInterval(
+        Browser.window.setInterval(
             x.loadCommentsFromServer, x.props.pollInterval)
             
     member x.render () =

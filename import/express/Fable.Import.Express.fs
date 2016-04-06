@@ -15,6 +15,9 @@ module Express =
     and Application =
         interface end
 
+// [<Import("*","express")>]
+// type express = interface end
+// [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module express =
     type IRoute =
         abstract path: string with get, set
@@ -256,4 +259,7 @@ module express =
         member __.Router(?options: obj): Router = failwith "JS only"
         [<Emit("$0($1...)")>] member __.Invoke(): Express = failwith "JS only"
 
-    let [<Import("express?asDefault=true")>] Globals: Globals = failwith "JS only"
+
+[<AutoOpen>]
+module express_Extensions =
+    let [<Import("default","express")>] express: express.Globals = failwith "JS only"

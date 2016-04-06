@@ -197,6 +197,14 @@ module Util =
         let args, body = func com ctx args body
         Babel.FunctionDeclaration(id, args, body, ?loc=body.loc)
 
+    // It's important to use arrow functions to lexically bind `this`
+    // However, compile them always with a block `x => { return x + 1 }`
+    // to prevent problems when transforming do expressions `x => do { var y = 5, x + y }`
+    let funcArrow (com: IBabelCompiler) ctx args body =
+        let args, body = func com ctx args body
+        Babel.ArrowFunctionExpression (args, U2.Case1 body, ?loc=body.loc)
+        :> Babel.Expression
+
     /// Immediately Invoked Function Expression
     let iife (com: IBabelCompiler) ctx (expr: Fable.Expr) =
         Babel.CallExpression (funcExpression com ctx [] expr, [], ?loc=expr.Range)
@@ -288,7 +296,7 @@ module Util =
             | Fable.StringConst x -> upcast Babel.StringLiteral (x)
             | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
             | Fable.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
-            | Fable.Lambda (args, body) -> upcast funcExpression com ctx args body
+            | Fable.Lambda (args, body) -> funcArrow com ctx args body
             | Fable.ArrayConst (cons, kind) -> buildArray com ctx cons kind
             | Fable.Emit emit -> macroExpression None emit []
             | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
@@ -628,6 +636,6 @@ module Compiler =
                         :> Babel.ModuleDeclaration |> U2.Case2)
                     |> Seq.toList
                     |> (@) <| rootDecls
-                Babel.Program (file.FileName, file.Range, rootDecls) |> Some
+                Babel.Program (file.FileName, file.Range, rootDecls)
             with
             | ex -> failwithf "%s (%s)" ex.Message file.FileName)

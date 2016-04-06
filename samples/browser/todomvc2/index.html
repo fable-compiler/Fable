@@ -49,6 +49,18 @@
 		<script src="node_modules/todomvc-common/base.js"></script>
 		<script src="node_modules/director/build/director.js"></script>
 		<script src="node_modules/vue/dist/vue.js"></script>
-		<script data-main="out/index" src="node_modules/requirejs/require.js"></script>
+		<script src="node_modules/requirejs/require.js"></script>
+        <script>
+        requirejs.config({
+            // Set the baseUrl to the path of the compiled JS code
+            baseUrl: 'out',
+            paths: {
+                // Explicit path to core lib (relative to baseUrl, omit .js)
+                'fable-core': '../node_modules/fable-core/fable-core.min'
+            }
+        });
+        // Load the entry file of the app (use array, omit .js)
+        requirejs(["index"]);
+        </script>
 	</body>
 </html>

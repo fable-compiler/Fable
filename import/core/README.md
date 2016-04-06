@@ -39,11 +39,11 @@ requirejs.config({
     // Set the baseUrl to the path of the compiled JS code
     baseUrl: 'out',
     paths: {
-        // Explicit path to core lib (must end with .js)
-        'fable-core': 'node_modules/fable-core/fable-core.min.js'
+        // Explicit path to core lib (relative to baseUrl, omit .js)
+        'fable-core': '../node_modules/fable-core/fable-core.min'
     }
 });
-// Load the entry file of the app (omit .js here)
-requirejs("app");
+// Load the entry file of the app (use array, omit .js)
+requirejs(["app"]);
 </script>
 ```

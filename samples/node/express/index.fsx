@@ -1,20 +1,19 @@
-#r "node_modules/fable-import/Fable.Import.dll"
+#r "node_modules/fable-core/Fable.Core.dll"
 #load "node_modules/fable-import-express/Fable.Import.Express.fs"
 
 open System
 open Fable.Core
 open Fable.Import
-open Fable.Import.express
 
-let app = express.Globals.Invoke()
+let app = express.Invoke()
 
-app.get(U2.Case1 "/hello/:name", fun (req: Request) (res: Response) _ ->
+app.get(U2.Case1 "/hello/:name", fun (req: express.Request) (res: express.Response) _ ->
     res.send(sprintf "Hello %O" req.``params``?name)
     |> box)
 |> ignore
 
 let port =
-    match unbox Node.Globals.``process``.env?PORT with
+    match unbox Node.``process``.env?PORT with
     | Some x -> x | None -> 8080
 
 app.listen(port, unbox (fun () ->

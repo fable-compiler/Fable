@@ -3,8 +3,6 @@ open System
 open Fable.Core
 open Fable.Import.JS
 
-type Browser = interface end
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Browser =
     type Algorithm =
         abstract name: string option with get, set

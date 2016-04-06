@@ -1,9 +1,9 @@
 {
-    "env": "node",
+    "module": "commonjs",
     "outDir": "out",
     "sourceMaps": true,
     "projFile": "src/Fable.Samples.React.fsproj",
-    "babelPlugins": ["transform-runtime", "add-module-exports"],
+    "babelPlugins": ["transform-runtime"],
     "scripts": {
         "prebuild": "npm install",
         "postbuild": "node node_modules/webpack/bin/webpack"
@@ -11,7 +11,7 @@
     "targets": {
         "debug": {
             "watch": true,
-            "symbols": ["WEBPACK_DEV_SERVER"],
+            "symbols": ["DEBUG"],
             "scripts": {
                 "postbuild": "node out/server"
             }

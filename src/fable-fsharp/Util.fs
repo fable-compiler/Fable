@@ -72,7 +72,7 @@ module Naming =
             | [] -> prefix
             | (x: string)::xs ->
                 let mutable i = 0
-                while i < prefix.Length && x.[i] = prefix.[i] do
+                while i < prefix.Length && i < x.Length && x.[i] = prefix.[i] do
                     i <- i + 1
                 getCommonPrefix (prefix.Substring(0,i)) xs
         match xs with

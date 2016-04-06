@@ -56,7 +56,7 @@
     <Compile Include="client/client.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="../node_modules/fable-import/Fable.Import.dll" />
+    <Reference Include="../node_modules/fable-core/Fable.Core.dll" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

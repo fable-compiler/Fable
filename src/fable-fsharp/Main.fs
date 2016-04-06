@@ -119,7 +119,6 @@ let compile (com: ICompiler) checker projOpts fileMask =
         let proj = parseFSharpProject com checker projOpts
         FSharp2Fable.Compiler.transformFiles com fileMask projOpts proj
         |> Fable2Babel.Compiler.transformFile com
-        |> Seq.choose id
         |> Seq.iter printFile
         Some projOpts
     with ex ->

@@ -3,11 +3,10 @@
 // but takes advantage of static type checking
 
 // Load Fable.Core and bindings to JS global objects
-#r "node_modules/fable-import/Fable.Import.dll"
+#r "node_modules/fable-core/Fable.Core.dll"
 
 open Fable.Core
-type JS = Fable.Import.JS.Globals
-type Browser = Fable.Import.Browser.Globals
+open Fable.Import
 
 // Use this dummy module to hold references to Vue and Router objects
 // exposed globally by loading the corresponding libraries with HTML script tags

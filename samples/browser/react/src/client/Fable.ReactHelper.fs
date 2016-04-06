@@ -301,21 +301,18 @@ let propsToObj (props: #IProp[]) =
         let key = firstToLower (unbox p?tag)
         o?(key) <- p?data0
     o
-    
-let [<Import("react")>] private react = obj()
-let [<Emit("...$0")>] private spread (o: 'T[]): 'T[] = failwith ""
 
 let inline fn (f: 'Props -> #React.ReactElement<obj>) (props: 'Props) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    react?createElement $ (f, props, spread(List.toArray children)) |> unbox 
+    unbox(React.createElement(U2.Case1(unbox f), props, unbox(List.toArray children)))
 
 let inline com<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    react?createElement $ (typeof<'T>, props, spread(List.toArray children)) |> unbox 
+    unbox(React.createElement(U2.Case1(unbox typeof<'T>), props, unbox(List.toArray children)))
 
 let inline domEl (tag: string) (props: IHTMLProp list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    react?createElement $ (tag, propsToObj(List.toArray props), spread(List.toArray children)) |> unbox 
+    unbox(React.createElement(tag, propsToObj(List.toArray props), unbox(List.toArray children)))
 
 let inline svgEl (tag: string) (props: #IProp list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    react?createElement $ (tag, propsToObj(List.toArray props), spread(List.toArray children)) |> unbox
+    unbox(React.createElement(tag, propsToObj(List.toArray props), unbox(List.toArray children)))
 
 let inline a b c = domEl "a" b c
 let inline abbr b c = domEl "abbr" b c

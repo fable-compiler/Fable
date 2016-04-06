@@ -1,5 +1,5 @@
 {
-    "env": "node",
+    "module": "commonjs",
     "sourceMaps": true,
     "projFile": "./index.fsx",
     "outDir": "out",

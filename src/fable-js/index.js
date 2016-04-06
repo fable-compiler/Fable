@@ -291,7 +291,7 @@ function addModulePlugin(opts, babelPlugins) {
     if (["amd", "commonjs", "umd"].indexOf(opts.module) >= 0) {
         babelPlugins.push(require("babel-plugin-transform-es2015-modules-" + opts.module));
     }
-    else if (opts.module === "es2015") {
+    else if (opts.module === "es2015" || opts.module === "es6") {
         // Do nothing
     }
     else {
@@ -301,7 +301,7 @@ function addModulePlugin(opts, babelPlugins) {
 
 function build(opts) {
     // ECMAScript target
-    if (opts.ecma != "es2015") {
+    if (opts.ecma != "es2015" && opts.ecma != "es6") {
         babelPlugins = babelPlugins.concat(babelPlugins_es2015);
     }
     
@@ -416,7 +416,7 @@ try {
         opts.refs = refs;
     }
 
-    if (!opts.projFile && !opts.code) {
+    if (!opts.code && [".fsproj", ".fsx"].indexOf(path.extname(opts.projFile)) == -1 ) {
         console.log("ERROR: Please provide a F# project (.fsproj) or script (.fsx) file");
         console.log("Use 'fable --help' to see available options");
         process.exit(1);

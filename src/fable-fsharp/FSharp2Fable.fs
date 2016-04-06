@@ -695,6 +695,13 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         
 let transformFiles (com: ICompiler) (fileMask: string option)
                    (projOpts: FSharpProjectOptions) (proj: FSharpCheckProjectResults) =
+    let isMasked (file: FSharpImplementationFileContents) =
+        let arePathsEqual p1 p2 =
+            let normalize = System.IO.Path.GetFullPath >> Naming.normalizePath 
+            (normalize p1) = (normalize p2)
+        match fileMask with
+        | Some mask when not(arePathsEqual file.FileName mask) -> false
+        | _ -> true
     let rec getRootDecls rootNs ent decls =
         if rootNs = "" then ent, decls else
         match decls with
@@ -713,7 +720,9 @@ let transformFiles (com: ICompiler) (fileMask: string option)
         | _ -> failwithf "Cannot find namespace %s" rootNs
 
     let curProj =
-        Fable.Project(com.Options.projFile, makeFileMap proj.AssemblySignature.Entities)
+        Fable.Project(
+            com.Options.projFile,
+            makeFileMap proj.AssemblySignature.Entities)
     let projs =
         projOpts.ReferencedProjects
         |> Seq.map (fun (assemblyPath, opts) ->
@@ -736,19 +745,15 @@ let transformFiles (com: ICompiler) (fileMask: string option)
     let com = makeCompiler com projs
     proj.AssemblyContents.ImplementationFiles
     |> Seq.where (fun file ->
-        not (Naming.ignoredFilesRegex.IsMatch file.FileName))
+        curProj.FileMap.ContainsKey file.FileName
+        && not (Naming.ignoredFilesRegex.IsMatch file.FileName)
+        && isMasked file)
     |> Seq.map (fun file ->
         try
             let rootEnt, rootDecls =
                 let rootNs = curProj.FileMap.[file.FileName]
-                let rootEnt, rootDecls =
-                    let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
-                    let arePathsEqual p1 p2 =
-                        let normalize = System.IO.Path.GetFullPath >> Naming.normalizePath 
-                        (normalize p1) = (normalize p2)
-                    match fileMask with
-                    | Some mask when not(arePathsEqual file.FileName mask) -> rootEnt, []
-                    | _ -> rootEnt, transformDeclarations com Context.Empty [] rootDecls
+                let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
+                let rootDecls = transformDeclarations com Context.Empty [] rootDecls
                 match rootEnt with
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls

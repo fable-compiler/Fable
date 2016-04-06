@@ -1,5 +1,5 @@
 {
-    "env": "browser",
+    "module": "amd",
     "sourceMaps": true,
     "projFile": "index.fsx",
     "outDir": "out",
