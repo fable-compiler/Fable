@@ -27,7 +27,7 @@ Option                  | Shorthand | Description
 `--symbols`             |           | F# symbols for conditional compilation, like `DEBUG`.
 `--plugins`             |           | Paths to Fable plugins.
 `--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
-`--refs`                |           | TODO: Project references
+`--refs`                |           | Specify project references in `Project=JS import path` format (see below)
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
 `--target`              | `-t`      | Use options from a specific target in `fableconfig.json`.
 `--debug`               | `-d`      | Shortcut for `--target debug`.
@@ -35,12 +35,35 @@ Option                  | Shorthand | Description
 `--code`                |           | Pass a string of code directly to Fable.
 `--help`                | `-h`      | Display usage guide.
 
+## Project references
+
+You can use `--refs` argument to link referenced projects with the JS import path that must be used, using the following format: `[Project name without extension]=[JS import path]`.
+
+Example:
+
+```
+fable src/lib/MyLib.fsproj --outDir out/lib
+fable src/another/MyNs.AnotherProject.fsproj --outDir out/another
+fable src/main/MyProject.fsproj --outDir out/main --refs MyLib=../lib MyNs.AnotherProject=../another
+```
+
 ## fableconfig.json
 
 Rather than passing all the options to the CLI, it may be more convenient to put them
 in JSON format in a file named `fableconfig.json` within the current directory and let the
 compiler read them for you. You can combine options from the CLI and `fableconfig.json`:
 when this happens the former will have preference.
+
+Project references can be passed using a plain object:
+
+```
+{
+  "refs": {
+    "MyLib": "../lib",
+    "MyNs.AnotherProject": "../another"
+  }
+}
+```
 
 There are some options exclusive to `fableconfig.json`.
 
@@ -115,8 +138,9 @@ requirejs(["app"]);
 
 ## Polyfill
 
-After going through Babel pipeline, the code won't include any syntax foreign
-to ES5. However several ES6 classes (like `Symbol`) are used so it's advisable
+When not using `--module es2015` (see below), after going through Babel pipeline 
+the code won't include any syntax foreign to ES5. However several ES2015 classes
+(like `Symbol`) are used so it's advisable
 to include a polyfill like [core-js](https://github.com/zloirock/core-js) to
 make sure the code works fine in any browser.
 
@@ -143,11 +167,12 @@ in [fable-core.js](/src/fable-js/fable-core.js).
 
 ## Modules
 
-The compiler will keep the file structure of the F# project, wrapping each file in a [ES6 module](https://github.com/lukehoban/es6features#modules).
-As these modules are not yet widely supported, they will be transformed again by Babel
-to [amd](http://requirejs.org/docs/whyamd.html), [commonjs](https://nodejs.org/docs/latest/api/modules.html) or [umd](https://github.com/umdjs/umd)
-according to the `env` argument (see above). In the browser, when not using a bundler
-like Webpack or Browserify, you'll need a module loader like [require.js](http://requirejs.org) to start up the app.
+The compiler will keep the file structure of the F# project, wrapping each file in a [ES2015 module](https://github.com/lukehoban/es6features#modules).
+
+According to the `--module` argument (see above), these modules can be transformed again by Babel to
+[umd](https://github.com/umdjs/umd) (the default), [amd](http://requirejs.org/docs/whyamd.html), [commonjs](https://nodejs.org/docs/latest/api/modules.html), or not at all.
+
+In the browser, when not using a bundler like Webpack or Browserify, you'll need a module loader like [require.js](http://requirejs.org) to start up the app.
 
 When a F# file makes a reference to another, the compiler will create an [import statement](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import)
 in the generated Javascript code. You can also generate imports by using
@@ -188,7 +213,7 @@ $M1.MyModule1.myProperty !== $M1.MyModule2.myProperty
 The generated modules are exported using the default export and should be imported accordingly:
 
 ```js
-import $M1 from "another/file"              // ES6
+import $M1 from "another/file"              // ES2015
 var $M1 = require("another/file").default   // CommonJS
 ```
 
@@ -220,9 +245,15 @@ build.cmd   // on windows
 ./build.sh  // on unix
 ```
 
-> Note: For now only `TestFixture` and `Test` attributes, and `Assert.AreEqual` are available, but more features will be available soon.
+The most commonly used attributes (`TestFixture` and `Test`) and their respective 
+`SetUp`/`TearDown` counterparts are implemented. For assertions, however, only 
+`Assert.AreEqual` is available. But more features will be available soon.
 
-> Note: As attributes are only read by name, it's possible to use custom-defined attributes without the `NUnit` dependency if needed.
+> Note: As attributes are only read by name, it's possible to use custom-defined
+attributes without the `NUnit` dependency if needed.
+
+For Visual Studio users, there's a similar plugin to convert Visual Studio Unit 
+Tests to Mocha.
 
 ## Samples
 
