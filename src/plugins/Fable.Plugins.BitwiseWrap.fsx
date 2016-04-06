@@ -6,7 +6,7 @@ open Fable.AST
 open Fable.AST.Fable
 open Fable.FSharp2Fable
 
-type RandomPlugin() =
+type BitwiseWrapPlugin() =
     interface IReplacePlugin with
         member x.TryReplace com (info: Fable.ApplyInfo) =
 
