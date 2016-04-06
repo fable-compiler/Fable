@@ -2,6 +2,7 @@ namespace Fable.Plugins
 
 #r "../../build/fable/bin/Fable.exe"
 
+open Fable
 open Fable.AST
 open Fable.FSharp2Fable
 open Fable.Fable2Babel
@@ -39,7 +40,7 @@ module Util =
                 [U2.Case1 testName; U2.Case1 testBody], testRange), testRange)
         :> Babel.Statement
 
-    let transformTestFixture (fixture: Fable.Entity) testDecls testRange =
+    let transformTestFixture (fixture: Fable.Entity) testRange testDecls =
         let testDesc =
             Babel.StringLiteral fixture.Name :> Babel.Expression
         let testBody =
@@ -54,9 +55,18 @@ module Util =
     let asserts com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "areEqual" ->
-            Fable.Util.ImportCall("assert", true, None, Some "equal", false, List.rev i.args)
+            Fable.Util.ImportCall("assert", "*", Some "equal", false, List.rev i.args)
             |> Fable.Util.makeCall com i.range i.returnType |> Some
         | _ -> None
+        
+    let declareModMember range name _isPublic _modIdent expr =
+        Util.varDeclaration (Some range) (Util.identFromName name) expr
+        :> Babel.Statement |> U2.Case1
+        
+    let castStatements (decls: U2<Babel.Statement, Babel.ModuleDeclaration> list) =
+        decls |> List.map (function
+            | U2.Case1 statement -> statement
+            | U2.Case2 _ -> failwith "Unexepected export in test fixture")
 
 open Util
 
@@ -64,8 +74,9 @@ type NUnitPlugin() =
     interface IDeclarePlugin with
         member x.TryDeclareRoot com ctx file =
             if file.Root.TryGetDecorator "TestFixture" |> Option.isNone then None else
-            let rootDecls = Util.transformModDecls com ctx None file.Declarations
-            transformTestFixture file.Root rootDecls file.Range
+            Util.transformModDecls com ctx declareModMember None file.Declarations
+            |> castStatements
+            |> transformTestFixture file.Root file.Range
             |> U2.Case1
             |> List.singleton
             |> Some
@@ -75,10 +86,10 @@ type NUnitPlugin() =
                 transformTest com ctx test name
                 |> List.singleton |> Some
             | TestFixture (fixture, testDecls, testRange) ->
-                let testDecls =
-                    let ctx = { ctx with moduleFullName = fixture.FullName } 
-                    Util.transformModDecls com ctx None testDecls
-                transformTestFixture fixture testDecls testRange
+                let ctx = { ctx with moduleFullName = fixture.FullName } 
+                Util.transformModDecls com ctx declareModMember None testDecls
+                |> castStatements
+                |> transformTestFixture fixture testRange
                 |> List.singleton |> Some
             | _ -> None
 

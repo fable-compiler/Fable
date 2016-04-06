@@ -1,9 +1,10 @@
 {
-    "env": "node",
+    "module": "commonjs",
     "sourceMaps": true,
     "projFile": "./console.fsproj",
     "outDir": "out",
     "scripts": {
+        "prebuild": "npm install",
         "postbuild": "node out/index World"
     }
 }

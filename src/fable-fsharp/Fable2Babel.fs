@@ -9,14 +9,14 @@ open Fable.AST
 type Context = {
     file: string
     moduleFullName: string
-    imports: System.Collections.Generic.Dictionary<string, string * bool>
+    imports: System.Collections.Generic.List<string * string>
     }
 
 type IBabelCompiler =
     inherit ICompiler
     abstract DeclarePlugins: IDeclarePlugin list
-    abstract GetFableFile: string -> Fable.File
-    abstract GetImport: Context -> isExternal: bool -> asDefault: bool -> path: string -> Babel.Expression
+    abstract GetProjectAndNamespace: string -> Fable.Project * string
+    abstract GetImport: Context -> memb: string -> path: string -> Babel.Expression
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
     abstract TransformFunction: Context -> Fable.Ident list -> Fable.Expr ->
@@ -34,7 +34,6 @@ and IDeclarePlugin =
         -> (U2<Babel.Statement, Babel.ModuleDeclaration> list) option
 
 module Util =
-    let (|Try|_|) (f: 'a -> 'b option) a = f a
     let (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
     let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
     let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
@@ -100,27 +99,39 @@ module Util =
             | [] -> upcast Babel.EmptyExpression()
             | m::ms -> identFromName m :> Babel.Expression |> Some |> accessExpr ms
 
-    let typeRef (com: IBabelCompiler) ctx file fullName: Babel.Expression =
-        let getDiff s1 s2 =
+    let typeRef (com: IBabelCompiler) ctx (ent: Fable.Entity) (memb: string option): Babel.Expression =
+        let getParts ns fullName memb =
             let split (s: string) =
                 s.Split('.') |> Array.toList
             let rec removeCommon (xs1: string list) (xs2: string list) =
                 match xs1, xs2 with
                 | x1::xs1, x2::xs2 when x1 = x2 -> removeCommon xs1 xs2
                 | _ -> xs2
-            removeCommon (split s1) (split s2)
-        match file with
-        | None -> failwithf "Cannot reference type: %s" fullName
-        | Some file ->
-            let file = com.GetFableFile file
-            if ctx.file <> file.FileName then
-                Naming.getRelativePath file.FileName ctx.file
-                |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
-                |> com.GetImport ctx false true
-                |> Some
-                |> accessExpr (getDiff file.Root.FullName fullName)
-            else
-                accessExpr (getDiff ctx.moduleFullName fullName) None
+            (@) (removeCommon (split ns) (split fullName))
+                (match memb with Some memb -> [memb] | None ->  [])
+        match ent.File with
+        | None -> failwithf "Cannot reference type: %s" ent.FullName
+        | Some file when ctx.file <> file ->
+            let proj, ns = com.GetProjectAndNamespace file
+            let importPath =
+                match proj.ImportPath with
+                | Some importPath ->
+                    let ext = Naming.getExternalImportPath com ctx.file importPath
+                    let rel = Naming.getRelativePath file proj.ProjectFileName
+                    System.IO.Path.Combine(ext, rel)
+                    |> Naming.normalizePath
+                    |> fun x -> System.IO.Path.ChangeExtension(x, null)
+                | None ->
+                    Naming.getRelativePath file ctx.file
+                    |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
+            getParts ns ent.FullName memb
+            |> function
+            | [] -> com.GetImport ctx "*" importPath
+            | memb::parts ->
+                com.GetImport ctx memb importPath
+                |> Some |> accessExpr parts
+        | _ ->
+            accessExpr (getParts ctx.moduleFullName ent.FullName memb) None
 
     let buildArray (com: IBabelCompiler) ctx consKind kind =
         match kind with
@@ -186,10 +197,12 @@ module Util =
         let args, body = func com ctx args body
         Babel.FunctionDeclaration(id, args, body, ?loc=body.loc)
 
+    // It's important to use arrow functions to lexically bind `this`
+    // However, compile them always with a block `x => { return x + 1 }`
+    // to prevent problems when transforming do expressions `x => do { var y = 5, x + y }`
     let funcArrow (com: IBabelCompiler) ctx args body =
-        let args, body = com.TransformFunction ctx args body
-        let range = match body with U2.Case1 x -> x.loc | U2.Case2 x -> x.loc
-        Babel.ArrowFunctionExpression (args, body, ?loc=range)
+        let args, body = func com ctx args body
+        Babel.ArrowFunctionExpression (args, U2.Case1 body, ?loc=body.loc)
         :> Babel.Expression
 
     /// Immediately Invoked Function Expression
@@ -268,9 +281,12 @@ module Util =
         match expr with
         | Fable.Value kind ->
             match kind with
-            | Fable.ImportRef (import, asDefault, prop) ->
-                let parts = match prop with None -> [] | Some prop -> prop.Split('.') |> Array.toList
-                com.GetImport ctx true asDefault import
+            | Fable.ImportRef (memb, path) ->
+                let memb, parts =
+                    let parts = Array.toList(memb.Split('.'))
+                    parts.Head, parts.Tail
+                Naming.getExternalImportPath com ctx.file path
+                |> com.GetImport ctx memb
                 |> Some |> accessExpr parts
             | Fable.This -> upcast Babel.ThisExpression ()
             | Fable.Super -> upcast Babel.Super ()
@@ -283,7 +299,7 @@ module Util =
             | Fable.Lambda (args, body) -> funcArrow com ctx args body
             | Fable.ArrayConst (cons, kind) -> buildArray com ctx cons kind
             | Fable.Emit emit -> macroExpression None emit []
-            | Fable.TypeRef typEnt -> typeRef com ctx typEnt.File typEnt.FullName
+            | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
             | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ | Fable.Spread _ ->
                 failwithf "Unexpected stand-alone value: %A" expr
 
@@ -314,7 +330,7 @@ module Util =
                     | [] -> props
                     | interfaces ->
                         let ifcsSymbol =
-                            get (com.GetImport ctx true false (Naming.getCoreLibPath com)) "Symbol"
+                            com.GetImport ctx "Symbol" Naming.coreLib
                             |> get <| "interfaces"
                         Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
                         |> U3.Case1 |> consBack props
@@ -340,6 +356,10 @@ module Util =
                 cleanNullArgs args
                 |> List.map (com.TransformExpr ctx)
                 |> macroExpression range emit
+            // Module or class static members
+            | Fable.Value (Fable.TypeRef typEnt), [Fable.Value (Fable.StringConst memb)]
+                when kind = Fable.ApplyGet ->
+                typeRef com ctx typEnt (Some memb)
             | _ ->
                 match kind with
                 | Fable.ApplyMeth ->
@@ -426,8 +446,8 @@ module Util =
             isClass || (not (Naming.automaticInterfaces.Contains x)))
         if ifcs.Length = 0
         then None
-        else [ get (com.GetImport ctx true false (Naming.getCoreLibPath com)) "Util"
-               typeRef com ctx ent.File ent.FullName
+        else [ com.GetImport ctx "Util" Naming.coreLib
+               typeRef com ctx ent None
                buildStringArray ifcs ]
             |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
             |> Babel.ExpressionStatement :> Babel.Statement
@@ -440,14 +460,28 @@ module Util =
         // Babel.ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         Babel.ExpressionStatement(main, ?loc=funcExpr.loc) :> Babel.Statement
 
-    // TODO: Keep track of sanitized member names to be sure they don't clash? 
-    let declareModMember range name isPublic modIdent expr =
+    let declareNestedModMember range name isPublic modIdent expr =
+        if Naming.isInvalidJsIdent name then
+            failwithf "%s cannot be used as a member name" name
         match isPublic, modIdent with
         | true, Some modIdent -> assign (Some range) (get modIdent name) expr 
         | _ -> expr
         |> varDeclaration (Some range) (identFromName name) :> Babel.Statement
+        |> U2.Case1
 
-    let transformModMember com ctx modIdent (m: Fable.Member) =
+    let declareRootModMember range name isPublic modIdent expr =
+        if Naming.isInvalidJsIdent name then
+            failwithf "%s cannot be used as a member name" name
+        let decl =
+            varDeclaration (Some range) (identFromName name) expr
+            :> Babel.Declaration
+        match isPublic with
+        | false -> U2.Case1 (decl :> Babel.Statement)
+        | true ->
+            Babel.ExportNamedDeclaration(decl, loc=range)
+            :> Babel.ModuleDeclaration |> U2.Case2
+
+    let transformModMember com ctx declareMember modIdent (m: Fable.Member) =
         let expr, name =
             match m.Kind with
             | Fable.Getter (name, _) ->
@@ -462,24 +496,28 @@ module Util =
         let memberRange =
             match expr.loc with Some loc -> m.Range + loc | None -> m.Range
         if m.TryGetDecorator("EntryPoint").IsSome
-        then declareEntryPoint com ctx expr
-        else declareModMember memberRange name m.IsPublic modIdent expr
+        then declareEntryPoint com ctx expr |> U2.Case1
+        else declareMember memberRange name m.IsPublic modIdent expr
         
-    let declareClass com ctx modIdent (ent: Fable.Entity) entDecls entRange baseClass isClass =
+    let declareClass com ctx declareMember modIdent
+                    (ent: Fable.Entity) entDecls entRange baseClass isClass =
         let classDecl =
             // Don't create a new context for class declarations
             let classIdent = identFromName ent.Name |> Some
             transformClass com ctx (Some entRange) classIdent baseClass entDecls
-            |> declareModMember entRange ent.Name ent.IsPublic modIdent
+            |> declareMember entRange ent.Name ent.IsPublic modIdent
         match declareInterfaces com ctx ent isClass with
         | None -> [classDecl]
-        | Some ifcDecl -> ifcDecl::[classDecl]
+        | Some ifcDecl -> (U2.Case1 ifcDecl)::[classDecl]
 
-    let rec transformModule com ctx (ent: Fable.Entity) entDecls entRange =
-        let modIdent = Naming.getCurrentModuleIdent() |> Babel.Identifier
+    let rec transformNestedModule com ctx (ent: Fable.Entity) entDecls entRange =
+        let modIdent = Babel.Identifier Naming.exportsIdent 
         let modDecls =
             let ctx = { ctx with moduleFullName = ent.FullName }
-            transformModDecls com ctx (Some modIdent) entDecls
+            transformModDecls com ctx declareNestedModMember (Some modIdent) entDecls
+            |> List.map (function
+                | U2.Case1 statement -> statement
+                | U2.Case2 _ -> failwith "Unexpected export in nested module")
         Babel.CallExpression(
             Babel.FunctionExpression([modIdent],
                 Babel.BlockStatement (modDecls, ?loc=Some entRange),
@@ -487,19 +525,21 @@ module Util =
             [U2.Case1 (upcast Babel.ObjectExpression [])],
             entRange)
 
-    and transformModDecls (com: IBabelCompiler) ctx modIdent decls =
+    and transformModDecls (com: IBabelCompiler) ctx declareMember modIdent decls =
         let pluginDeclare decl =
             com.DeclarePlugins |> Seq.tryPick (fun plugin -> plugin.TryDeclare com ctx decl)
         decls |> List.fold (fun acc decl ->
             match decl with
-            | Try pluginDeclare statements ->
-                statements@acc
+            | Patterns.Try pluginDeclare statements ->
+                (statements |> List.map U2.Case1) @ acc
             | Fable.ActionDeclaration (e,_) ->
                 transformStatement com ctx e
+                |> U2.Case1
                 |> consBack acc
             | Fable.MemberDeclaration m ->
-                transformModMember com ctx modIdent m
-                |> consBack acc
+                match m.Kind with
+                | Fable.Constructor | Fable.Setter _ -> acc
+                | _ -> transformModMember com ctx declareMember modIdent m |> consBack acc
             | Fable.EntityDeclaration (ent, entDecls, entRange) ->
                 match ent.Kind with
                 // Interfaces, attribute or erased declarations shouldn't reach this point
@@ -507,47 +547,49 @@ module Util =
                     failwithf "Cannot emit interface declaration: %s" ent.FullName
                 | Fable.Class baseClass ->
                     let baseClass = Option.map snd baseClass
-                    declareClass com ctx modIdent ent entDecls entRange baseClass true
+                    declareClass com ctx declareMember modIdent ent entDecls entRange baseClass true
                     |> List.append <| acc
                 | Fable.Union | Fable.Record | Fable.Exception ->                
-                    declareClass com ctx modIdent ent entDecls entRange None false
+                    declareClass com ctx declareMember modIdent ent entDecls entRange None false
                     |> List.append <| acc
                 | Fable.Module ->
-                    transformModule com ctx ent entDecls entRange
-                    |> declareModMember entRange ent.Name ent.IsPublic modIdent
+                    transformNestedModule com ctx ent entDecls entRange
+                    |> declareMember entRange ent.Name ent.IsPublic modIdent
                     |> consBack acc) []
         |> fun decls ->
             match modIdent with
-            | Some modIdent -> (Babel.ReturnStatement modIdent :> Babel.Statement)::decls
             | None -> decls
+            | Some modIdent ->
+                Babel.ReturnStatement modIdent
+                :> Babel.Statement |> U2.Case1
+                |> consBack decls
             |> List.rev
-
-    let makeCompiler (com: ICompiler) (files: Fable.File list) =
+            
+    let makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         let declarePlugins =
             com.Plugins |> List.choose (function
                 | :? IDeclarePlugin as plugin -> Some plugin
                 | _ -> None)
-        let fileMap =
-            files |> Seq.map (fun f -> f.FileName, f) |> Map.ofSeq
         { new IBabelCompiler with
             member bcom.DeclarePlugins =
                 declarePlugins
-            member bcom.GetFableFile fileName =
-                Map.tryFind fileName fileMap
-                |> function Some file -> file
-                          | None -> failwithf "File not parsed: %s" fileName
-            member bcom.GetImport ctx isExternal asDefault importPath =
-                let importPath =
-                    if isExternal
-                    then Naming.getExternalImportPath bcom ctx.file importPath
-                    else importPath
-                match ctx.imports.TryGetValue importPath with
-                | true, (import, _) ->
-                    upcast Babel.Identifier import
-                | false, _ ->
-                    let import = Naming.getImportModuleIdent ctx.imports.Count
-                    ctx.imports.Add(importPath, (import, asDefault))
-                    upcast Babel.Identifier import
+            member bcom.GetProjectAndNamespace fileName =
+                projs
+                |> Seq.tryPick (fun p ->
+                    match Map.tryFind fileName p.FileMap with
+                    | None -> None
+                    | Some ns -> Some(p, ns))
+                |> function
+                | Some res -> res
+                | None -> failwithf "Cannot find file: %s" fileName                
+            member bcom.GetImport ctx memb importPath =
+                let i =
+                    match Seq.tryFindIndex ((=) (memb, importPath)) ctx.imports with
+                    | Some i -> i
+                    | None ->
+                        ctx.imports.Add(memb, importPath)
+                        ctx.imports.Count - 1
+                upcast Babel.Identifier (Naming.getImportIdent i)
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformFunction ctx args body = transformFunction bcom ctx args body
@@ -556,52 +598,44 @@ module Util =
         interface ICompiler with
             member __.Options = com.Options
             member __.Plugins = com.Plugins }
-
+            
 module Compiler =
     open Util
 
-    let transformFile (com: ICompiler) (accFiles: Fable.File list) =
-        match accFiles with
-        | [] -> None
-        | file::_ when List.isEmpty file.Declarations -> None
-        | file::_ ->
+    let transformFile (com: ICompiler) (projs, files) =
+        let com = makeCompiler com projs
+        files |> Seq.map (fun (file: Fable.File) ->
             try
-                let com = makeCompiler com accFiles
                 let ctx = {
                     file = file.FileName
-                    moduleFullName = file.Root.FullName
-                    imports = System.Collections.Generic.Dictionary<_,_>()
+                    moduleFullName = projs.Head.FileMap.[file.FileName]
+                    imports = System.Collections.Generic.List<_>()
                 }
                 let rootDecls =
                     com.DeclarePlugins
                     |> Seq.tryPick (fun plugin -> plugin.TryDeclareRoot com ctx file)
                     |> function
                     | Some rootDecls -> rootDecls
-                    | None ->
-                        transformModule com ctx file.Root file.Declarations file.Range
-                        :> Babel.Expression |> U2.Case2
-                        |> fun x -> Babel.ExportDefaultDeclaration(x, file.Range)
-                        :> Babel.ModuleDeclaration |> U2.Case2
-                        |> List.singleton
+                    | None -> transformModDecls com ctx declareRootModMember None file.Declarations
                 // Add imports
                 let rootDecls =
-                    ctx.imports |> Seq.fold (fun acc import ->
-                        let importVar, asDefault = import.Value
+                    ctx.imports |> Seq.mapi (fun i (memb, path) ->
+                        let localId = Babel.Identifier(Naming.getImportIdent i)
                         let specifier =
-                            if asDefault
-                            then Babel.Identifier importVar
-                                |> Babel.ImportDefaultSpecifier
+                            match memb with
+                            | "default" | "" ->
+                                Babel.ImportDefaultSpecifier(localId)
                                 |> U3.Case2
-                            else Babel.Identifier importVar
-                                |> Babel.ImportNamespaceSpecifier
+                            | "*" ->
+                                Babel.ImportNamespaceSpecifier(localId)
                                 |> U3.Case3
-                        Babel.ImportDeclaration(
-                            [specifier],
-                            Babel.StringLiteral import.Key)
-                        :> Babel.ModuleDeclaration
-                        |> U2.Case2
-                        |> consBack acc) rootDecls
+                            | memb ->
+                                Babel.ImportSpecifier(localId, Babel.Identifier memb)
+                                |> U3.Case1
+                        Babel.ImportDeclaration([specifier], Babel.StringLiteral path)
+                        :> Babel.ModuleDeclaration |> U2.Case2)
+                    |> Seq.toList
+                    |> (@) <| rootDecls
                 Babel.Program (file.FileName, file.Range, rootDecls)
-                |> Some
             with
-            | ex -> failwithf "%s (%s)" ex.Message file.FileName
+            | ex -> failwithf "%s (%s)" ex.Message file.FileName)

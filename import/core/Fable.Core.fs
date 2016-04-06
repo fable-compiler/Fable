@@ -10,7 +10,7 @@ type EraseAttribute() =
 type GlobalAttribute() =
     inherit Attribute()
 
-type ImportAttribute(path: string) =
+type ImportAttribute(get: string, from: string) =
     inherit Attribute()
 
 type EmitAttribute(macro: string) =

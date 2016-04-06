@@ -1,4 +1,4 @@
-namespace Fable.Import.Node
+module Fable.Import.Node
 open System
 open Fable.Core
 open Fable.Import.JS
@@ -217,19 +217,19 @@ module net =
         abstract close: ?callback: Function -> Server
         abstract address: unit -> obj
 
-    type [<Import("net")>] Globals =
-        static member Socket with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        static member createServer(?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
-        static member createServer(?options: obj, ?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
-        static member connect(options: obj, ?connectionListener: Function): Socket = failwith "JS only"
-        static member connect(port: float, ?host: string, ?connectionListener: Function): Socket = failwith "JS only"
-        static member connect(path: string, ?connectionListener: Function): Socket = failwith "JS only"
-        static member createConnection(options: obj, ?connectionListener: Function): Socket = failwith "JS only"
-        static member createConnection(port: float, ?host: string, ?connectionListener: Function): Socket = failwith "JS only"
-        static member createConnection(path: string, ?connectionListener: Function): Socket = failwith "JS only"
-        static member isIP(input: string): float = failwith "JS only"
-        static member isIPv4(input: string): bool = failwith "JS only"
-        static member isIPv6(input: string): bool = failwith "JS only"
+    type [<Import("*","net")>] Globals =
+        member __.Socket with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        member __.createServer(?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
+        member __.createServer(?options: obj, ?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
+        member __.connect(options: obj, ?connectionListener: Function): Socket = failwith "JS only"
+        member __.connect(port: float, ?host: string, ?connectionListener: Function): Socket = failwith "JS only"
+        member __.connect(path: string, ?connectionListener: Function): Socket = failwith "JS only"
+        member __.createConnection(options: obj, ?connectionListener: Function): Socket = failwith "JS only"
+        member __.createConnection(port: float, ?host: string, ?connectionListener: Function): Socket = failwith "JS only"
+        member __.createConnection(path: string, ?connectionListener: Function): Socket = failwith "JS only"
+        member __.isIP(input: string): float = failwith "JS only"
+        member __.isIPv4(input: string): bool = failwith "JS only"
+        member __.isIPv6(input: string): bool = failwith "JS only"
 
 
 module crypto =
@@ -291,32 +291,32 @@ module crypto =
         abstract setPublicKey: public_key: string * ?encoding: string -> unit
         abstract setPrivateKey: public_key: string * ?encoding: string -> unit
 
-    type [<Import("crypto")>] Globals =
-        static member createCredentials(details: CredentialDetails): Credentials = failwith "JS only"
-        static member createHash(algorithm: string): Hash = failwith "JS only"
-        static member createHmac(algorithm: string, key: string): Hmac = failwith "JS only"
-        static member createHmac(algorithm: string, key: Buffer): Hmac = failwith "JS only"
-        static member createCipher(algorithm: string, password: obj): Cipher = failwith "JS only"
-        static member createCipheriv(algorithm: string, key: obj, iv: obj): Cipher = failwith "JS only"
-        static member createDecipher(algorithm: string, password: obj): Decipher = failwith "JS only"
-        static member createDecipheriv(algorithm: string, key: obj, iv: obj): Decipher = failwith "JS only"
-        static member createSign(algorithm: string): Signer = failwith "JS only"
-        static member createVerify(algorith: string): Verify = failwith "JS only"
-        static member createDiffieHellman(prime_length: float): DiffieHellman = failwith "JS only"
-        static member createDiffieHellman(prime: float, ?encoding: string): DiffieHellman = failwith "JS only"
-        static member getDiffieHellman(group_name: string): DiffieHellman = failwith "JS only"
-        static member pbkdf2(password: string, salt: string, iterations: float, keylen: float, callback: Func<Error, Buffer, obj>): unit = failwith "JS only"
-        static member pbkdf2(password: string, salt: string, iterations: float, keylen: float, digest: string, callback: Func<Error, Buffer, obj>): unit = failwith "JS only"
-        static member pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float): Buffer = failwith "JS only"
-        static member pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float, digest: string): Buffer = failwith "JS only"
-        static member randomBytes(size: float): Buffer = failwith "JS only"
-        static member randomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
-        static member pseudoRandomBytes(size: float): Buffer = failwith "JS only"
-        static member pseudoRandomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
+    type [<Import("*","crypto")>] Globals =
+        member __.createCredentials(details: CredentialDetails): Credentials = failwith "JS only"
+        member __.createHash(algorithm: string): Hash = failwith "JS only"
+        member __.createHmac(algorithm: string, key: string): Hmac = failwith "JS only"
+        member __.createHmac(algorithm: string, key: Buffer): Hmac = failwith "JS only"
+        member __.createCipher(algorithm: string, password: obj): Cipher = failwith "JS only"
+        member __.createCipheriv(algorithm: string, key: obj, iv: obj): Cipher = failwith "JS only"
+        member __.createDecipher(algorithm: string, password: obj): Decipher = failwith "JS only"
+        member __.createDecipheriv(algorithm: string, key: obj, iv: obj): Decipher = failwith "JS only"
+        member __.createSign(algorithm: string): Signer = failwith "JS only"
+        member __.createVerify(algorith: string): Verify = failwith "JS only"
+        member __.createDiffieHellman(prime_length: float): DiffieHellman = failwith "JS only"
+        member __.createDiffieHellman(prime: float, ?encoding: string): DiffieHellman = failwith "JS only"
+        member __.getDiffieHellman(group_name: string): DiffieHellman = failwith "JS only"
+        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, callback: Func<Error, Buffer, obj>): unit = failwith "JS only"
+        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, digest: string, callback: Func<Error, Buffer, obj>): unit = failwith "JS only"
+        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float): Buffer = failwith "JS only"
+        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float, digest: string): Buffer = failwith "JS only"
+        member __.randomBytes(size: float): Buffer = failwith "JS only"
+        member __.randomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
+        member __.pseudoRandomBytes(size: float): Buffer = failwith "JS only"
+        member __.pseudoRandomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
 
 
 module events =
-    type [<Import("events?get=EventEmitter")>] EventEmitter() =
+    type [<Import("EventEmitter","events")>] EventEmitter() =
         interface NodeJS.EventEmitter with
             member __.addListener(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
             member __.on(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
@@ -339,7 +339,7 @@ module stream =
         abstract encoding: string option with get, set
         abstract objectMode: bool option with get, set
 
-    and [<Import("stream?get=Readable")>] Readable(?opts: ReadableOptions) =
+    and [<Import("Readable","stream")>] Readable(?opts: ReadableOptions) =
         inherit events.EventEmitter()
         interface ReadableStream with
             member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -362,7 +362,7 @@ module stream =
         abstract decodeStrings: bool option with get, set
         abstract objectMode: bool option with get, set
 
-    and [<Import("stream?get=Writable")>] Writable(?opts: WritableOptions) =
+    and [<Import("Writable","stream")>] Writable(?opts: WritableOptions) =
         inherit events.EventEmitter()
         interface WritableStream with
             member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -383,7 +383,7 @@ module stream =
         inherit WritableOptions
         abstract allowHalfOpen: bool option with get, set
 
-    and [<Import("stream?get=Duplex")>] Duplex(?opts: DuplexOptions) =
+    and [<Import("Duplex","stream")>] Duplex(?opts: DuplexOptions) =
         inherit Readable()
         // interface NodeJS.ReadWriteStream
         member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -399,7 +399,7 @@ module stream =
         inherit WritableOptions
 
 
-    and [<Import("stream?get=Transform")>] Transform(?opts: TransformOptions) =
+    and [<Import("Transform","stream")>] Transform(?opts: TransformOptions) =
         inherit events.EventEmitter()
         // interface NodeJS.ReadWriteStream
         member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -421,7 +421,7 @@ module stream =
         member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
         member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
 
-    and [<Import("stream?get=PassThrough")>] PassThrough() =
+    and [<Import("PassThrough","stream")>] PassThrough() =
         inherit Transform()
 
 
@@ -498,15 +498,15 @@ module tls =
     and SecureContext =
         abstract context: obj with get, set
 
-    type [<Import("tls")>] Globals =
-        static member CLIENT_RENEG_LIMIT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member CLIENT_RENEG_WINDOW with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member createServer(options: TlsOptions, ?secureConnectionListener: Func<ClearTextStream, unit>): Server = failwith "JS only"
-        static member connect(options: TlsOptions, ?secureConnectionListener: Func<unit>): ClearTextStream = failwith "JS only"
-        static member connect(port: float, ?host: string, ?options: ConnectionOptions, ?secureConnectListener: Func<unit>): ClearTextStream = failwith "JS only"
-        static member connect(port: float, ?options: ConnectionOptions, ?secureConnectListener: Func<unit>): ClearTextStream = failwith "JS only"
-        static member createSecurePair(?credentials: crypto.Credentials, ?isServer: bool, ?requestCert: bool, ?rejectUnauthorized: bool): SecurePair = failwith "JS only"
-        static member createSecureContext(details: SecureContextOptions): SecureContext = failwith "JS only"
+    type [<Import("*","tls")>] Globals =
+        member __.CLIENT_RENEG_LIMIT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.CLIENT_RENEG_WINDOW with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.createServer(options: TlsOptions, ?secureConnectionListener: Func<ClearTextStream, unit>): Server = failwith "JS only"
+        member __.connect(options: TlsOptions, ?secureConnectionListener: Func<unit>): ClearTextStream = failwith "JS only"
+        member __.connect(port: float, ?host: string, ?options: ConnectionOptions, ?secureConnectListener: Func<unit>): ClearTextStream = failwith "JS only"
+        member __.connect(port: float, ?options: ConnectionOptions, ?secureConnectListener: Func<unit>): ClearTextStream = failwith "JS only"
+        member __.createSecurePair(?credentials: crypto.Credentials, ?isServer: bool, ?requestCert: bool, ?rejectUnauthorized: bool): SecurePair = failwith "JS only"
+        member __.createSecureContext(details: SecureContextOptions): SecureContext = failwith "JS only"
 
 
 module child_process =
@@ -521,17 +521,17 @@ module child_process =
         abstract disconnect: unit -> unit
         abstract unref: unit -> unit
 
-    type [<Import("child_process")>] Globals =
-        static member spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = failwith "JS only"
-        static member exec(command: string, options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        static member exec(command: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        static member execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        static member execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        static member execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        static member fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = failwith "JS only"
-        static member spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = failwith "JS only"
-        static member execSync(command: string, ?options: obj): U2<string, Buffer> = failwith "JS only"
-        static member execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = failwith "JS only"
+    type [<Import("*","child_process")>] Globals =
+        member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = failwith "JS only"
+        member __.exec(command: string, options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        member __.exec(command: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        member __.execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
+        member __.fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = failwith "JS only"
+        member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = failwith "JS only"
+        member __.execSync(command: string, ?options: obj): U2<string, Buffer> = failwith "JS only"
+        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = failwith "JS only"
 
 
 type NodeRequireFunction =
@@ -605,30 +605,33 @@ and NodeBuffer =
     abstract writeDoubleBE: value: float * offset: float * ?noAssert: bool -> float
     abstract fill: value: obj * ?offset: float * ?``end``: float -> Buffer
 
-type Globals =
-    [<Global>] static member ``process`` with get(): NodeJS.Process = failwith "JS only" and set(v: NodeJS.Process): unit = failwith "JS only"
-    [<Global>] static member ``global`` with get(): NodeJS.Global = failwith "JS only" and set(v: NodeJS.Global): unit = failwith "JS only"
-    [<Global>] static member __filename with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-    [<Global>] static member __dirname with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-    [<Global>] static member require with get(): NodeRequire = failwith "JS only" and set(v: NodeRequire): unit = failwith "JS only"
-    [<Global>] static member ``module`` with get(): NodeModule = failwith "JS only" and set(v: NodeModule): unit = failwith "JS only"
-    [<Global>] static member exports with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-    [<Global>] static member SlowBuffer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-    [<Global>] static member Buffer with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+let [<Global>] ``process``: NodeJS.Process = failwith "JS only"
+let [<Global>] ``global``: NodeJS.Global = failwith "JS only"
+let [<Global>] __filename: string = failwith "JS only"
+let [<Global>] __dirname: string = failwith "JS only"
+let [<Global>] require: NodeRequire = failwith "JS only"
+let [<Global>] ``module``: NodeModule = failwith "JS only"
+let [<Global>] exports: obj = failwith "JS only"
+let [<Global>] SlowBuffer: obj = failwith "JS only"
+let [<Global>] Buffer: obj = failwith "JS only"
 
 
 module buffer =
-    type [<Import("buffer")>] Globals =
-        static member INSPECT_MAX_BYTES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    type Globals =
+        member __.INSPECT_MAX_BYTES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
 
+let [<Import("*","buffer")>] buffer: buffer.Globals = failwith "JS only"
 
 
 module querystring =
-    type [<Import("querystring")>] Globals =
-        static member stringify(obj: obj, ?sep: string, ?eq: string): string = failwith "JS only"
-        static member parse(str: string, ?sep: string, ?eq: string, ?options: obj): obj = failwith "JS only"
-        static member escape(str: string): string = failwith "JS only"
-        static member unescape(str: string): string = failwith "JS only"
+    type Globals =
+        member __.stringify(obj: obj, ?sep: string, ?eq: string): string = failwith "JS only"
+        member __.parse(str: string, ?sep: string, ?eq: string, ?options: obj): obj = failwith "JS only"
+        member __.escape(str: string): string = failwith "JS only"
+        member __.unescape(str: string): string = failwith "JS only"
+
+let [<Import("*","querystring")>] querystring: querystring.Globals = failwith "JS only"
+
 
 module http =
     type Server =
@@ -727,27 +730,28 @@ module http =
     and ClientResponse =
         inherit IncomingMessage
 
-
     and AgentOptions =
         abstract keepAlive: bool option with get, set
         abstract keepAliveMsecs: float option with get, set
         abstract maxSockets: float option with get, set
         abstract maxFreeSockets: float option with get, set
 
-    and [<Import("http?get=Agent")>] Agent(?opts: AgentOptions) =
+    and [<Import("Agent","http")>] Agent(?opts: AgentOptions) =
         member __.maxSockets with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.sockets with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
         member __.requests with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
         member __.destroy(): unit = failwith "JS only"
 
-    type [<Import("http")>] Globals =
-        static member METHODS with get(): ResizeArray<string> = failwith "JS only" and set(v: ResizeArray<string>): unit = failwith "JS only"
-        static member STATUS_CODES with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        static member globalAgent with get(): Agent = failwith "JS only" and set(v: Agent): unit = failwith "JS only"
-        static member createServer(?requestListener: Func<IncomingMessage, ServerResponse, unit>): Server = failwith "JS only"
-        static member createClient(?port: float, ?host: string): obj = failwith "JS only"
-        static member request(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
-        static member get(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
+    type Globals =
+        member __.METHODS with get(): ResizeArray<string> = failwith "JS only" and set(v: ResizeArray<string>): unit = failwith "JS only"
+        member __.STATUS_CODES with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        member __.globalAgent with get(): Agent = failwith "JS only" and set(v: Agent): unit = failwith "JS only"
+        member __.createServer(?requestListener: Func<IncomingMessage, ServerResponse, unit>): Server = failwith "JS only"
+        member __.createClient(?port: float, ?host: string): obj = failwith "JS only"
+        member __.request(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
+        member __.get(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
+
+let [<Import("*","http")>] http: http.Globals = failwith "JS only"
 
 
 module cluster =
@@ -756,7 +760,7 @@ module cluster =
         abstract args: ResizeArray<string> option with get, set
         abstract silent: bool option with get, set
 
-    and [<Import("cluster?get=Worker")>] Worker() =
+    and [<Import("Worker","cluster")>] Worker() =
         inherit events.EventEmitter()
         member __.id with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.``process`` with get(): child_process.ChildProcess = failwith "JS only" and set(v: child_process.ChildProcess): unit = failwith "JS only"
@@ -766,24 +770,25 @@ module cluster =
         member __.destroy(?signal: string): unit = failwith "JS only"
         member __.disconnect(): unit = failwith "JS only"
 
-    type [<Import("cluster")>] Globals =
-        static member settings with get(): ClusterSettings = failwith "JS only" and set(v: ClusterSettings): unit = failwith "JS only"
-        static member isMaster with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        static member isWorker with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        static member worker with get(): Worker = failwith "JS only" and set(v: Worker): unit = failwith "JS only"
-        static member workers with get(): ResizeArray<Worker> = failwith "JS only" and set(v: ResizeArray<Worker>): unit = failwith "JS only"
-        static member setupMaster(?settings: ClusterSettings): unit = failwith "JS only"
-        static member fork(?env: obj): Worker = failwith "JS only"
-        static member disconnect(?callback: Function): unit = failwith "JS only"
-        static member addListener(``event``: string, listener: Function): unit = failwith "JS only"
-        static member on(``event``: string, listener: Function): obj = failwith "JS only"
-        static member once(``event``: string, listener: Function): unit = failwith "JS only"
-        static member removeListener(``event``: string, listener: Function): unit = failwith "JS only"
-        static member removeAllListeners(?``event``: string): unit = failwith "JS only"
-        static member setMaxListeners(n: float): unit = failwith "JS only"
-        static member listeners(``event``: string): ResizeArray<Function> = failwith "JS only"
-        static member emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
+    type Globals =
+        member __.settings with get(): ClusterSettings = failwith "JS only" and set(v: ClusterSettings): unit = failwith "JS only"
+        member __.isMaster with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        member __.isWorker with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        member __.worker with get(): Worker = failwith "JS only" and set(v: Worker): unit = failwith "JS only"
+        member __.workers with get(): ResizeArray<Worker> = failwith "JS only" and set(v: ResizeArray<Worker>): unit = failwith "JS only"
+        member __.setupMaster(?settings: ClusterSettings): unit = failwith "JS only"
+        member __.fork(?env: obj): Worker = failwith "JS only"
+        member __.disconnect(?callback: Function): unit = failwith "JS only"
+        member __.addListener(``event``: string, listener: Function): unit = failwith "JS only"
+        member __.on(``event``: string, listener: Function): obj = failwith "JS only"
+        member __.once(``event``: string, listener: Function): unit = failwith "JS only"
+        member __.removeListener(``event``: string, listener: Function): unit = failwith "JS only"
+        member __.removeAllListeners(?``event``: string): unit = failwith "JS only"
+        member __.setMaxListeners(n: float): unit = failwith "JS only"
+        member __.listeners(``event``: string): ResizeArray<Function> = failwith "JS only"
+        member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
 
+let [<Import("*","cluster")>] cluster: cluster.Globals = failwith "JS only"
 
 
 module zlib =
@@ -942,77 +947,80 @@ module zlib =
         abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
 
-    type [<Import("zlib")>] Globals =
-        static member Z_NO_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_PARTIAL_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_SYNC_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_FULL_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_FINISH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_BLOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_TREES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_STREAM_END with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_NEED_DICT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_ERRNO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_STREAM_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_DATA_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_MEM_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_BUF_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_VERSION_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_NO_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_BEST_SPEED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_BEST_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_DEFAULT_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_FILTERED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_HUFFMAN_ONLY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_RLE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_FIXED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_DEFAULT_STRATEGY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_BINARY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_TEXT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_ASCII with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_UNKNOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_DEFLATED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member Z_NULL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member createGzip(?options: ZlibOptions): Gzip = failwith "JS only"
-        static member createGunzip(?options: ZlibOptions): Gunzip = failwith "JS only"
-        static member createDeflate(?options: ZlibOptions): Deflate = failwith "JS only"
-        static member createInflate(?options: ZlibOptions): Inflate = failwith "JS only"
-        static member createDeflateRaw(?options: ZlibOptions): DeflateRaw = failwith "JS only"
-        static member createInflateRaw(?options: ZlibOptions): InflateRaw = failwith "JS only"
-        static member createUnzip(?options: ZlibOptions): Unzip = failwith "JS only"
-        static member deflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        static member deflateSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        static member deflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        static member deflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        static member gzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        static member gzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        static member gunzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        static member gunzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        static member inflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        static member inflateSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        static member inflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        static member inflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        static member unzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        static member unzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+    type Globals =
+        member __.Z_NO_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_PARTIAL_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_SYNC_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_FULL_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_FINISH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_BLOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_TREES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_STREAM_END with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_NEED_DICT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_ERRNO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_STREAM_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_DATA_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_MEM_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_BUF_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_VERSION_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_NO_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_BEST_SPEED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_BEST_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_DEFAULT_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_FILTERED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_HUFFMAN_ONLY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_RLE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_FIXED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_DEFAULT_STRATEGY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_BINARY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_TEXT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_ASCII with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_UNKNOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_DEFLATED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.Z_NULL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.createGzip(?options: ZlibOptions): Gzip = failwith "JS only"
+        member __.createGunzip(?options: ZlibOptions): Gunzip = failwith "JS only"
+        member __.createDeflate(?options: ZlibOptions): Deflate = failwith "JS only"
+        member __.createInflate(?options: ZlibOptions): Inflate = failwith "JS only"
+        member __.createDeflateRaw(?options: ZlibOptions): DeflateRaw = failwith "JS only"
+        member __.createInflateRaw(?options: ZlibOptions): InflateRaw = failwith "JS only"
+        member __.createUnzip(?options: ZlibOptions): Unzip = failwith "JS only"
+        member __.deflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        member __.deflateSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        member __.deflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        member __.deflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        member __.gzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        member __.gzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        member __.gunzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        member __.gunzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        member __.inflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        member __.inflateSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        member __.inflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        member __.inflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        member __.unzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
+        member __.unzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
 
+let [<Import("*","zlib")>] zlib: zlib.Globals = failwith "JS only"
 
 
 module os =
-    type [<Import("os")>] Globals =
-        static member EOL with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        static member tmpdir(): string = failwith "JS only"
-        static member hostname(): string = failwith "JS only"
-        static member ``type``(): string = failwith "JS only"
-        static member platform(): string = failwith "JS only"
-        static member arch(): string = failwith "JS only"
-        static member release(): string = failwith "JS only"
-        static member uptime(): float = failwith "JS only"
-        static member loadavg(): ResizeArray<float> = failwith "JS only"
-        static member totalmem(): float = failwith "JS only"
-        static member freemem(): float = failwith "JS only"
-        static member cpus(): ResizeArray<obj> = failwith "JS only"
-        static member networkInterfaces(): obj = failwith "JS only"
+    type Globals =
+        member __.EOL with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        member __.tmpdir(): string = failwith "JS only"
+        member __.hostname(): string = failwith "JS only"
+        member __.``type``(): string = failwith "JS only"
+        member __.platform(): string = failwith "JS only"
+        member __.arch(): string = failwith "JS only"
+        member __.release(): string = failwith "JS only"
+        member __.uptime(): float = failwith "JS only"
+        member __.loadavg(): ResizeArray<float> = failwith "JS only"
+        member __.totalmem(): float = failwith "JS only"
+        member __.freemem(): float = failwith "JS only"
+        member __.cpus(): ResizeArray<obj> = failwith "JS only"
+        member __.networkInterfaces(): obj = failwith "JS only"
+
+let [<Import("*","os")>] os: os.Globals = failwith "JS only"
 
 
 module https =
@@ -1056,13 +1064,14 @@ module https =
         inherit tls.Server
 
 
-    type [<Import("https")>] Globals =
-        static member Agent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        static member globalAgent with get(): Agent = failwith "JS only" and set(v: Agent): unit = failwith "JS only"
-        static member createServer(options: ServerOptions, ?requestListener: Function): Server = failwith "JS only"
-        static member request(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = failwith "JS only"
-        static member get(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = failwith "JS only"
+    type Globals =
+        member __.Agent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        member __.globalAgent with get(): Agent = failwith "JS only" and set(v: Agent): unit = failwith "JS only"
+        member __.createServer(options: ServerOptions, ?requestListener: Function): Server = failwith "JS only"
+        member __.request(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = failwith "JS only"
+        member __.get(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = failwith "JS only"
 
+let [<Import("*","https")>] https: https.Globals = failwith "JS only"
 
 
 module punycode =
@@ -1070,14 +1079,15 @@ module punycode =
         abstract decode: string: string -> string
         abstract encode: codePoints: ResizeArray<float> -> string
 
-    type [<Import("punycode")>] Globals =
-        static member ucs2 with get(): ucs2 = failwith "JS only" and set(v: ucs2): unit = failwith "JS only"
-        static member version with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        static member decode(string: string): string = failwith "JS only"
-        static member encode(string: string): string = failwith "JS only"
-        static member toUnicode(domain: string): string = failwith "JS only"
-        static member toASCII(domain: string): string = failwith "JS only"
+    type Globals =
+        member __.ucs2 with get(): ucs2 = failwith "JS only" and set(v: ucs2): unit = failwith "JS only"
+        member __.version with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        member __.decode(string: string): string = failwith "JS only"
+        member __.encode(string: string): string = failwith "JS only"
+        member __.toUnicode(domain: string): string = failwith "JS only"
+        member __.toASCII(domain: string): string = failwith "JS only"
 
+let [<Import("*","punycode")>] punycode: punycode.Globals = failwith "JS only"
 
 
 module repl =
@@ -1092,9 +1102,10 @@ module repl =
         abstract ignoreUndefined: bool option with get, set
         abstract writer: Function option with get, set
 
-    type [<Import("repl")>] Globals =
-        static member start(options: ReplOptions): events.EventEmitter = failwith "JS only"
+    type Globals =
+        member __.start(options: ReplOptions): events.EventEmitter = failwith "JS only"
 
+let [<Import("*","repl")>] repl: repl.Globals = failwith "JS only"
 
 
 module readline =
@@ -1114,9 +1125,10 @@ module readline =
         abstract completer: Function option with get, set
         abstract terminal: bool option with get, set
 
-    type [<Import("readline")>] Globals =
-        static member createInterface(options: ReadLineOptions): ReadLine = failwith "JS only"
+    type Globals =
+        member __.createInterface(options: ReadLineOptions): ReadLine = failwith "JS only"
 
+let [<Import("*","readline")>] readline: readline.Globals = failwith "JS only"
 
 
 module vm =
@@ -1127,12 +1139,14 @@ module vm =
         abstract runInThisContext: unit -> unit
         abstract runInNewContext: ?sandbox: Context -> unit
 
-    type [<Import("vm")>] Globals =
-        static member runInThisContext(code: string, ?filename: string): unit = failwith "JS only"
-        static member runInNewContext(code: string, ?sandbox: Context, ?filename: string): unit = failwith "JS only"
-        static member runInContext(code: string, context: Context, ?filename: string): unit = failwith "JS only"
-        static member createContext(?initSandbox: Context): Context = failwith "JS only"
-        static member createScript(code: string, ?filename: string): Script = failwith "JS only"
+    type Globals =
+        member __.runInThisContext(code: string, ?filename: string): unit = failwith "JS only"
+        member __.runInNewContext(code: string, ?sandbox: Context, ?filename: string): unit = failwith "JS only"
+        member __.runInContext(code: string, context: Context, ?filename: string): unit = failwith "JS only"
+        member __.createContext(?initSandbox: Context): Context = failwith "JS only"
+        member __.createScript(code: string, ?filename: string): Script = failwith "JS only"
+
+let [<Import("*","vm")>] vm: vm.Globals = failwith "JS only"
 
 
 module url =
@@ -1162,27 +1176,30 @@ module url =
         abstract hash: string option with get, set
         abstract path: string option with get, set
 
-    type [<Import("url")>] Globals =
-        static member parse(urlStr: string, ?parseQueryString: bool, ?slashesDenoteHost: bool): Url = failwith "JS only"
-        static member format(url: UrlOptions): string = failwith "JS only"
-        static member resolve(from: string, ``to``: string): string = failwith "JS only"
+    type Globals =
+        member __.parse(urlStr: string, ?parseQueryString: bool, ?slashesDenoteHost: bool): Url = failwith "JS only"
+        member __.format(url: UrlOptions): string = failwith "JS only"
+        member __.resolve(from: string, ``to``: string): string = failwith "JS only"
 
+let [<Import("*","url")>] url: url.Globals = failwith "JS only"
 
 
 module dns =
-    type [<Import("dns")>] Globals =
-        static member lookup(domain: string, family: float, callback: Func<Error, string, float, unit>): string = failwith "JS only"
-        static member lookup(domain: string, callback: Func<Error, string, float, unit>): string = failwith "JS only"
-        static member resolve(domain: string, rrtype: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        static member resolve(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        static member resolve4(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        static member resolve6(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        static member resolveMx(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        static member resolveTxt(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        static member resolveSrv(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        static member resolveNs(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        static member resolveCname(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        static member reverse(ip: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+    type Globals =
+        member __.lookup(domain: string, family: float, callback: Func<Error, string, float, unit>): string = failwith "JS only"
+        member __.lookup(domain: string, callback: Func<Error, string, float, unit>): string = failwith "JS only"
+        member __.resolve(domain: string, rrtype: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.resolve(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.resolve4(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.resolve6(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.resolveMx(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.resolveTxt(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.resolveSrv(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.resolveNs(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.resolveCname(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.reverse(ip: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+
+let [<Import("*","dns")>] dns: dns.Globals = failwith "JS only"
 
 
 module dgram =
@@ -1208,9 +1225,10 @@ module dgram =
         abstract addMembership: multicastAddress: string * ?multicastInterface: string -> unit
         abstract dropMembership: multicastAddress: string * ?multicastInterface: string -> unit
 
-    type [<Import("dgram")>] Globals =
-        static member createSocket(``type``: string, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = failwith "JS only"
+    type Globals =
+        member __.createSocket(``type``: string, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = failwith "JS only"
 
+let [<Import("*","dgram")>] dgram: dgram.Globals = failwith "JS only"
 
 
 module fs =
@@ -1266,114 +1284,115 @@ module fs =
         abstract bytesWritten: float with get, set
         abstract close: unit -> unit
 
-    type [<Import("fs")>] Globals =
-        static member F_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member R_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member W_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member X_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member rename(oldPath: string, newPath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member renameSync(oldPath: string, newPath: string): unit = failwith "JS only"
-        static member truncate(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member truncate(path: string, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member truncateSync(path: string, ?len: float): unit = failwith "JS only"
-        static member ftruncate(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member ftruncate(fd: float, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member ftruncateSync(fd: float, ?len: float): unit = failwith "JS only"
-        static member chown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member chownSync(path: string, uid: float, gid: float): unit = failwith "JS only"
-        static member fchown(fd: float, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member fchownSync(fd: float, uid: float, gid: float): unit = failwith "JS only"
-        static member lchown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member lchownSync(path: string, uid: float, gid: float): unit = failwith "JS only"
-        static member chmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member chmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member chmodSync(path: string, mode: float): unit = failwith "JS only"
-        static member chmodSync(path: string, mode: string): unit = failwith "JS only"
-        static member fchmod(fd: float, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member fchmod(fd: float, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member fchmodSync(fd: float, mode: float): unit = failwith "JS only"
-        static member fchmodSync(fd: float, mode: string): unit = failwith "JS only"
-        static member lchmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member lchmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member lchmodSync(path: string, mode: float): unit = failwith "JS only"
-        static member lchmodSync(path: string, mode: string): unit = failwith "JS only"
-        static member stat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
-        static member lstat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
-        static member fstat(fd: float, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
-        static member statSync(path: string): Stats = failwith "JS only"
-        static member lstatSync(path: string): Stats = failwith "JS only"
-        static member fstatSync(fd: float): Stats = failwith "JS only"
-        static member link(srcpath: string, dstpath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member linkSync(srcpath: string, dstpath: string): unit = failwith "JS only"
-        static member symlink(srcpath: string, dstpath: string, ?``type``: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member symlinkSync(srcpath: string, dstpath: string, ?``type``: string): unit = failwith "JS only"
-        static member readlink(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
-        static member readlinkSync(path: string): string = failwith "JS only"
-        static member realpath(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
-        static member realpath(path: string, cache: obj, callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
-        static member realpathSync(path: string, ?cache: obj): string = failwith "JS only"
-        static member unlink(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member unlinkSync(path: string): unit = failwith "JS only"
-        static member rmdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member rmdirSync(path: string): unit = failwith "JS only"
-        static member mkdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member mkdir(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member mkdir(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member mkdirSync(path: string, ?mode: float): unit = failwith "JS only"
-        static member mkdirSync(path: string, ?mode: string): unit = failwith "JS only"
-        static member readdir(path: string, ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit>): unit = failwith "JS only"
-        static member readdirSync(path: string): ResizeArray<string> = failwith "JS only"
-        static member close(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member closeSync(fd: float): unit = failwith "JS only"
-        static member ``open``(path: string, flags: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
-        static member ``open``(path: string, flags: string, mode: float, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
-        static member ``open``(path: string, flags: string, mode: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
-        static member openSync(path: string, flags: string, ?mode: float): float = failwith "JS only"
-        static member openSync(path: string, flags: string, ?mode: string): float = failwith "JS only"
-        static member utimes(path: string, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member utimes(path: string, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member utimesSync(path: string, atime: float, mtime: float): unit = failwith "JS only"
-        static member utimesSync(path: string, atime: DateTime, mtime: DateTime): unit = failwith "JS only"
-        static member futimes(fd: float, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member futimes(fd: float, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member futimesSync(fd: float, atime: float, mtime: float): unit = failwith "JS only"
-        static member futimesSync(fd: float, atime: DateTime, mtime: DateTime): unit = failwith "JS only"
-        static member fsync(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member fsyncSync(fd: float): unit = failwith "JS only"
-        static member write(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
-        static member write(fd: float, buffer: Buffer, offset: float, length: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
-        static member write(fd: float, data: obj, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
-        static member write(fd: float, data: obj, offset: float, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
-        static member write(fd: float, data: obj, offset: float, encoding: string, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
-        static member writeSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = failwith "JS only"
-        static member read(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
-        static member readSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = failwith "JS only"
-        static member readFile(filename: string, encoding: string, callback: Func<NodeJS.ErrnoException, string, unit>): unit = failwith "JS only"
-        static member readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, string, unit>): unit = failwith "JS only"
-        static member readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = failwith "JS only"
-        static member readFile(filename: string, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = failwith "JS only"
-        static member readFileSync(filename: string, encoding: string): string = failwith "JS only"
-        static member readFileSync(filename: string, options: obj): string = failwith "JS only"
-        static member readFileSync(filename: string, ?options: obj): Buffer = failwith "JS only"
-        static member writeFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member writeFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member writeFileSync(filename: string, data: obj, ?options: obj): unit = failwith "JS only"
-        static member appendFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member appendFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member appendFileSync(filename: string, data: obj, ?options: obj): unit = failwith "JS only"
-        static member watchFile(filename: string, listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
-        static member watchFile(filename: string, options: obj, listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
-        static member unwatchFile(filename: string, ?listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
-        static member watch(filename: string, ?listener: Func<string, string, obj>): FSWatcher = failwith "JS only"
-        static member watch(filename: string, options: obj, ?listener: Func<string, string, obj>): FSWatcher = failwith "JS only"
-        static member exists(path: string, ?callback: Func<bool, unit>): unit = failwith "JS only"
-        static member existsSync(path: string): bool = failwith "JS only"
-        static member access(path: string, callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member access(path: string, mode: float, callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        static member accessSync(path: string, ?mode: float): unit = failwith "JS only"
-        static member createReadStream(path: string, ?options: obj): ReadStream = failwith "JS only"
-        static member createWriteStream(path: string, ?options: obj): WriteStream = failwith "JS only"
+    type Globals =
+        member __.F_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.R_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.W_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.X_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.rename(oldPath: string, newPath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.renameSync(oldPath: string, newPath: string): unit = failwith "JS only"
+        member __.truncate(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.truncate(path: string, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.truncateSync(path: string, ?len: float): unit = failwith "JS only"
+        member __.ftruncate(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.ftruncate(fd: float, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.ftruncateSync(fd: float, ?len: float): unit = failwith "JS only"
+        member __.chown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.chownSync(path: string, uid: float, gid: float): unit = failwith "JS only"
+        member __.fchown(fd: float, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.fchownSync(fd: float, uid: float, gid: float): unit = failwith "JS only"
+        member __.lchown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.lchownSync(path: string, uid: float, gid: float): unit = failwith "JS only"
+        member __.chmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.chmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.chmodSync(path: string, mode: float): unit = failwith "JS only"
+        member __.chmodSync(path: string, mode: string): unit = failwith "JS only"
+        member __.fchmod(fd: float, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.fchmod(fd: float, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.fchmodSync(fd: float, mode: float): unit = failwith "JS only"
+        member __.fchmodSync(fd: float, mode: string): unit = failwith "JS only"
+        member __.lchmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.lchmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.lchmodSync(path: string, mode: float): unit = failwith "JS only"
+        member __.lchmodSync(path: string, mode: string): unit = failwith "JS only"
+        member __.stat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
+        member __.lstat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
+        member __.fstat(fd: float, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
+        member __.statSync(path: string): Stats = failwith "JS only"
+        member __.lstatSync(path: string): Stats = failwith "JS only"
+        member __.fstatSync(fd: float): Stats = failwith "JS only"
+        member __.link(srcpath: string, dstpath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.linkSync(srcpath: string, dstpath: string): unit = failwith "JS only"
+        member __.symlink(srcpath: string, dstpath: string, ?``type``: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.symlinkSync(srcpath: string, dstpath: string, ?``type``: string): unit = failwith "JS only"
+        member __.readlink(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
+        member __.readlinkSync(path: string): string = failwith "JS only"
+        member __.realpath(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
+        member __.realpath(path: string, cache: obj, callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
+        member __.realpathSync(path: string, ?cache: obj): string = failwith "JS only"
+        member __.unlink(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.unlinkSync(path: string): unit = failwith "JS only"
+        member __.rmdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.rmdirSync(path: string): unit = failwith "JS only"
+        member __.mkdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.mkdir(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.mkdir(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.mkdirSync(path: string, ?mode: float): unit = failwith "JS only"
+        member __.mkdirSync(path: string, ?mode: string): unit = failwith "JS only"
+        member __.readdir(path: string, ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit>): unit = failwith "JS only"
+        member __.readdirSync(path: string): ResizeArray<string> = failwith "JS only"
+        member __.close(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.closeSync(fd: float): unit = failwith "JS only"
+        member __.``open``(path: string, flags: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
+        member __.``open``(path: string, flags: string, mode: float, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
+        member __.``open``(path: string, flags: string, mode: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
+        member __.openSync(path: string, flags: string, ?mode: float): float = failwith "JS only"
+        member __.openSync(path: string, flags: string, ?mode: string): float = failwith "JS only"
+        member __.utimes(path: string, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.utimes(path: string, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.utimesSync(path: string, atime: float, mtime: float): unit = failwith "JS only"
+        member __.utimesSync(path: string, atime: DateTime, mtime: DateTime): unit = failwith "JS only"
+        member __.futimes(fd: float, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.futimes(fd: float, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.futimesSync(fd: float, atime: float, mtime: float): unit = failwith "JS only"
+        member __.futimesSync(fd: float, atime: DateTime, mtime: DateTime): unit = failwith "JS only"
+        member __.fsync(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.fsyncSync(fd: float): unit = failwith "JS only"
+        member __.write(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
+        member __.write(fd: float, buffer: Buffer, offset: float, length: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
+        member __.write(fd: float, data: obj, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
+        member __.write(fd: float, data: obj, offset: float, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
+        member __.write(fd: float, data: obj, offset: float, encoding: string, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
+        member __.writeSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = failwith "JS only"
+        member __.read(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
+        member __.readSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = failwith "JS only"
+        member __.readFile(filename: string, encoding: string, callback: Func<NodeJS.ErrnoException, string, unit>): unit = failwith "JS only"
+        member __.readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, string, unit>): unit = failwith "JS only"
+        member __.readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = failwith "JS only"
+        member __.readFile(filename: string, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = failwith "JS only"
+        member __.readFileSync(filename: string, encoding: string): string = failwith "JS only"
+        member __.readFileSync(filename: string, options: obj): string = failwith "JS only"
+        member __.readFileSync(filename: string, ?options: obj): Buffer = failwith "JS only"
+        member __.writeFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.writeFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.writeFileSync(filename: string, data: obj, ?options: obj): unit = failwith "JS only"
+        member __.appendFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.appendFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.appendFileSync(filename: string, data: obj, ?options: obj): unit = failwith "JS only"
+        member __.watchFile(filename: string, listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
+        member __.watchFile(filename: string, options: obj, listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
+        member __.unwatchFile(filename: string, ?listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
+        member __.watch(filename: string, ?listener: Func<string, string, obj>): FSWatcher = failwith "JS only"
+        member __.watch(filename: string, options: obj, ?listener: Func<string, string, obj>): FSWatcher = failwith "JS only"
+        member __.exists(path: string, ?callback: Func<bool, unit>): unit = failwith "JS only"
+        member __.existsSync(path: string): bool = failwith "JS only"
+        member __.access(path: string, callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.access(path: string, mode: float, callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
+        member __.accessSync(path: string, ?mode: float): unit = failwith "JS only"
+        member __.createReadStream(path: string, ?options: obj): ReadStream = failwith "JS only"
+        member __.createWriteStream(path: string, ?options: obj): WriteStream = failwith "JS only"
 
+let [<Import("*","fs")>] fs: fs.Globals = failwith "JS only"
 
 
 module path =
@@ -1384,62 +1403,65 @@ module path =
         abstract ext: string with get, set
         abstract name: string with get, set
 
-    type [<Import("path")>] Globals =
-        static member sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        static member delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        static member normalize(p: string): string = failwith "JS only"
-        static member join([<ParamArray>] paths: obj[]): string = failwith "JS only"
-        static member join([<ParamArray>] paths: string[]): string = failwith "JS only"
-        static member resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
-        static member isAbsolute(path: string): bool = failwith "JS only"
-        static member relative(from: string, ``to``: string): string = failwith "JS only"
-        static member dirname(p: string): string = failwith "JS only"
-        static member basename(p: string, ?ext: string): string = failwith "JS only"
-        static member extname(p: string): string = failwith "JS only"
-        static member parse(pathString: string): ParsedPath = failwith "JS only"
-        static member format(pathObject: ParsedPath): string = failwith "JS only"
+    type Globals =
+        member __.sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        member __.delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        member __.normalize(p: string): string = failwith "JS only"
+        member __.join([<ParamArray>] paths: obj[]): string = failwith "JS only"
+        member __.join([<ParamArray>] paths: string[]): string = failwith "JS only"
+        member __.resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
+        member __.isAbsolute(path: string): bool = failwith "JS only"
+        member __.relative(from: string, ``to``: string): string = failwith "JS only"
+        member __.dirname(p: string): string = failwith "JS only"
+        member __.basename(p: string, ?ext: string): string = failwith "JS only"
+        member __.extname(p: string): string = failwith "JS only"
+        member __.parse(pathString: string): ParsedPath = failwith "JS only"
+        member __.format(pathObject: ParsedPath): string = failwith "JS only"
 
     module posix =
-        type [<Import("path?get=posix")>] Globals =
-            static member sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            static member delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            static member normalize(p: string): string = failwith "JS only"
-            static member join([<ParamArray>] paths: obj[]): string = failwith "JS only"
-            static member resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
-            static member isAbsolute(p: string): bool = failwith "JS only"
-            static member relative(from: string, ``to``: string): string = failwith "JS only"
-            static member dirname(p: string): string = failwith "JS only"
-            static member basename(p: string, ?ext: string): string = failwith "JS only"
-            static member extname(p: string): string = failwith "JS only"
-            static member parse(p: string): ParsedPath = failwith "JS only"
-            static member format(pP: ParsedPath): string = failwith "JS only"
-
-
+        type Globals =
+            member __.sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+            member __.delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+            member __.normalize(p: string): string = failwith "JS only"
+            member __.join([<ParamArray>] paths: obj[]): string = failwith "JS only"
+            member __.resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
+            member __.isAbsolute(p: string): bool = failwith "JS only"
+            member __.relative(from: string, ``to``: string): string = failwith "JS only"
+            member __.dirname(p: string): string = failwith "JS only"
+            member __.basename(p: string, ?ext: string): string = failwith "JS only"
+            member __.extname(p: string): string = failwith "JS only"
+            member __.parse(p: string): ParsedPath = failwith "JS only"
+            member __.format(pP: ParsedPath): string = failwith "JS only"
+            
+    let [<Import("posix","path")>] posix: posix.Globals = failwith "JS only"
 
     module win32 =
-        type [<Import("path?get=win32")>] Globals =
-            static member sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            static member delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            static member normalize(p: string): string = failwith "JS only"
-            static member join([<ParamArray>] paths: obj[]): string = failwith "JS only"
-            static member resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
-            static member isAbsolute(p: string): bool = failwith "JS only"
-            static member relative(from: string, ``to``: string): string = failwith "JS only"
-            static member dirname(p: string): string = failwith "JS only"
-            static member basename(p: string, ?ext: string): string = failwith "JS only"
-            static member extname(p: string): string = failwith "JS only"
-            static member parse(p: string): ParsedPath = failwith "JS only"
-            static member format(pP: ParsedPath): string = failwith "JS only"
+        type Globals =
+            member __.sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+            member __.delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+            member __.normalize(p: string): string = failwith "JS only"
+            member __.join([<ParamArray>] paths: obj[]): string = failwith "JS only"
+            member __.resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
+            member __.isAbsolute(p: string): bool = failwith "JS only"
+            member __.relative(from: string, ``to``: string): string = failwith "JS only"
+            member __.dirname(p: string): string = failwith "JS only"
+            member __.basename(p: string, ?ext: string): string = failwith "JS only"
+            member __.extname(p: string): string = failwith "JS only"
+            member __.parse(p: string): ParsedPath = failwith "JS only"
+            member __.format(pP: ParsedPath): string = failwith "JS only"
+
+    let [<Import("win32","path")>] win32: win32.Globals = failwith "JS only"
+
+let [<Import("*","path")>] path: path.Globals = failwith "JS only"
 
 
-
+[<Import("*","string_decoder")>]
 module string_decoder =
     type NodeStringDecoder =
         abstract write: buffer: Buffer -> string
         abstract detectIncompleteChar: buffer: Buffer -> float
 
-    type [<Import("string_decoder")>] Globals =
-        static member StringDecoder with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+    let StringDecoder: NodeStringDecoder = failwith "JS only"
 
 
 module util =
@@ -1449,30 +1471,31 @@ module util =
         abstract colors: bool option with get, set
         abstract customInspect: bool option with get, set
 
-    type [<Import("util")>] Globals =
-        static member format(format: obj, [<ParamArray>] param: obj[]): string = failwith "JS only"
-        static member debug(string: string): unit = failwith "JS only"
-        static member error([<ParamArray>] param: obj[]): unit = failwith "JS only"
-        static member puts([<ParamArray>] param: obj[]): unit = failwith "JS only"
-        static member print([<ParamArray>] param: obj[]): unit = failwith "JS only"
-        static member log(string: string): unit = failwith "JS only"
-        static member inspect(``object``: obj, ?showHidden: bool, ?depth: float, ?color: bool): string = failwith "JS only"
-        static member inspect(``object``: obj, options: InspectOptions): string = failwith "JS only"
-        static member isArray(``object``: obj): bool = failwith "JS only"
-        static member isRegExp(``object``: obj): bool = failwith "JS only"
-        static member isDate(``object``: obj): bool = failwith "JS only"
-        static member isError(``object``: obj): bool = failwith "JS only"
-        static member inherits(``constructor``: obj, superConstructor: obj): unit = failwith "JS only"
-        static member debuglog(key: string): Func<string, obj, unit> = failwith "JS only"
+    type Globals =
+        member __.format(format: obj, [<ParamArray>] param: obj[]): string = failwith "JS only"
+        member __.debug(string: string): unit = failwith "JS only"
+        member __.error([<ParamArray>] param: obj[]): unit = failwith "JS only"
+        member __.puts([<ParamArray>] param: obj[]): unit = failwith "JS only"
+        member __.print([<ParamArray>] param: obj[]): unit = failwith "JS only"
+        member __.log(string: string): unit = failwith "JS only"
+        member __.inspect(``object``: obj, ?showHidden: bool, ?depth: float, ?color: bool): string = failwith "JS only"
+        member __.inspect(``object``: obj, options: InspectOptions): string = failwith "JS only"
+        member __.isArray(``object``: obj): bool = failwith "JS only"
+        member __.isRegExp(``object``: obj): bool = failwith "JS only"
+        member __.isDate(``object``: obj): bool = failwith "JS only"
+        member __.isError(``object``: obj): bool = failwith "JS only"
+        member __.inherits(``constructor``: obj, superConstructor: obj): unit = failwith "JS only"
+        member __.debuglog(key: string): Func<string, obj, unit> = failwith "JS only"
 
+let [<Import("*","util")>] util: util.Globals = failwith "JS only"
 
 
 module ``assert`` =
-    type [<Import("assert")>] Globals =
-        static member ``internal``(value: obj, ?message: string): unit = failwith "JS only"
+    type Globals =
+        member __.``internal``(value: obj, ?message: string): unit = failwith "JS only"
 
     module ``internal`` =
-        type [<Import("assert?get=internal.AssertionError")>] AssertionError(?options: obj) =
+        type [<Import("internal.AssertionError","assert")>] AssertionError(?options: obj) =
             // interface Error
             member __.name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
             member __.message with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -1481,21 +1504,25 @@ module ``assert`` =
             member __.operator with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
             member __.generatedMessage with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
 
-        type [<Import("assert?get=internal")>] Globals =
-            static member throws with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-            static member doesNotThrow with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-            static member fail(?actual: obj, ?expected: obj, ?message: string, ?operator: string): unit = failwith "JS only"
-            static member ok(value: obj, ?message: string): unit = failwith "JS only"
-            static member equal(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            static member notEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            static member deepEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            static member notDeepEqual(acutal: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            static member strictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            static member notStrictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            static member ifError(value: obj): unit = failwith "JS only"
+        type Globals =
+            member __.throws with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+            member __.doesNotThrow with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+            member __.fail(?actual: obj, ?expected: obj, ?message: string, ?operator: string): unit = failwith "JS only"
+            member __.ok(value: obj, ?message: string): unit = failwith "JS only"
+            member __.equal(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            member __.notEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            member __.deepEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            member __.notDeepEqual(acutal: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            member __.strictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            member __.notStrictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+            member __.ifError(value: obj): unit = failwith "JS only"
+            
+    let [<Import("internal","assert")>] ``internal``: ``internal``.Globals = failwith "JS only"
+
+let [<Import("*","assert")>] ``assert``: ``assert``.Globals = failwith "JS only"
 
 
-
+[<Import("*","tty")>] 
 module tty =
     type ReadStream =
         inherit net.Socket
@@ -1507,13 +1534,12 @@ module tty =
         abstract columns: float with get, set
         abstract rows: float with get, set
 
-    type [<Import("tty")>] Globals =
-        static member isatty(fd: float): bool = failwith "JS only"
+    let isatty(fd: float): bool = failwith "JS only"
 
 
-
+[<Import("*","domain")>] 
 module domain =
-    type [<Import("domain?get=Domain")>] Domain() =
+    type [<Import("Domain","domain")>] Domain() =
         inherit events.EventEmitter()
         member __.run(fn: Function): unit = failwith "JS only"
         member __.add(emitter: events.EventEmitter): unit = failwith "JS only"
@@ -1527,233 +1553,229 @@ module domain =
         member __.removeListener(``event``: string, listener: Function): Domain = failwith "JS only"
         member __.removeAllListeners(?``event``: string): Domain = failwith "JS only"
 
-    type [<Import("domain")>] Globals =
-        static member create(): Domain = failwith "JS only"
+    let create(): Domain = failwith "JS only"
 
 
-
+[<Import("*","constants")>]
 module constants =
-    type [<Import("constants")>] Globals =
-        static member E2BIG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EACCES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EADDRINUSE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EADDRNOTAVAIL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EAFNOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EAGAIN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EALREADY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EBADF with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EBADMSG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EBUSY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ECANCELED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ECHILD with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ECONNABORTED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ECONNREFUSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ECONNRESET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EDEADLK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EDESTADDRREQ with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EDOM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EEXIST with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EFAULT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EFBIG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EHOSTUNREACH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EIDRM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EILSEQ with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EINPROGRESS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EINTR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EINVAL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EIO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EISCONN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EISDIR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ELOOP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EMFILE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EMLINK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EMSGSIZE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENAMETOOLONG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENETDOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENETRESET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENETUNREACH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENFILE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOBUFS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENODATA with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENODEV with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOENT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOEXEC with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOLCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOLINK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOMEM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOMSG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOPROTOOPT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOSPC with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOSR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOSTR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOSYS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOTCONN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOTDIR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOTEMPTY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOTSOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOTSUP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENOTTY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENXIO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EOPNOTSUPP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EOVERFLOW with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EPERM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EPIPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EPROTO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EPROTONOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EPROTOTYPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ERANGE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EROFS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ESPIPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ESRCH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ETIME with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ETIMEDOUT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ETXTBSY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EWOULDBLOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member EXDEV with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEINTR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEBADF with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEACCES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEFAULT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEINVAL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEMFILE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEWOULDBLOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEINPROGRESS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEALREADY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENOTSOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEDESTADDRREQ with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEMSGSIZE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEPROTOTYPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENOPROTOOPT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEPROTONOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAESOCKTNOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEOPNOTSUPP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEPFNOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEAFNOSUPPORT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEADDRINUSE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEADDRNOTAVAIL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENETDOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENETUNREACH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENETRESET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAECONNABORTED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAECONNRESET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENOBUFS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEISCONN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENOTCONN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAESHUTDOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAETOOMANYREFS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAETIMEDOUT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAECONNREFUSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAELOOP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENAMETOOLONG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEHOSTDOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEHOSTUNREACH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENOTEMPTY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEPROCLIM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEUSERS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEDQUOT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAESTALE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEREMOTE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSASYSNOTREADY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAVERNOTSUPPORTED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSANOTINITIALISED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEDISCON with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAENOMORE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAECANCELLED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEINVALIDPROCTABLE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEINVALIDPROVIDER with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEPROVIDERFAILEDINIT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSASYSCALLFAILURE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSASERVICE_NOT_FOUND with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSATYPE_NOT_FOUND with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSA_E_NO_MORE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSA_E_CANCELLED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member WSAEREFUSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGHUP with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGINT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGILL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGABRT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGFPE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGKILL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGSEGV with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGTERM with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGBREAK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SIGWINCH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_ALL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_CIPHER_SERVER_PREFERENCE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_CISCO_ANYCONNECT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_COOKIE_EXCHANGE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_CRYPTOPRO_TLSEXT_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_EPHEMERAL_RSA with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_LEGACY_SERVER_CONNECT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_MICROSOFT_SESS_ID_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_MSIE_SSLV2_RSA_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NETSCAPE_CA_DN_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NETSCAPE_CHALLENGE_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NO_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NO_QUERY_MTU with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NO_SSLv2 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NO_SSLv3 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NO_TICKET with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NO_TLSv1 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NO_TLSv1_1 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_NO_TLSv1_2 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_PKCS1_CHECK_1 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_PKCS1_CHECK_2 with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_SINGLE_DH_USE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_SINGLE_ECDH_USE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_SSLEAY_080_CLIENT_DH_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_TLS_BLOCK_PADDING_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_TLS_D5_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member SSL_OP_TLS_ROLLBACK_BUG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_DSA with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_DH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_RAND with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_ECDH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_ECDSA with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_CIPHERS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_DIGESTS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_STORE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_PKEY_METHS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_PKEY_ASN1_METHS with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_ALL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member ENGINE_METHOD_NONE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member DH_CHECK_P_NOT_SAFE_PRIME with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member DH_CHECK_P_NOT_PRIME with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member DH_UNABLE_TO_CHECK_GENERATOR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member DH_NOT_SUITABLE_GENERATOR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member NPN_ENABLED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member RSA_PKCS1_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member RSA_SSLV23_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member RSA_NO_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member RSA_PKCS1_OAEP_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member RSA_X931_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member RSA_PKCS1_PSS_PADDING with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member POINT_CONVERSION_COMPRESSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member POINT_CONVERSION_UNCOMPRESSED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member POINT_CONVERSION_HYBRID with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member O_RDONLY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member O_WRONLY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member O_RDWR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member S_IFMT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member S_IFREG with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member S_IFDIR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member S_IFCHR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member S_IFLNK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member O_CREAT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member O_EXCL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member O_TRUNC with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member O_APPEND with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member F_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member R_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member W_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member X_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        static member UV_UDP_REUSEADDR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-
-
+    let E2BIG: float = failwith "JS only"
+    let EACCES: float = failwith "JS only"
+    let EADDRINUSE: float = failwith "JS only"
+    let EADDRNOTAVAIL: float = failwith "JS only"
+    let EAFNOSUPPORT: float = failwith "JS only"
+    let EAGAIN: float = failwith "JS only"
+    let EALREADY: float = failwith "JS only"
+    let EBADF: float = failwith "JS only"
+    let EBADMSG: float = failwith "JS only"
+    let EBUSY: float = failwith "JS only"
+    let ECANCELED: float = failwith "JS only"
+    let ECHILD: float = failwith "JS only"
+    let ECONNABORTED: float = failwith "JS only"
+    let ECONNREFUSED: float = failwith "JS only"
+    let ECONNRESET: float = failwith "JS only"
+    let EDEADLK: float = failwith "JS only"
+    let EDESTADDRREQ: float = failwith "JS only"
+    let EDOM: float = failwith "JS only"
+    let EEXIST: float = failwith "JS only"
+    let EFAULT: float = failwith "JS only"
+    let EFBIG: float = failwith "JS only"
+    let EHOSTUNREACH: float = failwith "JS only"
+    let EIDRM: float = failwith "JS only"
+    let EILSEQ: float = failwith "JS only"
+    let EINPROGRESS: float = failwith "JS only"
+    let EINTR: float = failwith "JS only"
+    let EINVAL: float = failwith "JS only"
+    let EIO: float = failwith "JS only"
+    let EISCONN: float = failwith "JS only"
+    let EISDIR: float = failwith "JS only"
+    let ELOOP: float = failwith "JS only"
+    let EMFILE: float = failwith "JS only"
+    let EMLINK: float = failwith "JS only"
+    let EMSGSIZE: float = failwith "JS only"
+    let ENAMETOOLONG: float = failwith "JS only"
+    let ENETDOWN: float = failwith "JS only"
+    let ENETRESET: float = failwith "JS only"
+    let ENETUNREACH: float = failwith "JS only"
+    let ENFILE: float = failwith "JS only"
+    let ENOBUFS: float = failwith "JS only"
+    let ENODATA: float = failwith "JS only"
+    let ENODEV: float = failwith "JS only"
+    let ENOENT: float = failwith "JS only"
+    let ENOEXEC: float = failwith "JS only"
+    let ENOLCK: float = failwith "JS only"
+    let ENOLINK: float = failwith "JS only"
+    let ENOMEM: float = failwith "JS only"
+    let ENOMSG: float = failwith "JS only"
+    let ENOPROTOOPT: float = failwith "JS only"
+    let ENOSPC: float = failwith "JS only"
+    let ENOSR: float = failwith "JS only"
+    let ENOSTR: float = failwith "JS only"
+    let ENOSYS: float = failwith "JS only"
+    let ENOTCONN: float = failwith "JS only"
+    let ENOTDIR: float = failwith "JS only"
+    let ENOTEMPTY: float = failwith "JS only"
+    let ENOTSOCK: float = failwith "JS only"
+    let ENOTSUP: float = failwith "JS only"
+    let ENOTTY: float = failwith "JS only"
+    let ENXIO: float = failwith "JS only"
+    let EOPNOTSUPP: float = failwith "JS only"
+    let EOVERFLOW: float = failwith "JS only"
+    let EPERM: float = failwith "JS only"
+    let EPIPE: float = failwith "JS only"
+    let EPROTO: float = failwith "JS only"
+    let EPROTONOSUPPORT: float = failwith "JS only"
+    let EPROTOTYPE: float = failwith "JS only"
+    let ERANGE: float = failwith "JS only"
+    let EROFS: float = failwith "JS only"
+    let ESPIPE: float = failwith "JS only"
+    let ESRCH: float = failwith "JS only"
+    let ETIME: float = failwith "JS only"
+    let ETIMEDOUT: float = failwith "JS only"
+    let ETXTBSY: float = failwith "JS only"
+    let EWOULDBLOCK: float = failwith "JS only"
+    let EXDEV: float = failwith "JS only"
+    let WSAEINTR: float = failwith "JS only"
+    let WSAEBADF: float = failwith "JS only"
+    let WSAEACCES: float = failwith "JS only"
+    let WSAEFAULT: float = failwith "JS only"
+    let WSAEINVAL: float = failwith "JS only"
+    let WSAEMFILE: float = failwith "JS only"
+    let WSAEWOULDBLOCK: float = failwith "JS only"
+    let WSAEINPROGRESS: float = failwith "JS only"
+    let WSAEALREADY: float = failwith "JS only"
+    let WSAENOTSOCK: float = failwith "JS only"
+    let WSAEDESTADDRREQ: float = failwith "JS only"
+    let WSAEMSGSIZE: float = failwith "JS only"
+    let WSAEPROTOTYPE: float = failwith "JS only"
+    let WSAENOPROTOOPT: float = failwith "JS only"
+    let WSAEPROTONOSUPPORT: float = failwith "JS only"
+    let WSAESOCKTNOSUPPORT: float = failwith "JS only"
+    let WSAEOPNOTSUPP: float = failwith "JS only"
+    let WSAEPFNOSUPPORT: float = failwith "JS only"
+    let WSAEAFNOSUPPORT: float = failwith "JS only"
+    let WSAEADDRINUSE: float = failwith "JS only"
+    let WSAEADDRNOTAVAIL: float = failwith "JS only"
+    let WSAENETDOWN: float = failwith "JS only"
+    let WSAENETUNREACH: float = failwith "JS only"
+    let WSAENETRESET: float = failwith "JS only"
+    let WSAECONNABORTED: float = failwith "JS only"
+    let WSAECONNRESET: float = failwith "JS only"
+    let WSAENOBUFS: float = failwith "JS only"
+    let WSAEISCONN: float = failwith "JS only"
+    let WSAENOTCONN: float = failwith "JS only"
+    let WSAESHUTDOWN: float = failwith "JS only"
+    let WSAETOOMANYREFS: float = failwith "JS only"
+    let WSAETIMEDOUT: float = failwith "JS only"
+    let WSAECONNREFUSED: float = failwith "JS only"
+    let WSAELOOP: float = failwith "JS only"
+    let WSAENAMETOOLONG: float = failwith "JS only"
+    let WSAEHOSTDOWN: float = failwith "JS only"
+    let WSAEHOSTUNREACH: float = failwith "JS only"
+    let WSAENOTEMPTY: float = failwith "JS only"
+    let WSAEPROCLIM: float = failwith "JS only"
+    let WSAEUSERS: float = failwith "JS only"
+    let WSAEDQUOT: float = failwith "JS only"
+    let WSAESTALE: float = failwith "JS only"
+    let WSAEREMOTE: float = failwith "JS only"
+    let WSASYSNOTREADY: float = failwith "JS only"
+    let WSAVERNOTSUPPORTED: float = failwith "JS only"
+    let WSANOTINITIALISED: float = failwith "JS only"
+    let WSAEDISCON: float = failwith "JS only"
+    let WSAENOMORE: float = failwith "JS only"
+    let WSAECANCELLED: float = failwith "JS only"
+    let WSAEINVALIDPROCTABLE: float = failwith "JS only"
+    let WSAEINVALIDPROVIDER: float = failwith "JS only"
+    let WSAEPROVIDERFAILEDINIT: float = failwith "JS only"
+    let WSASYSCALLFAILURE: float = failwith "JS only"
+    let WSASERVICE_NOT_FOUND: float = failwith "JS only"
+    let WSATYPE_NOT_FOUND: float = failwith "JS only"
+    let WSA_E_NO_MORE: float = failwith "JS only"
+    let WSA_E_CANCELLED: float = failwith "JS only"
+    let WSAEREFUSED: float = failwith "JS only"
+    let SIGHUP: float = failwith "JS only"
+    let SIGINT: float = failwith "JS only"
+    let SIGILL: float = failwith "JS only"
+    let SIGABRT: float = failwith "JS only"
+    let SIGFPE: float = failwith "JS only"
+    let SIGKILL: float = failwith "JS only"
+    let SIGSEGV: float = failwith "JS only"
+    let SIGTERM: float = failwith "JS only"
+    let SIGBREAK: float = failwith "JS only"
+    let SIGWINCH: float = failwith "JS only"
+    let SSL_OP_ALL: float = failwith "JS only"
+    let SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION: float = failwith "JS only"
+    let SSL_OP_CIPHER_SERVER_PREFERENCE: float = failwith "JS only"
+    let SSL_OP_CISCO_ANYCONNECT: float = failwith "JS only"
+    let SSL_OP_COOKIE_EXCHANGE: float = failwith "JS only"
+    let SSL_OP_CRYPTOPRO_TLSEXT_BUG: float = failwith "JS only"
+    let SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS: float = failwith "JS only"
+    let SSL_OP_EPHEMERAL_RSA: float = failwith "JS only"
+    let SSL_OP_LEGACY_SERVER_CONNECT: float = failwith "JS only"
+    let SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER: float = failwith "JS only"
+    let SSL_OP_MICROSOFT_SESS_ID_BUG: float = failwith "JS only"
+    let SSL_OP_MSIE_SSLV2_RSA_PADDING: float = failwith "JS only"
+    let SSL_OP_NETSCAPE_CA_DN_BUG: float = failwith "JS only"
+    let SSL_OP_NETSCAPE_CHALLENGE_BUG: float = failwith "JS only"
+    let SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG: float = failwith "JS only"
+    let SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG: float = failwith "JS only"
+    let SSL_OP_NO_COMPRESSION: float = failwith "JS only"
+    let SSL_OP_NO_QUERY_MTU: float = failwith "JS only"
+    let SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION: float = failwith "JS only"
+    let SSL_OP_NO_SSLv2: float = failwith "JS only"
+    let SSL_OP_NO_SSLv3: float = failwith "JS only"
+    let SSL_OP_NO_TICKET: float = failwith "JS only"
+    let SSL_OP_NO_TLSv1: float = failwith "JS only"
+    let SSL_OP_NO_TLSv1_1: float = failwith "JS only"
+    let SSL_OP_NO_TLSv1_2: float = failwith "JS only"
+    let SSL_OP_PKCS1_CHECK_1: float = failwith "JS only"
+    let SSL_OP_PKCS1_CHECK_2: float = failwith "JS only"
+    let SSL_OP_SINGLE_DH_USE: float = failwith "JS only"
+    let SSL_OP_SINGLE_ECDH_USE: float = failwith "JS only"
+    let SSL_OP_SSLEAY_080_CLIENT_DH_BUG: float = failwith "JS only"
+    let SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG: float = failwith "JS only"
+    let SSL_OP_TLS_BLOCK_PADDING_BUG: float = failwith "JS only"
+    let SSL_OP_TLS_D5_BUG: float = failwith "JS only"
+    let SSL_OP_TLS_ROLLBACK_BUG: float = failwith "JS only"
+    let ENGINE_METHOD_DSA: float = failwith "JS only"
+    let ENGINE_METHOD_DH: float = failwith "JS only"
+    let ENGINE_METHOD_RAND: float = failwith "JS only"
+    let ENGINE_METHOD_ECDH: float = failwith "JS only"
+    let ENGINE_METHOD_ECDSA: float = failwith "JS only"
+    let ENGINE_METHOD_CIPHERS: float = failwith "JS only"
+    let ENGINE_METHOD_DIGESTS: float = failwith "JS only"
+    let ENGINE_METHOD_STORE: float = failwith "JS only"
+    let ENGINE_METHOD_PKEY_METHS: float = failwith "JS only"
+    let ENGINE_METHOD_PKEY_ASN1_METHS: float = failwith "JS only"
+    let ENGINE_METHOD_ALL: float = failwith "JS only"
+    let ENGINE_METHOD_NONE: float = failwith "JS only"
+    let DH_CHECK_P_NOT_SAFE_PRIME: float = failwith "JS only"
+    let DH_CHECK_P_NOT_PRIME: float = failwith "JS only"
+    let DH_UNABLE_TO_CHECK_GENERATOR: float = failwith "JS only"
+    let DH_NOT_SUITABLE_GENERATOR: float = failwith "JS only"
+    let NPN_ENABLED: float = failwith "JS only"
+    let RSA_PKCS1_PADDING: float = failwith "JS only"
+    let RSA_SSLV23_PADDING: float = failwith "JS only"
+    let RSA_NO_PADDING: float = failwith "JS only"
+    let RSA_PKCS1_OAEP_PADDING: float = failwith "JS only"
+    let RSA_X931_PADDING: float = failwith "JS only"
+    let RSA_PKCS1_PSS_PADDING: float = failwith "JS only"
+    let POINT_CONVERSION_COMPRESSED: float = failwith "JS only"
+    let POINT_CONVERSION_UNCOMPRESSED: float = failwith "JS only"
+    let POINT_CONVERSION_HYBRID: float = failwith "JS only"
+    let O_RDONLY: float = failwith "JS only"
+    let O_WRONLY: float = failwith "JS only"
+    let O_RDWR: float = failwith "JS only"
+    let S_IFMT: float = failwith "JS only"
+    let S_IFREG: float = failwith "JS only"
+    let S_IFDIR: float = failwith "JS only"
+    let S_IFCHR: float = failwith "JS only"
+    let S_IFLNK: float = failwith "JS only"
+    let O_CREAT: float = failwith "JS only"
+    let O_EXCL: float = failwith "JS only"
+    let O_TRUNC: float = failwith "JS only"
+    let O_APPEND: float = failwith "JS only"
+    let F_OK: float = failwith "JS only"
+    let R_OK: float = failwith "JS only"
+    let W_OK: float = failwith "JS only"
+    let X_OK: float = failwith "JS only"
+    let UV_UDP_REUSEADDR: float = failwith "JS only"

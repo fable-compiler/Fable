@@ -1,4 +1,5 @@
 namespace Fable.AST.Fable
+open Fable
 open Fable.AST
 
 (** ##Decorators *)
@@ -57,8 +58,8 @@ and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
         List.exists ((=) fullName) interfaces
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
-    static member CreateRootModule fileName =
-        Entity (Module, Some fileName, "", [], [], true)
+    static member CreateRootModule fileName modFullName =
+        Entity (Module, Some fileName, modFullName, [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
@@ -89,14 +90,14 @@ and Member(kind, range, args, body, ?decorators, ?isPublic, ?isStatic, ?hasRestP
     member x.TryGetDecorator decorator =
         x.Decorators |> List.tryFind (fun x -> x.Name = decorator)
     override x.ToString() = sprintf "%A" kind
-        
+
 and ExternalEntity =
     | ImportModule of fullName: string * moduleName: string * isNs: bool
     | GlobalModule of fullName: string
     member x.FullName =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
-    
+
 and File(fileName, root, decls) =
     member x.FileName: string = fileName
     member x.Root: Entity = root
@@ -105,7 +106,14 @@ and File(fileName, root, decls) =
         match decls with
         | [] -> SourceLocation.Empty
         | decls -> SourceLocation.Empty + (List.last decls).Range
-    
+
+and Project(projectFile, fileMap, ?assemblyFile, ?importPath) =
+    member __.ProjectFileName: string = projectFile
+    member __.FileMap: Map<string, string> = fileMap
+    member __.AssemblyFileName: string option = assemblyFile
+    member __.ImportPath: string option = importPath
+    member __.Name: string = System.IO.Path.GetFileNameWithoutExtension projectFile
+
 (** ##Expressions *)
 and ArrayKind = TypedArray of NumberKind | DynamicArray | Tuple
 
@@ -120,10 +128,10 @@ and ApplyInfo = {
         calleeTypeArgs: Type list
         methodTypeArgs: Type list
     }
-    
+
 and ApplyKind =
     | ApplyMeth | ApplyGet | ApplyCons
-    
+
 and ArrayConsKind =
     | ArrayValues of Expr list
     | ArrayAlloc of Expr
@@ -138,7 +146,7 @@ and ValueKind =
     | Spread of Expr
     | TypeRef of Entity
     | IdentValue of Ident
-    | ImportRef of import: string * asDefault: bool * prop: string option
+    | ImportRef of memb: string * path: string
     | NumberConst of U2<int,float> * NumberKind
     | StringConst of string
     | BoolConst of bool
@@ -167,12 +175,12 @@ and ValueKind =
         match x with
         | Lambda (_, body) -> body.Range
         | _ -> None
-    
+
 and LoopKind =
     | While of guard: Expr * body: Expr
     | For of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool
     | ForOf of ident: Ident * enumerable: Expr * body: Expr
-    
+
 and Expr =
     // Pure Expressions
     | Value of value: ValueKind
@@ -188,13 +196,13 @@ and Expr =
     | Sequential of Expr list * range: SourceLocation option
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
 
-    // This wraps expressions with a different type for compile-time checkings 
+    // This wraps expressions with a different type for compile-time checkings
     // E.g. enums, ignored expressions so they don't trigger a return in functions
     | Wrapped of Expr * Type
 
     member x.Type =
         match x with
-        | Value kind -> kind.Type 
+        | Value kind -> kind.Type
         | ObjExpr _ -> UnknownType
         | Wrapped (_,typ) | Apply (_,_,_,typ,_) -> typ
         | IfThenElse (_,thenExpr,_,_) -> thenExpr.Type
@@ -204,12 +212,12 @@ and Expr =
             | [] -> PrimitiveType Unit
             | exprs -> (Seq.last exprs).Type
         | TryCatch (body,_,_,_) -> body.Type
-            
+
     member x.Range: SourceLocation option =
         match x with
         | Value v -> v.Range
         | VarDeclaration (_,e,_) | Wrapped (e,_) -> e.Range
-        | ObjExpr (_,_,_,range) 
+        | ObjExpr (_,_,_,range)
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
         | Throw (_,range)
@@ -217,7 +225,7 @@ and Expr =
         | Set (_,_,_,range)
         | Sequential (_,range)
         | TryCatch (_,_,_,range) -> range
-            
+
     // member x.Children: Expr list =
     //     match x with
     //     | Value _ -> []
@@ -238,29 +246,27 @@ and Expr =
     //         | None -> [callee; value]
     //     | VarDeclaration (_,value,_) -> [value]
     //     | Sequential (exprs,_) -> exprs
-    //     | Wrapped (e,_) -> [e]    
+    //     | Wrapped (e,_) -> [e]
     //     | TryCatch (body,catch,finalizer,_) ->
     //         match catch, finalizer with
     //         | Some (_,catch), Some finalizer -> [body; catch; finalizer]
     //         | Some (_,catch), None -> [body; catch]
     //         | None, Some finalizer -> [body; finalizer]
     //         | None, None -> [body]
-    
+
 module Util =
     open Fable
-    
+
     type CallKind =
         | InstanceCall of callee: Expr * meth: string * args: Expr list
-        | ImportCall of importRef: string * asDefault: bool * modName: string option * meth: string option * isCons: bool * args: Expr list
+        | ImportCall of importPath: string * modName: string * meth: string option * isCons: bool * args: Expr list
         | CoreLibCall of modName: string * meth: string option * isCons: bool * args: Expr list
         | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
     let makeLoop range loopKind = Loop (loopKind, range)
-    let makeCoreRef com modname =
-        Value (ImportRef (Naming.getCoreLibPath com, false, Some modname))
-    
+    let makeCoreRef com modname = Value (ImportRef (modname, Naming.coreLib))
     let makeIdent name: Ident = {name=name; typ=UnknownType}
-    let makeIdentExpr name = makeIdent name |> IdentValue |> Value 
+    let makeIdentExpr name = makeIdent name |> IdentValue |> Value
 
     let makeBinOp, makeUnOp, makeLogOp, makeEqOp =
         let makeOp range typ args op =
@@ -281,7 +287,7 @@ module Util =
             // Calls to System.Object..ctor in class constructors
             | ObjExpr ([],[],_,_), _ -> makeSequential range rest
             | _ -> Sequential (statements, range)
-                
+
     let makeConst (value: obj) =
         match value with
         | :? bool as x -> BoolConst x
@@ -303,20 +309,20 @@ module Util =
         | :? unit | _ when value = null -> Null
         | _ -> failwithf "Unexpected literal %O" value
         |> Value
-        
+
     let makeFnType args =
         PrimitiveType (List.length args |> Function)
-    
+
     let makeGet range typ callee propExpr =
         Apply (callee, [propExpr], ApplyGet, typ, range)
-        
+
     let makeArray elementType arrExprs =
         let arrayKind =
             match elementType with
             | PrimitiveType (Number numberKind) -> TypedArray numberKind
             | _ -> DynamicArray
         ArrayConst(ArrayValues arrExprs, arrayKind) |> Value
-        
+
     let tryImported com name (decs: #seq<Decorator>) =
         decs |> Seq.tryPick (fun x ->
             match x.Name with
@@ -324,19 +330,11 @@ module Util =
                 makeIdent name |> IdentValue |> Value |> Some
             | "Import" ->
                 match x.Arguments with
-                | (:? string as path)::_ ->
-                    let path, asDefault, prop =
-                        let path, args = Naming.getQueryParams path
-                        let asDefault = args.TryFind("asDefault") = Some("true")
-                        let prop = args.TryFind("get")
-                        match args.TryFind("fromLib") with
-                        | Some "true" -> Naming.fromLib com path, asDefault, prop
-                        | _ -> path, asDefault, prop
-                    ImportRef(path, asDefault, prop) |> Value |> Some
-                | _ -> failwith "Import attributes must have a single non-empty string argument"
+                | [(:? string as memb);(:? string as path)] ->
+                    ImportRef(memb, path) |> Value |> Some
+                | _ -> failwith "Import attributes must contain two string arguments"
             | _ -> None)
 
-    // TODO: Pass range information to display it on the exception here?
     let makeTypeRef com range typ =
         match typ with
         | PrimitiveType _ ->
@@ -367,8 +365,8 @@ module Util =
             let fnTyp = PrimitiveType (List.length args |> Function)
             Apply (callee, [makeConst meth], ApplyGet, fnTyp, None)
             |> apply ApplyMeth args
-        | ImportCall (importRef, asDefault, modOption, meth, isCons, args) ->
-            Value (ImportRef (importRef, asDefault, modOption))
+        | ImportCall (importPath, modName, meth, isCons, args) ->
+            Value (ImportRef (modName, importPath))
             |> getCallee meth args
             |> apply (getKind isCons) args
         | CoreLibCall (modName, meth, isCons, args) ->
@@ -379,7 +377,7 @@ module Util =
             makeIdentExpr modName
             |> getCallee meth args
             |> apply (getKind isCons) args
-            
+
     let makeTypeTest com range (typ: Type) expr =
         let stringType, boolType =
             PrimitiveType String, PrimitiveType Boolean
@@ -400,9 +398,9 @@ module Util =
             match typEnt.Kind with
             | Interface ->
                 CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
-                |> makeCall com range boolType 
+                |> makeCall com range boolType
             | _ ->
-                makeBinOp range boolType [expr; makeTypeRef com range typ] BinaryInstanceOf 
+                makeBinOp range boolType [expr; makeTypeRef com range typ] BinaryInstanceOf
         | _ -> failwithf "Unsupported type test in %A: %A" range typ
 
     let makeUnionCons () =
@@ -410,7 +408,7 @@ module Util =
         let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
         Member(Constructor, SourceLocation.Empty, [], body, [], true)
         |> MemberDeclaration
-        
+
     let makeExceptionCons () =
         let emit = Emit "for (var i=0; i<arguments.length; i++) { this['data'+i]=arguments[i]; }" |> Value
         let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
@@ -429,7 +427,7 @@ module Util =
         let body = Apply (Value (Emit body), [], ApplyMeth, PrimitiveType Unit, None)
         Member(Constructor, SourceLocation.Empty, args, body, [], true, false, false)
         |> MemberDeclaration
-        
+
     let makeDelegate (expr: Expr) =
         let rec flattenLambda accArgs = function
             | Value (Lambda (args, body)) ->
@@ -441,15 +439,15 @@ module Util =
             flattenLambda args body
         | _, PrimitiveType (Function arity) when arity > 1 ->
             let lambdaArgs =
-                [1..arity] |> List.map (fun i -> {name=sprintf "$arg%i" i; typ=UnknownType}) 
-            let lambdaBody = 
+                [1..arity] |> List.map (fun i -> {name=sprintf "$arg%i" i; typ=UnknownType})
+            let lambdaBody =
                 (expr, lambdaArgs)
                 ||> List.fold (fun callee arg ->
                     Apply (callee, [Value (IdentValue arg)], ApplyMeth, UnknownType, expr.Range))
             Lambda (lambdaArgs, lambdaBody) |> Value
         | _ ->
             expr // Do nothing
-            
+
     // Check if we're applying agains a F# let binding
     let makeApply range typ callee exprs =
         let lasti = (List.length exprs) - 1
@@ -464,9 +462,8 @@ module Util =
                 | _ -> callee
             i, Apply (callee, [expr], ApplyMeth, typ, range))
         |> snd
-        
+
     let makeJsObject range (props: (string * Expr) list) =
         let members = props |> List.map (fun (name, body) ->
             Member(Getter (name, true), range, [], body))
         ObjExpr(members, [], None, Some range)
- 

@@ -17,25 +17,23 @@ fable path/to/your/project.fsproj
 
 Besides the default argument (`--projFile`), the following options are available:
 
-```text
-  --symbols           F# symbols for conditional compilation, like 'DEBUG'
-                      (will be added to 'DefineConstants' in .fsproj).
-  --env               'browser' for amd modules and 'node' for commonjs(defaults to umd).
-  -m, --sourceMaps    Generate source maps: [true|inline|false]
-  -w, --watch         Recompile project much faster on file modifications.
-  --plugins           Paths to Fable plugins.
-  --babelPlugins      Additional Babel plugins (without 'babel-plugin-' prefix, like
-                      'add-module-exports'). Must be installed in the current directory.
-  --clamp             Compile unsigned byte arrays as Uint8ClampedArray.
-  --code              Pass a string of code directly to Fable.
-  --outDir            Where to put compiled JS files. Defaults to project directory.
-  --lib               Where to find the core library. If not set, fable-core.js
-                      will be copied automatically to outDir.
-  -t, --target        Use options of a specific target in fableconfig.json.
-  -d, --debug         Shortcut for '--target debug'.
-  -p, --production    Shortcut for '--target production'.
-  -h, --help          Display this usage guide.
-```
+Option                  | Shorthand | Description
+------------------------|-----------|----------------------------------------------------------------------
+`--outDir`              | `-o`      | Where to put compiled JS files. Defaults to project directory.
+`--module`              | `-m`      | Specify module code generation: `umd` (default), `commonjs`, `amd` or `es2015`.
+`--sourceMaps`          | `-s`      | Generate source maps: `false` (default), `true` or `inline`.
+`--watch`               | `-w`      | Recompile project much faster on file modifications.
+`--ecma`                |           | Specify ECMAScript target version: `es5` (default) or `es2015`.
+`--symbols`             |           | F# symbols for conditional compilation, like `DEBUG`.
+`--plugins`             |           | Paths to Fable plugins.
+`--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
+`--refs`                |           | TODO: Project references
+`--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
+`--target`              | `-t`      | Use options from a specific target in `fableconfig.json`.
+`--debug`               | `-d`      | Shortcut for `--target debug`.
+`--production`          | `-p`      | Shortcut for `--target production`.
+`--code`                |           | Pass a string of code directly to Fable.
+`--help`                | `-h`      | Display usage guide.
 
 ## fableconfig.json
 
@@ -47,8 +45,8 @@ when this happens the former will have preference.
 There are some options exclusive to `fableconfig.json`.
 
 * **scripts**: Commands that should be executed during specific phases of compilation.
-  Currently only `prebuild` and `postbuild` are accepted. For example, if you want to
-  run tests defined in the npm `package.json` file you can write. 
+  Currently `prebuild`, `postbuild` and `onwatch` are accepted. For example, if you want
+  to run tests defined in the npm `package.json` file after the build you can write.
 
 ```json
 {
@@ -87,6 +85,33 @@ version of Fable required to compile the project.
 }
 ```
 
+## fable-core
+
+[Fable's core library](/import/core/fable-core.js) must be included in the project.
+When targeting node or using a module bundler you only need to add the dependency:
+
+```shell
+npm install --save fable-core
+```
+
+If targeting the browser and using AMD instead, you can load Fable's core lib with
+[require.js](http://requirejs.org) as follows:
+
+```html
+<script src="node_modules/requirejs/require.js"></script>
+<script>
+requirejs.config({
+    // Set the baseUrl to the path of the compiled JS code
+    baseUrl: 'out',
+    paths: {
+        // Explicit path to core lib (relative to baseUrl, omit .js)
+        'fable-core': '../node_modules/fable-core/fable-core.min'
+    }
+});
+// Load the entry file of the app (use array, omit .js)
+requirejs(["app"]);
+</script>
+```
 
 ## Polyfill
 
@@ -102,18 +127,19 @@ the generated JS code like:
 <script src="node_modules/core-js/client/core.min.js"></script>
 ```
 
-Or you can require it directly in your F# code if you're using a bundler like
-Webpack or Browserify.
+Or you can import it directly in your F# code if you're using a bundler like
+Webpack or Browserify right before the entry point of your app.
 
 ```fsharp
-Node.Globals.require.Invoke("core-js") |> ignore
+let [<Import("core-js")>] coreJs = ()
 ```
+
+> The polyfill is not necessary when targeting node 4.4 or above.
 
 > Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/)
 with a lazy-sequence generator, but this is not needed as one is already included
 in [fable-core.js](/src/fable-js/fable-core.js).
 
-> The polyfill is not necessary when targeting node 4.4 or above.
 
 ## Modules
 
@@ -147,7 +173,7 @@ namespace MyNs1.MyNs2
 
 module MyModule1 =
     let myProperty = "Hello"
-    
+
 module MyModule2 =
     let myProperty = "Bye"
 ```
@@ -179,7 +205,7 @@ You can debug the generated JS code normally. Also, if you pass the `sourceMaps`
 option to the compiler, it'll be possible to debug the F# code (with some limitations).
 This is automatic for browser apps. For node, you'll need a tool like [node-inspector](https://github.com/node-inspector/node-inspector)
 or a capable IDE. In the case of Visual Studio Code, you can find instructions [here](https://code.visualstudio.com/docs/editor/debugging)
-(see Node Debugging > JavaScript Source Maps). 
+(see Node Debugging > JavaScript Source Maps).
 
 ## Testing
 

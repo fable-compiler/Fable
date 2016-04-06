@@ -1,10 +1,5 @@
 namespace Fable.AST
 
-// Utility
-type EraseAttribute() = inherit System.Attribute()
-[<Erase>] type U2<'a, 'b> = Case1 of 'a | Case2 of 'b
-[<Erase>] type U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c
-
 /// Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
 type Position =
     { line: int; column: int; }

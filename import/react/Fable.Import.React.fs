@@ -64,7 +64,7 @@ module React =
     and ReactInstance =
         U2<Component<obj, obj>, Element>
 
-    and [<Import("react?get=Component")>] Component<'P, 'S>(?props: 'P, ?context: obj) =
+    and [<Import("Component","react")>] Component<'P, 'S>(?props: 'P, ?context: obj) =
         interface ComponentLifecycle<'P, 'S> with
             member __.componentWillMount(): unit = failwith "JS only"
             member __.componentDidMount(): unit = failwith "JS only"
@@ -1012,43 +1012,48 @@ module React =
         abstract item: index: float -> Touch
         abstract identifiedTouch: identifier: float -> Touch
 
-    type [<Import("react")>] Globals =
-        static member DOM with get(): ReactDOM = failwith "JS only" and set(v: ReactDOM): unit = failwith "JS only"
-        static member PropTypes with get(): ReactPropTypes = failwith "JS only" and set(v: ReactPropTypes): unit = failwith "JS only"
-        static member Children with get(): ReactChildren = failwith "JS only" and set(v: ReactChildren): unit = failwith "JS only"
-        static member createClass(spec: ComponentSpec<'P, 'S>): ClassicComponentClass<'P> = failwith "JS only"
-        static member createFactory(``type``: string): DOMFactory<'P> = failwith "JS only"
-        static member createFactory(``type``: ClassicComponentClass<'P>): ClassicFactory<'P> = failwith "JS only"
-        static member createFactory(``type``: U2<ComponentClass<'P>, StatelessComponent<'P>>): Factory<'P> = failwith "JS only"
-        static member createElement(``type``: string, props: 'P, [<ParamArray>] children: ReactNode[]): DOMElement<'P> = failwith "JS only"
-        static member createElement(``type``: ClassicComponentClass<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ClassicElement<'P> = failwith "JS only"
-        static member createElement(``type``: U2<ComponentClass<'P>, StatelessComponent<'P>>, props: 'P, [<ParamArray>] children: ReactNode[]): ReactElement<'P> = failwith "JS only"
-        static member cloneElement(element: DOMElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): DOMElement<'P> = failwith "JS only"
-        static member cloneElement(element: ClassicElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ClassicElement<'P> = failwith "JS only"
-        static member cloneElement(element: ReactElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ReactElement<'P> = failwith "JS only"
-        static member isValidElement(``object``: obj): bool = failwith "JS only"
+    type Globals =
+        member __.DOM with get(): ReactDOM = failwith "JS only" and set(v: ReactDOM): unit = failwith "JS only"
+        member __.PropTypes with get(): ReactPropTypes = failwith "JS only" and set(v: ReactPropTypes): unit = failwith "JS only"
+        member __.Children with get(): ReactChildren = failwith "JS only" and set(v: ReactChildren): unit = failwith "JS only"
+        member __.createClass(spec: ComponentSpec<'P, 'S>): ClassicComponentClass<'P> = failwith "JS only"
+        member __.createFactory(``type``: string): DOMFactory<'P> = failwith "JS only"
+        member __.createFactory(``type``: ClassicComponentClass<'P>): ClassicFactory<'P> = failwith "JS only"
+        member __.createFactory(``type``: U2<ComponentClass<'P>, StatelessComponent<'P>>): Factory<'P> = failwith "JS only"
+        member __.createElement(``type``: string, props: 'P, [<ParamArray>] children: ReactNode[]): DOMElement<'P> = failwith "JS only"
+        member __.createElement(``type``: ClassicComponentClass<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ClassicElement<'P> = failwith "JS only"
+        member __.createElement(``type``: U2<ComponentClass<'P>, StatelessComponent<'P>>, props: 'P, [<ParamArray>] children: ReactNode[]): ReactElement<'P> = failwith "JS only"
+        member __.cloneElement(element: DOMElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): DOMElement<'P> = failwith "JS only"
+        member __.cloneElement(element: ClassicElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ClassicElement<'P> = failwith "JS only"
+        member __.cloneElement(element: ReactElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ReactElement<'P> = failwith "JS only"
+        member __.isValidElement(``object``: obj): bool = failwith "JS only"
 
+        
 module ReactDom =
     open React
 
-    type [<Import("react-dom")>] Globals =
-        static member version with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        static member findDOMNode(instance: ReactInstance): 'E = failwith "JS only"
-        static member findDOMNode(instance: ReactInstance): Element = failwith "JS only"
-        static member render(element: DOMElement<'P>, container: Element, ?callback: Func<Element, obj>): Element = failwith "JS only"
-        static member render(element: ClassicElement<'P>, container: Element, ?callback: Func<ClassicComponent<'P, 'S>, obj>): ClassicComponent<'P, 'S> = failwith "JS only"
-        static member render(element: ReactElement<'P>, container: Element, ?callback: Func<Component<'P, 'S>, obj>): Component<'P, 'S> = failwith "JS only"
-        static member unmountComponentAtNode(container: Element): bool = failwith "JS only"
-        static member unstable_batchedUpdates(callback: Func<'A, 'B, obj>, a: 'A, b: 'B): unit = failwith "JS only"
-        static member unstable_batchedUpdates(callback: Func<'A, obj>, a: 'A): unit = failwith "JS only"
-        static member unstable_batchedUpdates(callback: Func<obj>): unit = failwith "JS only"
-        static member unstable_renderSubtreeIntoContainer(parentComponent: Component<obj, obj>, nextElement: DOMElement<'P>, container: Element, ?callback: Func<Element, obj>): Element = failwith "JS only"
-        static member unstable_renderSubtreeIntoContainer(parentComponent: Component<obj, obj>, nextElement: ClassicElement<'P>, container: Element, ?callback: Func<ClassicComponent<'P, 'S>, obj>): ClassicComponent<'P, 'S> = failwith "JS only"
-        static member unstable_renderSubtreeIntoContainer(parentComponent: Component<obj, obj>, nextElement: ReactElement<'P>, container: Element, ?callback: Func<Component<'P, 'S>, obj>): Component<'P, 'S> = failwith "JS only"
-
-    type [<Import("react-dom/server")>] Server =
+    type [<Import("*","react-dom/server")>] Server =
         static member version with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         static member renderToString(element: ReactElement<'P>): string = failwith "JS only"
         static member renderToStaticMarkup(element: ReactElement<'P>): string = failwith "JS only"
 
+    type Globals =
+        member __.version with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        member __.findDOMNode(instance: ReactInstance): 'E = failwith "JS only"
+        member __.findDOMNode(instance: ReactInstance): Element = failwith "JS only"
+        member __.render(element: DOMElement<'P>, container: Element, ?callback: Func<Element, obj>): Element = failwith "JS only"
+        member __.render(element: ClassicElement<'P>, container: Element, ?callback: Func<ClassicComponent<'P, 'S>, obj>): ClassicComponent<'P, 'S> = failwith "JS only"
+        member __.render(element: ReactElement<'P>, container: Element, ?callback: Func<Component<'P, 'S>, obj>): Component<'P, 'S> = failwith "JS only"
+        member __.unmountComponentAtNode(container: Element): bool = failwith "JS only"
+        member __.unstable_batchedUpdates(callback: Func<'A, 'B, obj>, a: 'A, b: 'B): unit = failwith "JS only"
+        member __.unstable_batchedUpdates(callback: Func<'A, obj>, a: 'A): unit = failwith "JS only"
+        member __.unstable_batchedUpdates(callback: Func<obj>): unit = failwith "JS only"
+        member __.unstable_renderSubtreeIntoContainer(parentComponent: Component<obj, obj>, nextElement: DOMElement<'P>, container: Element, ?callback: Func<Element, obj>): Element = failwith "JS only"
+        member __.unstable_renderSubtreeIntoContainer(parentComponent: Component<obj, obj>, nextElement: ClassicElement<'P>, container: Element, ?callback: Func<ClassicComponent<'P, 'S>, obj>): ClassicComponent<'P, 'S> = failwith "JS only"
+        member __.unstable_renderSubtreeIntoContainer(parentComponent: Component<obj, obj>, nextElement: ReactElement<'P>, container: Element, ?callback: Func<Component<'P, 'S>, obj>): Component<'P, 'S> = failwith "JS only"
 
+
+[<AutoOpen>]
+module React_Extensions =
+    let [<Import("*","react")>] React: React.Globals = failwith "JS only"
+    let [<Import("*","react-dom")>] ReactDom: ReactDom.Globals = failwith "JS only"

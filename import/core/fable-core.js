@@ -234,7 +234,7 @@
     }
     return day;
   };
-  FDate.add = FDate["+"] = function (d, ts) {
+  FDate.add = FDate.op_Addition = function (d, ts) {
     return FDate.parse(d.getTime() + ts, d.kind);
   };
   FDate.addDays = function (d, v) {
@@ -283,7 +283,7 @@
     return FDate.create(newYear, newMonth, newDay,
         FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), d.kind);
   };
-  FDate.subtract = FDate["-"] = function (d, that) {
+  FDate.subtract = FDate.op_Subtraction = function (d, that) {
     return typeof that == "number"
       ? FDate.parse(d.getTime() - that, d.kind)
       : d.getTime() - that.getTime();
@@ -1453,7 +1453,7 @@
       return acc.add(x);
     }, new Set(), xs);
   };
-  FSet["+"] = FSet.union = function (set1, set2) {
+  FSet.op_Addition = FSet.union = function (set1, set2) {
     var set = new Set(set1);
     set2.forEach(function (x) {
       set.add(x);
@@ -1468,7 +1468,7 @@
       return acc;
     }, new Set(), sets);
   };
-  FSet["-"] = FSet.difference = function (set1, set2) {
+  FSet.op_Subtraction = FSet.difference = function (set1, set2) {
     var set = new Set(set1);
     set2.forEach(function (x) {
       set.delete(x);

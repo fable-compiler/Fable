@@ -22,15 +22,15 @@ module Util =
         
     let (|CoreMeth|_|) com coreMod meth expr =
         match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef(import, false , Some coreMod')),
+        | Fable.Apply(Fable.Value(Fable.ImportRef(import, coreMod')),
                       [Fable.Value(Fable.StringConst meth')], Fable.ApplyGet,_,_)
-            when import = (Naming.getCoreLibPath com) && coreMod = coreMod' && meth = meth' -> Some expr
+            when import = Naming.coreLib && coreMod = coreMod' && meth = meth' -> Some expr
         | _ -> None
 
     let (|CoreCons|_|) com coreMod expr =
         match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef(import, false , Some coreMod')),_, Fable.ApplyCons,_,_)
-            when import = (Naming.getCoreLibPath com) && coreMod = coreMod' -> Some expr
+        | Fable.Apply(Fable.Value(Fable.ImportRef(import, coreMod')),_, Fable.ApplyCons,_,_)
+            when import = Naming.coreLib && coreMod = coreMod' -> Some expr
         | _ -> None
 
     let (|Null|_|) = function
@@ -125,20 +125,20 @@ module Util =
         | FullName "System.TimeSpan" ->
             let op =
                 match meth with
-                | "+" -> Fable.BinaryOp BinaryPlus
-                | "-" -> Fable.BinaryOp BinaryMinus
-                | "*" -> Fable.BinaryOp BinaryMultiply
-                | "/" -> Fable.BinaryOp BinaryDivide
-                | "%" -> Fable.BinaryOp BinaryModulus
-                | "<<<" -> Fable.BinaryOp BinaryShiftLeft
-                | ">>>" -> Fable.BinaryOp BinaryShiftRightSignPropagating
-                | "&&&" -> Fable.BinaryOp BinaryAndBitwise
-                | "|||" -> Fable.BinaryOp BinaryOrBitwise
-                | "^^^" -> Fable.BinaryOp BinaryXorBitwise
-                | "~~~" -> Fable.UnaryOp UnaryNotBitwise
-                | "~-" -> Fable.UnaryOp UnaryMinus
-                | "&&" -> Fable.LogicalOp LogicalAnd
-                | "||" -> Fable.LogicalOp LogicalOr
+                | "op_Addition" -> Fable.BinaryOp BinaryPlus
+                | "op_Subtraction" -> Fable.BinaryOp BinaryMinus
+                | "op_Multiply" -> Fable.BinaryOp BinaryMultiply
+                | "op_Division" -> Fable.BinaryOp BinaryDivide
+                | "op_Modulus" -> Fable.BinaryOp BinaryModulus
+                | "op_LeftShift" -> Fable.BinaryOp BinaryShiftLeft
+                | "op_RightShift" -> Fable.BinaryOp BinaryShiftRightSignPropagating
+                | "op_BitwiseAnd" -> Fable.BinaryOp BinaryAndBitwise
+                | "op_BitwiseOr" -> Fable.BinaryOp BinaryOrBitwise
+                | "op_ExclusiveOr" -> Fable.BinaryOp BinaryXorBitwise
+                | "op_LogicalNot" -> Fable.UnaryOp UnaryNotBitwise
+                | "op_UnaryNegation" -> Fable.UnaryOp UnaryMinus
+                | "op_BooleanAnd" -> Fable.LogicalOp LogicalAnd
+                | "op_BooleanOr" -> Fable.LogicalOp LogicalOr
                 | _ -> failwithf "Unknown operator: %s" meth
             Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | FullName (KeyValue "System.DateTime" "Date" modName)
@@ -207,17 +207,17 @@ module private AstPass =
             | Fable.Value (Fable.ArrayConst (Fable.ArrayValues exprs, Fable.Tuple)) -> exprs
             | expr -> [expr]
         match i.methodName with
-        | "?" ->
+        | "op_Dynamic" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
-        | "?<-" ->
+        | "op_DynamicAssignment" ->
             match i.callee, i.args with
             | ThreeArgs (callee, prop, value) ->
                 Fable.Set (callee, Some prop, value, i.range) |> Some
             | _ -> None
-        | "$" ->
+        | "op_Dollar" ->
             Fable.Apply(i.args.Head, destruct i.args.Tail.Head,
                 Fable.ApplyMeth, i.returnType, i.range) |> Some
-        | "==>" ->
+        | "op_EqualsEqualsGreater" ->
             (Fable.ArrayValues (List.take 2 i.args), Fable.Tuple)
             |> Fable.ArrayConst |> Fable.Value |> Some
         | "createNew" ->
@@ -247,7 +247,7 @@ module private AstPass =
             Fable.ObjExpr ([], [], None, i.range)
             |> wrap i.returnType |> Some
         | "areEqual" ->
-            ImportCall("assert", true, None, Some "equal", false, i.args)
+            ImportCall("assert", "default", Some "equal", false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
             
@@ -269,28 +269,30 @@ module private AstPass =
         // Negation
         | "not" -> makeUnOp r info.returnType args UnaryNot |> Some
         // Equality
-        | "<>" | "neq" ->
+        | "op_Inequality" | "neq" ->
             match args with
             | [Fable.Value Fable.Null; _]
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryUnequal |> Some
             | _ -> equals com info args false
-        | "=" | "eq" ->
+        | "op_Equality" | "eq" ->
             match args with
             | [Fable.Value Fable.Null; _]
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryEqual |> Some
             | _ -> equals com info args true
         // Comparison
-        | "<"  | "lt" -> compare com info args (Some BinaryLess)
-        | "<=" | "lte" -> compare com info args (Some BinaryLessOrEqual)
-        | ">"  | "gt" -> compare com info args (Some BinaryGreater)
-        | ">=" | "gte" -> compare com info args (Some BinaryGreaterOrEqual)
+        | "op_LessThan"  | "lt" -> compare com info args (Some BinaryLess)
+        | "op_LessThanOrEqual" | "lte" -> compare com info args (Some BinaryLessOrEqual)
+        | "op_GreaterThan"  | "gt" -> compare com info args (Some BinaryGreater)
+        | "op_GreaterThanOrEqual" | "gte" -> compare com info args (Some BinaryGreaterOrEqual)
         // Operators
-        | "+" | "-" | "*" | "/" | "%"
-        | "<<<" | ">>>" | "&&&" | "|||" | "^^^"
-        | "~~~" | "~-" | "&&" | "||" -> applyOp com info args info.methodName
+         | "op_Addition" | "op_Subtraction" | "op_Multiply" | "op_Division"
+         | "op_Modulus" | "op_LeftShift" | "op_RightShift"
+         | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
+         | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
+            applyOp com info args info.methodName
         // Math functions
         // TODO: optimize square pow: x * x
-        | "pow" | "pown" | "**" -> math r typ args "pow"
+        | "pow" | "pown" | "op_Exponentiation" -> math r typ args "pow"
         | "ceil" | "ceiling" -> math r typ args "ceil"
         | "abs" | "acos" | "asin" | "atan" | "atan2" 
         | "cos"  | "exp" | "floor" | "log" | "log10"
@@ -298,19 +300,19 @@ module private AstPass =
             math r typ args info.methodName
         | "compare" -> compare com info args None
         // Function composition
-        | ">>" | "<<" ->
+        | "op_ComposeRight" | "op_ComposeLeft" ->
             // If expression is a let binding we have to wrap it in a function
             let wrap expr placeholder =
                 match expr with
                 | Fable.Sequential _ -> sprintf "(function(){return %s}())" placeholder
                 | _ -> placeholder
-            let args = if info.methodName = ">>" then args else List.rev args
+            let args = if info.methodName = "op_ComposeRight" then args else List.rev args
             let f0 = wrap args.Head "$0"
             let f1 = wrap args.Tail.Head "$1"
             emit info (sprintf "x=>%s(%s(x))" f1 f0) args |> Some
         // Reference
-        | "!" -> makeGet r Fable.UnknownType args.Head (makeConst "contents") |> Some
-        | ":=" -> Fable.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
+        | "op_Dereference" -> makeGet r Fable.UnknownType args.Head (makeConst "contents") |> Some
+        | "op_ColonEquals" -> Fable.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
         | "ref" -> makeJsObject r.Value [("contents", args.Head)] |> Some
         // Conversions
         | "seq" | "id" | "box" | "unbox" -> wrap typ args.Head |> Some
@@ -324,8 +326,8 @@ module private AstPass =
         // Ignore: wrap to keep Unit type (see Fable2Babel.transformFunction)
         | "ignore" -> Fable.Wrapped (args.Head, Fable.PrimitiveType Fable.Unit) |> Some
         // Ranges
-        | ".." | ".. .." ->
-            let meth = if info.methodName = ".." then "range" else "rangeStep"
+        | "op_Range" | "op_RangeStep" ->
+            let meth = if info.methodName = "op_Range" then "range" else "rangeStep"
             CoreLibCall("Seq", Some meth, false, args)
             |> makeCall com r typ |> Some
         // Tuples
@@ -350,7 +352,7 @@ module private AstPass =
         | "typeof" ->
             makeTypeRef com info.range info.methodTypeArgs.Head |> Some
         // Concatenates two lists
-        | "@" ->
+        | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
           |> makeCall com r typ |> Some
         | _ -> None
@@ -794,6 +796,7 @@ module private AstPass =
                 | _ -> Fable.DynamicArray
             Fable.ArrayConst(Fable.ArrayAlloc i.args.Head, arrayKind)
             |> Fable.Value |> Some
+        // TODO: Array.create
         // ResizeArray only
         | ".ctor" ->
             let makeEmptyArray () =
@@ -892,7 +895,7 @@ module private AstPass =
     let asserts com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "areEqual" ->
-            ImportCall("assert", true, None, Some "equal", false, i.args)
+            ImportCall("assert", "default", Some "equal", false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
         

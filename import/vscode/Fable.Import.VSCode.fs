@@ -21,8 +21,9 @@ and PromiseConstructor =
     abstract resolve: value: U2<'T, Thenable<'T>> -> Promise<'T>
     abstract resolve: unit -> Promise<unit>
 
-type Globals =
-    [<Global>] static member Promise with get(): PromiseConstructor = failwith "JS only" and set(v: PromiseConstructor): unit = failwith "JS only"
+[<AutoOpen>]
+module vscode_Extensions =
+    let [<Global>] Promise: PromiseConstructor = failwith "JS only"
 
 module vscode =
     type Command =
@@ -56,7 +57,7 @@ module vscode =
         abstract validateRange: range: Range -> Range
         abstract validatePosition: position: Position -> Position
 
-    and [<Import("vscode?get=Position")>] Position(line: float, character: float) =
+    and [<Import("Position","vscode")>] Position(line: float, character: float) =
         member __.line with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.character with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.isBefore(other: Position): bool = failwith "JS only"
@@ -68,7 +69,7 @@ module vscode =
         member __.translate(?lineDelta: float, ?characterDelta: float): Position = failwith "JS only"
         member __.``with``(?line: float, ?character: float): Position = failwith "JS only"
 
-    and [<Import("vscode?get=Range")>] Range(startLine: float, startCharacter: float, endLine: float, endCharacter: float) =
+    and [<Import("Range","vscode")>] Range(startLine: float, startCharacter: float, endLine: float, endCharacter: float) =
         member __.start with get(): Position = failwith "JS only" and set(v: Position): unit = failwith "JS only"
         member __.``end`` with get(): Position = failwith "JS only" and set(v: Position): unit = failwith "JS only"
         member __.isEmpty with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -79,7 +80,7 @@ module vscode =
         member __.union(other: Range): Range = failwith "JS only"
         member __.``with``(?start: Position, ?``end``: Position): Range = failwith "JS only"
 
-    and [<Import("vscode?get=Selection")>] Selection(anchorLine: float, anchorCharacter: float, activeLine: float, activeCharacter: float) =
+    and [<Import("Selection","vscode")>] Selection(anchorLine: float, anchorCharacter: float, activeLine: float, activeCharacter: float) =
         inherit Range(anchorLine, anchorCharacter, activeLine, activeCharacter)
         member __.anchor with get(): Position = failwith "JS only" and set(v: Position): unit = failwith "JS only"
         member __.active with get(): Position = failwith "JS only" and set(v: Position): unit = failwith "JS only"
@@ -155,7 +156,7 @@ module vscode =
         abstract insert: location: Position * value: string -> unit
         abstract delete: location: U2<Range, Selection> -> unit
 
-    and [<Import("vscode?get=Uri")>] Uri() =
+    and [<Import("Uri","vscode")>] Uri() =
         member __.scheme with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.authority with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.path with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -171,12 +172,12 @@ module vscode =
         abstract isCancellationRequested: bool with get, set
         abstract onCancellationRequested: Event<obj> with get, set
 
-    and [<Import("vscode?get=CancellationTokenSource")>] CancellationTokenSource() =
+    and [<Import("CancellationTokenSource","vscode")>] CancellationTokenSource() =
         member __.token with get(): CancellationToken = failwith "JS only" and set(v: CancellationToken): unit = failwith "JS only"
         member __.cancel(): unit = failwith "JS only"
         member __.dispose(): unit = failwith "JS only"
 
-    and [<Import("vscode?get=Disposable")>] Disposable(callOnDispose: Function) =
+    and [<Import("Disposable","vscode")>] Disposable(callOnDispose: Function) =
         member __.from([<ParamArray>] disposableLikes: obj[]): Disposable = failwith "JS only"
         member __.dispose(): obj = failwith "JS only"
 
@@ -224,7 +225,7 @@ module vscode =
     and CodeActionProvider =
         abstract provideCodeActions: document: TextDocument * range: Range * context: CodeActionContext * token: CancellationToken -> U2<ResizeArray<Command>, Thenable<ResizeArray<Command>>>
 
-    and [<Import("vscode?get=CodeLens")>] CodeLens(range: Range, ?command: Command) =
+    and [<Import("CodeLens","vscode")>] CodeLens(range: Range, ?command: Command) =
         member __.range with get(): Range = failwith "JS only" and set(v: Range): unit = failwith "JS only"
         member __.command with get(): Command = failwith "JS only" and set(v: Command): unit = failwith "JS only"
         member __.isResolved with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -242,7 +243,7 @@ module vscode =
     and MarkedString =
         U2<string, obj>
 
-    and [<Import("vscode?get=Hover")>] Hover(contents: U2<MarkedString, ResizeArray<MarkedString>>, ?range: Range) =
+    and [<Import("Hover","vscode")>] Hover(contents: U2<MarkedString, ResizeArray<MarkedString>>, ?range: Range) =
         member __.contents with get(): ResizeArray<MarkedString> = failwith "JS only" and set(v: ResizeArray<MarkedString>): unit = failwith "JS only"
         member __.range with get(): Range = failwith "JS only" and set(v: Range): unit = failwith "JS only"
 
@@ -254,7 +255,7 @@ module vscode =
         | Read = 1
         | Write = 2
 
-    and [<Import("vscode?get=DocumentHighlight")>] DocumentHighlight(range: Range, ?kind: DocumentHighlightKind) =
+    and [<Import("DocumentHighlight","vscode")>] DocumentHighlight(range: Range, ?kind: DocumentHighlightKind) =
         member __.range with get(): Range = failwith "JS only" and set(v: Range): unit = failwith "JS only"
         member __.kind with get(): DocumentHighlightKind = failwith "JS only" and set(v: DocumentHighlightKind): unit = failwith "JS only"
 
@@ -281,7 +282,7 @@ module vscode =
         | Boolean = 16
         | Array = 17
 
-    and [<Import("vscode?get=SymbolInformation")>] SymbolInformation(name: string, kind: SymbolKind, range: Range, ?uri: Uri, ?containerName: string) =
+    and [<Import("SymbolInformation","vscode")>] SymbolInformation(name: string, kind: SymbolKind, range: Range, ?uri: Uri, ?containerName: string) =
         member __.name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.containerName with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.kind with get(): SymbolKind = failwith "JS only" and set(v: SymbolKind): unit = failwith "JS only"
@@ -299,14 +300,14 @@ module vscode =
     and ReferenceProvider =
         abstract provideReferences: document: TextDocument * position: Position * context: ReferenceContext * token: CancellationToken -> U2<ResizeArray<Location>, Thenable<ResizeArray<Location>>>
 
-    and [<Import("vscode?get=TextEdit")>] TextEdit(range: Range, newText: string) =
+    and [<Import("TextEdit","vscode")>] TextEdit(range: Range, newText: string) =
         member __.range with get(): Range = failwith "JS only" and set(v: Range): unit = failwith "JS only"
         member __.newText with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.replace(range: Range, newText: string): TextEdit = failwith "JS only"
         member __.insert(position: Position, newText: string): TextEdit = failwith "JS only"
         member __.delete(range: Range): TextEdit = failwith "JS only"
 
-    and [<Import("vscode?get=WorkspaceEdit")>] WorkspaceEdit() =
+    and [<Import("WorkspaceEdit","vscode")>] WorkspaceEdit() =
         member __.size with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.replace(uri: Uri, range: Range, newText: string): unit = failwith "JS only"
         member __.insert(uri: Uri, position: Position, newText: string): unit = failwith "JS only"
@@ -333,16 +334,16 @@ module vscode =
     and OnTypeFormattingEditProvider =
         abstract provideOnTypeFormattingEdits: document: TextDocument * position: Position * ch: string * options: FormattingOptions * token: CancellationToken -> U2<ResizeArray<TextEdit>, Thenable<ResizeArray<TextEdit>>>
 
-    and [<Import("vscode?get=ParameterInformation")>] ParameterInformation(label: string, ?documentation: string) =
+    and [<Import("ParameterInformation","vscode")>] ParameterInformation(label: string, ?documentation: string) =
         member __.label with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.documentation with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
 
-    and [<Import("vscode?get=SignatureInformation")>] SignatureInformation(label: string, ?documentation: string) =
+    and [<Import("SignatureInformation","vscode")>] SignatureInformation(label: string, ?documentation: string) =
         member __.label with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.documentation with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.parameters with get(): ResizeArray<ParameterInformation> = failwith "JS only" and set(v: ResizeArray<ParameterInformation>): unit = failwith "JS only"
 
-    and [<Import("vscode?get=SignatureHelp")>] SignatureHelp() =
+    and [<Import("SignatureHelp","vscode")>] SignatureHelp() =
         member __.signatures with get(): ResizeArray<SignatureInformation> = failwith "JS only" and set(v: ResizeArray<SignatureInformation>): unit = failwith "JS only"
         member __.activeSignature with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.activeParameter with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
@@ -370,7 +371,7 @@ module vscode =
         | File = 16
         | Reference = 17
 
-    and [<Import("vscode?get=CompletionItem")>] CompletionItem(label: string) =
+    and [<Import("CompletionItem","vscode")>] CompletionItem(label: string) =
         member __.label with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.kind with get(): CompletionItemKind = failwith "JS only" and set(v: CompletionItemKind): unit = failwith "JS only"
         member __.detail with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -427,7 +428,7 @@ module vscode =
         abstract get: section: string * ?defaultValue: 'T -> 'T
         abstract has: section: string -> bool
 
-    and [<Import("vscode?get=Location")>] Location(uri: Uri, rangeOrPosition: U2<Range, Position>) =
+    and [<Import("Location","vscode")>] Location(uri: Uri, rangeOrPosition: U2<Range, Position>) =
         member __.uri with get(): Uri = failwith "JS only" and set(v: Uri): unit = failwith "JS only"
         member __.range with get(): Range = failwith "JS only" and set(v: Range): unit = failwith "JS only"
 
@@ -437,7 +438,7 @@ module vscode =
         | Information = 2
         | Hint = 3
 
-    and [<Import("vscode?get=Diagnostic")>] Diagnostic(range: Range, message: string, ?severity: DiagnosticSeverity) =
+    and [<Import("Diagnostic","vscode")>] Diagnostic(range: Range, message: string, ?severity: DiagnosticSeverity) =
         member __.range with get(): Range = failwith "JS only" and set(v: Range): unit = failwith "JS only"
         member __.message with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.source with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -509,91 +510,75 @@ module vscode =
         abstract document: TextDocument with get, set
         abstract contentChanges: ResizeArray<TextDocumentContentChangeEvent> with get, set
 
-    type [<Import("vscode")>] Globals =
-        static member version with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+    let [<Import("version","vscode")>] version: string = failwith "JS only"
 
-    module commands =
-        type [<Import("vscode?get=commands")>] Globals =
-            static member registerCommand(command: string, callback: Func<obj, obj>, ?thisArg: obj): Disposable = failwith "JS only"
-            static member registerTextEditorCommand(command: string, callback: Func<TextEditor, TextEditorEdit, unit>, ?thisArg: obj): Disposable = failwith "JS only"
-            static member executeCommand(command: string, [<ParamArray>] rest: obj[]): Thenable<'T> = failwith "JS only"
-            static member getCommands(?filterInternal: bool): Thenable<ResizeArray<string>> = failwith "JS only"
+    type [<Import("commands","vscode")>] commands =
+        static member registerCommand(command: string, callback: Func<obj, obj>, ?thisArg: obj): Disposable = failwith "JS only"
+        static member registerTextEditorCommand(command: string, callback: Func<TextEditor, TextEditorEdit, unit>, ?thisArg: obj): Disposable = failwith "JS only"
+        static member executeCommand(command: string, [<ParamArray>] rest: obj[]): Thenable<'T> = failwith "JS only"
+        static member getCommands(?filterInternal: bool): Thenable<ResizeArray<string>> = failwith "JS only"
 
+    type [<Import("window","vscode")>] window =
+        static member activeTextEditor with get(): TextEditor = failwith "JS only" and set(v: TextEditor): unit = failwith "JS only"
+        static member visibleTextEditors with get(): ResizeArray<TextEditor> = failwith "JS only" and set(v: ResizeArray<TextEditor>): unit = failwith "JS only"
+        static member onDidChangeActiveTextEditor with get(): Event<TextEditor> = failwith "JS only" and set(v: Event<TextEditor>): unit = failwith "JS only"
+        static member onDidChangeTextEditorSelection with get(): Event<TextEditorSelectionChangeEvent> = failwith "JS only" and set(v: Event<TextEditorSelectionChangeEvent>): unit = failwith "JS only"
+        static member onDidChangeTextEditorOptions with get(): Event<TextEditorOptionsChangeEvent> = failwith "JS only" and set(v: Event<TextEditorOptionsChangeEvent>): unit = failwith "JS only"
+        static member showTextDocument(document: TextDocument, ?column: ViewColumn): Thenable<TextEditor> = failwith "JS only"
+        static member createTextEditorDecorationType(options: DecorationRenderOptions): TextEditorDecorationType = failwith "JS only"
+        static member showInformationMessage(message: string, [<ParamArray>] items: string[]): Thenable<string> = failwith "JS only"
+        static member showInformationMessage(message: string, [<ParamArray>] items: 'T[]): Thenable<'T> = failwith "JS only"
+        static member showWarningMessage(message: string, [<ParamArray>] items: string[]): Thenable<string> = failwith "JS only"
+        static member showWarningMessage(message: string, [<ParamArray>] items: 'T[]): Thenable<'T> = failwith "JS only"
+        static member showErrorMessage(message: string, [<ParamArray>] items: string[]): Thenable<string> = failwith "JS only"
+        static member showErrorMessage(message: string, [<ParamArray>] items: 'T[]): Thenable<'T> = failwith "JS only"
+        static member showQuickPick(items: U2<ResizeArray<string>, Thenable<ResizeArray<string>>>, ?options: QuickPickOptions): Thenable<string> = failwith "JS only"
+        static member showQuickPick(items: U2<ResizeArray<'T>, Thenable<ResizeArray<'T>>>, ?options: QuickPickOptions): Thenable<'T> = failwith "JS only"
+        static member showInputBox(?options: InputBoxOptions): Thenable<string> = failwith "JS only"
+        static member createOutputChannel(name: string): OutputChannel = failwith "JS only"
+        static member setStatusBarMessage(text: string): Disposable = failwith "JS only"
+        static member setStatusBarMessage(text: string, hideAfterTimeout: float): Disposable = failwith "JS only"
+        static member setStatusBarMessage(text: string, hideWhenDone: Thenable<obj>): Disposable = failwith "JS only"
+        static member createStatusBarItem(?alignment: StatusBarAlignment, ?priority: float): StatusBarItem = failwith "JS only"
 
+    type [<Import("workspace","vscode")>] workspace =
+        static member rootPath with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        static member textDocuments with get(): ResizeArray<TextDocument> = failwith "JS only" and set(v: ResizeArray<TextDocument>): unit = failwith "JS only"
+        static member onDidOpenTextDocument with get(): Event<TextDocument> = failwith "JS only" and set(v: Event<TextDocument>): unit = failwith "JS only"
+        static member onDidCloseTextDocument with get(): Event<TextDocument> = failwith "JS only" and set(v: Event<TextDocument>): unit = failwith "JS only"
+        static member onDidChangeTextDocument with get(): Event<TextDocumentChangeEvent> = failwith "JS only" and set(v: Event<TextDocumentChangeEvent>): unit = failwith "JS only"
+        static member onDidSaveTextDocument with get(): Event<TextDocument> = failwith "JS only" and set(v: Event<TextDocument>): unit = failwith "JS only"
+        static member onDidChangeConfiguration with get(): Event<unit> = failwith "JS only" and set(v: Event<unit>): unit = failwith "JS only"
+        static member createFileSystemWatcher(globPattern: string, ?ignoreCreateEvents: bool, ?ignoreChangeEvents: bool, ?ignoreDeleteEvents: bool): FileSystemWatcher = failwith "JS only"
+        static member asRelativePath(pathOrUri: U2<string, Uri>): string = failwith "JS only"
+        static member findFiles(``include``: string, exclude: string, ?maxResults: float): Thenable<ResizeArray<Uri>> = failwith "JS only"
+        static member saveAll(?includeUntitled: bool): Thenable<bool> = failwith "JS only"
+        static member applyEdit(edit: WorkspaceEdit): Thenable<bool> = failwith "JS only"
+        static member openTextDocument(uri: Uri): Thenable<TextDocument> = failwith "JS only"
+        static member openTextDocument(fileName: string): Thenable<TextDocument> = failwith "JS only"
+        static member getConfiguration(?section: string): WorkspaceConfiguration = failwith "JS only"
 
-    module window =
-        type [<Import("vscode?get=window")>] Globals =
-            static member activeTextEditor with get(): TextEditor = failwith "JS only" and set(v: TextEditor): unit = failwith "JS only"
-            static member visibleTextEditors with get(): ResizeArray<TextEditor> = failwith "JS only" and set(v: ResizeArray<TextEditor>): unit = failwith "JS only"
-            static member onDidChangeActiveTextEditor with get(): Event<TextEditor> = failwith "JS only" and set(v: Event<TextEditor>): unit = failwith "JS only"
-            static member onDidChangeTextEditorSelection with get(): Event<TextEditorSelectionChangeEvent> = failwith "JS only" and set(v: Event<TextEditorSelectionChangeEvent>): unit = failwith "JS only"
-            static member onDidChangeTextEditorOptions with get(): Event<TextEditorOptionsChangeEvent> = failwith "JS only" and set(v: Event<TextEditorOptionsChangeEvent>): unit = failwith "JS only"
-            static member showTextDocument(document: TextDocument, ?column: ViewColumn): Thenable<TextEditor> = failwith "JS only"
-            static member createTextEditorDecorationType(options: DecorationRenderOptions): TextEditorDecorationType = failwith "JS only"
-            static member showInformationMessage(message: string, [<ParamArray>] items: string[]): Thenable<string> = failwith "JS only"
-            static member showInformationMessage(message: string, [<ParamArray>] items: 'T[]): Thenable<'T> = failwith "JS only"
-            static member showWarningMessage(message: string, [<ParamArray>] items: string[]): Thenable<string> = failwith "JS only"
-            static member showWarningMessage(message: string, [<ParamArray>] items: 'T[]): Thenable<'T> = failwith "JS only"
-            static member showErrorMessage(message: string, [<ParamArray>] items: string[]): Thenable<string> = failwith "JS only"
-            static member showErrorMessage(message: string, [<ParamArray>] items: 'T[]): Thenable<'T> = failwith "JS only"
-            static member showQuickPick(items: U2<ResizeArray<string>, Thenable<ResizeArray<string>>>, ?options: QuickPickOptions): Thenable<string> = failwith "JS only"
-            static member showQuickPick(items: U2<ResizeArray<'T>, Thenable<ResizeArray<'T>>>, ?options: QuickPickOptions): Thenable<'T> = failwith "JS only"
-            static member showInputBox(?options: InputBoxOptions): Thenable<string> = failwith "JS only"
-            static member createOutputChannel(name: string): OutputChannel = failwith "JS only"
-            static member setStatusBarMessage(text: string): Disposable = failwith "JS only"
-            static member setStatusBarMessage(text: string, hideAfterTimeout: float): Disposable = failwith "JS only"
-            static member setStatusBarMessage(text: string, hideWhenDone: Thenable<obj>): Disposable = failwith "JS only"
-            static member createStatusBarItem(?alignment: StatusBarAlignment, ?priority: float): StatusBarItem = failwith "JS only"
+    type [<Import("languages","vscode")>] languages =
+        static member getLanguages(): Thenable<ResizeArray<string>> = failwith "JS only"
+        static member ``match``(selector: DocumentSelector, document: TextDocument): float = failwith "JS only"
+        static member createDiagnosticCollection(?name: string): DiagnosticCollection = failwith "JS only"
+        static member registerCompletionItemProvider(selector: DocumentSelector, provider: CompletionItemProvider, [<ParamArray>] triggerCharacters: string[]): Disposable = failwith "JS only"
+        static member registerCodeActionsProvider(selector: DocumentSelector, provider: CodeActionProvider): Disposable = failwith "JS only"
+        static member registerCodeLensProvider(selector: DocumentSelector, provider: CodeLensProvider): Disposable = failwith "JS only"
+        static member registerDefinitionProvider(selector: DocumentSelector, provider: DefinitionProvider): Disposable = failwith "JS only"
+        static member registerHoverProvider(selector: DocumentSelector, provider: HoverProvider): Disposable = failwith "JS only"
+        static member registerDocumentHighlightProvider(selector: DocumentSelector, provider: DocumentHighlightProvider): Disposable = failwith "JS only"
+        static member registerDocumentSymbolProvider(selector: DocumentSelector, provider: DocumentSymbolProvider): Disposable = failwith "JS only"
+        static member registerWorkspaceSymbolProvider(provider: WorkspaceSymbolProvider): Disposable = failwith "JS only"
+        static member registerReferenceProvider(selector: DocumentSelector, provider: ReferenceProvider): Disposable = failwith "JS only"
+        static member registerRenameProvider(selector: DocumentSelector, provider: RenameProvider): Disposable = failwith "JS only"
+        static member registerDocumentFormattingEditProvider(selector: DocumentSelector, provider: DocumentFormattingEditProvider): Disposable = failwith "JS only"
+        static member registerDocumentRangeFormattingEditProvider(selector: DocumentSelector, provider: DocumentRangeFormattingEditProvider): Disposable = failwith "JS only"
+        static member registerOnTypeFormattingEditProvider(selector: DocumentSelector, provider: OnTypeFormattingEditProvider, firstTriggerCharacter: string, [<ParamArray>] moreTriggerCharacter: string[]): Disposable = failwith "JS only"
+        static member registerSignatureHelpProvider(selector: DocumentSelector, provider: SignatureHelpProvider, [<ParamArray>] triggerCharacters: string[]): Disposable = failwith "JS only"
+        static member setLanguageConfiguration(language: string, configuration: LanguageConfiguration): Disposable = failwith "JS only"
 
-
-
-    module workspace =
-        type [<Import("vscode?get=workspace")>] Globals =
-            static member rootPath with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            static member textDocuments with get(): ResizeArray<TextDocument> = failwith "JS only" and set(v: ResizeArray<TextDocument>): unit = failwith "JS only"
-            static member onDidOpenTextDocument with get(): Event<TextDocument> = failwith "JS only" and set(v: Event<TextDocument>): unit = failwith "JS only"
-            static member onDidCloseTextDocument with get(): Event<TextDocument> = failwith "JS only" and set(v: Event<TextDocument>): unit = failwith "JS only"
-            static member onDidChangeTextDocument with get(): Event<TextDocumentChangeEvent> = failwith "JS only" and set(v: Event<TextDocumentChangeEvent>): unit = failwith "JS only"
-            static member onDidSaveTextDocument with get(): Event<TextDocument> = failwith "JS only" and set(v: Event<TextDocument>): unit = failwith "JS only"
-            static member onDidChangeConfiguration with get(): Event<unit> = failwith "JS only" and set(v: Event<unit>): unit = failwith "JS only"
-            static member createFileSystemWatcher(globPattern: string, ?ignoreCreateEvents: bool, ?ignoreChangeEvents: bool, ?ignoreDeleteEvents: bool): FileSystemWatcher = failwith "JS only"
-            static member asRelativePath(pathOrUri: U2<string, Uri>): string = failwith "JS only"
-            static member findFiles(``include``: string, exclude: string, ?maxResults: float): Thenable<ResizeArray<Uri>> = failwith "JS only"
-            static member saveAll(?includeUntitled: bool): Thenable<bool> = failwith "JS only"
-            static member applyEdit(edit: WorkspaceEdit): Thenable<bool> = failwith "JS only"
-            static member openTextDocument(uri: Uri): Thenable<TextDocument> = failwith "JS only"
-            static member openTextDocument(fileName: string): Thenable<TextDocument> = failwith "JS only"
-            static member getConfiguration(?section: string): WorkspaceConfiguration = failwith "JS only"
-
-
-
-    module languages =
-        type [<Import("vscode?get=languages")>] Globals =
-            static member getLanguages(): Thenable<ResizeArray<string>> = failwith "JS only"
-            static member ``match``(selector: DocumentSelector, document: TextDocument): float = failwith "JS only"
-            static member createDiagnosticCollection(?name: string): DiagnosticCollection = failwith "JS only"
-            static member registerCompletionItemProvider(selector: DocumentSelector, provider: CompletionItemProvider, [<ParamArray>] triggerCharacters: string[]): Disposable = failwith "JS only"
-            static member registerCodeActionsProvider(selector: DocumentSelector, provider: CodeActionProvider): Disposable = failwith "JS only"
-            static member registerCodeLensProvider(selector: DocumentSelector, provider: CodeLensProvider): Disposable = failwith "JS only"
-            static member registerDefinitionProvider(selector: DocumentSelector, provider: DefinitionProvider): Disposable = failwith "JS only"
-            static member registerHoverProvider(selector: DocumentSelector, provider: HoverProvider): Disposable = failwith "JS only"
-            static member registerDocumentHighlightProvider(selector: DocumentSelector, provider: DocumentHighlightProvider): Disposable = failwith "JS only"
-            static member registerDocumentSymbolProvider(selector: DocumentSelector, provider: DocumentSymbolProvider): Disposable = failwith "JS only"
-            static member registerWorkspaceSymbolProvider(provider: WorkspaceSymbolProvider): Disposable = failwith "JS only"
-            static member registerReferenceProvider(selector: DocumentSelector, provider: ReferenceProvider): Disposable = failwith "JS only"
-            static member registerRenameProvider(selector: DocumentSelector, provider: RenameProvider): Disposable = failwith "JS only"
-            static member registerDocumentFormattingEditProvider(selector: DocumentSelector, provider: DocumentFormattingEditProvider): Disposable = failwith "JS only"
-            static member registerDocumentRangeFormattingEditProvider(selector: DocumentSelector, provider: DocumentRangeFormattingEditProvider): Disposable = failwith "JS only"
-            static member registerOnTypeFormattingEditProvider(selector: DocumentSelector, provider: OnTypeFormattingEditProvider, firstTriggerCharacter: string, [<ParamArray>] moreTriggerCharacter: string[]): Disposable = failwith "JS only"
-            static member registerSignatureHelpProvider(selector: DocumentSelector, provider: SignatureHelpProvider, [<ParamArray>] triggerCharacters: string[]): Disposable = failwith "JS only"
-            static member setLanguageConfiguration(language: string, configuration: LanguageConfiguration): Disposable = failwith "JS only"
-
-
-
-    module extensions =
-        type [<Import("vscode?get=extensions")>] Globals =
-            static member all with get(): ResizeArray<Extension<obj>> = failwith "JS only" and set(v: ResizeArray<Extension<obj>>): unit = failwith "JS only"
-            static member getExtension(extensionId: string): Extension<obj> = failwith "JS only"
-            static member getExtension(extensionId: string): Extension<'T> = failwith "JS only"
-
-
+    type [<Import("extensions","vscode")>] extensions =
+        static member all with get(): ResizeArray<Extension<obj>> = failwith "JS only" and set(v: ResizeArray<Extension<obj>>): unit = failwith "JS only"
+        static member getExtension(extensionId: string): Extension<obj> = failwith "JS only"
+        static member getExtension(extensionId: string): Extension<'T> = failwith "JS only"

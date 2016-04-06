@@ -7,11 +7,11 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>6ef06954-fbdf-42c7-815c-b13ba2926c93</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>Fable.Tests</RootNamespace>
-    <AssemblyName>Fable.Tests</AssemblyName>
+    <RootNamespace>Fable.Core</RootNamespace>
+    <AssemblyName>Fable.Core</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <Name>Fable.Tests</Name>
+    <Name>Fable.Core</Name>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -24,7 +24,8 @@
     <WarningLevel>3</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
     <OutputPath>bin\Release\</OutputPath>
@@ -41,27 +42,10 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util/Util.fs" />
-    <Compile Include="ArithmeticTests.fs" />
-    <Compile Include="ArrayTests.fs" />
-    <Compile Include="AsyncTests.fs" />
-    <Compile Include="DateTimeTests.fs" />
-    <Compile Include="DictionaryTests.fs" />
-    <Compile Include="EnumTests.fs" />
-    <Compile Include="ListTests.fs" />
-    <Compile Include="MapTests.fs" />
-    <Compile Include="MiscTests.fs" />
-    <Compile Include="ObservableTests.fs" />
-    <Compile Include="RecordTypeTests.fs" />
-    <Compile Include="RegexTests.fs" />
-    <Compile Include="ResizeArrayTests.fs" />
-    <Compile Include="SeqExpressionTests.fs" />
-    <Compile Include="SeqTests.fs" />
-    <Compile Include="SetTests.fs" />
-    <Compile Include="StringTests.fs" />
-    <Compile Include="SystemSetsTests.fs" />
-    <Compile Include="TupleTypeTests.fs" />
-    <Compile Include="UnionTypeTests.fs" />
+    <Compile Include="Fable.Core.fs" />
+    <Compile Include="Fable.Import.JS.fs" />
+    <Compile Include="Fable.Import.Browser.fs" />
+    <Compile Include="Fable.Import.Node.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -86,18 +70,4 @@
   <Target Name="AfterBuild">
   </Target>
   -->
-  <ItemGroup>
-    <Reference Include="nunit.framework">
-      <HintPath>..\..\packages\NUnit\lib\nunit.framework.dll</HintPath>
-      <Private>True</Private>
-      <Paket>True</Paket>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="Other\Fable.Tests.Clamp.fsproj">
-      <Name>Fable.Tests.Clamp</Name>
-      <Project>{1e44403b-7834-4842-91b1-53a5fa731c58}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
 </Project>
