@@ -280,6 +280,7 @@ module private AstPass =
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryEqual |> Some
             | _ -> equals com info args true
         // Comparison
+        | "compare" -> compare com info args None
         | "op_LessThan"  | "lt" -> compare com info args (Some BinaryLess)
         | "op_LessThanOrEqual" | "lte" -> compare com info args (Some BinaryLessOrEqual)
         | "op_GreaterThan"  | "gt" -> compare com info args (Some BinaryGreater)
@@ -298,7 +299,6 @@ module private AstPass =
         | "cos"  | "exp" | "floor" | "log" | "log10"
         | "round" | "sin" | "sqrt" | "tan" ->
             math r typ args info.methodName
-        | "compare" -> compare com info args None
         // Function composition
         | "op_ComposeRight" | "op_ComposeLeft" ->
             // If expression is a let binding we have to wrap it in a function
@@ -796,7 +796,9 @@ module private AstPass =
                 | _ -> Fable.DynamicArray
             Fable.ArrayConst(Fable.ArrayAlloc i.args.Head, arrayKind)
             |> Fable.Value |> Some
-        // TODO: Array.create
+        | "create" ->
+            ccall "Seq" "replicate" args
+            |> toArray com i |> Some
         // ResizeArray only
         | ".ctor" ->
             let makeEmptyArray () =

@@ -32,11 +32,13 @@ let ``Byte arrays are not clamped by default``() =
     ar.[0] <- ar.[0] + 255uy
     equal 4uy ar.[0]
 
+#if MOCHA
 [<Test>]
 let ``Clamped byte arrays work``() =
-    let ar = Util.Helper.CreateClampedArray()
+    let ar = Util2.Helper2.CreateClampedArray()
     ar.[0] <- ar.[0] + 255uy
     equal 255uy ar.[0]
+#endif
 
 [<Test>]
 let ``Array slice with upper index work``() =  
@@ -95,6 +97,12 @@ let ``Array.zeroCreate works``() =
     let xs = Array.zeroCreate 2
     equal 2 xs.Length
     equal 0 xs.[1]
+
+[<Test>]
+let ``Array.create works``() =   
+    let xs = Array.create 2 5
+    equal 2 xs.Length
+    Array.sum xs |> equal 10
 
 [<Test>]
 let ``Array.blit works``() =   

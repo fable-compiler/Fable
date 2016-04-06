@@ -42,6 +42,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util/Util.fs" />
+    <Compile Include="Util/Util2.fs" />
+    <Compile Include="Util/Util3.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="AsyncTests.fs" />

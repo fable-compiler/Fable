@@ -5,6 +5,10 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+[<Test>]
+let ``File with single type in namespace compiles``() =
+    equal SingleTypeInNamespace.Hello "Hello" 
+
 let inline f x y = x + y
 
 [<Test>]
@@ -13,7 +17,7 @@ let ``Inline methods work``() =
 
 [<Test>]
 let ``Calls to core lib from a subfolder work``() =
-    Helper.Format("{0} + {0} = {1}", 2, 4)
+    Util2.Helper.Format("{0} + {0} = {1}", 2, 4)
     |> equal "2 + 2 = 4"
 
 let f' x y z = x + y + z

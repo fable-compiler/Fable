@@ -82,6 +82,7 @@ let ``Union cases called Tag still work (bug due to Tag field)``() =
     | _ -> failwith "unexpected"
     |> equal "abc"
 
+#if MOCHA
 type JsonTypeInner = {
     Prop1: string
     Prop2: int
@@ -131,3 +132,4 @@ let ``Union cases json stringify is as we expect``() =
     ObjectType({Prop1 = "value1"; Prop2 = 2})
     |> jsonStringify
     |> equal """{"Case":"ObjectType","Fields":[{"Prop1":"value1","Prop2":2}]}"""
+#endif

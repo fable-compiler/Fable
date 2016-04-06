@@ -142,6 +142,7 @@ Target "MochaTest" (fun _ ->
         "src/tests/Fable.Tests.fsproj"
         "-m"; "commonjs"
         "--outDir"; testsBuildDir
+        "--symbols"; "MOCHA"
         "--plugins"; "build/plugins/Fable.Plugins.NUnit.dll"
         "--refs"; "Fable.Tests.Clamp=./Other"
     ]
