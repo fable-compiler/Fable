@@ -43,6 +43,11 @@ module Util =
         match typ with
         | Fable.DeclaredType ent -> Some ent.FullName
         | _ -> None
+
+    let (|DeclaredKind|_|) (typ: Fable.Type) =
+        match typ with
+        | Fable.DeclaredType ent -> Some ent.Kind
+        | _ -> None
         
     let (|KeyValue|_|) (key: string) (value: string) (s: string) =
         if s = key then Some value else None
@@ -151,6 +156,9 @@ module Util =
             |> makeCall com i.range i.returnType |> Some
 
     let equals com (i: Fable.ApplyInfo) (args: Fable.Expr list) equal =
+        let compareTo args =
+            CoreLibCall("Util", Some "compareTo", false, args)
+            |> makeCall com i.range i.returnType        
         let op =
             if equal then BinaryEqualStrict else BinaryUnequalStrict
             |> Fable.BinaryOp |> Fable.Value
@@ -158,8 +166,15 @@ module Util =
             if equal then expr
             else makeUnOp i.range i.returnType [expr] UnaryNot  
         match args.Head.Type with
+        | Fable.PrimitiveType (Fable.Array _)
+        | FullName "Microsoft.FSharp.Collections.Set"
+        | FullName "Microsoft.FSharp.Collections.Map" 
+        | DeclaredKind Fable.Union
+        | DeclaredKind Fable.Record ->
+            Fable.Apply(op, [compareTo args; makeConst 0],
+                Fable.ApplyMeth, i.returnType, i.range) |> Some
         | Fable.UnknownType
-        | Fable.PrimitiveType _ // TODO: Array comparison?
+        | Fable.PrimitiveType _
         | FullName "System.TimeSpan" ->
             Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | FullName "System.DateTime" ->
@@ -170,15 +185,26 @@ module Util =
             | Fable.Class _ when ent.HasInterface "System.IComparable" ->
                 InstanceCall(args.Head, "equals", args.Tail)
                 |> makeCall com i.range i.returnType |> negateIfNeeded |> Some
-            // TODO: Record and Union structural equality?
             | _ ->
                 Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
-            
+
     let compare com (i: Fable.ApplyInfo) (args: Fable.Expr list) op =
+        let wrap op comp =
+            match op with
+            | None -> comp
+            | Some op -> Fable.Apply(op, [comp; makeConst 0], Fable.ApplyMeth, i.returnType, i.range)
         let op = Option.map (Fable.BinaryOp >> Fable.Value) op
         match args.Head.Type with
+        | Fable.PrimitiveType (Fable.Array _)
+        | FullName "Microsoft.FSharp.Collections.Set"
+        | FullName "Microsoft.FSharp.Collections.Map" 
+        | DeclaredKind Fable.Union
+        | DeclaredKind Fable.Record ->
+            CoreLibCall("Util", Some "compareTo", false, args)
+            |> makeCall com i.range i.returnType
+            |> wrap op |> Some
         | Fable.UnknownType
-        | Fable.PrimitiveType _  // TODO: Array comparison?
+        | Fable.PrimitiveType _
         | FullName "System.TimeSpan"
         | FullName "System.DateTime" ->
             match op with
@@ -189,16 +215,11 @@ module Util =
         | Fable.DeclaredType ent ->
             match ent.Kind with
             | Fable.Class _ when ent.HasInterface "System.IComparable" ->
-                let comp =
-                    InstanceCall(args.Head, "compareTo", args.Tail)
-                    |> makeCall com i.range (Fable.PrimitiveType (Fable.Number Int32))
-                match op with
-                | None -> comp
-                | Some op -> Fable.Apply(op, [comp; makeConst 0], Fable.ApplyMeth, i.returnType, i.range)
-                |> Some
-            // TODO: Record and Union structural comparison?
+                InstanceCall(args.Head, "compareTo", args.Tail)
+                |> makeCall com i.range (Fable.PrimitiveType (Fable.Number Int32))
+                |> wrap op |> Some
             | _ -> None
-            
+
 module private AstPass =
     open Util
     
@@ -281,9 +302,9 @@ module private AstPass =
             | _ -> equals com info args true
         // Comparison
         | "compare" -> compare com info args None
-        | "op_LessThan"  | "lt" -> compare com info args (Some BinaryLess)
+        | "op_LessThan" | "lt" -> compare com info args (Some BinaryLess)
         | "op_LessThanOrEqual" | "lte" -> compare com info args (Some BinaryLessOrEqual)
-        | "op_GreaterThan"  | "gt" -> compare com info args (Some BinaryGreater)
+        | "op_GreaterThan" | "gt" -> compare com info args (Some BinaryGreater)
         | "op_GreaterThanOrEqual" | "gte" -> compare com info args (Some BinaryGreaterOrEqual)
         // Operators
          | "op_Addition" | "op_Subtraction" | "op_Multiply" | "op_Division"
@@ -924,6 +945,7 @@ module private AstPass =
     let knownInterfaces com (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
+        | "getHashCode" -> i.callee
         | meth -> InstanceCall (i.callee.Value, meth, i.args)
                   |> makeCall com i.range i.returnType |> Some
 

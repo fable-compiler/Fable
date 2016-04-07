@@ -47,6 +47,7 @@
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="AsyncTests.fs" />
+    <Compile Include="Comparison.fs" />
     <Compile Include="DateTimeTests.fs" />
     <Compile Include="DictionaryTests.fs" />
     <Compile Include="EnumTests.fs" />

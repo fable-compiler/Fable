@@ -37,7 +37,6 @@ Tuples compile to native arrays. Desestructuring, `fst`, `snd`... works normally
 ## Records
 Records are compiled as [ES6 classes](http://babeljs.io/docs/learn-es2015/#classes)
 and they can be used with pattern matching (type information is available in runtime).
-At the moment, there's no structural comparison for records.
 
 ## Unions
 Unions are also compiled as classes with the case name held in a `tag` property.
