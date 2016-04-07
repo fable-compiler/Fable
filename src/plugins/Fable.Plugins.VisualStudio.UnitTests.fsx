@@ -47,7 +47,6 @@ module Util =
         | _ -> None
 
     // Compile tests using Mocha.js BDD interface
-    // TODO: Check method signature
     let transformTestMethod com ctx (testMethod: Fable.Member) name (decorator: Fable.Decorator) =
         let testName =
             Babel.StringLiteral name :> Babel.Expression
