@@ -506,9 +506,24 @@ module Util =
             let classIdent = identFromName ent.Name |> Some
             transformClass com ctx (Some entRange) classIdent baseClass entDecls
             |> declareMember entRange ent.Name ent.IsPublic modIdent
-        match declareInterfaces com ctx ent isClass with
-        | None -> [classDecl]
-        | Some ifcDecl -> (U2.Case1 ifcDecl)::[classDecl]
+        let classDecl =
+            match declareInterfaces com ctx ent isClass with
+            | None -> [classDecl]
+            | Some ifcDecl -> (U2.Case1 ifcDecl)::[classDecl]
+        // Check if there's a static constructor
+        entDecls |> Seq.exists (function
+            | Fable.MemberDeclaration m ->
+                match m.Kind with
+                | Fable.Method ".cctor" when m.IsStatic -> true
+                | _ -> false
+            | _ -> false)
+        |> function
+        | false -> classDecl
+        | true ->
+            let cctor = Babel.MemberExpression(
+                            typeRef com ctx ent None, Babel.StringLiteral ".cctor", true)
+            Babel.ExpressionStatement(Babel.CallExpression(cctor, [])) :> Babel.Statement
+            |> U2.Case1 |> consBack classDecl
 
     let rec transformNestedModule com ctx (ent: Fable.Entity) entDecls entRange =
         let modIdent = Babel.Identifier Naming.exportsIdent 
