@@ -5,7 +5,8 @@
   - "Test" attribute changed to "TestMethod"
   - "NUnit.Framework.Assert" changed to "Microsoft.VisualStudio.TestTools.UnitTesting.Assert"
   - Names of methodDecorators changed to Visual Studio counterparts
-  - In transformTestMethod, generate testBody without arguments
+  - In transformTestMethod, generate testBody without arguments. Also, doesn't check for 
+    method signature (since it does not have support for test parameters, anyway)
 
   Both frameworks are very similar, the exception being VisualStudio doesn't 
   (currently?) supports static class members as test methods.
