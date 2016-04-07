@@ -7,6 +7,6 @@
   },
   "devDependencies": {},
   "engines": {
-    "fable": "^0.1.6"
+    "fable": ">=0.2.0"
   }
 }
