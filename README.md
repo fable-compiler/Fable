@@ -1,6 +1,6 @@
 # F# |> BABEL
 
-### The compiler that emits JavaScript you can be proud of. [Try it out!](http://fsprojects.github.io/Fable/repl.html)
+### The compiler that emits JavaScript you can be proud of.
 [![Mono Build Status](https://travis-ci.org/fsprojects/Fable.svg "Mono Build Status")](https://travis-ci.org/fsprojects/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable)
 
 Fable brings together the power of the [F# compiler](http://fsharp.github.io/FSharp.Compiler.Service/)
@@ -51,10 +51,6 @@ on different topics like the logo, roadmap, etc.
 
 - **Information about generic types is not included** in the generated JavaScript, so code that
   depends on this information to be known at runtime for method dispatching may have unexpected behaviour.
-
-- At the moment, comparison for non-primitive values defaults to JS reference comparison so there's
-  **no structural comparison** for records, unions, tuples or collections. This may change in the future
-  upon users' feedback.
 
 - **Debugging the F# code is not perfect**. For example, you may see the debugger jump directly
   to the last expression in many functions. This is normal and due to the optimizations performed

@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.1.6"
+let version = "0.2.1"
 
 module Util =
     open System.Net
@@ -142,6 +142,7 @@ Target "MochaTest" (fun _ ->
         "src/tests/Fable.Tests.fsproj"
         "-m"; "commonjs"
         "--outDir"; testsBuildDir
+        "--symbols"; "MOCHA"
         "--plugins"; "build/plugins/Fable.Plugins.NUnit.dll"
         "--refs"; "Fable.Tests.Clamp=./Other"
     ]

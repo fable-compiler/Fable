@@ -53,6 +53,32 @@
     return restArgs;
   };
   Util.compareTo = function (x, y) {
+    function sortIfMapOrSet (o) {
+      return o instanceof Map || o instanceof Set ? Array.from(o).sort() : o;
+    }
+    if (typeof x != typeof y) {
+      return -1;
+    }    
+    if (x != null && y != null && typeof x == "object" && typeof y == "object") {
+      var lengthComp;
+      if (Object.getPrototypeOf(x) != Object.getPrototypeOf(y)) {
+        return -1;
+      }
+      if (x[Symbol.iterator] && y[Symbol.iterator]) {
+        lengthComp = Util.compareTo(Seq.length(x), Seq.length(y));
+        return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev, v1, v2) {
+          return prev != 0 ? prev : Util.compareTo(v1, v2);
+        }, 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
+      }
+      if (x instanceof Date && y instanceof Date) {
+          return x < y ? -1 : (x > y ? 1 : 0);
+      }
+      var keys1 = Object.getOwnPropertyNames(x), keys2 = Object.getOwnPropertyNames(y);
+      lengthComp = Util.compareTo(keys1.length, keys2.length);
+      return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev, k1, k2) {
+        return prev != 0 ? prev : Util.compareTo(x[k1], y[k2]);
+      }, 0, keys1.sort(), keys2.sort());
+    }
     return x < y ? -1 : (x > y ? 1 : 0);
   };
   Util.createObj = function (fields) {
@@ -60,7 +86,7 @@
       acc[kv[0]] = kv[1];
       return acc;
     }, {}, fields);
-  }
+  };
 
   var TimeSpan = exports.TimeSpan = {};
   TimeSpan.create = TimeSpan.fromTicks = function () {

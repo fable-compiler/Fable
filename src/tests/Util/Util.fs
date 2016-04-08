@@ -9,10 +9,3 @@ type EmitAttribute(s: string) =
 let equal (expected: 'T) (actual: 'T) =
     Assert.AreEqual(expected, actual)
 
-type Helper =
-    static member Format(pattern: string, [<ParamArray>] args: obj[]) =
-        String.Format(pattern, args)
-    
-    // Check that project references from folders work
-    static member CreateClampedArray() =
-        Fable.Tests.Clamp.Helper.CreateClampedArray()

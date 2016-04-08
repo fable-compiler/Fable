@@ -639,11 +639,20 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
                 if ent.IsFSharpModule
                 then ent.FullName
                 else defaultArg ent.Namespace ""
-            | ent::ents ->
+            | ents ->
+                let getCommonNs (xs: string[] list)=
+                    let rec getCommonNs (prefix: string[]) = function
+                        | [] -> prefix
+                        | (x: string[])::xs ->
+                            let mutable i = 0
+                            while i < prefix.Length && i < x.Length && x.[i] = prefix.[i] do
+                                i <- i + 1
+                            getCommonNs prefix.[0..i-1] xs
+                    getCommonNs xs.Head xs.Tail |> String.concat "."
                 let rootNs =
                     ents
-                    |> List.map (fun ent -> ent.FullName)
-                    |> Naming.getCommonPrefix
+                    |> List.map (fun ent -> ent.FullName.Split('.'))
+                    |> getCommonNs
                 if rootNs.EndsWith(".")
                 then rootNs.Substring(0, rootNs.Length - 1)
                 else rootNs
@@ -718,7 +727,7 @@ let transformFiles (com: ICompiler) (fileMask: string option)
             if fullName = rootNs
             then Some ent, decls
             else getRootDecls rootNs (Some ent) decls
-        | _ -> failwithf "Cannot find namespace %s" rootNs
+        | _ -> failwith "Multiple namespaces in same file is not supported"
 
     let curProj =
         Fable.Project(
