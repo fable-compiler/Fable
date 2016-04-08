@@ -200,6 +200,13 @@ Target "Samples" (fun _ ->
         Node.run pathDir fableDir [])
 )
 
+Target "LineCount" (fun _ ->
+    !! "src/fable-fsharp/**/*.fs"
+    |> Seq.map (File.ReadLines >> Seq.length)
+    |> Seq.sum
+    |> printfn "Line count: %i"
+)
+
 Target "All" ignore
 
 // Build order

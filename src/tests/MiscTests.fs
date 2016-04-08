@@ -5,6 +5,47 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+type MaybeBuilder() =
+  member __.Bind(x,f) = Option.bind f x
+  member __.Return v = Some v
+  member __.ReturnFrom o = o
+let maybe = MaybeBuilder()
+
+let riskyOp x y =
+  if x + y < 100 then Some(x+y) else None
+
+let execMaybe a = maybe {
+  let! b = riskyOp a (a+1)
+  let! c = riskyOp b (b+1)
+  return c
+}
+
+[<Test>]
+let ``Custom computation expressions work``() =
+    execMaybe 5 |> equal (Some 23) 
+    execMaybe 99 |> equal None
+
+
+[<Measure>] type km           // Define the measure units
+[<Measure>] type mi           // as simple types decorated
+[<Measure>] type h            // with Measure attribute
+
+// Can be used in a generic way
+type Vector3D<[<Measure>] 'u> =
+    { x: float<'u>; y: float<'u>; z: float<'u> }
+    static member (+) (v1: Vector3D<'u>, v2: Vector3D<'u>) =
+        { x = v1.x + v2.x; y = v1.y + v2.y; z = v1.z + v2.z }
+
+[<Test>]
+let ``Units of measure work``() =
+    3<km/h> + 2<km/h> |> equal 5<km/h>
+    
+    let v1 = { x = 4.3<mi>; y = 5.<mi>; z = 2.8<mi> }
+    let v2 = { x = 5.6<mi>; y = 3.8<mi>; z = 0.<mi> }
+    let v3 = v1 + v2
+    equal 8.8<mi> v3.y
+    
+
 type PointWithCounter(a: int, b: int) =
     // A variable i.
     let mutable i = 0

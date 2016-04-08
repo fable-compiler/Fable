@@ -13,6 +13,7 @@ npm install -g fable-compiler
 fable path/to/your/project.fsproj
 ```
 
+
 ## CLI options
 
 Besides the default argument (`--projFile`), the following options are available:
@@ -35,6 +36,7 @@ Option                  | Shorthand | Description
 `--code`                |           | Pass a string of code directly to Fable.
 `--help`                | `-h`      | Display usage guide.
 
+
 ## Project references
 
 You can use `--refs` argument to link referenced projects with the JS import path that must be used, using the following format: `[Project name without extension]=[JS import path]`.
@@ -46,6 +48,7 @@ fable src/lib/MyLib.fsproj --outDir out/lib
 fable src/another/MyNs.AnotherProject.fsproj --outDir out/another
 fable src/main/MyProject.fsproj --outDir out/main --refs MyLib=../lib MyNs.AnotherProject=../another
 ```
+
 
 ## fableconfig.json
 
@@ -108,6 +111,7 @@ version of Fable required to compile the project.
 }
 ```
 
+
 ## fable-core
 
 [Fable's core library](/import/core/fable-core.js) must be included in the project.
@@ -136,13 +140,13 @@ requirejs(["app"]);
 </script>
 ```
 
+
 ## Polyfill
 
-When not using `--module es2015` (see below), after going through Babel pipeline 
-the code won't include any syntax foreign to ES5. However several ES2015 classes
-(like `Symbol`) are used so it's advisable
-to include a polyfill like [core-js](https://github.com/zloirock/core-js) to
-make sure the code works fine in any browser.
+When not using `--ecma es2015` or `--module es2015` (see below), after going through Babel pipeline
+the code won't include any syntax foreign to ES5. However several ES2015 classes (like `Symbol`)
+are used so it's advisable to include a polyfill like [core-js](https://github.com/zloirock/core-js)
+to make sure the code works fine in any browser.
 
 You can include the polyfill in a `script` tag in your HTML file before loading
 the generated JS code like:
@@ -155,14 +159,14 @@ Or you can import it directly in your F# code if you're using a bundler like
 Webpack or Browserify right before the entry point of your app.
 
 ```fsharp
-let [<Import("core-js")>] coreJs = ()
+Node.require.Invoke("core-js") |> ignore
 ```
 
 > The polyfill is not necessary when targeting node 4.4 or above.
 
 > Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/)
 with a lazy-sequence generator, but this is not needed as one is already included
-in [fable-core.js](/src/fable-js/fable-core.js).
+in [fable-core.js](/import/core/fable-core.js).
 
 
 ## Modules
@@ -175,8 +179,7 @@ According to the `--module` argument (see above), these modules can be transform
 In the browser, when not using a bundler like Webpack or Browserify, you'll need a module loader like [require.js](http://requirejs.org) to start up the app.
 
 When a F# file makes a reference to another, the compiler will create an [import statement](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import)
-in the generated Javascript code. You can also generate imports by using
-the [Import attribute](interacting.md).
+in the generated Javascript code. You can also generate imports by using the [Import attribute](interacting.md).
 
 As JS must import external modules with an alias, there's no risk of namespace
 collision so, for convenience, the compiler will use the minimum route to access
@@ -188,8 +191,8 @@ module MyNs1.MyNs2.MyModule
 let myProperty = "Hello"
 ```
 
-To access `myProperty` the generated code will import the file with an alias, say `$M1`,
-and directly access the property from it: `$M1.myProperty`. The route has been eluded
+To access `myProperty` the generated code will import the file with an alias, say `$import0`,
+and directly access the property from it: `$import0.myProperty`. The route has been eluded
 as it's not necessary to prevent name conflicts. In the same way, if you have a file
 with two modules:
 
@@ -207,22 +210,9 @@ This time the compiler will omit the namespace but keep the F# module names,
 as they're necessary to prevent name conflicts in the same file:
 
 ```js
-$M1.MyModule1.myProperty !== $M1.MyModule2.myProperty
+$import0.MyModule1.myProperty !== $import0.MyModule2.myProperty
 ```
 
-The generated modules are exported using the default export and should be imported accordingly:
-
-```js
-import $M1 from "another/file"              // ES2015
-var $M1 = require("another/file").default   // CommonJS
-```
-
-If you need to export the modules as namespaces instead you can use the [add-module-exports](https://www.npmjs.com/package/babel-plugin-add-module-exports) plugin:
-
-```shell
-npm install babel-plugin-add-module-exports --save-dev
-fable MyProject.fsproj --babelPlugins add-module-exports
-```
 
 ## Debugging
 
@@ -231,6 +221,7 @@ option to the compiler, it'll be possible to debug the F# code (with some limita
 This is automatic for browser apps. For node, you'll need a tool like [node-inspector](https://github.com/node-inspector/node-inspector)
 or a capable IDE. In the case of Visual Studio Code, you can find instructions [here](https://code.visualstudio.com/docs/editor/debugging)
 (see Node Debugging > JavaScript Source Maps).
+
 
 ## Testing
 
@@ -254,6 +245,7 @@ attributes without the `NUnit` dependency if needed.
 
 For Visual Studio users, there's a similar plugin to convert Visual Studio Unit 
 Tests to Mocha.
+
 
 ## Samples
 

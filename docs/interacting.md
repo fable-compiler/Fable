@@ -21,7 +21,7 @@ jsObject?myProperty <- 5 // Assignment is also possible
 ```
 
 However, the F# compiler won't let you apply the property directly to other expressions.
-For that, use the operator `$` and pass the arguments as a tuple.
+For that, use the `$` operator and pass the arguments as a tuple.
 
 ```fsharp
 open Fable.Core
@@ -96,17 +96,18 @@ validated somehow. However, it's not advised to abuse this method, as the
 code in the template will remain obscure to Fable and may prevent some
 optimizations.
 
+
 ## Foreign interfaces
 
 Defining a foreign interface is trivial: just create a F# interface and the
 compiler will call its properties or methods by name. The tricky part is to
 tell the compiler where the objects should be retrieved from. Normally, they
 will be exposed as values of an imported module, so you just need to indicate
-the compiler where this module is coming from using the `Import` attribute.
+the compiler where this module is coming from using the `Import` attribute (see below).
 For example, if you want to use `string_decoder` from node, just write:
 
 ```fsharp
-[<Import("string_decoder")>]
+[<Import("*","string_decoder")>]
 module string_decoder =
     type NodeStringDecoder =
         abstract write: buffer: Buffer -> strings
@@ -115,7 +116,7 @@ module string_decoder =
     let StringDecoder: NodeStringDecoder = failwith "JS only"
 ```
 
-> If the module or value is accessible globally in JavaScript,
+> If the module or value is globally accessible in JavaScript,
 you can use the `Global` attribute without parameters instead.
 
 > If a method accepts a lambda make sure to use `System.Func` in the signature to force
@@ -129,27 +130,26 @@ See the [README](https://www.npmjs.com/package/ts2fable) for more information.
 npm install -g ts2fable
 ```
 
-Also, you can find common definitions already parsed [here](/import). Some of them are available
+You can find common definitions already parsed [here](/import). Some of them are available
 in npm, just search for `fable-import` packages.
 
 
-## Import parameters
+## Import attribute
 
-The import attribute accepts query parameters, like:
+The `Import` attribute can be applied to modules, types and even functions.
+It will translate to [ES2015 import statements][import statement](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import),
+which can be later transformed to `commonjs`, `amd` or `umd` imports by Babel.
 
-```fsharp
-[<Import("myModule?asDefault=true&fromLib=true")>]
-```
+```js
+// Namespace imports
+[<Import("*", from="my-module")>]          // F#
+import * from "my-module"                  // JS
 
-The accepted parameters are:
+// Member imports
+[<Import("myFunction", from="my-module")>] // F#
+import { myFunction } from "my-module"     // JS
 
-```text
-    asDefault       Import as default: import $M1 from "myModule"
-                    instead of namespace: import * as $M1 from "myModule"
-
-    get             The value is the name of a property on the module root,
-                    used mainly for classes.
-
-    fromLib         The module is to be found in the path passed as "lib"
-                    to the compiler
+// Default imports
+[<Import("default", from="express")>]      // F#
+import express from express                // JS
 ```
