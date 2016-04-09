@@ -1,6 +1,6 @@
 # F# |> BABEL
 
-### The compiler that emits JavaScript you can be proud of
+### The compiler that emits JavaScript you can be proud of!
 
 [![Mono Build Status](https://travis-ci.org/fsprojects/Fable.svg "Mono Build Status")](https://travis-ci.org/fsprojects/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable)
 

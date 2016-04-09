@@ -153,7 +153,7 @@ Object expressions are compatible for the most general cases.
 
 ## Units of measure
 
-Units of measure are be compatible (at least for `int` and `float`) but they will
+Units of measure are compatible (at least for `int` and `float`) but they will
 be erased from the generated JS code.
 
 
