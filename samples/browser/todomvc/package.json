@@ -3,7 +3,7 @@
   "dependencies": {
     "core-js": "^2.1.0",
     "director": "^1.2.0",
-    "fable-core": "0.0.8",
+    "fable-core": "0.0.9",
     "requirejs": "^2.1.22",
     "todomvc-app-css": "^2.0.0",
     "todomvc-common": "^1.0.1",

@@ -3,7 +3,7 @@ module Main
 // This just shows how a F# Console Application can be
 // translated to node.js. The entry point we'll be called automatically
 // with the arguments passed to the node script.
-// Note that for this simple example no dependencies are needed
+// Note that for this simple example no dependencies but fable-core are needed.
 
 [<EntryPoint>]
 let main argv =
@@ -12,8 +12,6 @@ let main argv =
         1
     else
         argv.[0]
-        |> Seq.rev
-        |> Seq.map string
-        |> String.concat ""
+        |> Util.reverse
         |> Util.greet
         0
