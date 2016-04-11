@@ -57,7 +57,7 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
             |> Array.filter (fun s -> s.StartsWith "--define:" = false)
             |> Array.append (List.map (sprintf "--define:%s") com.Options.symbols |> List.toArray)
         let projFile = com.Options.projFile
-        if not(File.Exists projFile) then
+        if com.Options.code = null && not(File.Exists projFile) then
             failwithf "Cannot find project file %s" projFile
         try
             match (Path.GetExtension projFile).ToLower() with

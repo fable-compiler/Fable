@@ -1,181 +1,163 @@
-// This is a direct translation of Vue example in todomvc.com and
-// doesn't show much the benefits of using F#. It's mainly intended
-// to explain how to program dynamically with F# and Fable. 
+// This is an alternate version of todomvc with Vue
+// It doesn't use the F# functional capabilities yet
+// but takes advantage of static type checking
 
-// Check sample/browser/todomvc2 for an alternate version
-// taking more advantage of static type checking
-
-// Load and open Fable.Core to get access to Fable attributes and operators
+// Load Fable.Core and bindings to JS global objects
 #r "node_modules/fable-core/Fable.Core.dll"
+
 open Fable.Core
+open Fable.Import
+
+// Use this dummy module to hold references to Vue and Router objects
+// exposed globally by loading the corresponding libraries with HTML script tags
+[<Erase>]
+module Lib =
+    let [<Global>] Vue: obj = failwith "JS only"
+    let [<Global>] Router: obj = failwith "JS only"
 
 type Todo = {
     mutable title: string
-    completed: bool
+    mutable completed: bool
 }
 
-// Define the methods we're going to use of
-// the following native JS objects
-type Json =
-    abstract parse: string -> obj
-    abstract stringify: obj -> string
-    
-type LocalStorage =
-    // This method can return null, so we set
-    // the return type to string option
-    abstract getItem: string -> string option
-    abstract setItem: string * string -> unit
-
-// This module only contains placeholders, EraseAttribute
-// tells the compiler it can safely be ignored
-[<Erase>]
-module Lib =
-    let [<Global>] window: obj = failwith "JS only"
-    let [<Global>] JSON: Json = failwith "JS only"
-    let [<Global>] localStorage: LocalStorage = failwith "JS only"
-    // We're loading these components directly in index.html
-    // so we can access them globally instead of importing
-    let [<Global>] Vue: obj = failwith "JS only"
-    let [<Global>] Router: obj = failwith "JS only"
+// This helper uses JS reflection to convert a class instance
+// to the options' format required by Vue
+module VueHelper =
+    let createFromObj(data: obj, extraOpts: obj) =
+        let methods = obj()
+        let computed = obj()
+        let proto = JS.Object.getPrototypeOf data
+        for k in JS.Object.getOwnPropertyNames proto do
+            let prop = JS.Object.getOwnPropertyDescriptor(proto, k)
+            match prop.value with
+            | Some f ->
+                methods?(k) <- f
+            | None ->
+                computed?(k) <- createObj [
+                    "get" ==> prop?get
+                    "set" ==> prop?set
+                ]
+        extraOpts?data <- data
+        extraOpts?computed <- computed
+        extraOpts?methods <- methods
+        createNew Lib.Vue extraOpts
 
 module Storage =
     let private STORAGE_KEY = "todos-vuejs"
 
-    let fetch () =
-        Lib.JSON.parse(
-            // As this native JS method may return null,
-            // we use pattern matching to make it safer 
-            match Lib.localStorage.getItem(STORAGE_KEY) with
-            | Some x -> x
-            | None -> "[]")
-            
-    let save todos =
-        Lib.localStorage.setItem(STORAGE_KEY, Lib.JSON.stringify todos)
-    
-module Main =
-    // Vue uses a lot the `this` keyword which is missing in F#,
-    // so we use this to cheat the compiler
-    [<Emit("this")>]
-    let this: obj = failwith "JS only"
+    let fetch (): Todo[] =
+        Browser.localStorage.getItem(STORAGE_KEY)
+        |> function null -> "[]" | x -> unbox x
+        |> JS.JSON.parse |> unbox
 
-    // Notice we use point free style to define the functions
-    // in the filters object
+    let save (todos: Todo[]) =
+        Browser.localStorage.setItem(STORAGE_KEY, JS.JSON.stringify todos)
+
+module Main =
+    // As we need to reference the filters using strings from the routes
+    // let's use a simple dictionary to hold them
     let filters =
         let isComplete (x: Todo) = x.completed
+        dict [
+            "all", id
+            "active", Array.filter (isComplete >> not)
+            "completed", Array.filter isComplete
+        ]
+
+    // We'll use a typed object to represent our viewmodel instead of
+    // a JS dynamic object to take advantage of static type checking
+    type TodoViewModel() =
+        let mutable todos: Todo[] = Storage.fetch()
+        let mutable newTodo: string option = None
+        let mutable editedTodo: Todo option = None
+        let mutable beforeEditCache: string = ""
+        let mutable visibility = "all"
+
+        // The type getters and setters will become
+        // computed properties for Vue
+        member __.filteredTodos =
+            filters.[visibility] todos
+        member __.remaining =
+            filters.["active"] todos |> Seq.length
+        member self.allDone
+            with get() = self.remaining = 0
+            and set(v) = todos |> Seq.iter (fun todo ->
+                todo.completed <- v)
+
+        // The type methods will become the view model methods
+        // callable from the Vue HTML template
+        // Note the self references will be interpreted correctly
+        member __.addTodo() =
+            match newTodo with
+            | None -> ()
+            | Some v ->
+                newTodo <- None
+                todos <- [|
+                    yield! todos
+                    yield { title = v.Trim(); completed = false }
+                |]
+        member __.removeTodo todo =
+            todos <- Array.filter ((<>) todo) todos
+        member __.editTodo todo =
+            beforeEditCache <- todo.title
+            editedTodo <- Some todo
+        member self.doneEdit todo =
+            match editedTodo with
+            | None -> ()
+            | Some _ ->
+                editedTodo <- None
+                match todo.title.Trim() with
+                | "" -> self.removeTodo todo
+                | title -> todo.title <- title
+        member __.cancelEdit todo =
+            editedTodo <- None
+            todo.title <- beforeEditCache
+        member __.removeCompleted() =
+            todos <- filters.["active"] todos
+            
+    type Directives =
+        abstract ``todo-focus``: obj option -> unit
+            
+    let extraOpts =
         createObj [
-            "all" ==> id
-            "active" ==> Array.filter (isComplete >> not)
-            "completed" ==> Array.filter (isComplete)
+            "el" ==> ".todoapp"
+            "watch" ==>
+                createObj [
+                    "todos" ==>
+                        createObj [
+                            "deep" ==> true
+                            "handler" ==> Storage.save
+                        ]
+                ]
+            "directives" ==> {
+                new Directives with
+                    member this.``todo-focus`` x =
+                        match x with
+                        | None -> ()
+                        | Some _ ->
+                            let el = this?el
+                            Lib.Vue?nextTick$(fun () ->
+                                el?focus$() |> ignore)
+                            |> ignore
+            } 
         ]
         
-    let app =
-        // Use createNew to apply the `new` keyword on Vue
-        createNew Lib.Vue (
-            createObj [
-                "el" ==> ".todoapp"
-                "data" ==>
-                    createObj [
-                        "todos" ==> Storage.fetch()
-                        "newTodo" ==> ""
-                        "editedTodo" ==> None
-                        "visibility" ==> "all"
-                    ]
-                // Nested objects
-                "watch" ==>
-                    createObj [
-                        "todos" ==>
-                            createObj [
-                                "deep" ==> true
-                                "handler" ==> Storage.save
-                            ]
-                    ]
-                "computed" ==>
-                    createObj [
-                        // We use the (?) operator for dynamic programming
-                        // Notice we use parens if we want to pass the runtime
-                        // value instead the identifier
-                        "filteredTodos" ==> fun () ->
-                            filters?(this?visibility) $ this?todos
-                        "remaining" ==> fun () ->
-                            filters?active $ this?todos |> unbox |> Seq.length
-                        "allDone" ==>
-                            createObj [
-                                "get" ==> fun () ->
-                                    this?remaining |> unbox |> (=) 0
-                                // Seq methods are compatible with native JS collections
-                                "set" ==> fun value ->
-                                    this?todos |> unbox |> Seq.iter (fun todo ->
-                                        todo?completed <- value)
-                            ]
-                    ]
-                    "methods" ==>
-                        createObj [
-                            "addTodo" ==> fun () ->
-                                match unbox this?newTodo with
-                                | None -> ()
-                                // Make the type explicit here as the compiler
-                                // doesn't know the type of `newTodo` field
-                                | Some (value: string) ->
-                                    let todos: ResizeArray<Todo> = unbox this?todos
-                                    todos.Add { title = value.Trim(); completed = false }
-                                    this?newTodo <- ""
-                            // As $ is forbidden in F# for identifiers,
-                            // we surrorund it with quotations
-                            "removeTodo" ==> fun todo ->
-                                this?todos?``$remove`` $ todo
-                            "editTodo" ==> fun (todo: Todo) ->
-                                this?beforeEditCache <- todo.title
-                                this?editedTodo <- todo
-                            // Here is not necessary, but if we have more than
-                            // one argument, we need to wrap the lambda in a delegate
-                            // like Func<_,_,_>(fun x y -> x + y) so it's called
-                            // correctly from JS (tuples won't work)
-                            "doneEdit" ==> fun (todo: Todo) ->
-                                match unbox this?editedTodo with
-                                | None -> ()
-                                | Some _ ->
-                                    this?editedTodo <- None
-                                    match todo.title.Trim() with
-                                    | "" -> this?removeTodo $ todo |> ignore
-                                    | title -> todo.title <- title
-                            "cancelEdit" ==> fun (todo: Todo) ->
-                                this?editedTodo <- None
-                                todo.title <- unbox this?beforeEditCache
-                            "removeCompleted" ==> fun () ->
-                                this?todos <- filters?active $ this?todos
-                        ]
-                    "directives" ==>
-                        createObj [
-                            "todo-focus" ==> function
-                                | None -> ()
-                                | Some _ ->
-                                    let el = this?el
-                                    Lib.Vue?nextTick $ fun () ->
-                                        el?focus $ () |> ignore
-                                    |> ignore
-                                    // The compiler expects unit in this branch too
-                                    // so we ignore the result of calling `nextTick`
-                        ]
-            ]
-        )
-        
+    // Now instantiate the type and create a Vue view model
+    // using the helper method
+    let app = VueHelper.createFromObj(TodoViewModel(), extraOpts)
 
 module Routes =
     let router = createNew Lib.Router ()
-    
-    // Notice we use ($) to call a method in JS dynamically
-    // and we can pass several arguments as a tuple
+
     ["all"; "active"; "completed"] |> Seq.iter (fun visibility ->
         router?on $ (visibility, fun () ->
             Main.app?visibility <- visibility)
         |> ignore)
-    
+
     router?configure $ (
         createObj [
-            // Be careful not to mess up assignment (<-) and equality (=)!
-            // As the types are unknown, the compiler cannot help you here
             "notfound" ==> fun () ->
-                Lib.window?location?hash <- ""
+                Browser.location.hash <- ""
                 Main.app?visibility <- "all"
         ]
     )

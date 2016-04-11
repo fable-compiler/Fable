@@ -1,6 +1,7 @@
 # F# |> BABEL
 
-### The compiler that emits JavaScript you can be proud of.
+### The compiler that emits JavaScript you can be proud of!
+
 [![Mono Build Status](https://travis-ci.org/fsprojects/Fable.svg "Mono Build Status")](https://travis-ci.org/fsprojects/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable)
 
 Fable brings together the power of the [F# compiler](http://fsharp.github.io/FSharp.Compiler.Service/)
@@ -13,7 +14,7 @@ Some of its main features are:
 - Compatible with all Babel plugins and other JS development tools, like [Webpack](https://webpack.github.io)
 - Support for most of the [F# core library](docs/compatibility.md) and a bit of .NET Base Class Library
 - Tiny core library included (less than 10KB minified and gzipped) with no runtime
-- Organizes code using ES6 modules 
+- Organizes code using ES6 modules
 - Interacts seamlessly with other [JavaScript libraries](docs/interacting.md)
 - Bonus: compile [NUnit tests to Mocha](docs/compiling.md#testing)
 

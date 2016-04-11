@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.2.1"
+let version = "0.2.2"
 
 module Util =
     open System.Net
@@ -198,6 +198,13 @@ Target "Samples" (fun _ ->
     |> Seq.iter (fun path ->
         let pathDir = Path.GetDirectoryName path
         Node.run pathDir fableDir [])
+)
+
+Target "LineCount" (fun _ ->
+    !! "src/fable-fsharp/**/*.fs"
+    |> Seq.map (File.ReadLines >> Seq.length)
+    |> Seq.sum
+    |> printfn "Line count: %i"
 )
 
 Target "All" ignore

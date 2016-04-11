@@ -8,14 +8,14 @@ But besides that it's completely a different project, the main differences are:
 - Fable uses F# Compiler Services to generate the AST instead of quotations. This means it's not necessary to
   compile to .NET bytecode first.
 - Fable doesn't generate JS code directly, rather transforms the F# AST into a new one which is passed to
-  Babel.js. This way it's easier to target different EcmaScript versions or module systems when needed. 
+  Babel.js. This way it's easier to target different EcmaScript versions or module systems when needed.
 - One of the main goals of FunScript was to keep the full F# semantics, like generics or structural comparison.
   Fable sacrifices some of the semantics to generate cleaner and more idiomatic JS code.
 - The generated code is structured using ES6 modules, making it much easier to interact with other JS
   development tools.
 - Like FunScript, Fable _translates_ TypeScript definition files to build foreign interfaces, but the latter uses
   plain .fs files instead of .dll assemblies, making it easier to edit the files if needed.
-  
+
 In any case, I want to show my admiration to FunScript (which was created before the F# compiler and Babel
 exposed the language AST) and my gratitude to @ZachBray for his work :)
 
