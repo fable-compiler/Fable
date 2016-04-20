@@ -997,6 +997,20 @@ module private AstPass =
         | "Microsoft.FSharp.Collections.Seq" -> collectionsSecondPass com info Seq
         | "Microsoft.FSharp.Collections.Map"
         | "Microsoft.FSharp.Collections.Set" -> mapAndSets com info
+        | "System.Type" ->
+            match info.callee with
+            | Some(Fable.AST.Fable.Expr.Value(Fable.AST.Fable.TypeRef t)) ->
+                match info.methodName with
+                | "namespace" ->
+                    Fable.StringConst t.Namespace
+                    |> Fable.Value
+                    |> Some
+                | "fullName" ->
+                    Fable.StringConst t.FullName
+                    |> Fable.Value
+                    |> Some
+                | _ -> None
+            | _ -> None
         | _ -> None
 
 module private CoreLibPass =
