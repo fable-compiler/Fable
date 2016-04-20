@@ -45,7 +45,6 @@ type BitwiseWrapPlugin() =
                 | "int32"
                 | "uint"
                 | "uint32"
-                | "op_LogicalNot"
                 | "op_UnaryNegation" 
                 | "op_UnaryPlus" ->
                     if info.args.Length <> 1 then
@@ -60,10 +59,12 @@ type BitwiseWrapPlugin() =
                 | "op_Modulus"
                 | "op_LeftShift" 
                 | "op_RightShift" 
+                | "op_LogicalNot"
                 | "op_BitwiseAnd" 
                 | "op_BitwiseOr" 
                 | "op_ExclusiveOr" ->
-                    if info.args.Length <> 2 then
+                    let argCount = if info.methodName = "op_LogicalNot" then 1 else 2
+                    if info.args.Length <> argCount then
                         failwithf "Unexpected arg count for %s" info.methodName
 
                     match Fable.Replacements.Util.applyOp com info info.args info.methodName with
