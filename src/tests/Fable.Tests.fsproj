@@ -65,6 +65,7 @@
     <Compile Include="SystemSetsTests.fs" />
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
+    <Compile Include="TypeTests.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
