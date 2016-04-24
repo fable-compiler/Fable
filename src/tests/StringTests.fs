@@ -56,8 +56,11 @@ let ``Padding with String.Format works``() =
 
 [<Test>]
 let ``Conversion to char works``() =
-      let c = char "h"
-      equal "h" (string c)
+      let c1 = char "h"
+      equal "h" (string c1)
+
+      let c2 = char 97
+      equal "a" (string c2)
 
 [<Test>]
 let ``Conversion to int works``() =

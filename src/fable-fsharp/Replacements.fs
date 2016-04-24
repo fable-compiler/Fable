@@ -84,6 +84,12 @@ module Util =
     let wrap typ expr =
         Fable.Wrapped (expr, typ)
 
+    let toChar com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
+        match arg.Type with
+        | Fable.PrimitiveType (Fable.String) -> arg
+        | _ -> GlobalCall ("String", Some "fromCharCode", false, [arg])
+               |> makeCall com i.range i.returnType
+
     let toString com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
         match arg.Type with
         | Fable.PrimitiveType (Fable.String) -> arg
@@ -339,7 +345,8 @@ module private AstPass =
         | "seq" | "id" | "box" | "unbox" -> wrap typ args.Head |> Some
         | "int" -> toInt com info args.Head |> Some
         | "float" -> toFloat com info args.Head |> Some
-        | "char" | "string" -> toString com info args.Head |> Some
+        | "char"  -> toChar com info args.Head |> Some
+        | "string" -> toString com info args.Head |> Some
         | "dict" | "set" ->
             let modName = if info.methodName = "dict" then "Map" else "Set"
             CoreLibCall(modName, Some "ofSeq", false, args)
