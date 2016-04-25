@@ -511,12 +511,16 @@ module private AstPass =
         | "setArraySlice", (None, args) ->
             CoreLibCall("Array", Some "setSlice", false, args)
             |> makeCall com i.range i.returnType |> Some
-        | "createInstance", (None, args) ->
-            let typRef, args =
-                match args with
-                | [] | [Fable.Value Fable.Null] ->
-                    makeTypeRef com i.range i.methodTypeArgs.Head, []
-                | typRef::args -> typRef, args
+        | "typeTestGeneric", (None, [expr]) ->
+            makeTypeTest com i.range i.methodTypeArgs.Head expr |> Some
+        | "createInstance", (None, _) ->
+            let typRef, args = makeTypeRef com i.range i.methodTypeArgs.Head, []
+            Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
+        | _ -> None
+
+    let activator com (i: Fable.ApplyInfo) =
+        match i.methodName, i.callee, i.args with
+        | "createInstance", None, typRef::args ->
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
@@ -971,6 +975,17 @@ module private AstPass =
         | meth -> InstanceCall (i.callee.Value, meth, i.args)
                   |> makeCall com i.range i.returnType |> Some
 
+    let types com (info: Fable.ApplyInfo) =
+        let makeString = Fable.StringConst >> Fable.Value >> Some
+        match info.callee with
+        | Some(Fable.AST.Fable.Expr.Value(Fable.AST.Fable.TypeRef t)) ->
+            match info.methodName with
+            | "namespace" -> makeString t.Namespace
+            | "fullName" -> makeString t.FullName
+            | "name" -> makeString t.Name
+            | _ -> None
+        | _ -> None
+
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | KnownInterfaces _ -> knownInterfaces com info
@@ -993,7 +1008,7 @@ module private AstPass =
         | "Microsoft.FSharp.Core.Operators"
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
         | "Microsoft.FSharp.Core.Ref" -> references com info
-        | "System.Activator"
+        | "System.Activator" -> activator com info
         | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info
@@ -1019,20 +1034,10 @@ module private AstPass =
         | "Microsoft.FSharp.Collections.Seq" -> collectionsSecondPass com info Seq
         | "Microsoft.FSharp.Collections.Map"
         | "Microsoft.FSharp.Collections.Set" -> mapAndSets com info
-        | "System.Type" ->
-            match info.callee with
-            | Some(Fable.AST.Fable.Expr.Value(Fable.AST.Fable.TypeRef t)) ->
-                match info.methodName with
-                | "namespace" ->
-                    Fable.StringConst t.Namespace
-                    |> Fable.Value
-                    |> Some
-                | "fullName" ->
-                    Fable.StringConst t.FullName
-                    |> Fable.Value
-                    |> Some
-                | _ -> None
-            | _ -> None
+        // For some reason `typeof<'T>.Name` translates to `System.Reflection.MemberInfo.name`
+        // and not `System.Type.name` (as with `typeof<'T>.FullName` and `typeof<'T>.Namespace`)
+        | "System.Reflection.MemberInfo"
+        | "System.Type" -> types com info
         | _ -> None
 
 module private CoreLibPass =
