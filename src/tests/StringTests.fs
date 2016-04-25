@@ -74,6 +74,21 @@ let ``Conversion to float works``() =
       equal 5.25 (float "5.25")
       (string 5.25).StartsWith("5.25") |> equal true
 
+// System.String - constructors
+
+[<Test>]
+let ``String.ctor(char[]) works``() =
+      System.String([|'f'; 'a'; 'b'; 'l'; 'e'|])
+      |> equal "fable"
+
+let ``String.ctor(char, int) works``() =
+      System.String('f', 5)
+      |> equal "fffff"
+
+let ``String.ctor(char[], int, int) works``() =
+      System.String([|'f'; 'a'; 'b'; 'l'; 'e'|], 1, 3)
+      |> equal "abl"
+
 // System.String - static methods
 
 [<Test>]

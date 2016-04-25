@@ -385,6 +385,10 @@ module private AstPass =
           |> makeCall com r typ |> Some
         | _ -> None
 
+    let fsFormat com (i: Fable.ApplyInfo) =
+        CoreLibCall("String", Some "fsFormat", false, i.args)
+        |> makeCall com i.range i.returnType |> Some
+
     let strings com (i: Fable.ApplyInfo) =
         let icall meth =
             let c, args = instanceArgs i.callee i.args
@@ -392,8 +396,19 @@ module private AstPass =
             |> makeCall com i.range i.returnType
         match i.methodName with
         | ".ctor" ->
-            CoreLibCall("String", Some "fsFormat", false, i.args)
-            |> makeCall com i.range i.returnType |> Some
+            match i.args.Head.Type with
+            | Fable.PrimitiveType (Fable.String) ->
+                match i.args with
+                | [c; n] -> emit i "Array($1 + 1).join($0)" i.args |> Some // String(char, int)
+                | _ -> failwith "Unexpected arguments in System.String constructor."
+            | Fable.PrimitiveType (Fable.Array _) ->
+                match i.args with
+                | [c] -> emit i "$0.join('')" i.args |> Some // String(char[])
+                | [c; s; l] -> emit i "$0.join('').substr($1, $2)" i.args |> Some // String(char[], int, int)
+                | _ -> failwith "Unexpected arguments in System.String constructor."
+            | _ ->
+                fsFormat com i
+
         | "length" ->
             let c, _ = instanceArgs i.callee i.args
             makeGet i.range i.returnType c (makeConst "length") |> Some
@@ -961,8 +976,8 @@ module private AstPass =
         | KnownInterfaces _ -> knownInterfaces com info
         | Naming.StartsWith "Fable.Core" _ -> fableCore com info
         | "System.String"
-        | "Microsoft.FSharp.Core.String"
-        | "Microsoft.FSharp.Core.PrintfFormat" -> strings com info
+        | "Microsoft.FSharp.Core.String" -> strings com info
+        | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
         | "System.Console"
         | "System.Diagnostics.Debug" -> console com info
         | "System.DateTime" -> dates com info 
