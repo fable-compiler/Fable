@@ -348,7 +348,10 @@ module private AstPass =
         | "ignore" -> Fable.Wrapped (args.Head, Fable.PrimitiveType Fable.Unit) |> Some
         // Ranges
         | "op_Range" | "op_RangeStep" ->
-            let meth = if info.methodName = "op_Range" then "range" else "rangeStep"
+            let meth = 
+                match info.methodTypeArgs.Head with
+                | Fable.PrimitiveType (Fable.String) -> "rangeChar"
+                | _ -> if info.methodName = "op_Range" then "range" else "rangeStep"
             CoreLibCall("Seq", Some meth, false, args)
             |> makeCall com r typ |> Some
         // Tuples
