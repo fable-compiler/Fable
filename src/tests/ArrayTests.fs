@@ -389,6 +389,15 @@ let ``Array.pick works``() =
     |> equal 2.
 
 [<Test>]
+let ``Array.range works``() =
+    [|1..5|]
+    |> Array.reduce (+)
+    |> equal 15
+    [|0..2..9|]
+    |> Array.reduce (+)
+    |> equal 20
+
+[<Test>]
 let ``Array.reduce works``() =   
     let xs = [|1.; 2.; 3.; 4.|]
     xs |> Array.reduce (-)

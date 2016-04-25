@@ -251,26 +251,34 @@ let ``Seq.pick works``() =
 
 [<Test>]
 let ``Seq.range works``() =
-    [1..5]
+    seq{1..5}
     |> Seq.reduce (+)
     |> equal 15
 
-    [0..2..9]
+    seq{0..2..9}
     |> Seq.reduce (+)
     |> equal 20
 
-    [1. .. 5.]
+    seq{1. .. 5.}
     |> Seq.reduce (+)
     |> equal 15.
 
-    [0. .. 2. .. 9.]
+    seq{0. .. 2. .. 9.}
     |> Seq.reduce (+)
     |> equal 20.
-
-    ['a' .. 'f']
-    |> Seq.map (fun c -> int c)
+    
+    seq{9 .. -2 .. 0}
     |> Seq.reduce (+)
-    |> equal 597
+    |> equal 25
+
+    seq{'a' .. 'f'}
+    |> Seq.toArray
+    |> System.String
+    |> equal "abcdef"
+    
+    seq{'z' .. 'a'}
+    |> Seq.length
+    |> equal 0
 
 [<Test>]
 let ``Seq.reduce works``() =

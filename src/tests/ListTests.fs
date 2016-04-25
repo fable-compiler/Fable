@@ -329,6 +329,15 @@ let ``List.pick works``() =
       |> equal 2 
 
 [<Test>]
+let ``List.range works``() =
+    [1..5]
+    |> List.reduce (+)
+    |> equal 15
+    [0..2..9]
+    |> List.reduce (+)
+    |> equal 20
+
+[<Test>]
 let ``List.reduce works``() =
       let xs = [1; 2]
       xs |> List.reduce (+)

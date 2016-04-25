@@ -148,14 +148,9 @@ Target "MochaTest" (fun _ ->
     ]
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []
+    // Copy the development version of fable-core.js
+    FileUtils.cp "import/core/fable-core.js" "build/tests/node_modules/fable-core/"
     Npm.script testsBuildDir "test" []
-    
-    
-    // Clampled and non-clamped arrays
-    // Node.run "." "build/fable" ["src/tests/Other/nonClamped.fsx"; "--outDir"; "build/tests/Other"; "-m"; "commonjs"]
-    // Node.run "." "build/fable" ["src/tests/Other/clamped.fsx"; "--clamp"; "--outDir"; "build/tests/Other"; "-m"; "commonjs"]
-    // Node.run "." "build/tests/Other/nonClamped" []
-    // Node.run "." "build/tests/Other/clamped" []
 )
 
 Target "Plugins" (fun _ ->
