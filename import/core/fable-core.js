@@ -72,7 +72,7 @@
       }
       if (x instanceof Date && y instanceof Date) {
           return x < y ? -1 : (x > y ? 1 : 0);
-      }
+      }      
       var keys1 = Object.getOwnPropertyNames(x), keys2 = Object.getOwnPropertyNames(y);
       lengthComp = Util.compareTo(keys1.length, keys2.length);
       return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev, k1, k2) {
@@ -341,12 +341,16 @@
           case "f": case "F": rep = rep.toFixed(precision || 6); break;
           case "g": case "G": rep = rep.toPrecision(precision); break;
           case "e": case "E": rep = rep.toExponential(precision); break;
-          case "A": 
+          case "A":
+            function isObject(x) {
+              return x !== null && typeof x === 'object'
+                && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean); 
+            };
             rep = ( (rep instanceof Map) ? "map " : 
                     (rep instanceof Set) ? "set " : "") + JSON.stringify(rep, function(k, v) {
                     return v && v[Symbol.iterator] 
                              && !Array.isArray(v) 
-                             && !(typeof v === 'string' || v instanceof String)
+                             && isObject(v)
                              ? Array.from(v) : v;
                   });
             break;
