@@ -1,0 +1,21 @@
+{
+	// See http://go.microsoft.com/fwlink/?LinkId=759670
+	// for the documentation about the jsconfig.json format
+	"compilerOptions": {
+		"target": "es5"
+	},
+	"files": [
+		"src/fable-js/index.js"
+	],
+	"exclude": [
+		"/build/",
+		"/import/",
+		"/packages/",
+		"/samples/",
+		"node_modules",
+		"bower_components",
+		"jspm_packages",
+		"tmp",
+		"temp"
+	]
+}

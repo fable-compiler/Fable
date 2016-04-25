@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.2.2"
+let version = "0.2.3"
 
 module Util =
     open System.Net
@@ -133,23 +133,13 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
-    Node.run "." "build/fable" [
-        "src/tests/Other/Fable.Tests.Clamp.fsproj";
-        "--outDir"; "build/tests/Other";
-        "--clamp"; "-m"; "commonjs"
-    ]
-    Node.run "." "build/fable" [
-        "src/tests/Fable.Tests.fsproj"
-        "-m"; "commonjs"
-        "--outDir"; testsBuildDir
-        "--symbols"; "MOCHA"
-        "--plugins"; "build/plugins/Fable.Plugins.NUnit.dll"
-        "--refs"; "Fable.Tests.Clamp=./Other"
-    ]
+    Node.run "." "build/fable" ["src/tests/Other"]
+    Node.run "." "build/fable" ["src/tests/"]
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []
     // Copy the development version of fable-core.js
-    FileUtils.cp "import/core/fable-core.js" "build/tests/node_modules/fable-core/"
+    if environVar "DEV_MACHINE" = "1" then
+        FileUtils.cp "import/core/fable-core.js" "build/tests/node_modules/fable-core/"
     Npm.script testsBuildDir "test" []
 )
 

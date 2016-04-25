@@ -53,13 +53,19 @@ fable src/main/MyProject.fsproj --outDir out/main --refs MyLib=../lib MyNs.Anoth
 ## fableconfig.json
 
 Rather than passing all the options to the CLI, it may be more convenient to put them
-in JSON format in a file named `fableconfig.json` within the current directory and let the
-compiler read them for you. You can combine options from the CLI and `fableconfig.json`:
-when this happens the former will have preference.
+in JSON format in a file named `fableconfig.json` and let the compiler read them for you.
+You can combine options from the CLI and `fableconfig.json`, when this happens the former will have preference.
+
+To use `fableconfig.json` just pass the directory where the JSON file resides to Fable.
+If you omit the path, the compiler will assume it's in the current directory.
+
+```shell
+fable my/path/
+```
 
 Project references can be passed using a plain object:
 
-```
+```shell
 {
   "refs": {
     "MyLib": "../lib",

@@ -9,6 +9,8 @@ var template = require("babel-template");
 var child_process = require('child_process');
 var commandLineArgs = require('command-line-args');
 
+var cfgDir = process.cwd();
+
 function getAppDescription() {
     return {
         title: "Fable " + require("./package.json").version,
@@ -157,8 +159,8 @@ function babelifyToConsole(babelAst) {
 }
 
 function babelifyToFile(babelAst, opts) {
-    var projDir = path.dirname(opts.projFile);
-    var targetFile = path.join(opts.outDir, path.relative(projDir, babelAst.fileName));
+    var projDir = path.dirname(path.resolve(path.join(cfgDir, opts.projFile)));
+    var targetFile = path.join(opts.outDir, path.relative(projDir, path.resolve(babelAst.fileName)));
     targetFile = targetFile.replace(path.extname(babelAst.fileName), ".js")
 
     var babelOpts = {
@@ -193,8 +195,8 @@ function watch(opts, fableProc) {
     fableProc.stdin.setEncoding('utf-8');
 
     // Watch only the project directory for performance
-    var projDir = path.dirname(opts.projFile);
-    console.log("Watching " + (projDir || '.'));
+    var projDir = path.dirname(path.resolve(path.join(cfgDir, opts.projFile)));
+    console.log("Watching " + projDir);
 
     var fsExtensions = [".fs", ".fsx", ".fsproj"];
     fs.watch(projDir, { persistent: true, recursive: true }, function(ev, filename) {
@@ -222,7 +224,7 @@ function runCommand(command, continuation) {
         cmd = command.substring(0, i);
         args = command.substring(i + 1).split(" ").filter(function(x){return x});
     }
-    var proc = child_process.spawn(cmd, args, { cwd: process.cwd() });
+    var proc = child_process.spawn(cmd, args, { cwd: cfgDir });
     proc.on('exit', function(code) {
         continuation(code);
     });
@@ -308,7 +310,7 @@ function build(opts) {
     // Extra Babel plugins
     if (opts.babelPlugins) {
         (Array.isArray(opts.babelPlugins) ? opts.babelPlugins : [opts.babelPlugins]).forEach(function (x) {
-            babelPlugins.push(require(path.join(process.cwd(), "node_modules", "babel-plugin-" + x)));
+            babelPlugins.push(require(path.join(path.resolve(cfgDir), "node_modules", "babel-plugin-" + x)));
         });
     }
 
@@ -326,9 +328,9 @@ function build(opts) {
     }
 
     // Call Fable.exe
-    // console.log(process.cwd() + "> " + fableCmd + " " + fableCmdArgs.join(" "));
+    // console.log(cfgDir + "> " + fableCmd + " " + fableCmdArgs.join(" "));
     console.log("Start compilation...");
-    var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: process.cwd() });
+    var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: cfgDir });
 
     fableProc.on('exit', function(code) {
         // There may be pending messages, do nothing here
@@ -372,9 +374,14 @@ try {
         process.exit(0);
     }
 
+    if (opts.projFile && fs.statSync(opts.projFile).isDirectory()) {
+        cfgDir = opts.projFile;
+        delete opts.projFile;
+    }
+
     // Parse fableconfig.json if present
     try {
-        var cfgFile = path.join(process.cwd(), fableConfig);
+        var cfgFile = path.join(cfgDir, fableConfig);
         if (fs.existsSync(cfgFile)) {
             var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
             for (var key in cfg)
@@ -407,7 +414,7 @@ try {
     }
 
     // Default values
-    opts.outDir = opts.outDir || path.dirname(opts.projFile);
+    opts.outDir = opts.outDir ? (path.join(cfgDir, opts.outDir)) : path.dirname(opts.projFile);
     opts.ecma = opts.ecma || "es5";
     if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {
         var refs = [];
@@ -423,9 +430,9 @@ try {
     }
 
     // Check version
-    var curNpmCfg = path.join(process.cwd(), "package.json");
+    var curNpmCfg = path.join(cfgDir, "package.json");
     if (fs.existsSync(curNpmCfg)) {
-        curNpmCfg = require(curNpmCfg);
+        curNpmCfg = JSON.parse(fs.readFileSync(curNpmCfg).toString());
         if (curNpmCfg.engines && curNpmCfg.engines.fable) {
             var semver = require("semver");
             var fableVersion = require("./package.json").version;
