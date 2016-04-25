@@ -1,6 +1,6 @@
 {
     "projFile": "Fable.Tests.fsproj",
-    "outDir": "build/tests",
+    "outDir": "../../build/tests",
     "module": "commonjs",
     "symbols": ["MOCHA"],
     "plugins": ["../../build/plugins/Fable.Plugins.NUnit.dll"],
