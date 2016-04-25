@@ -1233,6 +1233,11 @@
         ? [x, x + step] : null;
     }, first);
   };
+  Seq.rangeChar = function (first, last) {
+    return Seq.unfold(function (x) {
+      return (x <= last) ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null;
+    }, first);
+  };
   Seq.range = function (first, last) {
     return Seq.rangeStep(first, 1, last);
   };

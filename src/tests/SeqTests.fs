@@ -250,6 +250,29 @@ let ``Seq.pick works``() =
     |> equal 2.
 
 [<Test>]
+let ``Seq.range works``() =
+    [1..5]
+    |> Seq.reduce (+)
+    |> equal 15
+
+    [0..2..9]
+    |> Seq.reduce (+)
+    |> equal 20
+
+    [1. .. 5.]
+    |> Seq.reduce (+)
+    |> equal 15.
+
+    [0. .. 2. .. 9.]
+    |> Seq.reduce (+)
+    |> equal 20.
+
+    ['a' .. 'f']
+    |> Seq.map (fun c -> int c)
+    |> Seq.reduce (+)
+    |> equal 597
+
+[<Test>]
 let ``Seq.reduce works``() =
     let xs = [1.; 2.]
     xs |> Seq.reduce (+)
