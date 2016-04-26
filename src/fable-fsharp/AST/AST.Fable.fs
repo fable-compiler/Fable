@@ -98,8 +98,9 @@ and ExternalEntity =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
 
-and File(fileName, root, decls) =
+and File(fileName, originalFileName, root, decls) =
     member x.FileName: string = fileName
+    member x.OriginalFileName: string = originalFileName
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
     member x.Range =

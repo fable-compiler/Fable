@@ -8,6 +8,7 @@ type CompilerOptions = {
         refs: Map<string, string>
         watch: bool
         clamp: bool
+        copyExt: bool
     }
     
 type CompilerError(msg) =
@@ -86,12 +87,18 @@ module Naming =
     
     let getImportIdent i = sprintf "$import%i" i
     
-    let trimDots (s: string) =
-        match s.StartsWith ".", s.EndsWith "." with
-        | true, true -> s.Substring(1, s.Length - 2)
-        | true, false -> s.Substring(1)
-        | false, true -> s.Substring(0, s.Length - 1)
-        | false, false -> s
+    let fixExternalPath (com: ICompiler) (filePath: string) =
+        match com.Options.copyExt with
+        | false -> filePath
+        | true ->
+            let rootPath = Path.GetDirectoryName com.Options.projFile
+            match filePath.Contains rootPath with
+            | true -> filePath
+            | false ->
+                let name = Path.GetFileNameWithoutExtension(filePath)
+                let extension = Path.GetExtension(filePath)
+                Path.Combine(rootPath, ".fable.external",
+                    sprintf "%s-%d%s" name (abs (filePath.GetHashCode())) extension) 
 
     // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
     let jsKeywords =
