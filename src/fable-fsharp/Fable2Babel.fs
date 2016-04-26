@@ -616,9 +616,22 @@ module Util =
             
 module Compiler =
     open Util
+    open System.IO
+
+    let private fixExternalName rootPath file =
+        let path = Path.Combine(rootPath, file) |> Path.GetDirectoryName |>  Path.GetFullPath
+        if path.StartsWith(rootPath) then
+            file
+        else
+            let name = Path.GetFileNameWithoutExtension(file)
+            let extension = Path.GetExtension(file)
+            let r = sprintf "%s\\.fable.external\\%s-%d%s" rootPath name (abs (path.GetHashCode())) extension
+            "." + r.Substring(rootPath.Length).Replace("\\", "/")
 
     let transformFile (com: ICompiler) (projs, files) =
         let com = makeCompiler com projs
+        let rootPath = (projs |> List.head).ProjectFileName |> Path.GetDirectoryName
+        let fixExternalName = fixExternalName rootPath
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 let ctx = {
@@ -636,21 +649,29 @@ module Compiler =
                 let rootDecls =
                     ctx.imports |> Seq.mapi (fun i (memb, path) ->
                         let localId = Babel.Identifier(Naming.getImportIdent i)
-                        let specifier =
+                        let specifier, updatedPath =
                             match memb with
                             | "default" | "" ->
                                 Babel.ImportDefaultSpecifier(localId)
-                                |> U3.Case2
+                                |> U3.Case2, path
                             | "*" ->
                                 Babel.ImportNamespaceSpecifier(localId)
-                                |> U3.Case3
+                                |> U3.Case3, path
                             | memb ->
                                 Babel.ImportSpecifier(localId, Babel.Identifier memb)
-                                |> U3.Case1
-                        Babel.ImportDeclaration([specifier], Babel.StringLiteral path)
+                                |> U3.Case1,
+
+                                if path.Contains("../") && Path.Combine(rootPath, path) + ".fs" |> File.Exists then
+                                    let r = (fixExternalName (path + ".fs"))
+                                    r.Substring(0, r.Length - 3)
+                                else
+                                    path                          
+
+                        Babel.ImportDeclaration([specifier], Babel.StringLiteral updatedPath)
                         :> Babel.ModuleDeclaration |> U2.Case2)
                     |> Seq.toList
                     |> (@) <| rootDecls
-                Babel.Program (file.FileName, file.Range, rootDecls)
+
+                Babel.Program (fixExternalName file.FileName, file.FileName, file.Range, rootDecls)
             with
             | ex -> failwithf "%s (%s)" ex.Message file.FileName)
