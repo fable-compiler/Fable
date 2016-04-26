@@ -616,9 +616,11 @@ module Util =
             
 module Compiler =
     open Util
+    open System.IO
 
     let transformFile (com: ICompiler) (projs, files) =
         let com = makeCompiler com projs
+        let rootPath = (projs |> List.head).ProjectFileName |> Path.GetDirectoryName
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 let ctx = {
@@ -651,6 +653,16 @@ module Compiler =
                         :> Babel.ModuleDeclaration |> U2.Case2)
                     |> Seq.toList
                     |> (@) <| rootDecls
-                Babel.Program (file.FileName, file.Range, rootDecls)
+
+                let filename =
+                    let path = file.FileName |> Path.GetDirectoryName |>  Path.GetFullPath
+                    if path.StartsWith(rootPath) then
+                        file.FileName
+                    else
+                        let name = Path.GetFileNameWithoutExtension(file.FileName)
+                        let extension = Path.GetExtension(file.FileName)
+                        sprintf "%s\\.fabel.external\\%s-%d%s" rootPath name (abs (path.GetHashCode())) extension
+
+                Babel.Program (filename, file.FileName, file.Range, rootDecls)
             with
             | ex -> failwithf "%s (%s)" ex.Message file.FileName)
