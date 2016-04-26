@@ -172,7 +172,7 @@ function babelifyToFile(babelAst, opts) {
 
     // The F# code is only necessary when generating source maps
     var fsCode = opts.sourceMaps
-        ? fs.readFileSync(babelAst.fileName) : null;
+        ? fs.readFileSync(babelAst.originalFilename) : null;
 
     var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
     ensureDirExists(path.dirname(targetFile));
