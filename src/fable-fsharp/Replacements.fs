@@ -9,13 +9,6 @@ module Util =
     let [<Literal>] genericCollections = "System.Collections.Generic."
 
     let inline (=>) first second = first, second
-
-    let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k,'v>) key =
-        let success, value = dic.TryGetValue key
-        if success then Some value else None
-
-    let (|SetContains|_|) set item =
-        if Set.contains item set then Some item else None
         
     let (|KnownInterfaces|_|) fullName =
         if Naming.knownInterfaces.Contains fullName then Some fullName else None
@@ -898,9 +891,9 @@ module private AstPass =
             | Array -> toArray com i i.args.Head
             |> Some
         // Default to Seq implementation in core lib
-        | SetContains implementedSeqNonBuildFunctions meth ->
+        | Patterns.SetContains implementedSeqNonBuildFunctions meth ->
             ccall "Seq" meth (deleg args) |> Some
-        | SetContains implementedSeqBuildFunctions meth ->
+        | Patterns.SetContains implementedSeqBuildFunctions meth ->
             match kind with
             | Seq -> ccall "Seq" meth (deleg args)
             | List -> ccall "Seq" meth (deleg args) |> toList com i
@@ -917,7 +910,7 @@ module private AstPass =
         | List ->
             match i.methodName with
             | "getSlice" -> icall "slice" (i.callee.Value, i.args)
-            | SetContains implementedListFunctions meth ->
+            | Patterns.SetContains implementedListFunctions meth ->
                 CoreLibCall ("List", Some meth, false, deleg i.args)
                 |> makeCall com i.range i.returnType |> Some
             | _ -> None
@@ -934,10 +927,10 @@ module private AstPass =
                 // Array.fill target targetIndex count value
                 // target.fill(value, targetIndex, targetIndex + count)
                 emit i "$0.fill($3, $1, $1 + $2)" i.args |> Some
-            | SetContains implementedArrayFunctions meth ->
+            | Patterns.SetContains implementedArrayFunctions meth ->
                 CoreLibCall ("Array", Some meth, false, deleg i.args)
                 |> makeCall com i.range i.returnType |> Some
-            | DicContains nativeArrayFunctions meth ->
+            | Patterns.DicContains nativeArrayFunctions meth ->
                 let revArgs = List.rev i.args
                 icall meth (revArgs.Head, deleg (List.rev revArgs.Tail))
             | _ -> None
@@ -1068,7 +1061,7 @@ open Util
 
 let private coreLibPass com (info: Fable.ApplyInfo) =
     match info.ownerFullName with
-    | DicContains CoreLibPass.mappings (modName, kind) ->
+    | Patterns.DicContains CoreLibPass.mappings (modName, kind) ->
         match kind with
         | CoreLibPass.Both ->
             match info.methodName, info.callee with

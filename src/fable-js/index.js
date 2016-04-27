@@ -32,6 +32,7 @@ var cli = commandLineArgs([
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
   { name: 'refs', multiple: true, description: "Specify project references in `Project=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
+  { name: 'copyExt', type: Boolean, description: "Copy external files into a `.fable.external` folder." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
   { name: 'production', alias: 'p', description: "Shortcut for `--target production`." },
@@ -166,13 +167,13 @@ function babelifyToFile(babelAst, opts) {
     var babelOpts = {
         sourceMaps: opts.sourceMaps,
         sourceMapTarget: path.basename(targetFile),
-        sourceFileName: path.relative(path.dirname(targetFile), babelAst.fileName).replace(/\\/g, '/'),
+        sourceFileName: path.relative(path.dirname(targetFile), babelAst.originalFilename).replace(/\\/g, '/'),
         plugins: babelPlugins
     };
 
     // The F# code is only necessary when generating source maps
     var fsCode = opts.sourceMaps
-        ? fs.readFileSync(babelAst.fileName) : null;
+        ? fs.readFileSync(babelAst.originalFilename) : null;
 
     var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
     ensureDirExists(path.dirname(targetFile));

@@ -30,6 +30,7 @@ Option                  | Shorthand | Description
 `--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
 `--refs`                |           | Specify project references in `Project=js/import/path` format (see below)
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
+`--copyExt`             |           | Copy external files into a `.fable.external` folder.
 `--target`              | `-t`      | Use options from a specific target in `fableconfig.json`.
 `--debug`               | `-d`      | Shortcut for `--target debug`.
 `--production`          | `-p`      | Shortcut for `--target production`.

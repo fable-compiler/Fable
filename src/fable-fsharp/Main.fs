@@ -29,6 +29,7 @@ let readOptions argv =
         projFile = def opts "projFile" null (un Path.GetFullPath)
         watch = def opts "watch" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
+        copyExt = def opts "copyExt" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id)
         plugins = def opts "plugins" [] (li id)
         refs = Map(def opts "refs" [] (li (fun (x: string) ->
