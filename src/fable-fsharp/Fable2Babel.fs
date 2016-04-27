@@ -122,6 +122,7 @@ module Util =
                     |> Naming.normalizePath
                     |> fun x -> System.IO.Path.ChangeExtension(x, null)
                 | None ->
+                    let file = Naming.fixExternalPath com file
                     Naming.getRelativePath file ctx.file
                     |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
             getParts ns ent.FullName memb
@@ -623,7 +624,7 @@ module Compiler =
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 let ctx = {
-                    file = file.FileName
+                    file = Naming.fixExternalPath com file.FileName
                     moduleFullName = projs.Head.FileMap.[file.FileName]
                     imports = System.Collections.Generic.List<_>()
                 }
@@ -652,7 +653,7 @@ module Compiler =
                         :> Babel.ModuleDeclaration |> U2.Case2)
                     |> Seq.toList
                     |> (@) <| rootDecls
-
-                Babel.Program (file.FileName, file.OriginalFileName, file.Range, rootDecls)
+                Babel.Program (Naming.fixExternalPath com file.FileName,
+                                file.FileName, file.Range, rootDecls)
             with
-            | ex -> failwithf "%s (%s)" ex.Message file.OriginalFileName)
+            | ex -> failwithf "%s (%s)" ex.Message file.FileName)

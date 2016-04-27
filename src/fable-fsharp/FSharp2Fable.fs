@@ -767,7 +767,7 @@ let transformFiles (com: ICompiler) (fileMask: string option)
                 match rootEnt with
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
-            Fable.File(Naming.fixExternalPath com file.FileName, file.FileName, rootEnt, rootDecls)
+            Fable.File(file.FileName, rootEnt, rootDecls)
         with
         | ex -> failwithf "%s (%s)" ex.Message file.FileName)
     |> fun seq -> projs, seq

@@ -29,10 +29,18 @@ type EraseAttribute() = inherit System.Attribute()
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
     
+    let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k,'v>) key =
+        let success, value = dic.TryGetValue key
+        if success then Some value else None
+
+    let (|SetContains|_|) set item =
+        if Set.contains item set then Some item else None
+    
 module Naming =
     open System
     open System.IO
     open System.Text.RegularExpressions
+    open Patterns
     
     let (|StartsWith|_|) pattern (txt: string) =
         if txt.StartsWith pattern then Some pattern else None
@@ -87,18 +95,32 @@ module Naming =
     
     let getImportIdent i = sprintf "$import%i" i
     
-    let fixExternalPath (com: ICompiler) (filePath: string) =
-        match com.Options.copyExt with
-        | false -> filePath
-        | true ->
-            let rootPath = Path.GetDirectoryName com.Options.projFile
-            match filePath.Contains rootPath with
-            | true -> filePath
-            | false ->
-                let name = Path.GetFileNameWithoutExtension(filePath)
-                let extension = Path.GetExtension(filePath)
+    /// If flag --copyExt is activated, copy files outside project folder into
+    /// an internal `.fable.external` folder with a hash to prevent naming conflicts 
+    let fixExternalPath =
+        let cache = System.Collections.Generic.Dictionary<string, string>()
+        let addToCache (cache: System.Collections.Generic.Dictionary<'k, 'v>) k v =
+            cache.Add(k, v); v
+        let isExternal projPath path =
+            let rec parentContains rootPath path' =
+                match Directory.GetParent path' with
+                | null -> Some (rootPath, path)
+                | parent when rootPath = parent.FullName -> None
+                | parent -> parentContains rootPath parent.FullName
+            parentContains (Path.GetDirectoryName projPath) path
+        fun (com: ICompiler) filePath ->
+            if not com.Options.copyExt then filePath else
+            match Path.GetFullPath filePath with
+            | DicContains cache filePath -> filePath
+            | Try (isExternal com.Options.projFile) (rootPath, filePath) ->
                 Path.Combine(rootPath, ".fable.external",
-                    sprintf "%s-%d%s" name (abs (filePath.GetHashCode())) extension) 
+                    sprintf "%s-%i%s"
+                        (Path.GetFileNameWithoutExtension filePath)
+                        (filePath.GetHashCode() |> abs)
+                        (Path.GetExtension filePath))
+                |> addToCache cache filePath
+            | filePath ->
+                addToCache cache filePath filePath
 
     // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
     let jsKeywords =
