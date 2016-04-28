@@ -1,10 +1,10 @@
 {
-  "name": "fable-import-vscode",
+  "name": "fable-import-electron",
   "version": "0.0.3",
-  "description": "Fable bindings for Visual Studio Code",
+  "description": "Fable bindings for Electron",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/vscode"
+    "url": "https://github.com/fsprojects/Fable/import/electron"
   },
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",

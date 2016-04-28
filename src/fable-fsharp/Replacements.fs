@@ -982,6 +982,16 @@ module private AstPass =
             | _ -> None
         | _ -> None
 
+    let unchecked com (info: Fable.ApplyInfo) =
+        match info.methodName with
+        | "defaultof" ->
+            match info.methodTypeArgs with
+            | [Fable.PrimitiveType(Fable.Number _)] -> makeConst 0
+            | [Fable.PrimitiveType(Fable.Boolean _)] -> makeConst false
+            | _ -> Fable.Null |> Fable.Value
+            |> Some
+        | _ -> None
+
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | KnownInterfaces _ -> knownInterfaces com info
@@ -1034,6 +1044,7 @@ module private AstPass =
         // and not `System.Type.name` (as with `typeof<'T>.FullName` and `typeof<'T>.Namespace`)
         | "System.Reflection.MemberInfo"
         | "System.Type" -> types com info
+        | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com info
         | _ -> None
 
 module private CoreLibPass =

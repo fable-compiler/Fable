@@ -1,12 +1,12 @@
-# fable-import-react
+# fable-import-express
 
-Fable bindings for React
+Fable bindings for Express
 
 ## Installation
 
 ```sh
-$ npm install --save express
-$ npm install --save-dev fable-import fable-import-express
+$ npm install --save express fable-core
+$ npm install --save-dev fable-import-express
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ $ npm install --save-dev fable-import fable-import-express
 
 ```xml
   <ItemGroup>
-    <Reference Include="node_modules/fable-import/Fable.Import.dll" />
+    <Reference Include="node_modules/fable-core/Fable.Core.dll" />
     <Compile Include="node_modules/fable-import-express/Fable.Import.Express.fs" />
   </ItemGroup>
 ```
@@ -23,7 +23,7 @@ $ npm install --save-dev fable-import fable-import-express
 ### In a F# script (.fsx)
 
 ```fsharp
-#r "node_modules/fable-import/Fable.Import.dll"
+#r "node_modules/fable-core/Fable.Core.dll"
 #load "node_modules/fable-import-express/Fable.Import.Express.fs"
 
 open Fable.Core
