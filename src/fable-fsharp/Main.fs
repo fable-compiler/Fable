@@ -53,10 +53,15 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
     match prevResults, fileMask with
     | Some res, Some file when com.Options.projFile <> file -> res
     | _ ->
-        let replaceConstants (otherOpts: string[]) =
-            otherOpts
-            |> Array.filter (fun s -> s.StartsWith "--define:" = false)
-            |> Array.append (List.map (sprintf "--define:%s") com.Options.symbols |> List.toArray)
+        let rec replaceConstants (opts: FSharpProjectOptions) =
+            let replaceConstants' (otherOpts: string[]) =
+                otherOpts
+                |> Array.filter (fun s -> s.StartsWith "--define:" = false)
+                |> Array.append (List.map (sprintf "--define:%s") com.Options.symbols |> List.toArray)
+            { opts with
+                OtherOptions = replaceConstants' opts.OtherOptions
+                ReferencedProjects = opts.ReferencedProjects
+                    |> Array.map (fun (k,v) -> k, replaceConstants v) }
         let projFile = com.Options.projFile
         if com.Options.code = null && not(File.Exists projFile) then
             failwithf "Cannot find project file %s" projFile
@@ -74,7 +79,7 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
                 |> Async.RunSynchronously
             | _ ->
                 ProjectCracker.GetProjectOptionsFromProjectFile(projFile)
-            |> fun opts -> { opts with OtherOptions = replaceConstants opts.OtherOptions}
+            |> replaceConstants
         with
         | ex -> failwithf "Cannot read project options: %s" ex.Message
 

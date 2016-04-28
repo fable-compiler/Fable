@@ -5,6 +5,12 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+#if MOCHA
+[<Test>]
+let ``Symbols in external projects work``() =
+    equal "Fable Rocks!" Clamp.Helper.ConditionalExternalValue
+#endif
+
 type MaybeBuilder() =
   member __.Bind(x,f) = Option.bind f x
   member __.Return v = Some v

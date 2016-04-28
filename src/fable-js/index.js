@@ -415,7 +415,7 @@ try {
     }
 
     // Default values
-    opts.outDir = opts.outDir ? (path.join(cfgDir, opts.outDir)) : path.dirname(opts.projFile);
+    opts.outDir = opts.outDir ? (path.join(cfgDir, opts.outDir)) : path.dirname(path.join(cfgDir, opts.projFile));
     opts.ecma = opts.ecma || "es5";
     if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {
         var refs = [];
