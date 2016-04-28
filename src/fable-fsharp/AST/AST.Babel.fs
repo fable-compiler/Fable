@@ -62,6 +62,7 @@ type Identifier(name, ?loc) =
     inherit Expression("Identifier", ?loc = loc)
     member x.name: string = name
     interface Pattern
+    override x.ToString() = x.name
 
 (** ##Literals *)
 type RegExpLiteral(pattern, flags, ?loc) =

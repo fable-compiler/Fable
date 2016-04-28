@@ -256,6 +256,11 @@ and Expr =
 
 module Util =
     open Fable
+    
+    let attachRange (range: SourceLocation option) msg =
+        match range with
+        | Some range -> msg + " " + (string range)
+        | None -> msg
 
     type CallKind =
         | InstanceCall of callee: Expr * meth: string * args: Expr list
@@ -338,14 +343,12 @@ module Util =
     let makeTypeRef com (range: SourceLocation option) typ =
         match typ with
         | PrimitiveType _ ->
-            failwithf "Cannot reference a primitive type: %A" range
+            "Cannot reference a primitive type"
+            |> attachRange range |> failwith
         | UnknownType ->
-            let msg =
-                "Cannot reference unknown type."
-                + "If this a generic argument, try to make function inline"
-            match range with
-            | Some r -> failwithf "%s: %A" msg r
-            | None -> failwith msg
+            "Cannot reference unknown type. "
+            + "If this a generic argument, try to make function inline."
+            |> attachRange range |> failwith
         | DeclaredType ent ->
             match tryImported com ent.Name ent.Decorators with
             | Some expr -> expr
@@ -403,7 +406,8 @@ module Util =
                 |> makeCall com range boolType
             | _ ->
                 makeBinOp range boolType [expr; makeTypeRef com range typ] BinaryInstanceOf
-        | _ -> failwithf "Unsupported type test in %A: %A" range typ
+        | _ -> "Unsupported type test: " + typ.FullName
+               |> attachRange range |> failwith
 
     let makeUnionCons () =
         let emit = Emit "this.Case=arguments[0]; this.Fields = []; for (var i=1; i<arguments.length; i++) { this.Fields[(i-1)]=arguments[i]; }" |> Value

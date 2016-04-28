@@ -319,13 +319,15 @@ module Util =
                         Babel.ObjectMethod(kind, name, args, body, computed, ?loc=Some m.Range)
                         |> U3.Case2
                     match m.Kind with
-                    | Fable.Constructor -> failwithf "Unexpected constructor in Object Expression: %A" range
-                        | Fable.Method name -> makeMethod Babel.ObjectMeth name
-                        | Fable.Setter name -> makeMethod Babel.ObjectSetter name
-                        | Fable.Getter (name, false) -> makeMethod Babel.ObjectGetter name
-                        | Fable.Getter (name, true) ->
-                            let key, _ = sanitizeName name
-                            Babel.ObjectProperty(key, com.TransformExpr ctx m.Body, ?loc=Some m.Range) |> U3.Case1)
+                    | Fable.Constructor ->
+                        "Unexpected constructor in Object Expression"
+                        |> Fable.Util.attachRange range |> failwith
+                    | Fable.Method name -> makeMethod Babel.ObjectMeth name
+                    | Fable.Setter name -> makeMethod Babel.ObjectSetter name
+                    | Fable.Getter (name, false) -> makeMethod Babel.ObjectGetter name
+                    | Fable.Getter (name, true) ->
+                        let key, _ = sanitizeName name
+                        Babel.ObjectProperty(key, com.TransformExpr ctx m.Body, ?loc=Some m.Range) |> U3.Case1)
                 |> fun props ->
                     match interfaces with
                     | [] -> props
@@ -393,7 +395,8 @@ module Util =
             upcast (iife com ctx expr)
 
         | Fable.VarDeclaration _ ->
-            failwithf "Unexpected variable declaration in %A" expr.Range 
+            "Unexpected variable declaration"
+            |> Fable.Util.attachRange expr.Range |> failwith
         
     let transformFunction com ctx args body =
         let args: Babel.Pattern list =
@@ -493,7 +496,7 @@ module Util =
             | Fable.Method name ->
                 upcast funcExpression com ctx m.Arguments m.Body, name
             | Fable.Constructor | Fable.Setter _ ->
-                failwithf "Unexpected member in module %A: %A" modIdent m.Kind
+                failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
             match expr.loc with Some loc -> m.Range + loc | None -> m.Range
         if m.TryGetDecorator("EntryPoint").IsSome

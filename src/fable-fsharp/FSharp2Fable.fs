@@ -11,6 +11,7 @@ open Fable.AST.Fable.Util
 open Patterns
 open Types
 open Identifiers
+open Helpers
 open Util
 
 // Special values like seq, async, String.Empty...
@@ -101,7 +102,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         | BasicPatterns.Lambda (BindIdent com ctx (newContext, ident), body) ->
             Fable.For (ident, start, limit, com.Transform newContext body, isUp)
             |> makeLoop (makeRangeFrom fsExpr)
-        | _ -> failwithf "Unexpected loop in %A: %A" fsExpr.Range fsExpr
+        | _ -> failwithf "Unexpected loop in %O: %A" (makeRange fsExpr.Range) fsExpr
 
     | BasicPatterns.WhileLoop(Transform com ctx guardExpr, Transform com ctx bodyExpr) ->
         Fable.While (guardExpr, bodyExpr)
@@ -235,7 +236,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             makeGet range typ fields (i |> makeConst)
 
     | BasicPatterns.ILFieldSet (callee, typ, fieldName, value) ->
-        failwithf "Found unsupported ILField reference in %A: %A" fsExpr.Range fsExpr
+        failwithf "Found unsupported ILField reference in %O: %A"
+                  (makeRange fsExpr.Range) fsExpr
 
     // TODO: Change name of automatically generated fields
     | BasicPatterns.FSharpFieldSet (callee, FableType com ctx calleeType, FieldName fieldName, Transform com ctx value) ->
@@ -357,7 +359,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             match List.map (transformExpr com ctx) argExprs with
             | [] -> Fable.Value Fable.Null 
             | [expr] -> expr
-            | _ -> failwithf "Erased Union Cases must have one single field: %A" unionType
+            | _ -> failwithf "Erased Union Cases must have one single field: %s"
+                             unionType.FullName
         | ListUnion ->
             let buildArgs args =
                 let args = args |> List.rev |> (List.map (transformExpr com ctx))
@@ -370,7 +373,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 | arg::[Transform com ctx list2] ->
                     CoreLibCall("List", Some "ofArray", false, (buildArgs (arg::accArgs))::[list2])
                 | _ ->
-                    failwithf "Unexpected List constructor %A at %A" fsExpr fsExpr.Range
+                    failwithf "Unexpected List constructor %O: %A"
+                              (makeRange fsExpr.Range) fsExpr
             match argExprs with
             | [] -> CoreLibCall("List", None, true, [])
             | _ -> ofArray [] argExprs
@@ -396,7 +400,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         match unionType with
         | ErasedUnion ->
             if unionCase.UnionCaseFields.Count <> 1 then
-                failwithf "Erased Union Cases must have one single field: %A" unionType
+                failwithf "Erased Union Cases must have one single field: %s"
+                          unionType.FullName
             else
                 let typ = makeType com ctx unionCase.UnionCaseFields.[0].FieldType
                 makeTypeTest com (makeRangeFrom fsExpr) typ unionExpr
@@ -424,7 +429,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 | Some refCount -> Map.remove idx map |> Map.add idx (refCount + 1)
                 | None -> Map.add idx 1 map
             | _ as e ->
-                failwithf "Unexpected DecisionTree branch in %A: %A" e.Range e
+                failwithf "Unexpected DecisionTree branch in %O: %A"
+                          (makeRange e.Range) e
         let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
         // Convert targets referred more than once into functions
         // and just pass the F# implementation for the others
@@ -485,7 +491,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.Quote _ // (quotedExpr)
     | BasicPatterns.AddressOf _ // (lvalueExpr)
     | BasicPatterns.AddressSet _ // (lvalueExpr, rvalueExpr)
-    | _ -> failwithf "Cannot compile expression in %A: %A" fsExpr.Range fsExpr
+    | _ -> failwithf "Cannot compile expression in %O: %A"
+                     (makeRange fsExpr.Range) fsExpr
 
 // The F# compiler considers class methods as children of the enclosing module.
 // We use this type to correct that, see type DeclInfo below.

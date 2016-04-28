@@ -460,9 +460,10 @@ module private AstPass =
             |> makeCall com i.range i.returnType |> Some
         // Capture
         | "index" ->
-            if isGroup
-            then failwithf "Accessing index of Regex groups is not supported"
-            else prop "index" i.callee.Value |> Some
+            if not isGroup
+            then prop "index" i.callee.Value |> Some
+            else "Accessing index of Regex groups is not supported"
+                 |> attachRange i.range |> failwith
         | "value" ->
             if isGroup
             then i.callee.Value |> wrap i.returnType |> Some
@@ -827,7 +828,8 @@ module private AstPass =
                 match i.returnType with
                 | Fable.PrimitiveType (Fable.Array kind) ->
                     Fable.ArrayConst (Fable.ArrayAlloc (makeConst 0), kind) |> Fable.Value
-                | _ -> failwithf "Expecting array type but got %A" i.returnType
+                | _ -> "Expecting array type but got " + i.returnType.FullName
+                       |> attachRange i.range |> failwith
             | List -> CoreLibCall ("List", None, true, args)
                       |> makeCall com i.range i.returnType
             |> Some
@@ -875,7 +877,8 @@ module private AstPass =
         // Conversions
         | "toSeq" | "ofSeq" ->
             match kind with
-            | Seq -> failwithf "Unexpected method called on seq %s in %A" meth i.range
+            | Seq -> "Unexpected method called on seq: " + meth
+                     |> attachRange i.range |> failwith
             | List -> ccall "Seq" (if meth = "toSeq" then "ofList" else "toList") args
             | Array ->
                 if meth = "toSeq"
@@ -886,7 +889,8 @@ module private AstPass =
             toArray com i i.args.Head |> Some
         | "ofList" ->
             match kind with
-            | List -> failwithf "Unexpected method called on list %s in %A" meth i.range
+            | List -> "Unexpected method called on list: " + meth
+                      |> attachRange i.range |> failwith
             | Seq -> ccall "Seq" "ofList" args
             | Array -> toArray com i i.args.Head
             |> Some
