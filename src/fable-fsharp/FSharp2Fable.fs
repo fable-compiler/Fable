@@ -214,7 +214,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx calleeType
-                      |> makeTypeRef com (makeRange fsExpr.Range)
+                      |> makeTypeRef com (makeRangeFrom fsExpr)
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeGetFrom com ctx r typ callee (makeConst fieldName)
 
@@ -242,7 +242,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeTypeRef com (makeRange fsExpr.Range) calleeType
+            | None -> makeTypeRef com (makeRangeFrom fsExpr) calleeType
         Fable.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -282,7 +282,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
                 let baseClass =
                     makeTypeFromDef com meth.EnclosingEntity
-                    |> makeTypeRef com SourceLocation.Empty
+                    |> makeTypeRef com (Some SourceLocation.Empty)
                     |> Some
                 let baseCons =
                     Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
@@ -347,7 +347,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
             replace com ctx r typ (recordType.FullName) ".ctor" ([],[],[]) (None,argExprs)
         else
-            Fable.Apply (makeTypeRef com range recordType, argExprs, Fable.ApplyCons,
+            Fable.Apply (makeTypeRef com (Some range) recordType, argExprs, Fable.ApplyCons,
                             makeType com ctx fsExpr.Type, Some range)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
@@ -384,7 +384,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
                 replace com ctx r typ (unionType.FullName) ".ctor" ([],[],[]) (None,argExprs)
             else
-                Fable.Apply (makeTypeRef com range unionType, argExprs, Fable.ApplyCons,
+                Fable.Apply (makeTypeRef com (Some range) unionType, argExprs, Fable.ApplyCons,
                                 makeType com ctx fsExpr.Type, Some range)
 
     (** ## Type test *)
@@ -495,14 +495,13 @@ type private TmpDecl =
     | IgnoredEnt
 
 type private DeclInfo(init: Fable.Declaration list) =
-    let ignoredAtts = set ["Erase"; "Import"; "Global"; "Emit"]
     let decls = ResizeArray<_>(Seq.map Decl init)
     let children = System.Collections.Generic.Dictionary<string, TmpDecl>()
     let tryFindChild (ent: FSharpEntity) =
         if children.ContainsKey ent.FullName
         then Some children.[ent.FullName] else None
     let hasIgnoredAtt atts =
-        atts |> tryFindAtt (ignoredAtts.Contains) |> Option.isSome
+        atts |> tryFindAtt (Naming.ignoredAtts.Contains) |> Option.isSome
     member self.IsIgnoredEntity (ent: FSharpEntity) =
         ent.IsInterface || (hasIgnoredAtt ent.Attributes) || isAttributeEntity ent
     /// Is compiler generated (CompareTo...) or belongs to ignored entity?

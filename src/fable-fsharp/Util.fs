@@ -55,7 +55,10 @@ module Naming =
     
     let ignoredCompilerGenerated =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
-        
+
+    let ignoredAtts =
+        set ["Erase"; "Import"; "Global"; "Emit"]
+
     let ignoredFilesRegex =
         Regex(@"Fable\.(?:Import|Core)[\w.]*\.fs$")
         

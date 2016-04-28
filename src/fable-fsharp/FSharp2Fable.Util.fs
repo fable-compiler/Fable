@@ -252,7 +252,9 @@ module Types =
         | None -> None
         | Some (NonAbbreviatedType t) ->
             if isIgnored t then None else
-            let typeRef = makeType com Context.Empty t |> makeTypeRef com SourceLocation.Empty
+            let typeRef =
+                makeType com Context.Empty t
+                |> makeTypeRef com (Some SourceLocation.Empty)
             Some (sanitizeEntityName t.TypeDefinition, typeRef)
             
     // Some attributes (like ComDefaultInterface) will throw an exception
@@ -569,7 +571,9 @@ module Util =
                         (genPar.Name, typArg)::acc)
                 { ctx with typeArgs = typeArgs }
             com.Transform ctx fsExpr |> Some
-        | None -> None
+        | None ->
+            failwithf "%s is inlined but is not reachable. %s"
+                meth.FullName "If it belongs to an external project try removing inline modifier."
 
     let makeCallFrom (com: IFableCompiler) ctx r typ
                      (meth: FSharpMemberOrFunctionOrValue)

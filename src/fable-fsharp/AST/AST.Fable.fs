@@ -335,15 +335,17 @@ module Util =
                 | _ -> failwith "Import attributes must contain two string arguments"
             | _ -> None)
 
-    let makeTypeRef com range typ =
+    let makeTypeRef com (range: SourceLocation option) typ =
         match typ with
         | PrimitiveType _ ->
             failwithf "Cannot reference a primitive type: %A" range
         | UnknownType ->
-            failwithf "%s %s: %A"
+            let msg =
                 "Cannot reference unknown type."
-                "If this a generic argument, try to make function inline"
-                range
+                + "If this a generic argument, try to make function inline"
+            match range with
+            | Some r -> failwithf "%s: %A" msg r
+            | None -> failwith msg
         | DeclaredType ent ->
             match tryImported com ent.Name ent.Decorators with
             | Some expr -> expr
