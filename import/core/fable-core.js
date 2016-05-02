@@ -334,7 +334,10 @@
   var FString = exports.String = {};
   FString.fsFormatRegExp = /%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
   FString.fsFormat = function (str) {
-    var _cont;
+    function isObject(x) {
+      return x !== null && typeof x === 'object'
+        && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean); 
+    };
     function formatOnce(str, rep) {
       return str.replace(FString.fsFormatRegExp, function (_, flags, pad, precision, format) {
         switch (format) {
@@ -342,10 +345,6 @@
           case "g": case "G": rep = rep.toPrecision(precision); break;
           case "e": case "E": rep = rep.toExponential(precision); break;
           case "A":
-            function isObject(x) {
-              return x !== null && typeof x === 'object'
-                && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean); 
-            };
             rep = ( (rep instanceof Map) ? "map " : 
                     (rep instanceof Set) ? "set " : "") + JSON.stringify(rep, function(k, v) {
                     return v && v[Symbol.iterator] 
@@ -370,6 +369,7 @@
                 ? makeFn(str2) : _cont(str2);
       }
     }
+    var _cont;
     return function (cont) {
       _cont = cont;
       return FString.fsFormatRegExp.test(str)

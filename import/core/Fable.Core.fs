@@ -16,9 +16,17 @@ type ImportAttribute(get: string, from: string) =
 type EmitAttribute(macro: string) =
     inherit Attribute()
     
+type KeyValueListAttribute() =
+    inherit Attribute()
+
+type StringEnumAttribute() =
+    inherit Attribute()    
+    
 type [<Erase>] U2<'a, 'b> = Case1 of 'a | Case2 of 'b
 type [<Erase>] U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c    
 type [<Erase>] U4<'a, 'b, 'c, 'd> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd    
+type [<Erase>] U5<'a, 'b, 'c, 'd, 'e> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e    
+type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e | Case6 of 'f    
 
 [<AutoOpen>]
 module Operators =

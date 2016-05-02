@@ -4,17 +4,21 @@ open Fable.Core
 open Fable.Import
 
 module Props =
+    [<KeyValueList>]
     type IProp =
         interface end
         
+    [<KeyValueList>]
     type IHTMLProp =
         inherit IProp
-        
+    
+    [<KeyValueList>]
     type Prop =
         | Key of string
         | Ref of (obj->unit)
         interface IHTMLProp
 
+    [<KeyValueList>]
     type DOMAttr =
         | DangerouslySetInnerHTML of obj
         | OnCopy of (React.ClipboardEvent -> unit)
@@ -82,6 +86,7 @@ module Props =
         | OnWheel of (React.WheelEvent -> unit)
         interface IHTMLProp
 
+    [<KeyValueList>]
     type HTMLAttr =
         | DefaultChecked of bool
         | DefaultValue of U2<string, ResizeArray<string>>
@@ -226,6 +231,7 @@ module Props =
         | Unselectable of bool
         interface IHTMLProp
 
+    [<KeyValueList>]
     type SVGAttr =
         | ClipPath of string
         | Cx of U2<float, string>
@@ -292,15 +298,6 @@ let private this = obj()
 type Component<'P,'S>(props: 'P, ?state: 'S) =
     inherit React.Component<'P,'S>(props)
     do this?state <- state
-        
-let propsToObj (props: #IProp[]) =
-    let firstToLower (s: string) =
-        s.Substring(0,1).ToLower() + s.Substring(1)
-    let o = obj()
-    for p in props do
-        let key = firstToLower (unbox p?Case)
-        o?(key) <- p?Fields?(0)
-    o
 
 let inline fn (f: 'Props -> #React.ReactElement<obj>) (props: 'Props) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     unbox(React.createElement(U2.Case1(unbox f), props, unbox(List.toArray children)))
@@ -309,10 +306,10 @@ let inline com<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) (children
     unbox(React.createElement(U2.Case1(unbox typeof<'T>), props, unbox(List.toArray children)))
 
 let inline domEl (tag: string) (props: IHTMLProp list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    unbox(React.createElement(tag, propsToObj(List.toArray props), unbox(List.toArray children)))
+    unbox(React.createElement(tag, props, unbox(List.toArray children)))
 
 let inline svgEl (tag: string) (props: #IProp list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    unbox(React.createElement(tag, propsToObj(List.toArray props), unbox(List.toArray children)))
+    unbox(React.createElement(tag, props, unbox(List.toArray children)))
 
 let inline a b c = domEl "a" b c
 let inline abbr b c = domEl "abbr" b c

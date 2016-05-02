@@ -9,6 +9,42 @@ open Fable.Tests.Util
 [<Test>]
 let ``Symbols in external projects work``() =
     equal "Fable Rocks!" Clamp.Helper.ConditionalExternalValue
+    
+type KeyValueListAttribute() =
+    inherit System.Attribute()
+
+type StringEnumAttribute() =
+    inherit System.Attribute()
+    
+[<Emit("$0[$1]")>]
+let (?) (o: obj) (prop: obj): obj = failwith "JS only"    
+
+[<KeyValueList>]
+type MyOptions =
+    | Flag1
+    | Name of string
+    | [<CompiledName("QTY")>] QTY of int
+
+[<Test>]
+let ``KeyValueList attribute works``() =
+    let opts = [
+        Name "Fable"
+        QTY 5
+        Flag1
+    ]
+    opts?name |> unbox |> equal "Fable"
+    opts?QTY |> unbox |> equal 5
+    opts?flag1 |> unbox |> equal true
+    
+[<StringEnum>]
+type MyStrings =
+    | Vertical
+    | [<CompiledName("Horizontal")>] Horizontal
+    
+[<Test>]
+let ``StringEnum attribute works``() =
+    Vertical |> unbox |> equal "vertical"  
+    Horizontal |> unbox |> equal "Horizontal"  
 #endif
 
 type MaybeBuilder() =

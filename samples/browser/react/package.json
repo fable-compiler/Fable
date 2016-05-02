@@ -14,7 +14,7 @@
     "body-parser": "^1.15.0",
     "core-js": "^2.1.0",
     "express": "^4.13.4",
-    "fable-core": "0.0.9",
+    "fable-core": "0.0.15",
     "marked": "^0.3.5",
     "react": "^0.14.7",
     "react-dom": "^0.14.7"

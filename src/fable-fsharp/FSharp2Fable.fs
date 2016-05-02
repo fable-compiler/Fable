@@ -229,7 +229,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         | ListUnion ->
             makeGet (makeRangeFrom fsExpr) (makeType com ctx fsExpr.Type)
                     unionExpr (Naming.lowerFirst fieldName |> makeConst)
-        | OtherType ->
+        | _ ->
             let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
             let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
             let fields = makeGet range typ unionExpr ("Fields" |> makeConst)
@@ -353,6 +353,28 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                             makeType com ctx fsExpr.Type, Some range)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
+        let rec flattenList (r: SourceLocation) accArgs = function
+            | [] -> accArgs, None
+            | arg::[BasicPatterns.NewUnionCase(_, _, rest)] ->
+                flattenList r (arg::accArgs) rest
+            | arg::[baseList] ->
+                arg::accArgs, Some baseList
+            | _ -> failwithf "Unexpected List constructor %O: %A" r fsExpr
+        let isKeyValueList (fsType: FSharpType) =
+            match Seq.toList fsType.GenericArguments with
+            | [arg] when arg.HasTypeDefinition ->
+                arg.TypeDefinition.Attributes
+                |> tryFindAtt ((=) "KeyValueList")
+                |> Option.isSome
+            | _ -> false
+        // Only lower first case if there's no explicit compiled name
+        let lowerDisplayName (unionCase: FSharpUnionCase) =
+            unionCase.Attributes
+            |> tryFindAtt ((=) "CompiledName")
+            |> function
+                | Some name -> name.ConstructorArguments.[0] |> snd |> string
+                | None -> Naming.lowerFirst unionCase.DisplayName
+            |> makeConst
         let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
         match unionType with
         | ErasedUnion | OptionUnion ->
@@ -361,23 +383,38 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             | [expr] -> expr
             | _ -> failwithf "Erased Union Cases must have one single field: %s"
                              unionType.FullName
+        | KeyValueUnion ->
+            let v =
+                match List.map (transformExpr com ctx) argExprs with
+                | [] -> makeConst true 
+                | [expr] -> expr
+                | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s"
+                                unionType.FullName
+            (Fable.ArrayValues [lowerDisplayName unionCase; v], Fable.Tuple)
+            |> Fable.ArrayConst |> Fable.Value 
+        | StringEnum ->
+            // if argExprs.Length > 0 then
+            //     failwithf "StringEnum must not have fields: %s" unionType.FullName
+            lowerDisplayName unionCase
+        | ListUnion when isKeyValueList fsType ->
+            flattenList range [] argExprs
+            // TODO: We're ignoring baseList at the moment: e.g. (Option1 "myValue")::otherOptions
+            |> fun (args, _baseList) ->
+                args |> List.rev |> List.choose (fun x ->
+                    match transformExpr com ctx x with
+                    | Fable.Value(Fable.ArrayConst(Fable.ArrayValues
+                                    [Fable.Value(Fable.StringConst k);v],_)) -> Some(k, v)
+                    | _ -> None)
+            |> makeJsObject range
         | ListUnion ->
-            let buildArgs args =
+            let buildArgs (args, baseList) =
                 let args = args |> List.rev |> (List.map (transformExpr com ctx))
-                Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.DynamicArray))
-            let rec ofArray accArgs = function
-                | [] ->
-                    CoreLibCall("List", Some "ofArray", false, [buildArgs accArgs])
-                | arg::[BasicPatterns.NewUnionCase(_, _, rest)] ->
-                    ofArray (arg::accArgs) rest
-                | arg::[Transform com ctx list2] ->
-                    CoreLibCall("List", Some "ofArray", false, (buildArgs (arg::accArgs))::[list2])
-                | _ ->
-                    failwithf "Unexpected List constructor %O: %A"
-                              (makeRange fsExpr.Range) fsExpr
+                let ar = Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.DynamicArray))
+                ar::(match baseList with Some li -> [transformExpr com ctx li] | None -> [])
             match argExprs with
             | [] -> CoreLibCall("List", None, true, [])
-            | _ -> ofArray [] argExprs
+            | _ -> CoreLibCall("List", Some "ofArray", false,
+                    flattenList range [] argExprs |> buildArgs)
             |> makeCall com (Some range) unionType
         | OtherType ->
             let argExprs =
@@ -412,7 +449,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             let opKind = if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
             let expr = makeGet None Fable.UnknownType unionExpr (makeConst "tail")
             makeBinOp (makeRangeFrom fsExpr) boolType [expr; Fable.Value Fable.Null] opKind 
-        | OtherType ->
+        | _ ->
             let left = makeGet None (Fable.PrimitiveType Fable.String) unionExpr (makeConst "Case")
             let right = makeConst unionCase.Name
             makeBinOp (makeRangeFrom fsExpr) boolType [left; right] BinaryEqualStrict

@@ -227,13 +227,17 @@ module Patterns =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList) 
 
-    let (|OptionUnion|ListUnion|ErasedUnion|OtherType|) (typ: Fable.Type) =
+    let (|OptionUnion|ListUnion|ErasedUnion|KeyValueUnion|StringEnum|OtherType|) (typ: Fable.Type) =
+        let (|FullName|) (ent: Fable.Entity) = ent.FullName
+        let (|TryDecorator|_|) dec (ent: Fable.Entity) = ent.TryGetDecorator dec
         match typ with
         | Fable.DeclaredType ent ->
-            match ent.FullName with
-            | "Microsoft.FSharp.Core.Option" -> OptionUnion
-            | "Microsoft.FSharp.Collections.List" -> ListUnion
-            | _ when Option.isSome (ent.TryGetDecorator "Erase") -> ErasedUnion
+            match ent with
+            | FullName "Microsoft.FSharp.Core.Option" -> OptionUnion
+            | FullName "Microsoft.FSharp.Collections.List" -> ListUnion
+            | TryDecorator "Erase" _ -> ErasedUnion
+            | TryDecorator "KeyValueList" _ -> KeyValueUnion
+            | TryDecorator "StringEnum" _ -> StringEnum
             | _ -> OtherType
         | _ -> failwithf "Unexpected union type: %s" typ.FullName
 

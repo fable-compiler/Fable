@@ -1,11 +1,11 @@
 # Interacting with JavaScript code
 
-There are three ways to interact with the JavaScript world:
+There are several ways to interact with the JavaScript world:
 
 - Dynamically
-- Using `Emit` attributes
+- Using `Emit` attribute
 - Through a foreign interface
-
+- Special attributes
 
 ## Dynamic programming
 
@@ -152,4 +152,109 @@ import { myFunction } from "my-module"     // JS
 // Default imports
 [<Import("default", from="express")>]      // F#
 import express from express                // JS
+```
+
+## Special attributes
+
+Besides `Emit`, `Import` and `Global` attributes, there are some attributes available
+in the `Fable.Core` namespace to ease the interaction with JS in some particular cases.
+
+### Erase attribute
+
+In TypeScript there's a concept of [Union Types](https://www.typescriptlang.org/docs/handbook/advanced-types.html#union-types)
+which differs from union types in F#. The former are just used to statically check a function argument
+accepting different types. In Fable, they're translated as **Erased Union Types**
+whose cases must have one and only one single data field. After compilation, the wrapping
+will be erased and only the data field will remain. To define an erased union type, just attach
+the `Erase` attribute to the type. Example:
+
+```[fsharp]
+open Fable.Core
+
+[<Erase>]
+type MyErasedType =
+    | String of string
+    | Number of int
+
+myLib.myMethod(String "test")
+
+// JS
+// myLib.myMethod("test")
+```
+
+`Fable.Core` already includes predefined erased types which can be used as follows:
+
+```[fsharp]
+open Fable.Core
+
+type Test() =
+    member x.Value = "Test"
+
+let myMethod (arg: U3<string, int, Test>) =
+    match arg with
+    | U3.Case1 s -> s
+    | U3.Case2 i -> string i
+    | U3.Case3 t -> t.Value
+```
+
+### StringEnum attribute
+
+Similarly, in TypeScript it's possible to define [String Literal Types](https://www.typescriptlang.org/docs/handbook/advanced-types.html#string-literal-types)
+which are similar to enumerations with an underlying string value.
+Fable allows the same feature by using union types and the `StringEnum` attribute.
+These union types must not have any data fields as they will be compiled
+to a string matching the name of the union case.
+
+By default, the compiled string will have the first letter lowered.
+If you want to prevent this or use a different text than the union
+case name, use the `CompiledName` attribute:
+
+```[fsharp]
+open Fable.Core
+
+[<StringEnum>]
+type MyStrings =
+    | Vertical
+    | [<CompiledName("Horizontal")>] Horizontal
+
+myLib.myMethod(Vertical, Horizontal)
+
+// JS
+// myLib.myMethod("vertical", "Horizontal")
+```
+
+
+### KeyValueList attribute
+
+Many JS libraries accept a plain JS object to specify different options.
+With Fable, you can use union types to define these options in a more
+static-safe and idiomatic way in F#. The union cases act as key value
+pair, so they should have a single data field. If there's no data field
+the value is assumed to be `true`.
+
+As with `StringEnum` the first letter of the key (the union case name)
+will be lowered. Again, you can modify this behaviour with the `CompiledName`
+attribute.
+
+```[fsharp]
+open Fable.Core
+
+[<KeyValueList>]
+type MyOptions =
+    | Flag1
+    | Name of string
+    | [<CompiledName("QTY")>] QTY of int
+
+myLib.myMethod [
+    Name "Fable"
+    QTY 5
+    Flag1
+]
+
+// JS
+// myLib.myMethod({
+//     name: "Fable",
+//     QTY: 5,
+//     flag1: true
+// })
 ```
