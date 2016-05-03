@@ -168,7 +168,7 @@ whose cases must have one and only one single data field. After compilation, the
 will be erased and only the data field will remain. To define an erased union type, just attach
 the `Erase` attribute to the type. Example:
 
-```[fsharp]
+```fsharp
 open Fable.Core
 
 [<Erase>]
@@ -184,7 +184,7 @@ myLib.myMethod(String "test")
 
 `Fable.Core` already includes predefined erased types which can be used as follows:
 
-```[fsharp]
+```fsharp
 open Fable.Core
 
 type Test() =
@@ -209,7 +209,7 @@ By default, the compiled string will have the first letter lowered.
 If you want to prevent this or use a different text than the union
 case name, use the `CompiledName` attribute:
 
-```[fsharp]
+```fsharp
 open Fable.Core
 
 [<StringEnum>]
@@ -226,17 +226,19 @@ myLib.myMethod(Vertical, Horizontal)
 
 ### KeyValueList attribute
 
-Many JS libraries accept a plain JS object to specify different options.
+Many JS libraries accept a plain object to specify different options.
 With Fable, you can use union types to define these options in a more
-static-safe and idiomatic way in F#. The union cases act as key value
-pair, so they should have a single data field. If there's no data field
-the value is assumed to be `true`.
+static-safe and F#-idiomatic manner. The union cases of a type with the
+`KeyValueList` attribute act as a key value pair, so they should have a
+single data field. (If there's no data field the value is assumed to be `true`.)
+When Fable encounters a **list** of such an union type, it will compile it as
+a plain JS object.
 
 As with `StringEnum` the first letter of the key (the union case name)
 will be lowered. Again, you can modify this behaviour with the `CompiledName`
 attribute.
 
-```[fsharp]
+```fsharp
 open Fable.Core
 
 [<KeyValueList>]

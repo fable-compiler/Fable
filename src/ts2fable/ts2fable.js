@@ -163,12 +163,27 @@ var mappedTypes = {
 };
 
 function escape(x) {
+    // HACK: ignore strings with a comment (* ... *)
+    if (x.indexOf("(*") >= 0) {
+        return x;
+    }
     var genParams = genReg.exec(x);
     var name = x.replace(genReg,"")
     name = (keywords.indexOf(name) >= 0 || reserved.indexOf(name) >= 0 || /[^\w.']/.test(name))
         ? "``" + name + "``"
         : name;
     return name + (genParams ? genParams[0] : "");
+}
+
+function stringToUnionCase(str) {
+    function upperFirstLetter(str) {
+        return typeof str == "string" && str.length > 1
+            ? str[0].toUpperCase() + str.substr(1)
+            : str;
+    }
+    return /^[A-Z]/.test(str)
+        ? `[<CompiledName("${str}")>] ${escape(str)}`
+        : escape(upperFirstLetter(str));
 }
 
 function append(template, txt) {
@@ -335,19 +350,28 @@ function printImport(path, name) {
         var fullPath = joinPath(path, name.replace(genReg, ""));
         var period = fullPath.indexOf('.');
         var importPath = period >= 0
-            ? fullPath.substr(0, period) + "?get=" + fullPath.substr(period + 1)
-            : fullPath;
+            ? fullPath.substr(period + 1) + '","' + fullPath.substr(0, period) 
+            : '*","' + fullPath;
         return `[<Import("${importPath}")>] `;
     }
 }
 
 function printInterface(prefix) {
+    function printDecorator(ifc) {
+        switch (ifc.kind) {
+            case "class":
+                return printImport(ifc.path, ifc.name);
+            case "stringEnum":
+                return "[<StringEnum>] ";
+            default:
+                return "";
+        }    
+    }
     return function (ifc, i) {
         var template = prefix + templates.interface
             .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
             .replace("[NAME]", escape(ifc.name))
-            .replace("[DECORATOR]", ifc.kind === "class"
-                ? printImport(ifc.path, ifc.name) : "")
+            .replace("[DECORATOR]", printDecorator(ifc))
             .replace("[CONSTRUCTOR]", ifc.kind === "class"
                 ? "(" + printParameters(ifc.constructorParameters) + ")" : "");
                 
@@ -365,6 +389,9 @@ function printInterface(prefix) {
                                 .replace("[ID]", currentValue.value)
                     return prefix + cv;
                 }).join("\n");
+            case "stringEnum":
+                return template + prefix + prefix + "| " + ifc.properties.map(x =>
+                    stringToUnionCase(x.name)).join(" | ");
             case "class":
                 var classMembers = printClassMembers(prefix + "    ", ifc);
                 return template += (classMembers.length == 0 && !hasParents
@@ -465,7 +492,10 @@ function getType(type) {
             cbParams = cbParams.length > 0 ? cbParams + ", " : "";
             return "Func<" + cbParams + getType(type.type) + ">";
         case ts.SyntaxKind.UnionType:
-            return "U" + type.types.length + printTypeArguments(type.types);
+            if (type.types && type.types[0].kind == ts.SyntaxKind.StringLiteralType)
+                return "(* TODO StringEnum " + type.types.map(x=>x.text).join(" | ") + " *) string";
+            else
+                return "U" + type.types.length + printTypeArguments(type.types);
         case ts.SyntaxKind.TupleType:
             return type.elementTypes.map(getType).join(" * ");
         case ts.SyntaxKind.ParenthesizedType:
@@ -515,6 +545,18 @@ function getProperty(node, opts) {
         optional: node.questionToken != null,
         static: node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false
     };
+}
+
+function getStringEnum(node) {
+    return {
+        kind: "stringEnum",
+        name: getName(node),
+        properties: node.type.types.map(function (n) {
+            return { name : n.text }
+        }),
+        parents: [],
+        methods: []
+    }
 }
 
 function getEnum(node) {
@@ -695,7 +737,10 @@ function visitModule(node, opts) {
                 mod.interfaces.push(visitInterface(node, { kind: "class", path: modPath }));
                 break;
             case ts.SyntaxKind.TypeAliasDeclaration:
-                mod.interfaces.push(visitInterface(node, { kind: "alias", path: modPath }));
+                if (node.type.types && node.type.types[0].kind == ts.SyntaxKind.StringLiteralType)
+                    mod.interfaces.push(getStringEnum(node))
+                else
+                    mod.interfaces.push(visitInterface(node, { kind: "alias", path: modPath }));
                 break;
             case ts.SyntaxKind.VariableStatement:
                 var varsAndTypes = getVariables(node);

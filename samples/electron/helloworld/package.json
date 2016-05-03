@@ -7,10 +7,10 @@
     "start": "electron out/main.js"
   },
   "dependencies": {
-    "fable-core": "^0.0.12"
+    "fable-core": "0.0.15"
   },
   "devDependencies": {
     "electron-prebuilt": "^0.37.7",
-    "fable-import-electron": "^0.0.3"
+    "fable-import-electron": "0.0.4"
   }
 }

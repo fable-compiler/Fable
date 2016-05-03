@@ -82,8 +82,8 @@ module Electron =
         abstract isDarkMode: unit -> bool
         abstract importCertificate: options: ImportCertificateOptions * callback: Func<float, unit> -> unit
 
-    // TODO: StringEnum
-    and AppPathName = string
+    and [<StringEnum>] AppPathName =
+        | Home | AppData | UserData | Temp | Exe | Module | Desktop | Documents | Downloads | Music | Pictures | Videos
 
     and ImportCertificateOptions =
         abstract certificate: string with get, set
@@ -94,7 +94,6 @@ module Electron =
         abstract appendArgument: value: string -> unit
 
     and Dock =
-        // TODO: StringEnum
         abstract bounce: ?``type``: string -> float
         abstract cancelBounce: id: float -> unit
         abstract setBadge: text: string -> unit
@@ -245,11 +244,11 @@ module Electron =
         abstract isVisibleOnAllWorkspaces: unit -> bool
         abstract setIgnoreMouseEvents: ignore: bool -> unit        
 
-    // TODO: StringEnum
-    and SwipeDirection = string
+    and [<StringEnum>] SwipeDirection =
+        | Up | Right | Down | Left
 
-    // TODO: StringEnum
-    and ThumbarButtonFlags = string
+    and [<StringEnum>] ThumbarButtonFlags =
+        | Enabled | Disabled | Dismissonclick | Nobackground | Hidden | Noninteractive
 
     and ThumbarButton =
         abstract icon: U2<NativeImage, string> with get, set
@@ -318,18 +317,17 @@ module Electron =
         abstract darkTheme: bool option with get, set
         abstract transparent: bool option with get, set
         abstract ``type``: BrowserWindowType option with get, set
-        // TODO: StringEnum
         abstract titleBarStyle: string option with get, set
         abstract webPreferences: WebPreferences option with get, set
 
     and BrowserWindowType =
         U2<BrowserWindowTypeLinux, BrowserWindowTypeMac>
 
-    // TODO: StringEnum
-    and BrowserWindowTypeLinux = string
+    and [<StringEnum>] BrowserWindowTypeLinux =
+        | Desktop | Dock | Toolbar | Splash | Notification
 
-    // TODO: StringEnum
-    and BrowserWindowTypeMac = string
+    and [<StringEnum>] BrowserWindowTypeMac =
+        | Desktop | Textured
 
     and Rectangle =
         abstract x: float option with get, set
@@ -352,8 +350,8 @@ module Electron =
         abstract read: format: string * ?``type``: ClipboardType -> U2<string, NativeImage>
         abstract write: data: obj * ?``type``: ClipboardType -> unit
 
-    // TODO: StringEnum
-    and ClipboardType = string
+    and [<StringEnum>] ClipboardType =
+        | [<CompiledName("")>] None | Selection
 
     and ContentTracing =
         abstract getCategories: callback: Func<ResizeArray<string>, unit> -> unit
@@ -420,7 +418,6 @@ module Electron =
         abstract filters: ResizeArray<obj> option with get, set
 
     and ShowMessageBoxOptions =
-        // TODO: StirngEnum
         abstract ``type``: string option with get, set
         abstract buttons: ResizeArray<string> option with get, set
         abstract defaultId: float option with get, set
@@ -502,14 +499,14 @@ module Electron =
         abstract visible: bool with get, set
         abstract ``checked``: bool with get, set
 
-    // TODO: StringEnum
-    and MenuItemType = string
-    
-    // TODO: StringEnum
-    and MenuItemRole = string
+    and [<StringEnum>] MenuItemType =
+        | Normal | Separator | Submenu | Checkbox | Radio
 
-    // TODO: StringEnum
-    and MenuItemRoleMac = string
+    and [<StringEnum>] MenuItemRole =
+        | Undo | Redo | Cut | Copy | Paste | Selectall | Minimize | Close
+
+    and [<StringEnum>] MenuItemRoleMac =
+        | About | Hide | Hideothers | Unhide | Front | Window | Help | Services
 
     and MenuItemOptions =
         abstract click: Func<MenuItem, BrowserWindow, unit> option with get, set
@@ -645,8 +642,8 @@ module Electron =
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and DisplayMetrics =
-        (* TODO: StringEnum *) string
+    and [<StringEnum>] DisplayMetrics =
+        | Bounds | WorkArea | ScaleFactor | Rotation
 
     and Screen =
         inherit NodeJS.EventEmitter
@@ -685,14 +682,12 @@ module Electron =
         abstract setPermissionRequestHandler: handler: Func<WebContents, Permission, Func<bool, unit>, unit> -> unit
         abstract clearHostResolverCache: callback: Function -> unit        
 
-    // TODO: StringEnum
-    and Permission = string
+    and [<StringEnum>] Permission =
+        | Media | Geolocation | Notifications | MidiSysex | PointerLock | Fullscreen | OpenExternal
 
     and ClearStorageDataOptions =
         abstract origin: string option with get, set
-        // TODO: StringEnum
         abstract storages: ResizeArray<string> option with get, set
-        // TODO: StringEnum
         abstract quotas: ResizeArray<string> option with get, set
 
     and NetworkEmulationOptions =
@@ -871,14 +866,14 @@ module Electron =
     and Headers =
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: key: string -> string with get, set
 
-    // TODO: StringEnum
-    and NewWindowDisposition = string
+    and [<StringEnum>] NewWindowDisposition =
+        | Default | ``Foreground-tab`` | ``Background-tab`` | ``New-window`` | Other
 
-    // TODO: StringEnum
-    and StopFindInPageAtion = string
+    and [<StringEnum>] StopFindInPageAtion =
+        | ClearSelection | KeepSelection | ActivateSelection
 
-    // TODO: StringEnum
-    and CursorType = string
+    and [<StringEnum>] CursorType =
+        | Default | Crosshair | Pointer | Text | Wait | Help | ``E-resize`` | ``N-resize`` | ``Ne-resize`` | ``Nw-resize`` | ``S-resize`` | ``Se-resize`` | ``Sw-resize`` | ``W-resize`` | ``Ns-resize`` | ``Ew-resize`` | ``Nesw-resize`` | ``Nwse-resize`` | ``Col-resize`` | ``Row-resize`` | ``M-panning`` | ``E-panning`` | ``N-panning`` | ``Ne-panning`` | ``Nw-panning`` | ``S-panning`` | ``Se-panning`` | ``Sw-panning`` | ``W-panning`` | Move | ``Vertical-text`` | Cell | ``Context-menu`` | Alias | Progress | Nodrop | Copy | None | ``Not-allowed`` | ``Zoom-in`` | ``Zoom-out`` | Grab | Grabbing | Custom
 
     and LoadURLOptions =
         abstract httpReferrer: string option with get, set
@@ -891,7 +886,6 @@ module Electron =
 
     and PrintToPDFOptions =
         abstract marginsType: float option with get, set
-        // TODO: StringEnum
         abstract pageSize: string option with get, set
         abstract printBackground: bool option with get, set
         abstract printSelectionOnly: bool option with get, set
@@ -938,9 +932,7 @@ module Electron =
         abstract scale: float with get, set
 
     and SendInputEvent =
-        // TODO: StringEnum
         abstract ``type``: string with get, set
-        // TODO: StringEnum
         abstract modifiers: ResizeArray<string> with get, set
 
     and SendInputKeyboardEvent =
@@ -1300,7 +1292,6 @@ module Electron =
 
 module NodeJS =
     type Process =
-        // TODO: StringEnum
         abstract ``type``: string with get, set
         abstract resourcesPath: string with get, set
         abstract mas: bool option with get, set
