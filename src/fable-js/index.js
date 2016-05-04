@@ -44,6 +44,16 @@ var cli = commandLineArgs([
 var fableBin = path.resolve(__dirname, "bin/Fable.exe");
 var fableConfig = "fableconfig.json";
 
+// Custom plugin to remove `null;` statements (e.g. at the end of constructors)
+var removeNullStatements = {
+  visitor: {
+    ExpressionStatement: function(path) {
+      if (path.node.expression.type == "NullLiteral")
+        path.remove();
+    }
+  }
+};
+
 // Custom plugin to simulate macro expressions
 var transformMacroExpressions = {
   visitor: {
@@ -125,6 +135,7 @@ var babelPlugins = [
     transformMacroExpressions,
     // "transform-es2015-block-scoping", // This creates too many function wrappers
     require("babel-plugin-transform-do-expressions"),
+    removeNullStatements,
     removeDuplicatedVarDeclarators,
     // If this plugins is not used, glitches may appear in final code 
     require("babel-plugin-transform-es5-property-mutators"),
