@@ -397,14 +397,19 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             //     failwithf "StringEnum must not have fields: %s" unionType.FullName
             lowerDisplayName unionCase
         | ListUnion when isKeyValueList fsType ->
-            flattenList range [] argExprs
-            // TODO: We're ignoring baseList at the moment: e.g. (Option1 "myValue")::otherOptions
-            |> fun (args, _baseList) ->
-                args |> List.rev |> List.choose (fun x ->
+            let (|KeyValue|_|) = function
+                | Fable.Value(Fable.ArrayConst(Fable.ArrayValues
+                                [Fable.Value(Fable.StringConst k);v],_)) -> Some(k, v)
+                | _ -> None
+            match flattenList range [] argExprs with
+            | _, Some baseList ->
+                failwithf "KeyValue lists cannot be composed (%O)" range
+            | args, None ->
+                args |> List.rev |> List.map (fun x ->
                     match transformExpr com ctx x with
-                    | Fable.Value(Fable.ArrayConst(Fable.ArrayValues
-                                    [Fable.Value(Fable.StringConst k);v],_)) -> Some(k, v)
-                    | _ -> None)
+                    | Fable.Wrapped(KeyValue(k,v),_)
+                    | KeyValue(k,v) -> k,v
+                    | expr -> failwithf "Unexpected item in KeyValue list at %O: %A" range expr)
             |> makeJsObject range
         | ListUnion ->
             let buildArgs (args, baseList) =
