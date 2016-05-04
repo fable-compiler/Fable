@@ -40,8 +40,8 @@ open Models
 
 // ReactHelper defines a DSL to make it easier to build
 // React components from F#
-module R = ReactHelper
-open ReactHelper.Props
+module R = Fable.Helpers.React
+open R.Props
 
 [<Import("default","marked")>]
 let marked (s: string) (opts: obj): string = failwith "JS only"
@@ -62,7 +62,14 @@ let CommentView (props: CVProps) =
         createObj [ "__html" ==> m ]
     // ReactHelper provides functions to build components from HTML tags
     // We can build the props list using union types from ReactHelper.Props
-    R.div [ClassName "comment"] [
+    R.div [
+        ClassName "comment"
+        Style [
+            Border "3px dotted blue"
+            Margin "5px 0"
+            Padding "0 5px"
+        ]
+    ] [
         R.h2 [ClassName "commentAuthor"] [unbox props.author]
         R.span [DangerouslySetInnerHTML rawMarkup] []
     ]
@@ -104,24 +111,24 @@ type CommentForm(props) =
         R.form [
             ClassName "commentForm"
             OnSubmit x.handleSubmit
-            ] [
-                R.input [
-                    Type "text"
-                    Placeholder "Your name"
-                    Value (U2.Case1 x.state.author.Value)
-                    OnChange x.handleAuthorChange
-                ] []
-                R.input [
-                    Type "text"
-                    Placeholder "Say something..."
-                    Value (U2.Case1 x.state.text.Value)
-                    OnChange x.handleTextChange
-                ] []
-                R.input [
-                    Type "submit"
-                    Value (U2.Case1 "Post")
-                ] []
-            ]
+        ] [
+            R.input [
+                Type "text"
+                Placeholder "Your name"
+                Value (U2.Case1 x.state.author.Value)
+                OnChange x.handleAuthorChange
+            ] []
+            R.input [
+                Type "text"
+                Placeholder "Say something..."
+                Value (U2.Case1 x.state.text.Value)
+                OnChange x.handleTextChange
+            ] []
+            R.input [
+                Type "submit"
+                Value (U2.Case1 "Post")
+            ] []
+        ]
 
 type CommentBox(props) =
     inherit R.Component<CBProps, CBState>(props, { data = [||] })
@@ -149,7 +156,7 @@ type CommentBox(props) =
     member x.componentDidMount () =
         x.loadCommentsFromServer ()
         Browser.window.setInterval(
-            x.loadCommentsFromServer, x.props.pollInterval)
+             x.loadCommentsFromServer, x.props.pollInterval)
             
     member x.render () =
         R.div [ClassName "commentBox"] [

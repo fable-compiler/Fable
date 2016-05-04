@@ -22,7 +22,7 @@
   "devDependencies": {
     "babel-plugin-transform-runtime": "^6.6.0",
     "fable-import-express": "^0.0.8",
-    "fable-import-react": "^0.0.6",
+    "fable-import-react": "^0.0.10",
     "json-loader": "^0.5.4",
     "react-hot-loader": "^1.3.0",
     "source-map-loader": "^0.1.5",

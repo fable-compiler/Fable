@@ -48,6 +48,7 @@
     <Compile Include="core/Fable.Import.Node.fs" />
     <Compile Include="express/Fable.Import.Express.fs" />
     <Compile Include="react/Fable.Import.React.fs" />
+    <Compile Include="react/Fable.Helpers.React.fs" />
     <Compile Include="vscode/Fable.Import.VSCode.fs" />
     <Compile Include="electron/Fable.Import.Electron.fs" />
   </ItemGroup>

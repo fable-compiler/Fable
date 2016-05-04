@@ -17,6 +17,7 @@ $ npm install --save-dev fable-import-react
   <ItemGroup>
     <Reference Include="node_modules/fable-core/Fable.Core.dll" />
     <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />
+    <Compile Include="node_modules/fable-import-react/Fable.Helpers.React.fs" />
   </ItemGroup>
 ```
 
@@ -25,7 +26,10 @@ $ npm install --save-dev fable-import-react
 ```fsharp
 #r "node_modules/fable-core/Fable.Core.dll"
 #load "node_modules/fable-import-react/Fable.Import.React.fs"
+#load "node_modules/fable-import-react/Fable.Helpers.React.fs"
 
 open Fable.Core
 open Fable.Import
+module R = Fable.Helpers.React
+open R.Props
 ```
