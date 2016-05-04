@@ -8,6 +8,7 @@ open Fable.AST
 
 type Context = {
     file: string
+    originalFile: string
     moduleFullName: string
     imports: System.Collections.Generic.List<string * string>
     }
@@ -111,7 +112,7 @@ module Util =
                 (match memb with Some memb -> [memb] | None ->  [])
         match ent.File with
         | None -> failwithf "Cannot reference type: %s" ent.FullName
-        | Some file when ctx.file <> file ->
+        | Some file when ctx.originalFile <> file ->
             let proj, ns = com.GetProjectAndNamespace file
             let importPath =
                 match proj.ImportPath with
@@ -628,6 +629,7 @@ module Compiler =
             try
                 let ctx = {
                     file = Naming.fixExternalPath com file.FileName
+                    originalFile = file.FileName
                     moduleFullName = projs.Head.FileMap.[file.FileName]
                     imports = System.Collections.Generic.List<_>()
                 }

@@ -1,4 +1,6 @@
 namespace Fable.Tests
 
-type SingleTypeInNamespace =
-    static member Hello = Util2.Helper.Format "Hello"
+type SingleTypeInNamespace() =
+    // Check self references for external files (see #114)
+    static let greeting = "Hello"
+    static member Hello = Util2.Helper.Format greeting
