@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.2.6"
+let version = "0.2.7"
 
 module Util =
     open System.Net
