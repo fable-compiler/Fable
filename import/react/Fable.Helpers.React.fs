@@ -5,6 +5,14 @@ open Fable.Import
 
 module Props =
     [<KeyValueList>]
+    type IProp =
+        interface end
+
+    [<KeyValueList>]
+    type ICSSProp =
+        inherit IProp
+
+    [<KeyValueList>]
     type CSSProp =
         | BoxFlex of float
         | BoxFlexGroup of float
@@ -277,10 +285,7 @@ module Props =
         | WrapMargin of obj
         | WrapOption of obj
         | WritingMode of obj
-
-    [<KeyValueList>]
-    type IProp =
-        interface end
+        interface ICSSProp
         
     [<KeyValueList>]
     type IHTMLProp =
@@ -472,7 +477,7 @@ module Props =
         | SrcSet of string
         | Start of float
         | Step of U2<float, string>
-        | Style of CSSProp list
+        | Style of ICSSProp list
         | Summary of string
         | TabIndex of float
         | Target of string
