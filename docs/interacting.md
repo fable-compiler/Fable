@@ -260,3 +260,29 @@ myLib.myMethod [
 //     flag1: true
 // })
 ```
+
+If necessary you can cheat the compiler using tuples:
+
+```fsharp
+myLib.myMethod [Name "Fable"; unbox("level", 4)]
+
+// myLib.myMethod({ name: "Fable", level: 4 })
+```
+
+As these lists will be compiled as JS objects, please note you
+cannot apply the usual list operations to them (e.g. appending).
+If you want to manipulate the "fake" lists you must implement the
+methods yourself. For example:
+
+```
+[<KeyValueList>]
+type CSSProp =
+    | Border of string
+    | Display of string
+
+[<Emit("Object.assign({}, $0, $1)")>]
+let ( ++ ) (a:'a list) (b:'a list) : 'a list = failwith "JS Only"
+
+let niceBorder = [ Border "1px solid blue" ]
+let style = [ Display "inline-block" ] ++ niceBorder
+```

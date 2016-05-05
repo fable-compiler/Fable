@@ -5,12 +5,8 @@ open Fable.Import
 
 module Props =
     [<KeyValueList>]
-    type IProp =
-        interface end
-
-    [<KeyValueList>]
     type ICSSProp =
-        inherit IProp
+        interface end
 
     [<KeyValueList>]
     type CSSProp =
@@ -288,6 +284,10 @@ module Props =
         interface ICSSProp
         
     [<KeyValueList>]
+    type IProp =
+        interface end
+
+    [<KeyValueList>]
     type IHTMLProp =
         inherit IProp
     
@@ -413,7 +413,7 @@ module Props =
         | FormTarget of string
         | FrameBorder of U2<float, string>
         | Headers of string
-        | Height of U2<float, string>
+        // | Height of U2<float, string> // Conflicts with CSSProp, shouldn't be used in HTML5
         | Hidden of bool
         | High of float
         | Href of string
@@ -499,7 +499,7 @@ module Props =
         | AutoCapitalize of string
         | AutoCorrect of string
         | AutoSave of string
-        | Color of string
+        // | Color of string // Conflicts with CSSProp, shouldn't be used in HTML5
         | ItemProp of string
         | ItemScope of bool
         | ItemType of string
@@ -567,7 +567,7 @@ module Props =
         | Y1 of U2<float, string>
         | Y2 of U2<float, string>
         | Y of U2<float, string>
-        interface IHTMLProp
+        interface IProp
 
 open Props
 
