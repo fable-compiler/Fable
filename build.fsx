@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.2.7"
+let version = "0.2.8"
 
 module Util =
     open System.Net
@@ -179,6 +179,7 @@ Target "Import" (fun _ ->
 
 Target "Samples" (fun _ ->
     let fableDir = Util.join ["build";"fable"] |> Path.GetFullPath    
+    !! "samples/**/out/" |> CleanDirs
     !! "samples/**/fableconfig.json"
     |> Seq.iter (fun path ->
         let pathDir = Path.GetDirectoryName path

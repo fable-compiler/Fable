@@ -5,6 +5,29 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+let log (a: string) (b: string) = String.Format("a = {0}, b = {0}", a, b)
+let logItem1 = log "item1"
+let logItem2 = log "item2"
+
+type PartialFunctions() =
+    member x.logItem1 = log "item1"
+    member x.logItem2 = log "item2"
+
+[<Test>]
+let ``Module members from partial functions work``() = // See #115
+    logItem1 "item1" |> equal "a = item1, b = item1"
+
+[<Test>]
+let ``Class members from partial functions work``() = // See #115
+    let x = PartialFunctions()
+    x.logItem1 "item1" |> equal "a = item1, b = item1"
+
+[<Test>]
+let ``Local values from partial functions work``() = // See #115
+    let logItem1 = log "item1"
+    let logItem2 = log "item2"
+    logItem1 "item1" |> equal "a = item1, b = item1" 
+
 #if MOCHA
 [<Test>]
 let ``Symbols in external projects work``() =
@@ -242,7 +265,7 @@ module Same =
         let Same = 20
         let shouldEqual20 = Same
         let shouldEqual30 = let Same = 25 in Same + 5
-        
+
 [<Test>]
 let ``Accessing members of parent module with same name works``() =
     equal 5 Same.Same.shouldEqual5

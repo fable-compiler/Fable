@@ -211,6 +211,17 @@ module Util =
     let iife (com: IBabelCompiler) ctx (expr: Fable.Expr) =
         Babel.CallExpression (funcExpression com ctx [] expr, [], ?loc=expr.Range)
 
+    let doExpression r (typ: Fable.Type) block =
+        let doExpr = Babel.DoExpression(block, ?loc=r) :> Babel.Expression
+        match typ with
+        // Wrap closures in a function to prevent naming conflicts
+        // when the do expression is resolved (see #115)
+        | Fable.PrimitiveType (Fable.Function _) ->
+            let block = Babel.BlockStatement([Babel.ReturnStatement(doExpr, ?loc=r)], ?loc=r)
+            Babel.CallExpression(Babel.ArrowFunctionExpression([], U2.Case1 block, ?loc=r), [], ?loc=r)
+            :> Babel.Expression
+        | _ -> doExpr
+
     let varDeclaration range (var: Babel.Pattern) value =
         Babel.VariableDeclaration (var, value, ?loc=range)
             
@@ -383,7 +394,7 @@ module Util =
 
         | Fable.Sequential (statements, range) ->
             Babel.BlockStatement (statements |> List.map (com.TransformStatement ctx), ?loc=range)
-            |> fun block -> upcast Babel.DoExpression (block, ?loc=range)
+            |> fun block -> doExpression range expr.Type block
 
         | Fable.Set (callee, property, TransformExpr com ctx value, range) ->
             let left =
@@ -493,7 +504,7 @@ module Util =
                 let args, body = transformFunction com ctx [] m.Body
                 match body with
                 | U2.Case2 e -> e, name
-                | U2.Case1 e -> Babel.DoExpression(e, ?loc=e.loc) :> Babel.Expression, name
+                | U2.Case1 e -> doExpression e.loc m.Body.Type e, name
             | Fable.Method name ->
                 upcast funcExpression com ctx m.Arguments m.Body, name
             | Fable.Constructor | Fable.Setter _ ->

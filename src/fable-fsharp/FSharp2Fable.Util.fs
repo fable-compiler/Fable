@@ -194,13 +194,7 @@ module Patterns =
 
     let (|ErasableLambda|_|) fsExpr =
         match fsExpr with
-        | Pipe(Closure (arity, meth, typArgs, methTypArgs, methArgs), exprs)
-            when arity = exprs.Length ->
-                Some (meth, typArgs, methTypArgs, methArgs@exprs)
-        | Pipe(Closure (arity, meth, typArgs, methTypArgs, methArgs), exprs)
-            when arity = exprs.Length ->
-                Some (meth, typArgs, methTypArgs, methArgs@exprs)
-        | Pipe(Closure (arity, meth, typArgs, methTypArgs, methArgs), exprs)
+        | Pipe(Closure(arity, meth, typArgs, methTypArgs, methArgs), exprs)
             when arity = exprs.Length ->
                 Some (meth, typArgs, methTypArgs, methArgs@exprs)
         | _ -> None

@@ -80,6 +80,19 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> makeCallFrom com ctx r typ meth2 (typArgs2, methTypArgs2) None
         Fable.Lambda([lambdaArg], expr2) |> Fable.Value
 
+    // TODO: This optimization conflicts with some composition patterns, like List.foldBack test
+    // | Closure(arity, meth, typArgs, methTypArgs, methArgs) ->
+    //     let lambdaArgs =
+    //         [1..arity] |> List.map (fun i -> makeIdent (sprintf "$arg%i" i))
+    //     let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+    //     let lambdaBody =
+    //         let args =
+    //             lambdaArgs
+    //             |> List.map (fun x -> Fable.Value(Fable.IdentValue x))
+    //             |> (@) (List.map (com.Transform ctx) methArgs)
+    //         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) None args
+    //     Fable.Lambda (lambdaArgs, lambdaBody) |> Fable.Value
+
     | BaseCons com ctx (meth, args) ->
         let args = List.map (com.Transform ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
