@@ -15,15 +15,15 @@ module Util =
         
     let (|CoreMeth|_|) com coreMod meth expr =
         match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef(import, coreMod')),
+        | Fable.Apply(Fable.Value(Fable.ImportRef(coreMod', importPath)),
                       [Fable.Value(Fable.StringConst meth')], Fable.ApplyGet,_,_)
-            when import = Naming.coreLib && coreMod = coreMod' && meth = meth' -> Some expr
+            when importPath = Naming.coreLib && coreMod = coreMod' && meth = meth' -> Some expr
         | _ -> None
 
     let (|CoreCons|_|) com coreMod expr =
         match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef(import, coreMod')),_, Fable.ApplyCons,_,_)
-            when import = Naming.coreLib && coreMod = coreMod' -> Some expr
+        | Fable.Apply(Fable.Value(Fable.ImportRef(coreMod', importPath)),_, Fable.ApplyCons,_,_)
+            when importPath = Naming.coreLib && coreMod = coreMod' -> Some expr
         | _ -> None
 
     let (|Null|_|) = function
@@ -435,10 +435,15 @@ module private AstPass =
     let console com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "write" | "writeLine" ->
-            let inner =
-                CoreLibCall("String", Some "format", false, i.args)
-                |> makeCall com i.range (Fable.PrimitiveType Fable.String)
-            GlobalCall("console", Some "log", false, [inner])
+            let v =
+                match i.args with
+                | [] -> Fable.Value Fable.Null
+                | [v] -> v
+                | Type (Fable.PrimitiveType Fable.String)::_ ->
+                    CoreLibCall("String", Some "format", false, i.args)
+                    |> makeCall com i.range (Fable.PrimitiveType Fable.String)
+                | _ -> i.args.Head 
+            GlobalCall("console", Some "log", false, [v])
             |> makeCall com i.range i.returnType |> Some
         | "assert" -> failwith "TODO: Assertions"
         | _ -> None

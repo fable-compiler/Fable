@@ -274,7 +274,7 @@ cannot apply the usual list operations to them (e.g. appending).
 If you want to manipulate the "fake" lists you must implement the
 methods yourself. For example:
 
-```
+```fsharp
 [<KeyValueList>]
 type CSSProp =
     | Border of string
