@@ -495,6 +495,9 @@ let ``Seq.take works``() =
     xs |> Seq.take 2
     |> Seq.last
     |> equal 2.
+    // Seq.take should throw an exception if there're not enough elements 
+    try xs |> Seq.take 20 |> Seq.length with _ -> -1
+    |> equal -1
 
 [<Test>]
 let ``Seq.takeWhile works``() =
@@ -509,6 +512,9 @@ let ``Seq.truncate works``() =
     xs |> Seq.truncate 2
     |> Seq.last
     |> equal 2.
+    // Seq.truncate shouldn't throw an exception if there're not enough elements 
+    try xs |> Seq.truncate 20 |> Seq.length with _ -> -1
+    |> equal 5
 
 [<Test>]
 let ``Seq.where works``() =

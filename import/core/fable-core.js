@@ -1375,16 +1375,24 @@
     };
     return e;
   };
-  Seq.take = Seq.truncate = function (n, xs) {
+  Seq.take = function (n, xs, truncate) {
     return Seq.delay(function () {
       var iter = xs[Symbol.iterator]();
       return Seq.unfold(function (i) {
         if (i < n) {
           var cur = iter.next();
-          return [cur.value, i + 1];
+          if (!cur.done) {
+            return [cur.value, i + 1];
+          }
+          else if (!truncate) {
+            throw "Seq has not enough elements";
+          }
         }
       }, 0);
     });
+  };
+  Seq.truncate = function (n, xs) {
+    return Seq.take(n, xs, true);
   };
   Seq.takeWhile = function (f, xs) {
     return Seq.delay(function () {
