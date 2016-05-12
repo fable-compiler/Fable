@@ -108,19 +108,20 @@ module Util =
         |> makeCall com i.range i.returnType
 
     let toArray com (i: Fable.ApplyInfo) expr =
-        let dynamicArray expr =
-            GlobalCall ("Array", Some "from", false, [expr])
+        let arrayFrom arrayCons expr =
+            GlobalCall (arrayCons, Some "from", false, [expr])
             |> makeCall com i.range (Fable.PrimitiveType(Fable.Array Fable.DynamicArray))
-        match expr, i.methodTypeArgs with
+        match expr, i.returnType with
         // Optimization
         | Fable.Apply(CoreMeth com "List" "ofArray" _, [arr], Fable.ApplyMeth,_,_), _ ->
             arr
         | CoreCons com "List" _, _ ->
             Fable.ArrayConst(Fable.ArrayValues [], Fable.DynamicArray) |> Fable.Value
-        | _, [Fable.PrimitiveType(Fable.Number numberKind)] ->
-            let arrayKind = Fable.TypedArray numberKind
-            Fable.ArrayConst(Fable.ArrayConversion (dynamicArray expr), arrayKind) |> Fable.Value
-        | _ -> dynamicArray expr
+        // Typed arrays
+        | _, Fable.PrimitiveType(Fable.Array(Fable.TypedArray numberKind)) ->
+            arrayFrom (getTypedArrayName com numberKind) expr
+        | _ ->
+            arrayFrom "Array" expr
 
     let applyOp com (i: Fable.ApplyInfo) (args: Fable.Expr list) meth =
         match args.Head.Type with
@@ -769,7 +770,7 @@ module private AstPass =
     let nativeArrayFunctions =
         dict [ "exists" => "some"; "filter" => "filter";
                "find" => "find"; "findIndex" => "findIndex"; "forall" => "every";
-               "indexed" => "entries"; "iter" => "forEach"; "map" => "map";
+               "indexed" => "entries"; "iter" => "forEach";
                "reduce" => "reduce"; "reduceBack" => "reduceRight";
                "sortInPlace" => "sort"; "sortInPlaceWith" => "sort" ]
 
@@ -936,6 +937,12 @@ module private AstPass =
                 // Array.fill target targetIndex count value
                 // target.fill(value, targetIndex, targetIndex + count)
                 emit i "$0.fill($3, $1, $1 + $2)" i.args |> Some
+            | "map" ->
+                // If input and output types don't match,
+                // don't use native `map` (see #120)
+                if i.returnType = i.args.[1].Type
+                then icall "map" (i.args.[1], deleg [i.args.[0]])
+                else None
             | Patterns.SetContains implementedArrayFunctions meth ->
                 CoreLibCall ("Array", Some meth, false, deleg i.args)
                 |> makeCall com i.range i.returnType |> Some

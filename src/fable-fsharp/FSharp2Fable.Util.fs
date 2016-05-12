@@ -309,12 +309,6 @@ module Types =
         // Delegate
         elif tdef.IsDelegate
         then Fable.Function (tdef.GenericParameters.Count - 1) |> Fable.PrimitiveType
-        // Array
-        elif tdef.IsArrayType then
-            match tdef.GenericParameters.[0].FullName with
-            | NumberKind kind -> Fable.TypedArray kind
-            | _ -> Fable.DynamicArray
-            |> Fable.Array |> Fable.PrimitiveType
         // Object
         elif tdef.FullName = "System.Object"
         then Fable.UnknownType
@@ -339,14 +333,24 @@ module Types =
             if fn.IsFunctionType
             then countFuncArgs (Seq.last fn.GenericArguments) + 1
             else 0
+        // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam t.GenericParameter
+        // Tuple
         elif t.IsTupleType
         then Fable.Tuple |> Fable.Array |> Fable.PrimitiveType
+        // Funtion
         elif t.IsFunctionType
         then Fable.Function (countFuncArgs t) |> Fable.PrimitiveType
-        elif t.HasTypeDefinition
-        then makeTypeFromDef com t.TypeDefinition
+        elif t.HasTypeDefinition then
+            // Array
+            if t.TypeDefinition.IsArrayType then
+                match makeType com ctx t.GenericArguments.[0] with
+                | Fable.PrimitiveType(Fable.Number kind) -> Fable.TypedArray kind
+                | _ -> Fable.DynamicArray
+                |> Fable.Array |> Fable.PrimitiveType
+            // Declared type
+            else makeTypeFromDef com t.TypeDefinition
         else Fable.UnknownType // failwithf "Unexpected non-declared F# type: %A" t
 
     let (|FableType|) = makeType

@@ -135,7 +135,6 @@ and ApplyKind =
 and ArrayConsKind =
     | ArrayValues of Expr list
     | ArrayAlloc of Expr
-    | ArrayConversion of Expr
 
 and Ident = { name: string; typ: Type }
 
@@ -473,3 +472,14 @@ module Util =
         let members = props |> List.map (fun (name, body) ->
             Member(Getter (name, true), range, [], body))
         ObjExpr(members, [], None, Some range)
+        
+    let getTypedArrayName (com: ICompiler) numberKind =
+        match numberKind with
+        | Int8 -> "Int8Array"
+        | UInt8 -> if com.Options.clamp then "Uint8ClampedArray" else "Uint8Array"
+        | Int16 -> "Int16Array"
+        | UInt16 -> "Uint16Array"
+        | Int32 -> "Int32Array"
+        | UInt32 -> "Uint32Array"
+        | Float32 -> "Float32Array"
+        | Float64 -> "Float64Array"

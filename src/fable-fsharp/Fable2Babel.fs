@@ -139,23 +139,14 @@ module Util =
         match kind with
         | Fable.TypedArray kind ->
             let cons =
-                match kind with
-                | Int8 -> "Int8Array" 
-                | UInt8 -> if com.Options.clamp then "Uint8ClampedArray" else "Uint8Array" 
-                | Int16 -> "Int16Array" 
-                | UInt16 -> "Uint16Array" 
-                | Int32 -> "Int32Array" 
-                | UInt32 -> "Uint32Array" 
-                | Float32 -> "Float32Array"
-                | Float64 -> "Float64Array"
+                Fable.Util.getTypedArrayName com kind
                 |> Babel.Identifier
             let args =
                 match consKind with
                 | Fable.ArrayValues args ->
                     List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
                     |> Babel.ArrayExpression :> Babel.Expression |> U2.Case1 |> List.singleton
-                | Fable.ArrayAlloc arg
-                | Fable.ArrayConversion arg ->
+                | Fable.ArrayAlloc arg ->
                     [U2.Case1 (com.TransformExpr ctx arg)]
             Babel.NewExpression(cons, args) :> Babel.Expression
         | Fable.DynamicArray | Fable.Tuple ->
@@ -165,8 +156,6 @@ module Util =
                 |> Babel.ArrayExpression :> Babel.Expression
             | Fable.ArrayAlloc (TransformExpr com ctx arg) ->
                 upcast Babel.NewExpression(Babel.Identifier "Array", [U2.Case1 arg])
-            | Fable.ArrayConversion (TransformExpr com ctx arr) ->
-                arr
 
     let buildStringArray strings =
         strings

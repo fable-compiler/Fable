@@ -14,6 +14,7 @@ open System.Collections.Generic
 //     match [|"a";"b"|] with [||] -> 0 | [|"a";"b"|] -> 1 | _ -> 2
 //     |> equal 1
 
+#if MOCHA
 [<Emit("$1.constructor.name == $0")>]
 let jsConstructorIs (s: string) (ar: 'T[]) = true 
 
@@ -25,6 +26,21 @@ let ``Typed Arrays work``() =
     xs |> jsConstructorIs "Int32Array" |> equal true
     ys |> jsConstructorIs "Float64Array" |> equal true
     zs |> jsConstructorIs "Array" |> equal true
+
+[<Test>]
+let ``Mapping from Typed Arrays work``() =  
+    [| 1; 2; 3; |]
+    |> Array.map string
+    |> jsConstructorIs "Int32Array"
+    |> equal false    
+
+[<Test>]
+let ``Mapping to Typed Arrays work``() =  
+    [| "1"; "2"; "3"; |]
+    |> Array.map int
+    |> jsConstructorIs "Int32Array"
+    |> equal true    
+#endif
 
 [<Test>]
 let ``Byte arrays are not clamped by default``() =
