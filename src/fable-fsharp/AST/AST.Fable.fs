@@ -127,6 +127,8 @@ and ApplyInfo = {
         decorators: Decorator list
         calleeTypeArgs: Type list
         methodTypeArgs: Type list
+        /// If the method accepts a lambda as first argument, indicates its arity 
+        lambdaArgArity: int
     }
 
 and ApplyKind =
@@ -433,27 +435,32 @@ module Util =
         Member(Constructor, SourceLocation.Empty, args, body, [], true, false, false)
         |> MemberDeclaration
 
-    let makeDelegate (expr: Expr) =
-        let rec flattenLambda accArgs = function
-            | Value (Lambda (args, body)) ->
-                flattenLambda (accArgs@args) body
+    let makeDelegate arity (expr: Expr) =
+        let rec flattenLambda (arity: int option) accArgs = function
+            | Value (Lambda (args, body)) when arity.IsNone || List.length accArgs < arity.Value ->
+                flattenLambda arity (accArgs@args) body
             | _ as body ->
                 Value (Lambda (accArgs, body))
         match expr, expr.Type with
         | Value (Lambda (args, body)), _ ->
-            flattenLambda args body
-        | _, PrimitiveType (Function arity) when arity > 1 ->
-            let lambdaArgs =
-                [1..arity] |> List.map (fun i -> {name=sprintf "$arg%i" i; typ=UnknownType})
-            let lambdaBody =
-                (expr, lambdaArgs)
-                ||> List.fold (fun callee arg ->
-                    Apply (callee, [Value (IdentValue arg)], ApplyMeth, UnknownType, expr.Range))
-            Lambda (lambdaArgs, lambdaBody) |> Value
-        | _ ->
-            expr // Do nothing
+            flattenLambda arity args body
+        | _, PrimitiveType (Function a) ->
+            let arity = defaultArg arity a
+            if arity > 1 then
+                let lambdaArgs =
+                    [for i=1 to arity do
+                        yield {name=Naming.getUniqueVar(); typ=UnknownType}]
+                let lambdaBody =
+                    (expr, lambdaArgs)
+                    ||> List.fold (fun callee arg ->
+                        Apply (callee, [Value (IdentValue arg)],
+                            ApplyMeth, UnknownType, expr.Range))
+                Lambda (lambdaArgs, lambdaBody) |> Value
+            else
+                expr // Do nothing
+        | _ -> expr
 
-    // Check if we're applying agains a F# let binding
+    // Check if we're applying against a F# let binding
     let makeApply range typ callee exprs =
         let lasti = (List.length exprs) - 1
         ((0, callee), exprs)

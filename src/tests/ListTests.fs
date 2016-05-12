@@ -155,6 +155,12 @@ let ``List.foldBack works``() =
       |> equal 90 
 
 [<Test>]
+let ``List.foldBack with composition works``() =
+      [1; 2; 3; 4]
+      |> List.foldBack (fun x acc -> acc >> (+) x) <| id <| 2
+      |> equal 12
+
+[<Test>]
 let ``List.foldBack2 works``() =
       ([1; 2; 3; 4], [1; 2; 3; 4], 0)
       |||> List.foldBack2 (fun x y acc -> acc - y * x)

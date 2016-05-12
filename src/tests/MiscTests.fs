@@ -152,12 +152,19 @@ let ``Calls to core lib from a subfolder work``() =
     |> equal "2 + 2 = 4"
 
 let f' x y z = x + y + z
+let f'' x = x + x
 
 [<Test>]
-let ``Conversion to delegate work``() =
-    let del = System.Func<_,_,_,_> f'
-    del.Invoke(1,2,3)
-    |> equal 6
+let ``Conversion to delegate works``() =
+    (System.Func<_,_,_,_> f').Invoke(1,2,3) |> equal 6
+    
+    let f = f'
+    (System.Func<_,_,_,_> f).Invoke(1,2,3) |> equal 6
+    
+    let del = System.Func<_,_,_,_>(fun x y z -> x + y + z)
+    del.Invoke(1,2,3) |> equal 6
+    
+    (System.Func<_,_> f'').Invoke(2) |> equal 4
 
 let (|NonEmpty|_|) (s: string) =
     match s.Trim() with "" -> None | s -> Some s

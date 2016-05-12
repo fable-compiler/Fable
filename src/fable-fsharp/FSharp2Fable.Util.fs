@@ -72,6 +72,11 @@ module Helpers =
 
     let makeRangeFrom (fsExpr: FSharpExpr) = 
         Some (makeRange fsExpr.Range)
+        
+    let rec countFuncArgs (fn: FSharpType) =
+        if fn.IsFunctionType
+        then countFuncArgs (Seq.last fn.GenericArguments) + 1
+        else 0
     
 module Patterns =
     open BasicPatterns
@@ -329,10 +334,6 @@ module Types =
             ctx.typeArgs
             |> List.tryFind (fun (name,_) -> name = genParam.Name)
             |> function Some (_,typ) -> typ | None -> Fable.UnknownType
-        let rec countFuncArgs (fn: FSharpType) =
-            if fn.IsFunctionType
-            then countFuncArgs (Seq.last fn.GenericArguments) + 1
-            else 0
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam t.GenericParameter
@@ -508,7 +509,7 @@ module Util =
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
     let replace (com: IFableCompiler) ctx r typ ownerName methName
-                (atts, typArgs, methTypArgs) (callee, args) =
+                (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args) =
         let pluginReplace i =
             com.ReplacePlugins |> Seq.tryPick (fun plugin -> plugin.TryReplace com i)
         let applyInfo: Fable.ApplyInfo = {
@@ -521,6 +522,7 @@ module Util =
             decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
             calleeTypeArgs = typArgs |> List.map (makeType com ctx) 
             methodTypeArgs = methTypArgs |> List.map (makeType com ctx)
+            lambdaArgArity = lambdaArgArity
         }
         match applyInfo with
         | Try pluginReplace repl -> repl
@@ -533,11 +535,19 @@ module Util =
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ
                     (typArgs, methTypArgs) (callee, args)
                     (meth: FSharpMemberOrFunctionOrValue) =
-        if hasReplaceAtt meth.Attributes || isReplaceCandidate com meth.EnclosingEntity
-        then replace com ctx r typ
-                (sanitizeEntityName meth.EnclosingEntity) (sanitizeMethodName com meth)
-                (meth.Attributes, typArgs, methTypArgs) (callee, args) |> Some
-        else None
+        if hasReplaceAtt meth.Attributes || isReplaceCandidate com meth.EnclosingEntity then
+            let lambdaArgArity =
+                if meth.CurriedParameterGroups.Count > 0
+                    && meth.CurriedParameterGroups.[0].Count > 0
+                then countFuncArgs meth.CurriedParameterGroups.[0].[0].Type
+                else 0
+            replace com ctx r typ
+                (sanitizeEntityName meth.EnclosingEntity)
+                (sanitizeMethodName com meth)
+                (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
+                (callee, args) |> Some
+        else
+            None
                 
     let (|Emitted|_|) com ctx r typ (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match meth.Attributes with
@@ -635,7 +645,7 @@ module Util =
             | Fable.PrimitiveType (Fable.Function arity) -> arity
             | _ -> failwithf "Expecting a function value but got %s" meth.FullName
         let lambdaArgs =
-            [1..arity] |> List.map (fun i -> makeIdent (sprintf "$arg%i" i))
+            [for i=1 to arity do yield Naming.getUniqueVar() |> makeIdent]
         let lambdaBody =
             let args = lambdaArgs |> List.map (Fable.IdentValue >> Fable.Value)
             makeCallFrom com ctx r typ meth ([],[]) None args

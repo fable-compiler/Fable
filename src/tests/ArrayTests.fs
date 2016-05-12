@@ -32,15 +32,39 @@ let ``Mapping from Typed Arrays work``() =
     [| 1; 2; 3; |]
     |> Array.map string
     |> jsConstructorIs "Int32Array"
-    |> equal false    
+    |> equal false
 
 [<Test>]
 let ``Mapping to Typed Arrays work``() =  
     [| "1"; "2"; "3"; |]
     |> Array.map int
     |> jsConstructorIs "Int32Array"
-    |> equal true    
+    |> equal true
+    
+    [| 1; 2; 3; |]
+    |> Array.map float
+    |> jsConstructorIs "Float64Array"
+    |> equal true
 #endif
+
+let f (x:obj) (y:obj) (z:obj) = (string x) + (string y) + (string z)
+
+[<Test>]
+let ``Mapping from values to functions works``() =  
+    let a = [| "a"; "b"; "c" |]
+    let b = [| 1; 2; 3 |]
+    let concaters1 = a |> Array.map (fun x y -> y + x)
+    let concaters2 = a |> Array.map (fun x -> (fun y -> y + x))
+    let concaters3 = a |> Array.map (fun x -> let f = (fun y -> y + x) in f)
+    let concaters4 = a |> Array.map f
+    let concaters5 = b |> Array.mapi f
+    concaters1.[0] "x" |> equal "xa"
+    concaters2.[1] "x" |> equal "xb"
+    concaters3.[2] "x" |> equal "xc"
+    concaters4.[0] "x" "y" |> equal "axy"
+    concaters5.[1] "x" |> equal "12x"
+    let f2 = f
+    a |> Array.mapi f2 |> Array.item 2 <| "x" |> equal "2cx"
 
 [<Test>]
 let ``Byte arrays are not clamped by default``() =

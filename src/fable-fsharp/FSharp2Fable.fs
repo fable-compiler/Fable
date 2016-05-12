@@ -70,7 +70,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeApply range typ callee (List.map (transformExpr com ctx) args)
         
     | Composition (meth1, typArgs1, methTypArgs1, args1, meth2, typArgs2, methTypArgs2, args2) ->
-        let lambdaArg = makeIdent "$arg"
+        let lambdaArg = Naming.getUniqueVar() |> makeIdent
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         let expr1 =
             (List.map (com.Transform ctx) args1)@[Fable.Value (Fable.IdentValue lambdaArg)]
@@ -83,7 +83,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
     // TODO: This optimization conflicts with some composition patterns, like List.foldBack test
     // | Closure(arity, meth, typArgs, methTypArgs, methArgs) ->
     //     let lambdaArgs =
-    //         [1..arity] |> List.map (fun i -> makeIdent (sprintf "$arg%i" i))
+    //         [for i=1 to arity do yield Naming.getUniqueVar() |> makeIdent]
     //     let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
     //     let lambdaBody =
     //         let args =
@@ -219,7 +219,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Lambda (args, transformExpr com ctx body) |> Fable.Value
 
     | BasicPatterns.NewDelegate(_delegateType, Transform com ctx delegateBodyExpr) ->
-        makeDelegate delegateBodyExpr
+        makeDelegate None delegateBodyExpr
 
     (** ## Getters and Setters *)
     // TODO: Change name of automatically generated fields
@@ -360,7 +360,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            replace com ctx r typ (recordType.FullName) ".ctor" ([],[],[]) (None,argExprs)
+            replace com ctx r typ (recordType.FullName) ".ctor" ([],[],[],0) (None,argExprs)
         else
             Fable.Apply (makeTypeRef com (Some range) recordType, argExprs, Fable.ApplyCons,
                             makeType com ctx fsExpr.Type, Some range)
@@ -441,7 +441,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 tag::(List.map (transformExpr com ctx) argExprs)
             if isReplaceCandidate com fsType.TypeDefinition then
                 let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-                replace com ctx r typ (unionType.FullName) ".ctor" ([],[],[]) (None,argExprs)
+                replace com ctx r typ (unionType.FullName) ".ctor" ([],[],[],0) (None,argExprs)
             else
                 Fable.Apply (makeTypeRef com (Some range) unionType, argExprs, Fable.ApplyCons,
                                 makeType com ctx fsExpr.Type, Some range)

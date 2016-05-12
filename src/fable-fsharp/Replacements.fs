@@ -55,8 +55,11 @@ module Util =
         match callee, args with None, arg1::arg2::arg3::_ -> Some (arg1, arg2, arg3) | _ -> None
 
     // The core lib expects non-curried lambdas
-    let deleg = List.mapi (fun i x ->
-        if i=0 then (makeDelegate x) else x)
+    let deleg (info: Fable.ApplyInfo) args =
+        if info.lambdaArgArity > 1
+        then List.mapi (fun i x ->
+            if i=0 then (makeDelegate (Some info.lambdaArgArity) x) else x) args
+        else args
 
     let instanceArgs (callee: Fable.Expr option) (args: Fable.Expr list) =
         match callee with
@@ -330,7 +333,8 @@ module private AstPass =
             let args = if info.methodName = "op_ComposeRight" then args else List.rev args
             let f0 = wrap args.Head "$0"
             let f1 = wrap args.Tail.Head "$1"
-            emit info (sprintf "x=>%s(%s(x))" f1 f0) args |> Some
+            let pattern = System.String.Format("{0}=>{1}({2}({0}))", Naming.getUniqueVar(), f1,f0)
+            emit info pattern args |> Some
         // Reference
         | "op_Dereference" -> makeGet r Fable.UnknownType args.Head (makeConst "contents") |> Some
         | "op_ColonEquals" -> Fable.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
@@ -423,10 +427,10 @@ module private AstPass =
             InstanceCall(i.callee.Value, "split", [makeConst ""])
             |> makeCall com i.range i.returnType |> Some
         | "iter" | "iteri" | "forall" | "exists" ->
-            CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
+            CoreLibCall("Seq", Some i.methodName, false, deleg i i.args)
             |> makeCall com i.range i.returnType |> Some
         | "map" | "mapi" | "collect"  ->
-            CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
+            CoreLibCall("Seq", Some i.methodName, false, deleg i i.args)
             |> makeCall com i.range Fable.UnknownType
             |> List.singleton
             |> emit i "Array.from($0).join('')"
@@ -549,7 +553,7 @@ module private AstPass =
             let args =
                 let args = List.rev i.args
                 (toArray i.range args.Head)::args.Tail |> List.rev
-            CoreLibCall("Seq", Some meth, false, deleg args)
+            CoreLibCall("Seq", Some meth, false, deleg i args)
             |> makeCall com i.range i.returnType |> Some
         
     let timeSpans com (i: Fable.ApplyInfo) =
@@ -712,25 +716,25 @@ module private AstPass =
         // Non-build static methods shared with Seq
         | "exists" | "fold" | "foldBack" | "forall" | "iter" ->
             let modName = if modName = "Map" then "Map" else "Seq"
-            CoreLibCall(modName, Some i.methodName, false, deleg i.args)
+            CoreLibCall(modName, Some i.methodName, false, deleg i i.args)
             |> makeCall com i.range i.returnType |> Some
         // Build static methods shared with Seq
         | "filter" | "map" ->
             match modName with
             | "Map" ->
-                CoreLibCall(modName, Some i.methodName, false, deleg i.args)
+                CoreLibCall(modName, Some i.methodName, false, deleg i i.args)
                 |> makeCall com i.range i.returnType |> Some
             | _ ->
-                CoreLibCall("Seq", Some i.methodName, false, deleg i.args)
+                CoreLibCall("Seq", Some i.methodName, false, deleg i i.args)
                 |> makeCall com i.range i.returnType
                 |> _of "Seq" |> Some
         // Static method
         | "partition" ->
-            CoreLibCall(modName, Some i.methodName, false, deleg i.args)
+            CoreLibCall(modName, Some i.methodName, false, deleg i i.args)
             |> makeCall com i.range i.returnType |> Some
         // Map only static methods (make delegate)
         | "findKey" | "tryFindKey" | "pick" | "tryPick" ->
-            CoreLibCall("Map", Some i.methodName, false, deleg i.args)
+            CoreLibCall("Map", Some i.methodName, false, deleg i i.args)
             |> makeCall com i.range i.returnType |> Some
         // Set only static methods
         | "singleton" ->
@@ -773,7 +777,7 @@ module private AstPass =
                "indexed" => "entries"; "iter" => "forEach";
                "reduce" => "reduce"; "reduceBack" => "reduceRight";
                "sortInPlace" => "sort"; "sortInPlaceWith" => "sort" ]
-
+               
     let collectionsSecondPass com (i: Fable.ApplyInfo) kind =
         let prop (meth: string) callee =
             makeGet i.range i.returnType callee (makeConst meth)
@@ -821,10 +825,10 @@ module private AstPass =
             |> Some
         | "sort" ->
             match c, kind with
-            | Some c, _ -> icall "sort" (c, deleg args)
-            | None, Seq -> ccall "Seq" meth (deleg args)
-            | None, List -> ccall "Seq" meth (deleg args) |> toList com i
-            | None, Array -> ccall "Seq" meth (deleg args) |> toArray com i
+            | Some c, _ -> icall "sort" (c, deleg i args)
+            | None, Seq -> ccall "Seq" meth (deleg i args)
+            | None, List -> ccall "Seq" meth (deleg i args) |> toList com i
+            | None, Array -> ccall "Seq" meth (deleg i args) |> toArray com i
             |> Some
         // Constructors ('cons' only applies to List)
         | "empty" | "cons" ->
@@ -902,12 +906,12 @@ module private AstPass =
             |> Some
         // Default to Seq implementation in core lib
         | Patterns.SetContains implementedSeqNonBuildFunctions meth ->
-            ccall "Seq" meth (deleg args) |> Some
+            ccall "Seq" meth (deleg i args) |> Some
         | Patterns.SetContains implementedSeqBuildFunctions meth ->
             match kind with
-            | Seq -> ccall "Seq" meth (deleg args)
-            | List -> ccall "Seq" meth (deleg args) |> toList com i
-            | Array -> ccall "Seq" meth (deleg args) |> toArray com i
+            | Seq -> ccall "Seq" meth (deleg i args)
+            | List -> ccall "Seq" meth (deleg i args) |> toList com i
+            | Array -> ccall "Seq" meth (deleg i args) |> toArray com i
             |> Some
         | _ -> None
         
@@ -921,7 +925,7 @@ module private AstPass =
             match i.methodName with
             | "getSlice" -> icall "slice" (i.callee.Value, i.args)
             | Patterns.SetContains implementedListFunctions meth ->
-                CoreLibCall ("List", Some meth, false, deleg i.args)
+                CoreLibCall ("List", Some meth, false, deleg i i.args)
                 |> makeCall com i.range i.returnType |> Some
             | _ -> None
         | Array ->
@@ -941,14 +945,14 @@ module private AstPass =
                 // If input and output types don't match,
                 // don't use native `map` (see #120)
                 if i.returnType = i.args.[1].Type
-                then icall "map" (i.args.[1], deleg [i.args.[0]])
+                then icall "map" (i.args.[1], deleg i [i.args.[0]])
                 else None
             | Patterns.SetContains implementedArrayFunctions meth ->
-                CoreLibCall ("Array", Some meth, false, deleg i.args)
+                CoreLibCall ("Array", Some meth, false, deleg i i.args)
                 |> makeCall com i.range i.returnType |> Some
             | Patterns.DicContains nativeArrayFunctions meth ->
                 let revArgs = List.rev i.args
-                icall meth (revArgs.Head, deleg (List.rev revArgs.Tail))
+                icall meth (revArgs.Head, deleg i (List.rev revArgs.Tail))
             | _ -> None
         | _ -> None
         |> function None -> collectionsSecondPass com i kind | someExpr -> someExpr
@@ -1093,17 +1097,17 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
         | CoreLibPass.Both ->
             match info.methodName, info.callee with
             | ".ctor", None ->
-                CoreLibCall(modName, None, true, deleg info.args)
+                CoreLibCall(modName, None, true, deleg info info.args)
                 |> makeCall com info.range info.returnType
             | _, Some callee ->
-                InstanceCall (callee, info.methodName, deleg info.args)
+                InstanceCall (callee, info.methodName, deleg info info.args)
                 |> makeCall com info.range info.returnType
             | _, None ->
-                CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args |> deleg)
+                CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args |> deleg info)
                 |> makeCall com info.range info.returnType
         | CoreLibPass.Static ->
             let meth = if info.methodName = ".ctor" then "create" else info.methodName
-            CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args |> deleg)
+            CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args |> deleg info)
             |> makeCall com info.range info.returnType
         |> Some
     | _ -> None
