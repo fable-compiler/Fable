@@ -1,0 +1,9 @@
+{
+    "module": "amd",
+    "sourceMaps": true,
+    "projFile": "./ozmo.fsx",
+    "outDir": "out",
+    "scripts": {
+        "prebuild": "npm install"
+    }
+}
