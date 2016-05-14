@@ -1,0 +1,9 @@
+{
+    "module": "amd",
+    "sourceMaps": true,
+    "projFile": "./canvas.fsx",
+    "outDir": "out",
+    "scripts": {
+        "prebuild": "npm install"
+    }
+}
