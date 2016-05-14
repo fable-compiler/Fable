@@ -70,14 +70,14 @@ module JS =
         [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: string[] -> Function
 
     and IArguments =
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> obj with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> obj with get, set
         abstract length: float with get, set
         abstract callee: Function with get, set
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<obj>
 
     and String =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
         abstract toString: unit -> string
         abstract charAt: pos: float -> string
         abstract charCodeAt: index: float -> float
@@ -401,7 +401,7 @@ module JS =
 
     and ReadonlyArray<'T> =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: float -> 'T with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: int -> 'T with get, set
         abstract toString: unit -> string
         abstract toLocaleString: unit -> string
         abstract concat: [<ParamArray>] items: 'U[] -> ResizeArray<'T>
@@ -422,7 +422,7 @@ module JS =
 
     and Array<'T> =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: float -> 'T with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: int -> 'T with get, set
         abstract toString: unit -> string
         abstract toLocaleString: unit -> string
         abstract push: [<ParamArray>] items: 'T[] -> float
@@ -501,7 +501,7 @@ module JS =
 
     and ArrayLike<'T> =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: float -> 'T with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: int -> 'T with get, set
 
     and ArrayBuffer =
         abstract byteLength: float with get, set
@@ -549,7 +549,7 @@ module JS =
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract copyWithin: target: float * start: float * ?``end``: float -> Int8Array
         abstract every: callbackfn: Func<float, float, Int8Array, bool> * ?thisArg: obj -> bool
@@ -597,7 +597,7 @@ module JS =
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract copyWithin: target: float * start: float * ?``end``: float -> Uint8Array
         abstract every: callbackfn: Func<float, float, Uint8Array, bool> * ?thisArg: obj -> bool
@@ -645,7 +645,7 @@ module JS =
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract copyWithin: target: float * start: float * ?``end``: float -> Uint8ClampedArray
         abstract every: callbackfn: Func<float, float, Uint8ClampedArray, bool> * ?thisArg: obj -> bool
@@ -693,7 +693,7 @@ module JS =
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract copyWithin: target: float * start: float * ?``end``: float -> Int16Array
         abstract every: callbackfn: Func<float, float, Int16Array, bool> * ?thisArg: obj -> bool
@@ -741,7 +741,7 @@ module JS =
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract copyWithin: target: float * start: float * ?``end``: float -> Uint16Array
         abstract every: callbackfn: Func<float, float, Uint16Array, bool> * ?thisArg: obj -> bool
@@ -789,7 +789,7 @@ module JS =
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract copyWithin: target: float * start: float * ?``end``: float -> Int32Array
         abstract every: callbackfn: Func<float, float, Int32Array, bool> * ?thisArg: obj -> bool
@@ -837,7 +837,7 @@ module JS =
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract copyWithin: target: float * start: float * ?``end``: float -> Uint32Array
         abstract every: callbackfn: Func<float, float, Uint32Array, bool> * ?thisArg: obj -> bool
@@ -885,7 +885,7 @@ module JS =
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract copyWithin: target: float * start: float * ?``end``: float -> Float32Array
         abstract every: callbackfn: Func<float, float, Float32Array, bool> * ?thisArg: obj -> bool
@@ -933,7 +933,7 @@ module JS =
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract copyWithin: target: float * start: float * ?``end``: float -> Float64Array
         abstract every: callbackfn: Func<float, float, Float64Array, bool> * ?thisArg: obj -> bool

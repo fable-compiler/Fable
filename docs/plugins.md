@@ -210,7 +210,7 @@ In the same `temp` folder, create a `fableconfig.json` file with these options:
 
 ```fsharp
 {
-    "env": "node",
+    "module": "commonjs",
     "plugins": ["build/plugins/Fable.Plugins.Random.dll"]
 }
 ```

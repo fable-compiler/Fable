@@ -8,7 +8,7 @@
 open Fable.Core
 open Fable.Import.Browser
 
-let canvas =  document.getElementsByTagName_canvas().[0.]
+let canvas =  document.getElementsByTagName_canvas().[0]
 canvas.width <- 1000.
 canvas.height <- 800.
 let ctx = canvas.getContext_2d()

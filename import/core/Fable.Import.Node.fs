@@ -558,7 +558,7 @@ and Buffer =
 
 
 and NodeBuffer =
-    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> float with get, set
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
     abstract length: float with get, set
     abstract write: string: string * ?offset: float * ?length: float * ?encoding: string -> float
     abstract toString: ?encoding: string * ?start: float * ?``end``: float -> string

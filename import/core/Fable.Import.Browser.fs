@@ -402,7 +402,7 @@ module Browser =
         abstract onaddtrack: Func<TrackEvent, obj> with get, set
         abstract onchange: Func<Event, obj> with get, set
         abstract onremovetrack: Func<TrackEvent, obj> with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> AudioTrack with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> AudioTrack with get, set
         abstract getTrackById: id: string -> AudioTrack
         abstract item: index: float -> AudioTrack
         [<Emit("$0.addEventListener('addtrack',$1...)")>] abstract addEventListener_addtrack: listener: Func<TrackEvent, obj> * ?useCapture: bool -> unit
@@ -585,7 +585,7 @@ module Browser =
 
     and CSSRuleList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> CSSRule with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> CSSRule with get, set
         abstract item: index: float -> CSSRule
 
     and CSSRuleListType =
@@ -938,7 +938,7 @@ module Browser =
         abstract writingMode: string with get, set
         abstract zIndex: string with get, set
         abstract zoom: string with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
         abstract getPropertyPriority: propertyName: string -> string
         abstract getPropertyValue: propertyName: string -> string
         abstract item: index: float -> string
@@ -1113,7 +1113,7 @@ module Browser =
 
     and ClientRectList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> ClientRect with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> ClientRect with get, set
         abstract item: index: float -> ClientRect
 
     and ClientRectListType =
@@ -1348,7 +1348,7 @@ module Browser =
 
     and DOMStringList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
         abstract contains: str: string -> bool
         abstract item: index: float -> string
 
@@ -1365,7 +1365,7 @@ module Browser =
 
     and DOMTokenList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
         abstract add: [<ParamArray>] token: string[] -> unit
         abstract contains: token: string -> bool
         abstract item: index: float -> string
@@ -1411,7 +1411,7 @@ module Browser =
 
     and DataTransferItemList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> DataTransferItem with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> DataTransferItem with get, set
         abstract add: data: File -> DataTransferItem
         abstract clear: unit -> unit
         abstract item: index: float -> DataTransferItem
@@ -2543,7 +2543,7 @@ module Browser =
 
     and FileList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> File with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> File with get, set
         abstract item: index: float -> File
 
     and FileListType =
@@ -2964,7 +2964,7 @@ module Browser =
 
     and HTMLCollection =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Element with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Element with get, set
         abstract item: ?nameOrIndex: obj * ?optionalIndex: obj -> Element
         abstract namedItem: name: string -> Element
 
@@ -5392,7 +5392,7 @@ module Browser =
 
     and MSRangeCollection =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Range with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Range with get, set
         abstract item: index: float -> Range
 
     and MSRangeCollectionType =
@@ -5499,7 +5499,7 @@ module Browser =
     and MediaList =
         abstract length: float with get, set
         abstract mediaText: string with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
         abstract appendMedium: newMedium: string -> unit
         abstract deleteMedium: oldMedium: string -> unit
         abstract item: index: float -> string
@@ -5579,7 +5579,7 @@ module Browser =
 
     and MimeTypeArray =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Plugin with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Plugin with get, set
         abstract item: index: float -> Plugin
         abstract namedItem: ``type``: string -> Plugin
 
@@ -5676,7 +5676,7 @@ module Browser =
 
     and NamedNodeMap =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Attr with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Attr with get, set
         abstract getNamedItem: name: string -> Attr
         abstract getNamedItemNS: namespaceURI: string * localName: string -> Attr
         abstract item: index: float -> Attr
@@ -5860,7 +5860,7 @@ module Browser =
 
     and NodeList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Node with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Node with get, set
         abstract item: index: float -> Node
 
     and NodeListType =
@@ -6153,7 +6153,7 @@ module Browser =
         abstract length: float with get, set
         abstract name: string with get, set
         abstract version: string with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> MimeType with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> MimeType with get, set
         abstract item: index: float -> MimeType
         abstract namedItem: ``type``: string -> MimeType
 
@@ -6163,7 +6163,7 @@ module Browser =
 
     and PluginArray =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Plugin with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Plugin with get, set
         abstract item: index: float -> Plugin
         abstract namedItem: name: string -> Plugin
         abstract refresh: ?reload: bool -> unit
@@ -8171,7 +8171,7 @@ module Browser =
     and SourceBufferList =
         inherit EventTarget
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> SourceBuffer with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> SourceBuffer with get, set
         abstract item: index: float -> SourceBuffer
 
     and SourceBufferListType =
@@ -8189,7 +8189,7 @@ module Browser =
     and Storage =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: key: string -> obj with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> string with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
         abstract clear: unit -> unit
         abstract getItem: key: string -> obj
         abstract key: index: float -> string
@@ -8235,7 +8235,7 @@ module Browser =
 
     and StyleSheetList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> StyleSheet with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> StyleSheet with get, set
         abstract item: ?index: float -> StyleSheet
 
     and StyleSheetListType =
@@ -8244,7 +8244,7 @@ module Browser =
 
     and StyleSheetPageList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> CSSPageRule with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> CSSPageRule with get, set
         abstract item: index: float -> CSSPageRule
 
     and StyleSheetPageListType =
@@ -8362,7 +8362,7 @@ module Browser =
 
     and TextRangeCollection =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> TextRange with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> TextRange with get, set
         abstract item: index: float -> TextRange
 
     and TextRangeCollectionType =
@@ -8428,7 +8428,7 @@ module Browser =
 
     and TextTrackCueList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> TextTrackCue with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> TextTrackCue with get, set
         abstract getCueById: id: string -> TextTrackCue
         abstract item: index: float -> TextTrackCue
 
@@ -8440,7 +8440,7 @@ module Browser =
         inherit EventTarget
         abstract length: float with get, set
         abstract onaddtrack: Func<TrackEvent, obj> with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> TextTrack with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> TextTrack with get, set
         abstract item: index: float -> TextTrack
         [<Emit("$0.addEventListener('addtrack',$1...)")>] abstract addEventListener_addtrack: listener: Func<TrackEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
@@ -8488,7 +8488,7 @@ module Browser =
 
     and TouchList =
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Touch with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Touch with get, set
         abstract item: index: float -> Touch
 
     and TouchListType =
@@ -8599,7 +8599,7 @@ module Browser =
         abstract onchange: Func<Event, obj> with get, set
         abstract onremovetrack: Func<TrackEvent, obj> with get, set
         abstract selectedIndex: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> VideoTrack with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> VideoTrack with get, set
         abstract getTrackById: id: string -> VideoTrack
         abstract item: index: float -> VideoTrack
         [<Emit("$0.addEventListener('addtrack',$1...)")>] abstract addEventListener_addtrack: listener: Func<TrackEvent, obj> * ?useCapture: bool -> unit
@@ -9731,7 +9731,7 @@ module Browser =
         abstract top: Window with get, set
         abstract window: Window with get, set
         abstract URL: URL with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> Window with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Window with get, set
         abstract alert: ?message: obj -> unit
         abstract blur: unit -> unit
         abstract cancelAnimationFrame: handle: float -> unit
@@ -10312,7 +10312,7 @@ module Browser =
     and NodeListOf<'TNode> =
         inherit NodeList
         abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: float -> 'TNode with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> 'TNode with get, set
         abstract item: index: float -> 'TNode
 
     and BlobPropertyBag =
