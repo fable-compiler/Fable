@@ -181,3 +181,15 @@ let ``Math.log works``() =
 [<Test>]
 let ``Math.log10 works``() =
     Math.Log10 232.12 |> checkTo3dp 2365
+
+[<Test>]
+let ``incr works``() =
+    let i = ref 5
+    incr i
+    Assert.AreEqual(!i, 6)
+    
+[<Test>]
+let ``decr works``() =
+    let i = ref 5
+    decr i
+    Assert.AreEqual(!i, 4)

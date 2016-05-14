@@ -343,6 +343,10 @@ module private AstPass =
         | "op_Dereference" -> makeGet r Fable.UnknownType args.Head (makeConst "contents") |> Some
         | "op_ColonEquals" -> Fable.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
         | "ref" -> makeJsObject r.Value [("contents", args.Head)] |> Some
+        | "incr" | "decr" ->
+            if info.methodName = "incr" then "++" else "--"
+            |> sprintf "void($0.contents%s)" 
+            |> emit info <| args |> Some
         // Conversions
         | "seq" | "id" | "box" | "unbox" -> wrap typ args.Head |> Some
         | "int" -> toInt com info args.Head |> Some
