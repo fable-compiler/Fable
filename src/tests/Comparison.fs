@@ -1,5 +1,6 @@
 [<NUnit.Framework.TestFixture>] 
 module Fable.Tests.Comparison
+open System
 open NUnit.Framework
 open Fable.Tests.Util
 open System.Collections.Generic
@@ -73,6 +74,8 @@ let ``Union equality works``() =
     equal true (u1 <> u3)
     equal false (u1 <> u2)
     equal false (u1 = u4)
+    Object.ReferenceEquals(u1, u1) |> equal true
+    Object.ReferenceEquals(u1, u2) |> equal false
 
 type RTest = { a: int; b: int }
     
@@ -85,6 +88,8 @@ let ``Record equality works``() =
     equal false (r1 = r3)
     equal true (r1 <> r3)
     equal false (r1 <> r2)
+    Object.ReferenceEquals(r1, r1) |> equal true
+    Object.ReferenceEquals(r1, r2) |> equal false
     
 type Test(i: int) =
     member x.Value = i
@@ -108,6 +113,8 @@ let ``Equality with objects implementing IComparable works``() =
     equal false (c1 = c3)
     equal true (c1 <> c3)
     equal false (c1 <> c2)
+    Object.ReferenceEquals(c1, c1) |> equal true
+    Object.ReferenceEquals(c1, c2) |> equal false
 
 [<Test>]
 let ``Array comparison works``() =  
@@ -222,3 +229,39 @@ let ``Comparison with objects implementing IComparable works``() =
     equal 0 (compare c1 c2)
     equal 1 (compare c1 c3)
     equal true (c1 > c3)    
+
+[<Test>]
+let ``max works with primitives``() =  
+    max 1 2 |> equal 2
+    Math.Max(1, 2) |> equal 2
+    max "a" "b" |> equal "b"
+        
+[<Test>]
+let ``max works with records``() =
+    let r1 = {a=1; b=1}
+    let r2 = {a=1; b=2}
+    max r1 r2 |> equal r2
+
+[<Test>]
+let ``max with objects implementing IComparable works``() =  
+    let c1 = Test(5)
+    let c2 = Test(5)
+    max c1 c2 |> equal c1
+    
+[<Test>]
+let ``min works with primitives``() =  
+    min 1 2 |> equal 1
+    Math.Min(1, 2) |> equal 1
+    min "a" "b" |> equal "a"
+        
+[<Test>]
+let ``min works with records``() =
+    let r1 = {a=1; b=1}
+    let r2 = {a=1; b=2}
+    min r1 r2 |> equal r1
+    
+[<Test>]
+let ``min with objects implementing IComparable works``() =  
+    let c1 = Test(5)
+    let c2 = Test(5)
+    min c1 c2 |> equal c2

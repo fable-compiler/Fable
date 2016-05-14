@@ -309,6 +309,10 @@ module private AstPass =
         | "op_LessThanOrEqual" | "lte" -> compare com info args (Some BinaryLessOrEqual)
         | "op_GreaterThan" | "gt" -> compare com info args (Some BinaryGreater)
         | "op_GreaterThanOrEqual" | "gte" -> compare com info args (Some BinaryGreaterOrEqual)
+        | "min" | "max" ->
+            let op = if info.methodName = "min" then BinaryLess else BinaryGreater
+            let comparison = compare com info args (Some op) 
+            emit info "$0 ? $1 : $2" (comparison.Value::args) |> Some
         // Operators
          | "op_Addition" | "op_Subtraction" | "op_Multiply" | "op_Division"
          | "op_Modulus" | "op_LeftShift" | "op_RightShift"
@@ -988,6 +992,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | "getHashCode" -> i.callee
+        | "referenceEquals" -> emit i "$0 === $1" i.args |> Some
         | meth -> InstanceCall (i.callee.Value, meth, i.args)
                   |> makeCall com i.range i.returnType |> Some
 
@@ -1010,6 +1015,7 @@ module private AstPass =
             | [Fable.PrimitiveType(Fable.Boolean _)] -> makeConst false
             | _ -> Fable.Null |> Fable.Value
             |> Some
+        // | "compare" -> emit info "$0 < $1 ? -1 : ($0 > $1 ? 1 : 0)" info.args |> Some
         | _ -> None
 
     let tryReplace com (info: Fable.ApplyInfo) =
