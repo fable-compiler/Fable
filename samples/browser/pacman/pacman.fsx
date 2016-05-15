@@ -9,11 +9,6 @@
 open Fable.Core
 open Fable.Import.Browser
 
-let incr r = r := !r + 1
-let decr r = r := !r - 1
-let min a b = if a > b then b else a
-let max a b = if a > b then a else b
- 
 [<Emit("Math.random()")>]
 let random (): float = failwith "JS only"
 
@@ -170,8 +165,8 @@ let draw f (lines:int[]) =
 let createBrush (context:CanvasRenderingContext2D) (r,g,b,a) =
   let id = context.createImageData(U2.Case1 1.0, 1.0)
   let d = id.data
-  d.[0.] <- float r; d.[1.] <- float g
-  d.[2.] <- float b; d.[3.] <- float a
+  d.[0] <- float r; d.[1] <- float g
+  d.[2] <- float b; d.[3] <- float a
   id
 
 let createBackground () =
@@ -366,7 +361,7 @@ let playLevel (keys:Keys, onLevelCompleted, onGameOver) =
     line.ToCharArray() 
     |> Array.map (fun c -> c))
 
-  let canvas = document.getElementsByTagName_canvas().[0.]
+  let canvas = document.getElementsByTagName_canvas().[0]
   canvas.width <- 256.
   canvas.height <- 256.  
   let context = canvas.getContext_2d()
@@ -544,7 +539,7 @@ let playLevel (keys:Keys, onLevelCompleted, onGameOver) =
 
 let rec game (keys:Keys) =
   keys.Reset()
-  let canvas = document.getElementsByTagName_canvas().[0.]
+  let canvas = document.getElementsByTagName_canvas().[0]
   let context = canvas.getContext_2d()
   let drawText(text,x,y) =
     context.fillStyle <- U3.Case1 "white"
@@ -568,7 +563,7 @@ let rec game (keys:Keys) =
       box true
     )
 
-  let canvas = document.getElementsByTagName_canvas().[0.]
+  let canvas = document.getElementsByTagName_canvas().[0]
   canvas.width <- 256.
   canvas.height <- 256.  
   start()

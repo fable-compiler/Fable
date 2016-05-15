@@ -43,17 +43,17 @@ let getCoordColor (x : int, y : int) : Color =
     iterCountToColor i
 
 let showSet() =
-    let ctx = document.getElementsByTagName_canvas().[0.].getContext_2d()
+    let ctx = document.getElementsByTagName_canvas().[0].getContext_2d()
     
     let img = ctx.createImageData(U2.Case1 (float width), float height)
     for y = 0 to height-1 do
         for x = 0 to width-1 do
             let index = (x + y * width) * 4
             let color = getCoordColor (x, y)
-            img.data.[float (index+0)] <- float color.r
-            img.data.[float (index+1)] <- float color.g
-            img.data.[float (index+2)] <- float color.b
-            img.data.[float (index+3)] <- float color.a
+            img.data.[index+0] <- float color.r
+            img.data.[index+1] <- float color.g
+            img.data.[index+2] <- float color.b
+            img.data.[index+3] <- float color.a
     ctx.putImageData(img, 0., 0.)
 
 showSet()

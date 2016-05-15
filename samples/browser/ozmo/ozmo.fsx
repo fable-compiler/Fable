@@ -8,11 +8,6 @@
 open Fable.Core
 open Fable.Import.Browser
 
-let incr r = r := !r + 1
-let decr r = r := !r - 1
-let min a b = if a > b then b else a
-let max a b = if a > b then a else b
-
 [<Emit("Math.random()")>]
 let random (): float = failwith "JS only"
 
@@ -134,7 +129,7 @@ let game (canvas: HTMLCanvasElement) (onCompleted) =
 let main () =
    Keyboard.init()
 
-   let canvas = document.getElementsByTagName_canvas().[0.]
+   let canvas = document.getElementsByTagName_canvas().[0]
    let ctx = canvas.getContext_2d()
 
    let drawText(text,x,y) =
