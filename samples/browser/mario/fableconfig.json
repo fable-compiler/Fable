@@ -1,9 +1,10 @@
 {
-    "module": "amd",
+    "module": "commonjs",
     "sourceMaps": true,
     "projFile": "./mario.fsx",
     "outDir": "out",
     "scripts": {
-        "prebuild": "npm install"
+        "prebuild": "npm install",
+        "postbuild": "webpack"
     }
 }
