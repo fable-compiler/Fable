@@ -88,11 +88,19 @@ module Patterns =
     let (|ExprType|) (expr: Fable.Expr) = expr.Type
     let (|EntityKind|) (ent: Fable.Entity) = ent.Kind
     
+    let (|TypeDefinition|_|) (t: FSharpType) =
+        if t.HasTypeDefinition then Some t.TypeDefinition else None
+    
     let (|NonAbbreviatedType|) (t: FSharpType) =
         let rec abbr (t: FSharpType) =
             if t.IsAbbreviation then abbr t.AbbreviatedType else t
         abbr t
-    
+        
+    let (|RefType|_|) = function
+        | NonAbbreviatedType(TypeDefinition tdef) as t
+            when tdef.TryFullName = Some "Microsoft.FSharp.Core.FSharpRef`1" -> Some t
+        | _ -> None
+        
     let (|ForOf|_|) = function
         | Let((_, value),
               Let((_, Call(None, meth, _, [], [])),

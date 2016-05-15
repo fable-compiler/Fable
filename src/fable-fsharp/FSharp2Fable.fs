@@ -145,7 +145,9 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Super |> Fable.Value 
 
     | BasicPatterns.ThisValue typ ->
-        Fable.This |> Fable.Value 
+        match typ with
+        | RefType _ -> makeIdent "$self" |> Fable.IdentValue |> Fable.Value // See #124
+        | _ -> Fable.This |> Fable.Value
 
     | BasicPatterns.Value thisVar when thisVar.IsMemberThisValue ->
         Fable.This |> Fable.Value 
@@ -163,6 +165,12 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Value valueKind
 
     (** ## Assignments *)
+    // HACK to fix constructors with self references (see #124)
+    | BasicPatterns.Let((_, BasicPatterns.ThisValue(RefType _)), body) ->
+        let r = makeRange fsExpr.Range
+        let assignment = Fable.VarDeclaration (makeIdent "$self", makeJsObject r [], true)
+        makeSequential (Some r) [assignment; transformExpr com ctx body]
+
     | BasicPatterns.Let((var, Transform com ctx value), body) ->
         let ctx, ident = bindIdentFrom com ctx var
         let body = transformExpr com ctx body

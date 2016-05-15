@@ -5,6 +5,25 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+type Base() =
+    let mutable x = 5
+    member this.Mutate i = x <- x + i
+    member __.Value = x
+
+type Test(i) as myself =
+    inherit Base()
+    let mutable y = 12
+    do myself.Mutate(i+2)
+    do myself.Mutate2(i)
+    member this.Mutate2 i = y <- y + i
+    member __.Value2 = y
+
+[<Test>]
+let ``Self references in constructors work``() = // See #124
+    let t = Test(5)
+    equal 12 t.Value
+    equal 17 t.Value2
+
 let log (a: string) (b: string) = String.Format("a = {0}, b = {0}", a, b)
 let logItem1 = log "item1"
 let logItem2 = log "item2"

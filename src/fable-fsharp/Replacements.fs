@@ -509,7 +509,7 @@ module private AstPass =
 
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
-        | "checkThis", _ -> Fable.This |> Fable.Value |> Some
+        | "checkThis", (None, [arg]) -> Some arg
         | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
         | "getString", TwoArgs (ar, idx)
         | "getArray", TwoArgs (ar, idx) ->
