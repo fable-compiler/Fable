@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "fable-compiler": "^0.2.12",
-    "webpack": "^1.13.0"
+    "webpack": "^1.13.0",
+    "source-map-loader": "^0.1.5"
   }
 }

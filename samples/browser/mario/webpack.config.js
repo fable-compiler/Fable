@@ -7,6 +7,15 @@ var cfg = {
   output: {
     path: path.join(__dirname, "public"),
     filename: "bundle.js"
+  },
+  module: {
+    preLoaders: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        loader: "source-map-loader"
+      }
+    ]
   }
 };
 
