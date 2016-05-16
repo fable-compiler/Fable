@@ -17,7 +17,59 @@ type Error =
 // 
 // and WeakSetConstructor =
 //     interface end
-    
+
+and Buffer =
+    inherit NodeBuffer
+
+and NodeBuffer =
+    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
+    abstract length: float with get, set
+    abstract write: string: string * ?offset: float * ?length: float * ?encoding: string -> float
+    abstract toString: ?encoding: string * ?start: float * ?``end``: float -> string
+    abstract toJSON: unit -> obj
+    abstract equals: otherBuffer: Buffer -> bool
+    abstract compare: otherBuffer: Buffer -> float
+    abstract copy: targetBuffer: Buffer * ?targetStart: float * ?sourceStart: float * ?sourceEnd: float -> float
+    abstract slice: ?start: float * ?``end``: float -> Buffer
+    abstract writeUIntLE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
+    abstract writeUIntBE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
+    abstract writeIntLE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
+    abstract writeIntBE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
+    abstract readUIntLE: offset: float * byteLength: float * ?noAssert: bool -> float
+    abstract readUIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
+    abstract readIntLE: offset: float * byteLength: float * ?noAssert: bool -> float
+    abstract readIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
+    abstract readUInt8: offset: float * ?noAsset: bool -> float
+    abstract readUInt16LE: offset: float * ?noAssert: bool -> float
+    abstract readUInt16BE: offset: float * ?noAssert: bool -> float
+    abstract readUInt32LE: offset: float * ?noAssert: bool -> float
+    abstract readUInt32BE: offset: float * ?noAssert: bool -> float
+    abstract readInt8: offset: float * ?noAssert: bool -> float
+    abstract readInt16LE: offset: float * ?noAssert: bool -> float
+    abstract readInt16BE: offset: float * ?noAssert: bool -> float
+    abstract readInt32LE: offset: float * ?noAssert: bool -> float
+    abstract readInt32BE: offset: float * ?noAssert: bool -> float
+    abstract readFloatLE: offset: float * ?noAssert: bool -> float
+    abstract readFloatBE: offset: float * ?noAssert: bool -> float
+    abstract readDoubleLE: offset: float * ?noAssert: bool -> float
+    abstract readDoubleBE: offset: float * ?noAssert: bool -> float
+    abstract writeUInt8: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeUInt16LE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeUInt16BE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeUInt32LE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeUInt32BE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeInt8: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeInt16LE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeInt16BE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeInt32LE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeInt32BE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeFloatLE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeFloatBE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeDoubleLE: value: float * offset: float * ?noAssert: bool -> float
+    abstract writeDoubleBE: value: float * offset: float * ?noAssert: bool -> float
+    abstract fill: value: obj * ?offset: float * ?``end``: float -> Buffer
+
+
 module NodeJS =
     type ErrnoException =
         inherit Error
@@ -33,9 +85,11 @@ module NodeJS =
         abstract once: ``event``: string * listener: Function -> EventEmitter
         abstract removeListener: ``event``: string * listener: Function -> EventEmitter
         abstract removeAllListeners: ?``event``: string -> EventEmitter
-        abstract setMaxListeners: n: float -> unit
+        abstract setMaxListeners: n: int -> unit
+        abstract getMaxListeners: unit -> int
         abstract listeners: ``event``: string -> ResizeArray<Function>
         abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
+        abstract listenerCount: ``type``: string -> int
 
     and ReadableStream =
         inherit EventEmitter
@@ -230,6 +284,8 @@ module net =
         member __.isIP(input: string): float = failwith "JS only"
         member __.isIPv4(input: string): bool = failwith "JS only"
         member __.isIPv6(input: string): bool = failwith "JS only"
+        
+let [<Import("*","net")>] net: net.Globals = failwith "JS only"
 
 
 module crypto =
@@ -314,6 +370,8 @@ module crypto =
         member __.pseudoRandomBytes(size: float): Buffer = failwith "JS only"
         member __.pseudoRandomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
 
+let [<Import("*","crypto")>] crypto: crypto.Globals = failwith "JS only"
+
 
 module events =
     type [<Import("EventEmitter","events")>] EventEmitter() =
@@ -323,10 +381,14 @@ module events =
             member __.once(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
             member __.removeListener(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
             member __.removeAllListeners(?``event``: string): NodeJS.EventEmitter = failwith "JS only"
-            member __.setMaxListeners(n: float): unit = failwith "JS only"
+            member __.setMaxListeners(n: int): unit = failwith "JS only"
+            member __.getMaxListeners(): int = failwith "JS only"
             member __.listeners(``event``: string): ResizeArray<Function> = failwith "JS only"
             member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
+            member __.listenerCount(``type``: string): int = failwith "JS only"
         member __.listenerCount(emitter: EventEmitter, ``event``: string): float = failwith "JS only"
+        static member EventEmitter with get(): EventEmitter = failwith "JS only"
+        static member defaultMaxListeners with get(): int = failwith "JS only"
 
 
 module stream =
@@ -508,13 +570,16 @@ module tls =
         member __.createSecurePair(?credentials: crypto.Credentials, ?isServer: bool, ?requestCert: bool, ?rejectUnauthorized: bool): SecurePair = failwith "JS only"
         member __.createSecureContext(details: SecureContextOptions): SecureContext = failwith "JS only"
 
+let [<Import("*","tls")>] tls: tls.Globals = failwith "JS only"
+
 
 module child_process =
     type ChildProcess =
-        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
+        inherit EventEmitter
         abstract stdin: stream.Writable with get, set
         abstract stdout: stream.Readable with get, set
         abstract stderr: stream.Readable with get, set
+        abstract stdio: U2<stream.Readable,stream.Writable>[] with get, set
         abstract pid: float with get, set
         abstract kill: ?signal: string -> unit
         abstract send: message: obj * ?sendHandle: obj -> unit
@@ -532,6 +597,8 @@ module child_process =
         member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = failwith "JS only"
         member __.execSync(command: string, ?options: obj): U2<string, Buffer> = failwith "JS only"
         member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = failwith "JS only"
+
+let [<Import("*","child_process")>] child_process: child_process.Globals = failwith "JS only"
 
 
 type NodeRequireFunction =
@@ -552,58 +619,6 @@ and NodeModule =
     abstract loaded: bool with get, set
     abstract parent: obj with get, set
     abstract children: ResizeArray<obj> with get, set
-
-and Buffer =
-    inherit NodeBuffer
-
-
-and NodeBuffer =
-    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-    abstract length: float with get, set
-    abstract write: string: string * ?offset: float * ?length: float * ?encoding: string -> float
-    abstract toString: ?encoding: string * ?start: float * ?``end``: float -> string
-    abstract toJSON: unit -> obj
-    abstract equals: otherBuffer: Buffer -> bool
-    abstract compare: otherBuffer: Buffer -> float
-    abstract copy: targetBuffer: Buffer * ?targetStart: float * ?sourceStart: float * ?sourceEnd: float -> float
-    abstract slice: ?start: float * ?``end``: float -> Buffer
-    abstract writeUIntLE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract writeUIntBE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract writeIntLE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract writeIntBE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readUIntLE: offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readUIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readIntLE: offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readUInt8: offset: float * ?noAsset: bool -> float
-    abstract readUInt16LE: offset: float * ?noAssert: bool -> float
-    abstract readUInt16BE: offset: float * ?noAssert: bool -> float
-    abstract readUInt32LE: offset: float * ?noAssert: bool -> float
-    abstract readUInt32BE: offset: float * ?noAssert: bool -> float
-    abstract readInt8: offset: float * ?noAssert: bool -> float
-    abstract readInt16LE: offset: float * ?noAssert: bool -> float
-    abstract readInt16BE: offset: float * ?noAssert: bool -> float
-    abstract readInt32LE: offset: float * ?noAssert: bool -> float
-    abstract readInt32BE: offset: float * ?noAssert: bool -> float
-    abstract readFloatLE: offset: float * ?noAssert: bool -> float
-    abstract readFloatBE: offset: float * ?noAssert: bool -> float
-    abstract readDoubleLE: offset: float * ?noAssert: bool -> float
-    abstract readDoubleBE: offset: float * ?noAssert: bool -> float
-    abstract writeUInt8: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeUInt16LE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeUInt16BE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeUInt32LE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeUInt32BE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt8: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt16LE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt16BE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt32LE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt32BE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeFloatLE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeFloatBE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeDoubleLE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeDoubleBE: value: float * offset: float * ?noAssert: bool -> float
-    abstract fill: value: obj * ?offset: float * ?``end``: float -> Buffer
 
 let [<Global>] ``process``: NodeJS.Process = failwith "JS only"
 let [<Global>] ``global``: NodeJS.Global = failwith "JS only"
