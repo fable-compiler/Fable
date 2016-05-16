@@ -54,6 +54,72 @@ let data =
 > The [todomvc sample](/samples/browser/todomvc/) is a good example
 on how to program dynamically with Fable.
 
+<<<<<<< HEAD
+=======
+## Automatic currying of functions
+When you create a function at top level in F#, for example
+```fsharp
+open Fable.Core
+
+let f1 a b = a + b
+let callf1 = f1 2 5
+```
+this will be translated into a normal javascript function of two parameters and if called directly Fable will generate the obvious function call
+of two paramaters in javascript:
+```javascript
+var f1 = function(a,b) { return a+b;}
+var callf1 = f1(2,5);
+```
+
+But as soon as you do anything to the function, like passing it as a function or unspecified parameter, copying it, putting it into an object,
+or indeed if the function was defined within an inner scope, fable will generate a function of one parameter which produces a function of one parameter...
+
+For example, when you create a function at top level in F#:
+```fsharp
+open Fable.Core
+
+let f1 a b = a + b
+let f1copy = f1
+let callf1copy = f1 2 5
+```
+produces:
+```javascript
+var f1 = function(a,b) {return a+b; }
+var f1copy = function(a) { return function(b) { return a+b;};}
+var callf1copy = f1copy(2)(5)
+```
+
+If you are working entirely within F#, this probably won't matter much. But if you are using the `$` operator for dynamic access to javascript, or are
+passing F# defined methods into javascript callbacks or structures, you may have problems if the javascript expects a function of several parameters and you unwittingly
+provide a curried version ( see _Foreign Interfaces_ below )
+
+The workaround is to use delegates, typically by casting to Func<...> in the appropriate place. So:
+```fsharp
+open Fable.Core
+
+let f1 a b = a + b
+
+let [<Global>]jsstructure:obj = failwith "JS only" // a quick and dirty way 
+ // of telling the compiler that jsstructure is a global variable in JS
+
+jsstructure?callback1 <- f1 // produces curried version, probably not what you want
+jsstructure?callback2 <- Func<_,_,_> f1 // converts f1 to delegate and wraps it // as normal function with multiple parameters
+
+```
+so we get:
+```javascript
+jsstructure.callback1 = function (a) {
+    return function (b) {
+        return f1(a, b);
+    };
+};
+
+jsstructure.callback2 = function (delegateArg0, delegateArg1) {
+    return f1(delegateArg0, delegateArg1);
+};
+
+```
+>>>>>>> e4758bb... Update interacting.md to explain automatic currying. See issue #125.
 
 ## Emit attribute
 
