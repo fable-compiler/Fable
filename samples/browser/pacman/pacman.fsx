@@ -18,11 +18,6 @@
 open Fable.Core
 open Fable.Import.Browser
 
-let incr r = r := !r + 1
-let decr r = r := !r - 1
-let min a b = if a > b then b else a
-let max a b = if a > b then a else b
-
 [<Emit("Math.random()")>]
 let random (): float = failwith "JS only"
 (**
@@ -40,7 +35,7 @@ arrays in the following section, so that the game is stand-alone and easily port
 The following block embeds the ghosts and other parts of graphics as Base64 encoded strings.
 This way, we can load them without making additional server requests:
 *)
-module Images = 
+module Images =
   let cyand = (*[omit:"data:image/png;base64,iVBOR..."]*)"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAiUlEQVQoU8WSURKAIAhE8Sh6Fc/tVfQoJdqiMDTVV4wfufAAmw3kxEHUz4pA1I8OJVjAKZZ6+XiC0ATTB/gW2mEFtlpHLqaktrQ6TxUQSRCAPX2AWPMLyM0VmPOcV8palxt6uoAMpDjfWJt+o6cr0DPDnfYjyL94NwIcYjXcR/FuYklcxrZ3OO0Ep4dJ/3dR5jcAAAAASUVORK5CYII="(*[/omit]*)
   let oranged = (*[omit:"data:image/png;base64,iVBOR..."]*)"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAgklEQVQoU8WS0RGAIAxDZRRYhblZBUZBsBSaUk/9kj9CXlru4g7r1FxBdsFpGwoa2NwrYIFPEIeM6QS+hQQMYC70EjzuuOlt6gT5kRGGTf0Cx5qfwJYOYIw0L6W1bg+09Al2wAcCS8Y/WjqAZhluxD/B3ghZBO6n1sadzLLEbNSg8pzXIVLvbNvPwAAAAABJRU5ErkJggg=="(*[/omit]*)
   (*[omit:(Other images omitted)]*)
@@ -73,7 +68,7 @@ using ASCII-art encoding. Where `/7LJ` represent corners (upper-left, upper-righ
 `!|-_` represent walls (left, right, top, bottom)` and `o.` represent two kinds of pills in the maze.
 *)
 // Define the structure of the maze using ASCII
-let maze = 
+let maze =
   (*[omit:"##|./__7./___7.|!./___7./__7.|##,"...]*)
   ("\
 ##/------------7/------------7##,\
@@ -108,10 +103,10 @@ _______7./7 |      ! /7./_______,\
 ##|..........................|##,\
 ##L--------------------------J##").Split(',') (*[/omit]*)
 
-let tileBits = 
+let tileBits =
  [| [|0b00000000;0b00000000;0b00000000;
       0b00000000;0b00000011;0b00000100;
-      0b00001000;0b00001000|] 
+      0b00001000;0b00001000|]
     (*[omit:[|0b00000000;0b00000000;...]*) // tl
     [|0b00000000;0b00000000;0b00000000;0b00000000;0b11111111;0b00000000;0b00000000;0b00000000|] // top
     [|0b00000000;0b00000000;0b00000000;0b00000000;0b11000000;0b00100000;0b00010000;0b00010000|] // tr
@@ -125,7 +120,7 @@ let tileBits =
     [|0b00000000;0b00011000;0b00111100;0b01111110;0b01111110;0b00111100;0b00011000;0b00000000|] // power
   (*[/omit]*) |]
 
-let blank = 
+let blank =
   [| 0b00000000;0b00000000;0b00000000;
      (*[omit:0b00000000;0b00000000; ...]*) 0b00000000;0b00000000;0b00000000;0b00000000;0b00000000 (*[/omit]*)|]
 (**
@@ -135,15 +130,15 @@ The following functions parse the maze representation and check various properti
 Those are used for rendering, but also for checking whether Pacman can go in a given direction.
 *)
 /// Characters _|!/7LJ represent different walls
-let isWall (c:char) = 
+let isWall (c:char) =
   "_|!/7LJ-".IndexOf(c) <> -1
 
 /// Returns ' ' for positions outside of range
-let tileAt (x,y) = 
+let tileAt (x,y) =
   if x < 0 || x > 30 then ' ' else maze.[y].[x]
 
 /// Is the maze tile at x,y a wall?
-let isWallAt (x,y) = 
+let isWallAt (x,y) =
   tileAt(x,y) |> isWall
 
 // Is Pacman at a point where it can turn?
@@ -193,8 +188,8 @@ let draw f (lines:int[]) =
 let createBrush (context:CanvasRenderingContext2D) (r,g,b,a) =
   let id = context.createImageData(U2.Case1 1.0, 1.0)
   let d = id.data
-  d.[0.] <- float r; d.[1.] <- float g
-  d.[2.] <- float b; d.[3.] <- float a
+  d.[0] <- float r; d.[1] <- float g
+  d.[2] <- float b; d.[3] <- float a
   id
 (**
 The main function for rendering background just fills the canvas with a black color and
@@ -315,7 +310,7 @@ let route_home =
   flood canFill fill (16,15)
   numbers
 
-/// Find the shortest way home from specified location 
+/// Find the shortest way home from specified location
 /// (adjusted by offset in which ghosts start)
 let fillValue (x,y) (ex,ey) =
   let bx = int (floor(float ((x+6+ex)/8)))
@@ -354,7 +349,7 @@ let chooseDirection (ghost:Ghost) =
     v
   else
     // Other ghosts pick one direction twoards Pacman
-    let xs = 
+    let xs =
       directions
       |> Array.map fst
       |> Array.filter (not << isBackwards)
@@ -364,7 +359,7 @@ let chooseDirection (ghost:Ghost) =
       xs.[int (floor i)]
 
 (**
-## Input and output helpers 
+## Input and output helpers
 
 ### Keyboard input
 The `Keyboard` module records the keys that are currently pressed in a set and
@@ -398,16 +393,16 @@ mouth.
 *)
 
 module Pacman =
-  // Load the different Pacman images 
-  let private pu1, pu2 = 
+  // Load the different Pacman images
+  let private pu1, pu2 =
     createImage Images.pu1, createImage Images.pu2
-  let private pd1, pd2 = 
+  let private pd1, pd2 =
     createImage Images.pd1, createImage Images.pd2
-  let private pl1, pl2 = 
+  let private pl1, pl2 =
     createImage Images.pl1, createImage Images.pl2
-  let private pr1, pr2 = 
+  let private pr1, pr2 =
     createImage Images.pr1, createImage Images.pr2
-  
+
   // Represent Pacman's mouth state
   let private lastp = ref pr1
 
@@ -477,7 +472,7 @@ In the first part, the function finds the `<canvas>` element, paints it with bla
 creates other graphical elements - namely the game background, ghosts and eyes:
 *)
   // Fill the canvas element
-  let canvas = document.getElementsByTagName_canvas().[0.]
+  let canvas = document.getElementsByTagName_canvas().[0]
   canvas.width <- 256.
   canvas.height <- 256.
   let context = canvas.getContext_2d()
@@ -486,7 +481,7 @@ creates other graphical elements - namely the game background, ghosts and eyes:
   let bonusImages =
     [| createImage Images._200; createImage Images._400;
        createImage Images._800; createImage Images._1600 |]
-  
+
   // Load images for rendering
   let background = createBackground()
   let ghosts = createGhosts(context)
@@ -594,7 +589,7 @@ The logic is captured by `eatPill`, `touchingGhosts` and `collisionDetection` fu
        (x < px + 13 && x >= px)) &&
       ((py >= y && py < y + 13) ||
        (y < py + 13 && y >= py)) )
-(** 
+(**
 The `collisionDetection` function implements the right response to collision with a ghost:
 *)
   /// Handle collision detections between Pacman and ghosts
@@ -619,7 +614,7 @@ The `collisionDetection` function implements the right response to collision wit
         flashCountdown := 30
     if !flashCountdown > 0 then decr flashCountdown
 
-  /// Updates bonus points 
+  /// Updates bonus points
   let updateBonus () =
     let removals,remainders =
       !bonuses
@@ -675,7 +670,7 @@ The next three functions render ghosts, current score and bonuses:
   let renderBonus () =
     !bonuses |> List.iter (fun (_,(image,x,y)) ->
       context.drawImage(U3.Case1 image, float x, float y))
-(** 
+(**
 Finally, the `render` function puts everything together - note that this needs
 to be done in the right order so that we do not accidentally draw dots over a Pacman!
 *)
@@ -706,7 +701,7 @@ the starting state of the game (with "CLICK TO START" text) and start the game!
 let rec game () =
   // Initialize keyboard and canvas
   Keyboard.reset()
-  let canvas = document.getElementsByTagName_canvas().[0.]
+  let canvas = document.getElementsByTagName_canvas().[0]
   let context = canvas.getContext_2d()
 
   // A helper function to draw text
@@ -714,7 +709,7 @@ let rec game () =
     context.fillStyle <- U3.Case1 "white"
     context.font <- "bold 8px";
     context.fillText(text, x, y)
-  
+
   // Called when level is completed
   let levelCompleted () =
     drawText("COMPLETED",96.,96.)
@@ -737,7 +732,7 @@ let rec game () =
       box true )
 
   // Resize canvas and get ready for a game
-  let canvas = document.getElementsByTagName_canvas().[0.]
+  let canvas = document.getElementsByTagName_canvas().[0]
   canvas.width <- 256.
   canvas.height <- 256.
   start()

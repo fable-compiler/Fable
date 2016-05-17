@@ -16,9 +16,6 @@
 open Fable.Core
 open Fable.Import.Browser
 
-let min a b = if a > b then b else a
-let max a b = if a > b then a else b
-
 [<Emit("Math.random()")>]
 let rand (): float = failwith "JS only"
 
@@ -46,20 +43,20 @@ let atmosHeight = 300.
 
 Keyboard.init()
 
-let canvas = document.getElementsByTagName_canvas().[0.]
+let canvas = document.getElementsByTagName_canvas().[0]
 let ctx = canvas.getContext_2d()
 canvas.width <- width
 canvas.height <- height
 
 (**
 This demo shows a simple game written using Fable and HTML5 canvas. One interesting
-aspect of the game is the [asynchronous game loop](#Asynchronous-game-loop), which 
+aspect of the game is the [asynchronous game loop](#Asynchronous-game-loop), which
 updates the game state 60 times per second in a loop. This is implemented using F#
-asynchronous workflows, which make it possible to capture the logic as a recursive 
+asynchronous workflows, which make it possible to capture the logic as a recursive
 function, rather than using mutable state.
 
 The Ozmo game uses the [Keyboard helpers from the Mario sample](../mario/index.html#Keyboard-helpers),
-so if you want to see those, check out the Mario sample first - it is also simpler, 
+so if you want to see those, check out the Mario sample first - it is also simpler,
 so you can check it out for lighter introduction to Fable and F#.
 
 ## Drawing the world
@@ -103,19 +100,19 @@ Each of the balls in the game is represented by a `Blob` value that stores
 the X and Y coordinates, size of the blob (radius), its colour and current speed.
 The type is used for both falling blobs and for the player's blob:
 *)
-type Blob = 
-  { X:float; Y:float; 
-    vx:float; vy:float; 
+type Blob =
+  { X:float; Y:float;
+    vx:float; vy:float;
     Radius:float; color:string }
 (**
 Drawing blob on the canvas is quite easy - the following function does that using
 the `arc` function of the 2D rendering context of the canvas:
 *)
-let drawBlob (ctx:CanvasRenderingContext2D) 
+let drawBlob (ctx:CanvasRenderingContext2D)
     (canvas:HTMLCanvasElement) (blob:Blob) =
   ctx.beginPath()
   ctx.arc
-    ( blob.X, canvas.height - (blob.Y + floorHeight + blob.Radius), 
+    ( blob.X, canvas.height - (blob.Y + floorHeight + blob.Radius),
       blob.Radius, 0., 2. * System.Math.PI, false )
   ctx.fillStyle <- U3.Case1 blob.color
   ctx.fill()
@@ -142,16 +139,16 @@ let gravity (blob:Blob) =
 /// Bounde Player's blob off the wall if it hits it
 let bounce (blob:Blob) =
   let n = width
-  if blob.X < 0. then 
+  if blob.X < 0. then
     { blob with X = -blob.X; vx = -blob.vx }
-  elif (blob.X > n) then 
+  elif (blob.X > n) then
     { blob with X = n - (blob.X - n); vx = -blob.vx }
   else blob
 
-/// Move blob by one step - adds X and Y 
+/// Move blob by one step - adds X and Y
 /// velocities to the X and Y coordinates
 let move (blob:Blob) =
-  { blob with 
+  { blob with
       X = blob.X + blob.vx
       Y = max 0.0 (blob.Y + blob.vy) }
 (**
@@ -172,9 +169,10 @@ let collide (a:Blob) (b:Blob) =
 
 /// Remove all falling blobs that hit Player's blob
 let absorb (blob:Blob) (drops:Blob list) =
+<<<<<<< HEAD
   drops |> List.filter (fun drop ->
     collide blob drop |> not )
-(** 
+(**
 ## Game logic helpers
 
 Next, we define a couple of helpers for generating and updating the falling blobs.
@@ -184,8 +182,8 @@ functions are used to generate new blobs:
 let grow = "black"
 let shrink = "white"
 
-let newDrop color = 
-  { X = rand()*width*0.8 + (width*0.1) 
+let newDrop color =
+  { X = rand()*width*0.8 + (width*0.1)
     Y=600.; Radius=10.; vx=0.; vy = 0.0
     color=color }
 
@@ -198,27 +196,27 @@ function takes current drops and a countdown and returns a pair with new drops a
 a new countdown. It implements simple logic:
 
  - If we generated drop in last 8 steps, do nothing and decrement counter
- - Roll an 8 sided dice and if we get 1, generate new blob 
+ - Roll an 8 sided dice and if we get 1, generate new blob
    (2/3 are shrinkind and 1/3 are growing)
  - Otherwise, do nothing and return previous state
 
 *)
 /// Update drops and countdown in each step
-let updateDrops drops countdown = 
-  if countdown > 0 then 
+let updateDrops drops countdown =
+  if countdown > 0 then
     drops, countdown - 1
   elif floor(rand()*8.) = 0. then
-    let drop = 
-      if floor(rand()*3.) = 0. then newGrow() 
+    let drop =
+      if floor(rand()*3.) = 0. then newGrow()
       else newShrink()
     drop::drops, 8
   else drops, countdown
 
 /// Count growing and shrinking drops in the list
-let countDrops drops = 
+let countDrops drops =
   let count color =
-    drops 
-    |> List.filter (fun drop -> drop.color = color) 
+    drops
+    |> List.filter (fun drop -> drop.color = color)
     |> List.length
   count grow, count shrink
 
@@ -248,15 +246,15 @@ There are three states in which the game can be:
    until the game ends.
  - After finishing, the `completed` state displays a message and sleeps for 10 seconds
    before starting a new game.
-   
+
 Using asynchronous workflows, the state machine can be represented using 3 mutually
 recursive functions, each representing one of the states. The `game` and `completed`
 states are simple:
 *)
 /// Starts a new game
 let rec game () = async {
-  let blob = 
-    { X = 300.; Y=0.; Radius=50.; 
+  let blob =
+    { X = 300.; Y=0.; Radius=50.;
       vx=0.; vy=0.; color="black" }
   return! update blob [newGrow ()] 0 }
 
@@ -279,9 +277,9 @@ and update blob drops countdown = async {
 
   // Count drops, apply physics and count them again
   let beforeGrow, beforeShrink = countDrops drops
-  let drops = 
-    drops 
-    |> List.map (gravity >> move) 
+  let drops =
+    drops
+    |> List.map (gravity >> move)
     |> absorb blob
   let afterGrow, afterShrink = countDrops drops
   let drops = drops |> List.filter (fun blob -> blob.Y > 0.)
@@ -292,7 +290,7 @@ and update blob drops countdown = async {
   let radius = max 5.0 radius
 
   // Update radius and apply keyboard events
-  let blob = { blob with Radius = radius }   
+  let blob = { blob with Radius = radius }
   let blob = blob |> step (Keyboard.arrows())
 
   // Render the new game state
@@ -302,12 +300,12 @@ and update blob drops countdown = async {
 
   // If the game completed, switch state
   // otherwise sleep and update recursively!
-  if blob.Radius > 150. then 
+  if blob.Radius > 150. then
     return! completed()
-  else 
+  else
     do! Async.Sleep(int (1000. / 60.))
     return! update blob drops countdown }
-(** 
+(**
 The last thing that we need to do is to start the game in the initial `game`
 state using `Async.StartImmediate`:
 *)

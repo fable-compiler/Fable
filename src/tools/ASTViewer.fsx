@@ -8,6 +8,13 @@ open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns
 
+let (|NonAbbreviatedType|) (t: FSharpType) =
+    let rec abbr (t: FSharpType) =
+        if t.IsAbbreviation then abbr t.AbbreviatedType else t
+    abbr t
+    
+let (|Typ|) (e: FSharpMemberOrFunctionOrValue) = e.FullType
+
 let checker = FSharpChecker.Create(keepAssemblyContents=true)
 
 let parse projFile =
@@ -33,15 +40,15 @@ let rec printDecls prefix decls =
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
             if meth.IsCompilerGenerated |> not then
                 printfn "%s%i) METHOD: %s" prefix i meth.DisplayName
-                // match body with
-                // | NewDelegate(_, Lambda(arg1, Lambda(arg2, _))) ->
-                //     printfn "arg1 = arg2 %A" (arg1.IsCompilerGenerated)
-                // | _ -> ()
                 printfn "%A" body
         | FSharpImplementationFileDeclaration.InitAction (expr) ->
             printfn "%s%i) ACTION" prefix i
             printfn "%A" expr
         )
+        
+and lookup f (expr: FSharpExpr) =
+    f expr
+    List.iter (lookup f) expr.ImmediateSubExpressions
 
 let proj = parse "temp/Test.fsx"
 proj.AssemblyContents.ImplementationFiles
