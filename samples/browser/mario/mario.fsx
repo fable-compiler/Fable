@@ -6,9 +6,10 @@
 
 #r "node_modules/fable-core/Fable.Core.dll"
 
-open Fable.Core
+open Fable.Core 
 open Fable.Import.Browser
 
+Fable.Import.Node.require.Invoke("core-js") |> ignore
 /// Handles keydown and keyup events of the window and exposes them
 /// using the 'arrows' property (which is a tuple int*int with -1 if the
 /// left/up key is pressed, 1 if right/down key is pressed and 0 otherwise)
