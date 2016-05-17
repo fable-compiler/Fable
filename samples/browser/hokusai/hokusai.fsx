@@ -143,10 +143,10 @@ and we'll use F# dynamic operator so that `doc?canvas` returns an HTML element w
 /// Set pixel value in ImageData to a given color
 let setPixel (img:ImageData) x y width (r, g, b) =
   let index = (x + y * int width) * 4
-  img.data.[float (index+0)] <- r
-  img.data.[float (index+1)] <- g
-  img.data.[float (index+2)] <- b
-  img.data.[float (index+3)] <- 255.0
+  img.data.[index+0] <- r
+  img.data.[index+1] <- g
+  img.data.[index+2] <- b
+  img.data.[index+3] <- 255.0
 
 /// Dynamic operator that returns HTML element by ID
 let (?) (doc:Document) name :'R =

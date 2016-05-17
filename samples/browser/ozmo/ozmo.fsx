@@ -169,7 +169,6 @@ let collide (a:Blob) (b:Blob) =
 
 /// Remove all falling blobs that hit Player's blob
 let absorb (blob:Blob) (drops:Blob list) =
-<<<<<<< HEAD
   drops |> List.filter (fun drop ->
     collide blob drop |> not )
 (**
