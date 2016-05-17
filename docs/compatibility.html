@@ -79,7 +79,7 @@
     <div class="col-sm-12 col-md-10 col-lg-8">
       <p>The compiler follows two rough guidelines when transforming the code:</p>
 <ul>
-<li>Keep the <a href="/src/fable-js/fable-core.js">core library</a> small, falling back to native JS methods when possible.</li>
+<li>Keep the <a href="https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js">core library</a> small, falling back to native JS methods when possible.</li>
 <li>
 If it makes the JS code cleaner and more idiomatic, make small changes in F# semantics
 that don't have a big impact on developers' expectations.
@@ -181,13 +181,13 @@ more than one argument to JS code, please wrap it in a delegate first (e.g.,
 <code>Func&lt;_,_,_&gt;(fun x y -&gt; x + y)</code>). If the signature of the method expects a
 delegate, this will be done automatically by the compiler.</p>
 <h2><a name="Event-and-Observable" class="anchor" href="#Event-and-Observable">Event and Observable</a></h2>
-<p>Events are not implemented yet, please use <a href="/src/tests/ObservableTests.fs">Observable</a> instead.</p>
+<p>Events are not implemented yet, please use <a href="https://github.com/fsprojects/Fable/blob/master/src/tests/ObservableTests.fs">Observable</a> instead.</p>
 <h2><a name="Object-Expressions" class="anchor" href="#Object-Expressions">Object Expressions</a></h2>
 <p>Object expressions are compatible for the most general cases.</p>
 <h2><a name="Units-of-measure" class="anchor" href="#Units-of-measure">Units of measure</a></h2>
 <p>Units of measure are compatible (at least for <code>int</code> and <code>float</code>) but they will
 be erased from the generated JS code.</p>
-<p>You can check the <a href="/src/tests">tests</a> when in doubt. If there's a test for something,
+<p>You can check the <a href="https://github.com/fsprojects/Fable/tree/master/src/tests">tests</a> when in doubt. If there's a test for something,
 it's supported :)</p>
 
 
