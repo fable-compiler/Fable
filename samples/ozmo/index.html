@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Alfonso Garcia-Caro">
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <link href='https://fonts.googleapis.com/css?family=Josefin+Sans:400,300,600,700' rel='stylesheet' type='text/css'>
+    <link href="/content/custom.css" rel='stylesheet' type='text/css'>
+    <script src="/content/tips.js"></script>
+    <link rel="stylesheet" type="text/css" href="/content/snippets.css" />
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+    <script language="javascript" type="text/javascript">
+      function init() {
+          websocket = new WebSocket("ws://"+window.location.host+"/websocket");
+          websocket.onmessage = function(evt) { location.reload(); };
+      }
+      window.addEventListener("load", init, false);
+    </script>
+    
+  <title>Ozmo game - F# |> BABEL</title>
+  <script src="../scripts/core.min.js"></script>
+  <script src="../scripts/require.js"></script>
+  <meta name="description" content="Phil Trelford's classic ported to Fable">
+
+</head>
+<body>
+
+  <div class="fb-navbar">
+  <div class="container">
+  <nav class="navbar navbar-default">
+    <div class="navbar-wrapper">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">Fable</a>
+      </div>
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li class=""><a href="/">home</a></li>
+          <li class="active"><a href="/samples.html">samples</a></li>
+          <li class=""><a href="/docs.html">docs</a></li>
+          <li><a href="https://github.com/fsprojects/Fable">source</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  </div>
+  </div>
+
+  <div class="fb-content-wrapper">
+  
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>Ozmo game</h1>
+      <p>Phil Trelford's classic ported to Fable</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="container fb-content">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p>Phil Trelford's <a href="https://twitter.com/ptrelford/status/475395178208174080">classic Ozmo game</a>, originally hosted
+<a href="https://bitbucket.org/ptrelford/ozmo">on BitBucket</a> ported to Fable! Shows how to handle keyboard events and
+use HTML5 canvas. You can also get it (as a JavaScript app) from <a href="https://www.microsoft.com/en-gb/store/apps/ozmo/9nblggh4rjng">the Windows
+Store</a>. View the <a href="https://github.com/fsprojects/Fable/blob/master/samples/browser/ozmo/ozmo.fsx">raw source code on
+GitHub</a>.
+To play the game, use left and right keys!</p>
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-12">
+      <div style="height:668px; width:900px; margin:20px auto 20px auto;">
+        
+  <canvas align="center" id="canvas" width="900" height="668"></canvas>
+  
+      </div>
+      <script>
+        requirejs.config({
+          baseUrl: '.',
+          paths: { 'fable-core': '../scripts/fable-core.min' }
+        });
+        requirejs(["ozmo"]);
+      </script>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p>This demo shows a simple game written using Fable and HTML5 canvas. One interesting
+aspect of the game is the <a href="#Asynchronous-game-loop">asynchronous game loop</a>, which
+updates the game state 60 times per second in a loop. This is implemented using F#
+asynchronous workflows, which make it possible to capture the logic as a recursive
+function, rather than using mutable state.</p>
+<p>The Ozmo game uses the <a href="../mario/index.html#Keyboard-helpers">Keyboard helpers from the Mario sample</a>,
+so if you want to see those, check out the Mario sample first - it is also simpler,
+so you can check it out for lighter introduction to Fable and F#.</p>
+<h2><a name="Drawing-the-world" class="anchor" href="#Drawing-the-world">Drawing the world</a></h2>
+<p>The first few functions in the game deal with rendering. The world consists of two
+gradients (with yellow orange gradient in the sky and gray gradient for the atmosphere)
+and a filled black rectangle. The <code>drawGrd</code> function draws a gradient and <code>drawBg</code>
+renders the world. We also need <code>drawText</code> for printing text when the game finishes:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+<span class="l">17: </span>
+<span class="l">18: </span>
+<span class="l">19: </span>
+<span class="l">20: </span>
+<span class="l">21: </span>
+<span class="l">22: </span>
+<span class="l">23: </span>
+<span class="l">24: </span>
+<span class="l">25: </span>
+<span class="l">26: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Draw gradient between two Y offsets and two colours</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs46', 84)" onmouseover="showTip(event, 'fs46', 84)" class="f">drawGrd</span> (<span onmouseout="hideTip(event, 'fs47', 85)" onmouseover="showTip(event, 'fs47', 85)" class="i">ctx</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs48', 86)" onmouseover="showTip(event, 'fs48', 86)" class="t">CanvasRenderingContext2D</span>)
+    (<span onmouseout="hideTip(event, 'fs49', 87)" onmouseover="showTip(event, 'fs49', 87)" class="i">canvas</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs50', 88)" onmouseover="showTip(event, 'fs50', 88)" class="t">HTMLCanvasElement</span>) (<span onmouseout="hideTip(event, 'fs51', 89)" onmouseover="showTip(event, 'fs51', 89)" class="i">y0</span>,<span onmouseout="hideTip(event, 'fs52', 90)" onmouseover="showTip(event, 'fs52', 90)" class="i">y1</span>) (<span onmouseout="hideTip(event, 'fs53', 91)" onmouseover="showTip(event, 'fs53', 91)" class="i">c0</span>,<span onmouseout="hideTip(event, 'fs54', 92)" onmouseover="showTip(event, 'fs54', 92)" class="i">c1</span>) <span class="o">=</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs55', 93)" onmouseover="showTip(event, 'fs55', 93)" class="i">grd</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs47', 94)" onmouseover="showTip(event, 'fs47', 94)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs56', 95)" onmouseover="showTip(event, 'fs56', 95)" class="f">createLinearGradient</span>(<span class="n">0.</span>,<span onmouseout="hideTip(event, 'fs51', 96)" onmouseover="showTip(event, 'fs51', 96)" class="i">y0</span>,<span class="n">0.</span>,<span onmouseout="hideTip(event, 'fs52', 97)" onmouseover="showTip(event, 'fs52', 97)" class="i">y1</span>)
+  <span onmouseout="hideTip(event, 'fs55', 98)" onmouseover="showTip(event, 'fs55', 98)" class="i">grd</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs57', 99)" onmouseover="showTip(event, 'fs57', 99)" class="f">addColorStop</span>(<span class="n">0.</span>,<span onmouseout="hideTip(event, 'fs53', 100)" onmouseover="showTip(event, 'fs53', 100)" class="i">c0</span>)
+  <span onmouseout="hideTip(event, 'fs55', 101)" onmouseover="showTip(event, 'fs55', 101)" class="i">grd</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs57', 102)" onmouseover="showTip(event, 'fs57', 102)" class="f">addColorStop</span>(<span class="n">1.</span>,<span onmouseout="hideTip(event, 'fs54', 103)" onmouseover="showTip(event, 'fs54', 103)" class="i">c1</span>)
+  <span onmouseout="hideTip(event, 'fs47', 104)" onmouseover="showTip(event, 'fs47', 104)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs58', 105)" onmouseover="showTip(event, 'fs58', 105)" class="i">fillStyle</span> <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs59', 106)" onmouseover="showTip(event, 'fs59', 106)" class="t">U3</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs60', 107)" onmouseover="showTip(event, 'fs60', 107)" class="p">Case2</span> <span onmouseout="hideTip(event, 'fs55', 108)" onmouseover="showTip(event, 'fs55', 108)" class="i">grd</span>
+  <span onmouseout="hideTip(event, 'fs47', 109)" onmouseover="showTip(event, 'fs47', 109)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs61', 110)" onmouseover="showTip(event, 'fs61', 110)" class="f">fillRect</span>(<span class="n">0.</span>,<span onmouseout="hideTip(event, 'fs51', 111)" onmouseover="showTip(event, 'fs51', 111)" class="i">y0</span>, <span onmouseout="hideTip(event, 'fs49', 112)" onmouseover="showTip(event, 'fs49', 112)" class="i">canvas</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs44', 113)" onmouseover="showTip(event, 'fs44', 113)" class="i">width</span>, <span onmouseout="hideTip(event, 'fs52', 114)" onmouseover="showTip(event, 'fs52', 114)" class="i">y1</span><span class="o">-</span> <span onmouseout="hideTip(event, 'fs51', 115)" onmouseover="showTip(event, 'fs51', 115)" class="i">y0</span>)
+
+<span class="c">/// Draw background of the Ozmo game</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs62', 116)" onmouseover="showTip(event, 'fs62', 116)" class="f">drawBg</span> <span onmouseout="hideTip(event, 'fs47', 117)" onmouseover="showTip(event, 'fs47', 117)" class="i">ctx</span> <span onmouseout="hideTip(event, 'fs49', 118)" onmouseover="showTip(event, 'fs49', 118)" class="i">canvas</span> <span class="o">=</span>
+  <span onmouseout="hideTip(event, 'fs46', 119)" onmouseover="showTip(event, 'fs46', 119)" class="f">drawGrd</span> <span onmouseout="hideTip(event, 'fs47', 120)" onmouseover="showTip(event, 'fs47', 120)" class="i">ctx</span> <span onmouseout="hideTip(event, 'fs49', 121)" onmouseover="showTip(event, 'fs49', 121)" class="i">canvas</span>
+    (<span class="n">0.</span>,<span onmouseout="hideTip(event, 'fs37', 122)" onmouseover="showTip(event, 'fs37', 122)" class="i">atmosHeight</span>) (<span class="s">&quot;yellow&quot;</span>,<span class="s">&quot;orange&quot;</span>)
+  <span onmouseout="hideTip(event, 'fs46', 123)" onmouseover="showTip(event, 'fs46', 123)" class="f">drawGrd</span> <span onmouseout="hideTip(event, 'fs47', 124)" onmouseover="showTip(event, 'fs47', 124)" class="i">ctx</span> <span onmouseout="hideTip(event, 'fs49', 125)" onmouseover="showTip(event, 'fs49', 125)" class="i">canvas</span>
+    (<span onmouseout="hideTip(event, 'fs37', 126)" onmouseover="showTip(event, 'fs37', 126)" class="i">atmosHeight</span>, <span onmouseout="hideTip(event, 'fs49', 127)" onmouseover="showTip(event, 'fs49', 127)" class="i">canvas</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs45', 128)" onmouseover="showTip(event, 'fs45', 128)" class="i">height</span><span class="o">-</span><span onmouseout="hideTip(event, 'fs36', 129)" onmouseover="showTip(event, 'fs36', 129)" class="i">floorHeight</span>)
+    (<span class="s">&quot;grey&quot;</span>,<span class="s">&quot;white&quot;</span>)
+  <span onmouseout="hideTip(event, 'fs47', 130)" onmouseover="showTip(event, 'fs47', 130)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs58', 131)" onmouseover="showTip(event, 'fs58', 131)" class="i">fillStyle</span> <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs59', 132)" onmouseover="showTip(event, 'fs59', 132)" class="t">U3</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs63', 133)" onmouseover="showTip(event, 'fs63', 133)" class="p">Case1</span> <span class="s">&quot;black&quot;</span>
+  <span onmouseout="hideTip(event, 'fs47', 134)" onmouseover="showTip(event, 'fs47', 134)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs61', 135)" onmouseover="showTip(event, 'fs61', 135)" class="f">fillRect</span>
+    ( <span class="n">0.</span>,<span onmouseout="hideTip(event, 'fs49', 136)" onmouseover="showTip(event, 'fs49', 136)" class="i">canvas</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs45', 137)" onmouseover="showTip(event, 'fs45', 137)" class="i">height</span><span class="o">-</span><span onmouseout="hideTip(event, 'fs36', 138)" onmouseover="showTip(event, 'fs36', 138)" class="i">floorHeight</span>,
+      <span onmouseout="hideTip(event, 'fs49', 139)" onmouseover="showTip(event, 'fs49', 139)" class="i">canvas</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs44', 140)" onmouseover="showTip(event, 'fs44', 140)" class="i">width</span>,<span onmouseout="hideTip(event, 'fs36', 141)" onmouseover="showTip(event, 'fs36', 141)" class="i">floorHeight</span> )
+
+<span class="c">/// Draw the specified text (when game finishes)</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs64', 142)" onmouseover="showTip(event, 'fs64', 142)" class="f">drawText</span>(<span onmouseout="hideTip(event, 'fs65', 143)" onmouseover="showTip(event, 'fs65', 143)" class="i">text</span>,<span onmouseout="hideTip(event, 'fs66', 144)" onmouseover="showTip(event, 'fs66', 144)" class="i">x</span>,<span onmouseout="hideTip(event, 'fs67', 145)" onmouseover="showTip(event, 'fs67', 145)" class="i">y</span>) <span class="o">=</span>
+  <span onmouseout="hideTip(event, 'fs42', 146)" onmouseover="showTip(event, 'fs42', 146)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs58', 147)" onmouseover="showTip(event, 'fs58', 147)" class="i">fillStyle</span> <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs59', 148)" onmouseover="showTip(event, 'fs59', 148)" class="t">U3</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs63', 149)" onmouseover="showTip(event, 'fs63', 149)" class="p">Case1</span> <span class="s">&quot;white&quot;</span>
+  <span onmouseout="hideTip(event, 'fs42', 150)" onmouseover="showTip(event, 'fs42', 150)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs68', 151)" onmouseover="showTip(event, 'fs68', 151)" class="i">font</span> <span class="o">&lt;-</span> <span class="s">&quot;bold 40pt&quot;</span>;
+  <span onmouseout="hideTip(event, 'fs42', 152)" onmouseover="showTip(event, 'fs42', 152)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs69', 153)" onmouseover="showTip(event, 'fs69', 153)" class="f">fillText</span>(<span onmouseout="hideTip(event, 'fs65', 154)" onmouseover="showTip(event, 'fs65', 154)" class="i">text</span>, <span onmouseout="hideTip(event, 'fs66', 155)" onmouseover="showTip(event, 'fs66', 155)" class="i">x</span>, <span onmouseout="hideTip(event, 'fs67', 156)" onmouseover="showTip(event, 'fs67', 156)" class="i">y</span>)
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Representing-and-drawing-blobs" class="anchor" href="#Representing-and-drawing-blobs">Representing and drawing blobs</a></h2>
+<p>Each of the balls in the game is represented by a <code>Blob</code> value that stores
+the X and Y coordinates, size of the blob (radius), its colour and current speed.
+The type is used for both falling blobs and for the player's blob:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs70', 157)" onmouseover="showTip(event, 'fs70', 157)" class="t">Blob</span> <span class="o">=</span> 
+  { <span onmouseout="hideTip(event, 'fs71', 158)" onmouseover="showTip(event, 'fs71', 158)" class="i">X</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs11', 159)" onmouseover="showTip(event, 'fs11', 159)" class="t">float</span>; <span onmouseout="hideTip(event, 'fs72', 160)" onmouseover="showTip(event, 'fs72', 160)" class="i">Y</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs11', 161)" onmouseover="showTip(event, 'fs11', 161)" class="t">float</span>; 
+    <span onmouseout="hideTip(event, 'fs73', 162)" onmouseover="showTip(event, 'fs73', 162)" class="i">vx</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs11', 163)" onmouseover="showTip(event, 'fs11', 163)" class="t">float</span>; <span onmouseout="hideTip(event, 'fs74', 164)" onmouseover="showTip(event, 'fs74', 164)" class="i">vy</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs11', 165)" onmouseover="showTip(event, 'fs11', 165)" class="t">float</span>; 
+    <span onmouseout="hideTip(event, 'fs75', 166)" onmouseover="showTip(event, 'fs75', 166)" class="i">Radius</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs11', 167)" onmouseover="showTip(event, 'fs11', 167)" class="t">float</span>; <span onmouseout="hideTip(event, 'fs76', 168)" onmouseover="showTip(event, 'fs76', 168)" class="i">color</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs77', 169)" onmouseover="showTip(event, 'fs77', 169)" class="t">string</span> }
+</code></pre></td>
+</tr>
+</table>
+<p>Drawing blob on the canvas is quite easy - the following function does that using
+the <code>arc</code> function of the 2D rendering context of the canvas:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs78', 170)" onmouseover="showTip(event, 'fs78', 170)" class="f">drawBlob</span> (<span onmouseout="hideTip(event, 'fs47', 171)" onmouseover="showTip(event, 'fs47', 171)" class="i">ctx</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs48', 172)" onmouseover="showTip(event, 'fs48', 172)" class="t">CanvasRenderingContext2D</span>) 
+    (<span onmouseout="hideTip(event, 'fs49', 173)" onmouseover="showTip(event, 'fs49', 173)" class="i">canvas</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs50', 174)" onmouseover="showTip(event, 'fs50', 174)" class="t">HTMLCanvasElement</span>) (<span onmouseout="hideTip(event, 'fs79', 175)" onmouseover="showTip(event, 'fs79', 175)" class="i">blob</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs70', 176)" onmouseover="showTip(event, 'fs70', 176)" class="t">Blob</span>) <span class="o">=</span>
+  <span onmouseout="hideTip(event, 'fs47', 177)" onmouseover="showTip(event, 'fs47', 177)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs80', 178)" onmouseover="showTip(event, 'fs80', 178)" class="f">beginPath</span>()
+  <span onmouseout="hideTip(event, 'fs47', 179)" onmouseover="showTip(event, 'fs47', 179)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs81', 180)" onmouseover="showTip(event, 'fs81', 180)" class="f">arc</span>
+    ( <span onmouseout="hideTip(event, 'fs79', 181)" onmouseover="showTip(event, 'fs79', 181)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 182)" onmouseover="showTip(event, 'fs71', 182)" class="i">X</span>, <span onmouseout="hideTip(event, 'fs49', 183)" onmouseover="showTip(event, 'fs49', 183)" class="i">canvas</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs45', 184)" onmouseover="showTip(event, 'fs45', 184)" class="i">height</span> <span class="o">-</span> (<span onmouseout="hideTip(event, 'fs79', 185)" onmouseover="showTip(event, 'fs79', 185)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 186)" onmouseover="showTip(event, 'fs72', 186)" class="i">Y</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs36', 187)" onmouseover="showTip(event, 'fs36', 187)" class="i">floorHeight</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs79', 188)" onmouseover="showTip(event, 'fs79', 188)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs75', 189)" onmouseover="showTip(event, 'fs75', 189)" class="i">Radius</span>), 
+      <span onmouseout="hideTip(event, 'fs79', 190)" onmouseover="showTip(event, 'fs79', 190)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs75', 191)" onmouseover="showTip(event, 'fs75', 191)" class="i">Radius</span>, <span class="n">0.</span>, <span class="n">2.</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs82', 192)" onmouseover="showTip(event, 'fs82', 192)" class="i">System</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs83', 193)" onmouseover="showTip(event, 'fs83', 193)" class="t">Math</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs84', 194)" onmouseover="showTip(event, 'fs84', 194)" class="i">PI</span>, <span class="k">false</span> )
+  <span onmouseout="hideTip(event, 'fs47', 195)" onmouseover="showTip(event, 'fs47', 195)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs58', 196)" onmouseover="showTip(event, 'fs58', 196)" class="i">fillStyle</span> <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs59', 197)" onmouseover="showTip(event, 'fs59', 197)" class="t">U3</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs63', 198)" onmouseover="showTip(event, 'fs63', 198)" class="p">Case1</span> <span onmouseout="hideTip(event, 'fs79', 199)" onmouseover="showTip(event, 'fs79', 199)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs76', 200)" onmouseover="showTip(event, 'fs76', 200)" class="i">color</span>
+  <span onmouseout="hideTip(event, 'fs47', 201)" onmouseover="showTip(event, 'fs47', 201)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs85', 202)" onmouseover="showTip(event, 'fs85', 202)" class="f">fill</span>()
+  <span onmouseout="hideTip(event, 'fs47', 203)" onmouseover="showTip(event, 'fs47', 203)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs86', 204)" onmouseover="showTip(event, 'fs86', 204)" class="i">lineWidth</span> <span class="o">&lt;-</span> <span class="n">3.</span>
+  <span onmouseout="hideTip(event, 'fs47', 205)" onmouseover="showTip(event, 'fs47', 205)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs87', 206)" onmouseover="showTip(event, 'fs87', 206)" class="i">strokeStyle</span> <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs59', 207)" onmouseover="showTip(event, 'fs59', 207)" class="t">U3</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs63', 208)" onmouseover="showTip(event, 'fs63', 208)" class="p">Case1</span> <span onmouseout="hideTip(event, 'fs79', 209)" onmouseover="showTip(event, 'fs79', 209)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs76', 210)" onmouseover="showTip(event, 'fs76', 210)" class="i">color</span>
+  <span onmouseout="hideTip(event, 'fs47', 211)" onmouseover="showTip(event, 'fs47', 211)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs88', 212)" onmouseover="showTip(event, 'fs88', 212)" class="f">stroke</span>()
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Falling-blobs-and-collisions" class="anchor" href="#Falling-blobs-and-collisions">Falling blobs and collisions</a></h2>
+<p>The next step is to define the physics for the game. This consists of several
+functions that update the <code>Blob</code> objects and are composed to apply all rules of
+physics in the main game loop.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+<span class="l">17: </span>
+<span class="l">18: </span>
+<span class="l">19: </span>
+<span class="l">20: </span>
+<span class="l">21: </span>
+<span class="l">22: </span>
+<span class="l">23: </span>
+<span class="l">24: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Apply key effects on Player&#39;s blob - changes X speed</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs89', 213)" onmouseover="showTip(event, 'fs89', 213)" class="f">direct</span> (<span onmouseout="hideTip(event, 'fs90', 214)" onmouseover="showTip(event, 'fs90', 214)" class="i">dx</span>,<span onmouseout="hideTip(event, 'fs91', 215)" onmouseover="showTip(event, 'fs91', 215)" class="i">dy</span>) (<span onmouseout="hideTip(event, 'fs79', 216)" onmouseover="showTip(event, 'fs79', 216)" class="i">blob</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs70', 217)" onmouseover="showTip(event, 'fs70', 217)" class="t">Blob</span>) <span class="o">=</span>
+  { <span onmouseout="hideTip(event, 'fs79', 218)" onmouseover="showTip(event, 'fs79', 218)" class="i">blob</span> <span class="k">with</span> <span class="i">vx</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs79', 219)" onmouseover="showTip(event, 'fs79', 219)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs73', 220)" onmouseover="showTip(event, 'fs73', 220)" class="i">vx</span> <span class="o">+</span> (<span onmouseout="hideTip(event, 'fs11', 221)" onmouseover="showTip(event, 'fs11', 221)" class="f">float</span> <span onmouseout="hideTip(event, 'fs90', 222)" onmouseover="showTip(event, 'fs90', 222)" class="i">dx</span>)<span class="o">/</span><span class="n">4.0</span> }
+
+<span class="c">/// Apply gravity on falling blobs - gets faster every step</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs92', 223)" onmouseover="showTip(event, 'fs92', 223)" class="f">gravity</span> (<span onmouseout="hideTip(event, 'fs79', 224)" onmouseover="showTip(event, 'fs79', 224)" class="i">blob</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs70', 225)" onmouseover="showTip(event, 'fs70', 225)" class="t">Blob</span>) <span class="o">=</span>
+  <span class="k">if</span> <span onmouseout="hideTip(event, 'fs79', 226)" onmouseover="showTip(event, 'fs79', 226)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 227)" onmouseover="showTip(event, 'fs72', 227)" class="i">Y</span> <span class="o">&gt;</span> <span class="n">0.</span> <span class="k">then</span> { <span onmouseout="hideTip(event, 'fs79', 228)" onmouseover="showTip(event, 'fs79', 228)" class="i">blob</span> <span class="k">with</span> <span class="i">vy</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs79', 229)" onmouseover="showTip(event, 'fs79', 229)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs74', 230)" onmouseover="showTip(event, 'fs74', 230)" class="i">vy</span> <span class="o">-</span> <span class="n">0.1</span> }
+  <span class="k">else</span> <span onmouseout="hideTip(event, 'fs79', 231)" onmouseover="showTip(event, 'fs79', 231)" class="i">blob</span>
+
+<span class="c">/// Bounde Player&#39;s blob off the wall if it hits it</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs93', 232)" onmouseover="showTip(event, 'fs93', 232)" class="f">bounce</span> (<span onmouseout="hideTip(event, 'fs79', 233)" onmouseover="showTip(event, 'fs79', 233)" class="i">blob</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs70', 234)" onmouseover="showTip(event, 'fs70', 234)" class="t">Blob</span>) <span class="o">=</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs94', 235)" onmouseover="showTip(event, 'fs94', 235)" class="i">n</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs34', 236)" onmouseover="showTip(event, 'fs34', 236)" class="i">width</span>
+  <span class="k">if</span> <span onmouseout="hideTip(event, 'fs79', 237)" onmouseover="showTip(event, 'fs79', 237)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 238)" onmouseover="showTip(event, 'fs71', 238)" class="i">X</span> <span class="o">&lt;</span> <span class="n">0.</span> <span class="k">then</span> 
+    { <span onmouseout="hideTip(event, 'fs79', 239)" onmouseover="showTip(event, 'fs79', 239)" class="i">blob</span> <span class="k">with</span> <span onmouseout="hideTip(event, 'fs71', 240)" onmouseover="showTip(event, 'fs71', 240)" class="i">X</span> <span class="o">=</span> <span class="o">-</span><span onmouseout="hideTip(event, 'fs79', 241)" onmouseover="showTip(event, 'fs79', 241)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 242)" onmouseover="showTip(event, 'fs71', 242)" class="i">X</span>; <span class="i">vx</span> <span class="o">=</span> <span class="o">-</span><span onmouseout="hideTip(event, 'fs79', 243)" onmouseover="showTip(event, 'fs79', 243)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs73', 244)" onmouseover="showTip(event, 'fs73', 244)" class="i">vx</span> }
+  <span class="k">elif</span> (<span onmouseout="hideTip(event, 'fs79', 245)" onmouseover="showTip(event, 'fs79', 245)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 246)" onmouseover="showTip(event, 'fs71', 246)" class="i">X</span> <span class="o">&gt;</span> <span onmouseout="hideTip(event, 'fs94', 247)" onmouseover="showTip(event, 'fs94', 247)" class="i">n</span>) <span class="k">then</span> 
+    { <span onmouseout="hideTip(event, 'fs79', 248)" onmouseover="showTip(event, 'fs79', 248)" class="i">blob</span> <span class="k">with</span> <span onmouseout="hideTip(event, 'fs71', 249)" onmouseover="showTip(event, 'fs71', 249)" class="i">X</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs94', 250)" onmouseover="showTip(event, 'fs94', 250)" class="i">n</span> <span class="o">-</span> (<span onmouseout="hideTip(event, 'fs79', 251)" onmouseover="showTip(event, 'fs79', 251)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 252)" onmouseover="showTip(event, 'fs71', 252)" class="i">X</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs94', 253)" onmouseover="showTip(event, 'fs94', 253)" class="i">n</span>); <span class="i">vx</span> <span class="o">=</span> <span class="o">-</span><span onmouseout="hideTip(event, 'fs79', 254)" onmouseover="showTip(event, 'fs79', 254)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs73', 255)" onmouseover="showTip(event, 'fs73', 255)" class="i">vx</span> }
+  <span class="k">else</span> <span onmouseout="hideTip(event, 'fs79', 256)" onmouseover="showTip(event, 'fs79', 256)" class="i">blob</span>
+
+<span class="c">/// Move blob by one step - adds X and Y </span>
+<span class="c">/// velocities to the X and Y coordinates</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs95', 257)" onmouseover="showTip(event, 'fs95', 257)" class="f">move</span> (<span onmouseout="hideTip(event, 'fs79', 258)" onmouseover="showTip(event, 'fs79', 258)" class="i">blob</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs70', 259)" onmouseover="showTip(event, 'fs70', 259)" class="t">Blob</span>) <span class="o">=</span>
+  { <span onmouseout="hideTip(event, 'fs79', 260)" onmouseover="showTip(event, 'fs79', 260)" class="i">blob</span> <span class="k">with</span> 
+      <span onmouseout="hideTip(event, 'fs71', 261)" onmouseover="showTip(event, 'fs71', 261)" class="i">X</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs79', 262)" onmouseover="showTip(event, 'fs79', 262)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 263)" onmouseover="showTip(event, 'fs71', 263)" class="i">X</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs79', 264)" onmouseover="showTip(event, 'fs79', 264)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs73', 265)" onmouseover="showTip(event, 'fs73', 265)" class="i">vx</span>
+      <span onmouseout="hideTip(event, 'fs72', 266)" onmouseover="showTip(event, 'fs72', 266)" class="i">Y</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs8', 267)" onmouseover="showTip(event, 'fs8', 267)" class="f">max</span> <span class="n">0.0</span> (<span onmouseout="hideTip(event, 'fs79', 268)" onmouseover="showTip(event, 'fs79', 268)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 269)" onmouseover="showTip(event, 'fs72', 269)" class="i">Y</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs79', 270)" onmouseover="showTip(event, 'fs79', 270)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs74', 271)" onmouseover="showTip(event, 'fs74', 271)" class="i">vy</span>) }
+</code></pre></td>
+</tr>
+</table>
+<p>The above functions capture the individual aspects of the movement. The
+following put everything together and handle steps of Player's blob and
+also collision detection.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Apply step on Player&#39;s blob. Composes above functions.</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs96', 272)" onmouseover="showTip(event, 'fs96', 272)" class="f">step</span> <span onmouseout="hideTip(event, 'fs97', 273)" onmouseover="showTip(event, 'fs97', 273)" class="i">dir</span> <span onmouseout="hideTip(event, 'fs79', 274)" onmouseover="showTip(event, 'fs79', 274)" class="i">blob</span> <span class="o">=</span>
+  <span onmouseout="hideTip(event, 'fs79', 275)" onmouseover="showTip(event, 'fs79', 275)" class="i">blob</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs89', 276)" onmouseover="showTip(event, 'fs89', 276)" class="f">direct</span> <span onmouseout="hideTip(event, 'fs97', 277)" onmouseover="showTip(event, 'fs97', 277)" class="i">dir</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs95', 278)" onmouseover="showTip(event, 'fs95', 278)" class="f">move</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs93', 279)" onmouseover="showTip(event, 'fs93', 279)" class="f">bounce</span>
+
+<span class="c">/// Check whether two blobs collide</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs98', 280)" onmouseover="showTip(event, 'fs98', 280)" class="f">collide</span> (<span onmouseout="hideTip(event, 'fs99', 281)" onmouseover="showTip(event, 'fs99', 281)" class="i">a</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs70', 282)" onmouseover="showTip(event, 'fs70', 282)" class="t">Blob</span>) (<span onmouseout="hideTip(event, 'fs100', 283)" onmouseover="showTip(event, 'fs100', 283)" class="i">b</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs70', 284)" onmouseover="showTip(event, 'fs70', 284)" class="t">Blob</span>) <span class="o">=</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs101', 285)" onmouseover="showTip(event, 'fs101', 285)" class="i">dx</span> <span class="o">=</span> (<span onmouseout="hideTip(event, 'fs99', 286)" onmouseover="showTip(event, 'fs99', 286)" class="i">a</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 287)" onmouseover="showTip(event, 'fs71', 287)" class="i">X</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs100', 288)" onmouseover="showTip(event, 'fs100', 288)" class="i">b</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 289)" onmouseover="showTip(event, 'fs71', 289)" class="i">X</span>)<span class="o">*</span>(<span onmouseout="hideTip(event, 'fs99', 290)" onmouseover="showTip(event, 'fs99', 290)" class="i">a</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 291)" onmouseover="showTip(event, 'fs71', 291)" class="i">X</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs100', 292)" onmouseover="showTip(event, 'fs100', 292)" class="i">b</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 293)" onmouseover="showTip(event, 'fs71', 293)" class="i">X</span>)
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs102', 294)" onmouseover="showTip(event, 'fs102', 294)" class="i">dy</span> <span class="o">=</span> (<span onmouseout="hideTip(event, 'fs99', 295)" onmouseover="showTip(event, 'fs99', 295)" class="i">a</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 296)" onmouseover="showTip(event, 'fs72', 296)" class="i">Y</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs100', 297)" onmouseover="showTip(event, 'fs100', 297)" class="i">b</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 298)" onmouseover="showTip(event, 'fs72', 298)" class="i">Y</span>)<span class="o">*</span>(<span onmouseout="hideTip(event, 'fs99', 299)" onmouseover="showTip(event, 'fs99', 299)" class="i">a</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 300)" onmouseover="showTip(event, 'fs72', 300)" class="i">Y</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs100', 301)" onmouseover="showTip(event, 'fs100', 301)" class="i">b</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 302)" onmouseover="showTip(event, 'fs72', 302)" class="i">Y</span>)
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs103', 303)" onmouseover="showTip(event, 'fs103', 303)" class="i">dist</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs104', 304)" onmouseover="showTip(event, 'fs104', 304)" class="f">sqrt</span>(<span onmouseout="hideTip(event, 'fs101', 305)" onmouseover="showTip(event, 'fs101', 305)" class="i">dx</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs102', 306)" onmouseover="showTip(event, 'fs102', 306)" class="i">dy</span>)
+  <span onmouseout="hideTip(event, 'fs103', 307)" onmouseover="showTip(event, 'fs103', 307)" class="i">dist</span> <span class="o">&lt;</span> <span onmouseout="hideTip(event, 'fs105', 308)" onmouseover="showTip(event, 'fs105', 308)" class="f">abs</span>(<span onmouseout="hideTip(event, 'fs99', 309)" onmouseover="showTip(event, 'fs99', 309)" class="i">a</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs75', 310)" onmouseover="showTip(event, 'fs75', 310)" class="i">Radius</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs100', 311)" onmouseover="showTip(event, 'fs100', 311)" class="i">b</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs75', 312)" onmouseover="showTip(event, 'fs75', 312)" class="i">Radius</span>)
+
+<span class="c">/// Remove all falling blobs that hit Player&#39;s blob</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs106', 313)" onmouseover="showTip(event, 'fs106', 313)" class="f">absorb</span> (<span onmouseout="hideTip(event, 'fs79', 314)" onmouseover="showTip(event, 'fs79', 314)" class="i">blob</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs70', 315)" onmouseover="showTip(event, 'fs70', 315)" class="t">Blob</span>) (<span onmouseout="hideTip(event, 'fs107', 316)" onmouseover="showTip(event, 'fs107', 316)" class="i">drops</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs70', 317)" onmouseover="showTip(event, 'fs70', 317)" class="t">Blob</span> <span onmouseout="hideTip(event, 'fs108', 318)" onmouseover="showTip(event, 'fs108', 318)" class="t">list</span>) <span class="o">=</span>
+  <span onmouseout="hideTip(event, 'fs107', 319)" onmouseover="showTip(event, 'fs107', 319)" class="i">drops</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs109', 320)" onmouseover="showTip(event, 'fs109', 320)" class="t">List</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs110', 321)" onmouseover="showTip(event, 'fs110', 321)" class="f">filter</span> (<span class="k">fun</span> <span onmouseout="hideTip(event, 'fs111', 322)" onmouseover="showTip(event, 'fs111', 322)" class="i">drop</span> <span class="k">-&gt;</span>
+    <span onmouseout="hideTip(event, 'fs98', 323)" onmouseover="showTip(event, 'fs98', 323)" class="f">collide</span> <span onmouseout="hideTip(event, 'fs79', 324)" onmouseover="showTip(event, 'fs79', 324)" class="i">blob</span> <span onmouseout="hideTip(event, 'fs111', 325)" onmouseover="showTip(event, 'fs111', 325)" class="i">drop</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs112', 326)" onmouseover="showTip(event, 'fs112', 326)" class="f">not</span> )
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Game-logic-helpers" class="anchor" href="#Game-logic-helpers">Game logic helpers</a></h2>
+<p>Next, we define a couple of helpers for generating and updating the falling blobs.
+We have black growing blobs and white shrinking blobs. The <code>newGrow</code> and <code>newShrink</code>
+functions are used to generate new blobs:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs113', 327)" onmouseover="showTip(event, 'fs113', 327)" class="i">grow</span> <span class="o">=</span> <span class="s">&quot;black&quot;</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs114', 328)" onmouseover="showTip(event, 'fs114', 328)" class="i">shrink</span> <span class="o">=</span> <span class="s">&quot;white&quot;</span>
+
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs115', 329)" onmouseover="showTip(event, 'fs115', 329)" class="f">newDrop</span> <span onmouseout="hideTip(event, 'fs116', 330)" onmouseover="showTip(event, 'fs116', 330)" class="i">color</span> <span class="o">=</span> 
+  { <span onmouseout="hideTip(event, 'fs71', 331)" onmouseover="showTip(event, 'fs71', 331)" class="i">X</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs10', 332)" onmouseover="showTip(event, 'fs10', 332)" class="f">rand</span>()<span class="o">*</span><span onmouseout="hideTip(event, 'fs34', 333)" onmouseover="showTip(event, 'fs34', 333)" class="i">width</span><span class="o">*</span><span class="n">0.8</span> <span class="o">+</span> (<span onmouseout="hideTip(event, 'fs34', 334)" onmouseover="showTip(event, 'fs34', 334)" class="i">width</span><span class="o">*</span><span class="n">0.1</span>) 
+    <span onmouseout="hideTip(event, 'fs72', 335)" onmouseover="showTip(event, 'fs72', 335)" class="i">Y</span><span class="o">=</span><span class="n">600.</span>; <span class="i">Radius</span><span class="o">=</span><span class="n">10.</span>; <span class="i">vx</span><span class="o">=</span><span class="n">0.</span>; <span class="i">vy</span> <span class="o">=</span> <span class="n">0.0</span>
+    <span onmouseout="hideTip(event, 'fs116', 336)" onmouseover="showTip(event, 'fs116', 336)" class="i">color</span><span class="o">=</span><span onmouseout="hideTip(event, 'fs116', 337)" onmouseover="showTip(event, 'fs116', 337)" class="i">color</span> }
+
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs117', 338)" onmouseover="showTip(event, 'fs117', 338)" class="f">newGrow</span> () <span class="o">=</span> <span onmouseout="hideTip(event, 'fs115', 339)" onmouseover="showTip(event, 'fs115', 339)" class="f">newDrop</span> <span onmouseout="hideTip(event, 'fs113', 340)" onmouseover="showTip(event, 'fs113', 340)" class="i">grow</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs118', 341)" onmouseover="showTip(event, 'fs118', 341)" class="f">newShrink</span> () <span class="o">=</span> <span onmouseout="hideTip(event, 'fs115', 342)" onmouseover="showTip(event, 'fs115', 342)" class="f">newDrop</span> <span onmouseout="hideTip(event, 'fs114', 343)" onmouseover="showTip(event, 'fs114', 343)" class="i">shrink</span>
+</code></pre></td>
+</tr>
+</table>
+<p>Inside the game loop, we will generate blobs randomly, but we keep a counter of
+ticks to make sure that we do not generate new blobs too often. The <code>updateDrops</code>
+function takes current drops and a countdown and returns a pair with new drops and
+a new countdown. It implements simple logic:</p>
+<ul>
+<li>If we generated drop in last 8 steps, do nothing and decrement counter</li>
+<li>
+Roll an 8 sided dice and if we get 1, generate new blob 
+(2/3 are shrinkind and 1/3 are growing)
+</li>
+<li>Otherwise, do nothing and return previous state</li>
+</ul>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+<span class="l">17: </span>
+<span class="l">18: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Update drops and countdown in each step</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs119', 344)" onmouseover="showTip(event, 'fs119', 344)" class="f">updateDrops</span> <span onmouseout="hideTip(event, 'fs107', 345)" onmouseover="showTip(event, 'fs107', 345)" class="i">drops</span> <span onmouseout="hideTip(event, 'fs120', 346)" onmouseover="showTip(event, 'fs120', 346)" class="i">countdown</span> <span class="o">=</span> 
+  <span class="k">if</span> <span onmouseout="hideTip(event, 'fs120', 347)" onmouseover="showTip(event, 'fs120', 347)" class="i">countdown</span> <span class="o">&gt;</span> <span class="n">0</span> <span class="k">then</span> 
+    <span onmouseout="hideTip(event, 'fs107', 348)" onmouseover="showTip(event, 'fs107', 348)" class="i">drops</span>, <span onmouseout="hideTip(event, 'fs120', 349)" onmouseover="showTip(event, 'fs120', 349)" class="i">countdown</span> <span class="o">-</span> <span class="n">1</span>
+  <span class="k">elif</span> <span onmouseout="hideTip(event, 'fs121', 350)" onmouseover="showTip(event, 'fs121', 350)" class="f">floor</span>(<span onmouseout="hideTip(event, 'fs10', 351)" onmouseover="showTip(event, 'fs10', 351)" class="f">rand</span>()<span class="o">*</span><span class="n">8.</span>) <span class="o">=</span> <span class="n">0.</span> <span class="k">then</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs111', 352)" onmouseover="showTip(event, 'fs111', 352)" class="i">drop</span> <span class="o">=</span> 
+      <span class="k">if</span> <span onmouseout="hideTip(event, 'fs121', 353)" onmouseover="showTip(event, 'fs121', 353)" class="f">floor</span>(<span onmouseout="hideTip(event, 'fs10', 354)" onmouseover="showTip(event, 'fs10', 354)" class="f">rand</span>()<span class="o">*</span><span class="n">3.</span>) <span class="o">=</span> <span class="n">0.</span> <span class="k">then</span> <span onmouseout="hideTip(event, 'fs117', 355)" onmouseover="showTip(event, 'fs117', 355)" class="f">newGrow</span>() 
+      <span class="k">else</span> <span onmouseout="hideTip(event, 'fs118', 356)" onmouseover="showTip(event, 'fs118', 356)" class="f">newShrink</span>()
+    <span onmouseout="hideTip(event, 'fs111', 357)" onmouseover="showTip(event, 'fs111', 357)" class="i">drop</span><span class="o">::</span><span onmouseout="hideTip(event, 'fs107', 358)" onmouseover="showTip(event, 'fs107', 358)" class="i">drops</span>, <span class="n">8</span>
+  <span class="k">else</span> <span onmouseout="hideTip(event, 'fs107', 359)" onmouseover="showTip(event, 'fs107', 359)" class="i">drops</span>, <span onmouseout="hideTip(event, 'fs120', 360)" onmouseover="showTip(event, 'fs120', 360)" class="i">countdown</span>
+
+<span class="c">/// Count growing and shrinking drops in the list</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs122', 361)" onmouseover="showTip(event, 'fs122', 361)" class="f">countDrops</span> <span onmouseout="hideTip(event, 'fs107', 362)" onmouseover="showTip(event, 'fs107', 362)" class="i">drops</span> <span class="o">=</span> 
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs123', 363)" onmouseover="showTip(event, 'fs123', 363)" class="f">count</span> <span onmouseout="hideTip(event, 'fs116', 364)" onmouseover="showTip(event, 'fs116', 364)" class="i">color</span> <span class="o">=</span>
+    <span onmouseout="hideTip(event, 'fs107', 365)" onmouseover="showTip(event, 'fs107', 365)" class="i">drops</span> 
+    <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs109', 366)" onmouseover="showTip(event, 'fs109', 366)" class="t">List</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs110', 367)" onmouseover="showTip(event, 'fs110', 367)" class="f">filter</span> (<span class="k">fun</span> <span onmouseout="hideTip(event, 'fs111', 368)" onmouseover="showTip(event, 'fs111', 368)" class="i">drop</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs111', 369)" onmouseover="showTip(event, 'fs111', 369)" class="i">drop</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs76', 370)" onmouseover="showTip(event, 'fs76', 370)" class="i">color</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs116', 371)" onmouseover="showTip(event, 'fs116', 371)" class="i">color</span>) 
+    <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs109', 372)" onmouseover="showTip(event, 'fs109', 372)" class="t">List</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs124', 373)" onmouseover="showTip(event, 'fs124', 373)" class="f">length</span>
+  <span onmouseout="hideTip(event, 'fs123', 374)" onmouseover="showTip(event, 'fs123', 374)" class="f">count</span> <span onmouseout="hideTip(event, 'fs113', 375)" onmouseover="showTip(event, 'fs113', 375)" class="i">grow</span>, <span onmouseout="hideTip(event, 'fs123', 376)" onmouseover="showTip(event, 'fs123', 376)" class="f">count</span> <span onmouseout="hideTip(event, 'fs114', 377)" onmouseover="showTip(event, 'fs114', 377)" class="i">shrink</span>
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Asynchronous-game-loop" class="anchor" href="#Asynchronous-game-loop">Asynchronous game loop</a></h2>
+<p>The asynchronous game loop is perhaps the most interesting part of the source code.
+Fable supports F# asynchronous workflows, which give us a way to write non-blocking loop
+that includes sleeping in the middle, so you can write long-running processes as a recursive
+loop rather than using timers and callbacks.</p>
+<p>The following diagram illustrates the game loop:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="text">(start)        +----(tick)---+
+   \           |             |
+     +------+  |  +--------+ |   +-----------+
+  +-&gt;| game |--+-&gt;| update |-+--&gt;| completed |&lt;-+
+  |  +------+     +--------+     +-----------+  |
+  |                                             |
+  +-----------(after 10 seconds)----------------+
+</code></pre></td></tr></table>
+<p>There are three states in which the game can be:</p>
+<ul>
+<li>After starting, the <code>game</code> state initializes the Player's blob and starts the game</li>
+<li>
+The <code>update</code> loop is active when the game is running. It calls itself recursively
+until the game ends.
+</li>
+<li>
+After finishing, the <code>completed</code> state displays a message and sleeps for 10 seconds
+before starting a new game.
+</li>
+</ul>
+<p>Using asynchronous workflows, the state machine can be represented using 3 mutually
+recursive functions, each representing one of the states. The <code>game</code> and <code>completed</code>
+states are simple:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Starts a new game</span>
+<span class="k">let</span> <span class="k">rec</span> <span onmouseout="hideTip(event, 'fs125', 378)" onmouseover="showTip(event, 'fs125', 378)" class="f">game</span> () <span class="o">=</span> <span onmouseout="hideTip(event, 'fs126', 379)" onmouseover="showTip(event, 'fs126', 379)" class="i">async</span> {
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs79', 380)" onmouseover="showTip(event, 'fs79', 380)" class="i">blob</span> <span class="o">=</span> 
+    { <span onmouseout="hideTip(event, 'fs71', 381)" onmouseover="showTip(event, 'fs71', 381)" class="i">X</span> <span class="o">=</span> <span class="n">300.</span>; <span onmouseout="hideTip(event, 'fs72', 382)" onmouseover="showTip(event, 'fs72', 382)" class="i">Y</span><span class="o">=</span><span class="n">0.</span>; <span class="i">Radius</span><span class="o">=</span><span class="n">50.</span>; 
+      <span class="i">vx</span><span class="o">=</span><span class="n">0.</span>; <span class="i">vy</span><span class="o">=</span><span class="n">0.</span>; <span class="i">color</span><span class="o">=</span><span class="s">&quot;black&quot;</span> }
+  <span class="k">return!</span> <span onmouseout="hideTip(event, 'fs127', 383)" onmouseover="showTip(event, 'fs127', 383)" class="f">update</span> <span onmouseout="hideTip(event, 'fs79', 384)" onmouseover="showTip(event, 'fs79', 384)" class="i">blob</span> [<span onmouseout="hideTip(event, 'fs117', 385)" onmouseover="showTip(event, 'fs117', 385)" class="f">newGrow</span> ()] <span class="n">0</span> }
+
+<span class="c">/// Displays message and sleeps for 10 sec</span>
+<span class="k">and</span> <span onmouseout="hideTip(event, 'fs128', 386)" onmouseover="showTip(event, 'fs128', 386)" class="f">completed</span> () <span class="o">=</span> <span onmouseout="hideTip(event, 'fs126', 387)" onmouseover="showTip(event, 'fs126', 387)" class="i">async</span> {
+  <span onmouseout="hideTip(event, 'fs64', 388)" onmouseover="showTip(event, 'fs64', 388)" class="f">drawText</span> (<span class="s">&quot;COMPLETED&quot;</span>,<span class="n">320.</span>,<span class="n">300.</span>)
+  <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs129', 389)" onmouseover="showTip(event, 'fs129', 389)" class="t">Async</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs130', 390)" onmouseover="showTip(event, 'fs130', 390)" class="f">Sleep</span> <span class="n">10000</span>
+  <span class="k">return!</span> <span onmouseout="hideTip(event, 'fs125', 391)" onmouseover="showTip(event, 'fs125', 391)" class="f">game</span> () }
+</code></pre></td>
+</tr>
+</table>
+<p>Note that we are using <code>let rec .. and</code>, which lets us write multiple recursive functions
+that can call each other. The <code>completed</code> function calls <code>game</code> after 10 seconds using
+<code>return!</code> (representing an asynchronous tail-call) and the <code>game</code> function calls <code>update</code>
+with the initial state. The <code>update</code> loop looks as follows:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+<span class="l">17: </span>
+<span class="l">18: </span>
+<span class="l">19: </span>
+<span class="l">20: </span>
+<span class="l">21: </span>
+<span class="l">22: </span>
+<span class="l">23: </span>
+<span class="l">24: </span>
+<span class="l">25: </span>
+<span class="l">26: </span>
+<span class="l">27: </span>
+<span class="l">28: </span>
+<span class="l">29: </span>
+<span class="l">30: </span>
+<span class="l">31: </span>
+<span class="l">32: </span>
+<span class="l">33: </span>
+<span class="l">34: </span>
+<span class="l">35: </span>
+<span class="l">36: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Keeps current state for Player&#39;s blob, falling</span>
+<span class="c">/// drops and the countdown since last drop was generated</span>
+<span class="k">and</span> <span onmouseout="hideTip(event, 'fs127', 392)" onmouseover="showTip(event, 'fs127', 392)" class="f">update</span> <span onmouseout="hideTip(event, 'fs79', 393)" onmouseover="showTip(event, 'fs79', 393)" class="i">blob</span> <span onmouseout="hideTip(event, 'fs107', 394)" onmouseover="showTip(event, 'fs107', 394)" class="i">drops</span> <span onmouseout="hideTip(event, 'fs120', 395)" onmouseover="showTip(event, 'fs120', 395)" class="i">countdown</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs126', 396)" onmouseover="showTip(event, 'fs126', 396)" class="i">async</span> {
+  <span class="c">// Update the drops &amp; countdown</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs107', 397)" onmouseover="showTip(event, 'fs107', 397)" class="i">drops</span>, <span onmouseout="hideTip(event, 'fs120', 398)" onmouseover="showTip(event, 'fs120', 398)" class="i">countdown</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs119', 399)" onmouseover="showTip(event, 'fs119', 399)" class="f">updateDrops</span> <span onmouseout="hideTip(event, 'fs107', 400)" onmouseover="showTip(event, 'fs107', 400)" class="i">drops</span> <span onmouseout="hideTip(event, 'fs120', 401)" onmouseover="showTip(event, 'fs120', 401)" class="i">countdown</span>
+
+  <span class="c">// Count drops, apply physics and count them again</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs131', 402)" onmouseover="showTip(event, 'fs131', 402)" class="i">beforeGrow</span>, <span onmouseout="hideTip(event, 'fs132', 403)" onmouseover="showTip(event, 'fs132', 403)" class="i">beforeShrink</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs122', 404)" onmouseover="showTip(event, 'fs122', 404)" class="f">countDrops</span> <span onmouseout="hideTip(event, 'fs107', 405)" onmouseover="showTip(event, 'fs107', 405)" class="i">drops</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs107', 406)" onmouseover="showTip(event, 'fs107', 406)" class="i">drops</span> <span class="o">=</span> 
+    <span onmouseout="hideTip(event, 'fs107', 407)" onmouseover="showTip(event, 'fs107', 407)" class="i">drops</span> 
+    <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs109', 408)" onmouseover="showTip(event, 'fs109', 408)" class="t">List</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs133', 409)" onmouseover="showTip(event, 'fs133', 409)" class="f">map</span> (<span onmouseout="hideTip(event, 'fs92', 410)" onmouseover="showTip(event, 'fs92', 410)" class="f">gravity</span> <span class="o">&gt;</span><span class="o">&gt;</span> <span onmouseout="hideTip(event, 'fs95', 411)" onmouseover="showTip(event, 'fs95', 411)" class="f">move</span>) 
+    <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs106', 412)" onmouseover="showTip(event, 'fs106', 412)" class="f">absorb</span> <span onmouseout="hideTip(event, 'fs79', 413)" onmouseover="showTip(event, 'fs79', 413)" class="i">blob</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs134', 414)" onmouseover="showTip(event, 'fs134', 414)" class="i">afterGrow</span>, <span onmouseout="hideTip(event, 'fs135', 415)" onmouseover="showTip(event, 'fs135', 415)" class="i">afterShrink</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs122', 416)" onmouseover="showTip(event, 'fs122', 416)" class="f">countDrops</span> <span onmouseout="hideTip(event, 'fs107', 417)" onmouseover="showTip(event, 'fs107', 417)" class="i">drops</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs107', 418)" onmouseover="showTip(event, 'fs107', 418)" class="i">drops</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs107', 419)" onmouseover="showTip(event, 'fs107', 419)" class="i">drops</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs109', 420)" onmouseover="showTip(event, 'fs109', 420)" class="t">List</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs110', 421)" onmouseover="showTip(event, 'fs110', 421)" class="f">filter</span> (<span class="k">fun</span> <span onmouseout="hideTip(event, 'fs79', 422)" onmouseover="showTip(event, 'fs79', 422)" class="i">blob</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs79', 423)" onmouseover="showTip(event, 'fs79', 423)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 424)" onmouseover="showTip(event, 'fs72', 424)" class="i">Y</span> <span class="o">&gt;</span> <span class="n">0.</span>)
+
+  <span class="c">// Calculate new player&#39;s size based on absorbed drops</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs136', 425)" onmouseover="showTip(event, 'fs136', 425)" class="i">radius</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs79', 426)" onmouseover="showTip(event, 'fs79', 426)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs75', 427)" onmouseover="showTip(event, 'fs75', 427)" class="i">Radius</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs11', 428)" onmouseover="showTip(event, 'fs11', 428)" class="f">float</span> (<span onmouseout="hideTip(event, 'fs131', 429)" onmouseover="showTip(event, 'fs131', 429)" class="i">beforeGrow</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs134', 430)" onmouseover="showTip(event, 'fs134', 430)" class="i">afterGrow</span>) <span class="o">*</span><span class="n">4.</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs136', 431)" onmouseover="showTip(event, 'fs136', 431)" class="i">radius</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs136', 432)" onmouseover="showTip(event, 'fs136', 432)" class="i">radius</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs11', 433)" onmouseover="showTip(event, 'fs11', 433)" class="f">float</span> (<span onmouseout="hideTip(event, 'fs132', 434)" onmouseover="showTip(event, 'fs132', 434)" class="i">beforeShrink</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs135', 435)" onmouseover="showTip(event, 'fs135', 435)" class="i">afterShrink</span>) <span class="o">*</span> <span class="n">4.</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs136', 436)" onmouseover="showTip(event, 'fs136', 436)" class="i">radius</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs8', 437)" onmouseover="showTip(event, 'fs8', 437)" class="f">max</span> <span class="n">5.0</span> <span onmouseout="hideTip(event, 'fs136', 438)" onmouseover="showTip(event, 'fs136', 438)" class="i">radius</span>
+
+  <span class="c">// Update radius and apply keyboard events</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs79', 439)" onmouseover="showTip(event, 'fs79', 439)" class="i">blob</span> <span class="o">=</span> { <span onmouseout="hideTip(event, 'fs79', 440)" onmouseover="showTip(event, 'fs79', 440)" class="i">blob</span> <span class="k">with</span> <span class="i">Radius</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs136', 441)" onmouseover="showTip(event, 'fs136', 441)" class="i">radius</span> }   
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs79', 442)" onmouseover="showTip(event, 'fs79', 442)" class="i">blob</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs79', 443)" onmouseover="showTip(event, 'fs79', 443)" class="i">blob</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs96', 444)" onmouseover="showTip(event, 'fs96', 444)" class="f">step</span> (<span onmouseout="hideTip(event, 'fs38', 445)" onmouseover="showTip(event, 'fs38', 445)" class="t">Keyboard</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs19', 446)" onmouseover="showTip(event, 'fs19', 446)" class="f">arrows</span>())
+
+  <span class="c">// Render the new game state</span>
+  <span onmouseout="hideTip(event, 'fs62', 447)" onmouseover="showTip(event, 'fs62', 447)" class="f">drawBg</span> <span onmouseout="hideTip(event, 'fs42', 448)" onmouseover="showTip(event, 'fs42', 448)" class="i">ctx</span> <span onmouseout="hideTip(event, 'fs39', 449)" onmouseover="showTip(event, 'fs39', 449)" class="i">canvas</span>
+  <span class="k">for</span> <span onmouseout="hideTip(event, 'fs111', 450)" onmouseover="showTip(event, 'fs111', 450)" class="i">drop</span> <span class="k">in</span> <span onmouseout="hideTip(event, 'fs107', 451)" onmouseover="showTip(event, 'fs107', 451)" class="i">drops</span> <span class="k">do</span> <span onmouseout="hideTip(event, 'fs78', 452)" onmouseover="showTip(event, 'fs78', 452)" class="f">drawBlob</span> <span onmouseout="hideTip(event, 'fs42', 453)" onmouseover="showTip(event, 'fs42', 453)" class="i">ctx</span> <span onmouseout="hideTip(event, 'fs39', 454)" onmouseover="showTip(event, 'fs39', 454)" class="i">canvas</span> <span onmouseout="hideTip(event, 'fs111', 455)" onmouseover="showTip(event, 'fs111', 455)" class="i">drop</span>
+  <span onmouseout="hideTip(event, 'fs78', 456)" onmouseover="showTip(event, 'fs78', 456)" class="f">drawBlob</span> <span onmouseout="hideTip(event, 'fs42', 457)" onmouseover="showTip(event, 'fs42', 457)" class="i">ctx</span> <span onmouseout="hideTip(event, 'fs39', 458)" onmouseover="showTip(event, 'fs39', 458)" class="i">canvas</span> <span onmouseout="hideTip(event, 'fs79', 459)" onmouseover="showTip(event, 'fs79', 459)" class="i">blob</span>
+
+  <span class="c">// If the game completed, switch state</span>
+  <span class="c">// otherwise sleep and update recursively!</span>
+  <span class="k">if</span> <span onmouseout="hideTip(event, 'fs79', 460)" onmouseover="showTip(event, 'fs79', 460)" class="i">blob</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs75', 461)" onmouseover="showTip(event, 'fs75', 461)" class="i">Radius</span> <span class="o">&gt;</span> <span class="n">150.</span> <span class="k">then</span> 
+    <span class="k">return!</span> <span onmouseout="hideTip(event, 'fs128', 462)" onmouseover="showTip(event, 'fs128', 462)" class="f">completed</span>()
+  <span class="k">else</span> 
+    <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs129', 463)" onmouseover="showTip(event, 'fs129', 463)" class="t">Async</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs130', 464)" onmouseover="showTip(event, 'fs130', 464)" class="f">Sleep</span>(<span onmouseout="hideTip(event, 'fs25', 465)" onmouseover="showTip(event, 'fs25', 465)" class="f">int</span> (<span class="n">1000.</span> <span class="o">/</span> <span class="n">60.</span>))
+    <span class="k">return!</span> <span onmouseout="hideTip(event, 'fs127', 466)" onmouseover="showTip(event, 'fs127', 466)" class="f">update</span> <span onmouseout="hideTip(event, 'fs79', 467)" onmouseover="showTip(event, 'fs79', 467)" class="i">blob</span> <span onmouseout="hideTip(event, 'fs107', 468)" onmouseover="showTip(event, 'fs107', 468)" class="i">drops</span> <span onmouseout="hideTip(event, 'fs120', 469)" onmouseover="showTip(event, 'fs120', 469)" class="i">countdown</span> }
+</code></pre></td>
+</tr>
+</table>
+<p>The last thing that we need to do is to start the game in the initial <code>game</code>
+state using <code>Async.StartImmediate</code>:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span onmouseout="hideTip(event, 'fs125', 470)" onmouseover="showTip(event, 'fs125', 470)" class="f">game</span> () <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs129', 471)" onmouseover="showTip(event, 'fs129', 471)" class="t">Async</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs137', 472)" onmouseover="showTip(event, 'fs137', 472)" class="f">StartImmediate</span>
+</code></pre></td>
+</tr>
+</table>
+
+
+<div class="tip" id="fs1">namespace Fable</div>
+<div class="tip" id="fs2">namespace Fable.Core</div>
+<div class="tip" id="fs3">namespace Fable.Import</div>
+<div class="tip" id="fs4">module Browser<br /><br />from Fable.Import</div>
+<div class="tip" id="fs5">val min : a:&#39;a -&gt; b:&#39;a -&gt; &#39;a (requires comparison)<br /><br />Full name: Ozmo.min</div>
+<div class="tip" id="fs6">val a : &#39;a (requires comparison)</div>
+<div class="tip" id="fs7">val b : &#39;a (requires comparison)</div>
+<div class="tip" id="fs8">val max : a:&#39;a -&gt; b:&#39;a -&gt; &#39;a (requires comparison)<br /><br />Full name: Ozmo.max</div>
+<div class="tip" id="fs9">Multiple items<br />type EmitAttribute =<br />&#160;&#160;inherit Attribute<br />&#160;&#160;new : macro:string -&gt; EmitAttribute<br /><br />Full name: Fable.Core.EmitAttribute<br /><br />--------------------<br />new : macro:string -&gt; EmitAttribute</div>
+<div class="tip" id="fs10">val rand : unit -&gt; float<br /><br />Full name: Ozmo.rand</div>
+<div class="tip" id="fs11">Multiple items<br />val float : value:&#39;T -&gt; float (requires member op_Explicit)<br /><br />Full name: Microsoft.FSharp.Core.Operators.float<br /><br />--------------------<br />type float = System.Double<br /><br />Full name: Microsoft.FSharp.Core.float<br /><br />--------------------<br />type float&lt;&#39;Measure&gt; = float<br /><br />Full name: Microsoft.FSharp.Core.float&lt;_&gt;</div>
+<div class="tip" id="fs12">val failwith : message:string -&gt; &#39;T<br /><br />Full name: Microsoft.FSharp.Core.Operators.failwith</div>
+<div class="tip" id="fs13">val mutable keysPressed : Set&lt;int&gt;<br /><br />Full name: Ozmo.Keyboard.keysPressed</div>
+<div class="tip" id="fs14">Multiple items<br />module Set<br /><br />from Microsoft.FSharp.Collections<br /><br />--------------------<br />type Set&lt;&#39;T (requires comparison)&gt; =<br />&#160;&#160;interface IComparable<br />&#160;&#160;interface IEnumerable<br />&#160;&#160;interface IEnumerable&lt;&#39;T&gt;<br />&#160;&#160;interface ICollection&lt;&#39;T&gt;<br />&#160;&#160;new : elements:seq&lt;&#39;T&gt; -&gt; Set&lt;&#39;T&gt;<br />&#160;&#160;member Add : value:&#39;T -&gt; Set&lt;&#39;T&gt;<br />&#160;&#160;member Contains : value:&#39;T -&gt; bool<br />&#160;&#160;override Equals : obj -&gt; bool<br />&#160;&#160;member IsProperSubsetOf : otherSet:Set&lt;&#39;T&gt; -&gt; bool<br />&#160;&#160;member IsProperSupersetOf : otherSet:Set&lt;&#39;T&gt; -&gt; bool<br />&#160;&#160;...<br /><br />Full name: Microsoft.FSharp.Collections.Set&lt;_&gt;<br /><br />--------------------<br />new : elements:seq&lt;&#39;T&gt; -&gt; Set&lt;&#39;T&gt;</div>
+<div class="tip" id="fs15">val empty&lt;&#39;T (requires comparison)&gt; : Set&lt;&#39;T&gt; (requires comparison)<br /><br />Full name: Microsoft.FSharp.Collections.Set.empty</div>
+<div class="tip" id="fs16">val code : x:int -&gt; int<br /><br />Full name: Ozmo.Keyboard.code</div>
+<div class="tip" id="fs17">val x : int</div>
+<div class="tip" id="fs18">member Set.Contains : value:&#39;T -&gt; bool</div>
+<div class="tip" id="fs19">val arrows : unit -&gt; int * int<br /><br />Full name: Ozmo.Keyboard.arrows</div>
+<div class="tip" id="fs20">val update : e:KeyboardEvent * pressed:bool -&gt; &#39;a (requires &#39;a : null)<br /><br />Full name: Ozmo.Keyboard.update</div>
+<div class="tip" id="fs21">val e : KeyboardEvent</div>
+<div class="tip" id="fs22">Multiple items<br />val KeyboardEvent : KeyboardEventType<br /><br />Full name: Fable.Import.Browser.KeyboardEvent<br /><br />--------------------<br />type KeyboardEvent =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit UIEvent<br />&#160;&#160;&#160;&#160;abstract member getModifierState : keyArg:string -&gt; bool<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_JOYSTICK : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_LEFT : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_MOBILE : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_NUMPAD : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_RIGHT : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_STANDARD : float<br />&#160;&#160;&#160;&#160;abstract member altKey : bool<br />&#160;&#160;&#160;&#160;abstract member char : string<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.Browser.KeyboardEvent</div>
+<div class="tip" id="fs23">val pressed : bool</div>
+<div class="tip" id="fs24">val keyCode : int</div>
+<div class="tip" id="fs25">Multiple items<br />val int : value:&#39;T -&gt; int (requires member op_Explicit)<br /><br />Full name: Microsoft.FSharp.Core.Operators.int<br /><br />--------------------<br />type int = int32<br /><br />Full name: Microsoft.FSharp.Core.int<br /><br />--------------------<br />type int&lt;&#39;Measure&gt; = int<br /><br />Full name: Microsoft.FSharp.Core.int&lt;_&gt;</div>
+<div class="tip" id="fs26">property KeyboardEvent.keyCode: float</div>
+<div class="tip" id="fs27">val op : (int -&gt; Set&lt;int&gt; -&gt; Set&lt;int&gt;)</div>
+<div class="tip" id="fs28">val add : value:&#39;T -&gt; set:Set&lt;&#39;T&gt; -&gt; Set&lt;&#39;T&gt; (requires comparison)<br /><br />Full name: Microsoft.FSharp.Collections.Set.add</div>
+<div class="tip" id="fs29">val remove : value:&#39;T -&gt; set:Set&lt;&#39;T&gt; -&gt; Set&lt;&#39;T&gt; (requires comparison)<br /><br />Full name: Microsoft.FSharp.Collections.Set.remove</div>
+<div class="tip" id="fs30">val init : unit -&gt; unit<br /><br />Full name: Ozmo.Keyboard.init</div>
+<div class="tip" id="fs31">val window : Window<br /><br />Full name: Fable.Import.Browser.window</div>
+<div class="tip" id="fs32">abstract member Window.addEventListener_keydown : listener:System.Func&lt;KeyboardEvent,obj&gt; * ?useCapture:bool -&gt; unit</div>
+<div class="tip" id="fs33">abstract member Window.addEventListener_keyup : listener:System.Func&lt;KeyboardEvent,obj&gt; * ?useCapture:bool -&gt; unit</div>
+<div class="tip" id="fs34">val width : float<br /><br />Full name: Ozmo.width<br /><em><br /><br />&#160;The width of the canvas</em></div>
+<div class="tip" id="fs35">val height : float<br /><br />Full name: Ozmo.height<br /><em><br /><br />&#160;The height of the canvas</em></div>
+<div class="tip" id="fs36">val floorHeight : float<br /><br />Full name: Ozmo.floorHeight<br /><em><br /><br />&#160;Height of the floor - the bottom black part</em></div>
+<div class="tip" id="fs37">val atmosHeight : float<br /><br />Full name: Ozmo.atmosHeight<br /><em><br /><br />&#160;Height of the atmosphere - the yellow gradient</em></div>
+<div class="tip" id="fs38">module Keyboard<br /><br />from Ozmo</div>
+<div class="tip" id="fs39">val canvas : HTMLCanvasElement<br /><br />Full name: Ozmo.canvas</div>
+<div class="tip" id="fs40">val document : Document<br /><br />Full name: Fable.Import.Browser.document</div>
+<div class="tip" id="fs41">abstract member Document.getElementsByTagName_canvas : unit -&gt; NodeListOf&lt;HTMLCanvasElement&gt;</div>
+<div class="tip" id="fs42">val ctx : CanvasRenderingContext2D<br /><br />Full name: Ozmo.ctx</div>
+<div class="tip" id="fs43">abstract member HTMLCanvasElement.getContext_2d : unit -&gt; CanvasRenderingContext2D</div>
+<div class="tip" id="fs44">property HTMLCanvasElement.width: float</div>
+<div class="tip" id="fs45">property HTMLCanvasElement.height: float</div>
+<div class="tip" id="fs46">val drawGrd : ctx:CanvasRenderingContext2D -&gt; canvas:HTMLCanvasElement -&gt; y0:float * y1:float -&gt; c0:string * c1:string -&gt; unit<br /><br />Full name: Ozmo.drawGrd<br /><em><br /><br />&#160;Draw gradient between two Y offsets and two colours</em></div>
+<div class="tip" id="fs47">val ctx : CanvasRenderingContext2D</div>
+<div class="tip" id="fs48">Multiple items<br />val CanvasRenderingContext2D : CanvasRenderingContext2DType<br /><br />Full name: Fable.Import.Browser.CanvasRenderingContext2D<br /><br />--------------------<br />type CanvasRenderingContext2D =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;abstract member arc : x:float * y:float * radius:float * startAngle:float * endAngle:float * ?anticlockwise:bool -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member arcTo : x1:float * y1:float * x2:float * y2:float * radius:float -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member beginPath : unit -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member bezierCurveTo : cp1x:float * cp1y:float * cp2x:float * cp2y:float * x:float * y:float -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member clearRect : x:float * y:float * w:float * h:float -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member clip : ?fillRule:string -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member closePath : unit -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member createImageData : imageDataOrSw:U2&lt;float,ImageData&gt; * ?sh:float -&gt; ImageData<br />&#160;&#160;&#160;&#160;abstract member createLinearGradient : x0:float * y0:float * x1:float * y1:float -&gt; CanvasGradient<br />&#160;&#160;&#160;&#160;abstract member createPattern : image:U3&lt;HTMLImageElement,HTMLCanvasElement,HTMLVideoElement&gt; * repetition:string -&gt; CanvasPattern<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.Browser.CanvasRenderingContext2D</div>
+<div class="tip" id="fs49">val canvas : HTMLCanvasElement</div>
+<div class="tip" id="fs50">Multiple items<br />val HTMLCanvasElement : HTMLCanvasElementType<br /><br />Full name: Fable.Import.Browser.HTMLCanvasElement<br /><br />--------------------<br />type HTMLCanvasElement =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit HTMLElement<br />&#160;&#160;&#160;&#160;abstract member getContext : contextId:string * [&lt;ParamArray&gt;] args:obj [] -&gt; U2&lt;CanvasRenderingContext2D,WebGLRenderingContext&gt;<br />&#160;&#160;&#160;&#160;abstract member getContext_2d : unit -&gt; CanvasRenderingContext2D<br />&#160;&#160;&#160;&#160;abstract member ( getContext_experimental-webgl ) : unit -&gt; WebGLRenderingContext<br />&#160;&#160;&#160;&#160;abstract member height : float<br />&#160;&#160;&#160;&#160;abstract member width : float<br />&#160;&#160;&#160;&#160;abstract member msToBlob : unit -&gt; Blob<br />&#160;&#160;&#160;&#160;abstract member height : float with set<br />&#160;&#160;&#160;&#160;abstract member width : float with set<br />&#160;&#160;&#160;&#160;abstract member toBlob : unit -&gt; Blob<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.Browser.HTMLCanvasElement</div>
+<div class="tip" id="fs51">val y0 : float</div>
+<div class="tip" id="fs52">val y1 : float</div>
+<div class="tip" id="fs53">val c0 : string</div>
+<div class="tip" id="fs54">val c1 : string</div>
+<div class="tip" id="fs55">val grd : CanvasGradient</div>
+<div class="tip" id="fs56">abstract member CanvasRenderingContext2D.createLinearGradient : x0:float * y0:float * x1:float * y1:float -&gt; CanvasGradient</div>
+<div class="tip" id="fs57">abstract member CanvasGradient.addColorStop : offset:float * color:string -&gt; unit</div>
+<div class="tip" id="fs58">property CanvasRenderingContext2D.fillStyle: U3&lt;string,CanvasGradient,CanvasPattern&gt;</div>
+<div class="tip" id="fs59">type U3&lt;&#39;a,&#39;b,&#39;c&gt; =<br />&#160;&#160;| Case1 of &#39;a<br />&#160;&#160;| Case2 of &#39;b<br />&#160;&#160;| Case3 of &#39;c<br /><br />Full name: Fable.Core.U3&lt;_,_,_&gt;</div>
+<div class="tip" id="fs60">union case U3.Case2: &#39;b -&gt; U3&lt;&#39;a,&#39;b,&#39;c&gt;</div>
+<div class="tip" id="fs61">abstract member CanvasRenderingContext2D.fillRect : x:float * y:float * w:float * h:float -&gt; unit</div>
+<div class="tip" id="fs62">val drawBg : ctx:CanvasRenderingContext2D -&gt; canvas:HTMLCanvasElement -&gt; unit<br /><br />Full name: Ozmo.drawBg<br /><em><br /><br />&#160;Draw background of the Ozmo game</em></div>
+<div class="tip" id="fs63">union case U3.Case1: &#39;a -&gt; U3&lt;&#39;a,&#39;b,&#39;c&gt;</div>
+<div class="tip" id="fs64">val drawText : text:string * x:float * y:float -&gt; unit<br /><br />Full name: Ozmo.drawText<br /><em><br /><br />&#160;Draw the specified text (when game finishes)</em></div>
+<div class="tip" id="fs65">val text : string</div>
+<div class="tip" id="fs66">val x : float</div>
+<div class="tip" id="fs67">val y : float</div>
+<div class="tip" id="fs68">property CanvasRenderingContext2D.font: string</div>
+<div class="tip" id="fs69">abstract member CanvasRenderingContext2D.fillText : text:string * x:float * y:float * ?maxWidth:float -&gt; unit</div>
+<div class="tip" id="fs70">Multiple items<br />val Blob : BlobType<br /><br />Full name: Fable.Import.Browser.Blob<br /><br />--------------------<br />type Blob =<br />&#160;&#160;{X: float;<br />&#160;&#160;&#160;Y: float;<br />&#160;&#160;&#160;vx: float;<br />&#160;&#160;&#160;vy: float;<br />&#160;&#160;&#160;Radius: float;<br />&#160;&#160;&#160;color: string;}<br /><br />Full name: Ozmo.Blob</div>
+<div class="tip" id="fs71">Blob.X: float</div>
+<div class="tip" id="fs72">Blob.Y: float</div>
+<div class="tip" id="fs73">Blob.vx: float</div>
+<div class="tip" id="fs74">Blob.vy: float</div>
+<div class="tip" id="fs75">Blob.Radius: float</div>
+<div class="tip" id="fs76">Blob.color: string</div>
+<div class="tip" id="fs77">Multiple items<br />val string : value:&#39;T -&gt; string<br /><br />Full name: Microsoft.FSharp.Core.Operators.string<br /><br />--------------------<br />type string = System.String<br /><br />Full name: Microsoft.FSharp.Core.string</div>
+<div class="tip" id="fs78">val drawBlob : ctx:CanvasRenderingContext2D -&gt; canvas:HTMLCanvasElement -&gt; blob:Blob -&gt; unit<br /><br />Full name: Ozmo.drawBlob</div>
+<div class="tip" id="fs79">val blob : Blob</div>
+<div class="tip" id="fs80">abstract member CanvasRenderingContext2D.beginPath : unit -&gt; unit</div>
+<div class="tip" id="fs81">abstract member CanvasRenderingContext2D.arc : x:float * y:float * radius:float * startAngle:float * endAngle:float * ?anticlockwise:bool -&gt; unit</div>
+<div class="tip" id="fs82">namespace System</div>
+<div class="tip" id="fs83">type Math =<br />&#160;&#160;static val PI : float<br />&#160;&#160;static val E : float<br />&#160;&#160;static member Abs : value:sbyte -&gt; sbyte + 6 overloads<br />&#160;&#160;static member Acos : d:float -&gt; float<br />&#160;&#160;static member Asin : d:float -&gt; float<br />&#160;&#160;static member Atan : d:float -&gt; float<br />&#160;&#160;static member Atan2 : y:float * x:float -&gt; float<br />&#160;&#160;static member BigMul : a:int * b:int -&gt; int64<br />&#160;&#160;static member Ceiling : d:decimal -&gt; decimal + 1 overload<br />&#160;&#160;static member Cos : d:float -&gt; float<br />&#160;&#160;...<br /><br />Full name: System.Math</div>
+<div class="tip" id="fs84">field System.Math.PI = 3.14159265359</div>
+<div class="tip" id="fs85">abstract member CanvasRenderingContext2D.fill : ?fillRule:string -&gt; unit</div>
+<div class="tip" id="fs86">property CanvasRenderingContext2D.lineWidth: float</div>
+<div class="tip" id="fs87">property CanvasRenderingContext2D.strokeStyle: U3&lt;string,CanvasGradient,CanvasPattern&gt;</div>
+<div class="tip" id="fs88">abstract member CanvasRenderingContext2D.stroke : unit -&gt; unit</div>
+<div class="tip" id="fs89">val direct : dx:int * dy:&#39;a -&gt; blob:Blob -&gt; Blob<br /><br />Full name: Ozmo.direct<br /><em><br /><br />&#160;Apply key effects on Player&#39;s blob - changes X speed</em></div>
+<div class="tip" id="fs90">val dx : int</div>
+<div class="tip" id="fs91">val dy : &#39;a</div>
+<div class="tip" id="fs92">val gravity : blob:Blob -&gt; Blob<br /><br />Full name: Ozmo.gravity<br /><em><br /><br />&#160;Apply gravity on falling blobs - gets faster every step</em></div>
+<div class="tip" id="fs93">val bounce : blob:Blob -&gt; Blob<br /><br />Full name: Ozmo.bounce<br /><em><br /><br />&#160;Bounde Player&#39;s blob off the wall if it hits it</em></div>
+<div class="tip" id="fs94">val n : float</div>
+<div class="tip" id="fs95">val move : blob:Blob -&gt; Blob<br /><br />Full name: Ozmo.move<br /><em><br /><br />&#160;Move blob by one step - adds X and Y <br />&#160;velocities to the X and Y coordinates</em></div>
+<div class="tip" id="fs96">val step : int * &#39;a -&gt; blob:Blob -&gt; Blob<br /><br />Full name: Ozmo.step<br /><em><br /><br />&#160;Apply step on Player&#39;s blob. Composes above functions.</em></div>
+<div class="tip" id="fs97">val dir : int * &#39;a</div>
+<div class="tip" id="fs98">val collide : a:Blob -&gt; b:Blob -&gt; bool<br /><br />Full name: Ozmo.collide<br /><em><br /><br />&#160;Check whether two blobs collide</em></div>
+<div class="tip" id="fs99">val a : Blob</div>
+<div class="tip" id="fs100">val b : Blob</div>
+<div class="tip" id="fs101">val dx : float</div>
+<div class="tip" id="fs102">val dy : float</div>
+<div class="tip" id="fs103">val dist : float</div>
+<div class="tip" id="fs104">val sqrt : value:&#39;T -&gt; &#39;U (requires member Sqrt)<br /><br />Full name: Microsoft.FSharp.Core.Operators.sqrt</div>
+<div class="tip" id="fs105">val abs : value:&#39;T -&gt; &#39;T (requires member Abs)<br /><br />Full name: Microsoft.FSharp.Core.Operators.abs</div>
+<div class="tip" id="fs106">val absorb : blob:Blob -&gt; drops:Blob list -&gt; Blob list<br /><br />Full name: Ozmo.absorb<br /><em><br /><br />&#160;Remove all falling blobs that hit Player&#39;s blob</em></div>
+<div class="tip" id="fs107">val drops : Blob list</div>
+<div class="tip" id="fs108">type &#39;T list = List&lt;&#39;T&gt;<br /><br />Full name: Microsoft.FSharp.Collections.list&lt;_&gt;</div>
+<div class="tip" id="fs109">Multiple items<br />module List<br /><br />from Microsoft.FSharp.Collections<br /><br />--------------------<br />type List&lt;&#39;T&gt; =<br />&#160;&#160;| ( [] )<br />&#160;&#160;| ( :: ) of Head: &#39;T * Tail: &#39;T list<br />&#160;&#160;interface IEnumerable<br />&#160;&#160;interface IEnumerable&lt;&#39;T&gt;<br />&#160;&#160;member GetSlice : startIndex:int option * endIndex:int option -&gt; &#39;T list<br />&#160;&#160;member Head : &#39;T<br />&#160;&#160;member IsEmpty : bool<br />&#160;&#160;member Item : index:int -&gt; &#39;T with get<br />&#160;&#160;member Length : int<br />&#160;&#160;member Tail : &#39;T list<br />&#160;&#160;static member Cons : head:&#39;T * tail:&#39;T list -&gt; &#39;T list<br />&#160;&#160;static member Empty : &#39;T list<br /><br />Full name: Microsoft.FSharp.Collections.List&lt;_&gt;</div>
+<div class="tip" id="fs110">val filter : predicate:(&#39;T -&gt; bool) -&gt; list:&#39;T list -&gt; &#39;T list<br /><br />Full name: Microsoft.FSharp.Collections.List.filter</div>
+<div class="tip" id="fs111">val drop : Blob</div>
+<div class="tip" id="fs112">val not : value:bool -&gt; bool<br /><br />Full name: Microsoft.FSharp.Core.Operators.not</div>
+<div class="tip" id="fs113">val grow : string<br /><br />Full name: Ozmo.grow</div>
+<div class="tip" id="fs114">val shrink : string<br /><br />Full name: Ozmo.shrink</div>
+<div class="tip" id="fs115">val newDrop : color:string -&gt; Blob<br /><br />Full name: Ozmo.newDrop</div>
+<div class="tip" id="fs116">val color : string</div>
+<div class="tip" id="fs117">val newGrow : unit -&gt; Blob<br /><br />Full name: Ozmo.newGrow</div>
+<div class="tip" id="fs118">val newShrink : unit -&gt; Blob<br /><br />Full name: Ozmo.newShrink</div>
+<div class="tip" id="fs119">val updateDrops : drops:Blob list -&gt; countdown:int -&gt; Blob list * int<br /><br />Full name: Ozmo.updateDrops<br /><em><br /><br />&#160;Update drops and countdown in each step</em></div>
+<div class="tip" id="fs120">val countdown : int</div>
+<div class="tip" id="fs121">val floor : value:&#39;T -&gt; &#39;T (requires member Floor)<br /><br />Full name: Microsoft.FSharp.Core.Operators.floor</div>
+<div class="tip" id="fs122">val countDrops : drops:Blob list -&gt; int * int<br /><br />Full name: Ozmo.countDrops<br /><em><br /><br />&#160;Count growing and shrinking drops in the list</em></div>
+<div class="tip" id="fs123">val count : (string -&gt; int)</div>
+<div class="tip" id="fs124">val length : list:&#39;T list -&gt; int<br /><br />Full name: Microsoft.FSharp.Collections.List.length</div>
+<div class="tip" id="fs125">val game : unit -&gt; Async&lt;&#39;a&gt;<br /><br />Full name: Ozmo.game<br /><em><br /><br />&#160;Starts a new game</em></div>
+<div class="tip" id="fs126">val async : AsyncBuilder<br /><br />Full name: Microsoft.FSharp.Core.ExtraTopLevelOperators.async</div>
+<div class="tip" id="fs127">val update : blob:Blob -&gt; drops:Blob list -&gt; countdown:int -&gt; Async&lt;&#39;a&gt;<br /><br />Full name: Ozmo.update<br /><em><br /><br />&#160;Keeps current state for Player&#39;s blob, falling<br />&#160;drops and the countdown since last drop was generated</em></div>
+<div class="tip" id="fs128">val completed : unit -&gt; Async&lt;&#39;a&gt;<br /><br />Full name: Ozmo.completed<br /><em><br /><br />&#160;Displays message and sleeps for 10 sec</em></div>
+<div class="tip" id="fs129">Multiple items<br />type Async<br />static member AsBeginEnd : computation:(&#39;Arg -&gt; Async&lt;&#39;T&gt;) -&gt; (&#39;Arg * AsyncCallback * obj -&gt; IAsyncResult) * (IAsyncResult -&gt; &#39;T) * (IAsyncResult -&gt; unit)<br />static member AwaitEvent : event:IEvent&lt;&#39;Del,&#39;T&gt; * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt; (requires delegate and &#39;Del :&gt; Delegate)<br />static member AwaitIAsyncResult : iar:IAsyncResult * ?millisecondsTimeout:int -&gt; Async&lt;bool&gt;<br />static member AwaitTask : task:Task -&gt; Async&lt;unit&gt;<br />static member AwaitTask : task:Task&lt;&#39;T&gt; -&gt; Async&lt;&#39;T&gt;<br />static member AwaitWaitHandle : waitHandle:WaitHandle * ?millisecondsTimeout:int -&gt; Async&lt;bool&gt;<br />static member CancelDefaultToken : unit -&gt; unit<br />static member Catch : computation:Async&lt;&#39;T&gt; -&gt; Async&lt;Choice&lt;&#39;T,exn&gt;&gt;<br />static member FromBeginEnd : beginAction:(AsyncCallback * obj -&gt; IAsyncResult) * endAction:(IAsyncResult -&gt; &#39;T) * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member FromBeginEnd : arg:&#39;Arg1 * beginAction:(&#39;Arg1 * AsyncCallback * obj -&gt; IAsyncResult) * endAction:(IAsyncResult -&gt; &#39;T) * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member FromBeginEnd : arg1:&#39;Arg1 * arg2:&#39;Arg2 * beginAction:(&#39;Arg1 * &#39;Arg2 * AsyncCallback * obj -&gt; IAsyncResult) * endAction:(IAsyncResult -&gt; &#39;T) * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member FromBeginEnd : arg1:&#39;Arg1 * arg2:&#39;Arg2 * arg3:&#39;Arg3 * beginAction:(&#39;Arg1 * &#39;Arg2 * &#39;Arg3 * AsyncCallback * obj -&gt; IAsyncResult) * endAction:(IAsyncResult -&gt; &#39;T) * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member FromContinuations : callback:((&#39;T -&gt; unit) * (exn -&gt; unit) * (OperationCanceledException -&gt; unit) -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member Ignore : computation:Async&lt;&#39;T&gt; -&gt; Async&lt;unit&gt;<br />static member OnCancel : interruption:(unit -&gt; unit) -&gt; Async&lt;IDisposable&gt;<br />static member Parallel : computations:seq&lt;Async&lt;&#39;T&gt;&gt; -&gt; Async&lt;&#39;T []&gt;<br />static member RunSynchronously : computation:Async&lt;&#39;T&gt; * ?timeout:int * ?cancellationToken:CancellationToken -&gt; &#39;T<br />static member Sleep : millisecondsDueTime:int -&gt; Async&lt;unit&gt;<br />static member Start : computation:Async&lt;unit&gt; * ?cancellationToken:CancellationToken -&gt; unit<br />static member StartAsTask : computation:Async&lt;&#39;T&gt; * ?taskCreationOptions:TaskCreationOptions * ?cancellationToken:CancellationToken -&gt; Task&lt;&#39;T&gt;<br />static member StartChild : computation:Async&lt;&#39;T&gt; * ?millisecondsTimeout:int -&gt; Async&lt;Async&lt;&#39;T&gt;&gt;<br />static member StartChildAsTask : computation:Async&lt;&#39;T&gt; * ?taskCreationOptions:TaskCreationOptions -&gt; Async&lt;Task&lt;&#39;T&gt;&gt;<br />static member StartImmediate : computation:Async&lt;unit&gt; * ?cancellationToken:CancellationToken -&gt; unit<br />static member StartWithContinuations : computation:Async&lt;&#39;T&gt; * continuation:(&#39;T -&gt; unit) * exceptionContinuation:(exn -&gt; unit) * cancellationContinuation:(OperationCanceledException -&gt; unit) * ?cancellationToken:CancellationToken -&gt; unit<br />static member SwitchToContext : syncContext:SynchronizationContext -&gt; Async&lt;unit&gt;<br />static member SwitchToNewThread : unit -&gt; Async&lt;unit&gt;<br />static member SwitchToThreadPool : unit -&gt; Async&lt;unit&gt;<br />static member TryCancelled : computation:Async&lt;&#39;T&gt; * compensation:(OperationCanceledException -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member CancellationToken : Async&lt;CancellationToken&gt;<br />static member DefaultCancellationToken : CancellationToken<br /><br />Full name: Microsoft.FSharp.Control.Async<br /><br />--------------------<br />type Async&lt;&#39;T&gt;<br /><br />Full name: Microsoft.FSharp.Control.Async&lt;_&gt;</div>
+<div class="tip" id="fs130">static member Async.Sleep : millisecondsDueTime:int -&gt; Async&lt;unit&gt;</div>
+<div class="tip" id="fs131">val beforeGrow : int</div>
+<div class="tip" id="fs132">val beforeShrink : int</div>
+<div class="tip" id="fs133">val map : mapping:(&#39;T -&gt; &#39;U) -&gt; list:&#39;T list -&gt; &#39;U list<br /><br />Full name: Microsoft.FSharp.Collections.List.map</div>
+<div class="tip" id="fs134">val afterGrow : int</div>
+<div class="tip" id="fs135">val afterShrink : int</div>
+<div class="tip" id="fs136">val radius : float</div>
+<div class="tip" id="fs137">static member Async.StartImmediate : computation:Async&lt;unit&gt; * ?cancellationToken:System.Threading.CancellationToken -&gt; unit</div>
+
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+
+  </div>
+
+  <a class="gh-forkme" href="https://github.com/fsprojects/Fable"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+</body>
+</html>

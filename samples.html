@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Alfonso Garcia-Caro">
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <link href='https://fonts.googleapis.com/css?family=Josefin+Sans:400,300,600,700' rel='stylesheet' type='text/css'>
+    <link href="/content/custom.css" rel='stylesheet' type='text/css'>
+    <script src="/content/tips.js"></script>
+    <link rel="stylesheet" type="text/css" href="/content/snippets.css" />
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+    <script language="javascript" type="text/javascript">
+      function init() {
+          websocket = new WebSocket("ws://"+window.location.host+"/websocket");
+          websocket.onmessage = function(evt) { location.reload(); };
+      }
+      window.addEventListener("load", init, false);
+    </script>
+    
+  <title>Fable samples - F# |> BABEL</title>
+  <meta name="description" content="Explore Fable through fun demos!">
+
+</head>
+<body>
+
+  <div class="fb-navbar">
+  <div class="container">
+  <nav class="navbar navbar-default">
+    <div class="navbar-wrapper">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">Fable</a>
+      </div>
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li class=""><a href="/">home</a></li>
+          <li class="active"><a href="/samples.html">samples</a></li>
+          <li class=""><a href="/docs.html">docs</a></li>
+          <li><a href="https://github.com/fsprojects/Fable">source</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  </div>
+  </div>
+
+  <div class="fb-content-wrapper">
+  
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>Fable samples</h1>
+      <p>Explore Fable through fun demos!</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="container fb-content">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p>Fable works great for creating <a href="https://nodejs.org/en/">server-side node.js</a> application,
+client-side browser based applications and even <a href="http://electron.atom.io/">desktop electron-based
+applications</a>. You can find a number of Fable examples and demos
+of all kinds in the <a href="https://github.com/fsprojects/Fable/tree/master/samples">samples directory on
+GitHub</a>. Here, is a couple
+of selected examples with longer explanation.</p>
+<p>You can also contribute more examples by sending us a pull
+request <a href="https://github.com/fsprojects/Fable/tree/master/samples">for the samples directory</a>!</p>
+<h2><a name="Fun-and-games" class="anchor" href="#Fun-and-games">Fun and games</a></h2>
+<a href="samples/mario/index.html"><img src="samples/images/mario.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+<h3><a name="Super-Fable-Mario" class="anchor" href="#Super-Fable-Mario"><a href="samples/mario/index.html">Super Fable Mario</a></a></h3>
+<p>Mario clone, based on functional reactive <a href="http://debug.elm-lang.org/edit/Mario.elm">sample written in
+Elm</a>. The Fable version is using HTML 5
+canvas to render the background and an <code>img</code> tag showing the Mario (using animated GIFs).
+You can view the <a href="https://github.com/fsprojects/Fable/blob/master/samples/browser/mario/mario.fsx">raw source code on GitHub</a>.</p>
+<a href="samples/hokusai/index.html"><img src="samples/images/wave.jpg" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+<h3><a name="Hokusai-and-fractals" class="anchor" href="#Hokusai-and-fractals"><a href="samples/hokusai/index.html">Hokusai and fractals</a></a></h3>
+<p>This demo is based on Tomas Petricek's <a href="http://tomasp.net/blog/2014/japan-advent-art-en/">F# Advent Calendar post</a>
+that explores Japenese art using the (now defunct) Freebase type provider and renders
+The Great Wave by Hokusai using the Julia fractal.
+View the <a href="https://github.com/fsprojects/Fable/blob/master/samples/browser/hokusai/hokusai.fsx">raw source code on GitHub</a>.</p>
+<a href="samples/ozmo/index.html"><img src="samples/images/ozmo.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+<h3><a name="Ozmo-game" class="anchor" href="#Ozmo-game"><a href="samples/ozmo/index.html">Ozmo game</a></a></h3>
+<p>Phil Trelford's <a href="https://twitter.com/ptrelford/status/475395178208174080">classic Ozmo game</a>, originally hosted
+<a href="https://bitbucket.org/ptrelford/ozmo">on BitBucket</a> ported to Fable! Shows how to handle keyboard events and
+use HTML5 canvas. You can also get it (as a JavaScript app) from <a href="https://www.microsoft.com/en-gb/store/apps/ozmo/9nblggh4rjng">the Windows
+Store</a>. View the <a href="https://github.com/fsprojects/Fable/blob/master/samples/browser/ozmo/ozmo.fsx">raw source code on
+GitHub</a>.</p>
+<a href="samples/pacman/index.html"><img src="samples/images/pacman.png" style="width:100px;float:left;margin:25px 25px 10px 0px" /></a>
+<h3><a name="Pacman" class="anchor" href="#Pacman"><a href="samples/pacman/index.html">Pacman</a></a></h3>
+<p>Pacman finds himself in a grid filled with monsters... This is the most complex sample here.
+It involves rendering the maze, AI for the ghosts, user interaction and even playing sound effects.
+The game has some brief commentary, but if you want to learn Fable, look at the above examples
+first. The <a href="https://github.com/fsprojects/Fable/blob/master/samples/browser/pacman/pacman.fsx">raw source code is on GitHub</a>.</p>
+<h2><a name="Server-side-node-js" class="anchor" href="#Server-side-node-js">Server-side node.js</a></h2>
+<a href="samples/server/index.html"><img src="samples/images/node.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+<h3><a name="Simple-static-server" class="anchor" href="#Simple-static-server"><a href="samples/server/index.html">Simple static server</a></a></h3>
+<p>Minimal example that shows how to use Fable to create a node.js HTTP server that
+hosts static files from the current directory using the <code>serve-static</code> package.
+You can view the <a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/index.fsx">source code</a>,
+<a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/packages.json">packages.json</a> and
+<a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json">fableconfig.json</a> on
+GitHub.</p>
+<a href="samples/express/index.html"><img src="samples/images/express.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+<h3><a name="Express-web-framework-demo" class="anchor" href="#Express-web-framework-demo"><a href="samples/express/index.html">Express web framework demo</a></a></h3>
+<p>Example of using Fable to create a web application using <a href="http://expressjs.com/">Express</a>,
+a fast, unopinionated, minimalist web framework for Node.js. The
+<a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/index.fsx">raw source code</a> is
+on GitHub, together with the configuration in
+<a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/packages.json">packages.json</a> and
+<a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json">fableconfig.json</a>.</p>
+<h2><a name="Something-missing" class="anchor" href="#Something-missing">Something missing?</a></h2>
+<a href="https://github.com/fsprojects/Fable/tree/master/samples"><img src="samples/images/add.png" style="width:100px;float:left;margin:25px 25px 10px 0px" /></a>
+<h3><a name="Send-us-a-pull-request" class="anchor" href="#Send-us-a-pull-request"><a href="https://github.com/fsprojects/Fable/tree/master/samples">Send us a pull request!</a></a></h3>
+<p>Do you have a nice demo using Fable? Send us a pull request!
+We'd love to add more examples of using Fable in reactive web applications, server-side
+node applications and other domains that rely on JavaScript. You can add demos to the
+<a href="https://github.com/fsprojects/Fable/tree/master/samples">samples folder in Fable repo</a>,
+or just add a link from <a href="https://github.com/fsprojects/Fable">this page</a>.</p>
+
+
+
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+
+  </div>
+
+  <a class="gh-forkme" href="https://github.com/fsprojects/Fable"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+</body>
+</html>

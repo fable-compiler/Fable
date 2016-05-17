@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Alfonso Garcia-Caro">
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <link href='https://fonts.googleapis.com/css?family=Josefin+Sans:400,300,600,700' rel='stylesheet' type='text/css'>
+    <link href="/content/custom.css" rel='stylesheet' type='text/css'>
+    <script src="/content/tips.js"></script>
+    <link rel="stylesheet" type="text/css" href="/content/snippets.css" />
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+    <script language="javascript" type="text/javascript">
+      function init() {
+          websocket = new WebSocket("ws://"+window.location.host+"/websocket");
+          websocket.onmessage = function(evt) { location.reload(); };
+      }
+      window.addEventListener("load", init, false);
+    </script>
+    
+  <title>Hokusai and factals - F# |> BABEL</title>
+  <script src="../scripts/core.min.js"></script>
+  <script src="../scripts/require.js"></script>
+  <meta name="description" content="Rendering fractals using HTML5 canvas">
+
+</head>
+<body>
+
+  <div class="fb-navbar">
+  <div class="container">
+  <nav class="navbar navbar-default">
+    <div class="navbar-wrapper">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">Fable</a>
+      </div>
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li class=""><a href="/">home</a></li>
+          <li class="active"><a href="/samples.html">samples</a></li>
+          <li class=""><a href="/docs.html">docs</a></li>
+          <li><a href="https://github.com/fsprojects/Fable">source</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  </div>
+  </div>
+
+  <div class="fb-content-wrapper">
+  
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>Hokusai and factals</h1>
+      <p>Rendering fractals using HTML5 canvas</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="container fb-content">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p><p> This demo is based on Tomas Petricek's <a href="http://tomasp.net/blog/2014/japan-advent-art-en/">F# Advent Calendar post</a>
+that explores Japenese art using the (now defunct) Freebase type provider and renders
+The Great Wave by Hokusai using the Julia fractal.
+You can find the <a href="https://github.com/fsprojects/Fable/blob/master/samples/browser/hokusai/hokusai.fsx">full source code on GitHub</a>.</p>
+<p>In this demo, you'll see how to define a simple complex number arithmetic in F#,
+how to use it to implement the Julia set fractal and how to render the fractal
+asynchronously to avoid blocking the browser during the process.
+To run the demo, click the "Render Julia set fractal" button!</p></p>
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-12">
+      <div style="padding:20px 0px 10px 0px;">
+        
+  <style>
+    .md-right { text-align:center; margin-bottom:15px; }
+    .md-left { text-align:center; }
+    @media(min-width:992px) {
+      .md-right { text-align:right; }
+      .md-left { text-align:left; }
+    }
+  </style>
+  <div style="text-align:center;margin-bottom:10px">
+    <input type="button" id="go" value="Render Julia set fractal!" style="font-weight:bold;font-size:120%; border:3px solid black;background:#F0E5D1;padding:7px 15px 7px 15px" />
+  </div>
+  <div class="row">
+    <div class="col-md-6 md-right">
+      <img src="hokusai.jpg" style="border:5px solid black" />
+    </div>
+    <div class="col-md-6 md-left">
+      <canvas id="canvas" width="400" height="300" style="border:5px solid black"></canvas><br />
+    </div>
+  </div>
+  
+      </div>
+      <script>
+        requirejs.config({
+          baseUrl: '.',
+          paths: { 'fable-core': '../scripts/fable-core.min' }
+        });
+        requirejs(["hokusai"]);
+      </script>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <h2><a name="Complex-numbers" class="anchor" href="#Complex-numbers">Complex numbers</a></h2>
+<p>Before looking at the fractal, we need a simple type for working with
+complex numbers that supports the <code>+</code> operation and the <code>abs</code> and <code>pow</code> functions.
+We define the type as a simple wrapper over a pair of floating point numbers and
+add <code>Abs</code> and <code>+</code> as static methods. This way, they can be used through the usual
+F# functions:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs5', 6)" onmouseover="showTip(event, 'fs5', 6)" class="t">Complex</span> <span class="o">=</span>
+  | <span onmouseout="hideTip(event, 'fs5', 7)" onmouseover="showTip(event, 'fs5', 7)" class="p">Complex</span> <span class="k">of</span> <span onmouseout="hideTip(event, 'fs6', 8)" onmouseover="showTip(event, 'fs6', 8)" class="t">float</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs6', 9)" onmouseover="showTip(event, 'fs6', 9)" class="t">float</span>
+  <span class="c">/// Calculate the absolute value of a complex number</span>
+  <span class="k">static</span> <span class="k">member</span> <span onmouseout="hideTip(event, 'fs7', 10)" onmouseover="showTip(event, 'fs7', 10)" class="f">Abs</span>(<span onmouseout="hideTip(event, 'fs5', 11)" onmouseover="showTip(event, 'fs5', 11)" class="p">Complex</span>(<span onmouseout="hideTip(event, 'fs8', 12)" onmouseover="showTip(event, 'fs8', 12)" class="i">r</span>, <span onmouseout="hideTip(event, 'fs9', 13)" onmouseover="showTip(event, 'fs9', 13)" class="i">i</span>)) <span class="o">=</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs10', 14)" onmouseover="showTip(event, 'fs10', 14)" class="i">num1</span>, <span onmouseout="hideTip(event, 'fs11', 15)" onmouseover="showTip(event, 'fs11', 15)" class="i">num2</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs12', 16)" onmouseover="showTip(event, 'fs12', 16)" class="f">abs</span> <span onmouseout="hideTip(event, 'fs8', 17)" onmouseover="showTip(event, 'fs8', 17)" class="i">r</span>, <span onmouseout="hideTip(event, 'fs12', 18)" onmouseover="showTip(event, 'fs12', 18)" class="f">abs</span> <span onmouseout="hideTip(event, 'fs9', 19)" onmouseover="showTip(event, 'fs9', 19)" class="i">i</span>
+    <span class="k">if</span> (<span onmouseout="hideTip(event, 'fs10', 20)" onmouseover="showTip(event, 'fs10', 20)" class="i">num1</span> <span class="o">&gt;</span> <span onmouseout="hideTip(event, 'fs11', 21)" onmouseover="showTip(event, 'fs11', 21)" class="i">num2</span>) <span class="k">then</span>
+      <span class="k">let</span> <span onmouseout="hideTip(event, 'fs13', 22)" onmouseover="showTip(event, 'fs13', 22)" class="i">num3</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs11', 23)" onmouseover="showTip(event, 'fs11', 23)" class="i">num2</span> <span class="o">/</span> <span onmouseout="hideTip(event, 'fs10', 24)" onmouseover="showTip(event, 'fs10', 24)" class="i">num1</span>
+      <span onmouseout="hideTip(event, 'fs10', 25)" onmouseover="showTip(event, 'fs10', 25)" class="i">num1</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs14', 26)" onmouseover="showTip(event, 'fs14', 26)" class="f">sqrt</span>(<span class="n">1.0</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs13', 27)" onmouseover="showTip(event, 'fs13', 27)" class="i">num3</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs13', 28)" onmouseover="showTip(event, 'fs13', 28)" class="i">num3</span>)
+    <span class="k">elif</span> <span onmouseout="hideTip(event, 'fs11', 29)" onmouseover="showTip(event, 'fs11', 29)" class="i">num2</span> <span class="o">=</span> <span class="n">0.0</span> <span class="k">then</span>
+      <span onmouseout="hideTip(event, 'fs10', 30)" onmouseover="showTip(event, 'fs10', 30)" class="i">num1</span>
+    <span class="k">else</span>
+      <span class="k">let</span> <span onmouseout="hideTip(event, 'fs15', 31)" onmouseover="showTip(event, 'fs15', 31)" class="i">num4</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs10', 32)" onmouseover="showTip(event, 'fs10', 32)" class="i">num1</span> <span class="o">/</span> <span onmouseout="hideTip(event, 'fs11', 33)" onmouseover="showTip(event, 'fs11', 33)" class="i">num2</span>
+      <span onmouseout="hideTip(event, 'fs11', 34)" onmouseover="showTip(event, 'fs11', 34)" class="i">num2</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs14', 35)" onmouseover="showTip(event, 'fs14', 35)" class="f">sqrt</span>(<span class="n">1.0</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs15', 36)" onmouseover="showTip(event, 'fs15', 36)" class="i">num4</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs15', 37)" onmouseover="showTip(event, 'fs15', 37)" class="i">num4</span>)
+  <span class="c">/// Add real and imaginary components pointwise</span>
+  <span class="k">static</span> <span class="k">member</span> (<span class="o">+</span>) (<span onmouseout="hideTip(event, 'fs5', 38)" onmouseover="showTip(event, 'fs5', 38)" class="p">Complex</span>(<span onmouseout="hideTip(event, 'fs16', 39)" onmouseover="showTip(event, 'fs16', 39)" class="i">r1</span>, <span onmouseout="hideTip(event, 'fs17', 40)" onmouseover="showTip(event, 'fs17', 40)" class="i">i1</span>), <span onmouseout="hideTip(event, 'fs5', 41)" onmouseover="showTip(event, 'fs5', 41)" class="p">Complex</span>(<span onmouseout="hideTip(event, 'fs18', 42)" onmouseover="showTip(event, 'fs18', 42)" class="i">r2</span>, <span onmouseout="hideTip(event, 'fs19', 43)" onmouseover="showTip(event, 'fs19', 43)" class="i">i2</span>)) <span class="o">=</span>
+    <span onmouseout="hideTip(event, 'fs5', 44)" onmouseover="showTip(event, 'fs5', 44)" class="p">Complex</span>(<span class="i">r1</span><span class="o">+</span><span class="i">r2</span>, <span class="i">i1</span><span class="o">+</span><span class="i">i2</span>)
+</code></pre></td>
+</tr>
+</table>
+<p>Before moving forward, we also need to calculate a power of complex numbers.
+To do this, we define a <code>Pow</code> function in a helper module:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+<span class="l">8: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">module</span> <span class="t">ComplexModule</span> <span class="o">=</span>
+  <span class="c">/// Calculates nth power of a complex number</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs20', 45)" onmouseover="showTip(event, 'fs20', 45)" class="f">Pow</span>(<span onmouseout="hideTip(event, 'fs5', 46)" onmouseover="showTip(event, 'fs5', 46)" class="p">Complex</span>(<span onmouseout="hideTip(event, 'fs8', 47)" onmouseover="showTip(event, 'fs8', 47)" class="i">r</span>, <span onmouseout="hideTip(event, 'fs9', 48)" onmouseover="showTip(event, 'fs9', 48)" class="i">i</span>), <span onmouseout="hideTip(event, 'fs21', 49)" onmouseover="showTip(event, 'fs21', 49)" class="i">power</span>) <span class="o">=</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs22', 50)" onmouseover="showTip(event, 'fs22', 50)" class="i">num</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs5', 51)" onmouseover="showTip(event, 'fs5', 51)" class="t">Complex</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs23', 52)" onmouseover="showTip(event, 'fs23', 52)" class="f">Abs</span>(<span onmouseout="hideTip(event, 'fs5', 53)" onmouseover="showTip(event, 'fs5', 53)" class="p">Complex</span>(<span onmouseout="hideTip(event, 'fs8', 54)" onmouseover="showTip(event, 'fs8', 54)" class="i">r</span>, <span onmouseout="hideTip(event, 'fs9', 55)" onmouseover="showTip(event, 'fs9', 55)" class="i">i</span>))
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs11', 56)" onmouseover="showTip(event, 'fs11', 56)" class="i">num2</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs24', 57)" onmouseover="showTip(event, 'fs24', 57)" class="f">atan2</span> <span onmouseout="hideTip(event, 'fs9', 58)" onmouseover="showTip(event, 'fs9', 58)" class="i">i</span> <span onmouseout="hideTip(event, 'fs8', 59)" onmouseover="showTip(event, 'fs8', 59)" class="i">r</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs13', 60)" onmouseover="showTip(event, 'fs13', 60)" class="i">num3</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs21', 61)" onmouseover="showTip(event, 'fs21', 61)" class="i">power</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs11', 62)" onmouseover="showTip(event, 'fs11', 62)" class="i">num2</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs15', 63)" onmouseover="showTip(event, 'fs15', 63)" class="i">num4</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs22', 64)" onmouseover="showTip(event, 'fs22', 64)" class="i">num</span> <span class="o">**</span> <span onmouseout="hideTip(event, 'fs21', 65)" onmouseover="showTip(event, 'fs21', 65)" class="i">power</span>
+    <span onmouseout="hideTip(event, 'fs5', 66)" onmouseover="showTip(event, 'fs5', 66)" class="p">Complex</span>(<span onmouseout="hideTip(event, 'fs15', 67)" onmouseover="showTip(event, 'fs15', 67)" class="i">num4</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs25', 68)" onmouseover="showTip(event, 'fs25', 68)" class="f">cos</span>(<span onmouseout="hideTip(event, 'fs13', 69)" onmouseover="showTip(event, 'fs13', 69)" class="i">num3</span>), <span onmouseout="hideTip(event, 'fs15', 70)" onmouseover="showTip(event, 'fs15', 70)" class="i">num4</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs26', 71)" onmouseover="showTip(event, 'fs26', 71)" class="f">sin</span>(<span onmouseout="hideTip(event, 'fs13', 72)" onmouseover="showTip(event, 'fs13', 72)" class="i">num3</span>))
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Calculating-the-Julia-set" class="anchor" href="#Calculating-the-Julia-set">Calculating the Julia set</a></h2>
+<p>Now we have all we need to calculate the Julia set fractal. We choose
+a carefuly chosen (handcrafted!) starting point. Then we create a sequence
+of powers using F# sequence expressions:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+<span class="l">8: </span>
+<span class="l">9: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Constant that generates nice fractal</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs27', 73)" onmouseover="showTip(event, 'fs27', 73)" class="i">c</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs5', 74)" onmouseover="showTip(event, 'fs5', 74)" class="p">Complex</span>(<span class="o">-</span><span class="n">0.70176</span>, <span class="o">-</span><span class="n">0.3842</span>)
+
+<span class="c">/// Generates sequence for given coordinates</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs28', 75)" onmouseover="showTip(event, 'fs28', 75)" class="f">iterate</span> <span onmouseout="hideTip(event, 'fs29', 76)" onmouseover="showTip(event, 'fs29', 76)" class="i">x</span> <span onmouseout="hideTip(event, 'fs30', 77)" onmouseover="showTip(event, 'fs30', 77)" class="i">y</span> <span class="o">=</span>
+  <span class="k">let</span> <span class="k">rec</span> <span onmouseout="hideTip(event, 'fs31', 78)" onmouseover="showTip(event, 'fs31', 78)" class="f">loop</span> <span onmouseout="hideTip(event, 'fs32', 79)" onmouseover="showTip(event, 'fs32', 79)" class="i">current</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs33', 80)" onmouseover="showTip(event, 'fs33', 80)" class="i">seq</span> {
+    <span class="k">yield</span> <span onmouseout="hideTip(event, 'fs32', 81)" onmouseover="showTip(event, 'fs32', 81)" class="i">current</span>
+    <span class="k">yield!</span> <span onmouseout="hideTip(event, 'fs31', 82)" onmouseover="showTip(event, 'fs31', 82)" class="f">loop</span> (<span onmouseout="hideTip(event, 'fs34', 83)" onmouseover="showTip(event, 'fs34', 83)" class="t">ComplexModule</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs20', 84)" onmouseover="showTip(event, 'fs20', 84)" class="f">Pow</span>(<span onmouseout="hideTip(event, 'fs32', 85)" onmouseover="showTip(event, 'fs32', 85)" class="i">current</span>, <span class="n">2.0</span>) <span class="o">+</span> <span onmouseout="hideTip(event, 'fs27', 86)" onmouseover="showTip(event, 'fs27', 86)" class="i">c</span>) }
+  <span onmouseout="hideTip(event, 'fs31', 87)" onmouseover="showTip(event, 'fs31', 87)" class="f">loop</span> (<span onmouseout="hideTip(event, 'fs5', 88)" onmouseover="showTip(event, 'fs5', 88)" class="p">Complex</span>(<span onmouseout="hideTip(event, 'fs29', 89)" onmouseover="showTip(event, 'fs29', 89)" class="i">x</span>, <span onmouseout="hideTip(event, 'fs30', 90)" onmouseover="showTip(event, 'fs30', 90)" class="i">y</span>))
+</code></pre></td>
+</tr>
+</table>
+<p>The <code>iterate</code> lazilly function generates potentially infinite sequence of
+values. We take at most <code>max</code> iterations or stop when the absolute value of
+the number is greater than 2. This can be nicely written using <code>Seq</code> functions
+from the standard F# library (supported by Fable):</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs35', 91)" onmouseover="showTip(event, 'fs35', 91)" class="f">countIterations</span> <span onmouseout="hideTip(event, 'fs36', 92)" onmouseover="showTip(event, 'fs36', 92)" class="i">max</span> <span onmouseout="hideTip(event, 'fs29', 93)" onmouseover="showTip(event, 'fs29', 93)" class="i">x</span> <span onmouseout="hideTip(event, 'fs30', 94)" onmouseover="showTip(event, 'fs30', 94)" class="i">y</span> <span class="o">=</span>
+  <span onmouseout="hideTip(event, 'fs28', 95)" onmouseover="showTip(event, 'fs28', 95)" class="f">iterate</span> <span onmouseout="hideTip(event, 'fs29', 96)" onmouseover="showTip(event, 'fs29', 96)" class="i">x</span> <span onmouseout="hideTip(event, 'fs30', 97)" onmouseover="showTip(event, 'fs30', 97)" class="i">y</span>
+  <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs37', 98)" onmouseover="showTip(event, 'fs37', 98)" class="t">Seq</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs38', 99)" onmouseover="showTip(event, 'fs38', 99)" class="f">take</span> (<span onmouseout="hideTip(event, 'fs36', 100)" onmouseover="showTip(event, 'fs36', 100)" class="i">max</span> <span class="o">-</span> <span class="n">1</span>)
+  <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs37', 101)" onmouseover="showTip(event, 'fs37', 101)" class="t">Seq</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs39', 102)" onmouseover="showTip(event, 'fs39', 102)" class="f">takeWhile</span> (<span class="k">fun</span> <span onmouseout="hideTip(event, 'fs40', 103)" onmouseover="showTip(event, 'fs40', 103)" class="i">v</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs5', 104)" onmouseover="showTip(event, 'fs5', 104)" class="t">Complex</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs23', 105)" onmouseover="showTip(event, 'fs23', 105)" class="f">Abs</span>(<span onmouseout="hideTip(event, 'fs40', 106)" onmouseover="showTip(event, 'fs40', 106)" class="i">v</span>) <span class="o">&lt;</span> <span class="n">2.0</span>)
+  <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs37', 107)" onmouseover="showTip(event, 'fs37', 107)" class="t">Seq</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs41', 108)" onmouseover="showTip(event, 'fs41', 108)" class="f">length</span>
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Generating-the-color-palette" class="anchor" href="#Generating-the-color-palette">Generating the color palette</a></h2>
+<p>To generate a pretty picture, we need to carefuly generate the color palette.
+TO do this, we define a pair of operators that let us write
+<code>(rgb1) --n--&gt; (rbg2)</code> and generate a range of colors between <code>rgb1</code> and <code>rgb2</code>
+consisting of <code>n</code> steps.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+<span class="l">8: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">// Transition between colors in &#39;count&#39; steps</span>
+<span class="k">let</span> (<span class="o">--</span>) <span onmouseout="hideTip(event, 'fs42', 109)" onmouseover="showTip(event, 'fs42', 109)" class="i">clr</span> <span onmouseout="hideTip(event, 'fs43', 110)" onmouseover="showTip(event, 'fs43', 110)" class="i">count</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs42', 111)" onmouseover="showTip(event, 'fs42', 111)" class="i">clr</span>, <span onmouseout="hideTip(event, 'fs43', 112)" onmouseover="showTip(event, 'fs43', 112)" class="i">count</span>
+<span class="k">let</span> (<span class="o">--&gt;</span>) ((<span onmouseout="hideTip(event, 'fs44', 113)" onmouseover="showTip(event, 'fs44', 113)" class="i">r1</span>,<span onmouseout="hideTip(event, 'fs45', 114)" onmouseover="showTip(event, 'fs45', 114)" class="i">g1</span>,<span onmouseout="hideTip(event, 'fs46', 115)" onmouseover="showTip(event, 'fs46', 115)" class="i">b1</span>), <span onmouseout="hideTip(event, 'fs47', 116)" onmouseover="showTip(event, 'fs47', 116)" class="i">count</span>) (<span onmouseout="hideTip(event, 'fs48', 117)" onmouseover="showTip(event, 'fs48', 117)" class="i">r2</span>,<span onmouseout="hideTip(event, 'fs49', 118)" onmouseover="showTip(event, 'fs49', 118)" class="i">g2</span>,<span onmouseout="hideTip(event, 'fs50', 119)" onmouseover="showTip(event, 'fs50', 119)" class="i">b2</span>) <span class="o">=</span> [
+  <span class="k">for</span> <span onmouseout="hideTip(event, 'fs51', 120)" onmouseover="showTip(event, 'fs51', 120)" class="i">c</span> <span class="k">in</span> <span class="n">0</span> <span class="o">..</span> <span onmouseout="hideTip(event, 'fs47', 121)" onmouseover="showTip(event, 'fs47', 121)" class="i">count</span> <span class="o">-</span> <span class="n">1</span> <span class="k">-&gt;</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs52', 122)" onmouseover="showTip(event, 'fs52', 122)" class="i">k</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs6', 123)" onmouseover="showTip(event, 'fs6', 123)" class="f">float</span> <span onmouseout="hideTip(event, 'fs51', 124)" onmouseover="showTip(event, 'fs51', 124)" class="i">c</span> <span class="o">/</span> <span onmouseout="hideTip(event, 'fs6', 125)" onmouseover="showTip(event, 'fs6', 125)" class="f">float</span> <span onmouseout="hideTip(event, 'fs47', 126)" onmouseover="showTip(event, 'fs47', 126)" class="i">count</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs53', 127)" onmouseover="showTip(event, 'fs53', 127)" class="f">mid</span> <span onmouseout="hideTip(event, 'fs54', 128)" onmouseover="showTip(event, 'fs54', 128)" class="i">v1</span> <span onmouseout="hideTip(event, 'fs55', 129)" onmouseover="showTip(event, 'fs55', 129)" class="i">v2</span> <span class="o">=</span>
+      (<span onmouseout="hideTip(event, 'fs6', 130)" onmouseover="showTip(event, 'fs6', 130)" class="f">float</span> <span onmouseout="hideTip(event, 'fs54', 131)" onmouseover="showTip(event, 'fs54', 131)" class="i">v1</span> <span class="o">+</span> ((<span onmouseout="hideTip(event, 'fs6', 132)" onmouseover="showTip(event, 'fs6', 132)" class="f">float</span> <span onmouseout="hideTip(event, 'fs55', 133)" onmouseover="showTip(event, 'fs55', 133)" class="i">v2</span>) <span class="o">-</span> (<span onmouseout="hideTip(event, 'fs6', 134)" onmouseover="showTip(event, 'fs6', 134)" class="f">float</span> <span onmouseout="hideTip(event, 'fs54', 135)" onmouseover="showTip(event, 'fs54', 135)" class="i">v1</span>)) <span class="o">*</span> <span onmouseout="hideTip(event, 'fs52', 136)" onmouseover="showTip(event, 'fs52', 136)" class="i">k</span>)
+    (<span onmouseout="hideTip(event, 'fs53', 137)" onmouseover="showTip(event, 'fs53', 137)" class="f">mid</span> <span onmouseout="hideTip(event, 'fs44', 138)" onmouseover="showTip(event, 'fs44', 138)" class="i">r1</span> <span onmouseout="hideTip(event, 'fs48', 139)" onmouseover="showTip(event, 'fs48', 139)" class="i">r2</span>, <span onmouseout="hideTip(event, 'fs53', 140)" onmouseover="showTip(event, 'fs53', 140)" class="f">mid</span> <span onmouseout="hideTip(event, 'fs45', 141)" onmouseover="showTip(event, 'fs45', 141)" class="i">g1</span> <span onmouseout="hideTip(event, 'fs49', 142)" onmouseover="showTip(event, 'fs49', 142)" class="i">g2</span>, <span onmouseout="hideTip(event, 'fs53', 143)" onmouseover="showTip(event, 'fs53', 143)" class="f">mid</span> <span onmouseout="hideTip(event, 'fs46', 144)" onmouseover="showTip(event, 'fs46', 144)" class="i">b1</span> <span onmouseout="hideTip(event, 'fs50', 145)" onmouseover="showTip(event, 'fs50', 145)" class="i">b2</span>) ]
+</code></pre></td>
+</tr>
+</table>
+<p>Now we can generate palette that is based on Hokusai's famous painting:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">// Palette with colors used by Hokusai</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs56', 146)" onmouseover="showTip(event, 'fs56', 146)" class="i">palette</span> <span class="o">=</span>
+  [| <span class="c">// 3x sky color &amp; transition to light blue</span>
+     <span class="k">yield!</span> (<span class="n">245</span>,<span class="n">219</span>,<span class="n">184</span>) <span class="o">--</span><span class="n">3</span><span class="o">--&gt;</span> (<span class="n">245</span>,<span class="n">219</span>,<span class="n">184</span>)
+     <span class="k">yield!</span> (<span class="n">245</span>,<span class="n">219</span>,<span class="n">184</span>) <span class="o">--</span><span class="n">4</span><span class="o">--&gt;</span> (<span class="n">138</span>,<span class="n">173</span>,<span class="n">179</span>)
+     <span class="c">// to dark blue and then medium dark blue</span>
+     <span class="k">yield!</span> (<span class="n">138</span>,<span class="n">173</span>,<span class="n">179</span>) <span class="o">--</span><span class="n">4</span><span class="o">--&gt;</span> (<span class="n">2</span>,<span class="n">12</span>,<span class="n">74</span>)
+     <span class="k">yield!</span> (<span class="n">2</span>,<span class="n">12</span>,<span class="n">74</span>)     <span class="o">--</span><span class="n">4</span><span class="o">--&gt;</span> (<span class="n">61</span>,<span class="n">102</span>,<span class="n">130</span>)
+     <span class="c">// to wave color, then light blue &amp; back to wave</span>
+     <span class="k">yield!</span> (<span class="n">61</span>,<span class="n">102</span>,<span class="n">130</span>)  <span class="o">--</span> <span class="n">8</span><span class="o">--&gt;</span> (<span class="n">249</span>,<span class="n">243</span>,<span class="n">221</span>)
+     <span class="k">yield!</span> (<span class="n">249</span>,<span class="n">243</span>,<span class="n">221</span>) <span class="o">--</span><span class="n">32</span><span class="o">--&gt;</span> (<span class="n">138</span>,<span class="n">173</span>,<span class="n">179</span>)
+     <span class="k">yield!</span> (<span class="n">138</span>,<span class="n">173</span>,<span class="n">179</span>) <span class="o">--</span><span class="n">32</span><span class="o">--&gt;</span> (<span class="n">61</span>,<span class="n">102</span>,<span class="n">130</span>) |]
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Drawing-the-fractal" class="anchor" href="#Drawing-the-fractal">Drawing the fractal</a></h2>
+<p>The last step is to render the fractal. To do that, we first define a couple of constants
+and helpers. The following constants define what part of the fractal we're rendering and
+how big is the canvas:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">// Specifies what range of the set to draw</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs57', 147)" onmouseover="showTip(event, 'fs57', 147)" class="i">w</span> <span class="o">=</span> <span class="o">-</span><span class="n">0.4</span>, <span class="n">0.4</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs58', 148)" onmouseover="showTip(event, 'fs58', 148)" class="i">h</span> <span class="o">=</span> <span class="o">-</span><span class="n">0.95</span>, <span class="o">-</span><span class="n">0.35</span>
+
+<span class="c">// Create bitmap that matches the size of the canvas</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs59', 149)" onmouseover="showTip(event, 'fs59', 149)" class="i">width</span> <span class="o">=</span> <span class="n">400.0</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs60', 150)" onmouseover="showTip(event, 'fs60', 150)" class="i">height</span> <span class="o">=</span> <span class="n">300.0</span>
+</code></pre></td>
+</tr>
+</table>
+<p>Next, we define <code>setPixel</code> that sets the RGBA colours of a specified pixel in the canvas
+and we'll use F# dynamic operator so that <code>doc?canvas</code> returns an HTML element with ID
+<code>canvas</code>:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Set pixel value in ImageData to a given color</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs61', 151)" onmouseover="showTip(event, 'fs61', 151)" class="f">setPixel</span> (<span onmouseout="hideTip(event, 'fs62', 152)" onmouseover="showTip(event, 'fs62', 152)" class="i">img</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs63', 153)" onmouseover="showTip(event, 'fs63', 153)" class="t">ImageData</span>) <span onmouseout="hideTip(event, 'fs64', 154)" onmouseover="showTip(event, 'fs64', 154)" class="i">x</span> <span onmouseout="hideTip(event, 'fs65', 155)" onmouseover="showTip(event, 'fs65', 155)" class="i">y</span> <span onmouseout="hideTip(event, 'fs66', 156)" onmouseover="showTip(event, 'fs66', 156)" class="i">width</span> (<span onmouseout="hideTip(event, 'fs8', 157)" onmouseover="showTip(event, 'fs8', 157)" class="i">r</span>, <span onmouseout="hideTip(event, 'fs67', 158)" onmouseover="showTip(event, 'fs67', 158)" class="i">g</span>, <span onmouseout="hideTip(event, 'fs68', 159)" onmouseover="showTip(event, 'fs68', 159)" class="i">b</span>) <span class="o">=</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs69', 160)" onmouseover="showTip(event, 'fs69', 160)" class="i">index</span> <span class="o">=</span> (<span onmouseout="hideTip(event, 'fs64', 161)" onmouseover="showTip(event, 'fs64', 161)" class="i">x</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs65', 162)" onmouseover="showTip(event, 'fs65', 162)" class="i">y</span> <span class="o">*</span> <span onmouseout="hideTip(event, 'fs70', 163)" onmouseover="showTip(event, 'fs70', 163)" class="f">int</span> <span onmouseout="hideTip(event, 'fs66', 164)" onmouseover="showTip(event, 'fs66', 164)" class="i">width</span>) <span class="o">*</span> <span class="n">4</span>
+  <span onmouseout="hideTip(event, 'fs62', 165)" onmouseover="showTip(event, 'fs62', 165)" class="i">img</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 166)" onmouseover="showTip(event, 'fs71', 166)" class="i">data</span><span class="o">.</span>[<span onmouseout="hideTip(event, 'fs6', 167)" onmouseover="showTip(event, 'fs6', 167)" class="f">float</span> (<span onmouseout="hideTip(event, 'fs69', 168)" onmouseover="showTip(event, 'fs69', 168)" class="i">index</span><span class="o">+</span><span class="n">0</span>)] <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs8', 169)" onmouseover="showTip(event, 'fs8', 169)" class="i">r</span>
+  <span onmouseout="hideTip(event, 'fs62', 170)" onmouseover="showTip(event, 'fs62', 170)" class="i">img</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 171)" onmouseover="showTip(event, 'fs71', 171)" class="i">data</span><span class="o">.</span>[<span onmouseout="hideTip(event, 'fs6', 172)" onmouseover="showTip(event, 'fs6', 172)" class="f">float</span> (<span onmouseout="hideTip(event, 'fs69', 173)" onmouseover="showTip(event, 'fs69', 173)" class="i">index</span><span class="o">+</span><span class="n">1</span>)] <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs67', 174)" onmouseover="showTip(event, 'fs67', 174)" class="i">g</span>
+  <span onmouseout="hideTip(event, 'fs62', 175)" onmouseover="showTip(event, 'fs62', 175)" class="i">img</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 176)" onmouseover="showTip(event, 'fs71', 176)" class="i">data</span><span class="o">.</span>[<span onmouseout="hideTip(event, 'fs6', 177)" onmouseover="showTip(event, 'fs6', 177)" class="f">float</span> (<span onmouseout="hideTip(event, 'fs69', 178)" onmouseover="showTip(event, 'fs69', 178)" class="i">index</span><span class="o">+</span><span class="n">2</span>)] <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs68', 179)" onmouseover="showTip(event, 'fs68', 179)" class="i">b</span>
+  <span onmouseout="hideTip(event, 'fs62', 180)" onmouseover="showTip(event, 'fs62', 180)" class="i">img</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 181)" onmouseover="showTip(event, 'fs71', 181)" class="i">data</span><span class="o">.</span>[<span onmouseout="hideTip(event, 'fs6', 182)" onmouseover="showTip(event, 'fs6', 182)" class="f">float</span> (<span onmouseout="hideTip(event, 'fs69', 183)" onmouseover="showTip(event, 'fs69', 183)" class="i">index</span><span class="o">+</span><span class="n">3</span>)] <span class="o">&lt;-</span> <span class="n">255.0</span>
+
+<span class="c">/// Dynamic operator that returns HTML element by ID</span>
+<span class="k">let</span> (<span class="o">?</span>) (<span onmouseout="hideTip(event, 'fs72', 184)" onmouseover="showTip(event, 'fs72', 184)" class="i">doc</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs73', 185)" onmouseover="showTip(event, 'fs73', 185)" class="t">Document</span>) <span onmouseout="hideTip(event, 'fs74', 186)" onmouseover="showTip(event, 'fs74', 186)" class="i">name</span> <span class="o">:</span><span class="o">&#39;</span><span class="i">R</span> <span class="o">=</span>
+  <span onmouseout="hideTip(event, 'fs72', 187)" onmouseover="showTip(event, 'fs72', 187)" class="i">doc</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs75', 188)" onmouseover="showTip(event, 'fs75', 188)" class="f">getElementById</span>(<span onmouseout="hideTip(event, 'fs74', 189)" onmouseover="showTip(event, 'fs74', 189)" class="i">name</span>) <span class="o">:?&gt;</span> <span class="o">&#39;</span><span class="i">R</span>
+</code></pre></td>
+</tr>
+</table>
+<p>The rendering itself is written as an F# asynchronous workflow. The workflow sleeps for
+1ms after rendering each line of the fractal. Behind the scenes, this unblocks the window
+via a timer, so that the JavaScript function call does not block the browser while running.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+<span class="l">17: </span>
+<span class="l">18: </span>
+<span class="l">19: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Render fractal asynchronously with sleep after every line</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs76', 190)" onmouseover="showTip(event, 'fs76', 190)" class="f">render</span> () <span class="o">=</span> <span onmouseout="hideTip(event, 'fs77', 191)" onmouseover="showTip(event, 'fs77', 191)" class="i">async</span> {
+  <span class="c">// Get &lt;canvas&gt; element &amp; create image for drawing</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs78', 192)" onmouseover="showTip(event, 'fs78', 192)" class="i">canv</span> <span class="o">:</span> <span onmouseout="hideTip(event, 'fs79', 193)" onmouseover="showTip(event, 'fs79', 193)" class="t">HTMLCanvasElement</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs80', 194)" onmouseover="showTip(event, 'fs80', 194)" class="i">document</span><span class="o">?</span><span class="i">canvas</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs81', 195)" onmouseover="showTip(event, 'fs81', 195)" class="i">ctx</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs78', 196)" onmouseover="showTip(event, 'fs78', 196)" class="i">canv</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs82', 197)" onmouseover="showTip(event, 'fs82', 197)" class="f">getContext_2d</span>()
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs62', 198)" onmouseover="showTip(event, 'fs62', 198)" class="i">img</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs81', 199)" onmouseover="showTip(event, 'fs81', 199)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs83', 200)" onmouseover="showTip(event, 'fs83', 200)" class="f">createImageData</span>(<span onmouseout="hideTip(event, 'fs84', 201)" onmouseover="showTip(event, 'fs84', 201)" class="t">U2</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs85', 202)" onmouseover="showTip(event, 'fs85', 202)" class="p">Case1</span> (<span onmouseout="hideTip(event, 'fs6', 203)" onmouseover="showTip(event, 'fs6', 203)" class="f">float</span> <span onmouseout="hideTip(event, 'fs59', 204)" onmouseover="showTip(event, 'fs59', 204)" class="i">width</span>), <span onmouseout="hideTip(event, 'fs6', 205)" onmouseover="showTip(event, 'fs6', 205)" class="f">float</span> <span onmouseout="hideTip(event, 'fs60', 206)" onmouseover="showTip(event, 'fs60', 206)" class="i">height</span>)
+
+  <span class="c">// For each pixel, transform to the specified range</span>
+  <span class="c">// and get color using countInterations and palette</span>
+  <span class="k">for</span> <span onmouseout="hideTip(event, 'fs64', 207)" onmouseover="showTip(event, 'fs64', 207)" class="i">x</span> <span class="k">in</span> <span class="n">0</span> <span class="o">..</span> <span onmouseout="hideTip(event, 'fs70', 208)" onmouseover="showTip(event, 'fs70', 208)" class="f">int</span> <span onmouseout="hideTip(event, 'fs59', 209)" onmouseover="showTip(event, 'fs59', 209)" class="i">width</span> <span class="o">-</span> <span class="n">1</span> <span class="k">do</span>
+    <span class="k">for</span> <span onmouseout="hideTip(event, 'fs65', 210)" onmouseover="showTip(event, 'fs65', 210)" class="i">y</span> <span class="k">in</span> <span class="n">0</span> <span class="o">..</span> <span onmouseout="hideTip(event, 'fs70', 211)" onmouseover="showTip(event, 'fs70', 211)" class="f">int</span> <span onmouseout="hideTip(event, 'fs60', 212)" onmouseover="showTip(event, 'fs60', 212)" class="i">height</span> <span class="o">-</span> <span class="n">1</span> <span class="k">do</span>
+      <span class="k">let</span> <span onmouseout="hideTip(event, 'fs86', 213)" onmouseover="showTip(event, 'fs86', 213)" class="i">x&#39;</span> <span class="o">=</span> (<span onmouseout="hideTip(event, 'fs6', 214)" onmouseover="showTip(event, 'fs6', 214)" class="f">float</span> <span onmouseout="hideTip(event, 'fs64', 215)" onmouseover="showTip(event, 'fs64', 215)" class="i">x</span> <span class="o">/</span> <span onmouseout="hideTip(event, 'fs59', 216)" onmouseover="showTip(event, 'fs59', 216)" class="i">width</span> <span class="o">*</span> (<span onmouseout="hideTip(event, 'fs87', 217)" onmouseover="showTip(event, 'fs87', 217)" class="f">snd</span> <span onmouseout="hideTip(event, 'fs57', 218)" onmouseover="showTip(event, 'fs57', 218)" class="i">w</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs88', 219)" onmouseover="showTip(event, 'fs88', 219)" class="f">fst</span> <span onmouseout="hideTip(event, 'fs57', 220)" onmouseover="showTip(event, 'fs57', 220)" class="i">w</span>)) <span class="o">+</span> <span onmouseout="hideTip(event, 'fs88', 221)" onmouseover="showTip(event, 'fs88', 221)" class="f">fst</span> <span onmouseout="hideTip(event, 'fs57', 222)" onmouseover="showTip(event, 'fs57', 222)" class="i">w</span>
+      <span class="k">let</span> <span onmouseout="hideTip(event, 'fs89', 223)" onmouseover="showTip(event, 'fs89', 223)" class="i">y&#39;</span> <span class="o">=</span> (<span onmouseout="hideTip(event, 'fs6', 224)" onmouseover="showTip(event, 'fs6', 224)" class="f">float</span> <span onmouseout="hideTip(event, 'fs65', 225)" onmouseover="showTip(event, 'fs65', 225)" class="i">y</span> <span class="o">/</span> <span onmouseout="hideTip(event, 'fs60', 226)" onmouseover="showTip(event, 'fs60', 226)" class="i">height</span> <span class="o">*</span> (<span onmouseout="hideTip(event, 'fs87', 227)" onmouseover="showTip(event, 'fs87', 227)" class="f">snd</span> <span onmouseout="hideTip(event, 'fs58', 228)" onmouseover="showTip(event, 'fs58', 228)" class="i">h</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs88', 229)" onmouseover="showTip(event, 'fs88', 229)" class="f">fst</span> <span onmouseout="hideTip(event, 'fs58', 230)" onmouseover="showTip(event, 'fs58', 230)" class="i">h</span>)) <span class="o">+</span> <span onmouseout="hideTip(event, 'fs88', 231)" onmouseover="showTip(event, 'fs88', 231)" class="f">fst</span> <span onmouseout="hideTip(event, 'fs58', 232)" onmouseover="showTip(event, 'fs58', 232)" class="i">h</span>
+      <span class="k">let</span> <span onmouseout="hideTip(event, 'fs90', 233)" onmouseover="showTip(event, 'fs90', 233)" class="i">it</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs35', 234)" onmouseover="showTip(event, 'fs35', 234)" class="f">countIterations</span> <span onmouseout="hideTip(event, 'fs56', 235)" onmouseover="showTip(event, 'fs56', 235)" class="i">palette</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs91', 236)" onmouseover="showTip(event, 'fs91', 236)" class="i">Length</span> <span onmouseout="hideTip(event, 'fs86', 237)" onmouseover="showTip(event, 'fs86', 237)" class="i">x&#39;</span> <span onmouseout="hideTip(event, 'fs89', 238)" onmouseover="showTip(event, 'fs89', 238)" class="i">y&#39;</span>
+      <span onmouseout="hideTip(event, 'fs61', 239)" onmouseover="showTip(event, 'fs61', 239)" class="f">setPixel</span> <span onmouseout="hideTip(event, 'fs62', 240)" onmouseover="showTip(event, 'fs62', 240)" class="i">img</span> <span onmouseout="hideTip(event, 'fs64', 241)" onmouseover="showTip(event, 'fs64', 241)" class="i">x</span> <span onmouseout="hideTip(event, 'fs65', 242)" onmouseover="showTip(event, 'fs65', 242)" class="i">y</span> <span onmouseout="hideTip(event, 'fs59', 243)" onmouseover="showTip(event, 'fs59', 243)" class="i">width</span> <span onmouseout="hideTip(event, 'fs56', 244)" onmouseover="showTip(event, 'fs56', 244)" class="i">palette</span><span class="o">.</span>[<span onmouseout="hideTip(event, 'fs90', 245)" onmouseover="showTip(event, 'fs90', 245)" class="i">it</span>]
+
+    <span class="c">// Insert non-blocking waiting &amp; update the fractal</span>
+    <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs92', 246)" onmouseover="showTip(event, 'fs92', 246)" class="t">Async</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs93', 247)" onmouseover="showTip(event, 'fs93', 247)" class="f">Sleep</span>(<span class="n">1</span>)
+    <span onmouseout="hideTip(event, 'fs81', 248)" onmouseover="showTip(event, 'fs81', 248)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs94', 249)" onmouseover="showTip(event, 'fs94', 249)" class="f">putImageData</span>(<span onmouseout="hideTip(event, 'fs62', 250)" onmouseover="showTip(event, 'fs62', 250)" class="i">img</span>, <span class="n">0.0</span>, <span class="n">0.0</span>) }
+</code></pre></td>
+</tr>
+</table>
+<p>Now we just need to register the event handler for the <code>go</code> button and start the
+asynchronous workflow to do the rendering. Note that this is done using <code>Async.StartImmediate</code>:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Setup button event handler to start the rendering</span>
+
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs95', 251)" onmouseover="showTip(event, 'fs95', 251)" class="i">go</span> <span class="o">:</span> <span onmouseout="hideTip(event, 'fs96', 252)" onmouseover="showTip(event, 'fs96', 252)" class="t">HTMLButtonElement</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs80', 253)" onmouseover="showTip(event, 'fs80', 253)" class="i">document</span><span class="o">?</span><span onmouseout="hideTip(event, 'fs95', 254)" onmouseover="showTip(event, 'fs95', 254)" class="i">go</span>
+<span onmouseout="hideTip(event, 'fs95', 255)" onmouseover="showTip(event, 'fs95', 255)" class="i">go</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs97', 256)" onmouseover="showTip(event, 'fs97', 256)" class="f">addEventListener_click</span>(<span class="k">fun</span> _ <span class="k">-&gt;</span>
+  <span onmouseout="hideTip(event, 'fs76', 257)" onmouseover="showTip(event, 'fs76', 257)" class="f">render</span>() <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs92', 258)" onmouseover="showTip(event, 'fs92', 258)" class="t">Async</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs98', 259)" onmouseover="showTip(event, 'fs98', 259)" class="f">StartImmediate</span>; <span class="k">null</span>)
+</code></pre></td>
+</tr>
+</table>
+
+
+<div class="tip" id="fs1">namespace Fable</div>
+<div class="tip" id="fs2">namespace Fable.Core</div>
+<div class="tip" id="fs3">namespace Fable.Import</div>
+<div class="tip" id="fs4">module Browser<br /><br />from Fable.Import</div>
+<div class="tip" id="fs5">Multiple items<br />union case Complex.Complex: float * float -&gt; Complex<br /><br />--------------------<br />type Complex =<br />&#160;&#160;| Complex of float * float<br />&#160;&#160;static member Abs : Complex -&gt; float<br />&#160;&#160;static member ( + ) : Complex * Complex -&gt; Complex<br /><br />Full name: Hokusai.Complex</div>
+<div class="tip" id="fs6">Multiple items<br />val float : value:&#39;T -&gt; float (requires member op_Explicit)<br /><br />Full name: Microsoft.FSharp.Core.Operators.float<br /><br />--------------------<br />type float = System.Double<br /><br />Full name: Microsoft.FSharp.Core.float<br /><br />--------------------<br />type float&lt;&#39;Measure&gt; = float<br /><br />Full name: Microsoft.FSharp.Core.float&lt;_&gt;</div>
+<div class="tip" id="fs7">static member Complex.Abs : Complex -&gt; float<br /><br />Full name: Hokusai.Complex.Abs<br /><em><br /><br />&#160;Calculate the absolute value of a complex number</em></div>
+<div class="tip" id="fs8">val r : float</div>
+<div class="tip" id="fs9">val i : float</div>
+<div class="tip" id="fs10">val num1 : float</div>
+<div class="tip" id="fs11">val num2 : float</div>
+<div class="tip" id="fs12">val abs : value:&#39;T -&gt; &#39;T (requires member Abs)<br /><br />Full name: Microsoft.FSharp.Core.Operators.abs</div>
+<div class="tip" id="fs13">val num3 : float</div>
+<div class="tip" id="fs14">val sqrt : value:&#39;T -&gt; &#39;U (requires member Sqrt)<br /><br />Full name: Microsoft.FSharp.Core.Operators.sqrt</div>
+<div class="tip" id="fs15">val num4 : float</div>
+<div class="tip" id="fs16">val r1 : float</div>
+<div class="tip" id="fs17">val i1 : float</div>
+<div class="tip" id="fs18">val r2 : float</div>
+<div class="tip" id="fs19">val i2 : float</div>
+<div class="tip" id="fs20">val Pow : Complex * power:float -&gt; Complex<br /><br />Full name: Hokusai.ComplexModule.Pow<br /><em><br /><br />&#160;Calculates nth power of a complex number</em></div>
+<div class="tip" id="fs21">val power : float</div>
+<div class="tip" id="fs22">val num : float</div>
+<div class="tip" id="fs23">static member Complex.Abs : Complex -&gt; float<br /><em><br /><br />&#160;Calculate the absolute value of a complex number</em></div>
+<div class="tip" id="fs24">val atan2 : y:&#39;T1 -&gt; x:&#39;T1 -&gt; &#39;T2 (requires member Atan2)<br /><br />Full name: Microsoft.FSharp.Core.Operators.atan2</div>
+<div class="tip" id="fs25">val cos : value:&#39;T -&gt; &#39;T (requires member Cos)<br /><br />Full name: Microsoft.FSharp.Core.Operators.cos</div>
+<div class="tip" id="fs26">val sin : value:&#39;T -&gt; &#39;T (requires member Sin)<br /><br />Full name: Microsoft.FSharp.Core.Operators.sin</div>
+<div class="tip" id="fs27">val c : Complex<br /><br />Full name: Hokusai.c<br /><em><br /><br />&#160;Constant that generates nice fractal</em></div>
+<div class="tip" id="fs28">val iterate : x:float -&gt; y:float -&gt; seq&lt;Complex&gt;<br /><br />Full name: Hokusai.iterate<br /><em><br /><br />&#160;Generates sequence for given coordinates</em></div>
+<div class="tip" id="fs29">val x : float</div>
+<div class="tip" id="fs30">val y : float</div>
+<div class="tip" id="fs31">val loop : (Complex -&gt; seq&lt;Complex&gt;)</div>
+<div class="tip" id="fs32">val current : Complex</div>
+<div class="tip" id="fs33">Multiple items<br />val seq : sequence:seq&lt;&#39;T&gt; -&gt; seq&lt;&#39;T&gt;<br /><br />Full name: Microsoft.FSharp.Core.Operators.seq<br /><br />--------------------<br />type seq&lt;&#39;T&gt; = System.Collections.Generic.IEnumerable&lt;&#39;T&gt;<br /><br />Full name: Microsoft.FSharp.Collections.seq&lt;_&gt;</div>
+<div class="tip" id="fs34">module ComplexModule<br /><br />from Hokusai</div>
+<div class="tip" id="fs35">val countIterations : max:int -&gt; x:float -&gt; y:float -&gt; int<br /><br />Full name: Hokusai.countIterations</div>
+<div class="tip" id="fs36">val max : int</div>
+<div class="tip" id="fs37">module Seq<br /><br />from Microsoft.FSharp.Collections</div>
+<div class="tip" id="fs38">val take : count:int -&gt; source:seq&lt;&#39;T&gt; -&gt; seq&lt;&#39;T&gt;<br /><br />Full name: Microsoft.FSharp.Collections.Seq.take</div>
+<div class="tip" id="fs39">val takeWhile : predicate:(&#39;T -&gt; bool) -&gt; source:seq&lt;&#39;T&gt; -&gt; seq&lt;&#39;T&gt;<br /><br />Full name: Microsoft.FSharp.Collections.Seq.takeWhile</div>
+<div class="tip" id="fs40">val v : Complex</div>
+<div class="tip" id="fs41">val length : source:seq&lt;&#39;T&gt; -&gt; int<br /><br />Full name: Microsoft.FSharp.Collections.Seq.length</div>
+<div class="tip" id="fs42">val clr : &#39;a</div>
+<div class="tip" id="fs43">val count : &#39;b</div>
+<div class="tip" id="fs44">val r1 : int</div>
+<div class="tip" id="fs45">val g1 : int</div>
+<div class="tip" id="fs46">val b1 : int</div>
+<div class="tip" id="fs47">val count : int</div>
+<div class="tip" id="fs48">val r2 : int</div>
+<div class="tip" id="fs49">val g2 : int</div>
+<div class="tip" id="fs50">val b2 : int</div>
+<div class="tip" id="fs51">val c : int</div>
+<div class="tip" id="fs52">val k : float</div>
+<div class="tip" id="fs53">val mid : (int -&gt; int -&gt; float)</div>
+<div class="tip" id="fs54">val v1 : int</div>
+<div class="tip" id="fs55">val v2 : int</div>
+<div class="tip" id="fs56">val palette : (float * float * float) []<br /><br />Full name: Hokusai.palette</div>
+<div class="tip" id="fs57">val w : float * float<br /><br />Full name: Hokusai.w</div>
+<div class="tip" id="fs58">val h : float * float<br /><br />Full name: Hokusai.h</div>
+<div class="tip" id="fs59">val width : float<br /><br />Full name: Hokusai.width</div>
+<div class="tip" id="fs60">val height : float<br /><br />Full name: Hokusai.height</div>
+<div class="tip" id="fs61">val setPixel : img:ImageData -&gt; x:int -&gt; y:int -&gt; width:float -&gt; r:float * g:float * b:float -&gt; unit<br /><br />Full name: Hokusai.setPixel<br /><em><br /><br />&#160;Set pixel value in ImageData to a given color</em></div>
+<div class="tip" id="fs62">val img : ImageData</div>
+<div class="tip" id="fs63">Multiple items<br />val ImageData : ImageDataType<br /><br />Full name: Fable.Import.Browser.ImageData<br /><br />--------------------<br />type ImageData =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;abstract member data : Uint8ClampedArray<br />&#160;&#160;&#160;&#160;abstract member height : float<br />&#160;&#160;&#160;&#160;abstract member width : float<br />&#160;&#160;&#160;&#160;abstract member data : Uint8ClampedArray with set<br />&#160;&#160;&#160;&#160;abstract member height : float with set<br />&#160;&#160;&#160;&#160;abstract member width : float with set<br />&#160;&#160;end<br /><br />Full name: Fable.Import.Browser.ImageData</div>
+<div class="tip" id="fs64">val x : int</div>
+<div class="tip" id="fs65">val y : int</div>
+<div class="tip" id="fs66">val width : float</div>
+<div class="tip" id="fs67">val g : float</div>
+<div class="tip" id="fs68">val b : float</div>
+<div class="tip" id="fs69">val index : int</div>
+<div class="tip" id="fs70">Multiple items<br />val int : value:&#39;T -&gt; int (requires member op_Explicit)<br /><br />Full name: Microsoft.FSharp.Core.Operators.int<br /><br />--------------------<br />type int = int32<br /><br />Full name: Microsoft.FSharp.Core.int<br /><br />--------------------<br />type int&lt;&#39;Measure&gt; = int<br /><br />Full name: Microsoft.FSharp.Core.int&lt;_&gt;</div>
+<div class="tip" id="fs71">property ImageData.data: Fable.Import.JS.Uint8ClampedArray</div>
+<div class="tip" id="fs72">val doc : Document</div>
+<div class="tip" id="fs73">Multiple items<br />val Document : DocumentType<br /><br />Full name: Fable.Import.Browser.Document<br /><br />--------------------<br />type Document =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit DocumentEvent<br />&#160;&#160;&#160;&#160;inherit NodeSelector<br />&#160;&#160;&#160;&#160;inherit GlobalEventHandlers<br />&#160;&#160;&#160;&#160;inherit Node<br />&#160;&#160;&#160;&#160;abstract member addEventListener : type:string * listener:EventListenerOrEventListenerObject * ?useCapture:bool -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member addEventListener_MSContentZoom : listener:Func&lt;UIEvent,obj&gt; * ?useCapture:bool -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member addEventListener_MSGestureChange : listener:Func&lt;MSGestureEvent,obj&gt; * ?useCapture:bool -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member addEventListener_MSGestureDoubleTap : listener:Func&lt;MSGestureEvent,obj&gt; * ?useCapture:bool -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member addEventListener_MSGestureEnd : listener:Func&lt;MSGestureEvent,obj&gt; * ?useCapture:bool -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member addEventListener_MSGestureHold : listener:Func&lt;MSGestureEvent,obj&gt; * ?useCapture:bool -&gt; unit<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.Browser.Document</div>
+<div class="tip" id="fs74">val name : string</div>
+<div class="tip" id="fs75">abstract member Document.getElementById : elementId:string -&gt; HTMLElement</div>
+<div class="tip" id="fs76">val render : unit -&gt; Async&lt;unit&gt;<br /><br />Full name: Hokusai.render<br /><em><br /><br />&#160;Render fractal asynchronously with sleep after every line</em></div>
+<div class="tip" id="fs77">val async : AsyncBuilder<br /><br />Full name: Microsoft.FSharp.Core.ExtraTopLevelOperators.async</div>
+<div class="tip" id="fs78">val canv : HTMLCanvasElement</div>
+<div class="tip" id="fs79">Multiple items<br />val HTMLCanvasElement : HTMLCanvasElementType<br /><br />Full name: Fable.Import.Browser.HTMLCanvasElement<br /><br />--------------------<br />type HTMLCanvasElement =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit HTMLElement<br />&#160;&#160;&#160;&#160;abstract member getContext : contextId:string * [&lt;ParamArray&gt;] args:obj [] -&gt; U2&lt;CanvasRenderingContext2D,WebGLRenderingContext&gt;<br />&#160;&#160;&#160;&#160;abstract member getContext_2d : unit -&gt; CanvasRenderingContext2D<br />&#160;&#160;&#160;&#160;abstract member ( getContext_experimental-webgl ) : unit -&gt; WebGLRenderingContext<br />&#160;&#160;&#160;&#160;abstract member height : float<br />&#160;&#160;&#160;&#160;abstract member width : float<br />&#160;&#160;&#160;&#160;abstract member msToBlob : unit -&gt; Blob<br />&#160;&#160;&#160;&#160;abstract member height : float with set<br />&#160;&#160;&#160;&#160;abstract member width : float with set<br />&#160;&#160;&#160;&#160;abstract member toBlob : unit -&gt; Blob<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.Browser.HTMLCanvasElement</div>
+<div class="tip" id="fs80">val document : Document<br /><br />Full name: Fable.Import.Browser.document</div>
+<div class="tip" id="fs81">val ctx : CanvasRenderingContext2D</div>
+<div class="tip" id="fs82">abstract member HTMLCanvasElement.getContext_2d : unit -&gt; CanvasRenderingContext2D</div>
+<div class="tip" id="fs83">abstract member CanvasRenderingContext2D.createImageData : imageDataOrSw:U2&lt;float,ImageData&gt; * ?sh:float -&gt; ImageData</div>
+<div class="tip" id="fs84">type U2&lt;&#39;a,&#39;b&gt; =<br />&#160;&#160;| Case1 of &#39;a<br />&#160;&#160;| Case2 of &#39;b<br /><br />Full name: Fable.Core.U2&lt;_,_&gt;</div>
+<div class="tip" id="fs85">union case U2.Case1: &#39;a -&gt; U2&lt;&#39;a,&#39;b&gt;</div>
+<div class="tip" id="fs86">val x&#39; : float</div>
+<div class="tip" id="fs87">val snd : tuple:(&#39;T1 * &#39;T2) -&gt; &#39;T2<br /><br />Full name: Microsoft.FSharp.Core.Operators.snd</div>
+<div class="tip" id="fs88">val fst : tuple:(&#39;T1 * &#39;T2) -&gt; &#39;T1<br /><br />Full name: Microsoft.FSharp.Core.Operators.fst</div>
+<div class="tip" id="fs89">val y&#39; : float</div>
+<div class="tip" id="fs90">val it : int</div>
+<div class="tip" id="fs91">property System.Array.Length: int</div>
+<div class="tip" id="fs92">Multiple items<br />type Async<br />static member AsBeginEnd : computation:(&#39;Arg -&gt; Async&lt;&#39;T&gt;) -&gt; (&#39;Arg * AsyncCallback * obj -&gt; IAsyncResult) * (IAsyncResult -&gt; &#39;T) * (IAsyncResult -&gt; unit)<br />static member AwaitEvent : event:IEvent&lt;&#39;Del,&#39;T&gt; * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt; (requires delegate and &#39;Del :&gt; Delegate)<br />static member AwaitIAsyncResult : iar:IAsyncResult * ?millisecondsTimeout:int -&gt; Async&lt;bool&gt;<br />static member AwaitTask : task:Task -&gt; Async&lt;unit&gt;<br />static member AwaitTask : task:Task&lt;&#39;T&gt; -&gt; Async&lt;&#39;T&gt;<br />static member AwaitWaitHandle : waitHandle:WaitHandle * ?millisecondsTimeout:int -&gt; Async&lt;bool&gt;<br />static member CancelDefaultToken : unit -&gt; unit<br />static member Catch : computation:Async&lt;&#39;T&gt; -&gt; Async&lt;Choice&lt;&#39;T,exn&gt;&gt;<br />static member FromBeginEnd : beginAction:(AsyncCallback * obj -&gt; IAsyncResult) * endAction:(IAsyncResult -&gt; &#39;T) * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member FromBeginEnd : arg:&#39;Arg1 * beginAction:(&#39;Arg1 * AsyncCallback * obj -&gt; IAsyncResult) * endAction:(IAsyncResult -&gt; &#39;T) * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member FromBeginEnd : arg1:&#39;Arg1 * arg2:&#39;Arg2 * beginAction:(&#39;Arg1 * &#39;Arg2 * AsyncCallback * obj -&gt; IAsyncResult) * endAction:(IAsyncResult -&gt; &#39;T) * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member FromBeginEnd : arg1:&#39;Arg1 * arg2:&#39;Arg2 * arg3:&#39;Arg3 * beginAction:(&#39;Arg1 * &#39;Arg2 * &#39;Arg3 * AsyncCallback * obj -&gt; IAsyncResult) * endAction:(IAsyncResult -&gt; &#39;T) * ?cancelAction:(unit -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member FromContinuations : callback:((&#39;T -&gt; unit) * (exn -&gt; unit) * (OperationCanceledException -&gt; unit) -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member Ignore : computation:Async&lt;&#39;T&gt; -&gt; Async&lt;unit&gt;<br />static member OnCancel : interruption:(unit -&gt; unit) -&gt; Async&lt;IDisposable&gt;<br />static member Parallel : computations:seq&lt;Async&lt;&#39;T&gt;&gt; -&gt; Async&lt;&#39;T []&gt;<br />static member RunSynchronously : computation:Async&lt;&#39;T&gt; * ?timeout:int * ?cancellationToken:CancellationToken -&gt; &#39;T<br />static member Sleep : millisecondsDueTime:int -&gt; Async&lt;unit&gt;<br />static member Start : computation:Async&lt;unit&gt; * ?cancellationToken:CancellationToken -&gt; unit<br />static member StartAsTask : computation:Async&lt;&#39;T&gt; * ?taskCreationOptions:TaskCreationOptions * ?cancellationToken:CancellationToken -&gt; Task&lt;&#39;T&gt;<br />static member StartChild : computation:Async&lt;&#39;T&gt; * ?millisecondsTimeout:int -&gt; Async&lt;Async&lt;&#39;T&gt;&gt;<br />static member StartChildAsTask : computation:Async&lt;&#39;T&gt; * ?taskCreationOptions:TaskCreationOptions -&gt; Async&lt;Task&lt;&#39;T&gt;&gt;<br />static member StartImmediate : computation:Async&lt;unit&gt; * ?cancellationToken:CancellationToken -&gt; unit<br />static member StartWithContinuations : computation:Async&lt;&#39;T&gt; * continuation:(&#39;T -&gt; unit) * exceptionContinuation:(exn -&gt; unit) * cancellationContinuation:(OperationCanceledException -&gt; unit) * ?cancellationToken:CancellationToken -&gt; unit<br />static member SwitchToContext : syncContext:SynchronizationContext -&gt; Async&lt;unit&gt;<br />static member SwitchToNewThread : unit -&gt; Async&lt;unit&gt;<br />static member SwitchToThreadPool : unit -&gt; Async&lt;unit&gt;<br />static member TryCancelled : computation:Async&lt;&#39;T&gt; * compensation:(OperationCanceledException -&gt; unit) -&gt; Async&lt;&#39;T&gt;<br />static member CancellationToken : Async&lt;CancellationToken&gt;<br />static member DefaultCancellationToken : CancellationToken<br /><br />Full name: Microsoft.FSharp.Control.Async<br /><br />--------------------<br />type Async&lt;&#39;T&gt;<br /><br />Full name: Microsoft.FSharp.Control.Async&lt;_&gt;</div>
+<div class="tip" id="fs93">static member Async.Sleep : millisecondsDueTime:int -&gt; Async&lt;unit&gt;</div>
+<div class="tip" id="fs94">abstract member CanvasRenderingContext2D.putImageData : imagedata:ImageData * dx:float * dy:float * ?dirtyX:float * ?dirtyY:float * ?dirtyWidth:float * ?dirtyHeight:float -&gt; unit</div>
+<div class="tip" id="fs95">val go : HTMLButtonElement<br /><br />Full name: Hokusai.go<br /><em><br /><br />&#160;Setup button event handler to start the rendering</em></div>
+<div class="tip" id="fs96">Multiple items<br />val HTMLButtonElement : HTMLButtonElementType<br /><br />Full name: Fable.Import.Browser.HTMLButtonElement<br /><br />--------------------<br />type HTMLButtonElement =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit HTMLElement<br />&#160;&#160;&#160;&#160;abstract member checkValidity : unit -&gt; bool<br />&#160;&#160;&#160;&#160;abstract member createTextRange : unit -&gt; TextRange<br />&#160;&#160;&#160;&#160;abstract member autofocus : bool<br />&#160;&#160;&#160;&#160;abstract member disabled : bool<br />&#160;&#160;&#160;&#160;abstract member form : HTMLFormElement<br />&#160;&#160;&#160;&#160;abstract member formAction : string<br />&#160;&#160;&#160;&#160;abstract member formEnctype : string<br />&#160;&#160;&#160;&#160;abstract member formMethod : string<br />&#160;&#160;&#160;&#160;abstract member formNoValidate : string<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.Browser.HTMLButtonElement</div>
+<div class="tip" id="fs97">abstract member HTMLElement.addEventListener_click : listener:System.Func&lt;MouseEvent,obj&gt; * ?useCapture:bool -&gt; unit</div>
+<div class="tip" id="fs98">static member Async.StartImmediate : computation:Async&lt;unit&gt; * ?cancellationToken:System.Threading.CancellationToken -&gt; unit</div>
+
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+
+  </div>
+
+  <a class="gh-forkme" href="https://github.com/fsprojects/Fable"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+</body>
+</html>

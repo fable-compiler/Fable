@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Alfonso Garcia-Caro">
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <link href='https://fonts.googleapis.com/css?family=Josefin+Sans:400,300,600,700' rel='stylesheet' type='text/css'>
+    <link href="/content/custom.css" rel='stylesheet' type='text/css'>
+    <script src="/content/tips.js"></script>
+    <link rel="stylesheet" type="text/css" href="/content/snippets.css" />
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+    <script language="javascript" type="text/javascript">
+      function init() {
+          websocket = new WebSocket("ws://"+window.location.host+"/websocket");
+          websocket.onmessage = function(evt) { location.reload(); };
+      }
+      window.addEventListener("load", init, false);
+    </script>
+    
+  <title>Compatibility - F# |> BABEL</title>
+  <meta name="description" content="Supported F# language features and libraries">
+
+</head>
+<body>
+
+  <div class="fb-navbar">
+  <div class="container">
+  <nav class="navbar navbar-default">
+    <div class="navbar-wrapper">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">Fable</a>
+      </div>
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li class=""><a href="/">home</a></li>
+          <li class=""><a href="/samples.html">samples</a></li>
+          <li class=""><a href="/docs.html">docs</a></li>
+          <li><a href="https://github.com/fsprojects/Fable">source</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  </div>
+  </div>
+
+  <div class="fb-content-wrapper">
+  
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>Compatibility</h1>
+      <p>Supported F# language features and libraries</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="container fb-content">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p>The compiler follows two rough guidelines when transforming the code:</p>
+<ul>
+<li>Keep the <a href="/src/fable-js/fable-core.js">core library</a> small, falling back to native JS methods when possible.</li>
+<li>
+If it makes the JS code cleaner and more idiomatic, make small changes in F# semantics
+that don't have a big impact on developers' expectations.
+</li>
+</ul>
+<h2><a name="Primitives" class="anchor" href="#Primitives">Primitives</a></h2>
+<p><code>string</code> and <code>char</code> compile to JS "string" while <code>bool</code> becomes "boolean".
+All numeric primitives compile to JS "number" (but see <em>Arrays</em> below).</p>
+<h2><a name="Arrays" class="anchor" href="#Arrays">Arrays</a></h2>
+<p><code>ResizeArray</code> (alias for <code>System.Generic.Collection.List</code>) and non-numeric
+arrays are compiled to native JS arrays. Numeric arrays are compiled to
+<a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray">Typed Arrays</a>
+which should provide a performance boost when interacting with HTML5 canvas or WebGL.</p>
+<blockquote>
+<p>If you pass the <code>--clamp</code> argument to the compiler, byte arrays will be compiled as <code>Uint8ClampedArray</code>.</p>
+</blockquote>
+<h2><a name="String-printing" class="anchor" href="#String-printing">String printing</a></h2>
+<p>The usual string format (with a few limitations) and printing methods in F# and .NET are available:
+<code>Console/Debug.WriteLine</code>, <code>String.Format</code>, <code>printfn</code>, <code>sprintf</code>... as well as the
+string instance methods.</p>
+<h2><a name="Regular-expressions" class="anchor" href="#Regular-expressions">Regular expressions</a></h2>
+<p>You can use the <code>Regex</code> class in the same way as .NET, but the regex will always
+behave as if passed <code>RegexOptions.ECMAScript</code> flag (e.g., no negative look-behind
+or named groups).</p>
+<h2><a name="DateTime" class="anchor" href="#DateTime">DateTime</a></h2>
+<p>You can use <code>DateTime</code> and <code>TimeSpan</code> with the same semantics as in .NET.
+<code>TimeSpan</code> will just be the number of milliseconds in JS, and <code>DateTime</code> will
+compile down to native JS <code>Date</code> with a <code>kind</code> property attached.</p>
+<h2><a name="Tuples" class="anchor" href="#Tuples">Tuples</a></h2>
+<p>Tuples compile to native arrays. Desestructuring, <code>fst</code>, <code>snd</code>... works normally.</p>
+<h2><a name="Records" class="anchor" href="#Records">Records</a></h2>
+<p>Records are compiled as <a href="http://babeljs.io/docs/learn-es2015/#classes">ES2015 classes</a>
+and they can be used with pattern matching (type information is available in runtime).
+Record properties will be attached directly to the object instead of the prototype
+making them compatible with <code>JSON.parse</code> or any other function accepting plain JS objects.</p>
+<h2><a name="Unions" class="anchor" href="#Unions">Unions</a></h2>
+<p>Unions are also compiled as classes with the case name held in a <code>Case</code> property.
+Particular cases: Lists are a bit more optimized (they don't have a tag) and options are erased.</p>
+<blockquote>
+<p>Serialized unions can be read directly with Json.NET</p>
+</blockquote>
+<h2><a name="Enumerable" class="anchor" href="#Enumerable">Enumerable</a></h2>
+<p>All enumerables compile to <a href="http://babeljs.io/docs/learn-es2015/#iterators-for-of">ES2015 iterable interface</a>
+which means they're fully compatible with compliant JS code and native methods.
+The downside is you cannot implement the <code>IEnumerable</code> interface in a data structure,
+but you can use <code>seq</code>, <code>array</code> and <code>list</code> comprehensions normally.</p>
+<h2><a name="Seq-List-and-Array-modules" class="anchor" href="#Seq-List-and-Array-modules">Seq, List and Array modules</a></h2>
+<p>All methods in F# <code>Seq</code> module have been implemented. There may be some still missing in <code>List</code>
+and <code>Array</code> modules, but in that case the compiler will default to the corresponding
+<code>Seq</code> function and build a new list or array from the response if necessary.</p>
+<h2><a name="Map-Set-and-Dictionary" class="anchor" href="#Map-Set-and-Dictionary">Map, Set and Dictionary</a></h2>
+<p>Maps and Sets fall back to the <a href="http://babeljs.io/docs/learn-es2015/#map-set-weak-map-weak-set">ES2015 corresponding classes</a>
+for performance. Adding and removing will create new objects. <code>System.Collections.Generic.Dictionary</code> compile to ES2015 <code>Map</code> too
+and allows mutable operations. Same for <code>System.Collections.Generic.HashSet</code>.</p>
+<h2><a name="Async" class="anchor" href="#Async">Async</a></h2>
+<p><code>async</code> computation expressions work as expected. However, <code>RunSynchronously</code> is not available and,
+as JS is single-threaded, <code>Start</code> and <code>StartImmediate</code> will have the same effect.
+Methods to convert to and from <a href="http://babeljs.io/docs/learn-es2015/#promises">JavaScript Promises</a>
+should be simple to do and are planned for the core library.</p>
+<h2><a name="Custom-computation-expression" class="anchor" href="#Custom-computation-expression">Custom computation expression</a></h2>
+<p>It's possible to define custom computation expressions normally.</p>
+<h2><a name="Pattern-matching" class="anchor" href="#Pattern-matching">Pattern matching</a></h2>
+<p>Pattern matching will work normally in JS and it will generate optimized
+code to prevent overhead. You can match union types, records, classes or
+interfaces (with <code>:? MyClass as x</code>), lists, etc. Destructuring, guards and
+multiple targets are also fine.</p>
+<h2><a name="Active-patterns" class="anchor" href="#Active-patterns">Active patterns</a></h2>
+<p>Active patterns can be used normally.</p>
+<h2><a name="Generics" class="anchor" href="#Generics">Generics</a></h2>
+<p>Generic information disappears in generated code. However, it's accessible
+to the compiler, so calls like <code>typeof&lt;MyType&gt;</code> are possible with concrete
+types or with generics in <strong>inline</strong> functions.</p>
+<h2><a name="Attributes" class="anchor" href="#Attributes">Attributes</a></h2>
+<p>Decorators are coming to JavaScript. However, there are competing proposals
+and it's not yet clear how the definitive specs will be. For now, attributes
+are only visible to the compiler which uses them, for example, when defining
+<a href="interacting.md">foreign interfaces</a>.</p>
+<h2><a name="Interfaces" class="anchor" href="#Interfaces">Interfaces</a></h2>
+<p>Interface methods are compiled to normal object methods (there's no explicit
+implementation so names may collide). The interface names will be attached
+to the type constructor as a Symbol-keyed property, making interface type testing
+possible at runtime to do patterns like <a href="http://theburningmonk.com/2012/03/f-extending-discriminated-unions-using-marker-interfaces/">this one proposed by Yan Cui</a>
+to extend union types.</p>
+<h2><a name="Overloads" class="anchor" href="#Overloads">Overloads</a></h2>
+<p>Overloads are allowed in class implementations (not for interfaces), but they'll
+have a suffix attached (<code>_1</code>, <code>_2</code>...) in generated code and are not recommended.
+The behaviour is similar for secondary constructors.</p>
+<h2><a name="Custom-operators" class="anchor" href="#Custom-operators">Custom operators</a></h2>
+<p>Custom operators are possible, just note it won't be idiomatic to call
+them from JS if necessary (e.g., <code>Time.op_Addition(ts1, ts2)</code>).</p>
+<h2><a name="Inheritance" class="anchor" href="#Inheritance">Inheritance</a></h2>
+<p>Inheritance is possible and conforms to <a href="https://github.com/lukehoban/es6features#classes">ES2015 inheritance</a>.
+Just be careful to use the primary constructor of the base class,
+not a secondary one. Methods can be overridden too, but you won't
+be able to access the base methods by casting the object.</p>
+<h2><a name="Lambdas" class="anchor" href="#Lambdas">Lambdas</a></h2>
+<p>Anonymous lambdas will be curried by default. If you want to pass a callback with
+more than one argument to JS code, please wrap it in a delegate first (e.g.,
+<code>Func&lt;_,_,_&gt;(fun x y -&gt; x + y)</code>). If the signature of the method expects a
+delegate, this will be done automatically by the compiler.</p>
+<h2><a name="Event-and-Observable" class="anchor" href="#Event-and-Observable">Event and Observable</a></h2>
+<p>Events are not implemented yet, please use <a href="/src/tests/ObservableTests.fs">Observable</a> instead.</p>
+<h2><a name="Object-Expressions" class="anchor" href="#Object-Expressions">Object Expressions</a></h2>
+<p>Object expressions are compatible for the most general cases.</p>
+<h2><a name="Units-of-measure" class="anchor" href="#Units-of-measure">Units of measure</a></h2>
+<p>Units of measure are compatible (at least for <code>int</code> and <code>float</code>) but they will
+be erased from the generated JS code.</p>
+<p>You can check the <a href="/src/tests">tests</a> when in doubt. If there's a test for something,
+it's supported :)</p>
+
+
+
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+
+  </div>
+
+  <a class="gh-forkme" href="https://github.com/fsprojects/Fable"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+</body>
+</html>

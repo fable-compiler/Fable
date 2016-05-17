@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Alfonso Garcia-Caro">
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <link href='https://fonts.googleapis.com/css?family=Josefin+Sans:400,300,600,700' rel='stylesheet' type='text/css'>
+    <link href="/content/custom.css" rel='stylesheet' type='text/css'>
+    <script src="/content/tips.js"></script>
+    <link rel="stylesheet" type="text/css" href="/content/snippets.css" />
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+    <script language="javascript" type="text/javascript">
+      function init() {
+          websocket = new WebSocket("ws://"+window.location.host+"/websocket");
+          websocket.onmessage = function(evt) { location.reload(); };
+      }
+      window.addEventListener("load", init, false);
+    </script>
+    
+  <title>Compiling to JavaScript - F# |> BABEL</title>
+  <meta name="description" content="Using Fable as part of your node applications">
+
+</head>
+<body>
+
+  <div class="fb-navbar">
+  <div class="container">
+  <nav class="navbar navbar-default">
+    <div class="navbar-wrapper">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">Fable</a>
+      </div>
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li class=""><a href="/">home</a></li>
+          <li class=""><a href="/samples.html">samples</a></li>
+          <li class=""><a href="/docs.html">docs</a></li>
+          <li><a href="https://github.com/fsprojects/Fable">source</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  </div>
+  </div>
+
+  <div class="fb-content-wrapper">
+  
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>Compiling to JavaScript</h1>
+      <p>Using Fable as part of your node applications</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="container fb-content">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p>You can install the <code>fable-compiler</code> package from <a href="https://www.npmjs.com/package/fable-compiler">npm</a>
+either locally or globally. Here we'll assume it's been installed globally so the <code>fable</code>
+command is available from any directory.</p>
+<p>The simplest way to compile a F# project (<code>.fsproj</code>) or script (<code>.fsx</code>) is
+to pass its path as an argument to <code>fable</code>:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="shell">npm install -g fable-compiler
+
+fable path/to/your/project.fsproj
+</code></pre></td></tr></table>
+<h2><a name="CLI-options" class="anchor" href="#CLI-options">CLI options</a></h2>
+<p>Besides the default argument (<code>--projFile</code>), the following options are available:</p>
+<table>
+<thead>
+<tr class="header">
+<th><p>Option</p></th>
+<th><p>Short</p></th>
+<th><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><p><code>--outDir</code></p></td>
+<td><p><code>-o</code></p></td>
+<td><p>Where to put compiled JS files. Defaults to project directory.</p></td>
+</tr>
+<tr class="even">
+<td><p><code>--module</code></p></td>
+<td><p><code>-m</code></p></td>
+<td><p>Specify module code generation: <code>umd</code> (default), <code>commonjs</code>, <code>amd</code> or <code>es2015</code>.</p></td>
+</tr>
+<tr class="odd">
+<td><p><code>--sourceMaps</code></p></td>
+<td><p><code>-s</code></p></td>
+<td><p>Generate source maps: <code>false</code> (default), <code>true</code> or <code>inline</code>.</p></td>
+</tr>
+<tr class="even">
+<td><p><code>--watch</code></p></td>
+<td><p><code>-w</code></p></td>
+<td><p>Recompile project much faster on file modifications.</p></td>
+</tr>
+<tr class="odd">
+<td><p><code>--ecma</code></p></td>
+<td></td>
+<td><p>Specify ECMAScript target version: <code>es5</code> (default) or <code>es2015</code>.</p></td>
+</tr>
+<tr class="even">
+<td><p><code>--symbols</code></p></td>
+<td></td>
+<td><p>F# symbols for conditional compilation, like <code>DEBUG</code>.</p></td>
+</tr>
+<tr class="odd">
+<td><p><code>--plugins</code></p></td>
+<td></td>
+<td><p>Paths to Fable plugins.</p></td>
+</tr>
+<tr class="even">
+<td><p><code>--babelPlugins</code></p></td>
+<td></td>
+<td><p>Additional Babel plugins (without <code>babel-plugin-</code> prefix). Must be installed in the current directory.</p></td>
+</tr>
+<tr class="odd">
+<td><p><code>--refs</code></p></td>
+<td></td>
+<td><p>Specify project references in <code>Project=js/import/path</code> format (see below)</p></td>
+</tr>
+<tr class="even">
+<td><p><code>--clamp</code></p></td>
+<td></td>
+<td><p>Compile unsigned byte arrays as Uint8ClampedArray.</p></td>
+</tr>
+<tr class="odd">
+<td><p><code>--copyExt</code></p></td>
+<td></td>
+<td><p>Copy external files into a <code>.fable.external</code> folder.</p></td>
+</tr>
+<tr class="even">
+<td><p><code>--target</code></p></td>
+<td><p><code>-t</code></p></td>
+<td><p>Use options from a specific target in <code>fableconfig.json</code>.</p></td>
+</tr>
+<tr class="odd">
+<td><p><code>--debug</code></p></td>
+<td><p><code>-d</code></p></td>
+<td><p>Shortcut for <code>--target debug</code>.</p></td>
+</tr>
+<tr class="even">
+<td><p><code>--production</code></p></td>
+<td><p><code>-p</code></p></td>
+<td><p>Shortcut for <code>--target production</code>.</p></td>
+</tr>
+<tr class="odd">
+<td><p><code>--code</code></p></td>
+<td></td>
+<td><p>Pass a string of code directly to Fable.</p></td>
+</tr>
+<tr class="even">
+<td><p><code>--help</code></p></td>
+<td><p><code>-h</code></p></td>
+<td><p>Display usage guide.</p></td>
+</tr>
+</tbody>
+</table>
+
+<h2><a name="Project-references" class="anchor" href="#Project-references">Project references</a></h2>
+<p>You can use <code>--refs</code> argument to link referenced projects with the JS import path that must be used, using the following format: <code>[Project name without extension]=[JS import path]</code>.</p>
+<p>Example:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="shell">fable src/lib/MyLib.fsproj --outDir out/lib
+fable src/another/MyNs.AnotherProject.fsproj
+  --outDir out/another
+fable src/main/MyProject.fsproj
+  --outDir out/main
+  --refs MyLib=../lib MyNs.AnotherProject=../another
+</code></pre></td></tr></table>
+<h2><a name="fableconfig-json" class="anchor" href="#fableconfig-json">fableconfig.json</a></h2>
+<p>Rather than passing all the options to the CLI, it may be more convenient to put them
+in JSON format in a file named <code>fableconfig.json</code> and let the compiler read them for you.
+You can combine options from the CLI and <code>fableconfig.json</code>, when this happens the former will have preference.</p>
+<p>To use <code>fableconfig.json</code> just pass the directory where the JSON file resides to Fable.
+If you omit the path, the compiler will assume it's in the current directory.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="shell">fable my/path/
+</code></pre></td></tr></table>
+<p>Project references can be passed using a plain object:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="shell">{
+  "refs": {
+    "MyLib": "../lib",
+    "MyNs.AnotherProject": "../another"
+  }
+}
+</code></pre></td></tr></table>
+<p>There are some options exclusive to <code>fableconfig.json</code>.</p>
+<ul>
+<li>
+<strong>scripts</strong>: Commands that should be executed during specific phases of compilation.
+Currently <code>prebuild</code>, <code>postbuild</code> and <code>onwatch</code> are accepted. For example, if you want
+to run tests defined in the npm <code>package.json</code> file after the build you can write.
+</li>
+</ul>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="json">{
+    "scripts": {
+        "postbuild": "npm run test"
+    }
+}
+</code></pre></td></tr></table>
+<ul>
+<li>
+<strong>targets</strong>: You can group different options in targets. If you don't want,
+say, source maps when deploying for production, you can use a config file as
+seen below. When a target is specified, the options in the target will
+override the default ones. Activate the target by passing it to the CLI:
+<code>fable --target production</code>.
+</li>
+</ul>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+<span class="l">8: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="json">{
+    "sourceMaps": true,
+    "targets": {
+        "production": {
+            "sourceMaps": false
+        }
+    }
+}
+</code></pre></td></tr></table>
+<p>When using a node <code>package.json</code> file, it's also possible to specify the minimum
+version of Fable required to compile the project.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="json">{
+    "engines": {
+        "fable": "0.1.3"
+    }
+}
+</code></pre></td></tr></table>
+<h2><a name="fable-core" class="anchor" href="#fable-core">fable-core</a></h2>
+<p><a href="/import/core/fable-core.js">Fable's core library</a> must be included in the project.
+When targeting node or using a module bundler you only need to add the dependency:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="shell">npm install --save fable-core
+</code></pre></td></tr></table>
+<p>If targeting the browser and using AMD instead, you can load Fable's core lib with
+<a href="http://requirejs.org">require.js</a> as follows:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="html"><span class="k">&lt;</span><span class="i">script</span> <span class="o">src</span><span class="k">="node_modules/requirejs/require.js"</span><span class="k">&gt;&lt;/</span><span class="i">script</span><span class="k">&gt;</span>
+&lt;script&gt;
+requirejs.config({
+    <span class="c">// Set the baseUrl to the path of the compiled JS code</span>
+    baseUrl: <span class="s">'out'</span>,
+    paths: {
+        <span class="c">// Explicit path to core lib (relative to baseUrl, omit .js)</span>
+        <span class="s">'fable-core'</span>: <span class="s">'../node_modules/fable-core/fable-core.min'</span>
+    }
+});
+<span class="c">// Load the entry file of the app (use array, omit .js)</span>
+requirejs([<span class="s">"app"</span>]);
+<span class="k">&lt;/</span><span class="i">script</span><span class="k">&gt;</span>
+</code></pre></td></tr></table>
+<h2><a name="Polyfill" class="anchor" href="#Polyfill">Polyfill</a></h2>
+<p>When not using <code>--ecma es2015</code> or <code>--module es2015</code> (see below), after going through Babel pipeline
+the code won't include any syntax foreign to ES5. However several ES2015 classes (like <code>Symbol</code>)
+are used so it's advisable to include a polyfill like <a href="https://github.com/zloirock/core-js">core-js</a>
+to make sure the code works fine in any browser.</p>
+<p>You can include the polyfill in a <code>script</code> tag in your HTML file before loading
+the generated JS code like:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="html"><span class="k">&lt;</span><span class="i">script</span> <span class="o">src</span><span class="k">="node_modules/core-js/client/core.min.js"</span><span class="k">&gt;&lt;/</span><span class="i">script</span><span class="k">&gt;</span>
+</code></pre></td></tr></table>
+<p>Or you can import it directly in your F# code if you're using a bundler like
+Webpack or Browserify right before the entry point of your app.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="i">Node</span><span class="o">.</span><span class="i">require</span><span class="o">.</span><span class="i">Invoke</span>(<span class="s">&quot;core-js&quot;</span>) <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs1', 1)" onmouseover="showTip(event, 'fs1', 1)" class="i">ignore</span>
+</code></pre></td>
+</tr>
+</table>
+<blockquote>
+<p>The polyfill is not necessary when targeting node 4.4 or above.
+Babel includes <a href="http://babeljs.io/docs/usage/polyfill/">its own polyfill</a>
+with a lazy-sequence generator, but this is not needed as one is already included
+in <a href="/import/core/fable-core.js">fable-core.js</a>.</p>
+</blockquote>
+<h2><a name="Modules" class="anchor" href="#Modules">Modules</a></h2>
+<p>The compiler will keep the file structure of the F# project, wrapping each file in a <a href="https://github.com/lukehoban/es6features#modules">ES2015 module</a>.</p>
+<p>According to the <code>--module</code> argument (see above), these modules can be transformed again by Babel to
+<a href="https://github.com/umdjs/umd">umd</a> (the default), <a href="http://requirejs.org/docs/whyamd.html">amd</a>, <a href="https://nodejs.org/docs/latest/api/modules.html">commonjs</a>, or not at all.</p>
+<p>In the browser, when not using a bundler like Webpack or Browserify, you'll need a module loader like <a href="http://requirejs.org">require.js</a> to start up the app.</p>
+<p>When a F# file makes a reference to another, the compiler will create an <a href="https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import">import statement</a>
+in the generated Javascript code. You can also generate imports by using the <a href="interacting.md">Import attribute</a>.</p>
+<p>As JS must import external modules with an alias, there's no risk of namespace
+collision so, for convenience, the compiler will use the minimum route to access
+external objects. Meaning that if you have a F# file with one root module:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">module</span> <span class="i">MyNs1</span><span class="o">.</span><span class="i">MyNs2</span><span class="o">.</span><span class="i">MyModule</span>
+
+<span class="k">let</span> <span class="i">myProperty</span> <span class="o">=</span> <span class="s">&quot;Hello&quot;</span>
+</code></pre></td>
+</tr>
+</table>
+<p>To access <code>myProperty</code> the generated code will import the file with an alias, say <code>$import0</code>,
+and directly access the property from it: <code>$import0.myProperty</code>. The route has been eluded
+as it's not necessary to prevent name conflicts. In the same way, if you have a file
+with two modules:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">namespace</span> <span class="i">MyNs1</span><span class="o">.</span><span class="i">MyNs2</span>
+
+<span class="k">module</span> <span class="i">MyModule1</span> <span class="o">=</span>
+    <span class="k">let</span> <span class="i">myProperty</span> <span class="o">=</span> <span class="s">&quot;Hello&quot;</span>
+
+<span class="k">module</span> <span class="i">MyModule2</span> <span class="o">=</span>
+    <span class="k">let</span> <span class="i">myProperty</span> <span class="o">=</span> <span class="s">&quot;Bye&quot;</span>
+</code></pre></td>
+</tr>
+</table>
+<p>This time the compiler will omit the namespace but keep the F# module names,
+as they're necessary to prevent name conflicts in the same file:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="js">$import<span class="n">0</span>.MyModule<span class="n">1</span>.myProperty <span class="o">!</span><span class="o">=</span><span class="o">=</span> $import<span class="n">0</span>.MyModule<span class="n">2</span>.myProperty
+</code></pre></td></tr></table>
+<h2><a name="Debugging" class="anchor" href="#Debugging">Debugging</a></h2>
+<p>You can debug the generated JS code normally. Also, if you pass the <code>sourceMaps</code>
+option to the compiler, it'll be possible to debug the F# code (with some limitations).
+This is automatic for browser apps. For node, you'll need a tool like <a href="https://github.com/node-inspector/node-inspector">node-inspector</a>
+or a capable IDE. In the case of Visual Studio Code, you can find instructions <a href="https://code.visualstudio.com/docs/editor/debugging">here</a>
+(see Node Debugging &gt; JavaScript Source Maps).</p>
+<h2><a name="Testing" class="anchor" href="#Testing">Testing</a></h2>
+<p>You can use any JS testing library to write tests for your project, but to make it
+easier to share code across platforms, a <a href="plugins.md">plugin</a> is available to make
+<a href="http://www.nunit.org">NUnit</a> tests compatible with <a href="https://mochajs.org">Mocha</a>
+and this is what Fable uses for its own tests. The tests are compiled and run
+automatically when building the project:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="shell">build.cmd   // on windows
+./build.sh  // on unix
+</code></pre></td></tr></table>
+<p>The most commonly used attributes (<code>TestFixture</code> and <code>Test</code>) and their respective
+<code>SetUp</code>/<code>TearDown</code> counterparts are implemented. For assertions, however, only
+<code>Assert.AreEqual</code> is available. But more features will be available soon.</p>
+<blockquote>
+<p>Note: As attributes are only read by name, it's possible to use custom-defined
+attributes without the <code>NUnit</code> dependency if needed.</p>
+</blockquote>
+<p>For Visual Studio users, there's a similar plugin to convert Visual Studio Unit
+Tests to Mocha.</p>
+<h2><a name="Samples" class="anchor" href="#Samples">Samples</a></h2>
+<p>There are some samples available in the <a href="/samples">repository</a> and you can also download them from <a href="https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip">here</a>.
+Every sample includes a <code>fableconfig.json</code> file so they can be compiled just by running
+the <code>fable</code> command in the sample directory. Just be sure to install the npm dependencies
+the first time.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip"><code lang="shell">npm install
+fable
+</code></pre></td></tr></table>
+<p>Now it's your turn to build a great app with Fable and show it to the world!
+Check <a href="compatibility.md">Compatibility</a> and <a href="interacting.md">Interacting with JavaScript</a>
+to learn what you need to take into account when diving into JS.</p>
+
+
+<div class="tip" id="fs1">val ignore : value:&#39;T -&gt; unit<br /><br />Full name: Microsoft.FSharp.Core.Operators.ignore</div>
+
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+
+  </div>
+
+  <a class="gh-forkme" href="https://github.com/fsprojects/Fable"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+</body>
+</html>

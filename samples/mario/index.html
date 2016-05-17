@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Alfonso Garcia-Caro">
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <link href='https://fonts.googleapis.com/css?family=Josefin+Sans:400,300,600,700' rel='stylesheet' type='text/css'>
+    <link href="/content/custom.css" rel='stylesheet' type='text/css'>
+    <script src="/content/tips.js"></script>
+    <link rel="stylesheet" type="text/css" href="/content/snippets.css" />
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+    <script language="javascript" type="text/javascript">
+      function init() {
+          websocket = new WebSocket("ws://"+window.location.host+"/websocket");
+          websocket.onmessage = function(evt) { location.reload(); };
+      }
+      window.addEventListener("load", init, false);
+    </script>
+    
+  <title>Super Fable Mario - F# |> BABEL</title>
+  <script src="../scripts/core.min.js"></script>
+  <script src="../scripts/require.js"></script>
+  <meta name="description" content="Mario clone using HTML5 canvas">
+
+</head>
+<body>
+
+  <div class="fb-navbar">
+  <div class="container">
+  <nav class="navbar navbar-default">
+    <div class="navbar-wrapper">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">Fable</a>
+      </div>
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li class=""><a href="/">home</a></li>
+          <li class="active"><a href="/samples.html">samples</a></li>
+          <li class=""><a href="/docs.html">docs</a></li>
+          <li><a href="https://github.com/fsprojects/Fable">source</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  </div>
+  </div>
+
+  <div class="fb-content-wrapper">
+  
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>Super Fable Mario</h1>
+      <p>Mario clone using HTML5 canvas</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="container fb-content">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p><p> Mario clone, based on functional reactive <a href="http://debug.elm-lang.org/edit/Mario.elm">sample written in
+Elm</a>. The Fable version is using HTML 5
+canvas to render the background and an <code>img</code> tag showing the Mario (using animated GIFs).
+You can find the <a href="https://github.com/fsprojects/Fable/blob/master/samples/browser/mario/mario.fsx">full source code on GitHub</a>.</p>
+<p>To see how it works, use the left, right and up buttons to play. Our Mario respects
+no boundaries!</p></p>
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-12">
+      <div style="height:384px; width:512px; margin:20px auto 20px auto; position:relative;">
+        
+    <div>
+        <canvas id="canvas" width="512" height="384" style="position:absolute;"></canvas>
+        <img id="image" src="#" style="position:absolute;">
+    </div>
+  
+      </div>
+      <script>
+        requirejs.config({
+          baseUrl: '.',
+          paths: { 'fable-core': '../scripts/fable-core.min' }
+        });
+        requirejs(["mario"]);
+      </script>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <h2><a name="Mario-and-composable-physics" class="anchor" href="#Mario-and-composable-physics">Mario and composable physics</a></h2>
+<p>We keep information about Mario in a single record type with fields that
+represent the current x and y coordinates (<code>x</code> and <code>y</code>), current velocity
+(<code>vx</code> and <code>vy</code>) and the current direction <code>dir</code>. The direction is used to
+pick the correct Mario image when rendering:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs67', 121)" onmouseover="showTip(event, 'fs67', 121)" class="t">Mario</span> <span class="o">=</span>
+  { <span onmouseout="hideTip(event, 'fs68', 122)" onmouseover="showTip(event, 'fs68', 122)" class="i">x</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs69', 123)" onmouseover="showTip(event, 'fs69', 123)" class="t">float</span>; <span onmouseout="hideTip(event, 'fs70', 124)" onmouseover="showTip(event, 'fs70', 124)" class="i">y</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs69', 125)" onmouseover="showTip(event, 'fs69', 125)" class="t">float</span>;
+    <span onmouseout="hideTip(event, 'fs71', 126)" onmouseover="showTip(event, 'fs71', 126)" class="i">vx</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs69', 127)" onmouseover="showTip(event, 'fs69', 127)" class="t">float</span>; <span onmouseout="hideTip(event, 'fs72', 128)" onmouseover="showTip(event, 'fs72', 128)" class="i">vy</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs69', 129)" onmouseover="showTip(event, 'fs69', 129)" class="t">float</span>;
+    <span onmouseout="hideTip(event, 'fs73', 130)" onmouseover="showTip(event, 'fs73', 130)" class="i">dir</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs62', 131)" onmouseover="showTip(event, 'fs62', 131)" class="t">string</span> }
+</code></pre></td>
+</tr>
+</table>
+<p>The step function of the game takes previvous <code>Mario</code> value and returns a new
+one. It is composed from 4 functions that represent different aspects of the game.</p>
+<p>The functions that depend on keyboard take the current keyboard state as the
+first argument. This is represented as a tuple <code>int*int</code> consisting of x and y
+directions. For example, when the left key is pressed, the value is <code>(-1, 0)</code>.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+<span class="l">17: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">// If the Up key is pressed (y &gt; 0) and Mario is on the ground,</span>
+<span class="c">// then create Mario with the y velocity &#39;vy&#39; set to 5</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs74', 132)" onmouseover="showTip(event, 'fs74', 132)" class="f">jump</span> (_,<span onmouseout="hideTip(event, 'fs75', 133)" onmouseover="showTip(event, 'fs75', 133)" class="i">y</span>) <span onmouseout="hideTip(event, 'fs76', 134)" onmouseover="showTip(event, 'fs76', 134)" class="i">m</span> <span class="o">=</span>
+  <span class="k">if</span> <span onmouseout="hideTip(event, 'fs75', 135)" onmouseover="showTip(event, 'fs75', 135)" class="i">y</span> <span class="o">&gt;</span> <span class="n">0</span> <span class="o">&amp;&amp;</span> <span onmouseout="hideTip(event, 'fs76', 136)" onmouseover="showTip(event, 'fs76', 136)" class="i">m</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs70', 137)" onmouseover="showTip(event, 'fs70', 137)" class="i">y</span> <span class="o">=</span> <span class="n">0.</span> <span class="k">then</span> { <span onmouseout="hideTip(event, 'fs76', 138)" onmouseover="showTip(event, 'fs76', 138)" class="i">m</span> <span class="k">with</span> <span class="i">vy</span> <span class="o">=</span> <span class="n">5.</span> } <span class="k">else</span> <span onmouseout="hideTip(event, 'fs76', 139)" onmouseover="showTip(event, 'fs76', 139)" class="i">m</span>
+
+<span class="c">// If Mario is in the air, then his &quot;up&quot; velocity is decreasing</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs77', 140)" onmouseover="showTip(event, 'fs77', 140)" class="f">gravity</span> <span onmouseout="hideTip(event, 'fs76', 141)" onmouseover="showTip(event, 'fs76', 141)" class="i">m</span> <span class="o">=</span>
+  <span class="k">if</span> <span onmouseout="hideTip(event, 'fs76', 142)" onmouseover="showTip(event, 'fs76', 142)" class="i">m</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs70', 143)" onmouseover="showTip(event, 'fs70', 143)" class="i">y</span> <span class="o">&gt;</span> <span class="n">0.</span> <span class="k">then</span> { <span onmouseout="hideTip(event, 'fs76', 144)" onmouseover="showTip(event, 'fs76', 144)" class="i">m</span> <span class="k">with</span> <span class="i">vy</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs76', 145)" onmouseover="showTip(event, 'fs76', 145)" class="i">m</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 146)" onmouseover="showTip(event, 'fs72', 146)" class="i">vy</span> <span class="o">-</span> <span class="n">0.1</span> } <span class="k">else</span> <span onmouseout="hideTip(event, 'fs76', 147)" onmouseover="showTip(event, 'fs76', 147)" class="i">m</span>
+
+<span class="c">// Apply physics - move Mario according to the current velocities</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs78', 148)" onmouseover="showTip(event, 'fs78', 148)" class="f">physics</span> <span onmouseout="hideTip(event, 'fs76', 149)" onmouseover="showTip(event, 'fs76', 149)" class="i">m</span> <span class="o">=</span>
+  { <span onmouseout="hideTip(event, 'fs76', 150)" onmouseover="showTip(event, 'fs76', 150)" class="i">m</span> <span class="k">with</span> <span onmouseout="hideTip(event, 'fs68', 151)" onmouseover="showTip(event, 'fs68', 151)" class="i">x</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs76', 152)" onmouseover="showTip(event, 'fs76', 152)" class="i">m</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs68', 153)" onmouseover="showTip(event, 'fs68', 153)" class="i">x</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs76', 154)" onmouseover="showTip(event, 'fs76', 154)" class="i">m</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 155)" onmouseover="showTip(event, 'fs71', 155)" class="i">vx</span>; <span onmouseout="hideTip(event, 'fs70', 156)" onmouseover="showTip(event, 'fs70', 156)" class="i">y</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs5', 157)" onmouseover="showTip(event, 'fs5', 157)" class="f">max</span> <span class="n">0.</span> (<span onmouseout="hideTip(event, 'fs76', 158)" onmouseover="showTip(event, 'fs76', 158)" class="i">m</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs70', 159)" onmouseover="showTip(event, 'fs70', 159)" class="i">y</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs76', 160)" onmouseover="showTip(event, 'fs76', 160)" class="i">m</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs72', 161)" onmouseover="showTip(event, 'fs72', 161)" class="i">vy</span>) }
+
+<span class="c">// When Left/Right keys are pressed, change &#39;vx&#39; and direction</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs79', 162)" onmouseover="showTip(event, 'fs79', 162)" class="f">walk</span> (<span onmouseout="hideTip(event, 'fs12', 163)" onmouseover="showTip(event, 'fs12', 163)" class="i">x</span>,_) <span onmouseout="hideTip(event, 'fs76', 164)" onmouseover="showTip(event, 'fs76', 164)" class="i">m</span> <span class="o">=</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs80', 165)" onmouseover="showTip(event, 'fs80', 165)" class="i">dir</span> <span class="o">=</span> <span class="k">if</span> <span onmouseout="hideTip(event, 'fs12', 166)" onmouseover="showTip(event, 'fs12', 166)" class="i">x</span> <span class="o">&lt;</span> <span class="n">0</span> <span class="k">then</span> <span class="s">&quot;left&quot;</span> <span class="k">elif</span> <span onmouseout="hideTip(event, 'fs12', 167)" onmouseover="showTip(event, 'fs12', 167)" class="i">x</span> <span class="o">&gt;</span> <span class="n">0</span> <span class="k">then</span> <span class="s">&quot;right&quot;</span> <span class="k">else</span> <span onmouseout="hideTip(event, 'fs76', 168)" onmouseover="showTip(event, 'fs76', 168)" class="i">m</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs73', 169)" onmouseover="showTip(event, 'fs73', 169)" class="i">dir</span>
+  { <span onmouseout="hideTip(event, 'fs76', 170)" onmouseover="showTip(event, 'fs76', 170)" class="i">m</span> <span class="k">with</span> <span class="i">vx</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs69', 171)" onmouseover="showTip(event, 'fs69', 171)" class="f">float</span> <span onmouseout="hideTip(event, 'fs12', 172)" onmouseover="showTip(event, 'fs12', 172)" class="i">x</span>; <span onmouseout="hideTip(event, 'fs80', 173)" onmouseover="showTip(event, 'fs80', 173)" class="i">dir</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs80', 174)" onmouseover="showTip(event, 'fs80', 174)" class="i">dir</span> }
+</code></pre></td>
+</tr>
+</table>
+<p>The <code>step</code> function takes a <code>dir</code> parameter representing the keyboard status
+and a current <code>Mario</code> state. It simply runs 4 components in a pipeline:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs81', 175)" onmouseover="showTip(event, 'fs81', 175)" class="f">step</span> <span onmouseout="hideTip(event, 'fs82', 176)" onmouseover="showTip(event, 'fs82', 176)" class="i">dir</span> <span onmouseout="hideTip(event, 'fs83', 177)" onmouseover="showTip(event, 'fs83', 177)" class="i">mario</span> <span class="o">=</span>
+  <span onmouseout="hideTip(event, 'fs83', 178)" onmouseover="showTip(event, 'fs83', 178)" class="i">mario</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs78', 179)" onmouseover="showTip(event, 'fs78', 179)" class="f">physics</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs79', 180)" onmouseover="showTip(event, 'fs79', 180)" class="f">walk</span> <span onmouseout="hideTip(event, 'fs82', 181)" onmouseover="showTip(event, 'fs82', 181)" class="i">dir</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs77', 182)" onmouseover="showTip(event, 'fs77', 182)" class="f">gravity</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs74', 183)" onmouseover="showTip(event, 'fs74', 183)" class="f">jump</span> <span onmouseout="hideTip(event, 'fs82', 184)" onmouseover="showTip(event, 'fs82', 184)" class="i">dir</span>
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Rendering-Mario-with-HTML5" class="anchor" href="#Rendering-Mario-with-HTML5">Rendering Mario with HTML5</a></h2>
+<p>Now we're ready to render Mario using HTML 5 canvas! To do that, we need the
+width and height of the canvas and the current state of Mario. The following
+function fills the bottom half of the canvas with green, upper half with blue
+and then chooses the right Mario image. It uses helpers from the <code>Win</code>
+module, which are discussed below:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">/// Render mario on canvas</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs84', 185)" onmouseover="showTip(event, 'fs84', 185)" class="f">render</span> (<span onmouseout="hideTip(event, 'fs85', 186)" onmouseover="showTip(event, 'fs85', 186)" class="i">w</span>,<span onmouseout="hideTip(event, 'fs86', 187)" onmouseover="showTip(event, 'fs86', 187)" class="i">h</span>) (<span onmouseout="hideTip(event, 'fs83', 188)" onmouseover="showTip(event, 'fs83', 188)" class="i">mario</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs67', 189)" onmouseover="showTip(event, 'fs67', 189)" class="t">Mario</span>) <span class="o">=</span>
+    <span class="c">// Render background</span>
+    (<span class="n">0.</span>,<span class="n">0.</span>,<span onmouseout="hideTip(event, 'fs85', 190)" onmouseover="showTip(event, 'fs85', 190)" class="i">w</span>,<span onmouseout="hideTip(event, 'fs86', 191)" onmouseover="showTip(event, 'fs86', 191)" class="i">h</span>) <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs87', 192)" onmouseover="showTip(event, 'fs87', 192)" class="t">Win</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs40', 193)" onmouseover="showTip(event, 'fs40', 193)" class="f">filled</span> (<span onmouseout="hideTip(event, 'fs87', 194)" onmouseover="showTip(event, 'fs87', 194)" class="t">Win</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs36', 195)" onmouseover="showTip(event, 'fs36', 195)" class="f">rgb</span> <span class="n">174</span> <span class="n">238</span> <span class="n">238</span>)
+    (<span class="n">0.</span>,<span onmouseout="hideTip(event, 'fs86', 196)" onmouseover="showTip(event, 'fs86', 196)" class="i">h</span><span class="o">-</span><span class="n">50.</span>,<span onmouseout="hideTip(event, 'fs85', 197)" onmouseover="showTip(event, 'fs85', 197)" class="i">w</span>,<span class="n">50.</span>) <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs87', 198)" onmouseover="showTip(event, 'fs87', 198)" class="t">Win</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs40', 199)" onmouseover="showTip(event, 'fs40', 199)" class="f">filled</span> (<span onmouseout="hideTip(event, 'fs87', 200)" onmouseover="showTip(event, 'fs87', 200)" class="t">Win</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs36', 201)" onmouseover="showTip(event, 'fs36', 201)" class="f">rgb</span> <span class="n">74</span> <span class="n">163</span> <span class="n">41</span>)
+    <span class="c">// Select and position Mario</span>
+    <span class="c">// (walking is represented as an animated gif)</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs88', 202)" onmouseover="showTip(event, 'fs88', 202)" class="i">verb</span> <span class="o">=</span>
+        <span class="k">if</span> <span onmouseout="hideTip(event, 'fs83', 203)" onmouseover="showTip(event, 'fs83', 203)" class="i">mario</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs70', 204)" onmouseover="showTip(event, 'fs70', 204)" class="i">y</span> <span class="o">&gt;</span> <span class="n">0.</span> <span class="k">then</span> <span class="s">&quot;jump&quot;</span>
+        <span class="k">elif</span> <span onmouseout="hideTip(event, 'fs83', 205)" onmouseover="showTip(event, 'fs83', 205)" class="i">mario</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs71', 206)" onmouseover="showTip(event, 'fs71', 206)" class="i">vx</span> <span class="o">&lt;&gt;</span> <span class="n">0.</span> <span class="k">then</span> <span class="s">&quot;walk&quot;</span>
+        <span class="k">else</span> <span class="s">&quot;stand&quot;</span>
+    <span class="s">&quot;images/mario&quot;</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs88', 207)" onmouseover="showTip(event, 'fs88', 207)" class="i">verb</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs83', 208)" onmouseover="showTip(event, 'fs83', 208)" class="i">mario</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs73', 209)" onmouseover="showTip(event, 'fs73', 209)" class="i">dir</span> <span class="o">+</span> <span class="s">&quot;.gif&quot;</span>
+    <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs87', 210)" onmouseover="showTip(event, 'fs87', 210)" class="t">Win</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs60', 211)" onmouseover="showTip(event, 'fs60', 211)" class="f">image</span>
+    <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs87', 212)" onmouseover="showTip(event, 'fs87', 212)" class="t">Win</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs48', 213)" onmouseover="showTip(event, 'fs48', 213)" class="f">position</span> (<span onmouseout="hideTip(event, 'fs85', 214)" onmouseover="showTip(event, 'fs85', 214)" class="i">w</span><span class="o">/</span><span class="n">2.</span><span class="o">-</span><span class="n">16.</span><span class="o">+</span><span onmouseout="hideTip(event, 'fs83', 215)" onmouseover="showTip(event, 'fs83', 215)" class="i">mario</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs68', 216)" onmouseover="showTip(event, 'fs68', 216)" class="i">x</span>,  <span onmouseout="hideTip(event, 'fs86', 217)" onmouseover="showTip(event, 'fs86', 217)" class="i">h</span><span class="o">-</span><span class="n">50.</span><span class="o">-</span><span class="n">31.</span><span class="o">-</span><span onmouseout="hideTip(event, 'fs83', 218)" onmouseover="showTip(event, 'fs83', 218)" class="i">mario</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs70', 219)" onmouseover="showTip(event, 'fs70', 219)" class="i">y</span>)
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Driving-the-game" class="anchor" href="#Driving-the-game">Driving the game</a></h2>
+<p>The last thing that needs to be done is to write the <code>main</code> function that drives
+the game. The function does some initialization and then starts a recursive <code>update</code>
+function that calculates a new game state using <code>step</code> and renders it in a loop.
+The <code>Keyboard</code> helper module is discussed below.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">// Some initialization</span>
+<span onmouseout="hideTip(event, 'fs89', 220)" onmouseover="showTip(event, 'fs89', 220)" class="t">Keyboard</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs25', 221)" onmouseover="showTip(event, 'fs25', 221)" class="f">init</span>()
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs90', 222)" onmouseover="showTip(event, 'fs90', 222)" class="i">w</span>,<span onmouseout="hideTip(event, 'fs91', 223)" onmouseover="showTip(event, 'fs91', 223)" class="i">h</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs87', 224)" onmouseover="showTip(event, 'fs87', 224)" class="t">Win</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs57', 225)" onmouseover="showTip(event, 'fs57', 225)" class="f">dimensions</span>()
+<span class="c">// Recursive function that updates the state &amp; renders it</span>
+<span class="k">let</span> <span class="k">rec</span> <span onmouseout="hideTip(event, 'fs92', 226)" onmouseover="showTip(event, 'fs92', 226)" class="f">update</span> <span onmouseout="hideTip(event, 'fs83', 227)" onmouseover="showTip(event, 'fs83', 227)" class="i">mario</span> () <span class="o">=</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs83', 228)" onmouseover="showTip(event, 'fs83', 228)" class="i">mario</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs83', 229)" onmouseover="showTip(event, 'fs83', 229)" class="i">mario</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs81', 230)" onmouseover="showTip(event, 'fs81', 230)" class="f">step</span> (<span onmouseout="hideTip(event, 'fs89', 231)" onmouseover="showTip(event, 'fs89', 231)" class="t">Keyboard</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs24', 232)" onmouseover="showTip(event, 'fs24', 232)" class="f">arrows</span>())
+    <span onmouseout="hideTip(event, 'fs84', 233)" onmouseover="showTip(event, 'fs84', 233)" class="f">render</span> (<span onmouseout="hideTip(event, 'fs90', 234)" onmouseover="showTip(event, 'fs90', 234)" class="i">w</span>,<span onmouseout="hideTip(event, 'fs91', 235)" onmouseover="showTip(event, 'fs91', 235)" class="i">h</span>) <span onmouseout="hideTip(event, 'fs83', 236)" onmouseover="showTip(event, 'fs83', 236)" class="i">mario</span>
+    <span onmouseout="hideTip(event, 'fs93', 237)" onmouseover="showTip(event, 'fs93', 237)" class="i">window</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs94', 238)" onmouseover="showTip(event, 'fs94', 238)" class="f">setTimeout</span>(<span onmouseout="hideTip(event, 'fs92', 239)" onmouseover="showTip(event, 'fs92', 239)" class="f">update</span> <span onmouseout="hideTip(event, 'fs83', 240)" onmouseover="showTip(event, 'fs83', 240)" class="i">mario</span>, <span class="n">1000.</span> <span class="o">/</span> <span class="n">60.</span>) <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs95', 241)" onmouseover="showTip(event, 'fs95', 241)" class="f">ignore</span>
+<span class="c">// Start the game with Mario in the center</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs96', 242)" onmouseover="showTip(event, 'fs96', 242)" class="i">mario</span> <span class="o">=</span> { <span onmouseout="hideTip(event, 'fs68', 243)" onmouseover="showTip(event, 'fs68', 243)" class="i">x</span><span class="o">=</span><span class="n">0.</span>; <span onmouseout="hideTip(event, 'fs70', 244)" onmouseover="showTip(event, 'fs70', 244)" class="i">y</span><span class="o">=</span><span class="n">0.</span>; <span class="i">vx</span><span class="o">=</span><span class="n">0.</span>; <span class="i">vy</span><span class="o">=</span><span class="n">0.</span>; <span class="i">dir</span><span class="o">=</span><span class="s">&quot;right&quot;</span> }
+<span onmouseout="hideTip(event, 'fs92', 245)" onmouseover="showTip(event, 'fs92', 245)" class="f">update</span> <span onmouseout="hideTip(event, 'fs96', 246)" onmouseover="showTip(event, 'fs96', 246)" class="i">mario</span> ()
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Keyboard-helpers" class="anchor" href="#Keyboard-helpers">Keyboard helpers</a></h2>
+<p>The <code>Keyboard</code> module handles keydown and keyup events of the window and
+exposes them using the <code>arrows</code> property (which is a tuple int*int with -1 if the
+left/up key is pressed, 1 if right/down key is pressed and 0 otherwise).</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+<span class="l">17: </span>
+<span class="l">18: </span>
+<span class="l">19: </span>
+<span class="l">20: </span>
+<span class="l">21: </span>
+<span class="l">22: </span>
+<span class="l">23: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">module</span> <span class="t">Keyboard</span> <span class="o">=</span>
+  <span class="c">/// Set of currently pressed keys</span>
+  <span class="k">let</span> <span class="k">mutable</span> <span onmouseout="hideTip(event, 'fs8', 13)" onmouseover="showTip(event, 'fs8', 13)" class="v">keysPressed</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs9', 14)" onmouseover="showTip(event, 'fs9', 14)" class="t">Set</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs10', 15)" onmouseover="showTip(event, 'fs10', 15)" class="i">empty</span>
+
+  <span class="c">/// Returns 1 if key with given code is pressed</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs11', 16)" onmouseover="showTip(event, 'fs11', 16)" class="f">code</span> <span onmouseout="hideTip(event, 'fs12', 17)" onmouseover="showTip(event, 'fs12', 17)" class="i">x</span> <span class="o">=</span>
+    <span class="k">if</span> <span onmouseout="hideTip(event, 'fs8', 18)" onmouseover="showTip(event, 'fs8', 18)" class="v">keysPressed</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs13', 19)" onmouseover="showTip(event, 'fs13', 19)" class="f">Contains</span>(<span onmouseout="hideTip(event, 'fs12', 20)" onmouseover="showTip(event, 'fs12', 20)" class="i">x</span>) <span class="k">then</span> <span class="n">1</span> <span class="k">else</span> <span class="n">0</span>
+
+  <span class="c">/// Update the state of the set for given key event</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs14', 21)" onmouseover="showTip(event, 'fs14', 21)" class="f">update</span> (<span onmouseout="hideTip(event, 'fs15', 22)" onmouseover="showTip(event, 'fs15', 22)" class="i">e</span> <span class="o">:</span> <span onmouseout="hideTip(event, 'fs16', 23)" onmouseover="showTip(event, 'fs16', 23)" class="t">KeyboardEvent</span>, <span onmouseout="hideTip(event, 'fs17', 24)" onmouseover="showTip(event, 'fs17', 24)" class="i">pressed</span>) <span class="o">=</span>
+      <span class="k">let</span> <span onmouseout="hideTip(event, 'fs18', 25)" onmouseover="showTip(event, 'fs18', 25)" class="i">keyCode</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs19', 26)" onmouseover="showTip(event, 'fs19', 26)" class="f">int</span> <span onmouseout="hideTip(event, 'fs15', 27)" onmouseover="showTip(event, 'fs15', 27)" class="i">e</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs20', 28)" onmouseover="showTip(event, 'fs20', 28)" class="i">keyCode</span>
+      <span class="k">let</span> <span onmouseout="hideTip(event, 'fs21', 29)" onmouseover="showTip(event, 'fs21', 29)" class="f">op</span> <span class="o">=</span>  <span class="k">if</span> <span onmouseout="hideTip(event, 'fs17', 30)" onmouseover="showTip(event, 'fs17', 30)" class="i">pressed</span> <span class="k">then</span> <span onmouseout="hideTip(event, 'fs9', 31)" onmouseover="showTip(event, 'fs9', 31)" class="t">Set</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs22', 32)" onmouseover="showTip(event, 'fs22', 32)" class="f">add</span> <span class="k">else</span> <span onmouseout="hideTip(event, 'fs9', 33)" onmouseover="showTip(event, 'fs9', 33)" class="t">Set</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs23', 34)" onmouseover="showTip(event, 'fs23', 34)" class="f">remove</span>
+      <span onmouseout="hideTip(event, 'fs8', 35)" onmouseover="showTip(event, 'fs8', 35)" class="v">keysPressed</span> <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs21', 36)" onmouseover="showTip(event, 'fs21', 36)" class="f">op</span> <span onmouseout="hideTip(event, 'fs18', 37)" onmouseover="showTip(event, 'fs18', 37)" class="i">keyCode</span> <span onmouseout="hideTip(event, 'fs8', 38)" onmouseover="showTip(event, 'fs8', 38)" class="v">keysPressed</span>
+      <span class="k">null</span>
+
+  <span class="c">/// Returns pair with -1 for left or down and +1</span>
+  <span class="c">/// for right or up (0 if no or both keys are pressed)</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs24', 39)" onmouseover="showTip(event, 'fs24', 39)" class="f">arrows</span> () <span class="o">=</span>
+    (<span onmouseout="hideTip(event, 'fs11', 40)" onmouseover="showTip(event, 'fs11', 40)" class="f">code</span> <span class="n">39</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs11', 41)" onmouseover="showTip(event, 'fs11', 41)" class="f">code</span> <span class="n">37</span>, <span onmouseout="hideTip(event, 'fs11', 42)" onmouseover="showTip(event, 'fs11', 42)" class="f">code</span> <span class="n">38</span> <span class="o">-</span> <span onmouseout="hideTip(event, 'fs11', 43)" onmouseover="showTip(event, 'fs11', 43)" class="f">code</span> <span class="n">40</span>)
+
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs25', 44)" onmouseover="showTip(event, 'fs25', 44)" class="f">init</span> () <span class="o">=</span>
+    <span onmouseout="hideTip(event, 'fs26', 45)" onmouseover="showTip(event, 'fs26', 45)" class="i">document</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs27', 46)" onmouseover="showTip(event, 'fs27', 46)" class="f">addEventListener_keydown</span>(<span class="k">fun</span> <span onmouseout="hideTip(event, 'fs15', 47)" onmouseover="showTip(event, 'fs15', 47)" class="i">e</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs14', 48)" onmouseover="showTip(event, 'fs14', 48)" class="f">update</span>(<span onmouseout="hideTip(event, 'fs15', 49)" onmouseover="showTip(event, 'fs15', 49)" class="i">e</span>, <span class="k">true</span>))
+    <span onmouseout="hideTip(event, 'fs26', 50)" onmouseover="showTip(event, 'fs26', 50)" class="i">document</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs28', 51)" onmouseover="showTip(event, 'fs28', 51)" class="f">addEventListener_keyup</span>(<span class="k">fun</span> <span onmouseout="hideTip(event, 'fs15', 52)" onmouseover="showTip(event, 'fs15', 52)" class="i">e</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs14', 53)" onmouseover="showTip(event, 'fs14', 53)" class="f">update</span>(<span onmouseout="hideTip(event, 'fs15', 54)" onmouseover="showTip(event, 'fs15', 54)" class="i">e</span>, <span class="k">false</span>))
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Window-helpers" class="anchor" href="#Window-helpers">Window helpers</a></h2>
+<p>The <code>Window</code> module contains basic functionality for creating and rendering
+window using HTML5 canvas and moving images around. The functionsbelow
+fill the window, set position of image and create image.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+<span class="l">17: </span>
+<span class="l">18: </span>
+<span class="l">19: </span>
+<span class="l">20: </span>
+<span class="l">21: </span>
+<span class="l">22: </span>
+<span class="l">23: </span>
+<span class="l">24: </span>
+<span class="l">25: </span>
+<span class="l">26: </span>
+<span class="l">27: </span>
+<span class="l">28: </span>
+<span class="l">29: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">module</span> <span class="t">Win</span> <span class="o">=</span>
+  <span class="c">// Get the canvas context for drawing</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs29', 55)" onmouseover="showTip(event, 'fs29', 55)" class="i">canvas</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs26', 56)" onmouseover="showTip(event, 'fs26', 56)" class="i">document</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs30', 57)" onmouseover="showTip(event, 'fs30', 57)" class="f">getElementsByTagName_canvas</span>()<span class="o">.</span>[<span class="n">0.</span>]
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs31', 58)" onmouseover="showTip(event, 'fs31', 58)" class="i">context</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs29', 59)" onmouseover="showTip(event, 'fs29', 59)" class="i">canvas</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs32', 60)" onmouseover="showTip(event, 'fs32', 60)" class="f">getContext_2d</span>()
+
+  <span class="c">// Format RGB color as &quot;rgb(r,g,b)&quot;</span>
+  <span class="k">let</span> (<span class="o">$</span>) <span onmouseout="hideTip(event, 'fs33', 61)" onmouseover="showTip(event, 'fs33', 61)" class="i">s</span> <span onmouseout="hideTip(event, 'fs34', 62)" onmouseover="showTip(event, 'fs34', 62)" class="i">n</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs33', 63)" onmouseover="showTip(event, 'fs33', 63)" class="i">s</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs34', 64)" onmouseover="showTip(event, 'fs34', 64)" class="i">n</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs35', 65)" onmouseover="showTip(event, 'fs35', 65)" class="f">ToString</span>()
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs36', 66)" onmouseover="showTip(event, 'fs36', 66)" class="f">rgb</span> <span onmouseout="hideTip(event, 'fs37', 67)" onmouseover="showTip(event, 'fs37', 67)" class="i">r</span> <span onmouseout="hideTip(event, 'fs38', 68)" onmouseover="showTip(event, 'fs38', 68)" class="i">g</span> <span onmouseout="hideTip(event, 'fs39', 69)" onmouseover="showTip(event, 'fs39', 69)" class="i">b</span> <span class="o">=</span> <span class="s">&quot;rgb(&quot;</span> <span class="o">$</span> <span onmouseout="hideTip(event, 'fs37', 70)" onmouseover="showTip(event, 'fs37', 70)" class="i">r</span> <span class="o">$</span> <span class="s">&quot;,&quot;</span> <span class="o">$</span> <span onmouseout="hideTip(event, 'fs38', 71)" onmouseover="showTip(event, 'fs38', 71)" class="i">g</span> <span class="o">$</span> <span class="s">&quot;,&quot;</span> <span class="o">$</span> <span onmouseout="hideTip(event, 'fs39', 72)" onmouseover="showTip(event, 'fs39', 72)" class="i">b</span> <span class="o">$</span> <span class="s">&quot;)&quot;</span>
+
+  <span class="c">/// Fill rectangle with given color</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs40', 73)" onmouseover="showTip(event, 'fs40', 73)" class="f">filled</span> <span onmouseout="hideTip(event, 'fs41', 74)" onmouseover="showTip(event, 'fs41', 74)" class="i">color</span> <span onmouseout="hideTip(event, 'fs42', 75)" onmouseover="showTip(event, 'fs42', 75)" class="i">rect</span> <span class="o">=</span>
+      <span class="k">let</span> <span onmouseout="hideTip(event, 'fs43', 76)" onmouseover="showTip(event, 'fs43', 76)" class="i">ctx</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs31', 77)" onmouseover="showTip(event, 'fs31', 77)" class="i">context</span>
+      <span onmouseout="hideTip(event, 'fs43', 78)" onmouseover="showTip(event, 'fs43', 78)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs44', 79)" onmouseover="showTip(event, 'fs44', 79)" class="i">fillStyle</span> <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs45', 80)" onmouseover="showTip(event, 'fs45', 80)" class="t">U3</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs46', 81)" onmouseover="showTip(event, 'fs46', 81)" class="p">Case1</span> <span onmouseout="hideTip(event, 'fs41', 82)" onmouseover="showTip(event, 'fs41', 82)" class="i">color</span>
+      <span onmouseout="hideTip(event, 'fs43', 83)" onmouseover="showTip(event, 'fs43', 83)" class="i">ctx</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs47', 84)" onmouseover="showTip(event, 'fs47', 84)" class="f">fillRect</span> <span onmouseout="hideTip(event, 'fs42', 85)" onmouseover="showTip(event, 'fs42', 85)" class="i">rect</span>
+
+  <span class="c">/// Move element to a specified X Y position</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs48', 86)" onmouseover="showTip(event, 'fs48', 86)" class="f">position</span> (<span onmouseout="hideTip(event, 'fs49', 87)" onmouseover="showTip(event, 'fs49', 87)" class="i">x</span>,<span onmouseout="hideTip(event, 'fs50', 88)" onmouseover="showTip(event, 'fs50', 88)" class="i">y</span>) (<span onmouseout="hideTip(event, 'fs51', 89)" onmouseover="showTip(event, 'fs51', 89)" class="i">img</span> <span class="o">:</span> <span onmouseout="hideTip(event, 'fs52', 90)" onmouseover="showTip(event, 'fs52', 90)" class="t">HTMLImageElement</span>) <span class="o">=</span>
+      <span onmouseout="hideTip(event, 'fs51', 91)" onmouseover="showTip(event, 'fs51', 91)" class="i">img</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs53', 92)" onmouseover="showTip(event, 'fs53', 92)" class="i">style</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs54', 93)" onmouseover="showTip(event, 'fs54', 93)" class="i">left</span> <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs49', 94)" onmouseover="showTip(event, 'fs49', 94)" class="i">x</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs35', 95)" onmouseover="showTip(event, 'fs35', 95)" class="f">ToString</span>() <span class="o">+</span> <span class="s">&quot;px&quot;</span>
+      <span onmouseout="hideTip(event, 'fs51', 96)" onmouseover="showTip(event, 'fs51', 96)" class="i">img</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs53', 97)" onmouseover="showTip(event, 'fs53', 97)" class="i">style</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs55', 98)" onmouseover="showTip(event, 'fs55', 98)" class="i">top</span> <span class="o">&lt;-</span> (<span onmouseout="hideTip(event, 'fs29', 99)" onmouseover="showTip(event, 'fs29', 99)" class="i">canvas</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs56', 100)" onmouseover="showTip(event, 'fs56', 100)" class="i">offsetTop</span> <span class="o">+</span> <span onmouseout="hideTip(event, 'fs50', 101)" onmouseover="showTip(event, 'fs50', 101)" class="i">y</span>)<span class="o">.</span><span class="f">ToString</span>() <span class="o">+</span> <span class="s">&quot;px&quot;</span>
+
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs57', 102)" onmouseover="showTip(event, 'fs57', 102)" class="f">dimensions</span> () <span class="o">=</span>
+    <span onmouseout="hideTip(event, 'fs29', 103)" onmouseover="showTip(event, 'fs29', 103)" class="i">canvas</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs58', 104)" onmouseover="showTip(event, 'fs58', 104)" class="i">width</span>, <span onmouseout="hideTip(event, 'fs29', 105)" onmouseover="showTip(event, 'fs29', 105)" class="i">canvas</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs59', 106)" onmouseover="showTip(event, 'fs59', 106)" class="i">height</span>
+
+  <span class="c">/// Get the first &lt;img /&gt; element and set `src` (do</span>
+  <span class="c">/// nothing if it is the right one to keep animation)</span>
+  <span class="k">let</span> <span onmouseout="hideTip(event, 'fs60', 107)" onmouseover="showTip(event, 'fs60', 107)" class="f">image</span> (<span onmouseout="hideTip(event, 'fs61', 108)" onmouseover="showTip(event, 'fs61', 108)" class="i">src</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs62', 109)" onmouseover="showTip(event, 'fs62', 109)" class="t">string</span>) <span class="o">=</span>
+      <span class="k">let</span> <span onmouseout="hideTip(event, 'fs63', 110)" onmouseover="showTip(event, 'fs63', 110)" class="i">image</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs26', 111)" onmouseover="showTip(event, 'fs26', 111)" class="i">document</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs64', 112)" onmouseover="showTip(event, 'fs64', 112)" class="f">getElementsByTagName_img</span>()<span class="o">.</span>[<span class="n">0.</span>]
+      <span class="k">if</span> <span onmouseout="hideTip(event, 'fs63', 113)" onmouseover="showTip(event, 'fs63', 113)" class="i">image</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs65', 114)" onmouseover="showTip(event, 'fs65', 114)" class="i">src</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs66', 115)" onmouseover="showTip(event, 'fs66', 115)" class="f">IndexOf</span>(<span onmouseout="hideTip(event, 'fs61', 116)" onmouseover="showTip(event, 'fs61', 116)" class="i">src</span>) <span class="o">=</span> <span class="o">-</span><span class="n">1</span> <span class="k">then</span> <span onmouseout="hideTip(event, 'fs63', 117)" onmouseover="showTip(event, 'fs63', 117)" class="i">image</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs65', 118)" onmouseover="showTip(event, 'fs65', 118)" class="i">src</span> <span class="o">&lt;-</span> <span onmouseout="hideTip(event, 'fs61', 119)" onmouseover="showTip(event, 'fs61', 119)" class="i">src</span>
+      <span onmouseout="hideTip(event, 'fs63', 120)" onmouseover="showTip(event, 'fs63', 120)" class="i">image</span>
+</code></pre></td>
+</tr>
+</table>
+
+
+<div class="tip" id="fs1">namespace Fable</div>
+<div class="tip" id="fs2">namespace Fable.Core</div>
+<div class="tip" id="fs3">namespace Fable.Import</div>
+<div class="tip" id="fs4">module Browser<br /><br />from Fable.Import</div>
+<div class="tip" id="fs5">val max : a:&#39;a -&gt; b:&#39;a -&gt; &#39;a (requires comparison)<br /><br />Full name: Mario.max</div>
+<div class="tip" id="fs6">val a : &#39;a (requires comparison)</div>
+<div class="tip" id="fs7">val b : &#39;a (requires comparison)</div>
+<div class="tip" id="fs8">val mutable keysPressed : Set&lt;int&gt;<br /><br />Full name: Mario.Keyboard.keysPressed<br /><em><br /><br />&#160;Set of currently pressed keys</em></div>
+<div class="tip" id="fs9">Multiple items<br />module Set<br /><br />from Microsoft.FSharp.Collections<br /><br />--------------------<br />type Set&lt;&#39;T (requires comparison)&gt; =<br />&#160;&#160;interface IComparable<br />&#160;&#160;interface IEnumerable<br />&#160;&#160;interface IEnumerable&lt;&#39;T&gt;<br />&#160;&#160;interface ICollection&lt;&#39;T&gt;<br />&#160;&#160;new : elements:seq&lt;&#39;T&gt; -&gt; Set&lt;&#39;T&gt;<br />&#160;&#160;member Add : value:&#39;T -&gt; Set&lt;&#39;T&gt;<br />&#160;&#160;member Contains : value:&#39;T -&gt; bool<br />&#160;&#160;override Equals : obj -&gt; bool<br />&#160;&#160;member IsProperSubsetOf : otherSet:Set&lt;&#39;T&gt; -&gt; bool<br />&#160;&#160;member IsProperSupersetOf : otherSet:Set&lt;&#39;T&gt; -&gt; bool<br />&#160;&#160;...<br /><br />Full name: Microsoft.FSharp.Collections.Set&lt;_&gt;<br /><br />--------------------<br />new : elements:seq&lt;&#39;T&gt; -&gt; Set&lt;&#39;T&gt;</div>
+<div class="tip" id="fs10">val empty&lt;&#39;T (requires comparison)&gt; : Set&lt;&#39;T&gt; (requires comparison)<br /><br />Full name: Microsoft.FSharp.Collections.Set.empty</div>
+<div class="tip" id="fs11">val code : x:int -&gt; int<br /><br />Full name: Mario.Keyboard.code<br /><em><br /><br />&#160;Returns 1 if key with given code is pressed</em></div>
+<div class="tip" id="fs12">val x : int</div>
+<div class="tip" id="fs13">member Set.Contains : value:&#39;T -&gt; bool</div>
+<div class="tip" id="fs14">val update : e:KeyboardEvent * pressed:bool -&gt; &#39;a (requires &#39;a : null)<br /><br />Full name: Mario.Keyboard.update<br /><em><br /><br />&#160;Update the state of the set for given key event</em></div>
+<div class="tip" id="fs15">val e : KeyboardEvent</div>
+<div class="tip" id="fs16">Multiple items<br />val KeyboardEvent : KeyboardEventType<br /><br />Full name: Fable.Import.Browser.KeyboardEvent<br /><br />--------------------<br />type KeyboardEvent =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit UIEvent<br />&#160;&#160;&#160;&#160;abstract member getModifierState : keyArg:string -&gt; bool<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_JOYSTICK : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_LEFT : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_MOBILE : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_NUMPAD : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_RIGHT : float<br />&#160;&#160;&#160;&#160;abstract member DOM_KEY_LOCATION_STANDARD : float<br />&#160;&#160;&#160;&#160;abstract member altKey : bool<br />&#160;&#160;&#160;&#160;abstract member char : string<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.Browser.KeyboardEvent</div>
+<div class="tip" id="fs17">val pressed : bool</div>
+<div class="tip" id="fs18">val keyCode : int</div>
+<div class="tip" id="fs19">Multiple items<br />val int : value:&#39;T -&gt; int (requires member op_Explicit)<br /><br />Full name: Microsoft.FSharp.Core.Operators.int<br /><br />--------------------<br />type int = int32<br /><br />Full name: Microsoft.FSharp.Core.int<br /><br />--------------------<br />type int&lt;&#39;Measure&gt; = int<br /><br />Full name: Microsoft.FSharp.Core.int&lt;_&gt;</div>
+<div class="tip" id="fs20">property KeyboardEvent.keyCode: float</div>
+<div class="tip" id="fs21">val op : (int -&gt; Set&lt;int&gt; -&gt; Set&lt;int&gt;)</div>
+<div class="tip" id="fs22">val add : value:&#39;T -&gt; set:Set&lt;&#39;T&gt; -&gt; Set&lt;&#39;T&gt; (requires comparison)<br /><br />Full name: Microsoft.FSharp.Collections.Set.add</div>
+<div class="tip" id="fs23">val remove : value:&#39;T -&gt; set:Set&lt;&#39;T&gt; -&gt; Set&lt;&#39;T&gt; (requires comparison)<br /><br />Full name: Microsoft.FSharp.Collections.Set.remove</div>
+<div class="tip" id="fs24">val arrows : unit -&gt; int * int<br /><br />Full name: Mario.Keyboard.arrows<br /><em><br /><br />&#160;Returns pair with -1 for left or down and +1<br />&#160;for right or up (0 if no or both keys are pressed)</em></div>
+<div class="tip" id="fs25">val init : unit -&gt; unit<br /><br />Full name: Mario.Keyboard.init</div>
+<div class="tip" id="fs26">val document : Document<br /><br />Full name: Fable.Import.Browser.document</div>
+<div class="tip" id="fs27">abstract member Document.addEventListener_keydown : listener:System.Func&lt;KeyboardEvent,obj&gt; * ?useCapture:bool -&gt; unit</div>
+<div class="tip" id="fs28">abstract member Document.addEventListener_keyup : listener:System.Func&lt;KeyboardEvent,obj&gt; * ?useCapture:bool -&gt; unit</div>
+<div class="tip" id="fs29">val canvas : HTMLCanvasElement<br /><br />Full name: Mario.Win.canvas</div>
+<div class="tip" id="fs30">abstract member Document.getElementsByTagName_canvas : unit -&gt; NodeListOf&lt;HTMLCanvasElement&gt;</div>
+<div class="tip" id="fs31">val context : CanvasRenderingContext2D<br /><br />Full name: Mario.Win.context</div>
+<div class="tip" id="fs32">abstract member HTMLCanvasElement.getContext_2d : unit -&gt; CanvasRenderingContext2D</div>
+<div class="tip" id="fs33">val s : string</div>
+<div class="tip" id="fs34">val n : &#39;a</div>
+<div class="tip" id="fs35">System.Object.ToString() : string</div>
+<div class="tip" id="fs36">val rgb : r:&#39;a -&gt; g:&#39;b -&gt; b:&#39;c -&gt; string<br /><br />Full name: Mario.Win.rgb</div>
+<div class="tip" id="fs37">val r : &#39;a</div>
+<div class="tip" id="fs38">val g : &#39;b</div>
+<div class="tip" id="fs39">val b : &#39;c</div>
+<div class="tip" id="fs40">val filled : color:string -&gt; float * float * float * float -&gt; unit<br /><br />Full name: Mario.Win.filled<br /><em><br /><br />&#160;Fill rectangle with given color</em></div>
+<div class="tip" id="fs41">val color : string</div>
+<div class="tip" id="fs42">val rect : float * float * float * float</div>
+<div class="tip" id="fs43">val ctx : CanvasRenderingContext2D</div>
+<div class="tip" id="fs44">property CanvasRenderingContext2D.fillStyle: U3&lt;string,CanvasGradient,CanvasPattern&gt;</div>
+<div class="tip" id="fs45">type U3&lt;&#39;a,&#39;b,&#39;c&gt; =<br />&#160;&#160;| Case1 of &#39;a<br />&#160;&#160;| Case2 of &#39;b<br />&#160;&#160;| Case3 of &#39;c<br /><br />Full name: Fable.Core.U3&lt;_,_,_&gt;</div>
+<div class="tip" id="fs46">union case U3.Case1: &#39;a -&gt; U3&lt;&#39;a,&#39;b,&#39;c&gt;</div>
+<div class="tip" id="fs47">abstract member CanvasRenderingContext2D.fillRect : x:float * y:float * w:float * h:float -&gt; unit</div>
+<div class="tip" id="fs48">val position : x:&#39;a * y:float -&gt; img:HTMLImageElement -&gt; unit<br /><br />Full name: Mario.Win.position<br /><em><br /><br />&#160;Move element to a specified X Y position</em></div>
+<div class="tip" id="fs49">val x : &#39;a</div>
+<div class="tip" id="fs50">val y : float</div>
+<div class="tip" id="fs51">val img : HTMLImageElement</div>
+<div class="tip" id="fs52">Multiple items<br />val HTMLImageElement : HTMLImageElementType<br /><br />Full name: Fable.Import.Browser.HTMLImageElement<br /><br />--------------------<br />type HTMLImageElement =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit HTMLElement<br />&#160;&#160;&#160;&#160;abstract member align : string<br />&#160;&#160;&#160;&#160;abstract member alt : string<br />&#160;&#160;&#160;&#160;abstract member border : string<br />&#160;&#160;&#160;&#160;abstract member complete : bool<br />&#160;&#160;&#160;&#160;abstract member crossOrigin : string<br />&#160;&#160;&#160;&#160;abstract member currentSrc : string<br />&#160;&#160;&#160;&#160;abstract member height : float<br />&#160;&#160;&#160;&#160;abstract member hspace : float<br />&#160;&#160;&#160;&#160;abstract member isMap : bool<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.Browser.HTMLImageElement</div>
+<div class="tip" id="fs53">property HTMLElement.style: CSSStyleDeclaration</div>
+<div class="tip" id="fs54">property CSSStyleDeclaration.left: string</div>
+<div class="tip" id="fs55">property CSSStyleDeclaration.top: string</div>
+<div class="tip" id="fs56">property HTMLElement.offsetTop: float</div>
+<div class="tip" id="fs57">val dimensions : unit -&gt; float * float<br /><br />Full name: Mario.Win.dimensions</div>
+<div class="tip" id="fs58">property HTMLCanvasElement.width: float</div>
+<div class="tip" id="fs59">property HTMLCanvasElement.height: float</div>
+<div class="tip" id="fs60">val image : src:string -&gt; HTMLImageElement<br /><br />Full name: Mario.Win.image<br /><em><br /><br />&#160;Get the first &lt;img /&gt; element and set `src` (do<br />&#160;nothing if it is the right one to keep animation)</em></div>
+<div class="tip" id="fs61">val src : string</div>
+<div class="tip" id="fs62">Multiple items<br />val string : value:&#39;T -&gt; string<br /><br />Full name: Microsoft.FSharp.Core.Operators.string<br /><br />--------------------<br />type string = System.String<br /><br />Full name: Microsoft.FSharp.Core.string</div>
+<div class="tip" id="fs63">val image : HTMLImageElement</div>
+<div class="tip" id="fs64">abstract member Document.getElementsByTagName_img : unit -&gt; NodeListOf&lt;HTMLImageElement&gt;</div>
+<div class="tip" id="fs65">property HTMLImageElement.src: string</div>
+<div class="tip" id="fs66">System.String.IndexOf(value: string) : int<br />System.String.IndexOf(value: char) : int<br />System.String.IndexOf(value: string, comparisonType: System.StringComparison) : int<br />System.String.IndexOf(value: string, startIndex: int) : int<br />System.String.IndexOf(value: char, startIndex: int) : int<br />System.String.IndexOf(value: string, startIndex: int, comparisonType: System.StringComparison) : int<br />System.String.IndexOf(value: string, startIndex: int, count: int) : int<br />System.String.IndexOf(value: char, startIndex: int, count: int) : int<br />System.String.IndexOf(value: string, startIndex: int, count: int, comparisonType: System.StringComparison) : int</div>
+<div class="tip" id="fs67">type Mario =<br />&#160;&#160;{x: float;<br />&#160;&#160;&#160;y: float;<br />&#160;&#160;&#160;vx: float;<br />&#160;&#160;&#160;vy: float;<br />&#160;&#160;&#160;dir: string;}<br /><br />Full name: Mario.Mario</div>
+<div class="tip" id="fs68">Mario.x: float</div>
+<div class="tip" id="fs69">Multiple items<br />val float : value:&#39;T -&gt; float (requires member op_Explicit)<br /><br />Full name: Microsoft.FSharp.Core.Operators.float<br /><br />--------------------<br />type float = System.Double<br /><br />Full name: Microsoft.FSharp.Core.float<br /><br />--------------------<br />type float&lt;&#39;Measure&gt; = float<br /><br />Full name: Microsoft.FSharp.Core.float&lt;_&gt;</div>
+<div class="tip" id="fs70">Mario.y: float</div>
+<div class="tip" id="fs71">Mario.vx: float</div>
+<div class="tip" id="fs72">Mario.vy: float</div>
+<div class="tip" id="fs73">Mario.dir: string</div>
+<div class="tip" id="fs74">val jump : &#39;a * y:int -&gt; m:Mario -&gt; Mario<br /><br />Full name: Mario.jump</div>
+<div class="tip" id="fs75">val y : int</div>
+<div class="tip" id="fs76">val m : Mario</div>
+<div class="tip" id="fs77">val gravity : m:Mario -&gt; Mario<br /><br />Full name: Mario.gravity</div>
+<div class="tip" id="fs78">val physics : m:Mario -&gt; Mario<br /><br />Full name: Mario.physics</div>
+<div class="tip" id="fs79">val walk : x:int * &#39;a -&gt; m:Mario -&gt; Mario<br /><br />Full name: Mario.walk</div>
+<div class="tip" id="fs80">val dir : string</div>
+<div class="tip" id="fs81">val step : int * int -&gt; mario:Mario -&gt; Mario<br /><br />Full name: Mario.step</div>
+<div class="tip" id="fs82">val dir : int * int</div>
+<div class="tip" id="fs83">val mario : Mario</div>
+<div class="tip" id="fs84">val render : w:float * h:float -&gt; mario:Mario -&gt; unit<br /><br />Full name: Mario.render<br /><em><br /><br />&#160;Render mario on canvas</em></div>
+<div class="tip" id="fs85">val w : float</div>
+<div class="tip" id="fs86">val h : float</div>
+<div class="tip" id="fs87">module Win<br /><br />from Mario</div>
+<div class="tip" id="fs88">val verb : string</div>
+<div class="tip" id="fs89">module Keyboard<br /><br />from Mario</div>
+<div class="tip" id="fs90">val w : float<br /><br />Full name: Mario.w</div>
+<div class="tip" id="fs91">val h : float<br /><br />Full name: Mario.h</div>
+<div class="tip" id="fs92">val update : mario:Mario -&gt; unit -&gt; unit<br /><br />Full name: Mario.update</div>
+<div class="tip" id="fs93">val window : Window<br /><br />Full name: Fable.Import.Browser.window</div>
+<div class="tip" id="fs94">abstract member WindowTimers.setTimeout : handler:obj * ?timeout:obj * [&lt;System.ParamArray&gt;] args:obj [] -&gt; float</div>
+<div class="tip" id="fs95">val ignore : value:&#39;T -&gt; unit<br /><br />Full name: Microsoft.FSharp.Core.Operators.ignore</div>
+<div class="tip" id="fs96">val mario : Mario<br /><br />Full name: Mario.mario</div>
+
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+
+  </div>
+
+  <a class="gh-forkme" href="https://github.com/fsprojects/Fable"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+</body>
+</html>

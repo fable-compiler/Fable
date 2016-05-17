@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Alfonso Garcia-Caro">
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <link href='https://fonts.googleapis.com/css?family=Josefin+Sans:400,300,600,700' rel='stylesheet' type='text/css'>
+    <link href="/content/custom.css" rel='stylesheet' type='text/css'>
+    <script src="/content/tips.js"></script>
+    <link rel="stylesheet" type="text/css" href="/content/snippets.css" />
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+    <script language="javascript" type="text/javascript">
+      function init() {
+          websocket = new WebSocket("ws://"+window.location.host+"/websocket");
+          websocket.onmessage = function(evt) { location.reload(); };
+      }
+      window.addEventListener("load", init, false);
+    </script>
+    
+  <title>Static HTTP server - F# |> BABEL</title>
+  <script src="../scripts/core.min.js"></script>
+  <script src="../scripts/require.js"></script>
+  <meta name="description" content="Minimal demo using node.js to host static files">
+
+</head>
+<body>
+
+  <div class="fb-navbar">
+  <div class="container">
+  <nav class="navbar navbar-default">
+    <div class="navbar-wrapper">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">Fable</a>
+      </div>
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li class=""><a href="/">home</a></li>
+          <li class="active"><a href="/samples.html">samples</a></li>
+          <li class=""><a href="/docs.html">docs</a></li>
+          <li><a href="https://github.com/fsprojects/Fable">source</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  </div>
+  </div>
+
+  <div class="fb-content-wrapper">
+  
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>Static HTTP server</h1>
+      <p>Minimal demo using node.js to host static files</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="container fb-content">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p></p>
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-12">
+      <div style="">
+        
+      </div>
+      <script>
+        requirejs.config({
+          baseUrl: '.',
+          paths: { 'fable-core': '../scripts/fable-core.min' }
+        });
+        requirejs(["server"]);
+      </script>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p>This script is a minimal example showing how to use Fable to create a node.js HTTP server that
+hosts static files from the current directory using the <code>serve-static</code> package.
+You can view the <a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/index.fsx">source code</a>,
+<a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/packages.json">packages.json</a> and
+<a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json">fableconfig.json</a> on
+GitHub. This page shows the full source code of the demo.</p>
+<h2><a name="Configuring-Fable-and-packages" class="anchor" href="#Configuring-Fable-and-packages">Configuring Fable and packages</a></h2>
+<p>Aside from the F# source code, the <a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/">directory with the
+sample</a> also contains
+<code>packages.json</code> and <code>fableconfig.json</code> files that configure node.js dependencies and specify
+parameters for the Fable compiler. In this demo, we're using the <a href="https://github.com/pillarjs/finalhandler">finalhandler package</a>
+and <a href="https://github.com/expressjs/serve-static">servestatic package</a> to serve static files via HTTP.</p>
+<p>We also need <code>fable-core</code>, which contains F# mappings for core JavaScript functionality:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="js">{
+  <span class="s">"private"</span>: <span class="k">true</span>,
+  <span class="s">"dependencies"</span>: {
+    <span class="s">"fable-core"</span>: <span class="s">"^0.0.8"</span>,
+    <span class="s">"finalhandler"</span>: <span class="s">"^0.4.1"</span>,
+    <span class="s">"serve-static"</span>: <span class="s">"^1.10.2"</span>
+  },
+  <span class="s">"devDependencies"</span>: {},
+  <span class="s">"engines"</span>: {
+    <span class="s">"fable"</span>: <span class="s">"&gt;=0.2.0"</span>
+  }
+}
+</code></pre></td></tr></table>
+<p>When you compile the project by running <code>fable</code>, it reads the following <code>fableconfig.json</code> file.
+This instructs Fable to process the <code>index.fsx</code> file (alternatively, you can specify an F# project
+file using <code>.fsproj</code>):</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+<span class="l">8: </span>
+<span class="l">9: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp">{
+    <span class="s">&quot;module&quot;</span><span class="o">:</span> <span class="s">&quot;commonjs&quot;</span>,
+    <span class="s">&quot;sourceMaps&quot;</span><span class="o">:</span> <span class="k">true</span>,
+    <span class="s">&quot;projFile&quot;</span><span class="o">:</span> <span class="s">&quot;./index.fsx&quot;</span>,
+    <span class="s">&quot;outDir&quot;</span><span class="o">:</span> <span class="s">&quot;out&quot;</span>,
+    <span class="s">&quot;scripts&quot;</span><span class="o">:</span> {
+        <span class="s">&quot;prebuild&quot;</span><span class="o">:</span> <span class="s">&quot;npm install&quot;</span>
+    }
+}
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Referencing-Fable-and-dependencies" class="anchor" href="#Referencing-Fable-and-dependencies">Referencing Fable and dependencies</a></h2>
+<p>This sample accesses a couple of JavaScript libraries. To do that, we need to load the
+Fable core library which provides F# functions and operators for calling JavaScript.
+For more information, see the <a href="/docs/interacting.html">Interacting with JavaScript</a> page.</p>
+<p>The following loads the <code>Fable.Core.dll</code> from <code>node_modules</code> and imports the
+two node.js dependencies:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+<span class="l">8: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="prep">#r</span> <span class="s">&quot;node_modules/fable-core/Fable.Core.dll&quot;</span>
+<span class="k">open</span> <span onmouseout="hideTip(event, 'fs1', 1)" onmouseover="showTip(event, 'fs1', 1)" class="i">System</span>
+<span class="k">open</span> <span onmouseout="hideTip(event, 'fs2', 2)" onmouseover="showTip(event, 'fs2', 2)" class="i">Fable</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs3', 3)" onmouseover="showTip(event, 'fs3', 3)" class="i">Core</span>
+<span class="k">open</span> <span onmouseout="hideTip(event, 'fs2', 4)" onmouseover="showTip(event, 'fs2', 4)" class="i">Fable</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs4', 5)" onmouseover="showTip(event, 'fs4', 5)" class="i">Import</span>
+<span class="k">open</span> <span onmouseout="hideTip(event, 'fs2', 6)" onmouseover="showTip(event, 'fs2', 6)" class="i">Fable</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs4', 7)" onmouseover="showTip(event, 'fs4', 7)" class="i">Import</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs5', 8)" onmouseover="showTip(event, 'fs5', 8)" class="i">Node</span>
+
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs6', 9)" onmouseover="showTip(event, 'fs6', 9)" class="i">finalhandler</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs7', 10)" onmouseover="showTip(event, 'fs7', 10)" class="i">require</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs8', 11)" onmouseover="showTip(event, 'fs8', 11)" class="f">Invoke</span>(<span class="s">&quot;finalhandler&quot;</span>)
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs9', 12)" onmouseover="showTip(event, 'fs9', 12)" class="i">serveStatic</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs7', 13)" onmouseover="showTip(event, 'fs7', 13)" class="i">require</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs8', 14)" onmouseover="showTip(event, 'fs8', 14)" class="f">Invoke</span>(<span class="s">&quot;serve-static&quot;</span>)
+</code></pre></td>
+</tr>
+</table>
+<p>The <code>Fable.Import.Node</code> namespace contains mappings for global node.js objects. For example,
+we can access the <code>argv</code> parameters of the application and get the default port (note that
+<code>process</code> is a reserved keyword in F#, so we need to escape it using back-ticks):</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs10', 15)" onmouseover="showTip(event, 'fs10', 15)" class="i">port</span> <span class="o">=</span>
+    <span class="k">match</span> <span class="i">``process``</span><span class="o">.</span><span class="i">argv</span> <span class="k">with</span>
+    | <span onmouseout="hideTip(event, 'fs11', 16)" onmouseover="showTip(event, 'fs11', 16)" class="i">args</span> <span class="k">when</span> <span onmouseout="hideTip(event, 'fs11', 17)" onmouseover="showTip(event, 'fs11', 17)" class="i">args</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs12', 18)" onmouseover="showTip(event, 'fs12', 18)" class="i">Count</span> <span class="o">&gt;</span><span class="o">=</span> <span class="n">3</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs13', 19)" onmouseover="showTip(event, 'fs13', 19)" class="f">int</span> <span onmouseout="hideTip(event, 'fs11', 20)" onmouseover="showTip(event, 'fs11', 20)" class="i">args</span><span class="o">.</span>[<span class="n">2</span>]
+    | _ <span class="k">-&gt;</span> <span class="n">8080</span>
+</code></pre></td>
+</tr>
+</table>
+<p>In JavaScript, you would create static server by calling <code>serveStatic("./")</code>. In Fable, the
+imported <code>serverStatic</code> value is not typed as a function and so we cannot call it directly.
+Fable provides <code>$</code> operator that lets you write untyped function invocations.</p>
+<p>The following implements the server and listens on the specified <code>port</code>:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs14', 21)" onmouseover="showTip(event, 'fs14', 21)" class="i">server</span> <span class="o">=</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs15', 22)" onmouseover="showTip(event, 'fs15', 22)" class="i">serve</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs9', 23)" onmouseover="showTip(event, 'fs9', 23)" class="i">serveStatic</span> <span class="o">$</span> <span class="s">&quot;./&quot;</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs16', 24)" onmouseover="showTip(event, 'fs16', 24)" class="i">server</span> <span class="o">=</span>
+        <span class="c">// As this lambda has more than one argument, it must be</span>
+        <span class="c">// converted to delegate so it&#39;s called back correctly</span>
+        <span onmouseout="hideTip(event, 'fs17', 25)" onmouseover="showTip(event, 'fs17', 25)" class="i">http</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs18', 26)" onmouseover="showTip(event, 'fs18', 26)" class="f">createServer</span>(<span onmouseout="hideTip(event, 'fs19', 27)" onmouseover="showTip(event, 'fs19', 27)" class="t">Func</span><span class="o">&lt;</span>_,_,_<span class="o">&gt;</span>(<span class="k">fun</span> <span onmouseout="hideTip(event, 'fs20', 28)" onmouseover="showTip(event, 'fs20', 28)" class="i">req</span> <span onmouseout="hideTip(event, 'fs21', 29)" onmouseover="showTip(event, 'fs21', 29)" class="i">res</span> <span class="k">-&gt;</span>
+            <span class="k">let</span> <span onmouseout="hideTip(event, 'fs22', 30)" onmouseover="showTip(event, 'fs22', 30)" class="i">isDone</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs6', 31)" onmouseover="showTip(event, 'fs6', 31)" class="i">finalhandler</span> <span class="o">$</span> (<span onmouseout="hideTip(event, 'fs20', 32)" onmouseover="showTip(event, 'fs20', 32)" class="i">req</span>, <span onmouseout="hideTip(event, 'fs21', 33)" onmouseover="showTip(event, 'fs21', 33)" class="i">res</span>)
+            <span onmouseout="hideTip(event, 'fs15', 34)" onmouseover="showTip(event, 'fs15', 34)" class="i">serve</span> <span class="o">$</span> (<span onmouseout="hideTip(event, 'fs20', 35)" onmouseover="showTip(event, 'fs20', 35)" class="i">req</span>, <span onmouseout="hideTip(event, 'fs21', 36)" onmouseover="showTip(event, 'fs21', 36)" class="i">res</span>, <span onmouseout="hideTip(event, 'fs22', 37)" onmouseover="showTip(event, 'fs22', 37)" class="i">isDone</span>)
+            <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs23', 38)" onmouseover="showTip(event, 'fs23', 38)" class="f">ignore</span>))
+    <span onmouseout="hideTip(event, 'fs16', 39)" onmouseover="showTip(event, 'fs16', 39)" class="i">server</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs24', 40)" onmouseover="showTip(event, 'fs24', 40)" class="f">listen</span> <span onmouseout="hideTip(event, 'fs10', 41)" onmouseover="showTip(event, 'fs10', 41)" class="i">port</span>
+</code></pre></td>
+</tr>
+</table>
+<p>To report that the server is running, we can use <code>System.Console.WriteLine</code> from the
+.NET library, but Fable also provides support for F# <code>printfn</code> function:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span onmouseout="hideTip(event, 'fs25', 42)" onmouseover="showTip(event, 'fs25', 42)" class="f">printfn</span> <span class="s">&quot;Server running at localhost:</span><span class="pf">%i</span><span class="s">&quot;</span> <span onmouseout="hideTip(event, 'fs10', 43)" onmouseover="showTip(event, 'fs10', 43)" class="i">port</span>
+</code></pre></td>
+</tr>
+</table>
+
+
+<div class="tip" id="fs1">namespace System</div>
+<div class="tip" id="fs2">namespace Fable</div>
+<div class="tip" id="fs3">namespace Fable.Core</div>
+<div class="tip" id="fs4">namespace Fable.Import</div>
+<div class="tip" id="fs5">module Node<br /><br />from Fable.Import</div>
+<div class="tip" id="fs6">val finalhandler : obj<br /><br />Full name: Index.finalhandler</div>
+<div class="tip" id="fs7">val require : NodeRequire<br /><br />Full name: Fable.Import.Node.require</div>
+<div class="tip" id="fs8">abstract member NodeRequireFunction.Invoke : id:string -&gt; obj</div>
+<div class="tip" id="fs9">val serveStatic : obj<br /><br />Full name: Index.serveStatic</div>
+<div class="tip" id="fs10">val port : int<br /><br />Full name: Index.port</div>
+<div class="tip" id="fs11">val args : ResizeArray&lt;string&gt;</div>
+<div class="tip" id="fs12">property Collections.Generic.List.Count: int</div>
+<div class="tip" id="fs13">Multiple items<br />val int : value:&#39;T -&gt; int (requires member op_Explicit)<br /><br />Full name: Microsoft.FSharp.Core.Operators.int<br /><br />--------------------<br />type int = int32<br /><br />Full name: Microsoft.FSharp.Core.int<br /><br />--------------------<br />type int&lt;&#39;Measure&gt; = int<br /><br />Full name: Microsoft.FSharp.Core.int&lt;_&gt;</div>
+<div class="tip" id="fs14">val server : http.Server<br /><br />Full name: Index.server</div>
+<div class="tip" id="fs15">val serve : obj</div>
+<div class="tip" id="fs16">val server : http.Server</div>
+<div class="tip" id="fs17">Multiple items<br />val http : http.Globals<br /><br />Full name: Fable.Import.Node.http<br /><br />--------------------<br />module http<br /><br />from Fable.Import.Node</div>
+<div class="tip" id="fs18">member http.Globals.createServer : ?requestListener:Func&lt;http.IncomingMessage,http.ServerResponse,unit&gt; -&gt; http.Server</div>
+<div class="tip" id="fs19">Multiple items<br />type Func&lt;&#39;TResult&gt; =<br />&#160;&#160;delegate of unit -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;T8,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 * &#39;T8 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;T8,&#39;T9,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 * &#39;T8 * &#39;T9 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;T8,&#39;T9,&#39;T10,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 * &#39;T8 * &#39;T9 * &#39;T10 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;T8,&#39;T9,&#39;T10,&#39;T11,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 * &#39;T8 * &#39;T9 * &#39;T10 * &#39;T11 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;T8,&#39;T9,&#39;T10,&#39;T11,&#39;T12,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 * &#39;T8 * &#39;T9 * &#39;T10 * &#39;T11 * &#39;T12 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;T8,&#39;T9,&#39;T10,&#39;T11,&#39;T12,&#39;T13,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 * &#39;T8 * &#39;T9 * &#39;T10 * &#39;T11 * &#39;T12 * &#39;T13 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;T8,&#39;T9,&#39;T10,&#39;T11,&#39;T12,&#39;T13,&#39;T14,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 * &#39;T8 * &#39;T9 * &#39;T10 * &#39;T11 * &#39;T12 * &#39;T13 * &#39;T14 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_,_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;T8,&#39;T9,&#39;T10,&#39;T11,&#39;T12,&#39;T13,&#39;T14,&#39;T15,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 * &#39;T8 * &#39;T9 * &#39;T10 * &#39;T11 * &#39;T12 * &#39;T13 * &#39;T14 * &#39;T15 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_&gt;<br /><br />--------------------<br />type Func&lt;&#39;T1,&#39;T2,&#39;T3,&#39;T4,&#39;T5,&#39;T6,&#39;T7,&#39;T8,&#39;T9,&#39;T10,&#39;T11,&#39;T12,&#39;T13,&#39;T14,&#39;T15,&#39;T16,&#39;TResult&gt; =<br />&#160;&#160;delegate of &#39;T1 * &#39;T2 * &#39;T3 * &#39;T4 * &#39;T5 * &#39;T6 * &#39;T7 * &#39;T8 * &#39;T9 * &#39;T10 * &#39;T11 * &#39;T12 * &#39;T13 * &#39;T14 * &#39;T15 * &#39;T16 -&gt; &#39;TResult<br /><br />Full name: System.Func&lt;_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_&gt;</div>
+<div class="tip" id="fs20">val req : http.IncomingMessage</div>
+<div class="tip" id="fs21">val res : http.ServerResponse</div>
+<div class="tip" id="fs22">val isDone : obj</div>
+<div class="tip" id="fs23">val ignore : value:&#39;T -&gt; unit<br /><br />Full name: Microsoft.FSharp.Core.Operators.ignore</div>
+<div class="tip" id="fs24">abstract member http.Server.listen : handle:obj * ?listeningListener:JS.Function -&gt; http.Server<br />abstract member http.Server.listen : path:string * ?callback:JS.Function -&gt; http.Server<br />abstract member http.Server.listen : port:float * ?hostname:string * ?callback:JS.Function -&gt; http.Server<br />abstract member http.Server.listen : port:float * ?hostname:string * ?backlog:float * ?callback:JS.Function -&gt; http.Server</div>
+<div class="tip" id="fs25">val printfn : format:Printf.TextWriterFormat&lt;&#39;T&gt; -&gt; &#39;T<br /><br />Full name: Microsoft.FSharp.Core.ExtraTopLevelOperators.printfn</div>
+
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+
+  </div>
+
+  <a class="gh-forkme" href="https://github.com/fsprojects/Fable"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+</body>
+</html>

@@ -28,7 +28,8 @@
       window.addEventListener("load", init, false);
     </script>
     
-  <title>F# |> BABEL - The compiler that emits JavaScript you can be proud of!</title>
+  <title>FAQ - F# |> BABEL</title>
+  <meta name="description" content="Frequently asked questions about Fable">
 
 </head>
 <body>
@@ -48,7 +49,7 @@
       </div>
       <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
         <ul class="nav navbar-nav">
-          <li class="active"><a href="/">home</a></li>
+          <li class=""><a href="/">home</a></li>
           <li class=""><a href="/samples.html">samples</a></li>
           <li class=""><a href="/docs.html">docs</a></li>
           <li><a href="https://github.com/fsprojects/Fable">source</a></li>
@@ -65,26 +66,55 @@
 <div class="container">
   <div class="row">
     <div class="col-sm-12">
-      <h1>F# |> BABEL</h1>
-      <p>The compiler that emits JavaScript you can be proud of!</p>
+      <h1>FAQ</h1>
+      <p>Frequently asked questions about Fable</p>
     </div>
   </div>
 </div>
 </div>
 
-<div class="container">
+<div class="container fb-content">
   <div class="row">
-    <p>Fable brings together the power of the F# compiler and Babel to make JavaScript a true backend for F#. Some of its main features are:</p>
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <h2><a name="How-does-this-relate-to-FunScript" class="anchor" href="#How-does-this-relate-to-FunScript">How does this relate to FunScript?</a></h2>
+<p>Fable takes a lot from FunScript and probably it wouldn't have been possible if FunScript didn't come first.
+But besides that it's completely a different project, the main differences are:</p>
+<ul>
+<li>
+Fable uses F# Compiler Services to generate the AST instead of quotations. This means it's not necessary to
+compile to .NET bytecode first.
+</li>
+<li>
+Fable doesn't generate JS code directly, rather transforms the F# AST into a new one which is passed to
+Babel.js. This way it's easier to target different EcmaScript versions or module systems when needed.
+</li>
+<li>
+One of the main goals of FunScript was to keep the full F# semantics, like generics or structural comparison.
+Fable sacrifices some of the semantics to generate cleaner and more idiomatic JS code.
+</li>
+<li>
+The generated code is structured using ES6 modules, making it much easier to interact with other JS
+development tools.
+</li>
+<li>
+Like FunScript, Fable <em>translates</em> TypeScript definition files to build foreign interfaces, but the latter uses
+plain .fs files instead of .dll assemblies, making it easier to edit the files if needed.
+</li>
+</ul>
+<p>In any case, I want to show my admiration to FunScript (which was created before the F# compiler and Babel
+exposed the language AST) and my gratitude to @ZachBray for his work :)</p>
+<h2><a name="What-was-the-best-moment-during-development" class="anchor" href="#What-was-the-best-moment-during-development">What was the best moment during development?</a></h2>
+<p>The best moment was when, after going through three different AST and JSON serialization,
+the compiler correctly transformed <code>1 + 1</code> into <code>1 + 1</code>.</p>
+<h2><a name="What-lessons-have-you-learned-developing-the-project" class="anchor" href="#What-lessons-have-you-learned-developing-the-project">What lessons have you learned developing the project?</a></h2>
+<p>While I was coding I prepared a cup of tea and drank it too quickly, burning my tongue.
+I learnt I must check first the temperature of the cup before drinking.</p>
 
-Works directly on F# source code, no compilation to .NET bytecode needed
-Optimizes F# code to generate as clean JavaScript as possible
-Passes location data to Babel to generate source maps
-Compatible with all Babel plugins and other JS development tools, like Webpack
-Support for most of the F# core library and a bit of .NET Base Class Library
-Tiny core library included (less than 10KB minified and gzipped) with no runtime
-Organizes code using ES6 modules
-Interacts seamlessly with other JavaScript libraries
-Bonus: compile NUnit tests to Mocha
+
+
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
   </div>
 </div>
 
