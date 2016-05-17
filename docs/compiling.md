@@ -1,4 +1,7 @@
-# Compiling to JS
+ - tagline: Using Fable as part of your node applications
+
+# Compiling to JavaScript
+
 
 You can install the `fable-compiler` package from [npm](https://www.npmjs.com/package/fable-compiler)
 either locally or globally. Here we'll assume it's been installed globally so the `fable`
@@ -18,7 +21,7 @@ fable path/to/your/project.fsproj
 
 Besides the default argument (`--projFile`), the following options are available:
 
-Option                  | Shorthand | Description
+Option                  | Short     | Description
 ------------------------|-----------|----------------------------------------------------------------------
 `--outDir`              | `-o`      | Where to put compiled JS files. Defaults to project directory.
 `--module`              | `-m`      | Specify module code generation: `umd` (default), `commonjs`, `amd` or `es2015`.
@@ -44,10 +47,13 @@ You can use `--refs` argument to link referenced projects with the JS import pat
 
 Example:
 
-```
+```shell
 fable src/lib/MyLib.fsproj --outDir out/lib
-fable src/another/MyNs.AnotherProject.fsproj --outDir out/another
-fable src/main/MyProject.fsproj --outDir out/main --refs MyLib=../lib MyNs.AnotherProject=../another
+fable src/another/MyNs.AnotherProject.fsproj
+  --outDir out/another
+fable src/main/MyProject.fsproj
+  --outDir out/main
+  --refs MyLib=../lib MyNs.AnotherProject=../another
 ```
 
 
@@ -121,7 +127,7 @@ version of Fable required to compile the project.
 
 ## fable-core
 
-[Fable's core library](/import/core/fable-core.js) must be included in the project.
+[Fable's core library](https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js) must be included in the project.
 When targeting node or using a module bundler you only need to add the dependency:
 
 ```shell
@@ -173,7 +179,7 @@ Node.require.Invoke("core-js") |> ignore
 
 > Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/)
 with a lazy-sequence generator, but this is not needed as one is already included
-in [fable-core.js](/import/core/fable-core.js).
+in [fable-core.js]https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js).
 
 
 ## Modules
@@ -243,20 +249,20 @@ build.cmd   // on windows
 ./build.sh  // on unix
 ```
 
-The most commonly used attributes (`TestFixture` and `Test`) and their respective 
-`SetUp`/`TearDown` counterparts are implemented. For assertions, however, only 
+The most commonly used attributes (`TestFixture` and `Test`) and their respective
+`SetUp`/`TearDown` counterparts are implemented. For assertions, however, only
 `Assert.AreEqual` is available. But more features will be available soon.
 
 > Note: As attributes are only read by name, it's possible to use custom-defined
 attributes without the `NUnit` dependency if needed.
 
-For Visual Studio users, there's a similar plugin to convert Visual Studio Unit 
+For Visual Studio users, there's a similar plugin to convert Visual Studio Unit
 Tests to Mocha.
 
 
 ## Samples
 
-There are some samples available in the [repository](/samples) and you can also download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
+There are some samples available in the [repository](https://github.com/fsprojects/Fable/blob/master/samples) and you can also download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
 Every sample includes a `fableconfig.json` file so they can be compiled just by running
 the `fable` command in the sample directory. Just be sure to install the npm dependencies
 the first time.

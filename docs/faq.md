@@ -1,3 +1,5 @@
+ - tagline: Frequently asked questions about Fable
+ 
 # FAQ
 
 ## How does this relate to FunScript?
@@ -28,4 +30,3 @@ the compiler correctly transformed `1 + 1` into `1 + 1`.
 
 While I was coding I prepared a cup of tea and drank it too quickly, burning my tongue.
 I learnt I must check first the temperature of the cup before drinking.
-

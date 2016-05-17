@@ -1,4 +1,6 @@
-# Interacting with JavaScript code
+- tagline: Fable features for easy interoperability
+
+# Interacting with JavaScript
 
 There are several ways to interact with the JavaScript world:
 
@@ -9,7 +11,7 @@ There are several ways to interact with the JavaScript world:
 
 ## Dynamic programming
 
-[Fable.Core](/import/core/Fable.Core.fs) implements the F# dynamic operators so
+[Fable.Core](https://github.com/fsprojects/Fable/blob/master/import/core/Fable.Core.fs) implements the F# dynamic operators so
 you can easily access an object property by name (without static check) as follows:
 
 ```fsharp
@@ -51,7 +53,7 @@ let data =
     ]
 ```
 
-> The [todomvc sample](/samples/browser/todomvc/) is a good example
+> The [todomvc sample](https://github.com/fsprojects/Fable/tree/master/samples/browser/todomvc) is a good example
 on how to program dynamically with Fable.
 
 
@@ -130,14 +132,14 @@ See the [README](https://www.npmjs.com/package/ts2fable) for more information.
 npm install -g ts2fable
 ```
 
-You can find common definitions already parsed [here](/import). Some of them are available
+You can find common definitions already parsed [here](https://github.com/fsprojects/Fable/tree/master/import). Some of them are available
 in npm, just search for `fable-import` packages.
 
 
 ## Import attribute
 
 The `Import` attribute can be applied to modules, types and even functions.
-It will translate to [ES2015 import statements][import statement](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import),
+It will translate to [ES2015 import statements](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import),
 which can be later transformed to `commonjs`, `amd` or `umd` imports by Babel.
 
 ```js
@@ -177,9 +179,10 @@ type MyErasedType =
     | Number of int
 
 myLib.myMethod(String "test")
+```
 
-// JS
-// myLib.myMethod("test")
+```js
+myLib.myMethod("test")
 ```
 
 `Fable.Core` already includes predefined erased types which can be used as follows:
@@ -218,9 +221,10 @@ type MyStrings =
     | [<CompiledName("Horizontal")>] Horizontal
 
 myLib.myMethod(Vertical, Horizontal)
+```
 
-// JS
-// myLib.myMethod("vertical", "Horizontal")
+```js
+myLib.myMethod("vertical", "Horizontal")
 ```
 
 
@@ -252,21 +256,24 @@ myLib.myMethod [
     QTY 5
     Flag1
 ]
+```
 
-// JS
-// myLib.myMethod({
-//     name: "Fable",
-//     QTY: 5,
-//     flag1: true
-// })
+```js
+myLib.myMethod({
+    name: "Fable",
+    QTY: 5,
+    flag1: true
+})
 ```
 
 If necessary you can cheat the compiler using tuples:
 
 ```fsharp
 myLib.myMethod [Name "Fable"; unbox("level", 4)]
+```
 
-// myLib.myMethod({ name: "Fable", level: 4 })
+```js
+myLib.myMethod({ name: "Fable", level: 4 })
 ```
 
 As these lists will be compiled as JS objects, please note you
