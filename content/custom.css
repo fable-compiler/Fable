@@ -58,55 +58,55 @@ body {
 .fb-content {
   padding:30px 20px 80px 20px;
 }
-.fb-content p, .fb-content li {
+.fb-content-wrapper p, .fb-content-wrapper li {
   font-size:14pt;
 }
-.fb-content code {
-  font-size:10pt;
+.fb-content-wrapper code {
+  font:11pt 'Fira Mono',consolas,monospace;
 }
-.fb-content h1 {
+.fb-content-wrapper h1 {
   font-size:30pt;
   font-weight:500;
 }
-.fb-content h2 {
+.fb-content-wrapper h2 {
   font-size:24pt;
   font-weight:500;
 }
-.fb-content h3 {
+.fb-content-wrapper h3 {
   font-size:16pt;
   font-weight:700;
 }
-.fb-content h3 .anchor, .fb-content h2 .anchor, .fb-content h1 .anchor {
+.fb-content-wrapper h3 .anchor, .fb-content-wrapper h2 .anchor, .fb-content-wrapper h1 .anchor {
   color:#7A325D;
 }
-.fb-content h3 a.anchor:hover, .fb-content h2 a.anchor:hover, .fb-content h1 a.anchor:hover {
+.fb-content-wrapper h3 a.anchor:hover, .fb-content-wrapper h2 a.anchor:hover, .fb-content-wrapper h1 a.anchor:hover {
   text-decoration:none;
 }
-.fb-content table code {
+.fb-content-wrapper table code {
   background:transparent;
 }
-.fb-content table p {
+.fb-content-wrapper table p {
   margin:0px;
 }
-.fb-content th {
+.fb-content-wrapper th {
   background:#f0f0f0;
 }
-.fb-content tr:nth-child(even) {
+.fb-content-wrapper tr:nth-child(even) {
   background:#f8f8f8;
 }
-.fb-content td, .fb-content th {
+.fb-content-wrapper td, .fb-content-wrapper th {
   padding:2px 10px 2px 10px;
 }
-.fb-content table {
+.fb-content-wrapper table {
   margin:0px 20px 0px 20px;
   border-left:1px solid #e0e0e0;
   border-top:1px solid #e0e0e0;
 }
-.fb-content td, .fb-content th {
+.fb-content-wrapper td, .fb-content-wrapper th {
   border-right:1px solid #e0e0e0;
   border-bottom:1px solid #e0e0e0;
 }
-.fb-content .pre, .fb-content .pre td {
+.fb-content-wrapper .pre, .fb-content-wrapper .pre td {
   border-style:none;
 }
 
@@ -116,6 +116,24 @@ body {
   float:right;
   font-size:40px;
 }
+.fb-buzzwords {
+  padding:30px 0px 30px 0px;
+}
+.fb-buzzwords p {
+  font-size:14pt;
+}
+.fb-buzzwords .fa {
+  margin:25px 20px 20px 0px;
+  float:left;
+  font-size:40px;
+}
+.fb-homepage pre {
+  font-size:11pt;
+  line-height:18pt;
+  padding:12px;
+}
+
+
 
 /* Hide GitHub button so that it does not overlap with menu */
 .gh-forkme { display:none; }
