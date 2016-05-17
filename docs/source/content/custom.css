@@ -1,0 +1,150 @@
+body {
+  font-family: 'Josefin Sans', sans-serif;
+}
+
+/* Navigation bar - links at the top */
+.fb-navbar {
+  background:#202020;
+  padding:0px;
+}
+.navbar {
+  font-size:18pt;
+  background:transparent;
+  border-style:none;
+  margin:0px;
+}
+.navbar .navbar-brand {
+  padding:15px 40px 15px 0px;
+  font-weight:600;
+  font-size:22pt;
+  color:#686868;
+}
+.navbar li a {
+  font-weight:300;
+  font-size:18pt;
+  padding:15px 25px 15px 25px;
+}
+.nav .active a {
+  background-color:#303030 !important;
+  color:#e0e0e0 !important;
+}
+.nav li > a:hover {
+  color:#e0e0e0 !important;
+}
+.navbar-wrapper {
+  max-width:550px;
+  margin:0px auto 0px auto;
+}
+
+
+
+/* Heading - purple box */
+.fb-heading {
+  background:#7A325D;
+  color:#f0f0f0;
+  padding:25px 0px 40px 0px;
+  text-align:center;
+}
+.fb-heading h1 {
+  font-weight:400;
+  font-size:35pt;
+}
+.fb-heading p {
+  font-size:20pt;
+}
+
+
+/* Standard page formatting */
+.fb-content {
+  padding:30px 20px 80px 20px;
+}
+.fb-content-wrapper p, .fb-content-wrapper li {
+  font-size:14pt;
+}
+.fb-content-wrapper code {
+  font:11pt 'Fira Mono',consolas,monospace;
+}
+.fb-content-wrapper h1 {
+  font-size:30pt;
+  font-weight:500;
+}
+.fb-content-wrapper h2 {
+  font-size:24pt;
+  font-weight:500;
+}
+.fb-content-wrapper h3 {
+  font-size:16pt;
+  font-weight:700;
+}
+.fb-content-wrapper h3 .anchor, .fb-content-wrapper h2 .anchor, .fb-content-wrapper h1 .anchor {
+  color:#7A325D;
+}
+.fb-content-wrapper h3 a.anchor:hover, .fb-content-wrapper h2 a.anchor:hover, .fb-content-wrapper h1 a.anchor:hover {
+  text-decoration:none;
+}
+.fb-content-wrapper table code {
+  background:transparent;
+}
+.fb-content-wrapper table p {
+  margin:0px;
+}
+.fb-content-wrapper th {
+  background:#f0f0f0;
+}
+.fb-content-wrapper tr:nth-child(even) {
+  background:#f8f8f8;
+}
+.fb-content-wrapper td, .fb-content-wrapper th {
+  padding:2px 10px 2px 10px;
+}
+.fb-content-wrapper table {
+  margin:0px 20px 0px 20px;
+  border-left:1px solid #e0e0e0;
+  border-top:1px solid #e0e0e0;
+}
+.fb-content-wrapper td, .fb-content-wrapper th {
+  border-right:1px solid #e0e0e0;
+  border-bottom:1px solid #e0e0e0;
+}
+.fb-content-wrapper .pre, .fb-content-wrapper .pre td {
+  border-style:none;
+}
+
+/* Styles for some of the special pages */
+.fb-docs .fa {
+  margin:0px 10px 5px 10px;
+  float:right;
+  font-size:40px;
+}
+.fb-buzzwords {
+  padding:30px 0px 30px 0px;
+}
+.fb-buzzwords p {
+  font-size:14pt;
+}
+.fb-buzzwords .fa {
+  margin:25px 20px 20px 0px;
+  float:left;
+  font-size:40px;
+}
+.fb-homepage pre {
+  font-size:11pt;
+  line-height:18pt;
+  padding:12px;
+}
+
+
+
+/* Hide GitHub button so that it does not overlap with menu */
+.gh-forkme { display:none; }
+@media (min-width: 768px) {
+  .gh-forkme { display:block; }
+}
+
+
+
+
+
+
+
+/**/

@@ -1,0 +1,141 @@
+{% extends "page.html" %}
+{% block head %}
+  <title>F# |> BABEL - The compiler that emits JavaScript you can be proud of!</title>
+{% endblock %}
+
+{% block content %}
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>F# |> BABEL</h1>
+      <p>The compiler that emits JavaScript you can be proud of!</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="fb-homepage">
+<div class="container fb-buzzwords">
+  <div class="row">
+    <div class="col-sm-6">
+      <h2>Functional-first programming</h2>
+      <i class="fa" aria-hidden="true"><img src="images/fsharp.png" style="width:45px;" /></i>
+      <p>Fable brings together the power of the F# compiler and Babel to make JavaScript a true backend for F#.
+      It works directly on F# source code, no compilation needed.</p>
+    </div>
+    <div class="col-sm-6">
+      <h2>JavaScript you can be proud of</h2>
+      <i class="fa fa-thumbs-up" aria-hidden="true"></i>
+      <p>Fable optimizes F# code to generate as clean JavaScript as possible.
+        It comes with a tiny core library (less than 10KB minified and gzipped) and no other runtime.
+      </p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-6">
+      <h2>Tools for the 21<sup>st</sup> century</h2>
+      <i class="fa fa-cogs" aria-hidden="true"></i>
+      <p>
+        Fable uses Babel to generate source maps. It is compatible with Babel
+        plugins and JavaScript tools, like Webpack, and organizes code using ES6 modules.
+      </p>
+    </div>
+    <div class="col-sm-6">
+      <h2>Easy integration</h2>
+      <i class="fa fa-puzzle-piece" aria-hidden="true"></i>
+      <p>
+        Fable supports most of the F# core library and a bit of .NET BCL.
+        It interacts seamlessly with other JavaScript libraries. As a bonus, it
+        compiles NUnit tests to Mocha!
+      </p>
+    </div>
+  </div>
+</div>
+
+<div style="background:#f4f4f4; margin:30px 0px 30px 0px">
+<div class="container" style="padding:20px 0px 30px 0px">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <h2>Getting started with Fable</h2>
+      <p>
+        A beta version has been released to <a href="https://www.npmjs.com/package/fable-compiler">npm</a>!
+        You can install and run it just by typing:
+      </p>
+      <pre>
+<span style="color:#EF99CD">npm</span> install -g <span style="color:#B8E1F2">fable-compiler</span>
+<span style="color:#EF99CD">fable</span> <span style="color:#B8E1F2">path/to/your/file.fsx</span></pre>
+      <p>Note the package name is <code>fable-compiler</code> while the command is just <code>fable</code>.
+        You must have F# 4.4 and node 4.4 or bigger installed in your computer.
+        You can find latest F# installation instructions on <a href="http://www.fsharp.org">fsharp.org</a>
+        (<a href="http://fsharp.org/use/mac/">mac</a>, <a href="http://fsharp.org/use/windows/">windows</a>).
+        To use the latest version, you can compile Fable from <a href="https://github.com/fsprojects/Fable">source
+          on GitHub</a>.
+      </p>
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+</div>
+
+<div class="container" style="padding:0px 0px 40px 0px; text-align:center;">
+  <div class="row" style="padding-bottom:20px;">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <h2>Do you have 10 minutes? See Fable in action!</h2>
+      <p>Watch a brief introduction to Fable by the author of Fable. Learn how to configure Fable,
+        run the Fable samples including Mario game and client-server React.js demo compiled using WebPack.</p>
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+  <div class="row">
+    <div class="col-sm-12">
+      <a href="https://drive.google.com/file/d/0Bw3y-DEkMfoGeG1aNHVmOGx6eTg/view">
+      <img src="images/hpscreen.png" style="border:1px solid #d0d0d0; width:80%" />
+      </a>
+    </div>
+  </div>
+</div>
+
+<div style="background:#f4f4f4; margin:30px 0px 0px 0px">
+<div class="container">
+  <div class="row" style="padding:20px 0px 80px 0px">
+    <div class="col-sm-5">
+      <h2>Fable samples</h2>
+      <p>Fable comes with a growing list of samples ranging from browser games to server-side node applications.
+        You can find the full list at <a href="samples.html">samples page</a> and you can add your own
+        samples by sending a <a href="https://github.com/fsprojects/Fable/tree/master/docs">pull request</a>.</p>
+      <div style="text-align:center;padding:20px 0px 0px 0px">
+        <a href="samples/mario/index.html"><img src="samples/images/mario.png" style="width:100px;margin:5px" /></a>
+        <a href="samples/hokusai/index.html"><img src="samples/images/wave.jpg" style="width:100px;margin:5px" /></a>
+        <br class="hidden-lg" />
+        <a href="samples/server/index.html"><img src="samples/images/node.png" style="width:100px;margin:5px" /></a>
+        <a href="samples/pacman/index.html"><img src="samples/images/pacman.png" style="width:100px;margin:5px;" /></a>
+      </div>
+    </div>
+    <div class="col-lg-1 hidden-md hidden-sm"></div>
+    <div class="col-lg-6 col-md-7 col-sm-7">
+      <h2>Documentation</h2>
+      <p>Go to the <a href="docs.html">Fable documentation page</a> for more details.  Is anything unclear or missing?
+        Help us make Fable docs better by <a href="https://github.com/fsprojects/Fable/tree/master/docs">contributing</a>!</p>
+      <ul>
+        <li><a href="/docs/compiling.html">Compiling F# code to JavaScript</a></li>
+        <li><a href="/docs/compatibility.html">Supported F# language features and libraries</a></li>
+        <li><a href="/docs/interacting.html">Interacting with JavaScript libraries</a></li>
+        <li><a href="/docs/plugins.html">Extending Fable through plugins</a></li>
+      </ul>
+
+      <h2>Recent blogs about Fable</h2>
+      <ul>
+        <li><a href="http://kcieslak.io/Getting-Started-with-Fable-and-Webpack/">Getting started with Fable and Webpack</a> - Krzysztof Cieslak</li>
+        <li><a href="http://kcieslak.io/Creating-VS-Code-plugins-with-F-and-Fable/">Creating VS Code plugins with F# and Fable</a> - Krzysztof Cieslak</li>
+        <li>Written something about Fable? <a href="https://github.com/fsprojects/Fable/tree/master/docs">Send a pull request</a>!
+      </ul>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+{% endblock %}
