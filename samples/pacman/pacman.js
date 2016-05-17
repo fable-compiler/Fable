@@ -4,7 +4,7 @@ define(["exports", "fable-core"], function (exports, _fableCore) {
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.game = exports.playLevel = exports.countDots = exports.Pacman = exports.Keyboard = exports.chooseDirection = exports.fillRight = exports.fillLeft = exports.fillDown = exports.fillUp = exports.fillValue = exports.route_home = exports.flood = exports.createGhosts = exports.Ghost = exports.wrap = exports.clearCell = exports.createBackground = exports.createBrush = exports.draw = exports.toTile = exports.tileChars = exports.tileColors = exports.canGoRight = exports.canGoLeft = exports.canGoDown = exports.canGoUp = exports.noWall = exports.isAligned = exports.horizontallyAligned = exports.verticallyAligned = exports.isWallAt = exports.tileAt = exports.isWall = exports.blank = exports.tileBits = exports.maze = exports.createImage = exports.Images = exports.max = exports.min = exports.decr = exports.incr = undefined;
+  exports.game = exports.playLevel = exports.countDots = exports.Pacman = exports.Keyboard = exports.chooseDirection = exports.fillRight = exports.fillLeft = exports.fillDown = exports.fillUp = exports.fillValue = exports.route_home = exports.flood = exports.createGhosts = exports.Ghost = exports.wrap = exports.clearCell = exports.createBackground = exports.createBrush = exports.draw = exports.toTile = exports.tileChars = exports.tileColors = exports.canGoRight = exports.canGoLeft = exports.canGoDown = exports.canGoUp = exports.noWall = exports.isAligned = exports.horizontallyAligned = exports.verticallyAligned = exports.isWallAt = exports.tileAt = exports.isWall = exports.blank = exports.tileBits = exports.maze = exports.createImage = exports.Images = undefined;
   var numbers, canFill, fill;
 
   function _classCallCheck(instance, Constructor) {
@@ -30,22 +30,6 @@ define(["exports", "fable-core"], function (exports, _fableCore) {
       return Constructor;
     };
   }();
-
-  var incr = exports.incr = function (r) {
-    r.contents = r.contents + 1;
-  };
-
-  var decr = exports.decr = function (r) {
-    r.contents = r.contents - 1;
-  };
-
-  var min = exports.min = function (a, b) {
-    return a > b ? b : a;
-  };
-
-  var max = exports.max = function (a, b) {
-    return a > b ? a : b;
-  };
 
   var Images = exports.Images = function ($exports) {
     var cyand = $exports.cyand = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAiUlEQVQoU8WSURKAIAhE8Sh6Fc/tVfQoJdqiMDTVV4wfufAAmw3kxEHUz4pA1I8OJVjAKZZ6+XiC0ATTB/gW2mEFtlpHLqaktrQ6TxUQSRCAPX2AWPMLyM0VmPOcV8palxt6uoAMpDjfWJt+o6cr0DPDnfYjyL94NwIcYjXcR/FuYklcxrZ3OO0Ep4dJ/3dR5jcAAAAASUVORK5CYII=";
@@ -514,8 +498,8 @@ define(["exports", "fable-core"], function (exports, _fableCore) {
       var tx = Math.floor(Math.floor((x.contents + 6) / 8));
       var ty = Math.floor(Math.floor((y.contents + 6) / 8));
       var c = pills[ty][tx];
-      c === "." ? (pills[ty][tx] = " ", clearCell(background, tx, ty), score.contents = score.contents + 10, decr(dotsLeft), new Audio("./fx/Dot5.wav").play()) : null;
-      c === "o" ? (pills[ty][tx] = " ", clearCell(background, tx, ty), bonus.contents = 0, score.contents = score.contents + 50, powerCountdown.contents = 250, decr(dotsLeft), new Audio("./fx/Powerup.wav").play()) : null;
+      c === "." ? (pills[ty][tx] = " ", clearCell(background, tx, ty), score.contents = score.contents + 10, void dotsLeft.contents--, new Audio("./fx/Dot5.wav").play()) : null;
+      c === "o" ? (pills[ty][tx] = " ", clearCell(background, tx, ty), bonus.contents = 0, score.contents = score.contents + 50, powerCountdown.contents = 250, void dotsLeft.contents--, new Audio("./fx/Powerup.wav").play()) : null;
     };
 
     var touchingGhosts = function (unitVar0) {
@@ -530,9 +514,9 @@ define(["exports", "fable-core"], function (exports, _fableCore) {
       var touched = touchingGhosts();
       touched.length > 0 ? powerCountdown.contents > 0 ? touched.forEach(function (ghost) {
         var added, image;
-        !ghost.IsReturning ? (new Audio("./fx/EatGhost.wav").play(), ghost.IsReturning = true, added = Math.floor(Math.pow(2, bonus.contents)), score.contents = score.contents + added * 200, image = bonusImages[bonus.contents], bonuses.contents = _fableCore.List.ofArray([[100, [image, ghost.X, ghost.Y]]], bonuses.contents), bonus.contents = min(3, bonus.contents + 1)) : null;
-      }) : (decr(energy), flashCountdown.contents === 0 ? new Audio("./fx/Hurt.wav").play() : null, flashCountdown.contents = 30) : null;
-      flashCountdown.contents > 0 ? decr(flashCountdown) : null;
+        !ghost.IsReturning ? (new Audio("./fx/EatGhost.wav").play(), ghost.IsReturning = true, added = Math.floor(Math.pow(2, bonus.contents)), score.contents = score.contents + added * 200, image = bonusImages[bonus.contents], bonuses.contents = _fableCore.List.ofArray([[100, [image, ghost.X, ghost.Y]]], bonuses.contents), bonus.contents = 3 < bonus.contents + 1 ? 3 : bonus.contents + 1) : null;
+      }) : (void energy.contents--, flashCountdown.contents === 0 ? new Audio("./fx/Hurt.wav").play() : null, flashCountdown.contents = 30) : null;
+      flashCountdown.contents > 0 ? void flashCountdown.contents-- : null;
     };
 
     var updateBonus = function (unitVar0) {
@@ -552,7 +536,7 @@ define(["exports", "fable-core"], function (exports, _fableCore) {
       moveGhosts();
       movePacman();
       eatPills();
-      powerCountdown.contents > 0 ? decr(powerCountdown) : null;
+      powerCountdown.contents > 0 ? void powerCountdown.contents-- : null;
       collisionDetection();
       updateBonus();
     };

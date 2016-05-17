@@ -4,21 +4,13 @@ define(["exports", "fable-core"], function (exports, _fableCore) {
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.update = exports.completed = exports.game = exports.countDrops = exports.updateDrops = exports.newShrink = exports.newGrow = exports.newDrop = exports.shrink = exports.grow = exports.absorb = exports.collide = exports.step = exports.move = exports.bounce = exports.gravity = exports.direct = exports.drawBlob = exports.Blob = exports.drawText = exports.drawBg = exports.drawGrd = exports.ctx = exports.canvas = exports.atmosHeight = exports.floorHeight = exports.height = exports.width = exports.Keyboard = exports.max = exports.min = undefined;
+  exports.update = exports.completed = exports.game = exports.countDrops = exports.updateDrops = exports.newShrink = exports.newGrow = exports.newDrop = exports.shrink = exports.grow = exports.absorb = exports.collide = exports.step = exports.move = exports.bounce = exports.gravity = exports.direct = exports.drawBlob = exports.Blob = exports.drawText = exports.drawBg = exports.drawGrd = exports.ctx = exports.canvas = exports.atmosHeight = exports.floorHeight = exports.height = exports.width = exports.Keyboard = undefined;
 
   function _classCallCheck(instance, Constructor) {
     if (!(instance instanceof Constructor)) {
       throw new TypeError("Cannot call a class as a function");
     }
   }
-
-  var min = exports.min = function (a, b) {
-    return a > b ? b : a;
-  };
-
-  var max = exports.max = function (a, b) {
-    return a > b ? a : b;
-  };
 
   var Keyboard = exports.Keyboard = function ($exports) {
     var keysPressed = $exports.keysPressed = new Set();
@@ -124,7 +116,7 @@ define(["exports", "fable-core"], function (exports, _fableCore) {
   };
 
   var move = exports.move = function (blob) {
-    return new Blob(blob.X + blob.vx, max(0, blob.Y + blob.vy), blob.vx, blob.vy, blob.Radius, blob.color);
+    return new Blob(blob.X + blob.vx, 0 > blob.Y + blob.vy ? 0 : blob.Y + blob.vy, blob.vx, blob.vy, blob.Radius, blob.color);
   };
 
   var step = exports.step = function (dir_0, dir_1, blob) {
@@ -202,7 +194,7 @@ define(["exports", "fable-core"], function (exports, _fableCore) {
           return move(gravity($var1));
         }, drops_1)), patternInput_2 = countDrops(drops_2), afterShrink = patternInput_2[1], afterGrow = patternInput_2[0], drops_3 = _fableCore.List.filter(function (blob_1) {
           return blob_1.Y > 0;
-        }, drops_2), radius = blob.Radius + (beforeGrow - afterGrow) * 4, radius_1 = radius - (beforeShrink - afterShrink) * 4, radius_2 = max(5, radius_1), blob_1 = new Blob(blob.X, blob.Y, blob.vx, blob.vy, radius_2, blob.color), blob_2 = function () {
+        }, drops_2), radius = blob.Radius + (beforeGrow - afterGrow) * 4, radius_1 = radius - (beforeShrink - afterShrink) * 4, radius_2 = 5 > radius_1 ? 5 : radius_1, blob_1 = new Blob(blob.X, blob.Y, blob.vx, blob.vy, radius_2, blob.color), blob_2 = function () {
           return function () {
             var tupledArg, arg00_, arg01_;
             return tupledArg = Keyboard.arrows(), arg00_ = tupledArg[0], arg01_ = tupledArg[1], function (blob_2) {
