@@ -54,11 +54,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util.fs" />
+    <Compile Include="Util\Util.fs" />
     <Compile Include="AST\AST.Common.fs" />
     <Compile Include="AST\AST.Fable.fs" />
     <Compile Include="AST\AST.Babel.fs" />
-    <Compile Include="Replacements.fs" />
+    <Compile Include="Replacements\CoreLibMethods.fs" />
+    <Compile Include="Replacements\Replacements.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="Fable2Babel.fs" />

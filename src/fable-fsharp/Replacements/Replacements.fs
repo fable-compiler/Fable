@@ -1080,6 +1080,8 @@ module private AstPass =
 module private CoreLibPass =
     open Util
 
+    // ATTENTION: currently there are no checks for instance methods. Make sure
+    // the core library polyfills all instance methods when using MapKind.Both. 
     type MapKind = Static | Both
 
     let mappings =
@@ -1101,6 +1103,10 @@ module private CoreLibPass =
 open Util
 
 let private coreLibPass com (info: Fable.ApplyInfo) =
+    let checkStatic modName meth =
+        if CoreLibMethods.staticMethods.[modName].Contains(meth)
+        then Some meth
+        else None
     match info.ownerFullName with
     | Patterns.DicContains CoreLibPass.mappings (modName, kind) ->
         match kind with
@@ -1108,18 +1114,21 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
             match info.methodName, info.callee with
             | ".ctor", None ->
                 CoreLibCall(modName, None, true, deleg info info.args)
-                |> makeCall com info.range info.returnType
+                |> makeCall com info.range info.returnType |> Some
             | _, Some callee ->
                 InstanceCall (callee, info.methodName, deleg info info.args)
-                |> makeCall com info.range info.returnType
-            | _, None ->
+                |> makeCall com info.range info.returnType |> Some
+            | _, None when checkStatic modName info.methodName |> Option.isSome ->
                 CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args |> deleg info)
-                |> makeCall com info.range info.returnType
+                |> makeCall com info.range info.returnType |> Some
+            | _ -> None
         | CoreLibPass.Static ->
-            let meth = if info.methodName = ".ctor" then "create" else info.methodName
-            CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args |> deleg info)
-            |> makeCall com info.range info.returnType
-        |> Some
+            if info.methodName = ".ctor" then "create" else info.methodName
+            |> checkStatic modName |> function
+            | Some meth ->
+                CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args |> deleg info)
+                |> makeCall com info.range info.returnType |> Some
+            | None -> None
     | _ -> None
 
 let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
