@@ -29,7 +29,7 @@ fable path/to/your/project.fsproj
 
 > Note the package name is `fable-compiler` while the command is just `fable`
 
-> You must have [F# 4.4](http://fsharp.org) and [node 4.4](https://nodejs.org/en/) or bigger installed in your computer.
+> You must have [F# 4.4](http://fsharp.org) and [node 4.4](https://nodejs.org/en/) or higher installed in your computer.
 
 You can find more detailed instruction about F# to JS compilation in the [docs](docs/compiling.md).
 Also you can have a look at the [samples](/samples) or download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
