@@ -1,11 +1,10 @@
 {
-  "name": "fable-core",
-  "version": "0.0.23",
-  "description": "Fable core lib & bindings for native JS objects, browser and node APIs",
-  "main": "fable-core.js",
+  "name": "fable-import-d3",
+  "version": "0.0.1",
+  "description": "Fable bindings for D3",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/core"
+    "url": "https://github.com/fsprojects/Fable/import/d3"
   },
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",

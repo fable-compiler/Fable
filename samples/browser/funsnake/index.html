@@ -5,10 +5,12 @@
   <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
 </head>
 <body>
-	<h1><!-- [title] -->Using HTML5 Canvas<!-- [/title] --></h1>
+	<h1><!-- [title] -->FunSnake by Alberto Ayuso (@ayuscode)<!-- [/title] --></h1>
+  <p>Snake Game using F# & Fable</p>
+  <p>Controls: 'a': Left / 'w': Top / 's': Down / 'd': Right</p>
   
   <!-- [body] -->
-  <canvas align="center" id="canvas" width="1000" height="800"></canvas>
+  <canvas align="center" id="canvas" width="400" height="400"></canvas>
   <script src="node_modules/core-js/client/core.min.js"></script>
   <script src="node_modules/requirejs/require.js"></script>
   <script>
@@ -21,7 +23,7 @@
         }
     });
     // Load the entry file of the app (use array, omit .js)
-    requirejs(["canvas"]);
+    requirejs(["app"]);
   </script>
   <!-- [/body] -->
 </body>
