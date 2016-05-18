@@ -116,6 +116,10 @@ body {
   float:right;
   font-size:40px;
 }
+.fb-gettingstarted {
+  background:#f4f4f4;
+  margin:30px 0px 30px 0px;
+}
 .fb-buzzwords {
   padding:30px 0px 30px 0px;
 }
@@ -123,7 +127,7 @@ body {
   font-size:14pt;
 }
 .fb-buzzwords .fa {
-  margin:25px 20px 20px 0px;
+  margin:20px 20px 30px 0px;
   float:left;
   font-size:40px;
 }
@@ -131,6 +135,14 @@ body {
   font-size:11pt;
   line-height:18pt;
   padding:12px;
+}
+@media(max-width:768px) {
+  .fb-gettingstarted {
+    padding:0px 20px 0px 20px;
+  }
+  .fb-buzzwords {
+    padding:20px 30px 20px 30px;
+  }
 }
 
 
