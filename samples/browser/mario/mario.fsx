@@ -191,7 +191,7 @@ Window helpers
 --------------
 
 The `Window` module contains basic functionality for creating and rendering
-window using HTML5 canvas and moving images around. The functionsbelow
+window using HTML5 canvas and moving images around. The functions below
 fill the window, set position of image and create image.
 *)
 (*** include:boring-window ***)
