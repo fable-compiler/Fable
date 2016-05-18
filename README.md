@@ -12,11 +12,11 @@ Some of its main features are:
 - Optimizes F# code to generate as clean JavaScript as possible
 - Passes location data to Babel to generate source maps
 - Compatible with all Babel plugins and other JS development tools, like [Webpack](https://webpack.github.io)
-- Support for most of the [F# core library](docs/compatibility.md) and a bit of .NET Base Class Library
+- Support for most of the [F# core library](http://fsprojects.github.io/Fable/docs/compatibility.html) and a bit of .NET Base Class Library
 - Tiny core library included (less than 10KB minified and gzipped) with no runtime
 - Organizes code using ES6 modules
-- Interacts seamlessly with other [JavaScript libraries](docs/interacting.md)
-- Bonus: compile [NUnit tests to Mocha](docs/compiling.md#testing)
+- Interacts seamlessly with other [JavaScript libraries](http://fsprojects.github.io/Fable/docs/interacting.html)
+- Bonus: compile [NUnit tests to Mocha](http://fsprojects.github.io/Fable/docs/compiling.html#Testing)
 
 ## Usage
 
@@ -31,13 +31,13 @@ fable path/to/your/project.fsproj
 
 > You must have [F# 4.4](http://fsharp.org) and [node 4.4](https://nodejs.org/en/) or higher installed in your computer.
 
-You can find more detailed instruction about F# to JS compilation in the [docs](docs/compiling.md).
-Also you can have a look at the [samples](/samples) or download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
+You can find more detailed instruction about F# to JS compilation in the [docs](http://fsprojects.github.io/Fable/docs/compiling.html).
+Also you can have a look at the [samples](http://fsprojects.github.io/Fable/samples.html) or download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
 
 ## Contributing
 
 At the moment, the best way to contribute is to battle-test the project, report issues,
-create samples and help promoting it. A [plugin system](docs/plugins.md) is also available
+create samples and help promoting it. A [plugin system](http://fsprojects.github.io/Fable/docs/plugins.html) is also available
 to allow you extend Fable according to you needs.
 
 Issues with the label `discussion` will be also added to ask the opinion of the community
@@ -57,7 +57,7 @@ on different topics like the logo, roadmap, etc.
   to the last expression in many functions. This is normal and due to the optimizations performed
   on the generated JS code.
 
-To know more, read [Compatibility](docs/compatibility.md).
+To know more, read [Compatibility](http://fsprojects.github.io/Fable/docs/compatibility.html).
 
 ## Acknowledgements
 
