@@ -64,7 +64,7 @@ table.pre, pre.fssnip, pre {
   border:1px solid #d8d8d8;
   border-collapse:separate;
   white-space:pre;
-  font: 9pt 'Fira Mono',consolas,monospace;
+  font: 9pt 'Roboto Mono',consolas,monospace;
   width:90%;
   margin:10px 20px 20px 20px;
   background-color:#343434;
@@ -73,7 +73,7 @@ table.pre, pre.fssnip, pre {
   color:#d1d1d1;
 }
 pre.fssnip code {
-  font: 9pt 'Fira Mono',consolas,monospace;
+  font: 9pt 'Roboto Mono',consolas,monospace;
 }
 table.pre pre {
   padding:0px;
