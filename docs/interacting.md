@@ -2,10 +2,10 @@
 
 There are several ways to interact with the JavaScript world:
 
-- Dynamically
-- Using `Emit` attribute
-- Through a foreign interface
-- Special attributes
+- [Dynamic programming](#dynamic-programming)
+- [Foreign interfaces](#foreign-interfaces)
+- [Special attributes](#special-attributes)
+- [Calling F# code from JavaScript](#calling-f#-code-from-javascript)
 
 ## Dynamic programming
 
@@ -51,77 +51,44 @@ let data =
     ]
 ```
 
-> The [todomvc sample](/samples/browser/todomvc/) is a good example
-on how to program dynamically with Fable.
+## Foreign interfaces
 
-<<<<<<< HEAD
-=======
-## Automatic currying of functions
-When you create a function at top level in F#, for example
+Defining a foreign interface is trivial: just create a F# interface and the
+compiler will call its properties or methods by name. The tricky part is to
+tell the compiler where the objects should be retrieved from. Normally, they
+will be exposed as values of an imported module, so you just need to indicate
+the compiler where this module is coming from using the `Import` attribute (see below).
+For example, if you want to use `string_decoder` from node, just write:
+
 ```fsharp
-open Fable.Core
+[<Import("*","string_decoder")>]
+module string_decoder =
+    type NodeStringDecoder =
+        abstract write: buffer: Buffer -> strings
+        abstract detectIncompleteChar: buffer: Buffer -> float
 
-let f1 a b = a + b
-let callf1 = f1 2 5
-```
-this will be translated into a normal javascript function of two parameters and if called directly Fable will generate the obvious function call
-of two paramaters in javascript:
-```javascript
-var f1 = function(a,b) { return a+b;}
-var callf1 = f1(2,5);
+    let StringDecoder: NodeStringDecoder = failwith "JS only"
 ```
 
-But as soon as you do anything to the function, like passing it as a function or unspecified parameter, copying it, putting it into an object,
-or indeed if the function was defined within an inner scope, fable will generate a function of one parameter which produces a function of one parameter...
+> If a method accepts a lambda make sure to use `System.Func` in the signature to force
+the compiler _uncurry_ any lambda passed as parameter (see below).
 
-For example, when you create a function at top level in F#:
-```fsharp
-open Fable.Core
+A good starting point for foreign interfaces are [Typescript definition files](http://definitelytyped.org)
+and there's a script to make the bulk work of translating the file into F#. You can install it from npm.
+See the [README](https://www.npmjs.com/package/ts2fable) for more information.
 
-let f1 a b = a + b
-let f1copy = f1
-let callf1copy = f1 2 5
-```
-produces:
-```javascript
-var f1 = function(a,b) {return a+b; }
-var f1copy = function(a) { return function(b) { return a+b;};}
-var callf1copy = f1copy(2)(5)
+```shell
+npm install -g ts2fable
 ```
 
-If you are working entirely within F#, this probably won't matter much. But if you are using the `$` operator for dynamic access to javascript, or are
-passing F# defined methods into javascript callbacks or structures, you may have problems if the javascript expects a function of several parameters and you unwittingly
-provide a curried version ( see _Foreign Interfaces_ below )
+You can find common definitions already parsed [here](/import). Some of them are available
+in npm, just search for `fable-import` packages.
 
-The workaround is to use delegates, typically by casting to Func<...> in the appropriate place. So:
-```fsharp
-open Fable.Core
+## Special attributes
 
-let f1 a b = a + b
+There are some attributes available in the `Fable.Core` namespace to ease the interaction with JS.
 
-let [<Global>]jsstructure:obj = failwith "JS only" // a quick and dirty way 
- // of telling the compiler that jsstructure is a global variable in JS
-
-jsstructure?callback1 <- f1 // produces curried version, probably not what you want
-jsstructure?callback2 <- Func<_,_,_> f1 // converts f1 to delegate and wraps it // as normal function with multiple parameters
-
-```
-so we get:
-```javascript
-jsstructure.callback1 = function (a) {
-    return function (b) {
-        return f1(a, b);
-    };
-};
-
-jsstructure.callback2 = function (delegateArg0, delegateArg1) {
-    return f1(delegateArg0, delegateArg1);
-};
-
-```
->>>>>>> e4758bb... Update interacting.md to explain automatic currying. See issue #125.
-
-## Emit attribute
+### Emit attribute
 
 You can use the `Emit` attribute to decorate a function. Every call to the
 function will then be replaced **inline** by the content of the attribute
@@ -162,48 +129,10 @@ validated somehow. However, it's not advised to abuse this method, as the
 code in the template will remain obscure to Fable and may prevent some
 optimizations.
 
-
-## Foreign interfaces
-
-Defining a foreign interface is trivial: just create a F# interface and the
-compiler will call its properties or methods by name. The tricky part is to
-tell the compiler where the objects should be retrieved from. Normally, they
-will be exposed as values of an imported module, so you just need to indicate
-the compiler where this module is coming from using the `Import` attribute (see below).
-For example, if you want to use `string_decoder` from node, just write:
-
-```fsharp
-[<Import("*","string_decoder")>]
-module string_decoder =
-    type NodeStringDecoder =
-        abstract write: buffer: Buffer -> strings
-        abstract detectIncompleteChar: buffer: Buffer -> float
-
-    let StringDecoder: NodeStringDecoder = failwith "JS only"
-```
-
-> If the module or value is globally accessible in JavaScript,
-you can use the `Global` attribute without parameters instead.
-
-> If a method accepts a lambda make sure to use `System.Func` in the signature to force
-the compiler _uncurry_ any lambda passed as parameter.
-
-A good starting point for foreign interfaces are [Typescript definition files](http://definitelytyped.org)
-and there's a script to make the bulk work of translating the file into F#. You can install it from npm.
-See the [README](https://www.npmjs.com/package/ts2fable) for more information.
-
-```shell
-npm install -g ts2fable
-```
-
-You can find common definitions already parsed [here](/import). Some of them are available
-in npm, just search for `fable-import` packages.
-
-
-## Import attribute
+### Import attribute
 
 The `Import` attribute can be applied to modules, types and even functions.
-It will translate to [ES2015 import statements][import statement](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import),
+It will translate to [ES2015 import statements](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import),
 which can be later transformed to `commonjs`, `amd` or `umd` imports by Babel.
 
 ```js
@@ -220,10 +149,8 @@ import { myFunction } from "my-module"     // JS
 import express from express                // JS
 ```
 
-## Special attributes
-
-Besides `Emit`, `Import` and `Global` attributes, there are some attributes available
-in the `Fable.Core` namespace to ease the interaction with JS in some particular cases.
+> If the module or value is globally accessible in JavaScript,
+you can use the `Global` attribute without parameters instead.
 
 ### Erase attribute
 
@@ -289,7 +216,6 @@ myLib.myMethod(Vertical, Horizontal)
 // myLib.myMethod("vertical", "Horizontal")
 ```
 
-
 ### KeyValueList attribute
 
 Many JS libraries accept a plain object to specify different options.
@@ -352,3 +278,121 @@ let ( ++ ) (a:'a list) (b:'a list) : 'a list = failwith "JS Only"
 let niceBorder = [ Border "1px solid blue" ]
 let style = [ Display "inline-block" ] ++ niceBorder
 ```
+
+## Calling F# code from JavaScript
+
+The F# compiler compiles type and module members as usual for an OOP
+language like C#, no matter whether the arguments are curried or tupled.
+Thanks to this, they can be called "normally" from an external language
+like C# or JavaScript. For example:
+
+```fsharp
+module MyModule =
+    let myCurriedFunction a b = a + b
+    let myTupledFunction(a, b) = a + b
+
+type MyType() =
+    member x.MyCurriedMethod a b = a + b
+    member x.MyTupledMethod(a, b) = a + b
+```
+
+```js
+// From JS
+var lib = require("lib/myFSLib");
+console.log(lib.MyModule.myCurriedFunction(2, 2));  // 4
+console.log(lib.MyModule.myTupledFunction(2, 2));   // 4
+
+var x = new lib.MyType();
+console.log(x.MyCurriedMethod(2, 2));               // 4
+console.log(x.MyTupledMethod(2, 2));                // 4
+```
+
+Things get a bit more complicated with anonymous lambdas, inner functions,
+partial applications or even just top level function references, as they do
+follow proper F# semantics. For example, check how the following code is compiled:
+
+```fsharp
+let topLevelFn1 a b c = a + b + c
+let topLevelFn2(a, b, c) = a + b + c
+
+let test() =
+    // Note we're now within a function's scope
+    let f1 a b = a + b
+    let f2(a, b) = a + b
+    let f3 = fun a b -> a + b
+    let f4 = topLevelFn1 2
+    let f5 = topLevelFn2
+    f1 2 2      |> ignore
+    f2(2, 2)    |> ignore
+    f3 2 2      |> ignore
+    f4 2 2      |> ignore
+    f5(2, 2, 2) |> ignore
+```
+
+```js
+function test() {
+    var f1 = function (a) {
+        return function (b) {
+            return a + b;
+        };
+    };
+    var f2 = function (tupledArg) {
+        return tupledArg[0] + tupledArg[1];
+    };
+    var f3 = function (a) {
+        return function (b) {
+            return a + b;
+        };
+    };
+    var f4 = function (b) {
+        return function (c) {
+            return topLevelFn1(2, b, c);
+        };
+    };
+    var f5 = function (tupledArg) {
+        return topLevelFn2(tupledArg[0], tupledArg[1], tupledArg[2]);
+    };
+    f1(2)(2);    // Double application
+    f2([2, 2]);  // Tupled arg
+    f3(2)(2);    // Inner functions and anonymous lambdas are the same
+    f4(2)(2);    // Partial application
+    f5([2,2,2]); // Top level functions get wrapped when referenced
+}
+```
+
+This means you need to be careful when passing a lambda with more than
+one argument to JS, as they will probably not be called correctly. To prevent
+this you must convert the lambda to a delegate (`System.Func<...>`), the same
+way you would do when interacting with C#.
+
+```fsharp
+let f1 a b = a + b
+
+jsObj?callback1 <- f1 // produces curried version, probably not what you want
+jsObj?callback2 <- Func<_,_,_> f1 // creates a delegate instead
+```
+
+```javascript
+jsObj.callback1 = function (a) {
+    return function (b) {
+        return f1(a, b);
+    };
+};
+
+jsObj.callback2 = function (delegateArg0, delegateArg1) {
+    return f1(delegateArg0, delegateArg1);
+};
+```
+
+If the signature of the method you're calling accepts a delegate instead
+of a F# lambda, the conversion is done automatically for you.
+
+```fsharp
+type IForeign =
+    abstract myMethod: Func<int, int> -> unit
+
+foreignObj.myMethod(fun a b -> a + b)
+```
+
+> Note: If you still experience problems make the conversion explicit
+as in the above example
