@@ -6,3 +6,11 @@ nuget FSharp.Compiler.Service.ProjectCracker
 nuget Newtonsoft.Json
 nuget NUnit = 2.6.4
 nuget NUnit.Runners = 2.6.4
+
+group Docs
+  source https://www.nuget.org/api/v2
+
+  nuget FAKE
+  nuget Suave
+  nuget DotLiquid
+  nuget FSharp.Formatting

@@ -1,7 +1,9 @@
-# Plugins
+ - tagline: Extending Fable via plugins
+
+# Fable architecture
 
 Is it very easy to add features to Fable using plugins. The best example is the plugin
-to transform [NUnit tests into Mocha](/src/plugins/Fable.Plugins.NUnit.fsx). In order to understand the plugin
+to transform [NUnit tests into Mocha](https://github.com/fsprojects/Fable/blob/master/src/plugins/Fable.Plugins.NUnit.fsx). In order to understand the plugin
 system we'll review briefly how Fable works.
 
 ## Overview of Fable's Architecture
@@ -50,7 +52,7 @@ open Fable.FSharp2Fable
 > We opened a couple of namespaces to have access to
 the functions and types we'll be using from Fable.
 
-Now we just need to expose a type with a parameterless constructor 
+Now we just need to expose a type with a parameterless constructor
 implementing one of the `IPlugin` interfaces in Fable. These interfaces expose
 one or several methods returning an option. When performing a transformation,
 if there's a hook available, Fable will try to look for a plugin to deal with
@@ -224,4 +226,5 @@ node temp/Test
 
 Nice, isn't it? Now you have the capability to extend Fable to fit your own needs.
 If you need more help to create replacements you can have a look at the [Fable.Replacements
-module](/src/fable-fsharp/Replacements.fs). I'm looking forward to seeing the wonderful plugins you'll create!
+module](https://github.com/fsprojects/Fable/blob/master/src/fable-fsharp/Replacements/Replacements.fs).
+I'm looking forward to seeing the wonderful plugins you'll create!

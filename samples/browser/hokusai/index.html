@@ -5,13 +5,29 @@
   <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
 </head>
 <body>
-	<h1><!-- [title] -->Hokusai and Julia set fractals<!-- [/title] --></h1>
-  
+	<h1>Hokusai and Julia set fractals</h1>
+
   <!-- [body] -->
-    <img src="hokusai.jpg" style="border:5px solid black" />
-    <canvas id="canvas" width="400" height="300" style="border:5px solid black"></canvas>
-    <br />
-    <input type="button" id="go" value="Render" style="font-family:Kreon; font-size:120%; border:3px solid black;background:#F0E5D1;padding:7px 15px 7px 15px;margin-top:30px;" />
+  <style>
+    .md-right { text-align:center; margin-bottom:15px; }
+    .md-left { text-align:center; }
+    @media(min-width:992px) {
+      .md-right { text-align:right; }
+      .md-left { text-align:left; }
+    }
+  </style>
+  <div style="text-align:center;margin-bottom:10px">
+    <input type="button" id="go" value="Render Julia set fractal!" style="font-weight:bold;font-size:120%; border:3px solid black;background:#F0E5D1;padding:7px 15px 7px 15px" />
+  </div>
+  <div class="row">
+    <div class="col-md-6 md-right">
+      <img src="hokusai.jpg" style="border:5px solid black" />
+    </div>
+    <div class="col-md-6 md-left">
+      <canvas id="canvas" width="400" height="300" style="border:5px solid black"></canvas><br />
+    </div>
+  </div>
+  <!-- [/body] -->
 
   <script src="node_modules/core-js/client/core.min.js"></script>
   <script src="node_modules/requirejs/require.js"></script>
@@ -27,6 +43,5 @@
     // Load the entry file of the app (use array, omit .js)
     requirejs(["hokusai"]);
   </script>
-  <!-- [/body] -->
 </body>
 </html>

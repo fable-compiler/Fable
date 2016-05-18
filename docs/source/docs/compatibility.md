@@ -1,8 +1,10 @@
+ - tagline: Supported F# language features and libraries
+
 # Compatibility
 
 The compiler follows two rough guidelines when transforming the code:
 
-* Keep the [core library](/src/fable-js/fable-core.js) small, falling back to native JS methods when possible.
+* Keep the [core library](https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js) small, falling back to native JS methods when possible.
 * If it makes the JS code cleaner and more idiomatic, make small changes in F# semantics
   that don't have a big impact on developers' expectations.
 
@@ -145,7 +147,7 @@ delegate, this will be done automatically by the compiler.
 
 ## Event and Observable
 
-Events are not implemented yet, please use [Observable](/src/tests/ObservableTests.fs) instead.
+Events are not implemented yet, please use [Observable](https://github.com/fsprojects/Fable/blob/master/src/tests/ObservableTests.fs) instead.
 
 ## Object Expressions
 
@@ -157,5 +159,5 @@ Units of measure are compatible (at least for `int` and `float`) but they will
 be erased from the generated JS code.
 
 
-You can check the [tests](/src/tests) when in doubt. If there's a test for something,
+You can check the [tests](https://github.com/fsprojects/Fable/tree/master/src/tests) when in doubt. If there's a test for something,
 it's supported :)

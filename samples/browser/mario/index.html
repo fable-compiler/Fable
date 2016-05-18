@@ -5,13 +5,15 @@
   <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
 </head>
 <body>
-	<h1><!-- [title] -->Mario Sample<!-- [/title] --></h1>
-  
+	<h1>Mario Sample</h1>
+
   <!-- [body] -->
     <div>
         <canvas id="canvas" width="512" height="384" style="position:absolute;"></canvas>
         <img id="image" src="#" style="position:absolute;">
     </div>
+  <!-- [/body] -->
+
   <script src="node_modules/core-js/client/core.min.js"></script>
   <script src="node_modules/requirejs/require.js"></script>
   <script>
@@ -26,6 +28,5 @@
     // Load the entry file of the app (use array, omit .js)
     requirejs(["mario"]);
   </script>
-  <!-- [/body] -->
 </body>
 </html>

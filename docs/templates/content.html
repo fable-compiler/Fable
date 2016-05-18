@@ -1,0 +1,28 @@
+{% extends "page.html" %}
+{% block head %}
+  <title>{{ model.Heading }} - F# |> BABEL</title>
+  <meta name="description" content="{{ model.Tagline }}">
+{% endblock %}
+
+{% block content %}
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>{{ model.Heading }}</h1>
+      <p>{{ model.Tagline }}</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="container fb-content">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      {{ model.Content }}
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+{% endblock %}
