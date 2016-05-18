@@ -477,7 +477,7 @@ module JS =
         abstract configurable: bool option with get, set
         abstract writable: bool option with get, set
         abstract value: 'T option with get, set
-        abstract get: Func<'T> option with get, set
+        abstract get: Func<unit, 'T> option with get, set
         abstract set: Func<'T, unit> option with get, set
 
     and ClassDecorator =

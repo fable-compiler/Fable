@@ -163,8 +163,8 @@ var mappedTypes = {
 };
 
 function escape(x) {
-    // HACK: ignore strings with a comment (* ... *)
-    if (x.indexOf("(*") >= 0) {
+    // HACK: ignore strings with a comment (* ... *) and tuples ( * )
+    if (x.indexOf("(*") >= 0 || x.indexOf(" * ")) {
         return x;
     }
     var genParams = genReg.exec(x);

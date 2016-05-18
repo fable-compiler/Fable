@@ -592,13 +592,6 @@ module private AstPass =
             |> Some
         | _ -> None
         
-    let rawCollections com (i: Fable.ApplyInfo) =
-        match i.methodName with
-        | "count" ->
-            CoreLibCall ("Seq", Some "length", false, [i.callee.Value])
-            |> makeCall com i.range i.returnType |> Some
-        | _ -> None
-
     let keyValuePairs com (i: Fable.ApplyInfo) =
         let get (k: obj) =
             makeGet i.range i.returnType i.callee.Value (makeConst k) |> Some
@@ -811,6 +804,7 @@ module private AstPass =
                 makeEqOp i.range [prop "tail" c; Fable.Value Fable.Null] BinaryEqual
             |> Some
         | "head" | "tail" | "length" | "count" ->
+            let meth = if meth = "count" then "length" else meth
             match kind with
             | Seq -> ccall "Seq" meth (staticArgs c args)
             | List -> let c, _ = instanceArgs c args in prop meth c
@@ -1061,7 +1055,7 @@ module private AstPass =
         | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info 
         | "System.Collections.Generic.Dictionary`2.KeyCollection"
         | "System.Collections.Generic.Dictionary`2.ValueCollection"
-        | "System.Collections.Generic.ICollection" -> rawCollections com info
+        | "System.Collections.Generic.ICollection" -> collectionsSecondPass com info Seq
         | "System.Array"
         | "System.Collections.Generic.List"
         | "System.Collections.Generic.IList" -> collectionsSecondPass com info Array

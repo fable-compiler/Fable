@@ -77,9 +77,9 @@ module React =
         member __.state with get(): 'S = failwith "JS only" and set(v: 'S): unit = failwith "JS only"
         member __.context with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
         member __.refs with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.setState(f: Func<'S, 'P, 'S>, ?callback: Func<obj>): unit = failwith "JS only"
-        member __.setState(state: 'S, ?callback: Func<obj>): unit = failwith "JS only"
-        member __.forceUpdate(?callBack: Func<obj>): unit = failwith "JS only"
+        member __.setState(f: Func<'S, 'P, 'S>, ?callback: Func<unit, obj>): unit = failwith "JS only"
+        member __.setState(state: 'S, ?callback: Func<unit, obj>): unit = failwith "JS only"
+        member __.forceUpdate(?callBack: Func<unit, obj>): unit = failwith "JS only"
         member __.render(): ReactElement<'P> = failwith "JS only"
 
     and ClassicComponent<'P, 'S> =
@@ -87,11 +87,11 @@ module React =
         abstract state: 'S with get, set
         abstract context: obj with get, set
         abstract refs: obj with get, set
-        abstract setState: f: Func<'S, 'P, 'S> * ?callback: Func<obj> -> unit
-        abstract setState: state: 'S * ?callback: Func<obj> -> unit
-        abstract forceUpdate: ?callBack: Func<obj> -> unit
+        abstract setState: f: Func<'S, 'P, 'S> * ?callback: Func<unit, obj> -> unit
+        abstract setState: state: 'S * ?callback: Func<unit, obj> -> unit
+        abstract forceUpdate: ?callBack: Func<unit, obj> -> unit
         abstract render: unit -> ReactElement<'P>
-        abstract replaceState: nextState: 'S * ?callback: Func<obj> -> unit
+        abstract replaceState: nextState: 'S * ?callback: Func<unit, obj> -> unit
         abstract isMounted: unit -> bool
         abstract getInitialState: unit -> 'S
 
@@ -1047,7 +1047,7 @@ module ReactDom =
         member __.unmountComponentAtNode(container: Element): bool = failwith "JS only"
         member __.unstable_batchedUpdates(callback: Func<'A, 'B, obj>, a: 'A, b: 'B): unit = failwith "JS only"
         member __.unstable_batchedUpdates(callback: Func<'A, obj>, a: 'A): unit = failwith "JS only"
-        member __.unstable_batchedUpdates(callback: Func<obj>): unit = failwith "JS only"
+        member __.unstable_batchedUpdates(callback: Func<unit, obj>): unit = failwith "JS only"
         member __.unstable_renderSubtreeIntoContainer(parentComponent: Component<obj, obj>, nextElement: DOMElement<'P>, container: Element, ?callback: Func<Element, obj>): Element = failwith "JS only"
         member __.unstable_renderSubtreeIntoContainer(parentComponent: Component<obj, obj>, nextElement: ClassicElement<'P>, container: Element, ?callback: Func<ClassicComponent<'P, 'S>, obj>): ClassicComponent<'P, 'S> = failwith "JS only"
         member __.unstable_renderSubtreeIntoContainer(parentComponent: Component<obj, obj>, nextElement: ReactElement<'P>, container: Element, ?callback: Func<Component<'P, 'S>, obj>): Component<'P, 'S> = failwith "JS only"

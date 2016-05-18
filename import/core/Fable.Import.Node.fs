@@ -213,7 +213,7 @@ module NodeJS =
         abstract setTimeout: Func<Func<obj, unit>, float, obj, Timer> with get, set
         abstract undefined: obj with get, set
         abstract unescape: Func<string, string> with get, set
-        abstract gc: Func<unit> with get, set
+        abstract gc: Func<unit, unit> with get, set
 
     and Timer =
         abstract ref: unit -> unit
@@ -564,9 +564,9 @@ module tls =
         member __.CLIENT_RENEG_LIMIT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.CLIENT_RENEG_WINDOW with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.createServer(options: TlsOptions, ?secureConnectionListener: Func<ClearTextStream, unit>): Server = failwith "JS only"
-        member __.connect(options: TlsOptions, ?secureConnectionListener: Func<unit>): ClearTextStream = failwith "JS only"
-        member __.connect(port: float, ?host: string, ?options: ConnectionOptions, ?secureConnectListener: Func<unit>): ClearTextStream = failwith "JS only"
-        member __.connect(port: float, ?options: ConnectionOptions, ?secureConnectListener: Func<unit>): ClearTextStream = failwith "JS only"
+        member __.connect(options: TlsOptions, ?secureConnectionListener: Func<unit, unit>): ClearTextStream = failwith "JS only"
+        member __.connect(port: float, ?host: string, ?options: ConnectionOptions, ?secureConnectListener: Func<unit, unit>): ClearTextStream = failwith "JS only"
+        member __.connect(port: float, ?options: ConnectionOptions, ?secureConnectListener: Func<unit, unit>): ClearTextStream = failwith "JS only"
         member __.createSecurePair(?credentials: crypto.Credentials, ?isServer: bool, ?requestCert: bool, ?rejectUnauthorized: bool): SecurePair = failwith "JS only"
         member __.createSecureContext(details: SecureContextOptions): SecureContext = failwith "JS only"
 
@@ -1231,7 +1231,7 @@ module dgram =
     and Socket =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract send: buf: Buffer * offset: float * length: float * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
-        abstract bind: port: float * ?address: string * ?callback: Func<unit> -> unit
+        abstract bind: port: float * ?address: string * ?callback: Func<unit, unit> -> unit
         abstract close: unit -> unit
         abstract address: unit -> AddressInfo
         abstract setBroadcast: flag: bool -> unit
