@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Alfonso Garcia-Caro">
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <link href='https://fonts.googleapis.com/css?family=Josefin+Sans:400,300,600,700|Fira+Mono' rel='stylesheet' type='text/css'>
+    <link href="//tpetricek.github.io/Fable/content/custom.css" rel='stylesheet' type='text/css'>
+    <script src="//tpetricek.github.io/Fable/content/tips.js"></script>
+    <link rel="stylesheet" type="text/css" href="//tpetricek.github.io/Fable/content/snippets.css" />
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" />
+    <script language="javascript" type="text/javascript">
+      function init() {
+          try {
+            websocket = new WebSocket("ws://"+window.location.host+"/websocket");
+            websocket.onmessage = function(evt) { location.reload(); };
+          } catch(e) { /* For local development only */ }
+      }
+      window.addEventListener("load", init, false);
+    </script>
+    
+  <title>Using Express web framework - F# |> BABEL</title>
+  <script src="../scripts/core.min.js"></script>
+  <script src="../scripts/require.js"></script>
+  <meta name="description" content="Interoperating with JavaScript libraries">
+
+</head>
+<body>
+
+  <div class="fb-navbar">
+  <div class="container">
+  <nav class="navbar navbar-default">
+    <div class="navbar-wrapper">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="//tpetricek.github.io/Fable">Fable</a>
+      </div>
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li class=""><a href="//tpetricek.github.io/Fable">home</a></li>
+          <li class="active"><a href="//tpetricek.github.io/Fable/samples.html">samples</a></li>
+          <li class=""><a href="//tpetricek.github.io/Fable/docs.html">docs</a></li>
+          <li><a href="https://github.com/fsprojects/Fable">source</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  </div>
+  </div>
+
+  <div class="fb-content-wrapper">
+  
+<div class="fb-heading">
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <h1>Using Express web framework</h1>
+      <p>Interoperating with JavaScript libraries</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="container fb-content">
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p></p>
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-12">
+      <div style="">
+        
+      </div>
+      <script>
+        requirejs.config({
+          baseUrl: '.',
+          paths: { 'fable-core': '../scripts/fable-core.min' }
+        });
+        requirejs(["express"]);
+      </script>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-1 col-lg-2"></div>
+    <div class="col-sm-12 col-md-10 col-lg-8">
+      <p>This demo uses Fable to create a web application using <a href="http://expressjs.com/">Express</a>,
+a fast, unopinionated, minimalist web framework for Node.js. You can see full source code here, or
+view the <a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/index.fsx">raw source</a>
+on GitHub. The application configuration is in
+<a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/packages.json">packages.json</a> and
+<a href="https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json">fableconfig.json</a>
+specifies Fable parameters.</p>
+<h2><a name="Using-Express-bindings" class="anchor" href="#Using-Express-bindings">Using Express bindings</a></h2>
+<p>Fable comes with bindings for a number of sample node.js libraries including Express. You can
+<a href="https://github.com/fsprojects/Fable/tree/master/import/express">view and contribute to it</a> on GitHub.
+The following references the Express bindings:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="prep">#r</span> <span class="s">&quot;node_modules/fable-core/Fable.Core.dll&quot;</span>
+<span class="prep">#I</span> <span class="s">&quot;node_modules/fable-import-express&quot;</span>
+<span class="prep">#load</span> <span class="s">&quot;Fable.Import.Express.fs&quot;</span>
+
+<span class="k">open</span> <span onmouseout="hideTip(event, 'fs1', 1)" onmouseover="showTip(event, 'fs1', 1)" class="i">System</span>
+<span class="k">open</span> <span onmouseout="hideTip(event, 'fs2', 2)" onmouseover="showTip(event, 'fs2', 2)" class="i">Fable</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs3', 3)" onmouseover="showTip(event, 'fs3', 3)" class="i">Core</span>
+<span class="k">open</span> <span onmouseout="hideTip(event, 'fs2', 4)" onmouseover="showTip(event, 'fs2', 4)" class="i">Fable</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs4', 5)" onmouseover="showTip(event, 'fs4', 5)" class="i">Import</span>
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Defining-Express-bindings" class="anchor" href="#Defining-Express-bindings">Defining Express bindings</a></h2>
+<p>For detailed documentation on defining Fable bindings, see the <a href="/docs/interacting.html">Interacting with JavaScript</a>
+page. We won't cover all the details, but we briefly look at two snippets from the
+<a href="https://github.com/fsprojects/Fable/blob/master/import/express/Fable.Import.Express.fs">Fable.Import.Express.fs</a> file
+on GitHub.</p>
+<p>The first snippet defines the <code>Express</code> type. In JavaScript, this is a callable function, which is mapped
+to a method with a special <code>Emit</code> attribute in F#:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs5', 6)" onmouseover="showTip(event, 'fs5', 6)" class="t">Express</span> <span class="o">=</span>
+  <span class="k">inherit</span> <span class="i">Application</span>
+  <span class="k">abstract</span> <span onmouseout="hideTip(event, 'fs6', 7)" onmouseover="showTip(event, 'fs6', 7)" class="i">version</span><span class="o">:</span> <span onmouseout="hideTip(event, 'fs7', 8)" onmouseover="showTip(event, 'fs7', 8)" class="t">string</span> <span class="k">with</span> <span class="i">get</span>, <span onmouseout="hideTip(event, 'fs8', 9)" onmouseover="showTip(event, 'fs8', 9)" class="i">set</span>
+  <span class="k">abstract</span> <span onmouseout="hideTip(event, 'fs9', 10)" onmouseover="showTip(event, 'fs9', 10)" class="i">mime</span><span class="o">:</span> <span onmouseout="hideTip(event, 'fs7', 11)" onmouseover="showTip(event, 'fs7', 11)" class="t">string</span> <span class="k">with</span> <span class="i">get</span>, <span onmouseout="hideTip(event, 'fs8', 12)" onmouseover="showTip(event, 'fs8', 12)" class="i">set</span>
+  <span class="k">abstract</span> <span onmouseout="hideTip(event, 'fs10', 13)" onmouseover="showTip(event, 'fs10', 13)" class="i">application</span><span class="o">:</span> <span onmouseout="hideTip(event, 'fs11', 14)" onmouseover="showTip(event, 'fs11', 14)" class="t">obj</span> <span class="k">with</span> <span class="i">get</span>, <span onmouseout="hideTip(event, 'fs8', 15)" onmouseover="showTip(event, 'fs8', 15)" class="i">set</span>
+  <span class="k">abstract</span> <span onmouseout="hideTip(event, 'fs12', 16)" onmouseover="showTip(event, 'fs12', 16)" class="i">request</span><span class="o">:</span> <span class="i">Request</span> <span class="k">with</span> <span class="i">get</span>, <span onmouseout="hideTip(event, 'fs8', 17)" onmouseover="showTip(event, 'fs8', 17)" class="i">set</span>
+  <span class="k">abstract</span> <span onmouseout="hideTip(event, 'fs13', 18)" onmouseover="showTip(event, 'fs13', 18)" class="i">response</span><span class="o">:</span> <span class="i">Response</span> <span class="k">with</span> <span class="i">get</span>, <span onmouseout="hideTip(event, 'fs8', 19)" onmouseover="showTip(event, 'fs8', 19)" class="i">set</span>
+  
+  [&lt;<span class="i">Emit</span>(<span class="s">&quot;$0($1...)&quot;</span>)&gt;] 
+  <span class="k">abstract</span> <span onmouseout="hideTip(event, 'fs14', 20)" onmouseover="showTip(event, 'fs14', 20)" class="f">Invoke</span><span class="o">:</span> <span onmouseout="hideTip(event, 'fs15', 21)" onmouseover="showTip(event, 'fs15', 21)" class="t">unit</span> <span class="k">-&gt;</span> <span class="i">Application</span>
+</code></pre></td>
+</tr>
+</table>
+<p>The second interesting type definition defines the <code>IRouter&lt;'T&gt;</code> type. The <code>Application</code> object
+inherits from router and so once we obtain <code>Application</code> using <code>express.Invoke</code>, we will be able
+to call its methods to specify handlers for routes:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs16', 22)" onmouseover="showTip(event, 'fs16', 22)" class="t">IRouter</span><span class="o">&lt;</span><span class="o">&#39;</span><span class="i">T</span><span class="o">&gt;</span> <span class="o">=</span>
+  <span class="k">abstract</span> <span onmouseout="hideTip(event, 'fs17', 23)" onmouseover="showTip(event, 'fs17', 23)" class="f">get</span><span class="o">:</span> <span class="i">name</span><span class="o">:</span> <span class="i">U2</span><span class="o">&lt;</span><span onmouseout="hideTip(event, 'fs7', 24)" onmouseover="showTip(event, 'fs7', 24)" class="i">string</span>, <span class="i">Regex</span><span class="o">&gt;</span> 
+    <span class="o">*</span> [&lt;<span class="i">ParamArray</span>&gt;] <span class="i">handlers</span><span class="o">:</span> <span class="i">RequestHandler</span>[] <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs11', 25)" onmouseover="showTip(event, 'fs11', 25)" class="t">obj</span>
+  <span class="k">abstract</span> <span onmouseout="hideTip(event, 'fs18', 26)" onmouseover="showTip(event, 'fs18', 26)" class="f">post</span><span class="o">:</span> <span class="i">name</span><span class="o">:</span> <span class="i">U2</span><span class="o">&lt;</span><span onmouseout="hideTip(event, 'fs7', 27)" onmouseover="showTip(event, 'fs7', 27)" class="i">string</span>, <span class="i">Regex</span><span class="o">&gt;</span> 
+    <span class="o">*</span> [&lt;<span class="i">ParamArray</span>&gt;] <span class="i">handlers</span><span class="o">:</span> <span class="i">RequestHandler</span>[] <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs11', 28)" onmouseover="showTip(event, 'fs11', 28)" class="t">obj</span>
+  <span class="k">abstract</span> <span onmouseout="hideTip(event, 'fs19', 29)" onmouseover="showTip(event, 'fs19', 29)" class="f">put</span><span class="o">:</span> <span class="i">name</span><span class="o">:</span> <span class="i">U2</span><span class="o">&lt;</span><span onmouseout="hideTip(event, 'fs7', 30)" onmouseover="showTip(event, 'fs7', 30)" class="i">string</span>, <span class="i">Regex</span><span class="o">&gt;</span> 
+    <span class="o">*</span> [&lt;<span class="i">ParamArray</span>&gt;] <span class="i">handlers</span><span class="o">:</span> <span class="i">RequestHandler</span>[] <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs11', 31)" onmouseover="showTip(event, 'fs11', 31)" class="t">obj</span>
+</code></pre></td>
+</tr>
+</table>
+<p>One interesting thing here is that <code>get</code>, <code>put</code> and <code>post</code> can take either a regular expression
+or a string. In JavaScript, you just pass the object to the function. In F#, this is mapped to a simple
+two-case discriminated union, so that yo uget static checking. We'll see how to use these mappings next.</p>
+<h2><a name="Calling-Express-bindings" class="anchor" href="#Calling-Express-bindings">Calling Express bindings</a></h2>
+<p>The application itself is now very simple. We call <code>express.Invoke</code> to get an instance of the
+Express server, we specify one sample binding for GET request using <code>app.get</code>, we get a port
+for our server and start it:</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
+<span class="l"> 2: </span>
+<span class="l"> 3: </span>
+<span class="l"> 4: </span>
+<span class="l"> 5: </span>
+<span class="l"> 6: </span>
+<span class="l"> 7: </span>
+<span class="l"> 8: </span>
+<span class="l"> 9: </span>
+<span class="l">10: </span>
+<span class="l">11: </span>
+<span class="l">12: </span>
+<span class="l">13: </span>
+<span class="l">14: </span>
+<span class="l">15: </span>
+<span class="l">16: </span>
+<span class="l">17: </span>
+<span class="l">18: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs20', 32)" onmouseover="showTip(event, 'fs20', 32)" class="i">app</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs21', 33)" onmouseover="showTip(event, 'fs21', 33)" class="i">express</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs22', 34)" onmouseover="showTip(event, 'fs22', 34)" class="f">Invoke</span>()
+
+<span class="c">// Handle request using plain `string` route specification</span>
+<span onmouseout="hideTip(event, 'fs20', 35)" onmouseover="showTip(event, 'fs20', 35)" class="i">app</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs23', 36)" onmouseover="showTip(event, 'fs23', 36)" class="f">get</span>
+  ( <span onmouseout="hideTip(event, 'fs24', 37)" onmouseover="showTip(event, 'fs24', 37)" class="t">U2</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs25', 38)" onmouseover="showTip(event, 'fs25', 38)" class="p">Case1</span> <span class="s">&quot;/hello/:name&quot;</span>, 
+    <span class="k">fun</span> (<span onmouseout="hideTip(event, 'fs26', 39)" onmouseover="showTip(event, 'fs26', 39)" class="i">req</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs21', 40)" onmouseover="showTip(event, 'fs21', 40)" class="t">express</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs27', 41)" onmouseover="showTip(event, 'fs27', 41)" class="t">Request</span>) (<span onmouseout="hideTip(event, 'fs28', 42)" onmouseover="showTip(event, 'fs28', 42)" class="i">res</span><span class="o">:</span><span onmouseout="hideTip(event, 'fs21', 43)" onmouseover="showTip(event, 'fs21', 43)" class="t">express</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs29', 44)" onmouseover="showTip(event, 'fs29', 44)" class="t">Response</span>) _ <span class="k">-&gt;</span>
+      <span onmouseout="hideTip(event, 'fs28', 45)" onmouseover="showTip(event, 'fs28', 45)" class="i">res</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs30', 46)" onmouseover="showTip(event, 'fs30', 46)" class="f">send</span>(<span onmouseout="hideTip(event, 'fs31', 47)" onmouseover="showTip(event, 'fs31', 47)" class="f">sprintf</span> <span class="s">&quot;Hello </span><span class="pf">%O</span><span class="s">&quot;</span> <span onmouseout="hideTip(event, 'fs26', 48)" onmouseover="showTip(event, 'fs26', 48)" class="i">req</span><span class="o">.</span><span class="i">``params``</span><span class="o">?</span><span class="i">name</span>) <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs32', 49)" onmouseover="showTip(event, 'fs32', 49)" class="f">box</span>)
+<span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs33', 50)" onmouseover="showTip(event, 'fs33', 50)" class="f">ignore</span>
+
+<span class="c">// Get PORT environment variable or use default</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs34', 51)" onmouseover="showTip(event, 'fs34', 51)" class="i">port</span> <span class="o">=</span>
+  <span class="k">match</span> <span onmouseout="hideTip(event, 'fs35', 52)" onmouseover="showTip(event, 'fs35', 52)" class="f">unbox</span> <span onmouseout="hideTip(event, 'fs36', 53)" onmouseover="showTip(event, 'fs36', 53)" class="t">Node</span><span class="o">.</span><span class="i">``process``</span><span class="o">.</span><span class="i">env</span><span class="o">?</span><span class="i">PORT</span> <span class="k">with</span>
+  | <span onmouseout="hideTip(event, 'fs37', 54)" onmouseover="showTip(event, 'fs37', 54)" class="p">Some</span> <span onmouseout="hideTip(event, 'fs38', 55)" onmouseover="showTip(event, 'fs38', 55)" class="i">x</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs38', 56)" onmouseover="showTip(event, 'fs38', 56)" class="i">x</span> | <span onmouseout="hideTip(event, 'fs39', 57)" onmouseover="showTip(event, 'fs39', 57)" class="p">None</span> <span class="k">-&gt;</span> <span class="n">8080</span>
+
+<span class="c">// Start the server on the port</span>
+<span onmouseout="hideTip(event, 'fs20', 58)" onmouseover="showTip(event, 'fs20', 58)" class="i">app</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs40', 59)" onmouseover="showTip(event, 'fs40', 59)" class="f">listen</span>(<span onmouseout="hideTip(event, 'fs34', 60)" onmouseover="showTip(event, 'fs34', 60)" class="i">port</span>, <span onmouseout="hideTip(event, 'fs35', 61)" onmouseover="showTip(event, 'fs35', 61)" class="f">unbox</span> (<span class="k">fun</span> () <span class="k">-&gt;</span>
+  <span onmouseout="hideTip(event, 'fs41', 62)" onmouseover="showTip(event, 'fs41', 62)" class="f">printfn</span> <span class="s">&quot;Server started: http://localhost:</span><span class="pf">%i</span><span class="s">/&quot;</span> <span onmouseout="hideTip(event, 'fs34', 63)" onmouseover="showTip(event, 'fs34', 63)" class="i">port</span>))
+<span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs33', 64)" onmouseover="showTip(event, 'fs33', 64)" class="f">ignore</span>
+</code></pre></td>
+</tr>
+</table>
+<p>Note that when calling <code>app.get</code>, the first parameter is a plain string value and so we wrap
+it using <code>U2.Case1</code>. If you wanted to specify a regular expression, you'd use a <code>RegEx</code> object
+wrapped in <code>U2.Case2</code>.</p>
+
+
+<div class="tip" id="fs1">namespace System</div>
+<div class="tip" id="fs2">namespace Fable</div>
+<div class="tip" id="fs3">namespace Fable.Core</div>
+<div class="tip" id="fs4">namespace Fable.Import</div>
+<div class="tip" id="fs5">type Express =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit obj<br />&#160;&#160;&#160;&#160;abstract member Invoke : unit -&gt; &#39;a0<br />&#160;&#160;&#160;&#160;abstract member application : obj<br />&#160;&#160;&#160;&#160;abstract member mime : string<br />&#160;&#160;&#160;&#160;abstract member request : &#39;a0<br />&#160;&#160;&#160;&#160;abstract member response : &#39;a0<br />&#160;&#160;&#160;&#160;abstract member version : string<br />&#160;&#160;&#160;&#160;abstract member application : obj with set<br />&#160;&#160;&#160;&#160;abstract member mime : string with set<br />&#160;&#160;&#160;&#160;abstract member request : &#39;a0 with set<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: index.Express</div>
+<div class="tip" id="fs6">abstract member Express.version : string with set<br /><br />Full name: index.Express.version</div>
+<div class="tip" id="fs7">Multiple items<br />val string : value:&#39;T -&gt; string<br /><br />Full name: Microsoft.FSharp.Core.Operators.string<br /><br />--------------------<br />type string = System.String<br /><br />Full name: Microsoft.FSharp.Core.string</div>
+<div class="tip" id="fs8">val set : elements:seq&lt;&#39;T&gt; -&gt; Set&lt;&#39;T&gt; (requires comparison)<br /><br />Full name: Microsoft.FSharp.Core.ExtraTopLevelOperators.set</div>
+<div class="tip" id="fs9">abstract member Express.mime : string with set<br /><br />Full name: index.Express.mime</div>
+<div class="tip" id="fs10">abstract member Express.application : obj with set<br /><br />Full name: index.Express.application</div>
+<div class="tip" id="fs11">type obj = System.Object<br /><br />Full name: Microsoft.FSharp.Core.obj</div>
+<div class="tip" id="fs12">abstract member Express.request : &#39;a0 with set<br /><br />Full name: index.Express.request</div>
+<div class="tip" id="fs13">abstract member Express.response : &#39;a0 with set<br /><br />Full name: index.Express.response</div>
+<div class="tip" id="fs14">abstract member Express.Invoke : unit -&gt; &#39;a0<br /><br />Full name: index.Express.Invoke</div>
+<div class="tip" id="fs15">type unit = Unit<br /><br />Full name: Microsoft.FSharp.Core.unit</div>
+<div class="tip" id="fs16">type IRouter&lt;&#39;T&gt; =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;abstract member get : name:&#39;a1 * handlers:&#39;a2 [] -&gt; obj<br />&#160;&#160;&#160;&#160;abstract member post : name:&#39;a1 * handlers:&#39;a2 [] -&gt; obj<br />&#160;&#160;&#160;&#160;abstract member put : name:&#39;a1 * handlers:&#39;a2 [] -&gt; obj<br />&#160;&#160;end<br /><br />Full name: index.IRouter&lt;_&gt;</div>
+<div class="tip" id="fs17">abstract member IRouter.get : name:&#39;a1 * handlers:&#39;a2 [] -&gt; obj<br /><br />Full name: index.IRouter`1.get</div>
+<div class="tip" id="fs18">abstract member IRouter.post : name:&#39;a1 * handlers:&#39;a2 [] -&gt; obj<br /><br />Full name: index.IRouter`1.post</div>
+<div class="tip" id="fs19">abstract member IRouter.put : name:&#39;a1 * handlers:&#39;a2 [] -&gt; obj<br /><br />Full name: index.IRouter`1.put</div>
+<div class="tip" id="fs20">val app : express.Express<br /><br />Full name: Index.app</div>
+<div class="tip" id="fs21">Multiple items<br />val express : express.Globals<br /><br />Full name: Fable.Import.express_Extensions.express<br /><br />--------------------<br />module express<br /><br />from Fable.Import</div>
+<div class="tip" id="fs22">member express.Globals.Invoke : unit -&gt; express.Express</div>
+<div class="tip" id="fs23">abstract member express.IRouter.get : name:U2&lt;string,Text.RegularExpressions.Regex&gt; * [&lt;ParamArray&gt;] handlers:express.RequestHandler [] -&gt; obj</div>
+<div class="tip" id="fs24">type U2&lt;&#39;a,&#39;b&gt; =<br />&#160;&#160;| Case1 of &#39;a<br />&#160;&#160;| Case2 of &#39;b<br /><br />Full name: Fable.Core.U2&lt;_,_&gt;</div>
+<div class="tip" id="fs25">union case U2.Case1: &#39;a -&gt; U2&lt;&#39;a,&#39;b&gt;</div>
+<div class="tip" id="fs26">val req : express.Request</div>
+<div class="tip" id="fs27">type Request =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit Request<br />&#160;&#160;&#160;&#160;inherit ServerRequest<br />&#160;&#160;&#160;&#160;abstract member accepts : type:string -&gt; string<br />&#160;&#160;&#160;&#160;abstract member accepts : type:ResizeArray&lt;string&gt; -&gt; string<br />&#160;&#160;&#160;&#160;abstract member acceptsCharsets : ?charset:U2&lt;string,ResizeArray&lt;string&gt;&gt; -&gt; ResizeArray&lt;string&gt;<br />&#160;&#160;&#160;&#160;abstract member acceptsEncodings : ?encoding:U2&lt;string,ResizeArray&lt;string&gt;&gt; -&gt; ResizeArray&lt;string&gt;<br />&#160;&#160;&#160;&#160;abstract member acceptsLanguages : ?lang:U2&lt;string,ResizeArray&lt;string&gt;&gt; -&gt; ResizeArray&lt;string&gt;<br />&#160;&#160;&#160;&#160;abstract member clearCookie : name:string * ?options:obj -&gt; Response<br />&#160;&#160;&#160;&#160;abstract member get : name:string -&gt; string<br />&#160;&#160;&#160;&#160;abstract member accepted : ResizeArray&lt;MediaType&gt;<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.express.Request</div>
+<div class="tip" id="fs28">val res : express.Response</div>
+<div class="tip" id="fs29">type Response =<br />&#160;&#160;interface<br />&#160;&#160;&#160;&#160;inherit Response<br />&#160;&#160;&#160;&#160;inherit ServerResponse<br />&#160;&#160;&#160;&#160;abstract member attachment : ?filename:string -&gt; Response<br />&#160;&#160;&#160;&#160;abstract member clearCookie : name:string * ?options:obj -&gt; Response<br />&#160;&#160;&#160;&#160;abstract member contentType : type:string -&gt; Response<br />&#160;&#160;&#160;&#160;abstract member cookie : name:string * val:string * options:CookieOptions -&gt; Response<br />&#160;&#160;&#160;&#160;abstract member cookie : name:string * val:obj * options:CookieOptions -&gt; Response<br />&#160;&#160;&#160;&#160;abstract member cookie : name:string * val:obj -&gt; Response<br />&#160;&#160;&#160;&#160;abstract member download : path:string -&gt; unit<br />&#160;&#160;&#160;&#160;abstract member download : path:string * filename:string -&gt; unit<br />&#160;&#160;&#160;&#160;...<br />&#160;&#160;end<br /><br />Full name: Fable.Import.express.Response</div>
+<div class="tip" id="fs30">abstract member express.Response.send : body:obj -&gt; express.Response<br />abstract member express.Response.send : status:float * ?body:obj -&gt; express.Response</div>
+<div class="tip" id="fs31">val sprintf : format:Printf.StringFormat&lt;&#39;T&gt; -&gt; &#39;T<br /><br />Full name: Microsoft.FSharp.Core.ExtraTopLevelOperators.sprintf</div>
+<div class="tip" id="fs32">val box : value:&#39;T -&gt; obj<br /><br />Full name: Microsoft.FSharp.Core.Operators.box</div>
+<div class="tip" id="fs33">val ignore : value:&#39;T -&gt; unit<br /><br />Full name: Microsoft.FSharp.Core.Operators.ignore</div>
+<div class="tip" id="fs34">val port : int<br /><br />Full name: Index.port</div>
+<div class="tip" id="fs35">val unbox : value:obj -&gt; &#39;T<br /><br />Full name: Microsoft.FSharp.Core.Operators.unbox</div>
+<div class="tip" id="fs36">module Node<br /><br />from Fable.Import</div>
+<div class="tip" id="fs37">union case Option.Some: Value: &#39;T -&gt; Option&lt;&#39;T&gt;</div>
+<div class="tip" id="fs38">val x : int</div>
+<div class="tip" id="fs39">union case Option.None: Option&lt;&#39;T&gt;</div>
+<div class="tip" id="fs40">abstract member express.Application.listen : port:float * ?callback:JS.Function -&gt; Node.http.Server<br />abstract member express.Application.listen : path:string * ?callback:JS.Function -&gt; Node.http.Server<br />abstract member express.Application.listen : handle:obj * ?listeningListener:JS.Function -&gt; Node.http.Server<br />abstract member express.Application.listen : port:float * hostname:string * ?callback:JS.Function -&gt; Node.http.Server<br />abstract member express.Application.listen : port:float * hostname:string * backlog:float * ?callback:JS.Function -&gt; Node.http.Server</div>
+<div class="tip" id="fs41">val printfn : format:Printf.TextWriterFormat&lt;&#39;T&gt; -&gt; &#39;T<br /><br />Full name: Microsoft.FSharp.Core.ExtraTopLevelOperators.printfn</div>
+
+    </div>
+    <div class="col-md-1 col-lg-2"></div>
+  </div>
+</div>
+
+  </div>
+
+  <a class="gh-forkme" href="https://github.com/fsprojects/Fable"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a>
+</body>
+</html>
