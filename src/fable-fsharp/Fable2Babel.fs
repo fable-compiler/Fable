@@ -470,16 +470,21 @@ module Util =
         // Babel.ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         Babel.ExpressionStatement(main, ?loc=funcExpr.loc) :> Babel.Statement
 
-    let declareNestedModMember range name isPublic modIdent expr =
-        if Naming.isInvalidJsIdent name then
-            failwithf "%s cannot be used as a member name" name
+    let declareNestedModMember range publicName privateName isPublic isMutable modIdent expr =
+        let privateName = defaultArg privateName publicName
         match isPublic, modIdent with
-        | true, Some modIdent -> assign (Some range) (get modIdent name) expr 
+        | true, Some modIdent ->
+            // TODO: Define also get-only properties for non-mutable values?
+            if isMutable then
+                let macro = sprintf "Object.defineProperty($0,'%s',{get:()=>$1,set:x=>$1=x}),$2" publicName
+                macroExpression (Some range) macro [modIdent; identFromName privateName; expr]
+            else
+                assign (Some range) (get modIdent publicName) expr
         | _ -> expr
-        |> varDeclaration (Some range) (identFromName name) :> Babel.Statement
+        |> varDeclaration (Some range) (identFromName privateName) :> Babel.Statement
         |> U2.Case1
 
-    let declareRootModMember range name isPublic modIdent expr =
+    let declareRootModMember range name _ isPublic _ modIdent expr =
         if Naming.isInvalidJsIdent name then
             failwithf "%s cannot be used as a member name" name
         let decl =
@@ -507,7 +512,7 @@ module Util =
             match expr.loc with Some loc -> m.Range + loc | None -> m.Range
         if m.TryGetDecorator("EntryPoint").IsSome
         then declareEntryPoint com ctx expr |> U2.Case1
-        else declareMember memberRange name m.IsPublic modIdent expr
+        else declareMember memberRange name m.PrivateName m.IsPublic m.IsMutable modIdent expr
         
     let declareClass com ctx declareMember modIdent
                     (ent: Fable.Entity) entDecls entRange baseClass isClass =
@@ -515,7 +520,7 @@ module Util =
             // Don't create a new context for class declarations
             let classIdent = identFromName ent.Name |> Some
             transformClass com ctx (Some entRange) classIdent baseClass entDecls
-            |> declareMember entRange ent.Name ent.IsPublic modIdent
+            |> declareMember entRange ent.Name None ent.IsPublic false modIdent
         let classDecl =
             match declareInterfaces com ctx ent isClass with
             | None -> [classDecl]
@@ -579,7 +584,7 @@ module Util =
                     |> List.append <| acc
                 | Fable.Module ->
                     transformNestedModule com ctx ent entDecls entRange
-                    |> declareMember entRange ent.Name ent.IsPublic modIdent
+                    |> declareMember entRange ent.Name None ent.IsPublic false modIdent
                     |> consBack acc) []
         |> fun decls ->
             match modIdent with

@@ -308,6 +308,53 @@ let ``Accessing members with same name as module works``() =
 let ``Naming values with same name as module works``() =
     equal 30 Same.Same.shouldEqual30
 
+let f2 a b = a + b
+let mutable a = 10
+
+module B = 
+  let c = a
+  a <- a + 5
+  let mutable a = 20
+  let d = f2 2 2
+  let f2 a b = a - b
+  
+  module D = 
+    let d = a
+    a <- a + 5
+    let e = f2 2 2
+
+// Modules and TestFixtures bind values in a slightly different way
+// Test both cases
+[<Test>]
+let ``Binding doesn't shadow top-level values``() = // See #130
+    equal 10 Util.B.c
+    equal 20 Util.B.D.d
+
+[<Test>]
+let ``Binding doesn't shadow top-level values (TestFixture)``() = // See #130
+    equal 10 B.c
+    equal 20 B.D.d
+
+[<Test>]
+let ``Binding doesn't shadow top-level functions``() = // See #130
+    equal 4 Util.B.d
+    equal 0 Util.B.D.e
+    
+[<Test>]
+let ``Binding doesn't shadow top-level functions (TestFixture)``() = // See #130
+    equal 4 B.d
+    equal 0 B.D.e
+
+[<Test>]
+let ``Setting a top-level value doesn't alter values at same level``() = // See #130
+    equal 15 Util.a
+    equal 25 Util.B.a
+
+[<Test>]
+let ``Setting a top-level value doesn't alter values at same level (TestFixture)``() = // See #130
+    equal 15 a
+    equal 25 B.a
+
 type Point =
     { x: float; y: float }
     static member (+) (p1: Point, p2: Point) = { x=p1.x + p2.x; y=p1.y + p2.y }

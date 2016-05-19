@@ -385,12 +385,15 @@ module Identifiers =
     
     let (|BindIdent|) = bindIdentFrom
 
-    /// Get corresponding identifier to F# value in current scope
-    let getBoundExpr com (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
+    let tryGetBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
         ctx.scope
         |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
-        |> function
-        | Some (_,boundExpr) -> boundExpr
+        |> function Some (_,boundExpr) -> Some boundExpr | None -> None
+
+    /// Get corresponding identifier to F# value in current scope
+    let getBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
+        match tryGetBoundExpr ctx fsRef with
+        | Some boundExpr -> boundExpr
         | None -> failwithf "Detected non-bound identifier: %s in %O"
                     fsRef.DisplayName (makeRange fsRef.DeclarationLocation)
 
@@ -635,17 +638,24 @@ module Util =
         (**     *Check if this a getter or setter  *)
                 match getMemberKind methName meth with
                 | Fable.Getter (m, _) ->
-                    makeGetFrom com ctx r typ callee (makeConst m)
+                    match tryGetBoundExpr ctx meth with
+                    | Some e -> e
+                    | _ -> makeGetFrom com ctx r typ callee (makeConst m)
                 | Fable.Setter m ->
-                    Fable.Set (callee, Some (makeConst m), args.Head, r)
+                    match tryGetBoundExpr ctx meth with
+                    | Some e -> Fable.Set (e, None, args.Head, r)
+                    | _ -> Fable.Set (callee, Some (makeConst m), args.Head, r)
         (**     *Check if this is an implicit constructor *)
                 | Fable.Constructor ->
                     Fable.Apply (callee, args, Fable.ApplyCons, typ, r)
         (**     *If nothing of the above applies, call the method normally *)
                 | Fable.Method m ->
-                    let calleeType = Fable.PrimitiveType (Fable.Function args.Length)
-                    let callee = makeGet r calleeType callee (makeConst m)
-                    Fable.Apply (callee, args, Fable.ApplyMeth, typ, r)
+                    match tryGetBoundExpr ctx meth with
+                    | Some e -> e
+                    | _ ->
+                        let calleeType = Fable.PrimitiveType (Fable.Function args.Length) 
+                        makeGet r calleeType callee (makeConst m)
+                    |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
 
     let wrapInLambda com ctx r typ (meth: FSharpMemberOrFunctionOrValue) =
         let arity =
@@ -661,7 +671,7 @@ module Util =
 
     let makeValueFrom com ctx r typ (v: FSharpMemberOrFunctionOrValue) =
         if not v.IsModuleValueOrMember
-        then getBoundExpr com ctx v
+        then getBoundExpr ctx v
         elif v.IsMemberThisValue
         then Fable.This |> Fable.Value
         // External entities contain functions that will be replaced,
@@ -672,6 +682,7 @@ module Util =
             match v with
             | Emitted com ctx r typ (None, []) emitted -> emitted
             | Imported com ctx r typ [] imported -> imported
+            | Try (tryGetBoundExpr ctx) e -> e 
             | _ ->
                 let typeRef =
                     makeTypeFromDef com v.EnclosingEntity

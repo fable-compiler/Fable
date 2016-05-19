@@ -309,7 +309,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                     |> Some
                 let baseCons =
                     Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
-                    |> fun c -> Fable.Member(Fable.Constructor, range, [], c, [], true, false, false)
+                    |> fun c -> Fable.Member(Fable.Constructor, range, [], c)
                     |> Some
                 baseClass, baseCons
             | _ -> None, None
@@ -635,21 +635,27 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                     { ctx' with baseClass = Some fullName }
                 | _ -> ctx'
             transformExpr com ctx' body
+        let ctx, privateName =
+            match memberKind with
+            | Fable.Method name | Fable.Getter (name, _)
+                when meth.EnclosingEntity.IsFSharpModule ->
+                // Bind module member names to context to prevent
+                // name clashes (they will become variables in JS)
+                let ctx, privateName = bindIdent ctx Fable.UnknownType (Some meth) name
+                ctx, Some (privateName.name)
+            | _ -> ctx, None
         let entMember =
             Fable.Member(memberKind,
                 makeRange meth.DeclarationLocation, args', body,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-                meth.Accessibility.IsPublic, not meth.IsInstanceMember, hasRestParams meth)
+                isPublic = meth.Accessibility.IsPublic,
+                isMutable = meth.IsMutable,
+                isStatic = not meth.IsInstanceMember,
+                hasRestParams = hasRestParams meth,
+                ?privateName = privateName)
             |> Fable.MemberDeclaration
         declInfo.AddMethod (meth, entMember)
-        // Bind sanitized module member names to context to prevent
-        // name clashes (they will become variables in JS)
-        match memberKind with
-        | Fable.Method name | Fable.Getter (name, _)
-            when meth.EnclosingEntity.IsFSharpModule ->
-            Naming.sanitizeIdent (fun _ -> false) name
-            |> bindIdent ctx Fable.UnknownType None |> fst
-        | _ -> ctx
+        ctx
     |> fun ctx -> declInfo, ctx
    
 // TODO: Check that nested entities' names don't clash with parent members
@@ -673,12 +679,9 @@ let rec private transformEntityDecl
             else []
         let childDecls = transformDeclarations com ctx init subDecls
         declInfo.AddChild (com, ent, childDecls)
-        // Bind sanitized entity name to context to prevent
-        // name clashes (it will become a variable in JS)
-        let ctx, _ =
-            ent.DisplayName
-            |> Naming.sanitizeIdent (fun _ -> false)
-            |> bindIdent ctx Fable.UnknownType None
+        // Bind entity name to context to prevent name
+        // clashes (it will become a variable in JS)
+        let ctx, _ = bindIdent ctx Fable.UnknownType None ent.DisplayName
         declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =

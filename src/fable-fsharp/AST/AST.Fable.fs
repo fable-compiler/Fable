@@ -78,15 +78,19 @@ and MemberKind =
     | Getter of name: string * isField: bool
     | Setter of name: string
 
-and Member(kind, range, args, body, ?decorators, ?isPublic, ?isStatic, ?hasRestParams) =
+and Member(kind, range, args, body, ?decorators, ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?privateName) =
     member x.Kind: MemberKind = kind
     member x.Range: SourceLocation = range
     member x.Arguments: Ident list = args
     member x.Body: Expr = body
     member x.Decorators: Decorator list = defaultArg decorators []
     member x.IsPublic: bool = defaultArg isPublic true
+    member x.IsMutable: bool = defaultArg isMutable false
     member x.IsStatic: bool = defaultArg isStatic false
     member x.HasRestParams: bool = defaultArg hasRestParams false
+    /// Module members are also declared as variables, so they need
+    /// a private name that doesn't conflict with enclosing scope (see #130)
+    member x.PrivateName: string option = privateName
     member x.TryGetDecorator decorator =
         x.Decorators |> List.tryFind (fun x -> x.Name = decorator)
     override x.ToString() = sprintf "%A" kind
