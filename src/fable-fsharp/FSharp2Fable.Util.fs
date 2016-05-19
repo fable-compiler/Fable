@@ -95,17 +95,7 @@ module Patterns =
         let rec abbr (t: FSharpType) =
             if t.IsAbbreviation then abbr t.AbbreviatedType else t
         abbr t
-        
-    let (|NonAbbreviatedEntity|) (ent: FSharpEntity) =
-        let rec abbr (ent: FSharpEntity) =
-            if not ent.IsFSharpAbbreviation then ent else
-            match ent.AbbreviatedType with
-            | NonAbbreviatedType t ->
-                if not t.HasTypeDefinition
-                then failwith "Unexpected abbreviated entity"
-                else t.TypeDefinition
-        abbr ent
-    
+
     let (|RefType|_|) = function
         | NonAbbreviatedType(TypeDefinition tdef) as t
             when tdef.TryFullName = Some "Microsoft.FSharp.Core.FSharpRef`1" -> Some t

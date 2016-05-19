@@ -705,10 +705,10 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
     |> Seq.map (fun (file, ents) -> 
         let ent =
             match List.ofSeq ents with
-            | [] -> failwith "Unexpected empty file"
-            | [NonAbbreviatedEntity ent] ->
+            | [] -> ""
+            | [ent] ->
                 if ent.IsFSharpModule
-                then ent.FullName
+                then defaultArg ent.TryFullName ""
                 else defaultArg ent.Namespace ""
             | ents ->
                 let getCommonNs (xs: string[] list)=
@@ -719,11 +719,15 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
                             while i < prefix.Length && i < x.Length && x.[i] = prefix.[i] do
                                 i <- i + 1
                             getCommonNs prefix.[0..i-1] xs
-                    getCommonNs xs.Head xs.Tail |> String.concat "."
+                    match xs with
+                    | [] -> ""
+                    | x::xs -> getCommonNs x xs |> String.concat "."
                 let rootNs =
                     ents
-                    |> List.map (fun (NonAbbreviatedEntity ent) ->
-                        ent.FullName.Split('.'))
+                    |> List.choose (fun ent ->
+                        match ent.TryFullName with
+                        | Some fullName -> fullName.Split('.') |> Some
+                        | None -> None)
                     |> getCommonNs
                 if rootNs.EndsWith(".")
                 then rootNs.Substring(0, rootNs.Length - 1)
