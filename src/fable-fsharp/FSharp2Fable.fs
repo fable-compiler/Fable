@@ -592,7 +592,7 @@ type private DeclInfo(init: Fable.Declaration list) =
     member self.AddChild (com: IFableCompiler, newChild, newChildDecls: _ list) =
         let ent = Ent (
                     com.GetEntity newChild,
-                    makeRange newChild.DeclarationLocation,
+                    getEntityLocation newChild |> makeRange,
                     ResizeArray<_> newChildDecls)
         children.Add(newChild.FullName, ent)
         decls.Add(ent)
@@ -645,7 +645,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             | _ -> ctx, None
         let entMember =
             Fable.Member(memberKind,
-                makeRange meth.DeclarationLocation, args', body,
+                getRefLocation meth |> makeRange, args', body,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
                 isPublic = meth.Accessibility.IsPublic,
                 isMutable = meth.IsMutable,
@@ -701,7 +701,7 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
     
 let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
     rootEntities
-    |> Seq.groupBy (fun ent -> ent.DeclarationLocation.FileName)
+    |> Seq.groupBy (fun ent -> (getEntityLocation ent).FileName)
     |> Seq.map (fun (file, ents) -> 
         let ent =
             match List.ofSeq ents with
@@ -753,13 +753,13 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
         member fcom.GetInternalFile tdef =
-            // In F# scripts the DeclarationLocation of referenced libraries
+            // In F# scripts the location of referenced libraries
             // becomes the .fsx file, so check first if the entity belongs
             // to an assembly already compiled (external to the project)
             match tdef.Assembly.FileName with
             | Some assembly when not(refAssemblies.Contains assembly) -> None
             | _ ->
-                let file = tdef.DeclarationLocation.FileName
+                let file = (getEntityLocation tdef).FileName
                 if projs |> Seq.exists (fun p -> p.FileMap.ContainsKey file)
                 then Some file
                 else None

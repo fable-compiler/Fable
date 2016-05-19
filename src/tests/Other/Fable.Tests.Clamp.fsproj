@@ -45,6 +45,7 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Util\Util.fsi" />
     <Compile Include="Util\Util.fs" />
   </ItemGroup>
   <PropertyGroup>

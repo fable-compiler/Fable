@@ -77,6 +77,16 @@ module Helpers =
         if fn.IsFunctionType
         then countFuncArgs (Seq.last fn.GenericArguments) + 1
         else 0
+        
+    let getEntityLocation (ent: FSharpEntity) =
+        match ent.ImplementationLocation with
+        | Some loc -> loc
+        | None -> ent.DeclarationLocation        
+
+    let getRefLocation (ent: FSharpMemberOrFunctionOrValue) =
+        match ent.ImplementationLocation with
+        | Some loc -> loc
+        | None -> ent.DeclarationLocation   
     
 module Patterns =
     open BasicPatterns
@@ -395,7 +405,7 @@ module Identifiers =
         match tryGetBoundExpr ctx fsRef with
         | Some boundExpr -> boundExpr
         | None -> failwithf "Detected non-bound identifier: %s in %O"
-                    fsRef.DisplayName (makeRange fsRef.DeclarationLocation)
+                    fsRef.DisplayName (getRefLocation fsRef |> makeRange)
 
 module Util =
     open Helpers
