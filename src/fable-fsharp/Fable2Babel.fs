@@ -302,8 +302,13 @@ module Util =
             | Fable.ArrayConst (cons, kind) -> buildArray com ctx cons kind
             | Fable.Emit emit -> macroExpression None emit []
             | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
-            | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ | Fable.Spread _ ->
-                failwithf "Unexpected stand-alone value: %A" expr
+            | Fable.Spread _ ->
+                failwithf "%s %s %s"
+                    "An array is being passed from a function accepting an array to another"
+                    "accepting a ParamArray argument in a way that's not directly compilable."
+                    "Try inlining the first function."
+            | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ -> 
+                failwithf "Unexpected stand-alone operator detected: %A" expr 
 
         | Fable.ObjExpr (members, interfaces, baseClass, range) ->
             match baseClass with

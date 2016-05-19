@@ -14,7 +14,7 @@ type SourceLocation =
     static member Empty =
         { start = Position.Empty; ``end`` = Position.Empty }
     override x.ToString() =
-        sprintf "(L%i,%i)-(L%i,%i)"
+        sprintf "(L%i,%i-L%i,%i)"
             x.start.line x.start.column
             x.``end``.line x.``end``.column
 
