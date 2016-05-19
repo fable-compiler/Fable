@@ -159,6 +159,11 @@ let ``Static constructors work``() =
 let ``File with single type in namespace compiles``() =
     equal SingleTypeInNamespace.Hello "Hello" 
 
+[<Test>]
+let ``Type abbreviation in namespace compiles``() = // See #140
+    let h = Util2.H(5)
+    equal "5" h.Value
+
 let inline f x y = x + y
 
 [<Test>]

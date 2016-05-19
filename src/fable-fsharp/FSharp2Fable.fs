@@ -122,7 +122,6 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         |> makeLoop (makeRangeFrom fsExpr)
 
     (** Values *)
-
     // Arrays with small data (ushort, byte) won't fit the NewArray pattern
     // as they would require too much memory
     | BasicPatterns.Const(:? System.Array as arr, typ) ->
@@ -707,7 +706,7 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
         let ent =
             match List.ofSeq ents with
             | [] -> failwith "Unexpected empty file"
-            | [ent] ->
+            | [NonAbbreviatedEntity ent] ->
                 if ent.IsFSharpModule
                 then ent.FullName
                 else defaultArg ent.Namespace ""
@@ -723,7 +722,8 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
                     getCommonNs xs.Head xs.Tail |> String.concat "."
                 let rootNs =
                     ents
-                    |> List.map (fun ent -> ent.FullName.Split('.'))
+                    |> List.map (fun (NonAbbreviatedEntity ent) ->
+                        ent.FullName.Split('.'))
                     |> getCommonNs
                 if rootNs.EndsWith(".")
                 then rootNs.Substring(0, rootNs.Length - 1)
@@ -800,7 +800,6 @@ let transformFiles (com: ICompiler) (fileMask: string option)
             then Some ent, decls
             else getRootDecls rootNs (Some ent) decls
         | _ -> failwith "Multiple namespaces in same file is not supported"
-
     let curProj =
         Fable.Project(
             com.Options.projFile,
@@ -823,7 +822,6 @@ let transformFiles (com: ICompiler) (fileMask: string option)
             | None -> None)
         |> Seq.choose id
         |> fun refs -> curProj::(List.ofSeq refs)
-
     let com = makeCompiler com projs
     proj.AssemblyContents.ImplementationFiles
     |> Seq.where (fun file ->

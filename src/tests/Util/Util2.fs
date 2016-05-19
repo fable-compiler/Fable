@@ -11,3 +11,8 @@ type Helper2 =
     // Check that project references from folders work
     static member CreateClampedArray() =
         Fable.Tests.Clamp.Helper.CreateClampedArray()
+        
+type Helper3(i: int) =
+    member x.Value = string i
+    
+type H = Helper3
