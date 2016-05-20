@@ -386,9 +386,15 @@ try {
         process.exit(0);
     }
 
-    if (opts.projFile && fs.statSync(opts.projFile).isDirectory()) {
-        cfgDir = opts.projFile;
-        delete opts.projFile;
+    if (opts.projFile) {
+        if (fs.statSync(opts.projFile).isDirectory()) {
+            cfgDir = opts.projFile;
+            delete opts.projFile;
+        }
+        else {
+            cfgDir = path.dirname(opts.projFile);
+            opts.projFile = path.basename(opts.projFile);
+        }
     }
 
     // Parse fableconfig.json if present
