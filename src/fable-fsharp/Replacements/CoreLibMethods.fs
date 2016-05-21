@@ -15,4 +15,5 @@ let staticMethods =
         "Map", set [ "ofArray"; "ofSeq"; "containsValue"; "exists"; "filter"; "fold"; "foldBack"; "forall"; "iter"; "map"; "partition"; "findKey"; "tryFindKey"; "pick"; "removeInPlace"; "remove"; "tryPick" ]
         "Async", set [ "bind"; "combine"; "delay"; "for"; "return"; "returnFrom"; "tryFinally"; "tryWith"; "using"; "while"; "zero"; "startImmediate"; "start"; "cancellationToken"; "fromContinuations"; "sleep" ]
         "Observable", set [ "map"; "choose"; "filter"; "partition"; "scan"; "add"; "subscribe"; "pairwise"; "merge"; "split" ]
+        "Event", set [ "map"; "choose"; "filter"; "partition"; "scan"; "add"; "subscribe"; "pairwise"; "merge"; "split" ]
     ] |> Map

@@ -1092,6 +1092,7 @@ module private CoreLibPass =
             fsharp + "Collections.Seq" => ("Seq", Static)
             fsharp + "Collections.Set" => ("Set", Static)
             fsharp + "Core.Choice" => ("Choice", Both)
+            fsharp + "Control.Event" => ("Event", Both)
         ]
 
 open Util
