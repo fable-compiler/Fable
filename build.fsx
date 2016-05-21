@@ -160,8 +160,8 @@ Target "MochaTest" (fun _ ->
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []
     // Copy the development version of fable-core.js
-    if environVar "DEV_MACHINE" = "1" then
-        FileUtils.cp "import/core/fable-core.js" "build/tests/node_modules/fable-core/"
+    //if environVar "DEV_MACHINE" = "1" then
+    FileUtils.cp "import/core/fable-core.js" "build/tests/node_modules/fable-core/"
     Npm.script testsBuildDir "test" []
 )
 
