@@ -3,12 +3,6 @@ module Fable.Tests.Event
 open System
 open NUnit.Framework
 open Fable.Tests.Util
-            
-[<Test>]
-let ``Event.Subscribe works``() =
-    let source = Event<int>()
-    source.Publish.Subscribe(equal 10) |> ignore
-    source.Trigger 10
 
 [<Test>]
 let ``Event.add works``() =
@@ -18,62 +12,91 @@ let ``Event.add works``() =
 
 [<Test>]
 let ``Event.choose works``() =
+    let mutable result = 0
+
     let source = Event<_>()
     source.Publish
     |> Event.choose (function
         | Choice1Of2 _ -> None
         | Choice2Of2 x -> Some x)
-    |> Event.add (equal 3)
+    |> Event.add (fun n -> result <- n)
     source.Trigger (Choice1Of2 2)
     source.Trigger (Choice2Of2 3)
+    
+    equal 3 result
 
 [<Test>]
 let ``Event.filter works``() =
+    let mutable result = 0 
+    
     let source = Event<_>()
     source.Publish
     |> Event.filter ((>) 5) 
-    |> Event.add (equal 3)
-    source.Trigger 10
+    |> Event.add (fun n -> result <- n )
     source.Trigger 3
+    equal 3 result
+    source.Trigger 10
+    equal 3 result
 
 [<Test>]
 let ``Event.map works``() =
+    let mutable result = 0 
+
     let source = Event<_>()
     source.Publish 
-    |> Event.map not
-    |> Event.add (equal false)
-    source.Trigger true
+    |> Event.map ((+) 3)
+    |> Event.add (fun n -> result <- n)
+    source.Trigger 10
+    
+    equal 13 result
 
 [<Test>]
 let ``Event.merge works``() =
+    let mutable result = 0
+
     let source1 = Event<_>()
     let source2 = Event<_>()
     (source1.Publish, source2.Publish)
     ||> Event.merge
-    |> Event.add (equal 3)
-    source2.Trigger 3
+    |> Event.add (fun n -> result <- n)
+    source2.Trigger 4
+    equal 4 result
     source1.Trigger 3
+    equal 3 result
 
 [<Test>]
 let ``Event.pairwise works``() =
+    let mutable result1 = 0
+    let mutable result2 = 0
+
     let source = Event<_>()
     source.Publish
     |> Event.pairwise
     |> Event.add (fun (x, y) ->
-        equal 1 x
-        equal 2 y)
+        result1 <- x
+        result2 <- y)
     source.Trigger 1
     source.Trigger 2
+    
+    equal 1 result1
+    equal 2 result2
+    
 
 [<Test>]
 let ``Event.partition works``() =
+    let mutable result1 = 0
+    let mutable result2 = 0
+
     let source = Event<_>()
     let source1, source2 =
         source.Publish |> Event.partition ((>) 5)
-    Event.add (equal 3) source1
-    Event.add (equal 8) source2
+    Event.add (fun n -> result1 <- n) source1
+    Event.add (fun n -> result2 <- n) source2
     source.Trigger 8
     source.Trigger 3
+    
+    equal 3 result1
+    equal 8 result2
 
 [<Test>]
 let ``Event.scan works``() =
@@ -83,19 +106,27 @@ let ``Event.scan works``() =
     ||> Event.scan (+)
     |> Event.add (fun x ->
         state <- state + 1
-        equal state x)
+        )
     source.Trigger 1
     source.Trigger 1
+    
+    equal state 7
 
 [<Test>]
 let ``Event.split works``() =
+    let mutable result1 = 0
+    let mutable result2 = 0
+
     let source = Event<_>()
     let source1, source2 =
         source.Publish |> Event.split (fun x ->
             if 5 > x
             then Choice1Of2 (x*3)
             else Choice2Of2 (x*2))
-    Event.add (equal 6) source1
-    Event.add (equal 12) source2
+    Event.add (fun n -> result1 <- n) source1
+    Event.add (fun n -> result2 <- n) source2
     source.Trigger 6
     source.Trigger 2
+    
+    equal 6 result1
+    equal 12 result2 
