@@ -1,6 +1,11 @@
 
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{830F1EC7-4FC9-4250-B0A9-619F0A6AC2B7}"
+	ProjectSection(SolutionItems) = preProject
+		..\..\paket.dependencies = ..\..\paket.dependencies
+	EndProjectSection
+EndProject
 Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "Fable.Tests", "Fable.Tests.fsproj", "{6EF06954-FBDF-42C7-815C-B13BA2926C93}"
 EndProject
 Global

@@ -44,6 +44,9 @@ module Naming =
     
     let (|StartsWith|_|) pattern (txt: string) =
         if txt.StartsWith pattern then Some pattern else None
+
+    let (|EndsWith|_|) pattern (txt: string) =
+        if txt.EndsWith pattern then Some pattern else None
     
     let knownInterfaces =
         set [ "System.Object"; "System.IComparable"; "System.IDisposable";

@@ -273,6 +273,9 @@ module private AstPass =
         | "areEqual" ->
             ImportCall("assert", "default", Some "equal", false, i.args)
             |> makeCall com i.range i.returnType |> Some
+        | "awaitPromise" | "startAsPromise" ->
+            CoreLibCall("Async", Some i.methodName, false, deleg i i.args)
+            |> makeCall com i.range i.returnType |> Some
         | _ -> None
             
     let references com (i: Fable.ApplyInfo) =
@@ -970,7 +973,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.args with
-            | [] -> Fable.ObjExpr ([], [], None, i.range)
+            | [] -> makeConst "error"
             | [arg] -> arg
             | args -> makeArray Fable.UnknownType args
             |> Some
@@ -979,11 +982,21 @@ module private AstPass =
         
     let cancels com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
+        | ".ctor" ->
+            match i.args with
+            | [Type (Fable.PrimitiveType(Fable.Number _)) as arg] ->
+                "(function(){var token={};setTimeout(function(){token.isCancelled=true},$0); return token;}())"
+                |> emit i <| [arg]
+            | [Type (Fable.PrimitiveType(Fable.Boolean _)) as arg] ->
+                emit i "{ isCancelled = $0 }" [arg]
+            | _ -> Fable.ObjExpr ([], [], None, i.range)
+            |> Some
         | "token" -> i.callee
         | "cancel" -> emit i "$0.isCancelled = true" [i.callee.Value] |> Some
         | "cancelAfter" -> emit i "setTimeout(function () { $0.isCancelled = true }, $1)" [i.callee.Value; i.args.Head] |> Some
         | "isCancellationRequested" -> emit i "$0.isCancelled" [i.callee.Value] |> Some 
+        // TODO: Add check so CancellationTokenSource cannot be cancelled after disposed?
+        | "dispose" -> Fable.Null |> Fable.Value |> Some
         | _ -> None
 
     let knownInterfaces com (i: Fable.ApplyInfo) =
@@ -1020,6 +1033,7 @@ module private AstPass =
         match info.ownerFullName with
         | KnownInterfaces _ -> knownInterfaces com info
         | Naming.StartsWith "Fable.Core" _ -> fableCore com info
+        | Naming.EndsWith "Exception" _ -> exceptions com info
         | "System.String"
         | "Microsoft.FSharp.Core.String" -> strings com info
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
@@ -1030,8 +1044,6 @@ module private AstPass =
         | "System.Action"
         | "System.Func" -> funcs com info
         | "Microsoft.FSharp.Core.Option" -> options com info
-        | "Microsoft.FSharp.Core.MatchFailureException"
-        | "System.Exception" -> exceptions com info
         | "System.Threading.CancellationToken"
         | "System.Threading.CancellationTokenSource" -> cancels com info
         | "System.Math"

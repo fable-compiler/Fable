@@ -29,15 +29,34 @@ module Util =
             | Fable.Method name, Some decorator -> Some (m, name, decorator)
             | _ -> None
         | _ -> None
+        
+    let [<Literal>] runSyncWarning = "Async.RunSynchronously must wrap the whole test"
 
     // Compile tests using Mocha.js BDD interface
     let transformTest com ctx (test: Fable.Member) name (decorator: Fable.Decorator) =
+        let buildAsyncTestBody range asyncBuilder =
+            let doneFn = AST.Fable.Util.makeIdent "$done"
+            let testBody =
+                let doneFn = doneFn |> Fable.IdentValue |> Fable.Value
+                let args = [asyncBuilder; doneFn; doneFn; doneFn]
+                AST.Fable.Util.CoreLibCall("Async", Some "startWithContinuations", false, args)
+                |> AST.Fable.Util.makeCall com range (Fable.PrimitiveType Fable.Unit)
+            [doneFn], testBody
         if test.Arguments.Length > 0 then
             failwithf "Test parameters are not supported (testName = '%s')." name
+        let testArgs, testBody =
+            let (|RunSync|_|) = function
+                | Fable.Sequential([Fable.Throw(Fable.Value(Fable.StringConst warning),_); arg],_)
+                    when warning = runSyncWarning -> Some arg
+                | _ -> None
+            match test.Body with
+            | Fable.Apply(Fable.Value(Fable.Lambda(_,RunSync _)),[asyncBuilder],Fable.ApplyMeth,_,_)
+            | RunSync asyncBuilder -> buildAsyncTestBody test.Body.Range asyncBuilder
+            | _ -> [], test.Body
+        let testBody =
+            Util.funcExpression com ctx testArgs testBody :> Babel.Expression
         let testName =
             Babel.StringLiteral name :> Babel.Expression
-        let testBody =
-            Util.funcExpression com ctx test.Arguments test.Body :> Babel.Expression
         let testRange =
             match testBody.loc with
             | Some loc -> test.Range + loc | None -> test.Range
@@ -104,6 +123,12 @@ type NUnitPlugin() =
 
     interface IReplacePlugin with
         member x.TryReplace com info =
-            match info.ownerFullName with
-            | "NUnit.Framework.Assert" -> asserts com info
+            match info.ownerFullName, info.methodName with
+            | "NUnit.Framework.Assert", _ -> asserts com info
+            | "Microsoft.FSharp.Control.Async", "runSynchronously" ->
+                match info.returnType with
+                | Fable.PrimitiveType Fable.Unit ->
+                    let warning = Fable.Throw(Fable.Value(Fable.StringConst Util.runSyncWarning), None)
+                    AST.Fable.Util.makeSequential info.range [warning; info.args.Head] |> Some 
+                | _ -> failwithf "Async.RunSynchronously in tests is only allowed with Async<unit> %O" info.range
             | _ -> None

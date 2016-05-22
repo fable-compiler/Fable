@@ -41,6 +41,9 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="../../import/core/Fable.Core.dll" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="Util/Util.fs" />
     <Compile Include="Util/Util2.fs" />
     <Compile Include="../tests2/Util.fs" />

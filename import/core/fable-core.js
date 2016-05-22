@@ -23,7 +23,7 @@
     interfaces: Symbol("interfaces")
   };
   
-  exports.Choice = function Choice(t, d) {
+  var Choice = exports.Choice = function Choice(t, d) {
     this.Case = t;
     this.Fields = [d];
   };
@@ -1678,14 +1678,16 @@
   var Async = exports.Async = {};
   Async.__protectedCont = function (f) {
     return function (ctx) {
-      if (ctx.cancelToken != null && ctx.cancelToken.isCancelled) {
-        throw "cancelled";
+      if (ctx.cancelToken.isCancelled) {
+        ctx.onCancel("cancelled");
       }
-      try {
-        f(ctx);
-      }
-      catch (err) {
-        ctx.onError(err);
+      else {
+        try {
+          f(ctx);
+        }
+        catch (err) {
+          ctx.onError(err);
+        }
       }
     };
   }
@@ -1696,6 +1698,7 @@
           return cont(x)(ctx);
         },
         onError: ctx.onError,
+        onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken
       })
     });
@@ -1742,6 +1745,10 @@
           finalFn();
           ctx.onError(x);
         },
+        onCancel: function (x) {
+          finalFn();
+          ctx.onCancel(x);
+        },
         cancelToken: ctx.cancelToken
       });
     });
@@ -1750,6 +1757,7 @@
     return Async.__protectedCont(function (ctx) {
       work({
         onSuccess: ctx.onSuccess,
+        onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken,
         onError: function (ex) {
           ctx.onSuccess(catchFn(ex));
@@ -1777,12 +1785,20 @@
       ctx.onSuccess();
     });
   };
-  Async.start = Async.startImmediate = function (work, cancelToken) {
+  Async.start = Async.startImmediate = Async.startWithContinuations = function (work, onSuccess, onError, onCancel, cancelToken) {
+    if (typeof onSuccess !== "function") {
+      cancelToken = onSuccess;
+      onSuccess = null;
+    }
     work({
-      onSuccess: function () { },
-      onError: function () { },
-      cancelToken: cancelToken
+      onSuccess: onSuccess ? onSuccess : function () { },
+      onError: onError ? onError : function () { },
+      onCancel: onCancel ? onCancel : function () { },
+      cancelToken: cancelToken ? cancelToken : {} 
     });
+  };
+  Async.ignore = function (work) {
+    return Async.bind(work, function() { return Async.return() });
   };
   Object.defineProperty(Async, 'cancellationToken', {
     get: function () {
@@ -1793,16 +1809,40 @@
   });
   Async.fromContinuations = function (f) {
     return Async.__protectedCont(function (ctx) {
-      return f(ctx.onSuccess, ctx.onError, ctx.onError);
+      return f([ctx.onSuccess, ctx.onError, ctx.onCancel]);
+    });
+  };
+  Async.startAsPromise = function (work, cancelToken) {
+    return new Promise(function (resolve, reject) {
+      Async.startWithContinuations(work, resolve, reject, reject, cancelToken ? cancelToken : {});
+    });
+  };
+  Async.awaitPromise = function (p) {
+    return Async.fromContinuations(function (conts) {
+      p.then(conts[0]).catch(function (err) {
+        (err == "cancelled" ? conts[2] : conts[1])(err);
+      });
+    });
+  };
+  Async.parallel = function (works) {
+    return Async.awaitPromise(Promise.all(Seq.map(function (w) {
+      return Async.startAsPromise(w);
+    }, works)));
+  };
+  Async.catch = function (work) {
+    return Async.__protectedCont(function (ctx) {
+      work({
+        onSuccess: function(x) { ctx.onSuccess(new Choice("Choice1Of2", x)) },
+        onError: function(ex) { ctx.onSuccess(new Choice("Choice2Of2", ex)) },
+        onCancel: ctx.onCancel,
+        cancelToken: ctx.cancelToken
+      })
     });
   };
   Async.sleep = function (ms) {
     return Async.__protectedCont(function (ctx) {
       setTimeout(function () {
-        if (ctx.cancelToken != null && ctx.cancelToken.isCancelled) {
-          throw "cancelled";
-        }
-        ctx.onSuccess();
+        ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess();
       }, ms);
     });
   };
