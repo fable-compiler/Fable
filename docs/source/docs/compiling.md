@@ -16,6 +16,11 @@ npm install -g fable-compiler
 fable path/to/your/project.fsproj
 ```
 
+> Note: If you're having problems to compile a project, make sure
+you are using the latest version of the compiler. If you installed it globally,
+you can update it with `npm install -g fable-compiler`. You can see the version
+installed with `fable --help` and the latest version available in npm with `npm info fable-compiler version`.
+
 
 ## CLI options
 
@@ -69,6 +74,9 @@ If you omit the path, the compiler will assume it's in the current directory.
 ```shell
 fable my/path/
 ```
+
+> Note that in this case, all path configurations (`outDir`, `plugins`...) will be relative to
+the directory where `fableconfig.json` resides.
 
 Project references can be passed using a plain object:
 
@@ -253,8 +261,26 @@ The most commonly used attributes (`TestFixture` and `Test`) and their respectiv
 `SetUp`/`TearDown` counterparts are implemented. For assertions, however, only
 `Assert.AreEqual` is available. But more features will be available soon.
 
-> Note: As attributes are only read by name, it's possible to use custom-defined
-attributes without the `NUnit` dependency if needed.
+With some limitations, it's also possible to write asynchronous tests. For this,
+you just need to **wrap the whole test** with `Async.RunSynchronously`:
+
+```fsharp
+[<Test>]
+let ``Async.Sleep works``() =
+    Async.RunSynchronously(async {
+        let res = ref false
+        async {
+            do! Async.Sleep 50
+            return i
+        } |> Async.StartImmediate
+        Assert.AreEqual(false, !res)
+        do! Async.Sleep 100
+        Assert.AreEqual(true, !res)
+    })
+```
+
+> Note: If you don't want to have `NUnit` as dependency. You can also use the attributes
+and `Assert` type in `Fable.Core.Testing` module.
 
 For Visual Studio users, there's a similar plugin to convert Visual Studio Unit
 Tests to Mocha.
@@ -262,15 +288,19 @@ Tests to Mocha.
 
 ## Samples
 
-There are some samples available in the [repository](https://github.com/fsprojects/Fable/blob/master/samples) and you can also download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
+There are several samples available in the [repository](https://github.com/fsprojects/Fable/blob/master/samples) and you can also download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
 Every sample includes a `fableconfig.json` file so they can be compiled just by running
-the `fable` command in the sample directory. Just be sure to install the npm dependencies
-the first time.
+the `fable` command in the sample directory (or from a different directory by passing the route).
+Just be sure to install the npm dependencies the first time.
 
 ```shell
 npm install
 fable
 ```
+
+> Note: `fableconfig.json` in most of the samples runs `npm install` before compilation
+so usually this step is automatic.
+
 
 Now it's your turn to build a great app with Fable and show it to the world!
 Check [Compatibility](compatibility.md) and [Interacting with JavaScript](interacting.md)

@@ -50,6 +50,18 @@ module Testing =
     
     type TestFixtureAttribute() =
         inherit Attribute()
+    
+    type TestFixtureSetUpAttribute() =
+        inherit Attribute()
+
+    type TestFixtureTearDownAttribute() =
+        inherit Attribute()
+
+    type SetUpAttribute() =
+        inherit Attribute()
+
+    type TearDownAttribute() =
+        inherit Attribute()     
         
     type Assert =
         static member AreEqual(x: 'T, y: 'T): unit = failwith "JS only"
