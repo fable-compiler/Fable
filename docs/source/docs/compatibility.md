@@ -80,9 +80,9 @@ and allows mutable operations. Same for `System.Collections.Generic.HashSet`.
 ## Async
 
 `async` computation expressions work as expected. However, `RunSynchronously` is not available and,
-as JS is single-threaded, `Start` and `StartImmediate` will have the same effect.
-Methods to convert to and from [JavaScript Promises](http://babeljs.io/docs/learn-es2015/#promises)
-should be simple to do and are planned for the core library.
+as JS is single-threaded, `Start` and `StartImmediate` will have the same effect (likewise, `Async.Parallel`
+won't spawn background threads on its own). When opening `Fable.Core` you'll have access to `Async.AwaitPromise`
+and `Async.StartAsPromise` extensions for easy interaction with [JavaScript Promises](http://babeljs.io/docs/learn-es2015/#promises).
 
 ## Custom computation expression
 
