@@ -4,6 +4,7 @@ module Fable.Tests.Misc
 open System
 open NUnit.Framework
 open Fable.Tests.Util
+open Fable.Core
 
 type Base() =
     let mutable x = 5
@@ -51,15 +52,6 @@ let ``Local values from partial functions work``() = // See #115
 [<Test>]
 let ``Symbols in external projects work``() =
     equal "Fable Rocks!" Clamp.Helper.ConditionalExternalValue
-    
-type KeyValueListAttribute() =
-    inherit System.Attribute()
-
-type StringEnumAttribute() =
-    inherit System.Attribute()
-    
-[<Emit("$0[$1]")>]
-let (?) (o: obj) (prop: obj): obj = failwith "JS only"    
 
 [<KeyValueList>]
 type MyOptions =
@@ -68,11 +60,25 @@ type MyOptions =
     | [<CompiledName("QTY")>] QTY of int
 
 [<Test>]
-let ``KeyValueList attribute works``() =
+let ``KeyValueList attribute works at compile time``() =
     let opts = [
         Name "Fable"
         QTY 5
         Flag1
+    ]
+    opts?name |> unbox |> equal "Fable"
+    opts?QTY |> unbox |> equal 5
+    opts?flag1 |> unbox |> equal true
+
+[<Test>]
+let ``KeyValueList attribute works at runtime``() =
+    let buildAtRuntime = function
+        | null | "" -> Flag1
+        | name -> Name name 
+    let opts = [
+        buildAtRuntime "Fable"
+        QTY 5
+        buildAtRuntime ""
     ]
     opts?name |> unbox |> equal "Fable"
     opts?QTY |> unbox |> equal 5

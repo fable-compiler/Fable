@@ -3,6 +3,7 @@ module Fable.Tests.Arrays
 open NUnit.Framework
 open Fable.Tests.Util
 open System.Collections.Generic
+open Fable.Core
 
 // TODO
 // [<Test>]

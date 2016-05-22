@@ -2,6 +2,7 @@
 module Fable.Tests.UnionTypes
 open NUnit.Framework
 open Fable.Tests.Util
+open Fable.Core
 
 type Gender = Male | Female
 

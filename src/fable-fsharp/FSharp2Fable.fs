@@ -272,7 +272,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeGetFrom com ctx r typ unionExpr (makeConst "tag")
 
     | BasicPatterns.UnionCaseSet (Transform com ctx unionExpr, _type, _case, FieldName caseField, Transform com ctx valueExpr) ->
-        failwith "Unexpected UnionCaseSet"
+        makeRange fsExpr.Range
+        |> failwithf "Unexpected UnionCaseSet %O"
 
     | BasicPatterns.ValueSet (valToSet, Transform com ctx valueExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx valToSet.FullType
@@ -423,14 +424,24 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 | _ -> None
             match flattenList range [] argExprs with
             | _, Some baseList ->
-                failwithf "KeyValue lists cannot be composed (%O)" range
+                failwithf "KeyValue lists cannot be composed %O" range
             | args, None ->
-                args |> List.rev |> List.map (fun x ->
-                    match transformExpr com ctx x with
-                    | Fable.Wrapped(KeyValue(k,v),_)
-                    | KeyValue(k,v) -> k,v
-                    | expr -> failwithf "Unexpected item in KeyValue list at %O: %A" range expr)
-            |> makeJsObject range
+                (Some [], args) ||> List.fold (fun acc x ->
+                    match acc, transformExpr com ctx x with
+                    | Some acc, Fable.Wrapped(KeyValue(k,v),_)
+                    | Some acc, KeyValue(k,v) -> (k,v)::acc |> Some
+                    | None, _ -> None // If a case cannot be determined at compile time
+                    | _ -> None       // the whole list must be converted at runtime
+                ) |> function
+                | Some cases -> makeJsObject range cases
+                | None ->
+                    let args =
+                        let args = args |> List.map (transformExpr com ctx)
+                        Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.DynamicArray))
+                    let builder =
+                        Fable.Emit("(o, kv) => { o[kv[0]] = kv[1]; return o; }") |> Fable.Value
+                    CoreLibCall("Seq", Some "fold", false, [builder;Fable.ObjExpr([],[],None,None);args])
+                    |> makeCall com (Some range) Fable.UnknownType
         | ListUnion ->
             let buildArgs (args, baseList) =
                 let args = args |> List.rev |> (List.map (transformExpr com ctx))
