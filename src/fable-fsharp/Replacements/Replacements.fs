@@ -1028,6 +1028,23 @@ module private AstPass =
             |> Some
         // | "compare" -> emit info "$0 < $1 ? -1 : ($0 > $1 ? 1 : 0)" info.args |> Some
         | _ -> None
+        
+    let random com (info: Fable.ApplyInfo) =
+        match info.methodName with
+        | ".ctor" ->
+            let o = Fable.ObjExpr ([], [], None, info.range)
+            Fable.Wrapped (o, info.returnType) |> Some
+        | "next" ->
+            let min, max =
+                match info.args with
+                | [] -> makeConst 0, makeConst System.Int32.MaxValue
+                | [max] -> makeConst 0, max
+                | [min; max] -> min, max
+                | _ -> failwith "Unexpected arg count for Random.Next"
+            "Math.floor(Math.random() * ($1 - $0)) + $0"
+            |> emit info <| [min; max]
+            |> Some
+        | _ -> None
 
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
@@ -1043,6 +1060,7 @@ module private AstPass =
         | "System.TimeSpan" -> timeSpans com info
         | "System.Action"
         | "System.Func" -> funcs com info
+        | "System.Random" -> random com info
         | "Microsoft.FSharp.Core.Option" -> options com info
         | "System.Threading.CancellationToken"
         | "System.Threading.CancellationTokenSource" -> cancels com info

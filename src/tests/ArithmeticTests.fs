@@ -193,3 +193,9 @@ let ``decr works``() =
     let i = ref 5
     decr i
     Assert.AreEqual(!i, 4)
+    
+[<Test>]
+let ``System.Random works``() =
+    let rnd = System.Random()
+    let x = rnd.Next(5)
+    Assert.AreEqual(true, x > 0 && x < 5)
