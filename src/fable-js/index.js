@@ -31,6 +31,7 @@ var cli = commandLineArgs([
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
   { name: 'refs', multiple: true, description: "Specify project references in `Project=js/import/path` format (e.g. `MyLib=../lib`)." },
+  { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'copyExt', type: Boolean, description: "Copy external files into a `.fable.external` folder." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },

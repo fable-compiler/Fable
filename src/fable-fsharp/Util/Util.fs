@@ -5,6 +5,7 @@ type CompilerOptions = {
         projFile: string
         symbols: string list
         plugins: string list
+        msbuild: string list
         refs: Map<string, string>
         watch: bool
         clamp: bool

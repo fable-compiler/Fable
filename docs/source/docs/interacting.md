@@ -7,7 +7,7 @@ There are several ways to interact with the JavaScript world:
 - [Dynamic programming](#dynamic-programming)
 - [Foreign interfaces](#foreign-interfaces)
 - [Special attributes](#special-attributes)
-- [Calling F# code from JavaScript](#calling-f#-code-from-javascript)
+- [Calling F# code from JavaScript](#calling-f-code-from-javascript)
 
 ## Dynamic programming
 

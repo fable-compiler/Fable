@@ -11,7 +11,7 @@
     "targets": {
         "debug": {
             "watch": true,
-            "symbols": ["DEBUG"],
+            "symbols": ["DEV_SERVER"],
             "scripts": {
                 "postbuild": "node out/server"
             }

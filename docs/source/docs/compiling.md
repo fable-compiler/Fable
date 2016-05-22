@@ -36,7 +36,8 @@ Option                  | Short     | Description
 `--symbols`             |           | F# symbols for conditional compilation, like `DEBUG`.
 `--plugins`             |           | Paths to Fable plugins.
 `--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
-`--refs`                |           | Specify project references in `Project=js/import/path` format (see below)
+`--refs`                |           | Specify project references in `Project=js/import/path` format (see below).
+`--msbuild`             |           | Pass MSBuild arguments like `Configuration=Release`.
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
 `--copyExt`             |           | Copy external files into a `.fable.external` folder.
 `--target`              | `-t`      | Use options from a specific target in `fableconfig.json`.

@@ -22,7 +22,7 @@ let port =
     | Some x -> x | None -> 8080
 
 // When debuggin, use webpack-dev-server to allow Hot Module Reloading
-#if DEBUG
+#if DEV_SERVER
 Node.``process``.env?WEBPACK_DEV_SERVER <- true
 let config = Node.require.Invoke("../webpack.config")
 let webpack = Node.require.Invoke("webpack")

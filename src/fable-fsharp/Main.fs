@@ -32,6 +32,7 @@ let readOptions argv =
         copyExt = def opts "copyExt" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id)
         plugins = def opts "plugins" [] (li id)
+        msbuild = def opts "msbuild" [] (li id)
         refs = Map(def opts "refs" [] (li (fun (x: string) ->
             let xs = x.Split('=') in xs.[0], xs.[1])))
     }
@@ -53,15 +54,15 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
     match prevResults, fileMask with
     | Some res, Some file when com.Options.projFile <> file -> res
     | _ ->
-        let rec replaceConstants (opts: FSharpProjectOptions) =
-            let replaceConstants' (otherOpts: string[]) =
+        let rec addSymbols (opts: FSharpProjectOptions) =
+            let addSymbols' (otherOpts: string[]) =
                 otherOpts
-                |> Array.filter (fun s -> s.StartsWith "--define:" = false)
+                // |> Array.filter (fun s -> s.StartsWith "--define:" = false)
                 |> Array.append (List.map (sprintf "--define:%s") com.Options.symbols |> List.toArray)
             { opts with
-                OtherOptions = replaceConstants' opts.OtherOptions
+                OtherOptions = addSymbols' opts.OtherOptions
                 ReferencedProjects = opts.ReferencedProjects
-                    |> Array.map (fun (k,v) -> k, replaceConstants v) }
+                    |> Array.map (fun (k,v) -> k, addSymbols v) }
         let projFile = com.Options.projFile
         if com.Options.code = null && not(File.Exists projFile) then
             failwithf "Cannot find project file %s" projFile
@@ -78,8 +79,12 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
                 checker.GetProjectOptionsFromScript(projFile, projCode)
                 |> Async.RunSynchronously
             | _ ->
-                ProjectCracker.GetProjectOptionsFromProjectFile(projFile)
-            |> replaceConstants
+                let props = com.Options.msbuild |> List.choose (fun x ->
+                    match x.Split('=') with
+                    | [|key;value|] -> Some(key,value)
+                    | _ -> None)
+                ProjectCracker.GetProjectOptionsFromProjectFile(projFile, props)
+            |> addSymbols
         with
         | ex -> failwithf "Cannot read project options: %s" ex.Message
 
