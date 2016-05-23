@@ -147,7 +147,7 @@ delegate, this will be done automatically by the compiler.
 
 ## Event and Observable
 
-Events are not implemented yet, please use [Observable](https://github.com/fsprojects/Fable/blob/master/src/tests/ObservableTests.fs) instead.
+Both [Events]((https://github.com/fsprojects/Fable/blob/master/src/tests/EventTests.fs) and [Observable](https://github.com/fsprojects/Fable/blob/master/src/tests/ObservableTests.fs) are supported.
 
 ## Object Expressions
 
