@@ -222,6 +222,16 @@ module Patterns =
                 Some (meth, typArgs, methTypArgs, methArgs@exprs)
         | _ -> None
         
+    /// This matches the boilerplate F# compiler generates for methods
+    /// like Dictionary.TryGetValue (see #154)
+    let (|TryGetValue|_|) = function
+        | Let((outArg1, (DefaultValue _ as def)),
+                NewTuple(_, [Call(callee, meth, typArgs, methTypArgs,
+                                    [arg; AddressOf(Value outArg2)]); Value outArg3]))
+            when outArg1 = outArg2 && outArg1 = outArg3 ->
+            Some (callee, meth, typArgs, methTypArgs, [arg; def])
+        | _ -> None
+        
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
         | "System.Byte" -> Some UInt8

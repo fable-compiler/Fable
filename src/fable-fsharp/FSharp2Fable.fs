@@ -102,6 +102,11 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         let i = exEnt.FSharpFields |> Seq.findIndex (fun x -> x.Name = fieldName)
         makeGet range typ exExpr (sprintf "data%i" i |> makeConst)
+
+    | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
+        let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) methArgs
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
             
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr

@@ -625,13 +625,19 @@ module private AstPass =
         | "containsValue" ->
             CoreLibCall ("Map", Some "containsValue", false, [i.args.Head; i.callee.Value])
             |> makeCall com i.range i.returnType |> Some
-        | "item" -> icall "get"
+        | "item" -> icall <| if i.args.Length = 1 then "get" else "set"
         | "keys" -> icall "keys"
         | "values" -> icall "values"
         | "containsKey" -> icall "has"
         | "clear" -> icall "clear"
         | "add" -> icall "set"
         | "remove" -> icall "delete"
+        | "tryGetValue" ->
+            match i.callee, i.args with
+            | Some callee, [key; defVal] ->
+                emit i "$0.has($1) ? [true, $0.get($1)] : [false, $2]" [callee; key; defVal]
+                |> Some
+            | _ -> None
         | _ -> None
 
     let systemSets com (i: Fable.ApplyInfo) =
