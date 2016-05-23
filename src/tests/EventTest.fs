@@ -130,3 +130,46 @@ let ``Event.split works``() =
     
     equal 6 result1
     equal 12 result2 
+    
+[<Test>]
+let ``IEvent.add works``() =
+    let mutable result = 0    
+    
+    let source = Event<_> ()
+    source.Publish.Add(fun n -> result <- n)
+    
+    source.Trigger 6
+    equal 6 result
+    
+[<Test>]
+let ``IEvent.Subscribe works``() =
+    let mutable result = 0      
+    
+    let source = Event<_> ()    
+    source.Publish.Subscribe(fun n -> result <- n) |> ignore
+     
+    source.Trigger 6
+    equal 6 result
+
+[<Test>]
+let ``IEvent.AddHandler works``() =
+    let mutable result = 0      
+    
+    let source = Event<_> ()    
+    source.Publish.AddHandler(new Handler<_>(fun sender n -> result <- n)) |> ignore
+     
+    source.Trigger 6
+    equal 6 result
+    
+[<Test>]
+let ``IEvent.RemoveHandler works``() =
+    let mutable result = 0      
+    
+    let handler = new Handler<_>(fun sender n -> result <- n)
+    
+    let source = Event<_> ()    
+    source.Publish.AddHandler(handler) |> ignore
+    source.Publish.RemoveHandler(handler)
+     
+    source.Trigger 6
+    equal 0 result

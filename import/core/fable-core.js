@@ -2000,24 +2000,47 @@
       Seq.iter(function(f) { f(value) }, _this.delegates ) 
     };
     
-    var addHandler = function (f) {
+    var _addHandler = function (f) {
       _this.delegates.push(f)
     };
     
-    var removeHandler = function (f) {
-      var index = _this.delegates.indexOf(f);
+    var _removeHandler = function (f) {
+      var fnd = function(el, i, arr) {
+        return ''+el == ''+f //Special dedication to Chet Husk.
+      }
+      
+      var index = _this.delegates.findIndex(fnd)
       if (index > -1) {
         _this.delegates.splice(index, 1);
       }
     }
     
-    this.subscribe = sbscrb || function (observer) {
+    this.subscribe = function(f) {
+      _addHandler(f);
+    }
+    
+    this.add = function (f) {
+      _addHandler(f);
+    }
+    
+    this.addHandler = function(f) {
+      var h = function(x) {return f(undefined,x) }
+      
+      _addHandler(h);
+    }
+    
+    this.removeHandler =  function(f) {
+      var h = function(x) {return f(undefined,x) }
+     _removeHandler(h); 
+    }
+    
+    this._subscribe = sbscrb || function (observer) {
       var f = observer.onNext; 
-      addHandler(f); 
+      _addHandler(f); 
       
        var disp = {
         dispose: function () {
-          removeHandler(f);
+          _removeHandler(f);
         }
       };
       disp[FSymbol.interfaces] = ["System.IDisposable"];
@@ -2027,12 +2050,12 @@
   };
   
   Event.add = function (f, w) {
-    w.subscribe(new Observer(f));
+    w._subscribe(new Observer(f));
   };
   
   Event.map = function(f, w) {
     var s = function(observer) {
-      w.subscribe(new Observer(
+      w._subscribe(new Observer(
         function (v) {
           Obs.__protect(
             function () { 
@@ -2050,7 +2073,7 @@
   
   Event.choose = function (f, w) {
     var s = function (observer) {
-      return w.subscribe(new Observer(
+      return w._subscribe(new Observer(
         function (v) {
           Obs.__protect(
             function () { return f(v) },
@@ -2087,7 +2110,7 @@
   
   Event.scan = function (f, state, w) {
    var s = function (observer) {
-      return w.subscribe(new Observer(
+      return w._subscribe(new Observer(
         function (v) {
           Obs.__protect(
             function () { return f(state, v) },
@@ -2109,7 +2132,7 @@
   Event.pairwise = function (w) {
     var s = function (observer) {
       var lastArgs = null;
-      return w.subscribe(new Observer(
+      return w._subscribe(new Observer(
         function (args2) {
           if (lastArgs != null) {
             observer.onNext([lastArgs, args2]);
@@ -2129,7 +2152,7 @@
       var stopped = false,
           completed1 = false,
           completed2 = false;
-      var h1 = w1.subscribe(new Observer(
+      var h1 = w1._subscribe(new Observer(
         function (v) {
           if (!stopped) {
             observer.onNext(v);
@@ -2151,7 +2174,7 @@
           }
         }
       ));
-      var h2 = w2.subscribe(new Observer(
+      var h2 = w2._subscribe(new Observer(
         function (v) {
           if (!stopped) {
             observer.onNext(v);
