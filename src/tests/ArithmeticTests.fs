@@ -198,4 +198,4 @@ let ``decr works``() =
 let ``System.Random works``() =
     let rnd = System.Random()
     let x = rnd.Next(5)
-    Assert.AreEqual(true, x > 0 && x < 5)
+    Assert.AreEqual(true, x >= 0 && x < 5)
