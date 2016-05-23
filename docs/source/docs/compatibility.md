@@ -42,7 +42,7 @@ compile down to native JS `Date` with a `kind` property attached.
 
 ## Tuples
 
-Tuples compile to native arrays. Desestructuring, `fst`, `snd`... works normally.
+Tuples compile to native arrays. Destructuring, `fst`, `snd`... works normally.
 
 ## Records
 
