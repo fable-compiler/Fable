@@ -330,6 +330,69 @@
     return d1.getTime() == d2.getTime();
   };
   FDate.compareTo = FDate.compare = Util.compareTo;
+  
+  var Timer = exports.Timer = function Timer(interval) {
+    this.interval = interval > 0 ? interval : 100;
+    this.autoReset = true;
+    this._elapsed = new Event();
+  };
+  Object.defineProperty(Timer.prototype, 'elapsed', {
+    get: function () {
+      return this._elapsed;
+    }
+  });
+  Object.defineProperty(Timer.prototype, 'enabled', {
+    get: function () {
+      return this._enabled;
+    },
+    set: function (x) {
+      if (!this._isDisposed && this._enabled != x) {
+        if (this._enabled = x) {
+          if (this.autoReset) {
+            var _this = this;
+            this._intervalId = setInterval(function () {
+              if (!_this.autoReset) {
+                _this.enabled = false;
+              }
+              _this._elapsed.trigger(new Date());
+            }, this.interval);
+          }
+          else {
+            var _this = this;
+            this._timeoutId = setTimeout(function () {
+              _this.enabled = false;
+              _this._timeoutId = 0;
+              if (_this.autoReset) {
+                _this.enabled = true;
+              }
+              _this._elapsed.trigger(new Date());
+            }, this.interval);
+          }
+        }
+        else {
+          if (this._timeoutId) {
+            clearTimeout(this._timeoutId);
+            this._timeoutId = 0;
+          }
+          if (this._intervalId) {
+            clearInterval(this._intervalId);
+            this._intervalId = 0;
+          }
+        }
+      }
+    }
+  });
+  Timer.prototype.dispose = Timer.prototype.close = function () {
+    this.enabled = false;
+    this._isDisposed = true;
+  };
+  Timer.prototype.start = function () {
+    this.enabled = true;
+  };
+  Timer.prototype.stop = function () {
+    this.enabled = false;
+  };
+  Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 
   var FString = exports.String = {};
   FString.fsFormatRegExp = /%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
@@ -2027,4 +2090,238 @@
       }, w),
     ];
   };
+  
+  var Event = exports.Event = function(sbscrb, delegates) {
+    var _this = this;
+    this.delegates = delegates || new Array()
+    
+    this.trigger = function (value) { 
+      Seq.iter(function(f) { f(value) }, _this.delegates ) 
+    };
+    
+    var _addHandler = function (f) {
+      _this.delegates.push(f)
+    };
+    
+    var _removeHandler = function (f) {
+      var fnd = function(el, i, arr) {
+        return ''+el == ''+f //Special dedication to Chet Husk.
+      }
+      
+      var index = _this.delegates.findIndex(fnd)
+      if (index > -1) {
+        _this.delegates.splice(index, 1);
+      }
+    }
+    
+    this.subscribe = function(f) {
+      var disp;
+      return _addHandler(f), disp = {
+        dispose: function () {
+          _removeHandler(f);
+        }
+      },disp[FSymbol.interfaces] = ["System.IDisposable"], disp;
+    }
+    
+    this.add = function (f) {
+      _addHandler(f);
+    }
+    
+    this.addHandler = function(f) {
+      var h = function(x) {return f(undefined,x) }
+      _addHandler(h);
+    }
+    
+    this.removeHandler =  function(f) {
+      var h = function(x) {return f(undefined,x) }
+     _removeHandler(h); 
+    }
+    
+    this._subscribe = sbscrb || function (observer) {
+      var disp, f = observer.onNext; 
+      return _addHandler(f), disp = {
+        dispose: function () {
+          _removeHandler(f);
+        }
+      }, disp[FSymbol.interfaces] = ["System.IDisposable"], disp;
+    }
+  };
+  Object.defineProperty(Event.prototype, "publish", {
+    get: function () { return this; }
+  });
+  
+  Event.add = function (f, w) {
+    w._subscribe(new Observer(f));
+  };
+  
+  Event.map = function(f, w) {
+    var s = function(observer) {
+      w._subscribe(new Observer(
+        function (v) {
+          Obs.__protect(
+            function () { 
+              return f(v)
+            },
+            observer.onNext,
+            observer.onError
+          );
+        },
+        observer.onError,
+        observer.onCompleted));
+    }
+    return new Event(s, w.delegates) 
+  }
+  
+  Event.choose = function (f, w) {
+    var s = function (observer) {
+      return w._subscribe(new Observer(
+        function (v) {
+          Obs.__protect(
+            function () { return f(v) },
+            function (v) {
+              if (v != null) {
+                observer.onNext(v);
+              }
+            },
+            observer.onError
+          );
+        },
+        observer.onError,
+        observer.onCompleted
+      ));
+    };
+    return new Event(s, w.delegates)
+    
+  };
+  
+  Event.filter = function (f, w) {
+    return Event.choose(function (x) {
+      return f(x) ? x : null;
+    }, w);
+  };
+  
+  Event.partition = function (f, w) {
+    return [
+      Event.filter(f, w),
+      Event.filter(function (x) {
+        return !f(x);
+      }, w)
+    ];
+  };
+  
+  Event.scan = function (f, state, w) {
+   var s = function (observer) {
+      return w._subscribe(new Observer(
+        function (v) {
+          Obs.__protect(
+            function () { return f(state, v) },
+            function (z) {
+              state = z;
+              observer.onNext(z);
+            },
+            observer.onError
+          );
+        },
+        observer.onError,
+        observer.onCompleted
+      ));
+    };
+    return new Event(s, w.delegates)
+    
+  };
+  
+  Event.pairwise = function (w) {
+    var s = function (observer) {
+      var lastArgs = null;
+      return w._subscribe(new Observer(
+        function (args2) {
+          if (lastArgs != null) {
+            observer.onNext([lastArgs, args2]);
+          }
+          lastArgs = args2;
+        },
+        observer.onError,
+        observer.onCompleted
+      ));
+    };
+    return new Event(s, w.delegates)
+    
+  };
+  
+  Event.merge = function (w1, w2) {
+    var s = function (observer) {
+      var stopped = false,
+          completed1 = false,
+          completed2 = false;
+      var h1 = w1._subscribe(new Observer(
+        function (v) {
+          if (!stopped) {
+            observer.onNext(v);
+          }
+        },
+        function (e) {
+          if (!stopped) {
+            stopped = true;
+            observer.onError(e);
+          }
+        },
+        function () {
+          if (!stopped) {
+            completed1 = true;
+            if (completed2) {
+              stopped = true;
+              observer.onCompleted();
+            }
+          }
+        }
+      ));
+      var h2 = w2._subscribe(new Observer(
+        function (v) {
+          if (!stopped) {
+            observer.onNext(v);
+          }
+        },
+        function (e) {
+          if (!stopped) {
+            stopped = true;
+            observer.onError(e);
+          }
+        },
+        function () {
+          if (!stopped) {
+            completed2 = true;
+            if (completed1) {
+              stopped = true;
+              observer.onCompleted();
+            }
+          }
+        }
+      ));
+      var disp = {
+        dispose: function () {
+          h1.dispose();
+          h2.dispose();
+        }
+      };
+      disp[FSymbol.interfaces] = ["System.IDisposable"];
+      return disp;
+    };
+    
+    return new Event(s, w1.delegates.concat(w2.delegates))
+  };
+  
+  Event.split = function (f, w) {
+    return [
+      Event.choose(function (v) {
+        var res = f(v);
+        return res.Case == "Choice1Of2"
+          ? res.Fields[0] : null;
+      }, w),
+      Event.choose(function (v) {
+        var res = f(v);
+        return res.Case == "Choice2Of2"
+          ? res.Fields[0] : null;
+      }, w),
+    ];
+  };  
 });

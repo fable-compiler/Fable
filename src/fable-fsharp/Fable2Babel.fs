@@ -362,8 +362,7 @@ module Util =
                 upcast Babel.BinaryExpression (op, left, right, ?loc=range)
             // Emit expressions
             | Fable.Value (Fable.Emit emit), args ->
-                cleanNullArgs args
-                |> List.map (com.TransformExpr ctx)
+                List.map (com.TransformExpr ctx) args
                 |> macroExpression range emit
             // Module or class static members
             | Fable.Value (Fable.TypeRef typEnt), [Fable.Value (Fable.StringConst memb)]

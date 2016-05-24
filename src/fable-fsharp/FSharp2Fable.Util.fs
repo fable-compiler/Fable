@@ -222,6 +222,28 @@ module Patterns =
                 Some (meth, typArgs, methTypArgs, methArgs@exprs)
         | _ -> None
         
+    /// This matches the boilerplate F# compiler generates for methods
+    /// like Dictionary.TryGetValue (see #154)
+    let (|TryGetValue|_|) = function
+        | Let((outArg1, (DefaultValue _ as def)),
+                NewTuple(_, [Call(callee, meth, typArgs, methTypArgs,
+                                    [arg; AddressOf(Value outArg2)]); Value outArg3]))
+            when outArg1 = outArg2 && outArg1 = outArg3 ->
+            Some (callee, meth, typArgs, methTypArgs, [arg; def])
+        | _ -> None
+
+    /// This matches the boilerplate generated to wrap .NET events from F#
+    let (|CreateEvent|_|) = function
+        | Call(Some(Call(None, createEvent,_,_,
+                        [Lambda(eventDelegate, Call(Some callee, addEvent,[],[],[Value eventDelegate']));
+                         Lambda(eventDelegate2, Call(Some callee2, removeEvent,[],[],[Value eventDelegate2']));
+                         Lambda(callback, NewDelegate(_, Lambda(delegateArg0, Lambda(delegateArg1, Application(Value callback',[],[Value delegateArg0'; Value delegateArg1'])))))])),
+                meth, typArgs, methTypArgs, args)
+                when createEvent.FullName = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent" ->
+            let eventName = addEvent.DisplayName.Replace("add_","") |> Naming.lowerFirst 
+            Some (callee, eventName, meth, typArgs, methTypArgs, args)
+        | _ -> None
+        
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
         | "System.Byte" -> Some UInt8
@@ -529,13 +551,14 @@ module Util =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
-    let replace (com: IFableCompiler) ctx r typ ownerName methName
+    let replace (com: IFableCompiler) ctx r typ ownerName methName methKind
                 (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args) =
         let pluginReplace i =
             com.ReplacePlugins |> Seq.tryPick (fun plugin -> plugin.TryReplace com i)
         let applyInfo: Fable.ApplyInfo = {
             ownerFullName = ownerName
             methodName = Naming.lowerFirst methName
+            methodKind = methKind
             range = r
             callee = callee
             args = args
@@ -562,9 +585,10 @@ module Util =
                     && meth.CurriedParameterGroups.[0].Count > 0
                 then countFuncArgs meth.CurriedParameterGroups.[0].[0].Type
                 else 0
+            let methName = sanitizeMethodName com meth
             replace com ctx r typ
                 (sanitizeEntityName meth.EnclosingEntity)
-                (sanitizeMethodName com meth)
+                methName (getMemberKind methName meth)
                 (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
                 (callee, args) |> Some
         else

@@ -102,6 +102,17 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         let i = exEnt.FSharpFields |> Seq.findIndex (fun x -> x.Name = fieldName)
         makeGet range typ exExpr (sprintf "data%i" i |> makeConst)
+
+    | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
+        let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) methArgs
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
+
+    | CreateEvent (callee, eventName, meth, typArgs, methTypArgs, methArgs) ->
+        let callee, args = com.Transform ctx callee, List.map (com.Transform ctx) methArgs
+        let callee = Fable.Apply(callee, [makeConst eventName], Fable.ApplyGet, Fable.UnknownType, None)
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeCallFrom com ctx r typ meth (typArgs, methTypArgs) (Some callee) args
             
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -368,7 +379,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            replace com ctx r typ (recordType.FullName) ".ctor" ([],[],[],0) (None,argExprs)
+            replace com ctx r typ (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
         else
             Fable.Apply (makeTypeRef com (Some range) recordType, argExprs, Fable.ApplyCons,
                             makeType com ctx fsExpr.Type, Some range)
@@ -459,7 +470,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 tag::(List.map (transformExpr com ctx) argExprs)
             if isReplaceCandidate com fsType.TypeDefinition then
                 let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-                replace com ctx r typ (unionType.FullName) ".ctor" ([],[],[],0) (None,argExprs)
+                replace com ctx r typ (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             else
                 Fable.Apply (makeTypeRef com (Some range) unionType, argExprs, Fable.ApplyCons,
                                 makeType com ctx fsExpr.Type, Some range)
