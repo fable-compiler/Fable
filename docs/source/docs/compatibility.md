@@ -34,11 +34,12 @@ You can use the `Regex` class in the same way as .NET, but the regex will always
 behave as if passed `RegexOptions.ECMAScript` flag (e.g., no negative look-behind
 or named groups).
 
-## DateTime
+## Date & Time
 
 You can use `DateTime` and `TimeSpan` with the same semantics as in .NET.
 `TimeSpan` will just be the number of milliseconds in JS, and `DateTime` will
-compile down to native JS `Date` with a `kind` property attached.
+compile down to native JS `Date` with a `kind` property attached. It's also
+possible to use `Timer`s from the `System.Timers` namespace.
 
 ## Tuples
 

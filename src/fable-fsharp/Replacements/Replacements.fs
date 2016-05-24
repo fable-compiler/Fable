@@ -1057,6 +1057,7 @@ module private AstPass =
         | KnownInterfaces _ -> knownInterfaces com info
         | Naming.StartsWith "Fable.Core" _ -> fableCore com info
         | Naming.EndsWith "Exception" _ -> exceptions com info
+        | "System.Timers.ElapsedEventArgs" -> info.callee // only signalTime is available here
         | "System.String"
         | "Microsoft.FSharp.Core.String" -> strings com info
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
@@ -1110,14 +1111,18 @@ module private AstPass =
 module private CoreLibPass =
     open Util
 
-    // ATTENTION: currently there are no checks for instance methods. Make sure
-    // the core library polyfills all instance methods when using MapKind.Both. 
+    /// Module methods in the core lib can be bound Static or Both (instance and static).
+    /// If they're bound only statically all methods will be called statically: if there's an
+    /// instance, it'll be passed as the first argument and constructors will change to `create`.
+    /// ATTENTION: currently there are no checks for instance methods. Make sure
+    /// the core library polyfills all instance methods when using MapKind.Both. 
     type MapKind = Static | Both
 
     let mappings =
         dict [
             system + "DateTime" => ("Date", Static)
             system + "TimeSpan" => ("TimeSpan", Static)
+            system + "Timers.Timer" => ("Timer", Both)
             fsharp + "Control.Async" => ("Async", Both)
             fsharp + "Control.AsyncBuilder" => ("Async", Both)
             fsharp + "Control.Observable" => ("Observable", Static)
@@ -1137,6 +1142,8 @@ open Util
 
 let private coreLibPass com (info: Fable.ApplyInfo) =
     let checkStatic modName meth =
+        // TODO: Add warning here
+        if CoreLibMethods.staticMethods.ContainsKey(modName) |> not then None else
         if CoreLibMethods.staticMethods.[modName].Contains(meth)
         then Some meth
         else None
@@ -1144,14 +1151,18 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
     | Patterns.DicContains CoreLibPass.mappings (modName, kind) ->
         match kind with
         | CoreLibPass.Both ->
-            match info.methodName, info.callee with
-            | ".ctor", None ->
+            match info.methodName, info.methodKind, info.callee with
+            | ".ctor", _, None | _, Fable.Constructor, None ->
                 CoreLibCall(modName, None, true, deleg info info.args)
                 |> makeCall com info.range info.returnType |> Some
-            | _, Some callee ->
+            | _, Fable.Getter _, Some callee ->
+                Fable.Apply(callee, [makeConst info.methodName], Fable.ApplyGet, info.returnType, info.range) |> Some
+            | _, Fable.Setter _, Some callee ->
+                Fable.Set(callee, Some (makeConst info.methodName), info.args.Head, info.range) |> Some
+            | _, _, Some callee ->
                 InstanceCall (callee, info.methodName, deleg info info.args)
                 |> makeCall com info.range info.returnType |> Some
-            | _, None when checkStatic modName info.methodName |> Option.isSome ->
+            | _, _, None when checkStatic modName info.methodName |> Option.isSome ->
                 CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args |> deleg info)
                 |> makeCall com info.range info.returnType |> Some
             | _ -> None

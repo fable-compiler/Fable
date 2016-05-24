@@ -330,6 +330,69 @@
     return d1.getTime() == d2.getTime();
   };
   FDate.compareTo = FDate.compare = Util.compareTo;
+  
+  var Timer = exports.Timer = function Timer(interval) {
+    this.interval = interval > 0 ? interval : 100;
+    this.autoReset = true;
+    this._elapsed = new Event();
+  };
+  Object.defineProperty(Timer.prototype, 'elapsed', {
+    get: function () {
+      return this._elapsed;
+    }
+  });
+  Object.defineProperty(Timer.prototype, 'enabled', {
+    get: function () {
+      return this._enabled;
+    },
+    set: function (x) {
+      if (!this._isDisposed && this._enabled != x) {
+        if (this._enabled = x) {
+          if (this.autoReset) {
+            var _this = this;
+            this._intervalId = setInterval(function () {
+              if (!_this.autoReset) {
+                _this.enabled = false;
+              }
+              _this._elapsed.trigger(new Date());
+            }, this.interval);
+          }
+          else {
+            var _this = this;
+            this._timeoutId = setTimeout(function () {
+              _this.enabled = false;
+              _this._timeoutId = 0;
+              if (_this.autoReset) {
+                _this.enabled = true;
+              }
+              _this._elapsed.trigger(new Date());
+            }, this.interval);
+          }
+        }
+        else {
+          if (this._timeoutId) {
+            clearTimeout(this._timeoutId);
+            this._timeoutId = 0;
+          }
+          if (this._intervalId) {
+            clearInterval(this._intervalId);
+            this._intervalId = 0;
+          }
+        }
+      }
+    }
+  });
+  Timer.prototype.dispose = Timer.prototype.close = function () {
+    this.enabled = false;
+    this._isDisposed = true;
+  };
+  Timer.prototype.start = function () {
+    this.enabled = true;
+  };
+  Timer.prototype.stop = function () {
+    this.enabled = false;
+  };
+  Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 
   var FString = exports.String = {};
   FString.fsFormatRegExp = /%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
@@ -2032,10 +2095,6 @@
     var _this = this;
     this.delegates = delegates || new Array()
     
-    this.publish = function () {
-       return _this 
-    };
-    
     this.trigger = function (value) { 
       Seq.iter(function(f) { f(value) }, _this.delegates ) 
     };
@@ -2056,7 +2115,12 @@
     }
     
     this.subscribe = function(f) {
-      _addHandler(f);
+      var disp;
+      return _addHandler(f), disp = {
+        dispose: function () {
+          _removeHandler(f);
+        }
+      },disp[FSymbol.interfaces] = ["System.IDisposable"], disp;
     }
     
     this.add = function (f) {
@@ -2065,7 +2129,6 @@
     
     this.addHandler = function(f) {
       var h = function(x) {return f(undefined,x) }
-      
       _addHandler(h);
     }
     
@@ -2075,19 +2138,17 @@
     }
     
     this._subscribe = sbscrb || function (observer) {
-      var f = observer.onNext; 
-      _addHandler(f); 
-      
-       var disp = {
+      var disp, f = observer.onNext; 
+      return _addHandler(f), disp = {
         dispose: function () {
           _removeHandler(f);
         }
-      };
-      disp[FSymbol.interfaces] = ["System.IDisposable"];
-      return disp;
+      }, disp[FSymbol.interfaces] = ["System.IDisposable"], disp;
     }
-
   };
+  Object.defineProperty(Event.prototype, "publish", {
+    get: function () { return this; }
+  });
   
   Event.add = function (f, w) {
     w._subscribe(new Observer(f));

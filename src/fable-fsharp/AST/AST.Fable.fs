@@ -124,6 +124,7 @@ and ArrayKind = TypedArray of NumberKind | DynamicArray | Tuple
 and ApplyInfo = {
         methodName: string
         ownerFullName: string
+        methodKind: MemberKind
         callee: Expr option
         args: Expr list
         returnType: Type

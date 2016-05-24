@@ -528,3 +528,42 @@ let ``TimeSpan Inequality works``() =
     test 2000. 1000. true
     test -2000. -2000. false
     
+[<Test>]
+let ``Timer with AutoReset = true works``() =
+    async {
+        let res = ref 0
+        let t = new Timers.Timer(25.)
+        t.Elapsed.Add(fun ev -> res := !res + 5)
+        t.Start()
+        do! Async.Sleep 60
+        t.Stop()
+        do! Async.Sleep 40
+        equal 10 !res
+    } |> Async.RunSynchronously
+
+[<Test>]
+let ``Timer with AutoReset = false works``() =
+    async {
+        let res = ref 0
+        let t = new Timers.Timer()
+        t.Elapsed.Add(fun ev -> res := !res + 5)
+        t.AutoReset <- false
+        t.Interval <- 25.
+        t.Enabled <- true
+        do! Async.Sleep 100
+        equal 5 !res
+    } |> Async.RunSynchronously
+
+[<Test>]
+let ``Timer.Elapsed.Subscribe works``() =
+    async {
+        let res = ref 0
+        let t = new Timers.Timer(25.)
+        let disp = t.Elapsed.Subscribe(fun ev -> res := !res + 5)
+        t.Start()
+        do! Async.Sleep 60
+        disp.Dispose()
+        do! Async.Sleep 40
+        equal 10 !res
+        t.Stop()
+    } |> Async.RunSynchronously
