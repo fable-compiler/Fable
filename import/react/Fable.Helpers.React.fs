@@ -578,11 +578,15 @@ type Component<'P,'S>(props: 'P, ?state: 'S) =
     inherit React.Component<'P,'S>(props)
     do this?state <- state
 
+let toPlainJsObj (o: obj) =
+    JS.Object.getOwnPropertyNames(o)
+    |> Seq.fold (fun o2 k -> o2?(k) <- o?(k); o2) (obj())
+
 let inline fn (f: 'Props -> #React.ReactElement<obj>) (props: 'Props) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    unbox(React.createElement(U2.Case1(unbox f), props, unbox(List.toArray children)))
+    unbox(React.createElement(U2.Case1(unbox f), toPlainJsObj props, unbox(List.toArray children)))
 
 let inline com<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    unbox(React.createElement(U2.Case1(unbox typeof<'T>), props, unbox(List.toArray children)))
+    unbox(React.createElement(U2.Case1(unbox typeof<'T>), toPlainJsObj props, unbox(List.toArray children)))
 
 let inline domEl (tag: string) (props: IHTMLProp list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     unbox(React.createElement(tag, props, unbox(List.toArray children)))
