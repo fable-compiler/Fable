@@ -401,6 +401,20 @@ let ``Setting a top-level value doesn't alter values at same level``() = // See 
 let ``Setting a top-level value doesn't alter values at same level (TestFixture)``() = // See #130
     equal 15 a
     equal 25 B.a
+    
+module Internal =
+    let internal add x y = x + y
+
+    type internal MyType =
+        static member Subtract x y = x - y
+    
+[<Test>]
+let ``Internal members can be accessed from other modules``() = // See #163
+    Internal.add 3 2 |> equal 5
+
+[<Test>]
+let ``Internal types can be accessed from other modules``() = // See #163
+    Internal.MyType.Subtract 3 2 |> equal 1
 
 type Point =
     { x: float; y: float }

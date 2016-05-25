@@ -684,7 +684,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             Fable.Member(memberKind,
                 getRefLocation meth |> makeRange, args', body,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-                isPublic = meth.Accessibility.IsPublic,
+                isPublic = (meth.Accessibility.IsPublic || meth.Accessibility.IsInternal),
                 isMutable = meth.IsMutable,
                 isStatic = not meth.IsInstanceMember,
                 hasRestParams = hasRestParams meth,
