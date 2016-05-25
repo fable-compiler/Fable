@@ -46,7 +46,6 @@
     <Compile Include="Fable.Import.JS.fs" />
     <Compile Include="Fable.Import.Browser.fs" />
     <Compile Include="Fable.Import.Node.fs" />
-    <Compile Include="Fable.Import.Fetch.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
   </ItemGroup>
   <PropertyGroup>

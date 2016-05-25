@@ -52,6 +52,7 @@
     <Compile Include="vscode/Fable.Import.VSCode.fs" />
     <Compile Include="electron/Fable.Import.Electron.fs" />
     <Compile Include="d3/Fable.Import.D3.fs" />
+    <Compile Include="fetch/Fable.Import.Fetch.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
