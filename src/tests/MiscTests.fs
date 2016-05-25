@@ -206,6 +206,7 @@ let ``Multiple active pattern calls work``() =
     | _ -> false
     |> equal true
     
+open System
 type IFoo =
    abstract Bar: s: string * [<ParamArray>] rest: obj[] -> string
    
@@ -216,27 +217,39 @@ let ``ParamArray in object expression works``() =
    |> equal "2 + 2 = 4"
 
 type IFoo2 =
-    abstract FooValue: int with get, set
+    abstract Value: int with get, set
     abstract Test: int -> int
+    abstract MakeFoo: unit -> IFoo
 
 type Foo(i) =
     let mutable j = 5
     member x.Value = i + j
     member x.MakeFoo2() = {
         new IFoo2 with
-            member x2.FooValue
-                with get() = x.Value * 2
-                and set(i) = j <- j + i
-            member x2.Test(i) = x2.FooValue - i
+        member x2.Value
+            with get() = x.Value * 2
+            and set(i) = j <- j + i
+        member x2.Test(i) = x2.Value - i
+        member x2.MakeFoo() = {
+            new IFoo with
+            member x3.Bar(s: string, [<ParamArray>] rest: obj[]) =
+                sprintf "%s: %i %i" s x.Value x2.Value
         }
+    }
 
 [<Test>]
 let ``Object expression can reference enclosing type and self``() = // See #158
     let f = Foo(5)
     let f2 = f.MakeFoo2()
-    f2.FooValue <- 2
+    f2.Value <- 2
     f.Value |> equal 12
     f2.Test(2) |> equal 22
+
+[<Test>]
+let ``Nested object expression work``() = // See #158
+    let f = Foo(5)
+    let f2 = f.MakeFoo2()
+    f2.MakeFoo().Bar("Numbers") |> equal "Numbers: 10 20"
        
 type SomeClass(name: string) =
     member x.Name = name

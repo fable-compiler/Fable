@@ -298,12 +298,17 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
         // If `this` is bound to context, replace it to avoid conflicts (see #158)
-        let isThisCaptured, ctx =
-            (ctx.scope, (false, [])) ||> List.foldBack (fun (fsRef, expr) (isThisCaptured, scope) ->
+        let capturedThis, ctx =
+            (ctx.scope, (None, [])) ||> List.foldBack (fun (fsRef, expr) (capturedThis, scope) ->
                 match expr with
-                | Fable.Value Fable.This -> true, (fsRef, makeIdentExpr "$this")::scope
-                | _ -> isThisCaptured, (fsRef, expr)::scope)
-            |> fun (isThisCaptured, scope) -> isThisCaptured, { ctx with scope = scope}
+                | Fable.Value Fable.This ->
+                    let thisVar =
+                        match capturedThis with
+                        | Some v -> v
+                        | None -> Naming.getUniqueVar() |> makeIdent
+                    Some thisVar, (fsRef, Fable.IdentValue thisVar |> Fable.Value)::scope
+                | _ -> capturedThis, (fsRef, expr)::scope)
+            |> fun (capturedThis, scope) -> capturedThis, { ctx with scope = scope}
         let lowerFirstKnownInterfaces typ name =
             match typ with
             | Some typ ->
@@ -373,8 +378,11 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> List.distinct
         let range = makeRangeFrom fsExpr
         let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
-        if not isThisCaptured then objExpr else
-        Fable.Sequential([Fable.VarDeclaration (makeIdent "$this", Fable.Value Fable.This, false); objExpr], range)
+        match capturedThis with
+        | None -> objExpr
+        | Some thisVar ->
+            let varDecl = Fable.VarDeclaration (thisVar, Fable.Value Fable.This, false)
+            Fable.Sequential([varDecl; objExpr], range)
 
     // TODO: Check for erased constructors with property assignment (Call + Sequential)
     | BasicPatterns.NewObject(meth, typArgs, args) ->

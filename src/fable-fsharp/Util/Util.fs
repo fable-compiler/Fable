@@ -101,10 +101,11 @@ module Naming =
     let exportsIdent = "$exports"
     
     let getImportIdent i = sprintf "$import%i" i
-    
+
     let getUniqueVar =
-        let mutable id = 0
-        fun () -> id <- id + 1; sprintf "$var%i" id
+        let monitor = obj()    
+        let mutable id = ref 0
+        fun () -> lock monitor (fun () -> id := !id + 1; sprintf "$var%i" !id)
     
     /// If flag --copyExt is activated, copy files outside project folder into
     /// an internal `.fable.external` folder with a hash to prevent naming conflicts 
