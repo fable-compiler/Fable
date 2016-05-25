@@ -274,7 +274,7 @@ let generateSamplePage siteRoot name path =
 /// Generates pages from all samples & optionally recompiles the JS too
 let generateSamplePages siteRoot recompile () =
   traceImportant "Updating sample pages"
-  let lastEdit path = !! (path </> "*") |> Seq.map File.GetLastWriteTime |> Seq.max
+  let lastEdit path = !! (path </> "*") |> Seq.map File.GetLastWriteTime |> Seq.fold max DateTime.MinValue
   for sample, embed in samples do
     let sourceModified = lastEdit (fableRoot </> sample)
     let outputModified = lastEdit (output </> "samples" </> Path.GetFileName(sample))
