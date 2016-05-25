@@ -400,6 +400,9 @@ module Identifiers =
     open Helpers
     open Types
 
+    let bindExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) expr =
+        { ctx with scope = (Some fsRef, expr)::ctx.scope}
+
     /// Make a sanitized identifier from a tentative name
     let bindIdent (ctx: Context) typ (fsRef: FSharpMemberOrFunctionOrValue option) tentativeName =
         let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
@@ -503,7 +506,11 @@ module Util =
             newContext, arg::accArgs) vars (ctx, [])
 
     let getMethodArgs com ctx isInstance (args: FSharpMemberOrFunctionOrValue list list) =
-        let args = if isInstance then Seq.skip 1 args |> Seq.toList else args
+        let ctx, args =
+            match args with
+            | [thisArg]::args when isInstance ->
+                bindExpr ctx thisArg (Fable.Value Fable.This), args
+            | _ -> ctx, args
         match args with
         | [] -> ctx, []
         | [[singleArg]] ->

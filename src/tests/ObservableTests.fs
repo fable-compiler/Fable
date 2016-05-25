@@ -20,7 +20,7 @@ type MyObservable<'T>() =
             listeners.Add(w)
             { new IDisposable with 
                 member x.Dispose() = listeners.Remove(w) |> ignore }
-            
+
 [<Test>]
 let ``IObservable.Subscribe works``() =
     let source = MyObservable()
@@ -34,6 +34,16 @@ let ``Observable.subscribe works``() =
     Observable.subscribe (equal 10.) source |> ignore
     source.Trigger 10.
 
+[<Test>]
+let ``Disposing IObservable works``() =
+    let res = ref 0
+    let source = MyObservable()
+    let disp = Observable.subscribe (fun x -> res := !res + x) source
+    source.Trigger 5
+    disp.Dispose()
+    source.Trigger 5
+    equal 5 !res
+            
 [<Test>]
 let ``Observable.add works``() =
     let source = MyObservable()

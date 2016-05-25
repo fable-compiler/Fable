@@ -214,6 +214,29 @@ let ``ParamArray in object expression works``() =
    let o = { new IFoo with member x.Bar(s: string, [<ParamArray>] rest: obj[]) = String.Format(s, rest) }
    o.Bar("{0} + {0} = {1}", 2, 4)
    |> equal "2 + 2 = 4"
+
+type IFoo2 =
+    abstract FooValue: int with get, set
+    abstract Test: int -> int
+
+type Foo(i) =
+    let mutable j = 5
+    member x.Value = i + j
+    member x.MakeFoo2() = {
+        new IFoo2 with
+            member x2.FooValue
+                with get() = x.Value * 2
+                and set(i) = j <- j + i
+            member x2.Test(i) = x2.FooValue - i
+        }
+
+[<Test>]
+let ``Object expression can reference enclosing type and self``() = // See #158
+    let f = Foo(5)
+    let f2 = f.MakeFoo2()
+    f2.FooValue <- 2
+    f.Value |> equal 12
+    f2.Test(2) |> equal 22
        
 type SomeClass(name: string) =
     member x.Name = name

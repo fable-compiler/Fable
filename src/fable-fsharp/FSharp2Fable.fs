@@ -159,9 +159,6 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         | RefType _ -> makeIdent "$self" |> Fable.IdentValue |> Fable.Value // See #124
         | _ -> Fable.This |> Fable.Value
 
-    | BasicPatterns.Value thisVar when thisVar.IsMemberThisValue ->
-        Fable.This |> Fable.Value 
-
     | BasicPatterns.Value v ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeValueFrom com ctx r typ v
@@ -300,6 +297,13 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         |> Fable.ArrayConst |> Fable.Value
 
     | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
+        // If `this` is bound to context, replace it to avoid conflicts (see #158)
+        let isThisCaptured, ctx =
+            (ctx.scope, (false, [])) ||> List.foldBack (fun (fsRef, expr) (isThisCaptured, scope) ->
+                match expr with
+                | Fable.Value Fable.This -> true, (fsRef, makeIdentExpr "$this")::scope
+                | _ -> isThisCaptured, (fsRef, expr)::scope)
+            |> fun (isThisCaptured, scope) -> isThisCaptured, { ctx with scope = scope}
         let lowerFirstKnownInterfaces typ name =
             match typ with
             | Some typ ->
@@ -367,7 +371,10 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             objType::(otherOverrides |> List.map fst)
             |> List.map (fun x -> sanitizeEntityName x.TypeDefinition)
             |> List.distinct
-        Fable.ObjExpr (members, interfaces, baseClass, makeRangeFrom fsExpr)
+        let range = makeRangeFrom fsExpr
+        let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
+        if not isThisCaptured then objExpr else
+        Fable.Sequential([Fable.VarDeclaration (makeIdent "$this", Fable.Value Fable.This, false); objExpr], range)
 
     // TODO: Check for erased constructors with property assignment (Call + Sequential)
     | BasicPatterns.NewObject(meth, typArgs, args) ->
