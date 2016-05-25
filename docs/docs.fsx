@@ -39,9 +39,9 @@ let templates   = __SOURCE_DIRECTORY__ </> "templates"
 let output      = __SOURCE_DIRECTORY__ </> "output"
 let contentPage = "content.html"
 let samplePage  = "sample.html"
-let fableRoot   = __SOURCE_DIRECTORY__ </> ".."
+let fableRoot   = __SOURCE_DIRECTORY__ </> ".." |> Path.GetFullPath
 let temp        = fableRoot </> "temp"
-let samplesRoot = fableRoot </> "samples"
+let samplesRoot = fableRoot </> "samples" 
 
 let samples =
   [ // Browser samples with HTML content
@@ -49,6 +49,7 @@ let samples =
     "samples/browser/hokusai", true
     "samples/browser/ozmo", true
     "samples/browser/pacman", true
+    "samples/browser/d3map", true
 
     // Non-browser samples without embedded HTML
     "samples/node/server", false
@@ -185,7 +186,7 @@ let copySharedScripts () =
 let extractMarkedPagePart tag (page:string) =
     let pattern =  """\<\!--\s*\[""" + tag + """\]\s*--\>(.*)\<\!--\s*\[/""" + tag + """\]\s*--\>"""
     let mtch = Regex.Match(page, pattern, RegexOptions.Singleline)
-    mtch.Groups.[1].Value
+    if mtch.Success then mtch.Groups.[1].Value else ""
 
 
 /// Compile sample using Fable & copy static and JS files to `samples/<name>`
@@ -221,7 +222,9 @@ type Sample =
     Tagline : string
     Introduction : string
     Document : string
+    RequirePaths : string
     Application : string
+    Head : string
     AppStyle : string }
 
 
@@ -240,15 +243,25 @@ let generateSamplePage siteRoot name path =
     let document = File.ReadAllText(f.Name)
 
     // If there is `index.html` page, read `<!-- [body] -->` bit from it
-    let app, appStyle =
+    let (app, appHead), appStyle =
       let index = fableRoot </> path </> "index.html"
-      (if File.Exists index then index |> File.ReadAllText |> extractMarkedPagePart "body" else ""),
-      (if attrs.ContainsKey("app-style") then attrs.["app-style"] else "")
+      ( if File.Exists index then 
+           let indexHtml = File.ReadAllText(index)
+           extractMarkedPagePart "body" indexHtml,
+           extractMarkedPagePart "head" indexHtml
+        else "", "" ),
+      ( if attrs.ContainsKey("app-style") then attrs.["app-style"] else "" )
+
+    // Require paths are specified using ` .. ` - drop <code>
+    let requirePaths = 
+      if not (attrs.ContainsKey("require-paths")) then "" else
+      Regex.Match(attrs.["require-paths"], "<code>(.*)</code>").Groups.[1].Value
+
     // Get `title` and `tagline` from the attrs and generate sample page
     let html =
         { Root = siteRoot;
           Active = "samples"; Name = name; Document = document
-          Application = app
+          Application = app; Head = appHead; RequirePaths = requirePaths
           Title = attrs.["title"]
           Introduction = if attrs.ContainsKey("intro") then attrs.["intro"] else ""
           Tagline = attrs.["tagline"]
@@ -261,13 +274,17 @@ let generateSamplePage siteRoot name path =
 /// Generates pages from all samples & optionally recompiles the JS too
 let generateSamplePages siteRoot recompile () =
   traceImportant "Updating sample pages"
+  let lastEdit path = !! (path </> "*") |> Seq.map File.GetLastWriteTime |> Seq.max
   for sample, embed in samples do
-    let name = Path.GetFileName(sample)
-    if recompile then
-      traceImportant (sprintf "Compiling sample: %s" name)
-      compileSample embed name sample
-    traceImportant (sprintf "Generating sample page: %s" name)
-    generateSamplePage siteRoot name sample
+    let sourceModified = lastEdit (fableRoot </> sample)
+    let outputModified = lastEdit (output </> "samples" </> Path.GetFileName(sample))
+    if sourceModified > outputModified then
+      let name = Path.GetFileName(sample)
+      traceImportant (sprintf "Generating sample page: %s" name)
+      generateSamplePage siteRoot name sample
+      if recompile then
+        traceImportant (sprintf "Compiling sample: %s" name)
+        compileSample embed name sample
 
 
 // --------------------------------------------------------------------------------------
@@ -302,8 +319,10 @@ let startWebServer () =
         >=> Writers.setHeader "Expires" "0"
         >=> choose [ Files.browseHome; Filters.path "/" >=> Files.browseFileHome "index.html" ] ]
 
-    let addWav f = function ".wav" -> Writers.mkMimeType "audio/wav" false | ext -> f ext
-    let app ctx = app { ctx with runtime = { ctx.runtime with mimeTypesMap = addWav ctx.runtime.mimeTypesMap } }
+    let addMime f = function 
+      | ".wav" -> Writers.mkMimeType "audio/wav" false 
+      | ".tsv" -> Writers.mkMimeType "text/tsv" false | ext -> f ext
+    let app ctx = app { ctx with runtime = { ctx.runtime with mimeTypesMap = addMime ctx.runtime.mimeTypesMap } }
 
     startWebServerAsync serverConfig app |> snd |> Async.Start
     System.Diagnostics.Process.Start (sprintf "http://localhost:%d/index.html" port) |> ignore
