@@ -79,8 +79,10 @@ module Fetch =
     and BodyInit =
         U3<Browser.Blob, Browser.FormData, string>
 
-    and RequestInfo =
-        U2<Request, string>
+    [<Erase>]
+    type RequestInfo =
+        | Url of string
+        | Req of Request
         
-    type Globals =
-        static member fetch (url: U2<string,Request>, ?init: RequestInit) =  failwith "JS only" :Promise<Response>
+    type GlobalFetch =
+        [<Global>]static member fetch (req: RequestInfo, ?init: RequestInit) =  failwith "JS only" :Promise<Response>

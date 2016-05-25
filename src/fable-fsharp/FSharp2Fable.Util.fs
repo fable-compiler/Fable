@@ -342,7 +342,8 @@ module Types =
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
         Fable.Entity (kind, com.GetInternalFile tdef,
-            sanitizeEntityName tdef, infcs, decs, tdef.Accessibility.IsPublic)
+            sanitizeEntityName tdef, infcs, decs,
+            tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
     and makeTypeFromDef (com: IFableCompiler) (tdef: FSharpEntity) =
         // Guard: F# abbreviations shouldn't be passed as argument
