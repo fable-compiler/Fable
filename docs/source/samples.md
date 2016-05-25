@@ -23,15 +23,6 @@ Elm](http://debug.elm-lang.org/edit/Mario.elm). The Fable version is using HTML 
 canvas to render the background and an `img` tag showing the Mario (using animated GIFs).
 You can view the [raw source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/mario/mario.fsx).   
 
-<a href="samples/hokusai/index.html"><img src="samples/images/wave.jpg" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
-
-### [Hokusai and fractals](samples/hokusai/index.html)
-
-This demo is based on Tomas Petricek's [F# Advent Calendar post](http://tomasp.net/blog/2014/japan-advent-art-en/)
-that explores Japenese art using the (now defunct) Freebase type provider and renders
-The Great Wave by Hokusai using the Julia fractal.
-View the [raw source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/hokusai/hokusai.fsx).
-
 <a href="samples/ozmo/index.html"><img src="samples/images/ozmo.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
 
 ### [Ozmo game](samples/ozmo/index.html)
@@ -50,6 +41,26 @@ Pacman finds himself in a grid filled with monsters... This is the most complex 
 It involves rendering the maze, AI for the ghosts, user interaction and even playing sound effects.
 The game has some brief commentary, but if you want to learn Fable, look at the above examples
 first. The [raw source code is on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/pacman/pacman.fsx).
+
+## Visualizations
+
+<a href="samples/d3map/index.html"><img src="samples/images/d3map.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [D3 world tour](samples/d3map/index.html)
+
+This demo is a Fable port of [Mike Bostock's World Tour](http://bl.ocks.org/mbostock/4183330)
+D3 demo. It uses the D3 library to create a visualization that loops through all countries of
+the world and shows them on the globe one by one. You can find the [full source code on
+GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/d3map/d3map.fsx).
+
+<a href="samples/hokusai/index.html"><img src="samples/images/wave.jpg" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [Hokusai and fractals](samples/hokusai/index.html)
+
+This demo is based on Tomas Petricek's [F# Advent Calendar post](http://tomasp.net/blog/2014/japan-advent-art-en/)
+that explores Japenese art using the (now defunct) Freebase type provider and renders
+The Great Wave by Hokusai using the Julia fractal.
+View the [raw source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/hokusai/hokusai.fsx).
 
 ## Server-side node.js
 

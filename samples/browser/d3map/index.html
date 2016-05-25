@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html>
 <head>
   <!--<script src="http://code.jquery.com/jquery-1.8.0.js"></script>-->
@@ -15,12 +15,15 @@
   </style>
 </head>
 <body>
-	<h1><!-- [title] -->Using D3 and TopoJSON<!-- [/title] --></h1>
-  
+
   <!-- [body] -->
-  <canvas align="center" id="canvas" width="1000" height="800"></canvas>
+  <p style="position:absolute;top:290px;color:black;font-size:16px;font-weight:700;width:500px;text-align:center;" class="country-name">Using D3 and TopoJSON</p>
+  <canvas align="center" id="canvas" width="500" height="500"></canvas>
+  <!-- [/body] -->
+  <!-- [head] -->
   <script src="https://d3js.org/queue.v1.min.js"></script>
   <script src="https://d3js.org/topojson.v1.min.js"></script>
+  <!-- [/head] -->
   <script src="node_modules/core-js/client/core.min.js"></script>
   <script src="node_modules/requirejs/require.js"></script>
   <script>
@@ -34,8 +37,7 @@
         }
     });
     // Load the entry file of the app (use array, omit .js)
-    requirejs(["app"]);
+    requirejs(["d3map"]);
   </script>
-  <!-- [/body] -->
 </body>
 </html>

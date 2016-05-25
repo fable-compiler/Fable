@@ -1,6 +1,7 @@
 {% extends "page.html" %}
 {% block head %}
   <title>{{ model.Title }} - F# |> BABEL</title>
+  {{ model.Head }}
   <script src="../scripts/core.min.js"></script>
   <script src="../scripts/require.js"></script>
   <meta name="description" content="{{ model.Tagline }}">
@@ -35,7 +36,7 @@
       <script>
         requirejs.config({
           baseUrl: '.',
-          paths: { 'fable-core': '../scripts/fable-core.min' }
+          paths: { 'fable-core': '../scripts/fable-core.min', {{ model.RequirePaths }} }
         });
         requirejs(["{{ model.Name }}"]);
       </script>

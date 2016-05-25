@@ -1,7 +1,7 @@
 {
     "module": "amd",
     "sourceMaps": true,
-    "projFile": "./app.fsx",
+    "projFile": "./d3map.fsx",
     "outDir": "out",
     "scripts": {
         "prebuild": "npm install"
