@@ -111,3 +111,17 @@ let ``Create new generic objects with System.Activator``() =
     (create2<TestType3> [||]).Value |> equal "Hi"
     (create2<TestType4> [||]).Value |> equal "Bye"
     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
+        
+type RenderState = 
+    { Now : int
+      Players : Map<int, string>
+      Map : string }
+
+[<Test>]
+let ``Property names don't clash with built-in JS objects``() = // See #168
+    let gameState = {
+        Now = 1
+        Map = "dungeon"
+        Players = Map.empty 
+    } 
+    gameState.Players.ContainsKey(1) |> equal false
