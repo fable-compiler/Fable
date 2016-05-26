@@ -715,6 +715,14 @@ let rec private transformEntityDecl
         declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =
+    // Check there're no conflicting entity names (see #166)
+    (Set.empty, decls) ||> List.fold (fun acc -> function
+        | FSharpImplementationFileDeclaration.Entity(e, _) ->
+            if Set.contains e.DisplayName acc then
+                failwithf "Having type and module with same name at same level is not supported %s" e.DisplayName
+            Set.add e.DisplayName acc
+        | _ -> acc
+    ) |> ignore
     let declInfo, _ =
         decls |> List.fold (fun (declInfo: DeclInfo, ctx) decl ->
             match decl with
