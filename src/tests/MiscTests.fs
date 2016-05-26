@@ -95,6 +95,19 @@ let ``StringEnum attribute works``() =
     Horizontal |> unbox |> equal "Horizontal"  
 #endif
 
+[<StringEnum>]
+type Field = OldPassword | NewPassword | ConfirmPassword
+
+let validatePassword = function
+    | OldPassword -> "op"
+    | NewPassword -> "np"
+    | ConfirmPassword -> "cp"
+
+[<Test>]
+let ``Pattern matching with StringEnum works``() =
+    validatePassword NewPassword
+    |> equal "np"
+
 type MaybeBuilder() =
   member __.Bind(x,f) = Option.bind f x
   member __.Return v = Some v

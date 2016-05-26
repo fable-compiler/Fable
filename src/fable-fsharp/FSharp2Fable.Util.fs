@@ -87,6 +87,15 @@ module Helpers =
         match ent.ImplementationLocation with
         | Some loc -> loc
         | None -> ent.DeclarationLocation   
+
+    /// Lower first letter if there's no explicit compiled name
+    let lowerUnionCaseName (unionCase: FSharpUnionCase) =
+        unionCase.Attributes
+        |> tryFindAtt ((=) "CompiledName")
+        |> function
+            | Some name -> name.ConstructorArguments.[0] |> snd |> string
+            | None -> Naming.lowerFirst unionCase.DisplayName
+        |> makeConst
     
 module Patterns =
     open BasicPatterns

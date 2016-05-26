@@ -414,14 +414,6 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 |> tryFindAtt ((=) "KeyValueList")
                 |> Option.isSome
             | _ -> false
-        // Only lower first case if there's no explicit compiled name
-        let lowerDisplayName (unionCase: FSharpUnionCase) =
-            unionCase.Attributes
-            |> tryFindAtt ((=) "CompiledName")
-            |> function
-                | Some name -> name.ConstructorArguments.[0] |> snd |> string
-                | None -> Naming.lowerFirst unionCase.DisplayName
-            |> makeConst
         let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
         match unionType with
         | ErasedUnion | OptionUnion ->
@@ -437,12 +429,12 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 | [expr] -> expr
                 | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s"
                                 unionType.FullName
-            (Fable.ArrayValues [lowerDisplayName unionCase; v], Fable.Tuple)
+            (Fable.ArrayValues [lowerUnionCaseName unionCase; v], Fable.Tuple)
             |> Fable.ArrayConst |> Fable.Value 
         | StringEnum ->
             // if argExprs.Length > 0 then
             //     failwithf "StringEnum must not have fields: %s" unionType.FullName
-            lowerDisplayName unionCase
+            lowerUnionCaseName unionCase
         | ListUnion when isKeyValueList fsType ->
             let (|KeyValue|_|) = function
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues
@@ -511,6 +503,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             let opKind = if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
             let expr = makeGet None Fable.UnknownType unionExpr (makeConst "tail")
             makeBinOp (makeRangeFrom fsExpr) boolType [expr; Fable.Value Fable.Null] opKind 
+        | StringEnum ->
+            makeBinOp (makeRangeFrom fsExpr) boolType [unionExpr; lowerUnionCaseName unionCase] BinaryEqualStrict 
         | _ ->
             let left = makeGet None (Fable.PrimitiveType Fable.String) unionExpr (makeConst "Case")
             let right = makeConst unionCase.Name
