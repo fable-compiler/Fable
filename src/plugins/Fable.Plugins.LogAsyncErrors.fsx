@@ -20,13 +20,13 @@ type LogAsyncErrorsPlugin() =
           });
         }($0))"""
     interface IReplacePlugin with
-        member x.TryReplace com (info: Fable.ApplyInfo) =
+        member x.TryReplace (com: Fable.ICompiler) (info: Fable.ApplyInfo) =
             match info.ownerFullName with
             | "Microsoft.FSharp.Control.Async" ->
                 match info.methodName with
                 | "start" | "startImmediate" ->
                     let import =
-                        Fable.ImportRef ("Async", Fable.Naming.coreLib)
+                        Fable.ImportRef ("Async", com.Options.coreLib)
                         |> Fable.Value
                     Fable.Replacements.Util.emit info macro (import::info.args)
                     |> Some

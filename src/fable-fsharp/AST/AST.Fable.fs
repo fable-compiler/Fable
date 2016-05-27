@@ -275,7 +275,7 @@ module Util =
         | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
     let makeLoop range loopKind = Loop (loopKind, range)
-    let makeCoreRef com modname = Value (ImportRef (modname, Naming.coreLib))
+    let makeCoreRef (com: ICompiler) modname = Value (ImportRef (modname, com.Options.coreLib))
     let makeIdent name: Ident = {name=name; typ=UnknownType}
     let makeIdentExpr name = makeIdent name |> IdentValue |> Value
 

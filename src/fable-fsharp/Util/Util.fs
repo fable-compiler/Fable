@@ -3,6 +3,7 @@ namespace Fable
 type CompilerOptions = {
         code: string
         projFile: string
+        coreLib: string
         symbols: string list
         plugins: string list
         msbuild: string list
@@ -95,8 +96,6 @@ module Naming =
         | [] -> ""
         | [x] -> x
         | x::xs -> getCommonPrefix x xs
-        
-    let coreLib = "fable-core"
         
     let exportsIdent = "$exports"
     

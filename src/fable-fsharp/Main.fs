@@ -27,6 +27,7 @@ let readOptions argv =
     {
         code = def opts "code" null (un id)
         projFile = def opts "projFile" null (un Path.GetFullPath)
+        coreLib = def opts "coreLib" "fable-core" (un id)
         watch = def opts "watch" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
         copyExt = def opts "copyExt" false (un bool.Parse)

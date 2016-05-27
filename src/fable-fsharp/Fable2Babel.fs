@@ -339,7 +339,7 @@ module Util =
                     | [] -> props
                     | interfaces ->
                         let ifcsSymbol =
-                            com.GetImport ctx "Symbol" Naming.coreLib
+                            com.GetImport ctx "Symbol" com.Options.coreLib
                             |> get <| "interfaces"
                         Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
                         |> U3.Case1 |> consBack props
@@ -455,7 +455,7 @@ module Util =
             isClass || (not (Naming.automaticInterfaces.Contains x)))
         if ifcs.Length = 0
         then None
-        else [ com.GetImport ctx "Util" Naming.coreLib
+        else [ com.GetImport ctx "Util" com.Options.coreLib
                typeRef com ctx ent None
                buildStringArray ifcs ]
             |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
