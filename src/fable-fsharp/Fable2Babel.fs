@@ -10,7 +10,8 @@ type Context = {
     file: string
     originalFile: string
     moduleFullName: string
-    imports: System.Collections.Generic.List<string * string>
+    imports: ResizeArray<string * string>
+    logs: ResizeArray<LogMessage>
     }
 
 type IBabelCompiler =
@@ -636,11 +637,13 @@ module Compiler =
         let com = makeCompiler com projs
         files |> Seq.map (fun (file: Fable.File) ->
             try
+                let t = PerfTimer("Fable > Babel")
                 let ctx = {
                     file = Naming.fixExternalPath com file.FileName
                     originalFile = file.FileName
                     moduleFullName = projs.Head.FileMap.[file.FileName]
-                    imports = System.Collections.Generic.List<_>()
+                    imports = ResizeArray<_>()
+                    logs = ResizeArray<_>()
                 }
                 let rootDecls =
                     com.DeclarePlugins
@@ -667,7 +670,8 @@ module Compiler =
                         :> Babel.ModuleDeclaration |> U2.Case2)
                     |> Seq.toList
                     |> (@) <| rootDecls
+                let logs = file.Logs @ (List.ofSeq ctx.logs) @ [t.Finish()] |> List.map string 
                 Babel.Program (Naming.fixExternalPath com file.FileName,
-                                file.FileName, file.Range, rootDecls)
+                                file.FileName, file.Range, rootDecls, logs=logs)
             with
             | ex -> failwithf "%s (%s)" ex.Message file.FileName)

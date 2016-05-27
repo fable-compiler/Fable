@@ -17,9 +17,10 @@ type Context =
     typeArgs: (string * Fable.Type) list
     decisionTargets: Map<int, DecisionTarget>
     baseClass: string option
+    logs: ResizeArray<LogMessage>
     }
-    static member Empty =
-        { scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None }
+    static member Empty(logs) =
+        { scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None; logs=logs }
     
 type IReplacePlugin =
     inherit Fable.IPlugin
@@ -315,7 +316,7 @@ module Types =
         | Some (NonAbbreviatedType t) ->
             if isIgnored t then None else
             let typeRef =
-                makeType com Context.Empty t
+                makeType com (ResizeArray<_>() |> Context.Empty) t
                 |> makeTypeRef com (Some SourceLocation.Empty)
             Some (sanitizeEntityName t.TypeDefinition, typeRef)
             
@@ -633,14 +634,14 @@ module Util =
                 |> Some
             | None -> None
 
-    let (|Inlined|_|) (com: IFableCompiler) methTypArgs
+    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) methTypArgs
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         if not(isInline meth) then None else
         match com.TryGetInlineExpr meth.FullName with
         | Some (vars, fsExpr) ->
             let args = match callee with Some x -> x::args | None -> args
             let ctx =
-                (Context.Empty, vars, args)
+                (Context.Empty ctx.logs, vars, args)
                 |||> Seq.fold2 (fun ctx var arg ->
                     { ctx with scope = (Some var, arg)::ctx.scope })
             let ctx =
@@ -670,7 +671,7 @@ module Util =
         | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Emitted com ctx r typ (callee, args) emitted -> emitted
         | Imported com ctx r typ args imported -> imported
-        | Inlined com methTypArgs (callee, args) expr -> expr
+        | Inlined com ctx methTypArgs (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
         | _ ->
             let methName = sanitizeMethodName com meth

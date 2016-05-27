@@ -873,14 +873,16 @@ let transformFiles (com: ICompiler) (fileMask: string option)
         && isMasked file)
     |> Seq.map (fun file ->
         try
+            let t = PerfTimer("F# > Fable")
+            let ctx = ResizeArray<LogMessage>() |> Context.Empty
             let rootEnt, rootDecls =
                 let rootNs = curProj.FileMap.[file.FileName]
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
-                let rootDecls = transformDeclarations com Context.Empty [] rootDecls
+                let rootDecls = transformDeclarations com ctx [] rootDecls
                 match rootEnt with
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
-            Fable.File(file.FileName, rootEnt, rootDecls)
+            Fable.File(file.FileName, rootEnt, rootDecls, (List.ofSeq ctx.logs)@[t.Finish()])
         with
         | ex -> failwithf "%s (%s)" ex.Message file.FileName)
     |> fun seq -> projs, seq

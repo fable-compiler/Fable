@@ -13,8 +13,21 @@ type CompilerOptions = {
         copyExt: bool
     }
     
-type CompilerError(msg) =
-    member x.``type`` = "Error"
+type LogMessage =
+    | Warning of string
+    | Info of string
+    override x.ToString() =
+        match x with
+        | Warning s -> "[WARNING] " + s
+        | Info s -> "[INFO] " + s
+        
+type CompilerMessageType =
+    | Error | Log
+    override x.ToString() =
+        match x with Error -> "ERROR" | Log -> "LOG"
+    
+type CompilerMessage(typ: CompilerMessageType, msg) =
+    member x.``type`` = string typ
     member x.message: string = msg
 
 type IPlugin =
@@ -27,7 +40,15 @@ type ICompiler =
 type EraseAttribute() = inherit System.Attribute()
 [<Erase>] type U2<'a, 'b> = Case1 of 'a | Case2 of 'b
 [<Erase>] type U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c
-    
+
+type PerfTimer(label) =
+    let t = System.Diagnostics.Stopwatch()
+    do t.Start()
+    /// Stops timer and returns a log message with label and total seconds
+    member x.Finish() =
+        t.Stop()
+        t.Elapsed.TotalSeconds |> sprintf "%s: %fs" label |> Info
+
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
     
