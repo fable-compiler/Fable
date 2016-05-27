@@ -34,6 +34,8 @@ var cli = commandLineArgs([
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'copyExt', type: Boolean, description: "Copy external files into a `.fable.external` folder." },
+  { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
+  { name: 'verbose', description: "Print more information about the compilation process." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
   { name: 'production', alias: 'p', description: "Shortcut for `--target production`." },
@@ -268,8 +270,14 @@ function postbuild(opts, fableProc) {
 function processJson(json, opts) {
     var err = null;
     try {
+        var t = process.hrtime();
         var babelAst = JSON.parse(json);
-        if (babelAst.type == "Error") {
+        if (babelAst.type == "LOG") {
+            if (opts.verbose) {
+                console.log(babelAst.message);
+            }
+        }
+        else if (babelAst.type == "ERROR") {
             err = babelAst.message;
         }
         else {
@@ -280,6 +288,13 @@ function processJson(json, opts) {
             else {
                 babelifyToFile(babelAst, opts);
                 console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
+                if (opts.verbose) {
+                    t = process.hrtime(t);
+                    for (var i = 0; i < babelAst.logs.length; i++) {
+                        console.log(babelAst.logs[i]);
+                    }
+                    console.log("[INFO] Babel transform & writing: " + (t[1] / 1000000000) + "s\n");
+                }
             }
         }
     }
@@ -341,7 +356,13 @@ function build(opts) {
     }
 
     // Call Fable.exe
-    // console.log(cfgDir + "> " + fableCmd + " " + fableCmdArgs.join(" "));
+    if (opts.verbose) {
+        
+        console.log("PROJECT FILE: " + path.resolve(path.join(cfgDir, opts.projFile)) + "\n");
+        console.log("OUTPUT DIR: " + path.resolve(opts.outDir) + "\n");
+        console.log("WORKING DIR: " + path.resolve(cfgDir) + "\n");
+        console.log("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
+    }
     console.log("Start compilation...");
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: cfgDir });
 
@@ -462,6 +483,10 @@ try {
                 process.exit(1);
             }
         }
+    }
+    
+    if (opts.verbose) {
+        console.log("Fable F# to JS compiler version " + require("./package.json").version);
     }
 
     if (opts.scripts && opts.scripts.prebuild) {

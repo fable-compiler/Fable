@@ -3,6 +3,7 @@ namespace Fable
 type CompilerOptions = {
         code: string
         projFile: string
+        coreLib: string
         symbols: string list
         plugins: string list
         msbuild: string list
@@ -12,8 +13,21 @@ type CompilerOptions = {
         copyExt: bool
     }
     
-type CompilerError(msg) =
-    member x.``type`` = "Error"
+type LogMessage =
+    | Warning of string
+    | Info of string
+    override x.ToString() =
+        match x with
+        | Warning s -> "[WARNING] " + s
+        | Info s -> "[INFO] " + s
+        
+type CompilerMessageType =
+    | Error | Log
+    override x.ToString() =
+        match x with Error -> "ERROR" | Log -> "LOG"
+    
+type CompilerMessage(typ: CompilerMessageType, msg) =
+    member x.``type`` = string typ
     member x.message: string = msg
 
 type IPlugin =
@@ -26,7 +40,15 @@ type ICompiler =
 type EraseAttribute() = inherit System.Attribute()
 [<Erase>] type U2<'a, 'b> = Case1 of 'a | Case2 of 'b
 [<Erase>] type U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c
-    
+
+type PerfTimer(label) =
+    let t = System.Diagnostics.Stopwatch()
+    do t.Start()
+    /// Stops timer and returns a log message with label and total seconds
+    member x.Finish() =
+        t.Stop()
+        t.Elapsed.TotalSeconds |> sprintf "%s: %fs" label |> Info
+
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
     
@@ -96,8 +118,6 @@ module Naming =
         | [x] -> x
         | x::xs -> getCommonPrefix x xs
         
-    let coreLib = "fable-core"
-        
     let exportsIdent = "$exports"
     
     let getImportIdent i = sprintf "$import%i" i
@@ -136,10 +156,15 @@ module Naming =
 
     // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
     let jsKeywords =
-        set["abstract"; "await"; "boolean"; "break"; "byte"; "case"; "catch"; "char"; "class"; "const"; "continue"; "debugger"; "default"; "delete"; "do"; "double";
+        set [
+            "abstract"; "await"; "boolean"; "break"; "byte"; "case"; "catch"; "char"; "class"; "const"; "continue"; "debugger"; "default"; "delete"; "do"; "double";
             "else"; "enum"; "export"; "extends"; "false"; "final"; "finally"; "float"; "for"; "function"; "goto"; "if"; "implements"; "import"; "in"; "instanceof"; "int"; "interface";
             "let"; "long"; "native"; "new"; "null"; "package"; "private"; "protected"; "public"; "return"; "self"; "short"; "static"; "super"; "switch"; "synchronized";
-            "this"; "throw"; "throws"; "transient"; "true"; "try"; "typeof"; "undefined"; "var"; "void"; "volatile"; "while"; "with"; "yield" ]
+            "this"; "throw"; "throws"; "transient"; "true"; "try"; "typeof"; "undefined"; "var"; "void"; "volatile"; "while"; "with"; "yield";
+            // Standard built-in objects (https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects)
+            "Object"; "Function"; "Boolean"; "Symbol"; "Map"; "Set"; "Number"; "Math"; "Date"; "String"; "RegExp"; "JSON"; "Promise";
+            "Array"; "Int8Array"; "Uint8Array"; "Uint8ClampedArray"; "Int16Array"; "Uint16Array"; "Int32Array"; "Uint32Array"; "Float32Array"; "Float64Array";
+        ] 
 
     let isInvalidJsIdent name =
         identForbiddenCharsRegex.IsMatch(name) || jsKeywords.Contains name

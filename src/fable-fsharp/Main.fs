@@ -27,6 +27,7 @@ let readOptions argv =
     {
         code = def opts "code" null (un id)
         projFile = def opts "projFile" null (un Path.GetFullPath)
+        coreLib = def opts "coreLib" "fable-core" (un id)
         watch = def opts "watch" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
         copyExt = def opts "copyExt" false (un bool.Parse)
@@ -121,19 +122,25 @@ let compile (com: ICompiler) checker projOpts fileMask =
         fun (file: AST.Babel.Program) ->
             JsonConvert.SerializeObject (file, jsonSettings)
             |> Console.Out.WriteLine
-    let printError =
-        CompilerError
-        >> JsonConvert.SerializeObject
-        >> Console.Out.WriteLine
+    let printMessage typ msg =
+        CompilerMessage(typ, msg)
+        |> JsonConvert.SerializeObject
+        |> Console.Out.WriteLine
     try
+        let timer = if Option.isNone projOpts then PerfTimer("Warmup") |> Some else None
+        // Get project options and parse project (F# Compiler Services) 
         let projOpts = getProjectOptions com checker projOpts fileMask
         let proj = parseFSharpProject com checker projOpts
+        // Print diagnostic info
+        if Option.isSome timer then
+            timer.Value.Finish() |> string |> printMessage Log
+        // Compile project files
         FSharp2Fable.Compiler.transformFiles com fileMask projOpts proj
         |> Fable2Babel.Compiler.transformFile com
         |> Seq.iter printFile
         Some projOpts
     with ex ->
-        printError ex.Message
+        printMessage Error ex.Message
         None
 
 let rec awaitInput (com: ICompiler) checker projOpts =

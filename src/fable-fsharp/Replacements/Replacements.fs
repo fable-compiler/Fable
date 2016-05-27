@@ -13,17 +13,17 @@ module Util =
     let (|KnownInterfaces|_|) fullName =
         if Naming.knownInterfaces.Contains fullName then Some fullName else None
         
-    let (|CoreMeth|_|) com coreMod meth expr =
+    let (|CoreMeth|_|) (com: ICompiler) coreMod meth expr =
         match expr with
         | Fable.Apply(Fable.Value(Fable.ImportRef(coreMod', importPath)),
                       [Fable.Value(Fable.StringConst meth')], Fable.ApplyGet,_,_)
-            when importPath = Naming.coreLib && coreMod = coreMod' && meth = meth' -> Some expr
+            when importPath = com.Options.coreLib && coreMod = coreMod' && meth = meth' -> Some expr
         | _ -> None
 
-    let (|CoreCons|_|) com coreMod expr =
+    let (|CoreCons|_|) (com: ICompiler) coreMod expr =
         match expr with
         | Fable.Apply(Fable.Value(Fable.ImportRef(coreMod', importPath)),_, Fable.ApplyCons,_,_)
-            when importPath = Naming.coreLib && coreMod = coreMod' -> Some expr
+            when importPath = com.Options.coreLib && coreMod = coreMod' -> Some expr
         | _ -> None
 
     let (|Null|_|) = function

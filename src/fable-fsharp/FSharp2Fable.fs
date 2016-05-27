@@ -414,14 +414,6 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 |> tryFindAtt ((=) "KeyValueList")
                 |> Option.isSome
             | _ -> false
-        // Only lower first case if there's no explicit compiled name
-        let lowerDisplayName (unionCase: FSharpUnionCase) =
-            unionCase.Attributes
-            |> tryFindAtt ((=) "CompiledName")
-            |> function
-                | Some name -> name.ConstructorArguments.[0] |> snd |> string
-                | None -> Naming.lowerFirst unionCase.DisplayName
-            |> makeConst
         let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
         match unionType with
         | ErasedUnion | OptionUnion ->
@@ -437,12 +429,12 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                 | [expr] -> expr
                 | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s"
                                 unionType.FullName
-            (Fable.ArrayValues [lowerDisplayName unionCase; v], Fable.Tuple)
+            (Fable.ArrayValues [lowerUnionCaseName unionCase; v], Fable.Tuple)
             |> Fable.ArrayConst |> Fable.Value 
         | StringEnum ->
             // if argExprs.Length > 0 then
             //     failwithf "StringEnum must not have fields: %s" unionType.FullName
-            lowerDisplayName unionCase
+            lowerUnionCaseName unionCase
         | ListUnion when isKeyValueList fsType ->
             let (|KeyValue|_|) = function
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues
@@ -511,6 +503,8 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
             let opKind = if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
             let expr = makeGet None Fable.UnknownType unionExpr (makeConst "tail")
             makeBinOp (makeRangeFrom fsExpr) boolType [expr; Fable.Value Fable.Null] opKind 
+        | StringEnum ->
+            makeBinOp (makeRangeFrom fsExpr) boolType [unionExpr; lowerUnionCaseName unionCase] BinaryEqualStrict 
         | _ ->
             let left = makeGet None (Fable.PrimitiveType Fable.String) unionExpr (makeConst "Case")
             let right = makeConst unionCase.Name
@@ -721,6 +715,14 @@ let rec private transformEntityDecl
         declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =
+    // Check there're no conflicting entity names (see #166)
+    (Set.empty, decls) ||> List.fold (fun acc -> function
+        | FSharpImplementationFileDeclaration.Entity(e, _) ->
+            if Set.contains e.DisplayName acc then
+                failwithf "Having type and module with same name at same level is not supported %s" e.DisplayName
+            Set.add e.DisplayName acc
+        | _ -> acc
+    ) |> ignore
     let declInfo, _ =
         decls |> List.fold (fun (declInfo: DeclInfo, ctx) decl ->
             match decl with
@@ -871,14 +873,16 @@ let transformFiles (com: ICompiler) (fileMask: string option)
         && isMasked file)
     |> Seq.map (fun file ->
         try
+            let t = PerfTimer("F# > Fable")
+            let ctx = ResizeArray<LogMessage>() |> Context.Empty
             let rootEnt, rootDecls =
                 let rootNs = curProj.FileMap.[file.FileName]
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
-                let rootDecls = transformDeclarations com Context.Empty [] rootDecls
+                let rootDecls = transformDeclarations com ctx [] rootDecls
                 match rootEnt with
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
-            Fable.File(file.FileName, rootEnt, rootDecls)
+            Fable.File(file.FileName, rootEnt, rootDecls, (List.ofSeq ctx.logs)@[t.Finish()])
         with
         | ex -> failwithf "%s (%s)" ex.Message file.FileName)
     |> fun seq -> projs, seq

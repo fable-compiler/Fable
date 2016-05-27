@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.3.2"
+let version = "0.3.6"
 
 module Util =
     open System.Net
@@ -167,7 +167,7 @@ Target "MochaTest" (fun _ ->
 
 Target "Plugins" (fun _ ->
     CreateDir pluginsBuildDir
-    [ "src/plugins/Fable.Plugins.NUnit.fsx"; "src/plugins/Fable.Plugins.VisualStudio.UnitTests.fsx"; "src/plugins/Fable.Plugins.BitwiseWrap.fsx" ]
+    !! "src/plugins/**.fsx"
     |> Seq.iter (fun fsx ->
         let dllFile = Path.ChangeExtension(Path.GetFileName fsx, ".dll")
         [fsx]

@@ -10,7 +10,8 @@ type Context = {
     file: string
     originalFile: string
     moduleFullName: string
-    imports: System.Collections.Generic.List<string * string>
+    imports: ResizeArray<string * string>
+    logs: ResizeArray<LogMessage>
     }
 
 type IBabelCompiler =
@@ -339,7 +340,7 @@ module Util =
                     | [] -> props
                     | interfaces ->
                         let ifcsSymbol =
-                            com.GetImport ctx "Symbol" Naming.coreLib
+                            com.GetImport ctx "Symbol" com.Options.coreLib
                             |> get <| "interfaces"
                         Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
                         |> U3.Case1 |> consBack props
@@ -455,7 +456,7 @@ module Util =
             isClass || (not (Naming.automaticInterfaces.Contains x)))
         if ifcs.Length = 0
         then None
-        else [ com.GetImport ctx "Util" Naming.coreLib
+        else [ com.GetImport ctx "Util" com.Options.coreLib
                typeRef com ctx ent None
                buildStringArray ifcs ]
             |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
@@ -636,11 +637,13 @@ module Compiler =
         let com = makeCompiler com projs
         files |> Seq.map (fun (file: Fable.File) ->
             try
+                let t = PerfTimer("Fable > Babel")
                 let ctx = {
                     file = Naming.fixExternalPath com file.FileName
                     originalFile = file.FileName
                     moduleFullName = projs.Head.FileMap.[file.FileName]
-                    imports = System.Collections.Generic.List<_>()
+                    imports = ResizeArray<_>()
+                    logs = ResizeArray<_>()
                 }
                 let rootDecls =
                     com.DeclarePlugins
@@ -667,7 +670,8 @@ module Compiler =
                         :> Babel.ModuleDeclaration |> U2.Case2)
                     |> Seq.toList
                     |> (@) <| rootDecls
+                let logs = file.Logs @ (List.ofSeq ctx.logs) @ [t.Finish()] |> List.map string 
                 Babel.Program (Naming.fixExternalPath com file.FileName,
-                                file.FileName, file.Range, rootDecls)
+                                file.FileName, file.Range, rootDecls, logs=logs)
             with
             | ex -> failwithf "%s (%s)" ex.Message file.FileName)
