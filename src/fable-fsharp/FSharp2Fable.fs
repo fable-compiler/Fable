@@ -17,12 +17,12 @@ open Util
 // Special values like seq, async, String.Empty...
 let private (|SpecialValue|_|) com ctx = function
     | BasicPatterns.ILFieldGet (None, typ, fieldName) as fsExpr when typ.HasTypeDefinition ->
-        match typ.TypeDefinition.FullName, fieldName with
-        | "System.String", "Empty" -> Some (makeConst "")
-        | "System.TimeSpan", "Zero" ->
+        match typ.TypeDefinition.TryFullName, fieldName with
+        | Some "System.String", "Empty" -> Some (makeConst "")
+        | Some "System.TimeSpan", "Zero" ->
             Fable.Wrapped(makeConst 0, makeType com ctx fsExpr.Type) |> Some
-        | "System.DateTime", "MaxValue"
-        | "System.DateTime", "MinValue" ->
+        | Some "System.DateTime", "MaxValue"
+        | Some "System.DateTime", "MinValue" ->
             CoreLibCall("Date", Some (Naming.lowerFirst fieldName), false, [])
             |> makeCall com (makeRangeFrom fsExpr) (makeType com ctx fsExpr.Type) |> Some 
         | _ -> None
@@ -198,7 +198,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     (** ## Applications *)
     | BasicPatterns.TraitCall (_sourceTypes, traitName, _typeArgs, _typeInstantiation, argExprs) ->
-        // printfn "TraitCall detected in %A: %A" fsExpr.Range fsExpr // TODO: Check
+        ctx.logs.Add(Info(sprintf "TraitCall detected in %O" fsExpr.Range)) // TODO: Check
         let range = makeRangeFrom fsExpr
         let callee, args = transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
         let callee = makeGet range (Fable.PrimitiveType (Fable.Function argExprs.Length)) callee (makeConst traitName)
@@ -603,7 +603,8 @@ type private DeclInfo(init: Fable.Declaration list) =
     let hasIgnoredAtt atts =
         atts |> tryFindAtt (Naming.ignoredAtts.Contains) |> Option.isSome
     member self.IsIgnoredEntity (ent: FSharpEntity) =
-        ent.IsInterface || (hasIgnoredAtt ent.Attributes) || isAttributeEntity ent
+        ent.IsFSharpAbbreviation || ent.IsInterface
+        || (hasIgnoredAtt ent.Attributes) || isAttributeEntity ent
     /// Is compiler generated (CompareTo...) or belongs to ignored entity?
     /// (remember F# compiler puts class methods in enclosing modules)
     member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
@@ -715,12 +716,15 @@ let rec private transformEntityDecl
         declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =
+    let declInfo = DeclInfo init
     // Check there're no conflicting entity names (see #166)
     (Set.empty, decls) ||> List.fold (fun acc -> function
         | FSharpImplementationFileDeclaration.Entity(e, _) ->
             if Set.contains e.DisplayName acc then
-                failwithf "Having type and module with same name at same level is not supported %s" e.DisplayName
-            Set.add e.DisplayName acc
+                failwithf "Types or modules with same name at same level is not supported: %s" e.DisplayName
+            if declInfo.IsIgnoredEntity e
+            then acc
+            else Set.add e.DisplayName acc
         | _ -> acc
     ) |> ignore
     let declInfo, _ =
@@ -735,7 +739,7 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx e as fe) ->
                 declInfo.AddInitAction (Fable.ActionDeclaration (e, makeRange fe.Range))
                 declInfo, ctx
-        ) (DeclInfo init, ctx)
+        ) (declInfo, ctx)
     declInfo.GetDeclarations()
     
 let private makeFileMap (rootEntities: #seq<FSharpEntity>) =

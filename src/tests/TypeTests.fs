@@ -125,3 +125,10 @@ let ``Property names don't clash with built-in JS objects``() = // See #168
         Players = Map.empty 
     } 
     gameState.Players.ContainsKey(1) |> equal false
+    
+type T4 = TestType4
+
+[<Test>]
+let ``Type abbreviation works``() =
+    let t = T4()
+    t.Value |> equal "Bye"

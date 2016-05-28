@@ -552,12 +552,13 @@ module private AstPass =
         let toArray r optExpr =
             Fable.Apply(Fable.Emit("$0 != null ? [$0]: []") |> Fable.Value, [optExpr],
                 Fable.ApplyMeth, Fable.PrimitiveType (Fable.Array Fable.DynamicArray), r)
-        let callee = match i.callee with Some c -> c | None -> i.args.Head
+        let getCallee() = match i.callee with Some c -> c | None -> i.args.Head
         match i.methodName with
+        | "none" -> Fable.Null |> Fable.Value |> Some
         | "value" | "get" | "toObj" | "ofObj" | "toNullable" | "ofNullable" ->
-           wrap i.returnType callee |> Some
-        | "isSome" -> makeEqOp i.range [callee; Fable.Value Fable.Null] BinaryUnequal |> Some
-        | "isNone" -> makeEqOp i.range [callee; Fable.Value Fable.Null] BinaryEqual |> Some
+           wrap i.returnType (getCallee()) |> Some
+        | "isSome" -> makeEqOp i.range [getCallee(); Fable.Value Fable.Null] BinaryUnequal |> Some
+        | "isNone" -> makeEqOp i.range [getCallee(); Fable.Value Fable.Null] BinaryEqual |> Some
         | "map" | "bind" -> emit i "$1 != null ? $0($1) : $1" i.args |> Some
         | "toArray" -> toArray i.range i.args.Head |> Some
         | meth ->
