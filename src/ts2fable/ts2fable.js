@@ -471,6 +471,9 @@ function printTypeArguments(typeArgs) {
  }
 
 function getType(type) {
+    if (!type) {
+        return "obj";
+    }
     var typeParameters = findTypeParameters(type);
     switch (type.kind) {
         case ts.SyntaxKind.StringKeyword:
