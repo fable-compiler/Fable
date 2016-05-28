@@ -486,7 +486,7 @@ module Util =
 
     let declareRootModMember range name _ isPublic _ modIdent expr =
         if Naming.isInvalidJsIdent name then
-            failwithf "'%s' cannot be used as a member name" name
+            failwithf "'%s' cannot be used as a member name %O" name range
         let decl =
             varDeclaration (Some range) (identFromName name) expr
             :> Babel.Declaration

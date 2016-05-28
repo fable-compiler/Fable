@@ -616,3 +616,20 @@ let ``Array as IList Seq.length has same behaviour``() =
     let xs = [|1.; 2.; 3.|]
     let ys = xs :> _ IList
     ys |> Seq.length |> equal 3
+
+[<Test>]
+let ``Mapping with typed arrays doesn't coerce``() =
+    let data = [| 1 .. 12 |]
+    let page size page data =
+        data
+        |> Array.skip ((page-1) * size)
+        |> Array.take size
+    let test1 =
+        [| 1..4 |]
+        |> Array.map (fun x -> page 3 x data)
+    let test2 =
+        [| 1..4 |]
+        |> Seq.map (fun x -> page 3 x data)
+        |> Array.ofSeq
+    test1 |> Array.concat |> Array.sum |> equal 78
+    test2 |> Array.concat |> Array.sum |> equal 78

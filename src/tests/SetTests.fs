@@ -93,10 +93,10 @@ let ``Set.unionMany works``() =
 
 [<Test>]
 let ``Set.intersect works``() =
-    let xs = set [1; 2]
-    let ys = Set.singleton 2
+    let xs = set [1; 2; 3; 4]
+    let ys = set [0; 2; 4; 5]
     let zs = xs |> Set.intersect ys
-    (zs.Contains 2 && not(zs.Contains 1))
+    (zs.Contains 2 && zs.Contains 4 && not(zs.Contains 1) && not(zs.Contains 5))
     |> equal true
 
 [<Test>]

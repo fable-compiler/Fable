@@ -1378,7 +1378,8 @@
     e[Symbol.iterator] = function () {
       var iter = xs[Symbol.iterator]();
       for (var i = 1; i <= n; i++) {
-        iter.next();
+        if (iter.next().done)
+          throw "Seq has not enough elements";
       }
       return iter;
     };

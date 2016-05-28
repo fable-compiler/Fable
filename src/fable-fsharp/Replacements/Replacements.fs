@@ -952,12 +952,9 @@ module private AstPass =
                 // Array.fill target targetIndex count value
                 // target.fill(value, targetIndex, targetIndex + count)
                 emit i "$0.fill($3, $1, $1 + $2)" i.args |> Some
-            | "map" ->
-                // If input and output types don't match,
-                // don't use native `map` (see #120)
-                if i.returnType = i.args.[1].Type
-                then icall "map" (i.args.[1], deleg i [i.args.[0]])
-                else None
+            // Native JS map is risky with typed arrays as they coerce
+            // the final result (see #120, #171)
+            // | "map" -> icall "map" (i.args.[1], deleg i [i.args.[0]])
             | Patterns.SetContains implementedArrayFunctions meth ->
                 CoreLibCall ("Array", Some meth, false, deleg i i.args)
                 |> makeCall com i.range i.returnType |> Some

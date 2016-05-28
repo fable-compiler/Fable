@@ -326,6 +326,18 @@ let ``Seq.skip works``() =
     |> equal 2.
 
 [<Test>]
+let ``Seq.skip fails when there're not enough elements``() =
+    let error, xs = ref false, [|1;2;3;4;5|]
+    try
+        Seq.skip 5 xs |> Seq.length |> equal 0
+    with _ -> error := true
+    equal false !error
+    try
+        Seq.skip 6 xs |> Seq.length |> equal 0
+    with _ -> error := true
+    equal true !error
+
+[<Test>]
 let ``Seq.toArray works``() =
     let xs = [1.; 2.; 3.]
     let ys = xs |> Seq.toArray
