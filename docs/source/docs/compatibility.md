@@ -111,7 +111,7 @@ types or with generics in **inline** functions.
 Decorators are coming to JavaScript. However, there are competing proposals
 and it's not yet clear how the definitive specs will be. For now, attributes
 are only visible to the compiler which uses them, for example, when defining
-[foreign interfaces](interacting.md).
+[foreign interfaces](interacting.html).
 
 ## Interfaces
 
