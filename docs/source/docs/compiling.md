@@ -203,7 +203,7 @@ According to the `--module` argument (see above), these modules can be transform
 In the browser, when not using a bundler like Webpack or Browserify, you'll need a module loader like [require.js](http://requirejs.org) to start up the app.
 
 When a F# file makes a reference to another, the compiler will create an [import statement](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import)
-in the generated Javascript code. You can also generate imports by using the [Import attribute](interacting.md).
+in the generated Javascript code. You can also generate imports by using the [Import attribute](interacting.html).
 
 As JS must import external modules with an alias, there's no risk of namespace
 collision so, for convenience, the compiler will use the minimum route to access
@@ -250,7 +250,7 @@ or a capable IDE. In the case of Visual Studio Code, you can find instructions [
 ## Testing
 
 You can use any JS testing library to write tests for your project, but to make it
-easier to share code across platforms, a [plugin](plugins.md) is available to make
+easier to share code across platforms, a [plugin](plugins.html) is available to make
 [NUnit](http://www.nunit.org) tests compatible with [Mocha](https://mochajs.org)
 and this is what Fable uses for its own tests. The tests are compiled and run
 automatically when building the project:
@@ -306,5 +306,5 @@ so usually this step is automatic.
 
 
 Now it's your turn to build a great app with Fable and show it to the world!
-Check [Compatibility](compatibility.md) and [Interacting with JavaScript](interacting.md)
+Check [Compatibility](compatibility.html) and [Interacting with JavaScript](interacting.html)
 to learn what you need to take into account when diving into JS.
