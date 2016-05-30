@@ -624,7 +624,9 @@ function getMethod(node, opts) {
         name: opts.name || getName(node),
         type: getType(node.type),
         optional: node.questionToken != null,
-        static: opts.static || (node.name ? hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static) : false),
+        static: opts.static
+            || (node.name && hasFlag(node.name.parserContextFlags, ts.NodeFlags.Static))
+            || (node.modifiers && hasFlag(node.modifiers.flags, ts.NodeFlags.Static)),
         parameters: node.parameters.map(getParameter)
     };
     var firstParam = node.parameters[0], secondParam = node.parameters[1];
@@ -670,7 +672,7 @@ function visitInterface(node, opts) {
         var member, name;
         switch (node.kind) {
             case ts.SyntaxKind.PropertySignature:
-            // case ts.SyntaxKind.PropertyDeclaration:
+            case ts.SyntaxKind.PropertyDeclaration:
                 if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
                     name = getName(node.name);
                     member = getProperty(node, { name: "["+name+"]" });
@@ -689,7 +691,7 @@ function visitInterface(node, opts) {
                 ifc.methods.push(member);
                 break;
             case ts.SyntaxKind.MethodSignature:
-            // case ts.SyntaxKind.MethodDeclaration:
+            case ts.SyntaxKind.MethodDeclaration:
                 if (node.name.kind == ts.SyntaxKind.ComputedPropertyName) {
                     name = getName(node.name);
                     member = getMethod(node, { name: "["+name+"]" });

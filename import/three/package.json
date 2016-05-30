@@ -1,13 +1,13 @@
 {
-  "name": "fable-import-fetch",
-  "version": "0.0.2",
-  "description": "Fable bindings for Fetch",
+  "name": "fable-import-three",
+  "version": "0.0.1",
+  "description": "Fable bindings for three.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/fetch"
+    "url": "https://github.com/fsprojects/Fable/import/three"
   },
   "license": "Apache-2.0",
-  "author": "Dave Thomas",
+  "author": "Alfonso Garcia-Caro",
   "keywords": [
     "fable",
     "fable-compiler",
