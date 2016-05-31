@@ -3,7 +3,7 @@
  - tagline: Rendering fractals using HTML5 canvas
  - app-style: padding:20px 0px 10px 0px;
  - intro: This demo is based on Tomas Petricek's [F# Advent Calendar post](http://tomasp.net/blog/2014/japan-advent-art-en/)
-   that explores Japenese art using the (now defunct) Freebase type provider and renders
+   that explores Japanese art using the (now defunct) Freebase type provider and renders
    The Great Wave by Hokusai using the Julia fractal.
    You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/hokusai/hokusai.fsx).
 
@@ -91,7 +91,7 @@ Generating the color palette
 ----------------------------
 
 To generate a pretty picture, we need to carefuly generate the color palette.
-TO do this, we define a pair of operators that let us write
+To do this, we define a pair of operators that let us write
 `(rgb1) --n--> (rbg2)` and generate a range of colors between `rgb1` and `rgb2`
 consisting of `n` steps.
 *)

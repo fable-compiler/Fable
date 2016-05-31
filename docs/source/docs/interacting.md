@@ -83,8 +83,8 @@ See the [README](https://www.npmjs.com/package/ts2fable) for more information.
 npm install -g ts2fable
 ```
 
-You can find common definitions already parsed [here](/import). Some of them are available
-in npm, just search for `fable-import` packages.
+You can find common definitions already parsed [here](https://github.com/fsprojects/Fable/blob/master/import).
+Some of them are available in npm, just search for `fable-import` packages.
 
 ## Special attributes
 
@@ -226,7 +226,7 @@ Many JS libraries accept a plain object to specify different options.
 With Fable, you can use union types to define these options in a more
 static-safe and F#-idiomatic manner. The union cases of a type with the
 `KeyValueList` attribute act as a key value pair, so they should have a
-single data field. (If there's no data field the value is assumed to be `true`.)
+single data field (if there's no data field the value is assumed to be `true`).
 When Fable encounters a **list** of such an union type, it will compile it as
 a plain JS object.
 
@@ -402,4 +402,4 @@ foreignObj.myMethod(fun a b -> a + b)
 ```
 
 > Note: If you still experience problems make the conversion explicit
-as in the above example
+as in the above example.

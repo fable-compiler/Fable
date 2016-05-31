@@ -61,7 +61,7 @@ to call its methods to specify handlers for routes:
 
 One interesting thing here is that `get`, `put` and `post` can take either a regular expression
 or a string. In JavaScript, you just pass the object to the function. In F#, this is mapped to a simple
-two-case discriminated union, so that yo uget static checking. We'll see how to use these mappings next.
+two-case discriminated union, so that you get static checking. We'll see how to use these mappings next.
 
 ## Calling Express bindings
 

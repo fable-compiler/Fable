@@ -190,7 +190,7 @@ Node.require.Invoke("core-js") |> ignore
 
 > Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/)
 with a lazy-sequence generator, but this is not needed as one is already included
-in [fable-core.js]https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js).
+in [fable-core.js](https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js).
 
 
 ## Modules

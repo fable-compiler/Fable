@@ -4,7 +4,7 @@
  - app-style: height:300px; width:300px; margin:20px auto 20px auto; position:relative;
  - intro: Pacman finds himself in a grid filled with monsters... This is probably the most complex sample here.
    It involves rendering the maze, AI for the ghosts, user interaction and even playing sound effects.
-   The game has some brief commentary, but if you want to learn Fable, look at the above examples
+   The game has some brief commentary, but if you want to learn Fable, look at the other examples
    first. The [raw source code is on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/pacman/pacman.fsx)
    as usual!
 
@@ -64,13 +64,12 @@ let createImage data =
   img
 (**
 The second part defines the maze, tile bits and blank block. The maze is defined as one big string
-using ASCII-art encoding. Where `/7LJ` represent corners (upper-left, upper-right, lower-left and lower-right),
-`!|-_` represent walls (left, right, top, bottom)` and `o.` represent two kinds of pills in the maze.
+using ASCII-art encoding. Where `/`, `7`, `L` and `J` represent corners (upper-left, upper-right,
+lower-left and lower-right), `!`, `|`, `-` and `_` represent walls (left, right, top, bottom) while
+`o` and `.` represent two kinds of pills in the maze.
 *)
 // Define the structure of the maze using ASCII
-let maze =
-  (*[omit:"##|./__7./___7.|!./___7./__7.|##,"...]*)
-  ("\
+let maze = ("\
 ##/------------7/------------7##,\
 ##|............|!............|##,\
 ##|./__7./___7.|!./___7./__7.|##,\
@@ -101,7 +100,7 @@ _______7./7 |      ! /7./_______,\
 ##|./____JL__7.|!./__JL____7.|##,\
 ##|.L--------J.LJ.L--------J.|##,\
 ##|..........................|##,\
-##L--------------------------J##").Split(',') (*[/omit]*)
+##L--------------------------J##").Split(',')
 
 let tileBits =
  [| [|0b00000000;0b00000000;0b00000000;
@@ -193,7 +192,7 @@ let createBrush (context:CanvasRenderingContext2D) (r,g,b,a) =
   id
 (**
 The main function for rendering background just fills the canvas with a black color and
-then iterates over the Maze tiles and renders individual walls:
+then iterates over the maze tiles and renders individual walls:
 *)
 
 let createBackground () =
@@ -441,7 +440,7 @@ let countDots () =
 ## The game play function
 
 Most of the Pacman game logic is wrapped in the top-level `playLevel` function. This takes two functions - that are called
-when the game completes - and then it iniializes the world state and runs in a loop until the end of the game.
+when the game completes - and then it initializes the world state and runs in a loop until the end of the game.
 The following outlines the structure of the function:
 
     let playLevel (onLevelCompleted, onGameOver) =
@@ -489,7 +488,7 @@ creates other graphical elements - namely the game background, ghosts and eyes:
 (**
 ### Define the Pacman state
 Next, we define the game state. Pacman game uses mutable state, so the following uses
-F# reference cells; `ref 0` creates a mutable cell containing 0. Later, we will access
+F# reference cells; `ref 0` creates a mutable cell containing `0`. Later, we will access
 the value by writing `!score` and mutate it by writing `score := !score + 1`.
 
 *)
@@ -550,7 +549,7 @@ in `moveGhosts` and `movePacman`:
     x := x'
     y := y'
 (**
-### Detect pills and collisiions
+### Detect pills and collisions
 The most sophisticated part of the game logic is checking for various events. The following things can happen:
 
  - Pacman eats a small or a large pill - in which case, we play a sound and (optionally) switch to the power mode

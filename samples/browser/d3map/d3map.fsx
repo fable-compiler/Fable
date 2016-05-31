@@ -22,7 +22,7 @@ JavaScript helpers and imports
 Fable comes with [an F# mapping for the D3 library](https://github.com/fsprojects/Fable/tree/master/import/d3),
 which defines all the types and functions for D3 that we'll need in this example. In addition to
 D3, this demo uses [d3-queue](https://github.com/d3/d3-queue) and [topojson](https://github.com/mbostock/topojson).
-We'll write the mappings for those two inline
+We'll write the mappings for those two inline:
 *)
 open System
 open Fable.Core
@@ -44,7 +44,7 @@ let [<Global>] queue: unit->IQueue = failwith "JS only"
 let [<Global>] topojson: ITopojson = failwith "JS only"
 (**
 
-The `Global` attrobute on the two values specifies that those are imported globally available
+The `Global` attribute on the two values specifies that those are imported globally available
 values. Fable does not generate any JavaScript code for them - it simply maps any call to
 `topojson.feature(..)` etc. to a corresponding JavaScript call.
 
@@ -117,7 +117,7 @@ file that represents individual country areas; `names` loads country names from
 
 After some setup, the code defines a recursive `transition` function, which performs one transition
 and then calls itself to setup the next transition step. In each step, it increments the index of
-the current country, which is stored in `i`. The `transtion 0` call then starts the animation.
+the current country, which is stored in `i`. The `transition 0` call then starts the animation.
 *)
 (*** hide ***)
 let dataLoaded world names =

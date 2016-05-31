@@ -58,7 +58,7 @@ GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/d3map/d3
 ### [Hokusai and fractals](samples/hokusai/index.html)
 
 This demo is based on Tomas Petricek's [F# Advent Calendar post](http://tomasp.net/blog/2014/japan-advent-art-en/)
-that explores Japenese art using the (now defunct) Freebase type provider and renders
+that explores Japanese art using the (now defunct) Freebase type provider and renders
 The Great Wave by Hokusai using the Julia fractal.
 View the [raw source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/hokusai/hokusai.fsx).
 

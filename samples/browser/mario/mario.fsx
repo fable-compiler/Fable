@@ -81,7 +81,7 @@ Mario and composable physics
 
 We keep information about Mario in a single record type with fields that
 represent the current x and y coordinates (`x` and `y`), current velocity
-(`vx` and `vy`) and the current direction `dir`. The direction is used to
+(`vx` and `vy`) and the current direction (`dir`). The direction is used to
 pick the correct Mario image when rendering:
 *)
 
@@ -181,8 +181,8 @@ Keyboard helpers
 ----------------
 
 The `Keyboard` module handles keydown and keyup events of the window and
-exposes them using the `arrows` property (which is a tuple int*int with -1 if the
-left/up key is pressed, 1 if right/down key is pressed and 0 otherwise).
+exposes them using the `arrows` property (which is a tuple `int*int` with `-1` if the
+left/up key is pressed, `1` if right/down key is pressed and `0` otherwise).
 *)
 (*** include:boring-keyboard ***)
 
