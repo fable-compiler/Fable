@@ -2,15 +2,15 @@
  - title: D3 world tour
  - tagline: Looping through countries of the world
  - app-style: height:500px; width:500px; margin:10px auto 10px auto;
- - require-paths: ` 'd3':'https://d3js.org/d3.v3.min' `
+ - require-paths: `'d3':'https://d3js.org/d3.v3.min','queue': 'https://d3js.org/queue.v1.min','topojson': 'https://d3js.org/topojson.v1.min' `
  - intro: This demo is a Fable port of [Mike Bostock's World Tour](http://bl.ocks.org/mbostock/4183330)
    D3 demo. It uses the D3 library to create a visualization that loops through all countries of
    the world and shows them on the globe one by one.
    You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/d3map/d3map.fsx).
 
    On the technical side, the demo shows some of the more interesting aspects of
-   calling JavaScript libraries from Fable. You'll learn how to define mapping for
-   global objects, how to use functions and the `?` operator.
+   calling JavaScript libraries from Fable. You'll learn how to define mappings for
+   imported scripts, how to pass lambdas to JS code and the `?` operator.
 *)
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
@@ -39,14 +39,14 @@ type ITopojson =
     abstract member feature: obj * obj -> obj
     abstract member mesh: obj * obj * obj -> obj
 
-// Globally imported JS libs (loaded with <script> tag)
-let [<Global>] queue: unit->IQueue = failwith "JS only"
-let [<Global>] topojson: ITopojson = failwith "JS only"
+let [<Import("default","queue")>] queue: unit->IQueue = failwith "JS only"
+let [<Import("default","topojson")>] topojson: ITopojson = failwith "JS only"
 (**
 
-The `Global` attribute on the two values specifies that those are imported globally available
-values. Fable does not generate any JavaScript code for them - it simply maps any call to
-`topojson.feature(..)` etc. to a corresponding JavaScript call.
+The `Import` attribute on the two values is used to import the code and make it available.
+We write the arguments as if we were writing [EcmaScript 2015 modules](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import)
+like `import defaultMember from 'queue'`, then Fable/Babel will transform the modules as needed.
+In this case, we use amd as a target so we can load them with [Require.js](http://requirejs.org/docs/whyamd.html).
 
 In addition to the library imports, we also define the following helpers that wrap an F#
 function into the `Func<...>` type. This creates a function value that is compatible with
@@ -76,19 +76,18 @@ used later for rotating the globe. The `path` value is used for transforming pat
 want to render to match with the projection.
 *)
 let projection =
-  D3.geo
-    .orthographic()
+  D3.Geo.Globals.orthographic()
     .translate((width / 2., height / 2.))
     .scale(width / 2. - 20.)
     .clipAngle(90.)
     .precision(0.6)
 
 let path =
-  D3.geo.path()
+  D3.Geo.Globals.path()
     .projection(unbox<D3.Geo.Transform> projection)
     .context(ctx)
 
-let title = d3.select(".country-name")
+let title = D3.Globals.select(".country-name")
 (**
 Finally, the `title` value is the HTML element in the middle of the globe that shows the
 current country name. This is just an ordinary HTML element and we will set its body text
@@ -189,7 +188,7 @@ then setting up a number of parameters:
 
 *)
   let rec transition i =
-    d3.transition()
+    D3.Globals.transition()
       .duration(1250.)
       .each("start", f2 (fun _ _ ->
         // Set the text of the HTML element
@@ -198,8 +197,8 @@ then setting up a number of parameters:
       .tween("rotate", f1 (fun _ ->
         // Interopolate the rotation & return function
         // that renders everything at a given time 't'
-        let p1, p2 = D3.geo.centroid(countries.[i])
-        let r = d3.interpolate(projection.rotate(), (-p1, -p2))
+        let p1, p2 = D3.Geo.Globals.centroid(countries.[i])
+        let r = D3.Globals.interpolate(projection.rotate(), (-p1, -p2))
         f1 (fun t -> render countries.[i] (r.Invoke(t))) ))
       .transition()
       .each("end", f2 (fun _ _ ->
@@ -217,10 +216,8 @@ of data. This is done by calling `queue().defer(...)`, which specifies that a fi
 `dataLoaded` function, which then starts the first transition.
 *)
 queue()
-  // Use the dynamic operator here so the F# compiler
-  // doesn't wrap d3.json/d3.tsv in a lambda
-  .defer(d3?json, "data/world-110m.json")
-  .defer(d3?tsv, "data/world-country-names.tsv")
-  .await(f3 <| fun error world names ->
+  .defer(f2 (fun url callback -> D3.Globals.json(url, callback)), "data/world-110m.json")
+  .defer(D3.Globals.tsv, "data/world-country-names.tsv")
+  .await(f3 (fun error world names ->
     if error then error |> unbox |> raise
-    dataLoaded world names)
+    dataLoaded world names))

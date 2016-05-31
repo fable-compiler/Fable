@@ -62,6 +62,15 @@ that explores Japanese art using the (now defunct) Freebase type provider and re
 The Great Wave by Hokusai using the Julia fractal.
 View the [raw source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/hokusai/hokusai.fsx).
 
+<a href="samples/webGLTerrain/index.html"><img src="samples/images/webGLTerrain.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [WebGL Geometry Terrain](samples/webGLTerrain/index.html)
+
+This demo is a Fable port of the [WebGL Geometry Terrain](http://threejs.org/examples/#webgl_geometry_terrain)
+three.js demo. It uses the three.js library to randomly generate a 3D terrain which can be navigated in a first-person view.
+The code was originally written by [John Quigley](https://github.com/jmquigs) for FunScript,
+you can find [Fable's version on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/webGLTerrain/webGLTerrain.fsx).
+
 ## Server-side node.js
 
 <a href="samples/server/index.html"><img src="samples/images/node.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>

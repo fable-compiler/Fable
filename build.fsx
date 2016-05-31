@@ -222,12 +222,12 @@ Target "BrowseDocs" (fun _ ->
 
 Target "GenerateDocs" (fun _ ->
     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "GenerateDocs"]
-    if exit <> 0 then failwith "Browsing documentation failed"
+    if exit <> 0 then failwith "Generating documentation failed"
 )
 
 Target "PublishDocs" (fun _ ->
     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "PublishDocs"]
-    if exit <> 0 then failwith "Browsing documentation failed"
+    if exit <> 0 then failwith "Publishing documentation failed"
 )
 
 Target "All" ignore

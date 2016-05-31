@@ -50,7 +50,8 @@ let samples =
     "samples/browser/ozmo", true
     "samples/browser/pacman", true
     "samples/browser/d3map", true
-
+    "samples/browser/webGLTerrain", true
+    
     // Non-browser samples without embedded HTML
     "samples/node/server", false
     "samples/node/express", false ]
@@ -170,6 +171,7 @@ let generateStaticPages siteRoot force () =
 /// into the output folder (we may need to add more dependencies here)
 let copySharedScripts () =
     CleanDir temp
+    Npm.run temp "init" ["--yes"]
     Npm.install temp ["core-js"; "requirejs"]
 
     ensureDirectory (output </> "samples" </> "scripts")
@@ -194,12 +196,13 @@ let compileSample copyOutput name path =
     // Compile and copy JS files
     CleanDir temp
     System.Environment.CurrentDirectory <- fableRoot
-    Node.run fableRoot "build/fable" [path; "-o"; "../../../temp"]
+    Node.run fableRoot "build/fable" [path; "-o"; "../../../temp"; "--symbols"; "TUTORIAL"]
     ensureDirectory (output </> "samples" </> name)
 
     if copyOutput then
         // Copy compiled JavaScript files
-        !!(temp </> "*.*") |> CopyFiles (output </> "samples" </> name)
+        // Attention, for some reason it seems !!(temp </> "*.*") doesn't work properly in OSX
+        Directory.GetFiles(temp) |> CopyFiles (output </> "samples" </> name)
 
         // Copy subdirectories and static files (except for special ones)
         Directory.GetDirectories(path)
@@ -274,11 +277,16 @@ let generateSamplePage siteRoot name path =
 /// Generates pages from all samples & optionally recompiles the JS too
 let generateSamplePages siteRoot recompile () =
   traceImportant "Updating sample pages"
-  let lastEdit path = !! (path </> "*") |> Seq.map File.GetLastWriteTime |> Seq.fold max DateTime.MinValue
+  let lastEdit path = Directory.GetFiles(path) |> Seq.map File.GetLastWriteTime |> Seq.fold max DateTime.MinValue
   for sample, embed in samples do
-    let sourceModified = lastEdit (fableRoot </> sample)
-    let outputModified = lastEdit (output </> "samples" </> Path.GetFileName(sample))
-    if sourceModified > outputModified then
+    let outOfDate =
+        if Directory.Exists(output </> "samples" </> Path.GetFileName(sample)) |> not
+        then true
+        else
+            let sourceModified = lastEdit (fableRoot </> sample)
+            let outputModified = lastEdit (output </> "samples" </> Path.GetFileName(sample))
+            sourceModified > outputModified
+    if outOfDate then
       let name = Path.GetFileName(sample)
       traceImportant (sprintf "Generating sample page: %s" name)
       generateSamplePage siteRoot name sample

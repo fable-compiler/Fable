@@ -5,6 +5,18 @@
  */
 
 THREE.FirstPersonControls = function ( object, domElement ) {
+	function getOffsetRect(elem) {
+		var box = elem.getBoundingClientRect()
+		var body = document.body
+		var docElem = document.documentElement
+		var scrollTop = window.pageYOffset || docElem.scrollTop || body.scrollTop
+		var scrollLeft = window.pageXOffset || docElem.scrollLeft || body.scrollLeft
+		var clientTop = docElem.clientTop || body.clientTop || 0
+		var clientLeft = docElem.clientLeft || body.clientLeft || 0
+		var top  = box.top +  scrollTop - clientTop
+		var left = box.left + scrollLeft - clientLeft
+		return { top: Math.round(top), left: Math.round(left) }
+	}
 
 	this.object = object;
 	this.target = new THREE.Vector3( 0, 0, 0 );
@@ -128,9 +140,10 @@ THREE.FirstPersonControls = function ( object, domElement ) {
 			this.mouseY = event.pageY - this.viewHalfY;
 
 		} else {
+			var rect = getOffsetRect(this.domElement);
 
-			this.mouseX = event.pageX - this.domElement.offsetLeft - this.viewHalfX;
-			this.mouseY = event.pageY - this.domElement.offsetTop - this.viewHalfY;
+			this.mouseX = event.pageX - rect.left - this.viewHalfX;
+			this.mouseY = event.pageY - rect.top - this.viewHalfY;
 
 		}
 

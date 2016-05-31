@@ -24,7 +24,7 @@
 	  </style>
 </head>
 <body>
-
+  <!-- [body] -->
   <div id="container"><br /><br /><br /><br /><br />Generating world...
   <br>
   If this message doesn't disappear after a few seconds, you may want to verify that WebGL
@@ -33,15 +33,16 @@
   <div id="info">
   <a href="http://threejs.org" target="_blank">three.js</a> - webgl terrain demo<br />(left click: forward, right click: backward; or WASD to move)
   </div>
-
+  <!-- [/body] -->
+  <!-- [head] -->
   <script src="//cdnjs.cloudflare.com/ajax/libs/three.js/r77/three.js"></script>
-  <script src="/js/FirstPersonControls.js"></script>
-  <script src="/js/ImprovedNoise.js"></script>
-
+  <script src="js/FirstPersonControls.js"></script>
+  <script src="js/ImprovedNoise.js"></script>
+  <script>define("three", [], THREE);</script>
+  <!-- [/head] -->
   <script src="node_modules/core-js/client/core.min.js"></script>
   <script src="node_modules/requirejs/require.js"></script>
   <script>
-    define("three", [], THREE);
     requirejs.config({
         // Set the baseUrl to the path of the compiled JS code
         baseUrl: 'out',
