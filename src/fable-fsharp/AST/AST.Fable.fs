@@ -194,6 +194,7 @@ and Expr =
     | ObjExpr of members: Member list * interfaces: string list * baseClass: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
     | Apply of callee: Expr * args: Expr list * kind: ApplyKind * typ: Type * range: SourceLocation option
+    | Quote of Expr
 
     // Pseudo-Statements
     | Throw of Expr * range: SourceLocation option
@@ -219,11 +220,13 @@ and Expr =
             | [] -> PrimitiveType Unit
             | exprs -> (Seq.last exprs).Type
         | TryCatch (body,_,_,_) -> body.Type
+        // TODO: Quotations must have their own primitive? type
+        | Quote _ -> UnknownType
 
     member x.Range: SourceLocation option =
         match x with
         | Value v -> v.Range
-        | VarDeclaration (_,e,_) | Wrapped (e,_) -> e.Range
+        | VarDeclaration (_,e,_) | Wrapped (e,_) | Quote e -> e.Range
         | ObjExpr (_,_,_,range)
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)

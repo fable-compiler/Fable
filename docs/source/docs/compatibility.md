@@ -160,6 +160,11 @@ Object expressions are compatible for the most general cases.
 Units of measure are compatible (at least for `int` and `float`) but they will
 be erased from the generated JS code.
 
+## Quotations
+
+Experimental support for quotations has been added. Currently they compile to a JS object
+compliant with [Babel AST specs](https://github.com/babel/babel/blob/master/doc/ast/spec.md).
+No splicing nor `Quotation.Expr` method/property is supported at the moment.
 
 You can check the [tests](https://github.com/fsprojects/Fable/tree/master/src/tests) when in doubt. If there's a test for something,
 it's supported :)

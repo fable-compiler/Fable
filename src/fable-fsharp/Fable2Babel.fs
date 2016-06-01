@@ -277,7 +277,7 @@ module Util =
 
         // Expressions become ExpressionStatements
         | Fable.Value _ | Fable.Apply _ | Fable.ObjExpr _ | Fable.Sequential _
-        | Fable.Wrapped _ | Fable.IfThenElse _ ->
+        | Fable.Wrapped _ | Fable.IfThenElse _ | Fable.Quote _ ->
             upcast Babel.ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range)
 
     let transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Babel.Expression =
@@ -403,6 +403,36 @@ module Util =
         | Fable.VarDeclaration _ ->
             "Unexpected variable declaration"
             |> Fable.Util.attachRange expr.Range |> failwith
+            
+        // TODO: Experimental support for Quotations
+        | Fable.Quote (TransformExpr com ctx expr) as fExpr ->
+            let rec toJson (expr: obj): Babel.Expression =
+                match expr with 
+                | :? Babel.Node ->
+                    expr.GetType().GetProperties()
+                    |> Seq.choose (fun p ->
+                        match p.Name with
+                        | "loc" -> None // Remove location to make the object lighter 
+                        | key ->
+                            let key = Babel.StringLiteral key
+                            let value = p.GetValue(expr) |> toJson 
+                            Some(Babel.ObjectProperty(key, value)))
+                    |> Seq.map U3.Case1
+                    |> Seq.toList
+                    |> fun props -> upcast Babel.ObjectExpression(props)
+                | :? bool as expr -> upcast Babel.BooleanLiteral(expr)
+                | :? int as expr -> upcast Babel.NumericLiteral(U2.Case1 expr)
+                | :? float as expr -> upcast Babel.NumericLiteral(U2.Case2 expr)
+                | :? string as expr -> upcast Babel.StringLiteral(expr)
+                | expr when Json.isErasedUnion(expr.GetType()) ->
+                    match Json.getErasedUnionValue expr with
+                    | Some v -> toJson v
+                    | None -> upcast Babel.NullLiteral()
+                | :? System.Collections.IEnumerable as expr ->
+                    let xs = [for x in expr -> U2.Case1(toJson x) |> Some]
+                    upcast Babel.ArrayExpression(xs)
+                | _ -> failwithf "Unexpected expression inside quote %O" fExpr.Range
+            toJson expr
         
     let transformFunction com ctx args body =
         let args: Babel.Pattern list =
@@ -486,7 +516,7 @@ module Util =
 
     let declareRootModMember range name _ isPublic _ modIdent expr =
         if Naming.isInvalidJsIdent name then
-            failwithf "'%s' cannot be used as a member name %O" name range
+            failwithf "'%s' cannot be used as a root member name %O" name range
         let decl =
             varDeclaration (Some range) (identFromName name) expr
             :> Babel.Declaration

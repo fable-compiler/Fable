@@ -579,3 +579,21 @@ type ExportDefaultDeclaration(declaration, ?loc) =
 type ExportAllDeclaration(source, ?loc) =
     inherit ModuleDeclaration("ExportAllDeclaration", ?loc = loc)
     member x.source: Literal = source
+
+module Json =
+    open System.Reflection
+    open Newtonsoft.Json
+
+    type LocationEraser() =
+        inherit JsonConverter()
+        override x.CanConvert t = typeof<Node>.IsAssignableFrom(t)
+        override x.ReadJson(reader, t, v, serializer) =
+            failwith "Not implemented"
+        override x.WriteJson(writer, v, serializer) =
+            writer.WriteStartObject()
+            v.GetType().GetProperties()
+            |> Seq.filter (fun p -> p.Name <> "loc")
+            |> Seq.iter (fun p ->
+                writer.WritePropertyName(p.Name)
+                serializer.Serialize(writer, p.GetValue(v)))
+            writer.WriteEndObject()

@@ -577,11 +577,13 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                     newContext, (assignment::accAssignments)) decVars decBindings (ctx, [])
             assignments @ [transformExpr com newContext decBody]
             |> makeSequential (makeRangeFrom fsExpr)
+    
+    | BasicPatterns.Quote(Transform com ctx expr) ->
+        Fable.Quote(expr)
 
     (** Not implemented *)
     | BasicPatterns.ILAsm _
     | BasicPatterns.ILFieldGet _
-    | BasicPatterns.Quote _ // (quotedExpr)
     | BasicPatterns.AddressOf _ // (lvalueExpr)
     | BasicPatterns.AddressSet _ // (lvalueExpr, rvalueExpr)
     | _ -> failwithf "Cannot compile expression in %O: %A"
