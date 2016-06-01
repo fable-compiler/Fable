@@ -27,7 +27,7 @@ open Fable.Fable2Babel
 module Util =
     let (|TestClass|_|) (decl: Fable.Declaration) =
         match decl with
-        | Fable.EntityDeclaration (ent, entDecls, entRange) ->
+        | Fable.EntityDeclaration (ent, _, entDecls, entRange) ->
             match ent.TryGetDecorator "TestClass" with
             | Some _ -> Some (ent, entDecls, entRange)
             | None -> None
@@ -86,7 +86,7 @@ module Util =
     let declareModMember range publicName privateName _isPublic _isMutable _modIdent expr =
         let privateName = defaultArg privateName publicName
         Util.varDeclaration (Some range) (Util.identFromName privateName) expr
-        :> Babel.Statement |> U2.Case1
+        :> Babel.Statement |> U2.Case1 |> List.singleton
         
     let castStatements (decls: U2<Babel.Statement, Babel.ModuleDeclaration> list) =
         decls |> List.map (function

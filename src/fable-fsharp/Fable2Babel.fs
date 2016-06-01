@@ -304,10 +304,7 @@ module Util =
             | Fable.Emit emit -> macroExpression None emit []
             | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
             | Fable.Spread _ ->
-                failwithf "%s %s %s %O"
-                    "An array is being passed from a function accepting an array to another"
-                    "accepting a ParamArray argument in a way that's not directly compilable."
-                    "Try inlining the first function." expr.Range
+                failwithf "Unexpected array spread at %O" expr.Range
             | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ -> 
                 failwithf "Unexpected stand-alone operator detected %O: %A" expr.Range expr 
 
@@ -363,7 +360,10 @@ module Util =
                 upcast Babel.BinaryExpression (op, left, right, ?loc=range)
             // Emit expressions
             | Fable.Value (Fable.Emit emit), args ->
-                List.map (com.TransformExpr ctx) args
+                args |> List.map (function
+                    | Fable.Value(Fable.Spread expr) -> 
+                        Babel.SpreadElement(com.TransformExpr ctx expr, ?loc=expr.Range) :> Babel.Node
+                    | expr -> com.TransformExpr ctx expr :> Babel.Node)
                 |> macroExpression range emit
             // Module or class static members
             | Fable.Value (Fable.TypeRef typEnt), [Fable.Value (Fable.StringConst memb)]
@@ -489,6 +489,7 @@ module Util =
         else [ com.GetImport ctx "Util" com.Options.coreLib
                typeRef com ctx ent None
                buildStringArray ifcs ]
+            |> List.map (fun x -> x :> Babel.Node)
             |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
             |> Babel.ExpressionStatement :> Babel.Statement
             |> Some
@@ -512,19 +513,21 @@ module Util =
                 assign (Some range) (get modIdent publicName) expr
         | _ -> expr
         |> varDeclaration (Some range) (identFromName privateName) :> Babel.Statement
-        |> U2.Case1
+        |> U2.Case1 |> List.singleton
 
-    let declareRootModMember range name _ isPublic _ modIdent expr =
-        if Naming.isInvalidJsIdent name then
-            failwithf "'%s' cannot be used as a root member name %O" name range
-        let decl =
-            varDeclaration (Some range) (identFromName name) expr
-            :> Babel.Declaration
+    let declareRootModMember range publicName privateName isPublic _ _ expr =
+        let privateName = defaultArg privateName publicName
+        let privateIdent = identFromName privateName
+        let decl = varDeclaration (Some range) privateIdent expr :> Babel.Declaration
         match isPublic with
-        | false -> U2.Case1 (decl :> Babel.Statement)
-        | true ->
+        | false -> U2.Case1 (decl :> Babel.Statement) |> List.singleton
+        | true when publicName = privateName ->
             Babel.ExportNamedDeclaration(decl, loc=range)
-            :> Babel.ModuleDeclaration |> U2.Case2
+            :> Babel.ModuleDeclaration |> U2.Case2 |> List.singleton
+        | true ->
+            let expSpec = Babel.ExportSpecifier(privateIdent, Babel.Identifier publicName)
+            let expDecl = Babel.ExportNamedDeclaration(specifiers=[expSpec])
+            [expDecl :> Babel.ModuleDeclaration |> U2.Case2; decl :> Babel.Statement |> U2.Case1]
 
     let transformModMember com ctx declareMember modIdent (m: Fable.Member) =
         let expr, name =
@@ -541,20 +544,21 @@ module Util =
         let memberRange =
             match expr.loc with Some loc -> m.Range + loc | None -> m.Range
         if m.TryGetDecorator("EntryPoint").IsSome
-        then declareEntryPoint com ctx expr |> U2.Case1
+        then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
         else declareMember memberRange name m.PrivateName m.IsPublic m.IsMutable modIdent expr
         
     let declareClass com ctx declareMember modIdent
-                    (ent: Fable.Entity) entDecls entRange baseClass isClass =
+                     (ent: Fable.Entity) privateName
+                     entDecls entRange baseClass isClass =
         let classDecl =
             // Don't create a new context for class declarations
             let classIdent = identFromName ent.Name |> Some
             transformClass com ctx (Some entRange) classIdent baseClass entDecls
-            |> declareMember entRange ent.Name None ent.IsPublic false modIdent
+            |> declareMember entRange ent.Name (Some privateName) ent.IsPublic false modIdent
         let classDecl =
             match declareInterfaces com ctx ent isClass with
-            | None -> [classDecl]
-            | Some ifcDecl -> (U2.Case1 ifcDecl)::[classDecl]
+            | None -> classDecl
+            | Some ifcDecl -> (U2.Case1 ifcDecl)::classDecl
         // Check if there's a static constructor
         entDecls |> Seq.exists (function
             | Fable.MemberDeclaration m ->
@@ -599,23 +603,26 @@ module Util =
             | Fable.MemberDeclaration m ->
                 match m.Kind with
                 | Fable.Constructor | Fable.Setter _ -> acc
-                | _ -> transformModMember com ctx declareMember modIdent m |> consBack acc
-            | Fable.EntityDeclaration (ent, entDecls, entRange) ->
+                | _ -> transformModMember com ctx declareMember modIdent m @ acc
+            | Fable.EntityDeclaration (ent, privateName, entDecls, entRange) ->
                 match ent.Kind with
                 // Interfaces, attribute or erased declarations shouldn't reach this point
                 | Fable.Interface ->
                     failwithf "Cannot emit interface declaration: %s" ent.FullName
                 | Fable.Class baseClass ->
                     let baseClass = Option.map snd baseClass
-                    declareClass com ctx declareMember modIdent ent entDecls entRange baseClass true
+                    declareClass com ctx declareMember modIdent
+                        ent privateName entDecls entRange baseClass true
                     |> List.append <| acc
                 | Fable.Union | Fable.Record | Fable.Exception ->                
-                    declareClass com ctx declareMember modIdent ent entDecls entRange None false
+                    declareClass com ctx declareMember modIdent
+                        ent privateName entDecls entRange None false
                     |> List.append <| acc
                 | Fable.Module ->
                     transformNestedModule com ctx ent entDecls entRange
-                    |> declareMember entRange ent.Name None ent.IsPublic false modIdent
-                    |> consBack acc) []
+                    |> declareMember entRange ent.Name (Some privateName)
+                        ent.IsPublic false modIdent
+                    |> List.append <| acc) []
         |> fun decls ->
             match modIdent with
             | None -> decls

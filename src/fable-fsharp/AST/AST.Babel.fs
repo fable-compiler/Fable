@@ -37,7 +37,7 @@ type EmptyExpression() =
 type MacroExpression(value, args, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)
     member x.value: string = value
-    member x.args: Expression list = args
+    member x.args: Node list = args
     member x.macro = true
 
 (** ##Template Literals *)

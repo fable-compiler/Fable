@@ -1,5 +1,7 @@
 [<NUnit.Framework.TestFixture>] 
 module Fable.Tests.Arrays
+
+open System
 open NUnit.Framework
 open Fable.Tests.Util
 open System.Collections.Generic
@@ -14,6 +16,23 @@ open Fable.Core
 //     |> equal 1
 //     match [|"a";"b"|] with [||] -> 0 | [|"a";"b"|] -> 1 | _ -> 2
 //     |> equal 1
+
+type ParamArrayTest =
+    static member Add([<ParamArray>] xs: int[]) = Array.sum xs
+
+let add (xs: int[]) = ParamArrayTest.Add(xs)
+
+[<Test>]
+let ``ParamArrayAttribute works``() =  
+    ParamArrayTest.Add(1, 2) |> equal 3
+
+[<Test>]
+let ``Passing an array to ParamArrayAttribute works``() =  
+    ParamArrayTest.Add([|3; 2|]) |> equal 5
+
+[<Test>]
+let ``Passing an array to ParamArrayAttribute from another function works``() =  
+    add [|5;-7|] |> equal -2
 
 #if MOCHA
 [<Emit("$1.constructor.name == $0")>]

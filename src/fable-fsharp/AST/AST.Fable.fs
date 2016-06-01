@@ -64,12 +64,12 @@ and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
 
 and Declaration =
     | ActionDeclaration of Expr * SourceLocation
-    | EntityDeclaration of Entity * Declaration list * SourceLocation
+    | EntityDeclaration of Entity * privateName: string * Declaration list * SourceLocation
     | MemberDeclaration of Member
     member x.Range =
         match x with
         | ActionDeclaration (_,r) -> r
-        | EntityDeclaration (_,_,r) -> r
+        | EntityDeclaration (_,_,_,r) -> r
         | MemberDeclaration m -> m.Range
 
 and MemberKind =

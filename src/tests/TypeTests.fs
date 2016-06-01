@@ -23,6 +23,8 @@ type TestType4() =
 
 type TestType5(greeting: string) =
     member __.Value = greeting
+    member __.Overload(x) = x + x
+    member __.Overload(x, y) = x + y
     
 let normalize (x: string) =
     #if MOCHA
@@ -125,6 +127,12 @@ let ``Property names don't clash with built-in JS objects``() = // See #168
         Players = Map.empty 
     } 
     gameState.Players.ContainsKey(1) |> equal false
+
+[<Test>]
+let ``Overloads work``() =
+    let t = TestType5("")
+    t.Overload(2) |> equal 4
+    t.Overload(2, 3) |> equal 5
     
 type T4 = TestType4
 

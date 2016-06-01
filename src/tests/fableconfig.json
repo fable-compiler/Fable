@@ -4,7 +4,6 @@
     "module": "commonjs",
     "symbols": ["MOCHA"],
     "plugins": ["../../build/plugins/Fable.Plugins.NUnit.dll"],
-    "copyExt": true,
     "refs": {
         "Fable.Tests.Clamp": "./Other"
     }

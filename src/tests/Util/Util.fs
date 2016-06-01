@@ -6,7 +6,6 @@ open NUnit.Framework
 let equal (expected: 'T) (actual: 'T) =
     Assert.AreEqual(expected, actual)
     
-    
 let f2 a b = a + b
 let mutable a = 10
 
@@ -22,3 +21,8 @@ module B =
     a <- a + 5
     let e = f2 2 2
 
+// Test members with names conflicting with JS    
+let Int32Array = [|1;2|]
+
+module Float64Array =
+    let Float64Array = [|3.;4.|]

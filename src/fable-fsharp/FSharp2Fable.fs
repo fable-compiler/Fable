@@ -593,10 +593,18 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
 // We use this type to correct that, see type DeclInfo below.
 type private TmpDecl =
     | Decl of Fable.Declaration
-    | Ent of Fable.Entity * SourceLocation * ResizeArray<Fable.Declaration>
+    | Ent of Fable.Entity * string * ResizeArray<Fable.Declaration> * SourceLocation
     | IgnoredEnt
 
 type private DeclInfo(init: Fable.Declaration list) =
+    let publicNames = ResizeArray<string>()
+    // Check there're no conflicting entity or function names (see #166)
+    let checkPublicNameConflicts name =
+        if publicNames.Contains name then
+            failwithf "%s %s: %s"
+                "Public types, modules or functions with same name"
+                "at same level are not supported" name
+        publicNames.Add name
     let decls = ResizeArray<_>(Seq.map Decl init)
     let children = System.Collections.Generic.Dictionary<string, TmpDecl>()
     let tryFindChild (ent: FSharpEntity) =
@@ -618,34 +626,40 @@ type private DeclInfo(init: Fable.Declaration list) =
              | _ -> false
     member self.AddMethod (meth: FSharpMemberOrFunctionOrValue, methDecl: Fable.Declaration) =
         match tryFindChild meth.EnclosingEntity with
-        | None -> decls.Add(Decl methDecl)
-        | Some (Ent (_, _, entDecls)) -> entDecls.Add methDecl
-        | Some _ -> () // TODO: fail?
+        | None ->
+            if meth.IsModuleValueOrMember
+                && not meth.Accessibility.IsPrivate
+                && not meth.IsExtensionMember then
+                checkPublicNameConflicts meth.DisplayName
+            decls.Add(Decl methDecl)
+        | Some (Ent (_,_,entDecls,_)) -> entDecls.Add methDecl
+        | Some _ -> () // TODO: log warning
     member self.AddInitAction (actionDecl: Fable.Declaration) =
         decls.Add(Decl actionDecl)
-    member self.AddChild (com: IFableCompiler, newChild, newChildDecls: _ list) =
-        let ent = Ent (
-                    com.GetEntity newChild,
-                    getEntityLocation newChild |> makeRange,
-                    ResizeArray<_> newChildDecls)
+    member self.AddChild (com: IFableCompiler, newChild: FSharpEntity, privateName, newChildDecls: _ list) =
+        if not newChild.Accessibility.IsPrivate then
+            checkPublicNameConflicts newChild.DisplayName
+        let ent = Ent (com.GetEntity newChild, privateName,
+                    ResizeArray<_> newChildDecls,
+                    getEntityLocation newChild |> makeRange)
         children.Add(newChild.FullName, ent)
         decls.Add(ent)
     member self.AddIgnoredChild (ent: FSharpEntity) =
         children.Add(ent.FullName, IgnoredEnt)
     member self.TryGetOwner (meth: FSharpMemberOrFunctionOrValue) =
         match tryFindChild meth.EnclosingEntity with
-        | Some (Ent (ent, _, _)) -> Some ent
+        | Some (Ent (ent,_,_,_)) -> Some ent
         | _ -> None
     member self.GetDeclarations (): Fable.Declaration list =
         decls |> Seq.map (function
             | IgnoredEnt -> failwith "Unexpected ignored entity"
             | Decl decl -> decl
-            | Ent (ent, range, decls) ->
+            | Ent (ent, privateName, decls, range) ->
                 let range =
                     match decls.Count with
                     | 0 -> range
                     | _ -> range + (Seq.last decls).Range
-                Fable.EntityDeclaration(ent, List.ofSeq decls, range))
+                Fable.EntityDeclaration(ent, privateName, List.ofSeq decls, range))
         |> Seq.toList
     
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
@@ -711,24 +725,13 @@ let rec private transformEntityDecl
                  |> List.singleton
             else []
         let childDecls = transformDeclarations com ctx init subDecls
-        declInfo.AddChild (com, ent, childDecls)
         // Bind entity name to context to prevent name
         // clashes (it will become a variable in JS)
-        let ctx, _ = bindIdent ctx Fable.UnknownType None ent.DisplayName
+        let ctx, ident = bindIdent ctx Fable.UnknownType None ent.DisplayName
+        declInfo.AddChild(com, ent, ident.name, childDecls)
         declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =
-    let declInfo = DeclInfo init
-    // Check there're no conflicting entity names (see #166)
-    (Set.empty, decls) ||> List.fold (fun acc -> function
-        | FSharpImplementationFileDeclaration.Entity(e, _) ->
-            if Set.contains e.DisplayName acc then
-                failwithf "Types or modules with same name at same level is not supported: %s" e.DisplayName
-            if declInfo.IsIgnoredEntity e
-            then acc
-            else Set.add e.DisplayName acc
-        | _ -> acc
-    ) |> ignore
     let declInfo, _ =
         decls |> List.fold (fun (declInfo: DeclInfo, ctx) decl ->
             match decl with
@@ -741,7 +744,7 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx e as fe) ->
                 declInfo.AddInitAction (Fable.ActionDeclaration (e, makeRange fe.Range))
                 declInfo, ctx
-        ) (declInfo, ctx)
+        ) (DeclInfo init, ctx)
     declInfo.GetDeclarations()
     
 let private makeFileMap (rootEntities: #seq<FSharpEntity>) =

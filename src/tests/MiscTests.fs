@@ -348,7 +348,7 @@ module Same =
         let shouldEqual5 = a
         let shouldEqual10 = Same.a
         
-        let Same = 20
+        let private Same = 20
         let shouldEqual20 = Same
         let shouldEqual30 = let Same = 25 in Same + 5
 
@@ -367,6 +367,14 @@ let ``Accessing members with same name as module works``() =
 [<Test>]
 let ``Naming values with same name as module works``() =
     equal 30 Same.Same.shouldEqual30
+
+[<Test>]
+let ``Module members don't conflict with JS names``() =
+    Util.Int32Array |> Array.sum |> equal 3
+
+[<Test>]
+let ``Modules don't conflict with JS names``() =
+    Util.Float64Array.Float64Array |> Array.sum |> equal 7.
 
 let f2 a b = a + b
 let mutable a = 10
