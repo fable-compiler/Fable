@@ -863,6 +863,12 @@
   };
 
   var Seq = exports.Seq = {};
+  Seq.__failIfNone = function (res) {
+    if (res == null) {
+      throw "Seq did not contain any matching element";
+    }
+    return res;
+  };
   Seq.toList = function (xs) {
     return Seq.foldBack(function (x, acc) {
       return new List(x, acc);
@@ -1135,13 +1141,13 @@
       return vs != null ? acc.set(k, new List(x, vs)) : acc.set(k, new List(x, new List()));
     }, new Map(), xs);
   };
-  Seq.head = function (xs) {
+  Seq.tryHead = function (xs) {
     var iter = xs[Symbol.iterator]();
     var cur = iter.next();
-    if (cur.done) {
-      throw "Seq was empty";
-    }
-    return cur.value;
+    return cur.done ? null : cur.value;
+  };
+  Seq.head = function (xs) {
+    return Seq.__failIfNone(Seq.tryHead(xs));
   };
   Seq.init = function (n, f) {
     return Seq.delay(function () {
@@ -1157,21 +1163,25 @@
       }, 0);
     });
   };
-  Seq.item = function (i, xs) {
-    if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
-      return xs[i];
+  Seq.tryItem = function (i, xs) {
+    if (i < 0) {
+      return null;
+    } else if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
+      return i < xs.length ? xs[i] : null;
     } else {
       for (var j = 0, iter = xs[Symbol.iterator]();; j++) {
         var cur = iter.next();
         if (cur.done) {
-          break;
+          return null;
         }
         if (j === i) {
           return cur.value;
         }
       }
-      throw "Seq has an insufficient number of elements";
     }
+  };
+  Seq.item = function (i, xs) {
+    return Seq.__failIfNone(Seq.tryItem(i, xs));
   };
   Seq.iter = function (f, xs) {
     Seq.fold(function (_, x) {
@@ -1197,10 +1207,17 @@
     var i = xs[Symbol.iterator]();
     return i.next().done;
   };
+  Seq.tryLast = function (xs) {
+    try {
+      return Seq.reduce(function (_, x) {
+        return x;
+      }, xs);
+    } catch (err) {
+      return null;
+    }
+  };
   Seq.last = function (xs) {
-    return Seq.reduce(function (_, x) {
-      return x;
-    }, xs);
+    return Seq.__failIfNone(Seq.tryLast(xs));
   };
   Seq.length = function (xs) {
     return Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs.length : Seq.fold(function (acc, x) {
@@ -1480,7 +1497,7 @@
     for (var i = 0, iter = xs[Symbol.iterator](), cur;; i++) {
       cur = iter.next();
       if (cur.done) {
-        break;
+        return null;
       }
       if (f(cur.value, i)) {
         return cur.value;
@@ -1488,17 +1505,28 @@
     }
   };
   Seq.find = function (f, xs) {
-    var res = Seq.tryFind(f, xs);
-    if (res == null) {
-      throw "Seq did not contain any matching elements";
+    return Seq.__failIfNone(Seq.tryFind(f, xs));
+  };
+  Seq.tryFindBack = function (f, xs) {
+    var match = null;
+    for (var i = 0, iter = xs[Symbol.iterator](), cur;; i++) {
+      cur = iter.next();
+      if (cur.done) {
+        return match;
+      }
+      if (f(cur.value, i)) {
+        match = cur.value;
+      }
     }
-    return res;
+  };
+  Seq.findBack = function (f, xs) {
+    return Seq.__failIfNone(Seq.tryFindBack(f, xs));
   };
   Seq.tryFindIndex = function (f, xs) {
     for (var i = 0, iter = xs[Symbol.iterator](), cur;; i++) {
       cur = iter.next();
       if (cur.done) {
-        break;
+        return null;
       }
       if (f(cur.value, i)) {
         return i;
@@ -1506,11 +1534,22 @@
     }
   };
   Seq.findIndex = function (f, xs) {
-    var res = Seq.tryFindIndex(f, xs);
-    if (res == null) {
-      throw "Seq did not contain any matching elements";
+    return Seq.__failIfNone(Seq.tryFindIndex(f, xs));
+  };
+  Seq.tryFindIndexBack = function (f, xs) {
+    var match = null;
+    for (var i = 0, iter = xs[Symbol.iterator](), cur;; i++) {
+      cur = iter.next();
+      if (cur.done) {
+        return match;
+      }
+      if (f(cur.value, i)) {
+        match = i;
+      }
     }
-    return res;
+  };
+  Seq.findIndexBack = function (f, xs) {
+    return Seq.__failIfNone(Seq.tryFindIndexBack(f, xs));
   };
   Seq.tryPick = function (f, xs) {
     for (var i = 0, iter = xs[Symbol.iterator](), cur;; i++) {
@@ -1525,11 +1564,7 @@
     }
   };
   Seq.pick = function (f, xs) {
-    var res = Seq.tryPick(f, xs);
-    if (res == null) {
-      throw "Seq did not contain any matching elements";
-    }
-    return res;
+    return Seq.__failIfNone(Seq.tryPick(f, xs));
   };
   Seq.unfold = function (f, acc) {
     var e = {};
@@ -1681,7 +1716,6 @@
       return acc.set(kv[0], kv[1]);
     }, new Map(), xs);
   };
-  // | "exists" | "fold" | "foldBack" | "forall" | "iter" ->
   FMap.containsValue = function (v, map) {
     return Seq.fold(function (acc, k) {
       return acc || map.get(k) === v;

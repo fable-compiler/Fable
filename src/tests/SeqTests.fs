@@ -109,6 +109,30 @@ let ``Seq.findIndex works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> Seq.findIndex ((=) 2.)
     |> equal 1
+
+[<Test>]
+let ``Seq.findBack works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.find ((>) 4.) |> equal 1.
+    xs |> Seq.findBack ((>) 4.) |> equal 3.
+
+[<Test>]
+let ``Seq.findIndexBack works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.findIndex ((>) 4.) |> equal 0
+    xs |> Seq.findIndexBack ((>) 4.) |> equal 2
+
+[<Test>]
+let ``Seq.tryFindBack works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.tryFind ((>) 4.) |> equal (Some 1.)
+    xs |> Seq.tryFindBack ((>) 4.) |> equal (Some 3.)
+
+[<Test>]
+let ``Seq.tryFindIndexBack works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> Seq.tryFindIndex ((>) 4.) |> equal (Some 0)
+    xs |> Seq.tryFindIndexBack ((>) 4.) |> equal (Some 2)
     
 [<Test>]
 let ``Seq.fold works``() =
@@ -134,6 +158,17 @@ let ``Seq.head works``() =
     let xs = [1.; 2.; 3.; 4.]
     Seq.head xs
     |> equal 1.
+
+[<Test>]
+let ``Seq.tryHead works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.tryHead xs |> equal (Some 1.)
+    Seq.tryHead [] |> equal None
+
+[<Test>]
+let ``Seq.tail works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.tail xs |> Seq.length |> equal 3
 
 [<Test>]
 let ``Seq.init works``() =
@@ -225,6 +260,13 @@ let ``Seq.item works``() =
     let xs = [1.; 2.]
     Seq.item 1 xs
     |> equal 2.
+    
+[<Test>]
+let ``Seq.tryItem works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.tryItem 3 xs |> equal (Some 4.)
+    Seq.tryItem 4 xs |> equal None
+    Seq.tryItem -1 xs |> equal None    
 
 [<Test>]
 let ``Seq.ofArray works``() =
@@ -472,6 +514,12 @@ let ``Seq.last works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> Seq.last
     |> equal 4.
+    
+[<Test>]
+let ``Seq.tryLast works``() =
+    let xs = [1.; 2.; 3.; 4.]
+    Seq.tryLast xs |> equal (Some 4.)
+    Seq.tryLast [] |> equal None
 
 [<Test>]
 let ``Seq.pairwise works``() =

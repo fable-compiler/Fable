@@ -270,6 +270,30 @@ let ``Array.findIndex works``() =
     |> equal 1
 
 [<Test>]
+let ``Array.findBack works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.find ((>) 4.) |> equal 1.
+    xs |> Array.findBack ((>) 4.) |> equal 3.
+
+[<Test>]
+let ``Array.findIndexBack works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.findIndex ((>) 4.) |> equal 0
+    xs |> Array.findIndexBack ((>) 4.) |> equal 2
+
+[<Test>]
+let ``Array.tryFindBack works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.tryFind ((>) 4.) |> equal (Some 1.)
+    xs |> Array.tryFindBack ((>) 4.) |> equal (Some 3.)
+
+[<Test>]
+let ``Array.tryFindIndexBack works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.tryFindIndex ((>) 4.) |> equal (Some 0)
+    xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)    
+
+[<Test>]
 let ``Array.fold works``() =   
     let xs = [|1y; 2y; 3y; 4y|]
     let total = xs |> Array.fold (+) 0y
@@ -652,3 +676,43 @@ let ``Mapping with typed arrays doesn't coerce``() =
         |> Array.ofSeq
     test1 |> Array.concat |> Array.sum |> equal 78
     test2 |> Array.concat |> Array.sum |> equal 78
+
+[<Test>]
+let ``Array.item works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.item 2 xs |> equal 3.
+
+[<Test>]
+let ``Array.tryItem works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tryItem 3 xs |> equal (Some 4.)
+    Array.tryItem 4 xs |> equal None
+    Array.tryItem -1 xs |> equal None
+
+[<Test>]
+let ``Array.head works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.head xs |> equal 1.
+
+[<Test>]
+let ``Array.tryHead works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tryHead xs |> equal (Some 1.)
+    Array.tryHead [||] |> equal None
+
+[<Test>]
+let ``Array.last works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    xs |> Array.last
+    |> equal 4.
+    
+[<Test>]
+let ``Array.tryLast works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tryLast xs |> equal (Some 4.)
+    Array.tryLast [||] |> equal None
+
+[<Test>]
+let ``Array.tail works``() =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.tail xs |> Array.length |> equal 3
