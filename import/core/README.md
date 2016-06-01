@@ -10,6 +10,11 @@ $ npm install --save fable-core
 
 ## Usage
 
+The default file when you import `fable-core` uses universal modules (UMD)
+which can be understood by node (commonjs) or require.js (amd). There's also
+a minified version `fable-core.min.js`, and if you need the library in other
+module formats you can import `fable-core/es2015` or `fable-core/commonjs` instead.
+
 ### In a F# project (.fsproj)
 
 ```xml

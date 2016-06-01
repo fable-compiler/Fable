@@ -304,12 +304,12 @@ module Util =
             | Fable.Emit emit -> macroExpression None emit []
             | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
             | Fable.Spread _ ->
-                failwithf "%s %s %s"
+                failwithf "%s %s %s %O"
                     "An array is being passed from a function accepting an array to another"
                     "accepting a ParamArray argument in a way that's not directly compilable."
-                    "Try inlining the first function."
+                    "Try inlining the first function." expr.Range
             | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ -> 
-                failwithf "Unexpected stand-alone operator detected: %A" expr 
+                failwithf "Unexpected stand-alone operator detected %O: %A" expr.Range expr 
 
         | Fable.ObjExpr (members, interfaces, baseClass, range) ->
             match baseClass with

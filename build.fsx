@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.3.7"
+let version = "0.3.12"
 
 module Util =
     open System.Net
@@ -187,12 +187,14 @@ Target "MakeArtifactLighter" (fun _ ->
 Target "Publish" (fun _ ->
     let workingDir = "temp/build"
     Util.downloadArtifact workingDir
-    Util.convertFileToUnixLineBreaks (Path.Combine(workingDir, "index.js"))
+    // Util.convertFileToUnixLineBreaks (Path.Combine(workingDir, "index.js"))
     // Npm.command workingDir "version" [version]
     Npm.command workingDir "publish" []
 )
 
-Target "Import" (fun _ ->
+Target "CoreLib" (fun _ ->
+    Util.run "." "babel" "import/core/es2015.js -o import/core/fable-core.js --plugins ../../build/fable/node_modules/babel-plugin-transform-es2015-modules-umd"
+    Util.run "." "babel" "import/core/es2015.js -o import/core/commonjs.js --plugins ../../build/fable/node_modules/babel-plugin-transform-es2015-modules-commonjs"
     Util.run "." "uglifyjs" "import/core/fable-core.js -c -m -o import/core/fable-core.min.js"
     !! "import/core/Fable.Core.fsproj"
     |> MSBuildRelease "import/core" "Build"
