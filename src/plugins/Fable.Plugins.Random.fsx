@@ -7,7 +7,7 @@ open Fable.FSharp2Fable
 
 type RandomPlugin() =
     interface IReplacePlugin with
-        member x.TryReplace com (info: Fable.ApplyInfo) =
+        member x.TryReplace _com (info: Fable.ApplyInfo) =
             match info.ownerFullName with
             | "System.Random" ->
                 match info.methodName with
