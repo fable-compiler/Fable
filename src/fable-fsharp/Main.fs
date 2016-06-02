@@ -72,7 +72,10 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
             | ".fsx" ->
                 let projCode =
                     match com.Options.code with
-                    | null -> File.ReadAllText projFile
+                    | null ->
+                        use os = new FileStream (projFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                        use sr = new StreamReader(os)
+                        sr.ReadToEnd()
                     | projCode ->
                         // TODO: use File System
                         File.WriteAllText(projFile, projCode)
