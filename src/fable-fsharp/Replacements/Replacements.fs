@@ -54,6 +54,10 @@ module Util =
     let (|ThreeArgs|_|) (callee: Fable.Expr option, args: Fable.Expr list) =
         match callee, args with None, arg1::arg2::arg3::_ -> Some (arg1, arg2, arg3) | _ -> None
 
+    let (|Integer|Float|) = function
+        | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
+        | Float32 | Float64 -> Float
+
     // The core lib expects non-curried lambdas
     let deleg (info: Fable.ApplyInfo) args =
         if info.lambdaArgArity > 1
@@ -127,7 +131,16 @@ module Util =
             arrayFrom "Array" expr
 
     let applyOp com (i: Fable.ApplyInfo) (args: Fable.Expr list) meth =
+        let apply op args =
+            Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range)
         match args.Head.Type with
+        // Floor result of integer divisions (see #172)
+        // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
+        | Fable.PrimitiveType(Fable.Number Integer) when meth = "op_Division" ->
+            apply (Fable.BinaryOp BinaryDivide) args
+            |> List.singleton |> apply (Fable.UnaryOp UnaryNotBitwise)
+            |> List.singleton |> apply (Fable.UnaryOp UnaryNotBitwise)
+            |> Some
         | Fable.UnknownType
         | Fable.PrimitiveType _
         | FullName "System.TimeSpan" ->
@@ -148,7 +161,7 @@ module Util =
                 | "op_BooleanAnd" -> Fable.LogicalOp LogicalAnd
                 | "op_BooleanOr" -> Fable.LogicalOp LogicalOr
                 | _ -> failwithf "Unknown operator: %s" meth
-            Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+            apply op args |> Some
         | FullName (KeyValue "System.DateTime" "Date" modName)
         | FullName (KeyValue "Microsoft.FSharp.Collections.Set" "Set" modName) ->
             CoreLibCall (modName, Some meth, false, args)

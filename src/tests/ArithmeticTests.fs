@@ -20,6 +20,12 @@ let ``Infix divide can be generated``() =
     Assert.AreEqual (4 / 2, 2)
 
 [<Test>]
+let ``Integer division doesn't produce floats``() =
+    Assert.AreEqual (5. / 2., 2.5)
+    Assert.AreEqual (5 / 2, 2)
+    Assert.AreEqual (5 / 3, 1)
+
+[<Test>]
 let ``Infix modulo can be generated``() =
     Assert.AreEqual (4 % 3, 1)
 
