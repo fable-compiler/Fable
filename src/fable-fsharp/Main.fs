@@ -65,14 +65,17 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
                 ReferencedProjects = opts.ReferencedProjects
                     |> Array.map (fun (k,v) -> k, addSymbols v) }
         let projFile = com.Options.projFile
-        if com.Options.code = null && not(File.Exists projFile) then
+        if isNull com.Options.code && not(File.Exists projFile) then
             failwithf "Cannot find project file %s" projFile
         try
             match (Path.GetExtension projFile).ToLower() with
             | ".fsx" ->
                 let projCode =
                     match com.Options.code with
-                    | null -> File.ReadAllText projFile
+                    | null ->
+                        use os = new FileStream (projFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                        use sr = new StreamReader(os)
+                        sr.ReadToEnd()
                     | projCode ->
                         // TODO: use File System
                         File.WriteAllText(projFile, projCode)
