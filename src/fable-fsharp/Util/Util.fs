@@ -128,7 +128,7 @@ module Naming =
         fun () -> lock monitor (fun () -> id := !id + 1; sprintf "$var%i" !id)
     
     /// If flag --copyExt is activated, copy files outside project folder into
-    /// an internal `.fable.external` folder with a hash to prevent naming conflicts 
+    /// an internal `fable_external` folder (adding a hash to prevent naming conflicts) 
     let fixExternalPath =
         let cache = System.Collections.Generic.Dictionary<string, string>()
         let addToCache (cache: System.Collections.Generic.Dictionary<'k, 'v>) k v =
@@ -145,7 +145,7 @@ module Naming =
             match Path.GetFullPath filePath with
             | DicContains cache filePath -> filePath
             | Try (isExternal com.Options.projFile) (rootPath, filePath) ->
-                Path.Combine(rootPath, ".fable.external",
+                Path.Combine(rootPath, "fable_external",
                     sprintf "%s-%i%s"
                         (Path.GetFileNameWithoutExtension filePath)
                         (filePath.GetHashCode() |> abs)

@@ -39,7 +39,7 @@ Option                  | Short     | Description
 `--refs`                |           | Specify project references in `Project=js/import/path` format (see below).
 `--msbuild`             |           | Pass MSBuild arguments like `Configuration=Release`.
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
-`--copyExt`             |           | Copy external files into a `.fable.external` folder.
+`--copyExt`             |           | Copy external files into `fable_external` folder (true by default).
 `--coreLib`             |           | In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`.
 `--verbose`             |           | Print more information about the compilation process.
 `--target`              | `-t`      | Use options from a specific target in `fableconfig.json`.

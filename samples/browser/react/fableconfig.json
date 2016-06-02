@@ -2,7 +2,6 @@
     "module": "commonjs",
     "outDir": "out",
     "sourceMaps": true,
-    "copyExt": true,
     "projFile": "src/Fable.Samples.React.fsproj",
     "babelPlugins": ["transform-runtime"],
     "scripts": {

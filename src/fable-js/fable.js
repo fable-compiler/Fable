@@ -31,7 +31,7 @@ var cli = commandLineArgs([
   { name: 'refs', multiple: true, description: "Specify project references in `Project=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
-  { name: 'copyExt', type: Boolean, defaultValue: true, description: "Copy external files into a `.fable.external` folder." },
+  { name: 'copyExt', type: Boolean, defaultValue: true, description: "Copy external files into `fable_external` folder (true by default)." },
   { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
   { name: 'verbose', description: "Print more information about the compilation process." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
