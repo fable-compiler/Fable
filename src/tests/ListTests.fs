@@ -341,6 +341,8 @@ let ``List.partition works``() =
       let xs = [1; 2; 3; 4; 5; 6]
       let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
       List.sum zs |> equal 9
+      equal 2 ys.[0]
+      equal 5 zs.[2]
       
 [<Test>]
 let ``List.permute works``() =

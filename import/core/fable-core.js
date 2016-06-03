@@ -828,7 +828,7 @@
       var lacc = acc[0],
           racc = acc[1];
       return f(x) ? [new List(x, lacc), racc] : [lacc, new List(x, racc)];
-    }, [new List(), new List()], xs || this);
+    }, [new List(), new List()], List.rev(xs || this));
   };
   List.replicate = function (n, x) {
     return List.init(n, function () {
