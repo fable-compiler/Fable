@@ -77,6 +77,11 @@ var transformMacroExpressions = {
                 }
                 return rep.join(",");
             })
+            // Replace conditional arguments like in `/$0/g{{$1?i:}}{{$2?m:}}`
+            .replace(/\{\{\$(\d+)\?(.*?)\:(.*?)\}\}/g, function (_, g1, g2, g3) {
+                var i = parseInt(g1);
+                return i < args.length && args[i].value ? g2 : g3;
+            })
             // Replace optional arguments like in `$0[$1]{{=$2}}`
             .replace(/\{\{([^\}]*\$(\d+).*?)\}\}/g, function (_, g1, g2) {
                 var i = parseInt(g2);
@@ -269,7 +274,13 @@ function processJson(json, opts) {
     var err = null;
     try {
         var t = process.hrtime();
-        var babelAst = JSON.parse(json);
+        var babelAst;
+        try {
+            babelAst = JSON.parse(json);
+        }
+        catch (err) {
+            return; // If console out is not in JSON format, just ignore
+        }
         if (babelAst.type == "LOG") {
             if (opts.verbose) {
                 console.log(babelAst.message);

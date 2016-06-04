@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.3.15"
+let version = "0.3.16"
 
 module Util =
     open System.Net
@@ -52,6 +52,16 @@ module Util =
         writer.Close()
         File.Delete(fileName)
         File.Move(tempFileName, fileName)
+        
+    let compileScript symbols outDir fsxPath =
+        let dllFile = Path.ChangeExtension(Path.GetFileName fsxPath, ".dll")
+        let opts = [
+            yield FscHelper.Out (Path.Combine(outDir, dllFile))
+            yield FscHelper.Target FscHelper.TargetType.Library
+            yield! symbols |> List.map FscHelper.Define
+        ]
+        FscHelper.compile opts [fsxPath]
+        |> function 0 -> () | _ -> failwithf "Cannot compile %s" fsxPath
 
 module Npm =
     let npmFilePath args =
@@ -167,15 +177,16 @@ Target "MochaTest" (fun _ ->
 
 Target "Plugins" (fun _ ->
     CreateDir pluginsBuildDir
-    !! "src/plugins/**.fsx"
-    |> Seq.iter (fun fsx ->
-        let dllFile = Path.ChangeExtension(Path.GetFileName fsx, ".dll")
-        [fsx]
-        |> FscHelper.compile [
-            FscHelper.Out (Path.Combine(pluginsBuildDir, dllFile))
-            FscHelper.Target FscHelper.TargetType.Library
-        ]
-        |> function 0 -> () | _ -> failwithf "Cannot compile %s" fsx)
+    !! "src/plugins/*.fsx"
+    |> Seq.iter (Util.compileScript [] pluginsBuildDir)
+)
+
+Target "Providers" (fun _ ->
+    !! "src/providers/**/*.fsx"
+    |> Seq.filter (fun path -> path.Contains("test") |> not)    
+    |> Seq.iter (fun fsxPath ->
+        let buildDir = Path.GetDirectoryName(Path.GetDirectoryName(fsxPath))
+        Util.compileScript ["NO_GENERATIVE"] buildDir fsxPath)
 )
 
 Target "MakeArtifactLighter" (fun _ ->

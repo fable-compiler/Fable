@@ -124,6 +124,10 @@ It's also possible to pass syntax conditioned to optional parameters.
 type Test() =
     [<Emit("$0[$1]{{=$2}}")>]
     member __.Item with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+
+    // This syntax means: if second arg evals to true in JS print 'i' and nothing otherwise
+    [<Emit("new RegExp($0,'g{{$1?i:}}')")>]
+    member __.ParseRegex(pattern: string, ?ignoreCase: bool): Regex = failwith "JS only"
 ```
 
 The content of `Emit` will actually be parsed by Babel so it will still be

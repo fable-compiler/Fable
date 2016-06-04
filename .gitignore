@@ -4,6 +4,7 @@ import/core/FSharp.Core.dll
 import/core/Fable.Import.dll.*
 samples/**/out/
 samples/**/bundle.js*
+src/providers/**/*.js*
 
 # Node
 node_modules/

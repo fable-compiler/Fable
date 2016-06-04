@@ -668,8 +668,8 @@ module Util =
                 (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
         match meth with
         (** -Check for replacements, emits... *)
-        | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Emitted com ctx r typ (callee, args) emitted -> emitted
+        | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Imported com ctx r typ args imported -> imported
         | Inlined com ctx methTypArgs (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
