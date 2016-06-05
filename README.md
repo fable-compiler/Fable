@@ -1,5 +1,7 @@
 # F# |> BABEL
 
+[![Join the chat at https://gitter.im/fsprojects/Fable](https://badges.gitter.im/fsprojects/Fable.svg)](https://gitter.im/fsprojects/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 ### The compiler that emits JavaScript you can be proud of!
 
 [![Mono Build Status](https://travis-ci.org/fsprojects/Fable.svg "Mono Build Status")](https://travis-ci.org/fsprojects/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![npm](https://img.shields.io/npm/v/fable-compiler.svg)](https://www.npmjs.com/package/fable-compiler)
