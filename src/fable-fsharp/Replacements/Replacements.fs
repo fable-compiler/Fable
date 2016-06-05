@@ -106,7 +106,7 @@ module Util =
                 if typ = "Int"
                 then GlobalCall ("Math", Some "floor", false, [arg])
                      |> makeCall com i.range i.returnType
-                else arg
+                else wrap i.returnType arg
         (fun com i arg -> toNumber com i "Int" arg),
         (fun com i arg -> toNumber com i "Float" arg)
 

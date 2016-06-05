@@ -1,12 +1,19 @@
 # fable-providers-regex
 
-Regex Type Providers for Fable
+Regex Type Providers for Fable. At the moment there's a `SafeRegex` type
+which provides you a way to create regular expression and tell you
+immediately if the pattern is malformed.
+
+Please note that only **compatible type providers** like this one can be used
+with Fable. But don't worry, more providers are coming soon to Fable!
 
 ## Installation
 
 ```sh
 $ npm install --save-dev fable-providers-regex
 ```
+
+> You need **fable-compiler@0.3.16** or higher to use the provider.
 
 ## Usage
 

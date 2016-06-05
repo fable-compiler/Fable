@@ -629,6 +629,7 @@ type private DeclInfo(init: Fable.Declaration list) =
         | None ->
             if meth.IsModuleValueOrMember
                 && not meth.Accessibility.IsPrivate
+                && not meth.IsCompilerGenerated
                 && not meth.IsExtensionMember then
                 checkPublicNameConflicts meth.DisplayName
             decls.Add(Decl methDecl)
@@ -695,7 +696,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             Fable.Member(memberKind,
                 getRefLocation meth |> makeRange, args', body,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-                isPublic = (meth.Accessibility.IsPublic || meth.Accessibility.IsInternal),
+                isPublic = (not meth.Accessibility.IsPrivate && not meth.IsCompilerGenerated),
                 isMutable = meth.IsMutable,
                 isStatic = not meth.IsInstanceMember,
                 hasRestParams = hasRestParams meth,

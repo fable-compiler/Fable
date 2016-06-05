@@ -184,7 +184,7 @@ packages/
 docs/output/
 
 # Temp folder used for publishing docs
-temp/
+temp*/
 
 # Test results produced by build
 TestResults.xml
