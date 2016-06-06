@@ -6,11 +6,17 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 
+type Import = {
+    path: string
+    selector: string
+    internalFile: string option
+}
+
 type Context = {
     file: string
     originalFile: string
     moduleFullName: string
-    imports: ResizeArray<string * string>
+    imports: ResizeArray<Import>
     logs: ResizeArray<LogMessage>
     }
 
@@ -18,7 +24,7 @@ type IBabelCompiler =
     inherit ICompiler
     abstract DeclarePlugins: IDeclarePlugin list
     abstract GetProjectAndNamespace: string -> Fable.Project * string
-    abstract GetImport: Context -> memb: string -> path: string -> Babel.Expression
+    abstract GetImport: Context -> internalFile: string option -> selector: string -> path: string -> Babel.Expression
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
     abstract TransformFunction: Context -> Fable.Ident list -> Fable.Expr ->
@@ -78,7 +84,7 @@ module Util =
     let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule =
         com.Options.coreLib
         |> Naming.getExternalImportPath com ctx.file
-        |> com.GetImport ctx coreModule
+        |> com.GetImport ctx None coreModule
 
     let get left propName =
         let expr, computed = sanitizeName propName
@@ -134,9 +140,9 @@ module Util =
                     |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
             getParts ns ent.FullName memb
             |> function
-            | [] -> com.GetImport ctx "*" importPath
+            | [] -> com.GetImport ctx (Some file) "*" importPath
             | memb::parts ->
-                com.GetImport ctx memb importPath
+                com.GetImport ctx (Some file) memb importPath
                 |> Some |> accessExpr parts
         | _ ->
             accessExpr (getParts ctx.moduleFullName ent.FullName memb) None
@@ -294,7 +300,7 @@ module Util =
                     let parts = Array.toList(memb.Split('.'))
                     parts.Head, parts.Tail
                 Naming.getExternalImportPath com ctx.file path
-                |> com.GetImport ctx memb
+                |> com.GetImport ctx None memb
                 |> Some |> accessExpr parts
             | Fable.This -> upcast Babel.ThisExpression ()
             | Fable.Super -> upcast Babel.Super ()
@@ -654,12 +660,14 @@ module Util =
                 |> function
                 | Some res -> res
                 | None -> failwithf "Cannot find file: %s" fileName                
-            member bcom.GetImport ctx memb importPath =
+            member bcom.GetImport ctx internalFile selector path =
                 let i =
-                    match Seq.tryFindIndex ((=) (memb, importPath)) ctx.imports with
+                    ctx.imports
+                    |> Seq.tryFindIndex (fun imp -> imp.selector = selector && imp.path = path)
+                    |> function
                     | Some i -> i
                     | None ->
-                        ctx.imports.Add(memb, importPath)
+                        ctx.imports.Add { selector=selector; path=path; internalFile=internalFile }
                         ctx.imports.Count - 1
                 upcast Babel.Identifier (Naming.getImportIdent i)
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
@@ -694,11 +702,11 @@ module Compiler =
                     | Some rootDecls -> rootDecls
                     | None -> transformModDecls com ctx declareRootModMember None file.Declarations
                 // Add imports
-                let rootDecls =
-                    ctx.imports |> Seq.mapi (fun i (memb, path) ->
-                        let localId = Babel.Identifier(Naming.getImportIdent i)
+                let rootDecls, dependencies =
+                    ctx.imports |> Seq.mapi (fun ident import ->
+                        let localId = Babel.Identifier(Naming.getImportIdent ident)
                         let specifier =
-                            match memb with
+                            match import.selector with
                             | "default" | "" ->
                                 Babel.ImportDefaultSpecifier(localId)
                                 |> U3.Case2
@@ -708,12 +716,13 @@ module Compiler =
                             | memb ->
                                 Babel.ImportSpecifier(localId, Babel.Identifier memb)
                                 |> U3.Case1
-                        Babel.ImportDeclaration([specifier], Babel.StringLiteral path)
-                        :> Babel.ModuleDeclaration |> U2.Case2)
-                    |> Seq.toList
-                    |> (@) <| rootDecls
+                        Babel.ImportDeclaration([specifier], Babel.StringLiteral import.path)
+                        :> Babel.ModuleDeclaration |> U2.Case2, import.internalFile)
+                    |> Seq.toList |> List.unzip
+                    |> fun (importDecls, dependencies) ->
+                        (importDecls@rootDecls), (List.choose id dependencies |> List.distinct)
                 let logs = file.Logs @ (List.ofSeq ctx.logs) @ [t.Finish()] |> List.map string 
                 Babel.Program (Naming.fixExternalPath com file.FileName,
-                                file.FileName, file.Range, rootDecls, logs=logs)
+                                file.FileName, file.Range, rootDecls, dependencies, logs=logs)
             with
             | ex -> failwithf "%s (%s)" ex.Message file.FileName)

@@ -74,8 +74,7 @@ let clock = Three.Clock()
 
 // We can also use `System.Random`, but the native JS `Math.random`
 // will be a bit more performant here.
-let rand() =
-    JS.Math.random()
+let inline rand() = JS.Math.random()
 
 (**
 Using the perlin library (ImprovedNoise script) define the peaks
@@ -92,9 +91,7 @@ let generateHeight width height =
     for j in 0..3 do
         for i in 0..(size-1) do
             let x = i % width
-            // I presume double-not is used here for this reason:
-            // http://james.padolsey.com/javascript/double-bitwise-not/
-            let y = ~~~ (~~~ ( i / width ))
+            let y = i / width
             let noise =
                 perlin.noise(float x / quality, float y / quality, z)
                     * quality * 1.75
@@ -167,7 +164,9 @@ let generateTexture (data:float[]) (width:int) (height:int) =
     let mutable i = 0
     let mutable l = int imageData.length
     while i < l do
-        let v = ~~~ (~~~ (rand() * 5.0 |> unbox)) |> float
+        // I presume double-not is used here for this reason:
+        // http://james.padolsey.com/javascript/double-bitwise-not/
+        let v = ~~~ (~~~ (rand() * 5.0 |> int)) |> float
         imageData.[ i ] <- imageData.[ i ] + v
         imageData.[ i + 1 ] <- imageData.[ i + 1 ] + v
         imageData.[ i + 2 ] <- imageData.[ i + 2 ] + v

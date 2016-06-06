@@ -116,7 +116,7 @@ let makeCompiler plugins opts =
         member __.Options = opts
         member __.Plugins = plugins }
 
-let compile (com: ICompiler) checker projOpts fileMask =
+let compile (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option) =
     let printFile =
         let jsonSettings =
             JsonSerializerSettings(
@@ -130,7 +130,10 @@ let compile (com: ICompiler) checker projOpts fileMask =
         |> JsonConvert.SerializeObject
         |> Console.Out.WriteLine
     try
-        let timer = if Option.isNone projOpts then PerfTimer("Warmup") |> Some else None
+        let timer, projOpts, fileMask, deps =
+            match comInfo with
+            | Some i -> None, Some i.projectOpts, i.fileMask, i.dependencies
+            | None -> PerfTimer("Warmup") |> Some, None, None, Map.empty<_,_>
         // Get project options and parse project (F# Compiler Services) 
         let projOpts = getProjectOptions com checker projOpts fileMask
         let proj = parseFSharpProject com checker projOpts
@@ -138,24 +141,32 @@ let compile (com: ICompiler) checker projOpts fileMask =
         if Option.isSome timer then
             timer.Value.Finish() |> string |> printMessage Log
         // Compile project files
-        FSharp2Fable.Compiler.transformFiles com fileMask projOpts proj
-        |> Fable2Babel.Compiler.transformFile com
-        |> Seq.iter printFile
-        Some projOpts
+        let comInfo =
+            FSharp2Fable.Compiler.Info.Create(proj, projOpts, fileMask, deps)
+        let deps =
+            FSharp2Fable.Compiler.transformFiles com comInfo
+            |> Fable2Babel.Compiler.transformFile com
+            |> Seq.fold (fun deps babelFile ->
+                printFile babelFile
+                Map.add babelFile.originalFileName babelFile.dependencies deps
+            ) deps
+        Some { comInfo with dependencies = deps }
     with ex ->
         printMessage Error ex.Message
-        None
+        comInfo
 
-let rec awaitInput (com: ICompiler) checker projOpts =
+let rec awaitInput (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option) =
     let input = Console.In.ReadLine()
     let com, fileMask =
-        if com.Options.code <> null then
-            makeCompiler com.Plugins {
-                com.Options with code = input.Replace("\\n","\n")
-            }, Some com.Options.projFile
-        else
-            com, Some input
-    compile com checker projOpts fileMask
+        if com.Options.code <> null
+        then { com.Options with code = input.Replace("\\n","\n") }
+                |> makeCompiler com.Plugins, Some com.Options.projFile
+        // If we're not expecting a code string, it must be the name of an updated file
+        else com, Some input
+    match comInfo with
+    | None -> None
+    | Some i -> Some { i with fileMask = fileMask }
+    |> compile com checker
     |> awaitInput com checker
 
 [<EntryPoint>]
@@ -169,10 +180,10 @@ let main argv =
     let com = makeCompiler (loadPlugins opts) opts
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
     // Full compilation
-    let projOpts = compile com checker None None
+    let comInfo = compile com checker None
     // Send empty string to signal end of compilation
     Console.Out.WriteLine()
     // Keep on watching if necessary
     if opts.watch then
-        awaitInput com checker projOpts
+        awaitInput com checker comInfo
     0

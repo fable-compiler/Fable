@@ -24,6 +24,7 @@ let ``Integer division doesn't produce floats``() =
     Assert.AreEqual (5. / 2., 2.5)
     Assert.AreEqual (5 / 2, 2)
     Assert.AreEqual (5 / 3, 1)
+    Assert.AreEqual (float 5 / 2., 2.5)
 
 [<Test>]
 let ``Infix modulo can be generated``() =

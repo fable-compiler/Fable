@@ -1,10 +1,9 @@
 # F# |> BABEL
 
-[![Join the chat at https://gitter.im/fsprojects/Fable](https://badges.gitter.im/fsprojects/Fable.svg)](https://gitter.im/fsprojects/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 ### The compiler that emits JavaScript you can be proud of!
 
-[![Mono Build Status](https://travis-ci.org/fsprojects/Fable.svg "Mono Build Status")](https://travis-ci.org/fsprojects/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![npm](https://img.shields.io/npm/v/fable-compiler.svg)](https://www.npmjs.com/package/fable-compiler)
+[![Mono Build Status](https://travis-ci.org/fsprojects/Fable.svg "Mono Build Status")](https://travis-ci.org/fsprojects/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![npm](https://img.shields.io/npm/v/fable-compiler.svg)](https://www.npmjs.com/package/fable-compiler) [![Join the chat at https://gitter.im/fsprojects/Fable](https://badges.gitter.im/fsprojects/Fable.svg)](https://gitter.im/fsprojects/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 
 Fable brings together the power of the [F# compiler](http://fsharp.github.io/FSharp.Compiler.Service/)
 and [Babel](http://babeljs.io) to make JavaScript a true backend for F#.
@@ -31,7 +30,7 @@ fable path/to/your/project.fsproj
 
 > Note the package name is `fable-compiler` while the command is just `fable`
 
-> You must have [F# 4.4](http://fsharp.org) and [node 4.4](https://nodejs.org/en/) or higher installed in your computer.
+> You must have [F# 4](http://fsharp.org) and [node 4.4](https://nodejs.org/en/) or higher installed in your computer.
 
 You can find more detailed instruction about F# to JS compilation in the [docs](http://fsprojects.github.io/Fable/docs/compiling.html).
 Also you can have a look at the [samples](http://fsprojects.github.io/Fable/samples.html) or download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).

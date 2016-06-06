@@ -828,15 +828,29 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         member __.Options = com.Options
         member __.Plugins = com.Plugins }
         
-let transformFiles (com: ICompiler) (fileMask: string option)
-                   (projOpts: FSharpProjectOptions) (proj: FSharpCheckProjectResults) =
-    let isMasked (file: FSharpImplementationFileContents) =
+type Info =
+    {
+        project: FSharpCheckProjectResults
+        projectOpts: FSharpProjectOptions
+        fileMask: string option
+        dependencies: Map<string, string list>
+    }
+    static member Create(project, projectOpts, fileMask, dependencies) = {
+        project=project; projectOpts=projectOpts; fileMask=fileMask; dependencies=dependencies;
+    }
+    member info.IsMasked(file: FSharpImplementationFileContents) =
         let arePathsEqual p1 p2 =
-            let normalize = System.IO.Path.GetFullPath >> Naming.normalizePath 
+            let normalize = System.IO.Path.GetFullPath >> Naming.normalizePath
             (normalize p1) = (normalize p2)
-        match fileMask with
-        | Some mask when not(arePathsEqual file.FileName mask) -> false
-        | _ -> true
+        match info.fileMask with
+        | Some mask ->
+            if arePathsEqual file.FileName mask
+            then true
+            else info.dependencies |> Map.exists (fun key deps ->
+                arePathsEqual file.FileName key && List.exists (arePathsEqual mask) deps)
+        | None -> true
+        
+let transformFiles (com: ICompiler) (comInfo: Info) =
     let rec getRootDecls rootNs ent decls =
         if rootNs = "" then ent, decls else
         match decls with
@@ -856,12 +870,12 @@ let transformFiles (com: ICompiler) (fileMask: string option)
     let curProj =
         Fable.Project(
             com.Options.projFile,
-            makeFileMap proj.AssemblySignature.Entities)
+            makeFileMap comInfo.project.AssemblySignature.Entities)
     let projs =
-        projOpts.ReferencedProjects
+        comInfo.projectOpts.ReferencedProjects
         |> Seq.map (fun (assemblyPath, opts) ->
             let projName = System.IO.Path.GetFileNameWithoutExtension opts.ProjectFileName
-            proj.ProjectContext.GetReferencedAssemblies()
+            comInfo.project.ProjectContext.GetReferencedAssemblies()
             |> Seq.tryFind (fun a -> a.FileName = Some assemblyPath)
             |> function
             | Some assembly when not(com.Options.refs.ContainsKey projName) ->
@@ -876,11 +890,11 @@ let transformFiles (com: ICompiler) (fileMask: string option)
         |> Seq.choose id
         |> fun refs -> curProj::(List.ofSeq refs)
     let com = makeCompiler com projs
-    proj.AssemblyContents.ImplementationFiles
+    comInfo.project.AssemblyContents.ImplementationFiles
     |> Seq.where (fun file ->
         curProj.FileMap.ContainsKey file.FileName
         && not (Naming.ignoredFilesRegex.IsMatch file.FileName)
-        && isMasked file)
+        && comInfo.IsMasked file)
     |> Seq.map (fun file ->
         try
             let t = PerfTimer("F# > Fable")

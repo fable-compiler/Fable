@@ -184,13 +184,13 @@ function babelifyToFile(babelAst, opts) {
     var babelOpts = {
         sourceMaps: opts.sourceMaps,
         sourceMapTarget: path.basename(targetFile),
-        sourceFileName: path.relative(path.dirname(targetFile), babelAst.originalFilename).replace(/\\/g, '/'),
+        sourceFileName: path.relative(path.dirname(targetFile), babelAst.originalFileName).replace(/\\/g, '/'),
         plugins: babelPlugins
     };
 
     // The F# code is only necessary when generating source maps
     var fsCode = opts.sourceMaps
-        ? fs.readFileSync(babelAst.originalFilename) : null;
+        ? fs.readFileSync(babelAst.originalFileName) : null;
 
     var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
     ensureDirExists(path.dirname(targetFile));
