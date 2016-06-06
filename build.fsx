@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.3.16"
+let version = "0.3.18"
 
 module Util =
     open System.Net
@@ -127,7 +127,7 @@ Target "Clean" (fun _ ->
 
 Target "FableRelease" (fun _ ->
     let xmlPath = Path.Combine(Path.GetFullPath fableBuildDir, "Fable.xml")
-    !! "src/fable-fsharp/Fable.fsproj"
+    !! "src/fable-client-node/Fable.Client.Node.fsproj"
     |> MSBuild fableBuildDir "Build"
         ["Configuration","Release"; "DocumentationFile", xmlPath]
     |> Log "Release-Output: "
@@ -138,7 +138,7 @@ Target "FableRelease" (fun _ ->
 )
 
 Target "FableDebug" (fun _ ->
-    !! "src/fable-fsharp/Fable.fsproj"
+    !! "src/fable-client-node/Fable.Client.Node.fsproj"
     |> MSBuildDebug fableBuildDir "Build"
     |> Log "Debug-Output: "
     let targetDir = "build/fable"
@@ -198,8 +198,7 @@ Target "MakeArtifactLighter" (fun _ ->
 Target "Publish" (fun _ ->
     let workingDir = "temp/build"
     Util.downloadArtifact workingDir
-    // Util.convertFileToUnixLineBreaks (Path.Combine(workingDir, "index.js"))
-    // Npm.command workingDir "version" [version]
+    Npm.command workingDir "version" [version]
     Npm.command workingDir "publish" []
 )
 

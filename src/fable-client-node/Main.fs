@@ -7,7 +7,7 @@ open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
-open Fable
+open Fable.AST
 
 let readOptions argv =
     let def opts key defArg f =
