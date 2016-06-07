@@ -154,6 +154,15 @@ Target "FableJs" (fun _ ->
     Npm.install targetDir []
 )
 
+Target "FableSuave" (fun _ ->
+    let buildDir = "build/suave"
+    !! "src/fable-client-suave/Fable.Client.Suave.fsproj"
+    |> MSBuildDebug buildDir "Build"
+    |> Log "Debug-Output: "
+    // Copy Fable.Core.dll to buildDir so it can be referenced by F# code
+    FileUtils.cp "import/core/Fable.Core.dll" buildDir
+)
+
 Target "NUnitTest" (fun _ ->
     !! "src/tests/Fable.Tests.fsproj"
     |> MSBuildRelease testsBuildDir "Build"
