@@ -19,7 +19,11 @@ let fileName1 = "/tmp/File1.fs"
 // This type definition and getProjectOptions() are mostly copied from
 // https://github.com/fsharp/FSharp.Compiler.Service/blob/master/docs/content/filesystem.fsx
 type VirtualFileSystem(code: string) = 
-    let file1 = "module File1\n" + code
+    let file1 =
+        code.Split('\n')
+        |> Array.filter (fun line -> line.StartsWith("#r") |> not)
+        |> String.concat "\n"
+        |> (+) "module File1\n"
     let files = dict [(fileName1, file1)]
 
     interface IFileSystem with
