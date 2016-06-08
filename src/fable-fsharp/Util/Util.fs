@@ -13,14 +13,6 @@ type CompilerOptions = {
         copyExt: bool
     }
     
-type LogMessage =
-    | Warning of string
-    | Info of string
-    override x.ToString() =
-        match x with
-        | Warning s -> "[WARNING] " + s
-        | Info s -> "[INFO] " + s
-        
 type CompilerMessageType =
     | Error | Log
     override x.ToString() =
@@ -37,17 +29,15 @@ type ICompiler =
     abstract Options: CompilerOptions
     abstract Plugins: IPlugin list
     
-type EraseAttribute() = inherit System.Attribute()
-[<Erase>] type U2<'a, 'b> = Case1 of 'a | Case2 of 'b
-[<Erase>] type U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c
-
 type PerfTimer(label) =
     let t = System.Diagnostics.Stopwatch()
     do t.Start()
     /// Stops timer and returns a log message with label and total seconds
     member x.Finish() =
         t.Stop()
-        t.Elapsed.TotalSeconds |> sprintf "%s: %fs" label |> Info
+        t.Elapsed.TotalSeconds
+        |> sprintf "%s: %fs" label
+        |> Fable.AST.Info
 
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a

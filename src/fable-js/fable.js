@@ -42,7 +42,7 @@ var cli = commandLineArgs([
   { name: 'help', alias: 'h', description: "Display usage guide." }
 ]);
 
-var fableBin = path.resolve(__dirname, "bin/Fable.exe");
+var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
 var fableConfig = "fableconfig.json";
 
 // Custom plugin to remove `null;` statements (e.g. at the end of constructors)
@@ -366,7 +366,6 @@ function build(opts) {
 
     // Call Fable.exe
     if (opts.verbose) {
-        
         console.log("PROJECT FILE: " + path.resolve(path.join(cfgDir, opts.projFile)) + "\n");
         console.log("OUTPUT DIR: " + path.resolve(opts.outDir) + "\n");
         console.log("WORKING DIR: " + path.resolve(cfgDir) + "\n");

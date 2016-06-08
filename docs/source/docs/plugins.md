@@ -31,9 +31,9 @@ We are going to learn how to create a plugin to replace some of these calls.
 ## Creating your own plugin
 
 Fable's goal is to support most of the F# core library and some of the most
-used classes in .NET BCL, like `DateTime` or `Regex`. At the moment, it doesn't
-support `System.Random` so let's write a plugin to fix the situation in case
-we need it for our projects.
+used classes in .NET BCL, like `DateTime` or `Regex`. Fable now supports
+`System.Random` too, but for the sake of practicing let's write a plugin
+as if it wouldn't.
 
 The simplest way to create a plugin is just to use a F# script file and that's
 what we'll be doing here. Create a file named `Fable.Plugins.Random.fsx` and
@@ -43,7 +43,8 @@ you place the plugin):
 ```fsharp
 namespace Fable.Plugins
 
-#r "../../build/fable/bin/Fable.exe"
+#r "../../build/fable/bin/Fable.AST.dll"
+#r "../../build/fable/bin/Fable.dll"
 
 open Fable.AST
 open Fable.FSharp2Fable

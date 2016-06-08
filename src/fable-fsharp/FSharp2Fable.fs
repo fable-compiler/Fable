@@ -835,8 +835,11 @@ type Info =
         fileMask: string option
         dependencies: Map<string, string list>
     }
-    static member Create(project, projectOpts, fileMask, dependencies) = {
-        project=project; projectOpts=projectOpts; fileMask=fileMask; dependencies=dependencies;
+    static member Create(project, projectOpts, ?fileMask, ?dependencies) = {
+        project = project
+        projectOpts = projectOpts
+        fileMask = defaultArg fileMask None
+        dependencies = defaultArg dependencies Map.empty<_,_>
     }
     member info.IsMasked(file: FSharpImplementationFileContents) =
         let arePathsEqual p1 p2 =

@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.3.16"
+let version = "0.3.18"
 
 module Util =
     open System.Net
@@ -127,7 +127,7 @@ Target "Clean" (fun _ ->
 
 Target "FableRelease" (fun _ ->
     let xmlPath = Path.Combine(Path.GetFullPath fableBuildDir, "Fable.xml")
-    !! "src/fable-fsharp/Fable.fsproj"
+    !! "src/fable-client-node/Fable.Client.Node.fsproj"
     |> MSBuild fableBuildDir "Build"
         ["Configuration","Release"; "DocumentationFile", xmlPath]
     |> Log "Release-Output: "
@@ -138,7 +138,7 @@ Target "FableRelease" (fun _ ->
 )
 
 Target "FableDebug" (fun _ ->
-    !! "src/fable-fsharp/Fable.fsproj"
+    !! "src/fable-client-node/Fable.Client.Node.fsproj"
     |> MSBuildDebug fableBuildDir "Build"
     |> Log "Debug-Output: "
     let targetDir = "build/fable"
@@ -152,6 +152,15 @@ Target "FableJs" (fun _ ->
     FileUtils.cp "README.md" targetDir
     Npm.command targetDir "version" [version]
     Npm.install targetDir []
+)
+
+Target "FableSuave" (fun _ ->
+    let buildDir = "build/suave"
+    !! "src/fable-client-suave/Fable.Client.Suave.fsproj"
+    |> MSBuildDebug buildDir "Build"
+    |> Log "Debug-Output: "
+    // Copy Fable.Core.dll to buildDir so it can be referenced by F# code
+    FileUtils.cp "import/core/Fable.Core.dll" buildDir
 )
 
 Target "NUnitTest" (fun _ ->
@@ -198,8 +207,7 @@ Target "MakeArtifactLighter" (fun _ ->
 Target "Publish" (fun _ ->
     let workingDir = "temp/build"
     Util.downloadArtifact workingDir
-    // Util.convertFileToUnixLineBreaks (Path.Combine(workingDir, "index.js"))
-    // Npm.command workingDir "version" [version]
+    Npm.command workingDir "version" [version]
     Npm.command workingDir "publish" []
 )
 

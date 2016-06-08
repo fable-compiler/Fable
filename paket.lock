@@ -1,25 +1,28 @@
 NUGET
   remote: https://www.nuget.org/api/v2
   specs:
-    FAKE (4.27)
+    FAKE (4.28)
     FSharp.Compiler.Service (3.0)
     FSharp.Compiler.Service.ProjectCracker (3.0)
+    FSharp.Core (4.0.0.1)
     Newtonsoft.Json (8.0.3)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
+    Suave (1.1.2)
+      FSharp.Core (>= 3.1.2.5)
 GITHUB
   remote: fsprojects/FSharp.TypeProviders.StarterPack
   specs:
-    src/ProvidedTypes.fs (1ec57f583718953ac0e8e6a7023a37217e148f0a)
+    src/ProvidedTypes.fs (fa494d6308c8b22c8a7c7c6a6cd0e771ddf7c701)
 GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2
   specs:
     DotLiquid (1.8)
-    FAKE (4.27)
+    FAKE (4.28)
     FSharp.Compiler.Service (2.0.0.6)
     FSharp.Core (4.0.0.1)
-    FSharp.Formatting (2.14.2)
+    FSharp.Formatting (2.14.4)
       FSharp.Compiler.Service (2.0.0.6)
       FSharpVSPowerTools.Core (>= 2.3 < 2.4)
     FSharpVSPowerTools.Core (2.3)
