@@ -461,20 +461,34 @@ module private AstPass =
             |> Some
         | _ -> None
 
+    let log com (i: Fable.ApplyInfo) =
+        let v =
+            match i.args with
+            | [] -> Fable.Value Fable.Null
+            | [v] -> v
+            | Type (Fable.PrimitiveType Fable.String)::_ ->
+                CoreLibCall("String", Some "format", false, i.args)
+                |> makeCall com i.range (Fable.PrimitiveType Fable.String)
+            | _ -> i.args.Head 
+        GlobalCall("console", Some "log", false, [v])
+        |> makeCall com i.range i.returnType
+
     let console com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | "write" | "writeLine" ->
-            let v =
-                match i.args with
-                | [] -> Fable.Value Fable.Null
-                | [v] -> v
-                | Type (Fable.PrimitiveType Fable.String)::_ ->
-                    CoreLibCall("String", Some "format", false, i.args)
-                    |> makeCall com i.range (Fable.PrimitiveType Fable.String)
-                | _ -> i.args.Head 
-            GlobalCall("console", Some "log", false, [v])
-            |> makeCall com i.range i.returnType |> Some
-        | "assert" -> failwith "TODO: Assertions"
+        | "write" | "writeLine" -> log com i |> Some
+        | _ -> None
+
+    let debug com (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | "write" | "writeLine" -> log com i |> Some
+        | "break" -> Fable.DebugBreak i.range |> Some
+        | "assert" ->
+            // emit i "if (!$0) { debugger; }" i.args |> Some
+            let cond =
+                Fable.Apply(Fable.Value(Fable.UnaryOp UnaryNot),
+                    i.args, Fable.ApplyMeth, Fable.PrimitiveType Fable.Boolean, i.range)
+            Fable.IfThenElse(cond, Fable.DebugBreak i.range, Fable.Value Fable.Null, i.range)
+            |> Some
         | _ -> None
 
     let regex com (i: Fable.ApplyInfo) =
@@ -1083,8 +1097,9 @@ module private AstPass =
         | "System.String"
         | "Microsoft.FSharp.Core.String" -> strings com info
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
-        | "System.Console"
-        | "System.Diagnostics.Debug" -> console com info
+        | "System.Console" -> console com info
+        | "System.Diagnostics.Debug"
+        | "System.Diagnostics.Debugger" -> debug com info
         | "System.DateTime" -> dates com info 
         | "System.TimeSpan" -> timeSpans com info
         | "System.Action"
