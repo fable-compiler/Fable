@@ -198,6 +198,7 @@ and Expr =
 
     // Pseudo-Statements
     | Throw of Expr * range: SourceLocation option
+    | DebugBreak of range: SourceLocation option
     | Loop of LoopKind * range: SourceLocation option
     | VarDeclaration of var: Ident * value: Expr * isMutable: bool
     | Set of callee: Expr * property: Expr option * value: Expr * range: SourceLocation option
@@ -214,7 +215,7 @@ and Expr =
         | ObjExpr _ -> UnknownType
         | Wrapped (_,typ) | Apply (_,_,_,typ,_) -> typ
         | IfThenElse (_,thenExpr,_,_) -> thenExpr.Type
-        | Throw _ | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
+        | Throw _ | DebugBreak _ | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
         | Sequential (exprs,_) ->
             match exprs with
             | [] -> PrimitiveType Unit
@@ -231,6 +232,7 @@ and Expr =
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
         | Throw (_,range)
+        | DebugBreak range
         | Loop (_,range)
         | Set (_,_,_,range)
         | Sequential (_,range)

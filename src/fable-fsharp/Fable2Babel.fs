@@ -286,6 +286,9 @@ module Util =
         | Fable.Throw (TransformExpr com ctx ex, range) ->
             upcast Babel.ThrowStatement(ex, ?loc=range)
 
+        | Fable.DebugBreak range ->
+            upcast Babel.DebuggerStatement(?loc=range)
+
         // Expressions become ExpressionStatements
         | Fable.Value _ | Fable.Apply _ | Fable.ObjExpr _ | Fable.Sequential _
         | Fable.Wrapped _ | Fable.IfThenElse _ | Fable.Quote _ ->
@@ -408,7 +411,7 @@ module Util =
                 | Some property -> getExpr com ctx callee property
             assign range left value
 
-        | Fable.TryCatch _ | Fable.Throw _ | Fable.Loop _ ->
+        | Fable.TryCatch _ | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _ ->
             upcast (iife com ctx expr)
 
         | Fable.VarDeclaration _ ->
