@@ -614,10 +614,23 @@ module Util =
                 
     let (|Emitted|_|) com ctx r typ (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match meth.Attributes with
-        | ContainsAtt "Emit" [:? string as macro] ->
-            let args = match callee with None -> args | Some c -> c::args
-            Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r)
-            |> Some
+        | ContainsAtt "Emit" [arg] ->
+            match arg with
+            | :? string as macro ->
+                let args = match callee with None -> args | Some c -> c::args
+                Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r)
+                |> Some
+            | :? FSharpType as typ when typ.HasTypeDefinition ->
+                try
+                    let assembly = System.Reflection.Assembly.Load(typ.TypeDefinition.Assembly.QualifiedName)
+                    let typ = assembly.GetTypes() |> Seq.find (fun x -> x.AssemblyQualifiedName = typ.TypeDefinition.QualifiedName)
+                    let mi = typ.GetMethod("Emit")
+                    let o = System.Activator.CreateInstance(typ)
+                    mi.Invoke(o, [|args|]) |> unbox |> Some
+                with
+                | _ -> failwithf "Cannot build instace of type %s or it doesn't contain an appropriate Emit method %O"
+                        typ.TypeDefinition.DisplayName r 
+            | _ -> failwithf "EmitAttribute must receive a string or Type argument %O" r
         | _ -> None
         
     let (|Imported|_|) com ctx r typ (args: Fable.Expr list) (meth: FSharpMemberOrFunctionOrValue) =

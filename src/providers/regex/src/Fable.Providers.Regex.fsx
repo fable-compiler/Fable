@@ -1,5 +1,6 @@
 module Fable.Providers.Regex
 
+#r "../../../../build/fable/bin/Fable.AST.dll"
 #load "../../../../paket-files/fsprojects/FSharp.TypeProviders.StarterPack/src/ProvidedTypes.fs"
 
 open ProviderImplementation.ProvidedTypes
@@ -8,11 +9,24 @@ open System.Reflection
 open System.Text.RegularExpressions
 
 module Internal =
-    type EmitAttribute(_s: string) =
+    open Fable.AST
+
+    type EmitAttribute(t: System.Type) =
         inherit System.Attribute()
 
+    type Emitter() =
+        member __.Emit(args: Fable.Expr list) =
+            let isTrue = function Fable.Value(Fable.BoolConst true) -> true | _ -> false
+            match args with
+            | Fable.Value(Fable.StringConst pattern)::ignoreCase::[multiline] ->
+                let flags = if isTrue ignoreCase then [RegexIgnoreCase] else []
+                let flags = if isTrue multiline then RegexMultiline::flags else flags
+                Fable.RegexConst(pattern, flags) |> Fable.Value
+            | _ -> failwith "Wrong arguments passed to CreateRegex"
+
     type Helper =
-        [<Emit("new RegExp($0,'g{{$1?i:}}{{$2?m:}}')")>]
+        // [<Emit("new RegExp($0,'g{{$1?i:}}{{$2?m:}}')")>]
+        [<Emit(typeof<Emitter>)>]
         static member CreateRegex(pattern, ignoreCase, multiline) =
             let flags = if ignoreCase then RegexOptions.IgnoreCase else RegexOptions.None
             let flags = if multiline then flags ||| RegexOptions.Multiline else flags
