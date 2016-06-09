@@ -1,0 +1,10 @@
+{
+    "module": "commonjs",
+    "sourceMaps": false,
+    "projFile": "./virtualdom.fsx",
+    "outDir": "out",
+    "scripts": {
+        "prebuild": "npm install",
+        "postbuild": "node node_modules/webpack/bin/webpack out/virtualdom.js out/bundle.js"
+    }
+}

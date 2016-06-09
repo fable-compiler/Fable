@@ -260,6 +260,9 @@ build.cmd   // on windows
 ./build.sh  // on unix
 ```
 
+> The NUnit plugin will be compiled to `build/plugins` directory after this.
+Then you can use it by passing `--plugins ./path/from/fsproj/Fable.Plugins.NUnit.dll` to Fable.
+
 The most commonly used attributes (`TestFixture` and `Test`) and their respective
 `SetUp`/`TearDown` counterparts are implemented. For assertions, however, only
 `Assert.AreEqual` is available. But more features will be available soon.

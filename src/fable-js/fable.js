@@ -220,9 +220,10 @@ function watch(opts, fableProc) {
     fs.watch(projDir, { persistent: true, recursive: true }, function(ev, filename) {
         var ext = path.extname(filename).toLowerCase();
         if (/*ev == "change" &&*/ fsExtensions.indexOf(ext) >= 0) {
-            filename = path.join(projDir, filename);
-            if (!tooClose(filename, prev)) {
-                fableProc.stdin.write(filename + "\n");
+            var fullFilename = path.join(projDir, filename);
+            if (!tooClose(fullFilename, prev)) {
+                console.log(ev + ": " + filename);
+                fableProc.stdin.write(fullFilename + "\n");
             }
             prev = [filename, new Date()];
         }

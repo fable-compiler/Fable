@@ -558,12 +558,12 @@ let ``Timer with AutoReset = false works``() =
 let ``Timer.Elapsed.Subscribe works``() =
     async {
         let res = ref 0
-        let t = new Timers.Timer(25.)
+        let t = new Timers.Timer(50.)
         let disp = t.Elapsed.Subscribe(fun ev -> res := !res + 5)
         t.Start()
-        do! Async.Sleep 60
+        do! Async.Sleep 125
         disp.Dispose()
-        do! Async.Sleep 40
+        do! Async.Sleep 50
         equal 10 !res
         t.Stop()
     } |> Async.RunSynchronously
