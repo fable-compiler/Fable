@@ -1,0 +1,13 @@
+{
+  "name": "fable-import-redux",
+  "version": "0.0.1",
+  "description": "Fable bindings for Redux",
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/fsprojects/Fable/import/redux"   
+  },
+  "license": "Apache-2.0",
+  "author": "Paul Blair",  
+  "keywords": [ "fable", "fable-compiler", "fsharp", "F#", "Redux" ],
+  "homepage": "https://github.com/fsprojects/Fable#readme"
+}

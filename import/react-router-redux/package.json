@@ -1,0 +1,13 @@
+{
+  "name": "fable-import-react-router-redux",
+  "version": "0.0.1",
+  "description": "Fable bindings for Redux bindings for React Router",
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/fsprojects/Fable/import/react-router-redux"   
+  },
+  "license": "Apache-2.0",
+  "author": "Paul Blair",  
+  "keywords": [ "fable", "fable-compiler", "fsharp", "F#", "React", "Redux" ],
+  "homepage": "https://github.com/fsprojects/Fable#readme"
+}
