@@ -4,7 +4,7 @@ open System.Text.RegularExpressions
 open Fable.Core
 open Fable.Import.JS
 
-module ``react-redux`` =
+module ReactRedux =
     type [<Import("ElementClass","react-redux")>] ElementClass() =
         interface Component<obj, obj>
 
@@ -37,5 +37,3 @@ module ``react-redux`` =
 
     type [<Import("*","react-redux")>] Globals =
         static member connect(?mapStateToProps: MapStateToProps, ?mapDispatchToProps: U2<MapDispatchToPropsFunction, MapDispatchToPropsObject>, ?mergeProps: MergeProps, ?options: Options): ClassDecorator = failwith "JS only"
-
-
