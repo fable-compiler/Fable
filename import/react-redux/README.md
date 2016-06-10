@@ -1,6 +1,9 @@
 # fable-import-react-redux
 
-Fable bindings for the Redux React bindings
+Fable bindings for the Redux React bindings (react-redux) version 4.4.0.
+These were generated from the Typescript file but modified to remove setters.
+In addition, ElementClass needs to inherit from Component rather than 
+trying to implement it as an interface.
 
 ## Installation
 
