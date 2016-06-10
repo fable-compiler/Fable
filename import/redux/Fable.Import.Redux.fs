@@ -28,14 +28,14 @@ module Redux =
         inherit Function
         [<Emit("$0($1...)")>] abstract Invoke: obj: MiddlewareArg -> Function
 
-    and [<Import("Store","Redux")>] Store() =
+    and [<Import("store","redux")>] Store() =
         member __.getReducer(): Reducer<'T,'U> = failwith "JS only"
         member __.replaceReducer(nextReducer: Reducer<'T,'U>): unit = failwith "JS only"
         member __.dispatch(action: obj): obj = failwith "JS only"
         member __.getState(): obj = failwith "JS only"
         member __.subscribe(listener: Function): Function = failwith "JS only"
 
-    type [<Import("*","Redux")>] Globals =
+    type [<Import("*","redux")>] Globals =
         static member createStore(reducer: Reducer<'T,'U>, ?initialState: obj, ?enhancer: Function): Store = failwith "JS only"
         static member bindActionCreators(actionCreators: 'T, dispatch: Dispatch): 'T = failwith "JS only"
         static member combineReducers([<ParamArray>] reducers: Reducer<'T,'U>[]): Reducer<'T,'U> = failwith "JS only"
