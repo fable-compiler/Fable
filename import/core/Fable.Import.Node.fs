@@ -271,7 +271,7 @@ module net =
         abstract close: ?callback: Function -> Server
         abstract address: unit -> obj
 
-    type [<Import("*","net")>] Globals =
+    type Globals =
         member __.Socket with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
         member __.createServer(?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
         member __.createServer(?options: obj, ?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
@@ -347,7 +347,7 @@ module crypto =
         abstract setPublicKey: public_key: string * ?encoding: string -> unit
         abstract setPrivateKey: public_key: string * ?encoding: string -> unit
 
-    type [<Import("*","crypto")>] Globals =
+    type Globals =
         member __.createCredentials(details: CredentialDetails): Credentials = failwith "JS only"
         member __.createHash(algorithm: string): Hash = failwith "JS only"
         member __.createHmac(algorithm: string, key: string): Hmac = failwith "JS only"
@@ -560,7 +560,7 @@ module tls =
     and SecureContext =
         abstract context: obj with get, set
 
-    type [<Import("*","tls")>] Globals =
+    type Globals =
         member __.CLIENT_RENEG_LIMIT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.CLIENT_RENEG_WINDOW with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.createServer(options: TlsOptions, ?secureConnectionListener: Func<ClearTextStream, unit>): Server = failwith "JS only"
@@ -586,7 +586,7 @@ module child_process =
         abstract disconnect: unit -> unit
         abstract unref: unit -> unit
 
-    type [<Import("*","child_process")>] Globals =
+    type Globals =
         member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = failwith "JS only"
         member __.exec(command: string, options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
         member __.exec(command: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
@@ -1506,33 +1506,27 @@ let [<Import("*","util")>] util: util.Globals = failwith "JS only"
 
 
 module ``assert`` =
+    type [<Import("AssertionError","assert")>] AssertionError(?options: obj) =
+        // interface Error
+        member __.name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        member __.message with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        member __.actual with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        member __.expected with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        member __.operator with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
+        member __.generatedMessage with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+
     type Globals =
-        member __.``internal``(value: obj, ?message: string): unit = failwith "JS only"
-
-    module ``internal`` =
-        type [<Import("internal.AssertionError","assert")>] AssertionError(?options: obj) =
-            // interface Error
-            member __.name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            member __.message with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            member __.actual with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-            member __.expected with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-            member __.operator with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            member __.generatedMessage with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-
-        type Globals =
-            member __.throws with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-            member __.doesNotThrow with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-            member __.fail(?actual: obj, ?expected: obj, ?message: string, ?operator: string): unit = failwith "JS only"
-            member __.ok(value: obj, ?message: string): unit = failwith "JS only"
-            member __.equal(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            member __.notEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            member __.deepEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            member __.notDeepEqual(acutal: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            member __.strictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            member __.notStrictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-            member __.ifError(value: obj): unit = failwith "JS only"
-            
-    let [<Import("internal","assert")>] ``internal``: ``internal``.Globals = failwith "JS only"
+        member __.throws with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        member __.doesNotThrow with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        member __.fail(?actual: obj, ?expected: obj, ?message: string, ?operator: string): unit = failwith "JS only"
+        member __.ok(value: obj, ?message: string): unit = failwith "JS only"
+        member __.equal(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+        member __.notEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+        member __.deepEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+        member __.notDeepEqual(acutal: obj, expected: obj, ?message: string): unit = failwith "JS only"
+        member __.strictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+        member __.notStrictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
+        member __.ifError(value: obj): unit = failwith "JS only"
 
 let [<Import("*","assert")>] ``assert``: ``assert``.Globals = failwith "JS only"
 

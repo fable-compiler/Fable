@@ -111,12 +111,10 @@ module Fake =
 // Directories
 let fableBuildDir = Util.join ["build";"fable";"bin"]
 let testsBuildDir = Util.join ["build";"tests"]
-let pluginsBuildDir = Util.join ["build";"plugins"]
 
 // Targets
 Target "Clean" (fun _ ->
-    !! fableBuildDir ++ pluginsBuildDir
-        ++ "src/**/bin/" ++ "src/**/obj/"
+    !! fableBuildDir ++ "src/**/bin/" ++ "src/**/obj/"
     |> CleanDirs
     // Exclude node_modules
     !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
@@ -185,9 +183,8 @@ Target "MochaTest" (fun _ ->
 )
 
 Target "Plugins" (fun _ ->
-    CreateDir pluginsBuildDir
-    !! "src/plugins/*.fsx"
-    |> Seq.iter (Util.compileScript [] pluginsBuildDir)
+    !! "src/plugins/**/*.fsx"
+    |> Seq.iter (fun fsx -> Util.compileScript [] (Path.GetDirectoryName fsx) fsx)
 )
 
 Target "Providers" (fun _ ->

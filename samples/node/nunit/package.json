@@ -1,0 +1,19 @@
+{
+  "private": true,
+  "dependencies": {
+    "fable-core": "^0.1.6",
+    "fable-plugins-nunit": "0.0.2",
+    "isomorphic-fetch": "^2.2.1"
+  },
+  "devDependencies": {
+    "fable-import-fetch": "^0.0.2",
+    "fable-plugins-nunit": "^0.0.3",
+    "mocha": "^2.5.3"
+  },
+  "scripts": {
+    "test": "mocha out"
+  },
+  "engines": {
+    "fable": ">=0.3.18"
+  }
+}

@@ -1,11 +1,10 @@
 {
-  "name": "fable-core",
-  "version": "0.1.7",
-  "description": "Fable core lib & bindings for native JS objects, browser and node APIs",
-  "main": "fable-core.js",
+  "name": "fable-import-mocha",
+  "version": "0.0.2",
+  "description": "Fable bindings for Mocha",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/core"
+    "url": "https://github.com/fsprojects/Fable/import/mocha"
   },
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",

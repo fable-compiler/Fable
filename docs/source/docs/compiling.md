@@ -250,47 +250,9 @@ or a capable IDE. In the case of Visual Studio Code, you can find instructions [
 ## Testing
 
 You can use any JS testing library to write tests for your project, but to make it
-easier to share code across platforms, a [plugin](plugins.html) is available to make
-[NUnit](http://www.nunit.org) tests compatible with [Mocha](https://mochajs.org)
-and this is what Fable uses for its own tests. The tests are compiled and run
-automatically when building the project:
-
-```shell
-build.cmd   // on windows
-./build.sh  // on unix
-```
-
-> The NUnit plugin will be compiled to `build/plugins` directory after this.
-Then you can use it by passing `--plugins ./path/from/fsproj/Fable.Plugins.NUnit.dll` to Fable.
-
-The most commonly used attributes (`TestFixture` and `Test`) and their respective
-`SetUp`/`TearDown` counterparts are implemented. For assertions, however, only
-`Assert.AreEqual` is available. But more features will be available soon.
-
-With some limitations, it's also possible to write asynchronous tests. For this,
-you just need to **wrap the whole test** with `Async.RunSynchronously`:
-
-```fsharp
-[<Test>]
-let ``Async.Sleep works``() =
-    Async.RunSynchronously(async {
-        let res = ref false
-        async {
-            do! Async.Sleep 50
-            return i
-        } |> Async.StartImmediate
-        Assert.AreEqual(false, !res)
-        do! Async.Sleep 100
-        Assert.AreEqual(true, !res)
-    })
-```
-
-> Note: If you don't want to have `NUnit` as dependency. You can also use the attributes
-and `Assert` type in `Fable.Core.Testing` module.
-
-For Visual Studio users, there's a similar plugin to convert Visual Studio Unit
-Tests to Mocha.
-
+easier to share code across platforms, a plugin is available to make
+[NUnit](http://www.nunit.org) tests compatible with [Mocha](https://mochajs.org).
+Check [the tutorial](http://fsprojects.github.io/Fable/samples/nunit/index.html) for more info.
 
 ## Samples
 
