@@ -6,7 +6,7 @@ This demo uses Fable to create a web application using [Express](http://expressj
 a fast, unopinionated, minimalist web framework for Node.js. You can see full source code here, or
 view the [raw source](https://github.com/fsprojects/Fable/blob/master/samples/node/server/index.fsx)
 on GitHub. The application configuration is in 
-[packages.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/packages.json) and
+[package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/package.json) and
 [fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json)
 specifies Fable parameters.
 

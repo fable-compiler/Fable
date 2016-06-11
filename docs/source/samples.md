@@ -80,9 +80,9 @@ you can find [Fable's version on GitHub](https://github.com/fsprojects/Fable/blo
 Minimal example that shows how to use Fable to create a node.js HTTP server that
 hosts static files from the current directory using the `serve-static` package.
 You can view the [source code](https://github.com/fsprojects/Fable/blob/master/samples/node/server/index.fsx),
-[packages.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/packages.json) and
+[package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/package.json) and
 [fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json) on
-GitHub.  
+GitHub.
 
 <a href="samples/express/index.html"><img src="samples/images/express.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
 
@@ -92,8 +92,20 @@ Example of using Fable to create a web application using [Express](http://expres
 a fast, unopinionated, minimalist web framework for Node.js. The
 [raw source code](https://github.com/fsprojects/Fable/blob/master/samples/node/server/index.fsx) is
 on GitHub, together with the configuration in
-[packages.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/packages.json) and
+[package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/package.json) and
 [fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json).
+
+## Other
+
+<a href="samples/nunit/index.html"><img src="samples/images/NUnit.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [Testing with NUnit](samples/nunit/index.html)
+
+This tutorial shows how to compile NUnit tests so they can be run in JS with [Mocha](https://mochajs.org).
+You can view the [source code](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/index.fsx),
+[package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/package.json) and
+[fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/fableconfig.json) on
+GitHub.
 
 ## Something missing?
 

@@ -5,7 +5,7 @@
 This script is a minimal example showing how to use Fable to create a node.js HTTP server that
 hosts static files from the current directory using the `serve-static` package.
 You can view the [source code](https://github.com/fsprojects/Fable/blob/master/samples/node/server/index.fsx),
-[packages.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/packages.json) and
+[package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/package.json) and
 [fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json) on
 GitHub. This page shows the full source code of the demo.
 
@@ -13,7 +13,7 @@ GitHub. This page shows the full source code of the demo.
 
 Aside from the F# source code, the [directory with the 
 sample](https://github.com/fsprojects/Fable/blob/master/samples/node/server/) also contains
-`packages.json` and `fableconfig.json` files that configure node.js dependencies and specify
+`package.json` and `fableconfig.json` files that configure node.js dependencies and specify
 parameters for the Fable compiler. In this demo, we're using the [finalhandler package](https://github.com/pillarjs/finalhandler)
 and [servestatic package](https://github.com/expressjs/serve-static) to serve static files via HTTP.
 

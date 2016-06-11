@@ -54,7 +54,8 @@ let samples =
     
     // Non-browser samples without embedded HTML
     "samples/node/server", false
-    "samples/node/express", false ]
+    "samples/node/express", false
+    "samples/node/nunit", false ]
 
 
 // Set templates directory for DotLiquid

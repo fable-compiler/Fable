@@ -482,12 +482,13 @@ try {
     var curNpmCfg = path.join(cfgDir, "package.json");
     if (fs.existsSync(curNpmCfg)) {
         curNpmCfg = JSON.parse(fs.readFileSync(curNpmCfg).toString());
-        if (curNpmCfg.engines && curNpmCfg.engines.fable) {
+        if (curNpmCfg.engines && (curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"])) {
             var semver = require("semver");
+            var fableRequiredVersion = curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"];
             var fableVersion = require("./package.json").version;
-            if (!semver.satisfies(fableVersion, curNpmCfg.engines.fable)) {
+            if (!semver.satisfies(fableVersion, fableRequiredVersion)) {
                 console.log("Fable version: " + fableVersion);
-                console.log("Required: " + curNpmCfg.engines.fable);
+                console.log("Required: " + fableRequiredVersion);
                 console.log("Please upgrade fable-compiler package");
                 process.exit(1);
             }

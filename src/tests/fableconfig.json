@@ -3,7 +3,7 @@
     "outDir": "../../build/tests",
     "module": "commonjs",
     "symbols": ["MOCHA"],
-    "plugins": ["../../build/plugins/Fable.Plugins.NUnit.dll"],
+    "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
     "refs": {
         "Fable.Tests.Clamp": "./Other"
     }
