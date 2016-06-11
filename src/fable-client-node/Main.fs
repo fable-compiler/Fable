@@ -150,6 +150,8 @@ let compile (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option
                 printFile babelFile
                 Map.add babelFile.originalFileName babelFile.dependencies deps
             ) deps
+        // Send empty string to signal end of compilation
+        Console.Out.WriteLine()
         Some { comInfo with dependencies = deps }
     with ex ->
         printMessage Error ex.Message
@@ -181,8 +183,6 @@ let main argv =
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
     // Full compilation
     let comInfo = compile com checker None
-    // Send empty string to signal end of compilation
-    Console.Out.WriteLine()
     // Keep on watching if necessary
     if opts.watch then
         awaitInput com checker comInfo

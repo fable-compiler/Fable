@@ -209,39 +209,62 @@ function watch(opts, fableProc) {
             filename == prev[0] &&
             (new Date() - prev[1]) < 1000;
     }
-    var prev = null;
+    var next = null, prev = null;
     fableProc.stdin.setEncoding('utf-8');
 
     // Watch only the project directory for performance
     var projDir = path.dirname(path.resolve(path.join(cfgDir, opts.projFile)));
     console.log("Watching " + projDir);
+    opts.watching = true;
 
     var fsExtensions = [".fs", ".fsx", ".fsproj"];
     fs.watch(projDir, { persistent: true, recursive: true }, function(ev, filename) {
         var ext = path.extname(filename).toLowerCase();
         if (/*ev == "change" &&*/ fsExtensions.indexOf(ext) >= 0) {
-            var fullFilename = path.join(projDir, filename);
-            if (!tooClose(fullFilename, prev)) {
-                console.log(ev + ": " + filename);
-                fableProc.stdin.write(fullFilename + "\n");
+            prev = next;
+            next = [filename, new Date()];
+            if (!tooClose(filename, prev)) {
+                console.log(ev + ": " + filename + " at " + next[1].toLocaleTimeString());
+                fableProc.stdin.write(path.join(projDir, filename) + "\n");
             }
-            prev = [filename, new Date()];
         }
     });
 }
 
 function runCommand(command, continuation) {
+    function splitByWhitespace(str) {
+        function stripQuotes(str, start, end) {
+            return str[start] === '"' && str[end - 1] === '"'
+                    ? str.substring(start + 1, end - 1)
+                    : str.substring(start, end);
+        }
+        // if (!(reg instanceof RegExp) || reg.flags.indexOf("g") == -1) {
+        //     throw "'reg' argument must be a RegExp with 'g' flag"
+        // }
+        var reg = /\s+(?=([^"]*"[^"]*")*[^"]*$)/g;
+        if (typeof str !== "string" || str.length == 0) {
+            throw "'str' argument must be a non-empty string"
+        }
+        reg.lastIndex = 0;
+        var tmp, tmp2, results = [], lastIndex = 0;
+        while ((tmp = reg.exec(str)) !== null) {
+            results.push(stripQuotes(str, lastIndex, tmp.index));
+            lastIndex = tmp.index + tmp[0].length;
+        }
+        results.push(stripQuotes(str, lastIndex, str.length));
+        return results;
+    }
     var cmd, args;
     console.log(command);
     if (process.platform === "win32") {
         cmd = "cmd";
-        args = command.split(" ").filter(function(x){return x});
+        args = splitByWhitespace(command);
         args.splice(0,0,"/C")
     }
     else {
-        var i = command.indexOf(' ');
-        cmd = command.substring(0, i);
-        args = command.substring(i + 1).split(" ").filter(function(x){return x});
+        args = splitByWhitespace(command);
+        cmd = args[0];
+        args = args.slice(1);
     }
     var proc = child_process.spawn(cmd, args, { cwd: cfgDir });
     proc.on('exit', function(code) {
@@ -256,7 +279,7 @@ function runCommand(command, continuation) {
 }
 
 function postbuild(opts, fableProc) {
-    if (opts.watch) {
+    if (opts.watch && !opts.watching) {
         watch(opts, fableProc);
     }
     if (opts.scripts && opts.scripts.postbuild) {

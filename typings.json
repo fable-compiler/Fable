@@ -1,0 +1,16 @@
+{
+  "dependencies": {},
+  "globalDependencies": {
+    "d3": "registry:dt/d3#0.0.0+20160514171929",
+    "express": "registry:dt/express#4.0.0+20160317120654",
+    "github-electron": "registry:dt/github-electron#1.2.1+20160602155650",
+    "mocha": "registry:dt/mocha#2.2.5+20160317120654",
+    "node": "registry:dt/node#6.0.0+20160608110640",
+    "react": "registry:dt/react#0.14.0+20160602151522",
+    "react-redux": "registry:dt/react-redux#4.4.0+20160501125835",
+    "react-router-redux": "registry:dt/react-router-redux#4.0.0+20160316155526",
+    "redux": "registry:dt/redux#3.3.1+20160326112656",
+    "three": "registry:dt/three#0.0.0+20160602140506",
+    "typescript": "registry:dt/typescript#0.4.0+20160317120654"
+  }
+}

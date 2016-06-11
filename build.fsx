@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.3.18"
+let version = "0.3.19"
 
 module Util =
     open System.Net
@@ -204,7 +204,7 @@ Target "MakeArtifactLighter" (fun _ ->
 Target "Publish" (fun _ ->
     let workingDir = "temp/build"
     Util.downloadArtifact workingDir
-    Npm.command workingDir "version" [version]
+    // Npm.command workingDir "version" [version]
     Npm.command workingDir "publish" []
 )
 
