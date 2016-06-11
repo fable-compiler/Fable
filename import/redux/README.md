@@ -9,6 +9,8 @@ namely:
   2. Lowercased the module names in the Import attributes
   3. All setters are removed.
 
+Typescript source file is [here](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c2bfaedeee7ae4ed5e0f01ebcf4af7acfe2c77c3/redux/redux.d.ts).
+
 ## Installation
 
 ```sh

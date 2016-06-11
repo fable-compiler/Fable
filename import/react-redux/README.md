@@ -5,6 +5,8 @@ These were generated from the Typescript file but modified to remove setters.
 In addition, ElementClass needs to inherit from Component rather than 
 trying to implement it as an interface.
 
+Typescript source file is [here](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/0b96933934c2e37a749aad8e38e23214e21e7dab/react-redux/react-redux.d.ts).
+
 ## Installation
 
 ```sh

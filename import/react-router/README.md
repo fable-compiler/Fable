@@ -5,6 +5,9 @@ These were generated from Typescript definitions but required some manual
 modification, most significantly of certain History module names. In
 addition, setters were removed from all types.
 
+Typescript source file is [here](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/df9065dc6e93d23a0d284c57c30570eefb81d35d/react-router/react-router.d.ts).
+
+
 ## Installation
 
 ```sh
