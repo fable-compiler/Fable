@@ -8,7 +8,7 @@ open Fable.Import.Redux
 
 // Type definitions for react-redux v. 4.4.0, generated from Typescript
 module ReactRedux =
-    type [<Import("ElementClass","react-redux")>] ElementClass<'P, 'S>(?props: 'P, ?context: obj) =
+    type [<Import("ElementClass","react-redux")>] ElementClass<'P, 'S when 'P :> Property<'P>>(?props: 'P, ?context: obj) =
         inherit Component<'P, 'S>(?props = props, ?context = context)
 
 
@@ -30,12 +30,12 @@ module ReactRedux =
     and Options =
         abstract ``pure``: bool with get
 
-    and Property =
+    and Property<'P when 'P :> Property<'P>> =
         abstract store: Store option with get
-        abstract children: Function option with get
+        abstract children: React.ReactElement<'P> option with get
 
-    and [<Import("Provider","react-redux")>] Provider(?props: Property, ?context: obj) =
-        inherit Component<Property, obj>(?props = props, ?context = context)
+    and [<Import("Provider","react-redux")>] Provider<'StateType, 'PropType when 'PropType :> Property<'PropType>>(?props: Property<'PropType>, ?context: obj) =
+        inherit Component<Property<'PropType>, 'StateType>(?props = props, ?context = context)
 
 
     type [<Import("*","react-redux")>] Globals =
