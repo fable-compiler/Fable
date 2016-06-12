@@ -46,7 +46,16 @@ open R.Props
 [<Import("default","marked")>]
 let marked (s: string) (opts: obj): string = failwith "JS only"
 
-type CVProps = {author: string; key: DateTime option}
+// Check we can also use interfaces as props, see #192
+// type CVProps = {author: string; key: DateTime option}
+type CVProps =
+    abstract author: string
+    abstract key: DateTime option
+
+type CVPropsImpl(pAuthor, pKey) =
+    interface CVProps with
+        member __.author = pAuthor
+        member __.key = pKey
 
 type CBProps = { url: string; pollInterval: float }
 type CBState = { data: Comment[] }
@@ -77,12 +86,16 @@ let CommentView (props: CVProps) =
 let CommentList(props: CBState) =
     let commentNodes =
         props.data
-        |> Array.map (fun comment ->
+        |> Array.mapi (fun i comment ->
+            let cvProps =
+                // Check that both types implementing interfaces and object expressions work
+                match i % 2 with
+                | 0 -> { new CVProps with
+                            member x.author = comment.author
+                            member x.key = comment.id }
+                | _ -> CVPropsImpl(comment.author, comment.id) :> CVProps
             // Use ReactHelper.fn to render a component from a function
-            R.fn CommentView {
-                author = comment.author
-                key = comment.id
-            } [ unbox comment.text ])
+            R.fn CommentView cvProps [ unbox comment.text ])
     R.div [ClassName "commentList"] [unbox commentNodes]
 
 // For more complicated components we can just inherit from ReactHelper.Component

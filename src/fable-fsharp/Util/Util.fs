@@ -127,6 +127,8 @@ module Naming =
             let rec parentContains rootPath path' =
                 match Directory.GetParent path' with
                 | null -> Some (rootPath, path)
+                // Files in node_modules are always considered external, see #188
+                | parent when parent.FullName.Contains("node_modules") -> Some(rootPath, path)
                 | parent when rootPath = parent.FullName -> None
                 | parent -> parentContains rootPath parent.FullName
             parentContains (Path.GetDirectoryName projPath) path

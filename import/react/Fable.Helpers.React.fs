@@ -578,9 +578,29 @@ type Component<'P,'S>(props: 'P, ?state: 'S) =
     inherit React.Component<'P,'S>(props)
     do this?state <- state
 
-let toPlainJsObj (o: obj) =
-    JS.Object.getOwnPropertyNames(o)
-    |> Seq.fold (fun o2 k -> o2?(k) <- o?(k); o2) (obj())
+[<Emit("typeof $0")>]
+let private jsTypeof o: string = failwith "JS only"
+
+let toPlainJsObj (source: obj) =
+    let transferValueOrGetter source thisValue target (k: string) =
+        let prop = JS.Object.getOwnPropertyDescriptor(source, k)
+        // Attention, if we access `get` statically, the F# will wrap it in a function
+        match unbox prop.value, unbox prop?get with
+        | Some value, _ when jsTypeof value <> "function" ->
+            target?(k) <- value 
+        | None, Some getter ->
+            target?(k) <- (unbox<JS.Function> getter).apply(thisValue)
+        | _ -> ()
+        target
+    let target =
+        (obj(), JS.Object.getOwnPropertyNames(source))
+        ||> Seq.fold (transferValueOrGetter source source)
+    // Copy also properties from prototype, see #192
+    match JS.Object.getPrototypeOf(source) with
+    | proto when proto <> null && proto <> (box JS.Object) ->
+        (target, JS.Object.getOwnPropertyNames(proto))
+        ||> Seq.fold (transferValueOrGetter proto source)
+    | _ -> target
 
 let inline fn (f: 'Props -> #React.ReactElement<obj>) (props: 'Props) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     unbox(React.createElement(U2.Case1(unbox f), toPlainJsObj props, unbox(List.toArray children)))
