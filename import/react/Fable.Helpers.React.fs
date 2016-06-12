@@ -578,18 +578,13 @@ type Component<'P,'S>(props: 'P, ?state: 'S) =
     inherit React.Component<'P,'S>(props)
     do this?state <- state
 
-[<Emit("typeof $0")>]
-let private jsTypeof o: string = failwith "JS only"
-
 let toPlainJsObj (source: obj) =
     let transferValueOrGetter source thisValue target (k: string) =
         let prop = JS.Object.getOwnPropertyDescriptor(source, k)
-        // Attention, if we access `get` statically, the F# will wrap it in a function
+        // Attention, if we access `get` statically, F# compiler will wrap it in a function
         match unbox prop.value, unbox prop?get with
-        | Some value, _ when jsTypeof value <> "function" ->
-            target?(k) <- value 
-        | None, Some getter ->
-            target?(k) <- (unbox<JS.Function> getter).apply(thisValue)
+        | Some value, _ -> target?(k) <- value 
+        | None, Some getter -> target?(k) <- getter?apply$(thisValue)
         | _ -> ()
         target
     let target =
@@ -597,7 +592,7 @@ let toPlainJsObj (source: obj) =
         ||> Seq.fold (transferValueOrGetter source source)
     // Copy also properties from prototype, see #192
     match JS.Object.getPrototypeOf(source) with
-    | proto when proto <> null && proto <> (box JS.Object) ->
+    | proto when proto <> null && obj.ReferenceEquals(proto, JS.Object) ->
         (target, JS.Object.getOwnPropertyNames(proto))
         ||> Seq.fold (transferValueOrGetter proto source)
     | _ -> target

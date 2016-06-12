@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "dependencies": {
+    "classnames": "^2.2.5",
+    "core-js": "^2.1.0",
+    "director": "^1.2.8",
+    "fable-core": "^0.1.6",
+    "react": "^15.1.0",
+    "react-dom": "^15.1.0",
+    "requirejs": "^2.1.22"
+  },
+  "devDependencies": {
+    "fable-import-react": "^0.0.18"
+  },
+  "engines": {
+    "fable": ">=0.3.21"
+  }
+}

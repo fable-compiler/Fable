@@ -1,5 +1,5 @@
-// This is an alternate version of todomvc with Vue
-// It doesn't use the F# functional capabilities yet
+// TODO MVC app Vue.js
+// It doesn't use the F# functional capabilities
 // but takes advantage of static type checking
 
 // Load Fable.Core and bindings to JS global objects
