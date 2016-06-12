@@ -1,13 +1,15 @@
 {
   "private": true,
   "dependencies": {
-    "classnames": "^2.2.5",
     "core-js": "^2.1.0",
-    "director": "^1.2.8",
     "fable-core": "^0.1.6",
+    "classnames": "^2.2.5",
+    "director": "^1.2.8",
     "react": "^15.1.0",
     "react-dom": "^15.1.0",
-    "requirejs": "^2.1.22"
+    "requirejs": "^2.1.22",
+    "todomvc-app-css": "^2.0.0",
+    "todomvc-common": "^1.0.1"    
   },
   "devDependencies": {
     "fable-import-react": "^0.0.18"

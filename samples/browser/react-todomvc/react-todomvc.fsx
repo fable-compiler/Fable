@@ -13,12 +13,11 @@ type Todo = { id: string; title: string; completed: bool }
 type Util =
     // JS utility for conditionally joining classNames together
     // See https://github.com/JedWatson/classnames
-    [<Import("default", "classNames")>]
-    static member classNames(o: obj): string = failwith "JS only"
+    [<Global>] static member classNames(o: obj): string = failwith "JS only"
 
-    // Director exposes itself globally, it'll be loaded with a script tag
-    [<Global>]
-    static member Router(o: obj): obj = failwith "JS only"
+    // Director is a router. Routing is the process of determining what code to run when a URL is requested.
+    // See https://github.com/flatiron/director
+    [<Global>] static member Router(o: obj): obj = failwith "JS only"
 
     static member uuid () =
         let makeRandom =
@@ -38,13 +37,17 @@ type Util =
     static member pluralize count word =
         if count = 1 then word else word + "s"
 
-    static member store
-        with get ns: Todo[] =
+    static member storeGet ns: Todo[] =
+        try
             match Browser.localStorage.getItem(ns) |> unbox with
             | Some data -> JS.JSON.parse(data) |> unbox
             | None -> [||]
-        and set ns data =
+        with ex -> printfn "STORAGE GET ERROR: %s" ex.Message; [||]
+
+    static member storeSet ns (data: Todo[]) =
+        try
             Browser.localStorage.setItem(ns, JS.JSON.stringify data)
+        with ex -> printfn "STORAGE SET ERROR: %s" ex.Message
 
     static member extend([<ParamArray>] args: obj[]): 'T =
         (obj(), args)
@@ -56,19 +59,21 @@ type Util =
 
 type TodoModel(key) =
     member val key = key
-    member val todos: Todo[] = Util.store(key) with get, set
+    member val todos: Todo[] = Util.storeGet key with get, set
     member val onChanges: (unit->unit)[] = [||] with get, set
 
     member this.subscribe (onChange) =
         this.onChanges <- [|onChange|]
 
     member this.inform () =
-        Util.store(this.key) <- this.todos
+        Util.storeSet this.key this.todos
         this.onChanges |> Seq.iter (fun cb -> cb())
 
     member this.addTodo (title) =
-        this.todos <- this.todos |> Array.append
-            [| { id=Util.uuid(); title=title; completed=false } |]
+        this.todos <- [|
+            yield! this.todos
+            yield { id=Util.uuid(); title=title; completed=false }
+        |]
         this.inform()
 
     member this.toggleAll (checked') =
@@ -183,7 +188,9 @@ type TodoItem(props) =
             ]
             R.input [
                 ClassName "edit"
-                Ref (unbox "editField")
+                // If we use `Ref (unbox "editField")` the compiler
+                // gets confused as it expects a lambda
+                unbox ("ref", "editField")
                 Value (U2.Case1 this.state.editText)
                 OnBlur this.handleSubmit
                 OnChange this.handleChange
@@ -340,7 +347,7 @@ type TodoApp(props) =
             else None
         R.div [] [
             R.header [ ClassName "header" ] [
-                R.h1 [] [ unbox todos ]
+                R.h1 [] [ unbox "todos" ]
                 R.input [
                     ClassName "new-todo"
                     Placeholder "What needs to be done?"
