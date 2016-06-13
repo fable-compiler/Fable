@@ -134,3 +134,21 @@ let ``Union cases json stringify is as we expect``() =
     |> jsonStringify
     |> equal """{"Case":"ObjectType","Fields":[{"Prop1":"value1","Prop2":2}]}"""
 #endif
+
+[<Test>]
+let ``Option.isSome/isNone works``() =
+    let o1 = None
+    let o2 = Some 5
+    Option.isNone o1 |> equal true
+    Option.isSome o1 |> equal false
+    Option.isNone o2 |> equal false
+    Option.isSome o2 |> equal true
+
+[<Test>]
+let ``Option.IsSome/IsNone works``() =
+    let o1 = None
+    let o2 = Some 5
+    o1.IsNone |> equal true
+    o1.IsSome |> equal false
+    o2.IsNone |> equal false
+    o2.IsSome |> equal true

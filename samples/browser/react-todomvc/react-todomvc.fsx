@@ -37,24 +37,24 @@ type Util =
     static member pluralize count word =
         if count = 1 then word else word + "s"
 
-    static member storeGet ns: Todo[] =
-        match Browser.localStorage.getItem(ns) |> unbox with
-        | Some data -> JS.JSON.parse(data) |> unbox
-        | None -> [||]
-
-    static member storeSet ns (data: Todo[]) =
-        Browser.localStorage.setItem(ns, JS.JSON.stringify data)
+    static member store
+        with get ns: Todo[] =
+            match Browser.localStorage.getItem(ns) |> unbox with
+            | Some data -> JS.JSON.parse(data) |> unbox
+            | None -> [||]
+        and set ns (data: Todo[]) =
+            Browser.localStorage.setItem(ns, JS.JSON.stringify data)
 
 type TodoModel(key) =
     member val key = key
-    member val todos: Todo[] = Util.storeGet key with get, set
+    member val todos: Todo[] = Util.store(key) with get, set
     member val onChanges: (unit->unit)[] = [||] with get, set
 
     member this.subscribe (onChange) =
         this.onChanges <- [|onChange|]
 
     member this.inform () =
-        Util.storeSet this.key this.todos
+        Util.store(this.key) <- this.todos
         this.onChanges |> Seq.iter (fun cb -> cb())
 
     member this.addTodo (title) =
