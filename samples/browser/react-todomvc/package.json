@@ -12,7 +12,7 @@
     "todomvc-common": "^1.0.1"    
   },
   "devDependencies": {
-    "fable-import-react": "^0.0.18"
+    "fable-import-react": "^0.0.19"
   },
   "engines": {
     "fable": ">=0.3.21"

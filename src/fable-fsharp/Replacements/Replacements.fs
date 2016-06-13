@@ -586,8 +586,14 @@ module private AstPass =
         | "none" -> Fable.Null |> Fable.Value |> Some
         | "value" | "get" | "toObj" | "ofObj" | "toNullable" | "ofNullable" ->
            wrap i.returnType (getCallee()) |> Some
-        | "isSome" -> makeEqOp i.range [getCallee(); Fable.Value Fable.Null] BinaryUnequal |> Some
-        | "isNone" -> makeEqOp i.range [getCallee(); Fable.Value Fable.Null] BinaryEqual |> Some
+        | "isSome" | "isNone" ->
+            let op = if i.methodName = "isSome" then BinaryUnequal else BinaryEqual
+            let comp = makeEqOp i.range [getCallee(); Fable.Value Fable.Null] op
+            match i.returnType with
+            | Fable.PrimitiveType(Fable.Boolean _) -> Some comp
+            // Hack to fix instance member calls (e.g., myOpt.IsSome)
+            // For some reason, F# compiler expects it to be applicable
+            | _ -> Fable.Lambda([], comp) |> Fable.Value |> Some
         | "map" | "bind" -> emit i "$1 != null ? $0($1) : $1" i.args |> Some
         | "toArray" -> toArray i.range i.args.Head |> Some
         | meth ->

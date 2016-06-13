@@ -38,24 +38,12 @@ type Util =
         if count = 1 then word else word + "s"
 
     static member storeGet ns: Todo[] =
-        try
-            match Browser.localStorage.getItem(ns) |> unbox with
-            | Some data -> JS.JSON.parse(data) |> unbox
-            | None -> [||]
-        with ex -> printfn "STORAGE GET ERROR: %s" ex.Message; [||]
+        match Browser.localStorage.getItem(ns) |> unbox with
+        | Some data -> JS.JSON.parse(data) |> unbox
+        | None -> [||]
 
     static member storeSet ns (data: Todo[]) =
-        try
-            Browser.localStorage.setItem(ns, JS.JSON.stringify data)
-        with ex -> printfn "STORAGE SET ERROR: %s" ex.Message
-
-    static member extend([<ParamArray>] args: obj[]): 'T =
-        (obj(), args)
-        ||> Seq.fold (fun newObj o ->
-            JS.Object.getOwnPropertyNames(o)
-            |> Seq.iter (fun k -> newObj?(k) <- obj?(k))
-            newObj)
-        |> unbox<'T>
+        Browser.localStorage.setItem(ns, JS.JSON.stringify data)
 
 type TodoModel(key) =
     member val key = key
@@ -78,14 +66,14 @@ type TodoModel(key) =
 
     member this.toggleAll (checked') =
         this.todos <- this.todos |> Array.map (fun todo ->
-            Util.extend(obj(), todo, createObj ["completed"==>checked']))
+            { todo with completed = checked' })
         this.inform()
 
     member this.toggle (todoToToggle) =
         this.todos <- this.todos |> Array.map (fun todo ->
-            if todo <> todoToToggle
+            if todo.id <> todoToToggle.id
             then todo
-            else Util.extend(obj(), todo, createObj ["completed"==>(not todo.completed)]))
+            else { todo with completed = (not todo.completed) })
         this.inform()
 
     member this.destroy (todo) =
@@ -94,9 +82,9 @@ type TodoModel(key) =
 
     member this.save (todoToSave, text) =
         this.todos <- this.todos |> Array.map (fun todo ->
-            if todo <> todoToSave
+            if todo.id <> todoToSave.id
             then todo
-            else Util.extend(obj(), todo, createObj ["title"==>text]))
+            else { todo with title = text })
         this.inform()
 
     member this.clearCompleted () =
@@ -130,7 +118,7 @@ type TodoItem(props) =
     member this.handleSubmit (e: React.SyntheticEvent) =
         match this.state.editText.Trim() with
         | value when value.Length > 0 ->
-            this.props.onSave(unbox value)
+            this.props.onSave(value)
             this.setState { editText = value }
         | _ ->
             this.props.onDestroy(e)
@@ -149,7 +137,7 @@ type TodoItem(props) =
         | _ -> ()
 
     member this.handleChange (e: React.SyntheticEvent) =
-        if this.props.editing.IsSome then
+        if Option.isSome this.props.editing then
             this.setState { editText = string e.target?value }
 
     member this.shouldComponentUpdate (nextProps: TodoItemProps) (nextState: TodoItemState) =
@@ -158,7 +146,7 @@ type TodoItem(props) =
         || nextState.editText <> this.state.editText
 
     member this.componentDidUpdate (prevProps: TodoItemProps) =
-        if prevProps.editing.IsNone && this.props.editing.IsNone then
+        if prevProps.editing.IsNone && this.props.editing.IsSome then
             let node =
                 ReactDom.findDOMNode(unbox this.refs?editField)
                 :?> Browser.HTMLInputElement 
@@ -221,10 +209,9 @@ type TodoFooter(props) =
         R.footer [ ClassName "footer" ] [
             R.span [ ClassName "todo-count" ] [
                 R.strong [] [ unbox this.props.count ]
-                unbox activeTodoWord
-                unbox "left"
+                unbox (" " + activeTodoWord + " left")
             ]
-            R.ul [ ClassName "todo-count" ] [
+            R.ul [ ClassName "filters" ] [
                 R.li [] [
                     R.a [
                         Href "#/"
@@ -254,12 +241,14 @@ type TodoApp(props) =
                 props, { nowShowing=ALL_TODOS; editing=None; newTodo="" })
 
     member this.componentDidMount () =
+        let nowShowing category =
+            fun () -> this.setState({this.state with nowShowing = category})
         let router =
             Util.Router(
                 createObj [
-                    "/" ==> this.setState({this.state with nowShowing = ALL_TODOS})
-                    "/active" ==> this.setState({this.state with nowShowing = ACTIVE_TODOS})
-                    "/completed" ==> this.setState({this.state with nowShowing = COMPLETED_TODOS})
+                    "/" ==> nowShowing ALL_TODOS
+                    "/active" ==> nowShowing ACTIVE_TODOS
+                    "/completed" ==> nowShowing COMPLETED_TODOS
                 ]
             )
         router?init$("/")
@@ -276,7 +265,7 @@ type TodoApp(props) =
                 this.setState({ this.state with newTodo = "" })
 
     member this.toggleAll (ev: React.SyntheticEvent) =
-        this.props.model.toggleAll(ev.target?``checked``)
+        this.props.model.toggleAll(unbox ev.target?``checked``)
 
     member this.toggle (todoToToggle) =
         this.props.model.toggle(todoToToggle)
@@ -291,7 +280,7 @@ type TodoApp(props) =
         this.props.model.save(todoToSave, text)
         this.setState({ this.state with editing = None })
 
-    member this.cancel (todo) =
+    member this.cancel () =
         this.setState({ this.state with editing = None })
 
     member this.clearCompleted () =
@@ -311,11 +300,11 @@ type TodoApp(props) =
                         member __.key = todo.id
                         member __.todo = todo
                         member __.editing = this.state.editing
-                        member __.onToggle(todo) = this.toggle(unbox todo)
-                        member __.onDestroy(todo) = this.destroy(unbox todo)
-                        member __.onEdit(todo) = this.edit(unbox todo)
-                        member __.onSave(todo) = this.save(unbox todo)
-                        member __.onCancel(todo) = this.cancel(unbox todo)
+                        member __.onToggle _ = this.toggle(todo)
+                        member __.onDestroy _ = this.destroy(todo)
+                        member __.onEdit _ = this.edit(todo)
+                        member __.onSave text = this.save(todo, string text)
+                        member __.onCancel _ = this.cancel()
                     }) [])
         let activeTodoCount =
             todos |> Array.fold (fun accum todo ->

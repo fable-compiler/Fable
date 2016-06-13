@@ -1,13 +1,18 @@
 {
   "name": "fable-import-react",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "description": "Fable bindings for React",
   "repository": {
-      "type": "git",
-      "url": "https://github.com/fsprojects/Fable/import/react"   
+    "type": "git",
+    "url": "https://github.com/fsprojects/Fable/import/react"
   },
   "license": "Apache-2.0",
-  "author": "Alfonso Garcia-Caro",  
-  "keywords": [ "fable", "fable-compiler", "fsharp", "F#" ],
+  "author": "Alfonso Garcia-Caro",
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#"
+  ],
   "homepage": "https://github.com/fsprojects/Fable#readme"
 }
