@@ -1,6 +1,10 @@
 # fable-import-react-router-redux
 
-Fable bindings for the Redux React Router (react-router-redux) bindings.
+Fable bindings for the Redux React Router (react-router-redux) bindings, v4.0.0.
+These were generated from Typescript, with some modifications: namely, all 
+setters were removed, and type parameters were provided when `Reducer` is used.
+
+Typescript source file is [here](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/56295f5058cac7ae458540423c50ac2dcf9fc711/react-router-redux/react-router-redux.d.ts).
 
 ## Installation
 

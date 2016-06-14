@@ -1,6 +1,15 @@
 # fable-import-redux
 
-Fable bindings for Redux
+Fable bindings for Redux, version v3.3.1.
+
+These declarations were generated from Typescript, with some modifications,
+namely:
+
+  1. `Reducer` is a type narrowing of Func, with type parameters
+  2. Lowercased the module names in the Import attributes
+  3. All setters are removed.
+
+Typescript source file is [here](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c2bfaedeee7ae4ed5e0f01ebcf4af7acfe2c77c3/redux/redux.d.ts).
 
 ## Installation
 

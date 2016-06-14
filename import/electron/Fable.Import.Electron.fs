@@ -28,8 +28,10 @@ module Electron =
             member __.once(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
             member __.removeListener(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
             member __.removeAllListeners(?``event``: string): NodeJS.EventEmitter = failwith "JS only"
-            member __.setMaxListeners(n: float): unit = failwith "JS only"
+            member __.setMaxListeners(n: int): unit = failwith "JS only"
+            member __.getMaxListeners(): int = failwith "JS only"
             member __.listeners(``event``: string): ResizeArray<Function> = failwith "JS only"
+            member __.listenerCount(``type``: string): int = failwith "JS only"
             member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
 
     and Event =
