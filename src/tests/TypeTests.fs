@@ -140,3 +140,37 @@ type T4 = TestType4
 let ``Type abbreviation works``() =
     let t = T4()
     t.Value |> equal "Bye"
+
+type TestType6(x: int) =
+    let mutable i = x
+    member val Value1 = i with get, set
+    member __.Value2 = i + i
+    member __.Value3 with get() = i * i and set(v) = i <- v
+
+[<Test>]
+let ``Getter and Setter work``() =
+    let t = TestType6(5)
+    t.Value1 |> equal 5
+    t.Value2 |> equal 10
+    t.Value3 |> equal 25
+    t.Value3 <- 10
+    t.Value1 |> equal 5
+    t.Value2 |> equal 20
+    t.Value3 |> equal 100
+    t.Value1 <- 20
+    t.Value1 |> equal 20
+    t.Value2 |> equal 20
+    t.Value3 |> equal 100
+
+type TestType7(a1, a2, a3) =
+    let arr = [|a1; a2; a3|]
+    member __.Value with get(i) = arr.[i] and set(i) (v) = arr.[i] <- v 
+
+[<Test>]
+let ``Getter and Setter with indexer work``() =
+    let t = TestType7(1, 2, 3)
+    t.Value(1) |> equal 2
+    t.Value(2) |> equal 3
+    t.Value(1) <- 5
+    t.Value(1) |> equal 5
+    t.Value(2) |> equal 3

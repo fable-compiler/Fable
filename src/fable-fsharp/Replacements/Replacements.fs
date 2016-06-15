@@ -90,10 +90,10 @@ module Util =
         | _ -> GlobalCall ("String", Some "fromCharCode", false, [arg])
                |> makeCall com i.range i.returnType
 
-    let toString com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
+    let toString com (i: Fable.ApplyInfo) (toBase: Fable.Expr option) (arg: Fable.Expr) =
         match arg.Type with
         | Fable.PrimitiveType (Fable.String) -> arg
-        | _ -> InstanceCall (arg, "toString", [])
+        | _ -> InstanceCall (arg, "toString", Option.toList toBase)
                |> makeCall com i.range i.returnType
 
     let toInt, toFloat =
@@ -371,7 +371,7 @@ module private AstPass =
         | "int" -> toInt com info args.Head |> Some
         | "float" -> toFloat com info args.Head |> Some
         | "char"  -> toChar com info args.Head |> Some
-        | "string" -> toString com info args.Head |> Some
+        | "string" -> toString com info None args.Head |> Some
         | "dict" | "set" ->
             let modName = if info.methodName = "dict" then "Map" else "Set"
             CoreLibCall(modName, Some "ofSeq", false, args)
@@ -586,8 +586,14 @@ module private AstPass =
         | "none" -> Fable.Null |> Fable.Value |> Some
         | "value" | "get" | "toObj" | "ofObj" | "toNullable" | "ofNullable" ->
            wrap i.returnType (getCallee()) |> Some
-        | "isSome" -> makeEqOp i.range [getCallee(); Fable.Value Fable.Null] BinaryUnequal |> Some
-        | "isNone" -> makeEqOp i.range [getCallee(); Fable.Value Fable.Null] BinaryEqual |> Some
+        | "isSome" | "isNone" ->
+            let op = if i.methodName = "isSome" then BinaryUnequal else BinaryEqual
+            let comp = makeEqOp i.range [getCallee(); Fable.Value Fable.Null] op
+            match i.returnType with
+            | Fable.PrimitiveType(Fable.Boolean _) -> Some comp
+            // Hack to fix instance member calls (e.g., myOpt.IsSome)
+            // For some reason, F# compiler expects it to be applicable
+            | _ -> Fable.Lambda([], comp) |> Fable.Value |> Some
         | "map" | "bind" -> emit i "$1 != null ? $0($1) : $1" i.args |> Some
         | "toArray" -> toArray i.range i.args.Head |> Some
         | meth ->
@@ -1090,6 +1096,18 @@ module private AstPass =
             emit info "$0.current.value" [info.callee.Value] |> Some
         | _ -> None
 
+    let conversions com (info: Fable.ApplyInfo) =
+        match info.methodName with
+        | "toString" ->
+            match info.args with
+            | [arg] -> toString com info None arg
+            | [arg; Type(Fable.PrimitiveType (Fable.Number _)) as toBase] ->
+                toString com info (Some toBase) arg
+            | _ -> failwithf "System.Convert.ToString with IFormatProvider is not supported %O" info.range
+            |> Some 
+        | _ ->
+            failwithf "Only System.Convert.ToString is supported %O" info.range 
+
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | KnownInterfaces _ -> knownInterfaces com info
@@ -1149,6 +1167,7 @@ module private AstPass =
         | "System.Reflection.MemberInfo"
         | "System.Type" -> types com info
         | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com info
+        | "System.Convert" -> conversions com info
         | _ -> None
 
 module private CoreLibPass =

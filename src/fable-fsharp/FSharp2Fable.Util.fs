@@ -450,14 +450,24 @@ module Util =
     open Identifiers
 
     let getMemberKind name (meth: FSharpMemberOrFunctionOrValue) =
+        let argCount =
+            let args = meth.CurriedParameterGroups
+            if args.Count = 0 then 0
+            elif args.Count = 1 && args.[0].Count = 1 then
+                let typ = args.[0].[0].Type
+                // For some reason, TypeDefinition.FullName doesn't work here
+                if typ.HasTypeDefinition
+                    && typ.TypeDefinition.DisplayName = "unit"
+                then 0 else 1
+            else args |> Seq.map (fun li -> li.Count) |> Seq.sum
         if meth.EnclosingEntity.IsFSharpModule then
             // TODO: Another way to check module values?
             match meth.XmlDocSig.[0] with
-            | 'P' -> Fable.Getter (name, true)
+            | 'P' when argCount = 0 -> Fable.Getter (name, true)
             | _ -> Fable.Method name
         elif meth.IsImplicitConstructor then Fable.Constructor
-        elif meth.IsPropertyGetterMethod then Fable.Getter (name, false)
-        elif meth.IsPropertySetterMethod then Fable.Setter name
+        elif meth.IsPropertyGetterMethod && argCount = 0 then Fable.Getter (name, false)
+        elif meth.IsPropertySetterMethod && argCount = 1 then Fable.Setter name
         else Fable.Method name
         
     let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =

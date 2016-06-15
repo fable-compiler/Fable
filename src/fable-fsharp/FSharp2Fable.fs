@@ -351,6 +351,7 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                             |> Naming.removeParens
                             |> Naming.removeGetSetPrefix
                             |> lowerFirstKnownInterfaces typ
+                        // TODO: Check for indexed getter and setter also in object expressions?
                         match over.Signature.Name with
                         | Naming.StartsWith "get_" _ -> Fable.Getter (name, false)
                         | Naming.StartsWith "set_" _ -> Fable.Setter name
