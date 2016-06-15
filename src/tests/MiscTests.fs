@@ -460,3 +460,9 @@ let ``Custom operators work``() =
     5 + 5 |> equal 25
     10 - 2 |> equal 5
     2 |||| 2 |> equal 4
+
+[<Test>]
+let ``defaultArg works``() =
+    let f o = defaultArg o 5
+    f (Some 2) |> equal 2
+    f None |> equal 5

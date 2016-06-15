@@ -305,6 +305,9 @@ module private AstPass =
             |> makeCall com range typ |> Some
         let r, typ, args = info.range, info.returnType, info.args
         match info.methodName with
+        | "defaultArg" ->
+            let cond = makeEqOp r [args.Head; Fable.Value Fable.Null] BinaryUnequal
+            Fable.IfThenElse(cond, args.Head, args.Tail.Head, r) |> Some
         | "async" -> makeCoreRef com "Async" |> Some
         // Negation
         | "not" -> makeUnOp r info.returnType args UnaryNot |> Some
@@ -433,7 +436,6 @@ module private AstPass =
                 | _ -> failwith "Unexpected arguments in System.String constructor."
             | _ ->
                 fsFormat com i
-
         | "length" ->
             let c, _ = instanceArgs i.callee i.args
             makeGet i.range i.returnType c (makeConst "length") |> Some
