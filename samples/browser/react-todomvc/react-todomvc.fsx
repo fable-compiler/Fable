@@ -98,7 +98,7 @@ type TodoItemState = { editText: string }
 type TodoItemProps =
     abstract key: string 
     abstract todo: Todo 
-    abstract editing: string option 
+    abstract editing: bool
     abstract onSave: obj->unit
     abstract onEdit: obj->unit
     abstract onDestroy: obj->unit
@@ -114,6 +114,8 @@ let [<Literal>] COMPLETED_TODOS = "completed"
 type TodoItem(props) =
     inherit R.Component<TodoItemProps, TodoItemState>(
                 props, { editText = props.todo.title })
+
+    let mutable editField: obj option = None
 
     member this.handleSubmit (e: React.SyntheticEvent) =
         match this.state.editText.Trim() with
@@ -137,7 +139,7 @@ type TodoItem(props) =
         | _ -> ()
 
     member this.handleChange (e: React.SyntheticEvent) =
-        if Option.isSome this.props.editing then
+        if this.props.editing then
             this.setState { editText = string e.target?value }
 
     member this.shouldComponentUpdate (nextProps: TodoItemProps) (nextState: TodoItemState) =
@@ -146,10 +148,10 @@ type TodoItem(props) =
         || nextState.editText <> this.state.editText
 
     member this.componentDidUpdate (prevProps: TodoItemProps) =
-        if prevProps.editing.IsNone && this.props.editing.IsSome then
+        if not prevProps.editing && this.props.editing then
             let node =
-                ReactDom.findDOMNode(unbox this.refs?editField)
-                :?> Browser.HTMLInputElement 
+                ReactDom.findDOMNode(unbox editField.Value)
+                :?> Browser.HTMLInputElement
             node.focus()
             node.setSelectionRange(float node.value.Length, float node.value.Length)
 
@@ -176,9 +178,7 @@ type TodoItem(props) =
             ]
             R.input [
                 ClassName "edit"
-                // If we use `Ref (unbox "editField")` the compiler
-                // gets confused as it expects a lambda
-                unbox ("ref", "editField")
+                Ref (fun x -> editField <- Some x)
                 Value (U2.Case1 this.state.editText)
                 OnBlur this.handleSubmit
                 OnChange this.handleChange
@@ -299,10 +299,13 @@ type TodoApp(props) =
                     { new TodoItemProps with
                         member __.key = todo.id
                         member __.todo = todo
-                        member __.editing = this.state.editing
                         member __.onToggle _ = this.toggle(todo)
                         member __.onDestroy _ = this.destroy(todo)
                         member __.onEdit _ = this.edit(todo)
+                        member __.editing =
+                            match this.state.editing with
+                            | Some editing -> editing = todo.id
+                            | None -> false
                         member __.onSave text = this.save(todo, string text)
                         member __.onCancel _ = this.cancel()
                     }) [])
