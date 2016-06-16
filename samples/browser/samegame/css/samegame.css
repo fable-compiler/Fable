@@ -1,0 +1,87 @@
+﻿#samegame {
+	background-color: #F2F2F2;
+    display: table;
+    margin-left: auto;
+	margin-right: auto;
+}
+
+#sg-board {
+	float: left;
+}
+
+#sg-controller {
+	float: left;
+	margin: 10px;
+}
+
+#new-game {
+}
+
+.sg-cell {
+	width: 30px;
+	height: 30px;
+}
+
+.sg-table {
+    margin: 10px !important;
+    border: 2px  solid lightgrey !important;
+	border-collapse: separate;
+	display: table;
+	width: initial;
+}
+
+.sg-td {
+    border: none !important;
+}
+
+.sg-tr {
+    border: none;
+    border-bottom: none;
+}
+
+.sg-table, .sg-td, .sg-tr {
+	padding: 0 !important;
+	border-spacing: 2px 2px;
+	background-color: transparent !important;
+}
+
+#sg-score {
+    padding: 10px;
+	clear: both;
+}
+
+.sg-color0 {
+	background-color: transparent;
+}
+
+.sg-color1 {
+	background-color: #4C4238;
+}
+
+.sg-color2 {
+	background-color: #858DB9;
+}
+
+.sg-color3 {
+	background-color: #C2533B;
+}
+
+.sg-color4 {
+	background-color: #82CB50;
+}
+
+.sg-color5 {
+	background-color: #8EC4A7;
+}
+
+.sg-color6 {
+	background-color: #A75BC4;
+}
+
+.sg-color7 {
+	background-color: #B9A04C;
+}
+
+.sg-color8 {
+	background-color: #B6537D;
+}

@@ -51,6 +51,7 @@ let samples =
     "samples/browser/pacman", true
     "samples/browser/d3map", true
     "samples/browser/webGLTerrain", true
+    "samples/browser/samegame", true
     
     // Non-browser samples without embedded HTML
     "samples/node/server", false
