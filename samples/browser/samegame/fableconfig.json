@@ -1,0 +1,16 @@
+{
+    "module": "commonjs",
+    "sourceMaps": true,
+    "projFile": "./samegame.fsx",
+    "outDir": "temp",
+    "scripts": {
+        "prebuild": "npm install"
+    },
+    "targets": {
+        "watch": {
+            "scripts": {
+                "postbuild": "webpack --watch"
+            }
+        }
+    }
+}

@@ -42,6 +42,12 @@ It involves rendering the maze, AI for the ghosts, user interaction and even pla
 The game has some brief commentary, but if you want to learn Fable, look at the above examples
 first. The [raw source code is on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/pacman/pacman.fsx).
 
+<a href="samples/samegame/index.html"><img src="samples/images/samegame.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [SameGame](samples/samegame/index.html)
+
+This demo shows a Fable implementation of SameGame. The functional implementation of the game follows the *type-first design* approach and consists of three main components: **types**, **game logic** and **front end**. You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/samegame/samegame.fsx).
+
 ## Visualizations
 
 <a href="samples/d3map/index.html"><img src="samples/images/d3map.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
