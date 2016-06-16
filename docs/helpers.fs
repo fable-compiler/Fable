@@ -57,8 +57,8 @@ module Npm =
         else "cmd", ("/C npm " + args)
 
     let run workingDir script args =
-        let args = sprintf "%s %s" script (String.concat " " args)
-        Util.run workingDir "npm" args
+        sprintf "%s %s" script (String.concat " " args)
+        |> npmFilePath ||> Util.run workingDir
 
     let install workingDir modules =
         run workingDir "install" modules
