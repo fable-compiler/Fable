@@ -1,16 +1,9 @@
 {
-    "module": "commonjs",
+    "module": "amd",
     "sourceMaps": true,
     "projFile": "./samegame.fsx",
-    "outDir": "temp",
+    "outDir": "out",
     "scripts": {
         "prebuild": "npm install"
-    },
-    "targets": {
-        "watch": {
-            "scripts": {
-                "postbuild": "webpack --watch"
-            }
-        }
     }
 }

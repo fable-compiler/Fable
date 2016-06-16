@@ -9,8 +9,20 @@
 
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
-#load "games/games.fsx"
-open Games
+
+module PresetGames =
+  let games = [
+    [5;3;3;4;2;3;4;2;3;3;2;5;3;2;3;4;5;5;5;5;1;1;3;5;4;1;3;1;2;3;1;3;1;3;2;1;2;3;4;3;2;2;1;4;5;5;3;3;3;2;3;3;1;1;5;5;5;4;5;1;1;3;5;5;3;4;4;5;5;2;2;3;1;2;3;4;1;5;1;4;4;5;4;1;1;3;3;1;4;3;2;4;3;3;3;5;3;1;2;1;2;3;3;2;5;1;2;4;3;1;4;1;3;1;3;1;5;5;5;5;2;4;2;3;1;3;5;4;5;4;2;1;4;1;3;1;3;3;1;5;2;4;3;3;4;1;1;2;1;2;5;4;1;2;4;3;2;1;1;2;1;4;5;4;5;4;3;3;4;2;4;3;4;5;4;4;1;4;4;5;3;3;4;4;5;4;5;2;2;5;5;3;2;5;5;3;5;4;4;1;4;4;4;4;4;2;1;1;4;1;3;4;2;1;5;3;5;2;5;2;4;1;2;4;3];
+    [4;1;3;4;4;2;5;3;2;5;2;3;2;3;3;5;4;5;5;1;4;1;1;4;3;5;4;1;2;5;1;5;1;3;4;3;3;3;4;1;3;1;1;1;2;3;4;4;5;1;1;1;4;1;1;3;1;5;1;5;4;4;2;2;5;3;3;5;5;5;3;1;1;4;4;3;5;5;2;1;1;1;1;1;5;5;1;5;2;1;2;3;3;5;3;4;5;5;2;5;5;4;5;1;4;5;5;1;3;4;4;2;4;1;4;4;4;1;2;5;3;4;4;4;3;1;4;2;1;1;3;5;4;2;1;3;1;1;2;5;1;5;2;3;2;1;4;2;1;5;5;4;3;2;3;2;5;1;3;4;1;3;5;3;2;4;4;2;1;1;3;4;4;3;5;3;2;2;3;3;2;2;2;2;1;4;3;2;5;4;4;1;3;4;5;3;1;5;2;3;3;3;2;5;2;2;5;1;2;1;1;4;4;1;2;5;2;4;3;3;2;2;3;2;3];
+    [4;2;3;1;5;4;1;4;4;4;4;2;1;4;5;5;3;4;1;3;5;3;5;4;2;1;4;2;2;5;2;2;4;4;4;4;3;2;5;4;5;5;2;4;2;1;1;2;1;5;4;5;1;1;5;2;2;5;5;4;1;5;3;5;3;3;4;3;5;2;2;1;4;2;3;1;1;2;3;1;1;2;1;2;1;3;1;4;4;3;2;4;3;1;3;1;2;2;1;4;3;4;2;5;3;3;1;4;3;5;1;5;3;4;4;5;4;1;4;5;3;1;4;3;5;4;4;3;5;3;4;5;2;4;4;3;5;1;5;4;3;2;1;5;2;2;1;4;3;4;2;1;3;1;1;3;5;4;1;4;5;3;5;1;1;2;4;5;1;2;5;4;2;1;3;2;5;5;2;4;4;5;1;2;1;3;2;1;3;2;3;2;1;2;4;5;2;1;4;1;3;2;4;2;5;3;5;2;4;5;3;1;3;2;1;1;2;4;5;4;5;4;2;5;4];
+    [2;2;4;1;1;4;3;5;4;2;5;5;1;5;3;3;4;4;2;3;1;1;1;5;2;3;4;4;3;2;3;3;5;1;3;1;2;1;3;2;1;4;4;5;1;4;5;2;3;4;5;3;5;2;3;1;1;5;5;3;1;4;2;3;5;3;5;1;3;2;2;4;1;1;3;2;2;2;5;3;4;2;2;5;2;5;3;4;4;2;1;2;1;1;1;2;3;2;5;4;4;5;4;1;2;2;3;5;4;1;5;4;1;2;5;4;2;3;1;5;5;2;3;2;2;5;3;5;5;1;5;1;2;1;4;4;4;1;3;1;3;4;1;3;3;2;2;5;2;2;5;5;1;1;4;3;3;2;5;2;4;4;5;3;1;4;2;5;3;1;1;2;5;1;3;2;2;5;5;5;4;4;4;4;1;1;5;2;2;2;2;3;1;2;3;4;5;3;2;4;5;2;2;2;2;4;1;1;3;3;2;4;2;1;4;5;5;1;3;1;4;5;3;2;5];
+    [5;3;5;3;4;4;3;3;5;5;3;2;2;5;1;2;3;2;3;2;5;1;4;5;2;1;4;1;2;4;1;2;2;3;1;3;3;4;1;4;4;4;1;1;3;4;2;4;3;1;4;3;5;5;4;4;4;5;1;3;1;2;2;1;4;1;5;5;4;4;4;4;1;4;4;1;5;4;2;3;5;1;4;1;1;3;3;3;4;3;4;3;3;4;3;2;3;1;2;2;5;3;5;4;2;5;2;1;2;4;4;1;4;3;4;1;4;1;5;2;4;3;1;2;5;1;2;3;2;3;4;5;2;1;4;2;1;1;5;2;1;2;1;1;4;3;5;5;5;2;3;3;1;5;4;2;3;4;4;1;4;5;5;5;1;5;5;3;5;3;1;4;2;4;1;2;2;5;4;3;1;2;4;5;5;1;5;2;2;3;4;3;2;4;4;2;3;2;1;5;4;3;1;3;2;5;1;3;4;2;5;4;1;2;1;2;2;5;1;5;1;3;1;3;5];
+    [3;3;3;4;5;5;2;4;4;3;4;2;2;2;1;1;4;4;3;4;2;2;1;1;4;5;3;2;4;2;3;2;4;3;4;3;4;3;1;5;4;4;1;2;1;4;1;3;3;3;4;3;2;3;4;2;2;3;1;5;2;5;5;3;5;3;4;4;4;3;2;1;4;4;5;4;1;5;5;5;4;1;5;2;4;1;1;1;5;3;1;2;2;1;3;5;4;4;2;4;1;2;5;5;2;3;4;3;4;1;1;3;3;2;2;2;5;4;5;5;2;4;5;1;2;1;5;3;1;5;5;3;3;2;4;3;1;1;1;1;2;3;3;5;3;4;5;1;5;2;5;1;5;3;2;2;2;5;3;1;4;2;2;4;1;3;5;1;3;4;1;5;4;4;4;5;2;1;4;4;1;4;3;5;1;4;3;1;5;2;1;2;3;5;2;5;1;4;4;5;5;4;3;1;1;5;3;1;5;3;1;2;1;5;5;5;4;3;3;2;1;5;2;1;4];
+    [4;1;1;4;1;1;2;3;5;5;3;4;2;2;5;1;3;1;1;4;2;4;2;2;3;3;1;4;5;2;3;5;1;1;1;1;2;3;1;4;3;2;2;3;5;4;2;4;1;4;1;5;4;4;2;1;4;5;2;3;5;3;4;4;2;3;4;2;1;5;4;1;1;3;1;5;3;5;3;4;2;3;4;1;1;3;2;3;4;1;2;3;2;4;4;1;4;3;1;2;1;1;4;2;1;1;5;2;3;2;3;4;2;3;1;3;5;4;3;5;2;1;3;1;3;1;5;3;4;1;2;5;5;2;4;2;4;3;5;1;4;5;1;3;3;3;2;4;3;1;2;5;5;1;5;1;3;3;4;5;2;2;3;2;5;3;5;1;5;5;5;2;4;3;1;2;5;1;4;1;5;1;5;4;5;2;1;4;2;4;4;2;5;1;4;2;3;4;3;5;4;1;4;4;2;5;2;2;5;4;1;2;5;4;5;1;3;5;3;4;3;1;5;1;1];
+    [3;4;1;3;1;3;3;1;4;2;3;5;5;4;5;2;2;3;1;1;3;5;2;5;5;4;3;3;4;3;5;4;2;2;5;3;5;3;2;2;4;5;2;4;2;3;3;1;4;3;2;1;4;4;2;3;3;1;4;3;1;5;2;2;3;4;4;4;4;3;2;4;2;5;3;4;3;4;3;2;2;3;5;2;1;4;1;3;1;3;5;5;5;4;2;5;3;5;1;4;5;5;3;2;1;3;5;4;2;4;1;5;3;2;2;4;1;1;1;5;3;1;4;2;3;3;5;3;4;3;1;3;3;5;2;3;1;3;2;4;4;2;2;2;2;5;2;3;3;3;4;3;4;2;1;4;1;1;5;3;4;3;1;4;3;3;2;4;5;5;4;4;5;3;1;2;5;2;5;3;2;2;5;1;5;4;4;2;5;4;2;5;4;4;5;1;1;3;4;5;4;4;3;4;5;1;3;2;1;4;5;5;1;2;2;3;3;1;5;5;4;1;4;2;4];
+    [2;1;1;5;1;5;3;5;1;2;2;3;3;1;2;4;3;5;5;1;1;1;1;2;3;4;3;1;5;5;4;4;2;2;5;2;5;4;5;4;4;5;5;1;3;4;5;3;3;1;5;4;2;3;3;2;1;4;3;2;3;3;5;1;4;3;2;1;1;5;5;4;5;2;3;1;1;5;5;4;5;1;3;4;1;1;2;5;5;4;1;2;2;4;2;1;1;5;2;5;2;4;2;3;2;1;4;1;5;2;1;1;4;4;2;2;5;2;5;4;1;3;1;3;5;3;3;2;1;2;1;2;3;5;2;1;5;5;3;5;3;2;5;4;4;1;3;3;2;5;2;4;5;4;5;5;3;5;4;4;3;2;5;4;1;4;3;5;2;2;3;5;4;5;2;5;4;3;4;5;1;1;5;1;1;2;2;5;1;3;3;5;1;4;3;1;2;1;3;5;3;3;1;1;3;2;1;1;3;5;2;1;1;5;4;3;2;5;3;4;3;4;5;5;4];
+    [5;3;1;1;5;5;1;2;4;2;5;5;5;5;2;2;5;5;1;2;1;1;2;3;4;1;5;3;5;2;1;4;2;1;1;4;4;4;5;3;3;2;3;4;1;1;3;4;5;1;4;1;1;4;4;5;2;3;2;5;5;4;3;2;2;1;3;4;4;4;3;2;1;4;4;5;4;4;2;3;3;2;4;5;4;1;4;3;2;2;2;1;2;1;3;5;5;1;3;1;4;5;5;2;3;3;1;2;1;5;1;4;1;4;2;4;5;3;4;2;3;5;2;3;2;2;5;1;2;4;1;3;1;2;5;4;2;3;2;1;1;2;3;3;1;4;5;3;4;4;5;2;2;2;4;4;3;2;5;1;3;5;1;3;4;4;3;5;5;4;2;3;2;4;2;1;3;4;3;3;2;2;3;3;4;5;2;5;3;2;1;1;3;1;4;1;1;5;5;3;1;1;4;1;2;3;1;4;1;3;1;5;5;3;4;2;2;4;5;5;3;3;2;3;4]
+  ]
 
 (**
 Rules
@@ -113,7 +125,6 @@ For the sake of brevity the code is not shown here but can be viewed on [GitHub]
 Note that the implementation of the game logic doesn't contain any front end code.
 *)
 
-(*** hide ***)
 module SameGameDomain =
 
     open System
@@ -131,8 +142,11 @@ module SameGameDomain =
 
     let private getCellState (board:Board) pos =
         let colCount = board |> List.length
-        if pos.Col < colCount && pos.Col >= 0 && pos.Row < board.[pos.Col].Length && pos.Row >= 0 then
-            board.[pos.Col].[pos.Row]
+        if pos.Col < colCount
+            && pos.Col >= 0
+            && pos.Row < board.[pos.Col].Length
+            && pos.Row >= 0
+        then board.[pos.Col].[pos.Row]
         else Empty
 
     let private findAdjacentWithSameColor board col (pos:Position) =
@@ -145,43 +159,55 @@ module SameGameDomain =
         board
         |> Seq.mapi (fun i col -> 
             col 
-            |> Seq.mapi (fun j cell -> { Position = { Col = i; Row = j }; State = cell}))
+            |> Seq.mapi (fun j cell ->
+                { Position = { Col = i; Row = j }; State = cell}))
         |> Seq.exists (fun col -> 
             col 
             |> Seq.exists (fun cell -> 
                 match cell.State with 
-                | Stone c -> cell.Position |> findAdjacentWithSameColor board c  |> (not << List.isEmpty) 
-                | _       -> false))
+                | Stone c ->
+                    cell.Position
+                    |> findAdjacentWithSameColor board c
+                    |> (not << List.isEmpty) 
+                | _ -> false))
 
     let private numberOfStones board =
-        let numOfStonesInCol = List.sumBy (function Stone c -> 1 | Empty -> 0)
+        let numOfStonesInCol =
+            List.sumBy (function Stone c -> 1 | Empty -> 0)
         board |> List.map numOfStonesInCol |> List.sum
 
-    let private isEmpty (board:Board) = board |> List.forall (List.head >> ((=) Empty))
+    let private isEmpty (board:Board) =
+        board |> List.forall (List.head >> ((=) Empty))
 
     let private evaluateGameState gameState =
-        if gameState.Board |> hasValidMoves then
-            InProgress gameState 
-        elif gameState.Board |> isEmpty then
-            Finished { gameState with Score = gameState.Score + bonus }
+        if gameState.Board |> hasValidMoves
+        then InProgress gameState 
+        elif gameState.Board |> isEmpty
+        then Finished { gameState with Score = gameState.Score + bonus }
         else
-            Finished { gameState with Score = gameState.Score + (gameState.Board |> numberOfStones |> penalty) }
+            let score =
+                gameState.Score
+                + (gameState.Board |> numberOfStones |> penalty)
+            Finished { gameState with Score = score }
 
     let private getGroup board position =
         let rec find (ps:Position list) col (group:Position list) =
             match ps with
-            | []    -> group
+            | [] -> group
             | x::xs -> 
-                let cells = x |> findAdjacentWithSameColor board col
-                            |> List.filter (fun pos -> not (List.exists ((=) pos) (xs @ group) ))
+                let cells =
+                    x
+                    |> findAdjacentWithSameColor board col
+                    |> List.filter (fun pos ->
+                        not (List.exists ((=) pos) (xs @ group) ))
                 find (cells @ xs) col (x :: group)
 
         getCellState board position
         |> function 
             | Stone c -> 
                 let positions = find [position] c []
-                if positions |> List.length > 1 then
-                    Some { Color = c; Positions = positions }
+                if positions |> List.length > 1
+                then Some { Color = c; Positions = positions }
                 else None
             | _ -> None
 
@@ -189,56 +215,55 @@ module SameGameDomain =
         board
         |> List.mapi (fun i col -> 
             col 
-            |> List.mapi (fun j cell -> { Position = { Col = i; Row = j }; State = cell}) 
-            |> List.filter (fun cell -> group.Positions |> (not << List.exists ((=) cell.Position)))
+            |> List.mapi (fun j cell ->
+                { Position = { Col = i; Row = j }; State = cell}) 
+            |> List.filter (fun cell ->
+                group.Positions
+                |> (not << List.exists ((=) cell.Position)))
             |> List.map (fun cell -> cell.State)
-            |> fun col' -> col' @ List.replicate (col.Length - col'.Length) Empty)
+            |> fun col' ->
+                col' @ List.replicate (col.Length - col'.Length) Empty)
         |> List.filter (List.head >> ((<>) Empty))
-        |> fun cols -> cols @ List.replicate (board.Length - cols.Length) (List.replicate (board.[0].Length) Empty)
+        |> fun cols -> cols @ List.replicate
+                        (board.Length - cols.Length)
+                        (List.replicate (board.[0].Length) Empty)
 
     let private play gameState pos = 
         getGroup gameState.Board pos
         |> function 
             | Some g -> 
                 let newBoard = gameState.Board |> removeGroup g
-                { Board = newBoard; Score = gameState.Score + calcScore g.Positions.Length }
+                { Board = newBoard
+                  Score = gameState.Score + calcScore g.Positions.Length }
             | _ -> gameState
 
     let private playIfRunning game pos =
         match game with
-        | InProgress gameState -> play gameState pos |> evaluateGameState
-        | _                    -> game
+        | InProgress gameState ->
+            play gameState pos |> evaluateGameState
+        | _ -> game
 
     let private isValid conf =
-        if conf.NumberOfColumns < 3 || conf.NumberOfColumns > 15 then
-            false
-        elif conf.NumberOfRows < 3 || conf.NumberOfRows > 15 then
-            false
-        else
-            true
+        if conf.NumberOfColumns < 3 || conf.NumberOfColumns > 15
+        then false
+        elif conf.NumberOfRows < 3 || conf.NumberOfRows > 15
+        then false
+        else true
 
     let private newGame config = 
         let createBoard config =
-            List.init config.NumberOfColumns (fun _ -> List.init config.NumberOfRows (fun _ -> config.StoneGenerator()))
+            List.init config.NumberOfColumns (fun _ ->
+                List.init config.NumberOfRows (fun _ ->
+                    config.StoneGenerator()))
             |> fun board -> { Board = board; Score = 0 }
             |> evaluateGameState |> Some
-        if config |> isValid then
-            createBoard config
+        if config |> isValid
+        then createBoard config
         else None
 
     let api = {
         NewGame = newGame
         Play = playIfRunning }
-
-open FSharp
-open Fable.Core 
-open Fable.Import.Browser
-open System
-open SameGameTypes
-
-Fable.Import.Node.require.Invoke("core-js") |> ignore
-
-let api = SameGameDomain.api
 
 (**
 Front end with Fable
@@ -250,16 +275,34 @@ This is the function that renders a board to an HTML string:
 
 *)
 
+open Fable.Core 
+open Fable.Import.Browser
+open SameGameTypes
+
+let api = SameGameDomain.api
+
 // val renderBoardToHtmlString : board:Board -> string
 let renderBoardToHtmlString (board:Board) =
-    let renderCell x y col = sprintf "<td class='sg-td'><a href='javaScript:void(0);' id='cell-%d-%d'><div class='sg-cell sg-color%d'></div></a></td>" x y col
+    let renderCell x y col =
+        "<td class='sg-td'>"
+        + sprintf "<a href='javaScript:void(0);' id='cell-%d-%d'>" x y 
+        + sprintf "<div class='sg-cell sg-color%d'>" col
+        + "</div></a></td>"
 
     let makeBoard (board: int list list) = 
         "<table class='sg-table horiz-centered'>"
-        + String.concat "" [for y in [(board.[0].Length - 1)..(-1)..0] do yield "<tr class='sg-tr'>" + String.concat "" ([0..(board.Length - 1)] |> List.map (fun x -> renderCell x y board.[x].[y])) + "</tr>"]
+        + String.concat "" [
+            for y in [board.[0].Length - 1 .. -1 .. 0] do
+                yield "<tr class='sg-tr'>"
+                    + ([0..(board.Length - 1)]
+                        |> List.map (fun x -> renderCell x y board.[x].[y])
+                        |> String.concat "")
+                    + "</tr>"
+            ]
         + "</table>"
 
-    makeBoard (board |> List.map (fun col -> col |> List.map (function Stone (Color c) -> c | Empty -> 0)))
+    makeBoard (board |> List.map (fun col ->
+        col |> List.map (function Stone (Color c) -> c | Empty -> 0)))
 
 (** 
 
@@ -271,22 +314,27 @@ The function `updateUi` is responsible for displaying the game and integrating t
 
 *)
 
+let getById<'T when 'T :> HTMLElement> id =
+    document.getElementById(id) :?> 'T
+
 // val updateUi : game:Game option -> unit
 let rec updateUi game =
-    let boardElement = document.getElementById("sg-board") :?> HTMLDivElement
-    let scoreElement = document.getElementById ("sg-score") :?> HTMLDivElement
+    let boardElement = getById<HTMLDivElement>("sg-board")
+    let scoreElement = getById<HTMLDivElement> ("sg-score")
 
     let play game (x,y) =
         game
-        |> Core.Option.map (fun g -> api.Play g { Col = x; Row = y })
+        |> Core.Option.map (fun g ->
+            api.Play g { Col = x; Row = y })
         |> updateUi
 
     let addListeners maxColIndex maxRowIndex  =
         [0..maxColIndex] |> List.iter (fun x ->
             [0..maxRowIndex] |> List.iter (fun y -> 
                 let cellId = sprintf "cell-%d-%d" x y
-                let el = document.getElementById(cellId) :?> HTMLButtonElement
-                el.addEventListener_click((fun _ -> play game (x,y); null))))
+                let el = getById<HTMLButtonElement>(cellId)
+                el.addEventListener_click(fun _ ->
+                    play game (x,y); null)))
     
     match game with
     | Some (InProgress gs) -> 
@@ -294,11 +342,13 @@ let rec updateUi game =
         boardElement.innerHTML <- board
         addListeners (gs.Board.Length - 1) (gs.Board.[0].Length - 1)
         scoreElement.innerText <- sprintf "%i point(s)." gs.Score
-    | Some (Finished gs)   -> 
+    | Some (Finished gs) -> 
         let board = renderBoardToHtmlString gs.Board
         boardElement.innerHTML <- board
-        scoreElement.innerText <- sprintf "No more moves. Your final score is %i point(s)." gs.Score
-    | _ -> boardElement.innerText <- "Sorry, an error occurred while rendering the board."
+        scoreElement.innerText <- "No more moves. " +
+            sprintf "Your final score is %i point(s)." gs.Score
+    | _ -> boardElement.innerText <-
+            "Sorry, an error occurred while rendering the board."
 
 (**
 
@@ -306,23 +356,18 @@ The configuration of the board is obtained by parsing the `class` attribute of t
 
 *)
 
-// no fable support for System.Int32.Parse
-let strToInt (str:string) =
-    [for c in str -> c] 
-    |> List.rev 
-    |> List.mapi (fun i c -> (10.0**(float i)) * (float c)) 
-    |> List.sum
-    |> int
-
 let rndColorGtor i = 
     let rnd = new System.Random()
     fun () -> rnd.Next(i) + 1 |> Color |> Stone 
 
 let defaultConfig =  
-    (document.getElementById("sg-board") :?> HTMLDivElement).className
+    (getById<HTMLDivElement>("sg-board")).className
     |> fun className -> className.Split('-') 
-    |> Array.map strToInt
-    |> fun arr -> { NumberOfColumns =  arr.[0]; NumberOfRows = arr.[1]; StoneGenerator = rndColorGtor arr.[2] }
+    |> Array.map int
+    |> fun arr ->
+        { NumberOfColumns = arr.[0]
+          NumberOfRows = arr.[1]
+          StoneGenerator = rndColorGtor arr.[2] }
 
 (**
 
@@ -330,15 +375,16 @@ The handlers for starting a new game and for selecting a game from a list of pre
 
 *)
 
-let buttonNewGame = document.getElementById("new-game") :?> HTMLButtonElement
-let selectGame = document.getElementById("sg-select-game") :?> HTMLSelectElement
-let selectWidth = document.getElementById("sg-select-w") :?> HTMLSelectElement
-let selectHeight = document.getElementById("sg-select-h") :?> HTMLSelectElement
-let selectColors = document.getElementById("sg-select-col") :?> HTMLSelectElement
+let buttonNewGame = getById<HTMLButtonElement>("new-game") 
+let selectGame = getById<HTMLSelectElement>("sg-select-game") 
+let selectWidth = getById<HTMLSelectElement>("sg-select-w") 
+let selectHeight = getById<HTMLSelectElement>("sg-select-h") 
+let selectColors = getById<HTMLSelectElement>("sg-select-col") 
 
-let config() = { NumberOfColumns = selectWidth.value |> strToInt
-                 NumberOfRows = selectHeight.value |> strToInt
-                 StoneGenerator = selectColors.value |> strToInt |> rndColorGtor }
+let config() =
+    { NumberOfColumns = int selectWidth.value
+      NumberOfRows = int selectHeight.value
+      StoneGenerator = int selectColors.value |> rndColorGtor }
 
 let newGameOnClick() =
     let game = config() |> api.NewGame
@@ -349,15 +395,18 @@ let selectGameOnChange () =
     let presetGtor gameNum =
         let mutable index = 0;
         let game = PresetGames.games.[gameNum]
-        (fun () -> index <- index + 1; game.[index-1] |> Color |> Stone)
+        fun () ->
+            index <- index + 1
+            game.[index-1] |> Color |> Stone
 
-    let gameIndex = selectGame.value |> strToInt;
+    let gameIndex = int selectGame.value
     if gameIndex >= 0 then
-        let game = api.NewGame { config() with StoneGenerator = presetGtor gameIndex }
-        updateUi game
+        { config() with StoneGenerator = presetGtor gameIndex }
+        |> api.NewGame
+        |> updateUi
 
-selectGame.addEventListener_change((fun _ -> selectGameOnChange(); null))
-buttonNewGame.addEventListener_click((fun _ -> newGameOnClick(); null))
+selectGame.addEventListener_change(fun _ -> selectGameOnChange(); null)
+buttonNewGame.addEventListener_click(fun _ -> newGameOnClick(); null)
 
 (**
 
