@@ -1,5 +1,5 @@
 (**
- - title: Hokusai and factals
+ - title: Hokusai and fractals
  - tagline: Rendering fractals using HTML5 canvas
  - app-style: padding:20px 0px 10px 0px;
  - intro: This demo is based on Tomas Petricek's [F# Advent Calendar post](http://tomasp.net/blog/2014/japan-advent-art-en/)
