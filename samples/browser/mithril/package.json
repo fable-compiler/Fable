@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "dependencies": {
+    "core-js": "^2.1.0",
+    "fable-core": "^0.1.6",
+    "requirejs": "^2.1.22"
+  },
+  "engines": {
+    "fable": ">=0.3.21"
+  }
+}

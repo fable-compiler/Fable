@@ -1,0 +1,18 @@
+{
+  "name": "fable-import-mithril",
+  "version": "0.0.2",
+  "description": "Fable bindings for Mithril",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fsprojects/Fable/import/mithril"
+  },
+  "license": "Apache-2.0",
+  "author": "Daniel Anderegg",
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#"
+  ],
+  "homepage": "https://github.com/fsprojects/Fable#readme"
+}

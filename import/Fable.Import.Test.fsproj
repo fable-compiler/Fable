@@ -69,6 +69,7 @@
     <Compile Include="fetch/Fable.Import.Fetch.fs" />
     <Compile Include="three/Fable.Import.Three.fs" />
     <Compile Include="mocha/Fable.Import.Mocha.fs" />
+	<Compile Include="mithril/Fable.Import.Mithril.fs />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>
