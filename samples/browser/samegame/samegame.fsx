@@ -120,8 +120,6 @@ The module `SameGameDomain` contains the actual implementation of the game logic
 
 It exposes a public property `api` of type `SameGameApi` that provides an API for player interactions.
 
-For the sake of brevity the code is not shown here but can be viewed on [GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/samegame/samegame.fsx).
-
 Note that the implementation of the game logic doesn't contain any front end code.
 *)
 
