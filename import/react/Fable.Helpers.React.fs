@@ -587,15 +587,18 @@ let toPlainJsObj (source: obj) =
         | None, Some getter -> target?(k) <- getter?apply$(thisValue)
         | _ -> ()
         target
-    let target =
-        (obj(), JS.Object.getOwnPropertyNames(source))
-        ||> Seq.fold (transferValueOrGetter source source)
-    // Copy also properties from prototype, see #192
-    match JS.Object.getPrototypeOf(source) with
-    | proto when proto <> null && obj.ReferenceEquals(proto, JS.Object) ->
-        (target, JS.Object.getOwnPropertyNames(proto))
-        ||> Seq.fold (transferValueOrGetter proto source)
-    | _ -> target
+    match source with
+    | null -> null
+    | source ->
+        let target =
+            (obj(), JS.Object.getOwnPropertyNames(source))
+            ||> Seq.fold (transferValueOrGetter source source)
+        // Copy also properties from prototype, see #192
+        match JS.Object.getPrototypeOf(source) with
+        | proto when proto <> null && obj.ReferenceEquals(proto, JS.Object) ->
+            (target, JS.Object.getOwnPropertyNames(proto))
+            ||> Seq.fold (transferValueOrGetter proto source)
+        | _ -> target
 
 let inline fn (f: 'Props -> #React.ReactElement<obj>) (props: 'Props) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     unbox(React.createElement(U2.Case1(unbox f), toPlainJsObj props, unbox(List.toArray children)))
