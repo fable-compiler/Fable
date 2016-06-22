@@ -38,7 +38,7 @@ Let's have a look at the first one:
 There're several interesting things going on here:
 
 - First we install our **npm dependencies**: `fable-core` which is necessary for all Fable projects
-  and `isomorphic-fecth` in order to use Fetch API on node (see below).
+  and `isomorphic-fetch` in order to use Fetch API on node (see below).
 - Then we install the **development dependencies**: If we were to distribute this package, these dependencies
   wouldn't be installed on the machine of the final consumers as they are only necessary for development.
   `fable-import-fetch` is the F# type definition for Fetch API, `fable-plugins-nunit` will extend Fable's
@@ -137,7 +137,7 @@ module MyTests =
 
 (**
 With some limitations, it's also possible to write asynchronous tests. For this,
-you just need to **wrap the whole test** with `asyn { ... } |> Async.RunSynchronously`.
+you just need to **wrap the whole test** with `async { ... } |> Async.RunSynchronously`.
 *)
 
   [<Test>]
