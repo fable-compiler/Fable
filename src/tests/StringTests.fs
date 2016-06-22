@@ -1,4 +1,5 @@
-[<NUnit.Framework.TestFixture>] 
+[<NUnit.Framework.TestFixture>]
+[<NUnit.Framework.SetCultureAttribute("en-US")>]
 module Fable.Tests.Strings
 open System
 open NUnit.Framework
