@@ -1412,27 +1412,9 @@
       }, xs);
     });
   };
-  Seq.sort = function (xs) {
-    var ys = Array.from(xs);
-    return Seq.ofArray(ys.sort());
-  };
   Seq.sortWith = function (f, xs) {
     var ys = Array.from(xs);
     return Seq.ofArray(ys.sort(f));
-  };
-  Seq.sortBy = function (f, xs) {
-    var ys = Array.from(xs);
-    return Seq.ofArray(FArray.sortInPlaceBy(f, ys));
-  };
-  Seq.sortDescending = function (f, xs) {
-    var ys = Array.from(xs);
-    return Seq.ofArray(ys.sort(function (x, y) {
-      return y < x ? -1 : x == y ? 0 : 1;
-    }));
-  };
-  Seq.sortByDescending = function (f, xs) {
-    var ys = Array.from(xs);
-    return Seq.ofArray(FArray.sortInPlaceBy(f, ys, -1));
   };
   Seq.sum = function (xs, add) {
     add = add || function (x, y) {

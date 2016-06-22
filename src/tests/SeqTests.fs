@@ -335,11 +335,19 @@ let ``Seq.scan works``() =
     sumFirstTwo ys
     |> equal 1.
 
+[<Test>]
 let ``Seq.sort works``() =
-    let xs = [3.; 4.; 1.; 2.]
-    let ys = xs |> Seq.sort
-    sumFirstTwo ys
-    |> equal 3.
+    let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
+    xs |> Seq.sort |> Seq.take 3 |> Seq.sum |> equal 0.
+    let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
+    ys |> Seq.sort |> Seq.item 1 |> equal "a" 
+
+[<Test>]
+let ``Seq.sortDescending works``() =
+    let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
+    xs |> Seq.sortDescending |> Seq.take 3 |> Seq.sum |> equal 17.
+    let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
+    ys |> Seq.sortDescending |> Seq.item 1 |> equal "c"
 
 [<Test>]
 let ``Seq.sortBy works``() =

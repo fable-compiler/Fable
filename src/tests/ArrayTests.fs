@@ -514,11 +514,18 @@ let ``Array.scanBack works``() =
     |> equal 3.
 
 [<Test>]
-let ``Array.sort works``() =   
-    let xs = [|3.; 4.; 1.; 2.|]
-    let ys = xs |> Array.sort
-    ys.[0] + ys.[1]
-    |> equal 3.
+let ``Array.sort works``() =
+    let xs = [|3; 4; 1; -3; 2; 10|]
+    let ys = [|"a"; "c"; "B"; "d"|]
+    xs |> Array.sort |> Array.take 3 |> Array.sum |> equal 0
+    ys |> Array.sort |> Array.item 1 |> equal "a" 
+
+[<Test>]
+let ``Array.sortDescending works``() =
+    let xs = [|3; 4; 1; -3; 2; 10|]
+    let ys = [|"a"; "c"; "B"; "d"|]
+    xs |> Array.sortDescending |> Array.take 3 |> Array.sum |> equal 17
+    ys |> Array.sortDescending |> Array.item 1 |> equal "c"   
 
 [<Test>]
 let ``Array.sortBy works``() =   
@@ -536,21 +543,21 @@ let ``Array.sortWith works``() =
 
 [<Test>]
 let ``Array.sortInPlace works``() =   
-    let xs = [|3.; 4.; 1.; 2.|]
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
     Array.sortInPlace xs
     xs.[0] + xs.[1]
     |> equal 3.
 
 [<Test>]
 let ``Array.sortInPlaceBy works``() =   
-    let xs = [|3.; 4.; 1.; 2.|]
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
     Array.sortInPlaceBy (fun x -> -x) xs
     xs.[0] + xs.[1]
-    |> equal 7.
+    |> equal 14.
 
 [<Test>]
 let ``Array.sortInPlaceWith works``() =   
-    let xs = [|3.; 4.; 1.; 2.|]
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
     Array.sortInPlaceWith (fun x y -> int(x - y)) xs
     xs.[0] + xs.[1]
     |> equal 3.

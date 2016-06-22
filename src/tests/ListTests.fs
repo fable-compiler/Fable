@@ -409,10 +409,17 @@ let ``List.scanBack works``() =
 
 [<Test>]
 let ``List.sort works``() =
-      let xs = [3; 4; 1; 2]
-      let ys = xs |> List.sort
-      ys.Head + ys.Tail.Head
-      |> equal 3
+    let xs = [3; 4; 1; -3; 2; 10]
+    xs |> List.sort |> List.take 3 |> List.sum |> equal 0
+    let ys = ["a"; "c"; "B"; "d"]
+    ys |> List.sort |> List.item 1 |> equal "a" 
+
+[<Test>]
+let ``List.sortDescending works``() =
+    let xs = [3; 4; 1; -3; 2; 10]
+    xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
+    let ys = ["a"; "c"; "B"; "d"]
+    ys |> List.sortDescending |> List.item 1 |> equal "c"      
 
 [<Test>]
 let ``List.sortBy works``() =

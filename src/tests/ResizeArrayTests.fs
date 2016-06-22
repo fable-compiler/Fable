@@ -141,6 +141,9 @@ let ``ResizeArray.SortInPlace works``() =
     li.Add("Ana"); li.Add("Pedro"); li.Add("Lucía"); li.Add("Paco")
     li.Sort()
     equal "Paco" li.[2]
+    let li2 = ResizeArray [1;3;10;2]
+    li2.Sort()
+    equal 2 li2.[1]
 
 [<Test>]
 let ``ResizeArray.SortInPlaceWith works``() =

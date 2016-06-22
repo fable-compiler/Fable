@@ -204,12 +204,14 @@ module Util =
             | _ ->
                 Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
 
-    let compare com (i: Fable.ApplyInfo) (args: Fable.Expr list) op =
-        let wrap op comp =
+    /// Compare function that will call Util.compare or instance `compareTo` as appropriate
+    /// If passed an optional binary operator, it will wrap the comparison like `comparison < 0`
+    let compare com r (args: Fable.Expr list) op =
+        let intType = Fable.PrimitiveType(Fable.Number Int32)
+        let wrap comparison =
             match op with
-            | None -> comp
-            | Some op -> Fable.Apply(op, [comp; makeConst 0], Fable.ApplyMeth, i.returnType, i.range)
-        let op = Option.map (Fable.BinaryOp >> Fable.Value) op
+            | None -> comparison
+            | Some op -> makeEqOp r [comparison; makeConst 0] op
         match args.Head.Type with
         | Fable.PrimitiveType (Fable.Array _)
         | FullName "Microsoft.FSharp.Collections.Set"
@@ -217,24 +219,22 @@ module Util =
         | DeclaredKind Fable.Union
         | DeclaredKind Fable.Record ->
             CoreLibCall("Util", Some "compareTo", false, args)
-            |> makeCall com i.range i.returnType
-            |> wrap op |> Some
+            |> makeCall com r intType |> wrap
         | Fable.UnknownType
         | Fable.PrimitiveType _
         | FullName "System.TimeSpan"
         | FullName "System.DateTime" ->
             match op with
-            | None -> CoreLibCall("Util", Some "compareTo", false, args)
-                      |> makeCall com i.range i.returnType
-            | Some op -> Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range)
-            |> Some
+            | Some op -> makeEqOp r args op
+            | None ->
+                CoreLibCall("Util", Some "compareTo", false, args)
+                |> makeCall com r intType
         | Fable.DeclaredType ent ->
             match ent.Kind with
             | Fable.Class _ when ent.HasInterface "System.IComparable" ->
                 InstanceCall(args.Head, "compareTo", args.Tail)
-                |> makeCall com i.range (Fable.PrimitiveType (Fable.Number Int32))
-                |> wrap op |> Some
-            | _ -> None
+                |> makeCall com r intType |> wrap
+            | _ -> failwithf "%s doesn't implement IComparable and cannot be compared" ent.FullName
 
 module private AstPass =
     open Util
@@ -323,15 +323,15 @@ module private AstPass =
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryEqual |> Some
             | _ -> equals com info args true
         // Comparison
-        | "compare" -> compare com info args None
-        | "op_LessThan" | "lt" -> compare com info args (Some BinaryLess)
-        | "op_LessThanOrEqual" | "lte" -> compare com info args (Some BinaryLessOrEqual)
-        | "op_GreaterThan" | "gt" -> compare com info args (Some BinaryGreater)
-        | "op_GreaterThanOrEqual" | "gte" -> compare com info args (Some BinaryGreaterOrEqual)
+        | "compare" -> compare com info.range args None |> Some
+        | "op_LessThan" | "lt" -> compare com info.range args (Some BinaryLess) |> Some
+        | "op_LessThanOrEqual" | "lte" -> compare com info.range args (Some BinaryLessOrEqual) |> Some
+        | "op_GreaterThan" | "gt" -> compare com info.range args (Some BinaryGreater) |> Some
+        | "op_GreaterThanOrEqual" | "gte" -> compare com info.range args (Some BinaryGreaterOrEqual) |> Some
         | "min" | "max" ->
             let op = if info.methodName = "min" then BinaryLess else BinaryGreater
-            let comparison = compare com info args (Some op) 
-            emit info "$0 ? $1 : $2" (comparison.Value::args) |> Some
+            let comparison = compare com info.range args (Some op)
+            Fable.IfThenElse(comparison, args.Head, args.Tail.Head, info.range) |> Some
         // Operators
          | "op_Addition" | "op_Subtraction" | "op_Multiply" | "op_Division"
          | "op_Modulus" | "op_LeftShift" | "op_RightShift"
@@ -807,8 +807,7 @@ module private AstPass =
               "map"; "mapi"; "map2"; "mapi2"; "map3";
               "ofArray"; "pairwise"; "permute"; "replicate"; "rev";
               "scan"; "scanBack"; "singleton"; "skip"; "skipWhile";
-              "take"; "takeWhile"; "sort"; "sortBy"; "sortWith";
-              "sortDescending"; "sortByDescending"; "zip"; "zip3" ]
+              "take"; "takeWhile"; "sortWith"; "zip"; "zip3" ]
 
     let implementedListFunctions =
         set [ "append"; "choose"; "collect"; "concat"; "filter"; "where";
@@ -871,13 +870,35 @@ module private AstPass =
             | _, List -> match i.callee with Some x -> i.args@[x] | None -> i.args
                          |> ccall "Seq" meth
             |> Some
-        | "sort" ->
+        | "sort" | "sortDescending" | "sortBy" | "sortByDescending" ->
+            let proyector, args =
+                if meth = "sortBy" || meth = "sortByDescending"
+                then Some args.Head, args.Tail
+                else None, args
+            let compareFn =
+                let fnArgs = [makeIdent "x"; makeIdent "y"]
+                let identValue x =
+                    let x = Fable.Value(Fable.IdentValue x)
+                    match proyector with
+                    | Some proyector -> Fable.Apply(proyector, [x], Fable.ApplyMeth, Fable.UnknownType, None)
+                    | None -> x
+                let comparison =
+                    let comparison = compare com None (List.map identValue fnArgs) None
+                    if meth = "sortDescending" || meth = "sortByDescending"
+                    then makeUnOp None (Fable.PrimitiveType(Fable.Number Int32)) [comparison] UnaryMinus
+                    else comparison
+                Fable.Lambda(fnArgs, comparison) |> Fable.Value
             match c, kind with
-            | Some c, _ -> icall "sort" (c, deleg i args)
-            | None, Seq -> ccall "Seq" meth (deleg i args)
-            | None, List -> ccall "Seq" meth (deleg i args) |> toList com i
-            | None, Array -> ccall "Seq" meth (deleg i args) |> toArray com i
-            |> Some
+            // This is for calls to instance `Sort` member on ResizeArrays 
+            | Some c, _ ->
+                match args with
+                | [] -> icall "sort" (c, [compareFn]) |> Some
+                | [Type (Fable.PrimitiveType(Fable.Function _))] ->
+                    icall "sort" (c, deleg i args) |> Some
+                | _ -> None
+            | None, Seq -> ccall "Seq" "sortWith" (compareFn::args) |> Some
+            | None, List -> ccall "Seq" "sortWith" (compareFn::args) |> toList com i |> Some
+            | None, Array -> ccall "Seq" "sortWith" (compareFn::args) |> toArray com i |> Some
         // Constructors ('cons' only applies to List)
         | "empty" | "cons" ->
             match kind with

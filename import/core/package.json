@@ -1,6 +1,6 @@
 {
   "name": "fable-core",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Fable core lib & bindings for native JS objects, browser and node APIs",
   "main": "fable-core.js",
   "repository": {
