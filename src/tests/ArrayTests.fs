@@ -515,7 +515,7 @@ let ``Array.scanBack works``() =
 
 [<Test>]
 let ``Array.sort works``() =   
-    let xs = [|3.; 4.; 1.; 2.|]
+    let xs = [|10.; 20.; 1.; 2.|]
     let ys = xs |> Array.sort
     ys.[0] + ys.[1]
     |> equal 3.

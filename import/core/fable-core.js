@@ -1414,7 +1414,7 @@
   };
   Seq.sort = function (xs) {
     var ys = Array.from(xs);
-    return Seq.ofArray(ys.sort());
+    return Seq.ofArray(ys.sort(Util.compareTo));
   };
   Seq.sortWith = function (f, xs) {
     var ys = Array.from(xs);
