@@ -46,7 +46,7 @@ first. The [raw source code is on GitHub](https://github.com/fsprojects/Fable/bl
 
 ### [SameGame](samples/samegame/index.html)
 
-This demo shows a Fable implementation of SameGame. The functional implementation of the game follows the *type-first design* approach and consists of three main components: **types**, **game logic** and **front end**. You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/samegame/samegame.fsx).
+This demo shows a Fable implementation of SameGame. The functional implementation of the game follows the *type-first design* approach and consists of three main components: **types**, **game logic** and **front end**. This sample has been contributed by [Leif Battermann](https://twitter.com/leifbattermann). You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/samegame/samegame.fsx).
 
 ## Visualizations
 
