@@ -16,7 +16,13 @@ let ``sprintf works``() =
       let printer = sprintf "Hi %s, good %s!"
       let printer = printer "Alfonso"
       printer "morning" |> equal "Hi Alfonso, good morning!" 
-      printer "evening" |> equal "Hi Alfonso, good evening!" 
+      printer "evening" |> equal "Hi Alfonso, good evening!"
+
+[<Test>]
+let ``sprintf with escaped percent symbols works``() = // See #195
+      let r, r1, r2 = "Ratio", 0.213849, 0.799898
+      sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
+      |> equal "Ratio1: 21.38% Ratio2: 79.99%"
 
 [<Test>]
 let ``String.Format works``() =

@@ -374,13 +374,13 @@ Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 var FString = {};
 export { FString as String };
 
-FString.fsFormatRegExp = /%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+FString.fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 FString.fsFormat = function (str) {
   function isObject(x) {
     return x !== null && typeof x === 'object' && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
   };
   function formatOnce(str, rep) {
-    return str.replace(FString.fsFormatRegExp, function (_, flags, pad, precision, format) {
+    return str.replace(FString.fsFormatRegExp, function (_, prefix, flags, pad, precision, format) {
       switch (format) {
         case "f":case "F":
           rep = rep.toFixed(precision || 6);break;
@@ -399,13 +399,14 @@ FString.fsFormat = function (str) {
         var ch = pad >= 0 && flags.indexOf('0') >= 0 ? '0' : ' ';
         rep = FString.padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
       }
-      return plusPrefix ? "+" + rep : rep;
+      return prefix + (plusPrefix ? "+" + rep : rep);
     });
   }
   function makeFn(str) {
     return function (rep) {
       var str2 = formatOnce(str, rep);
-      return FString.fsFormatRegExp.test(str2) ? makeFn(str2) : _cont(str2);
+      return FString.fsFormatRegExp.test(str2)
+        ? makeFn(str2) : _cont(str2.replace(/%%/g, '%'));
     };
   }
   var _cont;
