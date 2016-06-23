@@ -6,7 +6,8 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.3.22"
+let version = "0.3.24"
+let coreLibVersion = "0.1.9"
 
 module Util =
     open System.Net
@@ -21,6 +22,13 @@ module Util =
                 info.WorkingDirectory <- workingDir
                 info.Arguments <- args) TimeSpan.MaxValue
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
+
+    let runAndReturn workingDir fileName args =
+        ExecProcessAndReturnMessages (fun info ->
+            info.FileName <- fileName
+            info.WorkingDirectory <- workingDir
+            info.Arguments <- args) TimeSpan.MaxValue
+        |> fun p -> p.Messages |> String.concat "\n"
 
     let downloadArtifact path =
         let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
@@ -40,14 +48,14 @@ module Util =
         // Use this in Windows to prevent conflicts with paths too long
         else run "." "cmd" ("/C rmdir /s /q " + Path.GetFullPath dir)
 
-    /// Reads a file line by line and rewrites it using unix line breaks
+    /// Reads a file line by line and rewrites it using the visitor to modify each line
     ///  - uses a temp file to store the contents in order to prevent OutOfMemory exceptions
-    let convertFileToUnixLineBreaks(fileName : string) = 
+    let visitFile (visitor: string->string) (fileName : string) = 
         use reader = new StreamReader(fileName, encoding)
         let tempFileName = Path.GetTempFileName()
         use writer = new StreamWriter(tempFileName, false, encoding)
         while not reader.EndOfStream do
-          writer.Write (reader.ReadLine() + "\n")
+            reader.ReadLine() |> visitor |> writer.WriteLine
         reader.Close()
         writer.Close()
         File.Delete(fileName)
@@ -80,7 +88,11 @@ module Npm =
     let command workingDir command args =
         sprintf "%s %s" command (String.concat " " args)
         |> npmFilePath ||> Util.run workingDir
-        
+
+    let commandAndReturn workingDir command args =
+        sprintf "%s %s" command (String.concat " " args)
+        |> npmFilePath ||> Util.runAndReturn workingDir
+
 module Node =
     let run workingDir script args =
         let args = sprintf "%s %s" script (String.concat " " args)
@@ -215,6 +227,19 @@ Target "CoreLib" (fun _ ->
     !! "import/core/Fable.Core.fsproj"
     |> MSBuildRelease "import/core" "Build"
     |> Log "Import-Output: "
+    match Npm.commandAndReturn "import/core" "version" ["-v"] with
+    | v when v = coreLibVersion -> ()
+    | _ ->
+        Npm.command "import/core" "version" [coreLibVersion]
+        !! "samples/**/package.json"
+        |> Seq.iter (Util.visitFile (fun line ->
+            match Regex.Match(line, "^(\s*)\"(fable(?:-core)?)\": \".*?\"(,)?") with
+            | m when m.Success ->
+                match m.Groups.[2].Value with
+                | "fable" -> sprintf "%s\"fable\": \"^%s\"%s" m.Groups.[1].Value version m.Groups.[3].Value
+                | "fable-core" -> sprintf "%s\"fable-core\": \"^%s\"%s" m.Groups.[1].Value coreLibVersion m.Groups.[3].Value
+                | _ -> line                 
+            | _ -> line))
 )
 
 Target "Samples" (fun _ ->
