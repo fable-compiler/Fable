@@ -210,17 +210,27 @@ and Expr =
     | Wrapped of Expr * Type
 
     member x.Type =
+        let combineTypes (e1: Expr) (e2: Expr) =
+            // The expressions can have different types
+            // if one of them is a throw expression (it has always type Unit)
+            match e1.Type with
+            | Type.PrimitiveType(PrimitiveTypeKind.Unit) -> e2.Type
+            | _ -> e1.Type
+
         match x with
         | Value kind -> kind.Type
         | ObjExpr _ -> UnknownType
         | Wrapped (_,typ) | Apply (_,_,_,typ,_) -> typ
-        | IfThenElse (_,thenExpr,_,_) -> thenExpr.Type
+        | IfThenElse (_,thenExpr,elseExpr,_) ->
+            combineTypes thenExpr elseExpr
         | Throw _ | DebugBreak _ | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
         | Sequential (exprs,_) ->
             match exprs with
             | [] -> PrimitiveType Unit
             | exprs -> (Seq.last exprs).Type
-        | TryCatch (body,_,_,_) -> body.Type
+        | TryCatch (body,None,_,_) -> body.Type
+        | TryCatch (body,Some(_,catchExpr),_,_) ->
+            combineTypes body catchExpr
         // TODO: Quotations must have their own primitive? type
         | Quote _ -> UnknownType
 

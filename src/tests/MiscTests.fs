@@ -466,3 +466,40 @@ let ``defaultArg works``() =
     let f o = defaultArg o 5
     f (Some 2) |> equal 2
     f None |> equal 5
+
+
+// In F# both branches of if-then-else has the same type,
+// but this is not always true in Fable AST. For example when
+// one branch is a Throw expression, it has always type Unit.
+// So we should test that the type of the whole expression is not determined 
+// by the throw expression in one of its branches.
+//
+// The same applies to try-with expression.
+
+[<Test>]
+let ``Type of if-then-else expression is correctly determined when 'then' branch throws``() =
+    let f () =
+        if false then failwith "error" else 7
+
+    f () |> equal 7
+
+[<Test>]
+let ``Type of if-then-else expression is correctly determined when 'else' branch throws``() =
+    let f () =
+        if true then 7 else failwith "error"
+
+    f () |> equal 7
+
+[<Test>]
+let ``Type of try-with expression is correctly determined when 'try' block throws`` () =
+    let f () =
+        try failwith "error" with | _ -> 7
+
+    f () |> equal 7
+
+[<Test>]
+let ``Type of try-with expression is correctly determined when exception handler throws`` () =
+    let f () =
+        try 7 with | _ -> failwith "error"
+
+    f () |> equal 7
