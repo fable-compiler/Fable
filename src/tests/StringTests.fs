@@ -177,6 +177,16 @@ let ``String.Trim works``() =
       |> equal "abc"
 
 [<Test>]
+let ``String.TrimStart works``() =
+      "   abc   ".TrimStart()
+      |> equal "abc   "
+
+[<Test>]
+let ``String.TrimEnd works``() =
+      "   abc   ".TrimEnd()
+      |> equal "   abc"
+
+[<Test>]
 let ``String.Empty works``() =
       let s = String.Empty
       s |> equal ""

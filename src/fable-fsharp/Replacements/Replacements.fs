@@ -449,6 +449,8 @@ module private AstPass =
         | "toLower" -> icall "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall "toLowerCase" |> Some
         | "indexOf" | "lastIndexOf" | "trim" -> icall i.methodName |> Some
+        | "trimStart" -> icall "trimLeft" |> Some
+        | "trimEnd" -> icall "trimRight" |> Some
         | "toCharArray" ->
             InstanceCall(i.callee.Value, "split", [makeConst ""])
             |> makeCall com i.range i.returnType |> Some
