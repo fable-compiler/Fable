@@ -967,7 +967,10 @@ module private AstPass =
                 else toArray com i args.Head
             |> Some
         | "toArray" ->
-            toArray com i i.args.Head |> Some
+            match c with
+            | Some c -> toArray com i c
+            | None -> toArray com i i.args.Head
+            |> Some
         | "ofList" ->
             match kind with
             | List -> "Unexpected method called on list: " + meth

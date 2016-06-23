@@ -151,3 +151,14 @@ let ``ResizeArray.SortInPlaceWith works``() =
     li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)
     li.Sort(fun x y -> if x > y then -1 elif x < y then 1 else 0)
     equal 4. li.[3]
+
+[<Test>]
+let ``ResizeArray.ToArray works``() =
+    let li = ResizeArray<_>()
+    li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)
+    equal 5 li.Count
+    let ar = li.ToArray()
+    Array.length ar |> equal li.Count
+    ar.[0] <- 2.
+    equal 3. li.[0]
+    equal 2. ar.[0]
