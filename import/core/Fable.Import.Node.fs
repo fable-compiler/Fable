@@ -222,7 +222,7 @@ module NodeJS =
 open NodeJS
 
 
-module net =
+module net_types =
     type Socket =
         abstract writable: bool with get, set
         abstract _write: chunk: obj * encoding: string * callback: Function -> unit
@@ -285,10 +285,10 @@ module net =
         member __.isIPv4(input: string): bool = failwith "JS only"
         member __.isIPv6(input: string): bool = failwith "JS only"
         
-let [<Import("*","net")>] net: net.Globals = failwith "JS only"
+let [<Import("*","net")>] net: net_types.Globals = failwith "JS only"
 
 
-module crypto =
+module crypto_types =
     type CredentialDetails =
         abstract pfx: string with get, set
         abstract key: string with get, set
@@ -370,7 +370,7 @@ module crypto =
         member __.pseudoRandomBytes(size: float): Buffer = failwith "JS only"
         member __.pseudoRandomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
 
-let [<Import("*","crypto")>] crypto: crypto.Globals = failwith "JS only"
+let [<Import("*","crypto")>] crypto: crypto_types.Globals = failwith "JS only"
 
 
 module events =
@@ -487,7 +487,7 @@ module stream =
         inherit Transform()
 
 
-module tls =
+module tls_types =
     type TlsOptions =
         abstract pfx: obj option with get, set
         abstract key: obj option with get, set
@@ -505,7 +505,7 @@ module tls =
     and ConnectionOptions =
         abstract host: string option with get, set
         abstract port: float option with get, set
-        abstract socket: net.Socket option with get, set
+        abstract socket: net_types.Socket option with get, set
         abstract pfx: obj option with get, set
         abstract key: obj option with get, set
         abstract passphrase: string option with get, set
@@ -516,7 +516,7 @@ module tls =
         abstract servername: string option with get, set
 
     and Server =
-        inherit net.Server
+        inherit net_types.Server
         abstract maxConnections: float with get, set
         abstract connections: float with get, set
         abstract listen: port: float * ?host: string * ?backlog: float * ?listeningListener: Function -> Server
@@ -567,13 +567,13 @@ module tls =
         member __.connect(options: TlsOptions, ?secureConnectionListener: Func<unit, unit>): ClearTextStream = failwith "JS only"
         member __.connect(port: float, ?host: string, ?options: ConnectionOptions, ?secureConnectListener: Func<unit, unit>): ClearTextStream = failwith "JS only"
         member __.connect(port: float, ?options: ConnectionOptions, ?secureConnectListener: Func<unit, unit>): ClearTextStream = failwith "JS only"
-        member __.createSecurePair(?credentials: crypto.Credentials, ?isServer: bool, ?requestCert: bool, ?rejectUnauthorized: bool): SecurePair = failwith "JS only"
+        member __.createSecurePair(?credentials: crypto_types.Credentials, ?isServer: bool, ?requestCert: bool, ?rejectUnauthorized: bool): SecurePair = failwith "JS only"
         member __.createSecureContext(details: SecureContextOptions): SecureContext = failwith "JS only"
 
-let [<Import("*","tls")>] tls: tls.Globals = failwith "JS only"
+let [<Import("*","tls")>] tls: tls_types.Globals = failwith "JS only"
 
 
-module child_process =
+module child_process_types =
     type ChildProcess =
         inherit EventEmitter
         abstract stdin: stream.Writable with get, set
@@ -598,7 +598,7 @@ module child_process =
         member __.execSync(command: string, ?options: obj): U2<string, Buffer> = failwith "JS only"
         member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = failwith "JS only"
 
-let [<Import("*","child_process")>] child_process: child_process.Globals = failwith "JS only"
+let [<Import("*","child_process")>] child_process: child_process_types.Globals = failwith "JS only"
 
 
 type NodeRequireFunction =
@@ -631,24 +631,24 @@ let [<Global>] SlowBuffer: obj = failwith "JS only"
 let [<Global>] Buffer: obj = failwith "JS only"
 
 
-module buffer =
+module buffer_types =
     type Globals =
         member __.INSPECT_MAX_BYTES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
 
-let [<Import("*","buffer")>] buffer: buffer.Globals = failwith "JS only"
+let [<Import("*","buffer")>] buffer: buffer_types.Globals = failwith "JS only"
 
 
-module querystring =
+module querystring_types =
     type Globals =
         member __.stringify(obj: obj, ?sep: string, ?eq: string): string = failwith "JS only"
         member __.parse(str: string, ?sep: string, ?eq: string, ?options: obj): obj = failwith "JS only"
         member __.escape(str: string): string = failwith "JS only"
         member __.unescape(str: string): string = failwith "JS only"
 
-let [<Import("*","querystring")>] querystring: querystring.Globals = failwith "JS only"
+let [<Import("*","querystring")>] querystring: querystring_types.Globals = failwith "JS only"
 
 
-module http =
+module http_types =
     type Server =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract maxHeadersCount: float with get, set
@@ -661,7 +661,7 @@ module http =
 
     and ServerRequest =
         inherit IncomingMessage
-        abstract connection: net.Socket with get, set
+        abstract connection: net_types.Socket with get, set
 
     and ServerResponse =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
@@ -739,7 +739,7 @@ module http =
         abstract url: string option with get, set
         abstract statusCode: float option with get, set
         abstract statusMessage: string option with get, set
-        abstract socket: net.Socket with get, set
+        abstract socket: net_types.Socket with get, set
         abstract setTimeout: msecs: float * callback: Function -> NodeJS.Timer
 
     and ClientResponse =
@@ -766,10 +766,9 @@ module http =
         member __.request(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
         member __.get(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
 
-let [<Import("*","http")>] http: http.Globals = failwith "JS only"
+let [<Import("*","http")>] http: http_types.Globals = failwith "JS only"
 
-
-module cluster =
+module cluster_types =
     type ClusterSettings =
         abstract exec: string option with get, set
         abstract args: ResizeArray<string> option with get, set
@@ -778,7 +777,7 @@ module cluster =
     and [<Import("Worker","cluster")>] Worker() =
         inherit events.EventEmitter()
         member __.id with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        member __.``process`` with get(): child_process.ChildProcess = failwith "JS only" and set(v: child_process.ChildProcess): unit = failwith "JS only"
+        member __.``process`` with get(): child_process_types.ChildProcess = failwith "JS only" and set(v: child_process_types.ChildProcess): unit = failwith "JS only"
         member __.suicide with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
         member __.send(message: obj, ?sendHandle: obj): unit = failwith "JS only"
         member __.kill(?signal: string): unit = failwith "JS only"
@@ -803,10 +802,10 @@ module cluster =
         member __.listeners(``event``: string): ResizeArray<Function> = failwith "JS only"
         member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
 
-let [<Import("*","cluster")>] cluster: cluster.Globals = failwith "JS only"
+let [<Import("*","cluster")>] cluster: cluster_types.Globals = failwith "JS only"
 
 
-module zlib =
+module zlib_types =
     type ZlibOptions =
         abstract chunkSize: float option with get, set
         abstract windowBits: float option with get, set
@@ -1016,10 +1015,10 @@ module zlib =
         member __.unzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
         member __.unzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
 
-let [<Import("*","zlib")>] zlib: zlib.Globals = failwith "JS only"
+let [<Import("*","zlib")>] zlib: zlib_types.Globals = failwith "JS only"
 
 
-module os =
+module os_types =
     type Globals =
         member __.EOL with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.tmpdir(): string = failwith "JS only"
@@ -1035,10 +1034,10 @@ module os =
         member __.cpus(): ResizeArray<obj> = failwith "JS only"
         member __.networkInterfaces(): obj = failwith "JS only"
 
-let [<Import("*","os")>] os: os.Globals = failwith "JS only"
+let [<Import("*","os")>] os: os_types.Globals = failwith "JS only"
 
 
-module https =
+module https_types =
     type ServerOptions =
         abstract pfx: obj option with get, set
         abstract key: obj option with get, set
@@ -1076,20 +1075,20 @@ module https =
         abstract requests: obj with get, set
 
     and Server =
-        inherit tls.Server
+        inherit tls_types.Server
 
 
     type Globals =
         member __.Agent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
         member __.globalAgent with get(): Agent = failwith "JS only" and set(v: Agent): unit = failwith "JS only"
         member __.createServer(options: ServerOptions, ?requestListener: Function): Server = failwith "JS only"
-        member __.request(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = failwith "JS only"
-        member __.get(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = failwith "JS only"
+        member __.request(options: RequestOptions, ?callback: Func<http_types.IncomingMessage, unit>): http_types.ClientRequest = failwith "JS only"
+        member __.get(options: RequestOptions, ?callback: Func<http_types.IncomingMessage, unit>): http_types.ClientRequest = failwith "JS only"
 
-let [<Import("*","https")>] https: https.Globals = failwith "JS only"
+let [<Import("*","https")>] https: https_types.Globals = failwith "JS only"
 
 
-module punycode =
+module punycode_types =
     type ucs2 =
         abstract decode: string: string -> string
         abstract encode: codePoints: ResizeArray<float> -> string
@@ -1102,10 +1101,10 @@ module punycode =
         member __.toUnicode(domain: string): string = failwith "JS only"
         member __.toASCII(domain: string): string = failwith "JS only"
 
-let [<Import("*","punycode")>] punycode: punycode.Globals = failwith "JS only"
+let [<Import("*","punycode")>] punycode: punycode_types.Globals = failwith "JS only"
 
 
-module repl =
+module repl_types =
     type ReplOptions =
         abstract prompt: string option with get, set
         abstract input: NodeJS.ReadableStream option with get, set
@@ -1120,10 +1119,10 @@ module repl =
     type Globals =
         member __.start(options: ReplOptions): events.EventEmitter = failwith "JS only"
 
-let [<Import("*","repl")>] repl: repl.Globals = failwith "JS only"
+let [<Import("*","repl")>] repl: repl_types.Globals = failwith "JS only"
 
 
-module readline =
+module readline_types =
     type ReadLine =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract setPrompt: prompt: string -> unit
@@ -1143,10 +1142,10 @@ module readline =
     type Globals =
         member __.createInterface(options: ReadLineOptions): ReadLine = failwith "JS only"
 
-let [<Import("*","readline")>] readline: readline.Globals = failwith "JS only"
+let [<Import("*","readline")>] readline: readline_types.Globals = failwith "JS only"
 
 
-module vm =
+module vm_types =
     type Context =
         interface end
 
@@ -1161,10 +1160,10 @@ module vm =
         member __.createContext(?initSandbox: Context): Context = failwith "JS only"
         member __.createScript(code: string, ?filename: string): Script = failwith "JS only"
 
-let [<Import("*","vm")>] vm: vm.Globals = failwith "JS only"
+let [<Import("*","vm")>] vm: vm_types.Globals = failwith "JS only"
 
 
-module url =
+module url_types =
     type Url =
         abstract href: string with get, set
         abstract protocol: string with get, set
@@ -1196,10 +1195,10 @@ module url =
         member __.format(url: UrlOptions): string = failwith "JS only"
         member __.resolve(from: string, ``to``: string): string = failwith "JS only"
 
-let [<Import("*","url")>] url: url.Globals = failwith "JS only"
+let [<Import("*","url")>] url: url_types.Globals = failwith "JS only"
 
 
-module dns =
+module dns_types =
     type Globals =
         member __.lookup(domain: string, family: float, callback: Func<Error, string, float, unit>): string = failwith "JS only"
         member __.lookup(domain: string, callback: Func<Error, string, float, unit>): string = failwith "JS only"
@@ -1214,10 +1213,10 @@ module dns =
         member __.resolveCname(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
         member __.reverse(ip: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
 
-let [<Import("*","dns")>] dns: dns.Globals = failwith "JS only"
+let [<Import("*","dns")>] dns: dns_types.Globals = failwith "JS only"
 
 
-module dgram =
+module dgram_types =
     type RemoteInfo =
         abstract address: string with get, set
         abstract port: float with get, set
@@ -1243,10 +1242,10 @@ module dgram =
     type Globals =
         member __.createSocket(``type``: string, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = failwith "JS only"
 
-let [<Import("*","dgram")>] dgram: dgram.Globals = failwith "JS only"
+let [<Import("*","dgram")>] dgram: dgram_types.Globals = failwith "JS only"
 
 
-module fs =
+module fs_types =
     type Stats =
         abstract dev: float with get, set
         abstract ino: float with get, set
@@ -1407,10 +1406,10 @@ module fs =
         member __.createReadStream(path: string, ?options: obj): ReadStream = failwith "JS only"
         member __.createWriteStream(path: string, ?options: obj): WriteStream = failwith "JS only"
 
-let [<Import("*","fs")>] fs: fs.Globals = failwith "JS only"
+let [<Import("*","fs")>] fs: fs_types.Globals = failwith "JS only"
 
 
-module path =
+module path_types =
     type ParsedPath =
         abstract root: string with get, set
         abstract dir: string with get, set
@@ -1433,7 +1432,7 @@ module path =
         member __.parse(pathString: string): ParsedPath = failwith "JS only"
         member __.format(pathObject: ParsedPath): string = failwith "JS only"
 
-    module posix =
+    module posix_types =
         type Globals =
             member __.sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
             member __.delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -1448,9 +1447,9 @@ module path =
             member __.parse(p: string): ParsedPath = failwith "JS only"
             member __.format(pP: ParsedPath): string = failwith "JS only"
             
-    let [<Import("posix","path")>] posix: posix.Globals = failwith "JS only"
+    let [<Import("posix","path")>] posix: posix_types.Globals = failwith "JS only"
 
-    module win32 =
+    module win32_types =
         type Globals =
             member __.sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
             member __.delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -1465,9 +1464,9 @@ module path =
             member __.parse(p: string): ParsedPath = failwith "JS only"
             member __.format(pP: ParsedPath): string = failwith "JS only"
 
-    let [<Import("win32","path")>] win32: win32.Globals = failwith "JS only"
+    let [<Import("win32","path")>] win32: win32_types.Globals = failwith "JS only"
 
-let [<Import("*","path")>] path: path.Globals = failwith "JS only"
+let [<Import("*","path")>] path: path_types.Globals = failwith "JS only"
 
 
 [<Import("*","string_decoder")>]
@@ -1479,7 +1478,7 @@ module string_decoder =
     let StringDecoder: NodeStringDecoder = failwith "JS only"
 
 
-module util =
+module util_types =
     type InspectOptions =
         abstract showHidden: bool option with get, set
         abstract depth: float option with get, set
@@ -1502,10 +1501,10 @@ module util =
         member __.inherits(``constructor``: obj, superConstructor: obj): unit = failwith "JS only"
         member __.debuglog(key: string): Func<string, obj, unit> = failwith "JS only"
 
-let [<Import("*","util")>] util: util.Globals = failwith "JS only"
+let [<Import("*","util")>] util: util_types.Globals = failwith "JS only"
 
 
-module ``assert`` =
+module assert_types =
     type [<Import("AssertionError","assert")>] AssertionError(?options: obj) =
         // interface Error
         member __.name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -1528,18 +1527,18 @@ module ``assert`` =
         member __.notStrictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
         member __.ifError(value: obj): unit = failwith "JS only"
 
-let [<Import("*","assert")>] ``assert``: ``assert``.Globals = failwith "JS only"
+let [<Import("*","assert")>] ``assert``: assert_types.Globals = failwith "JS only"
 
 
 [<Import("*","tty")>] 
 module tty =
     type ReadStream =
-        inherit net.Socket
+        inherit net_types.Socket
         abstract isRaw: bool with get, set
         abstract setRawMode: mode: bool -> unit
 
     and WriteStream =
-        inherit net.Socket
+        inherit net_types.Socket
         abstract columns: float with get, set
         abstract rows: float with get, set
 
