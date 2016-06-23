@@ -283,7 +283,7 @@ module Util =
             upcast Babel.TryStatement (block com ctx expr.Range [body],
                 ?handler=handler, ?finalizer=finalizer, ?loc=range)
 
-        | Fable.Throw (TransformExpr com ctx ex, range) ->
+        | Fable.Throw (TransformExpr com ctx ex, _, range) ->
             upcast Babel.ThrowStatement(ex, ?loc=range)
 
         | Fable.DebugBreak range ->

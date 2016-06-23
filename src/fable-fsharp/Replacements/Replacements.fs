@@ -403,7 +403,7 @@ module private AstPass =
             |> Some
         // Exceptions
         | "failwith" | "raise" | "reraise" | "invalidOp" ->
-            Fable.Throw (args.Head, r) |> Some
+            Fable.Throw (args.Head, typ, r) |> Some
         // Type ref
         | "typeof" ->
             makeTypeRef com info.range info.methodTypeArgs.Head |> Some

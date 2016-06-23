@@ -197,7 +197,7 @@ and Expr =
     | Quote of Expr
 
     // Pseudo-Statements
-    | Throw of Expr * range: SourceLocation option
+    | Throw of Expr * typ: Type * range: SourceLocation option
     | DebugBreak of range: SourceLocation option
     | Loop of LoopKind * range: SourceLocation option
     | VarDeclaration of var: Ident * value: Expr * isMutable: bool
@@ -210,27 +210,17 @@ and Expr =
     | Wrapped of Expr * Type
 
     member x.Type =
-        let combineTypes (e1: Expr) (e2: Expr) =
-            // The expressions can have different types
-            // if one of them is a throw expression (it has always type Unit)
-            match e1.Type with
-            | Type.PrimitiveType(PrimitiveTypeKind.Unit) -> e2.Type
-            | _ -> e1.Type
-
         match x with
         | Value kind -> kind.Type
         | ObjExpr _ -> UnknownType
-        | Wrapped (_,typ) | Apply (_,_,_,typ,_) -> typ
-        | IfThenElse (_,thenExpr,elseExpr,_) ->
-            combineTypes thenExpr elseExpr
-        | Throw _ | DebugBreak _ | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
+        | Wrapped (_,typ) | Apply (_,_,_,typ,_) | Throw (_,typ,_) -> typ
+        | IfThenElse (_,thenExpr,elseExpr,_) -> thenExpr.Type
+        | DebugBreak _ | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
         | Sequential (exprs,_) ->
             match exprs with
             | [] -> PrimitiveType Unit
             | exprs -> (Seq.last exprs).Type
-        | TryCatch (body,None,_,_) -> body.Type
-        | TryCatch (body,Some(_,catchExpr),_,_) ->
-            combineTypes body catchExpr
+        | TryCatch (body,_,_,_) -> body.Type
         // TODO: Quotations must have their own primitive? type
         | Quote _ -> UnknownType
 
@@ -241,7 +231,7 @@ and Expr =
         | ObjExpr (_,_,_,range)
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
-        | Throw (_,range)
+        | Throw (_,_,range)
         | DebugBreak range
         | Loop (_,range)
         | Set (_,_,_,range)
@@ -256,7 +246,7 @@ and Expr =
     //     | Emit (_,args,_,_) -> args
     //     | Apply (callee,args,_,_,_) -> (callee::args)
     //     | IfThenElse (guardExpr,thenExpr,elseExpr,_) -> [guardExpr; thenExpr; elseExpr]
-    //     | Throw (ex,_) -> [ex]
+    //     | Throw (ex,_,_) -> [ex]
     //     | Loop (kind,_) ->
     //         match kind with
     //         | While (guard,body) -> [guard; body]
