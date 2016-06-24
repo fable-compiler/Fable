@@ -43,6 +43,10 @@ module Operators =
     let createObj (fields: #seq<string*obj>): obj = failwith "JS only"
     
     let createEmpty<'T> : 'T = failwith "JS only"
+
+module Serialize =
+    let toJson (o: 'T): string = failwith "JS only"
+    let ofJson<'T> (json: string): 'T = failwith "JS only"
     
 module Testing =
     type TestAttribute() =

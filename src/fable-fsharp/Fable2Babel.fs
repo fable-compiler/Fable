@@ -507,15 +507,16 @@ module Util =
         // TODO: For now, we're ignoring compiler generated interfaces for union and records
         let ifcs = ent.Interfaces |> List.filter (fun x ->
             isClass || (not (Naming.automaticInterfaces.Contains x)))
-        if ifcs.Length = 0
-        then None
-        else [ getCoreLibImport com ctx "Util"
-               typeRef com ctx ent None
-               buildStringArray ifcs ]
-            |> List.map (fun x -> x :> Babel.Node)
-            |> macroExpression None "$0.setInterfaces($1.prototype, $2)"
-            |> Babel.ExpressionStatement :> Babel.Statement
-            |> Some
+        [ getCoreLibImport com ctx "Util"
+          typeRef com ctx ent None
+          buildStringArray ifcs
+          upcast Babel.StringLiteral ent.FullName ]
+        |> fun args ->
+            // "$0.setInterfaces($1.prototype, $2, $3)"
+            Babel.CallExpression(
+                get args.[0] "setInterfaces",
+                [get args.[1] "prototype"; args.[2]; args.[3]] |> List.map U2.Case1)
+        |> Babel.ExpressionStatement :> Babel.Statement
 
     let declareEntryPoint com ctx (funcExpr: Babel.Expression) =
         let argv = macroExpression None "process.argv.slice(2)" []
@@ -581,9 +582,8 @@ module Util =
             transformClass com ctx (Some entRange) classIdent baseClass entDecls
             |> declareMember entRange ent.Name (Some privateName) ent.IsPublic false modIdent
         let classDecl =
-            match declareInterfaces com ctx ent isClass with
-            | None -> classDecl
-            | Some ifcDecl -> (U2.Case1 ifcDecl)::classDecl
+            declareInterfaces com ctx ent isClass
+            |> fun ifcDecl -> (U2.Case1 ifcDecl)::classDecl
         // Check if there's a static constructor
         entDecls |> Seq.exists (function
             | Fable.MemberDeclaration m ->
