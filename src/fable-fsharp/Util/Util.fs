@@ -158,9 +158,6 @@ module Naming =
             "Array"; "Int8Array"; "Uint8Array"; "Uint8ClampedArray"; "Int16Array"; "Uint16Array"; "Int32Array"; "Uint32Array"; "Float32Array"; "Float64Array";
         ] 
 
-    let isInvalidJsIdent name =
-        identForbiddenCharsRegex.IsMatch(name) || jsKeywords.Contains name
-
     let sanitizeIdent conflicts name =
         let preventConflicts conflicts name =
             let rec check n =

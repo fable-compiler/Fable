@@ -455,6 +455,13 @@ module Util =
             match body with
             | ExprType (Fable.PrimitiveType Fable.Unit) ->
                 block com ctx body.Range [body] |> U2.Case1
+            // Deal with non-unit Throw expressions specifically as trying
+            // to return them will cause an infinite loop (and thus a Stack Overflow)  
+            | Fable.Throw (ex, _, range) ->
+                com.TransformExpr ctx ex
+                |> fun ex -> Babel.ThrowStatement(ex, ?loc=range)
+                |> fun throw -> Babel.BlockStatement([throw], ?loc=range)
+                |> U2.Case1
             | Fable.TryCatch (tryBody, handler, finalizer, tryRange) ->
                 let handler =
                     handler |> Option.map (fun (param, body) ->
@@ -539,6 +546,8 @@ module Util =
             Babel.ExportNamedDeclaration(decl, loc=range)
             :> Babel.ModuleDeclaration |> U2.Case2 |> List.singleton
         | true ->
+            if Naming.identForbiddenCharsRegex.IsMatch publicName then
+                failwithf "'%s' cannot be used as a root member name %O" publicName range
             let expSpec = Babel.ExportSpecifier(privateIdent, Babel.Identifier publicName)
             let expDecl = Babel.ExportNamedDeclaration(specifiers=[expSpec])
             [expDecl :> Babel.ModuleDeclaration |> U2.Case2; decl :> Babel.Statement |> U2.Case1]

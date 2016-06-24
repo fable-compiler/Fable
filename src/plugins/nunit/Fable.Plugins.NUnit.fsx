@@ -47,7 +47,7 @@ module Util =
             failwithf "Test parameters are not supported (testName = '%s')." name
         let testArgs, testBody =
             let (|RunSync|_|) = function
-                | Fable.Sequential([Fable.Throw(Fable.Value(Fable.StringConst warning),_); arg],_)
+                | Fable.Sequential([Fable.Throw(Fable.Value(Fable.StringConst warning),_,_); arg],_)
                     when warning = runSyncWarning -> Some arg
                 | _ -> None
             match test.Body with
@@ -129,7 +129,7 @@ type NUnitPlugin() =
             | "Microsoft.FSharp.Control.Async", "runSynchronously" ->
                 match info.returnType with
                 | Fable.PrimitiveType Fable.Unit ->
-                    let warning = Fable.Throw(Fable.Value(Fable.StringConst Util.runSyncWarning), None)
+                    let warning = Fable.Throw(Fable.Value(Fable.StringConst Util.runSyncWarning), Fable.PrimitiveType Fable.Unit, None)
                     AST.Fable.Util.makeSequential info.range [warning; info.args.Head] |> Some 
                 | _ -> failwithf "Async.RunSynchronously in tests is only allowed with Async<unit> %O" info.range
             | _ -> None
