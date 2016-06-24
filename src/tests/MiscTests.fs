@@ -503,3 +503,15 @@ let ``Type of try-with expression is correctly determined when exception handler
         try 7 with | _ -> failwith "error"
 
     f () |> equal 7
+
+type DisposableFoo() =
+    member __.Foo() = 5  
+    interface IDisposable with
+        member __.Dispose () = ()
+
+[<Test>]
+let ``use doesn't return on finally clause`` () = // See #211
+    let foo() =
+        use c = new DisposableFoo()
+        c.Foo()
+    foo() |> equal 5

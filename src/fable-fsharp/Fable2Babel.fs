@@ -271,17 +271,19 @@ module Util =
         | Fable.VarDeclaration (var, TransformExpr com ctx value, _isMutable) ->
             varDeclaration expr.Range (ident var) value :> Babel.Statement
 
-        | Fable.TryCatch (body, catch, finalizer, range) ->
+        // If they try...finally is within a do expression, when expanding it Babel
+        // will add a return to the finally clause creating unexpected behaviour (see #211).
+        // Wrap the expr in a function to prevent this (try...finally is dealt with in transformFunction)
+        | Fable.TryCatch (body, catch, Some finalizer, range) ->
+            upcast Babel.ExpressionStatement (iife com ctx expr, ?loc=expr.Range)
+
+        | Fable.TryCatch (body, catch, None, range) ->
             let handler =
                 catch |> Option.map (fun (param, body) ->
                     Babel.CatchClause (ident param,
                         block com ctx body.Range [body], ?loc=body.Range))
-            let finalizer =
-                match finalizer with
-                | None -> None
-                | Some e -> Some (block com ctx e.Range [e])
             upcast Babel.TryStatement (block com ctx expr.Range [body],
-                ?handler=handler, ?finalizer=finalizer, ?loc=range)
+                ?handler=handler, ?loc=range)
 
         | Fable.Throw (TransformExpr com ctx ex, _, range) ->
             upcast Babel.ThrowStatement(ex, ?loc=range)

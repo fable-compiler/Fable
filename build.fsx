@@ -226,7 +226,10 @@ Target "CoreLib" (fun _ ->
     Util.run "." "uglifyjs" "import/core/fable-core.js -c -m -o import/core/fable-core.min.js"
     !! "import/core/Fable.Core.fsproj"
     |> MSBuildRelease "import/core" "Build"
-    |> Log "Import-Output: "
+    |> Log "CoreLib-Output: "
+)
+
+Target "UpdateCoreLibVersion" (fun _ -> 
     match Npm.commandAndReturn "import/core" "version" ["-v"] with
     | v when v = coreLibVersion -> ()
     | _ ->
@@ -283,6 +286,9 @@ Target "All" ignore
   ==> "MochaTest"
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
+
+"CoreLib"
+  ==> "UpdateCoreLibVersion"
 
 // Start build
 RunTargetOrDefault "All"
