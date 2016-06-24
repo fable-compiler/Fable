@@ -33,6 +33,9 @@ Util.getRestParams = function (args, idx) {
   return restArgs;
 };
 Util.compareTo = function (x, y) {
+  function isCollectionComparable (o) {
+    return Array.isArray(o) || ArrayBuffer.isView(o) || o instanceof List || o instanceof Map || o instanceof Set;
+  }
   function sortIfMapOrSet(o) {
     return o instanceof Map || o instanceof Set ? Array.from(o).sort() : o;
   }
@@ -44,13 +47,13 @@ Util.compareTo = function (x, y) {
     if (Object.getPrototypeOf(x) != Object.getPrototypeOf(y)) {
       return -1;
     }
-    if (x[Symbol.iterator] && y[Symbol.iterator]) {
+    if (isCollectionComparable(x)) {
       lengthComp = Util.compareTo(Seq.length(x), Seq.length(y));
       return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev, v1, v2) {
         return prev != 0 ? prev : Util.compareTo(v1, v2);
       }, 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
     }
-    if (x instanceof Date && y instanceof Date) {
+    if (x instanceof Date) {
       return x < y ? -1 : x > y ? 1 : 0;
     }
     var keys1 = Object.getOwnPropertyNames(x),

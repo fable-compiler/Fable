@@ -690,7 +690,8 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 when meth.EnclosingEntity.IsFSharpModule ->
                 // Bind module member names to context to prevent
                 // name clashes (they will become variables in JS)
-                let ctx, privateName = bindIdent ctx Fable.UnknownType (Some meth) name
+                let typ = makeType com ctx meth.FullType
+                let ctx, privateName = bindIdent ctx typ (Some meth) name
                 ctx, Some (privateName.name)
             | _ -> ctx, None
         let entMember =
