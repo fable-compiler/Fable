@@ -289,6 +289,9 @@ module private AstPass =
         | "awaitPromise" | "startAsPromise" ->
             CoreLibCall("Async", Some i.methodName, false, deleg i i.args)
             |> makeCall com i.range i.returnType |> Some
+        | "toJson" | "ofJson" ->
+            CoreLibCall("Util", Some i.methodName, false, i.args)
+            |> makeCall com i.range i.returnType |> Some
         | _ -> None
             
     let references com (i: Fable.ApplyInfo) =

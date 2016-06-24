@@ -1,7 +1,8 @@
 "use strict";
 
 var FSymbol = {
-  interfaces: Symbol("interfaces")
+  interfaces: Symbol("interfaces"),
+  typeName: Symbol("typeName")
 };
 export { FSymbol as Symbol };
 
@@ -11,16 +12,24 @@ export var Choice = function Choice(t, d) {
 };
 
 export var Util = {};
-// To set an interface on a class Foo, after declaration use
-// Util.setInterfaces(Foo.prototype, ["IFoo", "IBar"]);
-Util.setInterfaces = function (obj, infcs) {
-  var curInfcs = obj[FSymbol.interfaces];
-  if (Array.isArray(curInfcs)) {
-    for (var i = 0; i < infcs.length; i++) {
-      curInfcs.push(infcs[i]);
+Util.__types = new Map();
+// For legacy reasons the name is kept, but this method also adds
+// the type name to a cache. Use it after declaration:
+// Util.setInterfaces(Foo.prototype, ["IFoo", "IBar"], "MyModule.Foo");
+Util.setInterfaces = function (proto, interfaces, typeName) {
+  var curInfcs = proto[FSymbol.interfaces];
+  if (Array.isArray(interfaces) && interfaces.length > 0) {
+    if (Array.isArray(curInfcs)) {
+      for (var i = 0; i < interfaces.length; i++) {
+        curInfcs.push(interfaces[i]);
+      }
+    } else {
+      proto[FSymbol.interfaces] = interfaces;
     }
-  } else {
-    obj[FSymbol.interfaces] = infcs;
+  }
+  if (typeName) {
+    proto[FSymbol.typeName] = typeName;
+    Util.__types.set(typeName, proto.constructor);
   }
 };
 Util.hasInterface = function (obj, infc) {
@@ -47,6 +56,9 @@ Util.compareTo = function (x, y) {
     if (Object.getPrototypeOf(x) != Object.getPrototypeOf(y)) {
       return -1;
     }
+    if (Util.hasInterface(x, "System.IComparable")) {
+      return x.compareTo(y);
+    }
     if (isCollectionComparable(x)) {
       lengthComp = Util.compareTo(Seq.length(x), Seq.length(y));
       return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev, v1, v2) {
@@ -70,6 +82,37 @@ Util.createObj = function (fields) {
     acc[kv[0]] = kv[1];
     return acc;
   }, {}, fields);
+};
+Util.toJson = function (o) {
+  function replacer(k,v) {
+    if (ArrayBuffer.isView(v)) {
+      return Array.from(v);
+    }
+    if (typeof v == "object") {
+      if (v instanceof List || v instanceof Map || v instanceof Set) {
+        throw "JSON serialization of List, Map or Set is not supported"; 
+      }
+      if (v[FSymbol.typeName]) {
+        var o2 = { __type: v[FSymbol.typeName] };
+        return Object.assign(o2, v);
+      }
+    }
+    return v;
+  }
+  return JSON.stringify(o, replacer);
+};
+Util.ofJson = function (json) {
+  function reviver(k,v) {
+    if (typeof v == "object" && v.__type) {
+      var T = Util.__types.get(v.__type);
+      if (T) {
+        delete v.__type;
+        return Object.assign(new T(), v);
+      }
+    }
+    return v;
+  }
+  return JSON.parse(json, reviver);
 };
 
 export var TimeSpan = {};

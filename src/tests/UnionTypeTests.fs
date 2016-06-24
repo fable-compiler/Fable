@@ -133,6 +133,24 @@ let ``Union cases json stringify is as we expect``() =
     ObjectType({Prop1 = "value1"; Prop2 = 2})
     |> jsonStringify
     |> equal """{"Case":"ObjectType","Fields":[{"Prop1":"value1","Prop2":2}]}"""
+
+type Tree =
+    | Leaf of int
+    | Branch of Tree[]
+    member this.Sum() =
+        match this with
+        | Leaf i -> i
+        | Branch trees -> trees |> Seq.map (fun x -> x.Sum()) |> Seq.sum 
+
+[<Test>]
+let ``Unions can be JSON serialized forth and back``() =
+    let tree = Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
+    let sum1 = tree.Sum() 
+    let json = Serialize.toJson tree
+    let tree2 = Serialize.ofJson<Tree> json
+    let sum2 = tree2.Sum()
+    equal true (box tree2 :? Tree) // Type is kept
+    equal true (sum1 = sum2) // Prototype methods can be accessed
 #endif
 
 [<Test>]

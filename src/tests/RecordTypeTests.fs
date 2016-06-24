@@ -46,3 +46,25 @@ let ``Records with special characters are mapped correctly``() =
     let x = { ``s p a c e`` = 1.0; ``s*y*m*b*o*l`` = 2.0 }
     equal 1. x.``s p a c e``
     equal 2. x.``s*y*m*b*o*l``
+
+#if MOCHA
+type Child =
+    { a: string; b: int }
+    member x.Sum() = (int x.a) + x.b
+
+type Parent =
+    { children: Child[] }
+    member x.Sum() = x.children |> Seq.sumBy (fun c -> c.Sum())
+
+open Fable.Core
+
+[<Test>]
+let ``Records can be JSON serialized forth and back``() =
+    let parent = { children=[|{a="3";b=5}; {b=7;a="1"} |] }
+    let sum1 = parent.Sum() 
+    let json = Serialize.toJson parent
+    let tree2 = Serialize.ofJson<Parent> json
+    let sum2 = parent.Sum()
+    equal true (box tree2 :? Parent) // Type is kept
+    equal true (sum1 = sum2) // Prototype methods can be accessed
+#endif
