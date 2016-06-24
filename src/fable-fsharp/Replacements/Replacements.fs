@@ -580,9 +580,18 @@ module private AstPass =
         | _ -> None
 
     let options com (i: Fable.ApplyInfo) =
+        // Prevent functions being run twice, see #198
+        let wrapInLet f expr =
+            let ident = Naming.getUniqueVar() |> makeIdent
+            [
+                Fable.VarDeclaration(ident, expr, false)
+                f(Fable.Value(Fable.IdentValue ident))
+            ]
+            |> fun exprs -> Fable.Sequential(exprs, i.range) 
         let toArray r optExpr =
-            Fable.Apply(Fable.Emit("$0 != null ? [$0]: []") |> Fable.Value, [optExpr],
-                Fable.ApplyMeth, Fable.PrimitiveType (Fable.Array Fable.DynamicArray), r)
+            // "$0 != null ? [$0]: []"
+            let makeArray exprs = Fable.ArrayConst(Fable.ArrayValues exprs, Fable.DynamicArray) |> Fable.Value
+            Fable.IfThenElse(makeEqOp r [optExpr; Fable.Value Fable.Null] BinaryUnequal, makeArray [optExpr], makeArray [], r)
         let getCallee() = match i.callee with Some c -> c | None -> i.args.Head
         match i.methodName with
         | "none" -> Fable.Null |> Fable.Value |> Some
@@ -596,12 +605,21 @@ module private AstPass =
             // Hack to fix instance member calls (e.g., myOpt.IsSome)
             // For some reason, F# compiler expects it to be applicable
             | _ -> Fable.Lambda([], comp) |> Fable.Value |> Some
-        | "map" | "bind" -> emit i "$1 != null ? $0($1) : $1" i.args |> Some
+        | "map" | "bind" ->
+            // emit i "$1 != null ? $0($1) : $1" i.args |> Some
+            let f, arg = i.args.Head, i.args.Tail.Head
+            arg |> wrapInLet (fun e ->
+                Fable.IfThenElse(
+                    makeEqOp i.range [e; Fable.Value Fable.Null] BinaryUnequal,
+                    Fable.Apply(f, [e], Fable.ApplyMeth, Fable.UnknownType, i.range),
+                    e, i.range))
+            |> Some
         | "toArray" -> toArray i.range i.args.Head |> Some
         | meth ->
             let args =
                 let args = List.rev i.args
-                (toArray i.range args.Head)::args.Tail |> List.rev
+                wrapInLet (fun e -> toArray i.range e) args.Head
+                |> fun argsHead -> List.rev (argsHead::args.Tail)
             CoreLibCall("Seq", Some meth, false, deleg i args)
             |> makeCall com i.range i.returnType |> Some
         

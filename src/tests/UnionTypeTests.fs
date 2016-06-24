@@ -152,3 +152,28 @@ let ``Option.IsSome/IsNone works``() =
     o1.IsSome |> equal false
     o2.IsNone |> equal false
     o2.IsSome |> equal true
+
+[<Test>]
+let ``Option.iter works``() = // See #198
+    let mutable res = false
+    let getOnlyOnce =
+        let mutable value = Some "Hello"
+        fun () -> match value with Some x -> value <- None; Some x | None -> None
+    getOnlyOnce() |> Option.iter (fun s -> if s = "Hello" then res <- true)
+    equal true res
+
+[<Test>]
+let ``Option.map works``() =
+    let mutable res = false
+    let getOnlyOnce =
+        let mutable value = Some "Alfonso"
+        fun () -> match value with Some x -> value <- None; Some x | None -> None
+    getOnlyOnce() |> Option.map ((+) "Hello ") |> equal (Some "Hello Alfonso")
+
+[<Test>]
+let ``Option.bind works``() =
+    let mutable res = false
+    let getOnlyOnce =
+        let mutable value = Some "Alfonso"
+        fun () -> match value with Some x -> value <- None; Some x | None -> None
+    getOnlyOnce() |> Option.bind ((+) "Hello " >> Some) |> equal (Some "Hello Alfonso")
