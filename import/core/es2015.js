@@ -1974,6 +1974,87 @@ Async.sleep = function (ms) {
   });
 };
 
+var Queue = function () { };
+Queue.prototype.add = function (it) {
+  var itCell = { value: it };
+  if (this.firstAndLast) {
+    this.firstAndLast[1].next = itCell;
+    this.firstAndLast = [this.firstAndLast[0], itCell];
+  }
+  else {
+    this.firstAndLast = [itCell, itCell];
+  }
+};
+Queue.prototype.tryGet = function (it) {
+  if (this.firstAndLast) {
+    var value = this.firstAndLast[0].value;
+    if (this.firstAndLast[0].next) {
+      this.firstAndLast = [this.firstAndLast[0].next, this.firstAndLast[1]];
+    }
+    else {
+      delete this.firstAndLast;
+    }
+    return value;
+  }
+};
+
+export var MailboxProcessor = function (body) {
+  this.body = body;
+  this.messages = new Queue();
+};
+MailboxProcessor.prototype.__processEvents = function () {
+  if (this.continuation) {
+    var value = this.messages.tryGet();
+    if (value) {
+      var cont = this.continuation;
+      delete this.continuation;
+      cont(value);
+    }
+  }
+};
+MailboxProcessor.prototype.start = function () {
+  Async.startImmediate(this.body(this));
+};
+MailboxProcessor.start = function (body) {
+  var mbox = new MailboxProcessor(body);
+  mbox.start();
+  return mbox;
+};
+MailboxProcessor.prototype.receive = function () {
+  var _this = this;
+  return Async.fromContinuations(function(conts) {
+    if (_this.continuation) {
+      throw "Receive can only be called once!";
+    }
+    _this.continuation = conts[0];
+    _this.__processEvents();
+  });
+};
+MailboxProcessor.prototype.postAndAsyncReply = function (f) {
+  var result, continuation;
+  function checkCompletion() {
+    if (result && continuation) {
+      continuation(result);
+    }
+  };
+  var reply = {
+    reply: function(res) {
+      result = res;
+      checkCompletion();
+    }
+  };
+  this.messages.add(f(reply));
+  this.__processEvents();
+  return Async.fromContinuations(function (conts) {
+    continuation = conts[0];
+    checkCompletion();
+  });
+};
+MailboxProcessor.prototype.post = function (msg) {
+  this.messages.add(msg);
+  this.__processEvents();
+};
+
 var Observer = function (onNext, onError, onCompleted) {
   this.onNext = onNext;
   this.onError = onError || function (e) {};

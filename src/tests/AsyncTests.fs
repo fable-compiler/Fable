@@ -229,3 +229,50 @@ let ``Promises can be cancelled``() =
         do! Async.Sleep 100
         equal 1 !res
     } |> Async.RunSynchronously
+
+[<Test>]
+let ``MailboxProcessor.post works``() =
+    async {
+        let mutable res = None
+        let agent = new MailboxProcessor<int>(fun inbox ->
+            let rec messageLoop() = async {
+                let! msg = inbox.Receive()
+                match msg with
+                | 3 -> () // Finish loop
+                | _ ->
+                    res <- Some msg
+                    return! messageLoop()
+            }
+            messageLoop()
+        )
+        agent.Post(1)
+        equal None res // Mailbox hasn't started yet
+        agent.Start()
+        agent.Post(2)
+        // Not necessary in the JS implementation, but in .NET
+        // MailboxProcessor works in the background so we must wait a bit
+        do! Async.Sleep 100
+        equal (Some 2) res
+        agent.Post(3)
+        equal (Some 2) res  // Mailbox has finished
+    } |> Async.RunSynchronously
+
+type Message = string * AsyncReplyChannel<string>
+
+[<Test>]
+let ``MailboxProcessor.postAndAsyncReply works``() =
+    async {
+        let formatString = "Msg: {0} - {1}"
+        let agent = MailboxProcessor<Message>.Start(fun inbox ->
+            let rec loop n = async {            
+                let! (message, replyChannel) = inbox.Receive()
+                do! Async.Sleep(100) // Delay a bit
+                replyChannel.Reply(String.Format(formatString, n, message))
+                if message <> "Bye" then do! loop (n + 1)
+            }
+            loop 0)
+        let! resp = agent.PostAndAsyncReply(fun replyChannel -> "Hi", replyChannel)
+        equal "Msg: 0 - Hi" resp
+        let! resp = agent.PostAndAsyncReply(fun replyChannel -> "Bye", replyChannel)
+        equal "Msg: 1 - Bye" resp
+    } |> Async.RunSynchronously

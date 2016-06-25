@@ -160,6 +160,12 @@ Object expressions are compatible for the most general cases.
 Units of measure are compatible (at least for `int` and `float`) but they will
 be erased from the generated JS code.
 
+## MailboxProcessor
+
+A single-thread version of `MailboxProcessor` is included. At the moment,
+only methods `Start`, `Receive`, `Post` and `PostAndAsyncReply` are implemented
+(`cancellationToken` or `timeout` optional arguments are not supported).
+
 ## Quotations
 
 Experimental support for quotations has been added. Currently they compile to a JS object

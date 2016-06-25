@@ -295,7 +295,6 @@ module private AstPass =
         | _ -> None
             
     let references com (i: Fable.ApplyInfo) =
-        let r = ref 5
         match i.methodName with
         | ".ctor" -> makeJsObject i.range.Value [("contents", i.args.Head)] |> Some
         | "contents" | "value" -> makeGet i.range Fable.UnknownType i.args.Head (makeConst "contents") |> Some
@@ -1155,6 +1154,22 @@ module private AstPass =
         | _ ->
             failwithf "Only System.Convert.ToString is supported %O" info.range 
 
+    let mailbox com (info: Fable.ApplyInfo) =
+        match info.callee with
+        | None ->
+            match info.methodName with
+            | ".ctor" -> CoreLibCall("MailboxProcessor", None, true, info.args) |> Some
+            | "start" -> CoreLibCall("MailboxProcessor", Some "start", false, info.args) |> Some
+            | _ -> None
+            |> Option.map (makeCall com info.range info.returnType)
+        | Some callee ->
+            match info.methodName with
+            // `reply` belongs to AsyncReplyChannel
+            | "start" | "receive" | "postAndAsyncReply" | "post" | "reply" ->
+                InstanceCall(callee, info.methodName, info.args)
+                |> makeCall com info.range info.returnType |> Some
+            | _ -> None
+
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | KnownInterfaces _ -> knownInterfaces com info
@@ -1215,6 +1230,8 @@ module private AstPass =
         | "System.Type" -> types com info
         | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com info
         | "System.Convert" -> conversions com info
+        | "Microsoft.FSharp.Control.MailboxProcessor"
+        | "Microsoft.FSharp.Control.AsyncReplyChannel" -> mailbox com info
         | _ -> None
 
 module private CoreLibPass =
