@@ -8,6 +8,7 @@ There are several ways to interact with the JavaScript world:
 - [Foreign interfaces](#foreign-interfaces)
 - [Special attributes](#special-attributes)
 - [Calling F# code from JavaScript](#calling-f-code-from-javascript)
+- [JSON serialization](#json-serialization)
 
 ## Dynamic programming
 
@@ -407,3 +408,45 @@ foreignObj.myMethod(fun a b -> a + b)
 
 > Note: If you still experience problems make the conversion explicit
 as in the above example.
+
+## JSON serialization
+
+It's possible to use `JSON.stringify` and `JSON.parse` to serialize objects back
+and forth, particularly with record and union types. Records will serialize as plain
+JS objects and unions will be serialized the same way as with [Json.NET](http://www.newtonsoft.com/json),
+making it easier to interact with a .NET server.
+
+The only problem is `JSON.parse` will produce a plain JS object which won't work if
+you need to type test it or access the prototype members. When this is necessary, you
+can use `toJson` and `ofJson` functions in `Fable.Core.Serialize` module. This will
+save the type full name in a `__type` field so Fable will know which type to construct
+when deserializing:
+
+```fsharp
+open Fable.Core
+
+type Tree =
+    | Leaf of int
+    | Branch of Tree[]
+    member this.Sum() =
+        match this with
+        | Leaf i -> i
+        | Branch trees ->
+            trees |> Seq.map (fun x -> x.Sum()) |> Seq.sum
+
+let tree =
+    Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
+
+let json = Serialize.toJson tree
+let tree2 = Serialize.ofJson<Tree> json
+
+let typeTest = box tree2 :? Tree    // Type is kept
+let sum = tree2.Sum()   // Prototype members can be accessed
+```
+
+> `Serialize.ofJson` works with records, unions and types with
+an argumentless primary constructor.
+
+> This will work when exchanging objects with a server, if the
+server includes the type full name in a `__type` field and the
+client code knows the type definiton.
