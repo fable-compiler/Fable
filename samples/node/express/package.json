@@ -7,7 +7,7 @@
     "serve-static": "^1.10.2"
   },
   "devDependencies": {
-    "fable-import-express": "^0.0.8"
+    "fable-import-express": "^0.0.10"
   },
   "engines": {
     "fable": "^0.3.24"
