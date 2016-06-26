@@ -1,5 +1,6 @@
 module Fable.FSharp2Fable.Compiler
 
+open System.IO
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -762,24 +763,14 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
                 then defaultArg ent.TryFullName ""
                 else defaultArg ent.Namespace ""
             | ents ->
-                let getCommonNs (xs: string[] list)=
-                    let rec getCommonNs (prefix: string[]) = function
-                        | [] -> prefix
-                        | (x: string[])::xs ->
-                            let mutable i = 0
-                            while i < prefix.Length && i < x.Length && x.[i] = prefix.[i] do
-                                i <- i + 1
-                            getCommonNs prefix.[0..i-1] xs
-                    match xs with
-                    | [] -> ""
-                    | x::xs -> getCommonNs x xs |> String.concat "."
                 let rootNs =
                     ents
                     |> List.choose (fun ent ->
                         match ent.TryFullName with
                         | Some fullName -> fullName.Split('.') |> Some
                         | None -> None)
-                    |> getCommonNs
+                    |> Naming.getCommonPrefix
+                    |> String.concat "."
                 if rootNs.EndsWith(".")
                 then rootNs.Substring(0, rootNs.Length - 1)
                 else rootNs
@@ -845,7 +836,7 @@ type Info =
     }
     member info.IsMasked(file: FSharpImplementationFileContents) =
         let arePathsEqual p1 p2 =
-            let normalize = System.IO.Path.GetFullPath >> Naming.normalizePath
+            let normalize = Path.GetFullPath >> Naming.normalizePath
             (normalize p1) = (normalize p2)
         match info.fileMask with
         | Some mask ->
@@ -873,13 +864,14 @@ let transformFiles (com: ICompiler) (comInfo: Info) =
             else getRootDecls rootNs (Some ent) decls
         | _ -> failwith "Multiple namespaces in same file is not supported"
     let curProj =
-        Fable.Project(
-            com.Options.projFile,
-            makeFileMap comInfo.project.AssemblySignature.Entities)
-    let projs =
+        let projName = Path.GetFileNameWithoutExtension com.Options.projFile
+        let fileMap = makeFileMap comInfo.project.AssemblySignature.Entities
+        let baseDir = Path.GetDirectoryName com.Options.projFile
+        Fable.Project(projName, baseDir, fileMap)
+    let refProjs =
         comInfo.projectOpts.ReferencedProjects
-        |> Seq.map (fun (assemblyPath, opts) ->
-            let projName = System.IO.Path.GetFileNameWithoutExtension opts.ProjectFileName
+        |> Seq.choose (fun (assemblyPath, opts) ->
+            let projName = Path.GetFileNameWithoutExtension opts.ProjectFileName
             comInfo.project.ProjectContext.GetReferencedAssemblies()
             |> Seq.tryFind (fun a -> a.FileName = Some assemblyPath)
             |> function
@@ -887,13 +879,27 @@ let transformFiles (com: ICompiler) (comInfo: Info) =
                 failwithf "Cannot find import path for referenced project %s. %s"
                             projName "Have you forgotten --refs argument?"
             | Some assembly ->
-                Fable.Project(opts.ProjectFileName,
-                            makeFileMap assembly.Contents.Entities,
-                            assemblyPath, com.Options.refs.[projName])
+                let fileMap = makeFileMap assembly.Contents.Entities
+                let baseDir = Path.GetDirectoryName opts.ProjectFileName
+                Fable.Project(projName, baseDir, fileMap, assemblyPath, com.Options.refs.[projName])
                 |> Some
             | None -> None)
-        |> Seq.choose id
-        |> fun refs -> curProj::(List.ofSeq refs)
+        |> Seq.toList
+    let refAssemblies =
+        comInfo.project.ProjectContext.GetReferencedAssemblies()
+        |> List.choose (fun assembly ->
+            match assembly.FileName with
+            | Some asmFullName ->
+                let asmName = Path.GetFileNameWithoutExtension asmFullName
+                match Map.tryFind asmName com.Options.refs with
+                | None -> None
+                | Some importPath ->
+                    let fileMap = makeFileMap assembly.Contents.Entities
+                    let baseDir = fileMap |> Seq.map (fun kv -> kv.Key) |> Naming.getCommonBaseDir
+                    Fable.Project(asmName, baseDir, fileMap, asmFullName, importPath)
+                    |> Some
+            | None -> None)
+    let projs = curProj::(refProjs @ refAssemblies)
     let com = makeCompiler com projs
     comInfo.project.AssemblyContents.ImplementationFiles
     |> Seq.where (fun file ->

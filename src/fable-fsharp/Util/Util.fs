@@ -95,18 +95,15 @@ module Naming =
     let normalizePath (path: string) =
         path.Replace("\\", "/")
         
-    let getCommonPrefix (xs: string list) =
-        let rec getCommonPrefix (prefix: string) = function
+    let getCommonPrefix (xs: string[] list)=
+        let rec getCommonPrefix (prefix: string[]) = function
             | [] -> prefix
-            | (x: string)::xs ->
+            | (x: string[])::xs ->
                 let mutable i = 0
                 while i < prefix.Length && i < x.Length && x.[i] = prefix.[i] do
                     i <- i + 1
-                getCommonPrefix (prefix.Substring(0,i)) xs
-        match xs with
-        | [] -> ""
-        | [x] -> x
-        | x::xs -> getCommonPrefix x xs
+                getCommonPrefix prefix.[0..i-1] xs
+        match xs with [] -> [||] | x::xs -> getCommonPrefix x xs 
         
     let exportsIdent = "$exports"
     
@@ -186,7 +183,14 @@ module Naming =
 
     /// Creates a relative path from one file or folder to another.
     /// from http://stackoverflow.com/a/340454/3922220
-    let getRelativePath toPath fromPath =
+    let getRelativePath fromPath toPath =
+        // Add a dummy file to make it work correctly with dirs
+        let addDummyFile path =
+            if IO.Path.GetExtension(path) = ""
+            then IO.Path.Combine(path, "dummy.txt")
+            else path
+        let fromPath = addDummyFile fromPath
+        let toPath = addDummyFile toPath
         let fromUri = Uri(fromPath)
         let toUri = Uri(toPath)
         if fromUri.Scheme <> toUri.Scheme then
@@ -199,7 +203,7 @@ module Naming =
                             IO.Path.AltDirectorySeparatorChar,
                             IO.Path.DirectorySeparatorChar)  |> normalizePath
             | _ -> relativePath |> normalizePath
-            
+
     let getExternalImportPath (com: ICompiler) (filePath: string) (importPath: string) =
         if not(importPath.StartsWith ".")
         then importPath
@@ -209,13 +213,23 @@ module Naming =
             if Path.GetDirectoryName filePath = Path.GetDirectoryName projFile
             then importPath
             else
-                getRelativePath projFile filePath
+                getRelativePath filePath projFile
                 |> Path.GetDirectoryName
                 |> fun relPath ->
                     match Path.Combine(relPath, importPath) with
                     | path when path.StartsWith "." -> path
                     | path -> "./" + path 
                     |> normalizePath
+
+    let getCommonBaseDir (filePaths: seq<string>) =
+        filePaths
+        |> Seq.map (fun filePath ->
+            Path.GetFullPath filePath
+            |> Path.GetDirectoryName
+            |> normalizePath
+            |> fun path -> path.Split('/'))
+        |> Seq.toList |> getCommonPrefix
+        |> String.concat "/"
 
 module Json =
     open FSharp.Reflection

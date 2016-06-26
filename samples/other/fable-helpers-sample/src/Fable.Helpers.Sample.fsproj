@@ -1,19 +1,19 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <Name>Fable.Import.Test</Name>
-    <AssemblyName>Fable.Import.Test</AssemblyName>
-    <RootNamespace>Fable.Import</RootNamespace>
+    <Name>Fable.Helpers.Sample</Name>
+    <AssemblyName>Fable.Helpers.Sample</AssemblyName>
+    <RootNamespace>Fable.Helpers.Sample</RootNamespace>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>6ef06954-fbdf-42c7-815c-b13ba2926c93</ProjectGuid>
+    <ProjectGuid>9f2f4479-af38-4697-8f0f-86f557ff018b</ProjectGuid>
     <ProjectType />
     <OutputType>Library</OutputType>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
     <AutoGenerateBindingRedirects />
-    <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
+    <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
     <DocumentationFile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -21,20 +21,20 @@
     <DebugType>Full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants />
+    <OutputPath>bin</OutputPath>
+    <DefineConstants>DEBUGTRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget />
     <Prefer32Bit />
     <OtherFlags />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugSymbols>false</DebugSymbols>
-    <DebugType>None</DebugType>
+    <DebugSymbols />
+    <DebugType>PdbOnly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants />
+    <OutputPath>bin</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget />
     <Prefer32Bit />
@@ -49,25 +49,9 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <Compile Include="core/Fable.Core.fs" />
-    <Compile Include="core/Fable.Import.JS.fs" />
-    <Compile Include="core/Fable.Import.Browser.fs" />
-    <Compile Include="core/Fable.Import.Node.fs" />
-    <Compile Include="express/Fable.Import.Express.fs" />
-    <Compile Include="react/Fable.Import.React.fs" />
-    <Compile Include="react/Fable.Helpers.React.fs" />
-    <Compile Include="redux/Fable.Import.Redux.fs" />
-    <Compile Include="react-redux/Fable.Import.ReactRedux.fs" />
-    <Compile Include="react-router/Fable.Import.HistoryModule.fs" />
-    <Compile Include="react-router/Fable.Import.ReactRouter.fs" />
-    <Compile Include="react-router-redux/Fable.Import.ReactRouterRedux.fs" />
-    <Compile Include="vscode/Fable.Import.VSCode.fs" />
-    <Compile Include="electron/Fable.Import.Electron.fs" />
-    <Compile Include="d3/Fable.Import.D3.fs" />
-    <Compile Include="fetch/Fable.Import.Fetch.fs" />
-    <Compile Include="three/Fable.Import.Three.fs" />
-    <Compile Include="mocha/Fable.Import.Mocha.fs" />
+    <Compile Include="MyLib.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>

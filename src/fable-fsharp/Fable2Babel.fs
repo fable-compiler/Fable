@@ -130,13 +130,13 @@ module Util =
                 match proj.ImportPath with
                 | Some importPath ->
                     let ext = Naming.getExternalImportPath com ctx.file importPath
-                    let rel = Naming.getRelativePath file proj.ProjectFileName
+                    let rel = Naming.getRelativePath proj.BaseDir file
                     System.IO.Path.Combine(ext, rel)
                     |> Naming.normalizePath
                     |> fun x -> System.IO.Path.ChangeExtension(x, null)
                 | None ->
-                    let file = Naming.fixExternalPath com file
-                    Naming.getRelativePath file ctx.file
+                    Naming.fixExternalPath com file
+                    |> Naming.getRelativePath ctx.file
                     |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
             getParts ns ent.FullName memb
             |> function

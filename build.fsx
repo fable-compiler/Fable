@@ -184,6 +184,8 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
+    MSBuildDebug "src/tests/DllRef/bin" "Build" ["src/tests/DllRef/Fable.Tests.DllRef.fsproj"] |> ignore
+    Node.run "." "build/fable" ["src/tests/DllRef"]
     Node.run "." "build/fable" ["src/tests/Other"]
     Node.run "." "build/fable" ["src/tests/"]
     FileUtils.cp "src/tests/package.json" testsBuildDir

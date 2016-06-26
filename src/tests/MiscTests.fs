@@ -515,3 +515,8 @@ let ``use doesn't return on finally clause`` () = // See #211
         use c = new DisposableFoo()
         c.Foo()
     foo() |> equal 5
+
+[<Test>]
+let ``Referencing a Fable project through a dll works``() =
+    Fable.Tests.DllRef.Util.add2 5
+    |> equal 7

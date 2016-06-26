@@ -5,6 +5,7 @@ import/core/Fable.Import.dll.*
 samples/**/out/
 samples/**/bundle.js*
 src/providers/**/*.js*
+src/tests/**/*.dll
 
 # Node
 node_modules/

@@ -5,6 +5,7 @@
     "symbols": ["MOCHA"],
     "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
     "refs": {
-        "Fable.Tests.Clamp": "./Other"
+        "Fable.Tests.Clamp": "./Other",
+        "Fable.Tests.DllRef": "./DllRef"
     }
 }

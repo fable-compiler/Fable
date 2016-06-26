@@ -1,0 +1,24 @@
+{
+  "name": "fable-helpers-sample",
+  "version": "0.0.1",
+  "description": "Example of how to publish a Fable package",
+  "main": "out",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fsprojects/Fable/samples/other/fable-helpers-sample"
+  },
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#"
+  ],
+  "author": "Alfonso Garcia-Caro",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "fable-core": "^0.1.8"
+  }
+}

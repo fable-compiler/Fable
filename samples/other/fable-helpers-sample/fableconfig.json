@@ -1,0 +1,9 @@
+{
+    "module": "umd",
+    "sourceMaps": true,
+    "projFile": "src/Fable.Helpers.Sample.fsproj",
+    "outDir": "out",
+    "scripts": {
+        "prebuild": "npm install"
+    }
+}
