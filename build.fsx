@@ -48,18 +48,21 @@ module Util =
         // Use this in Windows to prevent conflicts with paths too long
         else run "." "cmd" ("/C rmdir /s /q " + Path.GetFullPath dir)
 
-    /// Reads a file line by line and rewrites it using the visitor to modify each line
-    ///  - uses a temp file to store the contents in order to prevent OutOfMemory exceptions
     let visitFile (visitor: string->string) (fileName : string) = 
-        use reader = new StreamReader(fileName, encoding)
-        let tempFileName = Path.GetTempFileName()
-        use writer = new StreamWriter(tempFileName, false, encoding)
-        while not reader.EndOfStream do
-            reader.ReadLine() |> visitor |> writer.WriteLine
-        reader.Close()
-        writer.Close()
-        File.Delete(fileName)
-        File.Move(tempFileName, fileName)
+        File.ReadAllLines(fileName)
+        |> Array.map (visitor)
+        |> fun lines -> File.WriteAllLines(fileName, lines)
+
+        // This code is supposed to prevent OutOfMemory exceptions but it outputs wrong BOM
+        // use reader = new StreamReader(fileName, encoding)
+        // let tempFileName = Path.GetTempFileName()
+        // use writer = new StreamWriter(tempFileName, false, encoding)
+        // while not reader.EndOfStream do
+        //     reader.ReadLine() |> visitor |> writer.WriteLine
+        // reader.Close()
+        // writer.Close()
+        // File.Delete(fileName)
+        // File.Move(tempFileName, fileName)
         
     let compileScript symbols outDir fsxPath =
         let dllFile = Path.ChangeExtension(Path.GetFileName fsxPath, ".dll")
@@ -231,8 +234,8 @@ Target "CoreLib" (fun _ ->
     |> Log "CoreLib-Output: "
 )
 
-Target "UpdateCoreLibVersion" (fun _ -> 
-    match Npm.commandAndReturn "import/core" "version" ["-v"] with
+Target "UpdateCoreLibVersion" (fun _ ->
+    match Npm.commandAndReturn "import/core" "view" ["fable-core version"] with
     | v when v = coreLibVersion -> ()
     | _ ->
         Npm.command "import/core" "version" [coreLibVersion]
