@@ -9,6 +9,7 @@ There are several ways to interact with the JavaScript world:
 - [Special attributes](#special-attributes)
 - [Calling F# code from JavaScript](#calling-f-code-from-javascript)
 - [JSON serialization](#json-serialization)
+- [Publishing a Fable package](#publishing-a-fable-package)
 
 ## Dynamic programming
 
@@ -450,3 +451,7 @@ an argumentless primary constructor.
 > This will work when exchanging objects with a server, if the
 server includes the type full name in a `__type` field and the
 client code knows the type definiton.
+
+## Publishing a Fable package
+
+See [fable-helpers-sample](https://www.npmjs.com/package/fable-helpers-sample) to know how to publish a Fable package.

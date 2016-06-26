@@ -21,7 +21,7 @@
     <DebugType>Full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>bin</OutputPath>
+    <OutputPath>../bin</OutputPath>
     <DefineConstants>DEBUGTRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget />
@@ -33,7 +33,7 @@
     <DebugType>PdbOnly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>bin</OutputPath>
+    <OutputPath>../bin</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget />

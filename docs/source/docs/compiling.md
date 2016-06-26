@@ -36,7 +36,7 @@ Option                  | Short     | Description
 `--symbols`             |           | F# symbols for conditional compilation, like `DEBUG`.
 `--plugins`             |           | Paths to Fable plugins.
 `--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
-`--refs`                |           | Specify project references in `Project=js/import/path` format (see below).
+`--refs`                |           | Specify dll or project references in `Reference=js/import/path` format (see below).
 `--msbuild`             |           | Pass MSBuild arguments like `Configuration=Release`.
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
 `--copyExt`             |           | Copy external files into `fable_external` folder (true by default).
@@ -51,19 +51,36 @@ Option                  | Short     | Description
 
 ## Project references
 
-You can use `--refs` argument to link referenced projects with the JS import path that must be used, using the following format: `[Project name without extension]=[JS import path]`.
+You can use `--refs` argument to link referenced dll or projects with the JS import path that must be used,
+using the following format: `[Reference name without extension]=[JS import path]`.
 
-Example:
+### Example: project reference
 
 ```shell
 fable src/lib/MyLib.fsproj --outDir out/lib
-fable src/another/MyNs.AnotherProject.fsproj
-  --outDir out/another
-fable src/main/MyProject.fsproj
-  --outDir out/main
-  --refs MyLib=../lib MyNs.AnotherProject=../another
+fable src/main/MyProject.fsproj --refs MyLib=../lib
 ```
 
+### Example: dll refence
+
+We assume we have an npm package with the following structure:
+
+```text
+my-lib/
+    js/MyLib.js
+    bin/MyLib.dll
+```
+
+If we are referencing `node_modules/bin/MyLib.dll` in our project,
+we can tell Fable to replace the refence with the JS code using the
+argument below (note if we are using node or a bundler like Webpack
+we can omit `./node_modules/` in the JS import path).
+
+```shell
+fable src/main/MyProject.fsproj --refs MyLib=my-lib/js
+```
+
+> See [fable-helpers-sample](https://www.npmjs.com/package/fable-helpers-sample) to know how to publish a Fable package.
 
 ## fableconfig.json
 

@@ -28,7 +28,7 @@ var cli = commandLineArgs([
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
-  { name: 'refs', multiple: true, description: "Specify project references in `Project=js/import/path` format (e.g. `MyLib=../lib`)." },
+  { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'copyExt', type: Boolean, defaultValue: true, description: "Copy external files into `fable_external` folder (true by default)." },
