@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "fable-helpers-sample",
   "version": "0.0.2",
   "description": "Example of how to publish a Fable package",
@@ -18,6 +18,6 @@
   "author": "Alfonso Garcia-Caro",
   "license": "Apache-2.0",
   "dependencies": {
-    "fable-core": "^0.1.8"
+    "fable-core": "^0.1.9"
   }
 }

@@ -1,13 +1,13 @@
-{
+﻿{
   "private": true,
   "engines": {
-    "fable": ">=0.2.3"
+    "fable": "^0.3.24"
   },
   "scripts": {
     "start": "electron out/main.js"
   },
   "dependencies": {
-    "fable-core": "0.0.15"
+    "fable-core": "^0.1.9"
   },
   "devDependencies": {
     "electron-prebuilt": "^0.37.7",

@@ -4,7 +4,8 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 var FSymbol = {
-  interfaces: Symbol("interfaces")
+  interfaces: Symbol("interfaces"),
+  typeName: Symbol("typeName")
 };
 exports.Symbol = FSymbol;
 var Choice = exports.Choice = function Choice(t, d) {
@@ -13,16 +14,24 @@ var Choice = exports.Choice = function Choice(t, d) {
 };
 
 var Util = exports.Util = {};
-// To set an interface on a class Foo, after declaration use
-// Util.setInterfaces(Foo.prototype, ["IFoo", "IBar"]);
-Util.setInterfaces = function (obj, infcs) {
-  var curInfcs = obj[FSymbol.interfaces];
-  if (Array.isArray(curInfcs)) {
-    for (var i = 0; i < infcs.length; i++) {
-      curInfcs.push(infcs[i]);
+Util.__types = new Map();
+// For legacy reasons the name is kept, but this method also adds
+// the type name to a cache. Use it after declaration:
+// Util.setInterfaces(Foo.prototype, ["IFoo", "IBar"], "MyModule.Foo");
+Util.setInterfaces = function (proto, interfaces, typeName) {
+  var curInfcs = proto[FSymbol.interfaces];
+  if (Array.isArray(interfaces) && interfaces.length > 0) {
+    if (Array.isArray(curInfcs)) {
+      for (var i = 0; i < interfaces.length; i++) {
+        curInfcs.push(interfaces[i]);
+      }
+    } else {
+      proto[FSymbol.interfaces] = interfaces;
     }
-  } else {
-    obj[FSymbol.interfaces] = infcs;
+  }
+  if (typeName) {
+    proto[FSymbol.typeName] = typeName;
+    Util.__types.set(typeName, proto.constructor);
   }
 };
 Util.hasInterface = function (obj, infc) {
@@ -35,6 +44,9 @@ Util.getRestParams = function (args, idx) {
   return restArgs;
 };
 Util.compareTo = function (x, y) {
+  function isCollectionComparable(o) {
+    return Array.isArray(o) || ArrayBuffer.isView(o) || o instanceof List || o instanceof Map || o instanceof Set;
+  }
   function sortIfMapOrSet(o) {
     return o instanceof Map || o instanceof Set ? Array.from(o).sort() : o;
   }
@@ -46,13 +58,16 @@ Util.compareTo = function (x, y) {
     if (Object.getPrototypeOf(x) != Object.getPrototypeOf(y)) {
       return -1;
     }
-    if (x[Symbol.iterator] && y[Symbol.iterator]) {
+    if (Util.hasInterface(x, "System.IComparable")) {
+      return x.compareTo(y);
+    }
+    if (isCollectionComparable(x)) {
       lengthComp = Util.compareTo(Seq.length(x), Seq.length(y));
       return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev, v1, v2) {
         return prev != 0 ? prev : Util.compareTo(v1, v2);
       }, 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
     }
-    if (x instanceof Date && y instanceof Date) {
+    if (x instanceof Date) {
       return x < y ? -1 : x > y ? 1 : 0;
     }
     var keys1 = Object.getOwnPropertyNames(x),
@@ -69,6 +84,37 @@ Util.createObj = function (fields) {
     acc[kv[0]] = kv[1];
     return acc;
   }, {}, fields);
+};
+Util.toJson = function (o) {
+  function replacer(k, v) {
+    if (ArrayBuffer.isView(v)) {
+      return Array.from(v);
+    }
+    if (typeof v == "object") {
+      if (v instanceof List || v instanceof Map || v instanceof Set) {
+        throw "JSON serialization of List, Map or Set is not supported";
+      }
+      if (v[FSymbol.typeName]) {
+        var o2 = { __type: v[FSymbol.typeName] };
+        return Object.assign(o2, v);
+      }
+    }
+    return v;
+  }
+  return JSON.stringify(o, replacer);
+};
+Util.ofJson = function (json) {
+  function reviver(k, v) {
+    if (typeof v == "object" && v.__type) {
+      var T = Util.__types.get(v.__type);
+      if (T) {
+        delete v.__type;
+        return Object.assign(new T(), v);
+      }
+    }
+    return v;
+  }
+  return JSON.parse(json, reviver);
 };
 
 var TimeSpan = exports.TimeSpan = {};
@@ -378,13 +424,13 @@ var FString = {};
 exports.String = FString;
 
 
-FString.fsFormatRegExp = /%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+FString.fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 FString.fsFormat = function (str) {
   function isObject(x) {
     return x !== null && typeof x === 'object' && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
   };
   function formatOnce(str, rep) {
-    return str.replace(FString.fsFormatRegExp, function (_, flags, pad, precision, format) {
+    return str.replace(FString.fsFormatRegExp, function (_, prefix, flags, pad, precision, format) {
       switch (format) {
         case "f":case "F":
           rep = rep.toFixed(precision || 6);break;
@@ -403,13 +449,13 @@ FString.fsFormat = function (str) {
         var ch = pad >= 0 && flags.indexOf('0') >= 0 ? '0' : ' ';
         rep = FString.padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
       }
-      return plusPrefix ? "+" + rep : rep;
+      return prefix + (plusPrefix ? "+" + rep : rep);
     });
   }
   function makeFn(str) {
     return function (rep) {
       var str2 = formatOnce(str, rep);
-      return FString.fsFormatRegExp.test(str2) ? makeFn(str2) : _cont(str2);
+      return FString.fsFormatRegExp.test(str2) ? makeFn(str2) : _cont(str2.replace(/%%/g, '%'));
     };
   }
   var _cont;
@@ -1932,6 +1978,85 @@ Async.sleep = function (ms) {
       ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess();
     }, ms);
   });
+};
+
+var Queue = function () {};
+Queue.prototype.add = function (it) {
+  var itCell = { value: it };
+  if (this.firstAndLast) {
+    this.firstAndLast[1].next = itCell;
+    this.firstAndLast = [this.firstAndLast[0], itCell];
+  } else {
+    this.firstAndLast = [itCell, itCell];
+  }
+};
+Queue.prototype.tryGet = function (it) {
+  if (this.firstAndLast) {
+    var value = this.firstAndLast[0].value;
+    if (this.firstAndLast[0].next) {
+      this.firstAndLast = [this.firstAndLast[0].next, this.firstAndLast[1]];
+    } else {
+      delete this.firstAndLast;
+    }
+    return value;
+  }
+};
+
+var MailboxProcessor = exports.MailboxProcessor = function (body) {
+  this.body = body;
+  this.messages = new Queue();
+};
+MailboxProcessor.prototype.__processEvents = function () {
+  if (this.continuation) {
+    var value = this.messages.tryGet();
+    if (value) {
+      var cont = this.continuation;
+      delete this.continuation;
+      cont(value);
+    }
+  }
+};
+MailboxProcessor.prototype.start = function () {
+  Async.startImmediate(this.body(this));
+};
+MailboxProcessor.start = function (body) {
+  var mbox = new MailboxProcessor(body);
+  mbox.start();
+  return mbox;
+};
+MailboxProcessor.prototype.receive = function () {
+  var _this = this;
+  return Async.fromContinuations(function (conts) {
+    if (_this.continuation) {
+      throw "Receive can only be called once!";
+    }
+    _this.continuation = conts[0];
+    _this.__processEvents();
+  });
+};
+MailboxProcessor.prototype.postAndAsyncReply = function (f) {
+  var result, continuation;
+  function checkCompletion() {
+    if (result && continuation) {
+      continuation(result);
+    }
+  };
+  var reply = {
+    reply: function (res) {
+      result = res;
+      checkCompletion();
+    }
+  };
+  this.messages.add(f(reply));
+  this.__processEvents();
+  return Async.fromContinuations(function (conts) {
+    continuation = conts[0];
+    checkCompletion();
+  });
+};
+MailboxProcessor.prototype.post = function (msg) {
+  this.messages.add(msg);
+  this.__processEvents();
 };
 
 var Observer = function (onNext, onError, onCompleted) {

@@ -1,4 +1,4 @@
-{
+﻿{
   "private": true,
   "name": "canvas",
   "version": "1.0.0",
@@ -12,10 +12,10 @@
   "license": "ISC",
   "dependencies": {
     "core-js": "^2.4.0",
-    "fable-core": "0.0.21",
+    "fable-core": "^0.1.9",
     "requirejs": "^2.2.0"
   },
   "engines": {
-    "fable": ">=0.2.11"
+    "fable": "^0.3.24"
   }
 }

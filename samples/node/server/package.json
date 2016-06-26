@@ -1,12 +1,12 @@
-{
+﻿{
   "private": true,
   "dependencies": {
-    "fable-core": "^0.0.8",
+    "fable-core": "^0.1.9",
     "finalhandler": "^0.4.1",
     "serve-static": "^1.10.2"
   },
   "devDependencies": {},
   "engines": {
-    "fable": ">=0.2.0"
+    "fable": "^0.3.24"
   }
 }
