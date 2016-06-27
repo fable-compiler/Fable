@@ -292,7 +292,7 @@ module App =
 
     type AppState<'TModel, 'TMessage> = {
             Model: 'TModel
-            View: 'TModel -> ('TMessage -> unit) -> Html.Types.Node
+            View: ('TMessage -> unit) -> 'TModel -> Html.Types.Node
             Update: 'TModel -> 'TMessage -> ('TModel * ((unit -> unit) list)) }
 
 
@@ -339,8 +339,8 @@ module App =
         }
 
     let start renderer app =
-        let renderTree view model handler =
-            view model handler
+        let renderTree view handler model =
+            view handler model
             |> renderer.Render
 
         let startElem =
@@ -359,7 +359,7 @@ module App =
                 async {
                     match state.Node, state.CurrentTree with
                     | None,_ ->
-                        let tree = renderTree state.AppState.View state.AppState.Model post
+                        let tree = renderTree state.AppState.View post state.AppState.Model
                         let rootNode = renderer.CreateElement tree
                         startElem.appendChild(rootNode) |> ignore
                         return! loop {state with CurrentTree = Some tree; Node = Some rootNode}
@@ -369,7 +369,7 @@ module App =
                         | Message msg ->
                             ActionReceived msg |> (notifySubscribers state.Subscribers)
                             let (model', jsCalls) = state.AppState.Update state.AppState.Model msg
-                            let tree = renderTree state.AppState.View model' post
+                            let tree = renderTree state.AppState.View post model'
                             let patches = renderer.Diff currentTree tree
                             notifySubscribers state.Subscribers (ModelChanged (model', state.AppState.Model))
                             renderer.Patch rootNode patches |> ignore

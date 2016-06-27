@@ -55,7 +55,7 @@ why this is useful.
 *)
 
 // View
-let counterView model handler =
+let counterView handler model =
     let bgColor =
         match model with
         | x when x > 100 -> "red"
@@ -313,13 +313,13 @@ let todoMain model handler =
                       [ text "Mark all as complete" ]
                 (itemList handler items model.Filter) ]
 
-let todoView m handler =
+let todoView handler model =
     section
         [attribute "class" "todoapp"]
-        ((todoHeader m.Input handler)::(if m.Items |> List.isEmpty
+        ((todoHeader model.Input handler)::(if model.Items |> List.isEmpty
                 then []
-                else [  (todoMain m handler)
-                        (todoFooter m handler) ] ))
+                else [  (todoMain model handler)
+                        (todoFooter model handler) ] ))
 
 (**
 This view is more complex than the first example, but it also show how easy it is
