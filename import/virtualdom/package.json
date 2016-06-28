@@ -1,13 +1,13 @@
 {
-  "name": "fable-import-electron",
-  "version": "0.0.5",
-  "description": "Fable bindings for Electron",
+  "name": "fable-import-virtualdom",
+  "version": "0.0.4",
+  "description": "Fable bindings for virtual-dom",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/electron"
+    "url": "https://github.com/fsprojects/Fable/import/virtualdom"
   },
   "license": "Apache-2.0",
-  "author": "Alfonso Garcia-Caro",
+  "author": "Tomas Jansson",
   "keywords": [
     "fable",
     "fable-compiler",

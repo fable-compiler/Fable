@@ -1,4 +1,18 @@
-#r "node_modules/fable-core/Fable.Core.dll"
+module Fable.Helpers.Virtualdom
+
+open Fable.Core
+
+[<Import("h","virtual-dom")>]
+let h(arg1: string, arg2: obj, arg3: obj[]): obj = failwith "JS only"
+
+[<Import("diff","virtual-dom")>] 
+let diff (tree1:obj) (tree2:obj): obj = failwith "JS only"
+
+[<Import("patch","virtual-dom")>] 
+let patch (node:obj) (patches:obj): Fable.Import.Browser.Node = failwith "JS only"
+
+[<Import("create","virtual-dom")>]
+let createElement (e:obj): Fable.Import.Browser.Node = failwith "JS only"
 
 module Html =
     [<AutoOpen>]
@@ -278,8 +292,6 @@ module Html =
         let onFocus = onEvent "onfocus"
 
 open Html
-open Fable.Core
-open Fable.Core.Extensions
 open Fable.Import.Browser
 
 [<AutoOpen>]
@@ -379,3 +391,65 @@ module App =
                     | _ -> failwith "Shouldn't happen"
                 }
             loop app)
+
+let createTree tag attributes children =
+    let renderEventHandler (eventType, handler) = eventType, handler
+
+    let renderEventBinding binding =
+        match binding with
+        | MouseEventHandler (eventType, handler) -> (eventType, handler :> obj)//renderMouseEventHandler mh
+        | KeyboardEventHandler (eventType, handler) -> (eventType, handler :> obj)
+        | EventHandler (eventType, handler) -> (eventType, handler :> obj)
+        |> renderEventHandler
+
+    let renderAttributes attributes =
+        attributes
+        |> List.map (function
+                        | Attribute.Attribute (k,v) -> Some (k,(v :> obj))
+                        | _ -> None)
+        |> List.choose id
+        |> (function
+            | [] -> None
+            | p -> Some ("attributes", (p |> createObj)))
+
+    let toAttrs attrs =
+        let (attributes, others) = attrs |> List.partition (function Attribute _ -> true | _ -> false)
+        let renderedAttributes = attributes |> renderAttributes
+        let renderedOthers =
+            others
+            |> List.map (function
+                    | EventHandlerBinding binding -> binding |> renderEventBinding
+                    | Style style ->
+                        let v =
+                            style
+                            |> Array.ofList
+                            |> Array.map (fun (k,v) -> k + ":" + v)
+                            |> String.concat ";"
+                            :> obj
+                        "style", v //((style |> Array.ofList |> Array.map (fun (k,v) -> k + ":" + v) |> join ";") :> obj)
+                    | Property (key, value) -> key,(value :> obj)
+                    | Attribute _ -> failwith "Should not happen"
+                )
+        match renderedAttributes with
+        | Some x -> x::renderedOthers
+        | _ -> renderedOthers
+        |> createObj
+
+    let hAttrs = attributes |> toAttrs
+    let childrenArr = children |> List.toArray
+    h(tag, hAttrs, childrenArr)
+
+let rec render node =
+    match node with
+    | Element((tag,attrs), nodes) -> createTree tag attrs (nodes |> List.map render)
+    | VoidElement (tag, attrs) -> createTree tag attrs []
+    | Text str -> box(string str)
+    | WhiteSpace str -> box(string str)
+
+let renderer =
+    {
+        Render = render
+        Diff = diff
+        Patch = patch
+        CreateElement = createElement
+    }

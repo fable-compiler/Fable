@@ -1,25 +1,25 @@
 {
   "private": true,
-  "name": "mario",
+  "name": "fable-samples-virtualdom",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Tomas Jansson",
   "license": "ISC",
   "dependencies": {
     "core-js": "^2.4.0",
-    "fable-core": "0.1.9",
+    "fable-core": "^0.1.9",
+    "requirejs": "^2.2.0",
     "todomvc-app-css": "^2.0.6",
     "virtual-dom": "2.1.1"
   },
-  "engines": {
-    "fable": ">=0.2.11"
-  },
   "devDependencies": {
-    "webpack": "^1.13.1"
+    "fable-import-virtualdom": "^0.0.4"
+  },
+  "engines": {
+    "fable": "^0.3.24"
   }
 }

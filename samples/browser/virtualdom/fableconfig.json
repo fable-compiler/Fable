@@ -1,18 +1,9 @@
 {
-    "module": "commonjs",
-    "sourceMaps": false,
+    "module": "amd",
+    "sourceMaps": true,
     "projFile": "./virtualdom.fsx",
-    "outDir": "temp",
+    "outDir": "out",
     "scripts": {
-        "prebuild": "npm install",
-        "postbuild": "node node_modules/webpack/bin/webpack"
-    },
-    "targets": {
-        "watch": {
-            "watch": true,
-            "scripts": {
-                "postbuild": "node node_modules/webpack/bin/webpack --watch"
-            }
-        }
+        "prebuild": "npm install"
     }
 }

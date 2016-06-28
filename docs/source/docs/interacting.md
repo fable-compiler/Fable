@@ -445,12 +445,15 @@ let typeTest = box tree2 :? Tree    // Type is kept
 let sum = tree2.Sum()   // Prototype members can be accessed
 ```
 
-> `Serialize.ofJson` works with records, unions and types with
-an argumentless primary constructor.
-
 > This will work when exchanging objects with a server, if the
 server includes the type full name in a `__type` field and the
 client code knows the type definiton.
+
+At the moment, there are the following caveats:
+
+- Only works with records, unions and types with an argumentless primary constructor.
+- Doesn't work with lists, maps or sets.
+- Arrays will always be deserialized as dynamic JS arrays, not typed arrays.
 
 ## Publishing a Fable package
 

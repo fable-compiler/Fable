@@ -1,12 +1,11 @@
 ﻿<!doctype html>
 <html>
 <head>
-  <script src="http://code.jquery.com/jquery-1.8.0.js"></script>
   <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
-  <link rel="stylesheet" href="node_modules/todomvc-app-css/index.css">
 </head>
 <body>
   <!-- [body] -->
+  <link rel="stylesheet" href="node_modules/todomvc-app-css/index.css">
   <div id="counter">
   </div>
   <div id="todo">
@@ -14,6 +13,19 @@
   <!-- [/body] -->
 
   <script src="node_modules/core-js/client/core.min.js"></script>
-  <script src="out/bundle.js"></script>
+  <script src="node_modules/requirejs/require.js"></script>
+  <script>
+    requirejs.config({
+        // Set the baseUrl to the path of the compiled JS code
+        baseUrl: 'out',
+        paths: {
+            // Explicit path to core lib (relative to baseUrl, omit .js)
+            'fable-core': '../node_modules/fable-core/fable-core.min',
+            'virtual-dom': '../node_modules/virtual-dom/dist/virtual-dom'
+        }
+    });
+    // Load the entry file of the app (use array, omit .js)
+    requirejs(["virtualdom"]);
+  </script>
 </body>
 </html>

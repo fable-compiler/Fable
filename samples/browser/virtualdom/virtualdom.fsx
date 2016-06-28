@@ -5,9 +5,8 @@
  using the same virtual-dom as Elm originally used, https://github.com/Matt-Esch/virtual-dom.
 *)
 (*** hide ***)
-#load "Fable.Helpers.Virtualdom.fsx"
-#load "Fable.Import.Virtualdom.fsx"
 #r "node_modules/fable-core/Fable.Core.dll"
+#load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
 (**
 ##Architecture overview
 
@@ -22,9 +21,9 @@ open Fable.Core
 open Fable.Import
 open Fable.Import.Browser
 
+open Fable.Helpers.Virtualdom
 open Fable.Helpers.Virtualdom.App
 open Fable.Helpers.Virtualdom.Html
-open Fable.Import.Virtualdom.Virtualdom
 
 // model
 type Counter = int
