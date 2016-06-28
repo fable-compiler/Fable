@@ -19,6 +19,14 @@ here: http://guide.elm-lang.org/architecture/. I won't explain the architecture
 further, instead I will go straight to the examples.
 
 ###First example - a simple counter
+
+The counter below is something you can increment and decrement by clicking on
+the text. It will also modify the size of the elements with the counter as well
+as the background color of the actual counter.
+
+<div id="counter">
+</div>
+
 *)
 open Fable.Core
 open Fable.Import
@@ -107,7 +115,11 @@ That's it, the first application is done and we are ready for example 2.
 
 To have something to compare to other js-framework, Elm and whatnot a todomvc app
 is in its place. If you don't know what todomvc is check it out here:
-http://todomvc.com/.
+http://todomvc.com/. The app below should have all the features expected from a
+todomvc app.
+
+<div id="todo">
+</div>
 
 We will follow the exact same steps as with the counter example. First implement
 the model, then the update function that to handle actions and lastly the view.
