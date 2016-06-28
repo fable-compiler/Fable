@@ -1,8 +1,11 @@
 (**
  - title: The Elm architecture using Fable
  - tagline: Fable implementation of the Elm architecture
+ - app-style: width:800px; margin:20px auto 50px auto;
+ - require-paths: `'virtual-dom':'/samples/virtualdom/lib/virtual-dom'`
  - intro: This demo is an implementation of the [Elm architecture](http://guide.elm-lang.org/architecture/)
- using the same virtual-dom as Elm originally used, https://github.com/Matt-Esch/virtual-dom.
+   using the same [virtual-dom](https://github.com/Matt-Esch/virtual-dom) as Elm originally used.
+   Contributed by [Tomas Jansson](https://twitter.com/TomasJansson).
 *)
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
@@ -259,7 +262,7 @@ let todoHeader model handler =
         [attribute "class" "header"]
         [   h1 [] [text "todos"]
             input [ attribute "class" "new-todo"
-                    property "placeholder" "What needs to be done??"
+                    property "placeholder" "What needs to be done?"
                     property "value" model
                     onKeydown (fun x ->
                         if x.code = "Enter"

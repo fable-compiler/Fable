@@ -3,9 +3,9 @@
 <head>
   <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
 </head>
-<body>
+<body class="app-container">
   <!-- [body] -->
-  <link rel="stylesheet" href="node_modules/todomvc-app-css/index.css">
+  <link rel="stylesheet" href="lib/todomvc-app.css">
   <div id="counter">
   </div>
   <div id="todo">
@@ -20,8 +20,8 @@
         baseUrl: 'out',
         paths: {
             // Explicit path to core lib (relative to baseUrl, omit .js)
-            'fable-core': '../node_modules/fable-core/fable-core.min',
-            'virtual-dom': '../node_modules/virtual-dom/dist/virtual-dom'
+            'fable-core': '/node_modules/fable-core/fable-core.min',
+            'virtual-dom': '/lib/virtual-dom'
         }
     });
     // Load the entry file of the app (use array, omit .js)

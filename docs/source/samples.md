@@ -77,6 +77,26 @@ three.js demo. It uses the three.js library to randomly generate a 3D terrain wh
 The code was originally written by [John Quigley](https://github.com/jmquigs) for FunScript,
 you can find [Fable's version on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/webGLTerrain/webGLTerrain.fsx).
 
+## Productivity
+
+<a href="samples/virtualdom/index.html"><img src="samples/images/elm.png" style="width:75px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [TodoMVC with Elm architecture](samples/virtualdom/index.html)
+
+This demo is an implementation of the [Elm architecture](http://guide.elm-lang.org/architecture/)
+using the same [virtual-dom](https://github.com/Matt-Esch/virtual-dom) as Elm originally used.
+Contributed by [Tomas Jansson](https://twitter.com/TomasJansson).
+
+<a href="samples/nunit/index.html"><img src="samples/images/NUnit.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [Testing with NUnit](samples/nunit/index.html)
+
+This tutorial shows how to compile NUnit tests so they can be run in JS with [Mocha](https://mochajs.org).
+You can view the [source code](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/index.fsx),
+[package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/package.json) and
+[fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/fableconfig.json) on
+GitHub.
+
 ## Server-side node.js
 
 <a href="samples/server/index.html"><img src="samples/images/node.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
@@ -100,18 +120,6 @@ a fast, unopinionated, minimalist web framework for Node.js. The
 on GitHub, together with the configuration in
 [package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/package.json) and
 [fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json).
-
-## Other
-
-<a href="samples/nunit/index.html"><img src="samples/images/NUnit.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
-
-### [Testing with NUnit](samples/nunit/index.html)
-
-This tutorial shows how to compile NUnit tests so they can be run in JS with [Mocha](https://mochajs.org).
-You can view the [source code](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/index.fsx),
-[package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/package.json) and
-[fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/fableconfig.json) on
-GitHub.
 
 ## Something missing?
 

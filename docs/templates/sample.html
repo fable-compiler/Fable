@@ -30,13 +30,13 @@
 
   <div class="row">
     <div class="col-sm-12">
-      <div style="{{ model.AppStyle }}">
+      <div class="app-container" style="{{ model.AppStyle }}">
         {{ model.Application }}
       </div>
       <script>
         requirejs.config({
           baseUrl: '.',
-          paths: { 'fable-core': '../scripts/fable-core.min', {{ model.RequirePaths }} }
+          paths: { 'fable-core': '/samples/scripts/fable-core.min', {{ model.RequirePaths }} }
         });
         requirejs(["{{ model.Name }}"]);
       </script>

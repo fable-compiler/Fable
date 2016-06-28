@@ -23,7 +23,30 @@ let rec processDirectory force indir outdir (exts:seq<_>) func =
             if exts.Contains(ext) then 
                 func file outdir 
 
+let rec directoryCopy(sourceDirName, destDirName, copySubDirs) =
+    // Get the subdirectories for the specified directory.
+    let dir = DirectoryInfo sourceDirName
+    if not(dir.Exists) then
+        DirectoryNotFoundException(
+            "Source directory does not exist or could not be found: "
+            + sourceDirName) |> raise
 
+    let dirs = dir.GetDirectories()
+    // If the destination directory doesn't exist, create it.
+    if not(Directory.Exists(destDirName)) then
+        Directory.CreateDirectory(destDirName) |> ignore
+
+    // Get the files in the directory and copy them to the new location.
+    let files = dir.GetFiles()
+    for file in files do
+        let temppath = Path.Combine(destDirName, file.Name)
+        file.CopyTo(temppath, true) |> ignore
+
+    // If copying subdirectories, copy them and their contents to new location.
+    if copySubDirs then
+        for subdir in dirs do
+            let temppath = Path.Combine(destDirName, subdir.Name)
+            directoryCopy(subdir.FullName, temppath, copySubDirs)
 
 /// Generates a temp file and deletes it when disposed (to be used via `use`)
 type TempFile() = 

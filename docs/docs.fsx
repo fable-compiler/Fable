@@ -52,7 +52,8 @@ let samples =
     "samples/browser/d3map", true
     "samples/browser/webGLTerrain", true
     "samples/browser/samegame", true
-    
+    "samples/browser/virtualdom", true
+
     // Non-browser samples without embedded HTML
     "samples/node/server", false
     "samples/node/express", false
@@ -204,7 +205,8 @@ let compileSample copyOutput name path =
     if copyOutput then
         // Copy compiled JavaScript files
         // Attention, for some reason it seems !!(temp </> "*.*") doesn't work properly in OSX
-        Directory.GetFiles(temp) |> CopyFiles (output </> "samples" </> name)
+        // !!(temp </> "*.*") |> CopyFiles (output </> "samples" </> name)
+        directoryCopy(temp, output </> "samples" </> name, true)
 
         // Copy subdirectories and static files (except for special ones)
         Directory.GetDirectories(path)

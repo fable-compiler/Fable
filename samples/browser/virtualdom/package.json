@@ -12,9 +12,7 @@
   "dependencies": {
     "core-js": "^2.4.0",
     "fable-core": "^0.1.9",
-    "requirejs": "^2.2.0",
-    "todomvc-app-css": "^2.0.6",
-    "virtual-dom": "2.1.1"
+    "requirejs": "^2.2.0"
   },
   "devDependencies": {
     "fable-import-virtualdom": "^0.0.4"
