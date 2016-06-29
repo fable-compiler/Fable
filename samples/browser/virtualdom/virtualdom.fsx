@@ -10,6 +10,7 @@
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
 #load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
+//#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
 (**
 ##Architecture overview
 
@@ -277,7 +278,7 @@ let todoHeader model handler =
                     property "placeholder" "What needs to be done?"
                     property "value" model
                     onKeydown (fun x ->
-                        if x.code = "Enter"
+                        if x.keyCode = 13
                         then handler (AddItem {Name = model; Id = 0; Done = false; IsEditing = false})
                         )
                     onKeyup (fun x -> handler (ChangeInput (x?target?value :?> string))) ]]
@@ -287,7 +288,7 @@ let listItem handler item =
     let editClass = if item.IsEditing then "editing" else ""
     li [ attribute "class" ((if item.Done then "completed " else " ") + editClass)]
        [ div [  attribute "class" "view"
-                onDblClick (fun x -> printfn "%A" x; EditItem item |> handler) ]
+                onDblClick (fun x -> EditItem item |> handler) ]
              [ input [  property "className" "toggle"
                         property "type" "checkbox"
                         property "checked" itemChecked

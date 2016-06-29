@@ -7,7 +7,10 @@
   <!-- [body] -->
   <link rel="stylesheet" href="lib/todomvc-app.css">
   <!-- [/body] -->
-
+  <div id="counter">		
+  </div>		
+  <div id="todo">		
+  </div>
   <script src="node_modules/core-js/client/core.min.js"></script>
   <script src="node_modules/requirejs/require.js"></script>
   <script>
@@ -16,8 +19,8 @@
         baseUrl: 'out',
         paths: {
             // Explicit path to core lib (relative to baseUrl, omit .js)
-            'fable-core': '/node_modules/fable-core/fable-core.min',
-            'virtual-dom': '/lib/virtual-dom'
+            'fable-core': '../node_modules/fable-core/fable-core.min',
+            'virtual-dom': '../lib/virtual-dom'
         }
     });
     // Load the entry file of the app (use array, omit .js)
