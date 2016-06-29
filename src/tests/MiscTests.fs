@@ -516,7 +516,15 @@ let ``use doesn't return on finally clause`` () = // See #211
         c.Foo()
     foo() |> equal 5
 
+
 [<Test>]
 let ``Referencing a Fable project through a dll works``() =
-    Fable.Tests.DllRef.Util.add2 5
-    |> equal 7
+    Fable.Tests.DllRef.Util.add2 5 |> equal 7
+
+open Fable.Tests.DllRef
+
+[<Test>]
+let ``Root members with JS non-valid chars work``() = // See #207
+    Lib.足す 3 2 |> equal 5
+    Lib.引く 3 2 |> equal 1
+    Lib.モジュール.ファンクション 0 |> equal false

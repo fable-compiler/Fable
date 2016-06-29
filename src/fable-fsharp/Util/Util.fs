@@ -80,6 +80,10 @@ module Naming =
         
     let identForbiddenCharsRegex =
         Regex @"^[^a-zA-Z_$]|[^0-9a-zA-Z_$]"
+
+    let replaceIdentForbiddenChars (ident: string) =
+        identForbiddenCharsRegex.Replace(ident, fun (m: Match) ->
+            "$" + (int m.Value.[0]).ToString("X"))
     
     let removeParens, removeGetSetPrefix, sanitizeActivePattern =
         let reg1 = Regex(@"^\( (.*) \)$")

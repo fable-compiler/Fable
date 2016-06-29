@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{084A88D7-BAE3-4CBC-9670-75669DF82BD5}"
 	ProjectSection(SolutionItems) = preProject
@@ -13,6 +13,8 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests", "tests\Fable.Tests.fsproj", "{6EF06954-FBDF-42C7-815C-B13BA2926C93}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Clamp", "tests\Other\Fable.Tests.Clamp.fsproj", "{1E44403B-7834-4842-91B1-53A5FA731C58}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.AST", "fable-ast\Fable.AST.fsproj", "{35134AAB-9112-49DD-81FE-AB6A49523DF2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,6 +34,10 @@ Global
 		{1E44403B-7834-4842-91B1-53A5FA731C58}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1E44403B-7834-4842-91B1-53A5FA731C58}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1E44403B-7834-4842-91B1-53A5FA731C58}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35134AAB-9112-49DD-81FE-AB6A49523DF2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35134AAB-9112-49DD-81FE-AB6A49523DF2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35134AAB-9112-49DD-81FE-AB6A49523DF2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35134AAB-9112-49DD-81FE-AB6A49523DF2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

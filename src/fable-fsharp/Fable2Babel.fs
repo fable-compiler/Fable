@@ -18,7 +18,8 @@ type Context = {
     moduleFullName: string
     imports: ResizeArray<Import>
     logs: ResizeArray<LogMessage>
-    }
+    rootEntitiesPrivateNames: Map<string, string>
+}
 
 type IBabelCompiler =
     inherit ICompiler
@@ -145,7 +146,14 @@ module Util =
                 com.GetImport ctx (Some file) memb importPath
                 |> Some |> accessExpr parts
         | _ ->
-            accessExpr (getParts ctx.moduleFullName ent.FullName memb) None
+            match getParts ctx.moduleFullName ent.FullName memb with
+            | rootMemb::parts when Naming.identForbiddenCharsRegex.IsMatch rootMemb ->
+                // Check if the root entity is represented internally with a private name
+                if ctx.rootEntitiesPrivateNames.ContainsKey(rootMemb)
+                then ctx.rootEntitiesPrivateNames.[rootMemb]
+                else rootMemb
+                |> fun rootMemb -> accessExpr (rootMemb::parts) None
+            | parts -> accessExpr parts None
 
     let buildArray (com: IBabelCompiler) ctx consKind kind =
         match kind with
@@ -549,8 +557,8 @@ module Util =
             Babel.ExportNamedDeclaration(decl, loc=range)
             :> Babel.ModuleDeclaration |> U2.Case2 |> List.singleton
         | true ->
-            if Naming.identForbiddenCharsRegex.IsMatch publicName then
-                failwithf "'%s' cannot be used as a root member name %O" publicName range
+            // Replace ident forbidden chars of root members, see #207
+            let publicName = Naming.replaceIdentForbiddenChars publicName
             let expSpec = Babel.ExportSpecifier(privateIdent, Babel.Identifier publicName)
             let expDecl = Babel.ExportNamedDeclaration(specifiers=[expSpec])
             [expDecl :> Babel.ModuleDeclaration |> U2.Case2; decl :> Babel.Statement |> U2.Case1]
@@ -675,6 +683,11 @@ module Util =
                 | Some res -> res
                 | None -> failwithf "Cannot find file: %s" fileName                
             member bcom.GetImport ctx internalFile selector path =
+                let selector =
+                    if selector = "*"
+                    then selector
+                    // Replace ident forbidden chars of root members, see #207
+                    else Naming.replaceIdentForbiddenChars selector
                 let i =
                     ctx.imports
                     |> Seq.tryFindIndex (fun imp -> imp.selector = selector && imp.path = path)
@@ -697,6 +710,13 @@ module Compiler =
     open Util
     open System.IO
 
+    let private getRootEntitiesPrivateNames (decls: #seq<Fable.Declaration>) =
+        decls |> Seq.choose (function
+            | Fable.EntityDeclaration(ent, privName, _, _) when ent.Name <> privName ->
+                Some(ent.Name, privName)
+            | _ -> None)
+        |> Map
+
     let transformFile (com: ICompiler) (projs, files) =
         let com = makeCompiler com projs
         files |> Seq.map (fun (file: Fable.File) ->
@@ -706,6 +726,7 @@ module Compiler =
                     file = Naming.fixExternalPath com file.FileName
                     originalFile = file.FileName
                     moduleFullName = projs.Head.FileMap.[file.FileName]
+                    rootEntitiesPrivateNames = getRootEntitiesPrivateNames file.Declarations
                     imports = ResizeArray<_>()
                     logs = ResizeArray<_>()
                 }
