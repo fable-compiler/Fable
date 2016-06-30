@@ -26,6 +26,7 @@ module Html =
         type KeyboardEvent =
             {
                 code: string
+                keyCode: int
             }
 
         type MouseEventHandler = string*(MouseEvent -> unit)
@@ -405,12 +406,12 @@ let createTree tag attributes children =
     let renderAttributes attributes =
         attributes
         |> List.map (function
-                        | Attribute.Attribute (k,v) -> Some (k,(v :> obj))
+                        | Attribute.Attribute (k,v) -> Some (k ==> v)
                         | _ -> None)
         |> List.choose id
         |> (function
             | [] -> None
-            | p -> Some ("attributes", (p |> createObj)))
+            | p -> Some ("attributes" ==> (p |> createObj)))
 
     let toAttrs attrs =
         let (attributes, others) = attrs |> List.partition (function Attribute _ -> true | _ -> false)
@@ -420,14 +421,13 @@ let createTree tag attributes children =
             |> List.map (function
                     | EventHandlerBinding binding -> binding |> renderEventBinding
                     | Style style ->
-                        let v =
+                        let styleObj =
                             style
-                            |> Array.ofList
-                            |> Array.map (fun (k,v) -> k + ":" + v)
-                            |> String.concat ";"
-                            :> obj
-                        "style", v //((style |> Array.ofList |> Array.map (fun (k,v) -> k + ":" + v) |> join ";") :> obj)
-                    | Property (key, value) -> key,(value :> obj)
+                            |> List.map (fun (k,v) -> k ==> v)
+                            |> createObj
+
+                        "style" ==> styleObj
+                    | Property (key, value) -> key ==> value
                     | Attribute _ -> failwith "Should not happen"
                 )
         match renderedAttributes with

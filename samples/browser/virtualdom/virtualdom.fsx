@@ -10,6 +10,7 @@
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
 #load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
+//#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
 (**
 ##Architecture overview
 
@@ -19,6 +20,14 @@ here: http://guide.elm-lang.org/architecture/. I won't explain the architecture
 further, instead I will go straight to the examples.
 
 ###First example - a simple counter
+
+The counter below is something you can increment and decrement by clicking on
+the text. It will also modify the size of the elements with the counter as well
+as the background color of the actual counter.
+
+<div id="counter">
+</div>
+
 *)
 open Fable.Core
 open Fable.Import
@@ -107,7 +116,11 @@ That's it, the first application is done and we are ready for example 2.
 
 To have something to compare to other js-framework, Elm and whatnot a todomvc app
 is in its place. If you don't know what todomvc is check it out here:
-http://todomvc.com/.
+http://todomvc.com/. The app below should have all the features expected from a
+todomvc app.
+
+<div id="todo">
+</div>
 
 We will follow the exact same steps as with the counter example. First implement
 the model, then the update function that to handle actions and lastly the view.
@@ -265,7 +278,7 @@ let todoHeader model handler =
                     property "placeholder" "What needs to be done?"
                     property "value" model
                     onKeydown (fun x ->
-                        if x.code = "Enter"
+                        if x.keyCode = 13
                         then handler (AddItem {Name = model; Id = 0; Done = false; IsEditing = false})
                         )
                     onKeyup (fun x -> handler (ChangeInput (x?target?value :?> string))) ]]
@@ -275,7 +288,7 @@ let listItem handler item =
     let editClass = if item.IsEditing then "editing" else ""
     li [ attribute "class" ((if item.Done then "completed " else " ") + editClass)]
        [ div [  attribute "class" "view"
-                onDblClick (fun x -> printfn "%A" x; EditItem item |> handler) ]
+                onDblClick (fun x -> EditItem item |> handler) ]
              [ input [  property "className" "toggle"
                         property "type" "checkbox"
                         property "checked" itemChecked
@@ -327,6 +340,11 @@ let todoView handler model =
 This view is more complex than the first example, but it also show how easy it is
 to split a view up into pieces and then combine them together to form a whole. This
 makes it quite easy to re-use parts in different views.
+
+One thing to notice is that only a few properties are mapped at the moment, but if
+you know the property name you can use the syntax `e?target?value`, which will
+look app the `value` property on the `target` property on the `e` event as in the
+example above.
 
 Before this is done, there are one hidden gem that is worth knowing, and it will
 be showed with two examples. We will add local storage support of the items and a
