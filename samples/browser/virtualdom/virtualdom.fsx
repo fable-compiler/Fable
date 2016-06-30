@@ -341,6 +341,11 @@ This view is more complex than the first example, but it also show how easy it i
 to split a view up into pieces and then combine them together to form a whole. This
 makes it quite easy to re-use parts in different views.
 
+One thing to notice is that only a few properties are mapped at the moment, but if
+you know the property name you can use the syntax `e?target?value`, which will
+look app the `value` property on the `target` property on the `e` event as in the
+example above.
+
 Before this is done, there are one hidden gem that is worth knowing, and it will
 be showed with two examples. We will add local storage support of the items and a
 logger of all the actions and model changes. First we need a helper for the storage.
