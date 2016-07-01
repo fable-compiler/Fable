@@ -1,8 +1,5 @@
 {
   "private": true,
-  "engines": {
-    "fable": "^0.3.24"
-  },
   "scripts": {
     "start": "electron out/main.js"
   },
@@ -11,6 +8,9 @@
   },
   "devDependencies": {
     "electron-prebuilt": "^0.37.7",
-    "fable-import-electron": "0.0.4"
+    "fable-import-electron": "^0.0.5"
+  },
+  "engines": {
+    "fable": "^0.3.24"
   }
 }
