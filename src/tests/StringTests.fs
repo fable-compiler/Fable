@@ -121,15 +121,31 @@ let ``String.IsNullOrWhiteSpace works``() =
 
 [<Test>]
 let ``String.Split works``() =
+      "a b c  d".Split(' ')
+      |> (=) [|"a";"b";"c";"";"d"|] |> equal true
+      "a b c  d ".Split()
+      |> (=) [|"a";"b";"c";"";"d";""|] |> equal true
       let array = "a;b,c".Split(',', ';')
+      "abc" = array.[0] + array.[1] + array.[2]
+      |> equal true
+      "a--b-c".Split([|"--"|], StringSplitOptions.None)
+      |> (=) [|"a";"b-c"|] |> equal true
+
+[<Test>]
+let ``String.Split with remove empties works``() =
+      "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
+      |> (=) [|"a";"b";"c";"d"|] |> equal true
+      let array = ";,a;b,c".Split([|','; ';'|], StringSplitOptions.RemoveEmptyEntries)
       "abc" = array.[0] + array.[1] + array.[2]
       |> equal true
 
 [<Test>]
-let ``String.Split with remove empties works``() =
-      let array = ";,a;b,c".Split([|','; ';'|], StringSplitOptions.RemoveEmptyEntries)
-      "abc" = array.[0] + array.[1] + array.[2]
-      |> equal true
+let ``String.Split with count works``() =
+      let array = "a b  c d".Split ([|' '|], 2)
+      equal "a" array.[0]
+      equal "b  c d" array.[1]
+      "a;,b,c;d".Split([|','; ';'|], 3, StringSplitOptions.RemoveEmptyEntries)
+      |> (=) [|"a";"b";"c;d"|] |> equal true
 
 [<Test>]
 let ``String.Replace works``() =

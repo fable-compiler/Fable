@@ -465,6 +465,17 @@ module private AstPass =
             |> List.singleton
             |> emit i "Array.from($0).join('')"
             |> Some
+        | "split" ->
+            match i.args with
+            | [Fable.Value(Fable.StringConst _) as separator]
+            | [Fable.Value(Fable.ArrayConst(Fable.ArrayValues [separator],_))] ->
+                InstanceCall(i.callee.Value, "split", [separator]) // Optimization
+            | [arg1; Type(Fable.PrimitiveType(Fable.Enum _)) as arg2] ->
+                let args = [arg1; Fable.Value Fable.Null; arg2]
+                CoreLibCall("String", Some "split", false, i.callee.Value::args)
+            | args -> CoreLibCall("String", Some "split", false, i.callee.Value::args)
+            |> makeCall com i.range (Fable.PrimitiveType Fable.String)
+            |> Some
         | _ -> None
 
     let log com (i: Fable.ApplyInfo) =

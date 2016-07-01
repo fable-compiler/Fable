@@ -584,13 +584,35 @@
       return x;
     });
   };
-  FString.split = function (str, splitters, removeEmpty) {
+  FString.split = function (str, splitters, count, removeEmpty) {
+    count = typeof count == "number" ? count : null;
+    removeEmpty = typeof removeEmpty == "number" ? removeEmpty : null;
+    if (count < 0) {
+      throw "Count cannot be less than zero";
+    }
+    if (count === 0) {
+      return [];
+    }
     splitters = Array.isArray(splitters) ? splitters : Util.getRestParams(arguments, 1);
-    var reg = new RegExp("[" + FRegExp.escape(splitters.join("")) + "]", "g");
-    var splits = str.split(reg);
-    return !removeEmpty ? splits : splits.filter(function (x) {
-      return x.length > 0;
+    splitters = splitters.filter(function (x) {
+      return x;
+    }).map(function (x) {
+      return FRegExp.escape(x);
     });
+    splitters = splitters.length > 0 ? splitters : [" "];
+    var m,
+        i = 0,
+        splits = [],
+        reg = new RegExp(splitters.join("|"), "g");
+    while ((count == null || count > 1) && (m = reg.exec(str)) !== null) {
+      if (!removeEmpty || m.index - i > 0) {
+        count = count != null ? count - 1 : count;
+        splits.push(str.substring(i, m.index));
+      }
+      i = reg.lastIndex;
+    }
+    if (!removeEmpty || str.length - i > 0) splits.push(str.substring(i));
+    return splits;
   };
   FString.join = FString.concat = function (delimiter, xs) {
     xs = typeof xs == "string" ? Util.getRestParams(arguments, 1) : xs;
