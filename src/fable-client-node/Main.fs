@@ -193,6 +193,6 @@ let main argv =
     // Full compilation
     let comInfo = compile com checker None
     // Keep on watching if necessary
-    if opts.watch then
+    if opts.watch && Option.isSome comInfo then
         awaitInput com checker comInfo
     0
