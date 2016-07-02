@@ -306,7 +306,7 @@ function processJson(json, opts) {
             return; // If console out is not in JSON format, just ignore
         }
         if (babelAst.type == "LOG") {
-            if (opts.verbose) {
+            if (opts.verbose || babelAst.message.indexOf("[WARNING]") == 0) {
                 console.log(babelAst.message);
             }
         }

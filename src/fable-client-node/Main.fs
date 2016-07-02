@@ -94,19 +94,25 @@ let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
 
 let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
                        (projOptions: FSharpProjectOptions) =
+    let errorToString (er: FSharpErrorInfo) =
+        sprintf "%s (L%i,%i-L%i,%i) (%s)"
+                er.Message
+                er.StartLineAlternate er.StartColumn
+                er.EndLineAlternate er.EndColumn
+                (Path.GetFileName er.FileName)
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
         |> Async.RunSynchronously
-    let errors =
+    let warnings, errors =
         checkProjectResults.Errors
-        |> Array.filter (fun x -> x.Severity = FSharpErrorSeverity.Error)
+        |> Array.partition (fun x -> x.Severity = FSharpErrorSeverity.Warning)
+    let warnings =
+        warnings |> Seq.map (errorToString >> Warning) |> Seq.toList
     if errors.Length = 0
-    then checkProjectResults
+    then warnings, checkProjectResults
     else errors
-        |> Seq.map (fun e ->
-            sprintf "> %s: L%i (%s)"
-                e.Message e.StartLineAlternate (Path.GetFileName e.FileName))
+        |> Seq.map (errorToString >> (+) "> ")
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> failwith
@@ -125,10 +131,11 @@ let compile (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option
         fun (file: AST.Babel.Program) ->
             JsonConvert.SerializeObject (file, jsonSettings)
             |> Console.Out.WriteLine
-    let printMessage typ msg =
-        CompilerMessage(typ, msg)
-        |> JsonConvert.SerializeObject
-        |> Console.Out.WriteLine
+    let printMessages msgs =
+        for (typ, msg) in msgs do
+            CompilerMessage(typ, msg)
+            |> JsonConvert.SerializeObject
+            |> Console.Out.WriteLine
     try
         let timer, projOpts, fileMask, deps =
             match comInfo with
@@ -136,10 +143,12 @@ let compile (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option
             | None -> PerfTimer("Warmup") |> Some, None, None, Map.empty<_,_>
         // Get project options and parse project (F# Compiler Services) 
         let projOpts = getProjectOptions com checker projOpts fileMask
-        let proj = parseFSharpProject com checker projOpts
+        let warnings, proj = parseFSharpProject com checker projOpts
         // Print diagnostic info
-        if Option.isSome timer then
-            timer.Value.Finish() |> string |> printMessage Log
+        match timer with
+        | Some timer -> (timer.Finish())::warnings
+        | None -> warnings
+        |> List.map (fun log -> Log, string log) |> printMessages
         // Compile project files
         let comInfo =
             FSharp2Fable.Compiler.Info.Create(proj, projOpts, fileMask, deps)
@@ -154,7 +163,7 @@ let compile (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option
         Console.Out.WriteLine()
         Some { comInfo with dependencies = deps }
     with ex ->
-        printMessage Error ex.Message
+        printMessages [Error, ex.Message]
         comInfo
 
 let rec awaitInput (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option) =
