@@ -498,7 +498,8 @@ module Util =
                 |> Seq.filter (fun x ->
                     isOverloadable x
                     && (getMemberKind "" x) = kind
-                    && x.DisplayName = meth.DisplayName)
+                    && x.DisplayName = meth.DisplayName
+                    && x.IsInstanceMember = meth.IsInstanceMember)
                 |> Seq.toArray
                 |> function
                 | overloads when overloads.Length = 1 -> ""

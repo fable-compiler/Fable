@@ -198,10 +198,13 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         |> makeSequential (makeRangeFrom fsExpr)
 
     (** ## Applications *)
-    | BasicPatterns.TraitCall (_sourceTypes, traitName, _typeArgs, _typeInstantiation, argExprs) ->
+    | BasicPatterns.TraitCall (sourceTypes, traitName, flags, _typeArgs, _typeInstantiation, argExprs) ->
         ctx.logs.Add(Info(sprintf "TraitCall detected in %O" fsExpr.Range)) // TODO: Check
         let range = makeRangeFrom fsExpr
-        let callee, args = transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
+        let callee, args =
+            if flags.IsInstance
+            then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
+            else makeType com ctx sourceTypes.Head |> makeTypeRef com range, List.map (transformExpr com ctx) argExprs
         let callee = makeGet range (Fable.PrimitiveType (Fable.Function argExprs.Length)) callee (makeConst traitName)
         Fable.Apply (callee, args, Fable.ApplyMeth, makeType com ctx fsExpr.Type, range)
 

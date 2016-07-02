@@ -174,3 +174,31 @@ let ``Getter and Setter with indexer work``() =
     t.Value(1) <- 5
     t.Value(1) |> equal 5
     t.Value(2) |> equal 3
+
+type A  = { thing: int } with
+    member x.show() = string x.thing
+    static member show (x: A) = "Static: " + (string x.thing)
+
+type B  = { label: string } with
+    member x.show() = x.label
+    static member show (x: B) = "Static: " + x.label
+
+let inline show< ^T when ^T : (member show : unit -> string)> (x:^T) : string =
+   (^T : (member show : unit -> string) (x))
+
+let inline showStatic< ^T when ^T : (static member show : ^T -> string)> (x:^T) : string =
+   (^T : (static member show : ^T -> string) (x))
+
+[<Test>]
+let ``Statically resolved instance calls work``() =
+    let a = { thing = 5 }
+    let b = { label = "five" }
+    show a |> equal "5"
+    show b |> equal "five"
+
+[<Test>]
+let ``Statically resolved static calls work``() =
+    let a = { thing = 5 }
+    let b = { label = "five" }
+    showStatic a |> equal "Static: 5"
+    showStatic b |> equal "Static: five"

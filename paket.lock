@@ -1,6 +1,5 @@
 NUGET
   remote: https://www.nuget.org/api/v2
-  specs:
     FAKE (4.28)
     FSharp.Compiler.Service (3.0)
     FSharp.Compiler.Service.ProjectCracker (3.0)
@@ -12,12 +11,10 @@ NUGET
       FSharp.Core (>= 3.1.2.5)
 GITHUB
   remote: fsprojects/FSharp.TypeProviders.StarterPack
-  specs:
     src/ProvidedTypes.fs (fa494d6308c8b22c8a7c7c6a6cd0e771ddf7c701)
 GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2
-  specs:
     DotLiquid (1.8)
     FAKE (4.28)
     FSharp.Compiler.Service (2.0.0.6)
