@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.3.24"
+let version = "0.3.26"
 let coreLibVersion = "0.1.9"
 
 module Util =
