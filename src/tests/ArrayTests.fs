@@ -7,15 +7,14 @@ open Fable.Tests.Util
 open System.Collections.Generic
 open Fable.Core
 
-// TODO
-// [<Test>]
-// let ``Pattern matching with arrays works``() =
-//     match [||] with [||] -> true | _ -> false
-//     |> equal true
-//     match [|1|] with [||] -> 0 | [|x|] -> 1 | _ -> 2
-//     |> equal 1
-//     match [|"a";"b"|] with [||] -> 0 | [|"a";"b"|] -> 1 | _ -> 2
-//     |> equal 1
+[<Test>]
+let ``Pattern matching with arrays works``() =
+    match [||] with [||] -> true | _ -> false
+    |> equal true
+    match [|1|] with [||] -> 0 | [|x|] -> 1 | _ -> 2
+    |> equal 1
+    match [|"a";"b"|] with [|"a";"b"|] -> 1 | _ -> 2
+    |> equal 1
 
 type ParamArrayTest =
     static member Add([<ParamArray>] xs: int[]) = Array.sum xs

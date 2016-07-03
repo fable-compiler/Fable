@@ -1181,6 +1181,17 @@ module private AstPass =
                 |> makeCall com info.range info.returnType |> Some
             | _ -> None
 
+    let guids com (info: Fable.ApplyInfo) =
+        match info.methodName with
+        | "newGuid" ->
+            CoreLibCall("String", Some "newGuid", false, [])
+            |> makeCall com info.range info.returnType |> Some
+        | "parse" -> info.args.Head |> Some
+        | "tryParse" ->
+            Fable.ArrayConst(Fable.ArrayValues [makeConst true; info.args.Head], Fable.Tuple)
+            |> Fable.Value |> Some
+        | _ -> None
+
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | KnownInterfaces _ -> knownInterfaces com info
@@ -1243,6 +1254,7 @@ module private AstPass =
         | "System.Convert" -> conversions com info
         | "Microsoft.FSharp.Control.MailboxProcessor"
         | "Microsoft.FSharp.Control.AsyncReplyChannel" -> mailbox com info
+        | "System.Guid" -> guids com info
         | _ -> None
 
 module private CoreLibPass =

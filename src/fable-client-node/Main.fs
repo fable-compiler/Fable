@@ -44,7 +44,9 @@ let loadPlugins (opts: CompilerOptions): (string*IPlugin) list =
         try
             (Path.GetFullPath path |> Assembly.LoadFile).GetTypes()
             |> Seq.filter typeof<IPlugin>.IsAssignableFrom
-            |> Seq.map (fun x -> path, Activator.CreateInstance x |> unbox<IPlugin>)
+            |> Seq.map (fun x ->
+                Path.GetFileNameWithoutExtension path,
+                Activator.CreateInstance x |> unbox<IPlugin>)
         with
         | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.toList

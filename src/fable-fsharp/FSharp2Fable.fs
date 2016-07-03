@@ -20,6 +20,7 @@ let private (|SpecialValue|_|) com ctx = function
     | BasicPatterns.ILFieldGet (None, typ, fieldName) as fsExpr when typ.HasTypeDefinition ->
         match typ.TypeDefinition.TryFullName, fieldName with
         | Some "System.String", "Empty" -> Some (makeConst "")
+        | Some "System.Guid", "Empty" -> Some (makeConst "00000000-0000-0000-0000-000000000000")        
         | Some "System.TimeSpan", "Zero" ->
             Fable.Wrapped(makeConst 0, makeType com ctx fsExpr.Type) |> Some
         | Some "System.DateTime", "MaxValue"
@@ -114,7 +115,13 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         let callee = Fable.Apply(callee, [makeConst eventName], Fable.ApplyGet, Fable.UnknownType, None)
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) (Some callee) args
-            
+
+    | CheckArrayLength (Transform com ctx arr, length) ->
+        let r = makeRangeFrom fsExpr
+        let intType = Fable.PrimitiveType(Fable.Number Int32)
+        let lengthExpr = Fable.Apply(arr, [makeConst "length"], Fable.ApplyGet, intType, r)
+        makeEqOp r [lengthExpr; makeConst length] BinaryEqualStrict
+
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
     // TypeLambda is a local generic lambda
@@ -199,16 +206,13 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     (** ## Applications *)
     | BasicPatterns.TraitCall (sourceTypes, traitName, flags, _typeArgs, _typeInstantiation, argExprs) ->
-        try
-            let range = makeRangeFrom fsExpr
-            let callee, args =
-                if flags.IsInstance
-                then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
-                else makeType com ctx sourceTypes.Head |> makeTypeRef com range, List.map (transformExpr com ctx) argExprs
-            let callee = makeGet range (Fable.PrimitiveType (Fable.Function argExprs.Length)) callee (makeConst traitName)
-            Fable.Apply (callee, args, Fable.ApplyMeth, makeType com ctx fsExpr.Type, range)
-        with
-        | ex -> raise ex
+        let range = makeRangeFrom fsExpr
+        let callee, args =
+            if flags.IsInstance
+            then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
+            else makeType com ctx sourceTypes.Head |> makeTypeRef com range, List.map (transformExpr com ctx) argExprs
+        let callee = makeGet range (Fable.PrimitiveType (Fable.Function argExprs.Length)) callee (makeConst traitName)
+        Fable.Apply (callee, args, Fable.ApplyMeth, makeType com ctx fsExpr.Type, range)
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args

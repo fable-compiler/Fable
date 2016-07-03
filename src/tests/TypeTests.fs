@@ -1,6 +1,7 @@
 ﻿[<NUnit.Framework.TestFixture>]
 module Fable.Tests.TypeTests
 
+open System
 open NUnit.Framework
 open Fable.Tests.Util
 
@@ -202,3 +203,21 @@ let ``Statically resolved static calls work``() =
     let b = { label = "five" }
     showStatic a |> equal "Static: 5"
     showStatic b |> equal "Static: five"
+
+[<Test>]
+let ``Guid.NewGuid works``() =
+    let g1 = Guid.NewGuid()
+    let g2 = Guid.NewGuid()
+    g1 = g2 |> equal false
+    let s1 = string g1
+    equal 36 s1.Length
+    Text.RegularExpressions.Regex.IsMatch(
+        s1, "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
+    |> equal true
+    let g3 = Guid.Parse s1
+    g1 = g3 |> equal true
+
+[<Test>]
+let ``Guid.Empty works``() =
+    let g1 = Guid.Empty
+    string g1 |> equal "00000000-0000-0000-0000-000000000000"

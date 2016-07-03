@@ -253,6 +253,17 @@ module Patterns =
             let eventName = addEvent.DisplayName.Replace("add_","") |> Naming.lowerFirst 
             Some (callee, eventName, meth, typArgs, methTypArgs, args)
         | _ -> None
+
+    /// This matches the boilerplate generated to check an array's length
+    /// when pattern matching
+    let (|CheckArrayLength|_|) = function
+        | IfThenElse
+            (ILAsm ("[AI_ldnull; AI_cgt_un]",[],[matchValue]),
+             Call(None,_op_Equality,[],[_typeInt],
+                [ILAsm ("[I_ldlen; AI_conv DT_I4]",[],[_matchValue2])
+                 Const (length,_typeInt2)]),
+             Const (_falseConst,_typeBool)) -> Some (matchValue, length)
+        | _ -> None
         
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
@@ -373,7 +384,7 @@ module Types =
         match tdef.FullName with
         | NumberKind kind -> Fable.Number kind |> Fable.PrimitiveType
         | "System.Boolean" -> Fable.Boolean |> Fable.PrimitiveType
-        | "System.Char" | "System.String" -> Fable.String |> Fable.PrimitiveType
+        | "System.Char" | "System.String" | "System.Guid" -> Fable.String |> Fable.PrimitiveType
         | "System.Text.RegularExpressions.Regex" -> Fable.Regex |> Fable.PrimitiveType
         | "Microsoft.FSharp.Core.Unit" -> Fable.Unit |> Fable.PrimitiveType
         | "System.Collections.Generic.List`1" -> Fable.DynamicArray |> Fable.Array |> Fable.PrimitiveType
