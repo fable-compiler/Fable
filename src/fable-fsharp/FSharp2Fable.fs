@@ -199,14 +199,16 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     (** ## Applications *)
     | BasicPatterns.TraitCall (sourceTypes, traitName, flags, _typeArgs, _typeInstantiation, argExprs) ->
-        ctx.logs.Add(Info(sprintf "TraitCall detected in %O" fsExpr.Range)) // TODO: Check
-        let range = makeRangeFrom fsExpr
-        let callee, args =
-            if flags.IsInstance
-            then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
-            else makeType com ctx sourceTypes.Head |> makeTypeRef com range, List.map (transformExpr com ctx) argExprs
-        let callee = makeGet range (Fable.PrimitiveType (Fable.Function argExprs.Length)) callee (makeConst traitName)
-        Fable.Apply (callee, args, Fable.ApplyMeth, makeType com ctx fsExpr.Type, range)
+        try
+            let range = makeRangeFrom fsExpr
+            let callee, args =
+                if flags.IsInstance
+                then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
+                else makeType com ctx sourceTypes.Head |> makeTypeRef com range, List.map (transformExpr com ctx) argExprs
+            let callee = makeGet range (Fable.PrimitiveType (Fable.Function argExprs.Length)) callee (makeConst traitName)
+            Fable.Apply (callee, args, Fable.ApplyMeth, makeType com ctx fsExpr.Type, range)
+        with
+        | ex -> raise ex
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
@@ -792,7 +794,7 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         projs |> Seq.choose (fun p -> p.AssemblyFileName) |> Set
     let replacePlugins =
         com.Plugins |> List.choose (function
-            | :? IReplacePlugin as plugin -> Some plugin
+            | path, (:? IReplacePlugin as plugin) -> Some (path, plugin)
             | _ -> None)
     { new IFableCompiler with
         member fcom.Transform ctx fsExpr =

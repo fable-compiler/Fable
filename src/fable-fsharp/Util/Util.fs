@@ -27,7 +27,7 @@ type IPlugin =
 
 type ICompiler =
     abstract Options: CompilerOptions
-    abstract Plugins: IPlugin list
+    abstract Plugins: (string*IPlugin) list
     
 type PerfTimer(label) =
     let t = System.Diagnostics.Stopwatch()

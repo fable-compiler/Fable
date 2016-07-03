@@ -33,7 +33,7 @@ type IFableCompiler =
     abstract GetEntity: FSharpEntity -> Fable.Entity
     abstract TryGetInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) option
     abstract AddInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) -> unit
-    abstract ReplacePlugins: IReplacePlugin list
+    abstract ReplacePlugins: (string*IReplacePlugin) list
     
 module Helpers =
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
@@ -583,7 +583,10 @@ module Util =
     let replace (com: IFableCompiler) ctx r typ ownerName methName methKind
                 (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args) =
         let pluginReplace i =
-            com.ReplacePlugins |> Seq.tryPick (fun plugin -> plugin.TryReplace com i)
+            com.ReplacePlugins |> Seq.tryPick (fun (path, plugin) ->
+                try plugin.TryReplace com i
+                with ex -> failwithf "Error in plugin %s: %s (%O)"
+                            path ex.Message r)
         let applyInfo: Fable.ApplyInfo = {
             ownerFullName = ownerName
             methodName = Naming.lowerFirst methName

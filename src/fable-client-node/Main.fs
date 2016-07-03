@@ -38,16 +38,15 @@ let readOptions argv =
             let xs = x.Split('=') in xs.[0], xs.[1])))
     }
 
-let loadPlugins (opts: CompilerOptions): IPlugin list =
+let loadPlugins (opts: CompilerOptions): (string*IPlugin) list =
     opts.plugins
     |> Seq.collect (fun path ->
         try
             (Path.GetFullPath path |> Assembly.LoadFile).GetTypes()
             |> Seq.filter typeof<IPlugin>.IsAssignableFrom
-            |> Seq.map Activator.CreateInstance
+            |> Seq.map (fun x -> path, Activator.CreateInstance x |> unbox<IPlugin>)
         with
         | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
-    |> Seq.cast<_>
     |> Seq.toList
 
 let getProjectOptions (com: ICompiler) (checker: FSharpChecker)

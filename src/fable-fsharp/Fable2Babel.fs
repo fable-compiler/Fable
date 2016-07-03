@@ -23,7 +23,7 @@ type Context = {
 
 type IBabelCompiler =
     inherit ICompiler
-    abstract DeclarePlugins: IDeclarePlugin list
+    abstract DeclarePlugins: (string*IDeclarePlugin) list
     abstract GetProjectAndNamespace: string -> Fable.Project * string
     abstract GetImport: Context -> internalFile: string option -> selector: string -> path: string -> Babel.Expression
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
@@ -624,7 +624,10 @@ module Util =
 
     and transformModDecls (com: IBabelCompiler) ctx declareMember modIdent decls =
         let pluginDeclare decl =
-            com.DeclarePlugins |> Seq.tryPick (fun plugin -> plugin.TryDeclare com ctx decl)
+            com.DeclarePlugins |> Seq.tryPick (fun (path, plugin) ->
+                try plugin.TryDeclare com ctx decl
+                with ex -> failwithf "Error in plugin %s: %s (%O)"
+                            path ex.Message decl.Range)
         decls |> List.fold (fun acc decl ->
             match decl with
             | Patterns.Try pluginDeclare statements ->
@@ -668,7 +671,7 @@ module Util =
     let makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         let declarePlugins =
             com.Plugins |> List.choose (function
-                | :? IDeclarePlugin as plugin -> Some plugin
+                | path, (:? IDeclarePlugin as plugin) -> Some (path, plugin)
                 | _ -> None)
         { new IBabelCompiler with
             member bcom.DeclarePlugins =
@@ -732,7 +735,10 @@ module Compiler =
                 }
                 let rootDecls =
                     com.DeclarePlugins
-                    |> Seq.tryPick (fun plugin -> plugin.TryDeclareRoot com ctx file)
+                    |> Seq.tryPick (fun (path, plugin) ->
+                        try plugin.TryDeclareRoot com ctx file
+                        with ex -> failwithf "Error in plugin %s: %s (%O)"
+                                    path ex.Message file.Range)
                     |> function
                     | Some rootDecls -> rootDecls
                     | None -> transformModDecls com ctx declareRootModMember None file.Declarations
