@@ -2422,3 +2422,20 @@ Event.split = function (f, w) {
     return res.Case == "Choice2Of2" ? res.Fields[0] : null;
   }, w)];
 };
+
+export var Lazy = function Lazy(factory) {
+  this.factory = factory;
+  this.isValueCreated = false;
+};
+Lazy.createFromValue = function (v) {
+  return new Lazy(function () { return v; });
+};
+Object.defineProperty(Lazy.prototype, 'value', {
+  get: function () {
+    if (!this.isValueCreated) {
+      this.createdValue = this.factory();
+      this.isValueCreated = true;
+    }
+    return this.createdValue;
+  }
+});

@@ -221,3 +221,41 @@ let ``Guid.NewGuid works``() =
 let ``Guid.Empty works``() =
     let g1 = Guid.Empty
     string g1 |> equal "00000000-0000-0000-0000-000000000000"
+
+[<Test>]
+let ``lazy works``() =
+    let mutable snitch = 0 
+    let lazyVal =
+        lazy
+            snitch <- snitch + 1
+            5
+    equal 0 snitch
+    equal 5 lazyVal.Value
+    equal 1 snitch
+    lazyVal.Force() |> equal 5
+    equal 1 snitch
+
+[<Test>]
+let ``Lazy.CreateFromValue works``() =
+    let mutable snitch = 0 
+    let lazyVal =
+        Lazy.CreateFromValue(
+            snitch <- snitch + 1
+            5)
+    equal 1 snitch
+    equal 5 lazyVal.Value
+    equal 1 snitch
+
+[<Test>]
+let ``lazy.IsValueCreated works``() =
+    let mutable snitch = 0 
+    let lazyVal =
+        Lazy.Create(fun () ->
+            snitch <- snitch + 1
+            5)
+    equal 0 snitch
+    equal false lazyVal.IsValueCreated
+    equal 5 lazyVal.Value
+    equal true lazyVal.IsValueCreated
+    lazyVal.Force() |> equal 5
+    equal true lazyVal.IsValueCreated

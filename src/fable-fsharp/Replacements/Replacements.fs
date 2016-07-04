@@ -1192,6 +1192,22 @@ module private AstPass =
             |> Fable.Value |> Some
         | _ -> None
 
+    let laziness com (info: Fable.ApplyInfo) =
+        let coreCall meth isCons args =
+            CoreLibCall("Lazy", meth, isCons, args)
+            |> makeCall com info.range info.returnType
+        let getProp callee prop =
+            Fable.Apply(callee, [makeConst prop], Fable.ApplyGet, info.returnType, info.range)
+        match info.methodName with
+        | ".ctor" | "create" -> coreCall None true info.args |> Some
+        | "createFromValue" -> coreCall (Some info.methodName) false info.args |> Some
+        | "force" | "value" | "isValueCreated" ->
+            let callee, _ = instanceArgs info.callee info.args
+            match info.methodName with
+            | "force" -> "value" | another -> another
+            |> getProp callee |> Some
+        | _ -> None
+
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | KnownInterfaces _ -> knownInterfaces com info
@@ -1255,6 +1271,8 @@ module private AstPass =
         | "Microsoft.FSharp.Control.MailboxProcessor"
         | "Microsoft.FSharp.Control.AsyncReplyChannel" -> mailbox com info
         | "System.Guid" -> guids com info
+        | "System.Lazy" | "Microsoft.FSharp.Control.Lazy"
+        | "Microsoft.FSharp.Control.LazyExtensions" -> laziness com info
         | _ -> None
 
 module private CoreLibPass =
