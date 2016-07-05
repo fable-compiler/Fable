@@ -22,7 +22,7 @@ module Util =
 
     let (|CoreCons|_|) (com: ICompiler) coreMod expr =
         match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef(coreMod', importPath)),_, Fable.ApplyCons,_,_)
+        | Fable.Apply(Fable.Value(Fable.ImportRef(coreMod', importPath)),[], Fable.ApplyCons,_,_)
             when importPath = com.Options.coreLib && coreMod = coreMod' -> Some expr
         | _ -> None
 
@@ -31,6 +31,10 @@ module Util =
         | _ -> None
 
     let (|Type|) (expr: Fable.Expr) = expr.Type
+    
+    let (|NumberType|) = function
+        | Fable.PrimitiveType(Fable.Number kind) -> Some kind
+        | _ -> None
         
     let (|FullName|_|) (typ: Fable.Type) =
         match typ with
@@ -275,8 +279,10 @@ module private AstPass =
                         | _ -> None
                 | _ -> None
             match i.args.Head with
+            | CoreCons com "List" _ ->
+                makeJsObject (defaultArg i.range SourceLocation.Empty) [] |> Some
             | Fable.Apply(_, [Fields fields], _, _, _) ->
-                makeJsObject i.range.Value fields |> Some
+                makeJsObject (defaultArg i.range SourceLocation.Empty) fields |> Some
             | _ ->
                 CoreLibCall("Util", Some "createObj", false, i.args)
                 |> makeCall com i.range i.returnType |> Some
@@ -1046,9 +1052,20 @@ module private AstPass =
                 // Array.fill target targetIndex count value
                 // target.fill(value, targetIndex, targetIndex + count)
                 emit i "$0.fill($3, $1, $1 + $2)" i.args |> Some
-            // Native JS map is risky with typed arrays as they coerce
-            // the final result (see #120, #171)
-            // | "map" -> icall "map" (i.args.[1], deleg i [i.args.[0]])
+            | "map" ->
+                match i.methodTypeArgs with
+                // Native JS map is risky with typed arrays as they coerce
+                // the final result (see #120, #171)
+                | Fable.UnknownType::_ -> None
+                | NumberType(Some _) as tin::[tout] when tin = tout ->
+                    icall "map" (i.args.[1], deleg i [i.args.[0]])
+                | NumberType None::[NumberType None] ->
+                    icall "map" (i.args.[1], deleg i [i.args.[0]])
+                | _ -> None
+            | "append" ->
+                match i.methodTypeArgs with
+                | [Fable.UnknownType] | [NumberType(Some _)] -> None
+                | _ -> icall "concat" (i.args.Head, i.args.Tail)
             | Patterns.SetContains implementedArrayFunctions meth ->
                 CoreLibCall ("Array", Some meth, false, deleg i i.args)
                 |> makeCall com i.range i.returnType |> Some

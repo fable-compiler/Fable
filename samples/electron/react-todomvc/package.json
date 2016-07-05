@@ -4,7 +4,7 @@
     "start": "electron out/main.js"
   },
   "dependencies": {
-    "fable-core": "^0.1.9",
+    "fable-core": "^0.1.12",
     "classnames": "^2.2.5",
     "director": "^1.2.8",
     "react": "^15.1.0",

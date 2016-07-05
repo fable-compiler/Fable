@@ -1,6 +1,6 @@
 {
   "name": "fable-import-react",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "Fable bindings for React",
   "repository": {
     "type": "git",

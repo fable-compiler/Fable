@@ -85,6 +85,15 @@ let ``Mapping from values to functions works``() =
     let f2 = f
     a |> Array.mapi f2 |> Array.item 2 <| "x" |> equal "2cx"
 
+let map f ar = Array.map f ar
+
+[<Test>]
+let ``Mapping from typed arrays to non-numeric arrays doesn't coerce values`` = // See #120, #171
+    let xs = map string [|1;2|]
+    (box xs.[0]) :? string |> equal true
+    let xs2 = Array.map string [|1;2|]
+    (box xs2.[1]) :? string |> equal true
+
 [<Test>]
 let ``Byte arrays are not clamped by default``() =
     let ar = [|5uy|]
@@ -196,11 +205,12 @@ let ``Array.empty works``() =
 
 [<Test>]
 let ``Array.append works``() =
-    let xs = [|1; 2; 3; 4|]
-    let ys = [|0|]
-    let zs = Array.append ys xs
-    zs.[0] + zs.[1]
-    |> equal 1
+    let xs1 = [|1; 2; 3; 4|]
+    let zs1 = Array.append [|0|] xs1
+    zs1.[0] + zs1.[1] |> equal 1
+    let xs2 = [|"a"; "b"; "c"|]
+    let zs2 = Array.append [|"x";"y"|] xs2
+    zs2.[1] + zs2.[3] |> equal "yb"
 
 [<Test>]
 let ``Array.average works``() =   

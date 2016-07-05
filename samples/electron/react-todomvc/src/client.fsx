@@ -7,8 +7,17 @@ open System
 open Fable.Core
 open Fable.Import
 
-module Req =
-    let [<Global>] require<'T>(path: string): 'T = failwith "JS only"
+
+module Util =
+    let load<'T> key =
+        Browser.localStorage.getItem(key) |> unbox
+        |> Option.map (JS.JSON.parse >> unbox<'T>)
+
+    let save key (data: 'T) =
+        Browser.localStorage.setItem(key, JS.JSON.stringify data)
+
+    // Utility function to simplify require statements
+    let inline require<'T>(path: string): 'T = unbox<'T>(Node.require.Invoke path)
 
     // JS utility for conditionally joining classNames together
     // See https://github.com/JedWatson/classnames
@@ -16,57 +25,26 @@ module Req =
 
     // Director is a router. Routing is the process of determining what code to run when a URL is requested.
     // See https://github.com/flatiron/director
-    let Router = require<obj->obj>("director")
+    let Router = require<obj>("director")?Router |> unbox<obj->obj>
 
-    require<unit>("todomvc-common/base.css")
-    require<unit>("todomvc-app-css/index.css")
-
-type Todo = { id: string; title: string; completed: bool }
-
-type Util =
-    static member uuid () =
-        let makeRandom =
-            let rnd = Random()
-            fun () -> rnd.Next(16)
-        ("", seq { 0..31 })
-        ||> Seq.fold (fun uuid i ->
-            let hyphen =
-                match i with 8 | 12 | 16 | 20 -> "-" | _ -> ""
-            let random =
-                match i with
-                 | 12 -> 4
-                 | 16 -> makeRandom() &&& 3 ||| 8
-                 | _ -> makeRandom()
-            sprintf "%s%s%s" uuid hyphen (Convert.ToString(random, 16)))
-
-    static member pluralize count word =
-        if count = 1 then word else word + "s"
-
-    static member store
-        with get ns: Todo[] =
-            match Browser.localStorage.getItem(ns) |> unbox with
-            | Some data -> JS.JSON.parse(data) |> unbox
-            | None -> [||]
-        and set ns (data: Todo[]) =
-            Browser.localStorage.setItem(ns, JS.JSON.stringify data)
+type Todo = { id: Guid; title: string; completed: bool }
 
 type TodoModel(key) =
     member val key = key
-    member val todos: Todo[] = Util.store(key) with get, set
+    member val todos: Todo[] = defaultArg (Util.load key) [||] with get, set
     member val onChanges: (unit->unit)[] = [||] with get, set
 
     member this.subscribe (onChange) =
         this.onChanges <- [|onChange|]
 
     member this.inform () =
-        Util.store(this.key) <- this.todos
+        Util.save this.key this.todos
         this.onChanges |> Seq.iter (fun cb -> cb())
 
     member this.addTodo (title) =
-        this.todos <- [|
-            yield! this.todos
-            yield { id=Util.uuid(); title=title; completed=false }
-        |]
+        this.todos <-
+            [|{ id=Guid.NewGuid(); title=title; completed=false }|]
+            |> Array.append this.todos
         this.inform()
 
     member this.toggleAll (checked') =
@@ -81,8 +59,9 @@ type TodoModel(key) =
             else { todo with completed = (not todo.completed) })
         this.inform()
 
-    member this.destroy (todo) =
-        this.todos <- this.todos |> Array.filter ((<>) todo)
+    member this.destroy (todoToDestroy) =
+        this.todos <- this.todos |> Array.filter (fun todo ->
+            todo.id <> todoToDestroy.id)
         this.inform()
 
     member this.save (todoToSave, text) =
@@ -93,7 +72,8 @@ type TodoModel(key) =
         this.inform()
 
     member this.clearCompleted () =
-        this.todos <- this.todos |> Array.filter (fun todo -> not todo.completed)
+        this.todos <- this.todos |> Array.filter (fun todo ->
+            not todo.completed)
         this.inform()
 
 module R = Fable.Helpers.React
@@ -101,7 +81,7 @@ open R.Props
 
 type TodoItemState = { editText: string }
 type TodoItemProps =
-    abstract key: string 
+    abstract key: Guid 
     abstract todo: Todo 
     abstract editing: bool
     abstract onSave: obj->unit
@@ -148,7 +128,7 @@ type TodoItem(props) =
             this.setState { editText = string e.target?value }
 
     member this.shouldComponentUpdate (nextProps: TodoItemProps) (nextState: TodoItemState) =
-        nextProps.todo <> this.props.todo
+        not(obj.ReferenceEquals(nextProps.todo, this.props.todo))
         || nextProps.editing <> this.props.editing
         || nextState.editText <> this.state.editText
 
@@ -162,7 +142,7 @@ type TodoItem(props) =
 
     member this.render () =
         let className =
-            Req.classNames(
+            Util.classNames(
                 createObj [
                     "completed" ==> this.props.todo.completed
                     "editing" ==> this.props.editing
@@ -200,7 +180,8 @@ type TodoFooterProps =
 type TodoFooter(props) =
     inherit React.Component<TodoFooterProps,obj>(props)
     member this.render () =
-        let activeTodoWord = Util.pluralize this.props.count "item"
+        let activeTodoWord =
+            "item" + (if this.props.count = 1 then "" else "s")
         let clearButton =
             if this.props.completedCount > 0 then
                 R.button [
@@ -209,7 +190,7 @@ type TodoFooter(props) =
                 ] [ unbox "Clear completed" ] |> Some
             else None
         let className category =
-            Req.classNames(
+            Util.classNames(
                 createObj ["selected" ==> (this.props.nowShowing = category)])
         R.footer [ ClassName "footer" ] [
             R.span [ ClassName "todo-count" ] [
@@ -239,7 +220,7 @@ type TodoFooter(props) =
         ]
 
 type TodoAppProps = { model: TodoModel }
-type TodoAppState = { nowShowing: string; editing: string option; newTodo: string }
+type TodoAppState = { nowShowing: string; editing: Guid option; newTodo: string }
 
 type TodoApp(props) =
     inherit R.Component<TodoAppProps, TodoAppState>(
@@ -249,7 +230,7 @@ type TodoApp(props) =
         let nowShowing category =
             fun () -> this.setState({this.state with nowShowing = category})
         let router =
-            Req.Router(
+            Util.Router(
                 createObj [
                     "/" ==> nowShowing ALL_TODOS
                     "/active" ==> nowShowing ACTIVE_TODOS
@@ -294,12 +275,13 @@ type TodoApp(props) =
     member this.render () =
         let todos = this.props.model.todos
         let todoItems = 
-            todos |> Array.filter (fun todo ->
+            todos
+            |> Seq.filter (fun todo ->
                 match this.state.nowShowing with
                 | ACTIVE_TODOS -> not todo.completed
                 | COMPLETED_TODOS -> todo.completed
                 | _ -> true)
-            |> Array.map (fun todo ->
+            |> Seq.map (fun todo ->
                 R.com<TodoItem,_,_>(
                     { new TodoItemProps with
                         member __.key = todo.id
@@ -314,6 +296,7 @@ type TodoApp(props) =
                         member __.onSave text = this.save(todo, string text)
                         member __.onCancel _ = this.cancel()
                     }) [])
+                |> Seq.toList
         let activeTodoCount =
             todos |> Array.fold (fun accum todo ->
                 if todo.completed then accum else accum + 1
@@ -339,7 +322,7 @@ type TodoApp(props) =
                         OnChange this.toggleAll
                         Checked (activeTodoCount = 0)
                     ] []
-                    R.ul [ ClassName "todo-list" ] [ unbox todoItems ]
+                    R.ul [ ClassName "todo-list" ] todoItems
                 ] |> Some
             else None
         R.div [] [
@@ -358,6 +341,11 @@ type TodoApp(props) =
             footer.Value
         ]
 
+// Webpack will attach the styles to the DOM
+Util.require<unit>("todomvc-common/base.js")
+Util.require<unit>("todomvc-common/base.css")
+Util.require<unit>("todomvc-app-css/index.css")
+
 let model = TodoModel("react-todos")
 let render() =
     ReactDom.render(
@@ -365,5 +353,4 @@ let render() =
         Browser.document.getElementsByClassName("todoapp").[0]
     ) |> ignore
 model.subscribe(render)
-System.Diagnostics.Debugger.Break()
 render()

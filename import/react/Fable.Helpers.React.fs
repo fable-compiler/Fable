@@ -579,26 +579,22 @@ type Component<'P,'S>(props: 'P, ?state: 'S) =
     do this?state <- state
 
 let toPlainJsObj (source: obj) =
-    let transferValueOrGetter source thisValue target (k: string) =
-        let prop = JS.Object.getOwnPropertyDescriptor(source, k)
-        // Attention, if we access `get` statically, F# compiler will wrap it in a function
-        match unbox prop.value, unbox prop?get with
-        | Some value, _ -> target?(k) <- value 
-        | None, Some getter -> target?(k) <- getter?apply$(thisValue)
-        | _ -> ()
-        target
-    match source with
-    | null -> null
-    | source ->
-        let target =
-            (obj(), JS.Object.getOwnPropertyNames(source))
-            ||> Seq.fold (transferValueOrGetter source source)
+    if source = null then null else
+    match JS.Object.getPrototypeOf(source) with
+    | proto when proto <> null && proto <> JS.Object.getPrototypeOf(createObj []) ->
+        let target = obj()
+        for k in (unbox<string[]>(JS.Object.getOwnPropertyNames(source))) do
+            target?(k) <- source?(k)
         // Copy also properties from prototype, see #192
-        match JS.Object.getPrototypeOf(source) with
-        | proto when proto <> null && obj.ReferenceEquals(proto, JS.Object) ->
-            (target, JS.Object.getOwnPropertyNames(proto))
-            ||> Seq.fold (transferValueOrGetter proto source)
-        | _ -> target
+        for k in (unbox<string[]>(JS.Object.getOwnPropertyNames(proto))) do
+            let prop = JS.Object.getOwnPropertyDescriptor(proto, k)
+            // Attention, if we access `get` statically, F# compiler will wrap it in a function
+            match unbox prop.value, unbox prop?get with
+            | Some value, _ -> target?(k) <- value 
+            | None, Some getter -> target?(k) <- getter?apply$(source)
+            | _ -> ()
+        target
+    | _ -> source
 
 let inline fn (f: 'Props -> #React.ReactElement<obj>) (props: 'Props) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     unbox(React.createElement(U2.Case1(unbox f), toPlainJsObj props, unbox(List.toArray children)))
