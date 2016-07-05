@@ -970,9 +970,10 @@ module private AstPass =
             match i.args with
             | [] -> makeEmptyArray ()
             | _ ->
-                match i.args.Head.Type with
-                | Fable.PrimitiveType (Fable.Number Int32) ->
+                match i.args.Head with
+                | Type(Fable.PrimitiveType (Fable.Number Int32)) ->
                     makeEmptyArray ()
+                | Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, Fable.DynamicArray)) -> Some i.args.Head
                 | _ -> emit i "Array.from($0)" i.args |> Some
         | "add" ->
             icall "push" (c.Value, args) |> Some

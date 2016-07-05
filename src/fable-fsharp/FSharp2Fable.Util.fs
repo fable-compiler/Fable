@@ -120,7 +120,12 @@ module Patterns =
         | NonAbbreviatedType(TypeDefinition tdef) as t
             when tdef.TryFullName = Some "Microsoft.FSharp.Core.FSharpRef`1" -> Some t
         | _ -> None
-        
+
+    let (|ListType|_|) = function
+        | NonAbbreviatedType(TypeDefinition tdef) as t
+            when tdef.TryFullName = Some "Microsoft.FSharp.Collections.FSharpList`1" -> Some t
+        | _ -> None
+
     let (|ForOf|_|) = function
         | Let((_, value),
               Let((_, Call(None, meth, _, [], [])),
@@ -134,6 +139,15 @@ module Patterns =
             when meth.DisplayName = "GetEnumerator" ->
             Some(ident, value, body)
         | _ -> None
+
+    let (|ComposableExpr|_|) e =
+        match e with
+        | Call(None,_,_,_,args) -> Some (e, args)
+        | NewObject(_,_,args) -> Some (e, args)
+        | NewUnionCase(fsType,_,args) ->
+            // Lists are usually flattened so they're not easily composable
+            match fsType with ListType _ -> None | _ -> Some (e, args)
+        | _ -> None 
 
     // These are closures created by F# compiler, e.g. given `let add x y z = x+y+z`
     // `3 |> add 1 2` will become `let x=1 in let y=2 in fun z -> add(x,y,z)`
@@ -156,36 +170,36 @@ module Patterns =
             | Let((letArg, letValue), letBody) ->
                 let identAndRepls = identAndRepls@[(letArg, letValue)]
                 match letBody with
-                | Lambda(lambdaArg1, Call(None, meth, typArgs, methTypArgs, Rev (last1::args))) ->
+                | Lambda(lambdaArg1, ComposableExpr(e, Rev (last1::args))) ->
                     if checkArgs identAndRepls (List.rev args) &&
                         checkArgs2 [lambdaArg1] [last1]
-                    then Some(1, meth, typArgs, methTypArgs, List.map snd identAndRepls)
+                    then Some(1, e, List.map snd identAndRepls)
                     else None
                 | Lambda(lambdaArg1,
-                         Lambda(lambdaArg2, Call(None, meth, typArgs, methTypArgs, Rev (last2::last1::args)))) ->
+                         Lambda(lambdaArg2, ComposableExpr(e, Rev (last2::last1::args)))) ->
                     if checkArgs identAndRepls (List.rev args) &&
                         checkArgs2 [lambdaArg1;lambdaArg2] [last1;last2]
-                    then Some(2, meth, typArgs, methTypArgs, List.map snd identAndRepls)
+                    then Some(2, e, List.map snd identAndRepls)
                     else None
                 | Lambda(lambdaArg1,
                          Lambda(lambdaArg2,
-                            Lambda(lambdaArg3,Call(None, meth, typArgs, methTypArgs, Rev (last3::last2::last1::args))))) ->
+                            Lambda(lambdaArg3,ComposableExpr(e, Rev (last3::last2::last1::args))))) ->
                     if checkArgs identAndRepls (List.rev args) &&
                         checkArgs2 [lambdaArg1;lambdaArg2;lambdaArg3] [last1;last2;last3]
-                    then Some(3, meth, typArgs, methTypArgs, List.map snd identAndRepls)
+                    then Some(3, e, List.map snd identAndRepls)
                     else None
                 | _ -> visit identAndRepls letBody
             | _ -> None
         match fsExpr with
-        | Lambda(larg1, Call(None, meth, typArgs, methTypArgs, [marg1]))
+        | Lambda(larg1, ComposableExpr(e, [marg1]))
             when checkArgs2 [larg1] [marg1] ->
-                Some(1, meth, typArgs, methTypArgs, [])
-        | Lambda(larg1, Lambda(larg2, Call(None, meth, typArgs, methTypArgs, [marg1;marg2])))
+                Some(1, e, [])
+        | Lambda(larg1, Lambda(larg2, ComposableExpr(e, [marg1;marg2])))
             when checkArgs2 [larg1;larg2] [marg1;marg2] ->
-                Some(2, meth, typArgs, methTypArgs, [])
-        | Lambda(larg1, Lambda(larg2, Lambda(larg3, Call(None, meth, typArgs, methTypArgs, [marg1;marg2;marg3]))))
+                Some(2, e, [])
+        | Lambda(larg1, Lambda(larg2, Lambda(larg3, ComposableExpr(e, [marg1;marg2;marg3]))))
             when checkArgs2 [larg1;larg2;larg3] [marg1;marg2;marg3] ->
-                Some(3, meth, typArgs, methTypArgs, [])
+                Some(3, e, [])
         | _ -> visit [] fsExpr
 
     let (|Pipe|_|) = function
@@ -214,22 +228,18 @@ module Patterns =
         
     // TODO: Make it recursive 
     let (|Composition|_|) = function
-        | Call(None, comp, _, _,
-                [Closure(1, meth1, typArgs1, methTypArgs1, args1);
-                 Closure(1, meth2, typArgs2, methTypArgs2, args2)]) ->
+        | Call(None, comp, _, _, [Closure(1, e1, args1); Closure(1, e2, args2)]) ->
             match comp.FullName with
             | "Microsoft.FSharp.Core.Operators.( >> )" ->
-                Some (meth1, typArgs1, methTypArgs1, args1, meth2, typArgs2, methTypArgs2, args2)
+                Some (e1, args1, e2, args2)
             | "Microsoft.FSharp.Core.Operators.( << )" ->
-                Some (meth2, typArgs2, methTypArgs2, args2, meth1, typArgs1, methTypArgs1, args1)
+                Some (e2, args2, e1, args1)
             | _ -> None
         | _ -> None
 
     let (|ErasableLambda|_|) fsExpr =
         match fsExpr with
-        | Pipe(Closure(arity, meth, typArgs, methTypArgs, methArgs), exprs)
-            when arity = exprs.Length ->
-                Some (meth, typArgs, methTypArgs, methArgs@exprs)
+        | Pipe(Closure(arity, e, args), exprs) when arity = exprs.Length -> Some (e, args@exprs)
         | _ -> None
         
     /// This matches the boilerplate F# compiler generates for methods

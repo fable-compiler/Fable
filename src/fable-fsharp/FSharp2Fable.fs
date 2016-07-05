@@ -50,7 +50,106 @@ let private (|FSharpExceptionGet|_|) = function
             Some (callee, fsType.TypeDefinition, fieldInfo)
     | _ -> None
 
-let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
+let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
+    let rec flattenList (r: SourceLocation) accArgs = function
+        | [] -> accArgs, None
+        | arg::[BasicPatterns.NewUnionCase(_, _, rest)] ->
+            flattenList r (arg::accArgs) rest
+        | arg::[baseList] ->
+            arg::accArgs, Some baseList
+        | _ -> failwithf "Unexpected List constructor %O: %A" r fsExpr
+    let isKeyValueList (fsType: FSharpType) =
+        match Seq.toList fsType.GenericArguments with
+        | [arg] when arg.HasTypeDefinition ->
+            arg.TypeDefinition.Attributes
+            |> tryFindAtt ((=) "KeyValueList")
+            |> Option.isSome
+        | _ -> false
+    let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
+    if isKeyValueList fsType then
+        let (|KeyValue|_|) = function
+            | Fable.Value(Fable.ArrayConst(Fable.ArrayValues
+                            [Fable.Value(Fable.StringConst k);v],_)) -> Some(k, v)
+            | _ -> None
+        match flattenList range [] argExprs with
+        | _, Some baseList ->
+            failwithf "KeyValue lists cannot be composed %O" range
+        | args, None ->
+            (Some [], args) ||> List.fold (fun acc x ->
+                match acc, transformExpr com ctx x with
+                | Some acc, Fable.Wrapped(KeyValue(k,v),_)
+                | Some acc, KeyValue(k,v) -> (k,v)::acc |> Some
+                | None, _ -> None // If a case cannot be determined at compile time
+                | _ -> None       // the whole list must be converted at runtime
+            ) |> function
+            | Some cases -> makeJsObject range cases
+            | None ->
+                let args =
+                    let args = args |> List.map (transformExpr com ctx)
+                    Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.DynamicArray))
+                let builder =
+                    Fable.Emit("(o, kv) => { o[kv[0]] = kv[1]; return o; }") |> Fable.Value
+                CoreLibCall("Seq", Some "fold", false, [builder;Fable.ObjExpr([],[],None,None);args])
+                |> makeCall com (Some range) Fable.UnknownType
+    else
+        let buildArgs (args, baseList) =
+            let args = args |> List.rev |> (List.map (transformExpr com ctx))
+            let ar = Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.DynamicArray))
+            ar::(match baseList with Some li -> [transformExpr com ctx li] | None -> [])
+        match argExprs with
+        | [] -> CoreLibCall("List", None, true, [])
+        | _ -> CoreLibCall("List", Some "ofArray", false,
+                flattenList range [] argExprs |> buildArgs)
+        |> makeCall com (Some range) unionType
+
+and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
+    let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
+    match unionType with
+    | ErasedUnion | OptionUnion ->
+        match argExprs with
+        | [] -> Fable.Value Fable.Null 
+        | [expr] -> expr
+        | _ -> failwithf "Erased Union Cases must have one single field: %s"
+                            unionType.FullName
+    | KeyValueUnion ->
+        let v =
+            match argExprs with
+            | [] -> makeConst true 
+            | [expr] -> expr
+            | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s"
+                            unionType.FullName
+        (Fable.ArrayValues [lowerUnionCaseName unionCase; v], Fable.Tuple)
+        |> Fable.ArrayConst |> Fable.Value 
+    | StringEnum ->
+        // if argExprs.Length > 0 then
+        //     failwithf "StringEnum must not have fields: %s" unionType.FullName
+        lowerUnionCaseName unionCase
+    | ListUnion ->
+        failwithf "transformNonListNewUnionCase must not be used with List %O" range
+    | OtherType ->
+        // Include Tag name in args
+        let argExprs = (makeConst unionCase.Name)::argExprs
+        if isReplaceCandidate com fsType.TypeDefinition then
+            let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+            replace com ctx r typ (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
+        else
+            Fable.Apply (makeTypeRef com (Some range) unionType, argExprs, Fable.ApplyCons,
+                            makeType com ctx fsExpr.Type, Some range)
+
+and private transformComposableExpr com ctx fsExpr argExprs =
+    // See (|ComposableExpr|_|) active pattern to check which expressions are valid here
+    match fsExpr with
+    | BasicPatterns.Call(None, meth, typArgs, methTypArgs, _) ->
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeCallFrom com ctx r typ meth (typArgs, methTypArgs) None argExprs
+    | BasicPatterns.NewObject(meth, typArgs, _) ->
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        makeCallFrom com ctx r typ meth (typArgs, []) None argExprs
+    | BasicPatterns.NewUnionCase(fsType, unionCase, _) ->
+        transformNonListNewUnionCase com ctx fsExpr fsType unionCase argExprs
+    | _ -> failwith "ComposableExpr expected"
+
+and private transformExpr (com: IFableCompiler) ctx fsExpr =
     match fsExpr with
     (** ## Custom patterns *)
     | SpecialValue com ctx replacement ->
@@ -61,39 +160,25 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.ForOf (ident, value, transformExpr com newContext body)
         |> makeLoop (makeRangeFrom fsExpr)
         
-    | ErasableLambda (meth, typArgs, methTypArgs, methArgs) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-        makeCallFrom com ctx r typ meth (typArgs, methTypArgs)
-            None (List.map (com.Transform ctx) methArgs)
+    | ErasableLambda (expr, argExprs) ->
+        List.map (com.Transform ctx) argExprs
+        |> transformComposableExpr com ctx expr
 
     // Pipe must come after ErasableLambda
     | Pipe (Transform com ctx callee, args) ->
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         makeApply range typ callee (List.map (transformExpr com ctx) args)
         
-    | Composition (meth1, typArgs1, methTypArgs1, args1, meth2, typArgs2, methTypArgs2, args2) ->
+    | Composition (expr1, args1, expr2, args2) ->
         let lambdaArg = Naming.getUniqueVar() |> makeIdent
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         let expr1 =
             (List.map (com.Transform ctx) args1)@[Fable.Value (Fable.IdentValue lambdaArg)]
-            |> makeCallFrom com ctx r typ meth1 (typArgs1, methTypArgs1) None
+            |> transformComposableExpr com ctx expr1
         let expr2 =
             (List.map (com.Transform ctx) args2)@[expr1]
-            |> makeCallFrom com ctx r typ meth2 (typArgs2, methTypArgs2) None
+            |> transformComposableExpr com ctx expr2
         Fable.Lambda([lambdaArg], expr2) |> Fable.Value
-
-    // TODO: This optimization conflicts with some composition patterns, like List.foldBack test
-    // | Closure(arity, meth, typArgs, methTypArgs, methArgs) ->
-    //     let lambdaArgs =
-    //         [for i=1 to arity do yield Naming.getUniqueVar() |> makeIdent]
-    //     let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-    //     let lambdaBody =
-    //         let args =
-    //             lambdaArgs
-    //             |> List.map (fun x -> Fable.Value(Fable.IdentValue x))
-    //             |> (@) (List.map (com.Transform ctx) methArgs)
-    //         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) None args
-    //     Fable.Lambda (lambdaArgs, lambdaBody) |> Fable.Value
 
     | BaseCons com ctx (meth, args) ->
         let args = List.map (com.Transform ctx) args
@@ -411,87 +496,11 @@ let rec private transformExpr (com: IFableCompiler) ctx fsExpr =
                             makeType com ctx fsExpr.Type, Some range)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
-        let rec flattenList (r: SourceLocation) accArgs = function
-            | [] -> accArgs, None
-            | arg::[BasicPatterns.NewUnionCase(_, _, rest)] ->
-                flattenList r (arg::accArgs) rest
-            | arg::[baseList] ->
-                arg::accArgs, Some baseList
-            | _ -> failwithf "Unexpected List constructor %O: %A" r fsExpr
-        let isKeyValueList (fsType: FSharpType) =
-            match Seq.toList fsType.GenericArguments with
-            | [arg] when arg.HasTypeDefinition ->
-                arg.TypeDefinition.Attributes
-                |> tryFindAtt ((=) "KeyValueList")
-                |> Option.isSome
-            | _ -> false
-        let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
-        match unionType with
-        | ErasedUnion | OptionUnion ->
-            match List.map (transformExpr com ctx) argExprs with
-            | [] -> Fable.Value Fable.Null 
-            | [expr] -> expr
-            | _ -> failwithf "Erased Union Cases must have one single field: %s"
-                             unionType.FullName
-        | KeyValueUnion ->
-            let v =
-                match List.map (transformExpr com ctx) argExprs with
-                | [] -> makeConst true 
-                | [expr] -> expr
-                | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s"
-                                unionType.FullName
-            (Fable.ArrayValues [lowerUnionCaseName unionCase; v], Fable.Tuple)
-            |> Fable.ArrayConst |> Fable.Value 
-        | StringEnum ->
-            // if argExprs.Length > 0 then
-            //     failwithf "StringEnum must not have fields: %s" unionType.FullName
-            lowerUnionCaseName unionCase
-        | ListUnion when isKeyValueList fsType ->
-            let (|KeyValue|_|) = function
-                | Fable.Value(Fable.ArrayConst(Fable.ArrayValues
-                                [Fable.Value(Fable.StringConst k);v],_)) -> Some(k, v)
-                | _ -> None
-            match flattenList range [] argExprs with
-            | _, Some baseList ->
-                failwithf "KeyValue lists cannot be composed %O" range
-            | args, None ->
-                (Some [], args) ||> List.fold (fun acc x ->
-                    match acc, transformExpr com ctx x with
-                    | Some acc, Fable.Wrapped(KeyValue(k,v),_)
-                    | Some acc, KeyValue(k,v) -> (k,v)::acc |> Some
-                    | None, _ -> None // If a case cannot be determined at compile time
-                    | _ -> None       // the whole list must be converted at runtime
-                ) |> function
-                | Some cases -> makeJsObject range cases
-                | None ->
-                    let args =
-                        let args = args |> List.map (transformExpr com ctx)
-                        Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.DynamicArray))
-                    let builder =
-                        Fable.Emit("(o, kv) => { o[kv[0]] = kv[1]; return o; }") |> Fable.Value
-                    CoreLibCall("Seq", Some "fold", false, [builder;Fable.ObjExpr([],[],None,None);args])
-                    |> makeCall com (Some range) Fable.UnknownType
-        | ListUnion ->
-            let buildArgs (args, baseList) =
-                let args = args |> List.rev |> (List.map (transformExpr com ctx))
-                let ar = Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.DynamicArray))
-                ar::(match baseList with Some li -> [transformExpr com ctx li] | None -> [])
-            match argExprs with
-            | [] -> CoreLibCall("List", None, true, [])
-            | _ -> CoreLibCall("List", Some "ofArray", false,
-                    flattenList range [] argExprs |> buildArgs)
-            |> makeCall com (Some range) unionType
-        | OtherType ->
-            let argExprs =
-                // Include Tag name in args
-                let tag = makeConst unionCase.Name
-                tag::(List.map (transformExpr com ctx) argExprs)
-            if isReplaceCandidate com fsType.TypeDefinition then
-                let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-                replace com ctx r typ (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
-            else
-                Fable.Apply (makeTypeRef com (Some range) unionType, argExprs, Fable.ApplyCons,
-                                makeType com ctx fsExpr.Type, Some range)
+        match fsType with
+        | ListType _ -> transformNewList com ctx fsExpr fsType argExprs
+        | _ ->
+            List.map (com.Transform ctx) argExprs
+            |> transformNonListNewUnionCase com ctx fsExpr fsType unionCase
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ as fsTyp, Transform com ctx expr) ->
