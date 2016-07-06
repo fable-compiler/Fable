@@ -1,12 +1,14 @@
 namespace Fable.Plugins
 
 #r "../../../build/fable/bin/Fable.AST.dll"
-#r "../../../build/fable/bin/Fable.dll"
 
+open Fable
 open Fable.AST
-open Fable.FSharp2Fable
 
 type LogAsyncErrorsPlugin() =
+    let emit (i: Fable.ApplyInfo) emit args =
+        Fable.Apply(Fable.Emit(emit)
+        |> Fable.Value, args, Fable.ApplyMeth, i.returnType, i.range)
     let macro =
         """$0.start(function (builder_) {
             return builder_.delay(function () {
@@ -29,7 +31,7 @@ type LogAsyncErrorsPlugin() =
                     let import =
                         Fable.ImportRef ("Async", com.Options.coreLib)
                         |> Fable.Value
-                    Fable.Replacements.Util.emit info macro (import::info.args)
+                    emit info macro (import::info.args)
                     |> Some
                 | _ -> None
             | _ -> None

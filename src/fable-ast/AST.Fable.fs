@@ -102,11 +102,10 @@ and ExternalEntity =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
 
-and File(fileName, root, decls, ?logs) =
+and File(fileName, root, decls) =
     member x.FileName: string = fileName
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
-    member x.Logs: LogMessage list = defaultArg logs []
     member x.Range =
         match decls with
         | [] -> SourceLocation.Empty

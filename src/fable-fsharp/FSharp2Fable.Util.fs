@@ -17,14 +17,9 @@ type Context =
     typeArgs: (string * Fable.Type) list
     decisionTargets: Map<int, DecisionTarget>
     baseClass: string option
-    logs: ResizeArray<LogMessage>
     }
-    static member Empty(logs) =
-        { scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None; logs=logs }
-    
-type IReplacePlugin =
-    inherit Fable.IPlugin
-    abstract TryReplace: com: Fable.ICompiler -> info: Fable.ApplyInfo -> Fable.Expr option
+    static member Empty =
+        { scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None }
     
 type IFableCompiler =
     inherit ICompiler
@@ -337,7 +332,7 @@ module Types =
         | Some (NonAbbreviatedType t) ->
             if isIgnored t then None else
             let typeRef =
-                makeType com (ResizeArray<_>() |> Context.Empty) t
+                makeType com Context.Empty t
                 |> makeTypeRef com (Some SourceLocation.Empty)
             Some (sanitizeEntityName t.TypeDefinition, typeRef)
             
@@ -680,14 +675,14 @@ module Util =
                 let emitMethName =
                     match restAttArgs with
                     | [:? string as emitMethName] -> emitMethName
-                    | _ -> "Emit"
+                    | _ -> "Emit" // Default
                 try
                     let emitInstance = getEmitter emitFsType.TypeDefinition
                     let emitMeth = emitInstance.GetType().GetMethod(emitMethName)
                     let applyInfo =
                         buildApplyInfoFrom com ctx r typ
                             (typArgs, methTypArgs) (callee, args) meth
-                    emitMeth.Invoke(emitInstance, [|applyInfo|]) |> unbox |> Some
+                    emitMeth.Invoke(emitInstance, [|com; applyInfo|]) |> unbox |> Some
                 with
                 | _ -> failwithf "Cannot build instance of type %s or it doesn't contain an appropriate %s method %O"
                         emitFsType.TypeDefinition.DisplayName emitMethName r 
@@ -715,7 +710,7 @@ module Util =
         | Some (vars, fsExpr) ->
             let args = match callee with Some x -> x::args | None -> args
             let ctx =
-                (Context.Empty ctx.logs, vars, args)
+                (Context.Empty, vars, args)
                 |||> Seq.fold2 (fun ctx var arg ->
                     { ctx with scope = (Some var, arg)::ctx.scope })
             let ctx =

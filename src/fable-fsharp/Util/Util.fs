@@ -1,18 +1,5 @@
 namespace Fable
 
-type CompilerOptions = {
-        code: string
-        projFile: string
-        coreLib: string
-        symbols: string list
-        plugins: string list
-        msbuild: string list
-        refs: Map<string, string>
-        watch: bool
-        clamp: bool
-        copyExt: bool
-    }
-    
 type CompilerMessageType =
     | Error | Log
     override x.ToString() =
@@ -21,13 +8,6 @@ type CompilerMessageType =
 type CompilerMessage(typ: CompilerMessageType, msg) =
     member x.``type`` = string typ
     member x.message: string = msg
-
-type IPlugin =
-    interface end
-
-type ICompiler =
-    abstract Options: CompilerOptions
-    abstract Plugins: (string*IPlugin) list
     
 type PerfTimer(label) =
     let t = System.Diagnostics.Stopwatch()
@@ -37,7 +17,7 @@ type PerfTimer(label) =
         t.Stop()
         t.Elapsed.TotalSeconds
         |> sprintf "%s: %fs" label
-        |> Fable.AST.Info
+        |> Fable.Info
 
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a

@@ -839,7 +839,10 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
             replacePlugins
     interface ICompiler with
         member __.Options = com.Options
-        member __.Plugins = com.Plugins }
+        member __.Plugins = com.Plugins
+        member __.GetUniqueVar() = com.GetUniqueVar()
+        member __.AddLog msg = com.AddLog msg
+        member __.GetLogs() = com.GetLogs() }
         
 type Info =
     {
@@ -928,16 +931,14 @@ let transformFiles (com: ICompiler) (comInfo: Info) =
         && comInfo.IsMasked file)
     |> Seq.map (fun file ->
         try
-            let t = PerfTimer("F# > Fable")
-            let ctx = ResizeArray<LogMessage>() |> Context.Empty
             let rootEnt, rootDecls =
                 let rootNs = curProj.FileMap.[file.FileName]
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
-                let rootDecls = transformDeclarations com ctx [] rootDecls
+                let rootDecls = transformDeclarations com Context.Empty [] rootDecls
                 match rootEnt with
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
-            Fable.File(file.FileName, rootEnt, rootDecls, (List.ofSeq ctx.logs)@[t.Finish()])
+            Fable.File(file.FileName, rootEnt, rootDecls)
         with
         | ex -> failwithf "%s (%s)" ex.Message file.FileName)
     |> fun seq -> projs, seq

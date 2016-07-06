@@ -36,6 +36,7 @@ let readOptions argv =
         msbuild = def opts "msbuild" [] (li id)
         refs = Map(def opts "refs" [] (li (fun (x: string) ->
             let xs = x.Split('=') in xs.[0], xs.[1])))
+        extra = Map.empty // TODO: Read extra options
     }
 
 let loadPlugins (opts: CompilerOptions): (string*IPlugin) list =
@@ -135,9 +136,13 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
         |> failwith
 
 let makeCompiler plugins opts =
+    let logs = System.Collections.Concurrent.ConcurrentBag()
     { new ICompiler with
         member __.Options = opts
-        member __.Plugins = plugins }
+        member __.Plugins = plugins
+        member __.GetUniqueVar() = Naming.getUniqueVar()
+        member __.AddLog msg = logs.Add msg
+        member __.GetLogs() = logs :> seq<_> }
 
 let compile (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option) =
     let printFile =
@@ -179,6 +184,9 @@ let compile (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option
                 printFile babelFile
                 Map.add babelFile.originalFileName babelFile.dependencies deps
             ) deps
+        // Print logs
+        com.GetLogs() |> Seq.map (fun log -> Log, string log)
+        |> Seq.toList |> printMessages
         // Send empty string to signal end of compilation
         Console.Out.WriteLine()
         Some { comInfo with dependencies = deps }

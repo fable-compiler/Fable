@@ -17,7 +17,6 @@ type Context = {
     originalFile: string
     moduleFullName: string
     imports: ResizeArray<Import>
-    logs: ResizeArray<LogMessage>
     rootEntitiesPrivateNames: Map<string, string>
 }
 
@@ -707,7 +706,10 @@ module Util =
                 transformClass bcom ctx r None baseClass members
         interface ICompiler with
             member __.Options = com.Options
-            member __.Plugins = com.Plugins }
+            member __.Plugins = com.Plugins
+            member __.GetUniqueVar() = com.GetUniqueVar()
+            member __.AddLog msg = com.AddLog msg
+            member __.GetLogs() = com.GetLogs() }
             
 module Compiler =
     open Util
@@ -731,7 +733,6 @@ module Compiler =
                     moduleFullName = projs.Head.FileMap.[file.FileName]
                     rootEntitiesPrivateNames = getRootEntitiesPrivateNames file.Declarations
                     imports = ResizeArray<_>()
-                    logs = ResizeArray<_>()
                 }
                 let rootDecls =
                     com.DeclarePlugins
@@ -762,8 +763,7 @@ module Compiler =
                     |> Seq.toList |> List.unzip
                     |> fun (importDecls, dependencies) ->
                         (importDecls@rootDecls), (List.choose id dependencies |> List.distinct)
-                let logs = file.Logs @ (List.ofSeq ctx.logs) @ [t.Finish()] |> List.map string 
                 Babel.Program (Naming.fixExternalPath com file.FileName,
-                                file.FileName, file.Range, rootDecls, dependencies, logs=logs)
+                                file.FileName, file.Range, rootDecls, dependencies)
             with
             | ex -> failwithf "%s (%s)" ex.Message file.FileName)

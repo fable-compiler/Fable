@@ -18,7 +18,7 @@ module Internal =
         new (emitterType: Type, methodName: string) = EmitAttribute()
 
     type Emitter() =
-        member __.CreateRegex(info: Fable.ApplyInfo) =
+        member __.CreateRegex(_com: Fable.ICompiler, info: Fable.ApplyInfo) =
             let isTrue = function Fable.Value(Fable.BoolConst true) -> true | _ -> false
             match info.args with
             | Fable.Value(Fable.StringConst pattern)::ignoreCase::[multiline] ->

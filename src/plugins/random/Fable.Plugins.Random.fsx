@@ -1,12 +1,13 @@
 namespace Fable.Plugins
 
 #r "../../../build/fable/bin/Fable.AST.dll"
-#r "../../../build/fable/bin/Fable.dll"
 
+open Fable
 open Fable.AST
-open Fable.FSharp2Fable
 
 type RandomPlugin() =
+    let intConst x =
+        Fable.NumberConst (U2.Case1 x, Int32) |> Fable.Value
     interface IReplacePlugin with
         member x.TryReplace _com (info: Fable.ApplyInfo) =
             match info.ownerFullName with
@@ -18,8 +19,8 @@ type RandomPlugin() =
                 | "next" ->
                     let min, max =
                         match info.args with
-                        | [] -> Fable.Util.makeConst 0, Fable.Util.makeConst System.Int32.MaxValue
-                        | [max] -> Fable.Util.makeConst 0, max
+                        | [] -> intConst 0, intConst System.Int32.MaxValue
+                        | [max] -> intConst 0, max
                         | [min; max] -> min, max
                         | _ -> failwith "Unexpected arg count for Random.Next"
                     let emitExpr =

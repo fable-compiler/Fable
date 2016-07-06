@@ -3,9 +3,9 @@ namespace Fable.Plugins
 #r "../../../build/fable/bin/Fable.AST.dll"
 #r "../../../build/fable/bin/Fable.dll"
 
+open Fable
 open Fable.AST
 open Fable.AST.Fable
-open Fable.FSharp2Fable
 
 type BitwiseWrapPlugin() =
     interface IReplacePlugin with

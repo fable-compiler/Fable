@@ -1,13 +1,5 @@
 namespace Fable.AST
 
-type LogMessage =
-    | Warning of string
-    | Info of string
-    override x.ToString() =
-        match x with
-        | Warning s -> "[WARNING] " + s
-        | Info s -> "[INFO] " + s
-
 type EraseAttribute() = inherit System.Attribute()
 [<Erase>] type U2<'a, 'b> = Case1 of 'a | Case2 of 'b
 [<Erase>] type U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c
