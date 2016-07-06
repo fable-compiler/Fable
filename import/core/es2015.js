@@ -1631,18 +1631,6 @@ Seq.zip3 = function (xs, ys, zs) {
 var FSet = {};
 export { FSet as Set };
 
-FSet.ofArray = function (xs) {
-  var set = new Set();
-  for (var i = 0; i < xs.length; i++) {
-    set.add(xs[i]);
-  }
-  return set;
-};
-FSet.ofSeq = function (xs) {
-  return Seq.fold(function (acc, x) {
-    return acc.add(x);
-  }, new Set(), xs);
-};
 FSet.op_Addition = FSet.union = function (set1, set2) {
   var set = new Set(set1);
   set2.forEach(function (x) {
@@ -1736,18 +1724,6 @@ FSet.remove = function (item, xs) {
 var FMap = {};
 export { FMap as Map };
 
-FMap.ofArray = function (xs) {
-  var map = new Map();
-  for (var i = 0; i < xs.length; i++) {
-    map.set(xs[i][0], xs[i][1]);
-  }
-  return map;
-};
-FMap.ofSeq = function (xs) {
-  return Seq.fold(function (acc, kv) {
-    return acc.set(kv[0], kv[1]);
-  }, new Map(), xs);
-};
 FMap.containsValue = function (v, map) {
   return Seq.fold(function (acc, k) {
     return acc || map.get(k) === v;

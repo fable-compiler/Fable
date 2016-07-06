@@ -382,8 +382,7 @@ module private AstPass =
         | "string" -> toString com info None args.Head |> Some
         | "dict" | "set" ->
             let modName = if info.methodName = "dict" then "Map" else "Set"
-            CoreLibCall(modName, Some "ofSeq", false, args)
-            |> makeCall com r typ |> Some
+            GlobalCall(modName, None, true, args) |> makeCall com r typ |> Some                
         // Ignore: wrap to keep Unit type (see Fable2Babel.transformFunction)
         | "ignore" -> Fable.Wrapped (args.Head, Fable.PrimitiveType Fable.Unit) |> Some
         // Ranges
@@ -758,8 +757,8 @@ module private AstPass =
         let modName =
             if i.ownerFullName.EndsWith("Map")
             then "Map" else "Set"
-        let _of colType expr =
-            CoreLibCall(modName, Some ("of" + colType), false, [expr])
+        let makeCons args =
+            GlobalCall(modName, None, true, args)
             |> makeCall com i.range i.returnType
         match i.methodName with
         // Instance and static shared methods
@@ -786,18 +785,14 @@ module private AstPass =
             CoreLibCall("Seq", Some meth, false, args)
             |> makeCall com i.range i.returnType |> Some
         // Constructors
-        | "empty" ->
-            GlobalCall(modName, None, true, [])
-            |> makeCall com i.range i.returnType |> Some
-        | ".ctor" ->
-            CoreLibCall(modName, Some "ofSeq", false, i.args)
-            |> makeCall com i.range i.returnType |> Some
+        | "empty" -> makeCons [] |> Some
+        | ".ctor" -> makeCons i.args |> Some
         // Conversions
         | "toArray" -> toArray com i i.args.Head |> Some
         | "toList" -> toList com i i.args.Head |> Some
         | "toSeq" -> Some i.args.Head
-        | "ofArray" -> _of "Array" i.args.Head |> Some
-        | "ofList" | "ofSeq" -> _of "Seq" i.args.Head |> Some
+        | "ofArray" -> makeCons i.args |> Some
+        | "ofList" | "ofSeq" -> makeCons i.args |> Some
         // Non-build static methods shared with Seq
         | "exists" | "fold" | "foldBack" | "forall" | "iter" ->
             let modName = if modName = "Map" then "Map" else "Seq"
@@ -812,7 +807,7 @@ module private AstPass =
             | _ ->
                 CoreLibCall("Seq", Some i.methodName, false, deleg i i.args)
                 |> makeCall com i.range i.returnType
-                |> _of "Seq" |> Some
+                |> List.singleton |> makeCons |> Some
         // Static method
         | "partition" ->
             CoreLibCall(modName, Some i.methodName, false, deleg i i.args)
