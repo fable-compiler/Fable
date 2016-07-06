@@ -195,3 +195,16 @@ let ``Option.bind works``() =
         let mutable value = Some "Alfonso"
         fun () -> match value with Some x -> value <- None; Some x | None -> None
     getOnlyOnce() |> Option.bind ((+) "Hello " >> Some) |> equal (Some "Hello Alfonso")
+
+type OptTest = OptTest of int option
+
+[<Test>]
+let ``Different ways of providing None to a union case should be equal``() =                      
+    let value = None
+    equal true ((OptTest None) = (value |> OptTest))    
+
+[<Test>]
+let ``Different ways of providing None to a function should be equal``() =        
+    let f x = x
+    let value = None
+    equal true ((f None) = (value |> f))

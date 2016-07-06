@@ -48,17 +48,18 @@ module Util =
         
     let consBack tail head = head::tail
 
-    let cleanNullArgs args =
-        let rec cleanNull = function
-            | [] -> []
-            | (Fable.Value Fable.Null)::args
-            | (Fable.Wrapped(Fable.Value Fable.Null,_))::args -> cleanNull args
-            | args -> args
-        List.rev args |> cleanNull |> List.rev
+    // This can cause conflicts in some situations when comparing null to undefined, see #231
+    // let cleanNullArgs args =
+    //     let rec cleanNull = function
+    //         | [] -> []
+    //         | (Fable.Value Fable.Null)::args
+    //         | (Fable.Wrapped(Fable.Value Fable.Null,_))::args -> cleanNull args
+    //         | args -> args
+    //     List.rev args |> cleanNull |> List.rev
 
     let prepareArgs (com: IBabelCompiler) ctx args =
-        cleanNullArgs args
-        |> List.map (function
+        // cleanNullArgs args
+        args |> List.map (function
             | Fable.Value (Fable.Spread expr) ->
                 Babel.SpreadElement(com.TransformExpr ctx expr) |> U2.Case2
             | _ as expr -> com.TransformExpr ctx expr |> U2.Case1)
