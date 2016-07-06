@@ -39,17 +39,33 @@ let readOptions argv =
     }
 
 let loadPlugins (opts: CompilerOptions): (string*IPlugin) list =
-    opts.plugins
-    |> Seq.collect (fun path ->
+    let optPlugins =
+        opts.plugins
+        |> Seq.collect (fun path ->
+            try
+                (Path.GetFullPath path |> Assembly.LoadFile).GetTypes()
+                |> Seq.filter typeof<IPlugin>.IsAssignableFrom
+                |> Seq.map (fun x ->
+                    Path.GetFileNameWithoutExtension path,
+                    Activator.CreateInstance x |> unbox<IPlugin>)
+            with
+            | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
+        |> Seq.toList
+    // Type providers may contain also plugins
+    let tpPlugins =
         try
-            (Path.GetFullPath path |> Assembly.LoadFile).GetTypes()
-            |> Seq.filter typeof<IPlugin>.IsAssignableFrom
-            |> Seq.map (fun x ->
-                Path.GetFileNameWithoutExtension path,
-                Activator.CreateInstance x |> unbox<IPlugin>)
-        with
-        | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
-    |> Seq.toList
+            AppDomain.CurrentDomain.GetAssemblies()
+            |> Seq.filter (fun asm ->
+                asm.GetCustomAttributesData()
+                |> Seq.exists (fun x -> x.AttributeType.Name = "TypeProviderAssemblyAttribute"))
+            |> Seq.collect (fun asm ->
+                asm.GetTypes()
+                |> Seq.filter typeof<IPlugin>.IsAssignableFrom
+                |> Seq.map (fun x ->
+                    asm.FullName, Activator.CreateInstance x |> unbox<IPlugin>))
+            |> Seq.toList
+        with _ -> [] // TODO: React to errors?
+    optPlugins@tpPlugins    
 
 let getProjectOptions (com: ICompiler) (checker: FSharpChecker)
                       (prevResults: FSharpProjectOptions option) (fileMask: string option) =
@@ -145,6 +161,9 @@ let compile (com: ICompiler) checker (comInfo: FSharp2Fable.Compiler.Info option
         // Get project options and parse project (F# Compiler Services) 
         let projOpts = getProjectOptions com checker projOpts fileMask
         let warnings, proj = parseFSharpProject com checker projOpts
+        // Load plugins after parsing the project, so type provider
+        // assemblies can be found in the AppDomain
+        let com = makeCompiler (loadPlugins com.Options) com.Options
         // Print diagnostic info
         match timer with
         | Some timer -> (timer.Finish())::warnings
@@ -189,7 +208,7 @@ let main argv =
             | opts when opts.code <> null ->
                 { opts with projFile = Path.ChangeExtension(Path.GetTempFileName(), "fsx") }
             | opts -> opts
-    let com = makeCompiler (loadPlugins opts) opts
+    let com = makeCompiler [] opts
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
     // Full compilation
     let comInfo = compile com checker None
