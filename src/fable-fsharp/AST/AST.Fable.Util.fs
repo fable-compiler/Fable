@@ -183,14 +183,13 @@ let makeDelegate arity (expr: Expr) =
     let rec flattenLambda (arity: int option) accArgs = function
         | Value (Lambda (args, body)) when arity.IsNone || List.length accArgs < arity.Value ->
             flattenLambda arity (accArgs@args) body
+        | _ when arity.IsSome && List.length accArgs < arity.Value ->
+            None
         | _ as body ->
-            Value (Lambda (accArgs, body))
-    match expr, expr.Type with
-    | Value (Lambda (args, body)), _ ->
-        flattenLambda arity args body
-    | _, PrimitiveType (Function a) ->
-        let arity = defaultArg arity a
-        if arity > 1 then
+            Value (Lambda (accArgs, body)) |> Some
+    let wrap arity expr =
+        match arity with
+        | Some arity when arity > 1 ->
             let lambdaArgs =
                 [for i=1 to arity do
                     yield {name=Naming.getUniqueVar(); typ=UnknownType}]
@@ -200,8 +199,15 @@ let makeDelegate arity (expr: Expr) =
                     Apply (callee, [Value (IdentValue arg)],
                         ApplyMeth, UnknownType, expr.Range))
             Lambda (lambdaArgs, lambdaBody) |> Value
-        else
-            expr // Do nothing
+        | _ -> expr // Do nothing
+    match expr, expr.Type with
+    | Value (Lambda (args, body)), _ ->
+        match flattenLambda arity args body with
+        | Some expr -> expr
+        | None -> wrap arity expr
+    | _, PrimitiveType (Function a) ->
+        let arity = defaultArg arity a 
+        wrap (Some arity) expr
     | _ -> expr
 
 // Check if we're applying against a F# let binding

@@ -141,6 +141,15 @@ let ``Seq.fold works``() =
     total |> equal 10.
 
 [<Test>]
+let ``Seq.fold with tupled arguments works``() =
+    let a, b =
+        ((1, 5), [1;2;3;4])
+        ||> Seq.fold (fun (a, b) i ->
+            a * i, b + i)
+    equal 24 a
+    equal 15 b
+
+[<Test>]
 let ``Seq.forall works``() =
     let xs = [1.; 2.; 3.; 4.]
     Seq.forall (fun x -> x < 5.) xs
