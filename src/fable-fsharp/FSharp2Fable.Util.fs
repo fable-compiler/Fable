@@ -601,14 +601,10 @@ module Util =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
-    let replace (com: IFableCompiler) ctx r typ ownerName methName methKind
-                (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args) =
-        let pluginReplace i =
-            com.ReplacePlugins |> Seq.tryPick (fun (path, plugin) ->
-                try plugin.TryReplace com i
-                with ex -> failwithf "Error in plugin %s: %s (%O)"
-                            path ex.Message r)
-        let applyInfo: Fable.ApplyInfo = {
+    let buildApplyInfo com ctx r typ ownerName methName methKind
+                       (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args)
+                       : Fable.ApplyInfo =
+        {
             ownerFullName = ownerName
             methodName = Naming.lowerFirst methName
             methodKind = methKind
@@ -621,6 +617,28 @@ module Util =
             methodTypeArgs = methTypArgs |> List.map (makeType com ctx)
             lambdaArgArity = lambdaArgArity
         }
+
+    let buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs)
+                       (callee, args) (meth: FSharpMemberOrFunctionOrValue)
+                       : Fable.ApplyInfo =
+        let lambdaArgArity =
+            if meth.CurriedParameterGroups.Count > 0
+                && meth.CurriedParameterGroups.[0].Count > 0
+            then countFuncArgs meth.CurriedParameterGroups.[0].[0].Type
+            else 0
+        let methName = sanitizeMethodName com meth
+        buildApplyInfo com ctx r typ
+            (sanitizeEntityName meth.EnclosingEntity)
+            methName (getMemberKind methName meth)
+            (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
+            (callee, args)
+
+    let replace (com: IFableCompiler) r applyInfo =
+        let pluginReplace i =
+            com.ReplacePlugins |> Seq.tryPick (fun (path, plugin) ->
+                try plugin.TryReplace com i
+                with ex -> failwithf "Error in plugin %s: %s (%O)"
+                            path ex.Message r)
         match applyInfo with
         | Try pluginReplace repl -> repl
         | Try (Replacements.tryReplace com) repl -> repl
@@ -632,39 +650,47 @@ module Util =
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ
                     (typArgs, methTypArgs) (callee, args)
                     (meth: FSharpMemberOrFunctionOrValue) =
-        if hasReplaceAtt meth.Attributes || isReplaceCandidate com meth.EnclosingEntity then
-            let lambdaArgArity =
-                if meth.CurriedParameterGroups.Count > 0
-                    && meth.CurriedParameterGroups.[0].Count > 0
-                then countFuncArgs meth.CurriedParameterGroups.[0].[0].Type
-                else 0
-            let methName = sanitizeMethodName com meth
-            replace com ctx r typ
-                (sanitizeEntityName meth.EnclosingEntity)
-                methName (getMemberKind methName meth)
-                (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
-                (callee, args) |> Some
+        if hasReplaceAtt meth.Attributes
+           || isReplaceCandidate com meth.EnclosingEntity then
+            buildApplyInfoFrom com ctx r typ
+                (typArgs, methTypArgs) (callee, args) meth
+            |> replace com r
+            |> Some
         else
             None
+
+    let getEmitter =
+        let cache = System.Collections.Concurrent.ConcurrentDictionary<string, obj>()
+        fun (tdef: FSharpEntity) ->
+            cache.GetOrAdd(tdef.QualifiedName, fun _ ->
+                let assembly = System.Reflection.Assembly.Load(tdef.Assembly.QualifiedName)
+                let typ = assembly.GetTypes() |> Seq.find (fun x ->
+                    x.AssemblyQualifiedName = tdef.QualifiedName)
+                System.Activator.CreateInstance(typ))
                 
-    let (|Emitted|_|) com ctx r typ (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+    let (|Emitted|_|) com ctx r typ (typArgs, methTypArgs) (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match meth.Attributes with
-        | ContainsAtt "Emit" [arg] ->
-            match arg with
-            | :? string as macro ->
+        | ContainsAtt "Emit" attArgs ->
+            match attArgs with
+            | [:? string as macro] ->
                 let args = match callee with None -> args | Some c -> c::args
                 Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r)
                 |> Some
-            | :? FSharpType as typ when typ.HasTypeDefinition ->
+            | :? FSharpType as emitFsType::restAttArgs when emitFsType.HasTypeDefinition ->
+                let emitMethName =
+                    match restAttArgs with
+                    | [:? string as emitMethName] -> emitMethName
+                    | _ -> "Emit"
                 try
-                    let assembly = System.Reflection.Assembly.Load(typ.TypeDefinition.Assembly.QualifiedName)
-                    let typ = assembly.GetTypes() |> Seq.find (fun x -> x.AssemblyQualifiedName = typ.TypeDefinition.QualifiedName)
-                    let mi = typ.GetMethod("Emit")
-                    let o = System.Activator.CreateInstance(typ)
-                    mi.Invoke(o, [|args|]) |> unbox |> Some
+                    let emitInstance = getEmitter emitFsType.TypeDefinition
+                    let emitMeth = emitInstance.GetType().GetMethod(emitMethName)
+                    let applyInfo =
+                        buildApplyInfoFrom com ctx r typ
+                            (typArgs, methTypArgs) (callee, args) meth
+                    emitMeth.Invoke(emitInstance, [|applyInfo|]) |> unbox |> Some
                 with
-                | _ -> failwithf "Cannot build instace of type %s or it doesn't contain an appropriate Emit method %O"
-                        typ.TypeDefinition.DisplayName r 
+                | _ -> failwithf "Cannot build instance of type %s or it doesn't contain an appropriate %s method %O"
+                        emitFsType.TypeDefinition.DisplayName emitMethName r 
             | _ -> failwithf "EmitAttribute must receive a string or Type argument %O" r
         | _ -> None
         
@@ -716,7 +742,7 @@ module Util =
                 (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
         match meth with
         (** -Check for replacements, emits... *)
-        | Emitted com ctx r typ (callee, args) emitted -> emitted
+        | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
         | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Imported com ctx r typ args imported -> imported
         | Inlined com ctx methTypArgs (callee, args) expr -> expr
@@ -780,7 +806,7 @@ module Util =
         then wrapInLambda com ctx r typ v
         else
             match v with
-            | Emitted com ctx r typ (None, []) emitted -> emitted
+            | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
             | Imported com ctx r typ [] imported -> imported
             | Try (tryGetBoundExpr ctx) e -> e 
             | _ ->

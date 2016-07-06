@@ -1,0 +1,19 @@
+{
+  "private": true,
+  "name": "fable-providers-regex-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./Fable.Providers.Regex.Test.js",
+  "scripts": {
+    "test": "node ../../../../build/tests/node_modules/mocha/bin/mocha ."
+  },
+  "keywords": [],
+  "author": "Alfonso Garcia-Caro",
+  "license": "ISC",
+  "engines": {
+    "fable": ">=0.3.16"
+  },
+  "dependencies": {
+    "fable-core": "^0.1.6"
+  }
+}

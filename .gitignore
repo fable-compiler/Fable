@@ -5,7 +5,8 @@ import/core/Fable.Import.dll.*
 samples/**/out/
 samples/**/bundle.js*
 samples/other/fable-helpers-sample/js/*.*
-src/providers/**/*.js*
+src/providers/**/*.js
+src/providers/**/*.js.map
 src/tests/**/*.dll
 
 # Node

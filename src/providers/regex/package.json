@@ -1,0 +1,18 @@
+{
+  "name": "fable-providers-regex",
+  "version": "0.0.2",
+  "description": "Regex Type Providers for Fable",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fsprojects/Fable/src/providers/regex"
+  },
+  "license": "Apache-2.0",
+  "author": "Alfonso Garcia-Caro",
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#"
+  ],
+  "homepage": "https://github.com/fsprojects/Fable#readme"
+}

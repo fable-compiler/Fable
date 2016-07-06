@@ -13,8 +13,10 @@ type GlobalAttribute() =
 type ImportAttribute(get: string, from: string) =
     inherit Attribute()
 
-type EmitAttribute(macro: string) =
+type EmitAttribute private () =
     inherit Attribute()
+    new (macro: string) = EmitAttribute()
+    new (emitterType: Type, methodName: string) = EmitAttribute()
     
 type KeyValueListAttribute() =
     inherit Attribute()

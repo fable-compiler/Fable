@@ -9,15 +9,18 @@ open System.Reflection
 open System.Text.RegularExpressions
 
 module Internal =
+    open System
     open Fable.AST
 
-    type EmitAttribute(t: System.Type) =
-        inherit System.Attribute()
+    type EmitAttribute private () =
+        inherit Attribute()
+        new (macro: string) = EmitAttribute()
+        new (emitterType: Type, methodName: string) = EmitAttribute()
 
     type Emitter() =
-        member __.Emit(args: Fable.Expr list) =
+        member __.CreateRegex(info: Fable.ApplyInfo) =
             let isTrue = function Fable.Value(Fable.BoolConst true) -> true | _ -> false
-            match args with
+            match info.args with
             | Fable.Value(Fable.StringConst pattern)::ignoreCase::[multiline] ->
                 let flags = if isTrue ignoreCase then [RegexIgnoreCase] else []
                 let flags = if isTrue multiline then RegexMultiline::flags else flags
@@ -26,7 +29,7 @@ module Internal =
 
     type Helper =
         // [<Emit("new RegExp($0,'g{{$1?i:}}{{$2?m:}}')")>]
-        [<Emit(typeof<Emitter>)>]
+        [<Emit(typeof<Emitter>, "CreateRegex")>]
         static member CreateRegex(pattern, ignoreCase, multiline) =
             let flags = if ignoreCase then RegexOptions.IgnoreCase else RegexOptions.None
             let flags = if multiline then flags ||| RegexOptions.Multiline else flags
