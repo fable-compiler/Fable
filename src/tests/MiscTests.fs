@@ -441,6 +441,7 @@ type Point =
     { x: float; y: float }
     static member (+) (p1: Point, p2: Point) = { x=p1.x + p2.x; y=p1.y + p2.y }
     static member (-) (p1: Point, p2: Point) = { x=p1.x - p2.x; y=p1.y - p2.y }
+    static member inline (*) (p1: Point, p2: Point) = { x=p1.x * p2.x; y=p1.y * p2.y }
 
 [<Test>]
 let ``Custom operators with types work``(): unit =
@@ -449,17 +450,29 @@ let ``Custom operators with types work``(): unit =
     equal 7. (p1 + p2).x
     equal 9. (p1 - p2).y
 
+[<Test>]
+let ``Inline custom operators with types work``(): unit = // See #230
+    let p1 = { x=5.; y=10. }
+    let p2 = { x=2.; y=1. }
+    equal 10. (p1 * p2).x
+
 let (+) x y = x * y
 
 let (-) x y = x / y
 
 let (||||) x y = x + y
 
+let inline (>>) x y = x * y * 2
+
 [<Test>]
 let ``Custom operators work``() =
     5 + 5 |> equal 25
     10 - 2 |> equal 5
     2 |||| 2 |> equal 4
+
+[<Test>]
+let ``Inline custom operators work``() =
+    5 >> 5 |> equal 50
 
 [<Test>]
 let ``defaultArg works``() =

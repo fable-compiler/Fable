@@ -687,13 +687,7 @@ type private DeclInfo(init: Fable.Declaration list) =
     
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    match meth with
-    | meth when declInfo.IsIgnoredMethod meth -> ctx
-    | meth when isInline meth ->
-        let args = args |> Seq.collect id |> Seq.toList
-        com.AddInlineExpr meth.FullName (args, body)
-        ctx
-    | _ ->
+    let addMethod() =
         let memberKind =
             let name = sanitizeMethodName com meth
             getMemberKind name meth
@@ -727,6 +721,18 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             |> Fable.MemberDeclaration
         declInfo.AddMethod (meth, entMember)
         ctx
+    if declInfo.IsIgnoredMethod meth then ctx
+    elif isInline meth then
+        // Inlining custom type operators is problematic, see #230
+        if not meth.EnclosingEntity.IsFSharpModule && meth.CompiledName.StartsWith "op_" then
+            sprintf "Operators cannot be inlined: %s" meth.FullName
+            |> Warning |> com.AddLog
+            addMethod()
+        else
+            let args = args |> Seq.collect id |> Seq.toList
+            com.AddInlineExpr meth.FullName (args, body)
+            ctx
+    else addMethod()
     |> fun ctx -> declInfo, ctx
    
 // TODO: Check that nested entities' names don't clash with parent members
