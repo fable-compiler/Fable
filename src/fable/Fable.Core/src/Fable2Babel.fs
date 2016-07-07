@@ -1,8 +1,5 @@
 module Fable.Fable2Babel
 
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.Ast
-open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 
@@ -430,33 +427,34 @@ module Util =
             
         // TODO: Experimental support for Quotations
         | Fable.Quote (TransformExpr com ctx expr) as fExpr ->
-            let rec toJson (expr: obj): Babel.Expression =
-                match expr with 
-                | :? Babel.Node ->
-                    expr.GetType().GetProperties()
-                    |> Seq.choose (fun p ->
-                        match p.Name with
-                        | "loc" -> None // Remove location to make the object lighter 
-                        | key ->
-                            let key = Babel.StringLiteral key
-                            let value = p.GetValue(expr) |> toJson 
-                            Some(Babel.ObjectProperty(key, value)))
-                    |> Seq.map U3.Case1
-                    |> Seq.toList
-                    |> fun props -> upcast Babel.ObjectExpression(props)
-                | :? bool as expr -> upcast Babel.BooleanLiteral(expr)
-                | :? int as expr -> upcast Babel.NumericLiteral(U2.Case1 expr)
-                | :? float as expr -> upcast Babel.NumericLiteral(U2.Case2 expr)
-                | :? string as expr -> upcast Babel.StringLiteral(expr)
-                | expr when Json.isErasedUnion(expr.GetType()) ->
-                    match Json.getErasedUnionValue expr with
-                    | Some v -> toJson v
-                    | None -> upcast Babel.NullLiteral()
-                | :? System.Collections.IEnumerable as expr ->
-                    let xs = [for x in expr -> U2.Case1(toJson x) |> Some]
-                    upcast Babel.ArrayExpression(xs)
-                | _ -> failwithf "Unexpected expression inside quote %O" fExpr.Range
-            toJson expr
+            failwithf "Quotations are not supported %O" fExpr.Range
+            // let rec toJson (expr: obj): Babel.Expression =
+            //     match expr with 
+            //     | :? Babel.Node ->
+            //         expr.GetType().GetProperties()
+            //         |> Seq.choose (fun p ->
+            //             match p.Name with
+            //             | "loc" -> None // Remove location to make the object lighter 
+            //             | key ->
+            //                 let key = Babel.StringLiteral key
+            //                 let value = p.GetValue(expr) |> toJson 
+            //                 Some(Babel.ObjectProperty(key, value)))
+            //         |> Seq.map U3.Case1
+            //         |> Seq.toList
+            //         |> fun props -> upcast Babel.ObjectExpression(props)
+            //     | :? bool as expr -> upcast Babel.BooleanLiteral(expr)
+            //     | :? int as expr -> upcast Babel.NumericLiteral(U2.Case1 expr)
+            //     | :? float as expr -> upcast Babel.NumericLiteral(U2.Case2 expr)
+            //     | :? string as expr -> upcast Babel.StringLiteral(expr)
+            //     | expr when Json.isErasedUnion(expr.GetType()) ->
+            //         match Json.getErasedUnionValue expr with
+            //         | Some v -> toJson v
+            //         | None -> upcast Babel.NullLiteral()
+            //     | :? System.Collections.IEnumerable as expr ->
+            //         let xs = [for x in expr -> U2.Case1(toJson x) |> Some]
+            //         upcast Babel.ArrayExpression(xs)
+            //     | _ -> failwithf "Unexpected expression inside quote %O" fExpr.Range
+            // toJson expr
         
     let transformFunction com ctx args body =
         let args: Babel.Pattern list =
@@ -708,7 +706,6 @@ module Util =
         interface ICompiler with
             member __.Options = com.Options
             member __.Plugins = com.Plugins
-            member __.GetUniqueVar() = com.GetUniqueVar()
             member __.AddLog msg = com.AddLog msg
             member __.GetLogs() = com.GetLogs() }
             

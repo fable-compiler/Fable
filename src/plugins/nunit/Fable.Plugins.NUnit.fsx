@@ -1,11 +1,9 @@
 namespace Fable.Plugins
 
 #r "../../../build/fable/bin/Fable.Core.dll"
-#r "../../../build/fable/bin/Fable.Compiler.dll"
 
 open Fable
 open Fable.AST
-open Fable.FSharp2Fable
 open Fable.Fable2Babel
 
 module Util =

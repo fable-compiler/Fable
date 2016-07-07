@@ -9,8 +9,6 @@ open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-let minimumFableCoreVersion = Version("0.2")
-
 type MiniCompilerOptions = {
     projFile: string
     msbuild: string list
@@ -59,13 +57,24 @@ let main argv =
         getProjectOpts checker opts.projFile opts.symbols opts.msbuild
     projectOpts.OtherOptions
     |> Seq.filter (fun x -> x.StartsWith("-r:"))
-    |> Seq.iter (fun x ->
-        let path = x.Substring(3)
-        if Path.GetFileName(path) = "Fable.Core.dll" then
-            // Use Fable.Core.dll referenced by the project to be compiled
-            let asm = Assembly.LoadFrom(Path.GetFullPath path)
-            if asm.GetName().Version < minimumFableCoreVersion then
-                failwithf "Fable.Core %O required, please updgrade" minimumFableCoreVersion
-    )
+    |> Seq.tryPick (fun opt ->
+        if opt.StartsWith("-r:")
+            && Path.GetFileName(opt.Substring 3) = "Fable.Core.dll"
+        then Path.GetFullPath(opt.Substring 3) |> Some
+        else None)
+    |> Option.bind (fun path ->
+        // Use Fable.Core.dll referenced by the project to be compiled
+        let fableCoreAsm = Assembly.LoadFrom(Path.GetFullPath path)
+        let currentAsm = Assembly.GetExecutingAssembly()
+        currentAsm.GetCustomAttributes(typeof<AssemblyMetadataAttribute>, false)
+        |> Seq.tryPick (fun att ->
+            let att = att :?> AssemblyMetadataAttribute
+            if att.Key = "minimumFableCoreVersion"
+            then (fableCoreAsm.GetName().Version, Version att.Value) |> Some
+            else None))
+    |> Option.iter (fun (coreVersion, minVersion) ->
+        if coreVersion < minVersion then
+            failwithf "Fable.Core %O required, please updgrade the project reference"
+                        minVersion)
     Main.start argv checker getProjectOpts projectOpts
     0

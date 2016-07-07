@@ -1,6 +1,6 @@
 {
   "name": "fable-plugins-nunit",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Fable Plugin for NUnit Tests",
   "repository": {
     "type": "git",

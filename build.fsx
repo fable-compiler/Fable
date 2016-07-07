@@ -4,10 +4,12 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 open Fake
+open Fake.AssemblyInfoFile
 
 // version info
 let fableCompilerVersion = "0.4.0"
 let fableCoreVersion = "0.2.0"
+let minimumFableCoreVersion = "0.2.0"
 
 module Util =
     open System.Net
@@ -74,10 +76,10 @@ module Util =
         FscHelper.compile opts [fsxPath]
         |> function 0 -> () | _ -> failwithf "Cannot compile %s" fsxPath
 
-    let updateAssemblyInfo version projectPath =
-        let asmInfoPath = projectPath </> "AssemblyInfo.fs"
-        AssemblyInfoFile.CreateFSharpAssemblyInfo asmInfoPath
-            [AssemblyInfoFile.Attribute.Version version]
+    let assemblyInfo projectDir version extra =
+        let asmInfoPath = projectDir </> "AssemblyInfo.fs"
+        (Attribute.Version version)::extra
+        |> CreateFSharpAssemblyInfo asmInfoPath
 
 module Npm =
     let npmFilePath args =
@@ -130,19 +132,25 @@ module Fake =
 
 // Targets
 Target "Clean" (fun _ ->
-    !! "build/fable/bin" ++ "src/**/bin/" ++ "src/**/obj/"
-    |> CleanDirs
-    // Exclude node_modules
-    !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
-    |> Seq.iter FileUtils.rm
-    !! "build/tests/**/*.*" -- "build/tests/node_modules/**/*.*"
-    |> Seq.iter FileUtils.rm
+    // In the development machine, don't delete node_modules for faster builds
+    if environVar "DEV_MACHINE" = "1" then
+        !! "build/fable/bin" ++ "src/**/bin/" ++ "src/**/obj/"
+        |> CleanDirs
+        !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
+        |> Seq.iter FileUtils.rm
+        !! "build/tests/**/*.*" -- "build/tests/node_modules/**/*.*"
+        |> Seq.iter FileUtils.rm
+    else
+        !! "build/" ++ "src/**/bin/" ++ "src/**/obj/"
+        |> CleanDirs
 )
 
 Target "FableCompilerRelease" (fun _ ->
-    Util.updateAssemblyInfo fableCoreVersion "src/fable/Fable.Core/src"
-    Util.updateAssemblyInfo fableCompilerVersion "src/fable/Fable.Compiler"
-    Util.updateAssemblyInfo fableCompilerVersion "src/fable/Fable.Client.Node"
+    Util.assemblyInfo "src/fable/Fable.Core/src" fableCoreVersion []
+    Util.assemblyInfo "src/fable/Fable.Compiler" fableCompilerVersion []
+    Util.assemblyInfo "src/fable/Fable.Client.Node" fableCompilerVersion [
+        Attribute.Metadata ("minimumFableCoreVersion", minimumFableCoreVersion)
+    ]
 
     let buildDir = "build/fable"
 
@@ -253,7 +261,7 @@ Target "FableCore" (fun _ ->
     sprintf "es2015.js -o commonjs.js --plugins %s-commonjs" babelPlugin |> run "babel"
     "fable-core.js -c -m -o fable-core.min.js" |> run "uglifyjs"
 
-    Util.updateAssemblyInfo fableCoreVersion (targetDir + "/src")
+    Util.assemblyInfo (targetDir + "/src") fableCoreVersion []
     !! (targetDir + "/src/Fable.Core.fsproj")
     |> MSBuildRelease targetDir "Build"
     |> Log "Fable-Core-Output: "

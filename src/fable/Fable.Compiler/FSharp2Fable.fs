@@ -846,7 +846,6 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
     interface ICompiler with
         member __.Options = com.Options
         member __.Plugins = com.Plugins
-        member __.GetUniqueVar() = com.GetUniqueVar()
         member __.AddLog msg = com.AddLog msg
         member __.GetLogs() = com.GetLogs() }
         

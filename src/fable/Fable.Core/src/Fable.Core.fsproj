@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Name>Fable.Core</Name>
@@ -49,19 +49,22 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <Compile Include="AST.Common.fs" />
-    <Compile Include="AST.Fable.fs" />
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="AST/AST.Common.fs" />
+    <Compile Include="AST/AST.Fable.fs" />
+    <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Util.fs" />
-    <Compile Include="AST.Fable.Util.fs" />
+    <Compile Include="AST/AST.Fable.Util.fs" />
     <Compile Include="Replacements.fs" />
+    <Compile Include="Fable2Babel.fs" />
     <Compile Include="Fable.Core.fs" />
     <Compile Include="Import/Fable.Import.JS.fs" />
     <Compile Include="Import/Fable.Import.Browser.fs" />
     <Compile Include="Import/Fable.Import.Node.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
-    <Compile Include="AssemblyInfo.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>

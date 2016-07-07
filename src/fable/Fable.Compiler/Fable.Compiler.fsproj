@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Name>Fable.Compiler</Name>
@@ -57,10 +57,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
-    <Compile Include="AST.Babel.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="FSharp2Fable.fs" />
-    <Compile Include="Fable2Babel.fs" />
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
   </ItemGroup>

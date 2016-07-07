@@ -120,7 +120,6 @@ let makeCompiler opts plugins =
     { new ICompiler with
         member __.Options = opts
         member __.Plugins = plugins
-        member __.GetUniqueVar() = Naming.getUniqueVar()
         member __.AddLog msg = logs.Add msg
         member __.GetLogs() = logs :> seq<_> }
     
@@ -207,11 +206,6 @@ let start argv checker getProjectOpts projectOpts =
           FSProjInfo.fileMask = None
           FSProjInfo.dependencies = Map.empty }
         |> compile com checker
-
-    AppDomain.CurrentDomain.GetAssemblies()
-    |> Seq.iter (fun x ->
-        if x.FullName.Contains "Fable.AST" then
-            printfn "Fable.AST: %O" <| x.GetName().Version)
 
     // Keep on watching if necessary
     if success && opts.watch then

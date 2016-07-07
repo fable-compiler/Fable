@@ -29,7 +29,6 @@ type IPlugin =
 type ICompiler =
     abstract Options: CompilerOptions
     abstract Plugins: (string*IPlugin) list
-    abstract GetUniqueVar: unit->string
     abstract AddLog: LogMessage->unit
     abstract GetLogs: unit->seq<LogMessage>
 
@@ -50,6 +49,3 @@ type IInjectPlugin =
 open System.Reflection
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
-
-[<assembly: AssemblyVersion("1.0.0.0")>]
-do ()
