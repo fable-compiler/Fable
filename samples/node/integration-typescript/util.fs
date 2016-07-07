@@ -7,4 +7,8 @@ let reverse (s: string) =
     |> String.concat ""
 
 let greet s =
-    printfn "Hello %s!" s 
+    printfn "Hello %s!" s
+
+let sum (list: int list) =
+    List.fold (fun acc i -> acc + i) 0 list
+ 
