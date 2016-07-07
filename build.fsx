@@ -6,8 +6,8 @@ open System.Text.RegularExpressions
 open Fake
 
 // version info
-let version = "0.3.26"
-let coreLibVersion = "0.1.9"
+let fableCompilerVersion = "0.4.0"
+let fableCoreVersion = "0.2.0"
 
 module Util =
     open System.Net
@@ -74,6 +74,11 @@ module Util =
         FscHelper.compile opts [fsxPath]
         |> function 0 -> () | _ -> failwithf "Cannot compile %s" fsxPath
 
+    let updateAssemblyInfo version projectPath =
+        let asmInfoPath = projectPath </> "AssemblyInfo.fs"
+        AssemblyInfoFile.CreateFSharpAssemblyInfo asmInfoPath
+            [AssemblyInfoFile.Attribute.Version version]
+
 module Npm =
     let npmFilePath args =
         if EnvironmentHelper.isUnix
@@ -123,13 +128,9 @@ module Fake =
         System.Threading.Thread.Sleep 1000
         exitCode
 
-// Directories
-let fableBuildDir = Util.join ["build";"fable";"bin"]
-let testsBuildDir = Util.join ["build";"tests"]
-
 // Targets
 Target "Clean" (fun _ ->
-    !! fableBuildDir ++ "src/**/bin/" ++ "src/**/obj/"
+    !! "build/fable/bin" ++ "src/**/bin/" ++ "src/**/obj/"
     |> CleanDirs
     // Exclude node_modules
     !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
@@ -138,45 +139,50 @@ Target "Clean" (fun _ ->
     |> Seq.iter FileUtils.rm
 )
 
-Target "FableRelease" (fun _ ->
-    let xmlPath = Path.Combine(Path.GetFullPath fableBuildDir, "Fable.xml")
-    !! "src/fable-client-node/Fable.Client.Node.fsproj"
-    |> MSBuild fableBuildDir "Build"
-        ["Configuration","Release"; "DocumentationFile", xmlPath]
-    |> Log "Release-Output: "
+Target "FableCompilerRelease" (fun _ ->
+    Util.updateAssemblyInfo fableCoreVersion "src/fable/Fable.Core/src"
+    Util.updateAssemblyInfo fableCompilerVersion "src/fable/Fable.Compiler"
+    Util.updateAssemblyInfo fableCompilerVersion "src/fable/Fable.Client.Node"
+
+    let buildDir = "build/fable"
+
+    !! "src/fable/Fable.Client.Node/Fable.Client.Node.fsproj"
+    |> MSBuildRelease (buildDir + "/bin") "Build"
+    |> Log "Fable-Compiler-Release-Output: "
     
     // For some reason, ProjectCracker targets are not working after updating the package
     !! "packages/FSharp.Compiler.Service.ProjectCracker/utilities/net45/FSharp.Compiler.Service.ProjectCrackerTool.exe*"
     |> Seq.iter (fun x -> FileUtils.cp x "build/fable/bin")
+
+    FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
+    FileUtils.cp "README.md" buildDir
+    Npm.command buildDir "version" [fableCompilerVersion]
+    Npm.install buildDir []
 )
 
-Target "FableDebug" (fun _ ->
+Target "FableCompilerDebug" (fun _ ->
+    let buildDir = "build/fable"
+
     !! "src/fable-client-node/Fable.Client.Node.fsproj"
-    |> MSBuildDebug fableBuildDir "Build"
-    |> Log "Debug-Output: "
-    let targetDir = "build/fable"
-    FileUtils.cp_r "src/fable-js" targetDir
-    Npm.command targetDir "version" [version]
+    |> MSBuildDebug (buildDir + "/bin") "Build"
+    |> Log "Fable-Compiler-Debug-Output: "
+
+    FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
+    Npm.command buildDir "version" [fableCompilerVersion]
 )
 
-Target "FableJs" (fun _ ->
-    let targetDir = "build/fable"
-    FileUtils.cp_r "src/fable-js" targetDir
-    FileUtils.cp "README.md" targetDir
-    Npm.command targetDir "version" [version]
-    Npm.install targetDir []
-)
-
-Target "FableSuave" (fun _ ->
-    let buildDir = "build/suave"
-    !! "src/fable-client-suave/Fable.Client.Suave.fsproj"
-    |> MSBuildDebug buildDir "Build"
-    |> Log "Debug-Output: "
-    // Copy Fable.Core.dll to buildDir so it can be referenced by F# code
-    FileUtils.cp "import/core/Fable.Core.dll" buildDir
-)
+// Target "FableSuave" (fun _ ->
+//     let buildDir = "build/suave"
+//     !! "src/fable-client-suave/Fable.Client.Suave.fsproj"
+//     |> MSBuildDebug buildDir "Build"
+//     |> Log "Debug-Output: "
+//     // Copy Fable.Core.dll to buildDir so it can be referenced by F# code
+//     FileUtils.cp "import/core/Fable.Core.dll" buildDir
+// )
 
 Target "NUnitTest" (fun _ ->
+    let testsBuildDir = "build/tests"
+    
     !! "src/tests/Fable.Tests.fsproj"
     |> MSBuildRelease testsBuildDir "Build"
     |> Log "Release-Output: "
@@ -187,6 +193,7 @@ Target "NUnitTest" (fun _ ->
 )
 
 Target "MochaTest" (fun _ ->
+    let testsBuildDir = "build/tests"
     MSBuildDebug "src/tests/DllRef/bin" "Build" ["src/tests/DllRef/Fable.Tests.DllRef.fsproj"] |> ignore
     Node.run "." "build/fable" ["src/tests/DllRef"]
     Node.run "." "build/fable" ["src/tests/Other"]
@@ -195,12 +202,12 @@ Target "MochaTest" (fun _ ->
     Npm.install testsBuildDir []
     // Copy the development version of fable-core.js
     if environVar "DEV_MACHINE" = "1" then
-        FileUtils.cp "import/core/fable-core.js" "build/tests/node_modules/fable-core/"
+        FileUtils.cp "src/fable/Fable.Core/fable-core.js" "build/tests/node_modules/fable-core/"
     Npm.script testsBuildDir "test" []
 )
 
 Target "Plugins" (fun _ ->
-    !! "src/plugins/**/*.fsx"
+    !! "src/plugins/nunit/*.fsx"
     |> Seq.iter (fun fsx -> Util.compileScript [] (Path.GetDirectoryName fsx) fsx)
 )
 
@@ -218,52 +225,50 @@ Target "MakeArtifactLighter" (fun _ ->
     |> Seq.iter FileUtils.rm
 )
 
-Target "Publish" (fun _ ->
+Target "PublishFableCompiler" (fun _ ->
     let workingDir = "temp/build"
     Util.downloadArtifact workingDir
     // Npm.command workingDir "version" [version]
     Npm.command workingDir "publish" []
 )
 
-Target "CoreLib" (fun _ ->
-    Util.run "." "babel" "import/core/es2015.js -o import/core/fable-core.js --plugins ../../build/fable/node_modules/babel-plugin-transform-es2015-modules-umd"
-    Util.run "." "babel" "import/core/es2015.js -o import/core/commonjs.js --plugins ../../build/fable/node_modules/babel-plugin-transform-es2015-modules-commonjs"
-    Util.run "." "uglifyjs" "import/core/fable-core.js -c -m -o import/core/fable-core.min.js"
-    !! "import/core/Fable.Core.fsproj"
-    |> MSBuildRelease "import/core" "Build"
-    |> Log "CoreLib-Output: "
+Target "FableCore" (fun _ ->
+    let targetDir = "src/fable/Fable.Core"
+    let babelPlugin = "../../../build/fable/node_modules/babel-plugin-transform-es2015-modules"
+    let run cmd = Util.run targetDir cmd
+
+    targetDir + "/package.json"
+    |> File.ReadAllLines
+    |> Seq.fold (fun found line ->
+        match found with
+        | false ->
+            let m = Regex.Match(line, "\"version\": \"(.*?)\"")
+            if m.Success && m.Groups.[1].Value <> fableCoreVersion then
+                Npm.command targetDir "version" [fableCoreVersion]
+            m.Success
+        | true -> true) false
+    |> ignore
+
+    sprintf "es2015.js -o fable-core.js --plugins %s-umd" babelPlugin |> run "babel"
+    sprintf "es2015.js -o commonjs.js --plugins %s-commonjs" babelPlugin |> run "babel"
+    "fable-core.js -c -m -o fable-core.min.js" |> run "uglifyjs"
+
+    Util.updateAssemblyInfo fableCoreVersion (targetDir + "/src")
+    !! (targetDir + "/src/Fable.Core.fsproj")
+    |> MSBuildRelease targetDir "Build"
+    |> Log "Fable-Core-Output: "
 )
 
-Target "UpdateCoreLibVersion" (fun _ ->
-    match Npm.commandAndReturn "import/core" "view" ["fable-core version"] with
-    | v when v = coreLibVersion -> ()
-    | _ ->
-        Npm.command "import/core" "version" [coreLibVersion]
-        !! "samples/**/package.json"
-        |> Seq.iter (Util.visitFile (fun line ->
-            match Regex.Match(line, "^(\s*)\"(fable(?:-core)?)\": \".*?\"(,)?") with
-            | m when m.Success ->
-                match m.Groups.[2].Value with
-                | "fable" -> sprintf "%s\"fable\": \"^%s\"%s" m.Groups.[1].Value version m.Groups.[3].Value
-                | "fable-core" -> sprintf "%s\"fable-core\": \"^%s\"%s" m.Groups.[1].Value coreLibVersion m.Groups.[3].Value
-                | _ -> line                 
-            | _ -> line))
-)
-
-Target "Samples" (fun _ ->
-    let fableDir = Util.join ["build";"fable"] |> Path.GetFullPath    
-    !! "samples/**/out/" |> CleanDirs
-    !! "samples/**/fableconfig.json"
-    |> Seq.iter (fun path ->
-        let pathDir = Path.GetDirectoryName path
-        Node.run pathDir fableDir [])
-)
-
-Target "LineCount" (fun _ ->
-    !! "src/fable-fsharp/**/*.fs"
-    |> Seq.map (File.ReadLines >> Seq.length)
-    |> Seq.sum
-    |> printfn "Line count: %i"
+Target "UpdateSampleRequirements" (fun _ ->
+    !! "samples/**/package.json"
+    |> Seq.iter (Util.visitFile (fun line ->
+        match Regex.Match(line, "^(\s*)\"(fable(?:-core)?)\": \".*?\"(,)?") with
+        | m when m.Success ->
+            match m.Groups.[2].Value with
+            | "fable" -> sprintf "%s\"fable\": \"^%s\"%s" m.Groups.[1].Value fableCompilerVersion m.Groups.[3].Value
+            | "fable-core" -> sprintf "%s\"fable-core\": \"^%s\"%s" m.Groups.[1].Value fableCoreVersion m.Groups.[3].Value
+            | _ -> line                 
+        | _ -> line))
 )
 
 Target "BrowseDocs" (fun _ ->
@@ -285,15 +290,11 @@ Target "All" ignore
 
 // Build order
 "Clean"
-  ==> "FableRelease"
-  ==> "FableJs"
+  ==> "FableCompilerRelease"
   ==> "Plugins"
   ==> "MochaTest"
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
-
-"CoreLib"
-  ==> "UpdateCoreLibVersion"
 
 // Start build
 RunTargetOrDefault "All"

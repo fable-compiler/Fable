@@ -306,7 +306,7 @@ module private AstPass =
         | "contents" | "value" -> makeGet i.range Fable.UnknownType i.args.Head (makeConst "contents") |> Some
         | _ -> None
     
-    let operators com (info: Fable.ApplyInfo) =
+    let operators (com: ICompiler) (info: Fable.ApplyInfo) =
         // TODO: Check primitive args also here?
         let math range typ args methName =
             GlobalCall ("Math", Some methName, false, args)
@@ -364,7 +364,7 @@ module private AstPass =
             let args = if info.methodName = "op_ComposeRight" then args else List.rev args
             let f0 = wrap args.Head "$0"
             let f1 = wrap args.Tail.Head "$1"
-            let pattern = System.String.Format("{0}=>{1}({2}({0}))", Naming.getUniqueVar(), f1,f0)
+            let pattern = System.String.Format("{0}=>{1}({2}({0}))", com.GetUniqueVar(), f1,f0)
             emit info pattern args |> Some
         // Reference
         | "op_Dereference" -> makeGet r Fable.UnknownType args.Head (makeConst "contents") |> Some
@@ -597,10 +597,10 @@ module private AstPass =
             Fable.Apply(callee, i.args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | _ -> None
 
-    let options com (i: Fable.ApplyInfo) =
+    let options (com: ICompiler) (i: Fable.ApplyInfo) =
         // Prevent functions being run twice, see #198
         let wrapInLet f expr =
-            let ident = Naming.getUniqueVar() |> makeIdent
+            let ident = com.GetUniqueVar() |> makeIdent
             [
                 Fable.VarDeclaration(ident, expr, false)
                 f(Fable.Value(Fable.IdentValue ident))
@@ -1321,12 +1321,6 @@ module private CoreLibPass =
 open Util
 
 let private coreLibPass com (info: Fable.ApplyInfo) =
-    let checkStatic modName meth =
-        // TODO: Add warning here
-        if CoreLibMethods.staticMethods.ContainsKey(modName) |> not then None else
-        if CoreLibMethods.staticMethods.[modName].Contains(meth)
-        then Some meth
-        else None
     match info.ownerFullName with
     | Patterns.DicContains CoreLibPass.mappings (modName, kind) ->
         match kind with
@@ -1342,17 +1336,14 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
             | _, _, Some callee ->
                 InstanceCall (callee, info.methodName, deleg info info.args)
                 |> makeCall com info.range info.returnType |> Some
-            | _, _, None when checkStatic modName info.methodName |> Option.isSome ->
+            | _, _, None ->
                 CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args |> deleg info)
                 |> makeCall com info.range info.returnType |> Some
-            | _ -> None
         | CoreLibPass.Static ->
-            if info.methodName = ".ctor" then "create" else info.methodName
-            |> checkStatic modName |> function
-            | Some meth ->
-                CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args |> deleg info)
-                |> makeCall com info.range info.returnType |> Some
-            | None -> None
+            let meth =
+                if info.methodName = ".ctor" then "create" else info.methodName
+            CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args |> deleg info)
+            |> makeCall com info.range info.returnType |> Some
     | _ -> None
 
 let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =

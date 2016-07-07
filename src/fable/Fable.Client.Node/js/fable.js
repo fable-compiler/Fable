@@ -37,8 +37,6 @@ var cli = commandLineArgs([
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
   { name: 'production', alias: 'p', description: "Shortcut for `--target production`." },
-  { name: 'code', description: "Pass a string of code directly to Fable." },
-  { name: 'env', description: "[Deprecated] Use --module instead." },
   { name: 'help', alias: 'h', description: "Display usage guide." }
 ]);
 
@@ -170,12 +168,6 @@ function ensureDirExists(dir, cont) {
     }
 }
 
-function babelifyToConsole(babelAst) {
-    var opts = { plugins: babelPlugins };
-    var parsed = babel.transformFromAst(babelAst, null, opts);
-    console.log(parsed.code);
-}
-
 function babelifyToFile(babelAst, opts) {
     var projDir = path.dirname(path.resolve(path.join(cfgDir, opts.projFile)));
     var targetFile = path.join(opts.outDir, path.relative(projDir, path.resolve(babelAst.fileName)));
@@ -297,7 +289,6 @@ function postbuild(opts, fableProc) {
 function processJson(json, opts) {
     var err = null;
     try {
-        var t = process.hrtime();
         var babelAst;
         try {
             babelAst = JSON.parse(json);
@@ -314,21 +305,8 @@ function processJson(json, opts) {
             err = babelAst.message;
         }
         else {
-            // When a code string is passed, just display the result on screen
-            if (opts.code) {
-                babelifyToConsole(babelAst);
-            }
-            else {
-                babelifyToFile(babelAst, opts);
-                console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
-                if (opts.verbose) {
-                    t = process.hrtime(t);
-                    for (var i = 0; i < babelAst.logs.length; i++) {
-                        console.log(babelAst.logs[i]);
-                    }
-                    console.log("[INFO] Babel transform & writing: " + (t[1] / 1000000000) + "s\n");
-                }
-            }
+            babelifyToFile(babelAst, opts);
+            console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
         }
     }
     catch (e) {
@@ -343,11 +321,6 @@ function processJson(json, opts) {
 }
 
 function addModulePlugin(opts, babelPlugins) {
-    // Legacy
-    if (!opts.module && opts.env) {
-        opts.module = opts.env == "browser" ? "amd" : "commonjs";
-    }
-
     // Default
     opts.module = opts.module || "umd";
 
@@ -495,9 +468,14 @@ try {
         opts.refs = refs;
     }
 
-    if (!opts.code && [".fsproj", ".fsx"].indexOf(path.extname(opts.projFile)) == -1 ) {
+    if ([".fsproj", ".fsx"].indexOf(path.extname(opts.projFile)) == -1 ) {
         console.log("ERROR: Please provide a F# project (.fsproj) or script (.fsx) file");
         console.log("Use 'fable --help' to see available options");
+        process.exit(1);
+    }
+
+    if (!fs.existsSync(path.resolve(path.join(cfgDir, opts.projFile)))) {
+        console.log("ERROR: Cannot find project file: " + opts.projFile);
         process.exit(1);
     }
 

@@ -1,10 +1,15 @@
 # Personal
 .vscode/
-import/core/FSharp.Core.dll
-import/core/Fable.Import.dll.*
+
+src/fable/Fable.Core/*.dll*
+src/fable/Fable.Core/commonjs.js
+src/fable/Fable.Core/fable-core.js
+src/fable/Fable.Core/fable-core.min.js
+
 samples/**/out/
 samples/**/bundle.js*
 samples/other/fable-helpers-sample/js/*.*
+
 src/providers/**/*.js
 src/providers/**/*.js.map
 src/tests/**/*.dll

@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <Name>Fable.AST</Name>
-    <AssemblyName>Fable.AST</AssemblyName>
-    <RootNamespace>Fable.AST</RootNamespace>
+    <Name>Fable.Core</Name>
+    <AssemblyName>Fable.Core</AssemblyName>
+    <RootNamespace>Fable.Core</RootNamespace>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
@@ -21,7 +21,7 @@
     <DebugType>Full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>..</OutputPath>
     <DefineConstants />
     <WarningLevel>3</WarningLevel>
     <PlatformTarget />
@@ -33,7 +33,7 @@
     <DebugType>PdbOnly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..</OutputPath>
     <DefineConstants />
     <WarningLevel>3</WarningLevel>
     <PlatformTarget />
@@ -49,11 +49,19 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
-  <ItemGroup />
   <ItemGroup>
     <Compile Include="AST.Common.fs" />
     <Compile Include="AST.Fable.fs" />
     <Compile Include="Compiler.fs" />
+    <Compile Include="Util.fs" />
+    <Compile Include="AST.Fable.Util.fs" />
+    <Compile Include="Replacements.fs" />
+    <Compile Include="Fable.Core.fs" />
+    <Compile Include="Import/Fable.Import.JS.fs" />
+    <Compile Include="Import/Fable.Import.Browser.fs" />
+    <Compile Include="Import/Fable.Import.Node.fs" />
+    <Compile Include="Fable.Core.Extensions.fs" />
+    <Compile Include="AssemblyInfo.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>

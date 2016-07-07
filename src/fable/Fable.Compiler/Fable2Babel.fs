@@ -84,7 +84,7 @@ module Util =
 
     let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule =
         com.Options.coreLib
-        |> Naming.getExternalImportPath com ctx.file
+        |> Path.getExternalImportPath com ctx.file
         |> com.GetImport ctx None coreModule
 
     let get left propName =
@@ -130,14 +130,14 @@ module Util =
             let importPath =
                 match proj.ImportPath with
                 | Some importPath ->
-                    let ext = Naming.getExternalImportPath com ctx.file importPath
-                    let rel = Naming.getRelativePath proj.BaseDir file
+                    let ext = Path.getExternalImportPath com ctx.file importPath
+                    let rel = Path.getRelativePath proj.BaseDir file
                     System.IO.Path.Combine(ext, rel)
-                    |> Naming.normalizePath
+                    |> Path.normalizePath
                     |> fun x -> System.IO.Path.ChangeExtension(x, null)
                 | None ->
-                    Naming.fixExternalPath com file
-                    |> Naming.getRelativePath ctx.file
+                    Path.fixExternalPath com file
+                    |> Path.getRelativePath ctx.file
                     |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
             getParts ns ent.FullName memb
             |> function
@@ -312,7 +312,7 @@ module Util =
                 let memb, parts =
                     let parts = Array.toList(memb.Split('.'))
                     parts.Head, parts.Tail
-                Naming.getExternalImportPath com ctx.file path
+                Path.getExternalImportPath com ctx.file path
                 |> com.GetImport ctx None memb
                 |> Some |> accessExpr parts
             | Fable.This -> upcast Babel.ThisExpression ()
@@ -727,9 +727,9 @@ module Compiler =
         let com = makeCompiler com projs
         files |> Seq.map (fun (file: Fable.File) ->
             try
-                let t = PerfTimer("Fable > Babel")
+                // let t = PerfTimer("Fable > Babel")
                 let ctx = {
-                    file = Naming.fixExternalPath com file.FileName
+                    file = Path.fixExternalPath com file.FileName
                     originalFile = file.FileName
                     moduleFullName = projs.Head.FileMap.[file.FileName]
                     rootEntitiesPrivateNames = getRootEntitiesPrivateNames file.Declarations
@@ -764,7 +764,8 @@ module Compiler =
                     |> Seq.toList |> List.unzip
                     |> fun (importDecls, dependencies) ->
                         (importDecls@rootDecls), (List.choose id dependencies |> List.distinct)
-                Babel.Program (Naming.fixExternalPath com file.FileName,
-                                file.FileName, file.Range, rootDecls, dependencies)
+                Babel.Program(Path.fixExternalPath com file.FileName,
+                              file.FileName, file.Range, rootDecls),
+                dependencies
             with
             | ex -> failwithf "%s (%s)" ex.Message file.FileName)

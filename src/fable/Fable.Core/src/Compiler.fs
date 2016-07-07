@@ -3,7 +3,6 @@ namespace Fable
 open Fable.AST
 
 type CompilerOptions = {
-        code: string
         projFile: string
         coreLib: string
         symbols: string list
@@ -37,3 +36,20 @@ type ICompiler =
 type IReplacePlugin =
     inherit IPlugin
     abstract TryReplace: com: ICompiler -> info: Fable.ApplyInfo -> Fable.Expr option
+
+type IInjection =
+    /// Must be a name with low probabilities of being duplicated
+    abstract member Name: string
+    /// Can be JS code in a string, a Fable Expr or a quotation 
+    abstract member Body: Choice<string, Fable.Expr, Quotations.Expr>
+
+type IInjectPlugin =
+    inherit IPlugin
+    abstract Inject: com: ICompiler -> IInjection
+
+open System.Reflection
+open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
+
+[<assembly: AssemblyVersion("1.0.0.0")>]
+do ()

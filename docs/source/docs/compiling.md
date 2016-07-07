@@ -45,7 +45,6 @@ Option                  | Short     | Description
 `--target`              | `-t`      | Use options from a specific target in `fableconfig.json`.
 `--debug`               | `-d`      | Shortcut for `--target debug`.
 `--production`          | `-p`      | Shortcut for `--target production`.
-`--code`                |           | Pass a string of code directly to Fable.
 `--help`                | `-h`      | Display usage guide.
 
 
@@ -258,7 +257,7 @@ $import0.MyModule1.myProperty !== $import0.MyModule2.myProperty
 the imports for the specific members you need. This allows [tree shaking](http://www.2ality.com/2015/12/webpack-tree-shaking.html)
 but it also means using a `#load` directive in a script file just for the side effects
 (for example, to run some code on the other file) won't work. Functions on the other
-file must be called explicitly. 
+file must be called explicitly.
 
 
 ## Debugging

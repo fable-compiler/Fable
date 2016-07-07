@@ -1,4 +1,3 @@
-bin/
-obj/
+src/
 FSharp.Core.dll
 Fable.Core.dll.*

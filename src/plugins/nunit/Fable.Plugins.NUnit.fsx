@@ -1,7 +1,7 @@
 namespace Fable.Plugins
 
-#r "../../../build/fable/bin/Fable.AST.dll"
-#r "../../../build/fable/bin/Fable.dll"
+#r "../../../build/fable/bin/Fable.Core.dll"
+#r "../../../build/fable/bin/Fable.Compiler.dll"
 
 open Fable
 open Fable.AST

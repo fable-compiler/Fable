@@ -41,13 +41,13 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="../../import/core/Fable.Core.dll" />
+    <Reference Include="../../build/fable/bin/Fable.Core.dll" />
     <Reference Include="DllRef/bin/Fable.Tests.DllRef.dll" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util/Util.fs" />
     <Compile Include="Util/Util2.fs" />
-    <Compile Include="../tests2/Util.fs" />
+    <Compile Include="../tests_external/Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="AsyncTests.fs" />

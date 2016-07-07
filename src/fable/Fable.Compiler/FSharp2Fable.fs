@@ -795,7 +795,7 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
                         match ent.TryFullName with
                         | Some fullName -> fullName.Split('.') |> Some
                         | None -> None)
-                    |> Naming.getCommonPrefix
+                    |> Path.getCommonPrefix
                     |> String.concat "."
                 if rootNs.EndsWith(".")
                 then rootNs.Substring(0, rootNs.Length - 1)
@@ -850,22 +850,15 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         member __.AddLog msg = com.AddLog msg
         member __.GetLogs() = com.GetLogs() }
         
-type Info =
+type FSProjectInfo =
     {
-        project: FSharpCheckProjectResults
         projectOpts: FSharpProjectOptions
         fileMask: string option
         dependencies: Map<string, string list>
     }
-    static member Create(project, projectOpts, ?fileMask, ?dependencies) = {
-        project = project
-        projectOpts = projectOpts
-        fileMask = defaultArg fileMask None
-        dependencies = defaultArg dependencies Map.empty<_,_>
-    }
     member info.IsMasked(file: FSharpImplementationFileContents) =
         let arePathsEqual p1 p2 =
-            let normalize = Path.GetFullPath >> Naming.normalizePath
+            let normalize = Path.GetFullPath >> Path.normalizePath
             (normalize p1) = (normalize p2)
         match info.fileMask with
         | Some mask ->
@@ -875,7 +868,7 @@ type Info =
                 arePathsEqual file.FileName key && List.exists (arePathsEqual mask) deps)
         | None -> true
         
-let transformFiles (com: ICompiler) (comInfo: Info) =
+let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
     let rec getRootDecls rootNs ent decls =
         if rootNs = "" then ent, decls else
         match decls with
@@ -894,14 +887,14 @@ let transformFiles (com: ICompiler) (comInfo: Info) =
         | _ -> failwith "Multiple namespaces in same file is not supported"
     let curProj =
         let projName = Path.GetFileNameWithoutExtension com.Options.projFile
-        let fileMap = makeFileMap comInfo.project.AssemblySignature.Entities
+        let fileMap = makeFileMap parsedProj.AssemblySignature.Entities
         let baseDir = Path.GetDirectoryName com.Options.projFile
         Fable.Project(projName, baseDir, fileMap)
     let refProjs =
-        comInfo.projectOpts.ReferencedProjects
+        projInfo.projectOpts.ReferencedProjects
         |> Seq.choose (fun (assemblyPath, opts) ->
             let projName = Path.GetFileNameWithoutExtension opts.ProjectFileName
-            comInfo.project.ProjectContext.GetReferencedAssemblies()
+            parsedProj.ProjectContext.GetReferencedAssemblies()
             |> Seq.tryFind (fun a -> a.FileName = Some assemblyPath)
             |> function
             | Some assembly when not(com.Options.refs.ContainsKey projName) ->
@@ -915,7 +908,7 @@ let transformFiles (com: ICompiler) (comInfo: Info) =
             | None -> None)
         |> Seq.toList
     let refAssemblies =
-        comInfo.project.ProjectContext.GetReferencedAssemblies()
+        parsedProj.ProjectContext.GetReferencedAssemblies()
         |> List.choose (fun assembly ->
             match assembly.FileName with
             | Some asmFullName ->
@@ -924,17 +917,17 @@ let transformFiles (com: ICompiler) (comInfo: Info) =
                 | None -> None
                 | Some importPath ->
                     let fileMap = makeFileMap assembly.Contents.Entities
-                    let baseDir = fileMap |> Seq.map (fun kv -> kv.Key) |> Naming.getCommonBaseDir
+                    let baseDir = fileMap |> Seq.map (fun kv -> kv.Key) |> Path.getCommonBaseDir
                     Fable.Project(asmName, baseDir, fileMap, asmFullName, importPath)
                     |> Some
             | None -> None)
     let projs = curProj::(refProjs @ refAssemblies)
     let com = makeCompiler com projs
-    comInfo.project.AssemblyContents.ImplementationFiles
+    parsedProj.AssemblyContents.ImplementationFiles
     |> Seq.where (fun file ->
         curProj.FileMap.ContainsKey file.FileName
         && not (Naming.ignoredFilesRegex.IsMatch file.FileName)
-        && comInfo.IsMasked file)
+        && projInfo.IsMasked file)
     |> Seq.map (fun file ->
         try
             let rootEnt, rootDecls =
