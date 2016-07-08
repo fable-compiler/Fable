@@ -849,7 +849,7 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         member __.AddLog msg = com.AddLog msg
         member __.GetLogs() = com.GetLogs() }
         
-let addInjections (com: ICompiler) (curProj: Fable.Project) =
+let private addInjections (com: ICompiler) (curProj: Fable.Project) =
     let createDeclaration (injection: IInjection) =
         let args =
             match injection.ArgumentsLength with
@@ -865,8 +865,8 @@ let addInjections (com: ICompiler) (curProj: Fable.Project) =
     |> List.choose (function
         | path, (:? IInjectPlugin as plugin) -> Some (path, plugin)
         | _ -> None)
-    |> List.map (fun (path, plugin) ->
-        try plugin.Inject com |> createDeclaration
+    |> List.collect (fun (path, plugin) ->
+        try plugin.Inject com |> List.map createDeclaration
         with ex -> failwithf "Error in plugin %s: %s" path ex.Message)
     |> function
         | [] -> []

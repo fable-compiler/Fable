@@ -44,7 +44,7 @@ type IInjection =
 
 type IInjectPlugin =
     inherit IPlugin
-    abstract Inject: com: ICompiler -> IInjection
+    abstract Inject: com: ICompiler -> IInjection list
 
 open System.Reflection
 open System.Runtime.CompilerServices
