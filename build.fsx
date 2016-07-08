@@ -302,6 +302,7 @@ Target "PublishDocs" (fun _ ->
 )
 
 Target "All" ignore
+Target "AllAndCore" ignore
 
 // Build order
 "Clean"
@@ -310,6 +311,9 @@ Target "All" ignore
   ==> "MochaTest"
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
+
+"FableCore" ==> "AllAndCore"
+"All" ==> "AllAndCore"
 
 // Start build
 RunTargetOrDefault "All"
