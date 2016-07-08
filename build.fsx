@@ -171,7 +171,7 @@ Target "FableCompilerRelease" (fun _ ->
 Target "FableCompilerDebug" (fun _ ->
     let buildDir = "build/fable"
 
-    !! "src/fable-client-node/Fable.Client.Node.fsproj"
+    !! "src/fable/Fable.Client.Node/Fable.Client.Node.fsproj"
     |> MSBuildDebug (buildDir + "/bin") "Build"
     |> Log "Fable-Compiler-Debug-Output: "
 

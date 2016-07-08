@@ -208,3 +208,14 @@ let ``Different ways of providing None to a function should be equal``() =
     let f x = x
     let value = None
     equal true ((f None) = (value |> f))
+
+[<Test>]
+let ``Mixing refs and options works``() = // See #238
+    let res = ref 0
+    let setter, getter = 
+        let slot = ref None
+        (fun f -> slot.Value <- Some f),
+        (fun v -> slot.Value.Value v)
+    setter (fun i -> res := i + 2)
+    getter 5
+    equal 7 !res

@@ -302,8 +302,16 @@ module private AstPass =
             
     let references com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | ".ctor" -> makeJsObject i.range.Value [("contents", i.args.Head)] |> Some
-        | "contents" | "value" -> makeGet i.range Fable.UnknownType i.args.Head (makeConst "contents") |> Some
+        | ".ctor" ->
+            makeJsObject i.range.Value [("contents", i.args.Head)] |> Some
+        | "contents" | "value" ->
+            let prop = makeConst "contents"
+            match i.methodKind with
+            | Fable.Getter _ ->
+                makeGet i.range Fable.UnknownType i.callee.Value prop |> Some
+            | Fable.Setter _ ->
+                Fable.Set(i.callee.Value, Some prop, i.args.Head, i.range) |> Some
+            | _ -> None
         | _ -> None
     
     let operators (com: ICompiler) (info: Fable.ApplyInfo) =
