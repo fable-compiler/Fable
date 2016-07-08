@@ -312,8 +312,10 @@ Target "AllAndCore" ignore
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
 
-"FableCore" ==> "AllAndCore"
+"All" ?=> "FableCore"
+
 "All" ==> "AllAndCore"
+"FableCore" ==> "AllAndCore"
 
 // Start build
 RunTargetOrDefault "All"
