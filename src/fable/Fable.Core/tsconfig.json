@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "module": "commonjs",
+        "noImplicitAny": true
+    },
+    "files": [
+        "es2015-mini.ts"
+    ]
+}
