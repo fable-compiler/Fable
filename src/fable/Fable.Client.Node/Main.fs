@@ -150,6 +150,9 @@ let start argv checker getProjectOpts projectOpts =
                     |> fun projOpts -> { projInfo with projectOpts = projOpts }
                 | _ -> projInfo
 
+            if projInfo.projectOpts.ProjectFileNames.Length = 0 then
+                failwith "Project doesn't contain any file"
+
             // Parse project (F# Compiler Services) and print diagnostic info
             // --------------------------------------------------------------
             //let timer = PerfTimer("Warmup") |> Some
