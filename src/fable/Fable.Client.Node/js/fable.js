@@ -293,7 +293,7 @@ function processJson(json, opts) {
         try {
             babelAst = JSON.parse(json);
         }
-        catch (err) {
+        catch (_err) {
             return; // If console out is not in JSON format, just ignore
         }
         if (babelAst.type == "LOG") {
@@ -302,7 +302,7 @@ function processJson(json, opts) {
             }
         }
         else if (babelAst.type == "ERROR") {
-            err = babelAst.message;
+            err = babelAst;
         }
         else {
             babelifyToFile(babelAst, opts);
@@ -310,10 +310,13 @@ function processJson(json, opts) {
         }
     }
     catch (e) {
-        err = e;
+        err = { message: e };
     }
     if (err != null) {
-        console.log(err);
+        console.log("ERROR: " + err.message);
+        if (opts.verbose && err.stackTrace) {
+            console.log(err.stackTrace);
+        }
         if (!opts.watch) {
             process.exit(1);
         }

@@ -10,14 +10,14 @@ open Newtonsoft.Json
 open Fable
 open Fable.AST
 
-type CompilerMessageType =
-    | Error | Log
-    override x.ToString() =
-        match x with Error -> "ERROR" | Log -> "LOG"
-
-type CompilerMessage(typ: CompilerMessageType, msg) =
-    member x.``type`` = string typ
-    member x.message: string = msg
+type CompilerMessage =
+    | Error of message: string * stackTrace: string
+    | Log of message: string
+    static member toDic = function
+        | Error (msg, stackTrace) ->
+            dict [ ("type", "ERROR"); ("message", msg); ("stackTrace", stackTrace) ]
+        | Log msg ->
+            dict [ ("type", "LOG"); ("message", msg) ]
 
 type PerfTimer(label) =
     let t = System.Diagnostics.Stopwatch()
@@ -27,7 +27,7 @@ type PerfTimer(label) =
         t.Stop()
         t.Elapsed.TotalSeconds
         |> sprintf "%s: %fs" label
-        |> Fable.Info    
+        |> Fable.Info
 
 type FSProjInfo = FSharp2Fable.Compiler.FSProjectInfo
 
@@ -88,7 +88,7 @@ let loadPlugins (pluginPaths: string list) (assemblies: FSharpAssembly list) =
                     asm.FullName, Activator.CreateInstance x |> unbox<IPlugin>))
             |> Seq.toList
         with _ -> [] // TODO: React to errors?
-    optPlugins@tpPlugins    
+    optPlugins@tpPlugins
 
 let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
                         (projOptions: FSharpProjectOptions) =
@@ -122,7 +122,7 @@ let makeCompiler opts plugins =
         member __.Plugins = plugins
         member __.AddLog msg = logs.Add msg
         member __.GetLogs() = logs :> seq<_> }
-    
+
 let start argv checker getProjectOpts projectOpts =
 
     let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
@@ -134,11 +134,11 @@ let start argv checker getProjectOpts projectOpts =
             fun (file: AST.Babel.Program) ->
                 JsonConvert.SerializeObject (file, jsonSettings)
                 |> Console.Out.WriteLine
-        let printMessages msgs =
-            for (typ, msg) in msgs do
-                CompilerMessage(typ, msg)
-                |> JsonConvert.SerializeObject
-                |> Console.Out.WriteLine
+        let printMessages (msgs: #seq<CompilerMessage>) =
+            msgs
+            |> Seq.map CompilerMessage.toDic
+            |> Seq.map JsonConvert.SerializeObject
+            |> Seq.iter Console.Out.WriteLine
         try
             // Reload project options if necessary
             // -----------------------------------
@@ -161,7 +161,7 @@ let start argv checker getProjectOpts projectOpts =
             let warnings, parsedProj =
                 parseFSharpProject com checker projInfo.projectOpts
             //let warnings = match timer with Some timer -> (timer.Finish())::warnings | None -> warnings
-            warnings |> List.map (fun log -> Log, string log) |> printMessages
+            warnings |> Seq.map (string >> Log) |> printMessages
 
             // Load plugins after parsing the project, so type provider
             // assemblies can be found in the parsed references
@@ -183,17 +183,18 @@ let start argv checker getProjectOpts projectOpts =
 
             // Print logs
             // ----------
-            com.GetLogs()
-            |> Seq.map (fun log -> Log, string log)
-            |> Seq.toList
-            |> printMessages
+            com.GetLogs() |> Seq.map (string >> Log) |> printMessages
 
             // Send empty string to signal end of compilation and return
             // ---------------------------------------------------------
             Console.Out.WriteLine()
             true, { projInfo with dependencies = dependencies }
         with ex ->
-            printMessages [Error, ex.Message]
+            let stackTrace =
+                match ex.InnerException with
+                | null -> ex.StackTrace
+                | inner -> inner.StackTrace
+            printMessages [Error(ex.Message, stackTrace)]
             false, projInfo
 
     let rec awaitInput (com: ICompiler) checker (projInfo: FSProjInfo) =

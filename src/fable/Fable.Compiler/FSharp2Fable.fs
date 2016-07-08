@@ -938,5 +938,6 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
             Fable.File(file.FileName, rootEnt, rootDecls)
         with
-        | ex -> failwithf "%s (%s)" ex.Message file.FileName)
+        | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
+    )
     |> fun seq -> projs, seq

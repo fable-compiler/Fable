@@ -765,4 +765,5 @@ module Compiler =
                               file.FileName, file.Range, rootDecls),
                 dependencies
             with
-            | ex -> failwithf "%s (%s)" ex.Message file.FileName)
+            | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
+        )
