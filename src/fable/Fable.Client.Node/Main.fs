@@ -150,8 +150,10 @@ let start argv checker getProjectOpts projectOpts =
                     |> fun projOpts -> { projInfo with projectOpts = projOpts }
                 | _ -> projInfo
 
-            if projInfo.projectOpts.ProjectFileNames.Length = 0 then
-                failwith "Project doesn't contain any file"
+            // TODO: `ProjectFileNames` sometimes is empty and it's not reliable,
+            // check values not starting with `-` in `OtherOptions`
+            // if projInfo.projectOpts.ProjectFileNames.Length = 0 then
+            //     failwith "Project doesn't contain any file"
 
             // Parse project (F# Compiler Services) and print diagnostic info
             // --------------------------------------------------------------
