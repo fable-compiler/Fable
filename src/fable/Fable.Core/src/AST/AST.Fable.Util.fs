@@ -229,6 +229,10 @@ let makeJsObject range (props: (string * Expr) list) =
     let members = props |> List.map (fun (name, body) ->
         Member(Getter (name, true), range, [], body))
     ObjExpr(members, [], None, Some range)
+
+let makeEmit args macro =
+    let emit = Fable.Emit macro |> Fable.Value
+    Fable.Apply(emit, args, Fable.ApplyMeth, Fable.UnknownType, None)    
     
 let getTypedArrayName (com: ICompiler) numberKind =
     match numberKind with

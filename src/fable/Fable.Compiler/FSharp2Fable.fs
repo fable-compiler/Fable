@@ -849,6 +849,32 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
         member __.AddLog msg = com.AddLog msg
         member __.GetLogs() = com.GetLogs() }
         
+let addInjections (com: ICompiler) (curProj: Fable.Project) =
+    let createDeclaration (injection: IInjection) =
+        let args =
+            match injection.ArgumentsLength with
+            | 0 -> []
+            | l -> [1..l] |> List.map (fun i -> "$arg" + (string i) |> makeIdent)
+        let body =
+            args |> List.map (Fable.IdentValue >> Fable.Value)
+            |> injection.GetBody
+        Fable.Member(Fable.Method injection.Name,
+            SourceLocation.Empty, args, body)
+        |> Fable.MemberDeclaration
+    com.Plugins
+    |> List.choose (function
+        | path, (:? IInjectPlugin as plugin) -> Some (path, plugin)
+        | _ -> None)
+    |> List.map (fun (path, plugin) ->
+        try plugin.Inject com |> createDeclaration
+        with ex -> failwithf "Error in plugin %s: %s" path ex.Message)
+    |> function
+        | [] -> []
+        | rootDecls ->
+            let fileName = Path.Combine(curProj.BaseDir, Naming.fableInjectFile)
+            let rootEnt = Fable.Entity.CreateRootModule fileName ""
+            [Fable.File(fileName, rootEnt, rootDecls)]
+
 type FSProjectInfo =
     {
         projectOpts: FSharpProjectOptions
@@ -866,7 +892,7 @@ type FSProjectInfo =
             else info.dependencies |> Map.exists (fun key deps ->
                 arePathsEqual file.FileName key && List.exists (arePathsEqual mask) deps)
         | None -> true
-        
+
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
     let rec getRootDecls rootNs ent decls =
         if rootNs = "" then ent, decls else
@@ -940,4 +966,5 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
     )
+    |> Seq.append (addInjections com curProj)
     |> fun seq -> projs, seq

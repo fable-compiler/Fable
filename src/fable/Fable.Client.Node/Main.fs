@@ -11,11 +11,11 @@ open Fable
 open Fable.AST
 
 type CompilerMessage =
-    | Error of message: string * stackTrace: string
+    | Error of message: string * stack: string
     | Log of message: string
     static member toDic = function
-        | Error (msg, stackTrace) ->
-            dict [ ("type", "ERROR"); ("message", msg); ("stackTrace", stackTrace) ]
+        | Error (msg, stack) ->
+            dict [ ("type", "ERROR"); ("message", msg); ("stack", stack) ]
         | Log msg ->
             dict [ ("type", "LOG"); ("message", msg) ]
 

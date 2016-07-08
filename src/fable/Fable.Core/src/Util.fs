@@ -22,6 +22,11 @@ module Naming =
     let (|EndsWith|_|) pattern (txt: string) =
         if txt.EndsWith pattern then Some pattern else None
     
+    let fableExternalDir = "fable_external"
+    let fableInjectFile = "./fable_inject.js"
+    let exportsIdent = "$exports"
+    let getImportIdent i = sprintf "$import%i" i
+
     let knownInterfaces =
         set [ "System.Object"; "System.IComparable"; "System.IDisposable";
             "System.IObservable"; "System.IObserver"]
@@ -56,10 +61,6 @@ module Naming =
         
     let lowerFirst (s: string) =
         s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
-
-    let exportsIdent = "$exports"
-    
-    let getImportIdent i = sprintf "$import%i" i
 
     let getUniqueVar =
         let monitor = obj()    
@@ -121,7 +122,7 @@ module Path =
             match Path.GetFullPath filePath with
             | DicContains cache filePath -> filePath
             | Try (isExternal com.Options.projFile) (rootPath, filePath) ->
-                Path.Combine(rootPath, "fable_external",
+                Path.Combine(rootPath, Naming.fableExternalDir,
                     sprintf "%s-%i%s"
                         (Path.GetFileNameWithoutExtension filePath)
                         (filePath.GetHashCode() |> abs)
