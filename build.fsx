@@ -247,7 +247,10 @@ Target "PublishFableCompiler" (fun _ ->
 Target "FableCore" (fun _ ->
     let targetDir = "src/fable/Fable.Core"
     let babelPlugin = "../../../build/fable/node_modules/babel-plugin-transform-es2015-modules"
-    let run cmd = Util.run targetDir cmd
+    let run cmd args = 
+      if EnvironmentHelper.isUnix
+      then Util.run targetDir cmd args
+      else Util.run targetDir "cmd" ("/C " + cmd + " " + args)
 
     targetDir + "/package.json"
     |> File.ReadAllLines
