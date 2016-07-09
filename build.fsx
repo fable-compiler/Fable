@@ -245,32 +245,41 @@ Target "PublishFableCompiler" (fun _ ->
 )
 
 Target "FableCore" (fun _ ->
-    let targetDir = "src/fable/Fable.Core"
-    let babelPlugin = "../../../build/fable/node_modules/babel-plugin-transform-es2015-modules"
+    let fableCoreNpmDir = "src/fable/Fable.Core/npm"
+    let babelPlugin = "../../../../build/fable/node_modules/babel-plugin-transform-es2015-modules"
     let run cmd args = 
       if EnvironmentHelper.isUnix
-      then Util.run targetDir cmd args
-      else Util.run targetDir "cmd" ("/C " + cmd + " " + args)
+      then Util.run fableCoreNpmDir cmd args
+      else Util.run fableCoreNpmDir "cmd" ("/C " + cmd + " " + args)
 
-    targetDir + "/package.json"
+    // Update fable-core npm version
+    fableCoreNpmDir + "/package.json"
     |> File.ReadAllLines
     |> Seq.fold (fun found line ->
         match found with
         | false ->
             let m = Regex.Match(line, "\"version\": \"(.*?)\"")
             if m.Success && m.Groups.[1].Value <> fableCoreVersion then
-                Npm.command targetDir "version" [fableCoreVersion]
+                Npm.command fableCoreNpmDir "version" [fableCoreVersion]
             m.Success
         | true -> true) false
     |> ignore
 
-    sprintf "es2015.js -o fable-core.js --plugins %s-umd" babelPlugin |> run "babel"
-    sprintf "es2015.js -o commonjs.js --plugins %s-commonjs" babelPlugin |> run "babel"
-    "fable-core.js -c -m -o fable-core.min.js" |> run "uglifyjs"
+    try
+        sprintf "es2015.js -o fable-core.js --plugins %s-umd" babelPlugin |> run "babel"
+        // The commonjs version is for Fuse, which is not compatible with UMD
+        sprintf "es2015.js -o commonjs.js --plugins %s-commonjs" babelPlugin |> run "babel"
+    with
+    | _ -> failwith "Cannot find Babel CLI, please run `npm i -g babel-cli`"
 
-    Util.assemblyInfo (targetDir + "/src") fableCoreVersion []
-    !! (targetDir + "/src/Fable.Core.fsproj")
-    |> MSBuildRelease targetDir "Build"
+    if environVar "DEV_MACHINE" = "1" then
+        try "fable-core.js -c -m -o fable-core.min.js" |> run "uglifyjs"
+        with _ -> failwith "Cannot find uglify-js, please run `npm i -g uglify-js`"
+
+    // Update Fable.Core version
+    Util.assemblyInfo "src/fable/Fable.Core/" fableCoreVersion []
+    !! "src/fable/Fable.Core/Fable.Core.fsproj"
+    |> MSBuildRelease fableCoreNpmDir "Build"
     |> Log "Fable-Core-Output: "
 )
 

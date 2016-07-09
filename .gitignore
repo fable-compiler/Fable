@@ -1,10 +1,12 @@
 # Personal
 .vscode/
 
-src/fable/Fable.Core/*.dll*
-src/fable/Fable.Core/commonjs.js
-src/fable/Fable.Core/fable-core.js
-src/fable/Fable.Core/fable-core.min.js
+src/fable/Fable.Core/npm/*.dll*
+src/fable/Fable.Core/npm/*.pdb
+src/fable/Fable.Core/npm/*.xml
+src/fable/Fable.Core/npm/commonjs.js
+src/fable/Fable.Core/npm/fable-core.js
+src/fable/Fable.Core/npm/fable-core.min.js
 
 samples/**/out/
 samples/**/bundle.js*
