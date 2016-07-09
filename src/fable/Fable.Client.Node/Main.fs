@@ -3,6 +3,7 @@ module Fable.Client.Node.Main
 open System
 open System.IO
 open System.Reflection
+open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -60,57 +61,68 @@ let readOptions argv =
         extra = Map.empty // TODO: Read extra options
     }
 
-let loadPlugins (pluginPaths: string list) (assemblies: FSharpAssembly list) =
-    let optPlugins =
-        pluginPaths
-        |> Seq.collect (fun path ->
-            try
-                (Path.GetFullPath path |> Assembly.LoadFrom).GetTypes()
-                |> Seq.filter typeof<IPlugin>.IsAssignableFrom
-                |> Seq.map (fun x ->
-                    Path.GetFileNameWithoutExtension path,
-                    Activator.CreateInstance x |> unbox<IPlugin>)
-            with
-            | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
-        |> Seq.toList
-    // Type providers may contain also plugins
-    let tpPlugins =
+let loadPlugins (pluginPaths: string list) =
+    pluginPaths
+    |> Seq.collect (fun path ->
         try
-            assemblies
-            |> Seq.filter (fun asm ->
-                asm.Contents.Attributes
-                |> Seq.exists (fun x -> x.AttributeType.DisplayName = "TypeProviderAssemblyAttribute"))
-            |> Seq.collect (fun asm ->
-                let asm = Assembly.Load(asm.QualifiedName)
-                asm.GetTypes()
-                |> Seq.filter typeof<IPlugin>.IsAssignableFrom
-                |> Seq.map (fun x ->
-                    asm.FullName, Activator.CreateInstance x |> unbox<IPlugin>))
-            |> Seq.toList
-        with _ -> [] // TODO: React to errors?
-    optPlugins@tpPlugins
+            (Path.GetFullPath path |> Assembly.LoadFrom).GetTypes()
+            |> Seq.filter typeof<IPlugin>.IsAssignableFrom
+            |> Seq.map (fun x ->
+                Path.GetFileNameWithoutExtension path,
+                Activator.CreateInstance x |> unbox<IPlugin>)
+        with
+        | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
+    |> Seq.toList
+
+let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
+    let rec addSymbols (symbols: string list) (opts: FSharpProjectOptions) =
+        let addSymbols' (otherOpts: string[]) =
+            otherOpts
+            // |> Array.filter (fun s -> s.StartsWith "--define:" = false)
+            |> Array.append (List.map (sprintf "--define:%s") symbols |> List.toArray)
+        { opts with
+            OtherOptions = addSymbols' opts.OtherOptions
+            ReferencedProjects = opts.ReferencedProjects
+                |> Array.map (fun (k,v) -> k, addSymbols symbols v) }
+    try
+        let projFile = Path.GetFullPath opts.projFile
+        match (Path.GetExtension projFile).ToLower() with
+        | ".fsx" ->
+            checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile)
+            |> Async.RunSynchronously
+        | _ -> // .fsproj
+            let props = opts.msbuild |> List.choose (fun x ->
+                match x.Split('=') with
+                | [|key;value|] -> Some(key,value)
+                | _ -> None)
+            ProjectCracker.GetProjectOptionsFromProjectFile(projFile, props)
+        |> addSymbols opts.symbols
+    with
+    | ex -> failwithf "Cannot read project options: %s" ex.Message
 
 let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
                         (projOptions: FSharpProjectOptions) =
-    let errorToString (er: FSharpErrorInfo) =
-        sprintf "%s (L%i,%i-L%i,%i) (%s)"
-                er.Message
-                er.StartLineAlternate er.StartColumn
-                er.EndLineAlternate er.EndColumn
-                (Path.GetFileName er.FileName)
+    let parseError (er: FSharpErrorInfo) =
+        let loc = sprintf " (L%i,%i-L%i,%i) (%s)"
+                    er.StartLineAlternate er.StartColumn
+                    er.EndLineAlternate er.EndColumn
+                    (Path.GetFileName er.FileName)
+        match er.Severity, er.ErrorNumber with
+        | _, 40 -> true, "Recursive value definitions are not supported" + loc // See #237
+        | FSharpErrorSeverity.Warning, _ -> false, er.Message + loc
+        | FSharpErrorSeverity.Error, _ -> true, er.Message + loc
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
         |> Async.RunSynchronously
-    let warnings, errors =
+    let errors, warnings =
         checkProjectResults.Errors
-        |> Array.partition (fun x -> x.Severity = FSharpErrorSeverity.Warning)
-    let warnings =
-        warnings |> Seq.map (errorToString >> Warning) |> Seq.toList
+        |> Array.map parseError
+        |> Array.partition fst
     if errors.Length = 0
-    then warnings, checkProjectResults
+    then warnings |> Array.map (snd >> Warning), checkProjectResults
     else errors
-        |> Seq.map (errorToString >> (+) "> ")
+        |> Seq.map (snd >> (+) "> ")
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> failwith
@@ -123,89 +135,102 @@ let makeCompiler opts plugins =
         member __.AddLog msg = logs.Add msg
         member __.GetLogs() = logs :> seq<_> }
 
-let start argv checker getProjectOpts projectOpts =
+let getMinimumFableCoreVersion() =
+    Assembly.GetExecutingAssembly()
+            .GetCustomAttributes(typeof<AssemblyMetadataAttribute>, false)
+    |> Seq.tryPick (fun att ->
+        let att = att :?> AssemblyMetadataAttribute
+        if att.Key = "fableCoreVersion"
+        then Version att.Value |> Some
+        else None)
 
-    let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
-        let printFile =
-            let jsonSettings =
-                JsonSerializerSettings(
-                    Converters=[|Json.ErasedUnionConverter()|],
-                    StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
-            fun (file: AST.Babel.Program) ->
-                JsonConvert.SerializeObject (file, jsonSettings)
-                |> Console.Out.WriteLine
-        let printMessages (msgs: #seq<CompilerMessage>) =
-            msgs
-            |> Seq.map CompilerMessage.toDic
-            |> Seq.map JsonConvert.SerializeObject
-            |> Seq.iter Console.Out.WriteLine
-        try
-            // Reload project options if necessary
-            // -----------------------------------
-            let projInfo =
-                match projInfo.fileMask with
-                | Some file when com.Options.projFile = file ->
-                    (com.Options.projFile, com.Options.symbols, com.Options.msbuild)
-                    |||> getProjectOpts checker
-                    |> fun projOpts -> { projInfo with projectOpts = projOpts }
-                | _ -> projInfo
+let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
+    let printFile =
+        let jsonSettings =
+            JsonSerializerSettings(
+                Converters=[|Json.ErasedUnionConverter()|],
+                StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
+        fun (file: AST.Babel.Program) ->
+            JsonConvert.SerializeObject (file, jsonSettings)
+            |> Console.Out.WriteLine
+    let printMessages (msgs: #seq<CompilerMessage>) =
+        msgs
+        |> Seq.map CompilerMessage.toDic
+        |> Seq.map JsonConvert.SerializeObject
+        |> Seq.iter Console.Out.WriteLine
+    try
+        // Reload project options if necessary
+        // -----------------------------------
+        let projInfo =
+            match projInfo.fileMask with
+            | Some file when com.Options.projFile = file ->
+                getProjectOpts checker com.Options
+                |> fun projOpts -> { projInfo with projectOpts = projOpts }
+            | _ -> projInfo
 
-            // TODO: `ProjectFileNames` sometimes is empty and it's not reliable,
-            // check values not starting with `-` in `OtherOptions`
-            // if projInfo.projectOpts.ProjectFileNames.Length = 0 then
-            //     failwith "Project doesn't contain any file"
+        // TODO: Find a way to check if the project is empty
+        // (Unfortunately it seems `ProjectFileNames` is not reliable)
 
-            // Parse project (F# Compiler Services) and print diagnostic info
-            // --------------------------------------------------------------
-            //let timer = PerfTimer("Warmup") |> Some
-            let warnings, parsedProj =
-                parseFSharpProject com checker projInfo.projectOpts
-            //let warnings = match timer with Some timer -> (timer.Finish())::warnings | None -> warnings
-            warnings |> Seq.map (string >> Log) |> printMessages
+        // Parse project (F# Compiler Services) and print diagnostic info
+        // --------------------------------------------------------------
+        //let timer = PerfTimer("Warmup") |> Some
+        let warnings, parsedProj =
+            parseFSharpProject com checker projInfo.projectOpts
+        //let warnings = match timer with Some timer -> (timer.Finish())::warnings | None -> warnings
+        warnings |> Seq.map (string >> Log) |> printMessages
 
-            // Load plugins after parsing the project, so type provider
-            // assemblies can be found in the parsed references
-            // ------------------------------------------------
-            let com =
-                parsedProj.ProjectContext.GetReferencedAssemblies()
-                |> loadPlugins com.Options.plugins
-                |> makeCompiler com.Options
+        // Check Fable.Core version on first compilation (whe projInfo.fileMask is None)
+        // -----------------------------------------------------------------------------
+        if Option.isNone projInfo.fileMask then
+            parsedProj.ProjectContext.GetReferencedAssemblies()
+            |> Seq.tryPick (fun asm ->
+                if asm.SimpleName <> "Fable.Core"
+                then None
+                else Regex.Match(asm.QualifiedName, "Version=(.*?),").Groups.[1].Value |> Version |> Some)
+            |> Option.iter (fun fableCoreVersion ->
+                match getMinimumFableCoreVersion() with
+                | Some minVersion when fableCoreVersion < minVersion ->
+                    failwithf "Fable.Core %O required, please updgrade the project reference" minVersion
+                | _ -> ())
 
-            // Compile project files, print them and get the dependencies
-            // ----------------------------------------------------------
-            let dependencies =
-                FSharp2Fable.Compiler.transformFiles com parsedProj projInfo
-                |> Fable2Babel.Compiler.transformFile com
-                |> Seq.fold (fun accDeps (babelFile, fileDeps) ->
-                    printFile babelFile
-                    Map.add babelFile.originalFileName fileDeps accDeps
-                ) projInfo.dependencies
+        // Compile project files, print them and get the dependencies
+        // ----------------------------------------------------------
+        let dependencies =
+            FSharp2Fable.Compiler.transformFiles com parsedProj projInfo
+            |> Fable2Babel.Compiler.transformFile com
+            |> Seq.fold (fun accDeps (babelFile, fileDeps) ->
+                printFile babelFile
+                Map.add babelFile.originalFileName fileDeps accDeps
+            ) projInfo.dependencies
 
-            // Print logs
-            // ----------
-            com.GetLogs() |> Seq.map (string >> Log) |> printMessages
+        // Print logs
+        // ----------
+        com.GetLogs() |> Seq.map (string >> Log) |> printMessages
 
-            // Send empty string to signal end of compilation and return
-            // ---------------------------------------------------------
-            Console.Out.WriteLine()
-            true, { projInfo with dependencies = dependencies }
-        with ex ->
-            let stackTrace =
-                match ex.InnerException with
-                | null -> ex.StackTrace
-                | inner -> inner.StackTrace
-            printMessages [Error(ex.Message, stackTrace)]
-            false, projInfo
+        // Send empty string to signal end of compilation and return
+        // ---------------------------------------------------------
+        Console.Out.WriteLine()
+        true, { projInfo with dependencies = dependencies }
+    with ex ->
+        let stackTrace =
+            match ex.InnerException with
+            | null -> ex.StackTrace
+            | inner -> inner.StackTrace
+        printMessages [Error(ex.Message, stackTrace)]
+        false, projInfo
 
-    let rec awaitInput (com: ICompiler) checker (projInfo: FSProjInfo) =
-        { projInfo with fileMask = Console.In.ReadLine() |> Some }
-        |> compile com checker
-        |> snd
-        |> awaitInput com checker
+let rec awaitInput (com: ICompiler) checker (projInfo: FSProjInfo) =
+    { projInfo with fileMask = Console.In.ReadLine() |> Some }
+    |> compile com checker
+    |> snd
+    |> awaitInput com checker
 
-    // Startup code
+[<EntryPoint>]
+let main argv =
     let opts = readOptions argv
-    let com = makeCompiler opts []
+    let checker = FSharpChecker.Create(keepAssemblyContents=true)
+    let projectOpts = getProjectOpts checker opts
+    let com = loadPlugins opts.plugins |> makeCompiler opts
     // Full compilation
     let success, projInfo =
         { FSProjInfo.projectOpts = projectOpts
@@ -216,3 +241,4 @@ let start argv checker getProjectOpts projectOpts =
     // Keep on watching if necessary
     if success && opts.watch then
         awaitInput com checker projInfo
+    0

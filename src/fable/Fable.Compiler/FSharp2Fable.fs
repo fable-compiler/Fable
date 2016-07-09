@@ -832,7 +832,8 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
                 then Some file
                 else None
         member fcom.GetEntity tdef =
-            entities.GetOrAdd (tdef.FullName, fun _ -> makeEntity fcom tdef)
+            entities.GetOrAdd (defaultArg tdef.TryFullName tdef.DisplayName,
+                               fun _ -> makeEntity fcom tdef)
         member fcom.TryGetInlineExpr fullName =
             let success, expr = inlineExprs.TryGetValue fullName
             if success then Some expr else None

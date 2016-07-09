@@ -311,9 +311,10 @@ module Types =
     open Patterns
 
     let sanitizeEntityName (ent: FSharpEntity) =
-        match ent.FullName.LastIndexOf(".") with
+        let fullName = defaultArg ent.TryFullName ent.DisplayName
+        match fullName.LastIndexOf(".") with
         | -1 -> ent.DisplayName
-        | i -> ent.FullName.Substring(0, i + 1) + ent.DisplayName
+        | i -> fullName.Substring(0, i + 1) + ent.DisplayName
 
     // TODO: Exclude attributes meant to be compiled to JS
     let rec isAttributeEntity (ent: FSharpEntity) =
@@ -372,21 +373,22 @@ module Types =
             tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
     and makeTypeFromDef (com: IFableCompiler) (tdef: FSharpEntity) =
+        let fullName = defaultArg tdef.TryFullName tdef.DisplayName
         // Guard: F# abbreviations shouldn't be passed as argument
         if tdef.IsFSharpAbbreviation
         then failwith "Abbreviation passed to makeTypeFromDef"
         // Enum
         elif tdef.IsEnum
-        then Fable.Enum tdef.FullName |> Fable.PrimitiveType
+        then Fable.Enum fullName |> Fable.PrimitiveType
         // Delegate
         elif tdef.IsDelegate
         then Fable.Function (tdef.GenericParameters.Count - 1) |> Fable.PrimitiveType
         // Object
-        elif tdef.FullName = "System.Object"
+        elif fullName = "System.Object"
         then Fable.UnknownType
         else
         // .NET Primitives
-        match tdef.FullName with
+        match fullName with
         | NumberKind kind -> Fable.Number kind |> Fable.PrimitiveType
         | "System.Boolean" -> Fable.Boolean |> Fable.PrimitiveType
         | "System.Char" | "System.String" | "System.Guid" -> Fable.String |> Fable.PrimitiveType
@@ -658,11 +660,11 @@ module Util =
         let cache = System.Collections.Concurrent.ConcurrentDictionary<string, obj>()
         fun (tdef: FSharpEntity) ->
             cache.GetOrAdd(tdef.QualifiedName, fun _ ->
-                let assembly = System.Reflection.Assembly.Load(tdef.Assembly.QualifiedName)
+                let assembly = System.Reflection.Assembly.LoadFrom(tdef.Assembly.FileName.Value)
                 let typ = assembly.GetTypes() |> Seq.find (fun x ->
                     x.AssemblyQualifiedName = tdef.QualifiedName)
                 System.Activator.CreateInstance(typ))
-                
+
     let (|Emitted|_|) com ctx r typ (typArgs, methTypArgs) (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match meth.Attributes with
         | ContainsAtt "Emit" attArgs ->
