@@ -39,12 +39,12 @@ type IReplacePlugin =
 type IInjection =
     /// Must be a name with low probabilities of being duplicated
     abstract member Name: string
-    /// Can be JS code in a string, a Fable Expr or a quotation 
-    abstract member Body: Choice<string, Fable.Expr, Quotations.Expr>
+    abstract member ArgumentsLength: int
+    abstract member GetBody: args: Fable.Expr list -> Fable.Expr
 
 type IInjectPlugin =
     inherit IPlugin
-    abstract Inject: com: ICompiler -> IInjection
+    abstract Inject: com: ICompiler -> IInjection list
 
 open System.Reflection
 open System.Runtime.CompilerServices

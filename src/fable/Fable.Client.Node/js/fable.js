@@ -1,6 +1,4 @@
-﻿/// <reference path="../../typings/node/node.d.ts" />
-
-var fs = require("fs");
+﻿var fs = require("fs");
 var path = require("path");
 var babel = require("babel-core");
 var template = require("babel-template");
@@ -91,6 +89,10 @@ var transformMacroExpressions = {
       }
       catch (err) {
           console.log("BABEL ERROR: Failed to parse macro: " + path.node.value);
+          console.log(err.message);
+          if (opts.verbose && err.stack) {
+            console.log(err.stack);
+          }
           process.exit(1);
       }
     }
@@ -173,23 +175,28 @@ function babelifyToFile(babelAst, opts) {
     var targetFile = path.join(opts.outDir, path.relative(projDir, path.resolve(babelAst.fileName)));
     targetFile = targetFile.replace(path.extname(babelAst.fileName), ".js")
 
-    var babelOpts = {
-        sourceMaps: opts.sourceMaps,
-        sourceMapTarget: path.basename(targetFile),
-        sourceFileName: path.relative(path.dirname(targetFile), babelAst.originalFileName).replace(/\\/g, '/'),
-        plugins: babelPlugins
-    };
-
-    // The F# code is only necessary when generating source maps
-    var fsCode = opts.sourceMaps
-        ? fs.readFileSync(babelAst.originalFileName) : null;
+    var fsCode = null, babelOpts = {};
+    if (opts.sourceMaps && babelAst.originalFileName) {
+        babelOpts = {
+            plugins: babelPlugins,
+            sourceMaps: opts.sourceMaps,
+            sourceMapTarget: path.basename(targetFile),
+            sourceFileName: path.relative(path.dirname(targetFile),
+                                babelAst.originalFileName).replace(/\\/g, '/')
+        };
+        // The F# code is only necessary when generating source maps
+        fsCode = fs.readFileSync(babelAst.originalFileName);
+    }
+    else {
+        babelOpts = { plugins: babelPlugins }
+    }
 
     var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
     ensureDirExists(path.dirname(targetFile));
     fs.writeFileSync(targetFile, parsed.code);
 
     // Use strict equality so it evals to false when opts.sourceMaps === "inline"
-    if (opts.sourceMaps === true) {
+    if (opts.sourceMaps === true && babelAst.originalFileName) {
         fs.appendFileSync(targetFile, "\n//# sourceMappingURL=" + path.basename(targetFile)+".map");
         fs.writeFileSync(targetFile + ".map", JSON.stringify(parsed.map));
     }
@@ -293,7 +300,7 @@ function processJson(json, opts) {
         try {
             babelAst = JSON.parse(json);
         }
-        catch (err) {
+        catch (_err) {
             return; // If console out is not in JSON format, just ignore
         }
         if (babelAst.type == "LOG") {
@@ -302,7 +309,7 @@ function processJson(json, opts) {
             }
         }
         else if (babelAst.type == "ERROR") {
-            err = babelAst.message;
+            err = babelAst;
         }
         else {
             babelifyToFile(babelAst, opts);
@@ -310,10 +317,13 @@ function processJson(json, opts) {
         }
     }
     catch (e) {
-        err = e;
+        err = { message: e };
     }
     if (err != null) {
-        console.log(err);
+        console.log("ERROR: " + err.message);
+        if (opts.verbose && err.stack) {
+            console.log(err.stack);
+        }
         if (!opts.watch) {
             process.exit(1);
         }
@@ -363,8 +373,8 @@ function build(opts) {
 
     // Call Fable.exe
     if (opts.verbose) {
-        console.log("PROJECT FILE: " + path.resolve(path.join(cfgDir, opts.projFile)) + "\n");
-        console.log("OUTPUT DIR: " + path.resolve(opts.outDir) + "\n");
+        console.log("\nPROJECT FILE: " + path.resolve(path.join(cfgDir, opts.projFile)));
+        console.log("OUTPUT DIR: " + path.resolve(opts.outDir));
         console.log("WORKING DIR: " + path.resolve(cfgDir) + "\n");
         console.log("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }

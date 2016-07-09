@@ -49,11 +49,12 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="../../../lib/FSharp.Compiler.Service.dll" />
+    <Reference Include="../../../build/fable/bin/Fable.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../Fable.Core/src/Fable.Core.fsproj">
-      <Name>Fable.Core</Name>
-    </ProjectReference>
+    <!--<ProjectReference Include="../Fable.Core/src/Fable.Core.fsproj">
+      <Name>Fable.Core.fsproj</Name>
+    </ProjectReference>-->
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />

@@ -728,7 +728,7 @@ module Compiler =
                 let ctx = {
                     file = Path.fixExternalPath com file.FileName
                     originalFile = file.FileName
-                    moduleFullName = projs.Head.FileMap.[file.FileName]
+                    moduleFullName = defaultArg (Map.tryFind file.FileName projs.Head.FileMap) ""
                     rootEntitiesPrivateNames = getRootEntitiesPrivateNames file.Declarations
                     imports = ResizeArray<_>()
                 }
@@ -761,8 +761,13 @@ module Compiler =
                     |> Seq.toList |> List.unzip
                     |> fun (importDecls, dependencies) ->
                         (importDecls@rootDecls), (List.choose id dependencies |> List.distinct)
+                // Files not present in the FileMap are injected, no need for source maps
+                let originalFileName =
+                    if Map.containsKey file.FileName projs.Head.FileMap
+                    then file.FileName else null
                 Babel.Program(Path.fixExternalPath com file.FileName,
-                              file.FileName, file.Range, rootDecls),
+                              originalFileName, file.Range, rootDecls),
                 dependencies
             with
-            | ex -> failwithf "%s (%s)" ex.Message file.FileName)
+            | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
+        )
