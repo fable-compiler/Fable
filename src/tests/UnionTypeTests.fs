@@ -2,7 +2,6 @@
 module Fable.Tests.UnionTypes
 open NUnit.Framework
 open Fable.Tests.Util
-open Fable.Core
 
 type Gender = Male | Female
 
@@ -84,6 +83,8 @@ let ``Union cases called Tag still work (bug due to Tag field)``() =
     |> equal "abc"
 
 #if MOCHA
+open Fable.Core
+
 type JsonTypeInner = {
     Prop1: string
     Prop2: int

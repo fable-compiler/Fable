@@ -1,44 +1,40 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
-    <Name>Fable.Core</Name>
-    <AssemblyName>Fable.Core</AssemblyName>
-    <RootNamespace>Fable.Core</RootNamespace>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>35134aab-9112-49dd-81fe-ab6a49523df2</ProjectGuid>
-    <ProjectType />
+    <ProjectGuid>6bab7fdb-c31e-4ef2-9c6e-ca2603a8e1a7</ProjectGuid>
     <OutputType>Library</OutputType>
+    <RootNamespace>Fable.Core</RootNamespace>
+    <AssemblyName>Fable.Core</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile />
-    <AutoGenerateBindingRedirects />
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <DocumentationFile />
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Name>Fable.Core</Name>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
-    <DebugType>Full</DebugType>
-    <Optimize>false</Optimize>
+    <DebugType>full</DebugType>
+    <Optimize>true</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>..</OutputPath>
-    <DefineConstants />
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget />
-    <Prefer32Bit />
-    <OtherFlags />
+    <DocumentationFile>
+    </DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugSymbols />
-    <DebugType>PdbOnly</DebugType>
+    <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>..</OutputPath>
-    <DefineConstants />
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget />
-    <Prefer32Bit />
-    <OtherFlags />
+    <DocumentationFile>
+    </DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -49,24 +45,26 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
-  <ItemGroup />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="AST/AST.Common.fs" />
-    <Compile Include="AST/AST.Fable.fs" />
-    <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Util.fs" />
-    <Compile Include="AST/AST.Fable.Util.fs" />
+    <Compile Include="AST\AST.Common.fs" />
+    <Compile Include="AST\AST.Fable.fs" />
+    <Compile Include="AST\AST.Fable.Util.fs" />
+    <Compile Include="AST\AST.Babel.fs" />
+    <Compile Include="Plugins.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="Fable.Core.fs" />
-    <Compile Include="Import/Fable.Import.JS.fs" />
-    <Compile Include="Import/Fable.Import.Browser.fs" />
-    <Compile Include="Import/Fable.Import.Node.fs" />
+    <Compile Include="Import\Fable.Import.JS.fs" />
+    <Compile Include="Import\Fable.Import.Browser.fs" />
+    <Compile Include="Import\Fable.Import.Node.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
   </ItemGroup>
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '11.0'">
       <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')">
@@ -79,5 +77,12 @@
       </PropertyGroup>
     </Otherwise>
   </Choose>
-  <Import Project="$(FSharpTargetsPath)" Condition="Exists('$(FSharpTargetsPath)')" />
+  <Import Project="$(FSharpTargetsPath)" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
 </Project>

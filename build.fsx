@@ -146,7 +146,7 @@ Target "Clean" (fun _ ->
 )
 
 Target "FableCompilerRelease" (fun _ ->
-    Util.assemblyInfo "src/fable/Fable.Core/src" fableCoreVersion []
+    Util.assemblyInfo "src/fable/Fable.Core" fableCoreVersion []
     Util.assemblyInfo "src/fable/Fable.Compiler" fableCompilerVersion []
     Util.assemblyInfo "src/fable/Fable.Client.Node" fableCompilerVersion [
         Attribute.Metadata ("minimumFableCoreVersion", minimumFableCoreVersion)
@@ -154,7 +154,7 @@ Target "FableCompilerRelease" (fun _ ->
 
     let buildDir = "build/fable"
 
-    [ "src/fable/Fable.Core/src/Fable.Core.fsproj"
+    [ "src/fable/Fable.Core/Fable.Core.fsproj"
       "src/fable/Fable.Compiler/Fable.Compiler.fsproj"
       "src/fable/Fable.Client.Node/Fable.Client.Node.fsproj" ]
     |> MSBuildRelease (buildDir + "/bin") "Build"
@@ -173,7 +173,7 @@ Target "FableCompilerRelease" (fun _ ->
 Target "FableCompilerDebug" (fun _ ->
     let buildDir = "build/fable"
 
-    [ "src/fable/Fable.Core/src/Fable.Core.fsproj"
+    [ "src/fable/Fable.Core/Fable.Core.fsproj"
       "src/fable/Fable.Compiler/Fable.Compiler.fsproj"
       "src/fable/Fable.Client.Node/Fable.Client.Node.fsproj" ]
     |> MSBuildDebug (buildDir + "/bin") "Build"
@@ -214,7 +214,7 @@ Target "MochaTest" (fun _ ->
     Npm.install testsBuildDir []
     // Copy the development version of fable-core.js
     if environVar "DEV_MACHINE" = "1" then
-        FileUtils.cp "src/fable/Fable.Core/fable-core.js" "build/tests/node_modules/fable-core/"
+        FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
     Npm.script testsBuildDir "test" []
 )
 

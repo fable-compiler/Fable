@@ -5,7 +5,6 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 open System.Collections.Generic
-open Fable.Core
 
 [<Test>]
 let ``Pattern matching with arrays works``() =
@@ -34,6 +33,8 @@ let ``Passing an array to ParamArrayAttribute from another function works``() =
     add [|5;-7|] |> equal -2
 
 #if MOCHA
+open Fable.Core
+
 [<Emit("$1.constructor.name == $0")>]
 let jsConstructorIs (s: string) (ar: 'T[]) = true 
 
