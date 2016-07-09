@@ -26,10 +26,10 @@ let getProjectOpts (checker: FSharpChecker) (projFile: string) (symbols: string 
             ReferencedProjects = opts.ReferencedProjects
                 |> Array.map (fun (k,v) -> k, addSymbols symbols v) }
     try
+        let projFile = Path.GetFullPath projFile
         match (Path.GetExtension projFile).ToLower() with
         | ".fsx" ->
-            checker.GetProjectOptionsFromScript(
-                projFile, File.ReadAllText projFile)
+            checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile)
             |> Async.RunSynchronously
         | _ -> // .fsproj
             let props = msbuild |> List.choose (fun x ->

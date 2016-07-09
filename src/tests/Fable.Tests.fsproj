@@ -32,6 +32,9 @@
     <WarningLevel>3</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Fable.Core">
+      <HintPath>..\..\build\fable\bin\Fable.Core.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
@@ -41,7 +44,6 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="../../build/fable/bin/Fable.Core.dll" />
     <Reference Include="DllRef/bin/Fable.Tests.DllRef.dll" />
   </ItemGroup>
   <ItemGroup>
@@ -96,17 +98,17 @@
   </Target>
   -->
   <ItemGroup>
-    <ProjectReference Include="Other\Fable.Tests.Clamp.fsproj">
-      <Name>Fable.Tests.Clamp</Name>
-      <Project>{1e44403b-7834-4842-91b1-53a5fa731c58}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="nunit.framework">
       <HintPath>..\..\packages\NUnit\lib\nunit.framework.dll</HintPath>
       <Private>True</Private>
       <Paket>True</Paket>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Other\Fable.Tests.Clamp.fsproj">
+      <Name>Fable.Tests.Clamp</Name>
+      <Project>{1e44403b-7834-4842-91b1-53a5fa731c58}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
 </Project>

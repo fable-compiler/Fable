@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Core", "Fable.Core\Fable.Core.fsproj", "{6BAB7FDB-C31E-4EF2-9C6E-CA2603A8E1A7}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Compiler", "Fable.Compiler\Fable.Compiler.fsproj", "{D341FF6B-F526-4370-8318-0F5A654BA70C}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Client.Node", "Fable.Client.Node\Fable.Client.Node.fsproj", "{6C87964E-0B32-48D4-BAA3-BDDBD7264C97}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6BAB7FDB-C31E-4EF2-9C6E-CA2603A8E1A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6BAB7FDB-C31E-4EF2-9C6E-CA2603A8E1A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6BAB7FDB-C31E-4EF2-9C6E-CA2603A8E1A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6BAB7FDB-C31E-4EF2-9C6E-CA2603A8E1A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D341FF6B-F526-4370-8318-0F5A654BA70C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D341FF6B-F526-4370-8318-0F5A654BA70C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D341FF6B-F526-4370-8318-0F5A654BA70C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D341FF6B-F526-4370-8318-0F5A654BA70C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C87964E-0B32-48D4-BAA3-BDDBD7264C97}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C87964E-0B32-48D4-BAA3-BDDBD7264C97}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C87964E-0B32-48D4-BAA3-BDDBD7264C97}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C87964E-0B32-48D4-BAA3-BDDBD7264C97}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

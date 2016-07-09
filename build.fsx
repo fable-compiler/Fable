@@ -32,13 +32,6 @@ module Util =
             info.Arguments <- args) TimeSpan.MaxValue
         |> fun p -> p.Messages |> String.concat "\n"
 
-    let runWrapped workingDir fileName args =
-        let newFileName, newArgs = 
-            if EnvironmentHelper.isUnix
-            then fileName, args
-            else "cmd", ("/C " + fileName + " " + args)
-        run workingDir newFileName newArgs
-
     let downloadArtifact path =
         let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
         let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
@@ -153,7 +146,7 @@ Target "Clean" (fun _ ->
 )
 
 Target "FableCompilerRelease" (fun _ ->
-    Util.assemblyInfo "src/fable/Fable.Core/src" fableCoreVersion []
+    Util.assemblyInfo "src/fable/Fable.Core" fableCoreVersion []
     Util.assemblyInfo "src/fable/Fable.Compiler" fableCompilerVersion []
     Util.assemblyInfo "src/fable/Fable.Client.Node" fableCompilerVersion [
         Attribute.Metadata ("minimumFableCoreVersion", minimumFableCoreVersion)
@@ -161,7 +154,7 @@ Target "FableCompilerRelease" (fun _ ->
 
     let buildDir = "build/fable"
 
-    [ "src/fable/Fable.Core/src/Fable.Core.fsproj"
+    [ "src/fable/Fable.Core/Fable.Core.fsproj"
       "src/fable/Fable.Compiler/Fable.Compiler.fsproj"
       "src/fable/Fable.Client.Node/Fable.Client.Node.fsproj" ]
     |> MSBuildRelease (buildDir + "/bin") "Build"
@@ -180,7 +173,7 @@ Target "FableCompilerRelease" (fun _ ->
 Target "FableCompilerDebug" (fun _ ->
     let buildDir = "build/fable"
 
-    [ "src/fable/Fable.Core/src/Fable.Core.fsproj"
+    [ "src/fable/Fable.Core/Fable.Core.fsproj"
       "src/fable/Fable.Compiler/Fable.Compiler.fsproj"
       "src/fable/Fable.Client.Node/Fable.Client.Node.fsproj" ]
     |> MSBuildDebug (buildDir + "/bin") "Build"
@@ -221,7 +214,7 @@ Target "MochaTest" (fun _ ->
     Npm.install testsBuildDir []
     // Copy the development version of fable-core.js
     if environVar "DEV_MACHINE" = "1" then
-        FileUtils.cp "src/fable/Fable.Core/fable-core.js" "build/tests/node_modules/fable-core/"
+        FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
     Npm.script testsBuildDir "test" []
 )
 
@@ -254,7 +247,10 @@ Target "PublishFableCompiler" (fun _ ->
 Target "FableCore" (fun _ ->
     let targetDir = "src/fable/Fable.Core"
     let babelPlugin = "../../../build/fable/node_modules/babel-plugin-transform-es2015-modules"
-    let runWrapped cmd = Util.runWrapped targetDir cmd
+    let run cmd args = 
+      if EnvironmentHelper.isUnix
+      then Util.run targetDir cmd args
+      else Util.run targetDir "cmd" ("/C " + cmd + " " + args)
 
     targetDir + "/package.json"
     |> File.ReadAllLines
@@ -269,15 +265,15 @@ Target "FableCore" (fun _ ->
     |> ignore
 
     // FIXME: added --no-babelrc
-    sprintf "es2015.js -o fable-core.js --plugins %s-umd --no-babelrc" babelPlugin |> runWrapped "babel"
-    sprintf "es2015.js -o commonjs.js --plugins %s-commonjs --no-babelrc" babelPlugin |> runWrapped "babel"
-    "fable-core.js -c -m -o fable-core.min.js" |> runWrapped "uglifyjs"
+    sprintf "es2015.js -o fable-core.js --plugins %s-umd --no-babelrc" babelPlugin |> run "babel"
+    sprintf "es2015.js -o commonjs.js --plugins %s-commonjs --no-babelrc" babelPlugin |> run "babel"
+    "fable-core.js -c -m -o fable-core.min.js" |> run "uglifyjs"
 
     // FIXME: [Temporary] Builds fable-core.tsc.js from TypeScript sources.
     //   Requires 'npm install babel-preset-es2015' in src/fable/Fable.Core
     //   Uses .babelrc file in that folder to pass plugin options 
-    "fable-core.tsc.ts --target ES2015 --declaration" |> runWrapped "tsc"
-    "fable-core.tsc.js -o fable-core.tsc.js" |> runWrapped "babel"
+    "fable-core.tsc.ts --target ES2015 --declaration" |> run "tsc"
+    "fable-core.tsc.js -o fable-core.tsc.js" |> run "babel"
 
     Util.assemblyInfo (targetDir + "/src") fableCoreVersion []
     !! (targetDir + "/src/Fable.Core.fsproj")
@@ -313,6 +309,7 @@ Target "PublishDocs" (fun _ ->
 )
 
 Target "All" ignore
+Target "AllAndCore" ignore
 
 // Build order
 "Clean"
@@ -321,6 +318,11 @@ Target "All" ignore
   ==> "MochaTest"
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
+
+"All" ?=> "FableCore"
+
+"All" ==> "AllAndCore"
+"FableCore" ==> "AllAndCore"
 
 // Start build
 RunTargetOrDefault "All"

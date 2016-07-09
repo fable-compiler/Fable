@@ -4,7 +4,6 @@ module Fable.Tests.Misc
 open System
 open NUnit.Framework
 open Fable.Tests.Util
-open Fable.Core
 
 type Base() =
     let mutable x = 5
@@ -49,6 +48,8 @@ let ``Local values from partial functions work``() = // See #115
     logItem1 "item1" |> equal "a = item1, b = item1" 
 
 #if MOCHA
+open Fable.Core
+
 [<Test>]
 let ``Symbols in external projects work``() =
     equal "Fable Rocks!" Clamp.Helper.ConditionalExternalValue
@@ -93,9 +94,9 @@ type MyStrings =
 let ``StringEnum attribute works``() =
     Vertical |> unbox |> equal "vertical"  
     Horizontal |> unbox |> equal "Horizontal"  
-#endif
 
 [<StringEnum>]
+#endif
 type Field = OldPassword | NewPassword | ConfirmPassword
 
 let validatePassword = function
