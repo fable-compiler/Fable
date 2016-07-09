@@ -247,7 +247,10 @@ Target "PublishFableCompiler" (fun _ ->
 Target "FableCore" (fun _ ->
     let targetDir = "src/fable/Fable.Core"
     let babelPlugin = "../../../build/fable/node_modules/babel-plugin-transform-es2015-modules"
-    let run cmd = Util.run targetDir cmd
+    let run cmd args = 
+      if EnvironmentHelper.isUnix
+      then Util.run targetDir cmd args
+      else Util.run targetDir "cmd" ("/C " + cmd + " " + args)
 
     targetDir + "/package.json"
     |> File.ReadAllLines
@@ -299,6 +302,7 @@ Target "PublishDocs" (fun _ ->
 )
 
 Target "All" ignore
+Target "AllAndCore" ignore
 
 // Build order
 "Clean"
@@ -307,6 +311,11 @@ Target "All" ignore
   ==> "MochaTest"
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
+
+"All" ?=> "FableCore"
+
+"All" ==> "AllAndCore"
+"FableCore" ==> "AllAndCore"
 
 // Start build
 RunTargetOrDefault "All"
