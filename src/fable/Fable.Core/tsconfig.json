@@ -5,6 +5,6 @@
         "noImplicitAny": true
     },
     "files": [
-        "es2015-mini.ts"
+        "fable-core.tsc.ts"
     ]
 }

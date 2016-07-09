@@ -268,14 +268,16 @@ Target "FableCore" (fun _ ->
         | true -> true) false
     |> ignore
 
+    // FIXME: added --no-babelrc
     sprintf "es2015.js -o fable-core.js --plugins %s-umd --no-babelrc" babelPlugin |> runWrapped "babel"
     sprintf "es2015.js -o commonjs.js --plugins %s-commonjs --no-babelrc" babelPlugin |> runWrapped "babel"
     "fable-core.js -c -m -o fable-core.min.js" |> runWrapped "uglifyjs"
 
-    // TEMP: Builds fable-core.tsc.js from TypeScript sources.
+    // FIXME: [Temporary] Builds fable-core.tsc.js from TypeScript sources.
     //   Requires 'npm install babel-preset-es2015' in src/fable/Fable.Core
-    "es2015-mini.ts --target ES2015 --outDir . --declaration" |> runWrapped "tsc"
-    "es2015-mini.js -o fable-core.tsc.js" |> runWrapped "babel"
+    //   Uses .babelrc file in that folder to pass plugin options 
+    "fable-core.tsc.ts --target ES2015 --declaration" |> runWrapped "tsc"
+    "fable-core.tsc.js -o fable-core.tsc.js" |> runWrapped "babel"
 
     Util.assemblyInfo (targetDir + "/src") fableCoreVersion []
     !! (targetDir + "/src/Fable.Core.fsproj")
