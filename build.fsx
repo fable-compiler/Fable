@@ -32,6 +32,13 @@ module Util =
             info.Arguments <- args) TimeSpan.MaxValue
         |> fun p -> p.Messages |> String.concat "\n"
 
+    let runWrapped workingDir fileName args =
+        let newFileName, newArgs = 
+            if EnvironmentHelper.isUnix
+            then fileName, args
+            else "cmd", ("/C " + fileName + " " + args)
+        run workingDir newFileName newArgs
+
     let downloadArtifact path =
         let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
         let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
@@ -247,7 +254,7 @@ Target "PublishFableCompiler" (fun _ ->
 Target "FableCore" (fun _ ->
     let targetDir = "src/fable/Fable.Core"
     let babelPlugin = "../../../build/fable/node_modules/babel-plugin-transform-es2015-modules"
-    let run cmd = Util.run targetDir cmd
+    let runWrapped cmd = Util.runWrapped targetDir cmd
 
     targetDir + "/package.json"
     |> File.ReadAllLines
@@ -261,9 +268,14 @@ Target "FableCore" (fun _ ->
         | true -> true) false
     |> ignore
 
-    sprintf "es2015.js -o fable-core.js --plugins %s-umd" babelPlugin |> run "babel"
-    sprintf "es2015.js -o commonjs.js --plugins %s-commonjs" babelPlugin |> run "babel"
-    "fable-core.js -c -m -o fable-core.min.js" |> run "uglifyjs"
+    sprintf "es2015.js -o fable-core.js --plugins %s-umd --no-babelrc" babelPlugin |> runWrapped "babel"
+    sprintf "es2015.js -o commonjs.js --plugins %s-commonjs --no-babelrc" babelPlugin |> runWrapped "babel"
+    "fable-core.js -c -m -o fable-core.min.js" |> runWrapped "uglifyjs"
+
+    // TEMP: Builds fable-core.tsc.js from TypeScript sources.
+    //   Requires 'npm install babel-preset-es2015' in src/fable/Fable.Core
+    "es2015-mini.ts --target ES2015 --outDir . --declaration" |> runWrapped "tsc"
+    "es2015-mini.js -o fable-core.tsc.js" |> runWrapped "babel"
 
     Util.assemblyInfo (targetDir + "/src") fableCoreVersion []
     !! (targetDir + "/src/Fable.Core.fsproj")
