@@ -1,13 +1,11 @@
 namespace Fable.Plugins
 
-#r "../../../build/fable/bin/Fable.AST.dll"
+#r "../../../build/fable/bin/Fable.Core.dll"
 
 open Fable
 open Fable.AST
 
 type RandomPlugin() =
-    let intConst x =
-        Fable.NumberConst (U2.Case1 x, Int32) |> Fable.Value
     interface IReplacePlugin with
         member x.TryReplace _com (info: Fable.ApplyInfo) =
             match info.ownerFullName with
@@ -17,6 +15,8 @@ type RandomPlugin() =
                     let o = Fable.ObjExpr ([], [], None, info.range)
                     Fable.Wrapped (o, info.returnType) |> Some
                 | "next" ->
+                    let intConst x =
+                        Fable.NumberConst (U2.Case1 x, Int32) |> Fable.Value
                     let min, max =
                         match info.args with
                         | [] -> intConst 0, intConst System.Int32.MaxValue
