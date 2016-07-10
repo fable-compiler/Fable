@@ -218,7 +218,7 @@ Target "MochaTest" (fun _ ->
 )
 
 Target "Plugins" (fun _ ->
-    !! "src/plugins/nunit/*.fsx"
+    !! "src/plugins/**/*.fsx"
     |> Seq.iter (fun fsx -> Util.compileScript [] (Path.GetDirectoryName fsx) fsx)
 )
 

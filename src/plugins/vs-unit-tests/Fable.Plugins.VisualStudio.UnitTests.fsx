@@ -17,12 +17,11 @@
 
 namespace Fable.Plugins
 
-#r "../../../build/fable/bin/Fable.AST.dll"
-#r "../../../build/fable/bin/Fable.dll"
+#r "../../../build/fable/bin/Fable.Core.dll"
+#r "../../../build/fable/bin/Fable.Compiler.dll"
 
 open Fable
 open Fable.AST
-open Fable.FSharp2Fable
 open Fable.Fable2Babel
 
 module Util =
@@ -47,14 +46,34 @@ module Util =
             | Fable.Method name, Some decorator -> Some (m, name, decorator)
             | _ -> None
         | _ -> None
+        
+    let [<Literal>] runSyncWarning = "Async.RunSynchronously must wrap the whole test"
 
     // Compile tests using Mocha.js BDD interface
     let transformTestMethod com ctx (testMethod: Fable.Member) name (decorator: Fable.Decorator) =
+        let buildAsyncTestBody range asyncBuilder =
+            let doneFn = AST.Fable.Util.makeIdent "$done"
+            let testBody =
+                let doneFn = doneFn |> Fable.IdentValue |> Fable.Value
+                let args = [asyncBuilder; doneFn; doneFn; doneFn]
+                AST.Fable.Util.CoreLibCall("Async", Some "startWithContinuations", false, args)
+                |> AST.Fable.Util.makeCall com range (Fable.PrimitiveType Fable.Unit)
+            [doneFn], testBody
+        if testMethod.Arguments.Length > 0 then
+            failwithf "Test parameters are not supported (testName = '%s')." name
+        let testArgs, testBody =
+            let (|RunSync|_|) = function
+                | Fable.Sequential([Fable.Throw(Fable.Value(Fable.StringConst warning),_,_); arg],_)
+                    when warning = runSyncWarning -> Some arg
+                | _ -> None
+            match testMethod.Body with
+            | Fable.Apply(Fable.Value(Fable.Lambda(_,RunSync _)),[asyncBuilder],Fable.ApplyMeth,_,_)
+            | RunSync asyncBuilder -> buildAsyncTestBody testMethod.Body.Range asyncBuilder
+            | _ -> [], testMethod.Body
+        let testBody =
+            Util.funcExpression com ctx testArgs testBody :> Babel.Expression
         let testName =
             Babel.StringLiteral name :> Babel.Expression
-        let testBody =
-            // Don't pass arguments ("ClassInitialize" method has one)
-            Util.funcExpression com ctx [] testMethod.Body :> Babel.Expression
         let testRange =
             match testBody.loc with
             | Some loc -> testMethod.Range + loc | None -> testMethod.Range
@@ -80,7 +99,7 @@ module Util =
     let asserts com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "areEqual" ->
-            Fable.Util.ImportCall("assert", "*", Some "equal", false, List.rev i.args)
+            Fable.Util.ImportCall("assert", "*", Some "equal", false, i.args)
             |> Fable.Util.makeCall com i.range i.returnType |> Some
         | _ -> None
         
@@ -121,6 +140,12 @@ type VisualStudioUnitTestsPlugin() =
 
     interface IReplacePlugin with
         member x.TryReplace com info =
-            match info.ownerFullName with
-            | "Microsoft.VisualStudio.TestTools.UnitTesting.Assert" -> asserts com info
+            match info.ownerFullName, info.methodName with
+            | "Microsoft.VisualStudio.TestTools.UnitTesting.Assert", _ -> asserts com info
+            | "Microsoft.FSharp.Control.Async", "runSynchronously" ->
+                match info.returnType with
+                | Fable.PrimitiveType Fable.Unit ->
+                    let warning = Fable.Throw(Fable.Value(Fable.StringConst Util.runSyncWarning), Fable.PrimitiveType Fable.Unit, None)
+                    AST.Fable.Util.makeSequential info.range [warning; info.args.Head] |> Some 
+                | _ -> failwithf "Async.RunSynchronously in tests is only allowed with Async<unit> %O" info.range
             | _ -> None

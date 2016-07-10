@@ -182,7 +182,7 @@ let copySharedScripts () =
     |> CopyFile (output </> "samples" </> "scripts" </> "core.min.js")
     temp </> "node_modules/requirejs/require.js"
     |> CopyFile (output </> "samples" </> "scripts" </> "require.js")
-    fableRoot </> "import/core/fable-core.min.js"
+    fableRoot </> "src/fable/Fable.Core/npm/fable-core.min.js"
     |> CopyFile (output </> "samples" </> "scripts" </> "fable-core.min.js")
 
 
