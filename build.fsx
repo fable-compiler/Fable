@@ -265,23 +265,27 @@ Target "FableCore" (fun _ ->
         | true -> true) false
     |> ignore
 
+    // Builds fable-core.babel.js from ES2015 sources.
     try
-        // FIXME: added --no-babelrc
-        sprintf "es2015.js -o fable-core.js --plugins %s-umd --no-babelrc" babelPlugin |> run "babel"
+        sprintf "es2015.js -o fable-core.babel.js --plugins %s-umd --no-babelrc" babelPlugin |> run "babel"
         // The commonjs version is for Fuse, which is not compatible with UMD
-        sprintf "es2015.js -o commonjs.js --plugins %s-commonjs --no-babelrc" babelPlugin |> run "babel"
+        sprintf "es2015.js -o commonjs.babel.js --plugins %s-commonjs --no-babelrc" babelPlugin |> run "babel"
     with
-    | _ -> failwith "Cannot find Babel CLI, please run `npm i -g babel-cli`"
+    | _ -> failwith "Cannot find Babel CLI. Please run `npm i -g babel-cli`"
+
+    // Builds fable-core.js from TypeScript sources.
+    //   FIXME: Requires 'npm install babel-preset-es2015' in src/fable/Fable.Core/npm
+    try "fable-core.tsc.ts --target ES2015 --declaration" |> run "tsc"
+    with _ -> failwith "Cannot find TypeScript compiler. Please run `npm i -g typescript`"
+    setEnvironVar "BABEL_ENV" "target-umd"
+    "fable-core.tsc.js -o fable-core.js" |> run "babel"
+    setEnvironVar "BABEL_ENV" "target-commonjs"
+    "fable-core.tsc.js -o commonjs.js" |> run "babel"
+    fableCoreNpmDir + "/fable-core.tsc.js" |> FileUtils.rm
 
     if environVar "DEV_MACHINE" = "1" then
-        try "fable-core.js -c -m -o fable-core.min.js" |> run "uglifyjs"
-        with _ -> failwith "Cannot find uglify-js, please run `npm i -g uglify-js`"
-
-    // FIXME: [Temporary] Builds fable-core.tsc.js from TypeScript sources.
-    //   Requires 'npm install babel-preset-es2015' in src/fable/Fable.Core
-    //   Uses .babelrc file in that folder to pass plugin options 
-    "fable-core.tsc.ts --target ES2015 --declaration" |> run "tsc"
-    "fable-core.tsc.js -o fable-core.tsc.js" |> run "babel"
+        try "fable-core.babel.js -c -m -o fable-core.min.js" |> run "uglifyjs"
+        with _ -> failwith "Cannot find uglify-js. Please run `npm i -g uglify-js`"
 
     // Update Fable.Core version
     Util.assemblyInfo "src/fable/Fable.Core/" fableCoreVersion []
