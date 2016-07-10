@@ -24,7 +24,6 @@ Please provide a description of any known workarounds.
 
 ### Related information 
 
-* Operating system
-* Branch
+* Fable Version
 * .NET Runtime, CoreCLR or Mono Version
-* Performance information, links to performance testing scripts
+* Operating system
