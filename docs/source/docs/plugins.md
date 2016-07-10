@@ -43,11 +43,10 @@ you place the plugin):
 ```fsharp
 namespace Fable.Plugins
 
-#r "../../build/fable/bin/Fable.AST.dll"
-#r "../../build/fable/bin/Fable.dll"
+#r "../../../build/fable/bin/Fable.Core.dll"
 
+open Fable
 open Fable.AST
-open Fable.FSharp2Fable
 ```
 
 > We opened a couple of namespaces to have access to
@@ -82,6 +81,7 @@ the call we need to replace. `ApplyInfo` has the following definition:
 type ApplyInfo = {
         methodName: string
         ownerFullName: string
+        methodKind: MemberKind
         callee: Expr option
         args: Expr list
         returnType: Type
@@ -89,6 +89,7 @@ type ApplyInfo = {
         decorators: Decorator list
         calleeTypeArgs: Type list
         methodTypeArgs: Type list
+        lambdaArgArity: int
     }
 ```
 
@@ -154,15 +155,17 @@ for the lower and upper limits of the range if they're not provided.
 
 ```fsharp
 | "next" ->
+    let intConst x =
+        Fable.NumberConst (U2.Case1 x, Int32) |> Fable.Value
     let min, max =
         match info.args with
-        | [] -> Fable.Util.makeConst 0, Fable.Util.makeConst System.Int32.MaxValue
-        | [max] -> Fable.Util.makeConst 0, max
+        | [] -> intConst 0, intConst System.Int32.MaxValue
+        | [max] -> intConst 0, max
         | [min; max] -> min, max
         | _ -> failwith "Unexpected arg count for Random.Next"
 ```
 
-> The `makeConst` method builds a `Fable.Expr` from a numeric or string literal.
+> The `Fable.NumberConst` method builds a `Fable.Expr` from a numeric literal.
 
 We could translate the JS expression above using `Fable.Expr` elements but for
 the sake of simplicity let's just use an `Emit` expression like we do with the
@@ -196,7 +199,7 @@ What remains is just putting everything together and compiling the plugin
 (use `fsc` or `fsharpc` according to your platform):
 
 ```
-fsc src/plugins/Fable.Plugins.Random.fsx --target:library --out:build/plugins/Fable.Plugins.Random.dll
+fsc src/plugins/random/Fable.Plugins.Random.fsx --target:library --out:src/plugins/random/Fable.Plugins.Random.dll
 ```
 
 To test it, create a `Test.fsx` file in a `temp` folder and type the following:
@@ -214,7 +217,7 @@ In the same `temp` folder, create a `fableconfig.json` file with these options:
 ```fsharp
 {
     "module": "commonjs",
-    "plugins": ["build/plugins/Fable.Plugins.Random.dll"]
+    "plugins": ["src/plugins/random/Fable.Plugins.Random.dll"]
 }
 ```
 
