@@ -168,11 +168,6 @@ A single-thread version of `MailboxProcessor` is included. At the moment,
 only methods `Start`, `Receive`, `Post` and `PostAndAsyncReply` are implemented
 (`cancellationToken` or `timeout` optional arguments are not supported).
 
-## Quotations
-
-Experimental support for quotations has been added. Currently they compile to a JS object
-compliant with [Babel AST specs](https://github.com/babel/babel/blob/master/doc/ast/spec.md).
-No splicing nor `Quotation.Expr` method/property is supported at the moment.
 
 You can check the [tests](https://github.com/fsprojects/Fable/tree/master/src/tests) when in doubt. If there's a test for something,
 it's supported :)
