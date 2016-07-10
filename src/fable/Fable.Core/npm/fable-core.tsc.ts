@@ -71,7 +71,7 @@ export class Util {
         return x.compareTo(y);
       }
       if (isCollectionComparable(x)) {
-        lengthComp = Util.compareTo(Seq.length(x), Seq.length(y));
+        lengthComp = Util.compareTo(Seq._length(x), Seq._length(y));
         return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev: any, v1: any, v2: any) {
           return prev != 0 ? prev : Util.compareTo(v1, v2);
         }, 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
@@ -135,7 +135,7 @@ export class TimeSpan {
         return arguments[0] / 10000;
       case 3:
         // h,m,s
-        h = arguments[0], m = arguments[1], s = arguments[2];
+        d = 0, h = arguments[0], m = arguments[1], s = arguments[2], ms = 0;
         break;
       default:
         // d,h,m,s,ms
@@ -202,7 +202,6 @@ export class TimeSpan {
   static compare = Util.compareTo;
 }
 
-export { FDate as Date };
 class FDate {
   static __changeKind = function (d: any, kind: any) {
     var d2: any;
@@ -370,8 +369,9 @@ class FDate {
   static compareTo = Util.compareTo;
   static compare = Util.compareTo;
 }
+export { FDate as Date };
 
-class Timer {
+export class Timer {
   public interval: any;
   public autoReset: boolean;
   public _elapsed: any;
@@ -446,14 +446,14 @@ Timer.prototype.stop = function () {
 };
 Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 
-export { FString as String };
 class FString {
+  static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
   static fsFormat = function (str: any) {
     function isObject(x: any) {
       return x !== null && typeof x === 'object' && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
     };
     function formatOnce(str: any, rep: any) {
-      return str.replace(this.fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
+      return str.replace(FString.fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
         switch (format) {
           case "f": case "F":
             rep = rep.toFixed(precision || 6); break;
@@ -478,14 +478,14 @@ class FString {
     function makeFn(str: any) {
       return function (rep: any) {
         var str2 = formatOnce(str, rep);
-        return this.fsFormatRegExp.test(str2)
+        return FString.fsFormatRegExp.test(str2)
           ? makeFn(str2) : _cont(str2.replace(/%%/g, '%'));
       };
     }
     var _cont: any;
     return function (cont: any) {
       _cont = cont;
-      return this.fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
+      return FString.fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
     };
   };
   static formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
@@ -636,8 +636,8 @@ class FString {
     return uuid;
   };
 }
+export { FString as String };
 
-export { FRegExp as RegExp };
 class FRegExp {
   static create = function (pattern: any, options: any) {
     var flags = "g";
@@ -660,7 +660,7 @@ class FRegExp {
     var reg: any = str instanceof RegExp ? (reg = str, str = pattern, reg.lastIndex = options != null ? options : 0, reg) : reg = FRegExp.create(pattern, options);
     return reg.exec(str);
   };
-  static matches = function (str: any, pattern: any, options: any) {
+  static matches = function (str: any, pattern: any, options?: any) {
     var reg: any = str instanceof RegExp ? (reg = str, str = pattern, reg.lastIndex = options != null ? options : 0, reg) : reg = FRegExp.create(pattern, options);
     if (!reg.global) {
       throw "Non-global RegExp"; // Prevent infinite loop
@@ -708,7 +708,7 @@ class FRegExp {
         var m: any;
         offset = offset == null ? 0 : offset;
         var sub1 = input.substring(offset);
-        var matches = this.matches(reg, sub1);
+        var matches = FRegExp.matches(reg, sub1);
         var sub2 = matches.length > limit ? (m = matches[limit - 1], sub1.substring(0, m.index + m[0].length)) : sub1;
         return input.substring(0, offset) + sub2.replace(reg, replacement) + input.substring(offset + sub2.length);
       } else {
@@ -726,8 +726,8 @@ class FRegExp {
     return input.split(reg, limit);
   };
 }
+export { FRegExp as RegExp };
 
-export { FArray as Array };
 class FArray {
   static addRangeInPlace = function (range: any, xs: any) {
     Seq.iter(function (x: any) {
@@ -821,6 +821,7 @@ class FArray {
     return [bs, cs, ds];
   };
 }
+export { FArray as Array };
 
 export class List<T> {
   public head: T;
@@ -880,17 +881,13 @@ export class List<T> {
   }
 
   static collect<T, U>(f: (x: T) => List<U>, xs: List<T>): List<U> {
-    return Seq.fold((acc, x) => f(x).append(acc), new List<U>(), List.rev(xs));
+    return Seq.fold((acc, x) => acc.append(f(x)), new List<U>(), xs);
   }
 
-  concat(xs: List<T>): List<T> {
-    return List.concat(this);
+  // ToDo: 'xs' should be Seq<List<T>> 
+  static concat<T>(xs: List<List<T>>): List<T> {
+    return List.collect((x) => x, xs);
   }
-
-  static concat<T>(xs: List<T>): List<T> {
-    return List.collect((x) => List.singleton(x), xs);
-  }
-
 
   filter(f: (x: T) => boolean): List<T> {
     return List.filter(f, this);
@@ -1057,7 +1054,7 @@ export class Seq {
   };
   static countBy = function (f: any, xs: any) {
     return Seq.map(function (kv: any) {
-      return [kv[0], Seq.length(kv[1])];
+      return [kv[0], Seq._length(kv[1])];
     }, Seq.groupBy(f, xs));
   };
   static concat = function (xs: any) {
@@ -1112,7 +1109,7 @@ export class Seq {
     }, Seq.map2(function (x: any, y: any) {
       return f(x, y);
     }, xs, ys));
-    return nonZero != null ? nonZero : Seq.length(xs) - Seq.length(ys);
+    return nonZero != null ? nonZero : Seq._length(xs) - Seq._length(ys);
   };
   static delay = function (f: any) {
     var e: any = {};
@@ -1136,12 +1133,12 @@ export class Seq {
     }, xs);
   };
   static empty = function () {
-    return this.unfold(function () { });
+    return Seq.unfold(function () { });
   };
   static enumerateWhile = function (cond: any, xs: any) {
-    return this.concat(this.unfold(function () {
+    return Seq.concat(Seq.unfold(function () {
       return cond() ? [xs, true] : null;
-    }), true);
+    }));
   };
   static enumerateThenFinally = function (xs: any, finalFn: any) {
     return Seq.delay(function () {
@@ -1359,7 +1356,8 @@ export class Seq {
     return Seq.__failIfNone(Seq.tryLast(xs));
   };
 
-  static length<T>(xs: Iterable<T>): number {
+  // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
+  static _length<T>(xs: Iterable<T>): number {
     return Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as Array<T>).length : Seq.fold(function (acc, x) {
       return acc + 1;
     }, 0, xs);
@@ -1386,7 +1384,7 @@ export class Seq {
     return Seq.delay(function () {
       var iter1 = xs[Symbol.iterator]();
       var iter2 = ys[Symbol.iterator]();
-      return this.unfold(function () {
+      return Seq.unfold(function () {
         var cur1 = iter1.next(),
           cur2 = iter2.next();
         return !cur1.done && !cur2.done ? [f(cur1.value, cur2.value), null] : null;
@@ -1398,7 +1396,7 @@ export class Seq {
       var i = 0;
       var iter1 = xs[Symbol.iterator]();
       var iter2 = ys[Symbol.iterator]();
-      return this.unfold(function () {
+      return Seq.unfold(function () {
         var cur1 = iter1.next(),
           cur2 = iter2.next();
         return !cur1.done && !cur2.done ? [f(i++, cur1.value, cur2.value), null] : null;
@@ -1410,7 +1408,7 @@ export class Seq {
       var iter1 = xs[Symbol.iterator]();
       var iter2 = ys[Symbol.iterator]();
       var iter3 = zs[Symbol.iterator]();
-      return this.unfold(function () {
+      return Seq.unfold(function () {
         var cur1 = iter1.next(),
           cur2 = iter2.next(),
           cur3 = iter3.next();
@@ -1694,7 +1692,7 @@ export class Seq {
   static pick = function (f: any, xs: any) {
     return Seq.__failIfNone(Seq.tryPick(f, xs));
   };
-  static unfold = function (f: any, acc: any) {
+  static unfold = function (f: any, acc?: any) {
     var e: any = {};
     e[Symbol.iterator] = function () {
       return {
@@ -1723,7 +1721,6 @@ export class Seq {
   };
 }
 
-export { FSet as Set };
 class FSet {
   static op_Addition = function (set1: any, set2: any) {
     var set = new Set(set1);
@@ -1791,11 +1788,12 @@ class FSet {
   };
   static isProperSuperset = FSet.isProperSupersetOf;
   static isSupersetOf = function (set1: any, set2: any) {
-    return this.isSubset(set2, set1);
+    return FSet.isSubset(set2, set1);
   };
   static isSuperset = FSet.isSupersetOf;
   static copyTo = function (xs: any, arr: any, arrayIndex: any, count: any) {
-    if (!(arr instanceof Array)) throw "Array is invalid";
+    if (!Array.isArray(arr) && !ArrayBuffer.isView(arr))
+      throw "Array is invalid";
 
     count = count || arr.length;
     var i = arrayIndex || 0;
@@ -1821,8 +1819,8 @@ class FSet {
     return FSet.removeInPlace(item, new Set(xs));
   };
 }
+export { FSet as Set };
 
-export { FMap as Map };
 class FMap {
   static containsValue = function (v: any, map: any) {
     return Seq.fold(function (acc, k) {
@@ -1900,6 +1898,7 @@ class FMap {
     }, map);
   };
 }
+export { FMap as Map };
 
 export class Async {
   static __protectedCont = function (f: any) {
@@ -1948,7 +1947,7 @@ export class Async {
       return res;
     }));
   };
-  static return = function (x: any) {
+  static return = function (x?: any) {
     return Async.__protectedCont(function (ctx: any) {
       ctx.onSuccess(x);
     });
@@ -1998,7 +1997,7 @@ export class Async {
         return Async.while(cond, body);
       });
     } else {
-      return this.return();
+      return Async.return();
     }
   };
   static zero = function () {
@@ -2022,7 +2021,7 @@ export class Async {
   static startWithContinuations = Async.start;
   static ignore = function (work: any) {
     return Async.bind(work, function () {
-      return this.return();
+      return Async.return();
     });
   };
 
@@ -2037,7 +2036,7 @@ export class Async {
       return f([ctx.onSuccess, ctx.onError, ctx.onCancel]);
     });
   };
-  static startAsPromise = function (work: any, cancelToken: any) {
+  static startAsPromise = function (work: any, cancelToken?: any) {
     return new Promise(function (resolve, reject) {
       Async.startWithContinuations(work, resolve, reject, reject, cancelToken ? cancelToken : {});
     });
@@ -2051,7 +2050,7 @@ export class Async {
   };
   static parallel = function (works: any) {
     return Async.awaitPromise(Promise.all(Seq.map(function (w: any) {
-      return this.startAsPromise(w);
+      return Async.startAsPromise(w);
     }, works)));
   };
   static catch = function (work: any) {
@@ -2188,7 +2187,6 @@ class Observable {
 }
 Util.setInterfaces(Observable.prototype, ["System.IObservable"]);
 
-export { Obs as Observable };
 class Obs {
   static __protect = function (f: any, succeed: any, fail: any) {
     try {
@@ -2319,11 +2317,12 @@ class Obs {
     }, w)];
   };
 }
+export { Obs as Observable };
 
 export class Event {
-  public _this = this;
   public sbscrb: any;
   public delegates: any;
+
   constructor(sbscrb?: any, delegates?: any) {
     this.sbscrb = sbscrb;
     this.delegates = delegates || new Array();
@@ -2353,9 +2352,7 @@ export class Event {
   subscribe(f: any) {
     var disp: any;
     return this._addHandler(f), disp = {
-      dispose: function () {
-        this._removeHandler(f);
-      }
+      dispose: () => this._removeHandler(f)
     }, disp[FSymbol.interfaces] = ["System.IDisposable"], disp;
   };
 

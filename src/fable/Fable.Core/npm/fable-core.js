@@ -118,7 +118,7 @@
                 return x.compareTo(y);
             }
             if (isCollectionComparable(x)) {
-                lengthComp = Util.compareTo(Seq.length(x), Seq.length(y));
+                lengthComp = Util.compareTo(Seq._length(x), Seq._length(y));
                 return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev, v1, v2) {
                     return prev != 0 ? prev : Util.compareTo(v1, v2);
                 }, 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
@@ -190,7 +190,7 @@
                 return arguments[0] / 10000;
             case 3:
                 // h,m,s
-                h = arguments[0], m = arguments[1], s = arguments[2];
+                d = 0, h = arguments[0], m = arguments[1], s = arguments[2], ms = 0;
                 break;
             default:
                 // d,h,m,s,ms
@@ -254,7 +254,6 @@
     };
     TimeSpan.compareTo = Util.compareTo;
     TimeSpan.compare = Util.compareTo;
-    exports.Date = FDate;
 
     var FDate = function FDate() {
         _classCallCheck(this, FDate);
@@ -425,8 +424,9 @@
     };
     FDate.compareTo = Util.compareTo;
     FDate.compare = Util.compareTo;
+    exports.Date = FDate;
 
-    var Timer = function () {
+    var Timer = exports.Timer = function () {
         function Timer(interval) {
             _classCallCheck(this, Timer);
 
@@ -495,19 +495,19 @@
         this.enabled = false;
     };
     Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
-    exports.String = FString;
 
     var FString = function FString() {
         _classCallCheck(this, FString);
     };
 
+    FString.fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
     FString.fsFormat = function (str) {
         function isObject(x) {
             return x !== null && (typeof x === "undefined" ? "undefined" : _typeof(x)) === 'object' && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
         }
         ;
         function formatOnce(str, rep) {
-            return str.replace(this.fsFormatRegExp, function (_, prefix, flags, pad, precision, format) {
+            return str.replace(FString.fsFormatRegExp, function (_, prefix, flags, pad, precision, format) {
                 switch (format) {
                     case "f":
                     case "F":
@@ -538,13 +538,13 @@
         function makeFn(str) {
             return function (rep) {
                 var str2 = formatOnce(str, rep);
-                return this.fsFormatRegExp.test(str2) ? makeFn(str2) : _cont(str2.replace(/%%/g, '%'));
+                return FString.fsFormatRegExp.test(str2) ? makeFn(str2) : _cont(str2.replace(/%%/g, '%'));
             };
         }
         var _cont;
         return function (cont) {
             _cont = cont;
-            return this.fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
+            return FString.fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
         };
     };
     FString.formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
@@ -714,7 +714,7 @@
         }
         return uuid;
     };
-    exports.RegExp = FRegExp;
+    exports.String = FString;
 
     var FRegExp = function FRegExp() {
         _classCallCheck(this, FRegExp);
@@ -789,7 +789,7 @@
                 var m;
                 offset = offset == null ? 0 : offset;
                 var sub1 = input.substring(offset);
-                var matches = this.matches(reg, sub1);
+                var matches = FRegExp.matches(reg, sub1);
                 var sub2 = matches.length > limit ? (m = matches[limit - 1], sub1.substring(0, m.index + m[0].length)) : sub1;
                 return input.substring(0, offset) + sub2.replace(reg, replacement) + input.substring(offset + sub2.length);
             } else {
@@ -806,7 +806,7 @@
         input = offset != null ? input.substring(offset) : input;
         return input.split(reg, limit);
     };
-    exports.Array = FArray;
+    exports.RegExp = FRegExp;
 
     var FArray = function FArray() {
         _classCallCheck(this, FArray);
@@ -903,6 +903,7 @@
         }
         return [bs, cs, ds];
     };
+    exports.Array = FArray;
 
     var List = exports.List = function () {
         function List(head, tail) {
@@ -959,17 +960,15 @@
 
         List.collect = function collect(f, xs) {
             return Seq.fold(function (acc, x) {
-                return f(x).append(acc);
-            }, new List(), List.rev(xs));
+                return acc.append(f(x));
+            }, new List(), xs);
         };
+        // ToDo: 'xs' should be Seq<List<T>>
 
-        List.prototype.concat = function concat(xs) {
-            return List.concat(this);
-        };
 
         List.concat = function concat(xs) {
             return List.collect(function (x) {
-                return List.singleton(x);
+                return x;
             }, xs);
         };
 
@@ -1146,8 +1145,10 @@
             }
             return acc;
         };
+        // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
 
-        Seq.length = function length(xs) {
+
+        Seq._length = function _length(xs) {
             return Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs.length : Seq.fold(function (acc, x) {
                 return acc + 1;
             }, 0, xs);
@@ -1219,7 +1220,7 @@
     };
     Seq.countBy = function (f, xs) {
         return Seq.map(function (kv) {
-            return [kv[0], Seq.length(kv[1])];
+            return [kv[0], Seq._length(kv[1])];
         }, Seq.groupBy(f, xs));
     };
     Seq.concat = function (xs) {
@@ -1274,7 +1275,7 @@
         }, Seq.map2(function (x, y) {
             return f(x, y);
         }, xs, ys));
-        return nonZero != null ? nonZero : Seq.length(xs) - Seq.length(ys);
+        return nonZero != null ? nonZero : Seq._length(xs) - Seq._length(ys);
     };
     Seq.delay = function (f) {
         var e = {};
@@ -1298,12 +1299,12 @@
         }, xs);
     };
     Seq.empty = function () {
-        return this.unfold(function () {});
+        return Seq.unfold(function () {});
     };
     Seq.enumerateWhile = function (cond, xs) {
-        return this.concat(this.unfold(function () {
+        return Seq.concat(Seq.unfold(function () {
             return cond() ? [xs, true] : null;
-        }), true);
+        }));
     };
     Seq.enumerateThenFinally = function (xs, finalFn) {
         return Seq.delay(function () {
@@ -1500,7 +1501,7 @@
         return Seq.delay(function () {
             var iter1 = xs[Symbol.iterator]();
             var iter2 = ys[Symbol.iterator]();
-            return this.unfold(function () {
+            return Seq.unfold(function () {
                 var cur1 = iter1.next(),
                     cur2 = iter2.next();
                 return !cur1.done && !cur2.done ? [f(cur1.value, cur2.value), null] : null;
@@ -1512,7 +1513,7 @@
             var i = 0;
             var iter1 = xs[Symbol.iterator]();
             var iter2 = ys[Symbol.iterator]();
-            return this.unfold(function () {
+            return Seq.unfold(function () {
                 var cur1 = iter1.next(),
                     cur2 = iter2.next();
                 return !cur1.done && !cur2.done ? [f(i++, cur1.value, cur2.value), null] : null;
@@ -1524,7 +1525,7 @@
             var iter1 = xs[Symbol.iterator]();
             var iter2 = ys[Symbol.iterator]();
             var iter3 = zs[Symbol.iterator]();
-            return this.unfold(function () {
+            return Seq.unfold(function () {
                 var cur1 = iter1.next(),
                     cur2 = iter2.next(),
                     cur3 = iter3.next();
@@ -1835,7 +1836,6 @@
             return [x, y, z];
         }, xs, ys, zs);
     };
-    exports.Set = FSet;
 
     var FSet = function FSet() {
         _classCallCheck(this, FSet);
@@ -1907,11 +1907,11 @@
     };
     FSet.isProperSuperset = FSet.isProperSupersetOf;
     FSet.isSupersetOf = function (set1, set2) {
-        return this.isSubset(set2, set1);
+        return FSet.isSubset(set2, set1);
     };
     FSet.isSuperset = FSet.isSupersetOf;
     FSet.copyTo = function (xs, arr, arrayIndex, count) {
-        if (!(arr instanceof Array)) throw "Array is invalid";
+        if (!Array.isArray(arr) && !ArrayBuffer.isView(arr)) throw "Array is invalid";
         count = count || arr.length;
         var i = arrayIndex || 0;
         var iter = xs[Symbol.iterator]();
@@ -1936,7 +1936,7 @@
     FSet.remove = function (item, xs) {
         return FSet.removeInPlace(item, new Set(xs));
     };
-    exports.Map = FMap;
+    exports.Set = FSet;
 
     var FMap = function FMap() {
         _classCallCheck(this, FMap);
@@ -2017,6 +2017,7 @@
             return res != null ? res : null;
         }, map);
     };
+    exports.Map = FMap;
 
     var Async = exports.Async = function () {
         function Async() {
@@ -2131,7 +2132,7 @@
                 return Async.while(cond, body);
             });
         } else {
-            return this.return();
+            return Async.return();
         }
     };
     Async.zero = function () {
@@ -2155,7 +2156,7 @@
     Async.startWithContinuations = Async.start;
     Async.ignore = function (work) {
         return Async.bind(work, function () {
-            return this.return();
+            return Async.return();
         });
     };
     Async.fromContinuations = function (f) {
@@ -2177,7 +2178,7 @@
     };
     Async.parallel = function (works) {
         return Async.awaitPromise(Promise.all(Seq.map(function (w) {
-            return this.startAsPromise(w);
+            return Async.startAsPromise(w);
         }, works)));
     };
     Async.catch = function (work) {
@@ -2320,7 +2321,6 @@
     };
 
     Util.setInterfaces(Observable.prototype, ["System.IObservable"]);
-    exports.Observable = Obs;
 
     var Obs = function Obs() {
         _classCallCheck(this, Obs);
@@ -2454,12 +2454,12 @@
             return res.Case == "Choice2Of2" ? res.Fields[0] : null;
         }, w)];
     };
+    exports.Observable = Obs;
 
     var Event = exports.Event = function () {
         function Event(sbscrb, delegates) {
             _classCallCheck(this, Event);
 
-            this._this = this;
             this.sbscrb = sbscrb;
             this.delegates = delegates || new Array();
         }
@@ -2485,10 +2485,12 @@
         };
 
         Event.prototype.subscribe = function subscribe(f) {
+            var _this2 = this;
+
             var disp;
             return this._addHandler(f), disp = {
                 dispose: function dispose() {
-                    this._removeHandler(f);
+                    return _this2._removeHandler(f);
                 }
             }, disp[FSymbol.interfaces] = ["System.IDisposable"], disp;
         };

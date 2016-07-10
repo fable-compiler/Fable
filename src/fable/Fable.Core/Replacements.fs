@@ -893,7 +893,10 @@ module private AstPass =
         | "head" | "tail" | "length" | "count" ->
             let meth = if meth = "count" then "length" else meth
             match kind with
-            | Seq -> ccall "Seq" meth (staticArgs c args)
+            | Seq -> 
+                // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
+                let seqMeth = if meth = "length" then "_length" else meth
+                ccall "Seq" seqMeth (staticArgs c args)
             | List -> let c, _ = instanceArgs c args in prop meth c
             | Array ->
                 let c, _ = instanceArgs c args
