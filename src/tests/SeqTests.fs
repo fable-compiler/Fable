@@ -3,11 +3,6 @@ module Fable.Tests.Seqs
 open NUnit.Framework
 open Fable.Tests.Util
 
-let sumFirstTwo (zs: seq<float>) =
-   let first = Seq.head zs
-   let second = Seq.skip 1 zs |> Seq.head
-   first + second
-
 [<Test>]
 let ``Seq.length works``() =
     let xs = [1.; 2.; 3.; 4.]
@@ -40,7 +35,7 @@ let ``Seq.append works``() =
     let xs = [1.; 2.; 3.; 4.]
     let ys = [0.]
     let zs = Seq.append ys xs
-    sumFirstTwo zs
+    sumFirstSeq zs 2
     |> equal 1.
 
 [<Test>]
@@ -61,22 +56,22 @@ let ``Seq.choose works``() =
     let zs = xs |> Seq.choose (fun x ->
        if x > 2. then Some x
        else None) 
-    sumFirstTwo zs
+    sumFirstSeq zs 2
     |> equal 7.
 
 [<Test>]
 let ``Seq.concat works``() =
     let xs = [[1.]; [2.]; [3.]; [4.]]
     let ys = xs |> Seq.concat
-    sumFirstTwo ys
+    sumFirstSeq ys 2
     |> equal 3.
 
 [<Test>]
 let ``Seq.collect works``() =
-    let xs = [[1.]; [2.]; [3.]; [4.]]
+    let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
     let ys = xs |> Seq.collect id
-    sumFirstTwo ys
-    |> equal 3.
+    sumFirstSeq ys 5
+    |> equal 15.
 
 [<Test>]
 let ``Seq.exists works``() =
@@ -182,7 +177,7 @@ let ``Seq.tail works``() =
 [<Test>]
 let ``Seq.init works``() =
     let xs = Seq.init 4 float
-    sumFirstTwo xs
+    sumFirstSeq xs 2
     |> equal 1.
     
 [<Test>]
@@ -341,7 +336,7 @@ let ``Seq.reduce works``() =
 let ``Seq.scan works``() =
     let xs = [1.; 2.; 3.; 4.]
     let ys = xs |> Seq.scan (+) 0.
-    sumFirstTwo ys
+    sumFirstSeq ys 2
     |> equal 1.
 
 [<Test>]
@@ -362,7 +357,7 @@ let ``Seq.sortDescending works``() =
 let ``Seq.sortBy works``() =
     let xs = [3.; 1.; 4.; 2.]
     let ys = xs |> Seq.sortBy (fun x -> -x)
-    sumFirstTwo ys
+    sumFirstSeq ys 2
     |> equal 7.
 
 [<Test>]

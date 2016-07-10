@@ -236,10 +236,10 @@ let ``Array.choose works``() =
 
 [<Test>]
 let ``Array.collect works``() =   
-    let xs = [|[|1|]; [|2|]; [|3|]; [|4|]|]
+    let xs = [|[|1.; 2.|]; [|3.|]; [|4.; 5.; 6.;|]; [|7.|]|]
     let ys = xs |> Array.collect id
-    ys.[0] + ys.[1]
-    |> equal 3
+    ys.[0] + ys.[1] + ys.[2] + ys.[3] + ys.[4]
+    |> equal 15.
 
 [<Test>]
 let ``Array.concat works``() =   
