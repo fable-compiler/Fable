@@ -1,8 +1,13 @@
 {
   "name": "fable-core",
-  "version": "0.2.0",
+  "version": "0.2.0-alpha",
   "description": "Fable core lib & bindings for native JS objects, browser and node APIs",
   "main": "fable-core.js",
+  "scripts": {
+    "tsc": "tsc",
+    "babel": "babel",
+    "uglifyjs": "uglifyjs"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/fsprojects/Fable/import/core"
@@ -15,5 +20,13 @@
     "fsharp",
     "F#"
   ],
-  "homepage": "https://github.com/fsprojects/Fable#readme"
+  "homepage": "https://github.com/fsprojects/Fable#readme",
+  "devDependencies": {
+    "babel-cli": "^6.10.1",
+    "babel-plugin-transform-es2015-modules-umd": "^6.8.0",
+    "babel-preset-es2015": "^6.9.0",
+    "babel-preset-es2015-no-commonjs": "0.0.2",
+    "typescript": "^1.8.10",
+    "uglify-js": "^2.7.0"
+  }
 }

@@ -71,7 +71,7 @@ export class Util {
         return x.compareTo(y);
       }
       if (isCollectionComparable(x)) {
-        lengthComp = Util.compareTo(Seq._length(x), Seq._length(y));
+        lengthComp = Util.compareTo(Seq.count(x), Seq.count(y));
         return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev: any, v1: any, v2: any) {
           return prev != 0 ? prev : Util.compareTo(v1, v2);
         }, 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
@@ -1054,7 +1054,7 @@ export class Seq {
   };
   static countBy = function (f: any, xs: any) {
     return Seq.map(function (kv: any) {
-      return [kv[0], Seq._length(kv[1])];
+      return [kv[0], Seq.count(kv[1])];
     }, Seq.groupBy(f, xs));
   };
   static concat = function (xs: any) {
@@ -1109,7 +1109,7 @@ export class Seq {
     }, Seq.map2(function (x: any, y: any) {
       return f(x, y);
     }, xs, ys));
-    return nonZero != null ? nonZero : Seq._length(xs) - Seq._length(ys);
+    return nonZero != null ? nonZero : Seq.count(xs) - Seq.count(ys);
   };
   static delay = function (f: any) {
     var e: any = {};
@@ -1357,7 +1357,7 @@ export class Seq {
   };
 
   // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
-  static _length<T>(xs: Iterable<T>): number {
+  static count<T>(xs: Iterable<T>): number {
     return Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as Array<T>).length : Seq.fold(function (acc, x) {
       return acc + 1;
     }, 0, xs);

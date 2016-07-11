@@ -27,6 +27,19 @@
           }
         ]
       ]
+    },
+    "target-es2015": {
+      "presets": [
+        "es2015-no-commonjs"
+      ],
+      "plugins": [
+        [
+          "transform-es2015-classes",
+          {
+            "loose": true
+          }
+        ]
+      ]
     }
   }
 }
