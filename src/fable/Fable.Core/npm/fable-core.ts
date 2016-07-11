@@ -21,6 +21,17 @@ export class Choice {
   }
 }
 
+export type TTuple<T1, T2> = [T1, T2];
+export type TTuple3<T1, T2, T3> = [T1, T2, T3];
+
+export function Tuple<T1, T2>(x: T1, y: T2) {
+  return <TTuple<T1, T2>>[x, y];
+}
+
+export function Tuple3<T1, T2, T3>(x: T1, y: T2, z: T3) {
+  return <TTuple3<T1, T2, T3>>[x, y, z];
+}
+
 export class Util {
   private static __types = new Map()
 
@@ -55,7 +66,7 @@ export class Util {
     return restArgs;
   };
 
-  static compareTo = function (x: any, y: any) {
+  static compareTo = function (x: any, y: any): number {
     function isCollectionComparable(o: any) {
       return Array.isArray(o) || ArrayBuffer.isView(o) || o instanceof List || o instanceof Map || o instanceof Set;
     }
@@ -730,6 +741,10 @@ export { FString as String };
 
 export type MatchEvaluator = (match: any) => string;
 
+export interface Disposable {
+  dispose(): void;
+}
+
 class FRegExp {
   static create(pattern: string, options: number) {
     var flags = "g";
@@ -857,27 +872,26 @@ class FArray {
     }
     return [ys, zs];
   };
-  static permute = function (f: any, xs: any) {
+
+  static permute<T>(f: (i: number) => number, xs: Array<T>) {
     // Keep the type of the array
-    var ys = xs.map(function () {
-      return 0;
-    });
-    var checkFlags = new Array(xs.length);
-    for (var i = 0; i < xs.length; i++) {
-      var j = f(i);
-      if (j < 0 || j >= xs.length) {
+    let ys = xs.map(() => <T>null);
+    let checkFlags = new Array(xs.length);
+    for (let i = 0; i < xs.length; i++) {
+      const j = f(i);
+      if (j < 0 || j >= xs.length)
         throw "Not a valid permutation";
-      }
+
       ys[j] = xs[i];
       checkFlags[j] = 1;
     }
-    for (i = 0; i < xs.length; i++) {
-      if (checkFlags[i] != 1) {
+    for (let i = 0; i < xs.length; i++)
+      if (checkFlags[i] != 1)
         throw "Not a valid permutation";
-      }
-    }
+
     return ys;
   };
+
   static removeInPlace = function (item: any, xs: any) {
     var i = xs.indexOf(item);
     if (i > -1) {
@@ -988,7 +1002,7 @@ export class List<T> {
     return Seq.fold((acc, x) => acc.append(f(x)), new List<U>(), xs);
   }
 
-  // ToDo: 'xs' should be Seq<List<T>> 
+  // TODO: should be xs: Iterable<List<T>>
   static concat<T>(xs: List<List<T>>): List<T> {
     return List.collect((x) => x, xs);
   }
@@ -1041,11 +1055,11 @@ export class List<T> {
   }
 
   static partition<T>(f: (x: T) => boolean, xs: List<T>): [List<T>, List<T>] {
-    const ini: TTuple<List<T>, List<T>> = [new List<T>(), new List<T>()];
-    return Seq.fold((acc: TTuple<List<T>, List<T>>, x: T) => {
+    const ini = Tuple(new List<T>(), new List<T>());
+    return Seq.fold((acc, x) => {
       const lacc = acc[0], racc = acc[1];
-      const l: TTuple<List<T>, List<T>> = [new List<T>(x, lacc), racc];
-      const r: TTuple<List<T>, List<T>> = [lacc, new List<T>(x, racc)];
+      const l = Tuple(new List<T>(x, lacc), racc);
+      const r = Tuple(lacc, new List<T>(x, racc));
       return f(x) ? l : r;
     }, ini, List.rev(xs));
   }
@@ -1081,58 +1095,57 @@ export class List<T> {
     return List.unzip(this);
   } */
 
-  static unzip<T1, T2>(xs: List<TTuple<T1, T2>>): [List<T1>, List<T2>] {
-    const ini: TTuple<List<T1>, List<T2>> = [new List<T1>(), new List<T2>()];
-    return Seq.foldBack((xy, acc): TTuple<List<T1>, List<T2>> => [new List<T1>(xy[0], acc[0]), new List<T2>(xy[1], acc[1])], xs, ini);
+  static unzip<T1, T2>(xs: List<TTuple<T1, T2>>) {
+    return Seq.foldBack((xy, acc) =>
+      Tuple(new List<T1>(xy[0], acc[0]), new List<T2>(xy[1], acc[1])), xs, Tuple(new List<T1>(), new List<T2>()));
   }
 
   /* ToDo: unzip3() */
 
-  static unzip3<T1, T2, T3>(xs: List<TTuple3<T1, T2, T3>>): [List<T1>, List<T2>, List<T3>] {
-    const ini: TTuple3<List<T1>, List<T2>, List<T3>> = [new List<T1>(), new List<T2>(), new List<T3>()];
-    return Seq.foldBack((xyz, acc): TTuple3<List<T1>, List<T2>, List<T3>> => [new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])], xs, ini);
+  static unzip3<T1, T2, T3>(xs: List<TTuple3<T1, T2, T3>>) {
+    return Seq.foldBack((xyz, acc) =>
+      Tuple3(new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])), xs, Tuple3(new List<T1>(), new List<T2>(), new List<T3>()));
   }
 }
 
 export class Seq {
-  static __failIfNone = function (res: any) {
-    if (res == null) {
+  private static __failIfNone<T>(res: T) {
+    if (res == null)
       throw "Seq did not contain any matching element";
-    }
     return res;
   };
-  static toList = function (xs: any) {
-    return Seq.foldBack(function (x, acc) {
-      return new List(x, acc);
-    }, xs, new List());
+
+  static toList<T>(xs: Iterable<T>) {
+    return Seq.foldBack((x, acc) =>
+      new List(x, acc), xs, new List<T>());
   };
-  static ofList = function (xs: any) {
-    return Seq.delay(function () {
-      return Seq.unfold(function (x: any) {
-        return x.tail != null ? [x.head, x.tail] : null;
-      }, xs);
-    });
+
+  static ofList<T>(xs: List<T>) {
+    return Seq.delay(() =>
+      Seq.unfold((x) =>
+        x.tail != null ? [x.head, x.tail] : null, xs));
   };
-  static ofArray = function (xs: any) {
-    return Seq.delay(function () {
-      return Seq.unfold(function (i: any) {
-        return i < xs.length ? [xs[i], i + 1] : null;
-      }, 0);
-    });
+
+  static ofArray<T>(xs: ArrayLike<T>) {
+    return Seq.delay(() =>
+      Seq.unfold((i) =>
+        i < xs.length ? [xs[i], i + 1] : null, 0));
   };
-  static append = function (xs: any, ys: any) {
-    return Seq.delay(function () {
-      var firstDone = false;
-      var iters = [xs[Symbol.iterator](), ys];
-      return Seq.unfold(function () {
-        var cur: any;
+
+  static append<T>(xs: Iterable<T>, ys: Iterable<T>) {
+    return Seq.delay(() => {
+      let firstDone = false;
+      let i = xs[Symbol.iterator]();
+      let iters = Tuple(i, <Iterator<T>>null);
+      return Seq.unfold(() => {
+        let cur: IteratorResult<T>;
         if (!firstDone) {
           cur = iters[0].next();
           if (!cur.done) {
             return [cur.value, iters];
           } else {
             firstDone = true;
-            iters = [null, iters[1][Symbol.iterator]()];
+            iters = [<Iterator<T>>null, ys[Symbol.iterator]()];
           }
         }
         cur = iters[1].next();
@@ -1140,44 +1153,45 @@ export class Seq {
       }, iters);
     });
   };
-  static average = function (xs: any) {
-    var count = 1;
-    var sum = Seq.reduce(function (acc: any, x: any) {
+
+  static average(xs: Iterable<number>) {
+    let count = 1;
+    const sum = Seq.reduce((acc: number, x: number) => {
       count++;
       return acc + x;
     }, xs);
     return sum / count;
   };
-  static averageBy = function (f: any, xs: any) {
-    var count = 1;
-    var sum = Seq.reduce(function (acc: any, x: any) {
+
+  static averageBy(f: (a: number) => number, xs: Iterable<number>) {
+    let count = 1;
+    const sum = Seq.reduce((acc: number, x: number) => {
       count++;
       return (count === 2 ? f(acc) : acc) + f(x);
     }, xs);
     return sum / count;
   };
-  static countBy = function (f: any, xs: any) {
-    return Seq.map(function (kv: any) {
-      return [kv[0], Seq.count(kv[1])];
-    }, Seq.groupBy(f, xs));
+
+  static countBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
+    return Seq.map((kv) => Tuple(kv[0], Seq.count(kv[1])), Seq.groupBy(f, xs));
   };
-  static concat = function (xs: any) {
-    return Seq.delay(function () {
-      var iter = xs[Symbol.iterator]();
-      return Seq.unfold(function (innerIter: any) {
-        var cur: any,
-          output: any = null,
-          hasFinished = false;
+
+  static concat<T>(xs: Iterable<Iterable<T>>) {
+    return Seq.delay(() => {
+      let iter = xs[Symbol.iterator]();
+      let output: T = null;
+      return Seq.unfold((innerIter) => {
+        let hasFinished = false;
         while (!hasFinished) {
           if (innerIter == null) {
-            cur = iter.next();
+            let cur = iter.next();
             if (!cur.done) {
               innerIter = cur.value[Symbol.iterator]();
             } else {
               hasFinished = true;
             }
           } else {
-            cur = innerIter.next();
+            let cur = innerIter.next();
             if (!cur.done) {
               output = cur.value;
               hasFinished = true;
@@ -1190,71 +1204,70 @@ export class Seq {
       }, null);
     });
   };
-  static collect = function (f: any, xs: any) {
+
+  static collect<T, U>(f: (x: T) => Iterable<U>, xs: Iterable<T>) {
     return Seq.concat(Seq.map(f, xs));
   };
-  static choose = function (f: any, xs: any) {
-    var trySkipToNext = function (iter: any): any {
-      var cur = iter.next();
+
+  static choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
+    const trySkipToNext = function (iter: Iterator<T>): TTuple<U, Iterator<T>> {
+      const cur = iter.next();
       if (!cur.done) {
-        var y = f(cur.value);
-        return y != null ? [y, iter] : trySkipToNext(iter);
+        const y = f(cur.value);
+        return y != null ? Tuple(y, iter) : trySkipToNext(iter);
       }
     };
-    return Seq.delay(function () {
-      return Seq.unfold(function (iter: any) {
-        return trySkipToNext(iter);
-      }, xs[Symbol.iterator]());
-    });
+    return Seq.delay(() =>
+      Seq.unfold((iter) =>
+        trySkipToNext(iter), xs[Symbol.iterator]()));
   };
-  static compareWith = function (f: any, xs: any, ys: any) {
-    var nonZero = Seq.tryFind(function (i: any) {
-      return i != 0;
-    }, Seq.map2(function (x: any, y: any) {
-      return f(x, y);
-    }, xs, ys));
+
+  static compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: Iterable<T>) {
+    let nonZero = Seq.tryFind((i: number) => i != 0, Seq.map2((x: T, y: T) => f(x, y), xs, ys));
     return nonZero != null ? nonZero : Seq.count(xs) - Seq.count(ys);
   };
-  static delay = function (f: any) {
-    var e: any = {};
+
+  static delay<T>(f: () => Iterable<T>) {
+    const e: any = {};
     e[Symbol.iterator] = function () {
       return f()[Symbol.iterator]();
     };
-    return e;
+    return <Iterable<T>>e;
   };
-  static distinctBy = function (f: any, xs: any) {
-    return Seq.choose(function (tup: any) {
-      return tup[0];
-    }, Seq.scan(function (tup: any, x: any) {
-      var acc = tup[1];
-      var y = f(x);
-      return acc.has(y) ? [null, acc] : [x, acc.add(y)];
-    }, [null, new Set()], xs));
+
+  static distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
+    return Seq.choose(
+      (tup) => tup[0],
+      Seq.scan((tup, x) => {
+        const acc = tup[1];
+        const k = f(x);
+        return acc.has(k) ? Tuple(<T>null, acc) : Tuple(x, acc.add(k));
+      }, Tuple(<T>null, new Set<K>()), xs));
   };
-  static distinct = function (xs: any) {
-    return Seq.distinctBy(function (x: any) {
-      return x;
-    }, xs);
+
+  static distinct<T>(xs: Iterable<T>) {
+    return Seq.distinctBy((x) => x, xs);
   };
-  static empty = function () {
-    return Seq.unfold(function () { });
+
+  static empty<T>() {
+    return Seq.unfold(function (): TTuple<T, T> { return void 0 });
   };
-  static enumerateWhile = function (cond: any, xs: any) {
-    return Seq.concat(Seq.unfold(function () {
-      return cond() ? [xs, true] : null;
-    }));
+
+  static enumerateWhile<T>(cond: () => boolean, xs: Iterable<T>) {
+    return Seq.concat(Seq.unfold(() => cond() ? [xs, true] : null));
   };
-  static enumerateThenFinally = function (xs: any, finalFn: any) {
-    return Seq.delay(function () {
-      var iter: any;
+
+  static enumerateThenFinally<T>(xs: Iterable<T>, finalFn: () => void) {
+    return Seq.delay(() => {
+      let iter: Iterator<T>;
       try {
         iter = xs[Symbol.iterator]();
       } finally {
         finalFn();
       }
-      return Seq.unfold(function (iter: any) {
+      return Seq.unfold((iter) => {
         try {
-          var cur = iter.next();
+          const cur = iter.next();
           return !cur.done ? [cur.value, iter] : null;
         } finally {
           finalFn();
@@ -1262,9 +1275,10 @@ export class Seq {
       }, iter);
     });
   };
-  static enumerateUsing = function (disp: any, work: any) {
-    var isDisposed = false;
-    var disposeOnce = function () {
+
+  static enumerateUsing<T extends Disposable, U>(disp: T, work: (x: T) => Iterable<U>) {
+    let isDisposed = false;
+    const disposeOnce = () => {
       if (!isDisposed) {
         isDisposed = true;
         disp.dispose();
@@ -1276,47 +1290,51 @@ export class Seq {
       disposeOnce();
     }
   };
-  static exactlyOne = function (xs: any) {
-    var iter = xs[Symbol.iterator]();
-    var fst = iter.next();
-    if (fst.done) {
+
+  static exactlyOne<T>(xs: Iterable<T>) {
+    const iter = xs[Symbol.iterator]();
+    const fst = iter.next();
+    if (fst.done)
       throw "Seq was empty";
-    }
-    var snd = iter.next();
-    if (!snd.done) {
+
+    const snd = iter.next();
+    if (!snd.done)
       throw "Seq had multiple items";
-    }
+
     return fst.value;
   };
-  static exists = function (f: any, xs: any) {
-    var aux = function (iter: any): any {
-      var cur = iter.next();
+
+  static exists<T>(f: (x: T) => boolean, xs: Iterable<T>) {
+    const aux = function (iter: Iterator<T>): boolean {
+      const cur = iter.next();
       return !cur.done && (f(cur.value) || aux(iter));
     };
     return aux(xs[Symbol.iterator]());
   };
-  static exists2 = function (f: any, xs: any, ys: any) {
-    var aux = function (iter1: any, iter2: any): any {
-      var cur1 = iter1.next(),
-        cur2 = iter2.next();
+
+  static exists2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
+    const aux = function (iter1: Iterator<T1>, iter2: Iterator<T2>): boolean {
+      const cur1 = iter1.next(), cur2 = iter2.next();
       return !cur1.done && !cur2.done && (f(cur1.value, cur2.value) || aux(iter1, iter2));
     };
     return aux(xs[Symbol.iterator](), ys[Symbol.iterator]());
   };
-  static filter = function (f: any, xs: any) {
-    var trySkipToNext = function (iter: any): any {
-      var cur = iter.next();
+
+  static filter<T>(f: (x: T) => boolean, xs: Iterable<T>) {
+    const trySkipToNext = function (iter: Iterator<T>): TTuple<T, Iterator<T>> {
+      const cur = iter.next();
       if (!cur.done) {
         return f(cur.value) ? [cur.value, iter] : trySkipToNext(iter);
       }
     };
-    return Seq.delay(function () {
-      return Seq.unfold(trySkipToNext, xs[Symbol.iterator]());
-    });
+    return Seq.delay(() => Seq.unfold(trySkipToNext, xs[Symbol.iterator]()));
   };
-  static where = Seq.filter;
 
-  static fold<T, ST>(f: (previousValue: ST, currentValue: T, currentIndex?: number) => ST, acc: ST, xs: Iterable<T>): ST {
+  static where<T>(f: (x: T) => boolean, xs: Iterable<T>) {
+    return Seq.filter(f, xs);
+  };
+
+  static fold<T, ST>(f: (acc: ST, x: T, i?: number) => ST, acc: ST, xs: Iterable<T>) {
     if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
       return (xs as Array<T>).reduce(f, acc);
     } else {
@@ -1332,7 +1350,7 @@ export class Seq {
     }
   }
 
-  static foldBack<T, ST>(f: (currentValue: T, previousValue: ST, currentIndex?: number) => ST, xs: Iterable<T>, acc: ST): ST {
+  static foldBack<T, ST>(f: (x: T, acc: ST, i?: number) => ST, xs: Iterable<T>, acc: ST) {
     const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as Array<T> : Array.from(xs);
     for (let i = arr.length - 1; i >= 0; i--) {
       acc = f(arr[i], acc, i);
@@ -1340,11 +1358,10 @@ export class Seq {
     return acc;
   }
 
-  static fold2(f: any, acc: any, xs: any, ys: any) {
-    var iter1 = xs[Symbol.iterator](),
-      iter2 = ys[Symbol.iterator]();
-    let cur1: any, cur2: any;
-    for (var i = 0; ; i++) {
+  static fold2<T1, T2, ST>(f: (acc: ST, x: T1, y: T2, i?: number) => ST, acc: ST, xs: Iterable<T1>, ys: Iterable<T2>) {
+    const iter1 = xs[Symbol.iterator](), iter2 = ys[Symbol.iterator]();
+    let cur1: IteratorResult<T1>, cur2: IteratorResult<T2>;
+    for (let i = 0; ; i++) {
       cur1 = iter1.next();
       cur2 = iter2.next();
       if (cur1.done || cur2.done) {
@@ -1355,473 +1372,453 @@ export class Seq {
     return acc;
   }
 
-  static foldBack2 = function (f: any, xs: any, ys: any, acc: any) {
-    var ar1 = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs : Array.from(xs);
-    var ar2 = Array.isArray(ys) || ArrayBuffer.isView(ys) ? ys : Array.from(ys);
-    for (var i = ar1.length - 1; i >= 0; i--) {
+  static foldBack2<T1, T2, ST>(f: (x: T1, y: T2, acc: ST, i?: number) => ST, xs: Iterable<T1>, ys: Iterable<T2>, acc: ST) {
+    const ar1: Array<T1> = Array.isArray(xs) || ArrayBuffer.isView(xs) ? <Array<T1>>xs : Array.from(xs);
+    const ar2: Array<T2> = Array.isArray(ys) || ArrayBuffer.isView(ys) ? <Array<T2>>ys : Array.from(ys);
+    for (let i = ar1.length - 1; i >= 0; i--) {
       acc = f(ar1[i], ar2[i], acc, i);
     }
     return acc;
   };
-  static forall = function (f: any, xs: any) {
+
+  static forall<T>(f: (x: T) => boolean, xs: Iterable<T>) {
+    return Seq.fold((acc, x) => acc && f(x), true, xs);
+  };
+
+  static forall2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
+    return Seq.fold2((acc, x, y) => acc && f(x, y), true, xs, ys);
+  };
+
+  // TODO: Should return a Iterable<Tuple<K, Iterable<T>>> instead of a Map<K, Iterable<T>>
+  // Seq.groupBy : ('T -> 'Key) -> seq<'T> -> seq<'Key * seq<'T>>
+  static groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>): Map<K, Iterable<T>> {
     return Seq.fold(function (acc, x) {
-      return acc && f(x);
-    }, true, xs);
+      const k = f(x), vs = acc.get(k);
+      return vs != null ? acc.set(k, new List(x, <List<T>>vs)) : acc.set(k, List.singleton(x));
+    }, new Map<K, Iterable<T>>(), xs);
   };
-  static forall2 = function (f: any, xs: any, ys: any) {
-    return Seq.fold2(function (acc: any, x: any, y: any) {
-      return acc && f(x, y);
-    }, true, xs, ys);
-  };
-  static groupBy = function (f: any, xs: any) {
-    return Seq.fold(function (acc, x) {
-      var k = f(x),
-        vs = acc.get(k);
-      return vs != null ? acc.set(k, new List(x, vs)) : acc.set(k, new List(x, new List()));
-    }, new Map(), xs);
-  };
-  static tryHead = function (xs: any) {
-    var iter = xs[Symbol.iterator]();
-    var cur = iter.next();
+
+  static tryHead<T>(xs: Iterable<T>) {
+    const iter = xs[Symbol.iterator]();
+    const cur = iter.next();
     return cur.done ? null : cur.value;
   };
-  static head = function (xs: any) {
+
+  static head<T>(xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryHead(xs));
   };
-  static init = function (n: any, f: any) {
-    return Seq.delay(function () {
-      return Seq.unfold(function (i: any) {
-        return i < n ? [f(i), i + 1] : null;
-      }, 0);
-    });
+
+  static init<T>(n: number, f: (i: number) => T) {
+    return Seq.delay(() =>
+      Seq.unfold((i) => i < n ? [f(i), i + 1] : null, 0));
   };
-  static initInfinite = function (f: any) {
-    return Seq.delay(function () {
-      return Seq.unfold(function (i: any) {
-        return [f(i), i + 1];
-      }, 0);
-    });
+
+  static initInfinite<T>(f: (i: number) => T) {
+    return Seq.delay(() =>
+      Seq.unfold((i) => [f(i), i + 1], 0));
   };
-  static tryItem = function (i: any, xs: any) {
-    if (i < 0) {
+
+  static tryItem<T>(i: number, xs: Iterable<T>) {
+    if (i < 0)
       return null;
-    } else if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
-      return i < xs.length ? xs[i] : null;
-    } else {
-      for (var j = 0, iter = xs[Symbol.iterator](); ; j++) {
-        var cur = iter.next();
-        if (cur.done) {
-          return null;
-        }
-        if (j === i) {
-          return cur.value;
-        }
-      }
+
+    if (Array.isArray(xs) || ArrayBuffer.isView(xs))
+      return i < (<Array<T>>xs).length ? (<Array<T>>xs)[i] : null;
+
+    for (let j = 0, iter = xs[Symbol.iterator](); ; j++) {
+      const cur = iter.next();
+      if (cur.done)
+        return null;
+
+      if (j === i)
+        return cur.value;
     }
   };
-  static item = function (i: any, xs: any) {
+
+  static item<T>(i: number, xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryItem(i, xs));
   };
-  static iter = function (f: any, xs: any) {
-    Seq.fold(function (_, x) {
-      f(x);
-    }, null, xs);
+
+  static iter<T>(f: (x: T) => void, xs: Iterable<T>) {
+    Seq.fold((_, x) => f(x), null, xs);
   };
-  static iter2 = function (f: any, xs: any, ys: any) {
-    Seq.fold2(function (_: any, x: any, y: any) {
-      f(x, y);
-    }, null, xs, ys);
+
+  static iter2<T1, T2>(f: (x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
+    Seq.fold2((_, x, y) => f(x, y), null, xs, ys);
   };
-  static iteri = function (f: any, xs: any) {
-    Seq.fold(function (_, x, i) {
-      f(i, x);
-    }, null, xs);
+
+  static iteri<T>(f: (i: number, x: T) => void, xs: Iterable<T>) {
+    Seq.fold((_, x, i) => f(i, x), null, xs);
   };
-  static iteri2 = function (f: any, xs: any, ys: any) {
-    Seq.fold2(function (_: any, x: any, y: any, i: any) {
-      f(i, x, y);
-    }, null, xs, ys);
+
+  static iteri2<T1, T2>(f: (i: number, x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
+    Seq.fold2((_, x, y, i) => f(i, x, y), null, xs, ys);
   };
-  static isEmpty = function (xs: any) {
-    var i = xs[Symbol.iterator]();
+
+  static isEmpty<T>(xs: Iterable<T>) {
+    const i = xs[Symbol.iterator]();
     return i.next().done;
   };
-  static tryLast = function (xs: any) {
+
+  static tryLast<T>(xs: Iterable<T>) {
     try {
-      return Seq.reduce(function (_: any, x: any) {
-        return x;
-      }, xs);
+      return Seq.reduce((_, x) => x, xs);
     }
     catch (err) {
       return null;
     }
   };
-  static last = function (xs: any) {
+
+  static last<T>(xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryLast(xs));
   };
 
   // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
   static count<T>(xs: Iterable<T>): number {
-    return Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as Array<T>).length : Seq.fold(function (acc, x) {
-      return acc + 1;
-    }, 0, xs);
+    return Array.isArray(xs) || ArrayBuffer.isView(xs)
+      ? (xs as Array<T>).length
+      : Seq.fold((acc, x) => acc + 1, 0, xs);
   };
 
-  static map = function (f: any, xs: any) {
-    return Seq.delay(function () {
-      return Seq.unfold(function (iter: any) {
-        var cur = iter.next();
-        return !cur.done ? [f(cur.value), iter] : null;
-      }, xs[Symbol.iterator]());
-    });
+  static map<T, U>(f: (x: T) => U, xs: Iterable<T>) {
+    return Seq.delay(() => Seq.unfold((iter) => {
+      const cur = iter.next();
+      return !cur.done ? [f(cur.value), iter] : null;
+    }, xs[Symbol.iterator]()));
   };
-  static mapi = function (f: any, xs: any) {
-    return Seq.delay(function () {
-      var i = 0;
-      return Seq.unfold(function (iter: any) {
-        var cur = iter.next();
+
+  static mapi<T, U>(f: (i: number, x: T) => U, xs: Iterable<T>) {
+    return Seq.delay(() => {
+      let i = 0;
+      return Seq.unfold((iter) => {
+        const cur = iter.next();
         return !cur.done ? [f(i++, cur.value), iter] : null;
       }, xs[Symbol.iterator]());
     });
   };
-  static map2 = function (f: any, xs: any, ys: any) {
-    return Seq.delay(function () {
-      var iter1 = xs[Symbol.iterator]();
-      var iter2 = ys[Symbol.iterator]();
-      return Seq.unfold(function () {
-        var cur1 = iter1.next(),
-          cur2 = iter2.next();
+
+  static map2<T1, T2, U>(f: (x: T1, y: T2) => U, xs: Iterable<T1>, ys: Iterable<T2>) {
+    return Seq.delay(() => {
+      const iter1 = xs[Symbol.iterator]();
+      const iter2 = ys[Symbol.iterator]();
+      return Seq.unfold(() => {
+        const cur1 = iter1.next(), cur2 = iter2.next();
         return !cur1.done && !cur2.done ? [f(cur1.value, cur2.value), null] : null;
       });
     });
   };
-  static mapi2 = function (f: any, xs: any, ys: any) {
-    return Seq.delay(function () {
-      var i = 0;
-      var iter1 = xs[Symbol.iterator]();
-      var iter2 = ys[Symbol.iterator]();
-      return Seq.unfold(function () {
-        var cur1 = iter1.next(),
-          cur2 = iter2.next();
+
+  static mapi2<T1, T2, U>(f: (i: number, x: T1, y: T2) => U, xs: Iterable<T1>, ys: Iterable<T2>) {
+    return Seq.delay(() => {
+      let i = 0;
+      const iter1 = xs[Symbol.iterator]();
+      const iter2 = ys[Symbol.iterator]();
+      return Seq.unfold(() => {
+        const cur1 = iter1.next(), cur2 = iter2.next();
         return !cur1.done && !cur2.done ? [f(i++, cur1.value, cur2.value), null] : null;
       });
     });
   };
-  static map3 = function (f: any, xs: any, ys: any, zs: any) {
-    return Seq.delay(function () {
-      var iter1 = xs[Symbol.iterator]();
-      var iter2 = ys[Symbol.iterator]();
-      var iter3 = zs[Symbol.iterator]();
-      return Seq.unfold(function () {
-        var cur1 = iter1.next(),
-          cur2 = iter2.next(),
-          cur3 = iter3.next();
+
+  static map3<T1, T2, T3, U>(f: (x: T1, y: T2, z: T3) => U, xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>) {
+    return Seq.delay(() => {
+      const iter1 = xs[Symbol.iterator]();
+      const iter2 = ys[Symbol.iterator]();
+      const iter3 = zs[Symbol.iterator]();
+      return Seq.unfold(() => {
+        const cur1 = iter1.next(), cur2 = iter2.next(), cur3 = iter3.next();
         return !cur1.done && !cur2.done && !cur3.done ? [f(cur1.value, cur2.value, cur3.value), null] : null;
       });
     });
   };
-  static max = function (xs: any) {
-    return Seq.reduce(function (acc: any, x: any) {
-      return Math.max(acc, x);
-    }, xs);
+
+  static max<T extends number>(xs: Iterable<T>) {
+    return Seq.reduce((acc: T, x: T) => Math.max(acc, x), xs);
   };
-  static maxBy = function (f: any, xs: any) {
-    return Seq.reduce(function (x: any, y: any) {
-      return f(y) > f(x) ? y : x;
-    }, xs);
+
+  static maxBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>) {
+    return Seq.reduce((x, y) => f(x) > f(y) ? x : y, xs);
   };
-  static min = function (xs: any) {
-    return Seq.reduce(function (acc: any, x: any) {
-      return Math.min(acc, x);
-    }, xs);
+
+  static min<T extends number>(xs: Iterable<T>) {
+    return Seq.reduce((acc: T, x: T) => Math.min(acc, x), xs);
   };
-  static minBy = function (f: any, xs: any) {
-    return Seq.reduce(function (x: any, y: any) {
-      return f(y) > f(x) ? x : y;
-    }, xs);
+
+  static minBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>) {
+    return Seq.reduce((x, y) => f(x) < f(y) ? x : y, xs);
   };
-  static pairwise = function (xs: any) {
-    return Seq.skip(1, Seq.scan(function (last: any, next: any) {
-      return [last[1], next];
-    }, [0, 0], xs));
+
+  static pairwise<T extends number>(xs: Iterable<T>) {
+    return Seq.skip(1, Seq.scan((last, next) => Tuple(last[1], next), Tuple(0, 0), xs));
   };
-  static permute = function (f: any, xs: any) {
-    var ar = Array.from(xs);
-    return Seq.ofArray(FArray.permute(f, ar));
+
+  static permute<T>(f: (i: number) => number, xs: Iterable<T>) {
+    return Seq.ofArray(FArray.permute(f, Array.from(xs)));
   };
-  static rangeStep = function (first: any, step: any, last: any) {
-    if (step === 0) {
+
+  static rangeStep(first: number, step: number, last: number) {
+    if (step === 0)
       throw "Step cannot be 0";
-    }
-    return Seq.unfold(function (x: any) {
-      return step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null;
-    }, first);
+    return Seq.unfold((x) => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first);
   };
-  static rangeChar = function (first: any, last: any) {
-    return Seq.unfold(function (x: any) {
-      return x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null;
-    }, first);
+
+  static rangeChar(first: string, last: string) {
+    return Seq.unfold((x) => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first);
   };
-  static range = function (first: any, last: any) {
+
+  static range(first: number, last: number) {
     return Seq.rangeStep(first, 1, last);
   };
-  static readonly = function (xs: any) {
-    return Seq.map(function (x: any) {
-      return x;
-    }, xs);
+
+  static readonly<T>(xs: Iterable<T>) {
+    return Seq.map((x) => x, xs);
   };
-  static reduce = function (f: any, xs: any) {
-    if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
-      return xs.reduce(f);
-    } else {
-      var iter = xs[Symbol.iterator]();
-      var cur = iter.next();
-      if (cur.done) {
-        throw "Seq was empty";
-      }
-      var acc = cur.value;
-      for (; ;) {
-        cur = iter.next();
-        if (cur.done) {
-          break;
-        }
-        acc = f(acc, cur.value);
-      }
-      return acc;
-    }
-  };
-  static reduceBack = function (f: any, xs: any) {
-    var ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs : Array.from(xs);
-    if (ar.length === 0) {
+
+  static reduce<T>(f: (acc: T, x: T) => T, xs: Iterable<T>) {
+    if (Array.isArray(xs) || ArrayBuffer.isView(xs))
+      return (<Array<T>>xs).reduce(f);
+
+    const iter = xs[Symbol.iterator]();
+    let cur = iter.next();
+    if (cur.done)
       throw "Seq was empty";
-    }
-    var acc = ar[ar.length - 1];
-    for (var i = ar.length - 2; i >= 0; i--) {
-      acc = f(ar[i], acc, i);
-    }
-    return acc;
-  };
-  static replicate = function (n: any, x: any) {
-    return Seq.init(n, function () {
-      return x;
-    });
-  };
-  static rev = function (xs: any) {
-    var ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs.slice(0) : Array.from(xs);
-    return ar.reverse();
-  };
-  static scan = function (f: any, seed: any, xs: any) {
-    return Seq.delay(function () {
-      var iter = xs[Symbol.iterator]();
-      return Seq.unfold(function (acc: any) {
-        if (acc == null) {
-          return [seed, seed];
-        } else {
-          var cur = iter.next();
-          if (!cur.done) {
-            acc = f(acc, cur.value);
-            return [acc, acc];
-          }
-        }
-      }, null);
-    });
-  };
-  static scanBack = function (f: any, xs: any, seed: any) {
-    return Seq.rev(Seq.scan(function (acc: any, x: any) {
-      return f(x, acc);
-    }, seed, Seq.rev(xs)));
-  };
-  static singleton = function (x: any) {
-    return Seq.unfold(function (x: any) {
-      return x != null ? [x, null] : null;
-    }, x);
-  };
-  static skip = function (n: any, xs: any) {
-    var e: any = {};
-    e[Symbol.iterator] = function () {
-      var iter = xs[Symbol.iterator]();
-      for (var i = 1; i <= n; i++) {
-        if (iter.next().done) throw "Seq has not enough elements";
-      }
-      return iter;
-    };
-    return e;
-  };
-  static skipWhile = function (f: any, xs: any) {
-    return Seq.delay(function () {
-      var hasPassed = false;
-      return Seq.filter(function (x: any) {
-        return hasPassed || (hasPassed = !f(x));
-      }, xs);
-    });
-  };
-  static sortWith = function (f: any, xs: any) {
-    var ys = Array.from(xs);
-    return Seq.ofArray(ys.sort(f));
-  };
-  static sum = function (xs: any, add: any) {
-    add = add || function (x: any, y: any) {
-      return x + y;
-    };
-    return Seq.reduce(function (acc: any, x: any) {
-      return add(acc, x);
-    }, xs);
-  };
-  static sumBy = function (f: any, xs: any, add: any) {
-    var fst = true;
-    add = add || function (x: any, y: any) {
-      return x + y;
-    };
-    return Seq.reduce(function (acc: any, x: any) {
-      acc = fst ? f(acc) : acc, fst = false;
-      return acc + f(x);
-    }, xs);
-  };
-  static tail = function (xs: any) {
-    var iter = xs[Symbol.iterator]();
-    var cur = iter.next();
-    if (cur.done) {
-      throw "Seq was empty";
-    }
-    var e: any = {};
-    e[Symbol.iterator] = function () {
-      return iter;
-    };
-    return e;
-  };
-  static take = function (n: any, xs: any, truncate: any) {
-    return Seq.delay(function () {
-      var iter = xs[Symbol.iterator]();
-      return Seq.unfold(function (i: any) {
-        if (i < n) {
-          var cur = iter.next();
-          if (!cur.done) {
-            return [cur.value, i + 1];
-          } else if (!truncate) {
-            throw "Seq has not enough elements";
-          }
-        }
-      }, 0);
-    });
-  };
-  static truncate = function (n: any, xs: any) {
-    return Seq.take(n, xs, true);
-  };
-  static takeWhile = function (f: any, xs: any) {
-    return Seq.delay(function () {
-      var iter = xs[Symbol.iterator]();
-      return Seq.unfold(function (i: any) {
-        var cur = iter.next();
-        if (!cur.done && f(cur.value)) {
-          return [cur.value, null];
-        }
-      }, 0);
-    });
-  };
-  static tryFind = function (f: any, xs: any) {
-    let cur: any;
-    for (var i = 0, iter = xs[Symbol.iterator](); ; i++) {
-      cur = iter.next();
-      if (cur.done) {
-        return null;
-      }
-      if (f(cur.value, i)) {
-        return cur.value;
-      }
-    }
-  };
-  static find = function (f: any, xs: any) {
-    return Seq.__failIfNone(Seq.tryFind(f, xs));
-  };
-  static tryFindBack = function (f: any, xs: any) {
-    var match: any = null;
-    let cur: any;
-    for (var i = 0, iter = xs[Symbol.iterator](); ; i++) {
-      cur = iter.next();
-      if (cur.done) {
-        return match;
-      }
-      if (f(cur.value, i)) {
-        match = cur.value;
-      }
-    }
-  };
-  static findBack = function (f: any, xs: any) {
-    return Seq.__failIfNone(Seq.tryFindBack(f, xs));
-  };
-  static tryFindIndex = function (f: any, xs: any) {
-    let cur: any;
-    for (var i = 0, iter = xs[Symbol.iterator](); ; i++) {
-      cur = iter.next();
-      if (cur.done) {
-        return null;
-      }
-      if (f(cur.value, i)) {
-        return i;
-      }
-    }
-  };
-  static findIndex = function (f: any, xs: any) {
-    return Seq.__failIfNone(Seq.tryFindIndex(f, xs));
-  };
-  static tryFindIndexBack = function (f: any, xs: any) {
-    var match: any = null;
-    let cur: any;
-    for (var i = 0, iter = xs[Symbol.iterator](); ; i++) {
-      cur = iter.next();
-      if (cur.done) {
-        return match;
-      }
-      if (f(cur.value, i)) {
-        match = i;
-      }
-    }
-  };
-  static findIndexBack = function (f: any, xs: any) {
-    return Seq.__failIfNone(Seq.tryFindIndexBack(f, xs));
-  };
-  static tryPick = function (f: any, xs: any) {
-    let cur: any;
-    for (var i = 0, iter = xs[Symbol.iterator](); ; i++) {
+
+    let acc = cur.value;
+    for (; ;) {
       cur = iter.next();
       if (cur.done) {
         break;
       }
-      var y = f(cur.value, i);
+      acc = f(acc, cur.value);
+    }
+    return acc;
+  };
+
+  static reduceBack<T>(f: (acc: T, x: T, i?: number) => T, xs: Iterable<T>) {
+    const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? <Array<T>>xs : Array.from(xs);
+    if (ar.length === 0)
+      throw "Seq was empty";
+
+    let acc = ar[ar.length - 1];
+    for (let i = ar.length - 2; i >= 0; i--)
+      acc = f(ar[i], acc, i);
+
+    return acc;
+  };
+
+  static replicate<T>(n: number, x: T) {
+    return Seq.init(n, () => x);
+  };
+
+  static rev<T>(xs: Iterable<T>) {
+    const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (<Array<T>>xs).slice(0) : Array.from(xs);
+    return Seq.ofArray(ar.reverse());
+  };
+
+  static scan<T, ST>(f: (st: ST, x: T) => ST, seed: ST, xs: Iterable<T>) {
+    return Seq.delay(() => {
+      const iter = xs[Symbol.iterator]();
+      return Seq.unfold((acc) => {
+        if (acc == null)
+          return [seed, seed];
+
+        const cur = iter.next();
+        if (!cur.done) {
+          acc = f(acc, cur.value);
+          return [acc, acc];
+        }
+      }, <ST>null);
+    });
+  };
+
+  static scanBack<T, ST>(f: (x: T, st: ST) => ST, xs: Iterable<T>, seed: ST) {
+    return Seq.rev(Seq.scan((acc, x) => f(x, acc), seed, Seq.rev(xs)));
+  };
+
+  static singleton<T>(x: T) {
+    return Seq.unfold((x) => x != null ? [x, null] : null, x);
+  };
+
+  static skip<T>(n: number, xs: Iterable<T>) {
+    const e: any = {};
+    e[Symbol.iterator] = function () {
+      const iter = xs[Symbol.iterator]();
+      for (let i = 1; i <= n; i++)
+        if (iter.next().done)
+          throw "Seq has not enough elements";
+      return iter;
+    };
+    return <Iterable<T>>e;
+  };
+
+  static skipWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
+    return Seq.delay(() => {
+      let hasPassed = false;
+      return Seq.filter((x) => hasPassed || (hasPassed = !f(x)), xs);
+    });
+  };
+
+  static sortWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>) {
+    const ys = Array.from(xs);
+    return Seq.ofArray(ys.sort(f));
+  };
+
+  private static defaultAdder(x: number, y: number) {
+    return x + y;
+  }
+
+  static sum(xs: Iterable<number>, adder?: (x: number, y: number) => number) {
+    adder = adder || Seq.defaultAdder;
+    return Seq.reduce((acc, x) => adder(acc, x), xs);
+  };
+
+  static sumBy(f: (x: number) => number, xs: Iterable<number>, adder?: (x: number, y: number) => number) {
+    let fst = true;
+    adder = adder || Seq.defaultAdder;
+    return Seq.reduce((acc, x) => {
+      acc = fst ? f(acc) : acc, fst = false;
+      return adder(acc, f(x));
+    }, xs);
+  };
+
+  static tail<T>(xs: Iterable<T>) {
+    const iter = xs[Symbol.iterator]();
+    const cur = iter.next();
+    if (cur.done)
+      throw "Seq was empty";
+
+    const e: any = {};
+    e[Symbol.iterator] = () => iter;
+    return <Iterable<T>>e;
+  };
+
+  static take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
+    return Seq.delay(() => {
+      const iter = xs[Symbol.iterator]();
+      return Seq.unfold((i) => {
+        if (i < n) {
+          const cur = iter.next();
+          if (!cur.done)
+            return [cur.value, i + 1];
+          if (!truncate)
+            throw "Seq has not enough elements";
+        }
+      }, 0);
+    });
+  };
+
+  static truncate<T>(n: number, xs: Iterable<T>) {
+    return Seq.take(n, xs, true);
+  };
+
+  static takeWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
+    return Seq.delay(() => {
+      const iter = xs[Symbol.iterator]();
+      return Seq.unfold((i) => {
+        const cur = iter.next();
+        if (!cur.done && f(cur.value))
+          return [cur.value, null];
+      }, 0);
+    });
+  };
+
+  static tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+    for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
+      const cur = iter.next();
+      if (cur.done)
+        return null;
+      if (f(cur.value, i))
+        return cur.value;
+    }
+  };
+
+  static find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+    return Seq.__failIfNone(Seq.tryFind(f, xs));
+  };
+
+  static tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+    let match = <T>null;
+    for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
+      const cur = iter.next();
+      if (cur.done)
+        return match;
+      if (f(cur.value, i))
+        match = cur.value;
+    }
+  };
+
+  static findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+    return Seq.__failIfNone(Seq.tryFindBack(f, xs));
+  };
+
+  static tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+    for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
+      const cur = iter.next();
+      if (cur.done)
+        return null;
+      if (f(cur.value, i))
+        return i;
+    }
+  };
+
+  static findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+    return Seq.__failIfNone(Seq.tryFindIndex(f, xs));
+  };
+
+  static tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+    let match = 0;
+    for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
+      const cur = iter.next();
+      if (cur.done)
+        return match;
+      if (f(cur.value, i))
+        match = i;
+    }
+  };
+
+  static findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+    return Seq.__failIfNone(Seq.tryFindIndexBack(f, xs));
+  };
+
+  static tryPick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
+    for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
+      const cur = iter.next();
+      if (cur.done)
+        break;
+      const y = f(cur.value, i);
       if (y != null) {
         return y;
       }
     }
   };
-  static pick = function (f: any, xs: any) {
+
+  static pick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryPick(f, xs));
   };
-  static unfold = function (f: any, acc?: any) {
-    var e: any = {};
-    e[Symbol.iterator] = function () {
+
+  static unfold<T, ST>(f: (st: ST) => TTuple<T, ST>, acc?: ST) {
+    const e: any = {};
+    e[Symbol.iterator] = () => {
       return {
         next: function (): any {
-          var res = f(acc);
+          const res = f(acc);
           if (res != null) {
             acc = res[1];
             return { done: false, value: res[0] };
-          } else {
-            return { done: true };
           }
+          return { done: true };
         }
       };
     };
-    return e;
+    return <Iterable<T>>e;
   };
-  static zip = function (xs: any, ys: any) {
-    return Seq.map2(function (x: any, y: any) {
-      return [x, y];
-    }, xs, ys);
+
+  static zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>) {
+    return Seq.map2((x, y) => [x, y], xs, ys);
   };
-  static zip3 = function (xs: any, ys: any, zs: any) {
-    return Seq.map3(function (x: any, y: any, z: any) {
-      return [x, y, z];
-    }, xs, ys, zs);
+
+  static zip3<T1, T2, T3>(xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>) {
+    return Seq.map3((x, y, z) => [x, y, z], xs, ys, zs);
   };
 }
 
@@ -2650,7 +2647,3 @@ export class Lazy {
     return this.createdValue;
   }
 }
-
-// Types needed for unzip/unzip3 -- http://stackoverflow.com/a/32191614
-export type TTuple<T1, T2> = [T1, T2];
-export type TTuple3<T1, T2, T3> = [T1, T2, T3];
