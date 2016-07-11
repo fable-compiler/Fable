@@ -3,6 +3,10 @@ module Fable.Fable2Babel
 open Fable
 open Fable.AST
 
+type ReturnStrategy =
+    | Return
+    | Assign of Babel.Expression * SourceLocation option
+
 type Import = {
     path: string
     selector: string
@@ -24,6 +28,7 @@ type IBabelCompiler =
     abstract GetImport: Context -> internalFile: string option -> selector: string -> path: string -> Babel.Expression
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
+    abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Babel.Statement
     abstract TransformFunction: Context -> Fable.Ident list -> Fable.Expr ->
         (Babel.Pattern list) * U2<Babel.BlockStatement, Babel.Expression>
     abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
@@ -44,6 +49,10 @@ module Util =
     let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
         
     let consBack tail head = head::tail
+
+    let isNull = function
+        | Fable.Value Fable.Null | Fable.Wrapped(Fable.Value Fable.Null,_) -> true
+        | _ -> false
 
     // This can cause conflicts in some situations when comparing null to undefined, see #231
     // let cleanNullArgs args =
@@ -182,51 +191,14 @@ module Util =
     let assign range left right =
         Babel.AssignmentExpression(AssignEqual, left, right, ?loc=range)
         :> Babel.Expression
-        
-    let block (com: IBabelCompiler) ctx range (exprs: Fable.Expr list) =
-        let exprs = match exprs with
-                    | [Fable.Sequential (statements,_)] -> statements
-                    | _ -> exprs
-        Babel.BlockStatement (exprs |> List.map (com.TransformStatement ctx), ?loc=range)
-        
-    let returnBlock e =
-        Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
-
-    let func (com: IBabelCompiler) ctx args body =
-        let args, body = com.TransformFunction ctx args body
-        let body = match body with U2.Case1 block -> block | U2.Case2 expr -> returnBlock expr
-        args, body
-
-    let funcExpression (com: IBabelCompiler) ctx args body =
-        let args, body = func com ctx args body
-        Babel.FunctionExpression (args, body, ?loc=body.loc)
-
-    let funcDeclaration (com: IBabelCompiler) ctx id args body =
-        let args, body = func com ctx args body
-        Babel.FunctionDeclaration(id, args, body, ?loc=body.loc)
-
-    // It's important to use arrow functions to lexically bind `this`
-    // However, compile them always with a block `x => { return x + 1 }`
-    // to prevent problems when transforming do expressions `x => do { var y = 5, x + y }`
-    let funcArrow (com: IBabelCompiler) ctx args body =
-        let args, body = func com ctx args body
-        Babel.ArrowFunctionExpression (args, U2.Case1 body, ?loc=body.loc)
-        :> Babel.Expression
 
     /// Immediately Invoked Function Expression
-    let iife (com: IBabelCompiler) ctx (expr: Fable.Expr) =
-        Babel.CallExpression (funcExpression com ctx [] expr, [], ?loc=expr.Range)
-
-    let doExpression r (typ: Fable.Type) block =
-        let doExpr = Babel.DoExpression(block, ?loc=r) :> Babel.Expression
-        match typ with
-        // Wrap closures in a function to prevent naming conflicts
-        // when the do expression is resolved (see #115)
-        | Fable.PrimitiveType (Fable.Function _) ->
-            let block = Babel.BlockStatement([Babel.ReturnStatement(doExpr, ?loc=r)], ?loc=r)
-            Babel.CallExpression(Babel.ArrowFunctionExpression([], U2.Case1 block, ?loc=r), [], ?loc=r)
-            :> Babel.Expression
-        | _ -> doExpr
+    let iife range (statements: Babel.Statement list) =
+        let block =
+            match statements with
+            | [:? Babel.BlockStatement as block] -> U2.Case1 block
+            | _ -> Babel.BlockStatement(statements, ?loc=range) |> U2.Case1
+        Babel.CallExpression(Babel.ArrowFunctionExpression([], block, ?loc=range), [], ?loc=range)
 
     let varDeclaration range (var: Babel.Pattern) value =
         Babel.VariableDeclaration (var, value, ?loc=range)
@@ -243,52 +215,196 @@ module Util =
         let body =
             match body with
             | U2.Case1 e -> e
-            | U2.Case2 e -> returnBlock e
+            | U2.Case2 e -> Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
         args, body
-        // TODO: Optimization: remove null statement that F# compiler adds at the bottom of constructors
+
+    let transformValue (com: IBabelCompiler) ctx r = function
+        | Fable.ImportRef (memb, path) ->
+            let memb, parts =
+                let parts = Array.toList(memb.Split('.'))
+                parts.Head, parts.Tail
+            Path.getExternalImportPath com ctx.file path
+            |> com.GetImport ctx None memb
+            |> Some |> accessExpr parts
+        | Fable.This -> upcast Babel.ThisExpression ()
+        | Fable.Super -> upcast Babel.Super ()
+        | Fable.Null -> upcast Babel.NullLiteral ()
+        | Fable.IdentValue {name=name} -> upcast Babel.Identifier (name)
+        | Fable.NumberConst (x,_) -> upcast Babel.NumericLiteral x
+        | Fable.StringConst x -> upcast Babel.StringLiteral (x)
+        | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
+        | Fable.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
+        | Fable.Lambda (args, body) ->
+            let args, body = com.TransformFunction ctx args body
+            // It's important to use arrow functions to lexically bind `this`
+            upcast Babel.ArrowFunctionExpression (args, body, ?loc=r)
+        | Fable.ArrayConst (cons, kind) -> buildArray com ctx cons kind
+        | Fable.Emit emit -> macroExpression None emit []
+        | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
+        | Fable.Spread _ ->
+            failwithf "Unexpected array spread %O" r
+        | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ -> 
+            failwithf "Unexpected stand-alone operator detected %O" r
+
+    let transformObjectExpr (com: IBabelCompiler) ctx
+                            (members, interfaces, baseClass, range): Babel.Expression =
+        match baseClass with
+        | Some _ as baseClass ->
+            members
+            |> List.map Fable.MemberDeclaration
+            |> com.TransformClass ctx range baseClass
+            |> fun c -> upcast Babel.NewExpression(c, [], ?loc=range)
+        | None ->
+            members |> List.map (fun m ->
+                let makeMethod kind name =
+                    let name, computed = sanitizeName name
+                    let args, body = getMemberArgs com ctx m.Arguments m.Body m.HasRestParams
+                    Babel.ObjectMethod(kind, name, args, body, computed, ?loc=Some m.Range)
+                    |> U3.Case2
+                match m.Kind with
+                | Fable.Constructor ->
+                    "Unexpected constructor in Object Expression"
+                    |> Fable.Util.attachRange range |> failwith
+                | Fable.Method name -> makeMethod Babel.ObjectMeth name
+                | Fable.Setter name -> makeMethod Babel.ObjectSetter name
+                | Fable.Getter (name, false) -> makeMethod Babel.ObjectGetter name
+                | Fable.Getter (name, true) ->
+                    let key, _ = sanitizeName name
+                    Babel.ObjectProperty(key, com.TransformExpr ctx m.Body, ?loc=Some m.Range) |> U3.Case1)
+            |> fun props ->
+                match interfaces with
+                | [] -> props
+                | interfaces ->
+                    let ifcsSymbol =
+                        getCoreLibImport com ctx "Symbol" 
+                        |> get <| "interfaces"
+                    Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
+                    |> U3.Case1 |> consBack props
+            |> fun props ->
+                upcast Babel.ObjectExpression(props, ?loc=range)
+
+    let transformApply com ctx (callee, args, kind, range): Babel.Expression =
+        match callee, args with
+        // Logical, Binary and Unary Operations
+        // If the operation has been wrapped in a lambda, there may be arguments in excess,
+        // take that into account in matching patterns
+        | Fable.Value (Fable.LogicalOp op), (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
+            upcast Babel.LogicalExpression (op, left, right, ?loc=range)
+        | Fable.Value (Fable.UnaryOp op), (TransformExpr com ctx operand as expr)::_ ->
+            upcast Babel.UnaryExpression (op, operand, ?loc=range)
+        | Fable.Value (Fable.BinaryOp op), (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
+            upcast Babel.BinaryExpression (op, left, right, ?loc=range)
+        // Emit expressions
+        | Fable.Value (Fable.Emit emit), args ->
+            args |> List.map (function
+                | Fable.Value(Fable.Spread expr) -> 
+                    Babel.SpreadElement(com.TransformExpr ctx expr, ?loc=expr.Range) :> Babel.Node
+                | expr -> com.TransformExpr ctx expr :> Babel.Node)
+            |> macroExpression range emit
+        // Module or class static members
+        | Fable.Value (Fable.TypeRef typEnt), [Fable.Value (Fable.StringConst memb)]
+            when kind = Fable.ApplyGet ->
+            typeRef com ctx typEnt (Some memb)
+        | _ ->
+            match kind with
+            | Fable.ApplyMeth ->
+                Babel.CallExpression (com.TransformExpr ctx callee, prepareArgs com ctx args, ?loc=range)
+                :> Babel.Expression
+            | Fable.ApplyCons ->
+                Babel.NewExpression (com.TransformExpr ctx callee, prepareArgs com ctx args, ?loc=range)
+                :> Babel.Expression
+            | Fable.ApplyGet ->
+                getExpr com ctx callee args.Head
+
+    // When expecting a block, it's usually not necessary to wrap it
+    // in a lambda to isolate its variable context
+    let transformBlock (com: IBabelCompiler) ctx ret expr: Babel.BlockStatement =
+        match ret, expr with
+        | None, Fable.Sequential(statements, range) ->
+            Babel.BlockStatement (List.map (com.TransformStatement ctx) statements, ?loc=range)
+        | None, _ ->
+            Babel.BlockStatement ([com.TransformStatement ctx expr], ?loc=expr.Range)
+        | Some ret, Fable.Sequential(statements, range) ->
+            let statements =
+                let lasti = (List.length statements) - 1
+                statements |> List.mapi (fun i statement ->
+                    if i < lasti
+                    then com.TransformStatement ctx statement
+                    else com.TransformExprAndResolve ctx ret statement)
+            Babel.BlockStatement (statements, ?loc=range)
+        | Some ret, _ ->
+            Babel.BlockStatement ([com.TransformExprAndResolve ctx ret expr], ?loc=expr.Range)
+
+    // TODO: Experimental support for Quotations
+    let transformQuote com ctx r expr =
+        failwithf "Quotations are not supported %O" r
+        // let rec toJson (expr: obj): Babel.Expression =
+        //     match expr with 
+        //     | :? Babel.Node ->
+        //         expr.GetType().GetProperties()
+        //         |> Seq.choose (fun p ->
+        //             match p.Name with
+        //             | "loc" -> None // Remove location to make the object lighter 
+        //             | key ->
+        //                 let key = Babel.StringLiteral key
+        //                 let value = p.GetValue(expr) |> toJson 
+        //                 Some(Babel.ObjectProperty(key, value)))
+        //         |> Seq.map U3.Case1
+        //         |> Seq.toList
+        //         |> fun props -> upcast Babel.ObjectExpression(props)
+        //     | :? bool as expr -> upcast Babel.BooleanLiteral(expr)
+        //     | :? int as expr -> upcast Babel.NumericLiteral(U2.Case1 expr)
+        //     | :? float as expr -> upcast Babel.NumericLiteral(U2.Case2 expr)
+        //     | :? string as expr -> upcast Babel.StringLiteral(expr)
+        //     | expr when Json.isErasedUnion(expr.GetType()) ->
+        //         match Json.getErasedUnionValue expr with
+        //         | Some v -> toJson v
+        //         | None -> upcast Babel.NullLiteral()
+        //     | :? System.Collections.IEnumerable as expr ->
+        //         let xs = [for x in expr -> U2.Case1(toJson x) |> Some]
+        //         upcast Babel.ArrayExpression(xs)
+        //     | _ -> failwithf "Unexpected expression inside quote %O" fExpr.Range
+        // toJson expr
 
     let transformStatement com ctx (expr: Fable.Expr): Babel.Statement =
         match expr with
         | Fable.Loop (loopKind, range) ->
             match loopKind with
             | Fable.While (TransformExpr com ctx guard, body) ->
-                upcast Babel.WhileStatement (guard, block com ctx body.Range [body], ?loc=range)
+                upcast Babel.WhileStatement (guard, transformBlock com ctx None body, ?loc=range)
             | Fable.ForOf (var, TransformExpr com ctx enumerable, body) ->
                 // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right 
                 let var = Babel.VariableDeclaration (ident var)
                 upcast Babel.ForOfStatement (
-                    U2.Case1 var, enumerable, block com ctx body.Range [body], ?loc=range)
+                    U2.Case1 var, enumerable, transformBlock com ctx None body, ?loc=range)
             | Fable.For (var, TransformExpr com ctx start,
                             TransformExpr com ctx limit, body, isUp) ->
                 upcast Babel.ForStatement (
-                    block com ctx body.Range [body],
+                    transformBlock com ctx None body,
                     start |> varDeclaration None (ident var) |> U2.Case1,
                     Babel.BinaryExpression (BinaryOperator.BinaryLessOrEqual, ident var, limit),
                     Babel.UpdateExpression (UpdateOperator.UpdatePlus, false, ident var), ?loc=range)
 
-        | Fable.Set (callee, property, TransformExpr com ctx value, range) ->
-            let left =
+        | Fable.Set (callee, property, value, range) ->
+            let ret =
                 match property with
-                | None -> com.TransformExpr ctx callee
-                | Some property -> getExpr com ctx callee property
-            upcast Babel.ExpressionStatement (assign range left value, ?loc = range)
+                | None -> Assign(com.TransformExpr ctx callee, range)
+                | Some property -> Assign(getExpr com ctx callee property, range)
+            com.TransformExprAndResolve ctx ret value
 
         | Fable.VarDeclaration (var, TransformExpr com ctx value, _isMutable) ->
             varDeclaration expr.Range (ident var) value :> Babel.Statement
 
-        // If they try...finally is within a do expression, when expanding it Babel
-        // will add a return to the finally clause creating unexpected behaviour (see #211).
-        // Wrap the expr in a function to prevent this (try...finally is dealt with in transformFunction)
-        | Fable.TryCatch (body, catch, Some finalizer, range) ->
-            upcast Babel.ExpressionStatement (iife com ctx expr, ?loc=expr.Range)
-
-        | Fable.TryCatch (body, catch, None, range) ->
+        | Fable.TryCatch (body, catch, finalizer, range) ->
             let handler =
                 catch |> Option.map (fun (param, body) ->
                     Babel.CatchClause (ident param,
-                        block com ctx body.Range [body], ?loc=body.Range))
-            upcast Babel.TryStatement (block com ctx expr.Range [body],
-                ?handler=handler, ?loc=range)
+                        transformBlock com ctx None body, ?loc=body.Range))
+            let finalizer =
+                finalizer |> Option.map (fun finalizer ->
+                    transformBlock com ctx None body)
+            upcast Babel.TryStatement (transformBlock com ctx None body,
+                ?handler=handler, ?finalizer=finalizer, ?loc=range)
 
         | Fable.Throw (TransformExpr com ctx ex, _, range) ->
             upcast Babel.ThrowStatement(ex, ?loc=range)
@@ -296,194 +412,133 @@ module Util =
         | Fable.DebugBreak range ->
             upcast Babel.DebuggerStatement(?loc=range)
 
+        | Fable.IfThenElse (TransformExpr com ctx guardExpr,
+                            TransformStatement com ctx thenStament,
+                            elseStatement, range) ->
+            let elseStatement =
+                if isNull elseStatement
+                then None else Some(com.TransformStatement ctx elseStatement) 
+            upcast Babel.IfStatement(guardExpr, thenStament,
+                            ?alternate=elseStatement, ?loc=range)
+
+        | Fable.Sequential(statements, range) ->
+            upcast Babel.BlockStatement (
+                statements |> List.map (com.TransformStatement ctx), ?loc=range)
+
+        | Fable.Wrapped (expr, _) ->
+            com.TransformStatement ctx expr
+
         // Expressions become ExpressionStatements
-        | Fable.Value _ | Fable.Apply _ | Fable.ObjExpr _ | Fable.Sequential _
-        | Fable.Wrapped _ | Fable.IfThenElse _ | Fable.Quote _ ->
+        | Fable.Value _ | Fable.Apply _ | Fable.ObjExpr _ | Fable.Quote _ ->
             upcast Babel.ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range)
 
     let transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Babel.Expression =
         match expr with
-        | Fable.Value kind ->
-            match kind with
-            | Fable.ImportRef (memb, path) ->
-                let memb, parts =
-                    let parts = Array.toList(memb.Split('.'))
-                    parts.Head, parts.Tail
-                Path.getExternalImportPath com ctx.file path
-                |> com.GetImport ctx None memb
-                |> Some |> accessExpr parts
-            | Fable.This -> upcast Babel.ThisExpression ()
-            | Fable.Super -> upcast Babel.Super ()
-            | Fable.Null -> upcast Babel.NullLiteral ()
-            | Fable.IdentValue {name=name} -> upcast Babel.Identifier (name)
-            | Fable.NumberConst (x,_) -> upcast Babel.NumericLiteral x
-            | Fable.StringConst x -> upcast Babel.StringLiteral (x)
-            | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
-            | Fable.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
-            | Fable.Lambda (args, body) -> funcArrow com ctx args body
-            | Fable.ArrayConst (cons, kind) -> buildArray com ctx cons kind
-            | Fable.Emit emit -> macroExpression None emit []
-            | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
-            | Fable.Spread _ ->
-                failwithf "Unexpected array spread at %O" expr.Range
-            | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ -> 
-                failwithf "Unexpected stand-alone operator detected %O: %A" expr.Range expr 
-
+        | Fable.Value kind -> transformValue com ctx expr.Range kind
+        
         | Fable.ObjExpr (members, interfaces, baseClass, range) ->
-            match baseClass with
-            | Some _ as baseClass ->
-                members
-                |> List.map Fable.MemberDeclaration
-                |> com.TransformClass ctx range baseClass
-                |> fun c -> upcast Babel.NewExpression(c, [], ?loc=range)
-            | None ->
-                members |> List.map (fun m ->
-                    let makeMethod kind name =
-                        let name, computed = sanitizeName name
-                        let args, body = getMemberArgs com ctx m.Arguments m.Body m.HasRestParams
-                        Babel.ObjectMethod(kind, name, args, body, computed, ?loc=Some m.Range)
-                        |> U3.Case2
-                    match m.Kind with
-                    | Fable.Constructor ->
-                        "Unexpected constructor in Object Expression"
-                        |> Fable.Util.attachRange range |> failwith
-                    | Fable.Method name -> makeMethod Babel.ObjectMeth name
-                    | Fable.Setter name -> makeMethod Babel.ObjectSetter name
-                    | Fable.Getter (name, false) -> makeMethod Babel.ObjectGetter name
-                    | Fable.Getter (name, true) ->
-                        let key, _ = sanitizeName name
-                        Babel.ObjectProperty(key, com.TransformExpr ctx m.Body, ?loc=Some m.Range) |> U3.Case1)
-                |> fun props ->
-                    match interfaces with
-                    | [] -> props
-                    | interfaces ->
-                        let ifcsSymbol =
-                            getCoreLibImport com ctx "Symbol" 
-                            |> get <| "interfaces"
-                        Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
-                        |> U3.Case1 |> consBack props
-                |> fun props ->
-                    upcast Babel.ObjectExpression(props, ?loc=range)
-            
-        | Fable.Wrapped (expr, _) ->
-            com.TransformExpr ctx expr
-
+            transformObjectExpr com ctx (members, interfaces, baseClass, range) 
+        
+        | Fable.Wrapped (TransformExpr com ctx expr, _) -> expr
+        
         | Fable.Apply (callee, args, kind, _, range) ->
-            match callee, args with
-            // Logical, Binary and Unary Operations
-            // If the operation has been wrapped in a lambda, there may be arguments in excess,
-            // take that into account in matching patterns
-            | Fable.Value (Fable.LogicalOp op), (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
-                upcast Babel.LogicalExpression (op, left, right, ?loc=range)
-            | Fable.Value (Fable.UnaryOp op), (TransformExpr com ctx operand as expr)::_ ->
-                upcast Babel.UnaryExpression (op, operand, ?loc=range)
-            | Fable.Value (Fable.BinaryOp op), (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
-                upcast Babel.BinaryExpression (op, left, right, ?loc=range)
-            // Emit expressions
-            | Fable.Value (Fable.Emit emit), args ->
-                args |> List.map (function
-                    | Fable.Value(Fable.Spread expr) -> 
-                        Babel.SpreadElement(com.TransformExpr ctx expr, ?loc=expr.Range) :> Babel.Node
-                    | expr -> com.TransformExpr ctx expr :> Babel.Node)
-                |> macroExpression range emit
-            // Module or class static members
-            | Fable.Value (Fable.TypeRef typEnt), [Fable.Value (Fable.StringConst memb)]
-                when kind = Fable.ApplyGet ->
-                typeRef com ctx typEnt (Some memb)
-            | _ ->
-                match kind with
-                | Fable.ApplyMeth ->
-                    Babel.CallExpression (com.TransformExpr ctx callee, prepareArgs com ctx args, ?loc=range)
-                    :> Babel.Expression
-                | Fable.ApplyCons ->
-                    Babel.NewExpression (com.TransformExpr ctx callee, prepareArgs com ctx args, ?loc=range)
-                    :> Babel.Expression
-                | Fable.ApplyGet ->
-                    getExpr com ctx callee args.Head
-
+            transformApply com ctx (callee, args, kind, range)
+        
         | Fable.IfThenElse (TransformExpr com ctx guardExpr,
                             TransformExpr com ctx thenExpr,
                             TransformExpr com ctx elseExpr, range) ->
             upcast Babel.ConditionalExpression (
                 guardExpr, thenExpr, elseExpr, ?loc = range)
-
-        | Fable.Sequential (statements, range) ->
-            Babel.BlockStatement (statements |> List.map (com.TransformStatement ctx), ?loc=range)
-            |> fun block -> doExpression range expr.Type block
-
+        
         | Fable.Set (callee, property, TransformExpr com ctx value, range) ->
-            let left =
-                match property with
-                | None -> com.TransformExpr ctx callee
-                | Some property -> getExpr com ctx callee property
-            assign range left value
+            match property with
+            | None -> com.TransformExpr ctx callee
+            | Some property -> getExpr com ctx callee property
+            |> assign range <| value
 
-        | Fable.TryCatch _ | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _ ->
-            upcast (iife com ctx expr)
+        // These cannot appear in expression position in JS
+        // They must be wrapped in a lambda
+        | Fable.Sequential _ | Fable.TryCatch _ | Fable.Throw _
+        | Fable.DebugBreak _ | Fable.Loop _ ->
+            transformBlock com ctx (Some Return) expr :> Babel.Statement
+            |> List.singleton |> iife expr.Range :> Babel.Expression
 
         | Fable.VarDeclaration _ ->
             "Unexpected variable declaration"
             |> Fable.Util.attachRange expr.Range |> failwith
             
-        // TODO: Experimental support for Quotations
-        | Fable.Quote (TransformExpr com ctx expr) as fExpr ->
-            failwithf "Quotations are not supported %O" fExpr.Range
-            // let rec toJson (expr: obj): Babel.Expression =
-            //     match expr with 
-            //     | :? Babel.Node ->
-            //         expr.GetType().GetProperties()
-            //         |> Seq.choose (fun p ->
-            //             match p.Name with
-            //             | "loc" -> None // Remove location to make the object lighter 
-            //             | key ->
-            //                 let key = Babel.StringLiteral key
-            //                 let value = p.GetValue(expr) |> toJson 
-            //                 Some(Babel.ObjectProperty(key, value)))
-            //         |> Seq.map U3.Case1
-            //         |> Seq.toList
-            //         |> fun props -> upcast Babel.ObjectExpression(props)
-            //     | :? bool as expr -> upcast Babel.BooleanLiteral(expr)
-            //     | :? int as expr -> upcast Babel.NumericLiteral(U2.Case1 expr)
-            //     | :? float as expr -> upcast Babel.NumericLiteral(U2.Case2 expr)
-            //     | :? string as expr -> upcast Babel.StringLiteral(expr)
-            //     | expr when Json.isErasedUnion(expr.GetType()) ->
-            //         match Json.getErasedUnionValue expr with
-            //         | Some v -> toJson v
-            //         | None -> upcast Babel.NullLiteral()
-            //     | :? System.Collections.IEnumerable as expr ->
-            //         let xs = [for x in expr -> U2.Case1(toJson x) |> Some]
-            //         upcast Babel.ArrayExpression(xs)
-            //     | _ -> failwithf "Unexpected expression inside quote %O" fExpr.Range
-            // toJson expr
+        | Fable.Quote quote ->
+            transformQuote com ctx expr.Range quote
+
+    let transformExprAndResolve (com: IBabelCompiler) ctx ret
+                                 (expr: Fable.Expr): Babel.Statement =
+        let resolve strategy expr: Babel.Statement =
+            match strategy with
+            | Return -> upcast Babel.ReturnStatement(expr, ?loc=expr.loc)
+            | Assign (left, r) -> upcast Babel.ExpressionStatement(assign r left expr, ?loc=r) 
+        match expr with
+        | Fable.Value kind ->
+            transformValue com ctx expr.Range kind |> resolve ret
         
-    let transformFunction com ctx args body =
+        | Fable.ObjExpr (members, interfaces, baseClass, range) ->
+            transformObjectExpr com ctx (members, interfaces, baseClass, range)
+            |> resolve ret
+        
+        | Fable.Wrapped (TransformExpr com ctx expr, _) ->
+            resolve ret expr
+        
+        | Fable.Apply (callee, args, kind, _, range) ->
+            transformApply com ctx (callee, args, kind, range)
+            |> resolve ret
+        
+        | Fable.IfThenElse (TransformExpr com ctx guardExpr, thenExpr, elseExpr, range) ->
+            let elseStatement =
+                if isNull elseExpr
+                then None else com.TransformExprAndResolve ctx ret elseExpr |> Some
+            let thenStatement = com.TransformExprAndResolve ctx ret thenExpr
+            Babel.IfStatement(guardExpr, thenStatement,
+                    ?alternate=elseStatement, ?loc=range) :> Babel.Statement
+        
+        | Fable.Sequential (statements, range) ->
+            let statements =
+                let lasti = (List.length statements) - 1
+                statements |> List.mapi (fun i statement ->
+                    if i < lasti
+                    then com.TransformStatement ctx statement
+                    else com.TransformExprAndResolve ctx ret statement)
+            upcast Babel.BlockStatement (statements, ?loc=range)
+        
+        | Fable.TryCatch (body, catch, finalizer, range) ->
+            let handler =
+                catch |> Option.map (fun (param, body) ->
+                    Babel.CatchClause (ident param,
+                        transformBlock com ctx (Some ret) body, ?loc=body.Range))
+            let finalizer =
+                finalizer |> Option.map (fun finalizer ->
+                    transformBlock com ctx None body)
+            upcast Babel.TryStatement (transformBlock com ctx (Some ret) body,
+                ?handler=handler, ?finalizer=finalizer, ?loc=range)
+        
+        // These cannot be resolved (don't return anything)
+        // Just compile as a statement
+        | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _
+        | Fable.Set _ | Fable.VarDeclaration _ ->
+            com.TransformStatement ctx expr
+            
+        | Fable.Quote quote ->
+            transformQuote com ctx expr.Range quote |> resolve ret
+
+    let transformFunction com ctx args (body: Fable.Expr) =
         let args: Babel.Pattern list =
             List.map (fun x -> upcast ident x) args
         let body: U2<Babel.BlockStatement, Babel.Expression> =
             match body with
-            | ExprType (Fable.PrimitiveType Fable.Unit) ->
-                block com ctx body.Range [body] |> U2.Case1
-            // Deal with non-unit Throw expressions specifically as trying
-            // to return them will cause an infinite loop (and thus a Stack Overflow)  
-            | Fable.Throw (ex, _, range) ->
-                com.TransformExpr ctx ex
-                |> fun ex -> Babel.ThrowStatement(ex, ?loc=range)
-                |> fun throw -> Babel.BlockStatement([throw], ?loc=range)
-                |> U2.Case1
-            | Fable.TryCatch (tryBody, handler, finalizer, tryRange) ->
-                let handler =
-                    handler |> Option.map (fun (param, body) ->
-                        let clause = transformExpr com ctx body |> returnBlock
-                        Babel.CatchClause (ident param, clause, ?loc=body.Range))
-                let finalizer =
-                    finalizer |> Option.map (fun x -> block com ctx x.Range [x])
-                let tryBody =
-                    transformExpr com ctx tryBody |> returnBlock
-                Babel.BlockStatement (
-                    [Babel.TryStatement (tryBody, ?handler=handler, ?finalizer=finalizer, ?loc=tryRange)],
-                    ?loc = body.Range) |> U2.Case1
-            | _ ->
-                transformExpr com ctx body |> U2.Case2
+            | ExprType (Fable.PrimitiveType Fable.Unit)
+            | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _ ->
+                transformBlock com ctx None body |> U2.Case1
+            | Fable.Sequential _ | Fable.TryCatch _ ->
+                transformBlock com ctx (Some Return) body |> U2.Case1
+            | _ -> transformExpr com ctx body |> U2.Case2
         args, body
         
     let transformClass com ctx range ident baseClass decls =
@@ -565,12 +620,12 @@ module Util =
         let expr, name =
             match m.Kind with
             | Fable.Getter (name, _) ->
-                let args, body = transformFunction com ctx [] m.Body
-                match body with
-                | U2.Case2 e -> e, name
-                | U2.Case1 e -> doExpression e.loc m.Body.Type e, name
+                transformExpr com ctx m.Body, name
             | Fable.Method name ->
-                upcast funcExpression com ctx m.Arguments m.Body, name
+                let args, body = getMemberArgs com ctx m.Arguments m.Body false
+                // Don't lexically by `this` (with arrow function) or
+                // it will fail with extension members
+                upcast Babel.FunctionExpression (args, body, ?loc=m.Body.Range), name
             | Fable.Constructor | Fable.Setter _ ->
                 failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
@@ -700,6 +755,7 @@ module Util =
                 upcast Babel.Identifier (Naming.getImportIdent i)
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
+            member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
             member bcom.TransformFunction ctx args body = transformFunction bcom ctx args body
             member bcom.TransformClass ctx r baseClass members =
                 transformClass bcom ctx r None baseClass members

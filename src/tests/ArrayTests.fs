@@ -89,7 +89,7 @@ let ``Mapping from values to functions works``() =
 let map f ar = Array.map f ar
 
 [<Test>]
-let ``Mapping from typed arrays to non-numeric arrays doesn't coerce values`` = // See #120, #171
+let ``Mapping from typed arrays to non-numeric arrays doesn't coerce values``() = // See #120, #171
     let xs = map string [|1;2|]
     (box xs.[0]) :? string |> equal true
     let xs2 = Array.map string [|1;2|]

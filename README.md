@@ -54,10 +54,6 @@ on different topics like the logo, roadmap, etc.
 - **Information about generic types is not included** in the generated JavaScript, so code that
   depends on this information to be known at runtime for method dispatching may have unexpected behaviour.
 
-- **Debugging the F# code is not perfect**. For example, you may see the debugger jump directly
-  to the last expression in many functions. This is normal and due to the optimizations performed
-  on the generated JS code.
-
 To know more, read [Compatibility](http://fsprojects.github.io/Fable/docs/compatibility.html).
 
 ## Acknowledgements
