@@ -467,17 +467,19 @@ module Util =
     open Types
     open Identifiers
 
+    let getArgCount (meth: FSharpMemberOrFunctionOrValue) =
+        let args = meth.CurriedParameterGroups
+        if args.Count = 0 then 0
+        elif args.Count = 1 && args.[0].Count = 1 then
+            let typ = args.[0].[0].Type
+            // For some reason, TypeDefinition.FullName doesn't work here
+            if typ.HasTypeDefinition
+                && typ.TypeDefinition.DisplayName = "unit"
+            then 0 else 1
+        else args |> Seq.map (fun li -> li.Count) |> Seq.sum
+
     let getMemberKind name (meth: FSharpMemberOrFunctionOrValue) =
-        let argCount =
-            let args = meth.CurriedParameterGroups
-            if args.Count = 0 then 0
-            elif args.Count = 1 && args.[0].Count = 1 then
-                let typ = args.[0].[0].Type
-                // For some reason, TypeDefinition.FullName doesn't work here
-                if typ.HasTypeDefinition
-                    && typ.TypeDefinition.DisplayName = "unit"
-                then 0 else 1
-            else args |> Seq.map (fun li -> li.Count) |> Seq.sum
+        let argCount = getArgCount meth
         if meth.EnclosingEntity.IsFSharpModule then
             // TODO: Another way to check module values?
             match meth.XmlDocSig.[0] with
@@ -730,13 +732,16 @@ module Util =
                      (meth: FSharpMemberOrFunctionOrValue)
                      (typArgs, methTypArgs) callee args =
         let args =
-            if not (hasRestParams meth) then args else
-            let args = List.rev args
-            match args.Head with
-            | Fable.Value(Fable.ArrayConst(Fable.ArrayValues items, _)) ->
-                (List.rev args.Tail)@items
-            | _ ->
-                (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
+            if hasRestParams meth then
+                let args = List.rev args
+                match args.Head with
+                | Fable.Value(Fable.ArrayConst(Fable.ArrayValues items, _)) ->
+                    (List.rev args.Tail)@items
+                | _ ->
+                    (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
+            // At the moment, null args are being cleaned in Fable2Babel, but see #231
+            // elif getArgCount meth = 0 then []
+            else args
         match meth with
         (** -Check for replacements, emits... *)
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted

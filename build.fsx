@@ -7,8 +7,8 @@ open Fake
 open Fake.AssemblyInfoFile
 
 // version info
-let fableCompilerVersion = "0.4.0"
-let fableCoreVersion = "0.2.0"
+let fableCompilerVersion = "0.4.0-alpha"
+let fableCoreVersion = "0.2.0-alpha"
 
 module Util =
     open System.Net
@@ -75,7 +75,12 @@ module Util =
         FscHelper.compile opts [fsxPath]
         |> function 0 -> () | _ -> failwithf "Cannot compile %s" fsxPath
 
+    let normalizeVersion (version: string) =
+        let i = version.IndexOf("-")
+        if i > 0 then version.Substring(0, i) else version
+
     let assemblyInfo projectDir version extra =
+        let version = normalizeVersion version
         let asmInfoPath = projectDir </> "AssemblyInfo.fs"
         (Attribute.Version version)::extra
         |> CreateFSharpAssemblyInfo asmInfoPath
@@ -148,7 +153,7 @@ Target "FableCompilerRelease" (fun _ ->
     Util.assemblyInfo "src/fable/Fable.Core" fableCoreVersion []
     Util.assemblyInfo "src/fable/Fable.Compiler" fableCompilerVersion []
     Util.assemblyInfo "src/fable/Fable.Client.Node" fableCompilerVersion [
-        Attribute.Metadata ("fableCoreVersion", fableCoreVersion)
+        Attribute.Metadata ("fableCoreVersion", Util.normalizeVersion fableCoreVersion)
     ]
 
     let buildDir = "build/fable"
@@ -245,11 +250,6 @@ Target "PublishFableCompiler" (fun _ ->
 
 Target "FableCore" (fun _ ->
     let fableCoreNpmDir = "src/fable/Fable.Core/npm"
-    let babelPlugin = "../../../../build/fable/node_modules/babel-plugin-transform-es2015-modules"
-    let run cmd args = 
-      if EnvironmentHelper.isUnix
-      then Util.run fableCoreNpmDir cmd args
-      else Util.run fableCoreNpmDir "cmd" ("/C " + cmd + " " + args)
 
     // Update fable-core npm version
     fableCoreNpmDir + "/package.json"
@@ -264,33 +264,24 @@ Target "FableCore" (fun _ ->
         | true -> true) false
     |> ignore
 
-    // Builds fable-core.babel.js from ES2015 sources.
-    try
-        sprintf "es2015.js -o fable-core.babel.js --plugins %s-umd --no-babelrc" babelPlugin |> run "babel"
-        // The commonjs version is for Fuse, which is not compatible with UMD
-        sprintf "es2015.js -o commonjs.babel.js --plugins %s-commonjs --no-babelrc" babelPlugin |> run "babel"
-    with
-    | _ -> failwith "Cannot find Babel CLI. Please run `npm i -g babel-cli`"
-
-    // Builds fable-core.js from TypeScript sources.
-    //   FIXME: Requires 'npm install babel-preset-es2015' in src/fable/Fable.Core/npm
-    try "fable-core.tsc.ts --target ES2015 --declaration" |> run "tsc"
-    with _ -> failwith "Cannot find TypeScript compiler. Please run `npm i -g typescript`"
-    setEnvironVar "BABEL_ENV" "target-umd"
-    "fable-core.tsc.js -o fable-core.js" |> run "babel"
-    setEnvironVar "BABEL_ENV" "target-commonjs"
-    "fable-core.tsc.js -o commonjs.js" |> run "babel"
-    fableCoreNpmDir + "/fable-core.tsc.js" |> FileUtils.rm
-
-    if environVar "DEV_MACHINE" = "1" then
-        try "fable-core.babel.js -c -m -o fable-core.min.js" |> run "uglifyjs"
-        with _ -> failwith "Cannot find uglify-js. Please run `npm i -g uglify-js`"
-
     // Update Fable.Core version
     Util.assemblyInfo "src/fable/Fable.Core/" fableCoreVersion []
     !! "src/fable/Fable.Core/Fable.Core.fsproj"
     |> MSBuildRelease fableCoreNpmDir "Build"
     |> Log "Fable-Core-Output: "
+
+    Npm.install fableCoreNpmDir []
+    // Compile TypeScript
+    Npm.script fableCoreNpmDir "tsc" ["fable-core.ts --target ES2015 --declaration"]
+    // Compile Es2015 syntax to ES5 with different module targets 
+    setEnvironVar "BABEL_ENV" "target-commonjs"
+    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o commonjs.js"] 
+    setEnvironVar "BABEL_ENV" "target-es2015"
+    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o es2015.js"] 
+    setEnvironVar "BABEL_ENV" "target-umd"
+    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js"]
+    // Minimize 
+    Npm.script fableCoreNpmDir "uglifyjs" ["fable-core.js -c -m -o fable-core.min.js"] 
 )
 
 Target "UpdateSampleRequirements" (fun _ ->

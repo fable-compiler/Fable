@@ -4,10 +4,10 @@
     "build": "babel index.js -d out"
   },
   "engines": {
-    "fable": "^0.3.24"
+    "fable": "^0.4.0-alpha"
   },
   "dependencies": {
-    "fable-core": "^0.1.12"
+    "fable-core": "^0.2.0-alpha"
   },
   "devDependencies": {
     "babel-cli": "^6.10.1",
