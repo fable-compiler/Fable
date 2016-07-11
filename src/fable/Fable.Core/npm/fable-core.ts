@@ -222,96 +222,127 @@ export class TimeSpan extends Number {
   static duration = Math.abs;
 }
 
-class FDate {
-  static __changeKind = function (d: any, kind: any) {
-    var d2: any;
-    return d.kind == kind ? d : (d2 = new Date(d.getTime()), d2.kind = kind, d2);
+export enum DateKind {
+  UTC = 1,
+  Local
+}
+class FDate extends Date {
+  public kind: DateKind;
+
+  private static __changeKind(d: Date, kind: DateKind) {
+    var d2: Date;
+    return (<FDate>d).kind == kind ? d : (d2 = new Date(d.getTime()), (<FDate>d2).kind = kind, d2);
   };
-  static __getValue = function (d: any, key: any) {
-    return d.kind == 1 ? d['getUTC' + key]() : d['get' + key]();
+
+  private static __getValue(d: Date, key: string): number {
+    return (<any>d)[((<FDate>d).kind == DateKind.UTC ? 'getUTC' : 'get') + key]();
   };
-  static minValue = function () {
+
+  static minValue() {
     return FDate.parse(-8640000000000000, 1);
   };
-  static maxValue = function () {
+
+  static maxValue() {
     return FDate.parse(8640000000000000, 1);
   };
-  static parse = function (v?: any, kind?: any): any {
-    var date: any = v == null ? new Date() : new Date(v);
+
+  static parse(v?: any, kind?: DateKind): any {
+    var date = (v == null) ? new Date() : new Date(v);
     if (isNaN(date.getTime())) {
       throw "The string is not a valid Date.";
     }
-    date.kind = kind || 2; // Local
+    (<FDate>date).kind = kind || DateKind.Local;
     return date;
   };
-  static create = function (year: any, month: any, day: any, h: any, m: any, s: any, ms: any, kind: any) {
-    h = h || 0, m = m || 0, s = s || 0, ms = ms || 0, kind = kind || 2;
-    var date: any = kind === 1 // UTC
-      ? new Date(Date.UTC(year, month - 1, day, h, m, s, ms)) : new Date(year, month - 1, day, h, m, s, ms);
+
+  static create(year: number, month: number, day: number, h: number = 0, m: number = 0, s: number = 0, ms: number = 0, kind: DateKind = DateKind.Local): Date {
+    var date: Date = (kind === DateKind.UTC)
+      ? new Date(Date.UTC(year, month - 1, day, h, m, s, ms))
+      : new Date(year, month - 1, day, h, m, s, ms);
     if (isNaN(date.getTime())) {
       throw "The parameters describe an unrepresentable Date.";
     }
-    date.kind = kind;
+    (<FDate>date).kind = kind;
     return date;
   };
+
   static now = FDate.parse;
-  static utcNow = function () {
+
+  static utcNow() {
     return FDate.parse(null, 1);
   };
-  static today = function () {
+
+  static today() {
     return FDate.date(FDate.now());
   };
-  static isLeapYear = function (year: any) {
+
+  static isLeapYear(year: number) {
     return year % 4 == 0 && year % 100 != 0 || year % 400 == 0;
   };
-  static daysInMonth = function (year: any, month: any) {
+
+  static daysInMonth(year: number, month: number) {
     if (month == 2) {
       return FDate.isLeapYear(year) ? 29 : 28;
     } else {
       return month >= 8 ? month % 2 == 0 ? 31 : 30 : month % 2 == 0 ? 30 : 31;
     }
   };
-  static toUniversalTime = function (d: any) {
+
+  static toUniversalTime(d: Date) {
     return FDate.__changeKind(d, 1);
   };
-  static toLocalTime = function (d: any) {
+
+  static toLocalTime(d: Date) {
     return FDate.__changeKind(d, 2);
   };
-  static timeOfDay = function (d: any) {
+
+  static timeOfDay(d: Date) {
     return TimeSpan.create(FDate.hour(d), FDate.minute(d), FDate.second(d));
   };
-  static date = function (d: any) {
-    return FDate.create(FDate.year(d), FDate.month(d), FDate.day(d), 0, 0, 0, 0, d.kind);
+
+  static date(d: Date) {
+    return FDate.create(FDate.year(d), FDate.month(d), FDate.day(d), 0, 0, 0, 0, (<FDate>d).kind);
   };
-  static day = function (d: any) {
+
+  static day(d: Date) {
     return FDate.__getValue(d, "Date");
   };
-  static hour = function (d: any) {
+
+  static hour(d: Date) {
     return FDate.__getValue(d, "Hours");
   };
-  static millisecond = function (d: any) {
+
+  static millisecond(d: Date) {
     return FDate.__getValue(d, "Milliseconds");
   };
-  static minute = function (d: any) {
+
+  static minute(d: Date) {
     return FDate.__getValue(d, "Minutes");
   };
-  static month = function (d: any) {
+
+  static month(d: Date) {
     return FDate.__getValue(d, "Month") + 1;
   };
-  static second = function (d: any) {
+
+  static second(d: Date) {
     return FDate.__getValue(d, "Seconds");
   };
-  static year = function (d: any) {
+
+  static year(d: Date) {
     return FDate.__getValue(d, "FullYear");
   };
-  static ticks = function (d: any) {
+
+  static ticks(d: Date) {
     return (d.getTime() + 6.2135604e+13 /* millisecondsJSOffset */) * 10000;
   };
+
   static toBinary = FDate.ticks;
-  static dayOfWeek = function (d: any) {
+
+  static dayOfWeek(d: Date) {
     return FDate.__getValue(d, "Day");
   };
-  static dayOfYear = function (d: any) {
+
+  static dayOfYear(d: Date) {
     var year = FDate.year(d),
       month = FDate.month(d),
       day = FDate.day(d);
@@ -320,36 +351,44 @@ class FDate {
     }
     return day;
   };
-  static add = function (d: any, ts: any) {
-    return FDate.parse(d.getTime() + ts, d.kind);
+
+  static add(d: Date, ts: TimeSpan) {
+    return FDate.parse(d.getTime() + <number>ts, (<FDate>d).kind);
   };
-  static op_Addition = FDate.add;
-  static addDays = function (d: any, v: any) {
-    return FDate.parse(d.getTime() + v * 86400000, d.kind);
+
+  static addDays(d: Date, v: number) {
+    return FDate.parse(d.getTime() + v * 86400000, (<FDate>d).kind);
   };
-  static addHours = function (d: any, v: any) {
-    return FDate.parse(d.getTime() + v * 3600000, d.kind);
+
+  static addHours(d: Date, v: number) {
+    return FDate.parse(d.getTime() + v * 3600000, (<FDate>d).kind);
   };
-  static addMinutes = function (d: any, v: any) {
-    return FDate.parse(d.getTime() + v * 60000, d.kind);
+
+  static addMinutes(d: Date, v: number) {
+    return FDate.parse(d.getTime() + v * 60000, (<FDate>d).kind);
   };
-  static addSeconds = function (d: any, v: any) {
-    return FDate.parse(d.getTime() + v * 1000, d.kind);
+
+  static addSeconds(d: Date, v: number) {
+    return FDate.parse(d.getTime() + v * 1000, (<FDate>d).kind);
   };
-  static addMilliseconds = function (d: any, v: any) {
-    return FDate.parse(d.getTime() + v, d.kind);
+
+  static addMilliseconds(d: Date, v: number) {
+    return FDate.parse(d.getTime() + v, (<FDate>d).kind);
   };
-  static addTicks = function (d: any, v: any) {
-    return FDate.parse(d.getTime() + v / 10000, d.kind);
+
+  static addTicks(d: Date, v: number) {
+    return FDate.parse(d.getTime() + v / 10000, (<FDate>d).kind);
   };
-  static addYears = function (d: any, v: any) {
+
+  static addYears(d: Date, v: number) {
     var newMonth = FDate.month(d),
       newYear = FDate.year(d) + v,
       daysInMonth = FDate.daysInMonth(newYear, newMonth),
       newDay = Math.min(daysInMonth, FDate.day(d));
-    return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), d.kind);
+    return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<FDate>d).kind);
   };
-  static addMonths = function (d: any, v: any) {
+
+  static addMonths(d: Date, v: number) {
     var newMonth = FDate.month(d) + v,
       newMonth_ = 0,
       yearOffset = 0;
@@ -365,29 +404,40 @@ class FDate {
     var newYear = FDate.year(d) + yearOffset;
     var daysInMonth = FDate.daysInMonth(newYear, newMonth);
     var newDay = Math.min(daysInMonth, FDate.day(d));
-    return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), d.kind);
+    return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<FDate>d).kind);
   };
-  static subtract = function (d: any, that: any) {
-    return typeof that == "number" ? FDate.parse(d.getTime() - that, d.kind) : d.getTime() - that.getTime();
+
+  static subtract(d: Date, that: Date | number) {
+    return typeof that == "number"
+      ? FDate.parse(d.getTime() - <number>that, (<FDate>d).kind)
+      : d.getTime() - (<Date>that).getTime();
   };
-  static op_Subtraction = FDate.subtract
-  static toLongDateString = function (d: any) {
+
+  static toLongDateString(d: Date) {
     return d.toDateString();
   };
-  static toShortDateString = function (d: any) {
+
+  static toShortDateString(d: Date) {
     return d.toLocaleDateString();
   };
-  static toLongTimeString = function (d: any) {
+
+  static toLongTimeString(d: Date) {
     return d.toLocaleTimeString();
   };
-  static toShortTimeString = function (d: any) {
+
+  static toShortTimeString(d: Date) {
     return d.toLocaleTimeString().replace(/:\d\d(?!:)/, '');
   };
-  static equals = function (d1: any, d2: any) {
+
+  static equals(d1: Date, d2: Date) {
     return d1.getTime() == d2.getTime();
   };
+
   static compareTo = Util.compareTo;
   static compare = Util.compareTo;
+
+  static op_Addition = FDate.add;
+  static op_Subtraction = FDate.subtract
 }
 export { FDate as Date };
 
