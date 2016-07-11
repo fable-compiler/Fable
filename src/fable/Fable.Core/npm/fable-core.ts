@@ -43,15 +43,18 @@ export class Util {
       Util.__types.set(typeName, proto.constructor);
     }
   };
+  
   static hasInterface = function (obj: any, infc: any) {
     return Array.isArray(obj[FSymbol.interfaces]) && obj[FSymbol.interfaces].indexOf(infc) >= 0;
   };
-  static getRestParams = function (args: any, idx: any) {
+
+  static getRestParams = function (args: ArrayLike<any>, idx: number) {
     for (var _len = args.length, restArgs = Array(_len > idx ? _len - idx : 0), _key = idx; _key < _len; _key++) {
       restArgs[_key - idx] = args[_key];
     }
     return restArgs;
   };
+
   static compareTo = function (x: any, y: any) {
     function isCollectionComparable(o: any) {
       return Array.isArray(o) || ArrayBuffer.isView(o) || o instanceof List || o instanceof Map || o instanceof Set;
@@ -517,11 +520,13 @@ Timer.prototype.stop = function () {
 Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 
 class FString {
-  static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
-  static fsFormat = function (str: any) {
+  private static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+
+  private static fsFormat(str: any) {
     function isObject(x: any) {
       return x !== null && typeof x === 'object' && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
     };
+
     function formatOnce(str: any, rep: any) {
       return str.replace(FString.fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
         switch (format) {
@@ -545,6 +550,7 @@ class FString {
         return prefix + (plusPrefix ? "+" + rep : rep);
       });
     }
+
     function makeFn(str: any) {
       return function (rep: any) {
         var str2 = formatOnce(str, rep);
@@ -552,15 +558,17 @@ class FString {
           ? makeFn(str2) : _cont(str2.replace(/%%/g, '%'));
       };
     }
+
     var _cont: any;
     return function (cont: any) {
       _cont = cont;
       return FString.fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
     };
   };
+
   static formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
-  static format = function (str: any, args: any) {
-    args = Util.getRestParams(arguments, 1);
+
+  static format(str: string, ...args: any[]) {
     return str.replace(FString.formatRegExp, function (match: any, idx: any, pad: any, format: any) {
       var rep = args[idx];
       if (typeof rep === 'number') {
@@ -628,7 +636,8 @@ class FString {
       return rep;
     });
   };
-  static init = function (n: any, f: any) {
+
+  static init(n: number, f: (i: number) => string) {
     if (n < 0) {
       throw "String length must be non-negative";
     }
@@ -638,13 +647,16 @@ class FString {
     }
     return xs.join("");
   };
-  static isNullOrEmpty = function (str: any) {
+
+  static isNullOrEmpty(str: string | any) {
     return typeof str !== "string" || str.length == 0;
   };
-  static isNullOrWhiteSpace = function (str: any) {
+
+  static isNullOrWhiteSpace(str: string | any) {
     return typeof str !== "string" || /^\s*$/.test(str);
   };
-  static padLeft = function (str: any, len: any, ch: any, isRight: any) {
+
+  static padLeft(str: any, len: number, ch?: string, isRight?: boolean) {
     var i = -1;
     ch = ch || ' ';
     str = String(str);
@@ -654,26 +666,30 @@ class FString {
     }
     return str;
   };
-  static padRight = function (str: any, len: any, ch: any) {
+
+  static padRight(str: any, len: number, ch?: string) {
     return FString.padLeft(str, len, ch, true);
   };
-  static replace = function (str: any, search: any, replace: any) {
+
+  static replace(str: string, search: string, replace: string) {
     return str.replace(new RegExp(FRegExp.escape(search), "g"), replace);
   };
-  static replicate = function (n: any, x: any) {
+
+  static replicate(n: number, x: string) {
     return FString.init(n, function () {
       return x;
     });
   };
-  static split = function (str: any, splitters: any, count: any, removeEmpty: any) {
+
+  static split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
     count = typeof count == "number" ? count : null;
     removeEmpty = typeof removeEmpty == "number" ? removeEmpty : null;
     if (count < 0) { throw "Count cannot be less than zero"; }
     if (count === 0) { return []; }
     splitters = Array.isArray(splitters) ? splitters : Util.getRestParams(arguments, 1);
-    splitters = splitters.filter(function (x: any) { return x }).map(function (x: any) { return FRegExp.escape(x) });
+    splitters = splitters.map((x) => FRegExp.escape(x));
     splitters = splitters.length > 0 ? splitters : [" "];
-    var m: any, i = 0, splits: any = [], reg = new RegExp(splitters.join("|"), "g");
+    var m: RegExpExecArray, i = 0, splits: string[] = [], reg = new RegExp(splitters.join("|"), "g");
     while ((count == null || count > 1) && (m = reg.exec(str)) !== null) {
       if (!removeEmpty || (m.index - i) > 0) {
         count = count != null ? count - 1 : count;
@@ -685,17 +701,21 @@ class FString {
       splits.push(str.substring(i));
     return splits;
   };
-  static join = function (delimiter: any, xs: any) {
+
+  static join(delimiter: string, xs: ArrayLike<string>) {
     xs = typeof xs == "string" ? Util.getRestParams(arguments, 1) : xs;
     return (Array.isArray(xs) ? xs : Array.from(xs)).join(delimiter);
   };
+
   static concat = FString.join;
-  static endsWith = function (str: any, search: any) {
+
+  static endsWith(str: string, search: string) {
     var idx = str.lastIndexOf(search);
     return idx >= 0 && idx == str.length - search.length;
   };
+
   static newGuid = function newGuid() {
-    var i: any, random: any, uuid = '';
+    var i: number, random: number, uuid = '';
     for (i = 0; i < 32; i++) {
       random = Math.random() * 16 | 0;
       if (i === 8 || i === 12 || i === 16 || i === 20) {
@@ -716,7 +736,7 @@ class FRegExp {
     return new RegExp(pattern, flags);
   };
   // From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
-  static escape = function (str: any) {
+  static escape = function (str: string) {
     return str.replace(/[\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&');
   };
   static unescape = function (str: any) {
