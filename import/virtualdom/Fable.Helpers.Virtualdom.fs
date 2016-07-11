@@ -453,6 +453,7 @@ let createTree<'T> (handler:'T -> unit) tag (attributes:Attribute<'T> list) chil
             attrs
             |> List.filter (function | Attribute _ -> false | _ -> true)
             |> List.map (function
+                | Attribute _ -> failwith "Shouldn't happen"
                 | Style style -> "style" ==> createObj(unbox style)
                 | Property (k,v) -> k ==> v
                 | EventHandlerBinding binding ->

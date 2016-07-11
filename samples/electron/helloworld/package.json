@@ -4,13 +4,13 @@
     "start": "electron out/main.js"
   },
   "dependencies": {
-    "fable-core": "^0.1.9"
+    "fable-core": "^0.2.0-alpha"
   },
   "devDependencies": {
     "electron-prebuilt": "^0.37.7",
     "fable-import-electron": "^0.0.5"
   },
   "engines": {
-    "fable": "^0.3.24"
+    "fable": "^0.4.0-alpha"
   }
 }

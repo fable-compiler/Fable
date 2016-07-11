@@ -4,19 +4,28 @@ var babel = require("babel-core");
 var template = require("babel-template");
 var child_process = require('child_process');
 var commandLineArgs = require('command-line-args');
+var getUsage = require('command-line-usage');
 
 var cfgDir = process.cwd();
 
 function getAppDescription() {
-    return {
-        title: "Fable " + require("./package.json").version,
-        description: "F# to JavaScript compiler",
-        footer: "All arguments can be defined in a fableconfig.json file"
-    };
+    return [
+        {
+            header: 'Fable ' + require("./package.json").version,
+            content: 'F# to JavaScript compiler'
+        },
+        {
+            header: 'Options',
+            optionList: optionDefinitions
+        },
+        {
+            content: 'All arguments can be defined in a fableconfig.json file'
+        }
+    ];
 }
 
 // Don't use default values as they would block options from fableconfig.json
-var cli = commandLineArgs([
+var optionDefinitions = [
   { name: 'projFile', defaultOption: true, description: "The F# project (.fsproj) or script (.fsx) to compile." },
   { name: 'outDir', alias: 'o', description: "Where to put compiled JS files. Defaults to project directory." },
   { name: 'module', alias: 'm', description: "Specify module code generation: `umd` (default), `commonjs`, `amd` or `es2015`." },
@@ -36,7 +45,7 @@ var cli = commandLineArgs([
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
   { name: 'production', alias: 'p', description: "Shortcut for `--target production`." },
   { name: 'help', alias: 'h', description: "Display usage guide." }
-]);
+];
 
 var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
 var fableConfig = "fableconfig.json";
@@ -277,7 +286,7 @@ function processJson(json, opts) {
         }
     }
     catch (e) {
-        err = { message: e };
+        err = e.message ? e : { message: e };
     }
     if (err != null) {
         console.log("ERROR: " + err.message);
@@ -377,9 +386,9 @@ function build(opts) {
 
 // Init
 try {
-    var opts = cli.parse();
+    var opts = commandLineArgs(optionDefinitions);
     if (opts.help) {
-        console.log(cli.getUsage(getAppDescription()));
+        console.log(getUsage(getAppDescription()));
         process.exit(0);
     }
 

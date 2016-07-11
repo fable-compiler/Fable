@@ -55,17 +55,19 @@ module Util =
         | _ -> false
 
     // This can cause conflicts in some situations when comparing null to undefined, see #231
-    // let cleanNullArgs args =
-    //     let rec cleanNull = function
-    //         | [] -> []
-    //         | (Fable.Value Fable.Null)::args
-    //         | (Fable.Wrapped(Fable.Value Fable.Null,_))::args -> cleanNull args
-    //         | args -> args
-    //     List.rev args |> cleanNull |> List.rev
+    // But if disabled can cause problems with some APIs that use options to represent optional
+    // arguments like CanvasRenderingContext2D.fill: ?fillRule: string -> unit (fails if passed null)
+    let cleanNullArgs args =
+        let rec cleanNull = function
+            | [] -> []
+            | (Fable.Value Fable.Null)::args
+            | (Fable.Wrapped(Fable.Value Fable.Null,_))::args -> cleanNull args
+            | args -> args
+        List.rev args |> cleanNull |> List.rev
 
     let prepareArgs (com: IBabelCompiler) ctx args =
-        // cleanNullArgs args
-        args |> List.map (function
+        cleanNullArgs args
+        |> List.map (function
             | Fable.Value (Fable.Spread expr) ->
                 Babel.SpreadElement(com.TransformExpr ctx expr) |> U2.Case2
             | _ as expr -> com.TransformExpr ctx expr |> U2.Case1)
@@ -193,11 +195,11 @@ module Util =
         :> Babel.Expression
 
     /// Immediately Invoked Function Expression
-    let iife range (statements: Babel.Statement list) =
+    let iife range (statement: Babel.Statement) =
         let block =
-            match statements with
-            | [:? Babel.BlockStatement as block] -> U2.Case1 block
-            | _ -> Babel.BlockStatement(statements, ?loc=range) |> U2.Case1
+            match statement with
+            | :? Babel.BlockStatement as block -> U2.Case1 block
+            | _ -> Babel.BlockStatement([statement], ?loc=range) |> U2.Case1
         Babel.CallExpression(Babel.ArrowFunctionExpression([], block, ?loc=range), [], ?loc=range)
 
     let varDeclaration range (var: Babel.Pattern) value =
@@ -316,14 +318,17 @@ module Util =
             | Fable.ApplyGet ->
                 getExpr com ctx callee args.Head
 
+    let block r statements =
+        Babel.BlockStatement(statements, ?loc=r)
+
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
     let transformBlock (com: IBabelCompiler) ctx ret expr: Babel.BlockStatement =
         match ret, expr with
         | None, Fable.Sequential(statements, range) ->
-            Babel.BlockStatement (List.map (com.TransformStatement ctx) statements, ?loc=range)
+            List.map (com.TransformStatement ctx) statements |> block range
         | None, _ ->
-            Babel.BlockStatement ([com.TransformStatement ctx expr], ?loc=expr.Range)
+            block expr.Range [com.TransformStatement ctx expr]
         | Some ret, Fable.Sequential(statements, range) ->
             let statements =
                 let lasti = (List.length statements) - 1
@@ -331,9 +336,9 @@ module Util =
                     if i < lasti
                     then com.TransformStatement ctx statement
                     else com.TransformExprAndResolve ctx ret statement)
-            Babel.BlockStatement (statements, ?loc=range)
+            block range statements
         | Some ret, _ ->
-            Babel.BlockStatement ([com.TransformExprAndResolve ctx ret expr], ?loc=expr.Range)
+            block expr.Range [com.TransformExprAndResolve ctx ret expr]
 
     // TODO: Experimental support for Quotations
     let transformQuote com ctx r expr =
@@ -412,18 +417,20 @@ module Util =
         | Fable.DebugBreak range ->
             upcast Babel.DebuggerStatement(?loc=range)
 
+        // Even if IfStatement doesn't enforce it, compile both branches as blocks
+        // to prevent conflict (e.g. `then` doesn't become a block while `else` does) 
         | Fable.IfThenElse (TransformExpr com ctx guardExpr,
-                            TransformStatement com ctx thenStament,
-                            elseStatement, range) ->
+                            thenStatement, elseStatement, range) ->
+            let thenStatement = transformBlock com ctx None thenStatement
             let elseStatement =
                 if isNull elseStatement
-                then None else Some(com.TransformStatement ctx elseStatement) 
-            upcast Babel.IfStatement(guardExpr, thenStament,
+                then None else Some(transformBlock com ctx None elseStatement :> Babel.Statement) 
+            upcast Babel.IfStatement(guardExpr, thenStatement,
                             ?alternate=elseStatement, ?loc=range)
 
         | Fable.Sequential(statements, range) ->
-            upcast Babel.BlockStatement (
-                statements |> List.map (com.TransformStatement ctx), ?loc=range)
+            statements |> List.map (com.TransformStatement ctx)
+            |> block range :> Babel.Statement
 
         | Fable.Wrapped (expr, _) ->
             com.TransformStatement ctx expr
@@ -461,7 +468,7 @@ module Util =
         | Fable.Sequential _ | Fable.TryCatch _ | Fable.Throw _
         | Fable.DebugBreak _ | Fable.Loop _ ->
             transformBlock com ctx (Some Return) expr :> Babel.Statement
-            |> List.singleton |> iife expr.Range :> Babel.Expression
+            |> iife expr.Range :> Babel.Expression
 
         | Fable.VarDeclaration _ ->
             "Unexpected variable declaration"
@@ -490,14 +497,17 @@ module Util =
         | Fable.Apply (callee, args, kind, _, range) ->
             transformApply com ctx (callee, args, kind, range)
             |> resolve ret
-        
-        | Fable.IfThenElse (TransformExpr com ctx guardExpr, thenExpr, elseExpr, range) ->
+
+        // Even if IfStatement doesn't enforce it, compile both branches as blocks
+        // to prevent conflict (e.g. `then` doesn't become a block while `else` does) 
+        | Fable.IfThenElse (TransformExpr com ctx guardExpr,
+                            thenStatement, elseStatement, range) ->
+            let thenStatement = transformBlock com ctx (Some ret) thenStatement
             let elseStatement =
-                if isNull elseExpr
-                then None else com.TransformExprAndResolve ctx ret elseExpr |> Some
-            let thenStatement = com.TransformExprAndResolve ctx ret thenExpr
-            Babel.IfStatement(guardExpr, thenStatement,
-                    ?alternate=elseStatement, ?loc=range) :> Babel.Statement
+                if isNull elseStatement
+                then None else Some(transformBlock com ctx (Some ret) elseStatement :> Babel.Statement) 
+            upcast Babel.IfStatement(guardExpr, thenStatement,
+                            ?alternate=elseStatement, ?loc=range)
         
         | Fable.Sequential (statements, range) ->
             let statements =
@@ -506,7 +516,7 @@ module Util =
                     if i < lasti
                     then com.TransformStatement ctx statement
                     else com.TransformExprAndResolve ctx ret statement)
-            upcast Babel.BlockStatement (statements, ?loc=range)
+            upcast block range statements
         
         | Fable.TryCatch (body, catch, finalizer, range) ->
             let handler =
@@ -670,8 +680,7 @@ module Util =
                 | U2.Case2 _ -> failwith "Unexpected export in nested module")
         Babel.CallExpression(
             Babel.FunctionExpression([modIdent],
-                Babel.BlockStatement (modDecls, ?loc=Some entRange),
-                ?loc=Some entRange),
+                block (Some entRange) modDecls, ?loc=Some entRange),
             [U2.Case1 (upcast Babel.ObjectExpression [])],
             entRange)
 
