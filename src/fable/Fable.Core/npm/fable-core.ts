@@ -127,12 +127,12 @@ export class Util {
   };
 }
 
-export class TimeSpan {
-  static create = function (d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0): number {
+export class TimeSpan extends Number {
+  static create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0): number {
     switch (arguments.length) {
       case 1:
         // ticks
-        return arguments[0] / 10000;
+        return this.fromTicks(arguments[0]);
       case 3:
         // h,m,s
         d = 0, h = arguments[0], m = arguments[1], s = arguments[2], ms = 0;
@@ -144,62 +144,82 @@ export class TimeSpan {
     }
     return d * 86400000 + h * 3600000 + m * 60000 + s * 1000 + ms;
   };
-  static fromTicks = TimeSpan.create;
 
-  static fromDays = function (d: number) {
+  static fromTicks(ticks: number) {
+    return ticks / 10000;
+  };
+
+  static fromDays(d: number) {
     return TimeSpan.create(d, 0, 0, 0);
   };
-  static fromHours = function (h: number) {
+
+  static fromHours(h: number) {
     return TimeSpan.create(h, 0, 0);
   };
-  static fromMinutes = function (m: number) {
+
+  static fromMinutes(m: number) {
     return TimeSpan.create(0, m, 0);
   };
-  static fromSeconds = function (s: number) {
+
+  static fromSeconds(s: number) {
     return TimeSpan.create(0, 0, s);
   };
-  static days = function (ts: number) {
-    return Math.floor(ts / 86400000);
+
+  static days(ts: TimeSpan) {
+    return Math.floor(<number>ts / 86400000);
   };
-  static hours = function (ts: number) {
-    return Math.floor(ts % 86400000 / 3600000);
+
+  static hours(ts: TimeSpan) {
+    return Math.floor(<number>ts % 86400000 / 3600000);
   };
-  static minutes = function (ts: number) {
-    return Math.floor(ts % 3600000 / 60000);
+
+  static minutes(ts: TimeSpan) {
+    return Math.floor(<number>ts % 3600000 / 60000);
   };
-  static seconds = function (ts: number) {
-    return Math.floor(ts % 60000 / 1000);
+
+  static seconds(ts: TimeSpan) {
+    return Math.floor(<number>ts % 60000 / 1000);
   };
-  static milliseconds = function (ts: number) {
-    return Math.floor(ts % 1000);
+
+  static milliseconds(ts: TimeSpan) {
+    return Math.floor(<number>ts % 1000);
   };
-  static ticks = function (ts: number) {
-    return ts * 10000;
+
+  static ticks(ts: TimeSpan) {
+    return <number>ts * 10000;
   };
-  static totalDays = function (ts: number) {
-    return ts / 86400000;
+
+  static totalDays(ts: TimeSpan) {
+    return <number>ts / 86400000;
   };
-  static totalHours = function (ts: number) {
-    return ts / 3600000;
+
+  static totalHours(ts: TimeSpan) {
+    return <number>ts / 3600000;
   };
-  static totalMinutes = function (ts: number) {
-    return ts / 60000;
+
+  static totalMinutes(ts: TimeSpan) {
+    return <number>ts / 60000;
   };
-  static totalSeconds = function (ts: number) {
-    return ts / 1000;
+
+  static totalSeconds(ts: TimeSpan) {
+    return <number>ts / 1000;
   };
-  static duration = Math.abs;
-  static negate = function (ts: number) {
-    return -ts;
+
+  static negate(ts: TimeSpan) {
+    return <number>ts * -1;
   };
-  static add = function (ts1: number, ts2: number) {
-    return ts1 + ts2;
+
+  static add(ts1: TimeSpan, ts2: TimeSpan) {
+    return <number>ts1 + <number>ts2;
   };
-  static subtract = function (ts1: number, ts2: number) {
-    return ts1 - ts2;
+
+  static subtract(ts1: TimeSpan, ts2: TimeSpan) {
+    return <number>ts1 - <number>ts2;
   };
-  static compareTo = Util.compareTo;
+
   static compare = Util.compareTo;
+  static compareTo = Util.compareTo;
+  static duration = Math.abs;
 }
 
 class FDate {
