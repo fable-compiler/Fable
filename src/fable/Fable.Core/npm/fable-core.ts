@@ -43,7 +43,7 @@ export class Util {
       Util.__types.set(typeName, proto.constructor);
     }
   };
-  
+
   static hasInterface = function (obj: any, infc: any) {
     return Array.isArray(obj[FSymbol.interfaces]) && obj[FSymbol.interfaces].indexOf(infc) >= 0;
   };
@@ -728,55 +728,69 @@ class FString {
 }
 export { FString as String };
 
+export type MatchEvaluator = (match: any) => string;
+
 class FRegExp {
-  static create = function (pattern: any, options: any) {
+  static create(pattern: string, options: number) {
     var flags = "g";
     flags += options & 1 ? "i" : "";
     flags += options & 2 ? "m" : "";
     return new RegExp(pattern, flags);
   };
+
   // From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
-  static escape = function (str: string) {
+  static escape(str: string) {
     return str.replace(/[\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&');
   };
-  static unescape = function (str: any) {
+
+  static unescape(str: string) {
     return str.replace(/\\([\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, '$1');
   };
-  static isMatch = function (str: any, pattern: any, options: any) {
-    var reg: any = str instanceof RegExp ? (reg = str, str = pattern, reg.lastIndex = options != null ? options : 0, reg) : reg = FRegExp.create(pattern, options);
-    return reg.test(str);
+
+  static isMatch(str: string | RegExp, pattern: string, options: number = 0) {
+    var reg: RegExp = str instanceof RegExp
+      ? (reg = <RegExp>str, str = pattern, reg.lastIndex = options, reg)
+      : reg = FRegExp.create(pattern, options)
+    return reg.test(<string>str);
   };
-  static match = function (str: any, pattern: any, options: any) {
-    var reg: any = str instanceof RegExp ? (reg = str, str = pattern, reg.lastIndex = options != null ? options : 0, reg) : reg = FRegExp.create(pattern, options);
-    return reg.exec(str);
+
+  static match(str: string | RegExp, pattern: string, options: number = 0) {
+    var reg: RegExp = str instanceof RegExp
+      ? (reg = <RegExp>str, str = pattern, reg.lastIndex = options, reg)
+      : reg = FRegExp.create(pattern, options);
+    return reg.exec(<string>str);
   };
-  static matches = function (str: any, pattern: any, options?: any) {
-    var reg: any = str instanceof RegExp ? (reg = str, str = pattern, reg.lastIndex = options != null ? options : 0, reg) : reg = FRegExp.create(pattern, options);
+
+  static matches(str: string | RegExp, pattern: string, options: number = 0) {
+    var reg: RegExp = str instanceof RegExp
+      ? (reg = <RegExp>str, str = pattern, reg.lastIndex = options, reg)
+      : reg = FRegExp.create(pattern, options);
     if (!reg.global) {
       throw "Non-global RegExp"; // Prevent infinite loop
     }
-    var m: any,
-      matches: any = [];
-    while ((m = reg.exec(str)) !== null) {
+    var m: RegExpExecArray,
+      matches: RegExpExecArray[] = [];
+    while ((m = reg.exec(<string>str)) !== null) {
       matches.push(m);
     }
     return matches;
   };
-  static options = function (reg: any) {
+
+  static options(reg: RegExp) {
     var options = 256; // ECMAScript
     options |= reg.ignoreCase ? 1 : 0;
     options |= reg.multiline ? 2 : 0;
     return options;
   };
-  static replace = function (reg: any, input: any, replacement: any, limit: any, offset: any) {
+
+  static replace(reg: string | RegExp, input: string, replacement: string | MatchEvaluator, limit?: number, offset: number = 0) {
     if (typeof reg == "string") {
-      var tmp = reg;
+      var tmp = <string>reg;
       reg = FRegExp.create(input, limit);
       input = tmp, limit = undefined;
     }
     if (typeof replacement == "function") {
       limit = limit == null ? -1 : limit;
-      offset = offset == null ? 0 : offset;
       var replacer = function () {
         var res = arguments[0];
         if (limit !== 0) {
@@ -788,32 +802,32 @@ class FRegExp {
           }
           match.index = arguments[len - 2];
           match.input = arguments[len - 1];
-          res = replacement(match);
+          res = (<MatchEvaluator>replacement)(match);
         }
         return res;
       };
-      return input.substring(0, offset) + input.substring(offset).replace(reg, replacer);
+      return input.substring(0, offset) + input.substring(offset).replace(<RegExp>reg, replacer);
     } else {
       if (limit != null) {
         var m: any;
-        offset = offset == null ? 0 : offset;
         var sub1 = input.substring(offset);
         var matches = FRegExp.matches(reg, sub1);
         var sub2 = matches.length > limit ? (m = matches[limit - 1], sub1.substring(0, m.index + m[0].length)) : sub1;
-        return input.substring(0, offset) + sub2.replace(reg, replacement) + input.substring(offset + sub2.length);
+        return input.substring(0, offset) + sub2.replace(<RegExp>reg, <string>replacement) + input.substring(offset + sub2.length);
       } else {
-        return input.replace(reg, replacement);
+        return input.replace(<RegExp>reg, <string>replacement);
       }
     }
   };
-  static split = function (reg: any, input: any, limit: any, offset: any) {
+
+  static split(reg: string | RegExp, input: string, limit?: number, offset: number = 0) {
     if (typeof reg == "string") {
-      var tmp = reg;
+      var tmp = <string>reg;
       reg = FRegExp.create(input, limit);
       input = tmp, limit = undefined;
     }
-    input = offset != null ? input.substring(offset) : input;
-    return input.split(reg, limit);
+    input = input.substring(offset);
+    return input.split(<RegExp>reg, limit);
   };
 }
 export { FRegExp as RegExp };
