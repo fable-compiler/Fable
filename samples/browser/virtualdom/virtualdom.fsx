@@ -66,7 +66,7 @@ why this is useful.
 *)
 
 // View
-let counterView handler model =
+let counterView model =
     let bgColor =
         match model with
         | x when x > 100 -> "red"
@@ -75,19 +75,17 @@ let counterView handler model =
     div []
         [
             div [   Style ["border","1px solid blue"]
-                    onMouseClick (fun x -> handler (Increment 1))
-                    onDblClick (fun x -> handler ((Increment 100)))] [text (string "Increment")]
+                    onMouseClick (fun x -> (Increment 1))
+                    onDblClick (fun x -> ((Increment 100)))] [text (string "Increment")]
             div [ Style ["background-color", bgColor; "color", "white"]] [text (string model)]
             div [   Style ["border", "1px solid green"; "height", ((string (70 + model)) + "px")]
-                    onMouseClick (fun x -> handler (Decrement 1))
-                    onDblClick (fun x -> handler (Decrement 50))]
+                    onMouseClick (fun x -> (Decrement 1))
+                    onDblClick (fun x -> (Decrement 50))]
                 [text (string "Decrement")]
         ]
 
 (**
-The `counterView` defines how a model should be rendered. It also takes a `handler`
-that should have a function of the type `'TAction -> unit`, this makes it possible
-to react user actions like we do here on simple mouse actions. The dsl that is used
+The `counterView` defines how a model should be rendered. The dsl that is used
 here is quite simple and have helper functions for a majority of the standard
 HTML elements. It is trivial to add custom tags if you are missing some tag
 that you would like to use.
@@ -160,7 +158,7 @@ is a nice feature you don't have in standard js.
 
 // Todo update
 type TodoAction =
-    | AddItem of Item
+    | AddItem
     | ChangeInput of string
     | MarkAsDone of Item
     | ToggleItem of Item
@@ -187,14 +185,14 @@ let todoUpdate model msg =
 
     let model' =
         match msg with
-        | AddItem item ->
+        | AddItem ->
             let maxId =
                 if model.Items |> List.isEmpty then 1
                 else
                     model.Items
                     |> List.map (fun x -> x.Id)
                     |> List.max
-            let item' = {item with Id = maxId + 1}
+            let item' = {Id = maxId + 1; Name = model.Input; Done = false; IsEditing = false}
             {model with Items = item'::model.Items; Input = ""}
         | ChangeInput v -> {model with Input = v}
         | MarkAsDone i ->
@@ -218,7 +216,8 @@ let todoUpdate model msg =
 
 (**
 It might seem like a lot of code, but we need to handle all actions and respond
-to them accordingly. I won't go into the detail in all the scenarios, but you
+to them accordingly, and this is basically all the logic associated with the todo app. 
+I won't go into the detail in all the scenarios, but you
 should pay attention to the step where `jsCalls` is defined. Since we are re-rendering
 the application on changes in the model, or render what has changed as least, we need
 a way to give an input focus if we start edit it. That is when the list of js
@@ -236,21 +235,21 @@ let filterToTextAndUrl = function
     | Completed -> "Completed", "completed"
     | Active -> "Active", "active"
 
-let filter handler activeFilter f =
+let filter activeFilter f =
     let linkClass = if f = activeFilter then "selected" else ""
     let fText,url = f |> filterToTextAndUrl
     li
-        [ onMouseClick (fun _ -> SetActiveFilter f |> handler)]
+        [ onMouseClick (fun _ -> SetActiveFilter f)]
         [ a
             [ attribute "href" ("#/" + url); attribute "class" linkClass ]
             [ text fText] ]
 
-let filters model handler =
+let filters model =
     ul
         [ attribute "class" "filters" ]
-        ([ All; Active; Completed ] |> List.map (filter handler model.Filter))
+        ([ All; Active; Completed ] |> List.map (filter model.Filter))
 
-let todoFooter model handler =
+let todoFooter model =
     let clearVisibility =
         if model.Items |> List.exists (fun i -> i.Done)
         then ""
@@ -259,49 +258,46 @@ let todoFooter model handler =
     footer
         [   attribute "class" "footer"; Style ["display","block"]]
         [   span
-                [ attribute "class" "todo-count" ]
+                [   attribute "class" "todo-count" ]
                 [   strong [] [text activeCount]
                     text " items left" ]
-            (filters model handler)
+            (filters model)
             button
                 [   attribute "class" "clear-completed"
                     Style [ "display", clearVisibility ]
-                    onMouseClick (fun _ -> handler ClearCompleted)]
+                    onMouseClick (fun _ -> ClearCompleted)]
                 [ text "Clear completed" ] ]
 
-
-let todoHeader model handler =
+let todoHeader model =
     header
         [attribute "class" "header"]
         [   h1 [] [text "todos"]
             input [ attribute "class" "new-todo"
+                    attribute "id" "new-todo"
                     property "placeholder" "What needs to be done?"
-                    property "value" model
-                    onKeydown (fun x ->
+                    onKeyup (fun x ->
                         if x.keyCode = 13
-                        then handler (AddItem {Name = model; Id = 0; Done = false; IsEditing = false})
-                        )
-                    onKeyup (fun x -> handler (ChangeInput (x?target?value :?> string))) ]]
-
-let listItem handler item =
+                        then AddItem
+                        else ChangeInput (x?target?value :?> string)) ]]
+let listItem item =
     let itemChecked = if item.Done then "true" else ""
     let editClass = if item.IsEditing then "editing" else ""
     li [ attribute "class" ((if item.Done then "completed " else " ") + editClass)]
        [ div [  attribute "class" "view"
-                onDblClick (fun x -> EditItem item |> handler) ]
+                onDblClick (fun x -> EditItem item) ]
              [ input [  property "className" "toggle"
                         property "type" "checkbox"
                         property "checked" itemChecked
-                        onMouseClick (fun e -> handler (ToggleItem item)) ]
+                        onMouseClick (fun e -> ToggleItem item) ]
                label [] [ text item.Name ]
                button [ attribute "class" "destroy"
-                        onMouseClick (fun e -> handler (Destroy item)) ] [] ]
+                        onMouseClick (fun e -> Destroy item) ] [] ]
          input [ attribute "class" "edit"
                  attribute "value" item.Name
                  property "id" ("item-"+item.Id.ToString())
-                 onBlur (fun e -> SaveItem (item, (e?target?value :?> string)) |> handler) ] ]
+                 onBlur (fun e -> SaveItem (item, (e?target?value :?> string))) ] ]
 
-let itemList handler items activeFilter =
+let itemList items activeFilter =
     let filterItems i =
         match activeFilter with
         | All -> true
@@ -309,9 +305,9 @@ let itemList handler items activeFilter =
         | Active -> not i.Done
 
     ul [attribute "class" "todo-list" ]
-       (items |> List.filter filterItems |> List.map (listItem handler))
+       (items |> List.filter filterItems |> List.map listItem)
 
-let todoMain model handler =
+let todoMain model =
     let items = model.Items
     let allChecked = items |> List.exists (fun i -> not i.Done)
     section [  attribute "class" "main"
@@ -322,19 +318,19 @@ let todoMain model handler =
                         property "checked" (if not allChecked then "true" else "")
                         onMouseClick (fun e ->
                                     if allChecked
-                                    then handler CheckAll
-                                    else handler UnCheckAll) ]
+                                    then CheckAll
+                                    else UnCheckAll) ]
                 label [ attribute "for" "toggle-all" ]
                       [ text "Mark all as complete" ]
-                (itemList handler items model.Filter) ]
+                (itemList items model.Filter) ]
 
-let todoView handler model =
+let todoView model =
     section
-        [attribute "class" "todoapp"]
-        ((todoHeader model.Input handler)::(if model.Items |> List.isEmpty
+        [property "class" "todoapp"]
+        ((todoHeader model.Input)::(if model.Items |> List.isEmpty
                 then []
-                else [  (todoMain model handler)
-                        (todoFooter model handler) ] ))
+                else [  (todoMain model)
+                        (todoFooter model) ] ))
 
 (**
 This view is more complex than the first example, but it also show how easy it is
