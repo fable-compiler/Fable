@@ -92,6 +92,11 @@ let ``List.choose works``() =
 
 [<Test>]
 let ``List.collect works``() =
+      let xs = [[1]; [2]; [3]; [4]]
+      let ys = xs |> List.collect id
+      ys.Head + ys.Tail.Head
+      |> equal 3
+
       let list1 = [10.; 20.; 30.]
       let collectList = List.collect (fun x -> [for i in 1.0..3.0 -> x * i]) list1
       sumFirstSeq collectList 9 |> equal 360.
@@ -103,9 +108,14 @@ let ``List.collect works``() =
 
 [<Test>]
 let ``List.concat works``() =
-      let xs = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
+      let xs = [[1]; [2]; [3]; [4]]
       let ys = xs |> List.concat
-      sumFirstList ys 7
+      ys.Head  + ys.Tail.Head
+      |> equal 3
+
+      let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
+      let ys1 = xs1 |> List.concat
+      sumFirstList ys1 7
       |> equal 28.
 
 [<Test>]
@@ -330,9 +340,13 @@ let ``List.item works``() =
 
 [<Test>]
 let ``List.ofArray works``() =
-      let xs = [|1.; 2.; 3.; 4.|]
+      let xs = [|1; 2|]
       let ys = List.ofArray xs
-      sumFirstList ys 3 |> equal 6.
+      ys.Head |> equal 1
+
+      let xs1 = [|1.; 2.; 3.; 4.|]
+      let ys1 = List.ofArray xs1
+      sumFirstList ys1 3 |> equal 6.
 
 [<Test>]
 let ``List.ofSeq works``() =
