@@ -78,6 +78,11 @@ let ``Seq.collect works``() =
     sumFirstTwo ys
     |> equal 3.
 
+    let xs1 = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+    let ys1 = xs1 |> Seq.collect id
+    sumFirstSeq ys1 5
+    |> equal 15.
+
 [<Test>]
 let ``Seq.exists works``() =
     let xs = [1.; 2.; 3.; 4.]

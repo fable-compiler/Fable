@@ -97,12 +97,26 @@ let ``List.collect works``() =
       ys.Head + ys.Tail.Head
       |> equal 3
 
+      let list1 = [10.; 20.; 30.]
+      let collectList = List.collect (fun x -> [for i in 1.0..3.0 -> x * i]) list1
+      sumFirstSeq collectList 9 |> equal 360.
+
+      let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+      let ys = xs |> List.collect id
+      sumFirstSeq ys 5
+      |> equal 15.
+
 [<Test>]
 let ``List.concat works``() =
       let xs = [[1]; [2]; [3]; [4]]
       let ys = xs |> List.concat
       ys.Head  + ys.Tail.Head
       |> equal 3
+
+      let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
+      let ys1 = xs1 |> List.concat
+      sumFirstList ys1 7
+      |> equal 28.
 
 [<Test>]
 let ``List.exists works``() =
@@ -329,6 +343,10 @@ let ``List.ofArray works``() =
       let xs = [|1; 2|]
       let ys = List.ofArray xs
       ys.Head |> equal 1
+
+      let xs1 = [|1.; 2.; 3.; 4.|]
+      let ys1 = List.ofArray xs1
+      sumFirstList ys1 3 |> equal 6.
 
 [<Test>]
 let ``List.ofSeq works``() =

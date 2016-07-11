@@ -377,6 +377,12 @@ let ``TimeSpan constructors work``() =
     let t2 = TimeSpan(3, 3, 3)
     let t3 = TimeSpan(5, 5, 5, 5)
     let t4 = TimeSpan(7, 7, 7, 7, 7)
+
+    t1.TotalMilliseconds |> equal 2.0
+    t2.TotalMilliseconds |> equal 10983000.0
+    t3.TotalMilliseconds |> equal 450305000.0
+    t4.TotalMilliseconds |> equal 630427007.0
+
     t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds
     |> equal 1091715009.0
 
