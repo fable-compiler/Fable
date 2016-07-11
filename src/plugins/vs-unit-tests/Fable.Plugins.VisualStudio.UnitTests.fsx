@@ -50,7 +50,8 @@ module Util =
     let [<Literal>] runSyncWarning = "Async.RunSynchronously must wrap the whole test"
 
     // Compile tests using Mocha.js BDD interface
-    let transformTestMethod com ctx (testMethod: Fable.Member) name (decorator: Fable.Decorator) =
+    let transformTestMethod (com: IBabelCompiler) ctx (testMethod: Fable.Member)
+                            name (decorator: Fable.Decorator) =
         let buildAsyncTestBody range asyncBuilder =
             let doneFn = AST.Fable.Util.makeIdent "$done"
             let testBody =
@@ -71,7 +72,8 @@ module Util =
             | RunSync asyncBuilder -> buildAsyncTestBody testMethod.Body.Range asyncBuilder
             | _ -> [], testMethod.Body
         let testBody =
-            Util.funcExpression com ctx testArgs testBody :> Babel.Expression
+            let args, body = com.TransformFunction ctx testArgs testBody
+            Babel.ArrowFunctionExpression (args, body, ?loc=testBody.Range) :> Babel.Expression
         let testName =
             Babel.StringLiteral name :> Babel.Expression
         let testRange =
