@@ -49,8 +49,10 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Util.fs" />
+    <Compile Include="Replacements.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="FSharp2Fable.fs" />
+    <Compile Include="Fable2Babel.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj">

@@ -5,10 +5,10 @@ open Fable.Core
 [<Import("h","virtual-dom")>]
 let h(arg1: string, arg2: obj, arg3: obj[]): obj = failwith "JS only"
 
-[<Import("diff","virtual-dom")>] 
+[<Import("diff","virtual-dom")>]
 let diff (tree1:obj) (tree2:obj): obj = failwith "JS only"
 
-[<Import("patch","virtual-dom")>] 
+[<Import("patch","virtual-dom")>]
 let patch (node:obj) (patches:obj): Fable.Import.Browser.Node = failwith "JS only"
 
 [<Import("create","virtual-dom")>]
@@ -29,34 +29,34 @@ module Html =
                 keyCode: int
             }
 
-        type MouseEventHandler = string*(MouseEvent -> unit)
-        type KeyboardEventHandler = string*(KeyboardEvent -> unit)
-        type EventHandler = string*(obj -> unit)
+        type MouseEventHandler<'TMessage> = string*(MouseEvent -> 'TMessage)
+        type KeyboardEventHandler<'TMessage> = string*(KeyboardEvent -> 'TMessage)
+        type EventHandler<'TMessage> = string*(obj -> 'TMessage)
 
-        type EventHandlerBinding =
-            | MouseEventHandler of MouseEventHandler
-            | KeyboardEventHandler of KeyboardEventHandler
-            | EventHandler of EventHandler
+        type EventHandlerBinding<'TMessage> =
+            | MouseEventHandler of MouseEventHandler<'TMessage>
+            | KeyboardEventHandler of KeyboardEventHandler<'TMessage>
+            | EventHandler of EventHandler<'TMessage>
 
         type Style = (string*string) list
 
         type KeyValue = string*string
 
-        type Attribute =
-        | EventHandlerBinding of EventHandlerBinding
+        type Attribute<'TMessage> =
+        | EventHandlerBinding of EventHandlerBinding<'TMessage>
         | Style of Style
         | Property of KeyValue
         | Attribute of KeyValue
 
-        type Element = string * Attribute list
+        type Element<'TMessage> = string * Attribute<'TMessage> list
         /// A Node in Html have the following forms
-        type VoidElement = string * Attribute list
-        type Node =
+        type VoidElement<'TMessage> = string * Attribute<'TMessage> list
+        type Node<'TMessage> =
         /// A regular html element that can contain a list of other nodes
-        | Element of Element * Node list
+        | Element of Element<'TMessage> * Node<'TMessage> list
         /// A void element is one that can't have content, like link, br, hr, meta
         /// See: https://dev.w3.org/html5/html-author/#void
-        | VoidElement of VoidElement
+        | VoidElement of VoidElement<'TMessage>
         /// A text value for a node
         | Text of string
         /// Whitespace for formatting
@@ -64,273 +64,293 @@ module Html =
 
     [<AutoOpen>]
     module Tags =
-        let elem tagName attrs children = Element((tagName, attrs), children)
-        let voidElem tagName attrs = VoidElement(tagName, attrs)
+        let inline elem tagName attrs children = Element((tagName, attrs), children)
+        let inline voidElem tagName attrs = VoidElement(tagName, attrs)
 
-        let whiteSpace = WhiteSpace
-        let text = Text
+        let inline whiteSpace x = WhiteSpace x
+        let inline text x = Text x
 
         // Elements - list of elements here: https://developer.mozilla.org/en-US/docs/Web/HTML/Element
         // Void elements
-        let br = voidElem "br"
-        let area = voidElem "area"
-        let baseHtml = voidElem "base"
-        let col = voidElem "col"
-        let embed = voidElem "embed"
-        let hr = voidElem "hr"
-        let img = voidElem "img"
-        let input = voidElem "input"
-        let link = voidElem "link"
-        let meta = voidElem "meta"
-        let param = voidElem "param"
-        let source = voidElem "source"
-        let track = voidElem "track"
-        let wbr = voidElem "wbr"
+        let inline br x = voidElem "br" x
+        let inline area x = voidElem "area" x
+        let inline baseHtml x = voidElem "base" x
+        let inline col x = voidElem "col" x
+        let inline embed x = voidElem "embed" x
+        let inline hr x = voidElem "hr" x
+        let inline img x = voidElem "img" x
+        let inline input x = voidElem "input" x
+        let inline link x = voidElem "link" x
+        let inline meta x = voidElem "meta" x
+        let inline param x = voidElem "param" x
+        let inline source x = voidElem "source" x
+        let inline track x = voidElem "track" x
+        let inline wbr x = voidElem "wbr" x
 
         // Metadata
-        let head = elem "head"
-        let style = elem "style"
-        let title = elem "title"
+        let inline head x = elem "head" x
+        let inline style x = elem "style" x
+        let inline title x = elem "title" x
 
         // Content sectioning
-        let address = elem "address"
-        let article = elem "article"
-        let aside = elem "aside"
-        let footer = elem "footer"
-        let header = elem "header"
-        let h1 = elem "h1"
-        let h2 = elem "h2"
-        let h3 = elem "h3"
-        let h4 = elem "h4"
-        let h5 = elem "h5"
-        let h6 = elem "h6"
-        let hgroup = elem "hgroup"
-        let nav = elem "nav"
+        let inline address x = elem "address" x
+        let inline article x = elem "article" x
+        let inline aside x = elem "aside" x
+        let inline footer x = elem "footer" x
+        let inline header x = elem "header" x
+        let inline h1 x = elem "h1" x
+        let inline h2 x = elem "h2" x
+        let inline h3 x = elem "h3" x
+        let inline h4 x = elem "h4" x
+        let inline h5 x = elem "h5" x
+        let inline h6 x = elem "h6" x
+        let inline hgroup x = elem "hgroup" x
+        let inline nav x = elem "nav" x
 
         // Text content
-        let dd = elem "dd"
-        let div = elem "div"
-        let dl = elem "dl"
-        let dt = elem "dt"
-        let figcaption = elem "figcaption"
-        let figure = elem "figure"
-        let li = elem "li"
-        let main = elem "main"
-        let ol = elem "ol"
-        let p = elem "p"
-        let pre = elem "pre"
-        let section = elem "section"
-        let ul = elem "ul"
+        let inline dd x = elem "dd" x
+        let inline div x = elem "div" x
+        let inline dl x = elem "dl" x
+        let inline dt x = elem "dt" x
+        let inline figcaption x = elem "figcaption" x
+        let inline figure x = elem "figure" x
+        let inline li x = elem "li" x
+        let inline main x = elem "main" x
+        let inline ol x = elem "ol" x
+        let inline p x = elem "p" x
+        let inline pre x = elem "pre" x
+        let inline section x = elem "section" x
+        let inline ul x = elem "ul" x
 
         // Inline text semantics
-        let a = elem "a"
-        let abbr = elem "abbr"
-        let b = elem "b"
-        let bdi = elem "bdi"
-        let bdo = elem "bdo"
-        let cite = elem "cite"
-        let code = elem "code"
-        let data = elem "data"
-        let dfn = elem "dfn"
-        let em = elem "em"
-        let i = elem "i"
-        let kbd = elem "kbd"
-        let mark = elem "mark"
-        let q = elem "q"
-        let rp = elem "rp"
-        let rt = elem "rt"
-        let rtc = elem "rtc"
-        let ruby = elem "ruby"
-        let s = elem "s"
-        let samp = elem "samp"
-        let small = elem "small"
-        let span = elem "span"
-        let strong = elem "strong"
-        let sub = elem "sub"
-        let sup = elem "sup"
-        let time = elem "time"
-        let u = elem "u"
-        let var = elem "var"
+        let inline a x = elem "a" x
+        let inline abbr x = elem "abbr" x
+        let inline b x = elem "b" x
+        let inline bdi x = elem "bdi" x
+        let inline bdo x = elem "bdo" x
+        let inline cite x = elem "cite" x
+        let inline code x = elem "code" x
+        let inline data x = elem "data" x
+        let inline dfn x = elem "dfn" x
+        let inline em x = elem "em" x
+        let inline i x = elem "i" x
+        let inline kbd x = elem "kbd" x
+        let inline mark x = elem "mark" x
+        let inline q x = elem "q" x
+        let inline rp x = elem "rp" x
+        let inline rt x = elem "rt" x
+        let inline rtc x = elem "rtc" x
+        let inline ruby x = elem "ruby" x
+        let inline s x = elem "s" x
+        let inline samp x = elem "samp" x
+        let inline small x = elem "small" x
+        let inline span x = elem "span" x
+        let inline strong x = elem "strong" x
+        let inline sub x = elem "sub" x
+        let inline sup x = elem "sup" x
+        let inline time x = elem "time" x
+        let inline u x = elem "u" x
+        let inline var x = elem "var" x
 
         // Image and multimedia
-        let audio = elem "audio"
-        let map = elem "map"
-        let video = elem "video"
+        let inline audio x = elem "audio" x
+        let inline map x = elem "map" x
+        let inline video x = elem "video" x
 
         // Embedded content
-        let objectHtml = elem "object"
+        let inline objectHtml x = elem "object" x
 
         // Demarcasting edits
-        let del = elem "del"
-        let ins = elem "ins"
+        let inline del x = elem "del" x
+        let inline ins x = elem "ins" x
 
         // Table content
-        let caption = elem "caption"
-        let colgroup = elem "colgroup"
-        let table = elem "table"
-        let tbody = elem "tbody"
-        let td = elem "td"
-        let tfoot = elem "tfoot"
-        let th = elem "th"
-        let thead = elem "thead"
-        let tr = elem "tr"
+        let inline caption x = elem "caption" x
+        let inline colgroup x = elem "colgroup" x
+        let inline table x = elem "table" x
+        let inline tbody x = elem "tbody" x
+        let inline td x = elem "td" x
+        let inline tfoot x = elem "tfoot" x
+        let inline th x = elem "th" x
+        let inline thead x = elem "thead" x
+        let inline tr x = elem "tr" x
 
         // Forms
-        let button = elem "button"
-        let datalist = elem "datalist"
-        let fieldset = elem "fieldset"
-        let form = elem "form"
-        let label = elem "label"
-        let legend = elem "legend"
-        let meter = elem "meter"
-        let optgroup = elem "optgroup"
-        let option = elem "option"
-        let output = elem "output"
-        let progress = elem "progress"
-        let select = elem "select"
-        let textarea = elem "textarea"
+        let inline button x = elem "button" x
+        let inline datalist x = elem "datalist" x
+        let inline fieldset x = elem "fieldset" x
+        let inline form x = elem "form" x
+        let inline label x = elem "label" x
+        let inline legend x = elem "legend" x
+        let inline meter x = elem "meter" x
+        let inline optgroup x = elem "optgroup" x
+        let inline option x = elem "option" x
+        let inline output x = elem "output" x
+        let inline progress x = elem "progress" x
+        let inline select x = elem "select" x
+        let inline textarea x = elem "textarea" x
 
         // Interactive elements
-        let details = elem "details"
-        let dialog = elem "dialog"
-        let menu = elem "menu"
-        let menuitem = elem "menuitem"
-        let summary = elem "summary"
+        let inline details x = elem "details" x
+        let inline dialog x = elem "dialog" x
+        let inline menu x = elem "menu" x
+        let inline menuitem x = elem "menuitem" x
+        let inline summary x = elem "summary" x
 
     [<AutoOpen>]
     module Attributes =
-        let attribute key value = Attribute.Attribute (key,value)
-        let property key value = Attribute.Property (key,value)
+        let inline attribute key value = Attribute.Attribute (key,value)
+        let inline property key value = Attribute.Property (key,value)
 
     [<AutoOpen>]
     module Events =
-        let onMouseEvent eventType f = EventHandlerBinding (MouseEventHandler (eventType, f))
+        let inline onMouseEvent eventType f = EventHandlerBinding (MouseEventHandler (eventType, f))
 
-        let onMouseClick = onMouseEvent "onclick"
-        let onContextMenu = onMouseEvent "oncontextmenu"
-        let onDblClick = onMouseEvent "ondblclick"
-        let onMouseDown = onMouseEvent "onmousedown"
-        let onMouseEnter = onMouseEvent "onmouseenter"
-        let onMouseLeave = onMouseEvent "onmouseleave"
-        let onMouseMove = onMouseEvent "onmousemove"
-        let onMouseOut = onMouseEvent "onmouseout"
-        let onMouseOver = onMouseEvent "onmouseover"
-        let onMouseUp = onMouseEvent "onmouseup"
-        let onShow = onMouseEvent "onshow"
-        let onKeyboardEvent eventType f = EventHandlerBinding (KeyboardEventHandler (eventType, f))
-        let onKeydown = onKeyboardEvent "onkeydown"
-        let onKeypress = onKeyboardEvent "onkeypress"
-        let onKeyup = onKeyboardEvent "onkeyup"
+        let inline onMouseClick x = onMouseEvent "onclick" x
+        let inline onContextMenu x = onMouseEvent "oncontextmenu" x
+        let inline onDblClick x = onMouseEvent "ondblclick" x
+        let inline onMouseDown x = onMouseEvent "onmousedown" x
+        let inline onMouseEnter x = onMouseEvent "onmouseenter" x
+        let inline onMouseLeave x = onMouseEvent "onmouseleave" x
+        let inline onMouseMove x = onMouseEvent "onmousemove" x
+        let inline onMouseOut x = onMouseEvent "onmouseout" x
+        let inline onMouseOver x = onMouseEvent "onmouseover" x
+        let inline onMouseUp x = onMouseEvent "onmouseup" x
+        let inline onShow x = onMouseEvent "onshow" x
+        let inline onKeyboardEvent eventType f = EventHandlerBinding (KeyboardEventHandler (eventType, f))
+        let inline onKeydown x = onKeyboardEvent "onkeydown" x
+        let inline onKeypress x = onKeyboardEvent "onkeypress" x
+        let inline onKeyup x = onKeyboardEvent "onkeyup" x
 
-        let onEvent eventType f = EventHandlerBinding (EventHandler (eventType, f))
-        let onAbort = onEvent "onabort"
-        let onAfterPrint = onEvent "onafterprint"
-        let onAudioEnd = onEvent "onaudioend"
-        let onAudioStart = onEvent "onaudiostart"
-        let onBeforePrint = onEvent "onbeforeprint"
-        let onCached = onEvent "oncached"
-        let onCanPlay = onEvent "oncanplay"
-        let onCanPlayThrough = onEvent "oncanplaythrough"
-        let onChange = onEvent "onchange"
-        let onChargingChange = onEvent "onchargingchange"
-        let onChargingTimeChange = onEvent "onchargingtimechange"
-        let onChecking = onEvent "onchecking"
-        let onClose = onEvent "onclose"
-        let onDischargingTimeChange = onEvent "ondischargingtimechange"
-        let onDOMContentLoaded = onEvent "onDOMContentLoaded"
-        let onDownloading = onEvent "ondownloading"
-        let onDurationchange = onEvent "ondurationchange"
-        let onEmptied = onEvent "onemptied"
-        let onEnd = onEvent "onend"
-        let onEnded = onEvent "onended"
-        let onError = onEvent "onerror"
-        let onCullScreenChange = onEvent "onfullscreenchange"
-        let onCullScreenError = onEvent "onfullscreenerror"
-        let onInput = onEvent "oninput"
-        let onInvalid = onEvent "oninvalid"
-        let onLanguageChange = onEvent "onlanguagechange"
-        let onLevelChange = onEvent "onlevelchange"
-        let onLoadedData = onEvent "onloadeddata"
-        let onLoadedMetaData = onEvent "onloadedmetadata"
-        let onNoUpdate = onEvent "onnoupdate"
-        let onObsolete = onEvent "onobsolete"
-        let onOffline = onEvent "onoffline"
-        let onOnline = onEvent "ononline"
-        let onOpen = onEvent "onopen"
-        let onOrientationChange = onEvent "onorientationchange"
-        let onPause = onEvent "onpause"
-        let onPointerlockchange = onEvent "onpointerlockchange"
-        let onPointerlockerror = onEvent "onpointerlockerror"
-        let onPlay = onEvent "onplay"
-        let onPlaying = onEvent "onplaying"
-        let onRateChange = onEvent "onratechange"
-        let onReadyStateChange = onEvent "onreadystatechange"
-        let onReset = onEvent "onreset"
-        let onSeeked = onEvent "onseeked"
-        let onSeeking = onEvent "onseeking"
-        let onSelectStart = onEvent "onselectstart"
-        let onSelectionChange = onEvent "onselectionchange"
-        let onSoundEnd = onEvent "onsoundend"
-        let onSoundStart = onEvent "onsoundstart"
-        let onSpeechEnd = onEvent "onspeechend"
-        let onSpeechStart = onEvent "onspeechstart"
-        let onStalled = onEvent "onstalled"
-        let onStart = onEvent "onstart"
-        let onSubmit = onEvent "onsubmit"
-        let onSuccess = onEvent "onsuccess"
-        let onSuspend = onEvent "onsuspend"
-        let onTimeUpdate = onEvent "ontimeupdate"
-        let onUpdateReady = onEvent "onupdateready"
-        let onVoicesChanged = onEvent "onvoiceschanged"
-        let onVisibilityChange = onEvent "onvisibilitychange"
-        let onVolumeChange = onEvent "onvolumechange"
-        let onVrdisplayConnected = onEvent "onvrdisplayconnected"
-        let onVrdisplayDisconnected = onEvent "onvrdisplaydisconnected"
-        let onVrdisplayPresentChange = onEvent "onvrdisplaypresentchange"
-        let onWaiting = onEvent "onwaiting"
+        let inline onEvent eventType f = EventHandlerBinding (EventHandler (eventType, f))
+        let inline onAbort x = onEvent "onabort" x
+        let inline onAfterPrint x = onEvent "onafterprint" x
+        let inline onAudioEnd x = onEvent "onaudioend" x
+        let inline onAudioStart x = onEvent "onaudiostart" x
+        let inline onBeforePrint x = onEvent "onbeforeprint" x
+        let inline onCached x = onEvent "oncached" x
+        let inline onCanPlay x = onEvent "oncanplay" x
+        let inline onCanPlayThrough x = onEvent "oncanplaythrough" x
+        let inline onChange x = onEvent "onchange" x
+        let inline onChargingChange x = onEvent "onchargingchange" x
+        let inline onChargingTimeChange x = onEvent "onchargingtimechange" x
+        let inline onChecking x = onEvent "onchecking" x
+        let inline onClose x = onEvent "onclose" x
+        let inline onDischargingTimeChange x = onEvent "ondischargingtimechange" x
+        let inline onDOMContentLoaded x = onEvent "onDOMContentLoaded" x
+        let inline onDownloading x = onEvent "ondownloading" x
+        let inline onDurationchange x = onEvent "ondurationchange" x
+        let inline onEmptied x = onEvent "onemptied" x
+        let inline onEnd x = onEvent "onend" x
+        let inline onEnded x = onEvent "onended" x
+        let inline onError x = onEvent "onerror" x
+        let inline onCullScreenChange x = onEvent "onfullscreenchange" x
+        let inline onCullScreenError x = onEvent "onfullscreenerror" x
+        let inline onInput x = onEvent "oninput" x
+        let inline onInvalid x = onEvent "oninvalid" x
+        let inline onLanguageChange x = onEvent "onlanguagechange" x
+        let inline onLevelChange x = onEvent "onlevelchange" x
+        let inline onLoadedData x = onEvent "onloadeddata" x
+        let inline onLoadedMetaData x = onEvent "onloadedmetadata" x
+        let inline onNoUpdate x = onEvent "onnoupdate" x
+        let inline onObsolete x = onEvent "onobsolete" x
+        let inline onOffline x = onEvent "onoffline" x
+        let inline onOnline x = onEvent "ononline" x
+        let inline onOpen x = onEvent "onopen" x
+        let inline onOrientationChange x = onEvent "onorientationchange" x
+        let inline onPause x = onEvent "onpause" x
+        let inline onPointerlockchange x = onEvent "onpointerlockchange" x
+        let inline onPointerlockerror x = onEvent "onpointerlockerror" x
+        let inline onPlay x = onEvent "onplay" x
+        let inline onPlaying x = onEvent "onplaying" x
+        let inline onRateChange x = onEvent "onratechange" x
+        let inline onReadyStateChange x = onEvent "onreadystatechange" x
+        let inline onReset x = onEvent "onreset" x
+        let inline onSeeked x = onEvent "onseeked" x
+        let inline onSeeking x = onEvent "onseeking" x
+        let inline onSelectStart x = onEvent "onselectstart" x
+        let inline onSelectionChange x = onEvent "onselectionchange" x
+        let inline onSoundEnd x = onEvent "onsoundend" x
+        let inline onSoundStart x = onEvent "onsoundstart" x
+        let inline onSpeechEnd x = onEvent "onspeechend" x
+        let inline onSpeechStart x = onEvent "onspeechstart" x
+        let inline onStalled x = onEvent "onstalled" x
+        let inline onStart x = onEvent "onstart" x
+        let inline onSubmit x = onEvent "onsubmit" x
+        let inline onSuccess x = onEvent "onsuccess" x
+        let inline onSuspend x = onEvent "onsuspend" x
+        let inline onTimeUpdate x = onEvent "ontimeupdate" x
+        let inline onUpdateReady x = onEvent "onupdateready" x
+        let inline onVoicesChanged x = onEvent "onvoiceschanged" x
+        let inline onVisibilityChange x = onEvent "onvisibilitychange" x
+        let inline onVolumeChange x = onEvent "onvolumechange" x
+        let inline onVrdisplayConnected x = onEvent "onvrdisplayconnected" x
+        let inline onVrdisplayDisconnected x = onEvent "onvrdisplaydisconnected" x
+        let inline onVrdisplayPresentChange x = onEvent "onvrdisplaypresentchange" x
+        let inline onWaiting x = onEvent "onwaiting" x
 
-        let onBlur = onEvent "onblur"
-        let onFocus = onEvent "onfocus"
+        let inline onBlur x = onEvent "onblur" x
+        let inline onFocus x = onEvent "onfocus" x
 
 open Html
 open Fable.Import.Browser
 
 [<AutoOpen>]
 module App =
-    type Observer<'T>(next, error, completed) =
-        interface System.IObserver<'T> with
-            member x.OnCompleted() = completed()
-            member x.OnError(e) = error e
-            member x.OnNext(v) = next v
-
     type AppState<'TModel, 'TMessage> = {
             Model: 'TModel
-            View: ('TMessage -> unit) -> 'TModel -> Html.Types.Node
+            View: 'TModel -> Html.Types.Node<'TMessage>
             Update: 'TModel -> 'TMessage -> ('TModel * ((unit -> unit) list)) }
 
 
     type AppEvents<'TMessage, 'TModel> =
         | ModelChanged of 'TModel*'TModel
         | ActionReceived of 'TMessage
+        | DrawStarted
 
     type Subscriber<'TMessage, 'TModel> = AppEvents<'TMessage, 'TModel> -> unit
+
+    type RenderState = 
+        | InProgress
+        | NoRequest
 
     type App<'TModel, 'TMessage> =
         {
             AppState: AppState<'TModel, 'TMessage>
+            JsCalls: (unit -> unit) list
             Node: Node option
             CurrentTree: obj option
             Subscribers: Map<string, Subscriber<'TMessage, 'TModel>>
             NodeSelector: string option
+            RenderState: RenderState
+        }
+
+    type ScheduleMessage = 
+        | PingIn of float*(unit -> unit)
+
+    type AppMessage<'TMessage> =
+        | AddSubscriber of string*Subscriber<'TMessage, 'TMessage>
+        | RemoveSubscriber of string
+        | Message of 'TMessage
+        | Draw
+
+    type Renderer<'TMessage> =
+        {
+            Render: ('TMessage -> unit) -> Html.Types.Node<'TMessage> -> obj
+            Diff: obj -> obj -> obj
+            Patch: Fable.Import.Browser.Node -> obj -> Fable.Import.Browser.Node
+            CreateElement: obj -> Fable.Import.Browser.Node
         }
 
     let createApp appState =
         {
             AppState = appState
+            JsCalls = []
             Node = None
             CurrentTree = None
             Subscribers = Map.empty
             NodeSelector = None
+            RenderState = NoRequest
         }
 
     let withStartNode selector app = { app with NodeSelector = Some selector }
@@ -338,29 +358,31 @@ module App =
         let subsribers = app.Subscribers |> Map.add subscriberId subscriber
         { app with Subscribers = subsribers }
 
-    type AppMessage<'TMessage> =
-        | AddSubscriber of string*Subscriber<'TMessage, 'TMessage>
-        | RemoveSubscriber of string
-        | Message of 'TMessage
-
-    type Renderer =
-        {
-            Render: Html.Types.Node -> obj
-            Diff: obj -> obj -> obj
-            Patch: Fable.Import.Browser.Node -> obj -> Fable.Import.Browser.Node
-            CreateElement: obj -> Fable.Import.Browser.Node
-        }
+    let createScheduler() = 
+        MailboxProcessor.Start(fun inbox ->
+            let rec loop() = 
+                async {
+                    let! message = inbox.Receive()
+                    match message with
+                    | PingIn (milliseconds, cb) ->
+                        window.setTimeout(cb, milliseconds) |> ignore
+                        return! loop()
+                }
+            loop()
+        )
 
     let start renderer app =
         let renderTree view handler model =
-            view handler model
-            |> renderer.Render
+            view model
+            |> renderer.Render handler
 
         let startElem =
             match app.NodeSelector with
             | None -> document.body
             | Some sel -> document.body.querySelector(sel) :?> HTMLElement
 
+        
+        let scheduler = createScheduler()
         MailboxProcessor.Start(fun inbox ->
             let post message =
                 inbox.Post (Message message)
@@ -378,71 +400,78 @@ module App =
                         return! loop {state with CurrentTree = Some tree; Node = Some rootNode}
                     | Some rootNode, Some currentTree ->
                         let! message = inbox.Receive()
+
                         match message with
                         | Message msg ->
                             ActionReceived msg |> (notifySubscribers state.Subscribers)
                             let (model', jsCalls) = state.AppState.Update state.AppState.Model msg
-                            let tree = renderTree state.AppState.View post model'
-                            let patches = renderer.Diff currentTree tree
-                            notifySubscribers state.Subscribers (ModelChanged (model', state.AppState.Model))
-                            renderer.Patch rootNode patches |> ignore
-                            jsCalls |> List.iter (fun i -> i())
-                            return! loop {state with AppState = {state.AppState with Model = model'}; CurrentTree = Some tree}
+
+                            let renderState =
+                                match state.RenderState with
+                                | NoRequest ->
+                                    scheduler.Post(PingIn(1000./60., (fun() -> inbox.Post(Draw))))
+                                    InProgress
+                                | InProgress -> InProgress
+                            return! loop {
+                                state with 
+                                    AppState = { state.AppState with Model = model' }
+                                    RenderState = renderState
+                                    JsCalls = state.JsCalls @ jsCalls }
+                        | Draw -> 
+                            match state.RenderState with
+                            | InProgress ->
+                                DrawStarted |> notifySubscribers state.Subscribers
+
+                                let model = state.AppState.Model
+
+                                let jsCalls = state.JsCalls
+                                let tree = renderTree state.AppState.View post model
+                                let patches = renderer.Diff currentTree tree
+                                renderer.Patch rootNode patches |> ignore
+                                jsCalls |> List.iter (fun i -> i())
+
+                                (ModelChanged (model, state.AppState.Model)) |> notifySubscribers state.Subscribers
+
+                                return! loop {state with RenderState = NoRequest; CurrentTree = Some tree; JsCalls = []}
+                            | NoRequest -> raise (exn "Shouldn't happen")
                         | _ -> return! loop state
                     | _ -> failwith "Shouldn't happen"
                 }
             loop app)
 
-let createTree tag attributes children =
-    let renderEventHandler (eventType, handler) = eventType, handler
-
-    let renderEventBinding binding =
-        match binding with
-        | MouseEventHandler (eventType, handler) -> (eventType, handler :> obj)//renderMouseEventHandler mh
-        | KeyboardEventHandler (eventType, handler) -> (eventType, handler :> obj)
-        | EventHandler (eventType, handler) -> (eventType, handler :> obj)
-        |> renderEventHandler
-
-    let renderAttributes attributes =
-        attributes
-        |> List.map (function
-                        | Attribute.Attribute (k,v) -> Some (k ==> v)
-                        | _ -> None)
-        |> List.choose id
-        |> (function
-            | [] -> None
-            | p -> Some ("attributes" ==> (p |> createObj)))
-
-    let toAttrs attrs =
-        let (attributes, others) = attrs |> List.partition (function Attribute _ -> true | _ -> false)
-        let renderedAttributes = attributes |> renderAttributes
-        let renderedOthers =
-            others
+let createTree<'T> (handler:'T -> unit) tag (attributes:Attribute<'T> list) children =
+    let toAttrs (attrs:Attribute<'T> list) =
+        let elAttributes = 
+            attrs
             |> List.map (function
-                    | EventHandlerBinding binding -> binding |> renderEventBinding
-                    | Style style ->
-                        let styleObj =
-                            style
-                            |> List.map (fun (k,v) -> k ==> v)
-                            |> createObj
+                | Attribute (k,v) -> (k ==> v) |> Some
+                | _ -> None)
+            |> List.choose id
+            |> (function | [] -> None | v -> Some ("attributes" ==> (createObj(v))))
 
-                        "style" ==> styleObj
-                    | Property (key, value) -> key ==> value
-                    | Attribute _ -> failwith "Should not happen"
-                )
-        match renderedAttributes with
-        | Some x -> x::renderedOthers
-        | _ -> renderedOthers
+        let props =
+            attrs
+            |> List.filter (function | Attribute _ -> false | _ -> true)
+            |> List.map (function
+                | Style style -> "style" ==> createObj(unbox style)
+                | Property (k,v) -> k ==> v
+                | EventHandlerBinding binding ->
+                    match binding with
+                    | MouseEventHandler(ev, f) -> ev ==> ((f >> handler) :> obj)
+                    | KeyboardEventHandler(ev, f) -> ev ==> ((f >> handler) :> obj)
+                    | EventHandler(ev, f) -> ev ==> ((f >> handler) :> obj)
+            )
+
+        match elAttributes with
+        | None -> props
+        | Some x -> x::props
         |> createObj
+    h(tag, toAttrs attributes, List.toArray children)
 
-    let hAttrs = attributes |> toAttrs
-    let childrenArr = children |> List.toArray
-    h(tag, hAttrs, childrenArr)
-
-let rec render node =
+let rec render handler node =
     match node with
-    | Element((tag,attrs), nodes) -> createTree tag attrs (nodes |> List.map render)
-    | VoidElement (tag, attrs) -> createTree tag attrs []
+    | Element((tag,attrs), nodes) -> createTree handler tag attrs (nodes |> List.map (render handler))
+    | VoidElement (tag, attrs) -> createTree handler tag attrs []
     | Text str -> box(string str)
     | WhiteSpace str -> box(string str)
 

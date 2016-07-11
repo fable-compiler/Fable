@@ -9,7 +9,6 @@ open Fake.AssemblyInfoFile
 // version info
 let fableCompilerVersion = "0.4.0"
 let fableCoreVersion = "0.2.0"
-let minimumFableCoreVersion = "0.2.0"
 
 module Util =
     open System.Net
@@ -149,7 +148,7 @@ Target "FableCompilerRelease" (fun _ ->
     Util.assemblyInfo "src/fable/Fable.Core" fableCoreVersion []
     Util.assemblyInfo "src/fable/Fable.Compiler" fableCompilerVersion []
     Util.assemblyInfo "src/fable/Fable.Client.Node" fableCompilerVersion [
-        Attribute.Metadata ("minimumFableCoreVersion", minimumFableCoreVersion)
+        Attribute.Metadata ("fableCoreVersion", fableCoreVersion)
     ]
 
     let buildDir = "build/fable"
@@ -219,7 +218,7 @@ Target "MochaTest" (fun _ ->
 )
 
 Target "Plugins" (fun _ ->
-    !! "src/plugins/nunit/*.fsx"
+    !! "src/plugins/**/*.fsx"
     |> Seq.iter (fun fsx -> Util.compileScript [] (Path.GetDirectoryName fsx) fsx)
 )
 

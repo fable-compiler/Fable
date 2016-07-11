@@ -54,8 +54,6 @@
     <Compile Include="AST\AST.Fable.Util.fs" />
     <Compile Include="AST\AST.Babel.fs" />
     <Compile Include="Plugins.fs" />
-    <Compile Include="Replacements.fs" />
-    <Compile Include="Fable2Babel.fs" />
     <Compile Include="Fable.Core.fs" />
     <Compile Include="Import\Fable.Import.JS.fs" />
     <Compile Include="Import\Fable.Import.Browser.fs" />

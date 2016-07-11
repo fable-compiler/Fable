@@ -54,7 +54,6 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Compile Include="Main.fs" />
-    <Compile Include="Entry.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Compiler\Fable.Compiler.fsproj">
