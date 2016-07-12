@@ -645,13 +645,12 @@ class FString {
   };
 
   static init(n: number, f: (i: number) => string) {
-    if (n < 0) {
+    if (n < 0)
       throw "String length must be non-negative";
-    }
-    var xs = new Array(n);
-    for (var i = 0; i < n; i++) {
+
+    const xs = new Array(n);
+    for (let i = 0; i < n; i++)
       xs[i] = f(i);
-    }
     return xs.join("");
   };
 
@@ -664,13 +663,11 @@ class FString {
   };
 
   static padLeft(str: any, len: number, ch?: string, isRight?: boolean) {
-    var i = -1;
     ch = ch || ' ';
     str = String(str);
     len = len - str.length;
-    while (++i < len) {
+    for (let i = -1; ++i < len;)
       str = isRight ? str + ch : ch + str;
-    }
     return str;
   };
 
@@ -691,12 +688,17 @@ class FString {
   static split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
     count = typeof count == "number" ? count : null;
     removeEmpty = typeof removeEmpty == "number" ? removeEmpty : null;
-    if (count < 0) { throw "Count cannot be less than zero"; }
-    if (count === 0) { return []; }
+    if (count < 0)
+      throw "Count cannot be less than zero";
+    if (count === 0)
+      return [];
     splitters = Array.isArray(splitters) ? splitters : Util.getRestParams(arguments, 1);
     splitters = splitters.map((x) => FRegExp.escape(x));
     splitters = splitters.length > 0 ? splitters : [" "];
-    var m: RegExpExecArray, i = 0, splits: string[] = [], reg = new RegExp(splitters.join("|"), "g");
+    let m: RegExpExecArray;
+    let i = 0;
+    const splits: string[] = [];
+    const reg = new RegExp(splitters.join("|"), "g");
     while ((count == null || count > 1) && (m = reg.exec(str)) !== null) {
       if (!removeEmpty || (m.index - i) > 0) {
         count = count != null ? count - 1 : count;
@@ -717,17 +719,16 @@ class FString {
   static concat = FString.join;
 
   static endsWith(str: string, search: string) {
-    var idx = str.lastIndexOf(search);
+    const idx = str.lastIndexOf(search);
     return idx >= 0 && idx == str.length - search.length;
   };
 
   static newGuid = function newGuid() {
-    var i: number, random: number, uuid = '';
-    for (i = 0; i < 32; i++) {
-      random = Math.random() * 16 | 0;
-      if (i === 8 || i === 12 || i === 16 || i === 20) {
+    let uuid = '';
+    for (let i = 0; i < 32; i++) {
+      const random = Math.random() * 16 | 0;
+      if (i === 8 || i === 12 || i === 16 || i === 20)
         uuid += '-';
-      }
       uuid += (i === 12 ? 4 : i === 16 ? random & 3 | 8 : random).toString(16);
     }
     return uuid;
