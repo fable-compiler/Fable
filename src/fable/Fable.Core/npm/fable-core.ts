@@ -1896,80 +1896,72 @@ class FSet {
 export { FSet as Set };
 
 class FMap {
-  static containsValue = function (v: any, map: any) {
-    return Seq.fold(function (acc, k) {
-      return acc || map.get(k) === v;
-    }, false, map.keys());
+  static containsValue<K, V>(v: V, map: Map<K, V>) {
+    return Seq.fold((acc, k) => acc || map.get(k) === v, false, map.keys());
   };
-  static exists = function (f: any, map: any) {
-    return Seq.exists(function (kv: any) {
-      return f(kv[0], kv[1]);
-    }, map);
+
+  static exists<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
+    return Seq.exists((kv) => f(kv[0], kv[1]), map);
   };
-  static filter = function (f: any, map: any) {
-    return Seq.fold(function (acc: any, kv: any) {
-      return f(kv[0], kv[1]) ? acc.set(kv[0], kv[1]) : acc;
-    }, new Map(), map);
+
+  static filter<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
+    return Seq.fold((acc, kv) => f(kv[0], kv[1]) ? acc.set(kv[0], kv[1]) : acc, new Map<K, V>(), map);
   };
-  static fold = function (f: any, seed: any, map: any) {
-    return Seq.fold(function (acc: any, kv: any) {
-      return f(acc, kv[0], kv[1]);
-    }, seed, map);
+
+  static fold<K, V, ST>(f: (acc: ST, k: K, v: V) => ST, seed: ST, map: Map<K, V>) {
+    return Seq.fold((acc, kv) => f(acc, kv[0], kv[1]), seed, map);
   };
-  static foldBack = function (f: any, map: any, seed: any) {
-    return Seq.foldBack(function (kv: any, acc: any) {
-      return f(kv[0], kv[1], acc);
-    }, map, seed);
+
+  static foldBack<K, V, ST>(f: (k: K, v: V, acc: ST) => ST, map: Map<K, V>, seed: ST) {
+    return Seq.foldBack((kv, acc) => f(kv[0], kv[1], acc), map, seed);
   };
-  static forall = function (f: any, map: any) {
-    return Seq.forall(function (kv: any) {
-      return f(kv[0], kv[1]);
-    }, map);
+
+  static forall<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
+    return Seq.forall((kv) => f(kv[0], kv[1]), map);
   };
-  static iter = function (f: any, map: any) {
-    return Seq.iter(function (kv: any) {
-      f(kv[0], kv[1]);
-    }, map);
+
+  static iter<K, V>(f: (k: K, v: V) => void, map: Map<K, V>) {
+    return Seq.iter((kv) => f(kv[0], kv[1]), map);
   };
-  static map = function (f: any, map: any) {
-    return Seq.fold(function (acc: any, kv: any) {
-      return acc.set(kv[0], f(kv[0], kv[1]));
-    }, new Map(), map);
+
+  static map<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
+    return Seq.fold((acc, kv) => acc.set(kv[0], f(kv[0], kv[1])), new Map<K, U>(), map);
   };
-  static partition = function (f: any, map: any) {
-    return Seq.fold(function (acc: any, kv: any) {
-      var lacc = acc[0],
-        racc = acc[1],
-        k = kv[0],
-        v = kv[1];
-      return f(k, v) ? [lacc.set(k, v), racc] : [lacc, racc.set(k, v)];
-    }, [new Map(), new Map()], map);
+
+  static partition<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
+    return Seq.fold((acc, kv) => {
+      const lacc = acc[0], racc = acc[1];
+      const k = kv[0], v = kv[1];
+      return f(k, v) ? Tuple(lacc.set(k, v), racc) : Tuple(lacc, racc.set(k, v));
+    }, Tuple(new Map<K, V>(), new Map<K, V>()), map);
   };
-  static findKey = function (f: any, map: any) {
-    return Seq.pick(function (kv: any) {
-      return f(kv[0], kv[1]) ? kv[0] : null;
-    }, map);
+
+  static findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
+    return Seq.pick((kv) => f(kv[0], kv[1]) ? kv[0] : null, map);
   };
-  static tryFindKey = function (f: any, map: any) {
-    return Seq.tryPick(function (kv: any) {
-      return f(kv[0], kv[1]) ? kv[0] : null;
-    }, map);
+
+  static tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
+    return Seq.tryPick((kv) => f(kv[0], kv[1]) ? kv[0] : null, map);
   };
-  static pick = function (f: any, map: any) {
-    return Seq.pick(function (kv: any) {
-      var res = f(kv[0], kv[1]);
+
+  static pick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
+    return Seq.pick((kv) => {
+      const res = f(kv[0], kv[1]);
       return res != null ? res : null;
     }, map);
   };
-  static remove = function (item: any, map: any) {
-    return FMap.removeInPlace(item, new Map(map));
+
+  static remove<K, V>(item: K, map: Map<K, V>) {
+    return FMap.removeInPlace(item, new Map<K, V>(map));
   };
-  static removeInPlace(item: any, xs: any) {
-    xs.delete(item);
-    return xs;
+
+  static removeInPlace<K, V>(item: K, map: Map<K, V>) {
+    map.delete(item);
+    return map;
   };
-  static tryPick = function (f: any, map: any) {
-    return Seq.tryPick(function (kv: any) {
+
+  static tryPick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
+    return Seq.tryPick((kv) => {
       var res = f(kv[0], kv[1]);
       return res != null ? res : null;
     }, map);
