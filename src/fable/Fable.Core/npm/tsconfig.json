@@ -5,6 +5,6 @@
         "noImplicitAny": true
     },
     "files": [
-        "fable-core.tsc.ts"
+        "fable-core.ts"
     ]
 }
