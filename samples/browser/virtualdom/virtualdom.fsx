@@ -183,17 +183,18 @@ First we define the actual actions before moving on to the actual update functio
 *)
 
 let todoUpdate model msg =
-    let checkAllWith v =
-        let items' =
-            model.Items
-            |> List.map (fun i -> { i with Done = v })
+    let updateItems model f =
+        let items' = f model.Items
         {model with Items = items'}
 
+    let checkAllWith v =
+        List.map (fun i -> { i with Done = v })
+        |> updateItems model
+
     let updateItem i model =
-        let items' =
-            model.Items |> List.map (fun i' ->
+        List.map (fun i' ->
                 if i'.Id <> i.Id then i' else i)
-        {model with Items = items'}
+        |> updateItems model
 
     let model' =
         match msg with
@@ -204,33 +205,27 @@ let todoUpdate model msg =
                     model.Items
                     |> List.map (fun x -> x.Id)
                     |> List.max
-            let item' = {
-                Id = maxId + 1
+            (fun items ->
+              { Id = maxId + 1
                 Name = model.Input
                 Done = false
-                IsEditing = false}
-            {model with Items = item'::model.Items; Input = ""}
+                IsEditing = false} :: items)
+            |> updateItems {model with Input = ""}
         | ChangeInput v -> {model with Input = v}
         | MarkAsDone i ->
-            let items' =
-                model.Items |> List.map (fun i' ->
-                    if i' <> i then i'
-                    else {i with Done = true})
-            {model with Items = items'}
+            updateItem {i with Done = true} model
         | CheckAll -> checkAllWith true
         | UnCheckAll -> checkAllWith false
         | Destroy i ->
-            let items' =
-                model.Items |> List.filter (fun i' -> i'.Id <> i.Id)
-            {model with Items = items'}
+            List.filter (fun i' -> i'.Id <> i.Id)
+            |> updateItems model
         | ToggleItem i ->
             updateItem {i with Done = not i.Done} model
         | SetActiveFilter f ->
             { model with Filter = f }
         | ClearCompleted ->
-            let items' =
-                model.Items |> List.filter (fun i -> not i.Done)
-            { model with Items = items'}
+            List.filter (fun i -> not i.Done)
+            |> updateItems model
         | EditItem i ->
             updateItem { i with IsEditing = true} model
         | SaveItem (i,str) ->
