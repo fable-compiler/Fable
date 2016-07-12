@@ -5,7 +5,7 @@ Fable bindings for D3
 ## Installation
 
 ```sh
-$ npm install --save fable-core d3
+$ npm install --save fable-core d3@^3.0.0
 $ npm install --save-dev fable-import-d3
 ```
 
