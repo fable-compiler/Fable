@@ -1812,45 +1812,36 @@ export class Seq {
 }
 
 class FSet {
-  static op_Addition = function (set1: any, set2: any) {
-    var set = new Set(set1);
-    set2.forEach(function (x: any) {
-      set.add(x);
-    });
-    return set;
+  static union<T>(set1: Set<T>, set2: Set<T>) {
+    return Seq.fold((acc, x) => { acc.add(x); return acc; }, new Set(set1), set2);
   };
-  static union = FSet.op_Addition;
-  static unionMany = function (sets: any) {
-    return Seq.fold(function (acc: any, s: any) {
-      s.forEach(function (x: any) {
-        acc.add(x);
-      });
+  static op_Addition = FSet.union;
+
+  static unionMany<T>(sets: Iterable<Set<T>>) {
+    return Seq.fold((acc, s) => FSet.union(acc, s), new Set<T>(), sets);
+  };
+
+  static difference<T>(set1: Set<T>, set2: Set<T>) {
+    return Seq.fold((acc, x) => { acc.delete(x); return acc; }, new Set(set1), set2);
+  };
+  static op_Subtraction = FSet.difference;
+
+  static intersect<T>(set1: Set<T>, set2: Set<T>) {
+    return Seq.fold((acc, x) => {
+      if (!set2.has(x))
+        acc.delete(x);
       return acc;
-    }, new Set(), sets);
+    }, new Set(set1), set1);
   };
-  static op_Subtraction = function (set1: any, set2: any) {
-    var set = new Set(set1);
-    set2.forEach(function (x: any) {
-      set.delete(x);
-    });
-    return set;
-  };
-  static difference = FSet.op_Subtraction;
-  static intersect = function (set1: any, set2: any) {
-    var set = new Set(set1);
-    set1.forEach(function (x: any) {
-      if (!set2.has(x)) set.delete(x);
-    });
-    return set;
-  };
-  static intersectMany = function (sets: any) {
-    var ar = Array.isArray(sets) ? sets : Array.from(sets);
-    if (ar.length == 0) {
+
+  static intersectMany<T>(sets: Iterable<Set<T>>) {
+    const ar = Array.isArray(sets) ? <Array<Set<T>>>sets : Array.from(sets);
+    if (ar.length == 0)
       throw "Seq was empty";
-    }
-    var set = new Set(ar[0]);
-    Seq.iter(function (x: any) {
-      for (var i = 1; i < ar.length; i++) {
+
+    const set = new Set<T>(ar[0]);
+    Seq.iter((x: T) => {
+      for (let i = 1; i < ar.length; i++) {
         if (!ar[i].has(x)) {
           set.delete(x);
           break;
@@ -1859,54 +1850,55 @@ class FSet {
     }, ar[0]);
     return set;
   };
-  static isProperSubsetOf = function (set1: any, set2: any) {
-    return Seq.forall(function (x: any) {
-      return set2.has(x);
-    }, set1) && Seq.exists(function (x: any) {
-      return !set1.has(x);
-    }, set2);
+
+  static isProperSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
+    return Seq.forall((x) => set2.has(x), set1) && Seq.exists((x) => !set1.has(x), set2);
   };
   static isProperSubset = FSet.isProperSubsetOf;
-  static isSubsetOf = function (set1: any, set2: any) {
-    return Seq.forall(function (x: any) {
-      return set2.has(x);
-    }, set1);
+
+  static isSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
+    return Seq.forall((x) => set2.has(x), set1);
   };
   static isSubset = FSet.isSubsetOf;
-  static isProperSupersetOf = function (set1: any, set2: any) {
+
+  static isProperSupersetOf<T>(set1: Set<T>, set2: Set<T>) {
     return FSet.isProperSubset(set2, set1);
   };
   static isProperSuperset = FSet.isProperSupersetOf;
-  static isSupersetOf = function (set1: any, set2: any) {
+
+  static isSupersetOf<T>(set1: Set<T>, set2: Set<T>) {
     return FSet.isSubset(set2, set1);
   };
   static isSuperset = FSet.isSupersetOf;
-  static copyTo = function (xs: any, arr: any, arrayIndex: any, count: any) {
+
+  static copyTo<T>(xs: Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
     if (!Array.isArray(arr) && !ArrayBuffer.isView(arr))
       throw "Array is invalid";
 
     count = count || arr.length;
-    var i = arrayIndex || 0;
-    var iter = xs[Symbol.iterator]();
+    let i = arrayIndex || 0;
+    const iter = xs[Symbol.iterator]();
     while (count--) {
-      var el = iter.next();
+      const el = iter.next();
       if (el.done) break;
       arr[i++] = el.value;
     };
   };
-  static partition = function (f: any, xs: any) {
-    return Seq.fold(function (acc, x) {
-      var lacc = acc[0],
-        racc = acc[1];
-      return f(x) ? [lacc.add(x), racc] : [lacc, racc.add(x)];
-    }, [new Set(), new Set()], xs);
+
+  static partition<T>(f: (x: T) => boolean, xs: Set<T>) {
+    return Seq.fold((acc, x) => {
+      const lacc = acc[0], racc = acc[1];
+      return f(x) ? Tuple(lacc.add(x), racc) : Tuple(lacc, racc.add(x));
+    }, Tuple(new Set<T>(), new Set<T>()), xs);
   };
-  static removeInPlace = function (item: any, xs: any) {
+
+  static remove<T>(item: T, xs: Set<T>) {
+    return FSet.removeInPlace(item, new Set(xs));
+  };
+
+  static removeInPlace<T>(item: T, xs: Set<T>) {
     xs.delete(item);
     return xs;
-  };
-  static remove = function (item: any, xs: any) {
-    return FSet.removeInPlace(item, new Set(xs));
   };
 }
 export { FSet as Set };
@@ -1977,9 +1969,12 @@ class FMap {
       return res != null ? res : null;
     }, map);
   };
-  static removeInPlace = FSet.removeInPlace;
   static remove = function (item: any, map: any) {
     return FMap.removeInPlace(item, new Map(map));
+  };
+  static removeInPlace(item: any, xs: any) {
+    xs.delete(item);
+    return xs;
   };
   static tryPick = function (f: any, map: any) {
     return Seq.tryPick(function (kv: any) {
