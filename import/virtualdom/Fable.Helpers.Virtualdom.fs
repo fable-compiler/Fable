@@ -1,6 +1,7 @@
 module Fable.Helpers.Virtualdom
 
 open Fable.Core
+open System.Diagnostics
 
 [<Import("h","virtual-dom")>]
 let h(arg1: string, arg2: obj, arg3: obj[]): obj = failwith "JS only"
@@ -43,10 +44,10 @@ module Html =
         type KeyValue = string*string
 
         type Attribute<'TMessage> =
-        | EventHandlerBinding of EventHandlerBinding<'TMessage>
-        | Style of Style
-        | Property of KeyValue
-        | Attribute of KeyValue
+            | EventHandlerBinding of EventHandlerBinding<'TMessage>
+            | Style of Style
+            | Property of KeyValue
+            | Attribute of KeyValue
 
         type Element<'TMessage> = string * Attribute<'TMessage> list
         /// A Node in Html have the following forms
@@ -61,6 +62,7 @@ module Html =
         | Text of string
         /// Whitespace for formatting
         | WhiteSpace of string
+        | Svg of Element<'TMessage> * Node<'TMessage> list
 
     [<AutoOpen>]
     module Tags =
@@ -292,6 +294,25 @@ module Html =
         let inline onBlur x = onEvent "onblur" x
         let inline onFocus x = onEvent "onfocus" x
 
+    [<AutoOpen>]
+    module Svg = 
+        let svgNS = Attribute.Property("namespace","http://www.w3.org/2000/svg")
+        let inline svgElem tagName attrs children = Element((tagName, svgNS::attrs), children)
+
+        let inline svg x = svgElem "svg" x
+        let inline circle x = svgElem "circle" x 
+        let inline rect x = svgElem "rect" x 
+
+        let inline width x = attribute "width" x
+        let inline height x = attribute "height" x
+        let inline viewBox x = attribute "viewBox" x
+        let inline cx x = attribute "cx" x
+        let inline cy x = attribute "cy" x
+        let inline r x = attribute "r" x
+        let inline stroke x = attribute "stroke" x
+        let inline strokeWidth x = attribute "stroke-width" x
+        let inline fill x = attribute "fill" x
+
 open Html
 open Fable.Import.Browser
 
@@ -448,7 +469,6 @@ let createTree<'T> (handler:'T -> unit) tag (attributes:Attribute<'T> list) chil
                 | _ -> None)
             |> List.choose id
             |> (function | [] -> None | v -> Some ("attributes" ==> (createObj(v))))
-
         let props =
             attrs
             |> List.filter (function | Attribute _ -> false | _ -> true)
@@ -467,11 +487,15 @@ let createTree<'T> (handler:'T -> unit) tag (attributes:Attribute<'T> list) chil
         | None -> props
         | Some x -> x::props
         |> createObj
-    h(tag, toAttrs attributes, List.toArray children)
+        |> (fun x -> Debug.WriteLine("Attributes: {0}", x); x)
+    let elem = h(tag, toAttrs attributes, List.toArray children)
+    Debug.WriteLine("Elem: {0}", elem)
+    elem
 
 let rec render handler node =
     match node with
-    | Element((tag,attrs), nodes) -> createTree handler tag attrs (nodes |> List.map (render handler))
+    | Element((tag,attrs), nodes)
+    | Svg((tag,attrs), nodes) -> createTree handler tag attrs (nodes |> List.map (render handler))
     | VoidElement (tag, attrs) -> createTree handler tag attrs []
     | Text str -> box(string str)
     | WhiteSpace str -> box(string str)

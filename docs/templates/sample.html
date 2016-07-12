@@ -36,7 +36,7 @@
       <script>
         requirejs.config({
           baseUrl: '.',
-          paths: { 'fable-core': '/samples/scripts/fable-core.min', {{ model.RequirePaths }} }
+          paths: { 'fable-core': '../scripts/fable-core.min', {{ model.RequirePaths }} }
         });
         requirejs(["{{ model.Name }}"]);
       </script>

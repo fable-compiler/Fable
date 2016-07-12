@@ -2,7 +2,7 @@
  - title: The Elm architecture using Fable
  - tagline: Fable implementation of the Elm architecture
  - app-style: width:800px; margin:20px auto 50px auto;
- - require-paths: `'virtual-dom':'/samples/virtualdom/lib/virtual-dom'`
+ - require-paths: `'virtual-dom':'lib/virtual-dom'`
  - intro: This demo is an implementation of the [Elm architecture](http://guide.elm-lang.org/architecture/)
    using the same [virtual-dom](https://github.com/Matt-Esch/virtual-dom) as Elm originally used.
    Contributed by [Tomas Jansson](https://twitter.com/TomasJansson).
@@ -10,7 +10,6 @@
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
 #load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
-//#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
 (**
 ##Architecture overview
 
@@ -74,14 +73,23 @@ let counterView model =
         | _ -> "green"
     div []
         [
-            div [   Style ["border","1px solid blue"]
-                    onMouseClick (fun x -> (Increment 1))
-                    onDblClick (fun x -> ((Increment 100)))] [text (string "Increment")]
-            div [ Style ["background-color", bgColor; "color", "white"]] [text (string model)]
-            div [   Style ["border", "1px solid green"; "height", ((string (70 + model)) + "px")]
-                    onMouseClick (fun x -> (Decrement 1))
-                    onDblClick (fun x -> (Decrement 50))]
-                [text (string "Decrement")]
+            div [ Style ["width", "120px"; "height", "120px"] ] [
+                svg [ width "120"; height "120"; viewBox "0 0 100 100" ]
+                    [ rect [width "110"; height "110"; fill bgColor] []]
+            ]
+            div [ Style ["border","1px solid blue"]
+                  onMouseClick (fun x -> (Increment 1))
+                  onDblClick (fun x -> ((Increment 100)))]
+                [ text (string "Increment")]
+            div [ Style ["background-color", bgColor; "color", "white"]]
+                [text (string model)]
+            div [ Style ["border", "1px solid green";
+                         "height", ((string (70 + model)) + "px")]
+                  onMouseClick (fun x -> (Decrement 1))
+                  onDblClick (fun x -> (Decrement 50))]
+                [ text (string "Decrement")]
+            //    <circle cx="50" cy="50" r="40" stroke="black"
+            //            stroke-width="3" fill="red" />
         ]
 
 (**
@@ -176,11 +184,15 @@ First we define the actual actions before moving on to the actual update functio
 
 let todoUpdate model msg =
     let checkAllWith v =
-        { model with Items = model.Items |> List.map (fun i -> { i with Done = v })}
+        let items' =
+            model.Items
+            |> List.map (fun i -> { i with Done = v })
+        {model with Items = items'}
 
     let updateItem i model =
         let items' =
-            model.Items |> List.map (fun i' -> if i'.Id <> i.Id then i' else i)
+            model.Items |> List.map (fun i' ->
+                if i'.Id <> i.Id then i' else i)
         {model with Items = items'}
 
     let model' =
@@ -192,25 +204,42 @@ let todoUpdate model msg =
                     model.Items
                     |> List.map (fun x -> x.Id)
                     |> List.max
-            let item' = {Id = maxId + 1; Name = model.Input; Done = false; IsEditing = false}
+            let item' = {
+                Id = maxId + 1
+                Name = model.Input
+                Done = false
+                IsEditing = false}
             {model with Items = item'::model.Items; Input = ""}
         | ChangeInput v -> {model with Input = v}
         | MarkAsDone i ->
             let items' =
-                model.Items |> List.map (fun i' -> if i' <> i then i' else {i with Done = true})
+                model.Items |> List.map (fun i' ->
+                    if i' <> i then i'
+                    else {i with Done = true})
             {model with Items = items'}
         | CheckAll -> checkAllWith true
         | UnCheckAll -> checkAllWith false
-        | Destroy i -> {model with Items = model.Items |> List.filter (fun i' -> i'.Id <> i.Id)}
-        | ToggleItem i -> updateItem {i with Done = not i.Done} model
-        | SetActiveFilter f -> { model with Filter = f }
-        | ClearCompleted -> { model with Items = model.Items |> List.filter (fun i -> not i.Done)}
-        | EditItem i -> updateItem { i with IsEditing = true} model
-        | SaveItem (i,str) -> updateItem { i with Name = str; IsEditing = false} model
+        | Destroy i ->
+            let items' =
+                model.Items |> List.filter (fun i' -> i'.Id <> i.Id)
+            {model with Items = items'}
+        | ToggleItem i ->
+            updateItem {i with Done = not i.Done} model
+        | SetActiveFilter f ->
+            { model with Filter = f }
+        | ClearCompleted ->
+            let items' =
+                model.Items |> List.filter (fun i -> not i.Done)
+            { model with Items = items'}
+        | EditItem i ->
+            updateItem { i with IsEditing = true} model
+        | SaveItem (i,str) ->
+            updateItem { i with Name = str; IsEditing = false} model
 
     let jsCalls =
         match msg with
-        | EditItem i -> [fun () -> document.getElementById("item-" + (i.Id.ToString())).focus()]
+        | EditItem i -> [fun () ->
+            document.getElementById("item-" + (i.Id.ToString())).focus()]
         | _ -> []
     model',jsCalls
 
@@ -254,7 +283,10 @@ let todoFooter model =
         if model.Items |> List.exists (fun i -> i.Done)
         then ""
         else "none"
-    let activeCount = model.Items |> List.filter (fun i -> not i.Done) |> List.length |> string
+    let activeCount =
+        model.Items
+        |> List.filter (fun i -> not i.Done)
+        |> List.length |> string
     footer
         [   attribute "class" "footer"; Style ["display","block"]]
         [   span
@@ -274,6 +306,7 @@ let todoHeader model =
         [   h1 [] [text "todos"]
             input [ attribute "class" "new-todo"
                     attribute "id" "new-todo"
+                    property "value" model
                     property "placeholder" "What needs to be done?"
                     onKeyup (fun x ->
                         if x.keyCode = 13
@@ -371,7 +404,8 @@ let initModel = {Filter = All; Items = initList; Input = ""}
 let todoApp =
     createApp {Model = initModel; View = todoView; Update = todoUpdate}
     |> (withSubscriber "storagesub" (function
-            | ModelChanged (newModel,old) -> save (newModel.Items |> Array.ofList)
+            | ModelChanged (newModel,old) ->
+                save (newModel.Items |> Array.ofList)
             | _ -> ()))
     |> (withSubscriber "modellogger" (printfn "%A"))
     |> withStartNode "#todo"
