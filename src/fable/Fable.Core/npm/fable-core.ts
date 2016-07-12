@@ -2592,19 +2592,19 @@ export class Event {
   };
 }
 
-export class Lazy {
-  public factory: any;
+export class Lazy<T> {
+  public factory: () => T;
   public isValueCreated: boolean;
 
-  private createdValue: any;
+  private createdValue: T;
 
-  constructor(factory: any) {
+  constructor(factory: () => T) {
     this.factory = factory;
     this.isValueCreated = false;
   };
 
-  static createFromValue = function (v: any) {
-    return new Lazy(function () { return v; });
+  static createFromValue<T>(v: T) {
+    return new Lazy(() => v);
   };
 
   get value() {
