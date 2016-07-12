@@ -744,7 +744,7 @@ export interface Disposable {
 
 class FRegExp {
   static create(pattern: string, options: number) {
-    var flags = "g";
+    let flags = "g";
     flags += options & 1 ? "i" : "";
     flags += options & 2 ? "m" : "";
     return new RegExp(pattern, flags);
@@ -777,19 +777,18 @@ class FRegExp {
     var reg: RegExp = str instanceof RegExp
       ? (reg = <RegExp>str, str = pattern, reg.lastIndex = options, reg)
       : reg = FRegExp.create(pattern, options);
-    if (!reg.global) {
+    if (!reg.global)
       throw "Non-global RegExp"; // Prevent infinite loop
-    }
-    var m: RegExpExecArray,
-      matches: RegExpExecArray[] = [];
-    while ((m = reg.exec(<string>str)) !== null) {
+
+    let m: RegExpExecArray;
+    const matches: RegExpExecArray[] = [];
+    while ((m = reg.exec(<string>str)) !== null)
       matches.push(m);
-    }
     return matches;
   };
 
   static options(reg: RegExp) {
-    var options = 256; // ECMAScript
+    let options = 256; // ECMAScript
     options |= reg.ignoreCase ? 1 : 0;
     options |= reg.multiline ? 2 : 0;
     return options;
@@ -797,21 +796,21 @@ class FRegExp {
 
   static replace(reg: string | RegExp, input: string, replacement: string | MatchEvaluator, limit?: number, offset: number = 0) {
     if (typeof reg == "string") {
-      var tmp = <string>reg;
+      const tmp = <string>reg;
       reg = FRegExp.create(input, limit);
-      input = tmp, limit = undefined;
+      input = tmp;
+      limit = undefined;
     }
     if (typeof replacement == "function") {
       limit = limit == null ? -1 : limit;
-      var replacer = function () {
-        var res = arguments[0];
+      const replacer = function () {
+        let res = arguments[0];
         if (limit !== 0) {
           limit--;
-          var match: any = [];
-          var len = arguments.length;
-          for (var i = 0; i < len - 2; i++) {
+          const match: any = [];
+          const len = arguments.length;
+          for (let i = 0; i < len - 2; i++)
             match.push(arguments[i]);
-          }
           match.index = arguments[len - 2];
           match.input = arguments[len - 1];
           res = (<MatchEvaluator>replacement)(match);
@@ -821,10 +820,10 @@ class FRegExp {
       return input.substring(0, offset) + input.substring(offset).replace(<RegExp>reg, replacer);
     } else {
       if (limit != null) {
-        var m: any;
-        var sub1 = input.substring(offset);
-        var matches = FRegExp.matches(reg, sub1);
-        var sub2 = matches.length > limit ? (m = matches[limit - 1], sub1.substring(0, m.index + m[0].length)) : sub1;
+        let m: RegExpExecArray;
+        const sub1 = input.substring(offset);
+        const matches = FRegExp.matches(reg, sub1);
+        const sub2 = matches.length > limit ? (m = matches[limit - 1], sub1.substring(0, m.index + m[0].length)) : sub1;
         return input.substring(0, offset) + sub2.replace(<RegExp>reg, <string>replacement) + input.substring(offset + sub2.length);
       } else {
         return input.replace(<RegExp>reg, <string>replacement);
@@ -834,9 +833,10 @@ class FRegExp {
 
   static split(reg: string | RegExp, input: string, limit?: number, offset: number = 0) {
     if (typeof reg == "string") {
-      var tmp = <string>reg;
+      const tmp = <string>reg;
       reg = FRegExp.create(input, limit);
-      input = tmp, limit = undefined;
+      input = tmp
+      limit = undefined;
     }
     input = input.substring(offset);
     return input.split(<RegExp>reg, limit);
