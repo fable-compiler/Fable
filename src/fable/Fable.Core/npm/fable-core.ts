@@ -240,11 +240,12 @@ export enum DateKind {
   UTC = 1,
   Local
 }
+
 class FDate extends Date {
   public kind: DateKind;
 
   private static __changeKind(d: Date, kind: DateKind) {
-    var d2: Date;
+    let d2: Date;
     return (<FDate>d).kind == kind ? d : (d2 = new Date(d.getTime()), (<FDate>d2).kind = kind, d2);
   };
 
@@ -261,21 +262,19 @@ class FDate extends Date {
   };
 
   static parse(v?: any, kind?: DateKind): any {
-    var date = (v == null) ? new Date() : new Date(v);
-    if (isNaN(date.getTime())) {
+    const date = (v == null) ? new Date() : new Date(v);
+    if (isNaN(date.getTime()))
       throw "The string is not a valid Date.";
-    }
     (<FDate>date).kind = kind || DateKind.Local;
     return date;
   };
 
   static create(year: number, month: number, day: number, h: number = 0, m: number = 0, s: number = 0, ms: number = 0, kind: DateKind = DateKind.Local): Date {
-    var date: Date = (kind === DateKind.UTC)
+    const date: Date = (kind === DateKind.UTC)
       ? new Date(Date.UTC(year, month - 1, day, h, m, s, ms))
       : new Date(year, month - 1, day, h, m, s, ms);
-    if (isNaN(date.getTime())) {
+    if (isNaN(date.getTime()))
       throw "The parameters describe an unrepresentable Date.";
-    }
     (<FDate>date).kind = kind;
     return date;
   };
@@ -295,11 +294,9 @@ class FDate extends Date {
   };
 
   static daysInMonth(year: number, month: number) {
-    if (month == 2) {
-      return FDate.isLeapYear(year) ? 29 : 28;
-    } else {
-      return month >= 8 ? month % 2 == 0 ? 31 : 30 : month % 2 == 0 ? 30 : 31;
-    }
+    return month == 2
+      ? FDate.isLeapYear(year) ? 29 : 28
+      : month >= 8 ? month % 2 == 0 ? 31 : 30 : month % 2 == 0 ? 30 : 31;
   };
 
   static toUniversalTime(d: Date) {
@@ -357,12 +354,11 @@ class FDate extends Date {
   };
 
   static dayOfYear(d: Date) {
-    var year = FDate.year(d),
-      month = FDate.month(d),
-      day = FDate.day(d);
-    for (var i = 1; i < month; i++) {
+    const year = FDate.year(d);
+    const month = FDate.month(d);
+    let day = FDate.day(d);
+    for (let i = 1; i < month; i++)
       day += FDate.daysInMonth(year, i);
-    }
     return day;
   };
 
@@ -395,17 +391,17 @@ class FDate extends Date {
   };
 
   static addYears(d: Date, v: number) {
-    var newMonth = FDate.month(d),
-      newYear = FDate.year(d) + v,
-      daysInMonth = FDate.daysInMonth(newYear, newMonth),
-      newDay = Math.min(daysInMonth, FDate.day(d));
+    const newMonth = FDate.month(d);
+    const newYear = FDate.year(d) + v;
+    const daysInMonth = FDate.daysInMonth(newYear, newMonth);
+    const newDay = Math.min(daysInMonth, FDate.day(d));
     return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<FDate>d).kind);
   };
 
   static addMonths(d: Date, v: number) {
-    var newMonth = FDate.month(d) + v,
-      newMonth_ = 0,
-      yearOffset = 0;
+    let newMonth = FDate.month(d) + v;
+    let newMonth_ = 0;
+    let yearOffset = 0;
     if (newMonth > 12) {
       newMonth_ = newMonth % 12;
       yearOffset = Math.floor(newMonth / 12);
@@ -415,9 +411,9 @@ class FDate extends Date {
       yearOffset = Math.floor(newMonth / 12) + (newMonth_ == 12 ? -1 : 0);
       newMonth = newMonth_;
     }
-    var newYear = FDate.year(d) + yearOffset;
-    var daysInMonth = FDate.daysInMonth(newYear, newMonth);
-    var newDay = Math.min(daysInMonth, FDate.day(d));
+    const newYear = FDate.year(d) + yearOffset;
+    const daysInMonth = FDate.daysInMonth(newYear, newMonth);
+    const newDay = Math.min(daysInMonth, FDate.day(d));
     return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<FDate>d).kind);
   };
 
