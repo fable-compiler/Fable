@@ -911,7 +911,7 @@ class FArray {
 
   static unzip<T1, T2>(xs: ArrayLike<TTuple<T1, T2>>) {
     const bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length);
-    for (var i = 0; i < xs.length; i++) {
+    for (let i = 0; i < xs.length; i++) {
       bs[i] = xs[i][0];
       cs[i] = xs[i][1];
     }
@@ -919,8 +919,8 @@ class FArray {
   };
 
   static unzip3<T1, T2, T3>(xs: ArrayLike<TTuple3<T1, T2, T3>>) {
-    var bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length), ds = new Array<T3>(xs.length);
-    for (var i = 0; i < xs.length; i++) {
+    const bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length), ds = new Array<T3>(xs.length);
+    for (let i = 0; i < xs.length; i++) {
       bs[i] = xs[i][0];
       cs[i] = xs[i][1];
       ds[i] = xs[i][2];
