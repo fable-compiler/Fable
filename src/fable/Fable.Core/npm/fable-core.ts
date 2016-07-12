@@ -33,111 +33,106 @@ export function Tuple3<T1, T2, T3>(x: T1, y: T2, z: T3) {
 }
 
 export class Util {
-  private static __types = new Map()
+  private static __types = new Map<string, any>()
 
   // For legacy reasons the name is kept, but this method also adds
   // the type name to a cache. Use it after declaration:
   // Util.setInterfaces(Foo.prototype, ["IFoo", "IBar"], "MyModule.Foo");
-  public static setInterfaces = function (proto: any, interfaces: any, typeName?: any) {
-    var curInfcs = proto[FSymbol.interfaces];
+  public static setInterfaces(proto: any, interfaces: string[], typeName?: string) {
     if (Array.isArray(interfaces) && interfaces.length > 0) {
-      if (Array.isArray(curInfcs)) {
-        for (var i = 0; i < interfaces.length; i++) {
-          curInfcs.push(interfaces[i]);
-        }
-      } else {
+      const currentInterfaces = proto[FSymbol.interfaces];
+      if (Array.isArray(currentInterfaces)) {
+        for (let i = 0; i < interfaces.length; i++)
+          currentInterfaces.push(interfaces[i]);
+      } else
         proto[FSymbol.interfaces] = interfaces;
-      }
     }
+
     if (typeName) {
       proto[FSymbol.typeName] = typeName;
       Util.__types.set(typeName, proto.constructor);
     }
   };
 
-  static hasInterface = function (obj: any, infc: any) {
-    return Array.isArray(obj[FSymbol.interfaces]) && obj[FSymbol.interfaces].indexOf(infc) >= 0;
+  static hasInterface(obj: any, interfaceName: string) {
+    return Array.isArray(obj[FSymbol.interfaces]) && obj[FSymbol.interfaces].indexOf(interfaceName) >= 0;
   };
 
-  static getRestParams = function (args: ArrayLike<any>, idx: number) {
-    for (var _len = args.length, restArgs = Array(_len > idx ? _len - idx : 0), _key = idx; _key < _len; _key++) {
+  static getRestParams(args: ArrayLike<any>, idx: number) {
+    for (var _len = args.length, restArgs = Array(_len > idx ? _len - idx : 0), _key = idx; _key < _len; _key++)
       restArgs[_key - idx] = args[_key];
-    }
     return restArgs;
   };
 
-  static compareTo = function (x: any, y: any): number {
+  static compareTo(x: any, y: any): number {
     function isCollectionComparable(o: any) {
       return Array.isArray(o) || ArrayBuffer.isView(o) || o instanceof List || o instanceof Map || o instanceof Set;
     }
+
     function sortIfMapOrSet(o: any) {
       return o instanceof Map || o instanceof Set ? Array.from(o).sort() : o;
     }
-    if (typeof x != typeof y) {
+
+    if (typeof x != typeof y)
       return -1;
-    }
+
     if (x != null && y != null && typeof x == "object" && typeof y == "object") {
-      var lengthComp: any;
-      if (Object.getPrototypeOf(x) != Object.getPrototypeOf(y)) {
+      if (Object.getPrototypeOf(x) != Object.getPrototypeOf(y))
         return -1;
-      }
-      if (Util.hasInterface(x, "System.IComparable")) {
+
+      if (Util.hasInterface(x, "System.IComparable"))
         return x.compareTo(y);
-      }
+
       if (isCollectionComparable(x)) {
-        lengthComp = Util.compareTo(Seq.count(x), Seq.count(y));
-        return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev: any, v1: any, v2: any) {
-          return prev != 0 ? prev : Util.compareTo(v1, v2);
-        }, 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
+        const lengthComp = Util.compareTo(Seq.count(x), Seq.count(y));
+        return lengthComp != 0
+          ? lengthComp
+          : Seq.fold2((prev, v1, v2) => prev != 0 ? prev : Util.compareTo(v1, v2), 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
       }
-      if (x instanceof Date) {
+
+      if (x instanceof Date)
         return x < y ? -1 : x > y ? 1 : 0;
-      }
-      var keys1 = Object.getOwnPropertyNames(x),
-        keys2 = Object.getOwnPropertyNames(y);
-      lengthComp = Util.compareTo(keys1.length, keys2.length);
-      return lengthComp != 0 ? lengthComp : Seq.fold2(function (prev: any, k1: any, k2: any) {
-        return prev != 0 ? prev : Util.compareTo(x[k1], y[k2]);
-      }, 0, keys1.sort(), keys2.sort());
+
+      const keys1 = Object.getOwnPropertyNames(x), keys2 = Object.getOwnPropertyNames(y);
+      const lengthComp = Util.compareTo(keys1.length, keys2.length);
+      return lengthComp != 0
+        ? lengthComp
+        : Seq.fold2((prev, k1, k2) => prev != 0 ? prev : Util.compareTo(x[k1], y[k2]), 0, keys1.sort(), keys2.sort());
     }
     return x < y ? -1 : x > y ? 1 : 0;
   };
-  static createObj = function (fields: any) {
-    return Seq.fold(function (acc: any, kv: any) {
-      acc[kv[0]] = kv[1];
-      return acc;
-    }, {}, fields);
+
+  static createObj(fields: Iterable<TTuple<string, any>>) {
+    return Seq.fold((acc, kv) => { acc[kv[0]] = kv[1]; return acc; }, <any>{}, fields);
   };
-  static toJson = function (o: any) {
-    function replacer(k: any, v: any) {
-      if (ArrayBuffer.isView(v)) {
+
+  static toJson(o: any) {
+    return JSON.stringify(o, (k, v) => {
+      if (ArrayBuffer.isView(v))
         return Array.from(v);
-      }
+
       if (typeof v == "object") {
-        if (v instanceof List || v instanceof Map || v instanceof Set) {
+        if (v instanceof List || v instanceof Map || v instanceof Set)
           throw "JSON serialization of List, Map or Set is not supported";
-        }
-        if (v[FSymbol.typeName]) {
-          var o2 = { __type: v[FSymbol.typeName] };
-          return Object.assign(o2, v);
-        }
+
+        if (v[FSymbol.typeName])
+          return Object.assign({ __type: v[FSymbol.typeName] }, v);
       }
       return v;
-    }
-    return JSON.stringify(o, replacer);
+    });
   };
-  static ofJson = function (json: any) {
-    function reviver(k: any, v: any) {
+
+  static ofJson(json: any) {
+    return JSON.parse(json, (k, v) => {
       if (typeof v == "object" && v.__type) {
-        var T = Util.__types.get(v.__type);
+        const T = Util.__types.get(v.__type);
         if (T) {
           delete v.__type;
           return Object.assign(new T(), v);
         }
       }
       return v;
-    }
-    return JSON.parse(json, reviver);
+    });
   };
 }
 
