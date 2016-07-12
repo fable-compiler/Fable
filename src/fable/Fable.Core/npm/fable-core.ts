@@ -451,23 +451,23 @@ class FDate extends Date {
 }
 export { FDate as Date };
 
-export class Timer {
-  public interval: any;
+export class Timer implements Disposable {
+  public interval: number;
   public autoReset: boolean;
-  public _elapsed: any;
+  public _elapsed: Event;
 
   private _enabled: boolean;
   private _isDisposed: boolean;
-  private _intervalId: any;
-  private _timeoutId: any;
+  private _intervalId: number;
+  private _timeoutId: number;
 
-  constructor(interval: any) {
+  constructor(interval?: number) {
     this.interval = interval > 0 ? interval : 100;
     this.autoReset = true;
     this._elapsed = new Event();
   }
 
-  get elapsed(): number {
+  get elapsed() {
     return this._elapsed;
   }
 
@@ -480,20 +480,18 @@ export class Timer {
       if (this._enabled = x) {
         if (this.autoReset) {
           var _this = this;
-          this._intervalId = setInterval(function () {
-            if (!_this.autoReset) {
+          this._intervalId = setInterval(() => {
+            if (!_this.autoReset)
               _this.enabled = false;
-            }
             _this._elapsed.trigger(new Date());
           }, this.interval);
         } else {
           var _this = this;
-          this._timeoutId = setTimeout(function () {
+          this._timeoutId = setTimeout(() => {
             _this.enabled = false;
             _this._timeoutId = 0;
-            if (_this.autoReset) {
+            if (_this.autoReset)
               _this.enabled = true;
-            }
             _this._elapsed.trigger(new Date());
           }, this.interval);
         }
@@ -509,21 +507,23 @@ export class Timer {
       }
     }
   }
-  dispose: any;  // ToDo: Improve this
-  close: any;
-  start: any;
-  stop: any;
+  
+  dispose() {
+    this.enabled = false;
+    this._isDisposed = true;
+  };
+
+  close() {
+    this.dispose();
+  }
+
+  start() {
+    this.enabled = true;
+  }
+  stop() {
+    this.enabled = false;
+  }
 }
-Timer.prototype.dispose = Timer.prototype.close = function () {
-  this.enabled = false;
-  this._isDisposed = true;
-};
-Timer.prototype.start = function () {
-  this.enabled = true;
-};
-Timer.prototype.stop = function () {
-  this.enabled = false;
-};
 Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 
 class FString {
