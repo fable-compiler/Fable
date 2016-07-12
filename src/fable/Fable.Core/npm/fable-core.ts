@@ -451,6 +451,10 @@ class FDate extends Date {
 }
 export { FDate as Date };
 
+export interface Disposable {
+  dispose(): void;
+}
+
 export class Timer implements Disposable {
   public interval: number;
   public autoReset: boolean;
@@ -644,6 +648,11 @@ class FString {
     });
   };
 
+  static endsWith(str: string, search: string) {
+    const idx = str.lastIndexOf(search);
+    return idx >= 0 && idx == str.length - search.length;
+  };
+
   static init(n: number, f: (i: number) => string) {
     if (n < 0)
       throw "String length must be non-negative";
@@ -660,6 +669,23 @@ class FString {
 
   static isNullOrWhiteSpace(str: string | any) {
     return typeof str !== "string" || /^\s*$/.test(str);
+  };
+
+  static join(delimiter: string, xs: ArrayLike<string>) {
+    xs = typeof xs == "string" ? Util.getRestParams(arguments, 1) : xs;
+    return (Array.isArray(xs) ? xs : Array.from(xs)).join(delimiter);
+  };
+  static concat = FString.join;
+
+  static newGuid() {
+    let uuid = '';
+    for (let i = 0; i < 32; i++) {
+      const random = Math.random() * 16 | 0;
+      if (i === 8 || i === 12 || i === 16 || i === 20)
+        uuid += '-';
+      uuid += (i === 12 ? 4 : i === 16 ? random & 3 | 8 : random).toString(16);
+    }
+    return uuid;
   };
 
   static padLeft(str: any, len: number, ch?: string, isRight?: boolean) {
@@ -680,9 +706,7 @@ class FString {
   };
 
   static replicate(n: number, x: string) {
-    return FString.init(n, function () {
-      return x;
-    });
+    return FString.init(n, () => x);
   };
 
   static split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
@@ -710,37 +734,10 @@ class FString {
       splits.push(str.substring(i));
     return splits;
   };
-
-  static join(delimiter: string, xs: ArrayLike<string>) {
-    xs = typeof xs == "string" ? Util.getRestParams(arguments, 1) : xs;
-    return (Array.isArray(xs) ? xs : Array.from(xs)).join(delimiter);
-  };
-
-  static concat = FString.join;
-
-  static endsWith(str: string, search: string) {
-    const idx = str.lastIndexOf(search);
-    return idx >= 0 && idx == str.length - search.length;
-  };
-
-  static newGuid = function newGuid() {
-    let uuid = '';
-    for (let i = 0; i < 32; i++) {
-      const random = Math.random() * 16 | 0;
-      if (i === 8 || i === 12 || i === 16 || i === 20)
-        uuid += '-';
-      uuid += (i === 12 ? 4 : i === 16 ? random & 3 | 8 : random).toString(16);
-    }
-    return uuid;
-  };
 }
 export { FString as String };
 
 export type MatchEvaluator = (match: any) => string;
-
-export interface Disposable {
-  dispose(): void;
-}
 
 class FRegExp {
   static create(pattern: string, options: number) {
@@ -803,7 +800,7 @@ class FRegExp {
     }
     if (typeof replacement == "function") {
       limit = limit == null ? -1 : limit;
-      const replacer = function () {
+      const replacer = () => {
         let res = arguments[0];
         if (limit !== 0) {
           limit--;
@@ -1193,7 +1190,7 @@ export class Seq {
   };
 
   static choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
-    const trySkipToNext = function (iter: Iterator<T>): TTuple<U, Iterator<T>> {
+    const trySkipToNext = (iter: Iterator<T>): TTuple<U, Iterator<T>> => {
       const cur = iter.next();
       if (!cur.done) {
         const y = f(cur.value);
@@ -1231,7 +1228,7 @@ export class Seq {
   };
 
   static empty<T>() {
-    return Seq.unfold(function (): TTuple<T, T> { return void 0 });
+    return Seq.unfold((): TTuple<T, T> => { return void 0 });
   };
 
   static enumerateWhile<T>(cond: () => boolean, xs: Iterable<T>) {
@@ -1286,7 +1283,7 @@ export class Seq {
   };
 
   static exists<T>(f: (x: T) => boolean, xs: Iterable<T>) {
-    const aux = function (iter: Iterator<T>): boolean {
+    function aux(iter: Iterator<T>): boolean {
       const cur = iter.next();
       return !cur.done && (f(cur.value) || aux(iter));
     };
@@ -1294,7 +1291,7 @@ export class Seq {
   };
 
   static exists2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
-    const aux = function (iter1: Iterator<T1>, iter2: Iterator<T2>): boolean {
+    function aux(iter1: Iterator<T1>, iter2: Iterator<T2>): boolean {
       const cur1 = iter1.next(), cur2 = iter2.next();
       return !cur1.done && !cur2.done && (f(cur1.value, cur2.value) || aux(iter1, iter2));
     };
@@ -1302,7 +1299,7 @@ export class Seq {
   };
 
   static filter<T>(f: (x: T) => boolean, xs: Iterable<T>) {
-    const trySkipToNext = function (iter: Iterator<T>): TTuple<T, Iterator<T>> {
+    function trySkipToNext(iter: Iterator<T>): TTuple<T, Iterator<T>> {
       const cur = iter.next();
       if (!cur.done) {
         return f(cur.value) ? [cur.value, iter] : trySkipToNext(iter);
@@ -1373,7 +1370,7 @@ export class Seq {
   // TODO: Should return a Iterable<Tuple<K, Iterable<T>>> instead of a Map<K, Iterable<T>>
   // Seq.groupBy : ('T -> 'Key) -> seq<'T> -> seq<'Key * seq<'T>>
   static groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
-    return Seq.fold(function (acc, x) {
+    return Seq.fold((acc, x) => {
       const k = f(x), vs = acc.get(k);
       return vs != null ? acc.set(k, new List(x, <List<T>>vs)) : acc.set(k, List.singleton(x));
     }, new Map<K, Iterable<T>>(), xs);
