@@ -142,7 +142,7 @@ export class Util {
 }
 
 export class TimeSpan extends Number {
-  static create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0): number {
+  static create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
     switch (arguments.length) {
       case 1:
         // ticks
@@ -269,7 +269,7 @@ class FDate extends Date {
     return date;
   };
 
-  static create(year: number, month: number, day: number, h: number = 0, m: number = 0, s: number = 0, ms: number = 0, kind: DateKind = DateKind.Local): Date {
+  static create(year: number, month: number, day: number, h: number = 0, m: number = 0, s: number = 0, ms: number = 0, kind: DateKind = DateKind.Local) {
     const date: Date = (kind === DateKind.UTC)
       ? new Date(Date.UTC(year, month - 1, day, h, m, s, ms))
       : new Date(year, month - 1, day, h, m, s, ms);
@@ -471,7 +471,7 @@ export class Timer implements Disposable {
     return this._elapsed;
   }
 
-  get enabled(): boolean {
+  get enabled() {
     return this._enabled;
   }
 
@@ -507,7 +507,7 @@ export class Timer implements Disposable {
       }
     }
   }
-  
+
   dispose() {
     this.enabled = false;
     this._isDisposed = true;
@@ -939,7 +939,7 @@ export class List<T> {
     this.tail = tail;
   }
 
-  static ofArray<T>(args: Array<T>, base?: List<T>): List<T> {
+  static ofArray<T>(args: Array<T>, base?: List<T>) {
     let acc = base || new List<T>();
     for (let i = args.length - 1; i >= 0; i--) {
       acc = new List<T>(args[i], acc);
@@ -947,13 +947,13 @@ export class List<T> {
     return acc;
   }
 
-  get length(): number {
+  get length() {
     return Seq.fold((acc, x) => acc + 1, 0, this);
   }
 
-  public [Symbol.iterator](): Iterator<T> {
+  public [Symbol.iterator]() {
     let cur: List<T> = this;
-    return {
+    return <Iterator<T>>{
       next: () => {
         const tmp = cur;
         cur = cur.tail;
@@ -966,7 +966,7 @@ export class List<T> {
     return List.append(this, ys);
   }
 
-  static append<T>(xs: List<T>, ys: List<T>): List<T> {
+  static append<T>(xs: List<T>, ys: List<T>) {
     return Seq.fold((acc, x) => new List<T>(x, acc), ys, List.rev(xs));
   }
 
@@ -974,7 +974,7 @@ export class List<T> {
     return List.choose(f, this);
   }
 
-  static choose<T, U>(f: (x: T) => U, xs: List<T>): List<U> {
+  static choose<T, U>(f: (x: T) => U, xs: List<T>) {
     const r = Seq.fold((acc, x) => {
       const y = f(x);
       return y != null ? new List<U>(y, acc) : acc;
@@ -987,12 +987,12 @@ export class List<T> {
     return List.collect(f, this);
   }
 
-  static collect<T, U>(f: (x: T) => List<U>, xs: List<T>): List<U> {
+  static collect<T, U>(f: (x: T) => List<U>, xs: List<T>) {
     return Seq.fold((acc, x) => acc.append(f(x)), new List<U>(), xs);
   }
 
   // TODO: should be xs: Iterable<List<T>>
-  static concat<T>(xs: List<List<T>>): List<T> {
+  static concat<T>(xs: List<List<T>>) {
     return List.collect((x) => x, xs);
   }
 
@@ -1000,7 +1000,7 @@ export class List<T> {
     return List.filter(f, this);
   }
 
-  static filter<T>(f: (x: T) => boolean, xs: List<T>): List<T> {
+  static filter<T>(f: (x: T) => boolean, xs: List<T>) {
     return List.rev(Seq.fold((acc, x) => f(x) ? new List<T>(x, acc) : acc, new List<T>(), xs));
   }
 
@@ -1008,11 +1008,11 @@ export class List<T> {
     return List.filter(f, this);
   }
 
-  static where<T>(f: (x: T) => boolean, xs: List<T>): List<T> {
+  static where<T>(f: (x: T) => boolean, xs: List<T>) {
     return List.filter(f, xs);
   }
 
-  static init<T>(n: number, f: (i: number) => T): List<T> {
+  static init<T>(n: number, f: (i: number) => T) {
     if (n < 0) {
       throw "List length must be non-negative";
     }
@@ -1027,7 +1027,7 @@ export class List<T> {
     return List.map(f, this);
   }
 
-  static map<T, U>(f: (x: T) => U, xs: List<T>): List<U> {
+  static map<T, U>(f: (x: T) => U, xs: List<T>) {
     return List.rev(Seq.fold((acc: List<U>, x: T) => new List<U>(f(x), acc), new List<U>(), xs));
   }
 
@@ -1035,7 +1035,7 @@ export class List<T> {
     return List.mapi(f, this);
   }
 
-  static mapi<T, U>(f: (i: number, x: T) => U, xs: List<T>): List<U> {
+  static mapi<T, U>(f: (i: number, x: T) => U, xs: List<T>) {
     return List.rev(Seq.fold((acc, x, i) => new List<U>(f(i, x), acc), new List<U>(), xs));
   }
 
@@ -1043,17 +1043,14 @@ export class List<T> {
     return List.partition(f, this);
   }
 
-  static partition<T>(f: (x: T) => boolean, xs: List<T>): [List<T>, List<T>] {
-    const ini = Tuple(new List<T>(), new List<T>());
+  static partition<T>(f: (x: T) => boolean, xs: List<T>) {
     return Seq.fold((acc, x) => {
       const lacc = acc[0], racc = acc[1];
-      const l = Tuple(new List<T>(x, lacc), racc);
-      const r = Tuple(lacc, new List<T>(x, racc));
-      return f(x) ? l : r;
-    }, ini, List.rev(xs));
+      return f(x) ? Tuple(new List<T>(x, lacc), racc) : Tuple(lacc, new List<T>(x, racc));
+    }, Tuple(new List<T>(), new List<T>()), List.rev(xs));
   }
 
-  static replicate<T>(n: number, x: T): List<T> {
+  static replicate<T>(n: number, x: T) {
     return List.init(n, () => x);
   }
 
@@ -1061,11 +1058,11 @@ export class List<T> {
     return List.rev(this);
   }
 
-  static rev<T>(xs: List<T>): List<T> {
+  static rev<T>(xs: List<T>) {
     return Seq.fold((acc, x) => new List<T>(x, acc), new List<T>(), xs);
   }
 
-  static singleton<T>(x: T): List<T> {
+  static singleton<T>(x: T) {
     return new List<T>(x, new List<T>());
   }
 
@@ -1073,23 +1070,20 @@ export class List<T> {
     return List.slice(lower, upper, this);
   }
 
-  static slice<T>(lower: number, upper: number, xs: List<T>): List<T> {
+  static slice<T>(lower: number, upper: number, xs: List<T>) {
     const noLower = (lower == null);
     const noUpper = (upper == null);
     return List.rev(Seq.fold((acc, x, i) => (noLower || lower <= i) && (noUpper || i <= upper) ? new List<T>(x, acc) : acc, new List<T>(), xs));
   }
 
-  /* ToDo: ?
-  unzip<T1, T2, T extends TTuple<T1, T2>>(): [List<T1>, List<T2>] {
-    return List.unzip(this);
-  } */
+  /* ToDo: instance unzip() */
 
   static unzip<T1, T2>(xs: List<TTuple<T1, T2>>) {
     return Seq.foldBack((xy, acc) =>
       Tuple(new List<T1>(xy[0], acc[0]), new List<T2>(xy[1], acc[1])), xs, Tuple(new List<T1>(), new List<T2>()));
   }
 
-  /* ToDo: unzip3() */
+  /* ToDo: instance unzip3() */
 
   static unzip3<T1, T2, T3>(xs: List<TTuple3<T1, T2, T3>>) {
     return Seq.foldBack((xyz, acc) =>
@@ -1217,11 +1211,9 @@ export class Seq {
   };
 
   static delay<T>(f: () => Iterable<T>) {
-    const e: any = {};
-    e[Symbol.iterator] = function () {
-      return f()[Symbol.iterator]();
+    return <Iterable<T>>{
+      [Symbol.iterator]: () => f()[Symbol.iterator]()
     };
-    return <Iterable<T>>e;
   };
 
   static distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
@@ -1380,7 +1372,7 @@ export class Seq {
 
   // TODO: Should return a Iterable<Tuple<K, Iterable<T>>> instead of a Map<K, Iterable<T>>
   // Seq.groupBy : ('T -> 'Key) -> seq<'T> -> seq<'Key * seq<'T>>
-  static groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>): Map<K, Iterable<T>> {
+  static groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
     return Seq.fold(function (acc, x) {
       const k = f(x), vs = acc.get(k);
       return vs != null ? acc.set(k, new List(x, <List<T>>vs)) : acc.set(k, List.singleton(x));
@@ -1463,7 +1455,7 @@ export class Seq {
   };
 
   // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
-  static count<T>(xs: Iterable<T>): number {
+  static count<T>(xs: Iterable<T>) {
     return Array.isArray(xs) || ArrayBuffer.isView(xs)
       ? (xs as Array<T>).length
       : Seq.fold((acc, x) => acc + 1, 0, xs);
@@ -1629,15 +1621,15 @@ export class Seq {
   };
 
   static skip<T>(n: number, xs: Iterable<T>) {
-    const e: any = {};
-    e[Symbol.iterator] = function () {
-      const iter = xs[Symbol.iterator]();
-      for (let i = 1; i <= n; i++)
-        if (iter.next().done)
-          throw "Seq has not enough elements";
-      return iter;
+    return <Iterable<T>>{
+      [Symbol.iterator]: () => {
+        const iter = xs[Symbol.iterator]();
+        for (let i = 1; i <= n; i++)
+          if (iter.next().done)
+            throw "Seq has not enough elements";
+        return iter;
+      }
     };
-    return <Iterable<T>>e;
   };
 
   static skipWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
@@ -1676,9 +1668,9 @@ export class Seq {
     if (cur.done)
       throw "Seq was empty";
 
-    const e: any = {};
-    e[Symbol.iterator] = () => iter;
-    return <Iterable<T>>e;
+    return <Iterable<T>>{
+      [Symbol.iterator]: () => iter
+    };
   };
 
   static take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
@@ -1786,20 +1778,20 @@ export class Seq {
   };
 
   static unfold<T, ST>(f: (st: ST) => TTuple<T, ST>, acc?: ST) {
-    const e: any = {};
-    e[Symbol.iterator] = () => {
-      return {
-        next: function (): any {
-          const res = f(acc);
-          if (res != null) {
-            acc = res[1];
-            return { done: false, value: res[0] };
+    return <Iterable<T>>{
+      [Symbol.iterator]: () => {
+        return {
+          next: () => {
+            const res = f(acc);
+            if (res != null) {
+              acc = res[1];
+              return { done: false, value: res[0] };
+            }
+            return { done: true };
           }
-          return { done: true };
-        }
-      };
+        };
+      }
     };
-    return <Iterable<T>>e;
   };
 
   static zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>) {
