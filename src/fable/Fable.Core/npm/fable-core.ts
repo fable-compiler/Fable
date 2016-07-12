@@ -848,29 +848,23 @@ class FRegExp {
 export { FRegExp as RegExp };
 
 class FArray {
-  static addRangeInPlace = function (range: any, xs: any) {
-    Seq.iter(function (x: any) {
-      xs.push(x);
-    }, range);
+  static addRangeInPlace<T>(range: Iterable<T>, xs: Array<T>) {
+    Seq.iter((x) => xs.push(x), range);
   };
-  static blit = function (source: any, sourceIndex: any, target: any, targetIndex: any, count: any) {
-    while (count--) {
+
+  static blit<T>(source: ArrayLike<T>, sourceIndex: number, target: ArrayLike<T>, targetIndex: number, count: number) {
+    while (count--)
       target[targetIndex++] = source[sourceIndex++];
-    }
   };
-  static partition = function (f: any, xs: any) {
-    var ys: any = [],
-      zs: any = [],
-      j = 0,
-      k = 0;
-    for (var i = 0; i < xs.length; i++) {
-      if (f(xs[i])) {
+
+  static partition<T>(f: (x: T) => boolean, xs: ArrayLike<T>) {
+    let ys = <T[]>[], zs = <T[]>[], j = 0, k = 0;
+    for (let i = 0; i < xs.length; i++)
+      if (f(xs[i]))
         ys[j++] = xs[i];
-      } else {
+      else
         zs[k++] = xs[i];
-      }
-    }
-    return [ys, zs];
+    return Tuple(ys, zs);
   };
 
   static permute<T>(f: (i: number) => number, xs: Array<T>) {
@@ -892,51 +886,49 @@ class FArray {
     return ys;
   };
 
-  static removeInPlace = function (item: any, xs: any) {
-    var i = xs.indexOf(item);
+  static removeInPlace<T>(item: T, xs: Array<T>) {
+    const i = xs.indexOf(item);
     if (i > -1) {
       xs.splice(i, 1);
       return true;
     }
     return false;
   };
-  static setSlice = function (target: any, lower: any, upper: any, source: any) {
-    var length = (upper || target.length - 1) - lower;
-    if (ArrayBuffer.isView(target) && source.length <= length) {
+
+  static setSlice<T>(target: any, lower: number, upper: number, source: ArrayLike<T>) {
+    const length = (upper || target.length - 1) - lower;
+    if (ArrayBuffer.isView(target) && source.length <= length)
       target.set(source, lower);
-    } else {
-      for (var i = lower | 0, j = 0; j <= length; i++ , j++) {
+    else
+      for (let i = lower | 0, j = 0; j <= length; i++ , j++)
         target[i] = source[j];
-      }
-    }
   };
-  static sortInPlaceBy = function (f: any, xs: any, dir: any) {
-    dir = dir || 1;
-    return xs.sort(function (x: any, y: any) {
+
+  static sortInPlaceBy<T>(f: (x: T) => T, xs: Array<T>, dir: number = 1) {
+    return xs.sort((x, y) => {
       x = f(x);
       y = f(y);
       return (x < y ? -1 : x == y ? 0 : 1) * dir;
     });
   };
-  static unzip = function (xs: any) {
-    var bs = new Array(xs.length),
-      cs = new Array(xs.length);
+
+  static unzip<T1, T2>(xs: ArrayLike<TTuple<T1, T2>>) {
+    const bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length);
     for (var i = 0; i < xs.length; i++) {
       bs[i] = xs[i][0];
       cs[i] = xs[i][1];
     }
-    return [bs, cs];
+    return Tuple(bs, cs);
   };
-  static unzip3 = function (xs: any) {
-    var bs = new Array(xs.length),
-      cs = new Array(xs.length),
-      ds = new Array(xs.length);
+
+  static unzip3<T1, T2, T3>(xs: ArrayLike<TTuple3<T1, T2, T3>>) {
+    var bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length), ds = new Array<T3>(xs.length);
     for (var i = 0; i < xs.length; i++) {
       bs[i] = xs[i][0];
       cs[i] = xs[i][1];
       ds[i] = xs[i][2];
     }
-    return [bs, cs, ds];
+    return Tuple3(bs, cs, ds);
   };
 }
 export { FArray as Array };
