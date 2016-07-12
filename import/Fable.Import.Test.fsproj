@@ -50,6 +50,7 @@
     <Reference Include="System.Numerics" />
     <Reference Include="../build/fable/bin/Fable.Core.dll" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
     <Compile Include="express/Fable.Import.Express.fs" />
     <Compile Include="react/Fable.Import.React.fs" />
@@ -66,6 +67,7 @@
     <Compile Include="three/Fable.Import.Three.fs" />
     <Compile Include="mocha/Fable.Import.Mocha.fs" />
     <Compile Include="virtualdom/Fable.Helpers.Virtualdom.fs" />
+    <Compile Include="pixi/Fable.Import.Pixi.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>
