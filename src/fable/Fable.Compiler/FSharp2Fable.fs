@@ -279,7 +279,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeSequential (Some r) [assignment; transformExpr com ctx body]
 
     | BasicPatterns.Let((var, Transform com ctx value), body) ->
-        let ctx, ident = bindIdentFrom com ctx var
+        let ctx, ident = bindIdent ctx value.Type (Some var) var.DisplayName
         let body = transformExpr com ctx body
         let assignment = Fable.VarDeclaration (ident, value, var.IsMutable) 
         makeSequential (makeRangeFrom fsExpr) [assignment; body]
