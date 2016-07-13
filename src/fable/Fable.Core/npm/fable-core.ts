@@ -22,11 +22,11 @@ export class Choice<T1, T2> {
   }
 
   get valueIfChoice1() {
-    return this.Case == "Choice1Of2" ? this.Fields[0] : null;
+    return this.Case == "Choice1Of2" ? <T1>this.Fields[0] : null;
   }
 
   get valueIfChoice2() {
-    return this.Case == "Choice2Of2" ? this.Fields[0] : null;
+    return this.Case == "Choice2Of2" ? <T2>this.Fields[0] : null;
   }
 }
 
@@ -110,6 +110,12 @@ export class Util {
     }
     return x < y ? -1 : x > y ? 1 : 0;
   };
+
+  static createDisposable(f: () => void) {
+    const disp: Disposable = { dispose: f };
+    (<any>disp)[FSymbol.interfaces] = ["System.IDisposable"];
+    return disp;
+  }
 
   static createObj(fields: Iterable<TTuple<string, any>>) {
     return Seq.fold((acc, kv) => { acc[kv[0]] = kv[1]; return acc; }, <any>{}, fields);
@@ -2193,7 +2199,7 @@ class MailboxQueue<Msg> {
       this.firstAndLast = [itCell, itCell];
   };
 
-  tryGet(): Msg {
+  tryGet() {
     if (this.firstAndLast) {
       const value = this.firstAndLast[0].value;
       if (this.firstAndLast[0].next)
@@ -2282,152 +2288,154 @@ export class MailboxProcessor<Msg> {
   };
 }
 
-class Observer {
-  public onNext: any;
-  public onError: any;
-  public onCompleted: any;
-  constructor(onNext: any, onError?: any, onCompleted?: any) {
+export interface IObserver<T> {
+  onNext: (x: T) => void;
+  onError: (e: any) => void;
+  onCompleted: () => void;
+}
+
+class Observer<T> implements IObserver<T> {
+  public onNext: (x: T) => void;
+  public onError: (e: any) => void;
+  public onCompleted: () => void;
+
+  constructor(onNext: (x: T) => void, onError?: (e: any) => void, onCompleted?: () => void) {
     this.onNext = onNext;
-    this.onError = onError || function (e: any) { };
+    this.onError = onError || ((e: any) => { });
     this.onCompleted = onCompleted || function () { };
   }
 };
 Util.setInterfaces(Observer.prototype, ["System.IObserver"]);
 
-class Observable {
-  public subscribe: any;
-  constructor(subscribe: any) {
+export interface IObservable<T> {
+  subscribe: (o: IObserver<T>) => Disposable;
+}
+
+class Observable<T> implements IObservable<T> {
+  public subscribe: (o: IObserver<T>) => Disposable;
+
+  constructor(subscribe: (o: IObserver<T>) => Disposable) {
     this.subscribe = subscribe;
   };
 }
 Util.setInterfaces(Observable.prototype, ["System.IObservable"]);
 
 class Obs {
-  static __protect = function (f: any, succeed: any, fail: any) {
+  static __protect<T>(f: () => T, succeed: (x: T) => void, fail: (e: any) => void) {
     try {
-      succeed(f());
+      return succeed(f());
     } catch (e) {
       fail(e);
     }
   };
-  static map = function (f: any, w: any): any {
-    return new Observable(function (observer: any): any {
-      return w.subscribe(new Observer(function (v: any): any {
-        Obs.__protect(function (): any {
-          f(v);
-        }, observer.onNext, observer.onError);
-      }, observer.onError, observer.onCompleted));
-    });
+
+  static add<T>(callback: (x: T) => Unit, source: IObservable<T>) {
+    source.subscribe(new Observer(callback));
   };
-  static choose = function (f: any, w: any): any {
-    return new Observable(function (observer: any) {
-      return w.subscribe(new Observer(function (v: any) {
-        Obs.__protect(function () {
-          f(v);
-        }, function (v: any) {
-          if (v != null) {
-            observer.onNext(v);
-          }
-        }, observer.onError);
-      }, observer.onError, observer.onCompleted));
-    });
+
+  static choose<T, U>(chooser: (x: T) => U, source: IObservable<T>) {
+    return <IObservable<U>>new Observable<U>(observer =>
+      source.subscribe(new Observer<T>(t =>
+        Obs.__protect(
+          () => chooser(t),
+          u => { if (u != null) observer.onNext(u); },
+          observer.onError),
+        observer.onError, observer.onCompleted)));
   };
-  static filter = function (f: any, w: any) {
-    return Obs.choose(function (x: any) {
-      return f(x) ? x : null;
-    }, w);
+
+  static filter<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
+    return Obs.choose(x => predicate(x) ? x : null, source);
   };
-  static partition = function (f: any, w: any) {
-    return [Obs.filter(f, w), Obs.filter(function (x: any) {
-      return !f(x);
-    }, w)];
+
+  static map<T, U>(mapping: (x: T) => U, source: IObservable<T>) {
+    return <IObservable<U>>new Observable<U>(observer =>
+      source.subscribe(new Observer<T>(t => {
+        Obs.__protect(
+          () => mapping(t),
+          observer.onNext,
+          observer.onError);
+      }, observer.onError, observer.onCompleted)));
   };
-  static scan = function (f: any, state: any, w: any): any {
-    return new Observable(function (observer: any) {
-      return w.subscribe(new Observer(function (v: any) {
-        Obs.__protect(function () {
-          f(state, v);
-        }, function (z: any) {
-          state = z;
-          observer.onNext(z);
-        }, observer.onError);
-      }, observer.onError, observer.onCompleted));
-    });
-  };
-  static add = function (f: any, w: any) {
-    w.subscribe(new Observer(f));
-  };
-  static subscribe = function (f: any, w: any) {
-    return w.subscribe(new Observer(f));
-  };
-  static pairwise = function (w: any): any {
-    return new Observable(function (observer: any) {
-      var lastArgs: any = null;
-      return w.subscribe(new Observer(function (args2: any) {
-        if (lastArgs != null) {
-          observer.onNext([lastArgs, args2]);
-        }
-        lastArgs = args2;
-      }, observer.onError, observer.onCompleted));
-    });
-  };
-  static merge = function (w1: any, w2: any): any {
-    return new Observable(function (observer: any) {
-      var stopped = false,
-        completed1 = false,
-        completed2 = false;
-      var h1 = w1.subscribe(new Observer(function (v: any) {
-        if (!stopped) {
-          observer.onNext(v);
-        }
-      }, function (e: any) {
-        if (!stopped) {
-          stopped = true;
-          observer.onError(e);
-        }
-      }, function () {
-        if (!stopped) {
-          completed1 = true;
-          if (completed2) {
+
+  static merge<T>(source1: IObservable<T>, source2: IObservable<T>) {
+    return <IObservable<T>>new Observable(observer => {
+      let stopped = false, completed1 = false, completed2 = false;
+
+      const h1 = source1.subscribe(new Observer<T>(
+        v => { if (!stopped) observer.onNext(v); },
+        e => {
+          if (!stopped) {
             stopped = true;
-            observer.onCompleted();
+            observer.onError(e);
           }
-        }
-      }));
-      var h2 = w2.subscribe(new Observer(function (v: any) {
-        if (!stopped) {
-          observer.onNext(v);
-        }
-      }, function (e: any) {
-        if (!stopped) {
-          stopped = true;
-          observer.onError(e);
-        }
-      }, function () {
-        if (!stopped) {
-          completed2 = true;
-          if (completed1) {
+        },
+        () => {
+          if (!stopped) {
+            completed1 = true;
+            if (completed2) {
+              stopped = true;
+              observer.onCompleted();
+            }
+          }
+        }));
+
+      const h2 = source2.subscribe(new Observer<T>(
+        v => { if (!stopped) { observer.onNext(v); } },
+        e => {
+          if (!stopped) {
             stopped = true;
-            observer.onCompleted();
+            observer.onError(e);
           }
-        }
-      }));
-      var disp: any = {
-        dispose: function () {
-          h1.dispose();
-          h2.dispose();
-        }
-      };
-      disp[FSymbol.interfaces] = ["System.IDisposable"];
-      return disp;
+        },
+        () => {
+          if (!stopped) {
+            completed2 = true;
+            if (completed1) {
+              stopped = true;
+              observer.onCompleted();
+            }
+          }
+        }));
+
+      return Util.createDisposable(() => {
+        h1.dispose();
+        h2.dispose();
+      });
     });
   };
-  static split = function (f: (v: any) => Choice<any, any>, w: any) {
-    return [Obs.choose(function (v: any) {
-      return f(v).valueIfChoice1;
-    }, w), Obs.choose(function (v: any) {
-      return f(v).valueIfChoice2;
-    }, w)];
+
+  static pairwise<T>(source: IObservable<T>) {
+    return <IObservable<TTuple<T, T>>>new Observable<TTuple<T, T>>(observer => {
+      let last: T = null;
+      return source.subscribe(new Observer<T>(next => {
+        if (last != null)
+          observer.onNext([last, next]);
+        last = next;
+      }, observer.onError, observer.onCompleted));
+    });
+  };
+
+  static partition<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
+    return Tuple(Obs.filter(predicate, source), Obs.filter(x => !predicate(x), source));
+  };
+
+  static scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObservable<T>) {
+    return <IObservable<U>>new Observable<U>(observer => {
+      return source.subscribe(new Observer<T>(t => {
+        Obs.__protect(
+          () => collector(state, t),
+          u => { state = u; observer.onNext(u); },
+          observer.onError);
+      }, observer.onError, observer.onCompleted));
+    });
+  };
+
+  static split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, source: IObservable<T>) {
+    return Tuple(Obs.choose(v => splitter(v).valueIfChoice1, source), Obs.choose(v => splitter(v).valueIfChoice2, source));
+  };
+
+  static subscribe<T>(callback: (x: T) => Unit, source: IObservable<T>) {
+    return source.subscribe(new Observer(callback));
   };
 }
 export { Obs as Observable };
