@@ -1,10 +1,3 @@
-//
-// TODO: enable "noImplicitReturns"
-// TODO: Improve types / remove "any"s
-// TODO: Replace "= function ()" with member functions. -- Keeping them for now to minimize differences when comparing to fable-core.js
-// TODO: One class per file.
-//
-
 const FSymbol = {
   interfaces: Symbol("interfaces"),
   typeName: Symbol("typeName")
@@ -801,7 +794,7 @@ class FRegExp {
       }
       return res;
     };
-    
+
     if (typeof reg == "string") {
       const tmp = <string>reg;
       reg = FRegExp.create(input, limit);
@@ -1962,112 +1955,127 @@ class FMap {
 }
 export { FMap as Map };
 
+export type Unit = void;
+
+export type Continuation<T> = (x: T) => Unit;
+
+export interface CancellationToken {
+  isCancelled: boolean;
+}
+
+export interface IAsyncContext<T> {
+  onSuccess: Continuation<any>;
+  onError: Continuation<any>;
+  onCancel: Continuation<any>;
+
+  cancelToken: CancellationToken;
+}
+
+export type IAsync<T> = (x: IAsyncContext<T>) => void;
+
 export class Async {
-  static __protectedCont = function (f: any) {
-    return function (ctx: any) {
-      if (ctx.cancelToken.isCancelled) {
+
+  // --- AsyncBuilder methods
+
+  private static __protectedAsync<T>(f: IAsync<T>): IAsync<T> {
+    return (ctx: IAsyncContext<T>) => {
+      if (ctx.cancelToken.isCancelled)
         ctx.onCancel("cancelled");
-      } else {
+      else
         try {
-          f(ctx);
+          return f(ctx);
         } catch (err) {
           ctx.onError(err);
         }
-      }
     };
   };
-  static bind = function (work: any, cont: any) {
-    return Async.__protectedCont(function (ctx: any) {
-      work({
-        onSuccess: function (x: any) {
-          return cont(x)(ctx);
-        },
+
+  static bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>): IAsync<U> {
+    return Async.__protectedAsync((ctx: IAsyncContext<U>) => {
+      computation({
+        onSuccess: (x: T) => binder(x)(ctx),
         onError: ctx.onError,
         onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken
       });
     });
   };
-  static combine = function (work1: any, work2: any) {
-    return Async.bind(work1, function () {
-      return work2;
-    });
+
+  static combine<T>(computation1: IAsync<Unit>, computation2: IAsync<T>): IAsync<T> {
+    return Async.bind(computation1, () => computation2);
   };
-  static delay = function (cont: any) {
-    return Async.__protectedCont(function (ctx: any) {
-      cont()(ctx);
-    });
+
+  static delay<T>(generator: () => IAsync<T>): IAsync<T> {
+    return Async.__protectedAsync((ctx: IAsyncContext<T>) => generator()(ctx));
   };
-  static for = function (seq: any, body: any) {
-    var iter = seq[Symbol.iterator](),
-      cur = iter.next();
-    return Async.while(function () {
-      return !cur.done;
-    }, Async.delay(function () {
-      var res = body(cur.value);
+
+  static for<T>(sequence: Iterable<T>, body: (x: T) => IAsync<Unit>): IAsync<Unit> {
+    const iter = sequence[Symbol.iterator]();
+    let cur = iter.next();
+    return Async.while(() => !cur.done, Async.delay(() => {
+      const res = body(cur.value);
       cur = iter.next();
       return res;
     }));
   };
-  static return = function (x?: any) {
-    return Async.__protectedCont(function (ctx: any) {
-      ctx.onSuccess(x);
-    });
+
+  static return<T>(value?: T): IAsync<T> {
+    return Async.__protectedAsync((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
   };
-  static returnFrom = function (work: any) {
-    return work;
+
+  static returnFrom<T>(computation: IAsync<T>): IAsync<T> {
+    return computation;
   };
-  static tryFinally = function (work: any, finalFn: any) {
-    return Async.__protectedCont(function (ctx: any) {
-      work({
-        onSuccess: function (x: any) {
-          finalFn();
+
+  static tryFinally<T>(computation: IAsync<T>, compensation: () => void): IAsync<T> {
+    return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
+      computation({
+        onSuccess: (x: any) => {
+          compensation();
           ctx.onSuccess(x);
         },
-        onError: function (x: any) {
-          finalFn();
+        onError: (x: any) => {
+          compensation();
           ctx.onError(x);
         },
-        onCancel: function (x: any) {
-          finalFn();
+        onCancel: (x: any) => {
+          compensation();
           ctx.onCancel(x);
         },
         cancelToken: ctx.cancelToken
       });
     });
   };
-  static tryWith = function (work: any, catchFn: any) {
-    return Async.__protectedCont(function (ctx: any) {
-      work({
+
+  static tryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => IAsync<T>) {
+    return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
+      computation({
         onSuccess: ctx.onSuccess,
         onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken,
-        onError: function (ex: any) {
-          ctx.onSuccess(catchFn(ex));
-        }
+        onError: (ex: any) => ctx.onSuccess(catchHandler(ex))
       });
     });
   };
-  static using = function (disp: any, cont: any) {
-    return Async.tryFinally(cont(disp), function () {
-      disp.dispose();
-    });
+
+  static using<T extends Disposable, U>(resource: T, binder: (x: T) => IAsync<U>): IAsync<U> {
+    return Async.tryFinally(binder(resource), () => resource.dispose());
   };
-  static while = function (cond: any, body: any) {
-    if (cond()) {
-      return Async.bind(body, function () {
-        return Async.while(cond, body);
-      });
-    } else {
+
+  static while(guard: () => boolean, computation: IAsync<Unit>): IAsync<Unit> {
+    if (guard())
+      return Async.bind(computation, () => Async.while(guard, computation));
+    else
       return Async.return();
-    }
   };
-  static zero = function () {
-    return Async.__protectedCont(function (ctx: any) {
-      ctx.onSuccess();
-    });
+
+  static zero(): IAsync<Unit> {
+    return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => ctx.onSuccess(void 0));
   };
-  static start = function (work: any, onSuccess?: any, onError?: any, onCancel?: any, cancelToken?: any) {
+
+  // --- Async methods
+
+  static start(work: any, onSuccess?: any, onError?: any, onCancel?: any, cancelToken?: any) {
     if (typeof onSuccess !== "function") {
       cancelToken = onSuccess;
       onSuccess = null;
@@ -2081,42 +2089,43 @@ export class Async {
   };
   static startImmediate = Async.start;
   static startWithContinuations = Async.start;
-  static ignore = function (work: any) {
+
+  static ignore(work: any) {
     return Async.bind(work, function () {
       return Async.return();
     });
   };
 
   get cancellationToken() {
-    return Async.__protectedCont(function (ctx: any) {
+    return Async.__protectedAsync(function (ctx: any) {
       return ctx.onSuccess(ctx.cancelToken);
     });
   }
 
-  static fromContinuations = function (f: any) {
-    return Async.__protectedCont(function (ctx: any) {
+  static fromContinuations(f: any) {
+    return Async.__protectedAsync(function (ctx: any) {
       return f([ctx.onSuccess, ctx.onError, ctx.onCancel]);
     });
   };
-  static startAsPromise = function (work: any, cancelToken?: any) {
+  static startAsPromise(work: any, cancelToken?: any) {
     return new Promise(function (resolve, reject) {
       Async.startWithContinuations(work, resolve, reject, reject, cancelToken ? cancelToken : {});
     });
   };
-  static awaitPromise = function (p: any) {
+  static awaitPromise(p: any) {
     return Async.fromContinuations(function (conts: any) {
       p.then(conts[0]).catch(function (err: any) {
         (err == "cancelled" ? conts[2] : conts[1])(err);
       });
     });
   };
-  static parallel = function (works: any) {
+  static parallel(works: any) {
     return Async.awaitPromise(Promise.all(Seq.map(function (w: any) {
       return Async.startAsPromise(w);
     }, works)));
   };
-  static catch = function (work: any) {
-    return Async.__protectedCont(function (ctx: any) {
+  static catch(work: any) {
+    return Async.__protectedAsync(function (ctx: any) {
       work({
         onSuccess: function (x: any) {
           ctx.onSuccess(new Choice("Choice1Of2", x));
@@ -2129,8 +2138,8 @@ export class Async {
       });
     });
   };
-  static sleep = function (ms: any) {
-    return Async.__protectedCont(function (ctx: any) {
+  static sleep(ms: any) {
+    return Async.__protectedAsync(function (ctx: any) {
       setTimeout(function () {
         ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess();
       }, ms);
