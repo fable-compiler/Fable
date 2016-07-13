@@ -48,6 +48,12 @@ module Operators =
     
     let createEmpty<'T> : 'T = failwith "JS only"
 
+[<AutoOpen>]
+module Modules =
+    let importMemberFrom<'T> (path: string):'T = failwith "JS only"
+    let importDefaultFrom<'T> (path: string):'T = failwith "JS only"
+    let importAllFrom<'T> (path: string):'T = failwith "JS only"
+
 module Serialize =
     let toJson (o: 'T): string = failwith "JS only"
     let ofJson<'T> (json: string): 'T = failwith "JS only"

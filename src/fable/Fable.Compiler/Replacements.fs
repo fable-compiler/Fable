@@ -256,6 +256,18 @@ module private AstPass =
             | Fable.Value (Fable.ArrayConst (Fable.ArrayValues exprs, Fable.Tuple)) -> exprs
             | expr -> [expr]
         match i.methodName with
+        | Naming.StartsWith "import" _ ->
+            let selector =
+                match i.methodName with
+                | "importMemberFrom" -> "<placeholder>"
+                | "importDefaultFrom" -> "default"
+                | _ -> "*" // importAllFrom
+            let path =
+                match i.args with
+                | [Fable.Value(Fable.StringConst path)] -> path
+                | _ -> failwithf "%s.%s only accepts literal strings %O"
+                                i.ownerFullName i.methodName i.range
+            Fable.ImportRef(selector, path) |> Fable.Value |> Some
         | "op_Dynamic" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
         | "op_DynamicAssignment" ->
