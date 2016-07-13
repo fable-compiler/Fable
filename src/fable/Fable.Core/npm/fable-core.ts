@@ -2,7 +2,8 @@ const FSymbol = {
   interfaces: Symbol("interfaces"),
   typeName: Symbol("typeName")
 };
-export { FSymbol as Symbol };
+
+export { FSymbol as Symbol }
 
 export class Choice<T1, T2> {
   public Case: "Choice1Of2" | "Choice2Of2";
@@ -14,19 +15,19 @@ export class Choice<T1, T2> {
   }
 
   static Choice1Of2<T1, T2>(v: T1) {
-    return new Choice<T1, T2>("Choice1Of2", v)
+    return new Choice<T1, T2>("Choice1Of2", v);
   }
 
   static Choice2Of2<T1, T2>(v: T2) {
-    return new Choice<T1, T2>("Choice2Of2", v)
+    return new Choice<T1, T2>("Choice2Of2", v);
   }
 
   get valueIfChoice1() {
-    return this.Case == "Choice1Of2" ? <T1>this.Fields[0] : null;
+    return this.Case === "Choice1Of2" ? <T1>this.Fields[0] : null;
   }
 
   get valueIfChoice2() {
-    return this.Case == "Choice2Of2" ? <T2>this.Fields[0] : null;
+    return this.Case === "Choice2Of2" ? <T2>this.Fields[0] : null;
   }
 }
 
@@ -42,7 +43,7 @@ export function Tuple3<T1, T2, T3>(x: T1, y: T2, z: T3) {
 }
 
 export class Util {
-  private static __types = new Map<string, any>()
+  private static __types = new Map<string, any>();
 
   // For legacy reasons the name is kept, but this method also adds
   // the type name to a cache. Use it after declaration:
@@ -61,17 +62,17 @@ export class Util {
       proto[FSymbol.typeName] = typeName;
       Util.__types.set(typeName, proto.constructor);
     }
-  };
+  }
 
   static hasInterface(obj: any, interfaceName: string) {
     return Array.isArray(obj[FSymbol.interfaces]) && obj[FSymbol.interfaces].indexOf(interfaceName) >= 0;
-  };
+  }
 
   static getRestParams(args: ArrayLike<any>, idx: number) {
     for (var _len = args.length, restArgs = Array(_len > idx ? _len - idx : 0), _key = idx; _key < _len; _key++)
       restArgs[_key - idx] = args[_key];
     return restArgs;
-  };
+  }
 
   static compareTo(x: any, y: any): number {
     function isCollectionComparable(o: any) {
@@ -82,11 +83,11 @@ export class Util {
       return o instanceof Map || o instanceof Set ? Array.from(o).sort() : o;
     }
 
-    if (typeof x != typeof y)
+    if (typeof x !== typeof y)
       return -1;
 
-    if (x != null && y != null && typeof x == "object" && typeof y == "object") {
-      if (Object.getPrototypeOf(x) != Object.getPrototypeOf(y))
+    if (x != null && y != null && typeof x === "object" && typeof y === "object") {
+      if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
         return -1;
 
       if (Util.hasInterface(x, "System.IComparable"))
@@ -109,7 +110,7 @@ export class Util {
         : Seq.fold2((prev, k1, k2) => prev != 0 ? prev : Util.compareTo(x[k1], y[k2]), 0, keys1.sort(), keys2.sort());
     }
     return x < y ? -1 : x > y ? 1 : 0;
-  };
+  }
 
   static createDisposable(f: () => void) {
     const disp: Disposable = { dispose: f };
@@ -119,7 +120,7 @@ export class Util {
 
   static createObj(fields: Iterable<TTuple<string, any>>) {
     return Seq.fold((acc, kv) => { acc[kv[0]] = kv[1]; return acc; }, <any>{}, fields);
-  };
+  }
 
   static toJson(o: any) {
     return JSON.stringify(o, (k, v) => {
@@ -135,7 +136,7 @@ export class Util {
       }
       return v;
     });
-  };
+  }
 
   static ofJson(json: any) {
     return JSON.parse(json, (k, v) => {
@@ -148,7 +149,7 @@ export class Util {
       }
       return v;
     });
-  };
+  }
 }
 
 export class TimeSpan extends Number {
@@ -167,79 +168,79 @@ export class TimeSpan extends Number {
         break;
     }
     return d * 86400000 + h * 3600000 + m * 60000 + s * 1000 + ms;
-  };
+  }
 
   static fromTicks(ticks: number) {
     return ticks / 10000;
-  };
+  }
 
   static fromDays(d: number) {
     return TimeSpan.create(d, 0, 0, 0);
-  };
+  }
 
   static fromHours(h: number) {
     return TimeSpan.create(h, 0, 0);
-  };
+  }
 
   static fromMinutes(m: number) {
     return TimeSpan.create(0, m, 0);
-  };
+  }
 
   static fromSeconds(s: number) {
     return TimeSpan.create(0, 0, s);
-  };
+  }
 
   static days(ts: TimeSpan) {
     return Math.floor(<number>ts / 86400000);
-  };
+  }
 
   static hours(ts: TimeSpan) {
     return Math.floor(<number>ts % 86400000 / 3600000);
-  };
+  }
 
   static minutes(ts: TimeSpan) {
     return Math.floor(<number>ts % 3600000 / 60000);
-  };
+  }
 
   static seconds(ts: TimeSpan) {
     return Math.floor(<number>ts % 60000 / 1000);
-  };
+  }
 
   static milliseconds(ts: TimeSpan) {
     return Math.floor(<number>ts % 1000);
-  };
+  }
 
   static ticks(ts: TimeSpan) {
     return <number>ts * 10000;
-  };
+  }
 
   static totalDays(ts: TimeSpan) {
     return <number>ts / 86400000;
-  };
+  }
 
   static totalHours(ts: TimeSpan) {
     return <number>ts / 3600000;
-  };
+  }
 
   static totalMinutes(ts: TimeSpan) {
     return <number>ts / 60000;
-  };
+  }
 
   static totalSeconds(ts: TimeSpan) {
     return <number>ts / 1000;
-  };
+  }
 
   static negate(ts: TimeSpan) {
     return <number>ts * -1;
-  };
+  }
 
   static add(ts1: TimeSpan, ts2: TimeSpan) {
     return <number>ts1 + <number>ts2;
-  };
+  }
 
   static subtract(ts1: TimeSpan, ts2: TimeSpan) {
     return <number>ts1 - <number>ts2;
-  };
+  }
 
   static compare = Util.compareTo;
   static compareTo = Util.compareTo;
@@ -257,19 +258,19 @@ class FDate extends Date {
   private static __changeKind(d: Date, kind: DateKind) {
     let d2: Date;
     return (<FDate>d).kind == kind ? d : (d2 = new Date(d.getTime()), (<FDate>d2).kind = kind, d2);
-  };
+  }
 
   private static __getValue(d: Date, key: string): number {
-    return (<any>d)[((<FDate>d).kind == DateKind.UTC ? 'getUTC' : 'get') + key]();
-  };
+    return (<any>d)[((<FDate>d).kind == DateKind.UTC ? "getUTC" : "get") + key]();
+  }
 
   static minValue() {
     return FDate.parse(-8640000000000000, 1);
-  };
+  }
 
   static maxValue() {
     return FDate.parse(8640000000000000, 1);
-  };
+  }
 
   static parse(v?: any, kind?: DateKind): any {
     const date = (v == null) ? new Date() : new Date(v);
@@ -277,7 +278,7 @@ class FDate extends Date {
       throw "The string is not a valid Date.";
     (<FDate>date).kind = kind || DateKind.Local;
     return date;
-  };
+  }
 
   static create(year: number, month: number, day: number, h: number = 0, m: number = 0, s: number = 0, ms: number = 0, kind: DateKind = DateKind.Local) {
     const date: Date = (kind === DateKind.UTC)
@@ -287,81 +288,81 @@ class FDate extends Date {
       throw "The parameters describe an unrepresentable Date.";
     (<FDate>date).kind = kind;
     return date;
-  };
+  }
 
   static now = FDate.parse;
 
   static utcNow() {
     return FDate.parse(null, 1);
-  };
+  }
 
   static today() {
     return FDate.date(FDate.now());
-  };
+  }
 
   static isLeapYear(year: number) {
     return year % 4 == 0 && year % 100 != 0 || year % 400 == 0;
-  };
+  }
 
   static daysInMonth(year: number, month: number) {
     return month == 2
       ? FDate.isLeapYear(year) ? 29 : 28
       : month >= 8 ? month % 2 == 0 ? 31 : 30 : month % 2 == 0 ? 30 : 31;
-  };
+  }
 
   static toUniversalTime(d: Date) {
     return FDate.__changeKind(d, 1);
-  };
+  }
 
   static toLocalTime(d: Date) {
     return FDate.__changeKind(d, 2);
-  };
+  }
 
   static timeOfDay(d: Date) {
     return TimeSpan.create(FDate.hour(d), FDate.minute(d), FDate.second(d));
-  };
+  }
 
   static date(d: Date) {
     return FDate.create(FDate.year(d), FDate.month(d), FDate.day(d), 0, 0, 0, 0, (<FDate>d).kind);
-  };
+  }
 
   static day(d: Date) {
     return FDate.__getValue(d, "Date");
-  };
+  }
 
   static hour(d: Date) {
     return FDate.__getValue(d, "Hours");
-  };
+  }
 
   static millisecond(d: Date) {
     return FDate.__getValue(d, "Milliseconds");
-  };
+  }
 
   static minute(d: Date) {
     return FDate.__getValue(d, "Minutes");
-  };
+  }
 
   static month(d: Date) {
     return FDate.__getValue(d, "Month") + 1;
-  };
+  }
 
   static second(d: Date) {
     return FDate.__getValue(d, "Seconds");
-  };
+  }
 
   static year(d: Date) {
     return FDate.__getValue(d, "FullYear");
-  };
+  }
 
   static ticks(d: Date) {
     return (d.getTime() + 6.2135604e+13 /* millisecondsJSOffset */) * 10000;
-  };
+  }
 
   static toBinary = FDate.ticks;
 
   static dayOfWeek(d: Date) {
     return FDate.__getValue(d, "Day");
-  };
+  }
 
   static dayOfYear(d: Date) {
     const year = FDate.year(d);
@@ -370,35 +371,35 @@ class FDate extends Date {
     for (let i = 1; i < month; i++)
       day += FDate.daysInMonth(year, i);
     return day;
-  };
+  }
 
   static add(d: Date, ts: TimeSpan) {
     return FDate.parse(d.getTime() + <number>ts, (<FDate>d).kind);
-  };
+  }
 
   static addDays(d: Date, v: number) {
     return FDate.parse(d.getTime() + v * 86400000, (<FDate>d).kind);
-  };
+  }
 
   static addHours(d: Date, v: number) {
     return FDate.parse(d.getTime() + v * 3600000, (<FDate>d).kind);
-  };
+  }
 
   static addMinutes(d: Date, v: number) {
     return FDate.parse(d.getTime() + v * 60000, (<FDate>d).kind);
-  };
+  }
 
   static addSeconds(d: Date, v: number) {
     return FDate.parse(d.getTime() + v * 1000, (<FDate>d).kind);
-  };
+  }
 
   static addMilliseconds(d: Date, v: number) {
     return FDate.parse(d.getTime() + v, (<FDate>d).kind);
-  };
+  }
 
   static addTicks(d: Date, v: number) {
     return FDate.parse(d.getTime() + v / 10000, (<FDate>d).kind);
-  };
+  }
 
   static addYears(d: Date, v: number) {
     const newMonth = FDate.month(d);
@@ -406,7 +407,7 @@ class FDate extends Date {
     const daysInMonth = FDate.daysInMonth(newYear, newMonth);
     const newDay = Math.min(daysInMonth, FDate.day(d));
     return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<FDate>d).kind);
-  };
+  }
 
   static addMonths(d: Date, v: number) {
     let newMonth = FDate.month(d) + v;
@@ -425,41 +426,41 @@ class FDate extends Date {
     const daysInMonth = FDate.daysInMonth(newYear, newMonth);
     const newDay = Math.min(daysInMonth, FDate.day(d));
     return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<FDate>d).kind);
-  };
+  }
 
   static subtract(d: Date, that: Date | number) {
     return typeof that == "number"
       ? FDate.parse(d.getTime() - <number>that, (<FDate>d).kind)
       : d.getTime() - (<Date>that).getTime();
-  };
+  }
 
   static toLongDateString(d: Date) {
     return d.toDateString();
-  };
+  }
 
   static toShortDateString(d: Date) {
     return d.toLocaleDateString();
-  };
+  }
 
   static toLongTimeString(d: Date) {
     return d.toLocaleTimeString();
-  };
+  }
 
   static toShortTimeString(d: Date) {
-    return d.toLocaleTimeString().replace(/:\d\d(?!:)/, '');
-  };
+    return d.toLocaleTimeString().replace(/:\d\d(?!:)/, "");
+  }
 
   static equals(d1: Date, d2: Date) {
     return d1.getTime() == d2.getTime();
-  };
+  }
 
   static compareTo = Util.compareTo;
   static compare = Util.compareTo;
 
   static op_Addition = FDate.add;
-  static op_Subtraction = FDate.subtract
+  static op_Subtraction = FDate.subtract;
 }
-export { FDate as Date };
+export { FDate as Date }
 
 export interface Disposable {
   dispose(): void;
@@ -493,20 +494,18 @@ export class Timer implements Disposable {
     if (!this._isDisposed && this._enabled != x) {
       if (this._enabled = x) {
         if (this.autoReset) {
-          var _this = this;
           this._intervalId = setInterval(() => {
-            if (!_this.autoReset)
-              _this.enabled = false;
-            _this._elapsed.trigger(new Date());
+            if (!this.autoReset)
+              this.enabled = false;
+            this._elapsed.trigger(new Date());
           }, this.interval);
         } else {
-          var _this = this;
           this._timeoutId = setTimeout(() => {
-            _this.enabled = false;
-            _this._timeoutId = 0;
-            if (_this.autoReset)
-              _this.enabled = true;
-            _this._elapsed.trigger(new Date());
+            this.enabled = false;
+            this._timeoutId = 0;
+            if (this.autoReset)
+              this.enabled = true;
+            this._elapsed.trigger(new Date());
           }, this.interval);
         }
       } else {
@@ -525,7 +524,7 @@ export class Timer implements Disposable {
   dispose() {
     this.enabled = false;
     this._isDisposed = true;
-  };
+  }
 
   close() {
     this.dispose();
@@ -545,8 +544,8 @@ class FString {
 
   private static fsFormat(str: any) {
     function isObject(x: any) {
-      return x !== null && typeof x === 'object' && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
-    };
+      return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
+    }
 
     function formatOnce(str: any, rep: any) {
       return str.replace(FString.fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
@@ -563,9 +562,9 @@ class FString {
             });
             break;
         }
-        var plusPrefix = flags.indexOf('+') >= 0 && parseInt(rep) >= 0;
+        const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;
         if (!isNaN(pad = parseInt(pad))) {
-          var ch = pad >= 0 && flags.indexOf('0') >= 0 ? '0' : ' ';
+          const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
           rep = FString.padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
         }
         return prefix + (plusPrefix ? "+" + rep : rep);
@@ -573,27 +572,27 @@ class FString {
     }
 
     function makeFn(str: any) {
-      return function (rep: any) {
-        var str2 = formatOnce(str, rep);
+      return (rep: any) => {
+        const str2 = formatOnce(str, rep);
         return FString.fsFormatRegExp.test(str2)
-          ? makeFn(str2) : _cont(str2.replace(/%%/g, '%'));
+          ? makeFn(str2) : _cont(str2.replace(/%%/g, "%"));
       };
     }
 
-    var _cont: any;
-    return function (cont: any) {
+    let _cont: any;
+    return (cont: any) => {
       _cont = cont;
       return FString.fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
     };
-  };
+  }
 
   static formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
 
   static format(str: string, ...args: any[]) {
     return str.replace(FString.formatRegExp, function (match: any, idx: any, pad: any, format: any) {
-      var rep = args[idx];
-      if (typeof rep === 'number') {
-        switch ((format || '').substring(0, 1)) {
+      let rep = args[idx];
+      if (typeof rep === "number") {
+        switch ((format || "").substring(0, 1)) {
           case "f": case "F":
             rep = format.length > 1 ? rep.toFixed(format.substring(1)) : rep.toFixed(2);
             break;
@@ -617,11 +616,11 @@ class FString {
             case "d":
               rep = rep.toLocaleDateString(); break;
             case "t":
-              rep = rep.toLocaleTimeString().replace(/:\d\d(?!:)/, ''); break;
+              rep = rep.toLocaleTimeString().replace(/:\d\d(?!:)/, ""); break;
           }
         }
         rep = format.replace(/\w+/g, function (match2: any) {
-          var rep2 = match2;
+          let rep2 = match2;
           switch (match2.substring(0, 1)) {
             case "y":
               rep2 = match2.length < 4 ? FDate.year(rep) % 100 : FDate.year(rep);
@@ -651,17 +650,17 @@ class FString {
           return rep2;
         });
       }
-      if (!isNaN(pad = parseInt((pad || '').substring(1)))) {
-        rep = FString.padLeft(rep, Math.abs(pad), ' ', pad < 0);
+      if (!isNaN(pad = parseInt((pad || "").substring(1)))) {
+        rep = FString.padLeft(rep, Math.abs(pad), " ", pad < 0);
       }
       return rep;
     });
-  };
+  }
 
   static endsWith(str: string, search: string) {
     const idx = str.lastIndexOf(search);
     return idx >= 0 && idx == str.length - search.length;
-  };
+  }
 
   static init(n: number, f: (i: number) => string) {
     if (n < 0)
@@ -671,53 +670,53 @@ class FString {
     for (let i = 0; i < n; i++)
       xs[i] = f(i);
     return xs.join("");
-  };
+  }
 
   static isNullOrEmpty(str: string | any) {
     return typeof str !== "string" || str.length == 0;
-  };
+  }
 
   static isNullOrWhiteSpace(str: string | any) {
     return typeof str !== "string" || /^\s*$/.test(str);
-  };
+  }
 
   static join(delimiter: string, xs: ArrayLike<string>) {
     xs = typeof xs == "string" ? Util.getRestParams(arguments, 1) : xs;
     return (Array.isArray(xs) ? xs : Array.from(xs)).join(delimiter);
-  };
+  }
   static concat = FString.join;
 
   static newGuid() {
-    let uuid = '';
+    let uuid = "";
     for (let i = 0; i < 32; i++) {
       const random = Math.random() * 16 | 0;
       if (i === 8 || i === 12 || i === 16 || i === 20)
-        uuid += '-';
+        uuid += "-";
       uuid += (i === 12 ? 4 : i === 16 ? random & 3 | 8 : random).toString(16);
     }
     return uuid;
-  };
+  }
 
   static padLeft(str: any, len: number, ch?: string, isRight?: boolean) {
-    ch = ch || ' ';
+    ch = ch || " ";
     str = String(str);
     len = len - str.length;
     for (let i = -1; ++i < len;)
       str = isRight ? str + ch : ch + str;
     return str;
-  };
+  }
 
   static padRight(str: any, len: number, ch?: string) {
     return FString.padLeft(str, len, ch, true);
-  };
+  }
 
   static replace(str: string, search: string, replace: string) {
     return str.replace(new RegExp(FRegExp.escape(search), "g"), replace);
-  };
+  }
 
   static replicate(n: number, x: string) {
     return FString.init(n, () => x);
-  };
+  }
 
   static split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
     count = typeof count == "number" ? count : null;
@@ -743,9 +742,9 @@ class FString {
     if (!removeEmpty || (str.length - i) > 0)
       splits.push(str.substring(i));
     return splits;
-  };
+  }
 }
-export { FString as String };
+export { FString as String }
 
 export type MatchEvaluator = (match: any) => string;
 
@@ -755,30 +754,30 @@ class FRegExp {
     flags += options & 1 ? "i" : "";
     flags += options & 2 ? "m" : "";
     return new RegExp(pattern, flags);
-  };
+  }
 
   // From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
   static escape(str: string) {
-    return str.replace(/[\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&');
-  };
+    return str.replace(/[\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+  }
 
   static unescape(str: string) {
-    return str.replace(/\\([\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, '$1');
-  };
+    return str.replace(/\\([\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, "$1");
+  }
 
   static isMatch(str: string | RegExp, pattern: string, options: number = 0) {
     var reg: RegExp = str instanceof RegExp
       ? (reg = <RegExp>str, str = pattern, reg.lastIndex = options, reg)
-      : reg = FRegExp.create(pattern, options)
+      : reg = FRegExp.create(pattern, options);
     return reg.test(<string>str);
-  };
+  }
 
   static match(str: string | RegExp, pattern: string, options: number = 0) {
     var reg: RegExp = str instanceof RegExp
       ? (reg = <RegExp>str, str = pattern, reg.lastIndex = options, reg)
       : reg = FRegExp.create(pattern, options);
     return reg.exec(<string>str);
-  };
+  }
 
   static matches(str: string | RegExp, pattern: string, options: number = 0) {
     var reg: RegExp = str instanceof RegExp
@@ -792,14 +791,14 @@ class FRegExp {
     while ((m = reg.exec(<string>str)) !== null)
       matches.push(m);
     return matches;
-  };
+  }
 
   static options(reg: RegExp) {
     let options = 256; // ECMAScript
     options |= reg.ignoreCase ? 1 : 0;
     options |= reg.multiline ? 2 : 0;
     return options;
-  };
+  }
 
   static replace(reg: string | RegExp, input: string, replacement: string | MatchEvaluator, limit?: number, offset: number = 0) {
     function replacer() {
@@ -815,7 +814,7 @@ class FRegExp {
         res = (<MatchEvaluator>replacement)(match);
       }
       return res;
-    };
+    }
 
     if (typeof reg == "string") {
       const tmp = <string>reg;
@@ -837,30 +836,30 @@ class FRegExp {
         return input.replace(<RegExp>reg, <string>replacement);
       }
     }
-  };
+  }
 
   static split(reg: string | RegExp, input: string, limit?: number, offset: number = 0) {
     if (typeof reg == "string") {
       const tmp = <string>reg;
       reg = FRegExp.create(input, limit);
-      input = tmp
+      input = tmp;
       limit = undefined;
     }
     input = input.substring(offset);
     return input.split(<RegExp>reg, limit);
-  };
+  }
 }
-export { FRegExp as RegExp };
+export { FRegExp as RegExp }
 
 class FArray {
   static addRangeInPlace<T>(range: Iterable<T>, xs: Array<T>) {
     Seq.iter(x => xs.push(x), range);
-  };
+  }
 
   static blit<T>(source: ArrayLike<T>, sourceIndex: number, target: ArrayLike<T>, targetIndex: number, count: number) {
     while (count--)
       target[targetIndex++] = source[sourceIndex++];
-  };
+  }
 
   static partition<T>(f: (x: T) => boolean, xs: ArrayLike<T>) {
     let ys = <T[]>[], zs = <T[]>[], j = 0, k = 0;
@@ -870,7 +869,7 @@ class FArray {
       else
         zs[k++] = xs[i];
     return Tuple(ys, zs);
-  };
+  }
 
   static permute<T>(f: (i: number) => number, xs: Array<T>) {
     // Keep the type of the array
@@ -889,7 +888,7 @@ class FArray {
         throw "Not a valid permutation";
 
     return ys;
-  };
+  }
 
   static removeInPlace<T>(item: T, xs: Array<T>) {
     const i = xs.indexOf(item);
@@ -898,7 +897,7 @@ class FArray {
       return true;
     }
     return false;
-  };
+  }
 
   static setSlice<T>(target: any, lower: number, upper: number, source: ArrayLike<T>) {
     const length = (upper || target.length - 1) - lower;
@@ -907,7 +906,7 @@ class FArray {
     else
       for (let i = lower | 0, j = 0; j <= length; i++ , j++)
         target[i] = source[j];
-  };
+  }
 
   static sortInPlaceBy<T>(f: (x: T) => T, xs: Array<T>, dir: number = 1) {
     return xs.sort((x, y) => {
@@ -915,7 +914,7 @@ class FArray {
       y = f(y);
       return (x < y ? -1 : x == y ? 0 : 1) * dir;
     });
-  };
+  }
 
   static unzip<T1, T2>(xs: ArrayLike<TTuple<T1, T2>>) {
     const bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length);
@@ -924,7 +923,7 @@ class FArray {
       cs[i] = xs[i][1];
     }
     return Tuple(bs, cs);
-  };
+  }
 
   static unzip3<T1, T2, T3>(xs: ArrayLike<TTuple3<T1, T2, T3>>) {
     const bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length), ds = new Array<T3>(xs.length);
@@ -934,9 +933,9 @@ class FArray {
       ds[i] = xs[i][2];
     }
     return Tuple3(bs, cs, ds);
-  };
+  }
 }
-export { FArray as Array };
+export { FArray as Array }
 
 export class List<T> {
   public head: T;
@@ -965,9 +964,9 @@ export class List<T> {
       next: () => {
         const tmp = cur;
         cur = cur.tail;
-        return { done: tmp.tail == null, value: tmp.head }
+        return { done: tmp.tail == null, value: tmp.head };
       }
-    }
+    };
   }
 
   append(ys: List<T>): List<T> {
@@ -1104,24 +1103,24 @@ export class Seq {
     if (res == null)
       throw "Seq did not contain any matching element";
     return res;
-  };
+  }
 
   static toList<T>(xs: Iterable<T>) {
     return Seq.foldBack((x, acc) =>
       new List(x, acc), xs, new List<T>());
-  };
+  }
 
   static ofList<T>(xs: List<T>) {
     return Seq.delay(() =>
       Seq.unfold(x =>
         x.tail != null ? [x.head, x.tail] : null, xs));
-  };
+  }
 
   static ofArray<T>(xs: ArrayLike<T>) {
     return Seq.delay(() =>
       Seq.unfold(i =>
         i < xs.length ? [xs[i], i + 1] : null, 0));
-  };
+  }
 
   static append<T>(xs: Iterable<T>, ys: Iterable<T>) {
     return Seq.delay(() => {
@@ -1143,7 +1142,7 @@ export class Seq {
         return !cur.done ? [cur.value, iters] : null;
       }, iters);
     });
-  };
+  }
 
   static average(xs: Iterable<number>) {
     let count = 1;
@@ -1152,7 +1151,7 @@ export class Seq {
       return acc + x;
     }, xs);
     return sum / count;
-  };
+  }
 
   static averageBy(f: (a: number) => number, xs: Iterable<number>) {
     let count = 1;
@@ -1161,11 +1160,11 @@ export class Seq {
       return (count === 2 ? f(acc) : acc) + f(x);
     }, xs);
     return sum / count;
-  };
+  }
 
   static countBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
     return Seq.map(kv => Tuple(kv[0], Seq.count(kv[1])), Seq.groupBy(f, xs));
-  };
+  }
 
   static concat<T>(xs: Iterable<Iterable<T>>) {
     return Seq.delay(() => {
@@ -1194,11 +1193,11 @@ export class Seq {
         return innerIter != null && output != null ? [output, innerIter] : null;
       }, null);
     });
-  };
+  }
 
   static collect<T, U>(f: (x: T) => Iterable<U>, xs: Iterable<T>) {
     return Seq.concat(Seq.map(f, xs));
-  };
+  }
 
   static choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
     const trySkipToNext = (iter: Iterator<T>): TTuple<U, Iterator<T>> => {
@@ -1207,22 +1206,23 @@ export class Seq {
         const y = f(cur.value);
         return y != null ? Tuple(y, iter) : trySkipToNext(iter);
       }
+      return void 0;
     };
     return Seq.delay(() =>
       Seq.unfold(iter =>
         trySkipToNext(iter), xs[Symbol.iterator]()));
-  };
+  }
 
   static compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: Iterable<T>) {
     let nonZero = Seq.tryFind((i: number) => i != 0, Seq.map2((x: T, y: T) => f(x, y), xs, ys));
     return nonZero != null ? nonZero : Seq.count(xs) - Seq.count(ys);
-  };
+  }
 
   static delay<T>(f: () => Iterable<T>) {
     return <Iterable<T>>{
       [Symbol.iterator]: () => f()[Symbol.iterator]()
     };
-  };
+  }
 
   static distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
     return Seq.choose(
@@ -1232,19 +1232,19 @@ export class Seq {
         const k = f(x);
         return acc.has(k) ? Tuple(<T>null, acc) : Tuple(x, acc.add(k));
       }, Tuple(<T>null, new Set<K>()), xs));
-  };
+  }
 
   static distinct<T>(xs: Iterable<T>) {
     return Seq.distinctBy(x => x, xs);
-  };
+  }
 
   static empty<T>() {
-    return Seq.unfold((): TTuple<T, T> => { return void 0 });
-  };
+    return Seq.unfold((): TTuple<T, T> => { return void 0; });
+  }
 
   static enumerateWhile<T>(cond: () => boolean, xs: Iterable<T>) {
     return Seq.concat(Seq.unfold(() => cond() ? [xs, true] : null));
-  };
+  }
 
   static enumerateThenFinally<T>(xs: Iterable<T>, finalFn: () => void) {
     return Seq.delay(() => {
@@ -1261,9 +1261,10 @@ export class Seq {
         } finally {
           finalFn();
         }
+        return void 0;
       }, iter);
     });
-  };
+  }
 
   static enumerateUsing<T extends Disposable, U>(disp: T, work: (x: T) => Iterable<U>) {
     let isDisposed = false;
@@ -1278,7 +1279,8 @@ export class Seq {
     } finally {
       disposeOnce();
     }
-  };
+    return void 0;
+  }
 
   static exactlyOne<T>(xs: Iterable<T>) {
     const iter = xs[Symbol.iterator]();
@@ -1291,37 +1293,37 @@ export class Seq {
       throw "Seq had multiple items";
 
     return fst.value;
-  };
+  }
 
   static exists<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     function aux(iter: Iterator<T>): boolean {
       const cur = iter.next();
       return !cur.done && (f(cur.value) || aux(iter));
-    };
+    }
     return aux(xs[Symbol.iterator]());
-  };
+  }
 
   static exists2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
     function aux(iter1: Iterator<T1>, iter2: Iterator<T2>): boolean {
       const cur1 = iter1.next(), cur2 = iter2.next();
       return !cur1.done && !cur2.done && (f(cur1.value, cur2.value) || aux(iter1, iter2));
-    };
+    }
     return aux(xs[Symbol.iterator](), ys[Symbol.iterator]());
-  };
+  }
 
   static filter<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     function trySkipToNext(iter: Iterator<T>): TTuple<T, Iterator<T>> {
       const cur = iter.next();
-      if (!cur.done) {
+      if (!cur.done)
         return f(cur.value) ? [cur.value, iter] : trySkipToNext(iter);
-      }
-    };
+      return void 0;
+    }
     return Seq.delay(() => Seq.unfold(trySkipToNext, xs[Symbol.iterator]()));
-  };
+  }
 
   static where<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     return Seq.filter(f, xs);
-  };
+  }
 
   static fold<T, ST>(f: (acc: ST, x: T, i?: number) => ST, acc: ST, xs: Iterable<T>) {
     if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
@@ -1368,15 +1370,15 @@ export class Seq {
       acc = f(ar1[i], ar2[i], acc, i);
     }
     return acc;
-  };
+  }
 
   static forall<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     return Seq.fold((acc, x) => acc && f(x), true, xs);
-  };
+  }
 
   static forall2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
     return Seq.fold2((acc, x, y) => acc && f(x, y), true, xs, ys);
-  };
+  }
 
   // TODO: Should return a Iterable<Tuple<K, Iterable<T>>> instead of a Map<K, Iterable<T>>
   // Seq.groupBy : ('T -> 'Key) -> seq<'T> -> seq<'Key * seq<'T>>
@@ -1385,27 +1387,27 @@ export class Seq {
       const k = f(x), vs = acc.get(k);
       return vs != null ? acc.set(k, new List(x, <List<T>>vs)) : acc.set(k, List.singleton(x));
     }, new Map<K, Iterable<T>>(), xs);
-  };
+  }
 
   static tryHead<T>(xs: Iterable<T>) {
     const iter = xs[Symbol.iterator]();
     const cur = iter.next();
     return cur.done ? null : cur.value;
-  };
+  }
 
   static head<T>(xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryHead(xs));
-  };
+  }
 
   static init<T>(n: number, f: (i: number) => T) {
     return Seq.delay(() =>
       Seq.unfold(i => i < n ? [f(i), i + 1] : null, 0));
-  };
+  }
 
   static initInfinite<T>(f: (i: number) => T) {
     return Seq.delay(() =>
       Seq.unfold(i => [f(i), i + 1], 0));
-  };
+  }
 
   static tryItem<T>(i: number, xs: Iterable<T>) {
     if (i < 0)
@@ -1422,32 +1424,32 @@ export class Seq {
       if (j === i)
         return cur.value;
     }
-  };
+  }
 
   static item<T>(i: number, xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryItem(i, xs));
-  };
+  }
 
   static iter<T>(f: (x: T) => void, xs: Iterable<T>) {
     Seq.fold((_, x) => f(x), null, xs);
-  };
+  }
 
   static iter2<T1, T2>(f: (x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
     Seq.fold2((_, x, y) => f(x, y), null, xs, ys);
-  };
+  }
 
   static iteri<T>(f: (i: number, x: T) => void, xs: Iterable<T>) {
     Seq.fold((_, x, i) => f(i, x), null, xs);
-  };
+  }
 
   static iteri2<T1, T2>(f: (i: number, x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
     Seq.fold2((_, x, y, i) => f(i, x, y), null, xs, ys);
-  };
+  }
 
   static isEmpty<T>(xs: Iterable<T>) {
     const i = xs[Symbol.iterator]();
     return i.next().done;
-  };
+  }
 
   static tryLast<T>(xs: Iterable<T>) {
     try {
@@ -1456,25 +1458,25 @@ export class Seq {
     catch (err) {
       return null;
     }
-  };
+  }
 
   static last<T>(xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryLast(xs));
-  };
+  }
 
   // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
   static count<T>(xs: Iterable<T>) {
     return Array.isArray(xs) || ArrayBuffer.isView(xs)
       ? (xs as Array<T>).length
       : Seq.fold((acc, x) => acc + 1, 0, xs);
-  };
+  }
 
   static map<T, U>(f: (x: T) => U, xs: Iterable<T>) {
     return Seq.delay(() => Seq.unfold(iter => {
       const cur = iter.next();
       return !cur.done ? [f(cur.value), iter] : null;
     }, xs[Symbol.iterator]()));
-  };
+  }
 
   static mapi<T, U>(f: (i: number, x: T) => U, xs: Iterable<T>) {
     return Seq.delay(() => {
@@ -1484,7 +1486,7 @@ export class Seq {
         return !cur.done ? [f(i++, cur.value), iter] : null;
       }, xs[Symbol.iterator]());
     });
-  };
+  }
 
   static map2<T1, T2, U>(f: (x: T1, y: T2) => U, xs: Iterable<T1>, ys: Iterable<T2>) {
     return Seq.delay(() => {
@@ -1495,7 +1497,7 @@ export class Seq {
         return !cur1.done && !cur2.done ? [f(cur1.value, cur2.value), null] : null;
       });
     });
-  };
+  }
 
   static mapi2<T1, T2, U>(f: (i: number, x: T1, y: T2) => U, xs: Iterable<T1>, ys: Iterable<T2>) {
     return Seq.delay(() => {
@@ -1507,7 +1509,7 @@ export class Seq {
         return !cur1.done && !cur2.done ? [f(i++, cur1.value, cur2.value), null] : null;
       });
     });
-  };
+  }
 
   static map3<T1, T2, T3, U>(f: (x: T1, y: T2, z: T3) => U, xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>) {
     return Seq.delay(() => {
@@ -1519,49 +1521,49 @@ export class Seq {
         return !cur1.done && !cur2.done && !cur3.done ? [f(cur1.value, cur2.value, cur3.value), null] : null;
       });
     });
-  };
+  }
 
   static max<T extends number>(xs: Iterable<T>) {
     return Seq.reduce((acc: T, x: T) => Math.max(acc, x), xs);
-  };
+  }
 
   static maxBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>) {
     return Seq.reduce((x, y) => f(x) > f(y) ? x : y, xs);
-  };
+  }
 
   static min<T extends number>(xs: Iterable<T>) {
     return Seq.reduce((acc: T, x: T) => Math.min(acc, x), xs);
-  };
+  }
 
   static minBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>) {
     return Seq.reduce((x, y) => f(x) < f(y) ? x : y, xs);
-  };
+  }
 
   static pairwise<T extends number>(xs: Iterable<T>) {
     return Seq.skip(1, Seq.scan((last, next) => Tuple(last[1], next), Tuple(0, 0), xs));
-  };
+  }
 
   static permute<T>(f: (i: number) => number, xs: Iterable<T>) {
     return Seq.ofArray(FArray.permute(f, Array.from(xs)));
-  };
+  }
 
   static rangeStep(first: number, step: number, last: number) {
     if (step === 0)
       throw "Step cannot be 0";
     return Seq.unfold(x => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first);
-  };
+  }
 
   static rangeChar(first: string, last: string) {
     return Seq.unfold(x => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first);
-  };
+  }
 
   static range(first: number, last: number) {
     return Seq.rangeStep(first, 1, last);
-  };
+  }
 
   static readonly<T>(xs: Iterable<T>) {
     return Seq.map(x => x, xs);
-  };
+  }
 
   static reduce<T>(f: (acc: T, x: T) => T, xs: Iterable<T>) {
     if (Array.isArray(xs) || ArrayBuffer.isView(xs))
@@ -1581,7 +1583,7 @@ export class Seq {
       acc = f(acc, cur.value);
     }
     return acc;
-  };
+  }
 
   static reduceBack<T>(f: (acc: T, x: T, i?: number) => T, xs: Iterable<T>) {
     const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? <Array<T>>xs : Array.from(xs);
@@ -1593,16 +1595,16 @@ export class Seq {
       acc = f(ar[i], acc, i);
 
     return acc;
-  };
+  }
 
   static replicate<T>(n: number, x: T) {
     return Seq.init(n, () => x);
-  };
+  }
 
   static rev<T>(xs: Iterable<T>) {
     const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (<Array<T>>xs).slice(0) : Array.from(xs);
     return Seq.ofArray(ar.reverse());
-  };
+  }
 
   static scan<T, ST>(f: (st: ST, x: T) => ST, seed: ST, xs: Iterable<T>) {
     return Seq.delay(() => {
@@ -1616,17 +1618,18 @@ export class Seq {
           acc = f(acc, cur.value);
           return [acc, acc];
         }
+        return void 0;
       }, <ST>null);
     });
-  };
+  }
 
   static scanBack<T, ST>(f: (x: T, st: ST) => ST, xs: Iterable<T>, seed: ST) {
     return Seq.rev(Seq.scan((acc, x) => f(x, acc), seed, Seq.rev(xs)));
-  };
+  }
 
   static singleton<T>(x: T) {
     return Seq.unfold(x => x != null ? [x, null] : null, x);
-  };
+  }
 
   static skip<T>(n: number, xs: Iterable<T>) {
     return <Iterable<T>>{
@@ -1638,19 +1641,19 @@ export class Seq {
         return iter;
       }
     };
-  };
+  }
 
   static skipWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     return Seq.delay(() => {
       let hasPassed = false;
       return Seq.filter((x) => hasPassed || (hasPassed = !f(x)), xs);
     });
-  };
+  }
 
   static sortWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>) {
     const ys = Array.from(xs);
     return Seq.ofArray(ys.sort(f));
-  };
+  }
 
   private static defaultAdder(x: number, y: number) {
     return x + y;
@@ -1659,7 +1662,7 @@ export class Seq {
   static sum(xs: Iterable<number>, adder?: (x: number, y: number) => number) {
     adder = adder || Seq.defaultAdder;
     return Seq.reduce((acc, x) => adder(acc, x), xs);
-  };
+  }
 
   static sumBy(f: (x: number) => number, xs: Iterable<number>, adder?: (x: number, y: number) => number) {
     let fst = true;
@@ -1668,7 +1671,7 @@ export class Seq {
       acc = fst ? f(acc) : acc, fst = false;
       return adder(acc, f(x));
     }, xs);
-  };
+  }
 
   static tail<T>(xs: Iterable<T>) {
     const iter = xs[Symbol.iterator]();
@@ -1679,7 +1682,7 @@ export class Seq {
     return <Iterable<T>>{
       [Symbol.iterator]: () => iter
     };
-  };
+  }
 
   static take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
     return Seq.delay(() => {
@@ -1692,13 +1695,14 @@ export class Seq {
           if (!truncate)
             throw "Seq has not enough elements";
         }
+        return void 0;
       }, 0);
     });
-  };
+  }
 
   static truncate<T>(n: number, xs: Iterable<T>) {
     return Seq.take(n, xs, true);
-  };
+  }
 
   static takeWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     return Seq.delay(() => {
@@ -1707,9 +1711,10 @@ export class Seq {
         const cur = iter.next();
         if (!cur.done && f(cur.value))
           return [cur.value, null];
+        return void 0;
       }, 0);
     });
-  };
+  }
 
   static tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
     for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
@@ -1719,11 +1724,11 @@ export class Seq {
       if (f(cur.value, i))
         return cur.value;
     }
-  };
+  }
 
   static find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryFind(f, xs));
-  };
+  }
 
   static tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
     let match = <T>null;
@@ -1734,11 +1739,11 @@ export class Seq {
       if (f(cur.value, i))
         match = cur.value;
     }
-  };
+  }
 
   static findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryFindBack(f, xs));
-  };
+  }
 
   static tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
     for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
@@ -1748,11 +1753,11 @@ export class Seq {
       if (f(cur.value, i))
         return i;
     }
-  };
+  }
 
   static findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryFindIndex(f, xs));
-  };
+  }
 
   static tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
     let match = 0;
@@ -1763,11 +1768,11 @@ export class Seq {
       if (f(cur.value, i))
         match = i;
     }
-  };
+  }
 
   static findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryFindIndexBack(f, xs));
-  };
+  }
 
   static tryPick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
     for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
@@ -1775,15 +1780,15 @@ export class Seq {
       if (cur.done)
         break;
       const y = f(cur.value, i);
-      if (y != null) {
+      if (y != null)
         return y;
-      }
     }
-  };
+    return void 0;
+  }
 
   static pick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
     return Seq.__failIfNone(Seq.tryPick(f, xs));
-  };
+  }
 
   static unfold<T, ST>(f: (st: ST) => TTuple<T, ST>, acc?: ST) {
     return <Iterable<T>>{
@@ -1800,30 +1805,30 @@ export class Seq {
         };
       }
     };
-  };
+  }
 
   static zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>) {
     return Seq.map2((x, y) => [x, y], xs, ys);
-  };
+  }
 
   static zip3<T1, T2, T3>(xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>) {
     return Seq.map3((x, y, z) => [x, y, z], xs, ys, zs);
-  };
+  }
 }
 
 class FSet {
   static union<T>(set1: Set<T>, set2: Set<T>) {
     return Seq.fold((acc, x) => { acc.add(x); return acc; }, new Set(set1), set2);
-  };
+  }
   static op_Addition = FSet.union;
 
   static unionMany<T>(sets: Iterable<Set<T>>) {
     return Seq.fold((acc, s) => FSet.union(acc, s), new Set<T>(), sets);
-  };
+  }
 
   static difference<T>(set1: Set<T>, set2: Set<T>) {
     return Seq.fold((acc, x) => { acc.delete(x); return acc; }, new Set(set1), set2);
-  };
+  }
   static op_Subtraction = FSet.difference;
 
   static intersect<T>(set1: Set<T>, set2: Set<T>) {
@@ -1832,7 +1837,7 @@ class FSet {
         acc.delete(x);
       return acc;
     }, new Set(set1), set1);
-  };
+  }
 
   static intersectMany<T>(sets: Iterable<Set<T>>) {
     const ar = Array.isArray(sets) ? <Array<Set<T>>>sets : Array.from(sets);
@@ -1849,26 +1854,26 @@ class FSet {
       }
     }, ar[0]);
     return set;
-  };
+  }
 
   static isProperSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
     return Seq.forall(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
-  };
+  }
   static isProperSubset = FSet.isProperSubsetOf;
 
   static isSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
     return Seq.forall(x => set2.has(x), set1);
-  };
+  }
   static isSubset = FSet.isSubsetOf;
 
   static isProperSupersetOf<T>(set1: Set<T>, set2: Set<T>) {
     return FSet.isProperSubset(set2, set1);
-  };
+  }
   static isProperSuperset = FSet.isProperSupersetOf;
 
   static isSupersetOf<T>(set1: Set<T>, set2: Set<T>) {
     return FSet.isSubset(set2, set1);
-  };
+  }
   static isSuperset = FSet.isSupersetOf;
 
   static copyTo<T>(xs: Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
@@ -1882,59 +1887,59 @@ class FSet {
       const el = iter.next();
       if (el.done) break;
       arr[i++] = el.value;
-    };
-  };
+    }
+  }
 
   static partition<T>(f: (x: T) => boolean, xs: Set<T>) {
     return Seq.fold((acc, x) => {
       const lacc = acc[0], racc = acc[1];
       return f(x) ? Tuple(lacc.add(x), racc) : Tuple(lacc, racc.add(x));
     }, Tuple(new Set<T>(), new Set<T>()), xs);
-  };
+  }
 
   static remove<T>(item: T, xs: Set<T>) {
     return FSet.removeInPlace(item, new Set(xs));
-  };
+  }
 
   static removeInPlace<T>(item: T, xs: Set<T>) {
     xs.delete(item);
     return xs;
-  };
+  }
 }
-export { FSet as Set };
+export { FSet as Set }
 
 class FMap {
   static containsValue<K, V>(v: V, map: Map<K, V>) {
     return Seq.fold((acc, k) => acc || map.get(k) === v, false, map.keys());
-  };
+  }
 
   static exists<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
     return Seq.exists(kv => f(kv[0], kv[1]), map);
-  };
+  }
 
   static filter<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
     return Seq.fold((acc, kv) => f(kv[0], kv[1]) ? acc.set(kv[0], kv[1]) : acc, new Map<K, V>(), map);
-  };
+  }
 
   static fold<K, V, ST>(f: (acc: ST, k: K, v: V) => ST, seed: ST, map: Map<K, V>) {
     return Seq.fold((acc, kv) => f(acc, kv[0], kv[1]), seed, map);
-  };
+  }
 
   static foldBack<K, V, ST>(f: (k: K, v: V, acc: ST) => ST, map: Map<K, V>, seed: ST) {
     return Seq.foldBack((kv, acc) => f(kv[0], kv[1], acc), map, seed);
-  };
+  }
 
   static forall<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
     return Seq.forall(kv => f(kv[0], kv[1]), map);
-  };
+  }
 
   static iter<K, V>(f: (k: K, v: V) => void, map: Map<K, V>) {
     return Seq.iter(kv => f(kv[0], kv[1]), map);
-  };
+  }
 
   static map<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
     return Seq.fold((acc, kv) => acc.set(kv[0], f(kv[0], kv[1])), new Map<K, U>(), map);
-  };
+  }
 
   static partition<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
     return Seq.fold((acc, kv) => {
@@ -1942,40 +1947,40 @@ class FMap {
       const k = kv[0], v = kv[1];
       return f(k, v) ? Tuple(lacc.set(k, v), racc) : Tuple(lacc, racc.set(k, v));
     }, Tuple(new Map<K, V>(), new Map<K, V>()), map);
-  };
+  }
 
   static findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
     return Seq.pick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
-  };
+  }
 
   static tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
     return Seq.tryPick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
-  };
+  }
 
   static pick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
     return Seq.pick(kv => {
       const res = f(kv[0], kv[1]);
       return res != null ? res : null;
     }, map);
-  };
+  }
 
   static remove<K, V>(item: K, map: Map<K, V>) {
     return FMap.removeInPlace(item, new Map<K, V>(map));
-  };
+  }
 
   static removeInPlace<K, V>(item: K, map: Map<K, V>) {
     map.delete(item);
     return map;
-  };
+  }
 
   static tryPick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
     return Seq.tryPick(kv => {
       let res = f(kv[0], kv[1]);
       return res != null ? res : null;
     }, map);
-  };
+  }
 }
-export { FMap as Map };
+export { FMap as Map }
 
 export type Unit = void;
 
@@ -2012,7 +2017,7 @@ export class Async {
           ctx.onError(err);
         }
     };
-  };
+  }
 
   static bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
     return Async.__protectedAsync((ctx: IAsyncContext<U>) => {
@@ -2023,15 +2028,15 @@ export class Async {
         cancelToken: ctx.cancelToken
       });
     });
-  };
+  }
 
   static combine<T>(computation1: IAsync<Unit>, computation2: IAsync<T>) {
     return Async.bind(computation1, () => computation2);
-  };
+  }
 
   static delay<T>(generator: () => IAsync<T>) {
     return Async.__protectedAsync((ctx: IAsyncContext<T>) => generator()(ctx));
-  };
+  }
 
   static for<T>(sequence: Iterable<T>, body: (x: T) => IAsync<Unit>) {
     const iter = sequence[Symbol.iterator]();
@@ -2041,15 +2046,15 @@ export class Async {
       cur = iter.next();
       return res;
     }));
-  };
+  }
 
   static return<T>(value?: T) {
     return Async.__protectedAsync((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
-  };
+  }
 
   static returnFrom<T>(computation: IAsync<T>) {
     return computation;
-  };
+  }
 
   static tryFinally<T>(computation: IAsync<T>, compensation: () => void) {
     return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
@@ -2069,7 +2074,7 @@ export class Async {
         cancelToken: ctx.cancelToken
       });
     });
-  };
+  }
 
   // TODO: (*) catchHandler should return IAsync<T> instead of T
   static tryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => T) {
@@ -2081,22 +2086,22 @@ export class Async {
         onError: (ex: any) => ctx.onSuccess(catchHandler(ex))   // (*) ?
       });
     });
-  };
+  }
 
   static using<T extends Disposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
     return Async.tryFinally(binder(resource), () => resource.dispose());
-  };
+  }
 
   static while(guard: () => boolean, computation: IAsync<Unit>): IAsync<Unit> {
     if (guard())
       return Async.bind(computation, () => Async.while(guard, computation));
     else
       return Async.return(Nothing);
-  };
+  }
 
   static zero() {
     return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => ctx.onSuccess(Nothing));
-  };
+  }
 
   // --- Async methods
 
@@ -2105,7 +2110,7 @@ export class Async {
     return Async.fromContinuations((conts: Array<Continuation<T>>) =>
       p.then(conts[0]).catch(err =>
         (err == "cancelled" ? conts[2] : conts[1])(err)));
-  };
+  }
 
   get cancellationToken() {
     return Async.__protectedAsync((ctx: IAsyncContext<CancellationToken>) => ctx.onSuccess(ctx.cancelToken));
@@ -2120,29 +2125,29 @@ export class Async {
         cancelToken: ctx.cancelToken
       });
     });
-  };
+  }
 
   static defaultCancellationToken = {
     isCancelled: false
-  }
+  };
 
   static fromContinuations<T>(f: (conts: Array<Continuation<T>>) => void) {
     return Async.__protectedAsync((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
-  };
+  }
 
   static ignore<T>(computation: IAsync<T>) {
     return Async.bind(computation, x => Async.return(Nothing));
-  };
+  }
 
   static parallel<T>(computations: Iterable<IAsync<T>>) {
     return Async.awaitPromise(Promise.all(Seq.map(w => Async.startAsPromise(w), computations)));
-  };
+  }
 
   static sleep(millisecondsDueTime: number) {
     return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => {
       setTimeout(() => ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess(Nothing), millisecondsDueTime);
     });
-  };
+  }
 
   private static start<T>(computation: IAsync<Unit>, cancellationToken?: CancellationToken) {
     return Async.startWithContinuations(computation, cancellationToken);
@@ -2168,13 +2173,13 @@ export class Async {
       onCancel: cancellationContinuation ? cancellationContinuation : Async.emptyContinuation,
       cancelToken: cancelToken ? cancelToken : Async.defaultCancellationToken
     });
-  };
+  }
 
   // Async.StartAsTask<T> in F#
   static startAsPromise<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
     return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
       Async.startWithContinuations(computation, resolve, reject, reject, cancellationToken ? cancellationToken : Async.defaultCancellationToken));
-  };
+  }
 }
 
 class QueueCell<Msg> {
@@ -2197,7 +2202,7 @@ class MailboxQueue<Msg> {
     }
     else
       this.firstAndLast = [itCell, itCell];
-  };
+  }
 
   tryGet() {
     if (this.firstAndLast) {
@@ -2208,14 +2213,15 @@ class MailboxQueue<Msg> {
         delete this.firstAndLast;
       return value;
     }
-  };
+    return void 0;
+  }
 }
 
 export type MailboxBody<Msg> = (m: MailboxProcessor<Msg>) => IAsync<Unit>;
 
 export interface AsyncReplyChannel<Reply> {
   reply: (r: Reply) => Unit;
-};
+}
 
 export class MailboxProcessor<Msg> {
   private body: MailboxBody<Msg>;
@@ -2228,13 +2234,13 @@ export class MailboxProcessor<Msg> {
     this.body = body;
     this.cancellationToken = cancellationToken || Async.defaultCancellationToken;
     this.messages = new MailboxQueue<Msg>();
-  };
+  }
 
   static start<Msg>(body: MailboxBody<Msg>, cancellationToken?: CancellationToken) {
     const mbox = new MailboxProcessor(body, cancellationToken);
     mbox.start();
     return mbox;
-  };
+  }
 
   __processEvents() {
     if (this.continuation) {
@@ -2245,11 +2251,11 @@ export class MailboxProcessor<Msg> {
         cont(value);
       }
     }
-  };
+  }
 
   start() {
     Async.startImmediate(this.body(this), this.cancellationToken);
-  };
+  }
 
   receive() {
     return Async.fromContinuations((conts: Array<Continuation<Msg>>) => {
@@ -2259,12 +2265,12 @@ export class MailboxProcessor<Msg> {
       this.continuation = conts[0];
       this.__processEvents();
     });
-  };
+  }
 
   post(message: Msg) {
     this.messages.add(message);
     this.__processEvents();
-  };
+  }
 
   postAndAsyncReply<Reply>(buildMessage: (c: AsyncReplyChannel<Reply>) => Msg) {
     let result: Reply;
@@ -2272,7 +2278,7 @@ export class MailboxProcessor<Msg> {
     function checkCompletion() {
       if (result && continuation)
         continuation(result);
-    };
+    }
     const reply = {
       reply: (res: Reply) => {
         result = res;
@@ -2285,7 +2291,7 @@ export class MailboxProcessor<Msg> {
       continuation = conts[0];
       checkCompletion();
     });
-  };
+  }
 }
 
 export interface IObserver<T> {
@@ -2304,7 +2310,7 @@ class Observer<T> implements IObserver<T> {
     this.onError = onError || ((e: any) => { });
     this.onCompleted = onCompleted || function () { };
   }
-};
+}
 Util.setInterfaces(Observer.prototype, ["System.IObserver"]);
 
 export interface IObservable<T> {
@@ -2316,7 +2322,7 @@ class Observable<T> implements IObservable<T> {
 
   constructor(subscribe: (o: IObserver<T>) => Disposable) {
     this.subscribe = subscribe;
-  };
+  }
 }
 Util.setInterfaces(Observable.prototype, ["System.IObservable"]);
 
@@ -2327,11 +2333,11 @@ class Obs {
     } catch (e) {
       fail(e);
     }
-  };
+  }
 
   static add<T>(callback: (x: T) => Unit, source: IObservable<T>) {
     source.subscribe(new Observer(callback));
-  };
+  }
 
   static choose<T, U>(chooser: (x: T) => U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer =>
@@ -2341,11 +2347,11 @@ class Obs {
           u => { if (u != null) observer.onNext(u); },
           observer.onError),
         observer.onError, observer.onCompleted)));
-  };
+  }
 
   static filter<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
     return Obs.choose(x => predicate(x) ? x : null, source);
-  };
+  }
 
   static map<T, U>(mapping: (x: T) => U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer =>
@@ -2355,7 +2361,7 @@ class Obs {
           observer.onNext,
           observer.onError);
       }, observer.onError, observer.onCompleted)));
-  };
+  }
 
   static merge<T>(source1: IObservable<T>, source2: IObservable<T>) {
     return <IObservable<T>>new Observable(observer => {
@@ -2402,7 +2408,7 @@ class Obs {
         h2.dispose();
       });
     });
-  };
+  }
 
   static pairwise<T>(source: IObservable<T>) {
     return <IObservable<TTuple<T, T>>>new Observable<TTuple<T, T>>(observer => {
@@ -2413,11 +2419,11 @@ class Obs {
         last = next;
       }, observer.onError, observer.onCompleted));
     });
-  };
+  }
 
   static partition<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
     return Tuple(Obs.filter(predicate, source), Obs.filter(x => !predicate(x), source));
-  };
+  }
 
   static scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer => {
@@ -2428,17 +2434,17 @@ class Obs {
           observer.onError);
       }, observer.onError, observer.onCompleted));
     });
-  };
+  }
 
   static split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, source: IObservable<T>) {
     return Tuple(Obs.choose(v => splitter(v).valueIfChoice1, source), Obs.choose(v => splitter(v).valueIfChoice2, source));
-  };
+  }
 
   static subscribe<T>(callback: (x: T) => Unit, source: IObservable<T>) {
     return source.subscribe(new Observer(callback));
-  };
+  }
 }
-export { Obs as Observable };
+export { Obs as Observable }
 
 export type Delegate<T> = (x: T) => void;
 export type DotNetDelegate<T> = (sender: any, x: T) => void;
@@ -2464,7 +2470,7 @@ export class Event<T> implements IEvent<T> {
 
   public add(f: Delegate<T>) {
     this._addHandler(f);
-  };
+  }
 
   // IEvent<T> methods
 
@@ -2474,27 +2480,27 @@ export class Event<T> implements IEvent<T> {
 
   public trigger(value: T) {
     Seq.iter(f => f(value), this.delegates);
-  };
+  }
 
   // IDelegateEvent<T> methods
 
   private _addHandler(f: Delegate<T>) {
     this.delegates.push(f);
-  };
+  }
 
   private _removeHandler(f: Delegate<T>) {
-    const index = this.delegates.findIndex(el => '' + el == '' + f);  // Special dedication to Chet Husk.
+    const index = this.delegates.findIndex(el => "" + el == "" + f);  // Special dedication to Chet Husk.
     if (index > -1)
       this.delegates.splice(index, 1);
-  };
+  }
 
   public addHandler(handler: DotNetDelegate<T>) {
     this._addHandler(x => handler(undefined, x));
-  };
+  }
 
   public removeHandler(handler: DotNetDelegate<T>) {
     this._removeHandler(x => handler(undefined, x));
-  };
+  }
 
   // IObservable<T> methods
 
@@ -2503,14 +2509,14 @@ export class Event<T> implements IEvent<T> {
       return this._subscriber(observer);
 
     const callback = observer.onNext;
-    this._addHandler(callback)
+    this._addHandler(callback);
     return Util.createDisposable(() => this._removeHandler(callback));
-  };
+  }
 
   private _subscribeFromCallback(callback: Delegate<T>) {
     this._addHandler(callback);
     return Util.createDisposable(() => this._removeHandler(callback));
-  };
+  }
 
   public subscribe(arg: IObserver<T> | Delegate<T>) {
     return typeof arg == "function"
@@ -2520,7 +2526,7 @@ export class Event<T> implements IEvent<T> {
 
   static add<T>(callback: (x: T) => Unit, sourceEvent: IEvent<T>) {
     (<Event<T>>sourceEvent).subscribe(new Observer(callback));
-  };
+  }
 
   static choose<T, U>(chooser: (x: T) => U, sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
@@ -2532,11 +2538,11 @@ export class Event<T> implements IEvent<T> {
           observer.onError),
         observer.onError, observer.onCompleted)),
       source.delegates);
-  };
+  }
 
   static filter<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
     return Event.choose(x => predicate(x) ? x : null, sourceEvent);
-  };
+  }
 
   static map<T, U>(mapping: (x: T) => U, sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
@@ -2548,7 +2554,7 @@ export class Event<T> implements IEvent<T> {
           observer.onError),
         observer.onError, observer.onCompleted)),
       source.delegates);
-  };
+  }
 
   static merge<T>(event1: IEvent<T>, event2: IEvent<T>) {
     const source1 = <Event<T>>event1;
@@ -2597,7 +2603,7 @@ export class Event<T> implements IEvent<T> {
         h2.dispose();
       });
     }, source1.delegates.concat(source2.delegates));
-  };
+  }
 
   static pairwise<T>(sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
@@ -2609,11 +2615,11 @@ export class Event<T> implements IEvent<T> {
         last = next;
       }, observer.onError, observer.onCompleted));
     }, source.delegates);
-  };
+  }
 
   static partition<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
     return Tuple(Event.filter(predicate, sourceEvent), Event.filter(x => !predicate(x), sourceEvent));
-  };
+  }
 
   static scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
@@ -2625,11 +2631,11 @@ export class Event<T> implements IEvent<T> {
           observer.onError);
       }, observer.onError, observer.onCompleted));
     }, source.delegates);
-  };
+  }
 
   static split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>) {
     return Tuple(Event.choose(v => splitter(v).valueIfChoice1, sourceEvent), Event.choose(v => splitter(v).valueIfChoice2, sourceEvent));
-  };
+  }
 }
 
 export class Lazy<T> {
@@ -2641,11 +2647,11 @@ export class Lazy<T> {
   constructor(factory: () => T) {
     this.factory = factory;
     this.isValueCreated = false;
-  };
+  }
 
   static createFromValue<T>(v: T) {
     return new Lazy(() => v);
-  };
+  }
 
   get value() {
     if (!this.isValueCreated) {
