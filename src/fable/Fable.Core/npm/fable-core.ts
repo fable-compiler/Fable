@@ -468,7 +468,7 @@ export interface Disposable {
 export class Timer implements Disposable {
   public interval: number;
   public autoReset: boolean;
-  public _elapsed: Event;
+  public _elapsed: Event<Date>;
 
   private _enabled: boolean;
   private _isDisposed: boolean;
@@ -478,7 +478,7 @@ export class Timer implements Disposable {
   constructor(interval?: number) {
     this.interval = interval > 0 ? interval : 100;
     this.autoReset = true;
-    this._elapsed = new Event();
+    this._elapsed = new Event<Date>();
   }
 
   get elapsed() {
@@ -2440,205 +2440,195 @@ class Obs {
 }
 export { Obs as Observable };
 
-export class Event {
-  public sbscrb: any;
-  public delegates: any;
+export type Delegate<T> = (x: T) => void;
+export type DotNetDelegate<T> = (sender: any, x: T) => void;
 
-  constructor(sbscrb?: any, delegates?: any) {
-    this.sbscrb = sbscrb;
-    this.delegates = delegates || new Array();
+export interface IDelegateEvent<T> {
+  addHandler(d: DotNetDelegate<T>): void;
+  removeHandler(d: DotNetDelegate<T>): void;
+}
+
+export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
+  publish: IEvent<T>;
+  trigger(x: T): void;
+}
+
+export class Event<T> implements IEvent<T> {
+  private _subscriber: (o: IObserver<T>) => Disposable;
+  private delegates: Array<Delegate<T>>;
+
+  constructor(_subscriber?: (o: IObserver<T>) => Disposable, delegates?: any[]) {
+    this._subscriber = _subscriber;
+    this.delegates = delegates || new Array<Delegate<T>>();
   }
 
-  trigger(value: any) {
-    Seq.iter(function (f: any) {
-      f(value);
-    }, this.delegates);
-  };
-
-  private _addHandler(f: any) {
-    this.delegates.push(f);
-  };
-
-  private _removeHandler(f: any) {
-    var fnd = function (el: any, i: any, arr: any) {
-      return '' + el == '' + f; //Special dedication to Chet Husk.
-    };
-
-    var index = this.delegates.findIndex(fnd);
-    if (index > -1) {
-      this.delegates.splice(index, 1);
-    }
-  };
-
-  subscribe(f: any) {
-    var disp: any;
-    return this._addHandler(f), disp = {
-      dispose: () => this._removeHandler(f)
-    }, disp[FSymbol.interfaces] = ["System.IDisposable"], disp;
-  };
-
-  add(f: any) {
+  public add(f: Delegate<T>) {
     this._addHandler(f);
   };
 
-  addHandler(f: any) {
-    var h = function (x: any) {
-      return f(undefined, x);
-    };
-    this._addHandler(h);
-  };
+  // IEvent<T> methods
 
-  removeHandler(f: any) {
-    var h = function (x: any) {
-      return f(undefined, x);
-    };
-    this._removeHandler(h);
-  };
-
-  _subscribe(observer: any) {
-    if (this.sbscrb) return this.sbscrb(observer);
-    var disp: any,
-      f = observer.onNext;
-    return this._addHandler(f), disp = {
-      dispose: function () {
-        this._removeHandler(f);
-      }
-    }, disp[FSymbol.interfaces] = ["System.IDisposable"], disp;
-  };
-
-  get publish() {
+  public get publish() {
     return this;
   }
 
-  static add = function (f: any, w: any) {
-    w._subscribe(new Observer(f));
+  public trigger(value: T) {
+    Seq.iter(f => f(value), this.delegates);
   };
 
-  static map = function (f: any, w: any) {
-    var s = function (observer: any) {
-      w._subscribe(new Observer(function (v: any) {
-        Obs.__protect(function () {
-          return f(v);
-        }, observer.onNext, observer.onError);
-      }, observer.onError, observer.onCompleted));
-    };
-    return new Event(s, w.delegates);
+  // IDelegateEvent<T> methods
+
+  private _addHandler(f: Delegate<T>) {
+    this.delegates.push(f);
   };
 
-  static choose = function (f: any, w: any) {
-    var s = function (observer: any) {
-      return w._subscribe(new Observer(function (v: any) {
-        Obs.__protect(function () {
-          return f(v);
-        }, function (v: any) {
-          if (v != null) {
-            observer.onNext(v);
-          }
-        }, observer.onError);
-      }, observer.onError, observer.onCompleted));
-    };
-    return new Event(s, w.delegates);
+  private _removeHandler(f: Delegate<T>) {
+    const index = this.delegates.findIndex(el => '' + el == '' + f);  // Special dedication to Chet Husk.
+    if (index > -1)
+      this.delegates.splice(index, 1);
   };
 
-  static filter = function (f: any, w: any) {
-    return Event.choose(function (x: any) {
-      return f(x) ? x : null;
-    }, w);
+  public addHandler(handler: DotNetDelegate<T>) {
+    this._addHandler(x => handler(undefined, x));
   };
 
-  static partition = function (f: any, w: any) {
-    return [Event.filter(f, w), Event.filter(function (x: any) {
-      return !f(x);
-    }, w)];
+  public removeHandler(handler: DotNetDelegate<T>) {
+    this._removeHandler(x => handler(undefined, x));
   };
 
-  static scan = function (f: any, state: any, w: any) {
-    var s = function (observer: any) {
-      return w._subscribe(new Observer(function (v: any) {
-        Obs.__protect(function () {
-          return f(state, v);
-        }, function (z: any) {
-          state = z;
-          observer.onNext(z);
-        }, observer.onError);
-      }, observer.onError, observer.onCompleted));
-    };
-    return new Event(s, w.delegates);
+  // IObservable<T> methods
+
+  private _subscribeFromObserver(observer: IObserver<T>) {
+    if (this._subscriber)
+      return this._subscriber(observer);
+
+    const callback = observer.onNext;
+    this._addHandler(callback)
+    return Util.createDisposable(() => this._removeHandler(callback));
   };
 
-  static pairwise = function (w: any) {
-    var s = function (observer: any) {
-      var lastArgs: any = null;
-      return w._subscribe(new Observer(function (args2: any) {
-        if (lastArgs != null) {
-          observer.onNext([lastArgs, args2]);
-        }
-        lastArgs = args2;
-      }, observer.onError, observer.onCompleted));
-    };
-    return new Event(s, w.delegates);
+  private _subscribeFromCallback(callback: Delegate<T>) {
+    this._addHandler(callback);
+    return Util.createDisposable(() => this._removeHandler(callback));
   };
 
-  static merge = function (w1: any, w2: any) {
-    var s = function (observer: any) {
-      var stopped = false,
-        completed1 = false,
-        completed2 = false;
-      var h1 = w1._subscribe(new Observer(function (v: any) {
-        if (!stopped) {
-          observer.onNext(v);
-        }
-      }, function (e: any) {
-        if (!stopped) {
-          stopped = true;
-          observer.onError(e);
-        }
-      }, function () {
-        if (!stopped) {
-          completed1 = true;
-          if (completed2) {
+  public subscribe(arg: IObserver<T> | Delegate<T>) {
+    return typeof arg == "function"
+      ? this._subscribeFromCallback(<Delegate<T>>arg)
+      : this._subscribeFromObserver(<IObserver<T>>arg);
+  }
+
+  static add<T>(callback: (x: T) => Unit, sourceEvent: IEvent<T>) {
+    (<Event<T>>sourceEvent).subscribe(new Observer(callback));
+  };
+
+  static choose<T, U>(chooser: (x: T) => U, sourceEvent: IEvent<T>) {
+    const source = <Event<T>>sourceEvent;
+    return <IEvent<U>>new Event<U>(observer =>
+      source.subscribe(new Observer<T>(t =>
+        Obs.__protect(
+          () => chooser(t),
+          u => { if (u != null) observer.onNext(u); },
+          observer.onError),
+        observer.onError, observer.onCompleted)),
+      source.delegates);
+  };
+
+  static filter<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
+    return Event.choose(x => predicate(x) ? x : null, sourceEvent);
+  };
+
+  static map<T, U>(mapping: (x: T) => U, sourceEvent: IEvent<T>) {
+    const source = <Event<T>>sourceEvent;
+    return <IEvent<U>>new Event<U>(observer =>
+      source.subscribe(new Observer<T>(t =>
+        Obs.__protect(
+          () => mapping(t),
+          observer.onNext,
+          observer.onError),
+        observer.onError, observer.onCompleted)),
+      source.delegates);
+  };
+
+  static merge<T>(event1: IEvent<T>, event2: IEvent<T>) {
+    const source1 = <Event<T>>event1;
+    const source2 = <Event<T>>event2;
+    return <IEvent<T>>new Event<T>(observer => {
+      let stopped = false, completed1 = false, completed2 = false;
+
+      const h1 = source1.subscribe(new Observer<T>(
+        v => { if (!stopped) observer.onNext(v); },
+        e => {
+          if (!stopped) {
             stopped = true;
-            observer.onCompleted();
+            observer.onError(e);
           }
-        }
-      }));
-      var h2 = w2._subscribe(new Observer(function (v: any) {
-        if (!stopped) {
-          observer.onNext(v);
-        }
-      }, function (e: any) {
-        if (!stopped) {
-          stopped = true;
-          observer.onError(e);
-        }
-      }, function () {
-        if (!stopped) {
-          completed2 = true;
-          if (completed1) {
-            stopped = true;
-            observer.onCompleted();
+        },
+        () => {
+          if (!stopped) {
+            completed1 = true;
+            if (completed2) {
+              stopped = true;
+              observer.onCompleted();
+            }
           }
-        }
-      }));
-      var disp: any = {
-        dispose: function () {
-          h1.dispose();
-          h2.dispose();
-        }
-      };
-      disp[FSymbol.interfaces] = ["System.IDisposable"];
-      return disp;
-    };
+        }));
 
-    return new Event(s, w1.delegates.concat(w2.delegates));
+      const h2 = source2.subscribe(new Observer<T>(
+        v => { if (!stopped) observer.onNext(v); },
+        e => {
+          if (!stopped) {
+            stopped = true;
+            observer.onError(e);
+          }
+        },
+        () => {
+          if (!stopped) {
+            completed2 = true;
+            if (completed1) {
+              stopped = true;
+              observer.onCompleted();
+            }
+          }
+        }));
+
+      return Util.createDisposable(() => {
+        h1.dispose();
+        h2.dispose();
+      });
+    }, source1.delegates.concat(source2.delegates));
   };
 
-  static split = function (f: any, w: any) {
-    return [Event.choose(function (v: any) {
-      return f(v).valueIfChoice1;
-    }, w), Event.choose(function (v: any) {
-      return f(v).valueIfChoice2;
-    }, w)];
+  static pairwise<T>(sourceEvent: IEvent<T>) {
+    const source = <Event<T>>sourceEvent;
+    return <IEvent<TTuple<T, T>>>new Event<TTuple<T, T>>(observer => {
+      let last: T = null;
+      return source.subscribe(new Observer<T>(next => {
+        if (last != null)
+          observer.onNext([last, next]);
+        last = next;
+      }, observer.onError, observer.onCompleted));
+    }, source.delegates);
+  };
+
+  static partition<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
+    return Tuple(Event.filter(predicate, sourceEvent), Event.filter(x => !predicate(x), sourceEvent));
+  };
+
+  static scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: IEvent<T>) {
+    const source = <Event<T>>sourceEvent;
+    return <IEvent<U>>new Event<U>(observer => {
+      return source.subscribe(new Observer<T>(t => {
+        Obs.__protect(
+          () => collector(state, t),
+          u => { state = u; observer.onNext(u); },
+          observer.onError);
+      }, observer.onError, observer.onCompleted));
+    }, source.delegates);
+  };
+
+  static split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>) {
+    return Tuple(Event.choose(v => splitter(v).valueIfChoice1, sourceEvent), Event.choose(v => splitter(v).valueIfChoice2, sourceEvent));
   };
 }
 
