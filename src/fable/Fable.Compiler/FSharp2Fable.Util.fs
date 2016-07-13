@@ -236,7 +236,20 @@ module Patterns =
         match fsExpr with
         | Pipe(Closure(arity, e, args), exprs) when arity = exprs.Length -> Some (e, args@exprs)
         | _ -> None
-        
+
+    // F# compiler always wraps the result of Fable.Core.(?) operator in a closure
+    let (|Applicable|_|) = function
+        | Let((_, applicable),Lambda(_,Application(apArg,_,_)))->
+            let ctyp = applicable.Type
+            if ctyp.IsAbbreviation
+                && ctyp.HasTypeDefinition
+                // Apparently FullName fails for type definitions of abbreviations
+                && ctyp.TypeDefinition.AccessPath = "Fable.Core"
+                && ctyp.TypeDefinition.DisplayName = "Applicable"
+            then Some applicable
+            else None
+        | _ -> None
+
     /// This matches the boilerplate F# compiler generates for methods
     /// like Dictionary.TryGetValue (see #154)
     let (|TryGetValue|_|) = function

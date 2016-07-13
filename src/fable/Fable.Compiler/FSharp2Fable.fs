@@ -208,6 +208,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let lengthExpr = Fable.Apply(arr, [makeConst "length"], Fable.ApplyGet, intType, r)
         makeEqOp r [lengthExpr; makeConst length] BinaryEqualStrict
 
+    | Applicable (Transform com ctx expr) ->
+        let appType =
+            Fable.Entity(Fable.Interface, None, "Fable.Core.Applicable", [], [], true)
+            |> Fable.DeclaredType
+        Fable.Wrapped(expr, appType)
+
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
     // TypeLambda is a local generic lambda
@@ -306,8 +312,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
+        let args = List.map (transformExpr com ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        makeApply range typ callee (List.map (transformExpr com ctx) args)
+        match callee.Type.FullName, args with
+        | "Fable.Core.Applicable", [Fable.Value(Fable.ArrayConst(Fable.ArrayValues args, Fable.Tuple))] ->
+            Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
+        | _ -> makeApply range typ callee args
         
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)
