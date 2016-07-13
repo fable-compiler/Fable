@@ -2,9 +2,6 @@
 #r "../../../../build/fable/bin/Fable.Core.dll"
 #load "../../../../import/react/Fable.Import.React.fs"
 #load "../../../../import/react/Fable.Helpers.React.fs"
-// #load "../node_modules/fable-import-d3/Fable.Import.D3.fs"
-// #load "../node_modules/fable-import-dc/Fable.Import.DC.fs"
-// #load "../../../../import/dc/Fable.Import.DC.fs"
 
 open System
 open Fable.Core
@@ -25,11 +22,6 @@ let getMuiTheme = importDefaultFrom<obj->obj> "material-ui/styles/getMuiTheme"
 let inline (!!) x = createObj x
 let inline (=>) x y = x ==> y
 
-let styles =
-    !!["container" =>
-        !!["textAlign" => "center"
-           "paddingTop" => 200]]
-
 let muiTheme =
     !!["palette" =>
         !!["accent1Color" => deepOrange500]]
@@ -37,8 +29,9 @@ let muiTheme =
 
 type MainState = { isOpen: bool }
 
-type Main(props) =
-    inherit R.Component<obj,MainState>(props, {isOpen=false})
+type Main(props, ctx) as this =
+    inherit React.Component<obj,MainState>(props, ctx)
+    do this.state <- {isOpen=false}
 
     member this.handleRequestClose() =
         this.setState({isOpen=false})
@@ -54,7 +47,8 @@ type Main(props) =
                    "onTouchTap" => this.handleRequestClose] []
         R.from MuiThemeProvider
             !!["mutiTheme"=>muiTheme] [
-                R.div [Style (unbox styles?container)] [
+                R.div [Style [TextAlign "center"
+                              PaddingTop 200]] [
                     R.from Dialog
                         !!["open" => this.state.isOpen
                            "title" => "Super Secret Password"
@@ -72,4 +66,4 @@ type Main(props) =
 let injectTapEventPlugin: unit->unit = importDefaultFrom "react-tap-event-plugin"
 injectTapEventPlugin()
 
-ReactDom.render(R.com<Main,_,_> [] [], Browser.document.getElementById("app"))
+ReactDom.render(R.com<Main,_,_> None [], Browser.document.getElementById("app"))

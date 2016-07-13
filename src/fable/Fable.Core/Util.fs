@@ -39,11 +39,11 @@ module Naming =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
 
     let ignoredAtts =
-        set ["Erase"; "Import"; "Global"; "Emit"]
+        set ["Import"; "Global"; "Emit"]
 
     let ignoredFilesRegex =
-        Regex(@"Fable\.(?:Import|Core)[\w.]*\.fs$")
-        
+        Regex(@"Fable\.Import\.[\w.]*\.fs$")
+
     let identForbiddenCharsRegex =
         Regex @"^[^a-zA-Z_$]|[^0-9a-zA-Z_$]"
 

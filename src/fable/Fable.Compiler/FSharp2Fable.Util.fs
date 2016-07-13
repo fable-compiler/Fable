@@ -51,6 +51,9 @@ module Helpers =
             att = "Global" || att = "Import"
         ent.FullName.StartsWith "Fable.Import"
         || Option.isSome(tryFindAtt isImportedAtt ent.Attributes)
+
+    let isErased (ent: FSharpEntity) =
+        ent.Attributes |> tryFindAtt ((=) "Erase") |> Option.isSome
         
     let hasReplaceAtt (atts: #seq<FSharpAttribute>) =
         tryFindAtt ((=) "Replace") atts |> Option.isSome

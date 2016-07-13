@@ -776,11 +776,16 @@ let rec private transformEntityDecl
                  |> List.singleton
             else []
         let childDecls = transformDeclarations com ctx init subDecls
-        // Bind entity name to context to prevent name
-        // clashes (it will become a variable in JS)
-        let ctx, ident = bindIdent ctx Fable.UnknownType None ent.DisplayName
-        declInfo.AddChild(com, ent, ident.name, childDecls)
-        declInfo, ctx
+        // Even if a module is marked with Erase, transform its members
+        // in case they contain inline methods
+        if isErased ent
+        then declInfo, ctx
+        else
+            // Bind entity name to context to prevent name
+            // clashes (it will become a variable in JS)
+            let ctx, ident = bindIdent ctx Fable.UnknownType None ent.DisplayName
+            declInfo.AddChild(com, ent, ident.name, childDecls)
+            declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =
     let declInfo, _ =
@@ -975,18 +980,23 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         curProj.FileMap.ContainsKey file.FileName
         && not (Naming.ignoredFilesRegex.IsMatch file.FileName)
         && projInfo.IsMasked file)
-    |> Seq.map (fun file ->
+    |> Seq.choose (fun file ->
         try
             let rootEnt, rootDecls =
                 let rootNs = curProj.FileMap.[file.FileName]
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
                 let rootDecls = transformDeclarations com Context.Empty [] rootDecls
                 match rootEnt with
+                | Some rootEnt when isErased rootEnt -> makeEntity com rootEnt, []
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
-            Fable.File(file.FileName, rootEnt, rootDecls)
+            match rootDecls with
+            | [] -> None
+            | rootDecls -> Fable.File(file.FileName, rootEnt, rootDecls) |> Some
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
     )
-    |> Seq.append (addInjections com curProj)
+    // In first compilation (fileMask is None) add injections
+    |> Seq.append (if projInfo.fileMask.IsNone
+                   then addInjections com curProj else [])
     |> fun seq -> projs, seq

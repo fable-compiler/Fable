@@ -57,7 +57,8 @@ module Modules =
 module Serialize =
     let toJson (o: 'T): string = failwith "JS only"
     let ofJson<'T> (json: string): 'T = failwith "JS only"
-    
+    let toPlainJsObj (o: 'T): obj = failwith "JS only"
+
 module Testing =
     type TestAttribute() =
         inherit Attribute()
