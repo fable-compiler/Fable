@@ -721,7 +721,7 @@ class FString {
     if (count === 0)
       return [];
     splitters = Array.isArray(splitters) ? splitters : Util.getRestParams(arguments, 1);
-    splitters = splitters.map((x) => FRegExp.escape(x));
+    splitters = splitters.map(x => FRegExp.escape(x));
     splitters = splitters.length > 0 ? splitters : [" "];
     let m: RegExpExecArray;
     let i = 0;
@@ -848,7 +848,7 @@ export { FRegExp as RegExp };
 
 class FArray {
   static addRangeInPlace<T>(range: Iterable<T>, xs: Array<T>) {
-    Seq.iter((x) => xs.push(x), range);
+    Seq.iter(x => xs.push(x), range);
   };
 
   static blit<T>(source: ArrayLike<T>, sourceIndex: number, target: ArrayLike<T>, targetIndex: number, count: number) {
@@ -995,7 +995,7 @@ export class List<T> {
 
   // TODO: should be xs: Iterable<List<T>>
   static concat<T>(xs: List<List<T>>) {
-    return List.collect((x) => x, xs);
+    return List.collect(x => x, xs);
   }
 
   filter(f: (x: T) => boolean): List<T> {
@@ -1107,13 +1107,13 @@ export class Seq {
 
   static ofList<T>(xs: List<T>) {
     return Seq.delay(() =>
-      Seq.unfold((x) =>
+      Seq.unfold(x =>
         x.tail != null ? [x.head, x.tail] : null, xs));
   };
 
   static ofArray<T>(xs: ArrayLike<T>) {
     return Seq.delay(() =>
-      Seq.unfold((i) =>
+      Seq.unfold(i =>
         i < xs.length ? [xs[i], i + 1] : null, 0));
   };
 
@@ -1158,14 +1158,14 @@ export class Seq {
   };
 
   static countBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
-    return Seq.map((kv) => Tuple(kv[0], Seq.count(kv[1])), Seq.groupBy(f, xs));
+    return Seq.map(kv => Tuple(kv[0], Seq.count(kv[1])), Seq.groupBy(f, xs));
   };
 
   static concat<T>(xs: Iterable<Iterable<T>>) {
     return Seq.delay(() => {
       let iter = xs[Symbol.iterator]();
       let output: T = null;
-      return Seq.unfold((innerIter) => {
+      return Seq.unfold(innerIter => {
         let hasFinished = false;
         while (!hasFinished) {
           if (innerIter == null) {
@@ -1203,7 +1203,7 @@ export class Seq {
       }
     };
     return Seq.delay(() =>
-      Seq.unfold((iter) =>
+      Seq.unfold(iter =>
         trySkipToNext(iter), xs[Symbol.iterator]()));
   };
 
@@ -1220,7 +1220,7 @@ export class Seq {
 
   static distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
     return Seq.choose(
-      (tup) => tup[0],
+      tup => tup[0],
       Seq.scan((tup, x) => {
         const acc = tup[1];
         const k = f(x);
@@ -1229,7 +1229,7 @@ export class Seq {
   };
 
   static distinct<T>(xs: Iterable<T>) {
-    return Seq.distinctBy((x) => x, xs);
+    return Seq.distinctBy(x => x, xs);
   };
 
   static empty<T>() {
@@ -1248,7 +1248,7 @@ export class Seq {
       } finally {
         finalFn();
       }
-      return Seq.unfold((iter) => {
+      return Seq.unfold(iter => {
         try {
           const cur = iter.next();
           return !cur.done ? [cur.value, iter] : null;
@@ -1393,12 +1393,12 @@ export class Seq {
 
   static init<T>(n: number, f: (i: number) => T) {
     return Seq.delay(() =>
-      Seq.unfold((i) => i < n ? [f(i), i + 1] : null, 0));
+      Seq.unfold(i => i < n ? [f(i), i + 1] : null, 0));
   };
 
   static initInfinite<T>(f: (i: number) => T) {
     return Seq.delay(() =>
-      Seq.unfold((i) => [f(i), i + 1], 0));
+      Seq.unfold(i => [f(i), i + 1], 0));
   };
 
   static tryItem<T>(i: number, xs: Iterable<T>) {
@@ -1464,7 +1464,7 @@ export class Seq {
   };
 
   static map<T, U>(f: (x: T) => U, xs: Iterable<T>) {
-    return Seq.delay(() => Seq.unfold((iter) => {
+    return Seq.delay(() => Seq.unfold(iter => {
       const cur = iter.next();
       return !cur.done ? [f(cur.value), iter] : null;
     }, xs[Symbol.iterator]()));
@@ -1473,7 +1473,7 @@ export class Seq {
   static mapi<T, U>(f: (i: number, x: T) => U, xs: Iterable<T>) {
     return Seq.delay(() => {
       let i = 0;
-      return Seq.unfold((iter) => {
+      return Seq.unfold(iter => {
         const cur = iter.next();
         return !cur.done ? [f(i++, cur.value), iter] : null;
       }, xs[Symbol.iterator]());
@@ -1542,11 +1542,11 @@ export class Seq {
   static rangeStep(first: number, step: number, last: number) {
     if (step === 0)
       throw "Step cannot be 0";
-    return Seq.unfold((x) => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first);
+    return Seq.unfold(x => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first);
   };
 
   static rangeChar(first: string, last: string) {
-    return Seq.unfold((x) => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first);
+    return Seq.unfold(x => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first);
   };
 
   static range(first: number, last: number) {
@@ -1554,7 +1554,7 @@ export class Seq {
   };
 
   static readonly<T>(xs: Iterable<T>) {
-    return Seq.map((x) => x, xs);
+    return Seq.map(x => x, xs);
   };
 
   static reduce<T>(f: (acc: T, x: T) => T, xs: Iterable<T>) {
@@ -1601,7 +1601,7 @@ export class Seq {
   static scan<T, ST>(f: (st: ST, x: T) => ST, seed: ST, xs: Iterable<T>) {
     return Seq.delay(() => {
       const iter = xs[Symbol.iterator]();
-      return Seq.unfold((acc) => {
+      return Seq.unfold(acc => {
         if (acc == null)
           return [seed, seed];
 
@@ -1619,7 +1619,7 @@ export class Seq {
   };
 
   static singleton<T>(x: T) {
-    return Seq.unfold((x) => x != null ? [x, null] : null, x);
+    return Seq.unfold(x => x != null ? [x, null] : null, x);
   };
 
   static skip<T>(n: number, xs: Iterable<T>) {
@@ -1678,7 +1678,7 @@ export class Seq {
   static take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
     return Seq.delay(() => {
       const iter = xs[Symbol.iterator]();
-      return Seq.unfold((i) => {
+      return Seq.unfold(i => {
         if (i < n) {
           const cur = iter.next();
           if (!cur.done)
@@ -1697,7 +1697,7 @@ export class Seq {
   static takeWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     return Seq.delay(() => {
       const iter = xs[Symbol.iterator]();
-      return Seq.unfold((i) => {
+      return Seq.unfold(i => {
         const cur = iter.next();
         if (!cur.done && f(cur.value))
           return [cur.value, null];
@@ -1846,12 +1846,12 @@ class FSet {
   };
 
   static isProperSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.forall((x) => set2.has(x), set1) && Seq.exists((x) => !set1.has(x), set2);
+    return Seq.forall(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
   };
   static isProperSubset = FSet.isProperSubsetOf;
 
   static isSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.forall((x) => set2.has(x), set1);
+    return Seq.forall(x => set2.has(x), set1);
   };
   static isSubset = FSet.isSubsetOf;
 
@@ -1903,7 +1903,7 @@ class FMap {
   };
 
   static exists<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.exists((kv) => f(kv[0], kv[1]), map);
+    return Seq.exists(kv => f(kv[0], kv[1]), map);
   };
 
   static filter<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
@@ -1919,11 +1919,11 @@ class FMap {
   };
 
   static forall<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.forall((kv) => f(kv[0], kv[1]), map);
+    return Seq.forall(kv => f(kv[0], kv[1]), map);
   };
 
   static iter<K, V>(f: (k: K, v: V) => void, map: Map<K, V>) {
-    return Seq.iter((kv) => f(kv[0], kv[1]), map);
+    return Seq.iter(kv => f(kv[0], kv[1]), map);
   };
 
   static map<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
@@ -1939,15 +1939,15 @@ class FMap {
   };
 
   static findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.pick((kv) => f(kv[0], kv[1]) ? kv[0] : null, map);
+    return Seq.pick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
   };
 
   static tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.tryPick((kv) => f(kv[0], kv[1]) ? kv[0] : null, map);
+    return Seq.tryPick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
   };
 
   static pick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
-    return Seq.pick((kv) => {
+    return Seq.pick(kv => {
       const res = f(kv[0], kv[1]);
       return res != null ? res : null;
     }, map);
@@ -1963,7 +1963,7 @@ class FMap {
   };
 
   static tryPick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
-    return Seq.tryPick((kv) => {
+    return Seq.tryPick(kv => {
       let res = f(kv[0], kv[1]);
       return res != null ? res : null;
     }, map);
