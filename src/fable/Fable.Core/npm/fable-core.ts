@@ -4,13 +4,29 @@ const FSymbol = {
 };
 export { FSymbol as Symbol };
 
-export class Choice {
-  public Case: any;
-  public Fields: any;
+export class Choice<T1, T2> {
+  public Case: "Choice1Of2" | "Choice2Of2";
+  public Fields: Array<T1 | T2>;
 
-  constructor(t: any, d: any) {
+  constructor(t: "Choice1Of2" | "Choice2Of2", d: T1 | T2) {
     this.Case = t;
     this.Fields = [d];
+  }
+
+  static Choice1Of2<T1, T2>(v: T1) {
+    return new Choice<T1, T2>("Choice1Of2", v)
+  }
+
+  static Choice2Of2<T1, T2>(v: T2) {
+    return new Choice<T1, T2>("Choice2Of2", v)
+  }
+
+  get valueIfChoice1() {
+    return this.Case == "Choice1Of2" ? this.Fields[0] : null;
+  }
+
+  get valueIfChoice2() {
+    return this.Case == "Choice2Of2" ? this.Fields[0] : null;
   }
 }
 
@@ -1948,7 +1964,7 @@ class FMap {
 
   static tryPick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
     return Seq.tryPick((kv) => {
-      var res = f(kv[0], kv[1]);
+      let res = f(kv[0], kv[1]);
       return res != null ? res : null;
     }, map);
   };
@@ -1957,6 +1973,8 @@ export { FMap as Map };
 
 export type Unit = void;
 
+export const Nothing: Unit = void 0;
+
 export type Continuation<T> = (x: T) => Unit;
 
 export interface CancellationToken {
@@ -1964,7 +1982,7 @@ export interface CancellationToken {
 }
 
 export interface IAsyncContext<T> {
-  onSuccess: Continuation<any>;
+  onSuccess: Continuation<T>;
   onError: Continuation<any>;
   onCancel: Continuation<any>;
 
@@ -1977,7 +1995,7 @@ export class Async {
 
   // --- AsyncBuilder methods
 
-  private static __protectedAsync<T>(f: IAsync<T>): IAsync<T> {
+  private static __protectedAsync<T>(f: IAsync<T>) {
     return (ctx: IAsyncContext<T>) => {
       if (ctx.cancelToken.isCancelled)
         ctx.onCancel("cancelled");
@@ -1990,7 +2008,7 @@ export class Async {
     };
   };
 
-  static bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>): IAsync<U> {
+  static bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
     return Async.__protectedAsync((ctx: IAsyncContext<U>) => {
       computation({
         onSuccess: (x: T) => binder(x)(ctx),
@@ -2001,15 +2019,15 @@ export class Async {
     });
   };
 
-  static combine<T>(computation1: IAsync<Unit>, computation2: IAsync<T>): IAsync<T> {
+  static combine<T>(computation1: IAsync<Unit>, computation2: IAsync<T>) {
     return Async.bind(computation1, () => computation2);
   };
 
-  static delay<T>(generator: () => IAsync<T>): IAsync<T> {
+  static delay<T>(generator: () => IAsync<T>) {
     return Async.__protectedAsync((ctx: IAsyncContext<T>) => generator()(ctx));
   };
 
-  static for<T>(sequence: Iterable<T>, body: (x: T) => IAsync<Unit>): IAsync<Unit> {
+  static for<T>(sequence: Iterable<T>, body: (x: T) => IAsync<Unit>) {
     const iter = sequence[Symbol.iterator]();
     let cur = iter.next();
     return Async.while(() => !cur.done, Async.delay(() => {
@@ -2019,18 +2037,18 @@ export class Async {
     }));
   };
 
-  static return<T>(value?: T): IAsync<T> {
+  static return<T>(value?: T) {
     return Async.__protectedAsync((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
   };
 
-  static returnFrom<T>(computation: IAsync<T>): IAsync<T> {
+  static returnFrom<T>(computation: IAsync<T>) {
     return computation;
   };
 
-  static tryFinally<T>(computation: IAsync<T>, compensation: () => void): IAsync<T> {
+  static tryFinally<T>(computation: IAsync<T>, compensation: () => void) {
     return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
       computation({
-        onSuccess: (x: any) => {
+        onSuccess: (x: T) => {
           compensation();
           ctx.onSuccess(x);
         },
@@ -2047,18 +2065,19 @@ export class Async {
     });
   };
 
-  static tryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => IAsync<T>) {
+  // TODO: (*) catchHandler should return IAsync<T> instead of T
+  static tryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => T) {
     return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
       computation({
         onSuccess: ctx.onSuccess,
         onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken,
-        onError: (ex: any) => ctx.onSuccess(catchHandler(ex))
+        onError: (ex: any) => ctx.onSuccess(catchHandler(ex))   // (*) ?
       });
     });
   };
 
-  static using<T extends Disposable, U>(resource: T, binder: (x: T) => IAsync<U>): IAsync<U> {
+  static using<T extends Disposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
     return Async.tryFinally(binder(resource), () => resource.dispose());
   };
 
@@ -2066,84 +2085,89 @@ export class Async {
     if (guard())
       return Async.bind(computation, () => Async.while(guard, computation));
     else
-      return Async.return();
+      return Async.return(Nothing);
   };
 
-  static zero(): IAsync<Unit> {
-    return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => ctx.onSuccess(void 0));
+  static zero() {
+    return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => ctx.onSuccess(Nothing));
   };
 
   // --- Async methods
 
-  static start(work: any, onSuccess?: any, onError?: any, onCancel?: any, cancelToken?: any) {
-    if (typeof onSuccess !== "function") {
-      cancelToken = onSuccess;
-      onSuccess = null;
-    }
-    work({
-      onSuccess: onSuccess ? onSuccess : function () { },
-      onError: onError ? onError : function () { },
-      onCancel: onCancel ? onCancel : function () { },
-      cancelToken: cancelToken ? cancelToken : {}
-    });
-  };
-  static startImmediate = Async.start;
-  static startWithContinuations = Async.start;
-
-  static ignore(work: any) {
-    return Async.bind(work, function () {
-      return Async.return();
-    });
+  // Async.AwaitTask<T> in F#
+  static awaitPromise<T>(p: Promise<T>) {
+    return Async.fromContinuations((conts: Array<Continuation<T>>) =>
+      p.then(conts[0]).catch(err =>
+        (err == "cancelled" ? conts[2] : conts[1])(err)));
   };
 
   get cancellationToken() {
-    return Async.__protectedAsync(function (ctx: any) {
-      return ctx.onSuccess(ctx.cancelToken);
-    });
+    return Async.__protectedAsync((ctx: IAsyncContext<CancellationToken>) => ctx.onSuccess(ctx.cancelToken));
   }
 
-  static fromContinuations(f: any) {
-    return Async.__protectedAsync(function (ctx: any) {
-      return f([ctx.onSuccess, ctx.onError, ctx.onCancel]);
-    });
-  };
-  static startAsPromise(work: any, cancelToken?: any) {
-    return new Promise(function (resolve, reject) {
-      Async.startWithContinuations(work, resolve, reject, reject, cancelToken ? cancelToken : {});
-    });
-  };
-  static awaitPromise(p: any) {
-    return Async.fromContinuations(function (conts: any) {
-      p.then(conts[0]).catch(function (err: any) {
-        (err == "cancelled" ? conts[2] : conts[1])(err);
-      });
-    });
-  };
-  static parallel(works: any) {
-    return Async.awaitPromise(Promise.all(Seq.map(function (w: any) {
-      return Async.startAsPromise(w);
-    }, works)));
-  };
-  static catch(work: any) {
-    return Async.__protectedAsync(function (ctx: any) {
+  static catch<T>(work: IAsync<T>) {
+    return Async.__protectedAsync((ctx: IAsyncContext<Choice<T, any>>) => {
       work({
-        onSuccess: function (x: any) {
-          ctx.onSuccess(new Choice("Choice1Of2", x));
-        },
-        onError: function (ex: any) {
-          ctx.onSuccess(new Choice("Choice2Of2", ex));
-        },
+        onSuccess: x => ctx.onSuccess(Choice.Choice1Of2<T, any>(x)),
+        onError: ex => ctx.onSuccess(Choice.Choice2Of2<T, any>(ex)),
         onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken
       });
     });
   };
-  static sleep(ms: any) {
-    return Async.__protectedAsync(function (ctx: any) {
-      setTimeout(function () {
-        ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess();
-      }, ms);
+
+  static defaultCancellationToken = {
+    isCancelled: false
+  }
+
+  static fromContinuations<T>(f: (conts: Array<Continuation<T>>) => void) {
+    return Async.__protectedAsync((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
+  };
+
+  static ignore<T>(computation: IAsync<T>) {
+    return Async.bind(computation, x => Async.return(Nothing));
+  };
+
+  static parallel<T>(computations: Iterable<IAsync<T>>) {
+    return Async.awaitPromise(Promise.all(Seq.map(w => Async.startAsPromise(w), computations)));
+  };
+
+  static sleep(millisecondsDueTime: number) {
+    return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => {
+      setTimeout(() => ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess(Nothing), millisecondsDueTime);
     });
+  };
+
+  private static start<T>(computation: IAsync<Unit>, cancellationToken?: CancellationToken) {
+    return Async.startWithContinuations(computation, cancellationToken);
+  }
+  static startImmediate = Async.start;
+
+  private static emptyContinuation<T>(x: T) {
+    // NOP
+  }
+
+  private static startWithContinuations<T>(computation: IAsync<T>,
+    continuation?: Continuation<T> | CancellationToken,
+    exceptionContinuation?: Continuation<any>,
+    cancellationContinuation?: Continuation<any>,
+    cancelToken?: CancellationToken) {
+    if (typeof continuation !== "function") {
+      cancelToken = <CancellationToken>continuation;
+      continuation = null;
+    }
+    computation({
+      onSuccess: continuation ? <Continuation<T>>continuation : Async.emptyContinuation,
+      onError: exceptionContinuation ? exceptionContinuation : Async.emptyContinuation,
+      onCancel: cancellationContinuation ? cancellationContinuation : Async.emptyContinuation,
+      cancelToken: cancelToken ? cancelToken : Async.defaultCancellationToken
+    });
+  };
+
+  // Async.StartAsTask<T> in F#
+  static startAsPromise<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
+    return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
+      Async.startWithContinuations(computation, resolve, reject, reject, cancellationToken ? cancellationToken : Async.defaultCancellationToken));
   };
 }
 
@@ -2378,13 +2402,11 @@ class Obs {
       return disp;
     });
   };
-  static split = function (f: any, w: any) {
+  static split = function (f: (v: any) => Choice<any, any>, w: any) {
     return [Obs.choose(function (v: any) {
-      var res = f(v);
-      return res.Case == "Choice1Of2" ? res.Fields[0] : null;
+      return f(v).valueIfChoice1;
     }, w), Obs.choose(function (v: any) {
-      var res = f(v);
-      return res.Case == "Choice2Of2" ? res.Fields[0] : null;
+      return f(v).valueIfChoice2;
     }, w)];
   };
 }
@@ -2585,11 +2607,9 @@ export class Event {
 
   static split = function (f: any, w: any) {
     return [Event.choose(function (v: any) {
-      var res = f(v);
-      return res.Case == "Choice1Of2" ? res.Fields[0] : null;
+      return f(v).valueIfChoice1;
     }, w), Event.choose(function (v: any) {
-      var res = f(v);
-      return res.Case == "Choice2Of2" ? res.Fields[0] : null;
+      return f(v).valueIfChoice2;
     }, w)];
   };
 }
