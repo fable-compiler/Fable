@@ -338,6 +338,7 @@ module App =
     type App<'TModel, 'TMessage> =
         {
             AppState: AppState<'TModel, 'TMessage>
+            Init : ('TMessage -> unit) -> unit
             JsCalls: (unit -> unit) list
             Node: Node option
             CurrentTree: obj option
@@ -366,6 +367,7 @@ module App =
     let createApp appState =
         {
             AppState = appState
+            Init = (fun _ -> ())
             JsCalls = []
             Node = None
             CurrentTree = None
@@ -375,6 +377,7 @@ module App =
         }
 
     let withStartNode selector app = { app with NodeSelector = Some selector }
+    let withInit init app = { app with Init = init }
     let withSubscriber subscriberId subscriber app =
         let subsribers = app.Subscribers |> Map.add subscriberId subscriber
         { app with Subscribers = subsribers }
@@ -418,6 +421,7 @@ module App =
                         let tree = renderTree state.AppState.View post state.AppState.Model
                         let rootNode = renderer.CreateElement tree
                         startElem.appendChild(rootNode) |> ignore
+                        state.Init post
                         return! loop {state with CurrentTree = Some tree; Node = Some rootNode}
                     | Some rootNode, Some currentTree ->
                         let! message = inbox.Receive()
