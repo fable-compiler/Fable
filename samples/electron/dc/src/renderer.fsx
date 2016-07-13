@@ -1,5 +1,5 @@
 // Load Fable.Core and bindings to JS global objects
-#r "../node_modules/fable-core/Fable.Core.dll"
+#r "../../../../build/fable/bin/Fable.Core.dll"
 // #load "../node_modules/fable-import-react/Fable.Import.React.fs"
 // #load "../node_modules/fable-import-react/Fable.Helpers.React.fs"
 #load "../node_modules/fable-import-d3/Fable.Import.D3.fs"
@@ -26,10 +26,11 @@ D3.Globals.csv.Invoke("data/morley.csv", fun error experiments ->
         x?Speed <- +x?Speed
 
     let ndx = crossfilter experiments
-    let runDimension = ndx?dimension$(fun d -> +d?Run)
+    let runDimension = ndx?dimension(fun d -> +d?Run)
     let speedSumGroup =
-        runDimension?group$()
-        |> call "reduceSum" (fun d -> (+d?Speed * +d?Run) / 1000)
+        runDimension
+            ?group()
+            ?reduceSum(fun d -> (+d?Speed * +d?Run) / 1000)
 
     chart
         .width(768.)
@@ -38,12 +39,12 @@ D3.Globals.csv.Invoke("data/morley.csv", fun error experiments ->
         .dimension(runDimension)
         .group(speedSumGroup)
         .on("renderlet", fun chart ->
-            chart.selectAll("rect")?on$("click", fun d ->
+            chart.selectAll("rect")?on("click", fun d ->
                 Browser.console.log("click!", d)
             ) |> ignore
         )
-        |> call "brushOn" false
-        |> call "yAxisLabel" "This is the Y Axis!"
+        ?brushOn(false)
+        ?yAxisLabel("This is the Y Axis!")
     |> ignore
 
     dc.renderAll()
