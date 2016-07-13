@@ -1,4 +1,4 @@
-# fable-import
+# fable-core
 
 Fable core lib & bindings for native JS objects, browser and node APIs
 
@@ -52,3 +52,27 @@ requirejs.config({
 requirejs(["app"]);
 </script>
 ```
+
+## Development
+
+The source is written in TypeScript. The use of a TypeScript-aware editor 
+(like [VSCode](https://code.visualstudio.com) or [ALM](http://alm.tools/))
+is highly recommended.  
+
+Output files are generated as shown below:
+
+- `fable-core.ts` (source)
+  - `es2015.js` (Created from `fable-core.ts |> tsc --target ES2015`)
+    - `fable-core.js` (Created from `es2015.js |> babel --plugins ...umd`)
+      - `fable-core.min.js` (Created from `fable-core.js |> uglifyjs`)
+    - `commonjs.js` (Created from `es2015.js |> babel --plugins ...commonjs`)
+
+### To build
+
+Simply run
+
+```
+build fablecore
+``` 
+
+from Fable root project folder.
