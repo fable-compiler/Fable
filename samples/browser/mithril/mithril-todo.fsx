@@ -29,16 +29,32 @@ let newAttribute str obj =
     let o :Attributes = createEmpty<Attributes>
     o.Item(str) <- obj
     o
+
+let addAttribute str obj (o :Attributes) =
+    o.Item(str) <- obj
+    o
     
 let withattr value (func :('a -> 'b)) =
     let f = (fun (a :obj) -> func (a :?> 'a) :> obj)
     Globals.m.withAttr(value,Func<_,_>(f))
-    
-type MComponent<'a>(c: obj[] -> 'a, v: 'a  * obj[] -> VirtualElement ) =
-    interface Component<'a> with
-        member x.controller(args) = c args
-        member x.view(c,args) = v (c,args)
-    
+
+let newComponent (c :obj [] -> 'a) (v :'a -> VirtualElement) =
+    let o = createEmpty<Component<'a>>
+    o?controller <- (fun x -> c x)
+    o?view <- v
+    o
+
+let ma str atr chd =
+    Child.Case2 (Globals.m.Invoke (str,atr, chd))
+
+let mm str chd = 
+    Child.Case2 (Globals.m.Invoke (str,chd))
+//type MComponent<'a>(c: obj[] -> 'a, v: 'a  * obj[] -> VirtualElement ) =
+ //   let _c : obj[] -> 'a = c
+ //   let _v : 'a  * obj[] -> VirtualElement = v
+ //   interface Component<'a> with
+  //      member x.controller args = _c args
+ //       member x.view (c,args) = _v (c,args)   
 //example
 
 type Todo = { description: Mithril.Property<string>; complete: Mithril.Property<bool>;  }
@@ -46,7 +62,7 @@ type Todo = { description: Mithril.Property<string>; complete: Mithril.Property<
 let todo (str :string) =
     {description=Globals.m.prop str; complete=Globals.m.prop false}
 
-type VM([<ParamArray>] args :obj[]) =
+type VM() =
     let mutable list :array<Todo> = [||]
     let discription :BasicProperty<string> = Globals.m.prop ()
     
@@ -61,39 +77,38 @@ type VM([<ParamArray>] args :obj[]) =
     
     interface Controller with
         member x.onunload evt = "1" :> obj
-  
-        
-let vm_init = (fun x -> VM(x))
+
+
+let vm = VM()
+
+let vm_init x = vm        
 
 
 
-    
-
-
-
-let view = (fun (vm :VM,[<ParamArray>] args: obj[]) -> 
-    let attr1 = newAttribute "onchange" (withattr "value" (vm.Discription.Invoke))
-    let attr2 = newAttribute "onclick" (Func<unit,unit>vm.Add :>obj )
-    let children2 = vm.List |> Array.toSeq |> Seq.mapi (fun i x ->
-        let attr3 =  newAttribute "onclick" (withattr "checked" x.complete.Invoke )
-        attr3.Item("checked") <- (x.complete.Invoke() :> obj)
+let view = (fun (vm1 :VM) -> 
+    let attr1 = (newAttribute "onchange" (withattr "value" vm1.Discription.Invoke) ) 
+                    |> addAttribute "value" (vm1.Discription.Invoke ())
+    let attr2 = newAttribute "onclick" (Func<unit,unit>vm1.Add :>obj )
+    let children2 = vm1.List |> Array.toSeq |> Seq.mapi (fun i x ->
+        let attr3 =  (newAttribute "onclick" (withattr "checked" x.complete.Invoke ))
+                        |> addAttribute "checked" (x.complete.Invoke ())
         let attr4 = newAttribute "style" (withattr "textDecoration" (fun () -> if x.complete.Invoke() then "line-through" else "none") )
-        (Child.Case2 (Globals.m.Invoke ("tr",
-            Children.Case1 (Child.Case2 (Globals.m.Invoke ("td", Children.Case1 (Child.Case2(Globals.m.Invoke ("input[type=checkbox]",attr3))) ))),
-            Children.Case1 (Child.Case2 (Globals.m.Invoke ("td", attr4,Children.Case1 (Child.Case1 (x.description.Invoke())))))
-            )
-        ) ) :> obj
+        mm "tr" [|
+                 Children.Case1 (mm "td" [(Children.Case1 (ma "input[type=checkbox]" attr3 []))] ),
+                 Children.Case1 (ma ("td" attr4 [( Children.Case1 (Child.Case1 (x.description.Invoke())))]))
+                |]
     )
-    Globals.m.Invoke ("div",
-           Children.Case1 (Child.Case2 (Globals.m.Invoke ("input",attr1))),
-           Children.Case1 (Child.Case2 (Globals.m.Invoke ("button",attr2))),
-           Children.Case1 (Child.Case2 (Globals.m.Invoke ("table",Children.Case2 (ResizeArray<obj>(children2))) ))
-        )
-    )    
+    Globals.m.Invoke ("div", 
+              Children.Case1 (ma "input" attr1 [||]),
+              Children.Case1 (ma "button" attr2 [||]),
+              Children.Case1 (mm "table" [|(Children.Case2 (ResizeArray<obj>(children2)))|] )
+))
+        
+        
     
 
 
-let com = MComponent<VM>(vm_init,view)
+let com = newComponent vm_init view
 
 
         
