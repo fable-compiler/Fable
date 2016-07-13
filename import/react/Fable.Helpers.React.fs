@@ -591,7 +591,7 @@ let toPlainJsObj (source: obj) =
             // Attention, if we access `get` statically, F# compiler will wrap it in a function
             match unbox prop.value, unbox prop?get with
             | Some value, _ -> target?(k) <- value 
-            | None, Some getter -> target?(k) <- getter?apply$(source)
+            | None, Some getter -> target?(k) <- getter?apply(source)
             | _ -> ()
         target
     | _ -> source
@@ -601,6 +601,9 @@ let inline fn (f: 'Props -> #React.ReactElement<obj>) (props: 'Props) (children:
 
 let inline com<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     unbox(React.createElement(U2.Case1(unbox typeof<'T>), toPlainJsObj props, unbox(List.toArray children)))
+
+let inline from<'P> (com: React.ComponentClass<'P>) (props: 'P) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    unbox(React.createElement(U2.Case1 com, unbox<'P>(toPlainJsObj props), unbox(List.toArray children)))
 
 let inline domEl (tag: string) (props: IHTMLProp list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     unbox(React.createElement(tag, props, unbox(List.toArray children)))

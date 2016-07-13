@@ -1,0 +1,23 @@
+{
+  "private": true,
+  "scripts": {
+    "start": "electron bundle/js/main.js"
+  },
+  "dependencies": {
+    "fable-core": "^0.2.0-alpha",
+    "material-ui": "^0.15.2",
+    "react": "^15.1.0",
+    "react-dom": "^15.1.0",
+    "react-tap-event-plugin": "^1.0.0"
+  },
+  "devDependencies": {
+    "electron-prebuilt": "^1.2.5",
+    "fable-import-electron": "^0.0.5",
+    "fable-import-react": "^0.0.19",
+    "source-map-loader": "^0.1.5",
+    "webpack": "^1.13.1"
+  },
+  "engines": {
+    "fable": "^0.4.0-alpha"
+  }
+}

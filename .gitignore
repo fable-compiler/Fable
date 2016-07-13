@@ -14,6 +14,7 @@ samples/**/out/
 samples/**/bundle.js*
 samples/other/fable-helpers-sample/js/*.*
 samples/electron/dc/bundle/js/*.*
+samples/electron/material-ui/bundle/js/*.*
 
 src/providers/**/*.js
 src/providers/**/*.js.map
