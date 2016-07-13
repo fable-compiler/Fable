@@ -2171,94 +2171,114 @@ export class Async {
   };
 }
 
-class Queue {
-  public firstAndLast: any;
-  add(it: any) {
-    var itCell = { value: it };
+class QueueCell<Msg> {
+  value: Msg;
+  next: QueueCell<Msg>;
+
+  constructor(message: Msg) {
+    this.value = message;
+  }
+}
+
+class MailboxQueue<Msg> {
+  private firstAndLast: TTuple<QueueCell<Msg>, QueueCell<Msg>>;
+
+  add(message: Msg) {
+    const itCell = new QueueCell(message);
     if (this.firstAndLast) {
       this.firstAndLast[1].next = itCell;
       this.firstAndLast = [this.firstAndLast[0], itCell];
     }
-    else {
+    else
       this.firstAndLast = [itCell, itCell];
-    }
   };
-  tryGet(it?: any) {
+
+  tryGet(): Msg {
     if (this.firstAndLast) {
-      var value = this.firstAndLast[0].value;
-      if (this.firstAndLast[0].next) {
+      const value = this.firstAndLast[0].value;
+      if (this.firstAndLast[0].next)
         this.firstAndLast = [this.firstAndLast[0].next, this.firstAndLast[1]];
-      }
-      else {
+      else
         delete this.firstAndLast;
-      }
       return value;
     }
   };
 }
 
-export class MailboxProcessor {
-  public body: any;
-  public messages: any;
+export type MailboxBody<Msg> = (m: MailboxProcessor<Msg>) => IAsync<Unit>;
 
-  private continuation: any;
+export interface AsyncReplyChannel<Reply> {
+  reply: (r: Reply) => Unit;
+};
 
-  constructor(body: any) {
+export class MailboxProcessor<Msg> {
+  private body: MailboxBody<Msg>;
+  private cancellationToken: CancellationToken;
+  private messages: MailboxQueue<Msg>;
+
+  private continuation: Continuation<Msg>;
+
+  constructor(body: MailboxBody<Msg>, cancellationToken?: CancellationToken) {
     this.body = body;
-    this.messages = new Queue();
+    this.cancellationToken = cancellationToken || Async.defaultCancellationToken;
+    this.messages = new MailboxQueue<Msg>();
+  };
+
+  static start<Msg>(body: MailboxBody<Msg>, cancellationToken?: CancellationToken) {
+    const mbox = new MailboxProcessor(body, cancellationToken);
+    mbox.start();
+    return mbox;
   };
 
   __processEvents() {
     if (this.continuation) {
-      var value = this.messages.tryGet();
+      const value = this.messages.tryGet();
       if (value) {
-        var cont = this.continuation;
+        const cont = this.continuation;
         delete this.continuation;
         cont(value);
       }
     }
   };
+
   start() {
-    Async.startImmediate(this.body(this));
+    Async.startImmediate(this.body(this), this.cancellationToken);
   };
-  static start = function (body: any) {
-    var mbox = new MailboxProcessor(body);
-    mbox.start();
-    return mbox;
-  };
+
   receive() {
-    var _this = this;
-    return Async.fromContinuations(function (conts: any) {
-      if (_this.continuation) {
+    return Async.fromContinuations((conts: Array<Continuation<Msg>>) => {
+      if (this.continuation)
         throw "Receive can only be called once!";
-      }
-      _this.continuation = conts[0];
-      _this.__processEvents();
+
+      this.continuation = conts[0];
+      this.__processEvents();
     });
   };
-  postAndAsyncReply(f: any) {
-    var result: any, continuation: any;
+
+  post(message: Msg) {
+    this.messages.add(message);
+    this.__processEvents();
+  };
+
+  postAndAsyncReply<Reply>(buildMessage: (c: AsyncReplyChannel<Reply>) => Msg) {
+    let result: Reply;
+    let continuation: Continuation<Reply>;
     function checkCompletion() {
-      if (result && continuation) {
+      if (result && continuation)
         continuation(result);
-      }
     };
-    var reply = {
-      reply: function (res: any) {
+    const reply = {
+      reply: (res: Reply) => {
         result = res;
         checkCompletion();
       }
     };
-    this.messages.add(f(reply));
+    this.messages.add(buildMessage(reply));
     this.__processEvents();
-    return Async.fromContinuations(function (conts: any) {
+    return Async.fromContinuations((conts: Array<Continuation<Reply>>) => {
       continuation = conts[0];
       checkCompletion();
     });
-  };
-  post(msg: any) {
-    this.messages.add(msg);
-    this.__processEvents();
   };
 }
 
