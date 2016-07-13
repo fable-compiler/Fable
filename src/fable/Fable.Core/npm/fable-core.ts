@@ -787,6 +787,21 @@ class FRegExp {
   };
 
   static replace(reg: string | RegExp, input: string, replacement: string | MatchEvaluator, limit?: number, offset: number = 0) {
+    function replacer() {
+      let res = arguments[0];
+      if (limit !== 0) {
+        limit--;
+        const match: any = [];
+        const len = arguments.length;
+        for (let i = 0; i < len - 2; i++)
+          match.push(arguments[i]);
+        match.index = arguments[len - 2];
+        match.input = arguments[len - 1];
+        res = (<MatchEvaluator>replacement)(match);
+      }
+      return res;
+    };
+    
     if (typeof reg == "string") {
       const tmp = <string>reg;
       reg = FRegExp.create(input, limit);
@@ -795,20 +810,6 @@ class FRegExp {
     }
     if (typeof replacement == "function") {
       limit = limit == null ? -1 : limit;
-      const replacer = () => {
-        let res = arguments[0];
-        if (limit !== 0) {
-          limit--;
-          const match: any = [];
-          const len = arguments.length;
-          for (let i = 0; i < len - 2; i++)
-            match.push(arguments[i]);
-          match.index = arguments[len - 2];
-          match.input = arguments[len - 1];
-          res = (<MatchEvaluator>replacement)(match);
-        }
-        return res;
-      };
       return input.substring(0, offset) + input.substring(offset).replace(<RegExp>reg, replacer);
     } else {
       if (limit != null) {
