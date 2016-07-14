@@ -2,7 +2,6 @@ const FSymbol = {
   interfaces: Symbol("interfaces"),
   typeName: Symbol("typeName")
 };
-
 export { FSymbol as Symbol }
 
 export class Choice<T1, T2> {
@@ -31,15 +30,15 @@ export class Choice<T1, T2> {
   }
 }
 
-export type TTuple<T1, T2> = [T1, T2];
-export type TTuple3<T1, T2, T3> = [T1, T2, T3];
+export type Tuple<T1, T2> = [T1, T2];
+export type Tuple3<T1, T2, T3> = [T1, T2, T3];
 
 export function Tuple<T1, T2>(x: T1, y: T2) {
-  return <TTuple<T1, T2>>[x, y];
+  return <Tuple<T1, T2>>[x, y];
 }
 
 export function Tuple3<T1, T2, T3>(x: T1, y: T2, z: T3) {
-  return <TTuple3<T1, T2, T3>>[x, y, z];
+  return <Tuple3<T1, T2, T3>>[x, y, z];
 }
 
 export class Util {
@@ -113,12 +112,12 @@ export class Util {
   }
 
   static createDisposable(f: () => void) {
-    const disp: Disposable = { dispose: f };
+    const disp: IDisposable = { dispose: f };
     (<any>disp)[FSymbol.interfaces] = ["System.IDisposable"];
     return disp;
   }
 
-  static createObj(fields: Iterable<TTuple<string, any>>) {
+  static createObj(fields: Iterable<Tuple<string, any>>) {
     return Seq.fold((acc, kv) => { acc[kv[0]] = kv[1]; return acc; }, <any>{}, fields);
   }
 
@@ -462,11 +461,11 @@ class FDate extends Date {
 }
 export { FDate as Date }
 
-export interface Disposable {
+export interface IDisposable {
   dispose(): void;
 }
 
-export class Timer implements Disposable {
+export class Timer implements IDisposable {
   public interval: number;
   public autoReset: boolean;
   public _elapsed: Event<Date>;
@@ -916,7 +915,7 @@ class FArray {
     });
   }
 
-  static unzip<T1, T2>(xs: ArrayLike<TTuple<T1, T2>>) {
+  static unzip<T1, T2>(xs: ArrayLike<Tuple<T1, T2>>) {
     const bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length);
     for (let i = 0; i < xs.length; i++) {
       bs[i] = xs[i][0];
@@ -925,7 +924,7 @@ class FArray {
     return Tuple(bs, cs);
   }
 
-  static unzip3<T1, T2, T3>(xs: ArrayLike<TTuple3<T1, T2, T3>>) {
+  static unzip3<T1, T2, T3>(xs: ArrayLike<Tuple3<T1, T2, T3>>) {
     const bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length), ds = new Array<T3>(xs.length);
     for (let i = 0; i < xs.length; i++) {
       bs[i] = xs[i][0];
@@ -1085,14 +1084,14 @@ export class List<T> {
 
   /* ToDo: instance unzip() */
 
-  static unzip<T1, T2>(xs: List<TTuple<T1, T2>>) {
+  static unzip<T1, T2>(xs: List<Tuple<T1, T2>>) {
     return Seq.foldBack((xy, acc) =>
       Tuple(new List<T1>(xy[0], acc[0]), new List<T2>(xy[1], acc[1])), xs, Tuple(new List<T1>(), new List<T2>()));
   }
 
   /* ToDo: instance unzip3() */
 
-  static unzip3<T1, T2, T3>(xs: List<TTuple3<T1, T2, T3>>) {
+  static unzip3<T1, T2, T3>(xs: List<Tuple3<T1, T2, T3>>) {
     return Seq.foldBack((xyz, acc) =>
       Tuple3(new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])), xs, Tuple3(new List<T1>(), new List<T2>(), new List<T3>()));
   }
@@ -1200,7 +1199,7 @@ export class Seq {
   }
 
   static choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
-    const trySkipToNext = (iter: Iterator<T>): TTuple<U, Iterator<T>> => {
+    const trySkipToNext = (iter: Iterator<T>): Tuple<U, Iterator<T>> => {
       const cur = iter.next();
       if (!cur.done) {
         const y = f(cur.value);
@@ -1239,7 +1238,7 @@ export class Seq {
   }
 
   static empty<T>() {
-    return Seq.unfold((): TTuple<T, T> => { return void 0; });
+    return Seq.unfold((): Tuple<T, T> => { return void 0; });
   }
 
   static enumerateWhile<T>(cond: () => boolean, xs: Iterable<T>) {
@@ -1266,7 +1265,7 @@ export class Seq {
     });
   }
 
-  static enumerateUsing<T extends Disposable, U>(disp: T, work: (x: T) => Iterable<U>) {
+  static enumerateUsing<T extends IDisposable, U>(disp: T, work: (x: T) => Iterable<U>) {
     let isDisposed = false;
     const disposeOnce = () => {
       if (!isDisposed) {
@@ -1312,7 +1311,7 @@ export class Seq {
   }
 
   static filter<T>(f: (x: T) => boolean, xs: Iterable<T>) {
-    function trySkipToNext(iter: Iterator<T>): TTuple<T, Iterator<T>> {
+    function trySkipToNext(iter: Iterator<T>): Tuple<T, Iterator<T>> {
       const cur = iter.next();
       if (!cur.done)
         return f(cur.value) ? [cur.value, iter] : trySkipToNext(iter);
@@ -1790,7 +1789,7 @@ export class Seq {
     return Seq.__failIfNone(Seq.tryPick(f, xs));
   }
 
-  static unfold<T, ST>(f: (st: ST) => TTuple<T, ST>, acc?: ST) {
+  static unfold<T, ST>(f: (st: ST) => Tuple<T, ST>, acc?: ST) {
     return <Iterable<T>>{
       [Symbol.iterator]: () => {
         return {
@@ -2088,7 +2087,7 @@ export class Async {
     });
   }
 
-  static using<T extends Disposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
+  static using<T extends IDisposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
     return Async.tryFinally(binder(resource), () => resource.dispose());
   }
 
@@ -2192,7 +2191,7 @@ class QueueCell<Msg> {
 }
 
 class MailboxQueue<Msg> {
-  private firstAndLast: TTuple<QueueCell<Msg>, QueueCell<Msg>>;
+  private firstAndLast: Tuple<QueueCell<Msg>, QueueCell<Msg>>;
 
   add(message: Msg) {
     const itCell = new QueueCell(message);
@@ -2314,19 +2313,19 @@ class Observer<T> implements IObserver<T> {
 Util.setInterfaces(Observer.prototype, ["System.IObserver"]);
 
 export interface IObservable<T> {
-  subscribe: (o: IObserver<T>) => Disposable;
+  subscribe: (o: IObserver<T>) => IDisposable;
 }
 
 class Observable<T> implements IObservable<T> {
-  public subscribe: (o: IObserver<T>) => Disposable;
+  public subscribe: (o: IObserver<T>) => IDisposable;
 
-  constructor(subscribe: (o: IObserver<T>) => Disposable) {
+  constructor(subscribe: (o: IObserver<T>) => IDisposable) {
     this.subscribe = subscribe;
   }
 }
 Util.setInterfaces(Observable.prototype, ["System.IObservable"]);
 
-class Obs {
+class FObservable {
   static __protect<T>(f: () => T, succeed: (x: T) => void, fail: (e: any) => void) {
     try {
       return succeed(f());
@@ -2342,7 +2341,7 @@ class Obs {
   static choose<T, U>(chooser: (x: T) => U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer =>
       source.subscribe(new Observer<T>(t =>
-        Obs.__protect(
+        FObservable.__protect(
           () => chooser(t),
           u => { if (u != null) observer.onNext(u); },
           observer.onError),
@@ -2350,13 +2349,13 @@ class Obs {
   }
 
   static filter<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
-    return Obs.choose(x => predicate(x) ? x : null, source);
+    return FObservable.choose(x => predicate(x) ? x : null, source);
   }
 
   static map<T, U>(mapping: (x: T) => U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer =>
       source.subscribe(new Observer<T>(t => {
-        Obs.__protect(
+        FObservable.__protect(
           () => mapping(t),
           observer.onNext,
           observer.onError);
@@ -2411,7 +2410,7 @@ class Obs {
   }
 
   static pairwise<T>(source: IObservable<T>) {
-    return <IObservable<TTuple<T, T>>>new Observable<TTuple<T, T>>(observer => {
+    return <IObservable<Tuple<T, T>>>new Observable<Tuple<T, T>>(observer => {
       let last: T = null;
       return source.subscribe(new Observer<T>(next => {
         if (last != null)
@@ -2422,13 +2421,13 @@ class Obs {
   }
 
   static partition<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
-    return Tuple(Obs.filter(predicate, source), Obs.filter(x => !predicate(x), source));
+    return Tuple(FObservable.filter(predicate, source), FObservable.filter(x => !predicate(x), source));
   }
 
   static scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer => {
       return source.subscribe(new Observer<T>(t => {
-        Obs.__protect(
+        FObservable.__protect(
           () => collector(state, t),
           u => { state = u; observer.onNext(u); },
           observer.onError);
@@ -2437,14 +2436,14 @@ class Obs {
   }
 
   static split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, source: IObservable<T>) {
-    return Tuple(Obs.choose(v => splitter(v).valueIfChoice1, source), Obs.choose(v => splitter(v).valueIfChoice2, source));
+    return Tuple(FObservable.choose(v => splitter(v).valueIfChoice1, source), FObservable.choose(v => splitter(v).valueIfChoice2, source));
   }
 
   static subscribe<T>(callback: (x: T) => Unit, source: IObservable<T>) {
     return source.subscribe(new Observer(callback));
   }
 }
-export { Obs as Observable }
+export { FObservable as Observable }
 
 export type Delegate<T> = (x: T) => void;
 export type DotNetDelegate<T> = (sender: any, x: T) => void;
@@ -2460,10 +2459,10 @@ export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
 }
 
 export class Event<T> implements IEvent<T> {
-  private _subscriber: (o: IObserver<T>) => Disposable;
+  private _subscriber: (o: IObserver<T>) => IDisposable;
   private delegates: Array<Delegate<T>>;
 
-  constructor(_subscriber?: (o: IObserver<T>) => Disposable, delegates?: any[]) {
+  constructor(_subscriber?: (o: IObserver<T>) => IDisposable, delegates?: any[]) {
     this._subscriber = _subscriber;
     this.delegates = delegates || new Array<Delegate<T>>();
   }
@@ -2532,7 +2531,7 @@ export class Event<T> implements IEvent<T> {
     const source = <Event<T>>sourceEvent;
     return <IEvent<U>>new Event<U>(observer =>
       source.subscribe(new Observer<T>(t =>
-        Obs.__protect(
+        FObservable.__protect(
           () => chooser(t),
           u => { if (u != null) observer.onNext(u); },
           observer.onError),
@@ -2548,7 +2547,7 @@ export class Event<T> implements IEvent<T> {
     const source = <Event<T>>sourceEvent;
     return <IEvent<U>>new Event<U>(observer =>
       source.subscribe(new Observer<T>(t =>
-        Obs.__protect(
+        FObservable.__protect(
           () => mapping(t),
           observer.onNext,
           observer.onError),
@@ -2607,7 +2606,7 @@ export class Event<T> implements IEvent<T> {
 
   static pairwise<T>(sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
-    return <IEvent<TTuple<T, T>>>new Event<TTuple<T, T>>(observer => {
+    return <IEvent<Tuple<T, T>>>new Event<Tuple<T, T>>(observer => {
       let last: T = null;
       return source.subscribe(new Observer<T>(next => {
         if (last != null)
@@ -2625,7 +2624,7 @@ export class Event<T> implements IEvent<T> {
     const source = <Event<T>>sourceEvent;
     return <IEvent<U>>new Event<U>(observer => {
       return source.subscribe(new Observer<T>(t => {
-        Obs.__protect(
+        FObservable.__protect(
           () => collector(state, t),
           u => { state = u; observer.onNext(u); },
           observer.onError);
