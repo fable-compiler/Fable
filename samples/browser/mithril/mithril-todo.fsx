@@ -35,8 +35,11 @@ let addAttribute str obj (o :Attributes) =
     o
     
 let withattr value (func :('a -> 'b)) =
-    let f = (fun (a :obj) -> func (a :?> 'a) :> obj)
-    Globals.m.withAttr(value,Func<_,_>(f))
+    let f = (fun (a :obj) -> 
+        let con = Browser.console
+        con.log(a)
+        func (a :?> 'a) :> obj)
+    Globals.m.withAttr(value,Func<obj,obj>(f))
 
 let newComponent (c :obj [] -> 'a) (v :'a -> VirtualElement) =
     let o = createEmpty<Component<'a>>
@@ -45,10 +48,10 @@ let newComponent (c :obj [] -> 'a) (v :'a -> VirtualElement) =
     o
 
 let ma str atr chd =
-    Child.Case2 (Globals.m.Invoke (str,atr, chd))
+    Element (Globals.m.Invoke (str,atr, chd))
 
 let mm str chd = 
-    Child.Case2 (Globals.m.Invoke (str,chd))
+    Element (Globals.m.Invoke (str,chd))
 //type MComponent<'a>(c: obj[] -> 'a, v: 'a  * obj[] -> VirtualElement ) =
  //   let _c : obj[] -> 'a = c
  //   let _v : 'a  * obj[] -> VirtualElement = v
@@ -71,9 +74,12 @@ type VM() =
     member x.List with get () = list
     
     member x.Add() = 
-        if not (discription.Invoke () = "") then 
-            list <- Array.append list [|todo (discription.Invoke ())|]
-            discription.Invoke "" |> ignore
+        let con = Browser.console
+        con.log(discription)
+        con.log(discription.toJSON())
+        if not (discription.get = "") then 
+            list <- Array.append list [|todo (discription.get)|]
+            discription.set "" |> ignore
     
     interface Controller with
         member x.onunload evt = "1" :> obj
@@ -86,22 +92,24 @@ let vm_init x = vm
 
 
 let view = (fun (vm1 :VM) -> 
-    let attr1 = (newAttribute "onchange" (withattr "value" vm1.Discription.Invoke) ) 
-                    |> addAttribute "value" (vm1.Discription.Invoke ())
-    let attr2 = newAttribute "onclick" (Func<unit,unit>vm1.Add :>obj )
+    let dis = vm1.Discription.get
+    let attr1 = (newAttribute "onchange" (withattr "value" (fun x -> vm1.Discription.set x |> ignore
+                                                                     Browser.console.log(vm1.Discription.toJSON())) )) 
+                    |> addAttribute "value" (vm1.Discription.get)
+    let attr2 = (newAttribute "onclick" (Func<unit,unit>vm1.Add :>obj ))
     let children2 = vm1.List |> Array.toSeq |> Seq.mapi (fun i x ->
-        let attr3 =  (newAttribute "onclick" (withattr "checked" x.complete.Invoke ))
-                        |> addAttribute "checked" (x.complete.Invoke ())
-        let attr4 = newAttribute "style" (withattr "textDecoration" (fun () -> if x.complete.Invoke() then "line-through" else "none") )
-        mm "tr" [|
-                 Children.Case1 (mm "td" [(Children.Case1 (ma "input[type=checkbox]" attr3 []))] ),
-                 Children.Case1 (ma ("td" attr4 [( Children.Case1 (Child.Case1 (x.description.Invoke())))]))
-                |]
-    )
+        let attr3 =  (newAttribute "onclick" (withattr "checked" x.complete.set ))
+                        |> addAttribute "checked" (x.complete.get)
+        let attr4 = newAttribute "style" (withattr "textDecoration" (fun () -> if x.complete.get then "line-through" else "none") )
+        (mm "tr" [|
+                 Child (mm "td" [|(Child (ma "input[type=checkbox]" attr3 [||]))|] );
+                 Child (ma "td" attr4 [|( Child (String (x.description.get)))|])
+                 |]) :> obj
+    ) 
     Globals.m.Invoke ("div", 
-              Children.Case1 (ma "input" attr1 [||]),
-              Children.Case1 (ma "button" attr2 [||]),
-              Children.Case1 (mm "table" [|(Children.Case2 (ResizeArray<obj>(children2)))|] )
+              Child (ma "input" attr1 [||]),
+              Child (ma "button" attr2 [|Child (String "Add")|]),
+              Child (mm "table" [|Array ((children2 |> ResizeArray<obj> ))|] )
 ))
         
         
