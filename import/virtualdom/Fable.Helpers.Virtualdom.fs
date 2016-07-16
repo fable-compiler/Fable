@@ -321,7 +321,7 @@ module App =
     type AppState<'TModel, 'TMessage> = {
             Model: 'TModel
             View: 'TModel -> Html.Types.Node<'TMessage>
-            Update: 'TModel -> 'TMessage -> ('TModel * ((unit -> unit) list)) }
+            Update: 'TModel -> 'TMessage -> ('TModel * ((unit -> unit) list) * (('TMessage -> unit) -> unit) list) }
 
 
     type AppEvents<'TMessage, 'TModel> =
@@ -338,7 +338,7 @@ module App =
     type App<'TModel, 'TMessage> =
         {
             AppState: AppState<'TModel, 'TMessage>
-            Init : ('TMessage -> unit) -> unit
+            Init : (('TMessage -> unit) -> unit) option
             JsCalls: (unit -> unit) list
             Node: Node option
             CurrentTree: obj option
@@ -367,7 +367,7 @@ module App =
     let createApp appState =
         {
             AppState = appState
-            Init = (fun _ -> ())
+            Init = None
             JsCalls = []
             Node = None
             CurrentTree = None
@@ -421,7 +421,9 @@ module App =
                         let tree = renderTree state.AppState.View post state.AppState.Model
                         let rootNode = renderer.CreateElement tree
                         startElem.appendChild(rootNode) |> ignore
-                        state.Init post
+                        match state.Init with
+                        | None -> ()
+                        | Some init -> init post
                         return! loop {state with CurrentTree = Some tree; Node = Some rootNode}
                     | Some rootNode, Some currentTree ->
                         let! message = inbox.Receive()
@@ -429,7 +431,7 @@ module App =
                         match message with
                         | Message msg ->
                             ActionReceived msg |> (notifySubscribers state.Subscribers)
-                            let (model', jsCalls) = state.AppState.Update state.AppState.Model msg
+                            let (model', jsCalls, msgs) = state.AppState.Update state.AppState.Model msg
 
                             let renderState =
                                 match state.RenderState with
@@ -437,6 +439,7 @@ module App =
                                     scheduler.Post(PingIn(1000./60., (fun() -> inbox.Post(Draw))))
                                     InProgress
                                 | InProgress -> InProgress
+                            msgs |> List.iter (fun m -> m post)
                             return! loop {
                                 state with 
                                     AppState = { state.AppState with Model = model' }

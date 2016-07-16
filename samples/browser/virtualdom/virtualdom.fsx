@@ -9,7 +9,8 @@
 *)
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
+//#load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
+#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
 (**
 ##Architecture overview
 
@@ -50,11 +51,16 @@ type CounterAction =
     | Decrement of int
     | Increment of int
 
+let fakeAjaxCall model h = 
+    let message = if model < 300 then Increment 100 else Decrement 50 
+    if model > 300 && model < 600 then () 
+    else window.setTimeout((fun _ -> h (message)), 2000) |> ignore
+
 let counterUpdate model action =
     match action with
     | Decrement x -> model - x
     | Increment x -> model + x
-    |> (fun m -> m,[])
+    |> (fun m -> m,[],[fakeAjaxCall model])
 
 (**
 The counter can be incremented or decremented in step of `x`. If you look closely
@@ -102,6 +108,7 @@ that you would like to use.
 // Start the application
 let counterApp =
     createApp {Model = initCounter; View = counterView; Update = counterUpdate}
+    |> withInit (fakeAjaxCall initCounter |> Some) 
     |> withStartNode "#counter"
 
 counterApp |> start renderer
@@ -236,7 +243,7 @@ let todoUpdate model msg =
         | EditItem i -> [fun () ->
             document.getElementById("item-" + (i.Id.ToString())).focus()]
         | _ -> []
-    model',jsCalls
+    model',jsCalls,[]
 
 (**
 It might seem like a lot of code, but we need to handle all actions and respond
