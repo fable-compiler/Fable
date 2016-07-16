@@ -1981,7 +1981,7 @@ export class Async {
         onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken,
         onError: function (ex: any) {
-          ctx.onSuccess(catchFn(ex));
+          catchFn(ex)(ctx);
         }
       });
     });

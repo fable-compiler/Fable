@@ -276,3 +276,15 @@ let ``MailboxProcessor.postAndAsyncReply works``() =
         let! resp = agent.PostAndAsyncReply(fun replyChannel -> "Bye", replyChannel)
         equal "Msg: 1 - Bye" resp
     } |> Async.RunSynchronously
+
+[<Test>]
+let ``Async try .. with returns correctly from 'with' branch``() =
+    let work = async { 
+        try 
+          failwith "testing"
+          return -1
+        with e ->
+          return 42 }
+    let mutable result = 0
+    Async.StartWithContinuations(work, (fun r -> result <- r), ignore, ignore)
+    equal result 42
