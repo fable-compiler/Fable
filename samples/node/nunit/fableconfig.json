@@ -4,7 +4,6 @@
     "outDir": "out",
     "plugins": "node_modules/fable-plugins-nunit/Fable.Plugins.NUnit.dll",
     "scripts": {
-        "prebuild": "npm install",
-        "postbuild": "npm test"
+        "prebuild": "npm install"
     }
 }
