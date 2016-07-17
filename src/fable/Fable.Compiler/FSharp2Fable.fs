@@ -708,6 +708,17 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 let typ = makeType com ctx meth.FullType
                 let ctx, privateName = bindIdent ctx typ (Some meth) name
                 ctx, Some (privateName.name)
+            | Fable.Method name when not meth.EnclosingEntity.IsFSharpModule ->
+                if name.StartsWith "op_"
+                then
+                    let arg = meth.CurriedParameterGroups.[0].[0]
+                    if not arg.Type.HasTypeDefinition
+                        || arg.Type.TypeDefinition <> meth.EnclosingEntity
+                    then failwithf "First argument of custom type operators must be same as type: %s" meth.FullName
+                    elif System.Text.RegularExpressions.Regex.IsMatch(name, "_\d+$")
+                    then failwithf "Custom type operators overloads is not supported: %s" meth.FullName
+                    else ctx, None
+                else ctx, None
             | _ -> ctx, None
         let entMember =
             Fable.Member(memberKind,
@@ -725,7 +736,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     elif isInline meth then
         // Inlining custom type operators is problematic, see #230
         if not meth.EnclosingEntity.IsFSharpModule && meth.CompiledName.StartsWith "op_" then
-            sprintf "Operators cannot be inlined: %s" meth.FullName
+            sprintf "Custom type operators cannot be inlined: %s" meth.FullName
             |> Warning |> com.AddLog
             addMethod()
         else
