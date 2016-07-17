@@ -133,6 +133,8 @@ The behaviour is similar for secondary constructors.
 
 Custom operators are possible, just note it won't be idiomatic to call
 them from JS if necessary (e.g., `Time.op_Addition(ts1, ts2)`).
+Also, custom operators in types have some limitations: the first argument
+must be the same as the type and they cannot be overloaded nor inlined.
 
 ## Inheritance
 

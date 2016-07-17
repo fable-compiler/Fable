@@ -332,7 +332,7 @@ function build(opts) {
 
     var wrap = function (arg) {
         arg = arg.toString().trim();
-        return arg.indexOf(" ") > 0 ? '"' + arg + '"' : arg;  
+        return arg.indexOf(" ") > 0 && arg[0] != '"' ? '"' + arg + '"' : arg;  
     };
     var fableCmd = process.platform === "win32" ? "cmd" : "mono";
     var fableCmdArgs = process.platform === "win32" ? ["/C", wrap(fableBin)] : [wrap(fableBin)];
