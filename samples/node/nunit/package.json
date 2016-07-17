@@ -10,7 +10,7 @@
     "mocha": "^2.5.3"
   },
   "scripts": {
-    "test": "mocha out"
+    "test": "mocha ./out"
   },
   "engines": {
     "fable": "^0.4.0-alpha"

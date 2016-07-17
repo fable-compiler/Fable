@@ -17,7 +17,10 @@ module Util =
         Path.Combine(Array.ofSeq pathParts)
 
     let run workingDir fileName args =
-        let ok = 
+        let fileName, args =
+            if EnvironmentHelper.isUnix
+            then fileName, args else "cmd", ("/C " + fileName + " " + args)
+        let ok =
             execProcess (fun info ->
                 info.FileName <- fileName
                 info.WorkingDirectory <- workingDir
@@ -25,14 +28,16 @@ module Util =
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
 
     let runAndReturn workingDir fileName args =
+        let fileName, args =
+            if EnvironmentHelper.isUnix
+            then fileName, args else "cmd", ("/C " + args)
         ExecProcessAndReturnMessages (fun info ->
             info.FileName <- fileName
             info.WorkingDirectory <- workingDir
             info.Arguments <- args) TimeSpan.MaxValue
         |> fun p -> p.Messages |> String.concat "\n"
 
-    let downloadArtifact path =
-        let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
+    let downloadArtifact path (url: string) =
         let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
         use client = new WebClient()
         use stream = client.OpenRead(url)
@@ -86,26 +91,28 @@ module Util =
         |> CreateFSharpAssemblyInfo asmInfoPath
 
 module Npm =
-    let npmFilePath args =
-        if EnvironmentHelper.isUnix
-        then "npm", args
-        else "cmd", ("/C npm " + args)
-
     let script workingDir script args =
         sprintf "run %s -- %s" script (String.concat " " args)
-        |> npmFilePath ||> Util.run workingDir
+        |> Util.run workingDir "npm"
 
     let install workingDir modules =
         sprintf "install %s" (String.concat " " modules)
-        |> npmFilePath ||> Util.run workingDir
+        |> Util.run workingDir "npm"
 
     let command workingDir command args =
         sprintf "%s %s" command (String.concat " " args)
-        |> npmFilePath ||> Util.run workingDir
+        |> Util.run workingDir "npm"
 
     let commandAndReturn workingDir command args =
         sprintf "%s %s" command (String.concat " " args)
-        |> npmFilePath ||> Util.runAndReturn workingDir
+        |> Util.runAndReturn workingDir "npm"
+
+    let getLatestVersion package tag =
+        let package =
+            match tag with
+            | Some tag -> package + "@" + tag
+            | None -> package
+        commandAndReturn "." "show" [package; "version"]
 
 module Node =
     let run workingDir script args =
@@ -136,17 +143,13 @@ module Fake =
 
 // Targets
 Target "Clean" (fun _ ->
-    // In the development machine, don't delete node_modules for faster builds
-    if environVar "DEV_MACHINE" = "1" then
-        !! "build/fable/bin" ++ "src/**/bin/" ++ "src/**/obj/"
-        |> CleanDirs
-        !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
-        |> Seq.iter FileUtils.rm
-        !! "build/tests/**/*.*" -- "build/tests/node_modules/**/*.*"
-        |> Seq.iter FileUtils.rm
-    else
-        !! "build/" ++ "src/**/bin/" ++ "src/**/obj/"
-        |> CleanDirs
+    // Don't delete node_modules for faster builds
+    !! "build/fable/bin" ++ "src/fable/**/obj/"
+    |> CleanDirs
+    !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
+    |> Seq.iter FileUtils.rm
+    !! "build/tests/**/*.*" -- "build/tests/node_modules/**/*.*"
+    |> Seq.iter FileUtils.rm
 )
 
 Target "FableCompilerRelease" (fun _ ->
@@ -217,8 +220,7 @@ Target "MochaTest" (fun _ ->
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []
     // Copy the development version of fable-core.js
-    if environVar "DEV_MACHINE" = "1" then
-        FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
+    FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
     Npm.script testsBuildDir "test" []
 )
 
@@ -241,10 +243,20 @@ Target "MakeArtifactLighter" (fun _ ->
     |> Seq.iter FileUtils.rm
 )
 
-Target "PublishFableCompiler" (fun _ ->
+Target "Publish" (fun _ ->
+    let fableCoreNpmDir = "src/fable/Fable.Core/npm"
+
+    // Check if latest fable-core version is prerelease or not
+    if fableCoreVersion.IndexOf("-") > 0
+    then Some "next" else None
+    |> Npm.getLatestVersion "fable-core"
+    |> (<>) fableCoreVersion
+    |> function false -> () | true -> Npm.command fableCoreNpmDir "publish" [] 
+
     let workingDir = "temp/build"
-    Util.downloadArtifact workingDir
-    // Npm.command workingDir "version" [version]
+    let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
+    Util.downloadArtifact workingDir url
+    // Npm.command workingDir "version" [fableCompilerVersion]
     Npm.command workingDir "publish" []
 )
 
@@ -268,7 +280,7 @@ Target "FableCore" (fun _ ->
     Util.assemblyInfo "src/fable/Fable.Core/" fableCoreVersion []
     !! "src/fable/Fable.Core/Fable.Core.fsproj"
     |> MSBuildRelease fableCoreNpmDir "Build"
-    |> Log "Fable-Core-Output: "
+    |> ignore // Log outputs all files in node_modules
 
     Npm.install fableCoreNpmDir []
     // Compile TypeScript
@@ -316,16 +328,12 @@ Target "AllAndCore" ignore
 
 // Build order
 "Clean"
+  ==> "FableCore"
   ==> "FableCompilerRelease"
   ==> "Plugins"
   ==> "MochaTest"
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
-
-"All" ?=> "FableCore"
-
-"All" ==> "AllAndCore"
-"FableCore" ==> "AllAndCore"
 
 // Start build
 RunTargetOrDefault "All"
