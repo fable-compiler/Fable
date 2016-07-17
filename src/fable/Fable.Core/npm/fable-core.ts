@@ -8,17 +8,17 @@ export class Choice<T1, T2> {
   public Case: "Choice1Of2" | "Choice2Of2";
   public Fields: Array<T1 | T2>;
 
-  constructor(t: "Choice1Of2" | "Choice2Of2", d: T1 | T2) {
+  constructor(t: "Choice1Of2" | "Choice2Of2", c: number, d: T1 | T2) {
     this.Case = t;
     this.Fields = [d];
   }
 
   static Choice1Of2<T1, T2>(v: T1) {
-    return new Choice<T1, T2>("Choice1Of2", v);
+    return new Choice<T1, T2>("Choice1Of2", 1, v);
   }
 
   static Choice2Of2<T1, T2>(v: T2) {
-    return new Choice<T1, T2>("Choice2Of2", v);
+    return new Choice<T1, T2>("Choice2Of2", 1, v);
   }
 
   get valueIfChoice1() {
@@ -81,6 +81,10 @@ export class Util {
     function sortIfMapOrSet(o: any) {
       return o instanceof Map || o instanceof Set ? Array.from(o).sort() : o;
     }
+
+    // Return 0 if both are null or undefined
+    if (x == null && y == null)
+      return 0;
 
     if (typeof x !== typeof y)
       return -1;

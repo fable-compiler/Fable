@@ -109,8 +109,8 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         match argExprs with
         | [] -> Fable.Value Fable.Null 
         | [expr] -> expr
-        | _ -> failwithf "Erased Union Cases must have one single field: %s"
-                            unionType.FullName
+        | _ -> failwithf "Erased Union Cases must have one single field: %s" unionType.FullName
+        |> fun v -> Fable.Wrapped(v, unionType)
     | KeyValueUnion ->
         let v =
             match argExprs with
@@ -128,7 +128,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
         // Include Tag name in args
-        let argExprs = (makeConst unionCase.Name)::argExprs
+        let argExprs = (makeConst unionCase.Name)::(makeConst argExprs.Length)::argExprs
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
             buildApplyInfo com ctx r typ (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)

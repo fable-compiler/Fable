@@ -27,6 +27,7 @@ module Util =
         | _ -> None
 
     let (|Null|_|) = function
+        | Fable.Wrapped(Fable.Value Fable.Null,_)    
         | Fable.Value Fable.Null -> Some null
         | _ -> None
 
@@ -179,24 +180,31 @@ module Util =
         let compareTo args =
             CoreLibCall("Util", Some "compareTo", false, args)
             |> makeCall com i.range i.returnType        
-        let op =
-            if equal then BinaryEqualStrict else BinaryUnequalStrict
+        let op strict =
+            match equal, strict with
+            | true, true -> BinaryEqualStrict 
+            | false, true -> BinaryUnequalStrict
+            | true, false -> BinaryEqual
+            | false, false -> BinaryUnequal
             |> Fable.BinaryOp |> Fable.Value
         let negateIfNeeded expr =
             if equal then expr
             else makeUnOp i.range i.returnType [expr] UnaryNot  
         match args.Head.Type with
+        // Options must be compared in a non-scrict fashing, see #231
+        | FullName "Microsoft.FSharp.Core.Option" ->
+            Fable.Apply(op false, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | Fable.PrimitiveType (Fable.Array _)
         | FullName "Microsoft.FSharp.Collections.Set"
         | FullName "Microsoft.FSharp.Collections.Map" 
         | DeclaredKind Fable.Union
         | DeclaredKind Fable.Record ->
-            Fable.Apply(op, [compareTo args; makeConst 0],
+            Fable.Apply(op true, [compareTo args; makeConst 0],
                 Fable.ApplyMeth, i.returnType, i.range) |> Some
         | Fable.UnknownType
         | Fable.PrimitiveType _
         | FullName "System.TimeSpan" ->
-            Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+            Fable.Apply(op true, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | FullName "System.DateTime" ->
             CoreLibCall ("Date", Some "equals", false, args)
             |> makeCall com i.range i.returnType |> negateIfNeeded |> Some
@@ -206,7 +214,7 @@ module Util =
                 InstanceCall(args.Head, "equals", args.Tail)
                 |> makeCall com i.range i.returnType |> negateIfNeeded |> Some
             | _ ->
-                Fable.Apply(op, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+                Fable.Apply(op true, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
 
     /// Compare function that will call Util.compare or instance `compareTo` as appropriate
     /// If passed an optional binary operator, it will wrap the comparison like `comparison < 0`
