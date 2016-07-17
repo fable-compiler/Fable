@@ -3,6 +3,7 @@
   "version": "0.2.0-alpha",
   "description": "Fable core lib & bindings for native JS objects, browser and node APIs",
   "main": "fable-core.js",
+  "typings": "fable-core.d.ts",
   "scripts": {
     "tsc": "tsc",
     "babel": "babel",
