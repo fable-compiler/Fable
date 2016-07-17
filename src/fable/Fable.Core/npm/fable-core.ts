@@ -2075,14 +2075,13 @@ export class Async {
     });
   }
 
-  // TODO: (*) catchHandler should return IAsync<T> instead of T
-  static tryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => T) {
+  static tryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => IAsync<T>) {
     return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
       computation({
         onSuccess: ctx.onSuccess,
         onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken,
-        onError: (ex: any) => ctx.onSuccess(catchHandler(ex))   // (*) ?
+        onError: (ex: any) => catchHandler(ex)(ctx)
       });
     });
   }
