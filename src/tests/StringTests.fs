@@ -193,13 +193,28 @@ let ``String.Trim works``() =
       |> equal "abc"
 
 [<Test>]
+let ``String.Trim with chars works``() =
+      @"\\\abc///".Trim('\\','/')
+      |> equal "abc"
+
+[<Test>]
 let ``String.TrimStart works``() =
+      "!!--abc   ".TrimStart('!','-')
+      |> equal "abc   "
+
+[<Test>]
+let ``String.TrimStart with chars works``() =
       "   abc   ".TrimStart()
       |> equal "abc   "
 
 [<Test>]
 let ``String.TrimEnd works``() =
       "   abc   ".TrimEnd()
+      |> equal "   abc"
+
+[<Test>]
+let ``String.TrimEnd with chars works``() =
+      "   abc??**".TrimEnd('*','?')
       |> equal "   abc"
 
 [<Test>]

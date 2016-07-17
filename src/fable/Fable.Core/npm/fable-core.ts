@@ -746,6 +746,21 @@ class FString {
       splits.push(str.substring(i));
     return splits;
   }
+
+  static trim(str: string, side: "start" | "end" | "both", ...chars: string[]) {
+    if (side == "both" && chars.length == 0)
+      return str.trim();
+    
+    if (side == "start" || side == "both") {
+      const reg = chars.length == 0 ? /^\s+/ : new RegExp("^[" + FRegExp.escape(chars.join("")) + "]+");
+      str = str.replace(reg, "");
+    }
+    if (side == "end" || side == "both") {
+      const reg = chars.length == 0 ? /\s+$/ : new RegExp("[" + FRegExp.escape(chars.join("")) + "]+$");
+      str = str.replace(reg, "");
+    }
+    return str;
+  }
 }
 export { FString as String }
 

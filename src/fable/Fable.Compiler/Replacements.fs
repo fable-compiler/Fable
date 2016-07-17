@@ -471,9 +471,15 @@ module private AstPass =
         | "toUpperInvariant" -> icall "toUpperCase" |> Some
         | "toLower" -> icall "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall "toLowerCase" |> Some
-        | "indexOf" | "lastIndexOf" | "trim" -> icall i.methodName |> Some
-        | "trimStart" -> icall "trimLeft" |> Some
-        | "trimEnd" -> icall "trimRight" |> Some
+        | "indexOf" | "lastIndexOf" -> icall i.methodName |> Some
+        | "trim" | "trimStart" | "trimEnd" ->
+            let side =
+                match i.methodName with
+                | "trimStart" -> "start"
+                | "trimEnd" -> "end"
+                | _ -> "both"
+            CoreLibCall("String", Some "trim", false, i.callee.Value::(makeConst side)::i.args)
+            |> makeCall com i.range i.returnType |> Some
         | "toCharArray" ->
             InstanceCall(i.callee.Value, "split", [makeConst ""])
             |> makeCall com i.range i.returnType |> Some
