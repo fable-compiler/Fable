@@ -346,6 +346,7 @@ module private AstPass =
             | [Fable.Value Fable.Null; _]
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryEqual |> Some
             | _ -> equals com info args true
+        | "isNull" -> makeEqOp r [args.Head; Fable.Value Fable.Null] BinaryEqual |> Some
         // Comparison
         | "compare" -> compare com info.range args None |> Some
         | "op_LessThan" | "lt" -> compare com info.range args (Some BinaryLess) |> Some

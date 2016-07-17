@@ -265,3 +265,20 @@ let ``min with objects implementing IComparable works``() =
     let c1 = Test(5)
     let c2 = Test(5)
     min c1 c2 |> equal c2
+
+[<Test>]
+let ``isNull works with primitives``() =  
+    isNull null |> equal true
+    isNull "" |> equal false
+    isNull "0" |> equal false
+    isNull "hello" |> equal false
+      
+[<Test>]
+let ``isNull works with objects``() =
+    let s1: String = null
+    isNull s1 |> equal true
+
+    let s2: String = "hello";
+    isNull s2 |> equal false
+
+    
