@@ -330,14 +330,18 @@ function build(opts) {
     // Module target
     addModulePlugin(opts, babelPlugins);
 
+    var wrap = function (arg) {
+        arg = arg.toString().trim();
+        return arg.indexOf(" ") > 0 ? '"' + arg + '"' : arg;  
+    };
     var fableCmd = process.platform === "win32" ? "cmd" : "mono";
-    var fableCmdArgs = process.platform === "win32" ? ["/C", fableBin] : [fableBin];
+    var fableCmdArgs = process.platform === "win32" ? ["/C", wrap(fableBin)] : [wrap(fableBin)];
 
     for (var k in opts) {
         if (Array.isArray(opts[k]))
-            opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, v) })
+            opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, wrap(v)) })
         else if (typeof opts[k] !== "object")
-            fableCmdArgs.push("--" + k, opts[k]);
+            fableCmdArgs.push("--" + k, wrap(opts[k]));
     }
 
     // Call Fable.exe
