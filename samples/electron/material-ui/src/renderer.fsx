@@ -6,18 +6,19 @@
 open System
 open Fable.Core
 open Fable.Import
+open Fable.Import.Node
 
 module R = Fable.Helpers.React
 open R.Props
 
 type RCom = React.ComponentClass<obj>
 
-let deepOrange500= importMemberFrom<string> "material-ui/styles/colors"
-let RaisedButton = importDefaultFrom<RCom> "material-ui/RaisedButton"
-let Dialog = importDefaultFrom<RCom> "material-ui/Dialog"
-let FlatButton = importDefaultFrom<RCom> "material-ui/FlatButton"
-let MuiThemeProvider = importDefaultFrom<RCom> "material-ui/styles/MuiThemeProvider"
-let getMuiTheme = importDefaultFrom<obj->obj> "material-ui/styles/getMuiTheme"
+let deepOrange500 = importMember<string> "material-ui/styles/colors"
+let RaisedButton = importDefault<RCom> "material-ui/RaisedButton"
+let Dialog = importDefault<RCom> "material-ui/Dialog"
+let FlatButton = importDefault<RCom> "material-ui/FlatButton"
+let MuiThemeProvider = importDefault<RCom> "material-ui/styles/MuiThemeProvider"
+let getMuiTheme = importDefault<obj->obj> "material-ui/styles/getMuiTheme"
 
 let inline (!!) x = createObj x
 let inline (=>) x y = x ==> y
@@ -27,17 +28,21 @@ let muiTheme =
         !!["accent1Color" => deepOrange500]]
     |> getMuiTheme
 
-type MainState = { isOpen: bool }
+type MainState = { isOpen: bool; secret: string }
 
 type Main(props, ctx) as this =
     inherit React.Component<obj,MainState>(props, ctx)
-    do this.state <- {isOpen=false}
+    do this.state <- {isOpen=false; secret=""}
 
     member this.handleRequestClose() =
-        this.setState({isOpen=false})
+        this.setState({isOpen=false; secret=""})
 
     member this.handleTouchTap() =
-        this.setState({isOpen=true})
+         this.setState({isOpen=true; secret="1-2-3-4-5"})
+        // fs.readFile(__dirname + "/data/secret.txt", fun err buffer ->
+        //     if (box err) <> null then
+        //         failwith "Couldn't read file"
+        //     this.setState({isOpen=true; secret=string buffer}))
 
     member this.render() =
         let standardActions =
@@ -53,7 +58,7 @@ type Main(props, ctx) as this =
                         !!["open" => this.state.isOpen
                            "title" => "Super Secret Password"
                            "onRequestClose" => this.handleRequestClose]
-                        [unbox "1-2-3-4-5"]
+                        [unbox this.state.secret]
                     R.h1 [] [unbox "Material-UI"]
                     R.h2 [] [unbox "example project"]
                     R.from RaisedButton
@@ -63,7 +68,6 @@ type Main(props, ctx) as this =
                 ]
             ]
 
-let injectTapEventPlugin: unit->unit = importDefaultFrom "react-tap-event-plugin"
-injectTapEventPlugin()
+(importDefault "react-tap-event-plugin")()
 
 ReactDom.render(R.com<Main,_,_> None [], Browser.document.getElementById("app"))

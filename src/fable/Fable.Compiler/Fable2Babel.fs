@@ -397,7 +397,7 @@ module Util =
                 | Some property -> Assign(getExpr com ctx callee property, range)
             com.TransformExprAndResolve ctx ret value
 
-        | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef("<placeholder>", path)), _isMutable) ->
+        | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path)), _isMutable) ->
             let value = com.GetImport ctx None var.name path
             varDeclaration expr.Range (ident var) value :> Babel.Statement
 
@@ -633,7 +633,7 @@ module Util =
     let transformModMember (com: IBabelCompiler) ctx declareMember modIdent (m: Fable.Member) =
         let expr, name =
             match m.Kind, m.Body with
-            | Fable.Getter (name, _), Fable.Value(Fable.ImportRef("<placeholder>", path)) ->
+            | Fable.Getter (name, _), Fable.Value(Fable.ImportRef(Naming.placeholder, path)) ->
                 com.GetImport ctx None name path, name
             | Fable.Getter (name, _), _ ->
                 transformExpr com ctx m.Body, name
@@ -757,6 +757,8 @@ module Util =
                 let selector =
                     if selector = "*"
                     then selector
+                    elif selector = Naming.placeholder
+                    then failwith "importMember must be assigned to a variable"
                     // Replace ident forbidden chars of root members, see #207
                     else Naming.replaceIdentForbiddenChars selector
                 let i =

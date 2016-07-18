@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "start": "electron out/main.js"
+    "start": "electron app/js/main.js"
   },
   "dependencies": {
     "fable-core": "^0.2.0-alpha",

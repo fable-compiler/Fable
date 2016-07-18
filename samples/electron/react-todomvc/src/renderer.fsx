@@ -1,12 +1,11 @@
 // Load Fable.Core and bindings to JS global objects
-#r "../node_modules/fable-core/Fable.Core.dll"
-#load "../node_modules/fable-import-react/Fable.Import.React.fs"
-#load "../node_modules/fable-import-react/Fable.Helpers.React.fs"
+#r "../../../../build/fable/bin/Fable.Core.dll"
+#load "../../../../import/react/Fable.Import.React.fs"
+#load "../../../../import/react/Fable.Helpers.React.fs"
 
 open System
 open Fable.Core
 open Fable.Import
-
 
 module Util =
     let load<'T> key =
@@ -21,11 +20,11 @@ module Util =
 
     // JS utility for conditionally joining classNames together
     // See https://github.com/JedWatson/classnames
-    let classNames = require<obj->string>("classnames")
+    let classNames = importDefault<obj->string>("classnames")
 
     // Director is a router. Routing is the process of determining what code to run when a URL is requested.
     // See https://github.com/flatiron/director
-    let Router = require<obj>("director")?Router |> unbox<obj->obj>
+    let Router = importMember<obj->obj>("director/build/director")
 
 type Todo = { id: Guid; title: string; completed: bool }
 
@@ -96,9 +95,9 @@ let [<Literal>] ALL_TODOS = "all"
 let [<Literal>] ACTIVE_TODOS = "active"
 let [<Literal>] COMPLETED_TODOS = "completed"
 
-type TodoItem(props) =
-    inherit R.Component<TodoItemProps, TodoItemState>(
-                props, { editText = props.todo.title })
+type TodoItem(props, ctx) as this =
+    inherit React.Component<TodoItemProps, TodoItemState>(props, ctx)
+    do this.state <- { editText = props.todo.title }
 
     let mutable editField: obj option = None
 
@@ -177,8 +176,8 @@ type TodoFooterProps =
     abstract onClearCompleted: obj->unit
     abstract nowShowing: string
 
-type TodoFooter(props) =
-    inherit React.Component<TodoFooterProps,obj>(props)
+type TodoFooter(props, ctx) =
+    inherit React.Component<TodoFooterProps,obj>(props, ctx)
     member this.render () =
         let activeTodoWord =
             "item" + (if this.props.count = 1 then "" else "s")
@@ -222,9 +221,9 @@ type TodoFooter(props) =
 type TodoAppProps = { model: TodoModel }
 type TodoAppState = { nowShowing: string; editing: Guid option; newTodo: string }
 
-type TodoApp(props) =
-    inherit R.Component<TodoAppProps, TodoAppState>(
-                props, { nowShowing=ALL_TODOS; editing=None; newTodo="" })
+type TodoApp(props, ctx) as this =
+    inherit React.Component<TodoAppProps, TodoAppState>(props, ctx)
+    do this.state <- { nowShowing=ALL_TODOS; editing=None; newTodo="" }
 
     member this.componentDidMount () =
         let nowShowing category =
@@ -237,7 +236,7 @@ type TodoApp(props) =
                     "/completed" ==> nowShowing COMPLETED_TODOS
                 ]
             )
-        router?init$("/")
+        router?init("/")
 
     member this.handleChange (ev: React.SyntheticEvent) =
         this.setState({ this.state with newTodo = unbox ev.target?value })
@@ -342,9 +341,9 @@ type TodoApp(props) =
         ]
 
 // Webpack will attach the styles to the DOM
-Util.require<unit>("todomvc-common/base.js")
-Util.require<unit>("todomvc-common/base.css")
-Util.require<unit>("todomvc-app-css/index.css")
+importDefault("todomvc-common/base.js")
+importDefault("todomvc-common/base.css")
+importDefault("todomvc-app-css/index.css")
 
 let model = TodoModel("react-todos")
 let render() =

@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "start": "electron bundle/js/main.js"
+    "start": "electron app/js/main.js"
   },
   "dependencies": {
     "crossfilter": "^1.3.12",

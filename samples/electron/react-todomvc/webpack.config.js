@@ -1,26 +1,31 @@
-var fs = require("fs");
-var path = require("path");
-
-var outDir = path.join(__dirname,"out");
-if (!fs.existsSync(outDir)) {
-  fs.mkdirSync(outDir);
-}
-fs.createReadStream(path.join(__dirname,"temp/main.js"))
-  .pipe(fs.createWriteStream(path.join(__dirname,"out/main.js")));
-
 module.exports = {
-  devtool: "source-map",
-  entry: "./temp/client",
-  output: {
-    path: path.join(__dirname, "out"),
-    filename: "bundle.js"
+  entry: {
+    main: "./temp/main",
+    renderer: "./temp/renderer"
   },
+  output: {
+    filename: "[name].js",
+    path: "./app/js",
+    libraryTarget: "commonjs2"
+  },
+  externals: {
+    electron: true
+  },
+  target: "node",
+  node: {
+    __dirname: false,
+    __filename: false
+  },
+  devtool: "source-map",
   module: {
-    preLoaders: [
-      { test: /\.js$/, exclude: /node_modules/, loader: "source-map-loader" }
-    ],
-    loaders: [
-        { test: /\.css$/, loader: "style-loader!css-loader" }
-    ]
+    preLoaders: [{
+      loader: "source-map-loader",
+      exclude: /node_modules/,
+      test: /\.js$/
+    }],
+    loaders: [{
+      loader: "style-loader!css-loader",
+      test: /\.css$/
+    }]    
   }
 };

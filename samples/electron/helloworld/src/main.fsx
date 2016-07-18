@@ -1,5 +1,3 @@
-
-// Load Fable.Core and bindings to JS global objects
 #r "../node_modules/fable-core/Fable.Core.dll"
 #load "../node_modules/fable-import-electron/Fable.Import.Electron.fs"
 
@@ -21,7 +19,7 @@ let createMainWindow () =
     window.loadURL("file://" + Node.__dirname + "/../index.html");
 
     #if DEBUG
-    Node.fs.watch(Node.__dirname + "/renderer.js", fun _ ->
+    fs.watch(Node.__dirname + "/renderer.js", fun _ ->
         window.webContents.reloadIgnoringCache() |> ignore
     ) |> ignore
     #endif

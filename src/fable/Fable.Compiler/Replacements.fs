@@ -259,8 +259,8 @@ module private AstPass =
         | Naming.StartsWith "import" _ ->
             let selector =
                 match i.methodName with
-                | "importMemberFrom" -> "<placeholder>"
-                | "importDefaultFrom" -> "default"
+                | "importMember" -> Naming.placeholder
+                | "importDefault" -> "default"
                 | _ -> "*" // importAllFrom
             let path =
                 match i.args with
