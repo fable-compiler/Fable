@@ -377,7 +377,7 @@ module App =
         }
 
     let withStartNode selector app = { app with NodeSelector = Some selector }
-    let withInit init app = { app with Init = init }
+    let withInit init app = { app with Init = Some init }
     let withSubscriber subscriberId subscriber app =
         let subsribers = app.Subscribers |> Map.add subscriberId subscriber
         { app with Subscribers = subsribers }

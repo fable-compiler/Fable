@@ -9,8 +9,8 @@
 *)
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
-//#load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
-#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
+#load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
+//#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
 (**
 ##Architecture overview
 
@@ -19,11 +19,15 @@ simplicity. You can read and grasp the whole architecture in a matter of minutes
 here: http://guide.elm-lang.org/architecture/. I won't explain the architecture
 further, instead I will go straight to the examples.
 
-###First example - a simple counter
+###First example - a simple counter with svg and ajax call simulation
 
-The counter below is something you can increment and decrement by clicking on
-the text. It will also modify the size of the elements with the counter as well
-as the background color of the actual counter.
+The example below doesn't make any sense except for demonstrating most of 
+the framework. The example consists of a counter that you can increment and 
+decrement by clicking on the labels. The color and some styling (height) 
+changes depending on the counter. Above the counter is a simple svg square 
+that also changes color on based on a threshold. To bootstrap the 
+application a fake ajax call is made using a timeout, that function is 
+also called for each click on any of the labels faking more ajax call.
 
 <div id="counter">
 </div>
@@ -52,8 +56,8 @@ type CounterAction =
     | Increment of int
 
 let fakeAjaxCall model h = 
-    let message = if model < 300 then Increment 100 else Decrement 50 
-    if model > 300 && model < 600 then () 
+    let message = if model < 30 then Increment 10 else Decrement 5 
+    if model > 30 && model < 60 then () 
     else window.setTimeout((fun _ -> h (message)), 2000) |> ignore
 
 let counterUpdate model action =
@@ -64,17 +68,23 @@ let counterUpdate model action =
 
 (**
 The counter can be incremented or decremented in step of `x`. If you look closely
-the update function return the new model and a list of something. The list of
-something is list of calls js-calls of type `unit->unit` that should be executed
-after this version of the model has been rendered. We will see in a later example
-why this is useful.
+the update function return the new model, a list of something and a second list of 
+functions. The list of something is a list of functions of type `unit->unit` that 
+will be executed after this version of the model has been rendered. That way
+you can run some custom js after something has been rendered. The last list of
+functions is a list of "long" running functions. These functions must be of 
+the type `('TMessage -> unit) -> unit`. The first argument is what makes it 
+possible for these long running functions to trigger a new update. In our 
+example we use `fakeAjaxCall` to simulate a function call that 
+take a while to execute. The type doesn't match completely of what is 
+expected, but after we partially apply it in `counterUpdate` we do get the right type.
 *)
 
 // View
 let counterView model =
     let bgColor =
         match model with
-        | x when x > 100 -> "red"
+        | x when x > 10 -> "red"
         | x when x < 0 -> "blue"
         | _ -> "green"
     div []
@@ -85,17 +95,15 @@ let counterView model =
             ]
             div [ Style ["border","1px solid blue"]
                   onMouseClick (fun x -> (Increment 1))
-                  onDblClick (fun x -> ((Increment 100)))]
+                  onDblClick (fun x -> ((Increment 10)))]
                 [ text (string "Increment")]
             div [ Style ["background-color", bgColor; "color", "white"]]
                 [text (string model)]
             div [ Style ["border", "1px solid green";
-                         "height", ((string (70 + model)) + "px")]
+                         "height", ((string (7 + model)) + "px")]
                   onMouseClick (fun x -> (Decrement 1))
-                  onDblClick (fun x -> (Decrement 50))]
+                  onDblClick (fun x -> (Decrement 5))]
                 [ text (string "Decrement")]
-            //    <circle cx="50" cy="50" r="40" stroke="black"
-            //            stroke-width="3" fill="red" />
         ]
 
 (**
@@ -103,12 +111,14 @@ The `counterView` defines how a model should be rendered. The dsl that is used
 here is quite simple and have helper functions for a majority of the standard
 HTML elements. It is trivial to add custom tags if you are missing some tag
 that you would like to use.
+
+You define a `svg` the same way as you do with any other html element. 
 *)
 
 // Start the application
 let counterApp =
     createApp {Model = initCounter; View = counterView; Update = counterUpdate}
-    |> withInit (fakeAjaxCall initCounter |> Some) 
+    |> withInit (fakeAjaxCall initCounter) 
     |> withStartNode "#counter"
 
 counterApp |> start renderer
@@ -117,8 +127,12 @@ counterApp |> start renderer
 The dsl has been separated from the actual rendering of the dsl, to allow for
 future server side rendering as well. So to get this application started you first
 need to create the application with the `createApp` function. The we pass that
-result to a helper function to specify where in the document it should be rendered,
-default is directly in the body. When we have defined an application we can call
+result to a helper function, `withStartNode` to specify where in the document 
+it should be rendered, default is directly in the body. We also want to start the 
+application by making a call to our `fakeAjaxCall` function, this will result
+in an update of the model two seconds after the application starts.
+
+When we have defined an application we can call
 the `start` function and pass in a `renderer`. We are using the standard `renderer`
 for `virtual-dom.js`, but this separation makes it a little bit easier to change
 to another framework in the future.
@@ -423,4 +437,29 @@ and store the list of items in the local storage when the model was changed. For
 the logger we just logs everything.
 
 We also start the application on the `#todo` element in the document.
+
+### Creating custom elements
+
+If some tag or you want to create a custom helper function that represent some
+html element it is easy to extend the dsl with your needs. To add a custom html
+node where you set the css class directly you write something like:
+*)
+
+let inline myDiv className = elem "div" [attribute "class" className]
+
+(*
+
+Creating svg nodes are as easy as regular html nodes:
+
+*)
+
+let inline redRect x = svgElem "rect" ((fill "red")::x)
+
+(*
+
+As you see the only difference is that you use `svgElem` instead of `elem`. 
+You do this to add the correct namespace to the svg nodes. To see more
+example of how to define your own tags just look at the source code, 
+the dsl is not that complex.
+
 *)
