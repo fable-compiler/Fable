@@ -51,12 +51,13 @@ type Main(props, ctx) as this =
                    "primary" => true
                    "onTouchTap" => this.handleRequestClose] []
         R.from MuiThemeProvider
-            !!["mutiTheme"=>muiTheme] [
+            !!["muiTheme" => muiTheme] [
                 R.div [Style [TextAlign "center"
                               PaddingTop 200]] [
                     R.from Dialog
                         !!["open" => this.state.isOpen
                            "title" => "Super Secret Password"
+                           "actions" => standardActions
                            "onRequestClose" => this.handleRequestClose]
                         [unbox this.state.secret]
                     R.h1 [] [unbox "Material-UI"]
