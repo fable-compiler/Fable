@@ -397,6 +397,10 @@ module Util =
                 | Some property -> Assign(getExpr com ctx callee property, range)
             com.TransformExprAndResolve ctx ret value
 
+        | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path)), _isMutable) ->
+            let value = com.GetImport ctx None var.name path
+            varDeclaration expr.Range (ident var) value :> Babel.Statement
+
         | Fable.VarDeclaration (var, TransformExpr com ctx value, _isMutable) ->
             varDeclaration expr.Range (ident var) value :> Babel.Statement
 
@@ -626,17 +630,19 @@ module Util =
             let expDecl = Babel.ExportNamedDeclaration(specifiers=[expSpec])
             [expDecl :> Babel.ModuleDeclaration |> U2.Case2; decl :> Babel.Statement |> U2.Case1]
 
-    let transformModMember com ctx declareMember modIdent (m: Fable.Member) =
+    let transformModMember (com: IBabelCompiler) ctx declareMember modIdent (m: Fable.Member) =
         let expr, name =
-            match m.Kind with
-            | Fable.Getter (name, _) ->
+            match m.Kind, m.Body with
+            | Fable.Getter (name, _), Fable.Value(Fable.ImportRef(Naming.placeholder, path)) ->
+                com.GetImport ctx None name path, name
+            | Fable.Getter (name, _), _ ->
                 transformExpr com ctx m.Body, name
-            | Fable.Method name ->
+            | Fable.Method name, _ ->
                 let args, body = getMemberArgs com ctx m.Arguments m.Body false
-                // Don't lexically by `this` (with arrow function) or
+                // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
                 upcast Babel.FunctionExpression (args, body, ?loc=m.Body.Range), name
-            | Fable.Constructor | Fable.Setter _ ->
+            | Fable.Constructor, _ | Fable.Setter _, _ ->
                 failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
             match expr.loc with Some loc -> m.Range + loc | None -> m.Range
@@ -751,6 +757,8 @@ module Util =
                 let selector =
                     if selector = "*"
                     then selector
+                    elif selector = Naming.placeholder
+                    then failwith "importMember must be assigned to a variable"
                     // Replace ident forbidden chars of root members, see #207
                     else Naming.replaceIdentForbiddenChars selector
                 let i =

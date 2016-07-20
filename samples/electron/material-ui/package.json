@@ -5,20 +5,16 @@
   },
   "dependencies": {
     "fable-core": "^0.2.0-alpha",
-    "classnames": "^2.2.5",
-    "director": "^1.2.8",
+    "material-ui": "^0.15.2",
     "react": "^15.1.0",
     "react-dom": "^15.1.0",
-    "todomvc-app-css": "^2.0.0",
-    "todomvc-common": "^1.0.1"
+    "react-tap-event-plugin": "^1.0.0"
   },
   "devDependencies": {
-    "css-loader": "^0.23.1",
     "electron-prebuilt": "^1.2.5",
     "fable-import-electron": "^0.0.5",
     "fable-import-react": "^0.0.19",
     "source-map-loader": "^0.1.5",
-    "style-loader": "^0.13.1",
     "webpack": "^1.13.1"
   },
   "engines": {

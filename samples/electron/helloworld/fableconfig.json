@@ -1,10 +1,10 @@
 {
     "module": "commonjs",
+    "projFile": "src/files.fsx",
     "sourceMaps": true,
-    "projFile": "main.fsx",
-    "outDir": "out",
+    "outDir": "temp",
     "scripts": {
         "prebuild": "npm install",
-        "postbuild": "npm start"
+        "postbuild": "node node_modules/webpack/bin/webpack"
     }
 }

@@ -69,6 +69,7 @@
     <Compile Include="virtualdom/Fable.Helpers.Virtualdom.fs" />
     <Compile Include="pixi/Fable.Import.Pixi.fs" />
     <Compile Include="webgl-ext/Fable.Import.WebGLExt.fs" />
+    <Compile Include="dc/Fable.Import.DC.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>

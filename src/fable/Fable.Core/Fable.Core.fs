@@ -30,13 +30,15 @@ type [<Erase>] U4<'a, 'b, 'c, 'd> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Ca
 type [<Erase>] U5<'a, 'b, 'c, 'd, 'e> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e    
 type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e | Case6 of 'f    
 
+type Applicable = obj->obj
+
 [<AutoOpen>]
 module Operators =
-    let (?) (o: obj) (prop: obj): obj = failwith "JS only"
+    let (?) (o: obj) (prop: obj): Applicable = failwith "JS only"
     
     let (?<-) (o: obj) (prop: obj) (v: obj): unit = failwith "JS only"
 
-    let ($) (callee: obj) (args: obj): obj = failwith "JS only"
+    // let ($) (callee: obj) (args: obj): obj = failwith "JS only"
     
     let (==>) (key: string) (v: obj): string*obj = failwith "JS only"
     
@@ -46,10 +48,17 @@ module Operators =
     
     let createEmpty<'T> : 'T = failwith "JS only"
 
+[<AutoOpen>]
+module Modules =
+    let importMember<'T> (path: string):'T = failwith "JS only"
+    let importDefault<'T> (path: string):'T = failwith "JS only"
+    let importAll<'T> (path: string):'T = failwith "JS only"
+
 module Serialize =
     let toJson (o: 'T): string = failwith "JS only"
     let ofJson<'T> (json: string): 'T = failwith "JS only"
-    
+    let toPlainJsObj (o: 'T): obj = failwith "JS only"
+
 module Testing =
     type TestAttribute() =
         inherit Attribute()

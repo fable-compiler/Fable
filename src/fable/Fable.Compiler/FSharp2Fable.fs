@@ -208,6 +208,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let lengthExpr = Fable.Apply(arr, [makeConst "length"], Fable.ApplyGet, intType, r)
         makeEqOp r [lengthExpr; makeConst length] BinaryEqualStrict
 
+    | Applicable (Transform com ctx expr) ->
+        let appType =
+            Fable.Entity(Fable.Interface, None, "Fable.Core.Applicable", [], [], true)
+            |> Fable.DeclaredType
+        Fable.Wrapped(expr, appType)
+
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
     // TypeLambda is a local generic lambda
@@ -273,7 +279,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeSequential (Some r) [assignment; transformExpr com ctx body]
 
     | BasicPatterns.Let((var, Transform com ctx value), body) ->
-        let ctx, ident = bindIdentFrom com ctx var
+        let ctx, ident = bindIdent ctx value.Type (Some var) var.DisplayName
         let body = transformExpr com ctx body
         let assignment = Fable.VarDeclaration (ident, value, var.IsMutable) 
         makeSequential (makeRangeFrom fsExpr) [assignment; body]
@@ -306,8 +312,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
+        let args = List.map (transformExpr com ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        makeApply range typ callee (List.map (transformExpr com ctx) args)
+        match callee.Type.FullName, args with
+        | "Fable.Core.Applicable", [Fable.Value(Fable.ArrayConst(Fable.ArrayValues args, Fable.Tuple))] ->
+            Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
+        | _ -> makeApply range typ callee args
         
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)
@@ -766,11 +776,16 @@ let rec private transformEntityDecl
                  |> List.singleton
             else []
         let childDecls = transformDeclarations com ctx init subDecls
-        // Bind entity name to context to prevent name
-        // clashes (it will become a variable in JS)
-        let ctx, ident = bindIdent ctx Fable.UnknownType None ent.DisplayName
-        declInfo.AddChild(com, ent, ident.name, childDecls)
-        declInfo, ctx
+        // Even if a module is marked with Erase, transform its members
+        // in case they contain inline methods
+        if isErased ent
+        then declInfo, ctx
+        else
+            // Bind entity name to context to prevent name
+            // clashes (it will become a variable in JS)
+            let ctx, ident = bindIdent ctx Fable.UnknownType None ent.DisplayName
+            declInfo.AddChild(com, ent, ident.name, childDecls)
+            declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =
     let declInfo, _ =
@@ -965,18 +980,23 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         curProj.FileMap.ContainsKey file.FileName
         && not (Naming.ignoredFilesRegex.IsMatch file.FileName)
         && projInfo.IsMasked file)
-    |> Seq.map (fun file ->
+    |> Seq.choose (fun file ->
         try
             let rootEnt, rootDecls =
                 let rootNs = curProj.FileMap.[file.FileName]
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
                 let rootDecls = transformDeclarations com Context.Empty [] rootDecls
                 match rootEnt with
+                | Some rootEnt when isErased rootEnt -> makeEntity com rootEnt, []
                 | Some rootEnt -> makeEntity com rootEnt, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
-            Fable.File(file.FileName, rootEnt, rootDecls)
+            match rootDecls with
+            | [] -> None
+            | rootDecls -> Fable.File(file.FileName, rootEnt, rootDecls) |> Some
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
     )
-    |> Seq.append (addInjections com curProj)
+    // In first compilation (fileMask is None) add injections
+    |> Seq.append (if projInfo.fileMask.IsNone
+                   then addInjections com curProj else [])
     |> fun seq -> projs, seq

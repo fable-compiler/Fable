@@ -125,6 +125,34 @@ export class Util {
     return Seq.fold((acc, kv) => { acc[kv[0]] = kv[1]; return acc; }, <any>{}, fields);
   }
 
+  static toPlainJsObj = function (source: any) {
+    if (source != null && source.constructor != Object) {
+      let target: { [index: string]: string } = {};
+      let props = Object.getOwnPropertyNames(source);
+      for (let i = 0; i < props.length; i++) {
+        target[props[i]] = source[props[i]];
+      }
+      // Copy also properties from prototype, see #192
+      const proto = Object.getPrototypeOf(source);
+      if (proto != null) { 
+        props = Object.getOwnPropertyNames(proto);
+        for (let i = 0; i < props.length; i++) {
+          const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
+          if (prop.value) {
+              target[props[i]] = prop.value;
+          }
+          else if (prop.get) {
+              target[props[i]] = prop.get.apply(source);
+          }
+        }
+      }
+      return target;
+    }
+    else {
+      return source;
+    }
+  }
+
   static toJson(o: any) {
     return JSON.stringify(o, (k, v) => {
       if (ArrayBuffer.isView(v))

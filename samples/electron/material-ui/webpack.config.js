@@ -22,10 +22,6 @@ module.exports = {
       loader: "source-map-loader",
       exclude: /node_modules/,
       test: /\.js$/
-    }],
-    loaders: [{
-      loader: "style-loader!css-loader",
-      test: /\.css$/
-    }]    
+    }]
   }
 };

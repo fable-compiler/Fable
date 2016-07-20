@@ -13,6 +13,7 @@ src/fable/Fable.Core/npm/es2015.js
 samples/**/out/
 samples/**/bundle.js*
 samples/other/fable-helpers-sample/js/*.*
+samples/electron/**/app/js
 
 src/providers/**/*.js
 src/providers/**/*.js.map

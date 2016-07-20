@@ -22,9 +22,11 @@ module Naming =
     let (|EndsWith|_|) pattern (txt: string) =
         if txt.EndsWith pattern then Some pattern else None
     
-    let fableExternalDir = "fable_external"
-    let fableInjectFile = "./fable_inject.js"
-    let exportsIdent = "$exports"
+    let [<Literal>] placeholder = "<placeholder>"
+    let [<Literal>] fableExternalDir = "fable_external"
+    let [<Literal>] fableInjectFile = "./fable_inject.js"
+    let [<Literal>] exportsIdent = "$exports"
+
     let getImportIdent i = sprintf "$import%i" i
 
     let knownInterfaces =
@@ -39,11 +41,11 @@ module Naming =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
 
     let ignoredAtts =
-        set ["Erase"; "Import"; "Global"; "Emit"]
+        set ["Import"; "Global"; "Emit"]
 
     let ignoredFilesRegex =
-        Regex(@"Fable\.(?:Import|Core)[\w.]*\.fs$")
-        
+        Regex(@"Fable\.Import\.[\w.]*\.fs$")
+
     let identForbiddenCharsRegex =
         Regex @"^[^a-zA-Z_$]|[^0-9a-zA-Z_$]"
 

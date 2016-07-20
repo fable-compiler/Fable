@@ -1,5 +1,9 @@
 namespace Fable
 
+module Option = 
+    let toBool (f: 'T->bool) (opt: 'T option) =
+        match opt with Some x when f x -> true | _ -> false 
+
 module Json =
     open FSharp.Reflection
     open Newtonsoft.Json

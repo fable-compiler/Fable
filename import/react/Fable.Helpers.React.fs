@@ -1,3 +1,4 @@
+[<Fable.Core.Erase>]
 module Fable.Helpers.React
 
 open Fable.Core
@@ -571,36 +572,14 @@ module Props =
 
 open Props
 
-[<Emit("this")>]
-let private this = obj()
-
-type Component<'P,'S>(props: 'P, ?state: 'S) =
-    inherit React.Component<'P,'S>(props)
-    do this?state <- state
-
-let toPlainJsObj (source: obj) =
-    if source = null then null else
-    match JS.Object.getPrototypeOf(source) with
-    | proto when proto <> null && proto <> JS.Object.getPrototypeOf(createObj []) ->
-        let target = obj()
-        for k in (unbox<string[]>(JS.Object.getOwnPropertyNames(source))) do
-            target?(k) <- source?(k)
-        // Copy also properties from prototype, see #192
-        for k in (unbox<string[]>(JS.Object.getOwnPropertyNames(proto))) do
-            let prop = JS.Object.getOwnPropertyDescriptor(proto, k)
-            // Attention, if we access `get` statically, F# compiler will wrap it in a function
-            match unbox prop.value, unbox prop?get with
-            | Some value, _ -> target?(k) <- value 
-            | None, Some getter -> target?(k) <- getter?apply$(source)
-            | _ -> ()
-        target
-    | _ -> source
-
 let inline fn (f: 'Props -> #React.ReactElement<obj>) (props: 'Props) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    unbox(React.createElement(U2.Case1(unbox f), toPlainJsObj props, unbox(List.toArray children)))
+    unbox(React.createElement(U2.Case1(unbox f), Serialize.toPlainJsObj props, unbox(List.toArray children)))
 
 let inline com<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    unbox(React.createElement(U2.Case1(unbox typeof<'T>), toPlainJsObj props, unbox(List.toArray children)))
+    unbox(React.createElement(U2.Case1(unbox typeof<'T>), Serialize.toPlainJsObj props, unbox(List.toArray children)))
+
+let inline from<'P> (com: React.ComponentClass<'P>) (props: 'P) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    unbox(React.createElement(U2.Case1 com, unbox<'P>(Serialize.toPlainJsObj props), unbox(List.toArray children)))
 
 let inline domEl (tag: string) (props: IHTMLProp list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     unbox(React.createElement(tag, props, unbox(List.toArray children)))
