@@ -187,6 +187,7 @@ is a nice feature you don't have in standard js.
 
 // Todo update
 type TodoAction =
+    | NoOp
     | AddItem
     | ChangeInput of string
     | MarkAsDone of Item
@@ -219,6 +220,7 @@ let todoUpdate model msg =
 
     let model' =
         match msg with
+        | NoOp -> model
         | AddItem ->
             let maxId =
                 if model.Items |> List.isEmpty then 1
@@ -227,10 +229,10 @@ let todoUpdate model msg =
                     |> List.map (fun x -> x.Id)
                     |> List.max
             (fun items ->
-              { Id = maxId + 1
-                Name = model.Input
-                Done = false
-                IsEditing = false} :: items)
+                items @ [{  Id = maxId + 1
+                            Name = model.Input
+                            Done = false
+                            IsEditing = false}])
             |> updateItems {model with Input = ""}
         | ChangeInput v -> {model with Input = v}
         | MarkAsDone i ->
@@ -316,6 +318,7 @@ let todoFooter model =
                     onMouseClick (fun _ -> ClearCompleted)]
                 [ text "Clear completed" ] ]
 
+let inline onInput x = onEvent "oninput" (fun e -> x (e?target?value :?> string)) 
 let todoHeader model =
     header
         [attribute "class" "header"]
@@ -324,10 +327,11 @@ let todoHeader model =
                     attribute "id" "new-todo"
                     property "value" model
                     property "placeholder" "What needs to be done?"
+                    onInput (fun x -> ChangeInput x)
                     onKeyup (fun x ->
                         if x.keyCode = 13
                         then AddItem
-                        else ChangeInput (x?target?value :?> string)) ]]
+                        else NoOp) ]]
 let listItem item =
     let itemChecked = if item.Done then "true" else ""
     let editClass = if item.IsEditing then "editing" else ""
@@ -389,7 +393,7 @@ makes it quite easy to re-use parts in different views.
 One thing to notice is that only a few properties are mapped at the moment, but if
 you know the property name you can use the syntax `e?target?value`, which will
 look app the `value` property on the `target` property on the `e` event as in the
-example above.
+example above, and that is what is done in the helper function `onInput`.
 
 Before this is done, there are one hidden gem that is worth knowing, and it will
 be showed with two examples. We will add local storage support of the items and a
