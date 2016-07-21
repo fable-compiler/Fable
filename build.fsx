@@ -245,19 +245,23 @@ Target "MakeArtifactLighter" (fun _ ->
 
 Target "Publish" (fun _ ->
     let fableCoreNpmDir = "src/fable/Fable.Core/npm"
+    let applyTag = function
+        | Some tag -> ["--tag"; tag]
+        | None -> []
 
-    // Check if latest fable-core version is prerelease or not
-    if fableCoreVersion.IndexOf("-") > 0
-    then Some "next" else None
-    |> Npm.getLatestVersion "fable-core"
-    |> (<>) fableCoreVersion
-    |> function false -> () | true -> Npm.command fableCoreNpmDir "publish" [] 
+    // Check if fable-compiler and fable-core version are prerelease or not
+    let fableCompilerTag, fableCoreTag =
+        (if fableCompilerVersion.IndexOf("-") > 0 then Some "next" else None),
+        (if fableCoreVersion.IndexOf("-") > 0 then Some "next" else None)
+
+    if Npm.getLatestVersion "fable-core" fableCoreTag <> fableCoreVersion then
+        applyTag fableCoreTag |> Npm.command fableCoreNpmDir "publish" 
 
     let workingDir = "temp/build"
     let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
     Util.downloadArtifact workingDir url
     // Npm.command workingDir "version" [fableCompilerVersion]
-    Npm.command workingDir "publish" []
+    applyTag fableCompilerTag |> Npm.command workingDir "publish"
 )
 
 Target "FableCore" (fun _ ->
