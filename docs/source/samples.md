@@ -50,7 +50,7 @@ This demo shows a Fable implementation of SameGame. The functional implementatio
 
 ## Productivity
 
-<a href="samples/virtualdom/index.html"><img src="samples/images/elm.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+<a href="samples/virtualdom/index.html"><img src="samples/images/elm.png" style="width:80px;float:left;margin:15px 35px 10px 10px" /></a>
 
 ### [TodoMVC with Elm architecture](samples/virtualdom/index.html)
 

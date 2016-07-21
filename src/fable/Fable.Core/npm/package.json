@@ -1,6 +1,6 @@
 {
   "name": "fable-core",
-  "version": "0.2.0-alpha",
+  "version": "0.2.2",
   "description": "Fable core lib & bindings for native JS objects, browser and node APIs",
   "main": "fable-core.js",
   "typings": "fable-core.d.ts",
@@ -8,7 +8,7 @@
     "tsc": "tsc",
     "babel": "babel",
     "uglifyjs": "uglifyjs"
-  },  
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/fsprojects/Fable/import/core"

@@ -24,14 +24,39 @@ printfn "Value: %O" jsObject?myProperty
 jsObject?myProperty <- 5 // Assignment is also possible
 ```
 
-However, the F# compiler won't let you apply the property directly to other expressions.
-For that, use the `$` operator and pass the arguments as a tuple.
+When you combine the dynamic operator with application, Fable will destructure
+tuple arguments as with normal method calls. These operations can also be chained
+to replicate JS fluent APIs.
 
 ```fsharp
 open Fable.Core
 
-let result = jsObject?myMethod $ (1, 2)
+let result = jsObject?myMethod(1, 2)
+// var result = jsObject.myMethod(1, 2)
+
+chart
+    ?width(768.)
+    ?height(480.)
+    ?group(speedSumGroup)
+    ?on("renderlet", fun chart ->
+        chart?selectAll("rect")?on("click", fun d ->
+            Browser.console.log("click!", d))
+// chart
+//     .width(768)
+//     .height(480)
+//     .group(speedSumGroup)
+//     .on("renderlet", function (chart) {
+//         return chart.selectAll("rect").on("click", function (d) {
+//             return console.log("click!", d);
+//         });
+//      });
 ```
+
+> CAUTION: When you don't use the dynamic operator and apply a tuple
+to a function value, it won't be destructured (tuples are translated
+to JS arrays). See _Calling F# code from JavaScript_ below for more info.
+However, you can still use the `$` operator to destructure and apply a
+tuple to an arbitrary value.
 
 If you want to call the function with the `new` keyword, use `Fable.Core.createNew` instead.
 
@@ -143,22 +168,40 @@ The `Import` attribute can be applied to modules, types and even functions.
 It will translate to [ES2015 import statements](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import),
 which can be later transformed to `commonjs`, `amd` or `umd` imports by Babel.
 
-```js
+```fsharp
 // Namespace imports
-[<Import("*", from="my-module")>]          // F#
-import * from "my-module"                  // JS
+[<Import("*", from="my-module")>]
+// import * from "my-module"
 
 // Member imports
-[<Import("myFunction", from="my-module")>] // F#
-import { myFunction } from "my-module"     // JS
+[<Import("myFunction", from="my-module")>]
+// import { myFunction } from "my-module"
 
 // Default imports
-[<Import("default", from="express")>]      // F#
-import express from express                // JS
+[<Import("default", from="express")>]
+// import express from "express"
 ```
 
 > If the module or value is globally accessible in JavaScript,
 you can use the `Global` attribute without parameters instead.
+
+`Fable.Core` also contains import expressions. These are mostly
+useful when you need to import JS libraries without a foreign interface.
+
+```fsharp
+let buttons = importAll<obj> "material-ui/buttons"
+// import * as buttons from "material-ui/buttons"
+
+let deepOrange500 = importMember<string> "material-ui/styles/colors"
+// import { deepOrange500 } from "material-ui/styles/colors"
+
+let getMuiTheme = importDefault<obj->obj> "material-ui/styles/getMuiTheme"
+// import getMuiTheme from "material-ui/styles/getMuiTheme"
+```
+
+> Note that Fable automatically uses the name of the let-bound variable
+in the second example, this means you must always immediately assign the
+result of `importMember` to a named value.
 
 ### Erase attribute
 

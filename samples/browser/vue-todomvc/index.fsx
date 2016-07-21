@@ -136,8 +136,8 @@ module Main =
                         | None -> ()
                         | Some _ ->
                             let el = this?el
-                            Lib.Vue?nextTick$(fun () ->
-                                el?focus$() |> ignore)
+                            Lib.Vue?nextTick(fun () ->
+                                el?focus() |> ignore)
                             |> ignore
             } 
         ]
@@ -150,15 +150,15 @@ module Routes =
     let router = createNew Lib.Router ()
 
     ["all"; "active"; "completed"] |> Seq.iter (fun visibility ->
-        router?on $ (visibility, fun () ->
+        router?on(visibility, fun () ->
             Main.app?visibility <- visibility)
         |> ignore)
 
-    router?configure $ (
+    router?configure(
         createObj [
             "notfound" ==> fun () ->
                 Browser.location.hash <- ""
                 Main.app?visibility <- "all"
         ]
     )
-    router?init $ ()
+    router?init()

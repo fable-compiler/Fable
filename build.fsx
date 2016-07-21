@@ -7,8 +7,8 @@ open Fake
 open Fake.AssemblyInfoFile
 
 // version info
-let fableCompilerVersion = "0.4.0-alpha"
-let fableCoreVersion = "0.2.0-alpha"
+let fableCompilerVersion = "0.4.0"
+let fableCoreVersion = "0.2.2"
 
 module Util =
     open System.Net
@@ -279,7 +279,9 @@ Target "FableCore" (fun _ ->
     // Update Fable.Core version
     Util.assemblyInfo "src/fable/Fable.Core/" fableCoreVersion []
     !! "src/fable/Fable.Core/Fable.Core.fsproj"
-    |> MSBuildRelease fableCoreNpmDir "Build"
+    |> MSBuild fableCoreNpmDir "Build" [
+        "Configuration","Release"
+        "DocumentationFile","npm/Fable.Core.xml"]
     |> ignore // Log outputs all files in node_modules
 
     Npm.install fableCoreNpmDir []

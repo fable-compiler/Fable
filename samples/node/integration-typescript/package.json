@@ -4,11 +4,11 @@
     "build": "tsc"
   },
   "engines": {
-    "fable": "^0.4.0-alpha"
+    "fable": "^0.4.0"
   },
   "dependencies": {
     "@types/node": "^4.0.26-alpha",
-    "fable-core": "^0.2.0-alpha"
+    "fable-core": "^0.2.2"
   },
   "devDependencies": {
     "typescript": "^1.8.10"

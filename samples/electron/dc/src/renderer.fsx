@@ -17,8 +17,6 @@ let crossfilter(o: obj): obj = failwith "JS only"
 [<Emit("+$0")>]
 let (~+) (x: obj): int = failwith "JS only"
 
-let inline call key args o = o?(key)$args  
-
 let chart = dc.barChart("#test")
 
 D3.Globals.csv.Invoke("data/morley.csv", fun error experiments ->

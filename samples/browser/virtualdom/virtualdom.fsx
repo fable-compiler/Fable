@@ -318,7 +318,7 @@ let todoFooter model =
                     onMouseClick (fun _ -> ClearCompleted)]
                 [ text "Clear completed" ] ]
 
-let inline onInput x = onEvent "oninput" (fun e -> x (e?target?value :?> string)) 
+let inline onInput x = onEvent "oninput" (fun e -> x (unbox e?target?value)) 
 let todoHeader model =
     header
         [attribute "class" "header"]
@@ -348,7 +348,7 @@ let listItem item =
          input [ attribute "class" "edit"
                  attribute "value" item.Name
                  property "id" ("item-"+item.Id.ToString())
-                 onBlur (fun e -> SaveItem (item, (e?target?value :?> string))) ] ]
+                 onBlur (fun e -> SaveItem (item, (unbox e?target?value))) ] ]
 
 let itemList items activeFilter =
     let filterItems i =

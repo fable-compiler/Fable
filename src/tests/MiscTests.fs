@@ -51,6 +51,31 @@ let ``Local values from partial functions work``() = // See #115
 open Fable.Core
 
 [<Test>]
+let ``Dynamic application works``() =
+    let dynObj =
+        createObj [
+            "add" ==> Func<_,_,_>(fun x y -> x + y)
+            "fn" ==> fun () ->
+                createObj [
+                    "subtract" ==> Func<_,_,_>(fun x y -> x - y)
+                ]
+            "child" ==> 
+                createObj [
+                    "multiply" ==> Func<_,_,_>(fun x y -> x * y)
+                ]
+        ]
+    dynObj?add(2,2) |> equal (box 4)
+    // Assigning dynamic access result to a value
+    let add = dynObj?add
+    add(3,4) |> equal (box 7)
+    // Accessing 2-level deep property
+    dynObj?child?multiply(3,2) |> equal (box 6)
+    // Dynamic application chaining
+    dynObj?fn()?subtract(3,2) |> equal (box 1)
+    // Using $ operator
+    dynObj?add $ (2,2) |> equal (box 4)
+
+[<Test>]
 let ``Symbols in external projects work``() =
     equal "Fable Rocks!" Clamp.Helper.ConditionalExternalValue
 

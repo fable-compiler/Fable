@@ -22,7 +22,7 @@ module Naming =
     let (|EndsWith|_|) pattern (txt: string) =
         if txt.EndsWith pattern then Some pattern else None
     
-    let [<Literal>] placeholder = "<placeholder>"
+    let [<Literal>] placeholder = "PLACE-HOLDER"
     let [<Literal>] fableExternalDir = "fable_external"
     let [<Literal>] fableInjectFile = "./fable_inject.js"
     let [<Literal>] exportsIdent = "$exports"

@@ -15,9 +15,6 @@ module Util =
     let save key (data: 'T) =
         Browser.localStorage.setItem(key, JS.JSON.stringify data)
 
-    // Utility function to simplify require statements
-    let inline require<'T>(path: string): 'T = unbox<'T>(Node.require.Invoke path)
-
     // JS utility for conditionally joining classNames together
     // See https://github.com/JedWatson/classnames
     let classNames = importDefault<obj->string>("classnames")

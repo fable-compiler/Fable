@@ -52,7 +52,10 @@ In addition to the library imports, we also define the following helpers that wr
 function into the `Func<...>` type. This creates a function value that is compatible with
 JavaScript. This is needed because F# uses curried representation of functions and so,
 for example, `fun a b -> a + b` would correspond to `function(a){ return function(b) { return a + b; }}`
-in JavaScript. The `Func<...>` delegate avoids the issue:
+in JavaScript. The `Func<...>` delegate avoids the issue.
+
+> Note that if you pass an F# function to a method accepting a `Func<...>` delegate
+in its signature (like `D3.Transition.each` below) this conversion is done automatically.
 *)
 let inline f1 (f: 'a->'b) = Func<_,_> f
 let inline f2 (f: 'a->'b->'c) = Func<_,_,_> f
@@ -139,7 +142,8 @@ couuntries. We also find all countries for which we have both name and map:
   // prune overlapping borders (shared by 2 countries)
   let borders =
     topojson.mesh(world,
-      world?objects?countries, f2 (fun x y -> x <> y))
+                  world?objects?countries,
+                  f2 (fun x y -> x <> y))
 
   // Get countries for which we have a name and set
   // their name property using the `?` operator
@@ -190,20 +194,20 @@ then setting up a number of parameters:
   let rec transition i =
     D3.Globals.transition()
       .duration(1250.)
-      .each("start", f2 (fun _ _ ->
+      .each("start", fun _ _ ->
         // Set the text of the HTML element
         let name = unbox<D3.Primitive> countries.[i]?name
-        title.text(name) |> box ))
-      .tween("rotate", f1 (fun _ ->
-        // Interopolate the rotation & return function
+        title.text(name) |> box )
+      .tween("rotate", fun _ ->
+        // Interpolate the rotation & return function
         // that renders everything at a given time 't'
         let p1, p2 = D3.Geo.Globals.centroid(countries.[i])
         let r = D3.Globals.interpolate(projection.rotate(), (-p1, -p2))
-        f1 (fun t -> render countries.[i] (r.Invoke(t))) ))
+        f1 (fun t -> render countries.[i] (r.Invoke(t))) )
       .transition()
-      .each("end", f2 (fun _ _ ->
+      .each("end", fun _ _ ->
         // At the end, start the transition again!
-        transition ((i + 1) % countries.Length) )) |> box
+        transition ((i + 1) % countries.Length) ) |> box
 (*** hide ***)
   transition(0)
 (**

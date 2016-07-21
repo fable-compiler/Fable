@@ -12,7 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fable-core": "^0.2.0-alpha"
+    "fable-core": "^0.2.2"
   },
   "devDependencies": {
     "electron-prebuilt": "^1.2.7",

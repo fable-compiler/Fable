@@ -12,6 +12,7 @@ The compiler follows two rough guidelines when transforming the code:
 
 `string` and `char` compile to JS "string" while `bool` becomes "boolean".
 All numeric primitives compile to JS "number" (but see _Arrays_ below).
+There are no bound checks, but integer division will always produce an integer.
 `System.Guid` also compiles directly to "string" (`Guid.Parse` performs
 no validation at the moment).
 

@@ -1,7 +1,7 @@
 {
   "private": true,
   "dependencies": {
-    "fable-core": "^0.2.0-alpha",
+    "fable-core": "^0.2.2",
     "isomorphic-fetch": "^2.2.1"
   },
   "devDependencies": {
@@ -13,6 +13,6 @@
     "test": "mocha ./out"
   },
   "engines": {
-    "fable": "^0.4.0-alpha"
+    "fable": "^0.4.0"
   }
 }

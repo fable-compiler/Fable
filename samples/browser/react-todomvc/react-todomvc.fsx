@@ -8,60 +8,40 @@ open System
 open Fable.Core
 open Fable.Import
 
-type Todo = { id: string; title: string; completed: bool }
+module Util =
+    let load<'T> key =
+        Browser.localStorage.getItem(key) |> unbox
+        |> Option.map (JS.JSON.parse >> unbox<'T>)
 
-type Util =
+    let save key (data: 'T) =
+        Browser.localStorage.setItem(key, JS.JSON.stringify data)
+
     // JS utility for conditionally joining classNames together
     // See https://github.com/JedWatson/classnames
-    [<Global>] static member classNames(o: obj): string = failwith "JS only"
+    let [<Global>] classNames(o: obj): string = failwith "JS only"
 
     // Director is a router. Routing is the process of determining what code to run when a URL is requested.
     // See https://github.com/flatiron/director
-    [<Global>] static member Router(o: obj): obj = failwith "JS only"
+    let [<Global>] Router(o: obj): obj = failwith "JS only"
 
-    static member uuid () =
-        let makeRandom =
-            let rnd = Random()
-            fun () -> rnd.Next(16)
-        ("", seq { 0..31 })
-        ||> Seq.fold (fun uuid i ->
-            let hyphen =
-                match i with 8 | 12 | 16 | 20 -> "-" | _ -> ""
-            let random =
-                match i with
-                 | 12 -> 4
-                 | 16 -> makeRandom() &&& 3 ||| 8
-                 | _ -> makeRandom()
-            sprintf "%s%s%s" uuid hyphen (Convert.ToString(random, 16)))
-
-    static member pluralize count word =
-        if count = 1 then word else word + "s"
-
-    static member store
-        with get ns: Todo[] =
-            match Browser.localStorage.getItem(ns) |> unbox with
-            | Some data -> JS.JSON.parse(data) |> unbox
-            | None -> [||]
-        and set ns (data: Todo[]) =
-            Browser.localStorage.setItem(ns, JS.JSON.stringify data)
+type Todo = { id: Guid; title: string; completed: bool }
 
 type TodoModel(key) =
     member val key = key
-    member val todos: Todo[] = Util.store(key) with get, set
+    member val todos: Todo[] = defaultArg (Util.load key) [||] with get, set
     member val onChanges: (unit->unit)[] = [||] with get, set
 
     member this.subscribe (onChange) =
         this.onChanges <- [|onChange|]
 
     member this.inform () =
-        Util.store(this.key) <- this.todos
+        Util.save this.key this.todos
         this.onChanges |> Seq.iter (fun cb -> cb())
 
     member this.addTodo (title) =
-        this.todos <- [|
-            yield! this.todos
-            yield { id=Util.uuid(); title=title; completed=false }
-        |]
+        this.todos <-
+            [|{ id=Guid.NewGuid(); title=title; completed=false }|]
+            |> Array.append this.todos
         this.inform()
 
     member this.toggleAll (checked') =
@@ -76,8 +56,9 @@ type TodoModel(key) =
             else { todo with completed = (not todo.completed) })
         this.inform()
 
-    member this.destroy (todo) =
-        this.todos <- this.todos |> Array.filter ((<>) todo)
+    member this.destroy (todoToDestroy) =
+        this.todos <- this.todos |> Array.filter (fun todo ->
+            todo.id <> todoToDestroy.id)
         this.inform()
 
     member this.save (todoToSave, text) =
@@ -88,7 +69,8 @@ type TodoModel(key) =
         this.inform()
 
     member this.clearCompleted () =
-        this.todos <- this.todos |> Array.filter (fun todo -> not todo.completed)
+        this.todos <- this.todos |> Array.filter (fun todo ->
+            not todo.completed)
         this.inform()
 
 module R = Fable.Helpers.React
@@ -96,7 +78,7 @@ open R.Props
 
 type TodoItemState = { editText: string }
 type TodoItemProps =
-    abstract key: string 
+    abstract key: Guid 
     abstract todo: Todo 
     abstract editing: bool
     abstract onSave: obj->unit
@@ -111,9 +93,9 @@ let [<Literal>] ALL_TODOS = "all"
 let [<Literal>] ACTIVE_TODOS = "active"
 let [<Literal>] COMPLETED_TODOS = "completed"
 
-type TodoItem(props) =
-    inherit R.Component<TodoItemProps, TodoItemState>(
-                props, { editText = props.todo.title })
+type TodoItem(props, ctx) as this =
+    inherit React.Component<TodoItemProps, TodoItemState>(props, ctx)
+    do this.state <- { editText = props.todo.title }
 
     let mutable editField: obj option = None
 
@@ -143,7 +125,7 @@ type TodoItem(props) =
             this.setState { editText = string e.target?value }
 
     member this.shouldComponentUpdate (nextProps: TodoItemProps) (nextState: TodoItemState) =
-        nextProps.todo <> this.props.todo
+        not(obj.ReferenceEquals(nextProps.todo, this.props.todo))
         || nextProps.editing <> this.props.editing
         || nextState.editText <> this.state.editText
 
@@ -192,10 +174,11 @@ type TodoFooterProps =
     abstract onClearCompleted: obj->unit
     abstract nowShowing: string
 
-type TodoFooter(props) =
-    inherit React.Component<TodoFooterProps,obj>(props)
+type TodoFooter(props, ctx) =
+    inherit React.Component<TodoFooterProps,obj>(props, ctx)
     member this.render () =
-        let activeTodoWord = Util.pluralize this.props.count "item"
+        let activeTodoWord =
+            "item" + (if this.props.count = 1 then "" else "s")
         let clearButton =
             if this.props.completedCount > 0 then
                 R.button [
@@ -234,11 +217,11 @@ type TodoFooter(props) =
         ]
 
 type TodoAppProps = { model: TodoModel }
-type TodoAppState = { nowShowing: string; editing: string option; newTodo: string }
+type TodoAppState = { nowShowing: string; editing: Guid option; newTodo: string }
 
-type TodoApp(props) =
-    inherit R.Component<TodoAppProps, TodoAppState>(
-                props, { nowShowing=ALL_TODOS; editing=None; newTodo="" })
+type TodoApp(props, ctx) as this =
+    inherit React.Component<TodoAppProps, TodoAppState>(props, ctx)
+    do this.state <- { nowShowing=ALL_TODOS; editing=None; newTodo="" }
 
     member this.componentDidMount () =
         let nowShowing category =
@@ -251,7 +234,7 @@ type TodoApp(props) =
                     "/completed" ==> nowShowing COMPLETED_TODOS
                 ]
             )
-        router?init$("/")
+        router?init("/")
 
     member this.handleChange (ev: React.SyntheticEvent) =
         this.setState({ this.state with newTodo = unbox ev.target?value })
@@ -289,12 +272,13 @@ type TodoApp(props) =
     member this.render () =
         let todos = this.props.model.todos
         let todoItems = 
-            todos |> Array.filter (fun todo ->
+            todos
+            |> Seq.filter (fun todo ->
                 match this.state.nowShowing with
                 | ACTIVE_TODOS -> not todo.completed
                 | COMPLETED_TODOS -> todo.completed
                 | _ -> true)
-            |> Array.map (fun todo ->
+            |> Seq.map (fun todo ->
                 R.com<TodoItem,_,_>(
                     { new TodoItemProps with
                         member __.key = todo.id
@@ -309,6 +293,7 @@ type TodoApp(props) =
                         member __.onSave text = this.save(todo, string text)
                         member __.onCancel _ = this.cancel()
                     }) [])
+                |> Seq.toList
         let activeTodoCount =
             todos |> Array.fold (fun accum todo ->
                 if todo.completed then accum else accum + 1
@@ -334,7 +319,7 @@ type TodoApp(props) =
                         OnChange this.toggleAll
                         Checked (activeTodoCount = 0)
                     ] []
-                    R.ul [ ClassName "todo-list" ] [ unbox todoItems ]
+                    R.ul [ ClassName "todo-list" ] todoItems
                 ] |> Some
             else None
         R.div [] [
@@ -359,6 +344,5 @@ let render() =
         R.com<TodoApp,_,_> { model = model } [],
         Browser.document.getElementsByClassName("todoapp").[0]
     ) |> ignore
-
 model.subscribe(render)
 render()

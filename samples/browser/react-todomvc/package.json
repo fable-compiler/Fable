@@ -2,19 +2,19 @@
   "private": true,
   "dependencies": {
     "core-js": "^2.1.0",
-    "fable-core": "^0.2.0-alpha",
+    "fable-core": "^0.2.2",
     "classnames": "^2.2.5",
     "director": "^1.2.8",
     "react": "^15.1.0",
     "react-dom": "^15.1.0",
     "requirejs": "^2.1.22",
     "todomvc-app-css": "^2.0.0",
-    "todomvc-common": "^1.0.1"    
+    "todomvc-common": "^1.0.1"
   },
   "devDependencies": {
-    "fable-import-react": "^0.0.19"
+    "fable-import-react": "^0.1.0"
   },
   "engines": {
-    "fable": "^0.4.0-alpha"
+    "fable": "^0.4.0"
   }
 }
