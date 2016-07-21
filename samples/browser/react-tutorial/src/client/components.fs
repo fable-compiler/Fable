@@ -98,11 +98,9 @@ let CommentList(props: CBState) =
             R.fn CommentView cvProps [ unbox comment.text ])
     R.div [ClassName "commentList"] [unbox commentNodes]
 
-// For more complicated components we can just inherit from ReactHelper.Component
-// This is a simple wrapper around React.Component which lets us pass the initial
-// state in the constructor
-type CommentForm(props) =
-    inherit R.Component<CFProps, CFState>(props, { author = None; text = None })
+type CommentForm(props) as this =
+    inherit React.Component<CFProps, CFState>(props)
+    do this.state <- { author = None; text = None }
 
     member x.handleAuthorChange (e: React.SyntheticEvent) =
         let str = unbox e.target?value
@@ -143,8 +141,9 @@ type CommentForm(props) =
             ] []
         ]
 
-type CommentBox(props) =
-    inherit R.Component<CBProps, CBState>(props, { data = [||] })
+type CommentBox(props) as this =
+    inherit React.Component<CBProps, CBState>(props)
+    do this.state <- { data = [||] }
     
     member x.loadCommentsFromServer () =
         ajax (Get x.props.url)
