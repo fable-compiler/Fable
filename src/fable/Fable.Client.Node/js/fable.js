@@ -206,9 +206,6 @@ function runCommand(command, continuation) {
                     ? str.substring(start + 1, end - 1)
                     : str.substring(start, end);
         }
-        // if (!(reg instanceof RegExp) || reg.flags.indexOf("g") == -1) {
-        //     throw "'reg' argument must be a RegExp with 'g' flag"
-        // }
         var reg = /\s+(?=([^"]*"[^"]*")*[^"]*$)/g;
         if (typeof str !== "string" || str.length == 0) {
             throw "'str' argument must be a non-empty string"
@@ -330,18 +327,27 @@ function build(opts) {
     // Module target
     addModulePlugin(opts, babelPlugins);
 
-    var wrap = function (arg) {
-        arg = arg.toString().trim();
-        return arg.indexOf(" ") > 0 && arg[0] != '"' ? '"' + arg + '"' : arg;  
+    var wrapInQuotes = function (arg) {
+        if (process.platform === "win32") {
+            arg = arg.toString().trim();
+            return arg.indexOf(" ") > 0 && arg[0] != '"' ? '"' + arg + '"' : arg;
+        }
+        else {
+            return arg;
+        }
     };
-    var fableCmd = process.platform === "win32" ? "cmd" : "mono";
-    var fableCmdArgs = process.platform === "win32" ? ["/C", wrap(fableBin)] : [wrap(fableBin)];
+    var fableCmd = "mono", fableCmdArgs = [wrapInQuotes(fableBin)];
 
     for (var k in opts) {
         if (Array.isArray(opts[k]))
-            opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, wrap(v)) })
+            opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, wrapInQuotes(v)) })
         else if (typeof opts[k] !== "object")
-            fableCmdArgs.push("--" + k, wrap(opts[k]));
+            fableCmdArgs.push("--" + k, wrapInQuotes(opts[k]));
+    }
+
+    if (process.platform === "win32") {
+        fableCmd = "cmd";
+        fableCmdArgs = ["/S", "/C", '"' + fableCmdArgs.join(" ") + '"'];
     }
 
     // Call Fable.exe
@@ -352,7 +358,7 @@ function build(opts) {
         console.log("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
     console.log("Start compilation...");
-    var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: cfgDir });
+    var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: cfgDir, windowsVerbatimArguments: true });
 
     fableProc.on('exit', function(code) {
         // There may be pending messages, do nothing here

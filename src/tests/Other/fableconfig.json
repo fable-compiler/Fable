@@ -1,6 +1,6 @@
 {
     "projFile": "Fable.Tests.Clamp.fsproj",
-    "outDir": "../../../build/tests/Other",
+    "outDir": "../../../build/tests/Another Project",
     "module": "commonjs",
     "clamp": true,
     "symbols": "MOCHA"
