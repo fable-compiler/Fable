@@ -8,17 +8,17 @@ export class Choice<T1, T2> {
   public Case: "Choice1Of2" | "Choice2Of2";
   public Fields: Array<T1 | T2>;
 
-  constructor(t: "Choice1Of2" | "Choice2Of2", c: number, d: T1 | T2) {
+  constructor(t: "Choice1Of2" | "Choice2Of2", d: T1[] | T2[]) {
     this.Case = t;
-    this.Fields = [d];
+    this.Fields = d;
   }
 
   static Choice1Of2<T1, T2>(v: T1) {
-    return new Choice<T1, T2>("Choice1Of2", 1, v);
+    return new Choice<T1, T2>("Choice1Of2", [v]);
   }
 
   static Choice2Of2<T1, T2>(v: T2) {
-    return new Choice<T1, T2>("Choice2Of2", 1, v);
+    return new Choice<T1, T2>("Choice2Of2", [v]);
   }
 
   get valueIfChoice1() {
@@ -52,7 +52,8 @@ export class Util {
       const currentInterfaces = proto[FSymbol.interfaces];
       if (Array.isArray(currentInterfaces)) {
         for (let i = 0; i < interfaces.length; i++)
-          currentInterfaces.push(interfaces[i]);
+          if (currentInterfaces.indexOf(interfaces[i]) == -1)
+            currentInterfaces.push(interfaces[i]);
       } else
         proto[FSymbol.interfaces] = interfaces;
     }

@@ -155,16 +155,9 @@ let makeTypeTest com range (typ: Type) expr =
             |> attachRange range |> failwith
 
 let makeUnionCons () =
-    // We cannot use just arguments.length because sometimes null arguments are erased, see #231
-    let emit = Emit "this.Case=caseName; this.Fields = []; for (var i=0; i<fieldsLength; i++) { this.Fields[i]=arguments[i+2]; }" |> Value
+    let emit = Emit "this.Case=caseName; this.Fields = fields;" |> Value
     let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
-    Member(".ctor", Constructor, SourceLocation.Empty, [makeIdent "caseName"; makeIdent "fieldsLength"], body, [], true)
-    |> MemberDeclaration
-
-let makeExceptionCons () =
-    let emit = Emit "for (var i=0; i<arguments.length; i++) { this['data'+i]=arguments[i]; }" |> Value
-    let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
-    Member(".ctor", Constructor, SourceLocation.Empty, [], body, [], true)
+    Member(".ctor", Constructor, SourceLocation.Empty, [makeIdent "caseName"; makeIdent "fields"], body, [], true)
     |> MemberDeclaration
 
 let makeRecordCons props =

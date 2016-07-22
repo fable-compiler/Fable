@@ -225,3 +225,14 @@ let ``Mixing refs and options works``() = // See #238
     setter (fun i -> res := i + 2)
     getter 5
     equal 7 !res
+
+exception MyEx of int*string
+
+[<Test>]
+let ``Custom exceptions work``() =
+    try
+        MyEx(4,"ERROR") |> raise
+    with
+    | MyEx(4, msg) -> msg + "!!"
+    | MyEx(_, msg) -> msg + "??"
+    |> equal "ERROR!!"

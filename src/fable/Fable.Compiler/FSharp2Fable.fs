@@ -44,12 +44,6 @@ let private (|BaseCons|_|) com ctx = function
         | _ -> None
     | _ -> None
 
-let private (|FSharpExceptionGet|_|) = function
-    | BasicPatterns.FSharpFieldGet (Some callee, fsType, fieldInfo)
-        when fsType.HasTypeDefinition && fsType.TypeDefinition.IsFSharpExceptionDeclaration ->
-            Some (callee, fsType.TypeDefinition, fieldInfo)
-    | _ -> None
-
 let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
     let rec flattenList (r: SourceLocation) accArgs = function
         | [] -> accArgs, None
@@ -127,8 +121,10 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
-        // Include Tag name in args
-        let argExprs = (makeConst unionCase.Name)::(makeConst argExprs.Length)::argExprs
+        let argExprs = [
+            makeConst unionCase.Name    // Include Tag name in args
+            Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.DynamicArray))
+        ]
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
             buildApplyInfo com ctx r typ (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
@@ -185,11 +181,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let args = List.map (com.Transform ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
-
-    | FSharpExceptionGet (Transform com ctx exExpr, exEnt, FieldName fieldName) ->
-        let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        let i = exEnt.FSharpFields |> Seq.findIndex (fun x -> x.Name = fieldName)
-        makeGet range typ exExpr (sprintf "data%i" i |> makeConst)
 
     | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) methArgs
@@ -763,9 +754,7 @@ let rec private transformEntityDecl
         let init =
             if ent.IsFSharpUnion
             then [makeUnionCons()]
-            elif ent.IsFSharpExceptionDeclaration
-            then [makeExceptionCons()]
-            elif ent.IsFSharpRecord
+            elif ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration
             then ent.FSharpFields
                  |> Seq.map (fun x -> x.Name) |> Seq.toList
                  |> makeRecordCons
