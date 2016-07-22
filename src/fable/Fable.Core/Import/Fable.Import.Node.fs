@@ -3,25 +3,25 @@ open System
 open Fable.Core
 open Fable.Import.JS
 
-type Error =
+type [<AllowNullLiteral>] Error =
     abstract stack: string option with get, set
 
-// and MapConstructor =
+// and [<AllowNullLiteral>] MapConstructor =
 //     interface end
 // 
-// and WeakMapConstructor =
+// and [<AllowNullLiteral>] WeakMapConstructor =
 //     interface end
 // 
-// and SetConstructor =
+// and [<AllowNullLiteral>] SetConstructor =
 //     interface end
 // 
-// and WeakSetConstructor =
+// and [<AllowNullLiteral>] WeakSetConstructor =
 //     interface end
 
-and Buffer =
+and [<AllowNullLiteral>] Buffer =
     inherit NodeBuffer
 
-and NodeBuffer =
+and [<AllowNullLiteral>] NodeBuffer =
     [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
     abstract length: float with get, set
     abstract write: string: string * ?offset: float * ?length: float * ?encoding: string -> float
@@ -71,7 +71,7 @@ and NodeBuffer =
 
 
 module NodeJS =
-    type ErrnoException =
+    type [<AllowNullLiteral>] ErrnoException =
         inherit Error
         abstract errno: float option with get, set
         abstract code: string option with get, set
@@ -79,7 +79,7 @@ module NodeJS =
         abstract syscall: string option with get, set
         abstract stack: string option with get, set
 
-    and EventEmitter =
+    and [<AllowNullLiteral>] EventEmitter =
         abstract addListener: ``event``: string * listener: Function -> EventEmitter
         abstract on: ``event``: string * listener: Function -> EventEmitter
         abstract once: ``event``: string * listener: Function -> EventEmitter
@@ -91,7 +91,7 @@ module NodeJS =
         abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
         abstract listenerCount: ``type``: string -> int
 
-    and ReadableStream =
+    and [<AllowNullLiteral>] ReadableStream =
         inherit EventEmitter
         abstract readable: bool with get, set
         abstract read: ?size: float -> U2<string, Buffer>
@@ -104,7 +104,7 @@ module NodeJS =
         abstract unshift: chunk: Buffer -> unit
         abstract wrap: oldStream: ReadableStream -> ReadableStream
 
-    and WritableStream =
+    and [<AllowNullLiteral>] WritableStream =
         inherit EventEmitter
         abstract writable: bool with get, set
         abstract write: buffer: U2<Buffer, string> * ?cb: Function -> bool
@@ -114,11 +114,11 @@ module NodeJS =
         abstract ``end``: str: string * ?cb: Function -> unit
         abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
 
-    and ReadWriteStream =
+    and [<AllowNullLiteral>] ReadWriteStream =
         inherit ReadableStream
         inherit WritableStream
 
-    and Process =
+    and [<AllowNullLiteral>] Process =
         inherit EventEmitter
         abstract stdout: WritableStream with get, set
         abstract stderr: WritableStream with get, set
@@ -151,7 +151,7 @@ module NodeJS =
         abstract hrtime: ?time: ResizeArray<float> -> ResizeArray<float>
         abstract send: message: obj * ?sendHandle: obj -> unit
 
-    and Global =
+    and [<AllowNullLiteral>] Global =
         abstract Array: obj with get, set
         abstract ArrayBuffer: obj with get, set
         abstract Boolean: obj with get, set
@@ -215,7 +215,7 @@ module NodeJS =
         abstract unescape: Func<string, string> with get, set
         abstract gc: Func<unit, unit> with get, set
 
-    and Timer =
+    and [<AllowNullLiteral>] Timer =
         abstract ref: unit -> unit
         abstract unref: unit -> unit
         
@@ -223,7 +223,7 @@ open NodeJS
 
 
 module net_types =
-    type Socket =
+    type [<AllowNullLiteral>] Socket =
         abstract writable: bool with get, set
         abstract _write: chunk: obj * encoding: string * callback: Function -> unit
         abstract write: chunk: obj * ?cb: Function -> bool
@@ -261,7 +261,7 @@ module net_types =
         abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
         abstract ``end``: ?data: obj * ?encoding: string -> unit
 
-    and Server =
+    and [<AllowNullLiteral>] Server =
         inherit Socket
         abstract maxConnections: float with get, set
         abstract connections: float with get, set
@@ -289,7 +289,7 @@ let [<Import("*","net")>] net: net_types.Globals = failwith "JS only"
 
 
 module crypto_types =
-    type CredentialDetails =
+    type [<AllowNullLiteral>] CredentialDetails =
         abstract pfx: string with get, set
         abstract key: string with get, set
         abstract passphrase: string with get, set
@@ -298,46 +298,46 @@ module crypto_types =
         abstract crl: obj with get, set
         abstract ciphers: string with get, set
 
-    and Credentials =
+    and [<AllowNullLiteral>] Credentials =
         abstract context: obj option with get, set
 
-    and Hash =
+    and [<AllowNullLiteral>] Hash =
         abstract update: data: obj * ?input_encoding: string -> Hash
         [<Emit("$0.digest('buffer')")>] abstract digest_buffer: unit -> Buffer
         abstract digest: encoding: string -> obj
         abstract digest: unit -> Buffer
 
-    and Hmac =
+    and [<AllowNullLiteral>] Hmac =
         abstract update: data: obj * ?input_encoding: string -> Hmac
         [<Emit("$0.digest('buffer')")>] abstract digest_buffer: unit -> Buffer
         abstract digest: encoding: string -> obj
         abstract digest: unit -> Buffer
 
-    and Cipher =
+    and [<AllowNullLiteral>] Cipher =
         abstract update: data: Buffer -> Buffer
         abstract update: data: string * ?input_encoding: string * ?output_encoding: string -> string
         abstract final: unit -> Buffer
         abstract final: output_encoding: string -> string
         abstract setAutoPadding: auto_padding: bool -> unit
 
-    and Decipher =
+    and [<AllowNullLiteral>] Decipher =
         abstract update: data: Buffer -> Buffer
         abstract update: data: string * ?input_encoding: string * ?output_encoding: string -> string
         abstract final: unit -> Buffer
         abstract final: output_encoding: string -> string
         abstract setAutoPadding: auto_padding: bool -> unit
 
-    and Signer =
+    and [<AllowNullLiteral>] Signer =
         inherit NodeJS.WritableStream
         abstract update: data: obj -> unit
         abstract sign: private_key: string * output_format: string -> string
 
-    and Verify =
+    and [<AllowNullLiteral>] Verify =
         inherit NodeJS.WritableStream
         abstract update: data: obj -> unit
         abstract verify: ``object``: string * signature: string * ?signature_format: string -> bool
 
-    and DiffieHellman =
+    and [<AllowNullLiteral>] DiffieHellman =
         abstract generateKeys: ?encoding: string -> string
         abstract computeSecret: other_public_key: string * ?input_encoding: string * ?output_encoding: string -> string
         abstract getPrime: ?encoding: string -> string
@@ -374,7 +374,7 @@ let [<Import("*","crypto")>] crypto: crypto_types.Globals = failwith "JS only"
 
 
 module events =
-    type [<Import("EventEmitter","events")>] EventEmitter() =
+    type [<AllowNullLiteral>] [<Import("EventEmitter","events")>] EventEmitter() =
         interface NodeJS.EventEmitter with
             member __.addListener(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
             member __.on(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
@@ -392,16 +392,16 @@ module events =
 
 
 module stream =
-    type Stream =
+    type [<AllowNullLiteral>] Stream =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract pipe: destination: 'T * ?options: obj -> 'T
 
-    and ReadableOptions =
+    and [<AllowNullLiteral>] ReadableOptions =
         abstract highWaterMark: float option with get, set
         abstract encoding: string option with get, set
         abstract objectMode: bool option with get, set
 
-    and [<Import("Readable","stream")>] Readable(?opts: ReadableOptions) =
+    and [<AllowNullLiteral>] [<Import("Readable","stream")>] Readable(?opts: ReadableOptions) =
         inherit events.EventEmitter()
         interface ReadableStream with
             member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -419,12 +419,12 @@ module stream =
         member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = failwith "JS only"
         member __.push(chunk: obj, ?encoding: string): bool = failwith "JS only"
 
-    and WritableOptions =
+    and [<AllowNullLiteral>] WritableOptions =
         abstract highWaterMark: float option with get, set
         abstract decodeStrings: bool option with get, set
         abstract objectMode: bool option with get, set
 
-    and [<Import("Writable","stream")>] Writable(?opts: WritableOptions) =
+    and [<AllowNullLiteral>] [<Import("Writable","stream")>] Writable(?opts: WritableOptions) =
         inherit events.EventEmitter()
         interface WritableStream with
             member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -440,12 +440,12 @@ module stream =
         member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
         member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
 
-    and DuplexOptions =
+    and [<AllowNullLiteral>] DuplexOptions =
         inherit ReadableOptions
         inherit WritableOptions
         abstract allowHalfOpen: bool option with get, set
 
-    and [<Import("Duplex","stream")>] Duplex(?opts: DuplexOptions) =
+    and [<AllowNullLiteral>] [<Import("Duplex","stream")>] Duplex(?opts: DuplexOptions) =
         inherit Readable()
         // interface NodeJS.ReadWriteStream
         member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -456,12 +456,12 @@ module stream =
         member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
         member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
 
-    and TransformOptions =
+    and [<AllowNullLiteral>] TransformOptions =
         inherit ReadableOptions
         inherit WritableOptions
 
 
-    and [<Import("Transform","stream")>] Transform(?opts: TransformOptions) =
+    and [<AllowNullLiteral>] [<Import("Transform","stream")>] Transform(?opts: TransformOptions) =
         inherit events.EventEmitter()
         // interface NodeJS.ReadWriteStream
         member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
@@ -483,12 +483,12 @@ module stream =
         member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
         member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
 
-    and [<Import("PassThrough","stream")>] PassThrough() =
+    and [<AllowNullLiteral>] [<Import("PassThrough","stream")>] PassThrough() =
         inherit Transform()
 
 
 module tls_types =
-    type TlsOptions =
+    type [<AllowNullLiteral>] TlsOptions =
         abstract pfx: obj option with get, set
         abstract key: obj option with get, set
         abstract passphrase: string option with get, set
@@ -502,7 +502,7 @@ module tls_types =
         abstract NPNProtocols: obj option with get, set
         abstract SNICallback: Func<string, obj> option with get, set
 
-    and ConnectionOptions =
+    and [<AllowNullLiteral>] ConnectionOptions =
         abstract host: string option with get, set
         abstract port: float option with get, set
         abstract socket: net_types.Socket option with get, set
@@ -515,7 +515,7 @@ module tls_types =
         abstract NPNProtocols: obj option with get, set
         abstract servername: string option with get, set
 
-    and Server =
+    and [<AllowNullLiteral>] Server =
         inherit net_types.Server
         abstract maxConnections: float with get, set
         abstract connections: float with get, set
@@ -527,7 +527,7 @@ module tls_types =
         abstract address: unit -> obj
         abstract addContext: hostName: string * credentials: obj -> unit
 
-    and ClearTextStream =
+    and [<AllowNullLiteral>] ClearTextStream =
         abstract writable: bool with get, set
         abstract _write: chunk: obj * encoding: string * callback: Function -> unit
         abstract write: chunk: obj * ?cb: Function -> bool
@@ -543,11 +543,11 @@ module tls_types =
         abstract remotePort: float with get, set
         abstract getPeerCertificate: unit -> obj
 
-    and SecurePair =
+    and [<AllowNullLiteral>] SecurePair =
         abstract encrypted: obj with get, set
         abstract cleartext: obj with get, set
 
-    and SecureContextOptions =
+    and [<AllowNullLiteral>] SecureContextOptions =
         abstract pfx: obj option with get, set
         abstract key: obj option with get, set
         abstract passphrase: string option with get, set
@@ -557,7 +557,7 @@ module tls_types =
         abstract ciphers: string option with get, set
         abstract honorCipherOrder: bool option with get, set
 
-    and SecureContext =
+    and [<AllowNullLiteral>] SecureContext =
         abstract context: obj with get, set
 
     type Globals =
@@ -574,7 +574,7 @@ let [<Import("*","tls")>] tls: tls_types.Globals = failwith "JS only"
 
 
 module child_process_types =
-    type ChildProcess =
+    type [<AllowNullLiteral>] ChildProcess =
         inherit EventEmitter
         abstract stdin: stream.Writable with get, set
         abstract stdout: stream.Readable with get, set
@@ -601,17 +601,17 @@ module child_process_types =
 let [<Import("*","child_process")>] child_process: child_process_types.Globals = failwith "JS only"
 
 
-type NodeRequireFunction =
+type [<AllowNullLiteral>] NodeRequireFunction =
     [<Emit("$0($1...)")>] abstract Invoke: id: string -> obj
 
-and NodeRequire =
+and [<AllowNullLiteral>] NodeRequire =
     inherit NodeRequireFunction
     abstract cache: obj with get, set
     abstract extensions: obj with get, set
     abstract main: obj with get, set
     abstract resolve: id: string -> string
 
-and NodeModule =
+and [<AllowNullLiteral>] NodeModule =
     abstract exports: obj with get, set
     abstract require: NodeRequireFunction with get, set
     abstract id: string with get, set
@@ -649,7 +649,7 @@ let [<Import("*","querystring")>] querystring: querystring_types.Globals = failw
 
 
 module http_types =
-    type Server =
+    type [<AllowNullLiteral>] Server =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract maxHeadersCount: float with get, set
         abstract listen: port: float * ?hostname: string * ?backlog: float * ?callback: Function -> Server
@@ -659,11 +659,11 @@ module http_types =
         abstract close: ?cb: obj -> Server
         abstract address: unit -> obj
 
-    and ServerRequest =
+    and [<AllowNullLiteral>] ServerRequest =
         inherit IncomingMessage
         abstract connection: net_types.Socket with get, set
 
-    and ServerResponse =
+    and [<AllowNullLiteral>] ServerResponse =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract writable: bool with get, set
         abstract _write: chunk: obj * encoding: string * callback: Function -> unit
@@ -693,7 +693,7 @@ module http_types =
         abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
         abstract ``end``: ?data: obj * ?encoding: string -> unit
 
-    and ClientRequest =
+    and [<AllowNullLiteral>] ClientRequest =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract writable: bool with get, set
         abstract _write: chunk: obj * encoding: string * callback: Function -> unit
@@ -717,7 +717,7 @@ module http_types =
         abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
         abstract ``end``: ?data: obj * ?encoding: string -> unit
 
-    and IncomingMessage =
+    and [<AllowNullLiteral>] IncomingMessage =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract readable: bool with get, set
         abstract _read: size: float -> unit
@@ -742,16 +742,16 @@ module http_types =
         abstract socket: net_types.Socket with get, set
         abstract setTimeout: msecs: float * callback: Function -> NodeJS.Timer
 
-    and ClientResponse =
+    and [<AllowNullLiteral>] ClientResponse =
         inherit IncomingMessage
 
-    and AgentOptions =
+    and [<AllowNullLiteral>] AgentOptions =
         abstract keepAlive: bool option with get, set
         abstract keepAliveMsecs: float option with get, set
         abstract maxSockets: float option with get, set
         abstract maxFreeSockets: float option with get, set
 
-    and [<Import("Agent","http")>] Agent(?opts: AgentOptions) =
+    and [<AllowNullLiteral>] [<Import("Agent","http")>] Agent(?opts: AgentOptions) =
         member __.maxSockets with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.sockets with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
         member __.requests with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
@@ -769,12 +769,12 @@ module http_types =
 let [<Import("*","http")>] http: http_types.Globals = failwith "JS only"
 
 module cluster_types =
-    type ClusterSettings =
+    type [<AllowNullLiteral>] ClusterSettings =
         abstract exec: string option with get, set
         abstract args: ResizeArray<string> option with get, set
         abstract silent: bool option with get, set
 
-    and [<Import("Worker","cluster")>] Worker() =
+    and [<AllowNullLiteral>] [<Import("Worker","cluster")>] Worker() =
         inherit events.EventEmitter()
         member __.id with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.``process`` with get(): child_process_types.ChildProcess = failwith "JS only" and set(v: child_process_types.ChildProcess): unit = failwith "JS only"
@@ -806,7 +806,7 @@ let [<Import("*","cluster")>] cluster: cluster_types.Globals = failwith "JS only
 
 
 module zlib_types =
-    type ZlibOptions =
+    type [<AllowNullLiteral>] ZlibOptions =
         abstract chunkSize: float option with get, set
         abstract windowBits: float option with get, set
         abstract level: float option with get, set
@@ -814,7 +814,7 @@ module zlib_types =
         abstract strategy: float option with get, set
         abstract dictionary: obj option with get, set
 
-    and Gzip =
+    and [<AllowNullLiteral>] Gzip =
         abstract readable: bool with get, set
         abstract writable: bool with get, set
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
@@ -835,7 +835,7 @@ module zlib_types =
         abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
 
-    and Gunzip =
+    and [<AllowNullLiteral>] Gunzip =
         abstract readable: bool with get, set
         abstract writable: bool with get, set
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
@@ -856,7 +856,7 @@ module zlib_types =
         abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
 
-    and Deflate =
+    and [<AllowNullLiteral>] Deflate =
         abstract readable: bool with get, set
         abstract writable: bool with get, set
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
@@ -877,7 +877,7 @@ module zlib_types =
         abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
 
-    and Inflate =
+    and [<AllowNullLiteral>] Inflate =
         abstract readable: bool with get, set
         abstract writable: bool with get, set
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
@@ -898,7 +898,7 @@ module zlib_types =
         abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
 
-    and DeflateRaw =
+    and [<AllowNullLiteral>] DeflateRaw =
         abstract readable: bool with get, set
         abstract writable: bool with get, set
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
@@ -919,7 +919,7 @@ module zlib_types =
         abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
 
-    and InflateRaw =
+    and [<AllowNullLiteral>] InflateRaw =
         abstract readable: bool with get, set
         abstract writable: bool with get, set
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
@@ -940,7 +940,7 @@ module zlib_types =
         abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
 
 
-    and Unzip =
+    and [<AllowNullLiteral>] Unzip =
         abstract readable: bool with get, set
         abstract writable: bool with get, set
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
@@ -1038,7 +1038,7 @@ let [<Import("*","os")>] os: os_types.Globals = failwith "JS only"
 
 
 module https_types =
-    type ServerOptions =
+    type [<AllowNullLiteral>] ServerOptions =
         abstract pfx: obj option with get, set
         abstract key: obj option with get, set
         abstract passphrase: string option with get, set
@@ -1052,7 +1052,7 @@ module https_types =
         abstract NPNProtocols: obj option with get, set
         abstract SNICallback: Func<string, obj> option with get, set
 
-    and RequestOptions =
+    and [<AllowNullLiteral>] RequestOptions =
         abstract host: string option with get, set
         abstract hostname: string option with get, set
         abstract port: float option with get, set
@@ -1069,12 +1069,12 @@ module https_types =
         abstract ciphers: string option with get, set
         abstract rejectUnauthorized: bool option with get, set
 
-    and Agent =
+    and [<AllowNullLiteral>] Agent =
         abstract maxSockets: float with get, set
         abstract sockets: obj with get, set
         abstract requests: obj with get, set
 
-    and Server =
+    and [<AllowNullLiteral>] Server =
         inherit tls_types.Server
 
 
@@ -1089,7 +1089,7 @@ let [<Import("*","https")>] https: https_types.Globals = failwith "JS only"
 
 
 module punycode_types =
-    type ucs2 =
+    type [<AllowNullLiteral>] ucs2 =
         abstract decode: string: string -> string
         abstract encode: codePoints: ResizeArray<float> -> string
 
@@ -1105,7 +1105,7 @@ let [<Import("*","punycode")>] punycode: punycode_types.Globals = failwith "JS o
 
 
 module repl_types =
-    type ReplOptions =
+    type [<AllowNullLiteral>] ReplOptions =
         abstract prompt: string option with get, set
         abstract input: NodeJS.ReadableStream option with get, set
         abstract output: NodeJS.WritableStream option with get, set
@@ -1123,7 +1123,7 @@ let [<Import("*","repl")>] repl: repl_types.Globals = failwith "JS only"
 
 
 module readline_types =
-    type ReadLine =
+    type [<AllowNullLiteral>] ReadLine =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract setPrompt: prompt: string -> unit
         abstract prompt: ?preserveCursor: bool -> unit
@@ -1133,7 +1133,7 @@ module readline_types =
         abstract close: unit -> unit
         abstract write: data: obj * ?key: obj -> unit
 
-    and ReadLineOptions =
+    and [<AllowNullLiteral>] ReadLineOptions =
         abstract input: NodeJS.ReadableStream with get, set
         abstract output: NodeJS.WritableStream with get, set
         abstract completer: Function option with get, set
@@ -1146,10 +1146,10 @@ let [<Import("*","readline")>] readline: readline_types.Globals = failwith "JS o
 
 
 module vm_types =
-    type Context =
+    type [<AllowNullLiteral>] Context =
         interface end
 
-    and Script =
+    and [<AllowNullLiteral>] Script =
         abstract runInThisContext: unit -> unit
         abstract runInNewContext: ?sandbox: Context -> unit
 
@@ -1164,7 +1164,7 @@ let [<Import("*","vm")>] vm: vm_types.Globals = failwith "JS only"
 
 
 module url_types =
-    type Url =
+    type [<AllowNullLiteral>] Url =
         abstract href: string with get, set
         abstract protocol: string with get, set
         abstract auth: string with get, set
@@ -1178,7 +1178,7 @@ module url_types =
         abstract hash: string option with get, set
         abstract path: string option with get, set
 
-    and UrlOptions =
+    and [<AllowNullLiteral>] UrlOptions =
         abstract protocol: string option with get, set
         abstract auth: string option with get, set
         abstract hostname: string option with get, set
@@ -1217,17 +1217,17 @@ let [<Import("*","dns")>] dns: dns_types.Globals = failwith "JS only"
 
 
 module dgram_types =
-    type RemoteInfo =
+    type [<AllowNullLiteral>] RemoteInfo =
         abstract address: string with get, set
         abstract port: float with get, set
         abstract size: float with get, set
 
-    and AddressInfo =
+    and [<AllowNullLiteral>] AddressInfo =
         abstract address: string with get, set
         abstract family: string with get, set
         abstract port: float with get, set
 
-    and Socket =
+    and [<AllowNullLiteral>] Socket =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract send: buf: Buffer * offset: float * length: float * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
         abstract bind: port: float * ?address: string * ?callback: Func<unit, unit> -> unit
@@ -1246,7 +1246,7 @@ let [<Import("*","dgram")>] dgram: dgram_types.Globals = failwith "JS only"
 
 
 module fs_types =
-    type Stats =
+    type [<AllowNullLiteral>] Stats =
         abstract dev: float with get, set
         abstract ino: float with get, set
         abstract mode: float with get, set
@@ -1269,11 +1269,11 @@ module fs_types =
         abstract isFIFO: unit -> bool
         abstract isSocket: unit -> bool
 
-    and FSWatcher =
+    and [<AllowNullLiteral>] FSWatcher =
         abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
         abstract close: unit -> unit
 
-    and ReadStream =
+    and [<AllowNullLiteral>] ReadStream =
         abstract readable: bool with get, set
         abstract _read: size: float -> unit
         abstract read: ?size: float -> obj
@@ -1287,7 +1287,7 @@ module fs_types =
         abstract push: chunk: obj * ?encoding: string -> bool
         abstract close: unit -> unit
 
-    and WriteStream =
+    and [<AllowNullLiteral>] WriteStream =
         abstract writable: bool with get, set
         abstract _write: chunk: obj * encoding: string * callback: Function -> unit
         abstract write: chunk: obj * ?cb: Function -> bool
@@ -1410,7 +1410,7 @@ let [<Import("*","fs")>] fs: fs_types.Globals = failwith "JS only"
 
 
 module path_types =
-    type ParsedPath =
+    type [<AllowNullLiteral>] ParsedPath =
         abstract root: string with get, set
         abstract dir: string with get, set
         abstract ``base``: string with get, set
@@ -1471,7 +1471,7 @@ let [<Import("*","path")>] path: path_types.Globals = failwith "JS only"
 
 [<Import("*","string_decoder")>]
 module string_decoder =
-    type NodeStringDecoder =
+    type [<AllowNullLiteral>] NodeStringDecoder =
         abstract write: buffer: Buffer -> string
         abstract detectIncompleteChar: buffer: Buffer -> float
 
@@ -1479,7 +1479,7 @@ module string_decoder =
 
 
 module util_types =
-    type InspectOptions =
+    type [<AllowNullLiteral>] InspectOptions =
         abstract showHidden: bool option with get, set
         abstract depth: float option with get, set
         abstract colors: bool option with get, set
@@ -1505,7 +1505,7 @@ let [<Import("*","util")>] util: util_types.Globals = failwith "JS only"
 
 
 module assert_types =
-    type [<Import("AssertionError","assert")>] AssertionError(?options: obj) =
+    type [<AllowNullLiteral>] [<Import("AssertionError","assert")>] AssertionError(?options: obj) =
         // interface Error
         member __.name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.message with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
@@ -1532,12 +1532,12 @@ let [<Import("*","assert")>] ``assert``: assert_types.Globals = failwith "JS onl
 
 [<Import("*","tty")>] 
 module tty =
-    type ReadStream =
+    type [<AllowNullLiteral>] ReadStream =
         inherit net_types.Socket
         abstract isRaw: bool with get, set
         abstract setRawMode: mode: bool -> unit
 
-    and WriteStream =
+    and [<AllowNullLiteral>] WriteStream =
         inherit net_types.Socket
         abstract columns: float with get, set
         abstract rows: float with get, set
@@ -1547,7 +1547,7 @@ module tty =
 
 [<Import("*","domain")>] 
 module domain =
-    type [<Import("Domain","domain")>] Domain() =
+    type [<AllowNullLiteral>] [<Import("Domain","domain")>] Domain() =
         inherit events.EventEmitter()
         member __.run(fn: Function): unit = failwith "JS only"
         member __.add(emitter: events.EventEmitter): unit = failwith "JS only"
