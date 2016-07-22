@@ -33,9 +33,9 @@ let private (|SpecialValue|_|) com ctx = function
 let private (|BaseCons|_|) com ctx = function
     | BasicPatterns.Call(None, meth, _, _, args) ->
         let methOwnerName (meth: FSharpMemberOrFunctionOrValue) =
-            sanitizeEntityName meth.EnclosingEntity
+            sanitizeEntityFullName meth.EnclosingEntity
         match ctx.baseClass with
-        | Some baseFullName when meth.DisplayName = "( .ctor )"
+        | Some baseFullName when meth.CompiledName = ".ctor"
                             && (methOwnerName meth) = baseFullName ->
             if not meth.IsImplicitConstructor then
                 failwithf "Inheritance is only possible with base class implicit constructor: %s"
@@ -197,6 +197,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
     | CreateEvent (callee, eventName, meth, typArgs, methTypArgs, methArgs) ->
+        let eventName =
+            // HACK: At the moment, Timer.Elapsed is the only replaced CLIEvent
+            if callee.Type.HasTypeDefinition
+                && callee.Type.TypeDefinition.TryFullName = Some "System.Timers.Timer"
+            then Naming.lowerFirst eventName
+            else eventName
         let callee, args = com.Transform ctx callee, List.map (com.Transform ctx) methArgs
         let callee = Fable.Apply(callee, [makeConst eventName], Fable.ApplyGet, Fable.UnknownType, None)
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
@@ -279,7 +285,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeSequential (Some r) [assignment; transformExpr com ctx body]
 
     | BasicPatterns.Let((var, Transform com ctx value), body) ->
-        let ctx, ident = bindIdent ctx value.Type (Some var) var.DisplayName
+        let ctx, ident = bindIdent ctx value.Type (Some var) var.CompiledName
         let body = transformExpr com ctx body
         let assignment = Fable.VarDeclaration (ident, value, var.IsMutable) 
         makeSequential (makeRangeFrom fsExpr) [assignment; body]
@@ -343,7 +349,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeDelegate None delegateBodyExpr
 
     (** ## Getters and Setters *)
-    // TODO: Change name of automatically generated fields
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
         let callee =
             match callee with
@@ -373,7 +378,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         failwithf "Found unsupported ILField reference in %O: %A"
                   (makeRange fsExpr.Range) fsExpr
 
-    // TODO: Change name of automatically generated fields
     | BasicPatterns.FSharpFieldSet (callee, FableType com ctx calleeType, FieldName fieldName, Transform com ctx value) ->
         let callee =
             match callee with
@@ -418,7 +422,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let lowerFirstKnownInterfaces typ name =
             match typ with
             | Some typ ->
-                let typName = sanitizeEntityName typ
+                let typName = sanitizeEntityFullName typ
                 if Naming.knownInterfaces.Contains typName
                 then Naming.lowerFirst name
                 else name
@@ -435,7 +439,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                     |> Some
                 let baseCons =
                     Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
-                    |> fun c -> Fable.Member(Fable.Constructor, range, [], c)
+                    |> fun c -> Fable.Member(".ctor", Fable.Constructor, range, [], c)
                     |> Some
                 baseClass, baseCons
             | _ -> None, None
@@ -451,17 +455,17 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                         if over.Signature.DeclaringType.HasTypeDefinition
                         then Some over.Signature.DeclaringType.TypeDefinition
                         else None
+                    let name =
+                        over.Signature.Name
+                        |> Naming.removeParens
+                        |> Naming.removeGetSetPrefix
+                        |> lowerFirstKnownInterfaces typ
                     let kind =
-                        let name =
-                            over.Signature.Name
-                            |> Naming.removeParens
-                            |> Naming.removeGetSetPrefix
-                            |> lowerFirstKnownInterfaces typ
                         // TODO: Check for indexed getter and setter also in object expressions?
                         match over.Signature.Name with
-                        | Naming.StartsWith "get_" _ -> Fable.Getter (name, false)
-                        | Naming.StartsWith "set_" _ -> Fable.Setter name
-                        | _ -> Fable.Method name
+                        | Naming.StartsWith "get_" _ -> Fable.Getter
+                        | Naming.StartsWith "set_" _ -> Fable.Setter
+                        | _ -> Fable.Method
                     // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
                     // information about ParamArray, we need to check the source method.
                     let hasRestParams =
@@ -469,11 +473,11 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                         | None -> false
                         | Some typ ->
                             typ.MembersFunctionsAndValues
-                            |> Seq.tryFind (fun x -> x.DisplayName = over.Signature.Name)
+                            |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
                             |> function Some m -> hasRestParams m | None -> false
-                    Fable.Member(kind, range, args',
-                                    transformExpr com ctx over.Body,
-                                    hasRestParams = hasRestParams)))
+                    Fable.Member(name, kind, range, args',
+                                 transformExpr com ctx over.Body,
+                                 hasRestParams = hasRestParams)))
             |> List.concat
         let members =
             match baseCons with
@@ -481,7 +485,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             | None -> members
         let interfaces =
             objType::(otherOverrides |> List.map fst)
-            |> List.map (fun x -> sanitizeEntityName x.TypeDefinition)
+            |> List.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
             |> List.distinct
         let range = makeRangeFrom fsExpr
         let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
@@ -491,7 +495,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             let varDecl = Fable.VarDeclaration (thisVar, Fable.Value Fable.This, false)
             Fable.Sequential([varDecl; objExpr], range)
 
-    // TODO: Check for erased constructors with property assignment (Call + Sequential)
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeCallFrom com ctx r typ meth (typArgs, []) None (List.map (com.Transform ctx) args)
@@ -650,7 +653,7 @@ type private DeclInfo(init: Fable.Declaration list) =
     /// Is compiler generated (CompareTo...) or belongs to ignored entity?
     /// (remember F# compiler puts class methods in enclosing modules)
     member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
-        if (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.DisplayName)
+        if (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.CompiledName)
             || (hasIgnoredAtt meth.Attributes)
         then true
         else match tryFindChild meth.EnclosingEntity with
@@ -663,7 +666,7 @@ type private DeclInfo(init: Fable.Declaration list) =
                 && not meth.Accessibility.IsPrivate
                 && not meth.IsCompilerGenerated
                 && not meth.IsExtensionMember then
-                checkPublicNameConflicts meth.DisplayName
+                checkPublicNameConflicts meth.CompiledName
             decls.Add(Decl methDecl)
         | Some (Ent (_,_,entDecls,_)) -> entDecls.Add methDecl
         | Some _ -> () // TODO: log warning
@@ -671,7 +674,7 @@ type private DeclInfo(init: Fable.Declaration list) =
         decls.Add(Decl actionDecl)
     member self.AddChild (com: IFableCompiler, newChild: FSharpEntity, privateName, newChildDecls: _ list) =
         if not newChild.Accessibility.IsPrivate then
-            checkPublicNameConflicts newChild.DisplayName
+            sanitizeEntityName newChild |> checkPublicNameConflicts
         let ent = Ent (com.GetEntity newChild, privateName,
                     ResizeArray<_> newChildDecls,
                     getEntityLocation newChild |> makeRange)
@@ -698,9 +701,7 @@ type private DeclInfo(init: Fable.Declaration list) =
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let addMethod() =
-        let memberKind =
-            let name = sanitizeMethodName com meth
-            getMemberKind name meth
+        let memberName, memberKind = sanitizeMethodName com meth
         let ctx', args' = getMethodArgs com ctx meth.IsInstanceMember args
         let body =
             let ctx' =
@@ -710,28 +711,24 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 | _ -> ctx'
             transformExpr com ctx' body
         let ctx, privateName =
-            match memberKind with
-            | Fable.Method name | Fable.Getter (name, _)
-                when meth.EnclosingEntity.IsFSharpModule ->
-                // Bind module member names to context to prevent
-                // name clashes (they will become variables in JS)
+            // Bind module member names to context to prevent
+            // name clashes (they will become variables in JS)
+            if meth.EnclosingEntity.IsFSharpModule then
                 let typ = makeType com ctx meth.FullType
-                let ctx, privateName = bindIdent ctx typ (Some meth) name
+                let ctx, privateName = bindIdent ctx typ (Some meth) memberName
                 ctx, Some (privateName.name)
-            | Fable.Method name when not meth.EnclosingEntity.IsFSharpModule ->
-                if name.StartsWith "op_"
-                then
-                    let arg = meth.CurriedParameterGroups.[0].[0]
-                    if not arg.Type.HasTypeDefinition
-                        || arg.Type.TypeDefinition <> meth.EnclosingEntity
-                    then failwithf "First argument of custom type operators must be same as type: %s" meth.FullName
-                    elif System.Text.RegularExpressions.Regex.IsMatch(name, "_\d+$")
-                    then failwithf "Custom type operators overloads is not supported: %s" meth.FullName
-                    else ctx, None
+            // Make some checks on custom type operators
+            elif memberName.StartsWith "op_" then
+                let arg = meth.CurriedParameterGroups.[0].[0]
+                if not arg.Type.HasTypeDefinition
+                    || arg.Type.TypeDefinition <> meth.EnclosingEntity
+                then failwithf "First argument of custom type operators must be same as type: %s" meth.FullName
+                elif System.Text.RegularExpressions.Regex.IsMatch(memberName, "_\d+$")
+                then failwithf "Custom type operator overloads is not supported: %s" meth.FullName
                 else ctx, None
-            | _ -> ctx, None
+            else ctx, None
         let entMember =
-            Fable.Member(memberKind,
+            Fable.Member(memberName, memberKind,
                 getRefLocation meth |> makeRange, args', body,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
                 isPublic = (not meth.Accessibility.IsPrivate && not meth.IsCompilerGenerated),
@@ -756,7 +753,6 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     else addMethod()
     |> fun ctx -> declInfo, ctx
    
-// TODO: Check that nested entities' names don't clash with parent members
 let rec private transformEntityDecl
     (com: IFableCompiler) ctx (declInfo: DeclInfo) (ent: FSharpEntity) subDecls =
     if declInfo.IsIgnoredEntity ent then
@@ -771,7 +767,7 @@ let rec private transformEntityDecl
             then [makeExceptionCons()]
             elif ent.IsFSharpRecord
             then ent.FSharpFields
-                 |> Seq.map (fun x -> x.DisplayName) |> Seq.toList
+                 |> Seq.map (fun x -> x.Name) |> Seq.toList
                  |> makeRecordCons
                  |> List.singleton
             else []
@@ -783,7 +779,7 @@ let rec private transformEntityDecl
         else
             // Bind entity name to context to prevent name
             // clashes (it will become a variable in JS)
-            let ctx, ident = bindIdent ctx Fable.UnknownType None ent.DisplayName
+            let ctx, ident = sanitizeEntityName ent |> bindIdent ctx Fable.UnknownType None
             declInfo.AddChild(com, ent, ident.name, childDecls)
             declInfo, ctx
 
@@ -858,7 +854,7 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
                 then Some file
                 else None
         member fcom.GetEntity tdef =
-            entities.GetOrAdd (defaultArg tdef.TryFullName tdef.DisplayName,
+            entities.GetOrAdd (defaultArg tdef.TryFullName tdef.CompiledName,
                                fun _ -> makeEntity fcom tdef)
         member fcom.TryGetInlineExpr fullName =
             let success, expr = inlineExprs.TryGetValue fullName
@@ -885,7 +881,7 @@ let private addInjections (com: ICompiler) (curProj: Fable.Project) =
         let body =
             args |> List.map (Fable.IdentValue >> Fable.Value)
             |> injection.GetBody
-        Fable.Member(Fable.Method injection.Name,
+        Fable.Member(injection.Name, Fable.Method,
             SourceLocation.Empty, args, body)
         |> Fable.MemberDeclaration
     com.Plugins

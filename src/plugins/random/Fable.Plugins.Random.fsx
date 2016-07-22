@@ -14,7 +14,7 @@ type RandomPlugin() =
                 | ".ctor" ->
                     let o = Fable.ObjExpr ([], [], None, info.range)
                     Fable.Wrapped (o, info.returnType) |> Some
-                | "next" ->
+                | "Next" ->
                     let intConst x =
                         Fable.NumberConst (U2.Case1 x, Int32) |> Fable.Value
                     let min, max =

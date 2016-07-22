@@ -74,11 +74,13 @@ and Declaration =
 
 and MemberKind =
     | Constructor
-    | Method of name: string
-    | Getter of name: string * isField: bool
-    | Setter of name: string
+    | Method
+    | Getter
+    | Setter
+    | Field
 
-and Member(kind, range, args, body, ?decorators, ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?privateName) =
+and Member(name, kind, range, args, body, ?decorators, ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?privateName) =
+    member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.Range: SourceLocation = range
     member x.Arguments: Ident list = args

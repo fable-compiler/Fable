@@ -29,14 +29,25 @@ module Naming =
 
     let getImportIdent i = sprintf "$import%i" i
 
+    /// The methods belonging to these interfaces will have
+    /// the first letter lowered to be more idiomatic in JS
     let knownInterfaces =
         set [ "System.Object"; "System.IComparable"; "System.IDisposable";
             "System.IObservable"; "System.IObserver"]
-             
+
+    /// Interfaces automatically assigned by the F# compiler
+    /// to unions and records. Ignored by Fable.
     let automaticInterfaces =
         set [ "System.IEquatable"; "System.Collections.IStructuralEquatable";
             "System.IComparable"; "System.Collections.IStructuralComparable" ]
-    
+
+    /// IEnumerable interfaces cannot be implemented as
+    /// they would have to be translated to JS iterable.
+    let forbiddenInterfaces =
+        set [ "System.IEnumerable"; "System.Collections.Generic.IEnumerable" ]
+
+    /// Methods automatically assigned by the F# compiler
+    /// for unions and records. Ignored by Fable.
     let ignoredCompilerGenerated =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
 

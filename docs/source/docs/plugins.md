@@ -94,15 +94,9 @@ type ApplyInfo = {
 ```
 
 We're going to focus on the first four fields: `ownerFullName` and `methodName`
-make it possible to identify the method. The owner's (the class or module owning
-the method) name corresponds to name displayed on the code and it's important to note
-that method name for replacements will always have **a lower-case first letter**.
-There's a couple of reasons for that, one is that many of these calls will be
-diverted to Fable's core library, where all methods start with lower-case to
-follow JavaScript standards.
-
-The next two fields expose the instance object (which maybe `None` if the method
-is static) and the arguments, already transformed into Fable expressions.
+make it possible to identify the method. The next two fields expose the instance object
+(which maybe `None` if the method is static) and the arguments, already transformed
+into Fable expressions.
 
 With this information, let's identify calls to `System.Random`. This time we'll
 only try to replace two methods: the constructor and `Next`.
@@ -113,7 +107,7 @@ member x.TryReplace com (info: Fable.ApplyInfo) =
     | "System.Random" ->
         match info.methodName with
         | ".ctor" -> failwith "TODO"
-        | "next" -> failwith "TODO"
+        | "Next" -> failwith "TODO"
         | _ -> None
     | _ -> None
 ```
@@ -154,7 +148,7 @@ has three overloads so we need to check the arguments and use default values
 for the lower and upper limits of the range if they're not provided.
 
 ```fsharp
-| "next" ->
+| "Next" ->
     let intConst x =
         Fable.NumberConst (U2.Case1 x, Int32) |> Fable.Value
     let min, max =

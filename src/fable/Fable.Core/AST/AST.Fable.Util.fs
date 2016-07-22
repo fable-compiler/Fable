@@ -158,13 +158,13 @@ let makeUnionCons () =
     // We cannot use just arguments.length because sometimes null arguments are erased, see #231
     let emit = Emit "this.Case=caseName; this.Fields = []; for (var i=0; i<fieldsLength; i++) { this.Fields[i]=arguments[i+2]; }" |> Value
     let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
-    Member(Constructor, SourceLocation.Empty, [makeIdent "caseName"; makeIdent "fieldsLength"], body, [], true)
+    Member(".ctor", Constructor, SourceLocation.Empty, [makeIdent "caseName"; makeIdent "fieldsLength"], body, [], true)
     |> MemberDeclaration
 
 let makeExceptionCons () =
     let emit = Emit "for (var i=0; i<arguments.length; i++) { this['data'+i]=arguments[i]; }" |> Value
     let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
-    Member(Constructor, SourceLocation.Empty, [], body, [], true)
+    Member(".ctor", Constructor, SourceLocation.Empty, [], body, [], true)
     |> MemberDeclaration
 
 let makeRecordCons props =
@@ -177,7 +177,7 @@ let makeRecordCons props =
         props |> Seq.mapi (fun i x ->
             sprintf "this%s=$arg%i" (sanitizeField x) i) |> String.concat ";"
     let body = Apply (Value (Emit body), [], ApplyMeth, PrimitiveType Unit, None)
-    Member(Constructor, SourceLocation.Empty, args, body, [], true, false, false)
+    Member(".ctor", Constructor, SourceLocation.Empty, args, body, [], true, false, false)
     |> MemberDeclaration
 
 let makeDelegate arity (expr: Expr) =
@@ -228,7 +228,7 @@ let makeApply range typ callee exprs =
 
 let makeJsObject range (props: (string * Expr) list) =
     let members = props |> List.map (fun (name, body) ->
-        Member(Getter (name, true), range, [], body))
+        Member(name, Field, range, [], body))
     ObjExpr(members, [], None, Some range)
 
 let makeEmit args macro =

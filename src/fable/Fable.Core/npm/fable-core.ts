@@ -693,7 +693,7 @@ class FString {
     return idx >= 0 && idx == str.length - search.length;
   }
 
-  static init(n: number, f: (i: number) => string) {
+  static initialize(n: number, f: (i: number) => string) {
     if (n < 0)
       throw "String length must be non-negative";
 
@@ -746,7 +746,7 @@ class FString {
   }
 
   static replicate(n: number, x: string) {
-    return FString.init(n, () => x);
+    return FString.initialize(n, () => x);
   }
 
   static split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
@@ -899,10 +899,10 @@ export { FRegExp as RegExp }
 
 class FArray {
   static addRangeInPlace<T>(range: Iterable<T>, xs: Array<T>) {
-    Seq.iter(x => xs.push(x), range);
+    Seq.iterate(x => xs.push(x), range);
   }
 
-  static blit<T>(source: ArrayLike<T>, sourceIndex: number, target: ArrayLike<T>, targetIndex: number, count: number) {
+  static copyTo<T>(source: ArrayLike<T>, sourceIndex: number, target: ArrayLike<T>, targetIndex: number, count: number) {
     while (count--)
       target[targetIndex++] = source[sourceIndex++];
   }
@@ -1020,7 +1020,7 @@ export class List<T> {
   }
 
   static append<T>(xs: List<T>, ys: List<T>) {
-    return Seq.fold((acc, x) => new List<T>(x, acc), ys, List.rev(xs));
+    return Seq.fold((acc, x) => new List<T>(x, acc), ys, List.reverse(xs));
   }
 
   choose<U>(f: (x: T) => U, xs: List<T>): List<U> {
@@ -1033,7 +1033,7 @@ export class List<T> {
       return y != null ? new List<U>(y, acc) : acc;
     }, new List<U>(), xs);
 
-    return List.rev(r);
+    return List.reverse(r);
   }
 
   collect<U>(f: (x: T) => List<U>): List<U> {
@@ -1054,7 +1054,7 @@ export class List<T> {
   }
 
   static filter<T>(f: (x: T) => boolean, xs: List<T>) {
-    return List.rev(Seq.fold((acc, x) => f(x) ? new List<T>(x, acc) : acc, new List<T>(), xs));
+    return List.reverse(Seq.fold((acc, x) => f(x) ? new List<T>(x, acc) : acc, new List<T>(), xs));
   }
 
   where(f: (x: T) => boolean): List<T> {
@@ -1065,7 +1065,7 @@ export class List<T> {
     return List.filter(f, xs);
   }
 
-  static init<T>(n: number, f: (i: number) => T) {
+  static initialize<T>(n: number, f: (i: number) => T) {
     if (n < 0) {
       throw "List length must be non-negative";
     }
@@ -1081,15 +1081,15 @@ export class List<T> {
   }
 
   static map<T, U>(f: (x: T) => U, xs: List<T>) {
-    return List.rev(Seq.fold((acc: List<U>, x: T) => new List<U>(f(x), acc), new List<U>(), xs));
+    return List.reverse(Seq.fold((acc: List<U>, x: T) => new List<U>(f(x), acc), new List<U>(), xs));
   }
 
-  mapi<U>(f: (i: number, x: T) => U): List<U> {
-    return List.mapi(f, this);
+  mapIndexed<U>(f: (i: number, x: T) => U): List<U> {
+    return List.mapIndexed(f, this);
   }
 
-  static mapi<T, U>(f: (i: number, x: T) => U, xs: List<T>) {
-    return List.rev(Seq.fold((acc, x, i) => new List<U>(f(i, x), acc), new List<U>(), xs));
+  static mapIndexed<T, U>(f: (i: number, x: T) => U, xs: List<T>) {
+    return List.reverse(Seq.fold((acc, x, i) => new List<U>(f(i, x), acc), new List<U>(), xs));
   }
 
   partition(f: (x: T) => boolean): [List<T>, List<T>] {
@@ -1100,18 +1100,18 @@ export class List<T> {
     return Seq.fold((acc, x) => {
       const lacc = acc[0], racc = acc[1];
       return f(x) ? Tuple(new List<T>(x, lacc), racc) : Tuple(lacc, new List<T>(x, racc));
-    }, Tuple(new List<T>(), new List<T>()), List.rev(xs));
+    }, Tuple(new List<T>(), new List<T>()), List.reverse(xs));
   }
 
   static replicate<T>(n: number, x: T) {
-    return List.init(n, () => x);
+    return List.initialize(n, () => x);
   }
 
-  rev(): List<T> {
-    return List.rev(this);
+  reverse(): List<T> {
+    return List.reverse(this);
   }
 
-  static rev<T>(xs: List<T>) {
+  static reverse<T>(xs: List<T>) {
     return Seq.fold((acc, x) => new List<T>(x, acc), new List<T>(), xs);
   }
 
@@ -1126,7 +1126,7 @@ export class List<T> {
   static slice<T>(lower: number, upper: number, xs: List<T>) {
     const noLower = (lower == null);
     const noUpper = (upper == null);
-    return List.rev(Seq.fold((acc, x, i) => (noLower || lower <= i) && (noUpper || i <= upper) ? new List<T>(x, acc) : acc, new List<T>(), xs));
+    return List.reverse(Seq.fold((acc, x, i) => (noLower || lower <= i) && (noUpper || i <= upper) ? new List<T>(x, acc) : acc, new List<T>(), xs));
   }
 
   /* ToDo: instance unzip() */
@@ -1418,11 +1418,11 @@ export class Seq {
     return acc;
   }
 
-  static forall<T>(f: (x: T) => boolean, xs: Iterable<T>) {
+  static forAll<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     return Seq.fold((acc, x) => acc && f(x), true, xs);
   }
 
-  static forall2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
+  static forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
     return Seq.fold2((acc, x, y) => acc && f(x, y), true, xs, ys);
   }
 
@@ -1445,12 +1445,12 @@ export class Seq {
     return Seq.__failIfNone(Seq.tryHead(xs));
   }
 
-  static init<T>(n: number, f: (i: number) => T) {
+  static initialize<T>(n: number, f: (i: number) => T) {
     return Seq.delay(() =>
       Seq.unfold(i => i < n ? [f(i), i + 1] : null, 0));
   }
 
-  static initInfinite<T>(f: (i: number) => T) {
+  static initializeInfinite<T>(f: (i: number) => T) {
     return Seq.delay(() =>
       Seq.unfold(i => [f(i), i + 1], 0));
   }
@@ -1476,19 +1476,19 @@ export class Seq {
     return Seq.__failIfNone(Seq.tryItem(i, xs));
   }
 
-  static iter<T>(f: (x: T) => void, xs: Iterable<T>) {
+  static iterate<T>(f: (x: T) => void, xs: Iterable<T>) {
     Seq.fold((_, x) => f(x), null, xs);
   }
 
-  static iter2<T1, T2>(f: (x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
+  static iterate2<T1, T2>(f: (x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
     Seq.fold2((_, x, y) => f(x, y), null, xs, ys);
   }
 
-  static iteri<T>(f: (i: number, x: T) => void, xs: Iterable<T>) {
+  static iterateIndexed<T>(f: (i: number, x: T) => void, xs: Iterable<T>) {
     Seq.fold((_, x, i) => f(i, x), null, xs);
   }
 
-  static iteri2<T1, T2>(f: (i: number, x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
+  static iterateIndexed2<T1, T2>(f: (i: number, x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
     Seq.fold2((_, x, y, i) => f(i, x, y), null, xs, ys);
   }
 
@@ -1524,7 +1524,7 @@ export class Seq {
     }, xs[Symbol.iterator]()));
   }
 
-  static mapi<T, U>(f: (i: number, x: T) => U, xs: Iterable<T>) {
+  static mapIndexed<T, U>(f: (i: number, x: T) => U, xs: Iterable<T>) {
     return Seq.delay(() => {
       let i = 0;
       return Seq.unfold(iter => {
@@ -1545,7 +1545,7 @@ export class Seq {
     });
   }
 
-  static mapi2<T1, T2, U>(f: (i: number, x: T1, y: T2) => U, xs: Iterable<T1>, ys: Iterable<T2>) {
+  static mapIndexed2<T1, T2, U>(f: (i: number, x: T1, y: T2) => U, xs: Iterable<T1>, ys: Iterable<T2>) {
     return Seq.delay(() => {
       let i = 0;
       const iter1 = xs[Symbol.iterator]();
@@ -1633,7 +1633,7 @@ export class Seq {
     return Seq.rangeStep(first, 1, last);
   }
 
-  static readonly<T>(xs: Iterable<T>) {
+  static readOnly<T>(xs: Iterable<T>) {
     return Seq.map(x => x, xs);
   }
 
@@ -1670,10 +1670,10 @@ export class Seq {
   }
 
   static replicate<T>(n: number, x: T) {
-    return Seq.init(n, () => x);
+    return Seq.initialize(n, () => x);
   }
 
-  static rev<T>(xs: Iterable<T>) {
+  static reverse<T>(xs: Iterable<T>) {
     const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (<Array<T>>xs).slice(0) : Array.from(xs);
     return Seq.ofArray(ar.reverse());
   }
@@ -1696,7 +1696,7 @@ export class Seq {
   }
 
   static scanBack<T, ST>(f: (x: T, st: ST) => ST, xs: Iterable<T>, seed: ST) {
-    return Seq.rev(Seq.scan((acc, x) => f(x, acc), seed, Seq.rev(xs)));
+    return Seq.reverse(Seq.scan((acc, x) => f(x, acc), seed, Seq.reverse(xs)));
   }
 
   static singleton<T>(x: T) {
@@ -1917,7 +1917,7 @@ class FSet {
       throw "Seq was empty";
 
     const set = new Set<T>(ar[0]);
-    Seq.iter((x: T) => {
+    Seq.iterate((x: T) => {
       for (let i = 1; i < ar.length; i++) {
         if (!ar[i].has(x)) {
           set.delete(x);
@@ -1929,12 +1929,12 @@ class FSet {
   }
 
   static isProperSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.forall(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
+    return Seq.forAll(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
   }
   static isProperSubset = FSet.isProperSubsetOf;
 
   static isSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.forall(x => set2.has(x), set1);
+    return Seq.forAll(x => set2.has(x), set1);
   }
   static isSubset = FSet.isSubsetOf;
 
@@ -2001,12 +2001,12 @@ class FMap {
     return Seq.foldBack((kv, acc) => f(kv[0], kv[1], acc), map, seed);
   }
 
-  static forall<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.forall(kv => f(kv[0], kv[1]), map);
+  static forAll<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
+    return Seq.forAll(kv => f(kv[0], kv[1]), map);
   }
 
-  static iter<K, V>(f: (k: K, v: V) => void, map: Map<K, V>) {
-    return Seq.iter(kv => f(kv[0], kv[1]), map);
+  static iterate<K, V>(f: (k: K, v: V) => void, map: Map<K, V>) {
+    return Seq.iterate(kv => f(kv[0], kv[1]), map);
   }
 
   static map<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
@@ -2176,7 +2176,6 @@ export class Async {
 
   // --- Async methods
 
-  // Async.AwaitTask<T> in F#
   static awaitPromise<T>(p: Promise<T>) {
     return Async.fromContinuations((conts: Array<Continuation<T>>) =>
       p.then(conts[0]).catch(err =>
@@ -2246,7 +2245,6 @@ export class Async {
     });
   }
 
-  // Async.StartAsTask<T> in F#
   static startAsPromise<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
     return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
       Async.startWithContinuations(computation, resolve, reject, reject, cancellationToken ? cancellationToken : Async.defaultCancellationToken));
@@ -2550,7 +2548,7 @@ export class Event<T> implements IEvent<T> {
   }
 
   public trigger(value: T) {
-    Seq.iter(f => f(value), this.delegates);
+    Seq.iterate(f => f(value), this.delegates);
   }
 
   // IDelegateEvent<T> methods
