@@ -127,22 +127,22 @@ export class Util {
 
   static toPlainJsObj = function (source: any) {
     if (source != null && source.constructor != Object) {
-      let target: { [index: string]: string } = {};
+      let target: { [index: string]: string } = {};
       let props = Object.getOwnPropertyNames(source);
       for (let i = 0; i < props.length; i++) {
         target[props[i]] = source[props[i]];
       }
       // Copy also properties from prototype, see #192
       const proto = Object.getPrototypeOf(source);
-      if (proto != null) { 
+      if (proto != null) {
         props = Object.getOwnPropertyNames(proto);
         for (let i = 0; i < props.length; i++) {
           const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
           if (prop.value) {
-              target[props[i]] = prop.value;
+            target[props[i]] = prop.value;
           }
           else if (prop.get) {
-              target[props[i]] = prop.get.apply(source);
+            target[props[i]] = prop.get.apply(source);
           }
         }
       }
@@ -778,7 +778,7 @@ class FString {
   static trim(str: string, side: "start" | "end" | "both", ...chars: string[]) {
     if (side == "both" && chars.length == 0)
       return str.trim();
-    
+
     if (side == "start" || side == "both") {
       const reg = chars.length == 0 ? /^\s+/ : new RegExp("^[" + FRegExp.escape(chars.join("")) + "]+");
       str = str.replace(reg, "");
@@ -1375,12 +1375,12 @@ export class Seq {
     if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
       return (xs as Array<T>).reduce(f, acc);
     } else {
-      let cur: IteratorResult<T> = null;
+      let cur: IteratorResult<T>;
       for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
         cur = iter.next();
-        if (cur.done) {
+        if (cur.done)
           break;
-        }
+
         acc = f(acc, cur.value, i);
       }
       return acc;
@@ -1569,6 +1569,32 @@ export class Seq {
     });
   }
 
+  static mapFold<T, ST, R>(f: (acc: ST, x: T) => Tuple<R, ST>, acc: ST, xs: Iterable<T>) {
+    let result: Array<R> = [];
+    let r: R;
+    let cur: IteratorResult<T>;
+    for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
+      cur = iter.next();
+      if (cur.done)
+        break;
+
+      [r, acc] = f(acc, cur.value);
+      result.push(r);
+    }
+    return Tuple(<Iterable<R>>result, acc);
+  }
+
+  static mapFoldBack<T, ST, R>(f: (x: T, acc: ST) => Tuple<R, ST>, xs: Iterable<T>, acc: ST) {
+    const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as Array<T> : Array.from(xs);
+    let result: Array<R> = [];
+    let r: R;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      [r, acc] = f(arr[i], acc);
+      result.push(r);
+    }
+    return Tuple(<Iterable<R>>result, acc);
+  }
+
   static max<T extends number>(xs: Iterable<T>) {
     return Seq.reduce((acc: T, x: T) => Math.max(acc, x), xs);
   }
@@ -1623,9 +1649,9 @@ export class Seq {
     let acc = cur.value;
     for (; ;) {
       cur = iter.next();
-      if (cur.done) {
+      if (cur.done)
         break;
-      }
+
       acc = f(acc, cur.value);
     }
     return acc;
