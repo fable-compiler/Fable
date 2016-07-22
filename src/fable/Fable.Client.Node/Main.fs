@@ -144,20 +144,22 @@ let getMinimumFableCoreVersion() =
         then Version att.Value |> Some
         else None)
 
+let printFile =
+    let jsonSettings =
+        JsonSerializerSettings(
+            Converters=[|Json.ErasedUnionConverter()|],
+            StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
+    fun (file: AST.Babel.Program) ->
+        JsonConvert.SerializeObject (file, jsonSettings)
+        |> Console.Out.WriteLine
+
+let printMessages (msgs: #seq<CompilerMessage>) =
+    msgs
+    |> Seq.map CompilerMessage.toDic
+    |> Seq.map JsonConvert.SerializeObject
+    |> Seq.iter Console.Out.WriteLine
+
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
-    let printFile =
-        let jsonSettings =
-            JsonSerializerSettings(
-                Converters=[|Json.ErasedUnionConverter()|],
-                StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
-        fun (file: AST.Babel.Program) ->
-            JsonConvert.SerializeObject (file, jsonSettings)
-            |> Console.Out.WriteLine
-    let printMessages (msgs: #seq<CompilerMessage>) =
-        msgs
-        |> Seq.map CompilerMessage.toDic
-        |> Seq.map JsonConvert.SerializeObject
-        |> Seq.iter Console.Out.WriteLine
     try
         // Reload project options if necessary
         // -----------------------------------
@@ -227,18 +229,20 @@ let rec awaitInput (com: ICompiler) checker (projInfo: FSProjInfo) =
 
 [<EntryPoint>]
 let main argv =
-    let opts = readOptions argv
-    let checker = FSharpChecker.Create(keepAssemblyContents=true)
-    let projectOpts = getProjectOpts checker opts
-    let com = loadPlugins opts.plugins |> makeCompiler opts
-    // Full compilation
-    let success, projInfo =
-        { FSProjInfo.projectOpts = projectOpts
-          FSProjInfo.fileMask = None
-          FSProjInfo.dependencies = Map.empty }
-        |> compile com checker
-
-    // Keep on watching if necessary
-    if success && opts.watch then
-        awaitInput com checker projInfo
+    try
+        let opts = readOptions argv
+        let checker = FSharpChecker.Create(keepAssemblyContents=true)
+        let projectOpts = getProjectOpts checker opts
+        let com = loadPlugins opts.plugins |> makeCompiler opts
+        // Full compilation
+        let success, projInfo =
+            { FSProjInfo.projectOpts = projectOpts
+              FSProjInfo.fileMask = None
+              FSProjInfo.dependencies = Map.empty }
+            |> compile com checker
+        // Keep on watching if necessary
+        if success && opts.watch then
+            awaitInput com checker projInfo
+    with
+    | ex -> printMessages [Error(ex.Message, ex.StackTrace)]
     0
