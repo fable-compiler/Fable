@@ -797,25 +797,25 @@ module Compiler =
         let imports = ["import { List } from 'fable-core';"]       // FixMe: import only needed types
 
         let outputTypeScriptDeclaration (decl: Fable.Declaration) = 
-            let outputMethod name (m: Fable.Member) =
-                let getTypeScriptType (t: Fable.Type) =
-                    match t with 
-                    | Fable.Type.UnknownType -> "any"
-                    | Fable.Type.PrimitiveType k ->
-                        match k with 
-                        | Fable.PrimitiveTypeKind.Unit -> "void"
-                        | Fable.PrimitiveTypeKind.Enum name -> name
-                        | Fable.PrimitiveTypeKind.Number _ -> "number"
-                        | Fable.PrimitiveTypeKind.String -> "string"
-                        | Fable.PrimitiveTypeKind.Regex -> "RegExp"
-                        | Fable.PrimitiveTypeKind.Boolean -> "boolean"
-                        | Fable.PrimitiveTypeKind.Function arity -> sprintf "(function %d)" arity
-                        | Fable.PrimitiveTypeKind.Array _ -> "Array<any>"
-                    | Fable.Type.DeclaredType e -> 
-                        match e.FullName with
-                        | "Microsoft.FSharp.Collections.List" -> "List<any>"
-                        | _ -> sprintf "any /* %s */" t.FullName
+            let getTypeScriptType (t: Fable.Type) =
+                match t with 
+                | Fable.Type.UnknownType -> "any"
+                | Fable.Type.PrimitiveType k ->
+                    match k with 
+                    | Fable.PrimitiveTypeKind.Unit -> "void"
+                    | Fable.PrimitiveTypeKind.Enum name -> name
+                    | Fable.PrimitiveTypeKind.Number _ -> "number"
+                    | Fable.PrimitiveTypeKind.String -> "string"
+                    | Fable.PrimitiveTypeKind.Regex -> "RegExp"
+                    | Fable.PrimitiveTypeKind.Boolean -> "boolean"
+                    | Fable.PrimitiveTypeKind.Function arity -> sprintf "(function %d)" arity
+                    | Fable.PrimitiveTypeKind.Array _ -> "Array<any>"
+                | Fable.Type.DeclaredType e -> 
+                    match e.FullName with
+                    | "Microsoft.FSharp.Collections.List" -> "List<any>"
+                    | _ -> sprintf "any /* %s */" t.FullName
 
+            let outputMethod name (m: Fable.Member) =
                 let mapArg (i: Fable.Ident) = sprintf "%s: %s" i.name (getTypeScriptType i.typ)
                 let args = match m.Arguments with
                            | [] -> ""
@@ -824,24 +824,30 @@ module Compiler =
                 sprintf "export function %s%s: %s;" name args returnType
 
             match decl with
+            | Fable.ActionDeclaration (e, _) ->
+                sprintf "/* ToDo: Action %s */" e.Type.FullName
             | Fable.MemberDeclaration m -> 
                 match m.Kind with
+                | Fable.Constructor -> "/* ToDo: constructor */"
                 | Fable.Method name -> outputMethod name m
-                | _ -> ""
-            | Fable.EntityDeclaration (ent, privateName, entDecls, entRange) ->
+                | Fable.Getter (name, _) -> 
+                    let returnType = getTypeScriptType m.Body.Type
+                    sprintf "declare var %s: %s;" name returnType
+                | Fable.Setter name -> sprintf "/* ToDo: Setter %s */" name
+            | Fable.EntityDeclaration (ent, privateName, entDecls, _) ->
                 match ent.Kind with
                 | Fable.Interface ->
                     sprintf "/* ToDo: interface %s */" ent.FullName
                 | Fable.Class baseClass ->
+                    let implements = ""      // ToDo: interfaces
                     let extends = match baseClass with
                                     | Some b -> sprintf " extends %s" (fst b)
                                     | None -> ""
-                    sprintf "/* ToDo: class %s%s */" ent.Name extends
+                    sprintf "/* ToDo: class %s%s%s */" ent.Name extends implements
                 | Fable.Union -> sprintf "/* ToDo: union %s */" ent.Name
                 | Fable.Record -> sprintf "/* ToDo: record %s */" ent.Name
                 | Fable.Exception -> sprintf "/* ToDo: exception %s */" ent.Name
                 | Fable.Module -> sprintf "/* ToDo: module %s */" ent.Name
-            | _ -> ""
 
         List.append imports (List.map outputTypeScriptDeclaration decls)
 
