@@ -163,8 +163,8 @@ module vscode =
         member __.query with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.fragment with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
         member __.fsPath with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        member __.file(path: string): Uri = failwith "JS only"
-        member __.parse(value: string): Uri = failwith "JS only"
+        static member file(path: string): Uri = failwith "JS only"
+        static member parse(value: string): Uri = failwith "JS only"
         member __.toString(): string = failwith "JS only"
         member __.toJSON(): obj = failwith "JS only"
 
