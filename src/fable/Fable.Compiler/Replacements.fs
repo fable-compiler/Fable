@@ -864,7 +864,8 @@ module private AstPass =
         set [ "average"; "averageBy"; "countBy"; "compareWith"; "empty";
               "exactlyOne"; "exists"; "exists2"; "fold"; "fold2"; "foldBack"; "foldBack2";
               "forall"; "forall2"; "head"; "tryHead"; "item"; "tryItem"; "iter"; "iteri"; "iter2"; "iteri2";
-              "isEmpty"; "last"; "tryLast"; "length"; "max"; "maxBy"; "min"; "minBy";
+              "isEmpty"; "last"; "tryLast"; "length"; 
+              "mapFold"; "mapFoldBack"; "max"; "maxBy"; "min"; "minBy";
               "reduce"; "reduceBack"; "sum"; "sumBy"; "tail"; "toList";
               "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; "unfold";
               "tryFindBack"; "findBack"; "tryFindIndexBack"; "findIndexBack" ]
