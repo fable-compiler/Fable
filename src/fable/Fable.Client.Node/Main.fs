@@ -59,6 +59,7 @@ let readOptions argv =
         refs = Map(def opts "refs" [] (li (fun (x: string) ->
             let xs = x.Split('=') in xs.[0], xs.[1])))
         extra = Map.empty // TODO: Read extra options
+        declaration = def opts "declaration" false (un bool.Parse)
     }
 
 let loadPlugins (pluginPaths: string list) =
@@ -181,7 +182,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         //let warnings = match timer with Some timer -> (timer.Finish())::warnings | None -> warnings
         warnings |> Seq.map (string >> Log) |> printMessages
 
-        // Check Fable.Core version on first compilation (whe projInfo.fileMask is None)
+        // Check Fable.Core version on first compilation (when projInfo.fileMask is None)
         // -----------------------------------------------------------------------------
         if Option.isNone projInfo.fileMask then
             parsedProj.ProjectContext.GetReferencedAssemblies()
