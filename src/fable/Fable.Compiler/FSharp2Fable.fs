@@ -188,12 +188,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
     | CreateEvent (callee, eventName, meth, typArgs, methTypArgs, methArgs) ->
-        let eventName =
-            // HACK: At the moment, Timer.Elapsed is the only replaced CLIEvent
-            if callee.Type.HasTypeDefinition
-                && callee.Type.TypeDefinition.TryFullName = Some "System.Timers.Timer"
-            then Naming.lowerFirst eventName
-            else eventName
         let callee, args = com.Transform ctx callee, List.map (com.Transform ctx) methArgs
         let callee = Fable.Apply(callee, [makeConst eventName], Fable.ApplyGet, Fable.UnknownType, None)
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
@@ -410,14 +404,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                     Some thisVar, (fsRef, Fable.IdentValue thisVar |> Fable.Value)::scope
                 | _ -> capturedThis, (fsRef, expr)::scope)
             |> fun (capturedThis, scope) -> capturedThis, { ctx with scope = scope}
-        let lowerFirstKnownInterfaces typ name =
-            match typ with
-            | Some typ ->
-                let typName = sanitizeEntityFullName typ
-                if Naming.knownInterfaces.Contains typName
-                then Naming.lowerFirst name
-                else name
-            | None -> name
         let baseClass, baseCons =
             match baseCallExpr with
             | BasicPatterns.Call(None, meth, _, _, args)
@@ -446,11 +432,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                         if over.Signature.DeclaringType.HasTypeDefinition
                         then Some over.Signature.DeclaringType.TypeDefinition
                         else None
-                    let name =
-                        over.Signature.Name
-                        |> Naming.removeParens
-                        |> Naming.removeGetSetPrefix
-                        |> lowerFirstKnownInterfaces typ
+                    let name = over.Signature.Name |> Naming.removeGetSetPrefix
                     let kind =
                         // TODO: Check for indexed getter and setter also in object expressions?
                         match over.Signature.Name with

@@ -93,7 +93,7 @@ let ``Record equality works``() =
     
 type Test(i: int) =
     member x.Value = i
-    override x.GetHashCode() = i.GetHashCode()
+    override x.GetHashCode() = i
     override x.Equals(another) =
         match another with
         | :? Test as another -> another.Value + 1 = x.Value

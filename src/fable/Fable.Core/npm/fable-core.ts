@@ -68,6 +68,27 @@ export class Util {
     return Array.isArray(obj[FSymbol.interfaces]) && obj[FSymbol.interfaces].indexOf(interfaceName) >= 0;
   }
 
+  static getTypeFullName(cons: any): string {
+    if (cons.prototype && cons.prototype[FSymbol.typeName]) {
+      return cons.prototype[FSymbol.typeName];
+    }
+    else {
+      return cons.name || "unknown";
+    }
+  }
+
+  static getTypeNamespace(cons: any): string {
+    const fullName = Util.getTypeFullName(cons);
+    const i = fullName.lastIndexOf('.');
+    return i > -1 ? fullName.substr(0, i) : "";
+  } 
+
+  static getTypeName(cons: any): string {
+    const fullName = Util.getTypeFullName(cons);
+    const i = fullName.lastIndexOf('.');
+    return fullName.substr(i + 1);
+  }
+
   static getRestParams(args: ArrayLike<any>, idx: number) {
     for (var _len = args.length, restArgs = Array(_len > idx ? _len - idx : 0), _key = idx; _key < _len; _key++)
       restArgs[_key - idx] = args[_key];
@@ -95,7 +116,7 @@ export class Util {
         return -1;
 
       if (Util.hasInterface(x, "System.IComparable"))
-        return x.compareTo(y);
+        return x.CompareTo(y);
 
       if (isCollectionComparable(x)) {
         const lengthComp = Util.compareTo(Seq.count(x), Seq.count(y));
@@ -117,7 +138,7 @@ export class Util {
   }
 
   static createDisposable(f: () => void) {
-    const disp: IDisposable = { dispose: f };
+    const disp: IDisposable = { Dispose: f };
     (<any>disp)[FSymbol.interfaces] = ["System.IDisposable"];
     return disp;
   }
@@ -495,50 +516,50 @@ class FDate extends Date {
 export { FDate as Date }
 
 export interface IDisposable {
-  dispose(): void;
+  Dispose(): void;
 }
 
 export class Timer implements IDisposable {
-  public interval: number;
-  public autoReset: boolean;
-  public _elapsed: Event<Date>;
-
+  public Interval: number;
+  public AutoReset: boolean;
+  
+  private _elapsed: Event<Date>;
   private _enabled: boolean;
   private _isDisposed: boolean;
   private _intervalId: number;
   private _timeoutId: number;
 
   constructor(interval?: number) {
-    this.interval = interval > 0 ? interval : 100;
-    this.autoReset = true;
+    this.Interval = interval > 0 ? interval : 100;
+    this.AutoReset = true;
     this._elapsed = new Event<Date>();
   }
 
-  get elapsed() {
+  get Elapsed() {
     return this._elapsed;
   }
 
-  get enabled() {
+  get Enabled() {
     return this._enabled;
   }
 
-  set enabled(x: boolean) {
+  set Enabled(x: boolean) {
     if (!this._isDisposed && this._enabled != x) {
       if (this._enabled = x) {
-        if (this.autoReset) {
+        if (this.AutoReset) {
           this._intervalId = setInterval(() => {
-            if (!this.autoReset)
-              this.enabled = false;
-            this._elapsed.trigger(new Date());
-          }, this.interval);
+            if (!this.AutoReset)
+              this.Enabled = false;
+            this._elapsed.Trigger(new Date());
+          }, this.Interval);
         } else {
           this._timeoutId = setTimeout(() => {
-            this.enabled = false;
+            this.Enabled = false;
             this._timeoutId = 0;
-            if (this.autoReset)
-              this.enabled = true;
-            this._elapsed.trigger(new Date());
-          }, this.interval);
+            if (this.AutoReset)
+              this.Enabled = true;
+            this._elapsed.Trigger(new Date());
+          }, this.Interval);
         }
       } else {
         if (this._timeoutId) {
@@ -553,20 +574,21 @@ export class Timer implements IDisposable {
     }
   }
 
-  dispose() {
-    this.enabled = false;
+  Dispose() {
+    this.Enabled = false;
     this._isDisposed = true;
   }
 
-  close() {
-    this.dispose();
+  Close() {
+    this.Dispose();
   }
 
-  start() {
-    this.enabled = true;
+  Start() {
+    this.Enabled = true;
   }
-  stop() {
-    this.enabled = false;
+
+  Stop() {
+    this.Enabled = false;
   }
 }
 Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
@@ -1318,7 +1340,7 @@ export class Seq {
     const disposeOnce = () => {
       if (!isDisposed) {
         isDisposed = true;
-        disp.dispose();
+        disp.Dispose();
       }
     };
     try {
@@ -2075,11 +2097,8 @@ export interface IAsyncContext<T> {
 
 export type IAsync<T> = (x: IAsyncContext<T>) => void;
 
-export class Async {
-
-  // --- AsyncBuilder methods
-
-  private static __protectedAsync<T>(f: IAsync<T>) {
+const AsyncImpl = {
+  protectedCont<T>(f: IAsync<T>) {
     return (ctx: IAsyncContext<T>) => {
       if (ctx.cancelToken.isCancelled)
         ctx.onCancel("cancelled");
@@ -2090,10 +2109,9 @@ export class Async {
           ctx.onError(err);
         }
     };
-  }
-
-  static bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
-    return Async.__protectedAsync((ctx: IAsyncContext<U>) => {
+  },
+  bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<U>) => {
       computation({
         onSuccess: (x: T) => binder(x)(ctx),
         onError: ctx.onError,
@@ -2101,36 +2119,45 @@ export class Async {
         cancelToken: ctx.cancelToken
       });
     });
+  },
+  return<T>(value?: T) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
+  }
+}
+
+export class AsyncBuilder {
+  Bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
+    return AsyncImpl.bind(computation, binder);
   }
 
-  static combine<T>(computation1: IAsync<Unit>, computation2: IAsync<T>) {
-    return Async.bind(computation1, () => computation2);
+  Combine<T>(computation1: IAsync<Unit>, computation2: IAsync<T>) {
+    return this.Bind(computation1, () => computation2);
   }
 
-  static delay<T>(generator: () => IAsync<T>) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => generator()(ctx));
+  Delay<T>(generator: () => IAsync<T>) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => generator()(ctx));
   }
 
-  static for<T>(sequence: Iterable<T>, body: (x: T) => IAsync<Unit>) {
+  For<T>(sequence: Iterable<T>, body: (x: T) => IAsync<Unit>) {
     const iter = sequence[Symbol.iterator]();
     let cur = iter.next();
-    return Async.while(() => !cur.done, Async.delay(() => {
+    return this.While(() => !cur.done, this.Delay(() => {
       const res = body(cur.value);
       cur = iter.next();
       return res;
     }));
   }
 
-  static return<T>(value?: T) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
+  Return<T>(value?: T) {
+    return AsyncImpl.return(value);
   }
 
-  static returnFrom<T>(computation: IAsync<T>) {
+  ReturnFrom<T>(computation: IAsync<T>) {
     return computation;
   }
 
-  static tryFinally<T>(computation: IAsync<T>, compensation: () => void) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
+  TryFinally<T>(computation: IAsync<T>, compensation: () => void) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => {
       computation({
         onSuccess: (x: T) => {
           compensation();
@@ -2149,8 +2176,8 @@ export class Async {
     });
   }
 
-  static tryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => IAsync<T>) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
+  TryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => IAsync<T>) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => {
       computation({
         onSuccess: ctx.onSuccess,
         onCancel: ctx.onCancel,
@@ -2160,35 +2187,37 @@ export class Async {
     });
   }
 
-  static using<T extends IDisposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
-    return Async.tryFinally(binder(resource), () => resource.dispose());
+  Using<T extends IDisposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
+    return this.TryFinally(binder(resource), () => resource.Dispose());
   }
 
-  static while(guard: () => boolean, computation: IAsync<Unit>): IAsync<Unit> {
+  While(guard: () => boolean, computation: IAsync<Unit>): IAsync<Unit> {
     if (guard())
-      return Async.bind(computation, () => Async.while(guard, computation));
+      return this.Bind(computation, () => this.While(guard, computation));
     else
-      return Async.return(Nothing);
+      return this.Return(Nothing);
   }
 
-  static zero() {
-    return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => ctx.onSuccess(Nothing));
+  Zero() {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<Unit>) => ctx.onSuccess(Nothing));
   }
+}
 
-  // --- Async methods
+export const defaultAsyncBuilder = new AsyncBuilder();
 
+export class Async {
   static awaitPromise<T>(p: Promise<T>) {
     return Async.fromContinuations((conts: Array<Continuation<T>>) =>
       p.then(conts[0]).catch(err =>
         (err == "cancelled" ? conts[2] : conts[1])(err)));
   }
 
-  get cancellationToken() {
-    return Async.__protectedAsync((ctx: IAsyncContext<CancellationToken>) => ctx.onSuccess(ctx.cancelToken));
+  static get cancellationToken() {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<CancellationToken>) => ctx.onSuccess(ctx.cancelToken));
   }
 
   static catch<T>(work: IAsync<T>) {
-    return Async.__protectedAsync((ctx: IAsyncContext<Choice<T, any>>) => {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<Choice<T, any>>) => {
       work({
         onSuccess: x => ctx.onSuccess(Choice.Choice1Of2<T, any>(x)),
         onError: ex => ctx.onSuccess(Choice.Choice2Of2<T, any>(ex)),
@@ -2203,11 +2232,11 @@ export class Async {
   };
 
   static fromContinuations<T>(f: (conts: Array<Continuation<T>>) => void) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
   }
 
   static ignore<T>(computation: IAsync<T>) {
-    return Async.bind(computation, x => Async.return(Nothing));
+    return AsyncImpl.bind(computation, x => AsyncImpl.return(Nothing));
   }
 
   static parallel<T>(computations: Iterable<IAsync<T>>) {
@@ -2215,7 +2244,7 @@ export class Async {
   }
 
   static sleep(millisecondsDueTime: number) {
-    return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<Unit>) => {
       setTimeout(() => ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess(Nothing), millisecondsDueTime);
     });
   }
@@ -2365,33 +2394,33 @@ export class MailboxProcessor<Msg> {
 }
 
 export interface IObserver<T> {
-  onNext: (x: T) => void;
-  onError: (e: any) => void;
-  onCompleted: () => void;
+  OnNext: (x: T) => void;
+  OnError: (e: any) => void;
+  OnCompleted: () => void;
 }
 
 class Observer<T> implements IObserver<T> {
-  public onNext: (x: T) => void;
-  public onError: (e: any) => void;
-  public onCompleted: () => void;
+  public OnNext: (x: T) => void;
+  public OnError: (e: any) => void;
+  public OnCompleted: () => void;
 
   constructor(onNext: (x: T) => void, onError?: (e: any) => void, onCompleted?: () => void) {
-    this.onNext = onNext;
-    this.onError = onError || ((e: any) => { });
-    this.onCompleted = onCompleted || function () { };
+    this.OnNext = onNext;
+    this.OnError = onError || ((e: any) => { });
+    this.OnCompleted = onCompleted || function () { };
   }
 }
 Util.setInterfaces(Observer.prototype, ["System.IObserver"]);
 
 export interface IObservable<T> {
-  subscribe: (o: IObserver<T>) => IDisposable;
+  Subscribe: (o: IObserver<T>) => IDisposable;
 }
 
 class Observable<T> implements IObservable<T> {
-  public subscribe: (o: IObserver<T>) => IDisposable;
+  public Subscribe: (o: IObserver<T>) => IDisposable;
 
   constructor(subscribe: (o: IObserver<T>) => IDisposable) {
-    this.subscribe = subscribe;
+    this.Subscribe = subscribe;
   }
 }
 Util.setInterfaces(Observable.prototype, ["System.IObservable"]);
@@ -2406,17 +2435,17 @@ class FObservable {
   }
 
   static add<T>(callback: (x: T) => Unit, source: IObservable<T>) {
-    source.subscribe(new Observer(callback));
+    source.Subscribe(new Observer(callback));
   }
 
   static choose<T, U>(chooser: (x: T) => U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer =>
-      source.subscribe(new Observer<T>(t =>
+      source.Subscribe(new Observer<T>(t =>
         FObservable.__protect(
           () => chooser(t),
-          u => { if (u != null) observer.onNext(u); },
-          observer.onError),
-        observer.onError, observer.onCompleted)));
+          u => { if (u != null) observer.OnNext(u); },
+          observer.OnError),
+        observer.OnError, observer.OnCompleted)));
   }
 
   static filter<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
@@ -2425,24 +2454,24 @@ class FObservable {
 
   static map<T, U>(mapping: (x: T) => U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer =>
-      source.subscribe(new Observer<T>(t => {
+      source.Subscribe(new Observer<T>(t => {
         FObservable.__protect(
           () => mapping(t),
-          observer.onNext,
-          observer.onError);
-      }, observer.onError, observer.onCompleted)));
+          observer.OnNext,
+          observer.OnError);
+      }, observer.OnError, observer.OnCompleted)));
   }
 
   static merge<T>(source1: IObservable<T>, source2: IObservable<T>) {
     return <IObservable<T>>new Observable(observer => {
       let stopped = false, completed1 = false, completed2 = false;
 
-      const h1 = source1.subscribe(new Observer<T>(
-        v => { if (!stopped) observer.onNext(v); },
+      const h1 = source1.Subscribe(new Observer<T>(
+        v => { if (!stopped) observer.OnNext(v); },
         e => {
           if (!stopped) {
             stopped = true;
-            observer.onError(e);
+            observer.OnError(e);
           }
         },
         () => {
@@ -2450,17 +2479,17 @@ class FObservable {
             completed1 = true;
             if (completed2) {
               stopped = true;
-              observer.onCompleted();
+              observer.OnCompleted();
             }
           }
         }));
 
-      const h2 = source2.subscribe(new Observer<T>(
-        v => { if (!stopped) { observer.onNext(v); } },
+      const h2 = source2.Subscribe(new Observer<T>(
+        v => { if (!stopped) { observer.OnNext(v); } },
         e => {
           if (!stopped) {
             stopped = true;
-            observer.onError(e);
+            observer.OnError(e);
           }
         },
         () => {
@@ -2468,14 +2497,14 @@ class FObservable {
             completed2 = true;
             if (completed1) {
               stopped = true;
-              observer.onCompleted();
+              observer.OnCompleted();
             }
           }
         }));
 
       return Util.createDisposable(() => {
-        h1.dispose();
-        h2.dispose();
+        h1.Dispose();
+        h2.Dispose();
       });
     });
   }
@@ -2483,11 +2512,11 @@ class FObservable {
   static pairwise<T>(source: IObservable<T>) {
     return <IObservable<Tuple<T, T>>>new Observable<Tuple<T, T>>(observer => {
       let last: T = null;
-      return source.subscribe(new Observer<T>(next => {
+      return source.Subscribe(new Observer<T>(next => {
         if (last != null)
-          observer.onNext([last, next]);
+          observer.OnNext([last, next]);
         last = next;
-      }, observer.onError, observer.onCompleted));
+      }, observer.OnError, observer.OnCompleted));
     });
   }
 
@@ -2497,12 +2526,12 @@ class FObservable {
 
   static scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer => {
-      return source.subscribe(new Observer<T>(t => {
+      return source.Subscribe(new Observer<T>(t => {
         FObservable.__protect(
           () => collector(state, t),
-          u => { state = u; observer.onNext(u); },
-          observer.onError);
-      }, observer.onError, observer.onCompleted));
+          u => { state = u; observer.OnNext(u); },
+          observer.OnError);
+      }, observer.OnError, observer.OnCompleted));
     });
   }
 
@@ -2511,7 +2540,7 @@ class FObservable {
   }
 
   static subscribe<T>(callback: (x: T) => Unit, source: IObservable<T>) {
-    return source.subscribe(new Observer(callback));
+    return source.Subscribe(new Observer(callback));
   }
 }
 export { FObservable as Observable }
@@ -2520,13 +2549,13 @@ export type Delegate<T> = (x: T) => void;
 export type DotNetDelegate<T> = (sender: any, x: T) => void;
 
 export interface IDelegateEvent<T> {
-  addHandler(d: DotNetDelegate<T>): void;
-  removeHandler(d: DotNetDelegate<T>): void;
+  AddHandler(d: DotNetDelegate<T>): void;
+  RemoveHandler(d: DotNetDelegate<T>): void;
 }
 
 export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
-  publish: IEvent<T>;
-  trigger(x: T): void;
+  Publish: IEvent<T>;
+  Trigger(x: T): void;
 }
 
 export class Event<T> implements IEvent<T> {
@@ -2538,17 +2567,17 @@ export class Event<T> implements IEvent<T> {
     this.delegates = delegates || new Array<Delegate<T>>();
   }
 
-  public add(f: Delegate<T>) {
+  public Add(f: Delegate<T>) {
     this._addHandler(f);
   }
 
   // IEvent<T> methods
 
-  public get publish() {
+  public get Publish() {
     return this;
   }
 
-  public trigger(value: T) {
+  public Trigger(value: T) {
     Seq.iterate(f => f(value), this.delegates);
   }
 
@@ -2564,11 +2593,11 @@ export class Event<T> implements IEvent<T> {
       this.delegates.splice(index, 1);
   }
 
-  public addHandler(handler: DotNetDelegate<T>) {
+  public AddHandler(handler: DotNetDelegate<T>) {
     this._addHandler(x => handler(undefined, x));
   }
 
-  public removeHandler(handler: DotNetDelegate<T>) {
+  public RemoveHandler(handler: DotNetDelegate<T>) {
     this._removeHandler(x => handler(undefined, x));
   }
 
@@ -2578,7 +2607,7 @@ export class Event<T> implements IEvent<T> {
     if (this._subscriber)
       return this._subscriber(observer);
 
-    const callback = observer.onNext;
+    const callback = observer.OnNext;
     this._addHandler(callback);
     return Util.createDisposable(() => this._removeHandler(callback));
   }
@@ -2588,25 +2617,25 @@ export class Event<T> implements IEvent<T> {
     return Util.createDisposable(() => this._removeHandler(callback));
   }
 
-  public subscribe(arg: IObserver<T> | Delegate<T>) {
+  public Subscribe(arg: IObserver<T> | Delegate<T>) {
     return typeof arg == "function"
       ? this._subscribeFromCallback(<Delegate<T>>arg)
       : this._subscribeFromObserver(<IObserver<T>>arg);
   }
 
   static add<T>(callback: (x: T) => Unit, sourceEvent: IEvent<T>) {
-    (<Event<T>>sourceEvent).subscribe(new Observer(callback));
+    (<Event<T>>sourceEvent).Subscribe(new Observer(callback));
   }
 
   static choose<T, U>(chooser: (x: T) => U, sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
     return <IEvent<U>>new Event<U>(observer =>
-      source.subscribe(new Observer<T>(t =>
+      source.Subscribe(new Observer<T>(t =>
         FObservable.__protect(
           () => chooser(t),
-          u => { if (u != null) observer.onNext(u); },
-          observer.onError),
-        observer.onError, observer.onCompleted)),
+          u => { if (u != null) observer.OnNext(u); },
+          observer.OnError),
+        observer.OnError, observer.OnCompleted)),
       source.delegates);
   }
 
@@ -2617,12 +2646,12 @@ export class Event<T> implements IEvent<T> {
   static map<T, U>(mapping: (x: T) => U, sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
     return <IEvent<U>>new Event<U>(observer =>
-      source.subscribe(new Observer<T>(t =>
+      source.Subscribe(new Observer<T>(t =>
         FObservable.__protect(
           () => mapping(t),
-          observer.onNext,
-          observer.onError),
-        observer.onError, observer.onCompleted)),
+          observer.OnNext,
+          observer.OnError),
+        observer.OnError, observer.OnCompleted)),
       source.delegates);
   }
 
@@ -2632,12 +2661,12 @@ export class Event<T> implements IEvent<T> {
     return <IEvent<T>>new Event<T>(observer => {
       let stopped = false, completed1 = false, completed2 = false;
 
-      const h1 = source1.subscribe(new Observer<T>(
-        v => { if (!stopped) observer.onNext(v); },
+      const h1 = source1.Subscribe(new Observer<T>(
+        v => { if (!stopped) observer.OnNext(v); },
         e => {
           if (!stopped) {
             stopped = true;
-            observer.onError(e);
+            observer.OnError(e);
           }
         },
         () => {
@@ -2645,17 +2674,17 @@ export class Event<T> implements IEvent<T> {
             completed1 = true;
             if (completed2) {
               stopped = true;
-              observer.onCompleted();
+              observer.OnCompleted();
             }
           }
         }));
 
-      const h2 = source2.subscribe(new Observer<T>(
-        v => { if (!stopped) observer.onNext(v); },
+      const h2 = source2.Subscribe(new Observer<T>(
+        v => { if (!stopped) observer.OnNext(v); },
         e => {
           if (!stopped) {
             stopped = true;
-            observer.onError(e);
+            observer.OnError(e);
           }
         },
         () => {
@@ -2663,14 +2692,14 @@ export class Event<T> implements IEvent<T> {
             completed2 = true;
             if (completed1) {
               stopped = true;
-              observer.onCompleted();
+              observer.OnCompleted();
             }
           }
         }));
 
       return Util.createDisposable(() => {
-        h1.dispose();
-        h2.dispose();
+        h1.Dispose();
+        h2.Dispose();
       });
     }, source1.delegates.concat(source2.delegates));
   }
@@ -2679,11 +2708,11 @@ export class Event<T> implements IEvent<T> {
     const source = <Event<T>>sourceEvent;
     return <IEvent<Tuple<T, T>>>new Event<Tuple<T, T>>(observer => {
       let last: T = null;
-      return source.subscribe(new Observer<T>(next => {
+      return source.Subscribe(new Observer<T>(next => {
         if (last != null)
-          observer.onNext([last, next]);
+          observer.OnNext([last, next]);
         last = next;
-      }, observer.onError, observer.onCompleted));
+      }, observer.OnError, observer.OnCompleted));
     }, source.delegates);
   }
 
@@ -2694,12 +2723,12 @@ export class Event<T> implements IEvent<T> {
   static scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
     return <IEvent<U>>new Event<U>(observer => {
-      return source.subscribe(new Observer<T>(t => {
+      return source.Subscribe(new Observer<T>(t => {
         FObservable.__protect(
           () => collector(state, t),
-          u => { state = u; observer.onNext(u); },
-          observer.onError);
-      }, observer.onError, observer.onCompleted));
+          u => { state = u; observer.OnNext(u); },
+          observer.OnError);
+      }, observer.OnError, observer.OnCompleted));
     }, source.delegates);
   }
 

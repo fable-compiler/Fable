@@ -32,6 +32,11 @@ type IFableCompiler =
     abstract ReplacePlugins: (string*IReplacePlugin) list
     
 module Helpers =
+    let sanitizeEntityName, sanitizeEntityFullName =
+        let reg = Regex("`\d+")
+        (fun (ent: FSharpEntity) -> reg.Replace(ent.CompiledName, "")),
+        (fun (ent: FSharpEntity) -> reg.Replace(defaultArg ent.TryFullName ent.CompiledName, ""))
+
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
@@ -56,14 +61,13 @@ module Helpers =
     let isErased (ent: FSharpEntity) =
         ent.Attributes |> tryFindAtt ((=) "Erase") |> Option.isSome
         
-    let hasReplaceAtt (atts: #seq<FSharpAttribute>) =
-        tryFindAtt ((=) "Replace") atts |> Option.isSome
-        
     let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
         not(isImported ent) && Option.isNone(com.GetInternalFile ent)
 
     let isReplaceCandidate (com: IFableCompiler) (ent: FSharpEntity) =
-        ent.FullName.StartsWith "Fable.Core" || isExternalEntity com ent
+        if ent.IsInterface
+        then sanitizeEntityFullName ent |> Naming.replacedInterfaces.Contains
+        else ent.FullName.StartsWith "Fable.Core" || isExternalEntity com ent
 
     let makeRange (r: Range.range) = {
         start = { line = r.StartLine; column = r.StartColumn }
@@ -327,11 +331,6 @@ module Types =
     open Helpers
     open Patterns
 
-    let sanitizeEntityName, sanitizeEntityFullName =
-        let reg = Regex("`\d+")
-        (fun (ent: FSharpEntity) -> reg.Replace(ent.CompiledName, "")),
-        (fun (ent: FSharpEntity) -> reg.Replace(defaultArg ent.TryFullName ent.CompiledName, ""))
-
     // TODO: Exclude attributes meant to be compiled to JS
     let rec isAttributeEntity (ent: FSharpEntity) =
         match ent.BaseType with
@@ -378,6 +377,7 @@ module Types =
         let infcs =
             tdef.DeclaredInterfaces
             |> Seq.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
+            |> Seq.filter (Naming.ignoredInterfaces.Contains >> not)
             |> Seq.distinct
             |> Seq.toList
         let decs =
@@ -506,16 +506,6 @@ module Util =
         else Fable.Method
         
     let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
-        let lowerFirstKnownInterfaces (meth: FSharpMemberOrFunctionOrValue) name =
-            if meth.IsOverrideOrExplicitInterfaceImplementation &&
-                meth.ImplementedAbstractSignatures.Count = 1
-            then
-                let sign = meth.ImplementedAbstractSignatures.[0].DeclaringType
-                if sign.HasTypeDefinition &&
-                    sign.TypeDefinition |> sanitizeEntityFullName |> Naming.knownInterfaces.Contains
-                then Naming.lowerFirst name
-                else name
-            else name
         let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
             not (meth.IsEvent || meth.IsImplicitConstructor || meth.IsExplicitInterfaceImplementation)
         let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
@@ -545,9 +535,6 @@ module Util =
         | true, _ | _, (Fable.Getter | Fable.Setter) -> meth.DisplayName
         | _ -> meth.CompiledName
         |> Naming.sanitizeActivePattern
-        // For known interfaces (IDisposable, etc), lower first letter
-        // to make the method more idiomatic in JS
-        |> lowerFirstKnownInterfaces meth
         |> fun name -> name + overloadSuffix meth, kind
 
     let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
@@ -656,8 +643,7 @@ module Util =
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ
                     (typArgs, methTypArgs) (callee, args)
                     (meth: FSharpMemberOrFunctionOrValue) =
-        if hasReplaceAtt meth.Attributes
-           || isReplaceCandidate com meth.EnclosingEntity then
+        if isReplaceCandidate com meth.EnclosingEntity then
             buildApplyInfoFrom com ctx r typ
                 (typArgs, methTypArgs) (callee, args) meth
             |> replace com r

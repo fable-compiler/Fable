@@ -580,15 +580,12 @@ module Util =
 
     let declareInterfaces (com: IBabelCompiler) ctx (ent: Fable.Entity) isClass =
         ent.Interfaces
-        |> Seq.tryFind (Naming.forbiddenInterfaces.Contains)
+        |> Seq.tryFind (Naming.replacedInterfaces.Contains)
         |> Option.iter (fun i ->
-            failwithf "Implementing interface %s is not supported: %s" i ent.FullName)
-        // For now, we're ignoring compiler generated interfaces for union and records
-        let ifcs = ent.Interfaces |> List.filter (fun x ->
-            isClass || (not (Naming.automaticInterfaces.Contains x)))
+            failwithf "Fable doesn't support custom implementations of %s (%s)" i ent.FullName)
         [ getCoreLibImport com ctx "Util"
           typeRef com ctx ent None
-          buildStringArray ifcs
+          buildStringArray ent.Interfaces
           upcast Babel.StringLiteral ent.FullName ]
         |> fun args ->
             // "$0.setInterfaces($1.prototype, $2, $3)"
