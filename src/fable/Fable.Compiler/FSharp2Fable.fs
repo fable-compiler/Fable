@@ -432,7 +432,9 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                         if over.Signature.DeclaringType.HasTypeDefinition
                         then Some over.Signature.DeclaringType.TypeDefinition
                         else None
-                    let name = over.Signature.Name |> Naming.removeGetSetPrefix
+                    let name =
+                        let name = over.Signature.Name |> Naming.removeGetSetPrefix
+                        if name = "ToString" then "toString" else name
                     let kind =
                         // TODO: Check for indexed getter and setter also in object expressions?
                         match over.Signature.Name with
@@ -732,8 +734,8 @@ let rec private transformEntityDecl
         declInfo.AddIgnoredChild ent
         declInfo, ctx
     else
-        // Unions and Records don't have a constructor, generate it
-        let init =
+        // Unions, records and F# exceptions don't have a constructor
+        let cons =
             if ent.IsFSharpUnion
             then [makeUnionCons()]
             elif ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration
@@ -742,7 +744,18 @@ let rec private transformEntityDecl
                  |> makeRecordCons
                  |> List.singleton
             else []
-        let childDecls = transformDeclarations com ctx init subDecls
+        let compareMeths =
+            // If F# union or records implement System.IComparable (in that case they
+            // allways implement System.Equatable too) generate Equals and CompareTo methods
+            // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
+            // Note: If `ReferenceEqualityAttribute` is used, the type doesn't implement IComparable 
+            let fableEnt = com.GetEntity ent
+            if ent.IsFSharpUnion && fableEnt.HasInterface "System.IComparable"
+            then makeUnionCompareMethods com
+            elif ent.IsFSharpRecord && fableEnt.HasInterface "System.IComparable"
+            then makeRecordCompareMethods com
+            else []
+        let childDecls = transformDeclarations com ctx (cons@compareMeths) subDecls
         // Even if a module is marked with Erase, transform its members
         // in case they contain inline methods
         if isErased ent

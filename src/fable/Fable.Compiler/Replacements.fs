@@ -178,77 +178,53 @@ module Util =
             InstanceCall(typRef, meth, args)
             |> makeCall com i.range i.returnType |> Some
 
-    let equals com (i: Fable.ApplyInfo) (args: Fable.Expr list) equal =
-        let compareTo args =
-            CoreLibCall("Util", Some "compareTo", false, args)
-            |> makeCall com i.range i.returnType        
-        let op strict =
-            match equal, strict with
-            | true, true -> BinaryEqualStrict 
-            | false, true -> BinaryUnequalStrict
-            | true, false -> BinaryEqual
-            | false, false -> BinaryUnequal
+    let equals equal com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
+        let op equal =
+            if equal then BinaryEqualStrict else BinaryUnequalStrict
             |> Fable.BinaryOp |> Fable.Value
-        let negateIfNeeded expr =
+        let is equal expr =
             if equal then expr
             else makeUnOp i.range i.returnType [expr] UnaryNot  
         match args.Head.Type with
-        // Options must be compared in a non-scrict fashing, see #231
-        | FullName "Microsoft.FSharp.Core.FSharpOption" ->
-            Fable.Apply(op false, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
-        | Fable.PrimitiveType (Fable.Array _)
-        | FullName "Microsoft.FSharp.Collections.FSharpSet"
-        | FullName "Microsoft.FSharp.Collections.FSharpMap" 
-        | DeclaredKind Fable.Union
-        | DeclaredKind Fable.Record ->
-            Fable.Apply(op true, [compareTo args; makeConst 0],
-                Fable.ApplyMeth, i.returnType, i.range) |> Some
-        | Fable.UnknownType
-        | Fable.PrimitiveType _
-        | FullName "System.TimeSpan" ->
-            Fable.Apply(op true, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+        | FullName "Microsoft.FSharp.Core.FSharpOption"
+        | Fable.PrimitiveType (Fable.Array _) ->
+            CoreLibCall("Util", Some "equals", false, args)
+            |> makeCall com i.range i.returnType |> is equal |> Some
         | FullName "System.DateTime" ->
             CoreLibCall ("Date", Some "equals", false, args)
-            |> makeCall com i.range i.returnType |> negateIfNeeded |> Some
-        | Fable.DeclaredType ent ->
-            match ent.Kind with
-            | Fable.Class _ when ent.HasInterface "System.IEquatable" ->
-                InstanceCall(args.Head, "Equals", args.Tail)
-                |> makeCall com i.range i.returnType |> negateIfNeeded |> Some
-            | _ ->
-                Fable.Apply(op true, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+            |> makeCall com i.range i.returnType |> is equal |> Some
+        | Fable.DeclaredType ent
+            when (ent.HasInterface "System.IEquatable" && ent.FullName <> "System.TimeSpan")
+                || ent.FullName = "Microsoft.FSharp.Collections.FSharpList" ->
+            InstanceCall(args.Head, "Equals", args.Tail)
+            |> makeCall com i.range i.returnType |> is equal |> Some
+        | _ ->
+            Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
 
-    /// Compare function that will call Util.compare or instance `compareTo` as appropriate
+    /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
     /// If passed an optional binary operator, it will wrap the comparison like `comparison < 0`
     let compare com r (args: Fable.Expr list) op =
         let intType = Fable.PrimitiveType(Fable.Number Int32)
-        let wrap comparison =
+        let wrapWith op comparison =
             match op with
             | None -> comparison
             | Some op -> makeEqOp r [comparison; makeConst 0] op
         match args.Head.Type with
-        | Fable.PrimitiveType (Fable.Array _)
-        | FullName "Microsoft.FSharp.Collections.FSharpSet"
-        | FullName "Microsoft.FSharp.Collections.FSharpMap" 
-        | DeclaredKind Fable.Union
-        | DeclaredKind Fable.Record ->
-            CoreLibCall("Util", Some "compareTo", false, args)
-            |> makeCall com r intType |> wrap
-        | Fable.UnknownType
-        | Fable.PrimitiveType _
-        | FullName "System.TimeSpan"
-        | FullName "System.DateTime" ->
+        | FullName "Microsoft.FSharp.Core.FSharpOption"
+        | Fable.PrimitiveType (Fable.Array _) ->
+            CoreLibCall("Util", Some "compare", false, args)
+            |> makeCall com r intType |> wrapWith op
+        | Fable.DeclaredType ent
+            when ent.HasInterface "System.IComparable"
+                && ent.FullName <> "System.TimeSpan"
+                && ent.FullName <> "System.DateTime" ->
+            InstanceCall(args.Head, "CompareTo", args.Tail)
+            |> makeCall com r intType |> wrapWith op
+        | _ ->
             match op with
             | Some op -> makeEqOp r args op
-            | None ->
-                CoreLibCall("Util", Some "compareTo", false, args)
-                |> makeCall com r intType
-        | Fable.DeclaredType ent ->
-            match ent.Kind with
-            | Fable.Class _ when ent.HasInterface "System.IComparable" ->
-                InstanceCall(args.Head, "CompareTo", args.Tail)
-                |> makeCall com r intType |> wrap
-            | _ -> failwithf "%s doesn't implement IComparable and cannot be compared" ent.FullName
+            | None -> CoreLibCall("Util", Some "compare", false, args)
+                      |> makeCall com r intType
 
 module private AstPass =
     open Util
@@ -356,12 +332,12 @@ module private AstPass =
             match args with
             | [Fable.Value Fable.Null; _]
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryUnequal |> Some
-            | _ -> equals com info args false
+            | _ -> equals false com info args
         | "op_Equality" | "eq" ->
             match args with
             | [Fable.Value Fable.Null; _]
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryEqual |> Some
-            | _ -> equals com info args true
+            | _ -> equals true com info args
         | "isNull" -> makeEqOp r [args.Head; Fable.Value Fable.Null] BinaryEqual |> Some
         // Comparison
         | "compare" -> compare com info.range args None |> Some
@@ -1152,7 +1128,7 @@ module private AstPass =
         | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
         | "toString" -> icall com i "toString" |> Some
-        | "equals" -> staticArgs i.callee i.args |> equals com i <| true
+        | "equals" -> staticArgs i.callee i.args |> equals true com i
         | "getType" -> emit i "Object.getPrototypeOf($0).constructor" [i.callee.Value] |> Some
         | _ -> None
 

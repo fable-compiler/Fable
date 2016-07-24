@@ -173,6 +173,17 @@ let makeRecordCons props =
     Member(".ctor", Constructor, SourceLocation.Empty, args, body, [], true, false, false)
     |> MemberDeclaration
 
+let makeUnionCompareMethods, makeRecordCompareMethods =
+    let boolType, intType = PrimitiveType Boolean, PrimitiveType(Number Int32)
+    let meth com typ name coreMeth =
+        let arg = makeIdent "x"
+        let body =
+            CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
+            |> makeCall com None typ
+        Member(name, Method, SourceLocation.Empty, [arg], body) |> MemberDeclaration
+    (fun (com: ICompiler) -> [meth com boolType "Equals" "equalsUnions"; meth com intType "CompareTo" "compareUnions"]),
+    (fun (com: ICompiler) -> [meth com boolType "Equals" "equalsRecords"; meth com intType "CompareTo" "compareRecords"])
+
 let makeDelegate arity (expr: Expr) =
     let rec flattenLambda (arity: int option) accArgs = function
         | Value (Lambda (args, body)) when arity.IsNone || List.length accArgs < arity.Value ->

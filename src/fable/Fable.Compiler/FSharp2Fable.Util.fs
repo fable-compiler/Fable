@@ -535,7 +535,9 @@ module Util =
         | true, _ | _, (Fable.Getter | Fable.Setter) -> meth.DisplayName
         | _ -> meth.CompiledName
         |> Naming.sanitizeActivePattern
-        |> fun name -> name + overloadSuffix meth, kind
+        |> fun name ->
+            let name = if name = "ToString" then "toString" else name
+            name + overloadSuffix meth, kind
 
     let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
         List.foldBack (fun var (ctx, accArgs) ->

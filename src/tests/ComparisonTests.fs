@@ -94,18 +94,17 @@ let ``Record equality works``() =
 type Test(i: int) =
     member x.Value = i
     override x.GetHashCode() = i
-    override x.Equals(another) =
-        match another with
-        | :? Test as another -> another.Value + 1 = x.Value
-        | _ -> false
     interface System.IComparable with
         member x.CompareTo(another) =
             match another with
-            | :? Test as another ->compare (another.Value + 1) x.Value
+            | :? Test as another -> compare (another.Value + 1) x.Value
             | _ -> -1
+    interface System.IEquatable<Test> with
+        member x.Equals(another) =
+            another.Value + 1 = x.Value
             
 [<Test>]
-let ``Equality with objects implementing IComparable works``() =  
+let ``Equality with objects implementing IEquatable works``() =  
     let c1 = Test(5)
     let c2 = Test(4)
     let c3 = Test(5)

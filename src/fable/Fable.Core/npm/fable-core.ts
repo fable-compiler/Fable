@@ -95,46 +95,76 @@ export class Util {
     return restArgs;
   }
 
-  static compareTo(x: any, y: any): number {
-    function isCollectionComparable(o: any) {
-      return Array.isArray(o) || ArrayBuffer.isView(o) || o instanceof List || o instanceof Map || o instanceof Set;
-    }
+  static equals(x: any, y: any): boolean {
+    if (x == null) // Return true if both are null or undefined
+      return y == null;
+    else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
+      return false;
+    else if (Util.hasInterface(x, "System.IEquatable"))
+      return x.Equals(y);
+    else if (Array.isArray(x) || ArrayBuffer.isView(x))
+      return x.length != y.length
+        ? false
+        : Seq.fold2((prev, v1, v2) => !prev ? prev : Util.equals(v1, v2), true, x, y);
+    else if (x instanceof Date)
+      return FDate.equals(x, y);
+    else
+      return x === y;
+  }
 
-    function sortIfMapOrSet(o: any) {
-      return o instanceof Map || o instanceof Set ? Array.from(o).sort() : o;
-    }
-
-    // Return 0 if both are null or undefined
-    if (x == null && y == null)
-      return 0;
-
-    if (typeof x !== typeof y)
+  static compare(x: any, y: any): number {
+    if (x == null) // Return 0 if both are null or undefined
+      return y == null ? 0 : -1;
+    else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
       return -1;
+    else if (Util.hasInterface(x, "System.IComparable"))
+      return x.CompareTo(y);
+    else if (Array.isArray(x) || ArrayBuffer.isView(x))
+      return x.length != y.length
+        ? (x.length < y.length ? -1 : 1)
+        : Seq.fold2((prev, v1, v2) => prev !== 0 ? prev : Util.compare(v1, v2), 0, x, y);
+    else
+      return x < y ? -1 : x > y ? 1 : 0;
+  }
 
-    if (x != null && y != null && typeof x === "object" && typeof y === "object") {
-      if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
-        return -1;
-
-      if (Util.hasInterface(x, "System.IComparable"))
-        return x.CompareTo(y);
-
-      if (isCollectionComparable(x)) {
-        const lengthComp = Util.compareTo(Seq.count(x), Seq.count(y));
-        return lengthComp != 0
-          ? lengthComp
-          : Seq.fold2((prev, v1, v2) => prev != 0 ? prev : Util.compareTo(v1, v2), 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
-      }
-
-      if (x instanceof Date)
-        return x < y ? -1 : x > y ? 1 : 0;
-
-      const keys1 = Object.getOwnPropertyNames(x), keys2 = Object.getOwnPropertyNames(y);
-      const lengthComp = Util.compareTo(keys1.length, keys2.length);
-      return lengthComp != 0
-        ? lengthComp
-        : Seq.fold2((prev, k1, k2) => prev != 0 ? prev : Util.compareTo(x[k1], y[k2]), 0, keys1.sort(), keys2.sort());
+  static equalsRecords(x: any, y: any): boolean {
+    const keys = Object.getOwnPropertyNames(x), keys2 = Object.getOwnPropertyNames(y);
+    for (let i=0; i<keys.length; i++) {
+      if (!Util.equals(x[keys[i]], y[keys[i]]))
+        return false;
     }
-    return x < y ? -1 : x > y ? 1 : 0;
+    return true;
+  }
+
+  static compareRecords(x: any, y: any): number {
+    const keys = Object.getOwnPropertyNames(x), keys2 = Object.getOwnPropertyNames(y);
+    for (let i=0; i<keys.length; i++) {
+      let res = Util.compare(x[keys[i]], y[keys[i]]);
+      if (res !== 0)
+        return res;
+    }
+    return 0;
+  }
+
+  static equalsUnions(x: any, y: any): boolean {
+    if (x.Case !== y.Case)
+      return false;
+    for (let i=0; i<x.Fields.length; i++) {
+      if (!Util.equals(x.Fields[i], y.Fields[i]))
+        return false;
+    }
+    return true;
+  }
+
+  static compareUnions(x: any, y: any): number {
+    if (x.Case !== y.Case)
+      return -1;
+    for (let i=0; i<x.Fields.length; i++) {
+      let res = Util.compare(x.Fields[i], y.Fields[i]);
+      if (res !== 0)
+        return res;
+    }
+    return 0;
   }
 
   static createDisposable(f: () => void) {
@@ -295,8 +325,8 @@ export class TimeSpan extends Number {
     return <number>ts1 - <number>ts2;
   }
 
-  static compare = Util.compareTo;
-  static compareTo = Util.compareTo;
+  static compare = Util.compare;
+  static compareTo = Util.compare;
   static duration = Math.abs;
 }
 
@@ -507,9 +537,8 @@ class FDate extends Date {
     return d1.getTime() == d2.getTime();
   }
 
-  static compareTo = Util.compareTo;
-  static compare = Util.compareTo;
-
+  static compareTo = Util.compare;
+  static compare = Util.compare;
   static op_Addition = FDate.add;
   static op_Subtraction = FDate.subtract;
 }
@@ -1015,6 +1044,35 @@ export class List<T> {
     this.tail = tail;
   }
 
+  Equals(x: List<T>) {
+    const iter1 = this[Symbol.iterator](), iter2 = x[Symbol.iterator]();
+    for (let i = 0; ; i++) {
+      let cur1 = iter1.next(), cur2 = iter2.next();
+      if (cur1.done)
+        return cur2.done ? true : false;
+      else if (cur2.done)
+        return false;
+      else if (!Util.equals(cur1.value, cur2.value))
+        return false
+    }
+  }
+
+  CompareTo(x: List<T>) {
+    let acc = 0;
+    const iter1 = this[Symbol.iterator](), iter2 = x[Symbol.iterator]();
+    for (let i = 0; ; i++) {
+      let cur1 = iter1.next(), cur2 = iter2.next();
+      if (cur1.done)
+        return cur2.done ? acc : -1;
+      else if (cur2.done)
+        return 1;
+      else {
+        acc = Util.compare(cur1.value, cur2.value);
+        if (acc != 0) return acc;
+      }
+    }
+  }
+
   static ofArray<T>(args: Array<T>, base?: List<T>) {
     let acc = base || new List<T>();
     for (let i = args.length - 1; i >= 0; i--) {
@@ -1166,6 +1224,7 @@ export class List<T> {
       Tuple3(new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])), xs, Tuple3(new List<T1>(), new List<T2>(), new List<T3>()));
   }
 }
+Util.setInterfaces(List.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpList"); 
 
 export class Seq {
   private static __failIfNone<T>(res: T) {
