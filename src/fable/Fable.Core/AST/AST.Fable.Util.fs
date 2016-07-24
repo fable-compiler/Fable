@@ -14,9 +14,13 @@ type CallKind =
     | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
 let makeLoop range loopKind = Loop (loopKind, range)
-let makeCoreRef (com: ICompiler) modname = Value (ImportRef (modname, com.Options.coreLib))
 let makeIdent name: Ident = {name=name; typ=UnknownType}
 let makeIdentExpr name = makeIdent name |> IdentValue |> Value
+let makeCoreRef (com: ICompiler) modname prop =
+    let import = Value(ImportRef(modname, com.Options.coreLib))
+    match prop with
+    | None -> import
+    | Some prop -> Apply (import, [Value(StringConst prop)], ApplyGet, UnknownType, None)
 
 let makeBinOp, makeUnOp, makeLogOp, makeEqOp =
     let makeOp range typ args op =
@@ -120,7 +124,7 @@ let makeCall com range typ kind =
         |> getCallee meth args
         |> apply (getKind isCons) args
     | CoreLibCall (modName, meth, isCons, args) ->
-        makeCoreRef com modName
+        makeCoreRef com modName None
         |> getCallee meth args
         |> apply (getKind isCons) args
     | GlobalCall (modName, meth, isCons, args) ->

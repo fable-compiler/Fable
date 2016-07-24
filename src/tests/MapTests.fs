@@ -11,15 +11,17 @@ let ``Map construction from lists works``() =
 
 [<Test>]
 let ``Map.isEmpty works``() =
-    let xs = Map.empty<int, int>
-    xs |> Seq.isEmpty
-    |> equal true
+    let xs = Map []
+    Map.isEmpty xs |> equal true
+    let ys = Map [1,1]
+    Map.isEmpty ys |> equal false
 
 [<Test>]
 let ``Map.IsEmpty works``() =
     let xs = Map.empty<int, int>
-    xs.IsEmpty
-    |> equal true
+    xs.IsEmpty |> equal true
+    let ys = Map [1,1; 2,2]
+    ys.IsEmpty |> equal false
 
 [<Test>]
 let ``Map.Count works``() =
@@ -97,14 +99,14 @@ let ``Map.partition works``() =
 [<Test>]
 let ``Map.fold works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-    xs |> Map.fold (fun acc k v -> v + acc) 0.
-    |> equal 30.
+    xs |> Map.fold (fun acc k v -> v - acc) 0.
+    |> equal 10.
 
 [<Test>]
 let ``Map.foldBack works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-    Map.foldBack (fun k v acc -> v + acc) xs 0.
-    |> equal 30.
+    Map.foldBack (fun k v acc -> v - acc) xs 0.
+    |> equal -10.
 
 [<Test>]
 let ``Map.map works``() =

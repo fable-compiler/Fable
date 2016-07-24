@@ -504,6 +504,9 @@ module Util =
         elif meth.IsPropertyGetterMethod && argCount = 0 then Fable.Getter
         elif meth.IsPropertySetterMethod && argCount = 1 then Fable.Setter
         else Fable.Method
+
+    let lowerToString (methName: string) =
+        if methName = "ToString" then "toString" else methName
         
     let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
         let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
@@ -534,10 +537,9 @@ module Util =
         match meth.IsExplicitInterfaceImplementation, kind with
         | true, _ | _, (Fable.Getter | Fable.Setter) -> meth.DisplayName
         | _ -> meth.CompiledName
+        |> lowerToString
         |> Naming.sanitizeActivePattern
-        |> fun name ->
-            let name = if name = "ToString" then "toString" else name
-            name + overloadSuffix meth, kind
+        |> fun name -> name + overloadSuffix meth, kind
 
     let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
         List.foldBack (fun var (ctx, accArgs) ->

@@ -100,14 +100,14 @@ export class Util {
       return y == null;
     else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
       return false;
-    else if (Util.hasInterface(x, "System.IEquatable"))
-      return x.Equals(y);
     else if (Array.isArray(x) || ArrayBuffer.isView(x))
       return x.length != y.length
         ? false
         : Seq.fold2((prev, v1, v2) => !prev ? prev : Util.equals(v1, v2), true, x, y);
     else if (x instanceof Date)
       return FDate.equals(x, y);
+    else if (Util.hasInterface(x, "System.IEquatable"))
+      return x.Equals(y);
     else
       return x === y;
   }
@@ -117,12 +117,12 @@ export class Util {
       return y == null ? 0 : -1;
     else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
       return -1;
-    else if (Util.hasInterface(x, "System.IComparable"))
-      return x.CompareTo(y);
     else if (Array.isArray(x) || ArrayBuffer.isView(x))
       return x.length != y.length
         ? (x.length < y.length ? -1 : 1)
         : Seq.fold2((prev, v1, v2) => prev !== 0 ? prev : Util.compare(v1, v2), 0, x, y);
+    else if (Util.hasInterface(x, "System.IComparable"))
+      return x.CompareTo(y);
     else
       return x < y ? -1 : x > y ? 1 : 0;
   }
@@ -1035,7 +1035,7 @@ class FArray {
 }
 export { FArray as Array }
 
-export class List<T> {
+export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
   public head: T;
   public tail: List<T>;
 
@@ -2062,78 +2062,628 @@ class FSet {
 }
 export { FSet as Set }
 
-class FMap {
-  static containsValue<K, V>(v: V, map: Map<K, V>) {
-    return Seq.fold((acc, k) => acc || map.get(k) === v, false, map.keys());
+export interface IComparer<T> {
+  Compare(x: T, y: T): number;
+}
+
+export interface IComparable<T> {
+  CompareTo(x: T): number;
+}
+
+export interface IEquatable<T> {
+  Equals(x: T): boolean;
+}
+
+export class GenericComparer<T> implements IComparer<T> {
+  Compare: (x:T, y:T) => number;
+  
+  constructor(f?: (x:T, y:T) => number) {
+    this.Compare = f || Util.compare;
+  }
+} 
+
+interface MapIterator {
+  stack: List<MapTree>;
+  started: boolean;
+}
+
+class MapTree {
+  public Case: string;
+  public Fields: any[];
+
+  constructor(caseName: "MapEmpty" | "MapOne" | "MapNode", fields: any[]) {
+    this.Case = caseName;
+    this.Fields = fields;
   }
 
-  static exists<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.exists(kv => f(kv[0], kv[1]), map);
+  static sizeAux(acc: number, m: MapTree): number {
+    return m.Case === "MapOne"
+      ? acc + 1
+      : m.Case === "MapNode"
+        ? MapTree.sizeAux(MapTree.sizeAux(acc + 1, m.Fields[2]), m.Fields[3])
+        : acc;
   }
 
-  static filter<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.fold((acc, kv) => f(kv[0], kv[1]) ? acc.set(kv[0], kv[1]) : acc, new Map<K, V>(), map);
+  static size(x: MapTree) {
+    return MapTree.sizeAux(0, x);
   }
 
-  static fold<K, V, ST>(f: (acc: ST, k: K, v: V) => ST, seed: ST, map: Map<K, V>) {
-    return Seq.fold((acc, kv) => f(acc, kv[0], kv[1]), seed, map);
+  static empty() {
+    return new MapTree("MapEmpty", []);
   }
 
-  static foldBack<K, V, ST>(f: (k: K, v: V, acc: ST) => ST, map: Map<K, V>, seed: ST) {
-    return Seq.foldBack((kv, acc) => f(kv[0], kv[1], acc), map, seed);
+  static height(_arg1: MapTree) {
+    return _arg1.Case === "MapOne" ? 1 : _arg1.Case === "MapNode" ? _arg1.Fields[4] : 0;
   }
 
-  static forAll<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.forAll(kv => f(kv[0], kv[1]), map);
+  static isEmpty(m: MapTree) {
+    return m.Case === "MapEmpty" ? true : false;
   }
 
-  static iterate<K, V>(f: (k: K, v: V) => void, map: Map<K, V>) {
-    return Seq.iterate(kv => f(kv[0], kv[1]), map);
+  static mk(l: MapTree, k: any, v: any, r: MapTree) {
+    var matchValue = [l, r];
+    var $target1 = () => {
+      var hl = MapTree.height(l);
+      var hr = MapTree.height(r);
+      var m = hl < hr ? hr : hl;
+      return new MapTree("MapNode", [k, v, l, r, m + 1]);
+    };
+    if (matchValue[0].Case === "MapEmpty") {
+      if (matchValue[1].Case === "MapEmpty") {
+        return new MapTree("MapOne", [k, v]);
+      } else {
+        return $target1();
+      }
+    } else {
+      return $target1();
+    }
+  };
+
+  static rebalance(t1: MapTree, k: any, v: any, t2: MapTree) {
+    var t1h = MapTree.height(t1);
+    var t2h = MapTree.height(t2);
+    if (t2h > t1h + 2) {
+      if (t2.Case === "MapNode") {
+        if (MapTree.height(t2.Fields[2]) > t1h + 1) {
+          if (t2.Fields[2].Case === "MapNode") {
+            return MapTree.mk(MapTree.mk(t1, k, v, t2.Fields[2].Fields[2]), t2.Fields[2].Fields[0], t2.Fields[2].Fields[1], MapTree.mk(t2.Fields[2].Fields[3], t2.Fields[0], t2.Fields[1], t2.Fields[3]));
+          } else {
+            throw "rebalance";
+          }
+        } else {
+          return MapTree.mk(MapTree.mk(t1, k, v, t2.Fields[2]), t2.Fields[0], t2.Fields[1], t2.Fields[3]);
+        }
+      } else {
+        throw "rebalance";
+      }
+    } else {
+      if (t1h > t2h + 2) {
+        if (t1.Case === "MapNode") {
+          if (MapTree.height(t1.Fields[3]) > t2h + 1) {
+            if (t1.Fields[3].Case === "MapNode") {
+              return MapTree.mk(MapTree.mk(t1.Fields[2], t1.Fields[0], t1.Fields[1], t1.Fields[3].Fields[2]), t1.Fields[3].Fields[0], t1.Fields[3].Fields[1], MapTree.mk(t1.Fields[3].Fields[3], k, v, t2));
+            } else {
+              throw "rebalance";
+            }
+          } else {
+            return MapTree.mk(t1.Fields[2], t1.Fields[0], t1.Fields[1], MapTree.mk(t1.Fields[3], k, v, t2));
+          }
+        } else {
+          throw "rebalance";
+        }
+      } else {
+        return MapTree.mk(t1, k, v, t2);
+      }
+    }
   }
 
-  static map<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
-    return Seq.fold((acc, kv) => acc.set(kv[0], f(kv[0], kv[1])), new Map<K, U>(), map);
+  static add(comparer: IComparer<any>, k: any, v: any, m: MapTree): MapTree {
+    if (m.Case === "MapOne") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return new MapTree("MapNode", [k, v, new MapTree("MapEmpty", []), m, 2]);
+      }
+      else if (c === 0) {
+        return new MapTree("MapOne", [k, v]);
+      }
+      return new MapTree("MapNode", [k, v, m, new MapTree("MapEmpty", []), 2]);
+    }
+    else if (m.Case === "MapNode") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return MapTree.rebalance(MapTree.add(comparer, k, v, m.Fields[2]), m.Fields[0], m.Fields[1], m.Fields[3]);
+      }
+      else if (c === 0) {
+        return new MapTree("MapNode", [k, v, m.Fields[2], m.Fields[3], m.Fields[4]]);
+      }
+      return MapTree.rebalance(m.Fields[2], m.Fields[0], m.Fields[1], MapTree.add(comparer, k, v, m.Fields[3]));
+    }
+    return new MapTree("MapOne", [k, v]);
   }
 
-  static partition<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.fold((acc, kv) => {
-      const lacc = acc[0], racc = acc[1];
-      const k = kv[0], v = kv[1];
-      return f(k, v) ? Tuple(lacc.set(k, v), racc) : Tuple(lacc, racc.set(k, v));
-    }, Tuple(new Map<K, V>(), new Map<K, V>()), map);
+  static find(comparer: IComparer<any>, k: any, m: MapTree): any {
+    const res = MapTree.tryFind(comparer, k, m);
+    if (res != null)
+      return res;
+    throw "key not found";
   }
 
-  static findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.pick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
+  static tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
+    if (m.Case === "MapOne") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      return c === 0 ? m.Fields[1] : null;
+    }
+    else if (m.Case === "MapNode") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return MapTree.tryFind(comparer, k, m.Fields[2]);
+      } else {
+        if (c === 0) {
+          return m.Fields[1];
+        } else {
+          return MapTree.tryFind(comparer, k, m.Fields[3]);
+        }
+      }
+    }
+    return null;
   }
 
-  static tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.tryPick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
+  static partition1(comparer: IComparer<any>, f: (k:any, v:any) => boolean, k: any, v: any, acc1: MapTree, acc2: MapTree): [MapTree, MapTree] {
+    return f(k,v) ? [MapTree.add(comparer, k, v, acc1), acc2] : [acc1, MapTree.add(comparer, k, v, acc2)];
   }
 
-  static pick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
-    return Seq.pick(kv => {
-      const res = f(kv[0], kv[1]);
-      return res != null ? res : null;
-    }, map);
+  static partitionAux(comparer: IComparer<any>, f: (k:any, v:any) => boolean, s: MapTree, acc_0: MapTree, acc_1: MapTree): [MapTree, MapTree] {
+    const acc: [MapTree, MapTree] = [acc_0, acc_1];
+    if (s.Case === "MapOne") {
+      return MapTree.partition1(comparer, f, s.Fields[0], s.Fields[1], acc[0], acc[1]);
+    }
+    else if (s.Case === "MapNode") {
+      const acc_2 = MapTree.partitionAux(comparer, f, s.Fields[3], acc[0], acc[1]);
+      const acc_3 = MapTree.partition1(comparer, f, s.Fields[0], s.Fields[1], acc_2[0], acc_2[1]);
+      return MapTree.partitionAux(comparer, f, s.Fields[2], acc_3[0], acc_3[1]);
+    }
+    return acc;
   }
 
-  static remove<K, V>(item: K, map: Map<K, V>) {
-    return FMap.removeInPlace(item, new Map<K, V>(map));
+  static partition(comparer: IComparer<any>, f: (k:any, v:any) => boolean, s: MapTree) {
+    return MapTree.partitionAux(comparer, f, s, MapTree.empty(), MapTree.empty());
   }
 
-  static removeInPlace<K, V>(item: K, map: Map<K, V>) {
-    map.delete(item);
+  static filter1(comparer: IComparer<any>, f: (k:any, v:any) => boolean, k: any, v: any, acc: MapTree) {
+    return f(k,v) ? MapTree.add(comparer, k, v, acc) : acc;
+  }
+
+  static filterAux(comparer: IComparer<any>, f: (k:any, v:any) => boolean, s: MapTree, acc: MapTree): MapTree {
+    return s.Case === "MapOne" ? MapTree.filter1(comparer, f, s.Fields[0], s.Fields[1], acc) : s.Case === "MapNode" ? (() => {
+      var acc_1 = MapTree.filterAux(comparer, f, s.Fields[2], acc);
+      var acc_2 = MapTree.filter1(comparer, f, s.Fields[0], s.Fields[1], acc_1);
+      return MapTree.filterAux(comparer, f, s.Fields[3], acc_2);
+    })() : acc;
+  }
+
+  static filter(comparer: IComparer<any>, f: (k:any, v:any) => boolean, s: MapTree) {
+    return MapTree.filterAux(comparer, f, s, MapTree.empty());
+  }
+
+  static spliceOutSuccessor(m: MapTree): [any,any,MapTree] {
+    if (m.Case === "MapOne") {
+      return [m.Fields[0], m.Fields[1], new MapTree("MapEmpty", [])];
+    }
+    else if (m.Case === "MapNode") {
+      if (m.Fields[2].Case === "MapEmpty") {
+        return [m.Fields[0], m.Fields[1], m.Fields[3]];
+      }
+      else {
+        const kvl = MapTree.spliceOutSuccessor(m.Fields[2]);
+        return [kvl[0], kvl[1], MapTree.mk(kvl[2], m.Fields[0], m.Fields[1], m.Fields[3])];
+      }
+    }
+    throw "internal error: Map.spliceOutSuccessor";
+  }
+
+  static remove(comparer: IComparer<any>, k: any, m: MapTree): MapTree {
+    if (m.Case === "MapOne") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c === 0) {
+        return new MapTree("MapEmpty", []);
+      } else {
+        return m;
+      }
+    }
+    else if (m.Case === "MapNode") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return MapTree.rebalance(MapTree.remove(comparer, k, m.Fields[2]), m.Fields[0], m.Fields[1], m.Fields[3]);
+      } else {
+        if (c === 0) {
+          var matchValue = [m.Fields[2], m.Fields[3]];
+          if (matchValue[0].Case === "MapEmpty") {
+            return m.Fields[3];
+          } else {
+            if (matchValue[1].Case === "MapEmpty") {
+              return m.Fields[2];
+            } else {
+              var patternInput = MapTree.spliceOutSuccessor(m.Fields[3]);
+              var sv = patternInput[1];
+              var sk = patternInput[0];
+              var r_ = patternInput[2];
+              return MapTree.mk(m.Fields[2], sk, sv, r_);
+            }
+          }
+        } else {
+          return MapTree.rebalance(m.Fields[2], m.Fields[0], m.Fields[1], MapTree.remove(comparer, k, m.Fields[3]));
+        }
+      }
+    }
+    else {
+      return MapTree.empty();
+    }
+  }
+
+  static mem(comparer: IComparer<any>, k: any, m: MapTree): boolean {
+    return m.Case === "MapOne" ? comparer.Compare(k, m.Fields[0]) === 0 : m.Case === "MapNode" ? (() => {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return MapTree.mem(comparer, k, m.Fields[2]);
+      } else {
+        if (c === 0) {
+          return true;
+        } else {
+          return MapTree.mem(comparer, k, m.Fields[3]);
+        }
+      }
+    })() : false;
+  }
+
+  static iter(f: (k:any, v:any) => void, m: MapTree): void {
+    if (m.Case === "MapOne") {
+      f(m.Fields[0], m.Fields[1]);
+    }
+    else if(m.Case === "MapNode") {
+      MapTree.iter(f, m.Fields[2]);
+      f(m.Fields[0], m.Fields[1]);
+      MapTree.iter(f, m.Fields[3]);
+    }
+  }
+
+  static tryPick(f: (k:any, v:any) => any, m: MapTree): any {
+    return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (() => {
+      var matchValue = MapTree.tryPick(f, m.Fields[2]);
+      if (matchValue == null) {
+        var matchValue_1 = f(m.Fields[0], m.Fields[1]);
+        if (matchValue_1 == null) {
+          return MapTree.tryPick(f, m.Fields[3]);
+        } else {
+          var res = matchValue_1;
+          return res;
+        }
+      } else {
+        var res = matchValue;
+        return res;
+      }
+    })() : null;
+  }
+
+  static exists(f: (k:any, v:any) => boolean, m: MapTree): boolean {
+    return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (MapTree.exists(f, m.Fields[2]) ? true : f(m.Fields[0], m.Fields[1])) ? true : MapTree.exists(f, m.Fields[3]) : false;
+  }
+
+  static forall(f: (k:any, v:any) => boolean, m: MapTree): boolean {
+    return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (MapTree.forall(f, m.Fields[2]) ? f(m.Fields[0], m.Fields[1]) : false) ? MapTree.forall(f, m.Fields[3]) : false : true;
+  }
+
+  // static map(f: (v:any) => any, m: MapTree): MapTree {
+  //   return m.Case === "MapOne" ? new MapTree("MapOne", [m.Fields[0], f(m.Fields[1])]) : m.Case === "MapNode" ? (() => {
+  //     var l2 = MapTree.map(f, m.Fields[2]);
+  //     var v2 = f(m.Fields[1]);
+  //     var r2 = MapTree.map(f, m.Fields[3]);
+  //     return new MapTree("MapNode", [m.Fields[0], v2, l2, r2, m.Fields[4]]);
+  //   })() : MapTree.empty();
+  // }
+
+  static mapi(f: (k:any, v:any) => any, m: MapTree): MapTree {
+    return m.Case === "MapOne" ? new MapTree("MapOne", [m.Fields[0], f(m.Fields[0], m.Fields[1])]) : m.Case === "MapNode" ? (() => {
+      var l2 = MapTree.mapi(f, m.Fields[2]);
+      var v2 = f(m.Fields[0], m.Fields[1]);
+      var r2 = MapTree.mapi(f, m.Fields[3]);
+      return new MapTree("MapNode", [m.Fields[0], v2, l2, r2, m.Fields[4]]);
+    })() : MapTree.empty();
+  }
+
+  static foldBack(f: (k:any, v:any, acc: any) => any, m: MapTree, x: any): any {
+    return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1], x) : m.Case === "MapNode" ? (() => {
+      var x_1 = MapTree.foldBack(f, m.Fields[3], x);
+      var x_2 = f(m.Fields[0], m.Fields[1], x_1);
+      return MapTree.foldBack(f, m.Fields[2], x_2);
+    })() : x;
+  }
+
+  static fold(f: (acc: any, k:any, v:any) => any, x: any, m: MapTree): any {
+    return m.Case === "MapOne" ? f(x, m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (() => {
+      var x_1 = MapTree.fold(f, x, m.Fields[2]);
+      var x_2 = f(x_1, m.Fields[0], m.Fields[1]);
+      return MapTree.fold(f, x_2, m.Fields[3]);
+    })() : x;
+  }
+
+  // static foldFromTo(comparer: IComparer<any>, lo: any, hi: any, f: (k:any, v:any, acc: any) => any, m: MapTree, x: any): any {
+  //   if (m.Case === "MapOne") {
+  //     var cLoKey = comparer.Compare(lo, m.Fields[0]);
+  //     var cKeyHi = comparer.Compare(m.Fields[0], hi);
+  //     var x_1 = (cLoKey <= 0 ? cKeyHi <= 0 : false) ? f(m.Fields[0], m.Fields[1], x) : x;
+  //     return x_1;
+  //   }
+  //   else if (m.Case === "MapNode") {
+  //     var cLoKey = comparer.Compare(lo, m.Fields[0]);
+  //     var cKeyHi = comparer.Compare(m.Fields[0], hi);
+  //     var x_1 = cLoKey < 0 ? MapTree.foldFromTo(comparer, lo, hi, f, m.Fields[2], x) : x;
+  //     var x_2 = (cLoKey <= 0 ? cKeyHi <= 0 : false) ? f(m.Fields[0], m.Fields[1], x_1) : x_1;
+  //     var x_3 = cKeyHi < 0 ? MapTree.foldFromTo(comparer, lo, hi, f, m.Fields[3], x_2) : x_2;
+  //     return x_3;
+  //   }
+  //   return x;
+  // }
+
+  // static foldSection(comparer: IComparer<any>, lo: any, hi: any, f: (k:any, v:any, acc: any) => any, m: MapTree, x: any) {
+  //   return comparer.Compare(lo, hi) === 1 ? x : MapTree.foldFromTo(comparer, lo, hi, f, m, x);
+  // }
+
+  // static loop(m: MapTree, acc: any): List<[any,any]> {
+  //   return m.Case === "MapOne"
+  //     ? new List([m.Fields[0], m.Fields[1]], acc)
+  //     : m.Case === "MapNode"
+  //       ? MapTree.loop(m.Fields[2], new List([m.Fields[0], m.Fields[1]], MapTree.loop(m.Fields[3], acc)))
+  //       : acc;
+  // }
+
+  // static toList(m: MapTree) {
+  //   return MapTree.loop(m, new List());
+  // }
+
+  // static toArray(m: MapTree) {
+  //   return Array.from(MapTree.toList(m));
+  // }
+
+  // static ofList(comparer: IComparer<any>, l: List<[any,any]>) {
+  //   return Seq.fold((acc: MapTree, tupledArg: [any, any]) => {
+  //     return MapTree.add(comparer, tupledArg[0], tupledArg[1], acc);
+  //   }, MapTree.empty(), l);
+  // }
+
+  static mkFromEnumerator(comparer: IComparer<any>, acc: MapTree, e: Iterator<any>): MapTree {
+    const cur = e.next();
+    return !cur.done
+      ? MapTree.mkFromEnumerator(comparer, MapTree.add(comparer, cur.value[0], cur.value[1], acc), e)
+      : acc;
+  }
+
+  // static ofArray(comparer: IComparer<any>, arr: ArrayLike<[any,any]>) {
+  //   var res = MapTree.empty();
+  //   for (var i = 0; i <= arr.length - 1; i++) {
+  //     res = MapTree.add(comparer, arr[i][0], arr[i][1], res);
+  //   }
+  //   return res;
+  // }
+
+  static ofSeq(comparer: IComparer<any>, c: Iterable<any>): MapTree {
+    var ie = c[Symbol.iterator]();
+    return MapTree.mkFromEnumerator(comparer, MapTree.empty(), ie);
+  }
+
+  // static copyToArray(s: MapTree, arr: ArrayLike<any>, i: number) {
+  //   MapTree.iter((x, y) => { arr[i++] = [x, y]; }, s);
+  // }
+
+  static collapseLHS(stack: List<any>): List<any> {
+    if (stack.tail != null) {
+      if (stack.head.Case === "MapOne") {
+        return stack;
+      }
+      else if (stack.head.Case === "MapNode") {
+        var k = stack.head.Fields[0];
+        var l = stack.head.Fields[2];
+        var r = stack.head.Fields[3];
+        var rest = stack.tail;
+        var v = stack.head.Fields[1];
+        return MapTree.collapseLHS(List.ofArray([l, new MapTree("MapOne", [k, v]), r], rest));
+      }
+      else {
+        return MapTree.collapseLHS(stack.tail);
+      }
+    }
+    else {
+      return new List();
+    }
+  }
+
+  static mkIterator(s: MapTree): MapIterator {
+    return { stack: MapTree.collapseLHS(new List(s, new List())), started: false };
+  }
+
+  static moveNext(i: MapIterator): IteratorResult<[any,any]> {
+    function current(i: MapIterator): [any,any] {
+      if (i.stack.tail == null) {
+        return null;
+      } else {
+        if (i.stack.head.Case === "MapOne") {
+          return [i.stack.head.Fields[0], i.stack.head.Fields[1]];
+        } else {
+          throw "Please report error: Map iterator, unexpected stack for current";
+        }
+      }
+    }
+    if (i.started) {
+      if (i.stack.tail == null) {
+        return { done: true };
+      } else {
+        if (i.stack.head.Case === "MapOne") {
+          i.stack = MapTree.collapseLHS(i.stack.tail);
+          return {
+            done: i.stack.tail == null,
+            value: current(i)
+          };
+        } else {
+          throw "Please report error: Map iterator, unexpected stack for moveNext";
+        }
+      }
+    }
+    else {
+      i.started = true;
+      return {
+        done: i.stack.tail == null,
+        value: current(i)
+      };
+    };
+  }
+}
+
+class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterable<[K,V]> {
+  private tree: MapTree;
+  private comparer: IComparer<K>;
+
+  /** Do not call, use Map.create instead. */
+  constructor () {}
+
+  private static from<K,V>(comparer: IComparer<K>, tree: MapTree) {
+    let map = new FMap<K,V>();
+    map.tree = tree
+    map.comparer = comparer || new GenericComparer<K>();
     return map;
   }
 
-  static tryPick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
-    return Seq.tryPick(kv => {
-      let res = f(kv[0], kv[1]);
-      return res != null ? res : null;
-    }, map);
+  private static create<K,V>(ie?: Iterable<[K,V]>, comparer?: IComparer<K>) {
+    comparer = comparer || new GenericComparer<K>();
+    return FMap.from(comparer, ie ? MapTree.ofSeq(comparer, ie) : MapTree.empty());
+  }
+
+  Equals(m2: FMap<K,V>) {
+    return this.CompareTo(m2) == 0;
+  }
+
+  CompareTo(m2: FMap<K,V>) {
+    return Seq.compareWith((kvp1, kvp2) => {
+      var c = this.comparer.Compare(kvp1[0], kvp2[0]);
+      return c !== 0 ? c : Util.compare(kvp1[1], kvp2[1]);
+    }, this, m2);
+  }
+
+  [Symbol.iterator](): Iterator<[K,V]> {
+    let i = MapTree.mkIterator(this.tree);
+    return <Iterator<[K,V]>>{
+      next: () => MapTree.moveNext(i)
+    };
+  }
+
+  entries() {
+    return this[Symbol.iterator]();
+  }
+
+  keys() {
+    return Seq.map(kv => kv[0], this);
+  }
+
+  values() {
+    return Seq.map(kv => kv[1], this);
+  }
+
+  get(k: K) {
+    return MapTree.find(this.comparer, k, this.tree);
+  }
+
+  has(k: K) {
+    return MapTree.mem(this.comparer, k, this.tree);
+  }
+
+  set(k: K, v: V): FMap<K,V> {
+    throw "not supported";
+  }
+
+  delete(k: K): boolean {
+    throw "not supported";
+  }
+
+  get size() {
+    return MapTree.size(this.tree);
+  }
+
+  static add<K,V>(k: K, v: V, map: FMap<K,V>) {
+    return FMap.from(map.comparer, MapTree.add(map.comparer, k, v, map.tree));
+  }
+
+  static remove<K, V>(item: K, map: FMap<K, V>) {
+    return FMap.from(map.comparer, MapTree.remove(map.comparer, item, map.tree));
+  }
+
+  static containsValue<K, V>(v: V, map: Map<K, V> | FMap<K,V>) {
+    return Seq.fold((acc, k) => acc || Util.equals(map.get(k), v), false, map.keys());
+  }
+
+  static exists<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+    return MapTree.exists(f, map.tree);
+  }
+
+  static find<K, V>(k: K, map: FMap<K, V>) {
+    return MapTree.find(map.comparer, k, map.tree);
+  }
+
+  static tryFind<K, V>(k: K, map: FMap<K, V>) {
+    return MapTree.tryFind(map.comparer, k, map.tree);
+  }
+
+  static filter<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+    return FMap.from(map.comparer, MapTree.filter(map.comparer, f, map.tree));
+  }
+
+  static fold<K, V, ST>(f: (acc: ST, k: K, v: V) => ST, seed: ST, map: FMap<K, V>) {
+    return MapTree.fold(f, seed, map.tree);
+  }
+
+  static foldBack<K, V, ST>(f: (k: K, v: V, acc: ST) => ST, map: FMap<K, V>, seed: ST) {
+    return MapTree.foldBack(f, map.tree, seed);
+  }
+
+  static forAll<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+    return MapTree.forall(f, map.tree);
+  }
+
+  static isEmpty<K, V>(map: FMap<K, V>) {
+    return MapTree.isEmpty(map.tree);
+  }
+
+  static iterate<K, V>(f: (k: K, v: V) => void, map: FMap<K, V>) {
+    return MapTree.iter(f, map.tree);
+  }
+
+  static map<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
+    return FMap.from(map.comparer, MapTree.mapi(f, map.tree));
+  }
+
+  static partition<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+    const rs = MapTree.partition(map.comparer, f, map.tree);
+    return [FMap.from(map.comparer, rs[0]), FMap.from(map.comparer, rs[1])];
+  }
+
+  static findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FMap<K, V>) {
+    return Seq.pick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
+  }
+
+  static tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FMap<K, V>) {
+    return Seq.tryPick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
+  }
+
+  static pick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
+    const res = FMap.tryPick(f, map);
+    if (res != null)
+      return res;
+    throw "key not found";
+  }
+
+  static tryPick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
+    return MapTree.tryPick(f, map.tree);
   }
 }
+Util.setInterfaces(FMap.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpMap"); 
+
 export { FMap as Map }
 
 export type Unit = void;

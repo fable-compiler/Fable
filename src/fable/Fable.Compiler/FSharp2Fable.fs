@@ -432,11 +432,9 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                         if over.Signature.DeclaringType.HasTypeDefinition
                         then Some over.Signature.DeclaringType.TypeDefinition
                         else None
-                    let name =
-                        let name = over.Signature.Name |> Naming.removeGetSetPrefix
-                        if name = "ToString" then "toString" else name
+                    // TODO: Check for indexed getter and setter also in object expressions?
+                    let name = lowerToString over.Signature.Name |> Naming.removeGetSetPrefix
                     let kind =
-                        // TODO: Check for indexed getter and setter also in object expressions?
                         match over.Signature.Name with
                         | Naming.StartsWith "get_" _ -> Fable.Getter
                         | Naming.StartsWith "set_" _ -> Fable.Setter

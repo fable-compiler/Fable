@@ -195,7 +195,9 @@ module Util =
             |> makeCall com i.range i.returnType |> is equal |> Some
         | Fable.DeclaredType ent
             when (ent.HasInterface "System.IEquatable" && ent.FullName <> "System.TimeSpan")
-                || ent.FullName = "Microsoft.FSharp.Collections.FSharpList" ->
+                || ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
+                || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
+                || ent.FullName = "Microsoft.FSharp.Collections.FSharpSet" ->
             InstanceCall(args.Head, "Equals", args.Tail)
             |> makeCall com i.range i.returnType |> is equal |> Some
         | _ ->
@@ -225,6 +227,24 @@ module Util =
             | Some op -> makeEqOp r args op
             | None -> CoreLibCall("Util", Some "compare", false, args)
                       |> makeCall com r intType
+
+    let makeComparer com (typArg: Fable.Type option) =
+        let args = [makeIdent "x"; makeIdent "y"]
+        let argValues = args |> List.map (Fable.IdentValue >> Fable.Value)
+        let intType = Fable.PrimitiveType(Fable.Number Int32)
+        match typArg with
+        | None
+        | Some(FullName "Microsoft.FSharp.Core.FSharpOption")
+        | Some(Fable.PrimitiveType (Fable.Array _)) ->
+            [makeCoreRef com "Util" (Some "compare")]
+        | Some(Fable.DeclaredType ent)
+            when ent.HasInterface "System.IComparable"
+                && ent.FullName <> "System.TimeSpan"
+                && ent.FullName <> "System.DateTime" ->
+            [emitNoInfo "(x,y) => x.CompareTo(y)" []] 
+        | Some _ -> [emitNoInfo "(x,y) => x < y ? -1 : x > y ? 1 : 0" []]
+        |> fun args -> CoreLibCall("GenericComparer", None, true, args)
+        |> makeCall com None Fable.UnknownType
 
 module private AstPass =
     open Util
@@ -324,7 +344,7 @@ module private AstPass =
         | "defaultArg" ->
             let cond = makeEqOp r [args.Head; Fable.Value Fable.Null] BinaryUnequal
             Fable.IfThenElse(cond, args.Head, args.Tail.Head, r) |> Some
-        | "defaultAsyncBuilder" -> makeCoreRef com "defaultAsyncBuilder" |> Some
+        | "defaultAsyncBuilder" -> makeCoreRef com "defaultAsyncBuilder" None |> Some
         // Negation
         | "not" -> makeUnOp r info.returnType args UnaryNot |> Some
         // Equality
@@ -766,25 +786,27 @@ module private AstPass =
             if i.ownerFullName.Contains("Map")
             then "Map" else "Set"
         let makeCons args =
-            GlobalCall(modName, None, true, args)
+            let typArg =
+                match i.calleeTypeArgs, i.methodTypeArgs with
+                | x::_, _ | [], x::_ -> Some x
+                | [], [] -> None
+            let args =
+                (if List.isEmpty args then [Fable.Value Fable.Null] else args)
+                @ [makeComparer com typArg]
+            CoreLibCall(modName, Some "create", false, args)
             |> makeCall com i.range i.returnType
         match i.methodName with
         // Instance and static shared methods
-        | "add" ->
-            let args = match i.callee with Some c -> i.args@[c] | None -> i.args
-            match modName with
-            | "Map" -> emit i "new Map($2).set($0,$1)" args |> Some
-            | _ -> emit i "new Set($1).add($0)" args |> Some
         | "count" -> prop "size" |> Some
         | "contains" | "containsKey" -> icall "has" |> Some
-        | "remove" ->
-            let callee, args = instanceArgs()
-            CoreLibCall(modName, Some "remove", false, [args.Head; callee])
+        | "add" | "remove" | "find" | "tryFind" -> // find and tryFind are Map-only 
+            let args = match i.callee with Some c -> i.args@[c] | None -> i.args
+            CoreLibCall(modName, Some i.methodName, false, args)
             |> makeCall com i.range i.returnType |> Some
         | "isEmpty" ->
-            makeEqOp i.range [prop "size"; makeConst 0] BinaryEqualStrict |> Some
-        // Map only instance and static methods
-        | "tryFind" | "find" -> icall "get" |> Some
+            CoreLibCall(modName, Some "isEmpty", false, staticArgs i.callee i.args)
+            |> makeCall com i.range i.returnType |> Some
+        // Map indexer
         | "item" -> icall "get" |> Some
         // Set only instance and static methods
         | KeyValue "maximumElement" "max" meth | KeyValue "maxElement" "max" meth
@@ -1159,7 +1181,9 @@ module private AstPass =
             | [Fable.PrimitiveType(Fable.Boolean _)] -> makeConst false
             | _ -> Fable.Null |> Fable.Value
             |> Some
-        // | "compare" -> emit info "$0 < $1 ? -1 : ($0 > $1 ? 1 : 0)" info.args |> Some
+        | "compare" ->
+            CoreLibCall("Util", Some "compare", false, info.args)
+            |> makeCall com info.range info.returnType |> Some
         | _ -> None
         
     let random com (info: Fable.ApplyInfo) =
