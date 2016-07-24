@@ -9,8 +9,8 @@
 *)
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
-//#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
+//#load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
+#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
 (**
 ##Architecture overview
 
@@ -56,16 +56,16 @@ type CounterAction =
     | Decrement of int
     | Increment of int
 
-let fakeAjaxCall model h = 
+let fakeAjaxCall model (h:CounterAction->unit) = 
     let message = if model < 30 then Increment 10 else Decrement 5 
     if model > 30 && model < 60 then () 
     else window.setTimeout((fun _ -> h (message)), 2000) |> ignore
 
-let counterUpdate model action =
-    match action with
+let counterUpdate model command =
+    match command with
     | Decrement x -> model - x
     | Increment x -> model + x
-    |> (fun m -> m,[],[fakeAjaxCall model])
+    |> (fun m -> m, (fakeAjaxCall model) |> action) 
 
 (**
 The counter can be incremented or decremented in step of `x`. If you look closely
@@ -122,7 +122,57 @@ let counterApp =
     |> withInit (fakeAjaxCall initCounter) 
     |> withStartNode "#counter"
 
-counterApp |> start renderer
+//counterApp |> start renderer
+
+let bindOpt<'T1,'T2> (m:'T1 -> 'T2 option) (o: 'T1 Option) =
+    match o with
+    | Some x -> m x
+    | None -> None
+
+let mapOpt<'T1,'T2> (m:'T1 -> 'T2) (o: 'T1 Option) = (bindOpt (m >> Some) o)
+
+type NestedModel = { Top: int; Bottom: int}
+
+type NestedAction = 
+    | Reset
+    | Top of CounterAction
+    | Bottom of CounterAction
+
+let nestedUpdate model action = 
+    let mapCounterAction tag action = 
+        match action with
+        | Some a -> (fun x -> a (tag >> x)) |> Some 
+        | None -> None
+
+    match action with
+    | Reset -> {Top = 0; Bottom = 0},[]
+    | Top ca -> 
+        let (res, action) = (counterUpdate model.Top ca)
+        let action' = App.mapActions Top action
+        {model with Top = res},action'
+    | Bottom ca -> 
+        let (res, action) = (counterUpdate model.Bottom ca)
+        let action' = App.mapActions Bottom action
+        {model with Bottom = res},action'
+
+let nestedView model = 
+    div []
+        [
+            Html.map Top (counterView model.Top)
+            Html.map Bottom (counterView model.Bottom)
+        ]
+
+let nestedCounterApp =
+    createApp {Model = {Top = 0; Bottom = 0}; View = nestedView; Update = nestedUpdate}
+    |> withStartNode "#nested-counter"
+
+
+let resetEveryTenth h =
+    window.setInterval((fun _ -> Reset |> h), 10000) |> ignore
+
+nestedCounterApp 
+|> withProducer resetEveryTenth
+|> start renderer
 
 (**
 The dsl has been separated from the actual rendering of the dsl, to allow for
@@ -255,12 +305,11 @@ let todoUpdate model msg =
         | SaveItem (i,str) ->
             updateItem { i with Name = str; IsEditing = false} model
 
-    let jsCalls =
+    let jsCall =
         match msg with
-        | EditItem i -> [fun () ->
-            document.getElementById("item-" + (i.Id.ToString())).focus()]
+        | EditItem i -> action <| fun x -> document.getElementById("item-" + (i.Id.ToString())).focus()
         | _ -> []
-    model',jsCalls,[]
+    model', jsCall
 
 (**
 It might seem like a lot of code, but we need to handle all actions and respond

@@ -65,6 +65,35 @@ module Html =
         | WhiteSpace of string
         | Svg of Element<'TMessage> * Node<'TMessage> list
 
+    let mapEventHandler<'T1,'T2> (mapping:('T1 -> 'T2)) (eventHandler:EventHandlerBinding<'T1>) =
+         match eventHandler with
+         | MouseEventHandler(e,f) -> MouseEventHandler(e, f >> mapping) 
+         | KeyboardEventHandler(e,f) -> KeyboardEventHandler(e, f >> mapping) 
+         | EventHandler(e,f) -> EventHandler(e, f >> mapping) 
+
+    let mapAttributes<'T1,'T2> (mapping:('T1 -> 'T2)) (attribute:Attribute<'T1>) =
+        match attribute with
+        | EventHandlerBinding(eb) -> EventHandlerBinding(mapEventHandler mapping eb)
+        | Style s -> Style s
+        | Property kv -> Property kv
+        | Attribute kv -> Attribute kv 
+
+    let mapElem<'T1,'T2> (mapping:('T1 -> 'T2)) (node:Element<'T1>) =
+        let (tag, attrs) = node
+        (tag, attrs |> List.map (mapAttributes mapping))
+
+    let mapVoidElem<'T1,'T2> (mapping:('T1 -> 'T2)) (node:Element<'T1>) =
+        let (tag, attrs) = node
+        (tag, attrs |> List.map (mapAttributes mapping))
+
+    let rec map<'T1,'T2> (mapping:('T1 -> 'T2)) (node:Node<'T1>) = 
+        match node with
+        | Element(e,ns) -> Element(mapElem mapping e, ns |> List.map (map mapping))
+        | VoidElement(ve) -> VoidElement(mapVoidElem mapping ve)
+        | Text(s) -> Text s 
+        | WhiteSpace(ws) -> WhiteSpace ws   
+        | Svg(e,ns) -> Element(mapElem mapping e, ns |> List.map (map mapping))
+
     [<AutoOpen>]
     module Tags =
         let inline elem tagName attrs children = Element((tagName, attrs), children)
@@ -319,10 +348,20 @@ open Fable.Import.Browser
 
 [<AutoOpen>]
 module App =
+    type Action<'TMessage> = ('TMessage -> unit) -> unit
+    type Producer<'TMessage> = ('TMessage -> unit) -> unit
+
+    let mapAction<'T1,'T2> (mapping:'T1 -> 'T2) (action:Action<'T1>) : Action<'T2> = 
+        fun x -> action (mapping >> x)  
+
+    let mapActions m = List.map (mapAction m)
+    let action a = [a]
+
     type AppState<'TModel, 'TMessage> = {
             Model: 'TModel
             View: 'TModel -> Html.Types.Node<'TMessage>
-            Update: 'TModel -> 'TMessage -> ('TModel * ((unit -> unit) list) * (('TMessage -> unit) -> unit) list) }
+            Update: 'TModel -> 'TMessage -> ('TModel * Action<'TMessage> list)
+            }
 
 
     type AppEvents<'TMessage, 'TModel> =
@@ -340,7 +379,8 @@ module App =
         {
             AppState: AppState<'TModel, 'TMessage>
             Init : (('TMessage -> unit) -> unit) option
-            JsCalls: (unit -> unit) list
+            Actions: Action<'TMessage> list
+            Producers: Producer<'TMessage> list
             Node: Node option
             CurrentTree: obj option
             Subscribers: Map<string, Subscriber<'TMessage, 'TModel>>
@@ -369,7 +409,8 @@ module App =
         {
             AppState = appState
             Init = None
-            JsCalls = []
+            Actions = []
+            Producers = []
             Node = None
             CurrentTree = None
             Subscribers = Map.empty
@@ -382,6 +423,8 @@ module App =
     let withSubscriber subscriberId subscriber app =
         let subsribers = app.Subscribers |> Map.add subscriberId subscriber
         { app with Subscribers = subsribers }
+    let withProducer p app = 
+        {app with Producers = p::app.Producers}
 
     let createScheduler() = 
         MailboxProcessor.Start(fun inbox ->
@@ -415,6 +458,8 @@ module App =
             let notifySubscribers subs model =
                 subs |> Map.iter (fun key handler -> handler model)
 
+            app.Producers |> List.iter (fun p -> p post)
+
             let rec loop state =
                 async {
                     match state.Node, state.CurrentTree with
@@ -432,7 +477,7 @@ module App =
                         match message with
                         | Message msg ->
                             ActionReceived msg |> (notifySubscribers state.Subscribers)
-                            let (model', jsCalls, msgs) = state.AppState.Update state.AppState.Model msg
+                            let (model', actions) = state.AppState.Update state.AppState.Model msg
 
                             let renderState =
                                 match state.RenderState with
@@ -440,12 +485,11 @@ module App =
                                     scheduler.Post(PingIn(1000./60., (fun() -> inbox.Post(Draw))))
                                     InProgress
                                 | InProgress -> InProgress
-                            msgs |> List.iter (fun m -> m post)
                             return! loop {
                                 state with 
                                     AppState = { state.AppState with Model = model' }
                                     RenderState = renderState
-                                    JsCalls = state.JsCalls @ jsCalls }
+                                    Actions = state.Actions @ actions }
                         | Draw -> 
                             match state.RenderState with
                             | InProgress ->
@@ -453,15 +497,14 @@ module App =
 
                                 let model = state.AppState.Model
 
-                                let jsCalls = state.JsCalls
                                 let tree = renderTree state.AppState.View post model
                                 let patches = renderer.Diff currentTree tree
                                 renderer.Patch rootNode patches |> ignore
-                                jsCalls |> List.iter (fun i -> i())
+                                state.Actions |> List.iter (fun i -> i post)
 
                                 (ModelChanged (model, state.AppState.Model)) |> notifySubscribers state.Subscribers
 
-                                return! loop {state with RenderState = NoRequest; CurrentTree = Some tree; JsCalls = []}
+                                return! loop {state with RenderState = NoRequest; CurrentTree = Some tree; Actions = []}
                             | NoRequest -> raise (exn "Shouldn't happen")
                         | _ -> return! loop state
                     | _ -> failwith "Shouldn't happen"
