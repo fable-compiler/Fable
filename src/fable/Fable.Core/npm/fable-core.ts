@@ -2631,10 +2631,12 @@ class SetTree {
   }
 
   static mkFromEnumerator(comparer: IComparer<any>, acc: SetTree, e: Iterator<any>): SetTree {
-    const cur = e.next();
-    return !cur.done
-      ? SetTree.mkFromEnumerator(comparer, SetTree.add(comparer, cur.value, acc), e)
-      : acc;
+    let cur = e.next();
+    while (!cur.done) {
+      acc = SetTree.add(comparer, cur.value, acc);
+      cur = e.next();
+    }
+    return acc;
   }
 
   static ofSeq(comparer: IComparer<any>, c: Iterable<any>) {
@@ -3252,10 +3254,12 @@ class MapTree {
   // }
 
   static mkFromEnumerator(comparer: IComparer<any>, acc: MapTree, e: Iterator<any>): MapTree {
-    const cur = e.next();
-    return !cur.done
-      ? MapTree.mkFromEnumerator(comparer, MapTree.add(comparer, cur.value[0], cur.value[1], acc), e)
-      : acc;
+    let cur = e.next();
+    while (!cur.done) {
+      acc = MapTree.add(comparer, cur.value[0], cur.value[1], acc);
+      cur = e.next();
+    }
+    return acc;
   }
 
   // static ofArray(comparer: IComparer<any>, arr: ArrayLike<[any,any]>) {
