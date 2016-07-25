@@ -814,8 +814,8 @@ module Compiler =
                     | Fable.PrimitiveTypeKind.Array _ -> "Array<any>"
                 | Fable.Type.DeclaredType e -> 
                     match e.FullName with
-                    | "Microsoft.FSharp.Collections.List" -> "List<any>"
-                    | _ -> e.Name
+                    | "Microsoft.FSharp.Collections.FSharpList" -> "List<any>"
+                    | _ -> sprintf "%s /* %s */" e.Name e.FullName
 
             let getArguments (args: Fable.Ident list) =
                 let mapArg (i: Fable.Ident) = sprintf "%s: %s" i.name (getTypeScriptType i.typ)
@@ -827,10 +827,10 @@ module Compiler =
                 let returnType = getTypeScriptType m.Body.Type
                 let args = getArguments m.Arguments
                 match m.Kind with
-                | Fable.Method name ->
-                    sprintf "export function %s%s: %s;" name args returnType
-                | Fable.Getter (name, _) -> 
-                    sprintf "declare var %s: %s;" name returnType
+                | Fable.Method ->
+                    sprintf "export function %s%s: %s;" m.Name args returnType
+                | Fable.Getter -> 
+                    sprintf "declare var %s: %s;" m.Name returnType
                 | _ -> ""
 
             let outputMembers (decls: Fable.Declaration list) =
@@ -844,13 +844,13 @@ module Compiler =
                         match m.Kind with
                         | Fable.Constructor ->
                             outputConstructor args
-                        | Fable.Method name ->
-                            if name = ".ctor" then
+                        | Fable.Method ->
+                            if m.Name = ".ctor" then
                                 outputConstructor args
                             else
-                                sprintf "%s%s: %s;" name args returnType
-                        | Fable.Getter (name, _) -> 
-                            sprintf "%s: %s;" name returnType
+                                sprintf "%s%s: %s;" m.Name args returnType
+                        | Fable.Getter -> 
+                            sprintf "%s: %s;" m.Name returnType
                         | _ -> ""
                     | _ ->
                     ""                   
