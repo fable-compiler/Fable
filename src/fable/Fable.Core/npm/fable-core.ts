@@ -84,6 +84,8 @@ export class Util {
   static equals(x: any, y: any): boolean {
     if (x == null) // Return true if both are null or undefined
       return y == null;
+    else if (y == null)
+      return false;
     else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
       return false;
     else if (Array.isArray(x) || ArrayBuffer.isView(x))
@@ -101,6 +103,8 @@ export class Util {
   static compare(x: any, y: any): number {
     if (x == null) // Return 0 if both are null or undefined
       return y == null ? 0 : -1;
+    else if (y == null)
+      return -1;
     else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
       return -1;
     else if (Array.isArray(x) || ArrayBuffer.isView(x))
