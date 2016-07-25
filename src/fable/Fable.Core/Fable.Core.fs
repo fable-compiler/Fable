@@ -56,8 +56,7 @@ type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> = Case1 of 'a | Case2 of 'b | Case3 of
 /// DO NOT USE: Internal type for Fable dynamic operations
 type Applicable = obj->obj
 
-[<AutoOpen>]
-module Operators =
+module JsInterop =
     /// Dynamically access a property of an arbitrary object.
     /// `myObj?propA` in JS becomes `myObj.propA`
     /// `myObj?(propA)` in JS becomes `myObj[propA]`
@@ -88,8 +87,6 @@ module Operators =
     /// Create an empty JS object: {}
     let createEmpty<'T> : 'T = failwith "JS only"
 
-[<AutoOpen>]
-module Modules =
     /// F#: let myMember = importMember<string> "myModule"
     /// JS: import { myMember } from "myModule"
     /// Note the import must be immediately assigned to a value in a let binding
@@ -103,9 +100,14 @@ module Modules =
     /// JS: import * as myLib from "myLib"
     let importAll<'T> (path: string):'T = failwith "JS only"
 
-module Serialize =
+    /// Serialize F# objects to JSON with type info
     let toJson (o: 'T): string = failwith "JS only"
+
+    /// Instantiate F# objects from JSON with type info
+    /// (compatible with Newtonsoft.Json)
     let ofJson<'T> (json: string): 'T = failwith "JS only"
+
+    /// Convert F# unions, records and classes into plain JS objects
     let toPlainJsObj (o: 'T): obj = failwith "JS only"
 
 module Testing =

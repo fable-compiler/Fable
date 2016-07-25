@@ -49,6 +49,7 @@ let ``Local values from partial functions work``() = // See #115
 
 #if MOCHA
 open Fable.Core
+open Fable.Core.JsInterop
 
 [<Test>]
 let ``Dynamic application works``() =
