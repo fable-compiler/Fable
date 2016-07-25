@@ -29,14 +29,21 @@ module Naming =
 
     let getImportIdent i = sprintf "$import%i" i
 
-    let knownInterfaces =
-        set [ "System.Object"; "System.IComparable"; "System.IDisposable";
-            "System.IObservable"; "System.IObserver"]
-             
-    let automaticInterfaces =
-        set [ "System.IEquatable"; "System.Collections.IStructuralEquatable";
-            "System.IComparable"; "System.Collections.IStructuralComparable" ]
-    
+    /// Calls to methods of these interfaces will be replaced
+    /// so they cannot be customly implemented.
+    let replacedInterfaces =
+        set [ "System.Collections.IEnumerable"; "System.Collections.Generic.IEnumerable";
+              "System.Collections.IEnumerator"; "System.Collections.Generic.IEnumerator";
+              "System.Collections.Generic.ICollection"; "System.Collections.Generic.IList"
+              "System.Collections.Generic.IDictionary"; "System.Collections.Generic.ISet" ]
+
+    /// Interfaces automatically assigned by the F# compiler
+    /// to unions and records. Ignored by Fable.
+    let ignoredInterfaces =
+        set [ "System.Collections.IStructuralEquatable"; "System.Collections.IStructuralComparable" ]
+
+    /// Methods automatically assigned by the F# compiler
+    /// for unions and records. Ignored by Fable.
     let ignoredCompilerGenerated =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
 
@@ -62,7 +69,10 @@ module Naming =
         (fun (s: string) -> if reg3.IsMatch(s) then s.Replace("|", "$") else s)
         
     let lowerFirst (s: string) =
-        s.Substring 1 |> (+) (Char.ToLowerInvariant s.[0] |> string)
+        s.Substring(0,1).ToLowerInvariant() + s.Substring(1)
+
+    let upperFirst (s: string) =
+        s.Substring(0,1).ToUpperInvariant() + s.Substring(1)
 
     let getUniqueVar =
         let monitor = obj()    

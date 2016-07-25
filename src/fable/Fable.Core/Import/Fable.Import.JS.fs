@@ -3,7 +3,7 @@ open System
 open Fable.Core
 
 module JS =
-    type PropertyDescriptor =
+    type [<AllowNullLiteral>] PropertyDescriptor =
         abstract configurable: bool option with get, set
         abstract enumerable: bool option with get, set
         abstract value: obj option with get, set
@@ -11,10 +11,10 @@ module JS =
         abstract get: unit -> obj
         abstract set: v: obj -> unit
 
-    and PropertyDescriptorMap =
+    and [<AllowNullLiteral>] PropertyDescriptorMap =
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: s: string -> PropertyDescriptor with get, set
 
-    and Object =
+    and [<AllowNullLiteral>] Object =
         abstract ``constructor``: Function with get, set
         abstract toString: unit -> string
         abstract toLocaleString: unit -> string
@@ -25,7 +25,7 @@ module JS =
         abstract hasOwnProperty: v: PropertyKey -> bool
         abstract propertyIsEnumerable: v: PropertyKey -> bool
 
-    and ObjectConstructor =
+    and [<AllowNullLiteral>] ObjectConstructor =
         abstract prototype: obj with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?value: obj -> obj
         [<Emit("$0($1...)")>] abstract Invoke: unit -> obj
@@ -53,7 +53,7 @@ module JS =
         abstract getOwnPropertyDescriptor: o: obj * propertyKey: PropertyKey -> PropertyDescriptor
         abstract defineProperty: o: obj * propertyKey: PropertyKey * attributes: PropertyDescriptor -> obj
 
-    and Function =
+    and [<AllowNullLiteral>] Function =
         abstract prototype: obj with get, set
         abstract length: float with get, set
         abstract arguments: obj with get, set
@@ -64,18 +64,18 @@ module JS =
         abstract bind: thisArg: obj * [<ParamArray>] argArray: obj[] -> obj
         [<Emit("$0[Symbol.hasInstance]($1...)")>] abstract ``[Symbol.hasInstance]``: value: obj -> bool
 
-    and FunctionConstructor =
+    and [<AllowNullLiteral>] FunctionConstructor =
         abstract prototype: Function with get, set
         [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: string[] -> Function
         [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: string[] -> Function
 
-    and IArguments =
+    and [<AllowNullLiteral>] IArguments =
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> obj with get, set
         abstract length: float with get, set
         abstract callee: Function with get, set
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<obj>
 
-    and String =
+    and [<AllowNullLiteral>] String =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
         abstract toString: unit -> string
@@ -131,7 +131,7 @@ module JS =
         abstract sub: unit -> string
         abstract sup: unit -> string
 
-    and StringConstructor =
+    and [<AllowNullLiteral>] StringConstructor =
         abstract prototype: String with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?value: obj -> String
         [<Emit("$0($1...)")>] abstract Invoke: ?value: obj -> string
@@ -139,22 +139,22 @@ module JS =
         abstract fromCodePoint: [<ParamArray>] codePoints: float[] -> string
         abstract raw: template: TemplateStringsArray * [<ParamArray>] substitutions: obj[] -> string
 
-    and Boolean =
+    and [<AllowNullLiteral>] Boolean =
         abstract valueOf: unit -> bool
 
-    and BooleanConstructor =
+    and [<AllowNullLiteral>] BooleanConstructor =
         abstract prototype: Boolean with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?value: obj -> Boolean
         [<Emit("$0($1...)")>] abstract Invoke: ?value: obj -> bool
 
-    and Number =
+    and [<AllowNullLiteral>] Number =
         abstract toString: ?radix: float -> string
         abstract toFixed: ?fractionDigits: float -> string
         abstract toExponential: ?fractionDigits: float -> string
         abstract toPrecision: ?precision: float -> string
         abstract valueOf: unit -> float
 
-    and NumberConstructor =
+    and [<AllowNullLiteral>] NumberConstructor =
         abstract prototype: Number with get, set
         abstract MAX_VALUE: float with get, set
         abstract MIN_VALUE: float with get, set
@@ -173,11 +173,11 @@ module JS =
         abstract parseFloat: string: string -> float
         abstract parseInt: string: string * ?radix: float -> float
 
-    and TemplateStringsArray =
+    and [<AllowNullLiteral>] TemplateStringsArray =
         inherit Array<string>
         abstract raw: ResizeArray<string> with get, set
 
-    and Math =
+    and [<AllowNullLiteral>] Math =
         abstract E: float with get, set
         abstract LN10: float with get, set
         abstract LN2: float with get, set
@@ -223,7 +223,7 @@ module JS =
         abstract fround: x: float -> float
         abstract cbrt: x: float -> float
 
-    and Date =
+    and [<AllowNullLiteral>] Date =
         abstract toString: unit -> string
         abstract toDateString: unit -> string
         abstract toTimeString: unit -> string
@@ -272,7 +272,7 @@ module JS =
         [<Emit("$0[Symbol.toPrimitive]($1...)")>] abstract ``[Symbol.toPrimitive]_number``: unit -> float
         [<Emit("$0[Symbol.toPrimitive]($1...)")>] abstract ``[Symbol.toPrimitive]``: hint: string -> U2<string, float>
 
-    and DateConstructor =
+    and [<AllowNullLiteral>] DateConstructor =
         abstract prototype: DateTime with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DateTime
         [<Emit("new $0($1...)")>] abstract Create: value: float -> DateTime
@@ -283,17 +283,17 @@ module JS =
         abstract UTC: year: float * month: float * ?date: float * ?hours: float * ?minutes: float * ?seconds: float * ?ms: float -> float
         abstract now: unit -> float
 
-    and RegExpMatchArray =
+    and [<AllowNullLiteral>] RegExpMatchArray =
         inherit Array<string>
         abstract index: float option with get, set
         abstract input: string option with get, set
 
-    and RegExpExecArray =
+    and [<AllowNullLiteral>] RegExpExecArray =
         inherit Array<string>
         abstract index: float with get, set
         abstract input: string with get, set
 
-    and RegExp =
+    and [<AllowNullLiteral>] RegExp =
         abstract source: string with get, set
         abstract ``global``: bool with get, set
         abstract ignoreCase: bool with get, set
@@ -311,7 +311,7 @@ module JS =
         [<Emit("$0[Symbol.search]($1...)")>] abstract ``[Symbol.search]``: string: string -> float
         [<Emit("$0[Symbol.split]($1...)")>] abstract ``[Symbol.split]``: string: string * ?limit: float -> ResizeArray<string>
 
-    and RegExpConstructor =
+    and [<AllowNullLiteral>] RegExpConstructor =
         abstract prototype: RegExp with get, set
         abstract ``$1``: string with get, set
         abstract ``$2``: string with get, set
@@ -327,70 +327,70 @@ module JS =
         [<Emit("$0($1...)")>] abstract Invoke: pattern: string * ?flags: string -> RegExp
         [<Emit("$0[Symbol.species]($1...)")>] abstract ``[Symbol.species]``: unit -> RegExpConstructor
 
-    and Error =
+    and [<AllowNullLiteral>] Error =
         abstract name: string with get, set
         abstract message: string with get, set
 
-    and ErrorConstructor =
+    and [<AllowNullLiteral>] ErrorConstructor =
         abstract prototype: Error with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?message: string -> Error
         [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> Error
 
-    and EvalError =
+    and [<AllowNullLiteral>] EvalError =
         inherit Error
 
 
-    and EvalErrorConstructor =
+    and [<AllowNullLiteral>] EvalErrorConstructor =
         abstract prototype: EvalError with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?message: string -> EvalError
         [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> EvalError
 
-    and RangeError =
+    and [<AllowNullLiteral>] RangeError =
         inherit Error
 
 
-    and RangeErrorConstructor =
+    and [<AllowNullLiteral>] RangeErrorConstructor =
         abstract prototype: RangeError with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?message: string -> RangeError
         [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> RangeError
 
-    and ReferenceError =
+    and [<AllowNullLiteral>] ReferenceError =
         inherit Error
 
 
-    and ReferenceErrorConstructor =
+    and [<AllowNullLiteral>] ReferenceErrorConstructor =
         abstract prototype: ReferenceError with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?message: string -> ReferenceError
         [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> ReferenceError
 
-    and SyntaxError =
+    and [<AllowNullLiteral>] SyntaxError =
         inherit Error
 
 
-    and SyntaxErrorConstructor =
+    and [<AllowNullLiteral>] SyntaxErrorConstructor =
         abstract prototype: SyntaxError with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?message: string -> SyntaxError
         [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> SyntaxError
 
-    and TypeError =
+    and [<AllowNullLiteral>] TypeError =
         inherit Error
 
 
-    and TypeErrorConstructor =
+    and [<AllowNullLiteral>] TypeErrorConstructor =
         abstract prototype: TypeError with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?message: string -> TypeError
         [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> TypeError
 
-    and URIError =
+    and [<AllowNullLiteral>] URIError =
         inherit Error
 
 
-    and URIErrorConstructor =
+    and [<AllowNullLiteral>] URIErrorConstructor =
         abstract prototype: URIError with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?message: string -> URIError
         [<Emit("$0($1...)")>] abstract Invoke: ?message: string -> URIError
 
-    and JSON =
+    and [<AllowNullLiteral>] JSON =
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract parse: text: string * ?reviver: Func<obj, obj, obj> -> obj
         abstract stringify: value: obj -> string
@@ -399,7 +399,7 @@ module JS =
         abstract stringify: value: obj * replacer: Func<string, obj, obj> * space: U2<string, float> -> string
         abstract stringify: value: obj * replacer: ResizeArray<obj> * space: U2<string, float> -> string
 
-    and ReadonlyArray<'T> =
+    and [<AllowNullLiteral>] ReadonlyArray<'T> =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: int -> 'T with get, set
         abstract toString: unit -> string
@@ -420,7 +420,7 @@ module JS =
         abstract reduceRight: callbackfn: Func<'T, 'T, float, ReadonlyArray<'T>, 'T> * ?initialValue: 'T -> 'T
         abstract reduceRight: callbackfn: Func<'U, 'T, float, ReadonlyArray<'T>, 'U> * initialValue: 'U -> 'U
 
-    and Array<'T> =
+    and [<AllowNullLiteral>] Array<'T> =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: int -> 'T with get, set
         abstract toString: unit -> string
@@ -457,7 +457,7 @@ module JS =
         abstract fill: value: 'T * ?start: float * ?``end``: float -> ResizeArray<'T>
         abstract copyWithin: target: float * start: float * ?``end``: float -> ResizeArray<'T>
 
-    and ArrayConstructor =
+    and [<AllowNullLiteral>] ArrayConstructor =
         abstract prototype: ResizeArray<obj> with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?arrayLength: float -> ResizeArray<obj>
         [<Emit("new $0($1...)")>] abstract Create: arrayLength: float -> ResizeArray<'T>
@@ -472,7 +472,7 @@ module JS =
         abstract from: iterable: Iterable<'T> -> ResizeArray<'T>
         abstract ``of``: [<ParamArray>] items: 'T[] -> ResizeArray<'T>
 
-    and TypedPropertyDescriptor<'T> =
+    and [<AllowNullLiteral>] TypedPropertyDescriptor<'T> =
         abstract enumerable: bool option with get, set
         abstract configurable: bool option with get, set
         abstract writable: bool option with get, set
@@ -495,30 +495,30 @@ module JS =
     and PromiseConstructorLike =
         obj
 
-    and PromiseLike<'T> =
+    and [<AllowNullLiteral>] PromiseLike<'T> =
         abstract ``then``: ?onfulfilled: Func<'T, U2<'TResult, PromiseLike<'TResult>>> * ?onrejected: Func<obj, U2<'TResult, PromiseLike<'TResult>>> -> PromiseLike<'TResult>
         abstract ``then``: ?onfulfilled: Func<'T, U2<'TResult, PromiseLike<'TResult>>> * ?onrejected: Func<obj, unit> -> PromiseLike<'TResult>
 
-    and ArrayLike<'T> =
+    and [<AllowNullLiteral>] ArrayLike<'T> =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: int -> 'T with get, set
 
-    and ArrayBuffer =
+    and [<AllowNullLiteral>] ArrayBuffer =
         abstract byteLength: float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract slice: ``begin``: float * ?``end``: float -> ArrayBuffer
 
-    and ArrayBufferConstructor =
+    and [<AllowNullLiteral>] ArrayBufferConstructor =
         abstract prototype: ArrayBuffer with get, set
         [<Emit("new $0($1...)")>] abstract Create: byteLength: float -> ArrayBuffer
         abstract isView: arg: obj -> obj
 
-    and ArrayBufferView =
+    and [<AllowNullLiteral>] ArrayBufferView =
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
 
-    and DataView =
+    and [<AllowNullLiteral>] DataView =
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
         abstract byteOffset: float with get, set
@@ -540,10 +540,10 @@ module JS =
         abstract setUint16: byteOffset: float * value: float * ?littleEndian: bool -> unit
         abstract setUint32: byteOffset: float * value: float * ?littleEndian: bool -> unit
 
-    and DataViewConstructor =
+    and [<AllowNullLiteral>] DataViewConstructor =
         [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?byteLength: float -> DataView
 
-    and Int8Array =
+    and [<AllowNullLiteral>] Int8Array =
         abstract BYTES_PER_ELEMENT: float with get, set
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
@@ -580,7 +580,7 @@ module JS =
         abstract values: unit -> IterableIterator<float>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
 
-    and Int8ArrayConstructor =
+    and [<AllowNullLiteral>] Int8ArrayConstructor =
         abstract prototype: Int8Array with get, set
         abstract BYTES_PER_ELEMENT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: length: float -> Int8Array
@@ -591,7 +591,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Int8Array
         abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Int8Array
 
-    and Uint8Array =
+    and [<AllowNullLiteral>] Uint8Array =
         abstract BYTES_PER_ELEMENT: float with get, set
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
@@ -628,7 +628,7 @@ module JS =
         abstract values: unit -> IterableIterator<float>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
 
-    and Uint8ArrayConstructor =
+    and [<AllowNullLiteral>] Uint8ArrayConstructor =
         abstract prototype: Uint8Array with get, set
         abstract BYTES_PER_ELEMENT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint8Array
@@ -639,7 +639,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint8Array
         abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint8Array
 
-    and Uint8ClampedArray =
+    and [<AllowNullLiteral>] Uint8ClampedArray =
         abstract BYTES_PER_ELEMENT: float with get, set
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
@@ -676,7 +676,7 @@ module JS =
         abstract values: unit -> IterableIterator<float>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
 
-    and Uint8ClampedArrayConstructor =
+    and [<AllowNullLiteral>] Uint8ClampedArrayConstructor =
         abstract prototype: Uint8ClampedArray with get, set
         abstract BYTES_PER_ELEMENT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint8ClampedArray
@@ -687,7 +687,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint8ClampedArray
         abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint8ClampedArray
 
-    and Int16Array =
+    and [<AllowNullLiteral>] Int16Array =
         abstract BYTES_PER_ELEMENT: float with get, set
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
@@ -724,7 +724,7 @@ module JS =
         abstract values: unit -> IterableIterator<float>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
 
-    and Int16ArrayConstructor =
+    and [<AllowNullLiteral>] Int16ArrayConstructor =
         abstract prototype: Int16Array with get, set
         abstract BYTES_PER_ELEMENT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: length: float -> Int16Array
@@ -735,7 +735,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Int16Array
         abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Int16Array
 
-    and Uint16Array =
+    and [<AllowNullLiteral>] Uint16Array =
         abstract BYTES_PER_ELEMENT: float with get, set
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
@@ -772,7 +772,7 @@ module JS =
         abstract values: unit -> IterableIterator<float>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
 
-    and Uint16ArrayConstructor =
+    and [<AllowNullLiteral>] Uint16ArrayConstructor =
         abstract prototype: Uint16Array with get, set
         abstract BYTES_PER_ELEMENT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint16Array
@@ -783,7 +783,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint16Array
         abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint16Array
 
-    and Int32Array =
+    and [<AllowNullLiteral>] Int32Array =
         abstract BYTES_PER_ELEMENT: float with get, set
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
@@ -820,7 +820,7 @@ module JS =
         abstract values: unit -> IterableIterator<float>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
 
-    and Int32ArrayConstructor =
+    and [<AllowNullLiteral>] Int32ArrayConstructor =
         abstract prototype: Int32Array with get, set
         abstract BYTES_PER_ELEMENT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: length: float -> Int32Array
@@ -831,7 +831,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Int32Array
         abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Int32Array
 
-    and Uint32Array =
+    and [<AllowNullLiteral>] Uint32Array =
         abstract BYTES_PER_ELEMENT: float with get, set
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
@@ -868,7 +868,7 @@ module JS =
         abstract values: unit -> IterableIterator<float>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
 
-    and Uint32ArrayConstructor =
+    and [<AllowNullLiteral>] Uint32ArrayConstructor =
         abstract prototype: Uint32Array with get, set
         abstract BYTES_PER_ELEMENT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint32Array
@@ -879,7 +879,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint32Array
         abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Uint32Array
 
-    and Float32Array =
+    and [<AllowNullLiteral>] Float32Array =
         abstract BYTES_PER_ELEMENT: float with get, set
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
@@ -916,7 +916,7 @@ module JS =
         abstract values: unit -> IterableIterator<float>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
 
-    and Float32ArrayConstructor =
+    and [<AllowNullLiteral>] Float32ArrayConstructor =
         abstract prototype: Float32Array with get, set
         abstract BYTES_PER_ELEMENT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: length: float -> Float32Array
@@ -927,7 +927,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Float32Array
         abstract from: arrayLike: Iterable<float> * ?mapfn: Func<float, float, float> * ?thisArg: obj -> Float32Array
 
-    and Float64Array =
+    and [<AllowNullLiteral>] Float64Array =
         abstract BYTES_PER_ELEMENT: float with get, set
         abstract buffer: ArrayBuffer with get, set
         abstract byteLength: float with get, set
@@ -964,7 +964,7 @@ module JS =
         abstract values: unit -> IterableIterator<float>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
 
-    and Float64ArrayConstructor =
+    and [<AllowNullLiteral>] Float64ArrayConstructor =
         abstract prototype: Float64Array with get, set
         abstract BYTES_PER_ELEMENT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: length: float -> Float64Array
@@ -978,12 +978,12 @@ module JS =
     and PropertyKey =
         U3<string, float, Symbol>
 
-    and Symbol =
+    and [<AllowNullLiteral>] Symbol =
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract toString: unit -> string
         abstract valueOf: unit -> obj
 
-    and SymbolConstructor =
+    and [<AllowNullLiteral>] SymbolConstructor =
         abstract prototype: Symbol with get, set
         abstract hasInstance: Symbol with get, set
         abstract isConcatSpreadable: Symbol with get, set
@@ -1000,32 +1000,32 @@ module JS =
         abstract ``for``: key: string -> Symbol
         abstract keyFor: sym: Symbol -> string
 
-    and IteratorResult<'T> =
+    and [<AllowNullLiteral>] IteratorResult<'T> =
         abstract ``done``: bool with get, set
         abstract value: 'T option with get, set
 
-    and Iterator<'T> =
+    and [<AllowNullLiteral>] Iterator<'T> =
         abstract next: ?value: obj -> IteratorResult<'T>
         abstract ``return``: ?value: obj -> IteratorResult<'T>
         abstract throw: ?e: obj -> IteratorResult<'T>
 
-    and Iterable<'T> =
+    and [<AllowNullLiteral>] Iterable<'T> =
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> Iterator<'T>
 
-    and IterableIterator<'T> =
+    and [<AllowNullLiteral>] IterableIterator<'T> =
         inherit Iterator<'T>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<'T>
 
-    and GeneratorFunction =
+    and [<AllowNullLiteral>] GeneratorFunction =
         inherit Function
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
 
-    and GeneratorFunctionConstructor =
+    and [<AllowNullLiteral>] GeneratorFunctionConstructor =
         abstract prototype: GeneratorFunction with get, set
         [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: string[] -> GeneratorFunction
         [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: string[] -> GeneratorFunction
 
-    and Map<'K, 'V> =
+    and [<AllowNullLiteral>] Map<'K, 'V> =
         abstract size: float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract clear: unit -> unit
@@ -1039,13 +1039,13 @@ module JS =
         abstract values: unit -> IterableIterator<'V>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<'K * 'V>
 
-    and MapConstructor =
+    and [<AllowNullLiteral>] MapConstructor =
         abstract prototype: Map<obj, obj> with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Map<obj, obj>
         [<Emit("new $0($1...)")>] abstract Create: unit -> Map<'K, 'V>
         [<Emit("new $0($1...)")>] abstract Create: iterable: Iterable<'K * 'V> -> Map<'K, 'V>
 
-    and WeakMap<'K, 'V> =
+    and [<AllowNullLiteral>] WeakMap<'K, 'V> =
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract clear: unit -> unit
         abstract delete: key: 'K -> bool
@@ -1053,13 +1053,13 @@ module JS =
         abstract has: key: 'K -> bool
         abstract set: key: 'K * ?value: 'V -> WeakMap<'K, 'V>
 
-    and WeakMapConstructor =
+    and [<AllowNullLiteral>] WeakMapConstructor =
         abstract prototype: WeakMap<obj, obj> with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WeakMap<obj, obj>
         [<Emit("new $0($1...)")>] abstract Create: unit -> WeakMap<'K, 'V>
         [<Emit("new $0($1...)")>] abstract Create: iterable: Iterable<'K * 'V> -> WeakMap<'K, 'V>
 
-    and Set<'T> =
+    and [<AllowNullLiteral>] Set<'T> =
         abstract size: float with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract add: value: 'T -> Set<'T>
@@ -1072,26 +1072,26 @@ module JS =
         abstract values: unit -> IterableIterator<'T>
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<'T>
 
-    and SetConstructor =
+    and [<AllowNullLiteral>] SetConstructor =
         abstract prototype: Set<obj> with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Set<obj>
         [<Emit("new $0($1...)")>] abstract Create: unit -> Set<'T>
         [<Emit("new $0($1...)")>] abstract Create: iterable: Iterable<'T> -> Set<'T>
 
-    and WeakSet<'T> =
+    and [<AllowNullLiteral>] WeakSet<'T> =
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract add: value: 'T -> WeakSet<'T>
         abstract clear: unit -> unit
         abstract delete: value: 'T -> bool
         abstract has: value: 'T -> bool
 
-    and WeakSetConstructor =
+    and [<AllowNullLiteral>] WeakSetConstructor =
         abstract prototype: WeakSet<obj> with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WeakSet<obj>
         [<Emit("new $0($1...)")>] abstract Create: unit -> WeakSet<'T>
         [<Emit("new $0($1...)")>] abstract Create: iterable: Iterable<'T> -> WeakSet<'T>
 
-    and ProxyHandler<'T> =
+    and [<AllowNullLiteral>] ProxyHandler<'T> =
         abstract getPrototypeOf: target: 'T -> obj
         abstract setPrototypeOf: target: 'T * v: obj -> bool
         abstract isExtensible: target: 'T -> bool
@@ -1107,18 +1107,18 @@ module JS =
         abstract apply: target: 'T * thisArg: obj * ?argArray: obj -> obj
         abstract construct: target: 'T * thisArg: obj * ?argArray: obj -> obj
 
-    and ProxyConstructor =
+    and [<AllowNullLiteral>] ProxyConstructor =
         abstract revocable: target: 'T * handler: ProxyHandler<'T> -> obj
         [<Emit("new $0($1...)")>] abstract Create: target: 'T * handler: ProxyHandler<'T> -> 'T
 
-    and Promise<'T> =
+    and [<AllowNullLiteral>] Promise<'T> =
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
         abstract ``then``: ?onfulfilled: Func<'T, U2<'TResult, PromiseLike<'TResult>>> * ?onrejected: Func<obj, U2<'TResult, PromiseLike<'TResult>>> -> Promise<'TResult>
         abstract ``then``: ?onfulfilled: Func<'T, U2<'TResult, PromiseLike<'TResult>>> * ?onrejected: Func<obj, unit> -> Promise<'TResult>
         abstract catch: ?onrejected: Func<obj, U2<'T, PromiseLike<'T>>> -> Promise<'T>
         abstract catch: ?onrejected: Func<obj, unit> -> Promise<'T>
 
-    and PromiseConstructor =
+    and [<AllowNullLiteral>] PromiseConstructor =
         abstract prototype: Promise<obj> with get, set
         [<Emit("$0[Symbol.species]{{=$1}}")>] abstract ``[Symbol.species]``: Function with get, set
         [<Emit("new $0($1...)")>] abstract Create: executor: Func<Func<U2<'T, PromiseLike<'T>>, unit>, Func<obj, unit>, unit> -> Promise<'T>
@@ -1137,7 +1137,7 @@ module JS =
         abstract resolve: value: U2<'T, PromiseLike<'T>> -> Promise<'T>
         abstract resolve: unit -> Promise<unit>
 
-    type [<Global>] Reflect =
+    type [<AllowNullLiteral>] [<Global>] Reflect =
         static member apply(target: Function, thisArgument: obj, argumentsList: ArrayLike<obj>): obj = failwith "JS only"
         static member construct(target: Function, argumentsList: ArrayLike<obj>, ?newTarget: obj): obj = failwith "JS only"
         static member defineProperty(target: obj, propertyKey: PropertyKey, attributes: PropertyDescriptor): bool = failwith "JS only"

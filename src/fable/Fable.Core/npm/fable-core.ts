@@ -4,30 +4,16 @@ const FSymbol = {
 };
 export { FSymbol as Symbol }
 
-export class Choice<T1, T2> {
-  public Case: "Choice1Of2" | "Choice2Of2";
-  public Fields: Array<T1 | T2>;
+export interface IComparer<T> {
+  Compare(x: T, y: T): number;
+}
 
-  constructor(t: "Choice1Of2" | "Choice2Of2", c: number, d: T1 | T2) {
-    this.Case = t;
-    this.Fields = [d];
-  }
+export interface IComparable<T> {
+  CompareTo(x: T): number;
+}
 
-  static Choice1Of2<T1, T2>(v: T1) {
-    return new Choice<T1, T2>("Choice1Of2", 1, v);
-  }
-
-  static Choice2Of2<T1, T2>(v: T2) {
-    return new Choice<T1, T2>("Choice2Of2", 1, v);
-  }
-
-  get valueIfChoice1() {
-    return this.Case === "Choice1Of2" ? <T1>this.Fields[0] : null;
-  }
-
-  get valueIfChoice2() {
-    return this.Case === "Choice2Of2" ? <T2>this.Fields[0] : null;
-  }
+export interface IEquatable<T> {
+  Equals(x: T): boolean;
 }
 
 export type Tuple<T1, T2> = [T1, T2];
@@ -52,7 +38,8 @@ export class Util {
       const currentInterfaces = proto[FSymbol.interfaces];
       if (Array.isArray(currentInterfaces)) {
         for (let i = 0; i < interfaces.length; i++)
-          currentInterfaces.push(interfaces[i]);
+          if (currentInterfaces.indexOf(interfaces[i]) == -1)
+            currentInterfaces.push(interfaces[i]);
       } else
         proto[FSymbol.interfaces] = interfaces;
     }
@@ -67,56 +54,111 @@ export class Util {
     return Array.isArray(obj[FSymbol.interfaces]) && obj[FSymbol.interfaces].indexOf(interfaceName) >= 0;
   }
 
+  static getTypeFullName(cons: any): string {
+    if (cons.prototype && cons.prototype[FSymbol.typeName]) {
+      return cons.prototype[FSymbol.typeName];
+    }
+    else {
+      return cons.name || "unknown";
+    }
+  }
+
+  static getTypeNamespace(cons: any): string {
+    const fullName = Util.getTypeFullName(cons);
+    const i = fullName.lastIndexOf('.');
+    return i > -1 ? fullName.substr(0, i) : "";
+  } 
+
+  static getTypeName(cons: any): string {
+    const fullName = Util.getTypeFullName(cons);
+    const i = fullName.lastIndexOf('.');
+    return fullName.substr(i + 1);
+  }
+
   static getRestParams(args: ArrayLike<any>, idx: number) {
     for (var _len = args.length, restArgs = Array(_len > idx ? _len - idx : 0), _key = idx; _key < _len; _key++)
       restArgs[_key - idx] = args[_key];
     return restArgs;
   }
 
-  static compareTo(x: any, y: any): number {
-    function isCollectionComparable(o: any) {
-      return Array.isArray(o) || ArrayBuffer.isView(o) || o instanceof List || o instanceof Map || o instanceof Set;
-    }
+  static equals(x: any, y: any): boolean {
+    if (x == null) // Return true if both are null or undefined
+      return y == null;
+    else if (y == null)
+      return false;
+    else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
+      return false;
+    else if (Array.isArray(x) || ArrayBuffer.isView(x))
+      return x.length != y.length
+        ? false
+        : Seq.fold2((prev, v1, v2) => !prev ? prev : Util.equals(v1, v2), true, x, y);
+    else if (x instanceof Date)
+      return FDate.equals(x, y);
+    else if (Util.hasInterface(x, "System.IEquatable"))
+      return x.Equals(y);
+    else
+      return x === y;
+  }
 
-    function sortIfMapOrSet(o: any) {
-      return o instanceof Map || o instanceof Set ? Array.from(o).sort() : o;
-    }
-
-    // Return 0 if both are null or undefined
-    if (x == null && y == null)
-      return 0;
-
-    if (typeof x !== typeof y)
+  static compare(x: any, y: any): number {
+    if (x == null) // Return 0 if both are null or undefined
+      return y == null ? 0 : -1;
+    else if (y == null)
       return -1;
+    else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
+      return -1;
+    else if (Array.isArray(x) || ArrayBuffer.isView(x))
+      return x.length != y.length
+        ? (x.length < y.length ? -1 : 1)
+        : Seq.fold2((prev, v1, v2) => prev !== 0 ? prev : Util.compare(v1, v2), 0, x, y);
+    else if (Util.hasInterface(x, "System.IComparable"))
+      return x.CompareTo(y);
+    else
+      return x < y ? -1 : x > y ? 1 : 0;
+  }
 
-    if (x != null && y != null && typeof x === "object" && typeof y === "object") {
-      if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
-        return -1;
-
-      if (Util.hasInterface(x, "System.IComparable"))
-        return x.compareTo(y);
-
-      if (isCollectionComparable(x)) {
-        const lengthComp = Util.compareTo(Seq.count(x), Seq.count(y));
-        return lengthComp != 0
-          ? lengthComp
-          : Seq.fold2((prev, v1, v2) => prev != 0 ? prev : Util.compareTo(v1, v2), 0, sortIfMapOrSet(x), sortIfMapOrSet(y));
-      }
-
-      if (x instanceof Date)
-        return x < y ? -1 : x > y ? 1 : 0;
-
-      const keys1 = Object.getOwnPropertyNames(x), keys2 = Object.getOwnPropertyNames(y);
-      const lengthComp = Util.compareTo(keys1.length, keys2.length);
-      return lengthComp != 0
-        ? lengthComp
-        : Seq.fold2((prev, k1, k2) => prev != 0 ? prev : Util.compareTo(x[k1], y[k2]), 0, keys1.sort(), keys2.sort());
+  static equalsRecords(x: any, y: any): boolean {
+    const keys = Object.getOwnPropertyNames(x);
+    for (let i=0; i<keys.length; i++) {
+      if (!Util.equals(x[keys[i]], y[keys[i]]))
+        return false;
     }
-    return x < y ? -1 : x > y ? 1 : 0;
+    return true;
+  }
+
+  static compareRecords(x: any, y: any): number {
+    const keys = Object.getOwnPropertyNames(x);
+    for (let i=0; i<keys.length; i++) {
+      let res = Util.compare(x[keys[i]], y[keys[i]]);
+      if (res !== 0)
+        return res;
+    }
+    return 0;
+  }
+
+  static equalsUnions(x: any, y: any): boolean {
+    if (x.Case !== y.Case)
+      return false;
+    for (let i=0; i<x.Fields.length; i++) {
+      if (!Util.equals(x.Fields[i], y.Fields[i]))
+        return false;
+    }
+    return true;
+  }
+
+  static compareUnions(x: any, y: any): number {
+    if (x.Case !== y.Case)
+      return -1;
+    for (let i=0; i<x.Fields.length; i++) {
+      let res = Util.compare(x.Fields[i], y.Fields[i]);
+      if (res !== 0)
+        return res;
+    }
+    return 0;
   }
 
   static createDisposable(f: () => void) {
-    const disp: IDisposable = { dispose: f };
+    const disp: IDisposable = { Dispose: f };
     (<any>disp)[FSymbol.interfaces] = ["System.IDisposable"];
     return disp;
   }
@@ -182,6 +224,42 @@ export class Util {
     });
   }
 }
+
+export class GenericComparer<T> implements IComparer<T> {
+  Compare: (x:T, y:T) => number;
+  
+  constructor(f?: (x:T, y:T) => number) {
+    this.Compare = f || Util.compare;
+  }
+} 
+Util.setInterfaces(GenericComparer.prototype, ["System.IComparer"], "Fable.Core.GenericComparer");
+
+export class Choice<T1, T2> {
+  public Case: "Choice1Of2" | "Choice2Of2";
+  public Fields: Array<T1 | T2>;
+
+  constructor(t: "Choice1Of2" | "Choice2Of2", d: T1[] | T2[]) {
+    this.Case = t;
+    this.Fields = d;
+  }
+
+  static Choice1Of2<T1, T2>(v: T1) {
+    return new Choice<T1, T2>("Choice1Of2", [v]);
+  }
+
+  static Choice2Of2<T1, T2>(v: T2) {
+    return new Choice<T1, T2>("Choice2Of2", [v]);
+  }
+
+  get valueIfChoice1() {
+    return this.Case === "Choice1Of2" ? <T1>this.Fields[0] : null;
+  }
+
+  get valueIfChoice2() {
+    return this.Case === "Choice2Of2" ? <T2>this.Fields[0] : null;
+  }
+}
+Util.setInterfaces(Choice.prototype, [], "Microsoft.FSharp.Core.FSharpChoice");
 
 export class TimeSpan extends Number {
   static create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
@@ -273,8 +351,8 @@ export class TimeSpan extends Number {
     return <number>ts1 - <number>ts2;
   }
 
-  static compare = Util.compareTo;
-  static compareTo = Util.compareTo;
+  static compare = Util.compare;
+  static compareTo = Util.compare;
   static duration = Math.abs;
 }
 
@@ -485,59 +563,58 @@ class FDate extends Date {
     return d1.getTime() == d2.getTime();
   }
 
-  static compareTo = Util.compareTo;
-  static compare = Util.compareTo;
-
+  static compareTo = Util.compare;
+  static compare = Util.compare;
   static op_Addition = FDate.add;
   static op_Subtraction = FDate.subtract;
 }
 export { FDate as Date }
 
 export interface IDisposable {
-  dispose(): void;
+  Dispose(): void;
 }
 
 export class Timer implements IDisposable {
-  public interval: number;
-  public autoReset: boolean;
-  public _elapsed: Event<Date>;
-
+  public Interval: number;
+  public AutoReset: boolean;
+  
+  private _elapsed: Event<Date>;
   private _enabled: boolean;
   private _isDisposed: boolean;
   private _intervalId: number;
   private _timeoutId: number;
 
   constructor(interval?: number) {
-    this.interval = interval > 0 ? interval : 100;
-    this.autoReset = true;
+    this.Interval = interval > 0 ? interval : 100;
+    this.AutoReset = true;
     this._elapsed = new Event<Date>();
   }
 
-  get elapsed() {
+  get Elapsed() {
     return this._elapsed;
   }
 
-  get enabled() {
+  get Enabled() {
     return this._enabled;
   }
 
-  set enabled(x: boolean) {
+  set Enabled(x: boolean) {
     if (!this._isDisposed && this._enabled != x) {
       if (this._enabled = x) {
-        if (this.autoReset) {
+        if (this.AutoReset) {
           this._intervalId = setInterval(() => {
-            if (!this.autoReset)
-              this.enabled = false;
-            this._elapsed.trigger(new Date());
-          }, this.interval);
+            if (!this.AutoReset)
+              this.Enabled = false;
+            this._elapsed.Trigger(new Date());
+          }, this.Interval);
         } else {
           this._timeoutId = setTimeout(() => {
-            this.enabled = false;
+            this.Enabled = false;
             this._timeoutId = 0;
-            if (this.autoReset)
-              this.enabled = true;
-            this._elapsed.trigger(new Date());
-          }, this.interval);
+            if (this.AutoReset)
+              this.Enabled = true;
+            this._elapsed.Trigger(new Date());
+          }, this.Interval);
         }
       } else {
         if (this._timeoutId) {
@@ -552,20 +629,21 @@ export class Timer implements IDisposable {
     }
   }
 
-  dispose() {
-    this.enabled = false;
+  Dispose() {
+    this.Enabled = false;
     this._isDisposed = true;
   }
 
-  close() {
-    this.dispose();
+  Close() {
+    this.Dispose();
   }
 
-  start() {
-    this.enabled = true;
+  Start() {
+    this.Enabled = true;
   }
-  stop() {
-    this.enabled = false;
+
+  Stop() {
+    this.Enabled = false;
   }
 }
 Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
@@ -693,7 +771,7 @@ class FString {
     return idx >= 0 && idx == str.length - search.length;
   }
 
-  static init(n: number, f: (i: number) => string) {
+  static initialize(n: number, f: (i: number) => string) {
     if (n < 0)
       throw "String length must be non-negative";
 
@@ -746,7 +824,7 @@ class FString {
   }
 
   static replicate(n: number, x: string) {
-    return FString.init(n, () => x);
+    return FString.initialize(n, () => x);
   }
 
   static split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
@@ -899,10 +977,10 @@ export { FRegExp as RegExp }
 
 class FArray {
   static addRangeInPlace<T>(range: Iterable<T>, xs: Array<T>) {
-    Seq.iter(x => xs.push(x), range);
+    Seq.iterate(x => xs.push(x), range);
   }
 
-  static blit<T>(source: ArrayLike<T>, sourceIndex: number, target: ArrayLike<T>, targetIndex: number, count: number) {
+  static copyTo<T>(source: ArrayLike<T>, sourceIndex: number, target: ArrayLike<T>, targetIndex: number, count: number) {
     while (count--)
       target[targetIndex++] = source[sourceIndex++];
   }
@@ -983,13 +1061,42 @@ class FArray {
 }
 export { FArray as Array }
 
-export class List<T> {
+export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
   public head: T;
   public tail: List<T>;
 
   constructor(head?: T, tail?: List<T>) {
     this.head = head;
     this.tail = tail;
+  }
+
+  Equals(x: List<T>) {
+    const iter1 = this[Symbol.iterator](), iter2 = x[Symbol.iterator]();
+    for (let i = 0; ; i++) {
+      let cur1 = iter1.next(), cur2 = iter2.next();
+      if (cur1.done)
+        return cur2.done ? true : false;
+      else if (cur2.done)
+        return false;
+      else if (!Util.equals(cur1.value, cur2.value))
+        return false
+    }
+  }
+
+  CompareTo(x: List<T>) {
+    let acc = 0;
+    const iter1 = this[Symbol.iterator](), iter2 = x[Symbol.iterator]();
+    for (let i = 0; ; i++) {
+      let cur1 = iter1.next(), cur2 = iter2.next();
+      if (cur1.done)
+        return cur2.done ? acc : -1;
+      else if (cur2.done)
+        return 1;
+      else {
+        acc = Util.compare(cur1.value, cur2.value);
+        if (acc != 0) return acc;
+      }
+    }
   }
 
   static ofArray<T>(args: Array<T>, base?: List<T>) {
@@ -1020,7 +1127,7 @@ export class List<T> {
   }
 
   static append<T>(xs: List<T>, ys: List<T>) {
-    return Seq.fold((acc, x) => new List<T>(x, acc), ys, List.rev(xs));
+    return Seq.fold((acc, x) => new List<T>(x, acc), ys, List.reverse(xs));
   }
 
   choose<U>(f: (x: T) => U, xs: List<T>): List<U> {
@@ -1033,7 +1140,7 @@ export class List<T> {
       return y != null ? new List<U>(y, acc) : acc;
     }, new List<U>(), xs);
 
-    return List.rev(r);
+    return List.reverse(r);
   }
 
   collect<U>(f: (x: T) => List<U>): List<U> {
@@ -1054,7 +1161,7 @@ export class List<T> {
   }
 
   static filter<T>(f: (x: T) => boolean, xs: List<T>) {
-    return List.rev(Seq.fold((acc, x) => f(x) ? new List<T>(x, acc) : acc, new List<T>(), xs));
+    return List.reverse(Seq.fold((acc, x) => f(x) ? new List<T>(x, acc) : acc, new List<T>(), xs));
   }
 
   where(f: (x: T) => boolean): List<T> {
@@ -1065,7 +1172,7 @@ export class List<T> {
     return List.filter(f, xs);
   }
 
-  static init<T>(n: number, f: (i: number) => T) {
+  static initialize<T>(n: number, f: (i: number) => T) {
     if (n < 0) {
       throw "List length must be non-negative";
     }
@@ -1081,15 +1188,15 @@ export class List<T> {
   }
 
   static map<T, U>(f: (x: T) => U, xs: List<T>) {
-    return List.rev(Seq.fold((acc: List<U>, x: T) => new List<U>(f(x), acc), new List<U>(), xs));
+    return List.reverse(Seq.fold((acc: List<U>, x: T) => new List<U>(f(x), acc), new List<U>(), xs));
   }
 
-  mapi<U>(f: (i: number, x: T) => U): List<U> {
-    return List.mapi(f, this);
+  mapIndexed<U>(f: (i: number, x: T) => U): List<U> {
+    return List.mapIndexed(f, this);
   }
 
-  static mapi<T, U>(f: (i: number, x: T) => U, xs: List<T>) {
-    return List.rev(Seq.fold((acc, x, i) => new List<U>(f(i, x), acc), new List<U>(), xs));
+  static mapIndexed<T, U>(f: (i: number, x: T) => U, xs: List<T>) {
+    return List.reverse(Seq.fold((acc, x, i) => new List<U>(f(i, x), acc), new List<U>(), xs));
   }
 
   partition(f: (x: T) => boolean): [List<T>, List<T>] {
@@ -1100,18 +1207,18 @@ export class List<T> {
     return Seq.fold((acc, x) => {
       const lacc = acc[0], racc = acc[1];
       return f(x) ? Tuple(new List<T>(x, lacc), racc) : Tuple(lacc, new List<T>(x, racc));
-    }, Tuple(new List<T>(), new List<T>()), List.rev(xs));
+    }, Tuple(new List<T>(), new List<T>()), List.reverse(xs));
   }
 
   static replicate<T>(n: number, x: T) {
-    return List.init(n, () => x);
+    return List.initialize(n, () => x);
   }
 
-  rev(): List<T> {
-    return List.rev(this);
+  reverse(): List<T> {
+    return List.reverse(this);
   }
 
-  static rev<T>(xs: List<T>) {
+  static reverse<T>(xs: List<T>) {
     return Seq.fold((acc, x) => new List<T>(x, acc), new List<T>(), xs);
   }
 
@@ -1126,7 +1233,7 @@ export class List<T> {
   static slice<T>(lower: number, upper: number, xs: List<T>) {
     const noLower = (lower == null);
     const noUpper = (upper == null);
-    return List.rev(Seq.fold((acc, x, i) => (noLower || lower <= i) && (noUpper || i <= upper) ? new List<T>(x, acc) : acc, new List<T>(), xs));
+    return List.reverse(Seq.fold((acc, x, i) => (noLower || lower <= i) && (noUpper || i <= upper) ? new List<T>(x, acc) : acc, new List<T>(), xs));
   }
 
   /* ToDo: instance unzip() */
@@ -1143,6 +1250,7 @@ export class List<T> {
       Tuple3(new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])), xs, Tuple3(new List<T1>(), new List<T2>(), new List<T3>()));
   }
 }
+Util.setInterfaces(List.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpList"); 
 
 export class Seq {
   private static __failIfNone<T>(res: T) {
@@ -1317,7 +1425,7 @@ export class Seq {
     const disposeOnce = () => {
       if (!isDisposed) {
         isDisposed = true;
-        disp.dispose();
+        disp.Dispose();
       }
     };
     try {
@@ -1418,11 +1526,11 @@ export class Seq {
     return acc;
   }
 
-  static forall<T>(f: (x: T) => boolean, xs: Iterable<T>) {
+  static forAll<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     return Seq.fold((acc, x) => acc && f(x), true, xs);
   }
 
-  static forall2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
+  static forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
     return Seq.fold2((acc, x, y) => acc && f(x, y), true, xs, ys);
   }
 
@@ -1445,12 +1553,12 @@ export class Seq {
     return Seq.__failIfNone(Seq.tryHead(xs));
   }
 
-  static init<T>(n: number, f: (i: number) => T) {
+  static initialize<T>(n: number, f: (i: number) => T) {
     return Seq.delay(() =>
       Seq.unfold(i => i < n ? [f(i), i + 1] : null, 0));
   }
 
-  static initInfinite<T>(f: (i: number) => T) {
+  static initializeInfinite<T>(f: (i: number) => T) {
     return Seq.delay(() =>
       Seq.unfold(i => [f(i), i + 1], 0));
   }
@@ -1476,19 +1584,19 @@ export class Seq {
     return Seq.__failIfNone(Seq.tryItem(i, xs));
   }
 
-  static iter<T>(f: (x: T) => void, xs: Iterable<T>) {
+  static iterate<T>(f: (x: T) => void, xs: Iterable<T>) {
     Seq.fold((_, x) => f(x), null, xs);
   }
 
-  static iter2<T1, T2>(f: (x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
+  static iterate2<T1, T2>(f: (x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
     Seq.fold2((_, x, y) => f(x, y), null, xs, ys);
   }
 
-  static iteri<T>(f: (i: number, x: T) => void, xs: Iterable<T>) {
+  static iterateIndexed<T>(f: (i: number, x: T) => void, xs: Iterable<T>) {
     Seq.fold((_, x, i) => f(i, x), null, xs);
   }
 
-  static iteri2<T1, T2>(f: (i: number, x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
+  static iterateIndexed2<T1, T2>(f: (i: number, x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
     Seq.fold2((_, x, y, i) => f(i, x, y), null, xs, ys);
   }
 
@@ -1524,7 +1632,7 @@ export class Seq {
     }, xs[Symbol.iterator]()));
   }
 
-  static mapi<T, U>(f: (i: number, x: T) => U, xs: Iterable<T>) {
+  static mapIndexed<T, U>(f: (i: number, x: T) => U, xs: Iterable<T>) {
     return Seq.delay(() => {
       let i = 0;
       return Seq.unfold(iter => {
@@ -1545,7 +1653,7 @@ export class Seq {
     });
   }
 
-  static mapi2<T1, T2, U>(f: (i: number, x: T1, y: T2) => U, xs: Iterable<T1>, ys: Iterable<T2>) {
+  static mapIndexed2<T1, T2, U>(f: (i: number, x: T1, y: T2) => U, xs: Iterable<T1>, ys: Iterable<T2>) {
     return Seq.delay(() => {
       let i = 0;
       const iter1 = xs[Symbol.iterator]();
@@ -1633,7 +1741,7 @@ export class Seq {
     return Seq.rangeStep(first, 1, last);
   }
 
-  static readonly<T>(xs: Iterable<T>) {
+  static readOnly<T>(xs: Iterable<T>) {
     return Seq.map(x => x, xs);
   }
 
@@ -1670,10 +1778,10 @@ export class Seq {
   }
 
   static replicate<T>(n: number, x: T) {
-    return Seq.init(n, () => x);
+    return Seq.initialize(n, () => x);
   }
 
-  static rev<T>(xs: Iterable<T>) {
+  static reverse<T>(xs: Iterable<T>) {
     const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (<Array<T>>xs).slice(0) : Array.from(xs);
     return Seq.ofArray(ar.reverse());
   }
@@ -1696,7 +1804,7 @@ export class Seq {
   }
 
   static scanBack<T, ST>(f: (x: T, st: ST) => ST, xs: Iterable<T>, seed: ST) {
-    return Seq.rev(Seq.scan((acc, x) => f(x, acc), seed, Seq.rev(xs)));
+    return Seq.reverse(Seq.scan((acc, x) => f(x, acc), seed, Seq.reverse(xs)));
   }
 
   static singleton<T>(x: T) {
@@ -1888,67 +1996,822 @@ export class Seq {
   }
 }
 
-class FSet {
-  static union<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.fold((acc, x) => { acc.add(x); return acc; }, new Set(set1), set2);
+interface SetIterator {
+  stack: List<SetTree>;
+  started: boolean;
+}
+
+class SetTree {
+  public Case: string;
+  public Fields: any[];
+
+  constructor(caseName: "SetEmpty" | "SetOne" | "SetNode", fields: any[]) {
+    this.Case = caseName;
+    this.Fields = fields;
+  }
+
+  static countAux(s: SetTree, acc: number): number {
+    return s.Case === "SetOne" ? acc + 1 : s.Case === "SetEmpty" ? acc : SetTree.countAux(s.Fields[1], SetTree.countAux(s.Fields[2], acc + 1));
+  }
+
+  static count(s: SetTree) {
+    return SetTree.countAux(s, 0);
+  }
+
+  static SetOne(n: any) {
+    return new SetTree("SetOne", [n]);
+  }
+
+  static SetNode(x: any, l: SetTree, r: SetTree, h: number) {
+    return new SetTree("SetNode", [x, l, r, h]);
+  }
+
+  static height(t: SetTree): number {
+    return t.Case === "SetOne" ? 1 : t.Case === "SetNode" ? t.Fields[3] : 0;
+  }
+
+  static tolerance = 2;
+
+  static mk(l: SetTree, k: any, r: SetTree) {
+    var matchValue = [l, r];
+    var $target1 = () => {
+      var hl = SetTree.height(l);
+      var hr = SetTree.height(r);
+      var m = hl < hr ? hr : hl;
+      return SetTree.SetNode(k, l, r, m + 1);
+    }
+    if (matchValue[0].Case === "SetEmpty") {
+      if (matchValue[1].Case === "SetEmpty") {
+        return SetTree.SetOne(k);
+      } else {
+        return $target1();
+      }
+    } else {
+      return $target1();
+    }
+  }
+
+  static rebalance(t1: SetTree, k: any, t2: SetTree) {
+    var t1h = SetTree.height(t1);
+    var t2h = SetTree.height(t2);
+    if (t2h > t1h + SetTree.tolerance) {
+      if (t2.Case === "SetNode") {
+        if (SetTree.height(t2.Fields[1]) > t1h + 1) {
+          if (t2.Fields[1].Case === "SetNode") {
+            return SetTree.mk(SetTree.mk(t1, k, t2.Fields[1].Fields[1]), t2.Fields[1].Fields[0], SetTree.mk(t2.Fields[1].Fields[2], t2.Fields[0], t2.Fields[2]));
+          } else {
+            throw "rebalance";
+          }
+        } else {
+          return SetTree.mk(SetTree.mk(t1, k, t2.Fields[1]), t2.Fields[0], t2.Fields[2]);
+        }
+      } else {
+        throw "rebalance";
+      }
+    } else {
+      if (t1h > t2h + SetTree.tolerance) {
+        if (t1.Case === "SetNode") {
+          if (SetTree.height(t1.Fields[2]) > t2h + 1) {
+            if (t1.Fields[2].Case === "SetNode") {
+              return SetTree.mk(SetTree.mk(t1.Fields[1], t1.Fields[0], t1.Fields[2].Fields[1]), t1.Fields[2].Fields[0], SetTree.mk(t1.Fields[2].Fields[2], k, t2));
+            } else {
+              throw "rebalance";
+            }
+          } else {
+            return SetTree.mk(t1.Fields[1], t1.Fields[0], SetTree.mk(t1.Fields[2], k, t2));
+          }
+        } else {
+          throw "rebalance";
+        }
+      } else {
+        return SetTree.mk(t1, k, t2);
+      }
+    }
+  }
+
+  static add(comparer: IComparer<any>, k: any, t: SetTree): SetTree {
+    return t.Case === "SetOne" ? (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c < 0) {
+        return SetTree.SetNode(k, new SetTree("SetEmpty", []), t, 2);
+      } else {
+        if (c === 0) {
+          return t;
+        } else {
+          return SetTree.SetNode(k, t, new SetTree("SetEmpty", []), 2);
+        }
+      }
+    })() : t.Case === "SetEmpty" ? SetTree.SetOne(k) : (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c < 0) {
+        return SetTree.rebalance(SetTree.add(comparer, k, t.Fields[1]), t.Fields[0], t.Fields[2]);
+      } else {
+        if (c === 0) {
+          return t;
+        } else {
+          return SetTree.rebalance(t.Fields[1], t.Fields[0], SetTree.add(comparer, k, t.Fields[2]));
+        }
+      }
+    })();
+  }
+
+  static balance(comparer: IComparer<any>, t1: SetTree, k: any, t2: SetTree): SetTree {
+    var matchValue = [t1, t2];
+    var $target1 = (t1_1: SetTree) => SetTree.add(comparer, k, t1_1);
+    var $target2 = (k1: any, t2_1: SetTree) => SetTree.add(comparer, k, SetTree.add(comparer, k1, t2_1));
+    if (matchValue[0].Case === "SetOne") {
+      if (matchValue[1].Case === "SetEmpty") {
+        return $target1(matchValue[0]);
+      } else {
+        if (matchValue[1].Case === "SetOne") {
+          return $target2(matchValue[0].Fields[0], matchValue[1]);
+        } else {
+          return $target2(matchValue[0].Fields[0], matchValue[1]);
+        }
+      }
+    } else {
+      if (matchValue[0].Case === "SetNode") {
+        if (matchValue[1].Case === "SetOne") {
+          var k2 = matchValue[1].Fields[0];
+          var t1_1 = matchValue[0];
+          return SetTree.add(comparer, k, SetTree.add(comparer, k2, t1_1));
+        } else {
+          if (matchValue[1].Case === "SetNode") {
+            var h1 = matchValue[0].Fields[3];
+            var h2 = matchValue[1].Fields[3];
+            var k1 = matchValue[0].Fields[0];
+            var k2 = matchValue[1].Fields[0];
+            var t11 = matchValue[0].Fields[1];
+            var t12 = matchValue[0].Fields[2];
+            var t21 = matchValue[1].Fields[1];
+            var t22 = matchValue[1].Fields[2];
+            if (h1 + SetTree.tolerance < h2) {
+              return SetTree.rebalance(SetTree.balance(comparer, t1, k, t21), k2, t22);
+            } else {
+              if (h2 + SetTree.tolerance < h1) {
+                return SetTree.rebalance(t11, k1, SetTree.balance(comparer, t12, k, t2));
+              } else {
+                return SetTree.mk(t1, k, t2);
+              }
+            }
+          } else {
+            return $target1(matchValue[0]);
+          }
+        }
+      } else {
+        var t2_1 = matchValue[1];
+        return SetTree.add(comparer, k, t2_1);
+      }
+    }
+  }
+
+  static split(comparer: IComparer<any>, pivot: any, t: SetTree): any { // [SetTree, boolean, SetTree] {
+    return t.Case === "SetOne" ? (() => {
+      var c = comparer.Compare(t.Fields[0], pivot);
+      if (c < 0) {
+        return [t, false, new SetTree("SetEmpty", [])];
+      } else {
+        if (c === 0) {
+          return [new SetTree("SetEmpty", []), true, new SetTree("SetEmpty", [])];
+        } else {
+          return [new SetTree("SetEmpty", []), false, t];
+        }
+      }
+    })() : t.Case === "SetEmpty" ? [new SetTree("SetEmpty", []), false, new SetTree("SetEmpty", [])] : (() => {
+      var c = comparer.Compare(pivot, t.Fields[0]);
+      if (c < 0) {
+        var patternInput = SetTree.split(comparer, pivot, t.Fields[1]);
+        var t11Lo = patternInput[0];
+        var t11Hi = patternInput[2];
+        var havePivot = patternInput[1];
+        return [t11Lo, havePivot, SetTree.balance(comparer, t11Hi, t.Fields[0], t.Fields[2])];
+      } else {
+        if (c === 0) {
+          return [t.Fields[1], true, t.Fields[2]];
+        } else {
+          var patternInput = SetTree.split(comparer, pivot, t.Fields[2]);
+          var t12Lo = patternInput[0];
+          var t12Hi = patternInput[2];
+          var havePivot = patternInput[1];
+          return [SetTree.balance(comparer, t.Fields[1], t.Fields[0], t12Lo), havePivot, t12Hi];
+        }
+      }
+    })();
+  }
+
+  static spliceOutSuccessor(t: SetTree): any { // [any,SetTree] {
+    return t.Case === "SetOne" ? [t.Fields[0], new SetTree("SetEmpty", [])] : t.Case === "SetNode" ? t.Fields[1].Case === "SetEmpty" ? [t.Fields[0], t.Fields[2]] : (() => {
+      var patternInput = SetTree.spliceOutSuccessor(t.Fields[1]);
+      var l_ = patternInput[1];
+      var k3 = patternInput[0];
+      return [k3, SetTree.mk(l_, t.Fields[0], t.Fields[2])];
+    })() : (() => {
+      throw "internal error: Map.spliceOutSuccessor";
+    })();
+  }
+
+  static remove(comparer: IComparer<any>, k: any, t: SetTree): SetTree {
+    return t.Case === "SetOne" ? (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c === 0) {
+        return new SetTree("SetEmpty", []);
+      } else {
+        return t;
+      }
+    })() : t.Case === "SetNode" ? (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c < 0) {
+        return SetTree.rebalance(SetTree.remove(comparer, k, t.Fields[1]), t.Fields[0], t.Fields[2]);
+      } else {
+        if (c === 0) {
+          var matchValue = [t.Fields[1], t.Fields[2]];
+          if (matchValue[0].Case === "SetEmpty") {
+            return t.Fields[2];
+          } else {
+            if (matchValue[1].Case === "SetEmpty") {
+              return t.Fields[1];
+            } else {
+              var patternInput = SetTree.spliceOutSuccessor(t.Fields[2]);
+              var sk = patternInput[0];
+              var r_ = patternInput[1];
+              return SetTree.mk(t.Fields[1], sk, r_);
+            }
+          }
+        } else {
+          return SetTree.rebalance(t.Fields[1], t.Fields[0], SetTree.remove(comparer, k, t.Fields[2]));
+        }
+      }
+    })() : t;
+  }
+
+  static mem(comparer: IComparer<any>, k: any, t: SetTree): boolean {
+    return t.Case === "SetOne" ? comparer.Compare(k, t.Fields[0]) === 0 : t.Case === "SetEmpty" ? false : (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c < 0) {
+        return SetTree.mem(comparer, k, t.Fields[1]);
+      } else {
+        if (c === 0) {
+          return true;
+        } else {
+          return SetTree.mem(comparer, k, t.Fields[2]);
+        }
+      }
+    })();
+  }
+
+  static iter(f: (x:any)=>void, t: SetTree) {
+    if (t.Case === "SetOne") {
+      f(t.Fields[0]);
+    } else {
+      if (t.Case === "SetEmpty") {} else {
+        SetTree.iter(f, t.Fields[1]);
+        f(t.Fields[0]);
+        SetTree.iter(f, t.Fields[2]);
+      }
+    }
+  }
+
+  static foldBack(f: (x:any, acc:any)=>any, m: SetTree, x: any): any {
+    return m.Case === "SetOne" ? f(m.Fields[0], x) : m.Case === "SetEmpty" ? x : SetTree.foldBack(f, m.Fields[1], f(m.Fields[0], SetTree.foldBack(f, m.Fields[2], x)));
+  }
+
+  static fold(f: (acc:any, x:any)=>any, x: any, m: SetTree): any {
+    return m.Case === "SetOne" ? f(x, m.Fields[0]) : m.Case === "SetEmpty" ? x : (() => {
+      var x_1 = SetTree.fold(f, x, m.Fields[1]);
+      var x_2 = f(x_1, m.Fields[0]);
+      return SetTree.fold(f, x_2, m.Fields[2]);
+    })();
+  }
+
+  static forall(f: (x:any)=>boolean, m: SetTree): boolean {
+    return m.Case === "SetOne" ? f(m.Fields[0]) : m.Case === "SetEmpty" ? true : (f(m.Fields[0]) ? SetTree.forall(f, m.Fields[1]) : false) ? SetTree.forall(f, m.Fields[2]) : false;
+  }
+
+  static exists(f: (x:any)=>boolean, m: SetTree): boolean {
+    return m.Case === "SetOne" ? f(m.Fields[0]) : m.Case === "SetEmpty" ? false : (f(m.Fields[0]) ? true : SetTree.exists(f, m.Fields[1])) ? true : SetTree.exists(f, m.Fields[2]);
+  }
+
+  static isEmpty(m: SetTree): boolean {
+    return m.Case === "SetEmpty" ? true : false;
+  }
+
+  static subset(comparer: IComparer<any>, a: SetTree, b: SetTree) {
+    return SetTree.forall(x => SetTree.mem(comparer, x, b), a);
+  }
+
+  static psubset(comparer: IComparer<any>, a: SetTree, b: SetTree) {
+    return SetTree.forall(x => SetTree.mem(comparer, x, b), a) ? SetTree.exists(x => !SetTree.mem(comparer, x, a), b) : false;
+  }
+
+  static filterAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree, acc: SetTree): SetTree {
+    return s.Case === "SetOne" ? f(s.Fields[0]) ? SetTree.add(comparer, s.Fields[0], acc) : acc : s.Case === "SetEmpty" ? acc : (() => {
+      var acc_1 = f(s.Fields[0]) ? SetTree.add(comparer, s.Fields[0], acc) : acc;
+      return SetTree.filterAux(comparer, f, s.Fields[1], SetTree.filterAux(comparer, f, s.Fields[2], acc_1));
+    })();
+  }
+
+  static filter(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree): SetTree {
+    return SetTree.filterAux(comparer, f, s, new SetTree("SetEmpty", []));
+  }
+
+  static diffAux(comparer: IComparer<any>, m: SetTree, acc: SetTree): SetTree {
+    return m.Case === "SetOne" ? SetTree.remove(comparer, m.Fields[0], acc) : m.Case === "SetEmpty" ? acc : SetTree.diffAux(comparer, m.Fields[1], SetTree.diffAux(comparer, m.Fields[2], SetTree.remove(comparer, m.Fields[0], acc)));
+  }
+
+  static diff(comparer: IComparer<any>, a: SetTree, b: SetTree): SetTree {
+    return SetTree.diffAux(comparer, b, a);
+  }
+
+  static union(comparer: IComparer<any>, t1: SetTree, t2: SetTree): SetTree {
+    var matchValue = [t1, t2];
+    var $target2 = (t: SetTree) => t;
+    var $target3 = (k1: any, t2_1: SetTree) => SetTree.add(comparer, k1, t2_1);
+    if (matchValue[0].Case === "SetEmpty") {
+      var t = matchValue[1];
+      return t;
+    } else {
+      if (matchValue[0].Case === "SetOne") {
+        if (matchValue[1].Case === "SetEmpty") {
+          return $target2(matchValue[0]);
+        } else {
+          if (matchValue[1].Case === "SetOne") {
+            return $target3(matchValue[0].Fields[0], matchValue[1]);
+          } else {
+            return $target3(matchValue[0].Fields[0], matchValue[1]);
+          }
+        }
+      } else {
+        if (matchValue[1].Case === "SetEmpty") {
+          return $target2(matchValue[0]);
+        } else {
+          if (matchValue[1].Case === "SetOne") {
+            var k2 = matchValue[1].Fields[0];
+            var t1_1 = matchValue[0];
+            return SetTree.add(comparer, k2, t1_1);
+          } else {
+            var h1 = matchValue[0].Fields[3];
+            var h2 = matchValue[1].Fields[3];
+            var k1 = matchValue[0].Fields[0];
+            var k2 = matchValue[1].Fields[0];
+            var t11 = matchValue[0].Fields[1];
+            var t12 = matchValue[0].Fields[2];
+            var t21 = matchValue[1].Fields[1];
+            var t22 = matchValue[1].Fields[2];
+            if (h1 > h2) {
+              var patternInput = SetTree.split(comparer, k1, t2);
+              var lo = patternInput[0];
+              var hi = patternInput[2];
+              return SetTree.balance(comparer, SetTree.union(comparer, t11, lo), k1, SetTree.union(comparer, t12, hi));
+            } else {
+              var patternInput = SetTree.split(comparer, k2, t1);
+              var lo = patternInput[0];
+              var hi = patternInput[2];
+              return SetTree.balance(comparer, SetTree.union(comparer, t21, lo), k2, SetTree.union(comparer, t22, hi));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  static intersectionAux(comparer: IComparer<any>, b: SetTree, m: SetTree, acc: SetTree): SetTree {
+    return m.Case === "SetOne" ? SetTree.mem(comparer, m.Fields[0], b) ? SetTree.add(comparer, m.Fields[0], acc) : acc : m.Case === "SetEmpty" ? acc : (() => {
+      var acc_1 = SetTree.intersectionAux(comparer, b, m.Fields[2], acc);
+      var acc_2 = SetTree.mem(comparer, m.Fields[0], b) ? SetTree.add(comparer, m.Fields[0], acc_1) : acc_1;
+      return SetTree.intersectionAux(comparer, b, m.Fields[1], acc_2);
+    })();
+  }
+
+  static intersection(comparer: IComparer<any>, a: SetTree, b: SetTree) {
+    return SetTree.intersectionAux(comparer, b, a, new SetTree("SetEmpty", []));
+  }
+
+  static partition1(comparer: IComparer<any>, f: (x:any)=>boolean, k: any, acc1: SetTree, acc2: SetTree): [SetTree, SetTree] {
+    return f(k) ? [SetTree.add(comparer, k, acc1), acc2] : [acc1, SetTree.add(comparer, k, acc2)];
+  }
+
+  static partitionAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree, acc_0: SetTree, acc_1: SetTree): [SetTree, SetTree] {
+    var acc = <[SetTree,SetTree]>[acc_0, acc_1];
+    if (s.Case === "SetOne") {
+      var acc1 = acc[0];
+      var acc2 = acc[1];
+      return SetTree.partition1(comparer, f, s.Fields[0], acc1, acc2);
+    } else {
+      if (s.Case === "SetEmpty") {
+        return acc;
+      } else {
+        var acc_2 = (() => {
+          var arg30_ = acc[0];
+          var arg31_ = acc[1];
+          return SetTree.partitionAux(comparer, f, s.Fields[2], arg30_, arg31_);
+        })();
+        var acc_3 = (() => {
+          var acc1 = acc_2[0];
+          var acc2 = acc_2[1];
+          return SetTree.partition1(comparer, f, s.Fields[0], acc1, acc2);
+        })();
+        var arg30_ = acc_3[0];
+        var arg31_ = acc_3[1];
+        return SetTree.partitionAux(comparer, f, s.Fields[1], arg30_, arg31_);
+      }
+    }
+  }
+
+  static partition(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree) {
+    var seed = [new SetTree("SetEmpty", []), new SetTree("SetEmpty", [])];
+    var arg30_ = seed[0];
+    var arg31_ = seed[1];
+    return SetTree.partitionAux(comparer, f, s, arg30_, arg31_);
+  }
+
+  // static $MatchSetNode$MatchSetEmpty$(s: SetTree) {
+  //   return s.Case === "SetOne" ? new Choice("Choice1Of2", [[s.Fields[0], new SetTree("SetEmpty", []), new SetTree("SetEmpty", [])]]) : s.Case === "SetEmpty" ? new Choice("Choice2Of2", [null]) : new Choice("Choice1Of2", [[s.Fields[0], s.Fields[1], s.Fields[2]]]);
+  // }
+
+  static minimumElementAux(s: SetTree, n: any): any {
+    return s.Case === "SetOne" ? s.Fields[0] : s.Case === "SetEmpty" ? n : SetTree.minimumElementAux(s.Fields[1], s.Fields[0]);
+  }
+
+  static minimumElementOpt(s: SetTree): any {
+    return s.Case === "SetOne" ? s.Fields[0] : s.Case === "SetEmpty" ? null : SetTree.minimumElementAux(s.Fields[1], s.Fields[0]);
+  }
+
+  static maximumElementAux(s: SetTree, n: any): any {
+    return s.Case === "SetOne" ? s.Fields[0] : s.Case === "SetEmpty" ? n : SetTree.maximumElementAux(s.Fields[2], s.Fields[0]);
+  }
+
+  static maximumElementOpt(s: SetTree): any {
+    return s.Case === "SetOne" ? s.Fields[0] : s.Case === "SetEmpty" ? null : SetTree.maximumElementAux(s.Fields[2], s.Fields[0]);
+  }
+
+  static minimumElement(s: SetTree): any {
+    var matchValue = SetTree.minimumElementOpt(s);
+    if (matchValue == null) {
+      throw "Set contains no elements";
+    } else {
+      return matchValue;
+    }
+  }
+
+  static maximumElement(s: SetTree) {
+    var matchValue = SetTree.maximumElementOpt(s);
+    if (matchValue == null) {
+      throw "Set contains no elements";
+    } else {
+      return matchValue;
+    }
+  }
+
+  static collapseLHS(stack: List<SetTree>): List<SetTree> {
+    return stack.tail != null
+      ? stack.head.Case === "SetOne"
+        ? stack
+        : stack.head.Case === "SetNode"
+          ? SetTree.collapseLHS(List.ofArray([
+              stack.head.Fields[1],
+              SetTree.SetOne(stack.head.Fields[0]),
+              stack.head.Fields[2]
+            ], stack.tail))
+          : SetTree.collapseLHS(stack.tail)
+      : new List<SetTree>();
+  }
+
+  static mkIterator(s: SetTree): SetIterator {
+    return { stack: SetTree.collapseLHS(new List<SetTree>(s, new List<SetTree>())), started: false };
+  };
+
+  // static notStarted() {
+  //   throw "Enumeration not started";
+  // };
+
+  // var alreadyFinished = $exports.alreadyFinished = function () {
+  //   throw "Enumeration already started";
+  // };
+
+  static moveNext(i: SetIterator): IteratorResult<any> {
+    function current(i: SetIterator): any {
+      if (i.stack.tail == null) {
+        return null;
+      }
+      else if (i.stack.head.Case === "SetOne") {
+        return i.stack.head.Fields[0];
+      }
+      throw "Please report error: Set iterator, unexpected stack for current";
+    }
+    if (i.started) {
+      if (i.stack.tail == null) {
+        return { done: true };
+      } else {
+        if (i.stack.head.Case === "SetOne") {
+          i.stack = SetTree.collapseLHS(i.stack.tail);
+          return {
+            done: i.stack.tail == null,
+            value: current(i)
+          };
+        } else {
+          throw "Please report error: Set iterator, unexpected stack for moveNext";
+        }
+      }
+    }
+    else {
+      i.started = true;
+      return {
+        done: i.stack.tail == null,
+        value: current(i)
+      };
+    };
+  }
+
+  static compareStacks(comparer: IComparer<any>, l1: List<SetTree>, l2: List<SetTree>): number {
+    var $target8 = (n1k: any, t1: List<SetTree>) => SetTree.compareStacks(comparer, List.ofArray([new SetTree("SetEmpty", []), SetTree.SetOne(n1k)], t1), l2);
+    var $target9 = (n1k: any, n1l: any, n1r: any, t1: List<SetTree>) => SetTree.compareStacks(comparer, List.ofArray([n1l, SetTree.SetNode(n1k, new SetTree("SetEmpty", []), n1r, 0)], t1), l2);
+    var $target11 = (n2k: any, n2l: any, n2r: any, t2: List<SetTree>) => SetTree.compareStacks(comparer, l1, List.ofArray([n2l, SetTree.SetNode(n2k, new SetTree("SetEmpty", []), n2r, 0)], t2));
+    if (l1.tail != null) {
+      if (l2.tail != null) {
+        if (l2.head.Case === "SetOne") {
+          if (l1.head.Case === "SetOne") {
+            const n1k = l1.head.Fields[0], n2k = l2.head.Fields[0], t1 = l1.tail, t2 = l2.tail, c = comparer.Compare(n1k, n2k);
+            if (c !== 0) {
+              return c;
+            } else {
+              return SetTree.compareStacks(comparer, t1, t2);
+            }
+          } else {
+            if (l1.head.Case === "SetNode") {
+              if (l1.head.Fields[1].Case === "SetEmpty") {
+                const emp = l1.head.Fields[1], n1k = l1.head.Fields[0], n1r = l1.head.Fields[2], n2k = l2.head.Fields[0], t1 = l1.tail, t2 = l2.tail, c = comparer.Compare(n1k, n2k);
+                if (c !== 0) {
+                  return c;
+                } else {
+                  return SetTree.compareStacks(comparer, List.ofArray([n1r], t1), List.ofArray([emp], t2));
+                }
+              } else {
+                return $target9(l1.head.Fields[0], l1.head.Fields[1], l1.head.Fields[2], l1.tail);
+              }
+            } else {
+              const n2k = l2.head.Fields[0], t2 = l2.tail;
+              return SetTree.compareStacks(comparer, l1, List.ofArray([new SetTree("SetEmpty", []), SetTree.SetOne(n2k)], t2));
+            }
+          }
+        } else {
+          if (l2.head.Case === "SetNode") {
+            if (l2.head.Fields[1].Case === "SetEmpty") {
+              if (l1.head.Case === "SetOne") {
+                const n1k = l1.head.Fields[0], n2k = l2.head.Fields[0], n2r = l2.head.Fields[2], t1 = l1.tail, t2 = l2.tail, c = comparer.Compare(n1k, n2k);
+                if (c !== 0) {
+                  return c;
+                } else {
+                  return SetTree.compareStacks(comparer, List.ofArray([new SetTree("SetEmpty", [])], t1), List.ofArray([n2r], t2));
+                }
+              } else {
+                if (l1.head.Case === "SetNode") {
+                  if (l1.head.Fields[1].Case === "SetEmpty") {
+                    const n1k = l1.head.Fields[0], n1r = l1.head.Fields[2], n2k = l2.head.Fields[0], n2r = l2.head.Fields[2], t1 = l1.tail, t2 = l2.tail, c = comparer.Compare(n1k, n2k);
+                    if (c !== 0) {
+                      return c;
+                    } else {
+                      return SetTree.compareStacks(comparer, List.ofArray([n1r], t1), List.ofArray([n2r], t2));
+                    }
+                  } else {
+                    return $target9(l1.head.Fields[0], l1.head.Fields[1], l1.head.Fields[2], l1.tail);
+                  }
+                } else {
+                  return $target11(l2.head.Fields[0], l2.head.Fields[1], l2.head.Fields[2], l2.tail);
+                }
+              }
+            } else {
+              if (l1.head.Case === "SetOne") {
+                return $target8(l1.head.Fields[0], l1.tail);
+              } else {
+                if (l1.head.Case === "SetNode") {
+                  return $target9(l1.head.Fields[0], l1.head.Fields[1], l1.head.Fields[2], l1.tail);
+                } else {
+                  return $target11(l2.head.Fields[0], l2.head.Fields[1], l2.head.Fields[2], l2.tail);
+                }
+              }
+            }
+          } else {
+            if (l1.head.Case === "SetOne") {
+              return $target8(l1.head.Fields[0], l1.tail);
+            } else {
+              if (l1.head.Case === "SetNode") {
+                return $target9(l1.head.Fields[0], l1.head.Fields[1], l1.head.Fields[2], l1.tail);
+              } else {
+                return SetTree.compareStacks(comparer, l1.tail, l2.tail);
+              }
+            }
+          }
+        }
+      } else {
+        return 1;
+      }
+    } else {
+      if (l2.tail != null) {
+        return -1;
+      } else {
+        return 0;
+      }
+    }
+  }
+
+  static compare(comparer: IComparer<any>, s1: SetTree, s2: SetTree) {
+    if (s1.Case === "SetEmpty") {
+      if (s2.Case === "SetEmpty") {
+        return 0;
+      } else {
+        return -1;
+      }
+    } else {
+      if (s2.Case === "SetEmpty") {
+        return 1;
+      } else {
+        return SetTree.compareStacks(comparer, List.ofArray([s1]), List.ofArray([s2]));
+      }
+    }
+  }
+
+  static mkFromEnumerator(comparer: IComparer<any>, acc: SetTree, e: Iterator<any>): SetTree {
+    const cur = e.next();
+    return !cur.done
+      ? SetTree.mkFromEnumerator(comparer, SetTree.add(comparer, cur.value, acc), e)
+      : acc;
+  }
+
+  static ofSeq(comparer: IComparer<any>, c: Iterable<any>) {
+    var ie = c[Symbol.iterator]();
+    return SetTree.mkFromEnumerator(comparer, new SetTree("SetEmpty", []), ie);
+  }  
+}
+
+class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> {
+  private tree: SetTree;
+  private comparer: IComparer<T>;
+
+  /** Do not call, use Set.create instead. */
+  constructor () {}
+
+  private static from<T>(comparer: IComparer<T>, tree: SetTree) {
+    let s = new FSet<T>();
+    s.tree = tree
+    s.comparer = comparer || new GenericComparer<T>();
+    return s;
+  }
+
+  private static create<T>(ie?: Iterable<T>, comparer?: IComparer<T>) {
+    comparer = comparer || new GenericComparer<T>();
+    return FSet.from(comparer, ie ? SetTree.ofSeq(comparer, ie) : new SetTree("SetEmpty", []));
+  }
+
+  Equals(s2: FSet<T>) {
+    return this.CompareTo(s2) === 0;
+  }
+
+  CompareTo(s2: FSet<T>) {
+    return SetTree.compare(this.comparer, this.tree, s2.tree);
+  }
+
+  [Symbol.iterator](): Iterator<T> {
+    let i = SetTree.mkIterator(this.tree);
+    return <Iterator<T>>{
+      next: () => SetTree.moveNext(i)
+    };
+  }
+
+  values() {
+    return this[Symbol.iterator]();
+  }
+
+  has(v: T) {
+    return SetTree.mem(this.comparer, v, this.tree);
+  }
+
+  /** Not supported */
+  add(v: T): FSet<T> {
+    throw "not supported";
+  }
+
+  /** Not supported */
+  delete(v: T): boolean {
+    throw "not supported";
+  }
+
+  /** Not supported */
+  clear(): void {
+    throw "not supported";
+  }
+
+  get size() {
+    return SetTree.count(this.tree);
+  }
+
+  static isEmpty<T>(s: FSet<T>) {
+    return SetTree.isEmpty(s.tree);
+  }
+
+  static add<T>(item: T, s: FSet<T>) {
+    return FSet.from(s.comparer, SetTree.add(s.comparer, item, s.tree));
+  }
+
+  static remove<T>(item: T, s: FSet<T>) {
+    return FSet.from(s.comparer, SetTree.remove(s.comparer, item, s.tree));
+  }
+
+  static union<T>(set1: FSet<T> | Iterable<T>, set2: FSet<T> | Iterable<T>): FSet<T> | Set<T> {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return set2.tree.Case === "SetEmpty"
+        ? set1
+        : set1.tree.Case === "SetEmpty"
+          ? set2
+          : FSet.from(set1.comparer, SetTree.union(set1.comparer, set1.tree, set2.tree));
+    }
+    else {
+      return Seq.fold((acc, x) => { acc.add(x); return acc; }, new Set(set1), set2);
+    }
   }
   static op_Addition = FSet.union;
 
-  static unionMany<T>(sets: Iterable<Set<T>>) {
-    return Seq.fold((acc, s) => FSet.union(acc, s), new Set<T>(), sets);
+  static unionMany<T>(sets: Iterable<FSet<T>>) {
+    // Pass args as FSet.union(s, acc) instead of FSet.union(acc, s)
+    // to discard the comparer of the first empty set 
+    return Seq.fold((acc, s) => <FSet<T>>FSet.union(s, acc), FSet.create<T>(), sets);
   }
 
-  static difference<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.fold((acc, x) => { acc.delete(x); return acc; }, new Set(set1), set2);
+  static difference<T>(set1: FSet<T> | Iterable<T>, set2: FSet<T> | Iterable<T>): FSet<T> | Set<T> {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return set1.tree.Case === "SetEmpty"
+        ? set1
+        : set2.tree.Case === "SetEmpty"
+          ? set1
+          : FSet.from(set1.comparer, SetTree.diff(set1.comparer, set1.tree, set2.tree));
+    }
+    else {
+      return Seq.fold((acc, x) => { acc.delete(x); return acc; }, new Set(set1), set2);
+    }
   }
   static op_Subtraction = FSet.difference;
 
-  static intersect<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.fold((acc, x) => {
-      if (!set2.has(x))
-        acc.delete(x);
-      return acc;
-    }, new Set(set1), set1);
+  static intersect<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Iterable<T>): FSet<T> | Set<T> {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return set2.tree.Case === "SetEmpty"
+        ? set2
+        : set1.tree.Case === "SetEmpty"
+          ? set1
+          : FSet.from(set1.comparer, SetTree.intersection(set1.comparer, set1.tree, set2.tree));
+    }
+    else {
+      return Seq.fold((acc, x) => {
+        if (!set1.has(x))
+          acc.delete(x);
+        return acc;
+      }, new Set(set2), set2);
+    }
   }
 
-  static intersectMany<T>(sets: Iterable<Set<T>>) {
-    const ar = Array.isArray(sets) ? <Array<Set<T>>>sets : Array.from(sets);
-    if (ar.length == 0)
-      throw "Seq was empty";
-
-    const set = new Set<T>(ar[0]);
-    Seq.iter((x: T) => {
-      for (let i = 1; i < ar.length; i++) {
-        if (!ar[i].has(x)) {
-          set.delete(x);
-          break;
-        }
-      }
-    }, ar[0]);
-    return set;
+  static intersectMany<T>(sets: Iterable<FSet<T>>) {
+    return Seq.reduce((s1, s2) => <FSet<T>>FSet.intersect(s1, s2), sets);
   }
 
-  static isProperSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.forall(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
+  static isProperSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return SetTree.psubset(set1.comparer, set1.tree, set2.tree);
+    }
+    else {
+      return Seq.forAll(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
+    }
   }
   static isProperSubset = FSet.isProperSubsetOf;
 
-  static isSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.forall(x => set2.has(x), set1);
+  static isSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return SetTree.subset(set1.comparer, set1.tree, set2.tree);
+    }
+    else {
+      return Seq.forAll(x => set2.has(x), set1);
+    }
   }
   static isSubset = FSet.isSubsetOf;
 
-  static isProperSupersetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return FSet.isProperSubset(set2, set1);
+  static isProperSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return SetTree.psubset(set1.comparer, set2.tree, set1.tree);
+    }
+    else {
+      return FSet.isProperSubset(set2, set1);
+    }
   }
   static isProperSuperset = FSet.isProperSupersetOf;
 
-  static isSupersetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return FSet.isSubset(set2, set1);
+  static isSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return SetTree.subset(set1.comparer, set2.tree, set1.tree);
+    }
+    else {
+      return FSet.isSubset(set2, set1);
+    }
   }
   static isSuperset = FSet.isSupersetOf;
 
-  static copyTo<T>(xs: Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
+  static copyTo<T>(xs: FSet<T> | Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
     if (!Array.isArray(arr) && !ArrayBuffer.isView(arr))
       throw "Array is invalid";
 
@@ -1962,96 +2825,670 @@ class FSet {
     }
   }
 
-  static partition<T>(f: (x: T) => boolean, xs: Set<T>) {
-    return Seq.fold((acc, x) => {
-      const lacc = acc[0], racc = acc[1];
-      return f(x) ? Tuple(lacc.add(x), racc) : Tuple(lacc, racc.add(x));
-    }, Tuple(new Set<T>(), new Set<T>()), xs);
+  static partition<T>(f: (x: T) => boolean, s: FSet<T>): [FSet<T>,FSet<T>] {
+    if (s.tree.Case === "SetEmpty") {
+      return [s,s];
+    }
+    else {
+      const tuple = SetTree.partition(s.comparer, f, s.tree);
+      return [FSet.from(s.comparer, tuple[0]), FSet.from(s.comparer, tuple[1])];
+    }
   }
 
-  static remove<T>(item: T, xs: Set<T>) {
-    return FSet.removeInPlace(item, new Set(xs));
+  static filter<T>(f: (x: T) => boolean, s: FSet<T>): FSet<T> {
+    if (s.tree.Case === "SetEmpty") {
+      return s;
+    }
+    else {
+      return FSet.from(s.comparer, SetTree.filter(s.comparer, f, s.tree));
+    }
   }
 
-  static removeInPlace<T>(item: T, xs: Set<T>) {
-    xs.delete(item);
-    return xs;
+  static map<T,U>(f: (x: T) => U, s: FSet<T>): FSet<U> {
+    const comparer = new GenericComparer<U>();
+    return FSet.from(comparer, SetTree.fold((acc, k) => SetTree.add(comparer, f(k), acc), new SetTree("SetEmpty", []), s.tree));
   }
+
+  static exists<T>(f: (x: T) => boolean, s: FSet<T>): boolean {
+    return SetTree.exists(f, s.tree);
+  }
+
+  static forAll<T>(f: (x: T) => boolean, s: FSet<T>): boolean {
+    return SetTree.forall(f, s.tree);
+  }
+
+  static fold<T,U>(f: (acc: U, x: T) => U, seed: U, s: FSet<T>): U {
+    return SetTree.fold(f, seed, s.tree);
+  }
+
+  static foldBack<T,U>(f: (x: T, acc: U) => U, s: FSet<T>, seed: U): U {
+    return SetTree.foldBack(f, s.tree, seed);
+  }
+
+  static iterate<T>(f: (v: T) => void, s: FSet<T>) {
+    SetTree.iter(f, s.tree);
+  }
+
+  static minimumElement<T>(s: FSet<T>) {
+    return SetTree.minimumElement(s.tree);
+  }
+  static minElement = FSet.minimumElement;
+
+  static maximumElement<T>(s: FSet<T>) {
+    return SetTree.maximumElement(s.tree);
+  }
+  static maxElement = FSet.maximumElement;
 }
+Util.setInterfaces(FSet.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpSet"); 
+
 export { FSet as Set }
 
-class FMap {
-  static containsValue<K, V>(v: V, map: Map<K, V>) {
-    return Seq.fold((acc, k) => acc || map.get(k) === v, false, map.keys());
+interface MapIterator {
+  stack: List<MapTree>;
+  started: boolean;
+}
+
+class MapTree {
+  public Case: string;
+  public Fields: any[];
+
+  constructor(caseName: "MapEmpty" | "MapOne" | "MapNode", fields: any[]) {
+    this.Case = caseName;
+    this.Fields = fields;
   }
 
-  static exists<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.exists(kv => f(kv[0], kv[1]), map);
+  static sizeAux(acc: number, m: MapTree): number {
+    return m.Case === "MapOne"
+      ? acc + 1
+      : m.Case === "MapNode"
+        ? MapTree.sizeAux(MapTree.sizeAux(acc + 1, m.Fields[2]), m.Fields[3])
+        : acc;
   }
 
-  static filter<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.fold((acc, kv) => f(kv[0], kv[1]) ? acc.set(kv[0], kv[1]) : acc, new Map<K, V>(), map);
+  static size(x: MapTree) {
+    return MapTree.sizeAux(0, x);
   }
 
-  static fold<K, V, ST>(f: (acc: ST, k: K, v: V) => ST, seed: ST, map: Map<K, V>) {
-    return Seq.fold((acc, kv) => f(acc, kv[0], kv[1]), seed, map);
+  static empty() {
+    return new MapTree("MapEmpty", []);
   }
 
-  static foldBack<K, V, ST>(f: (k: K, v: V, acc: ST) => ST, map: Map<K, V>, seed: ST) {
-    return Seq.foldBack((kv, acc) => f(kv[0], kv[1], acc), map, seed);
+  static height(_arg1: MapTree) {
+    return _arg1.Case === "MapOne" ? 1 : _arg1.Case === "MapNode" ? _arg1.Fields[4] : 0;
   }
 
-  static forall<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.forall(kv => f(kv[0], kv[1]), map);
+  static isEmpty(m: MapTree) {
+    return m.Case === "MapEmpty" ? true : false;
   }
 
-  static iter<K, V>(f: (k: K, v: V) => void, map: Map<K, V>) {
-    return Seq.iter(kv => f(kv[0], kv[1]), map);
+  static mk(l: MapTree, k: any, v: any, r: MapTree) {
+    var matchValue = [l, r];
+    var $target1 = () => {
+      var hl = MapTree.height(l);
+      var hr = MapTree.height(r);
+      var m = hl < hr ? hr : hl;
+      return new MapTree("MapNode", [k, v, l, r, m + 1]);
+    };
+    if (matchValue[0].Case === "MapEmpty") {
+      if (matchValue[1].Case === "MapEmpty") {
+        return new MapTree("MapOne", [k, v]);
+      } else {
+        return $target1();
+      }
+    } else {
+      return $target1();
+    }
+  };
+
+  static rebalance(t1: MapTree, k: any, v: any, t2: MapTree) {
+    var t1h = MapTree.height(t1);
+    var t2h = MapTree.height(t2);
+    if (t2h > t1h + 2) {
+      if (t2.Case === "MapNode") {
+        if (MapTree.height(t2.Fields[2]) > t1h + 1) {
+          if (t2.Fields[2].Case === "MapNode") {
+            return MapTree.mk(MapTree.mk(t1, k, v, t2.Fields[2].Fields[2]), t2.Fields[2].Fields[0], t2.Fields[2].Fields[1], MapTree.mk(t2.Fields[2].Fields[3], t2.Fields[0], t2.Fields[1], t2.Fields[3]));
+          } else {
+            throw "rebalance";
+          }
+        } else {
+          return MapTree.mk(MapTree.mk(t1, k, v, t2.Fields[2]), t2.Fields[0], t2.Fields[1], t2.Fields[3]);
+        }
+      } else {
+        throw "rebalance";
+      }
+    } else {
+      if (t1h > t2h + 2) {
+        if (t1.Case === "MapNode") {
+          if (MapTree.height(t1.Fields[3]) > t2h + 1) {
+            if (t1.Fields[3].Case === "MapNode") {
+              return MapTree.mk(MapTree.mk(t1.Fields[2], t1.Fields[0], t1.Fields[1], t1.Fields[3].Fields[2]), t1.Fields[3].Fields[0], t1.Fields[3].Fields[1], MapTree.mk(t1.Fields[3].Fields[3], k, v, t2));
+            } else {
+              throw "rebalance";
+            }
+          } else {
+            return MapTree.mk(t1.Fields[2], t1.Fields[0], t1.Fields[1], MapTree.mk(t1.Fields[3], k, v, t2));
+          }
+        } else {
+          throw "rebalance";
+        }
+      } else {
+        return MapTree.mk(t1, k, v, t2);
+      }
+    }
   }
 
-  static map<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
-    return Seq.fold((acc, kv) => acc.set(kv[0], f(kv[0], kv[1])), new Map<K, U>(), map);
+  static add(comparer: IComparer<any>, k: any, v: any, m: MapTree): MapTree {
+    if (m.Case === "MapOne") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return new MapTree("MapNode", [k, v, new MapTree("MapEmpty", []), m, 2]);
+      }
+      else if (c === 0) {
+        return new MapTree("MapOne", [k, v]);
+      }
+      return new MapTree("MapNode", [k, v, m, new MapTree("MapEmpty", []), 2]);
+    }
+    else if (m.Case === "MapNode") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return MapTree.rebalance(MapTree.add(comparer, k, v, m.Fields[2]), m.Fields[0], m.Fields[1], m.Fields[3]);
+      }
+      else if (c === 0) {
+        return new MapTree("MapNode", [k, v, m.Fields[2], m.Fields[3], m.Fields[4]]);
+      }
+      return MapTree.rebalance(m.Fields[2], m.Fields[0], m.Fields[1], MapTree.add(comparer, k, v, m.Fields[3]));
+    }
+    return new MapTree("MapOne", [k, v]);
   }
 
-  static partition<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.fold((acc, kv) => {
-      const lacc = acc[0], racc = acc[1];
-      const k = kv[0], v = kv[1];
-      return f(k, v) ? Tuple(lacc.set(k, v), racc) : Tuple(lacc, racc.set(k, v));
-    }, Tuple(new Map<K, V>(), new Map<K, V>()), map);
+  static find(comparer: IComparer<any>, k: any, m: MapTree): any {
+    const res = MapTree.tryFind(comparer, k, m);
+    if (res != null)
+      return res;
+    throw "key not found";
   }
 
-  static findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.pick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
+  static tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
+    if (m.Case === "MapOne") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      return c === 0 ? m.Fields[1] : null;
+    }
+    else if (m.Case === "MapNode") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return MapTree.tryFind(comparer, k, m.Fields[2]);
+      } else {
+        if (c === 0) {
+          return m.Fields[1];
+        } else {
+          return MapTree.tryFind(comparer, k, m.Fields[3]);
+        }
+      }
+    }
+    return null;
   }
 
-  static tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V>) {
-    return Seq.tryPick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
+  static partition1(comparer: IComparer<any>, f: (k:any, v:any) => boolean, k: any, v: any, acc1: MapTree, acc2: MapTree): [MapTree, MapTree] {
+    return f(k,v) ? [MapTree.add(comparer, k, v, acc1), acc2] : [acc1, MapTree.add(comparer, k, v, acc2)];
   }
 
-  static pick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
-    return Seq.pick(kv => {
-      const res = f(kv[0], kv[1]);
-      return res != null ? res : null;
-    }, map);
+  static partitionAux(comparer: IComparer<any>, f: (k:any, v:any) => boolean, s: MapTree, acc_0: MapTree, acc_1: MapTree): [MapTree, MapTree] {
+    const acc: [MapTree, MapTree] = [acc_0, acc_1];
+    if (s.Case === "MapOne") {
+      return MapTree.partition1(comparer, f, s.Fields[0], s.Fields[1], acc[0], acc[1]);
+    }
+    else if (s.Case === "MapNode") {
+      const acc_2 = MapTree.partitionAux(comparer, f, s.Fields[3], acc[0], acc[1]);
+      const acc_3 = MapTree.partition1(comparer, f, s.Fields[0], s.Fields[1], acc_2[0], acc_2[1]);
+      return MapTree.partitionAux(comparer, f, s.Fields[2], acc_3[0], acc_3[1]);
+    }
+    return acc;
   }
 
-  static remove<K, V>(item: K, map: Map<K, V>) {
-    return FMap.removeInPlace(item, new Map<K, V>(map));
+  static partition(comparer: IComparer<any>, f: (k:any, v:any) => boolean, s: MapTree) {
+    return MapTree.partitionAux(comparer, f, s, MapTree.empty(), MapTree.empty());
   }
 
-  static removeInPlace<K, V>(item: K, map: Map<K, V>) {
-    map.delete(item);
+  static filter1(comparer: IComparer<any>, f: (k:any, v:any) => boolean, k: any, v: any, acc: MapTree) {
+    return f(k,v) ? MapTree.add(comparer, k, v, acc) : acc;
+  }
+
+  static filterAux(comparer: IComparer<any>, f: (k:any, v:any) => boolean, s: MapTree, acc: MapTree): MapTree {
+    return s.Case === "MapOne" ? MapTree.filter1(comparer, f, s.Fields[0], s.Fields[1], acc) : s.Case === "MapNode" ? (() => {
+      var acc_1 = MapTree.filterAux(comparer, f, s.Fields[2], acc);
+      var acc_2 = MapTree.filter1(comparer, f, s.Fields[0], s.Fields[1], acc_1);
+      return MapTree.filterAux(comparer, f, s.Fields[3], acc_2);
+    })() : acc;
+  }
+
+  static filter(comparer: IComparer<any>, f: (k:any, v:any) => boolean, s: MapTree) {
+    return MapTree.filterAux(comparer, f, s, MapTree.empty());
+  }
+
+  static spliceOutSuccessor(m: MapTree): [any,any,MapTree] {
+    if (m.Case === "MapOne") {
+      return [m.Fields[0], m.Fields[1], new MapTree("MapEmpty", [])];
+    }
+    else if (m.Case === "MapNode") {
+      if (m.Fields[2].Case === "MapEmpty") {
+        return [m.Fields[0], m.Fields[1], m.Fields[3]];
+      }
+      else {
+        const kvl = MapTree.spliceOutSuccessor(m.Fields[2]);
+        return [kvl[0], kvl[1], MapTree.mk(kvl[2], m.Fields[0], m.Fields[1], m.Fields[3])];
+      }
+    }
+    throw "internal error: Map.spliceOutSuccessor";
+  }
+
+  static remove(comparer: IComparer<any>, k: any, m: MapTree): MapTree {
+    if (m.Case === "MapOne") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c === 0) {
+        return new MapTree("MapEmpty", []);
+      } else {
+        return m;
+      }
+    }
+    else if (m.Case === "MapNode") {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return MapTree.rebalance(MapTree.remove(comparer, k, m.Fields[2]), m.Fields[0], m.Fields[1], m.Fields[3]);
+      } else {
+        if (c === 0) {
+          var matchValue = [m.Fields[2], m.Fields[3]];
+          if (matchValue[0].Case === "MapEmpty") {
+            return m.Fields[3];
+          } else {
+            if (matchValue[1].Case === "MapEmpty") {
+              return m.Fields[2];
+            } else {
+              var patternInput = MapTree.spliceOutSuccessor(m.Fields[3]);
+              var sv = patternInput[1];
+              var sk = patternInput[0];
+              var r_ = patternInput[2];
+              return MapTree.mk(m.Fields[2], sk, sv, r_);
+            }
+          }
+        } else {
+          return MapTree.rebalance(m.Fields[2], m.Fields[0], m.Fields[1], MapTree.remove(comparer, k, m.Fields[3]));
+        }
+      }
+    }
+    else {
+      return MapTree.empty();
+    }
+  }
+
+  static mem(comparer: IComparer<any>, k: any, m: MapTree): boolean {
+    return m.Case === "MapOne" ? comparer.Compare(k, m.Fields[0]) === 0 : m.Case === "MapNode" ? (() => {
+      var c = comparer.Compare(k, m.Fields[0]);
+      if (c < 0) {
+        return MapTree.mem(comparer, k, m.Fields[2]);
+      } else {
+        if (c === 0) {
+          return true;
+        } else {
+          return MapTree.mem(comparer, k, m.Fields[3]);
+        }
+      }
+    })() : false;
+  }
+
+  static iter(f: (k:any, v:any) => void, m: MapTree): void {
+    if (m.Case === "MapOne") {
+      f(m.Fields[0], m.Fields[1]);
+    }
+    else if(m.Case === "MapNode") {
+      MapTree.iter(f, m.Fields[2]);
+      f(m.Fields[0], m.Fields[1]);
+      MapTree.iter(f, m.Fields[3]);
+    }
+  }
+
+  static tryPick(f: (k:any, v:any) => any, m: MapTree): any {
+    return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (() => {
+      var matchValue = MapTree.tryPick(f, m.Fields[2]);
+      if (matchValue == null) {
+        var matchValue_1 = f(m.Fields[0], m.Fields[1]);
+        if (matchValue_1 == null) {
+          return MapTree.tryPick(f, m.Fields[3]);
+        } else {
+          var res = matchValue_1;
+          return res;
+        }
+      } else {
+        var res = matchValue;
+        return res;
+      }
+    })() : null;
+  }
+
+  static exists(f: (k:any, v:any) => boolean, m: MapTree): boolean {
+    return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (MapTree.exists(f, m.Fields[2]) ? true : f(m.Fields[0], m.Fields[1])) ? true : MapTree.exists(f, m.Fields[3]) : false;
+  }
+
+  static forall(f: (k:any, v:any) => boolean, m: MapTree): boolean {
+    return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (MapTree.forall(f, m.Fields[2]) ? f(m.Fields[0], m.Fields[1]) : false) ? MapTree.forall(f, m.Fields[3]) : false : true;
+  }
+
+  // static map(f: (v:any) => any, m: MapTree): MapTree {
+  //   return m.Case === "MapOne" ? new MapTree("MapOne", [m.Fields[0], f(m.Fields[1])]) : m.Case === "MapNode" ? (() => {
+  //     var l2 = MapTree.map(f, m.Fields[2]);
+  //     var v2 = f(m.Fields[1]);
+  //     var r2 = MapTree.map(f, m.Fields[3]);
+  //     return new MapTree("MapNode", [m.Fields[0], v2, l2, r2, m.Fields[4]]);
+  //   })() : MapTree.empty();
+  // }
+
+  static mapi(f: (k:any, v:any) => any, m: MapTree): MapTree {
+    return m.Case === "MapOne" ? new MapTree("MapOne", [m.Fields[0], f(m.Fields[0], m.Fields[1])]) : m.Case === "MapNode" ? (() => {
+      var l2 = MapTree.mapi(f, m.Fields[2]);
+      var v2 = f(m.Fields[0], m.Fields[1]);
+      var r2 = MapTree.mapi(f, m.Fields[3]);
+      return new MapTree("MapNode", [m.Fields[0], v2, l2, r2, m.Fields[4]]);
+    })() : MapTree.empty();
+  }
+
+  static foldBack(f: (k:any, v:any, acc: any) => any, m: MapTree, x: any): any {
+    return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1], x) : m.Case === "MapNode" ? (() => {
+      var x_1 = MapTree.foldBack(f, m.Fields[3], x);
+      var x_2 = f(m.Fields[0], m.Fields[1], x_1);
+      return MapTree.foldBack(f, m.Fields[2], x_2);
+    })() : x;
+  }
+
+  static fold(f: (acc: any, k:any, v:any) => any, x: any, m: MapTree): any {
+    return m.Case === "MapOne" ? f(x, m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (() => {
+      var x_1 = MapTree.fold(f, x, m.Fields[2]);
+      var x_2 = f(x_1, m.Fields[0], m.Fields[1]);
+      return MapTree.fold(f, x_2, m.Fields[3]);
+    })() : x;
+  }
+
+  // static foldFromTo(comparer: IComparer<any>, lo: any, hi: any, f: (k:any, v:any, acc: any) => any, m: MapTree, x: any): any {
+  //   if (m.Case === "MapOne") {
+  //     var cLoKey = comparer.Compare(lo, m.Fields[0]);
+  //     var cKeyHi = comparer.Compare(m.Fields[0], hi);
+  //     var x_1 = (cLoKey <= 0 ? cKeyHi <= 0 : false) ? f(m.Fields[0], m.Fields[1], x) : x;
+  //     return x_1;
+  //   }
+  //   else if (m.Case === "MapNode") {
+  //     var cLoKey = comparer.Compare(lo, m.Fields[0]);
+  //     var cKeyHi = comparer.Compare(m.Fields[0], hi);
+  //     var x_1 = cLoKey < 0 ? MapTree.foldFromTo(comparer, lo, hi, f, m.Fields[2], x) : x;
+  //     var x_2 = (cLoKey <= 0 ? cKeyHi <= 0 : false) ? f(m.Fields[0], m.Fields[1], x_1) : x_1;
+  //     var x_3 = cKeyHi < 0 ? MapTree.foldFromTo(comparer, lo, hi, f, m.Fields[3], x_2) : x_2;
+  //     return x_3;
+  //   }
+  //   return x;
+  // }
+
+  // static foldSection(comparer: IComparer<any>, lo: any, hi: any, f: (k:any, v:any, acc: any) => any, m: MapTree, x: any) {
+  //   return comparer.Compare(lo, hi) === 1 ? x : MapTree.foldFromTo(comparer, lo, hi, f, m, x);
+  // }
+
+  // static loop(m: MapTree, acc: any): List<[any,any]> {
+  //   return m.Case === "MapOne"
+  //     ? new List([m.Fields[0], m.Fields[1]], acc)
+  //     : m.Case === "MapNode"
+  //       ? MapTree.loop(m.Fields[2], new List([m.Fields[0], m.Fields[1]], MapTree.loop(m.Fields[3], acc)))
+  //       : acc;
+  // }
+
+  // static toList(m: MapTree) {
+  //   return MapTree.loop(m, new List());
+  // }
+
+  // static toArray(m: MapTree) {
+  //   return Array.from(MapTree.toList(m));
+  // }
+
+  // static ofList(comparer: IComparer<any>, l: List<[any,any]>) {
+  //   return Seq.fold((acc: MapTree, tupledArg: [any, any]) => {
+  //     return MapTree.add(comparer, tupledArg[0], tupledArg[1], acc);
+  //   }, MapTree.empty(), l);
+  // }
+
+  static mkFromEnumerator(comparer: IComparer<any>, acc: MapTree, e: Iterator<any>): MapTree {
+    const cur = e.next();
+    return !cur.done
+      ? MapTree.mkFromEnumerator(comparer, MapTree.add(comparer, cur.value[0], cur.value[1], acc), e)
+      : acc;
+  }
+
+  // static ofArray(comparer: IComparer<any>, arr: ArrayLike<[any,any]>) {
+  //   var res = MapTree.empty();
+  //   for (var i = 0; i <= arr.length - 1; i++) {
+  //     res = MapTree.add(comparer, arr[i][0], arr[i][1], res);
+  //   }
+  //   return res;
+  // }
+
+  static ofSeq(comparer: IComparer<any>, c: Iterable<any>): MapTree {
+    var ie = c[Symbol.iterator]();
+    return MapTree.mkFromEnumerator(comparer, MapTree.empty(), ie);
+  }
+
+  // static copyToArray(s: MapTree, arr: ArrayLike<any>, i: number) {
+  //   MapTree.iter((x, y) => { arr[i++] = [x, y]; }, s);
+  // }
+
+  static collapseLHS(stack: List<MapTree>): List<MapTree> {
+    if (stack.tail != null) {
+      if (stack.head.Case === "MapOne") {
+        return stack;
+      }
+      else if (stack.head.Case === "MapNode") {
+        return MapTree.collapseLHS(List.ofArray([
+          stack.head.Fields[2],
+          new MapTree("MapOne", [stack.head.Fields[0], stack.head.Fields[1]]),
+          stack.head.Fields[3]
+        ], stack.tail));
+      }
+      else {
+        return MapTree.collapseLHS(stack.tail);
+      }
+    }
+    else {
+      return new List<MapTree>();
+    }
+  }
+
+  static mkIterator(s: MapTree): MapIterator {
+    return { stack: MapTree.collapseLHS(new List<MapTree>(s, new List<MapTree>())), started: false };
+  }
+
+  static moveNext(i: MapIterator): IteratorResult<[any,any]> {
+    function current(i: MapIterator): [any,any] {
+      if (i.stack.tail == null) {
+        return null;
+      }
+      else if (i.stack.head.Case === "MapOne") {
+        return [i.stack.head.Fields[0], i.stack.head.Fields[1]];
+      }
+      throw "Please report error: Map iterator, unexpected stack for current";
+    }
+    if (i.started) {
+      if (i.stack.tail == null) {
+        return { done: true };
+      } else {
+        if (i.stack.head.Case === "MapOne") {
+          i.stack = MapTree.collapseLHS(i.stack.tail);
+          return {
+            done: i.stack.tail == null,
+            value: current(i)
+          };
+        } else {
+          throw "Please report error: Map iterator, unexpected stack for moveNext";
+        }
+      }
+    }
+    else {
+      i.started = true;
+      return {
+        done: i.stack.tail == null,
+        value: current(i)
+      };
+    };
+  }
+}
+
+class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterable<[K,V]> {
+  private tree: MapTree;
+  private comparer: IComparer<K>;
+
+  /** Do not call, use Map.create instead. */
+  constructor () {}
+
+  private static from<K,V>(comparer: IComparer<K>, tree: MapTree) {
+    let map = new FMap<K,V>();
+    map.tree = tree
+    map.comparer = comparer || new GenericComparer<K>();
     return map;
   }
 
-  static tryPick<K, T, U>(f: (k: K, v: T) => U, map: Map<K, T>) {
-    return Seq.tryPick(kv => {
-      let res = f(kv[0], kv[1]);
-      return res != null ? res : null;
-    }, map);
+  private static create<K,V>(ie?: Iterable<[K,V]>, comparer?: IComparer<K>) {
+    comparer = comparer || new GenericComparer<K>();
+    return FMap.from(comparer, ie ? MapTree.ofSeq(comparer, ie) : MapTree.empty());
+  }
+
+  Equals(m2: FMap<K,V>) {
+    return this.CompareTo(m2) === 0;
+  }
+
+  CompareTo(m2: FMap<K,V>) {
+    return Seq.compareWith((kvp1, kvp2) => {
+      var c = this.comparer.Compare(kvp1[0], kvp2[0]);
+      return c !== 0 ? c : Util.compare(kvp1[1], kvp2[1]);
+    }, this, m2);
+  }
+
+  [Symbol.iterator](): Iterator<[K,V]> {
+    let i = MapTree.mkIterator(this.tree);
+    return <Iterator<[K,V]>>{
+      next: () => MapTree.moveNext(i)
+    };
+  }
+
+  entries() {
+    return this[Symbol.iterator]();
+  }
+
+  keys() {
+    return Seq.map(kv => kv[0], this);
+  }
+
+  values() {
+    return Seq.map(kv => kv[1], this);
+  }
+
+  get(k: K) {
+    return MapTree.find(this.comparer, k, this.tree);
+  }
+
+  has(k: K) {
+    return MapTree.mem(this.comparer, k, this.tree);
+  }
+
+  /** Not supported */
+  set(k: K, v: V): FMap<K,V> {
+    throw "not supported";
+  }
+
+  /** Not supported */
+  delete(k: K): boolean {
+    throw "not supported";
+  }
+
+  /** Not supported */
+  clear(): void {
+    throw "not supported";
+  }
+
+  get size() {
+    return MapTree.size(this.tree);
+  }
+
+  static add<K,V>(k: K, v: V, map: FMap<K,V>) {
+    return FMap.from(map.comparer, MapTree.add(map.comparer, k, v, map.tree));
+  }
+
+  static remove<K, V>(item: K, map: FMap<K, V>) {
+    return FMap.from(map.comparer, MapTree.remove(map.comparer, item, map.tree));
+  }
+
+  static containsValue<K, V>(v: V, map: Map<K, V> | FMap<K,V>) {
+    return Seq.fold((acc, k) => acc || Util.equals(map.get(k), v), false, map.keys());
+  }
+
+  static exists<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+    return MapTree.exists(f, map.tree);
+  }
+
+  static find<K, V>(k: K, map: FMap<K, V>) {
+    return MapTree.find(map.comparer, k, map.tree);
+  }
+
+  static tryFind<K, V>(k: K, map: FMap<K, V>) {
+    return MapTree.tryFind(map.comparer, k, map.tree);
+  }
+
+  static filter<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+    return FMap.from(map.comparer, MapTree.filter(map.comparer, f, map.tree));
+  }
+
+  static fold<K, V, ST>(f: (acc: ST, k: K, v: V) => ST, seed: ST, map: FMap<K, V>) {
+    return MapTree.fold(f, seed, map.tree);
+  }
+
+  static foldBack<K, V, ST>(f: (k: K, v: V, acc: ST) => ST, map: FMap<K, V>, seed: ST) {
+    return MapTree.foldBack(f, map.tree, seed);
+  }
+
+  static forAll<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+    return MapTree.forall(f, map.tree);
+  }
+
+  static isEmpty<K, V>(map: FMap<K, V>) {
+    return MapTree.isEmpty(map.tree);
+  }
+
+  static iterate<K, V>(f: (k: K, v: V) => void, map: FMap<K, V>) {
+    MapTree.iter(f, map.tree);
+  }
+
+  static map<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
+    return FMap.from(map.comparer, MapTree.mapi(f, map.tree));
+  }
+
+  static partition<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+    const rs = MapTree.partition(map.comparer, f, map.tree);
+    return [FMap.from(map.comparer, rs[0]), FMap.from(map.comparer, rs[1])];
+  }
+
+  static findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FMap<K, V>) {
+    return Seq.pick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
+  }
+
+  static tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FMap<K, V>) {
+    return Seq.tryPick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
+  }
+
+  static pick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
+    const res = FMap.tryPick(f, map);
+    if (res != null)
+      return res;
+    throw "key not found";
+  }
+
+  static tryPick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
+    return MapTree.tryPick(f, map.tree);
   }
 }
+Util.setInterfaces(FMap.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpMap"); 
+
 export { FMap as Map }
 
 export type Unit = void;
@@ -2074,11 +3511,8 @@ export interface IAsyncContext<T> {
 
 export type IAsync<T> = (x: IAsyncContext<T>) => void;
 
-export class Async {
-
-  // --- AsyncBuilder methods
-
-  private static __protectedAsync<T>(f: IAsync<T>) {
+const AsyncImpl = {
+  protectedCont<T>(f: IAsync<T>) {
     return (ctx: IAsyncContext<T>) => {
       if (ctx.cancelToken.isCancelled)
         ctx.onCancel("cancelled");
@@ -2089,10 +3523,9 @@ export class Async {
           ctx.onError(err);
         }
     };
-  }
-
-  static bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
-    return Async.__protectedAsync((ctx: IAsyncContext<U>) => {
+  },
+  bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<U>) => {
       computation({
         onSuccess: (x: T) => binder(x)(ctx),
         onError: ctx.onError,
@@ -2100,36 +3533,45 @@ export class Async {
         cancelToken: ctx.cancelToken
       });
     });
+  },
+  return<T>(value?: T) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
+  }
+}
+
+export class AsyncBuilder {
+  Bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
+    return AsyncImpl.bind(computation, binder);
   }
 
-  static combine<T>(computation1: IAsync<Unit>, computation2: IAsync<T>) {
-    return Async.bind(computation1, () => computation2);
+  Combine<T>(computation1: IAsync<Unit>, computation2: IAsync<T>) {
+    return this.Bind(computation1, () => computation2);
   }
 
-  static delay<T>(generator: () => IAsync<T>) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => generator()(ctx));
+  Delay<T>(generator: () => IAsync<T>) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => generator()(ctx));
   }
 
-  static for<T>(sequence: Iterable<T>, body: (x: T) => IAsync<Unit>) {
+  For<T>(sequence: Iterable<T>, body: (x: T) => IAsync<Unit>) {
     const iter = sequence[Symbol.iterator]();
     let cur = iter.next();
-    return Async.while(() => !cur.done, Async.delay(() => {
+    return this.While(() => !cur.done, this.Delay(() => {
       const res = body(cur.value);
       cur = iter.next();
       return res;
     }));
   }
 
-  static return<T>(value?: T) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
+  Return<T>(value?: T) {
+    return AsyncImpl.return(value);
   }
 
-  static returnFrom<T>(computation: IAsync<T>) {
+  ReturnFrom<T>(computation: IAsync<T>) {
     return computation;
   }
 
-  static tryFinally<T>(computation: IAsync<T>, compensation: () => void) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
+  TryFinally<T>(computation: IAsync<T>, compensation: () => void) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => {
       computation({
         onSuccess: (x: T) => {
           compensation();
@@ -2148,8 +3590,8 @@ export class Async {
     });
   }
 
-  static tryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => IAsync<T>) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => {
+  TryWith<T>(computation: IAsync<T>, catchHandler: (e: any) => IAsync<T>) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => {
       computation({
         onSuccess: ctx.onSuccess,
         onCancel: ctx.onCancel,
@@ -2159,36 +3601,37 @@ export class Async {
     });
   }
 
-  static using<T extends IDisposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
-    return Async.tryFinally(binder(resource), () => resource.dispose());
+  Using<T extends IDisposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
+    return this.TryFinally(binder(resource), () => resource.Dispose());
   }
 
-  static while(guard: () => boolean, computation: IAsync<Unit>): IAsync<Unit> {
+  While(guard: () => boolean, computation: IAsync<Unit>): IAsync<Unit> {
     if (guard())
-      return Async.bind(computation, () => Async.while(guard, computation));
+      return this.Bind(computation, () => this.While(guard, computation));
     else
-      return Async.return(Nothing);
+      return this.Return(Nothing);
   }
 
-  static zero() {
-    return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => ctx.onSuccess(Nothing));
+  Zero() {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<Unit>) => ctx.onSuccess(Nothing));
   }
+}
 
-  // --- Async methods
+export const defaultAsyncBuilder = new AsyncBuilder();
 
-  // Async.AwaitTask<T> in F#
+export class Async {
   static awaitPromise<T>(p: Promise<T>) {
     return Async.fromContinuations((conts: Array<Continuation<T>>) =>
       p.then(conts[0]).catch(err =>
         (err == "cancelled" ? conts[2] : conts[1])(err)));
   }
 
-  get cancellationToken() {
-    return Async.__protectedAsync((ctx: IAsyncContext<CancellationToken>) => ctx.onSuccess(ctx.cancelToken));
+  static get cancellationToken() {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<CancellationToken>) => ctx.onSuccess(ctx.cancelToken));
   }
 
   static catch<T>(work: IAsync<T>) {
-    return Async.__protectedAsync((ctx: IAsyncContext<Choice<T, any>>) => {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<Choice<T, any>>) => {
       work({
         onSuccess: x => ctx.onSuccess(Choice.Choice1Of2<T, any>(x)),
         onError: ex => ctx.onSuccess(Choice.Choice2Of2<T, any>(ex)),
@@ -2203,11 +3646,11 @@ export class Async {
   };
 
   static fromContinuations<T>(f: (conts: Array<Continuation<T>>) => void) {
-    return Async.__protectedAsync((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
   }
 
   static ignore<T>(computation: IAsync<T>) {
-    return Async.bind(computation, x => Async.return(Nothing));
+    return AsyncImpl.bind(computation, x => AsyncImpl.return(Nothing));
   }
 
   static parallel<T>(computations: Iterable<IAsync<T>>) {
@@ -2215,7 +3658,7 @@ export class Async {
   }
 
   static sleep(millisecondsDueTime: number) {
-    return Async.__protectedAsync((ctx: IAsyncContext<Unit>) => {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<Unit>) => {
       setTimeout(() => ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess(Nothing), millisecondsDueTime);
     });
   }
@@ -2246,7 +3689,6 @@ export class Async {
     });
   }
 
-  // Async.StartAsTask<T> in F#
   static startAsPromise<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
     return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
       Async.startWithContinuations(computation, resolve, reject, reject, cancellationToken ? cancellationToken : Async.defaultCancellationToken));
@@ -2366,33 +3808,33 @@ export class MailboxProcessor<Msg> {
 }
 
 export interface IObserver<T> {
-  onNext: (x: T) => void;
-  onError: (e: any) => void;
-  onCompleted: () => void;
+  OnNext: (x: T) => void;
+  OnError: (e: any) => void;
+  OnCompleted: () => void;
 }
 
 class Observer<T> implements IObserver<T> {
-  public onNext: (x: T) => void;
-  public onError: (e: any) => void;
-  public onCompleted: () => void;
+  public OnNext: (x: T) => void;
+  public OnError: (e: any) => void;
+  public OnCompleted: () => void;
 
   constructor(onNext: (x: T) => void, onError?: (e: any) => void, onCompleted?: () => void) {
-    this.onNext = onNext;
-    this.onError = onError || ((e: any) => { });
-    this.onCompleted = onCompleted || function () { };
+    this.OnNext = onNext;
+    this.OnError = onError || ((e: any) => { });
+    this.OnCompleted = onCompleted || function () { };
   }
 }
 Util.setInterfaces(Observer.prototype, ["System.IObserver"]);
 
 export interface IObservable<T> {
-  subscribe: (o: IObserver<T>) => IDisposable;
+  Subscribe: (o: IObserver<T>) => IDisposable;
 }
 
 class Observable<T> implements IObservable<T> {
-  public subscribe: (o: IObserver<T>) => IDisposable;
+  public Subscribe: (o: IObserver<T>) => IDisposable;
 
   constructor(subscribe: (o: IObserver<T>) => IDisposable) {
-    this.subscribe = subscribe;
+    this.Subscribe = subscribe;
   }
 }
 Util.setInterfaces(Observable.prototype, ["System.IObservable"]);
@@ -2407,17 +3849,17 @@ class FObservable {
   }
 
   static add<T>(callback: (x: T) => Unit, source: IObservable<T>) {
-    source.subscribe(new Observer(callback));
+    source.Subscribe(new Observer(callback));
   }
 
   static choose<T, U>(chooser: (x: T) => U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer =>
-      source.subscribe(new Observer<T>(t =>
+      source.Subscribe(new Observer<T>(t =>
         FObservable.__protect(
           () => chooser(t),
-          u => { if (u != null) observer.onNext(u); },
-          observer.onError),
-        observer.onError, observer.onCompleted)));
+          u => { if (u != null) observer.OnNext(u); },
+          observer.OnError),
+        observer.OnError, observer.OnCompleted)));
   }
 
   static filter<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
@@ -2426,24 +3868,24 @@ class FObservable {
 
   static map<T, U>(mapping: (x: T) => U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer =>
-      source.subscribe(new Observer<T>(t => {
+      source.Subscribe(new Observer<T>(t => {
         FObservable.__protect(
           () => mapping(t),
-          observer.onNext,
-          observer.onError);
-      }, observer.onError, observer.onCompleted)));
+          observer.OnNext,
+          observer.OnError);
+      }, observer.OnError, observer.OnCompleted)));
   }
 
   static merge<T>(source1: IObservable<T>, source2: IObservable<T>) {
     return <IObservable<T>>new Observable(observer => {
       let stopped = false, completed1 = false, completed2 = false;
 
-      const h1 = source1.subscribe(new Observer<T>(
-        v => { if (!stopped) observer.onNext(v); },
+      const h1 = source1.Subscribe(new Observer<T>(
+        v => { if (!stopped) observer.OnNext(v); },
         e => {
           if (!stopped) {
             stopped = true;
-            observer.onError(e);
+            observer.OnError(e);
           }
         },
         () => {
@@ -2451,17 +3893,17 @@ class FObservable {
             completed1 = true;
             if (completed2) {
               stopped = true;
-              observer.onCompleted();
+              observer.OnCompleted();
             }
           }
         }));
 
-      const h2 = source2.subscribe(new Observer<T>(
-        v => { if (!stopped) { observer.onNext(v); } },
+      const h2 = source2.Subscribe(new Observer<T>(
+        v => { if (!stopped) { observer.OnNext(v); } },
         e => {
           if (!stopped) {
             stopped = true;
-            observer.onError(e);
+            observer.OnError(e);
           }
         },
         () => {
@@ -2469,14 +3911,14 @@ class FObservable {
             completed2 = true;
             if (completed1) {
               stopped = true;
-              observer.onCompleted();
+              observer.OnCompleted();
             }
           }
         }));
 
       return Util.createDisposable(() => {
-        h1.dispose();
-        h2.dispose();
+        h1.Dispose();
+        h2.Dispose();
       });
     });
   }
@@ -2484,11 +3926,11 @@ class FObservable {
   static pairwise<T>(source: IObservable<T>) {
     return <IObservable<Tuple<T, T>>>new Observable<Tuple<T, T>>(observer => {
       let last: T = null;
-      return source.subscribe(new Observer<T>(next => {
+      return source.Subscribe(new Observer<T>(next => {
         if (last != null)
-          observer.onNext([last, next]);
+          observer.OnNext([last, next]);
         last = next;
-      }, observer.onError, observer.onCompleted));
+      }, observer.OnError, observer.OnCompleted));
     });
   }
 
@@ -2498,12 +3940,12 @@ class FObservable {
 
   static scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObservable<T>) {
     return <IObservable<U>>new Observable<U>(observer => {
-      return source.subscribe(new Observer<T>(t => {
+      return source.Subscribe(new Observer<T>(t => {
         FObservable.__protect(
           () => collector(state, t),
-          u => { state = u; observer.onNext(u); },
-          observer.onError);
-      }, observer.onError, observer.onCompleted));
+          u => { state = u; observer.OnNext(u); },
+          observer.OnError);
+      }, observer.OnError, observer.OnCompleted));
     });
   }
 
@@ -2512,7 +3954,7 @@ class FObservable {
   }
 
   static subscribe<T>(callback: (x: T) => Unit, source: IObservable<T>) {
-    return source.subscribe(new Observer(callback));
+    return source.Subscribe(new Observer(callback));
   }
 }
 export { FObservable as Observable }
@@ -2521,13 +3963,13 @@ export type Delegate<T> = (x: T) => void;
 export type DotNetDelegate<T> = (sender: any, x: T) => void;
 
 export interface IDelegateEvent<T> {
-  addHandler(d: DotNetDelegate<T>): void;
-  removeHandler(d: DotNetDelegate<T>): void;
+  AddHandler(d: DotNetDelegate<T>): void;
+  RemoveHandler(d: DotNetDelegate<T>): void;
 }
 
 export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
-  publish: IEvent<T>;
-  trigger(x: T): void;
+  Publish: IEvent<T>;
+  Trigger(x: T): void;
 }
 
 export class Event<T> implements IEvent<T> {
@@ -2539,18 +3981,18 @@ export class Event<T> implements IEvent<T> {
     this.delegates = delegates || new Array<Delegate<T>>();
   }
 
-  public add(f: Delegate<T>) {
+  public Add(f: Delegate<T>) {
     this._addHandler(f);
   }
 
   // IEvent<T> methods
 
-  public get publish() {
+  public get Publish() {
     return this;
   }
 
-  public trigger(value: T) {
-    Seq.iter(f => f(value), this.delegates);
+  public Trigger(value: T) {
+    Seq.iterate(f => f(value), this.delegates);
   }
 
   // IDelegateEvent<T> methods
@@ -2565,11 +4007,11 @@ export class Event<T> implements IEvent<T> {
       this.delegates.splice(index, 1);
   }
 
-  public addHandler(handler: DotNetDelegate<T>) {
+  public AddHandler(handler: DotNetDelegate<T>) {
     this._addHandler(x => handler(undefined, x));
   }
 
-  public removeHandler(handler: DotNetDelegate<T>) {
+  public RemoveHandler(handler: DotNetDelegate<T>) {
     this._removeHandler(x => handler(undefined, x));
   }
 
@@ -2579,7 +4021,7 @@ export class Event<T> implements IEvent<T> {
     if (this._subscriber)
       return this._subscriber(observer);
 
-    const callback = observer.onNext;
+    const callback = observer.OnNext;
     this._addHandler(callback);
     return Util.createDisposable(() => this._removeHandler(callback));
   }
@@ -2589,25 +4031,25 @@ export class Event<T> implements IEvent<T> {
     return Util.createDisposable(() => this._removeHandler(callback));
   }
 
-  public subscribe(arg: IObserver<T> | Delegate<T>) {
+  public Subscribe(arg: IObserver<T> | Delegate<T>) {
     return typeof arg == "function"
       ? this._subscribeFromCallback(<Delegate<T>>arg)
       : this._subscribeFromObserver(<IObserver<T>>arg);
   }
 
   static add<T>(callback: (x: T) => Unit, sourceEvent: IEvent<T>) {
-    (<Event<T>>sourceEvent).subscribe(new Observer(callback));
+    (<Event<T>>sourceEvent).Subscribe(new Observer(callback));
   }
 
   static choose<T, U>(chooser: (x: T) => U, sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
     return <IEvent<U>>new Event<U>(observer =>
-      source.subscribe(new Observer<T>(t =>
+      source.Subscribe(new Observer<T>(t =>
         FObservable.__protect(
           () => chooser(t),
-          u => { if (u != null) observer.onNext(u); },
-          observer.onError),
-        observer.onError, observer.onCompleted)),
+          u => { if (u != null) observer.OnNext(u); },
+          observer.OnError),
+        observer.OnError, observer.OnCompleted)),
       source.delegates);
   }
 
@@ -2618,12 +4060,12 @@ export class Event<T> implements IEvent<T> {
   static map<T, U>(mapping: (x: T) => U, sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
     return <IEvent<U>>new Event<U>(observer =>
-      source.subscribe(new Observer<T>(t =>
+      source.Subscribe(new Observer<T>(t =>
         FObservable.__protect(
           () => mapping(t),
-          observer.onNext,
-          observer.onError),
-        observer.onError, observer.onCompleted)),
+          observer.OnNext,
+          observer.OnError),
+        observer.OnError, observer.OnCompleted)),
       source.delegates);
   }
 
@@ -2633,12 +4075,12 @@ export class Event<T> implements IEvent<T> {
     return <IEvent<T>>new Event<T>(observer => {
       let stopped = false, completed1 = false, completed2 = false;
 
-      const h1 = source1.subscribe(new Observer<T>(
-        v => { if (!stopped) observer.onNext(v); },
+      const h1 = source1.Subscribe(new Observer<T>(
+        v => { if (!stopped) observer.OnNext(v); },
         e => {
           if (!stopped) {
             stopped = true;
-            observer.onError(e);
+            observer.OnError(e);
           }
         },
         () => {
@@ -2646,17 +4088,17 @@ export class Event<T> implements IEvent<T> {
             completed1 = true;
             if (completed2) {
               stopped = true;
-              observer.onCompleted();
+              observer.OnCompleted();
             }
           }
         }));
 
-      const h2 = source2.subscribe(new Observer<T>(
-        v => { if (!stopped) observer.onNext(v); },
+      const h2 = source2.Subscribe(new Observer<T>(
+        v => { if (!stopped) observer.OnNext(v); },
         e => {
           if (!stopped) {
             stopped = true;
-            observer.onError(e);
+            observer.OnError(e);
           }
         },
         () => {
@@ -2664,14 +4106,14 @@ export class Event<T> implements IEvent<T> {
             completed2 = true;
             if (completed1) {
               stopped = true;
-              observer.onCompleted();
+              observer.OnCompleted();
             }
           }
         }));
 
       return Util.createDisposable(() => {
-        h1.dispose();
-        h2.dispose();
+        h1.Dispose();
+        h2.Dispose();
       });
     }, source1.delegates.concat(source2.delegates));
   }
@@ -2680,11 +4122,11 @@ export class Event<T> implements IEvent<T> {
     const source = <Event<T>>sourceEvent;
     return <IEvent<Tuple<T, T>>>new Event<Tuple<T, T>>(observer => {
       let last: T = null;
-      return source.subscribe(new Observer<T>(next => {
+      return source.Subscribe(new Observer<T>(next => {
         if (last != null)
-          observer.onNext([last, next]);
+          observer.OnNext([last, next]);
         last = next;
-      }, observer.onError, observer.onCompleted));
+      }, observer.OnError, observer.OnCompleted));
     }, source.delegates);
   }
 
@@ -2695,12 +4137,12 @@ export class Event<T> implements IEvent<T> {
   static scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
     return <IEvent<U>>new Event<U>(observer => {
-      return source.subscribe(new Observer<T>(t => {
+      return source.Subscribe(new Observer<T>(t => {
         FObservable.__protect(
           () => collector(state, t),
-          u => { state = u; observer.onNext(u); },
-          observer.onError);
-      }, observer.onError, observer.onCompleted));
+          u => { state = u; observer.OnNext(u); },
+          observer.OnError);
+      }, observer.OnError, observer.OnCompleted));
     }, source.delegates);
   }
 

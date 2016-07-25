@@ -4,72 +4,72 @@ open Fable.Core
 open Fable.Import.JS
 
 module Browser =
-    type Algorithm =
+    type [<AllowNullLiteral>] Algorithm =
         abstract name: string option with get, set
 
-    and AriaRequestEventInit =
+    and [<AllowNullLiteral>] AriaRequestEventInit =
         inherit EventInit
         abstract attributeName: string option with get, set
         abstract attributeValue: string option with get, set
 
-    and ClipboardEventInit =
+    and [<AllowNullLiteral>] ClipboardEventInit =
         inherit EventInit
         abstract data: string option with get, set
         abstract dataType: string option with get, set
 
-    and CommandEventInit =
+    and [<AllowNullLiteral>] CommandEventInit =
         inherit EventInit
         abstract commandName: string option with get, set
         abstract detail: string option with get, set
 
-    and CompositionEventInit =
+    and [<AllowNullLiteral>] CompositionEventInit =
         inherit UIEventInit
         abstract data: string option with get, set
 
-    and ConfirmSiteSpecificExceptionsInformation =
+    and [<AllowNullLiteral>] ConfirmSiteSpecificExceptionsInformation =
         inherit ExceptionInformation
         abstract arrayOfDomainStrings: ResizeArray<string> option with get, set
 
-    and CustomEventInit =
+    and [<AllowNullLiteral>] CustomEventInit =
         inherit EventInit
         abstract detail: obj option with get, set
 
-    and DeviceAccelerationDict =
+    and [<AllowNullLiteral>] DeviceAccelerationDict =
         abstract x: float option with get, set
         abstract y: float option with get, set
         abstract z: float option with get, set
 
-    and DeviceRotationRateDict =
+    and [<AllowNullLiteral>] DeviceRotationRateDict =
         abstract alpha: float option with get, set
         abstract beta: float option with get, set
         abstract gamma: float option with get, set
 
-    and EventInit =
+    and [<AllowNullLiteral>] EventInit =
         abstract bubbles: bool option with get, set
         abstract cancelable: bool option with get, set
 
-    and ExceptionInformation =
+    and [<AllowNullLiteral>] ExceptionInformation =
         abstract domain: string option with get, set
 
-    and FocusEventInit =
+    and [<AllowNullLiteral>] FocusEventInit =
         inherit UIEventInit
         abstract relatedTarget: EventTarget option with get, set
 
-    and HashChangeEventInit =
+    and [<AllowNullLiteral>] HashChangeEventInit =
         inherit EventInit
         abstract newURL: string option with get, set
         abstract oldURL: string option with get, set
 
-    and KeyAlgorithm =
+    and [<AllowNullLiteral>] KeyAlgorithm =
         abstract name: string option with get, set
 
-    and KeyboardEventInit =
+    and [<AllowNullLiteral>] KeyboardEventInit =
         inherit SharedKeyboardAndMouseEventInit
         abstract key: string option with get, set
         abstract location: float option with get, set
         abstract repeat: bool option with get, set
 
-    and MouseEventInit =
+    and [<AllowNullLiteral>] MouseEventInit =
         inherit SharedKeyboardAndMouseEventInit
         abstract screenX: float option with get, set
         abstract screenY: float option with get, set
@@ -79,7 +79,7 @@ module Browser =
         abstract buttons: float option with get, set
         abstract relatedTarget: EventTarget option with get, set
 
-    and MsZoomToOptions =
+    and [<AllowNullLiteral>] MsZoomToOptions =
         abstract contentX: float option with get, set
         abstract contentY: float option with get, set
         abstract viewportX: string option with get, set
@@ -87,7 +87,7 @@ module Browser =
         abstract scaleFactor: float option with get, set
         abstract animate: string option with get, set
 
-    and MutationObserverInit =
+    and [<AllowNullLiteral>] MutationObserverInit =
         abstract childList: bool option with get, set
         abstract attributes: bool option with get, set
         abstract characterData: bool option with get, set
@@ -96,10 +96,10 @@ module Browser =
         abstract characterDataOldValue: bool option with get, set
         abstract attributeFilter: ResizeArray<string> option with get, set
 
-    and ObjectURLOptions =
+    and [<AllowNullLiteral>] ObjectURLOptions =
         abstract oneTimeOnly: bool option with get, set
 
-    and PointerEventInit =
+    and [<AllowNullLiteral>] PointerEventInit =
         inherit MouseEventInit
         abstract pointerId: float option with get, set
         abstract width: float option with get, set
@@ -110,12 +110,12 @@ module Browser =
         abstract pointerType: string option with get, set
         abstract isPrimary: bool option with get, set
 
-    and PositionOptions =
+    and [<AllowNullLiteral>] PositionOptions =
         abstract enableHighAccuracy: bool option with get, set
         abstract timeout: float option with get, set
         abstract maximumAge: float option with get, set
 
-    and SharedKeyboardAndMouseEventInit =
+    and [<AllowNullLiteral>] SharedKeyboardAndMouseEventInit =
         inherit UIEventInit
         abstract ctrlKey: bool option with get, set
         abstract shiftKey: bool option with get, set
@@ -133,22 +133,22 @@ module Browser =
         abstract keyModifierStateSymbol: bool option with get, set
         abstract keyModifierStateSymbolLock: bool option with get, set
 
-    and StoreExceptionsInformation =
+    and [<AllowNullLiteral>] StoreExceptionsInformation =
         inherit ExceptionInformation
         abstract siteName: string option with get, set
         abstract explanationString: string option with get, set
         abstract detailURI: string option with get, set
 
-    and StoreSiteSpecificExceptionsInformation =
+    and [<AllowNullLiteral>] StoreSiteSpecificExceptionsInformation =
         inherit StoreExceptionsInformation
         abstract arrayOfDomainStrings: ResizeArray<string> option with get, set
 
-    and UIEventInit =
+    and [<AllowNullLiteral>] UIEventInit =
         inherit EventInit
         abstract view: Window option with get, set
         abstract detail: float option with get, set
 
-    and WebGLContextAttributes =
+    and [<AllowNullLiteral>] WebGLContextAttributes =
         abstract alpha: bool option with get, set
         abstract depth: bool option with get, set
         abstract stencil: bool option with get, set
@@ -156,11 +156,11 @@ module Browser =
         abstract premultipliedAlpha: bool option with get, set
         abstract preserveDrawingBuffer: bool option with get, set
 
-    and WebGLContextEventInit =
+    and [<AllowNullLiteral>] WebGLContextEventInit =
         inherit EventInit
         abstract statusMessage: string option with get, set
 
-    and WheelEventInit =
+    and [<AllowNullLiteral>] WheelEventInit =
         inherit MouseEventInit
         abstract deltaX: float option with get, set
         abstract deltaY: float option with get, set
@@ -169,18 +169,18 @@ module Browser =
 
     and EventListener = Func<Event, unit>
 
-    and ANGLE_instanced_arrays =
+    and [<AllowNullLiteral>] ANGLE_instanced_arrays =
         abstract VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE: float with get, set
         abstract drawArraysInstancedANGLE: mode: float * first: float * count: float * primcount: float -> unit
         abstract drawElementsInstancedANGLE: mode: float * count: float * ``type``: float * offset: float * primcount: float -> unit
         abstract vertexAttribDivisorANGLE: index: float * divisor: float -> unit
 
-    and ANGLE_instanced_arraysType =
+    and [<AllowNullLiteral>] ANGLE_instanced_arraysType =
         abstract prototype: ANGLE_instanced_arrays with get, set
         abstract VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ANGLE_instanced_arrays
 
-    and AnalyserNode =
+    and [<AllowNullLiteral>] AnalyserNode =
         inherit AudioNode
         abstract fftSize: float with get, set
         abstract frequencyBinCount: float with get, set
@@ -192,21 +192,21 @@ module Browser =
         abstract getFloatFrequencyData: array: Float32Array -> unit
         abstract getFloatTimeDomainData: array: Float32Array -> unit
 
-    and AnalyserNodeType =
+    and [<AllowNullLiteral>] AnalyserNodeType =
         abstract prototype: AnalyserNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AnalyserNode
 
-    and AnimationEvent =
+    and [<AllowNullLiteral>] AnimationEvent =
         inherit Event
         abstract animationName: string with get, set
         abstract elapsedTime: float with get, set
         abstract initAnimationEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * animationNameArg: string * elapsedTimeArg: float -> unit
 
-    and AnimationEventType =
+    and [<AllowNullLiteral>] AnimationEventType =
         abstract prototype: AnimationEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AnimationEvent
 
-    and ApplicationCache =
+    and [<AllowNullLiteral>] ApplicationCache =
         inherit EventTarget
         abstract oncached: Func<Event, obj> with get, set
         abstract onchecking: Func<Event, obj> with get, set
@@ -236,7 +236,7 @@ module Browser =
         [<Emit("$0.addEventListener('updateready',$1...)")>] abstract addEventListener_updateready: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and ApplicationCacheType =
+    and [<AllowNullLiteral>] ApplicationCacheType =
         abstract prototype: ApplicationCache with get, set
         abstract CHECKING: float with get, set
         abstract DOWNLOADING: float with get, set
@@ -246,38 +246,38 @@ module Browser =
         abstract UPDATEREADY: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ApplicationCache
 
-    and AriaRequestEvent =
+    and [<AllowNullLiteral>] AriaRequestEvent =
         inherit Event
         abstract attributeName: string with get, set
         abstract attributeValue: string with get, set
 
-    and AriaRequestEventType =
+    and [<AllowNullLiteral>] AriaRequestEventType =
         abstract prototype: AriaRequestEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: AriaRequestEventInit -> AriaRequestEvent
 
-    and Attr =
+    and [<AllowNullLiteral>] Attr =
         inherit Node
         abstract name: string with get, set
         abstract ownerElement: Element with get, set
         abstract specified: bool with get, set
         abstract value: string with get, set
 
-    and AttrType =
+    and [<AllowNullLiteral>] AttrType =
         abstract prototype: Attr with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Attr
 
-    and AudioBuffer =
+    and [<AllowNullLiteral>] AudioBuffer =
         abstract duration: float with get, set
         abstract length: float with get, set
         abstract numberOfChannels: float with get, set
         abstract sampleRate: float with get, set
         abstract getChannelData: channel: float -> Float32Array
 
-    and AudioBufferType =
+    and [<AllowNullLiteral>] AudioBufferType =
         abstract prototype: AudioBuffer with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioBuffer
 
-    and AudioBufferSourceNode =
+    and [<AllowNullLiteral>] AudioBufferSourceNode =
         inherit AudioNode
         abstract buffer: AudioBuffer with get, set
         abstract loop: bool with get, set
@@ -290,11 +290,11 @@ module Browser =
         [<Emit("$0.addEventListener('ended',$1...)")>] abstract addEventListener_ended: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and AudioBufferSourceNodeType =
+    and [<AllowNullLiteral>] AudioBufferSourceNodeType =
         abstract prototype: AudioBufferSourceNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioBufferSourceNode
 
-    and AudioContext =
+    and [<AllowNullLiteral>] AudioContext =
         inherit EventTarget
         abstract currentTime: float with get, set
         abstract destination: AudioDestinationNode with get, set
@@ -320,30 +320,30 @@ module Browser =
         abstract createWaveShaper: unit -> WaveShaperNode
         abstract decodeAudioData: audioData: ArrayBuffer * successCallback: DecodeSuccessCallback * ?errorCallback: DecodeErrorCallback -> unit
 
-    and AudioContextType =
+    and [<AllowNullLiteral>] AudioContextType =
         abstract prototype: AudioContext with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioContext
 
-    and AudioDestinationNode =
+    and [<AllowNullLiteral>] AudioDestinationNode =
         inherit AudioNode
         abstract maxChannelCount: float with get, set
 
-    and AudioDestinationNodeType =
+    and [<AllowNullLiteral>] AudioDestinationNodeType =
         abstract prototype: AudioDestinationNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioDestinationNode
 
-    and AudioListener =
+    and [<AllowNullLiteral>] AudioListener =
         abstract dopplerFactor: float with get, set
         abstract speedOfSound: float with get, set
         abstract setOrientation: x: float * y: float * z: float * xUp: float * yUp: float * zUp: float -> unit
         abstract setPosition: x: float * y: float * z: float -> unit
         abstract setVelocity: x: float * y: float * z: float -> unit
 
-    and AudioListenerType =
+    and [<AllowNullLiteral>] AudioListenerType =
         abstract prototype: AudioListener with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioListener
 
-    and AudioNode =
+    and [<AllowNullLiteral>] AudioNode =
         inherit EventTarget
         abstract channelCount: float with get, set
         abstract channelCountMode: string with get, set
@@ -356,11 +356,11 @@ module Browser =
         abstract disconnect: destination: AudioNode * ?output: float * ?input: float -> unit
         abstract disconnect: destination: AudioParam * ?output: float -> unit
 
-    and AudioNodeType =
+    and [<AllowNullLiteral>] AudioNodeType =
         abstract prototype: AudioNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioNode
 
-    and AudioParam =
+    and [<AllowNullLiteral>] AudioParam =
         abstract defaultValue: float with get, set
         abstract value: float with get, set
         abstract cancelScheduledValues: startTime: float -> unit
@@ -370,21 +370,21 @@ module Browser =
         abstract setValueAtTime: value: float * startTime: float -> unit
         abstract setValueCurveAtTime: values: Float32Array * startTime: float * duration: float -> unit
 
-    and AudioParamType =
+    and [<AllowNullLiteral>] AudioParamType =
         abstract prototype: AudioParam with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioParam
 
-    and AudioProcessingEvent =
+    and [<AllowNullLiteral>] AudioProcessingEvent =
         inherit Event
         abstract inputBuffer: AudioBuffer with get, set
         abstract outputBuffer: AudioBuffer with get, set
         abstract playbackTime: float with get, set
 
-    and AudioProcessingEventType =
+    and [<AllowNullLiteral>] AudioProcessingEventType =
         abstract prototype: AudioProcessingEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioProcessingEvent
 
-    and AudioTrack =
+    and [<AllowNullLiteral>] AudioTrack =
         abstract enabled: bool with get, set
         abstract id: string with get, set
         abstract kind: string with get, set
@@ -392,11 +392,11 @@ module Browser =
         abstract language: string with get, set
         abstract sourceBuffer: SourceBuffer with get, set
 
-    and AudioTrackType =
+    and [<AllowNullLiteral>] AudioTrackType =
         abstract prototype: AudioTrack with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioTrack
 
-    and AudioTrackList =
+    and [<AllowNullLiteral>] AudioTrackList =
         inherit EventTarget
         abstract length: float with get, set
         abstract onaddtrack: Func<TrackEvent, obj> with get, set
@@ -410,26 +410,26 @@ module Browser =
         [<Emit("$0.addEventListener('removetrack',$1...)")>] abstract addEventListener_removetrack: listener: Func<TrackEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and AudioTrackListType =
+    and [<AllowNullLiteral>] AudioTrackListType =
         abstract prototype: AudioTrackList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> AudioTrackList
 
-    and BarProp =
+    and [<AllowNullLiteral>] BarProp =
         abstract visible: bool with get, set
 
-    and BarPropType =
+    and [<AllowNullLiteral>] BarPropType =
         abstract prototype: BarProp with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> BarProp
 
-    and BeforeUnloadEvent =
+    and [<AllowNullLiteral>] BeforeUnloadEvent =
         inherit Event
         abstract returnValue: obj with get, set
 
-    and BeforeUnloadEventType =
+    and [<AllowNullLiteral>] BeforeUnloadEventType =
         abstract prototype: BeforeUnloadEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> BeforeUnloadEvent
 
-    and BiquadFilterNode =
+    and [<AllowNullLiteral>] BiquadFilterNode =
         inherit AudioNode
         abstract Q: AudioParam with get, set
         abstract detune: AudioParam with get, set
@@ -438,78 +438,78 @@ module Browser =
         abstract ``type``: string with get, set
         abstract getFrequencyResponse: frequencyHz: Float32Array * magResponse: Float32Array * phaseResponse: Float32Array -> unit
 
-    and BiquadFilterNodeType =
+    and [<AllowNullLiteral>] BiquadFilterNodeType =
         abstract prototype: BiquadFilterNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> BiquadFilterNode
 
-    and Blob =
+    and [<AllowNullLiteral>] Blob =
         abstract size: float with get, set
         abstract ``type``: string with get, set
         abstract msClose: unit -> unit
         abstract msDetachStream: unit -> obj
         abstract slice: ?start: float * ?``end``: float * ?contentType: string -> Blob
 
-    and BlobType =
+    and [<AllowNullLiteral>] BlobType =
         abstract prototype: Blob with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?blobParts: ResizeArray<obj> * ?options: BlobPropertyBag -> Blob
 
-    and CDATASection =
+    and [<AllowNullLiteral>] CDATASection =
         inherit Text
 
 
-    and CDATASectionType =
+    and [<AllowNullLiteral>] CDATASectionType =
         abstract prototype: CDATASection with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CDATASection
 
-    and CSS =
+    and [<AllowNullLiteral>] CSS =
         abstract supports: property: string * ?value: string -> bool
 
-    and CSSConditionRule =
+    and [<AllowNullLiteral>] CSSConditionRule =
         inherit CSSGroupingRule
         abstract conditionText: string with get, set
 
-    and CSSConditionRuleType =
+    and [<AllowNullLiteral>] CSSConditionRuleType =
         abstract prototype: CSSConditionRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSConditionRule
 
-    and CSSFontFaceRule =
+    and [<AllowNullLiteral>] CSSFontFaceRule =
         inherit CSSRule
         abstract style: CSSStyleDeclaration with get, set
 
-    and CSSFontFaceRuleType =
+    and [<AllowNullLiteral>] CSSFontFaceRuleType =
         abstract prototype: CSSFontFaceRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSFontFaceRule
 
-    and CSSGroupingRule =
+    and [<AllowNullLiteral>] CSSGroupingRule =
         inherit CSSRule
         abstract cssRules: CSSRuleList with get, set
         abstract deleteRule: ?index: float -> unit
         abstract insertRule: rule: string * ?index: float -> float
 
-    and CSSGroupingRuleType =
+    and [<AllowNullLiteral>] CSSGroupingRuleType =
         abstract prototype: CSSGroupingRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSGroupingRule
 
-    and CSSImportRule =
+    and [<AllowNullLiteral>] CSSImportRule =
         inherit CSSRule
         abstract href: string with get, set
         abstract media: MediaList with get, set
         abstract styleSheet: CSSStyleSheet with get, set
 
-    and CSSImportRuleType =
+    and [<AllowNullLiteral>] CSSImportRuleType =
         abstract prototype: CSSImportRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSImportRule
 
-    and CSSKeyframeRule =
+    and [<AllowNullLiteral>] CSSKeyframeRule =
         inherit CSSRule
         abstract keyText: string with get, set
         abstract style: CSSStyleDeclaration with get, set
 
-    and CSSKeyframeRuleType =
+    and [<AllowNullLiteral>] CSSKeyframeRuleType =
         abstract prototype: CSSKeyframeRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSKeyframeRule
 
-    and CSSKeyframesRule =
+    and [<AllowNullLiteral>] CSSKeyframesRule =
         inherit CSSRule
         abstract cssRules: CSSRuleList with get, set
         abstract name: string with get, set
@@ -517,39 +517,39 @@ module Browser =
         abstract deleteRule: rule: string -> unit
         abstract findRule: rule: string -> CSSKeyframeRule
 
-    and CSSKeyframesRuleType =
+    and [<AllowNullLiteral>] CSSKeyframesRuleType =
         abstract prototype: CSSKeyframesRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSKeyframesRule
 
-    and CSSMediaRule =
+    and [<AllowNullLiteral>] CSSMediaRule =
         inherit CSSConditionRule
         abstract media: MediaList with get, set
 
-    and CSSMediaRuleType =
+    and [<AllowNullLiteral>] CSSMediaRuleType =
         abstract prototype: CSSMediaRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSMediaRule
 
-    and CSSNamespaceRule =
+    and [<AllowNullLiteral>] CSSNamespaceRule =
         inherit CSSRule
         abstract namespaceURI: string with get, set
         abstract prefix: string with get, set
 
-    and CSSNamespaceRuleType =
+    and [<AllowNullLiteral>] CSSNamespaceRuleType =
         abstract prototype: CSSNamespaceRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSNamespaceRule
 
-    and CSSPageRule =
+    and [<AllowNullLiteral>] CSSPageRule =
         inherit CSSRule
         abstract pseudoClass: string with get, set
         abstract selector: string with get, set
         abstract selectorText: string with get, set
         abstract style: CSSStyleDeclaration with get, set
 
-    and CSSPageRuleType =
+    and [<AllowNullLiteral>] CSSPageRuleType =
         abstract prototype: CSSPageRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSPageRule
 
-    and CSSRule =
+    and [<AllowNullLiteral>] CSSRule =
         abstract cssText: string with get, set
         abstract parentRule: CSSRule with get, set
         abstract parentStyleSheet: CSSStyleSheet with get, set
@@ -567,7 +567,7 @@ module Browser =
         abstract UNKNOWN_RULE: float with get, set
         abstract VIEWPORT_RULE: float with get, set
 
-    and CSSRuleType =
+    and [<AllowNullLiteral>] CSSRuleType =
         abstract prototype: CSSRule with get, set
         abstract CHARSET_RULE: float with get, set
         abstract FONT_FACE_RULE: float with get, set
@@ -583,16 +583,16 @@ module Browser =
         abstract VIEWPORT_RULE: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSRule
 
-    and CSSRuleList =
+    and [<AllowNullLiteral>] CSSRuleList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> CSSRule with get, set
         abstract item: index: float -> CSSRule
 
-    and CSSRuleListType =
+    and [<AllowNullLiteral>] CSSRuleListType =
         abstract prototype: CSSRuleList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSRuleList
 
-    and CSSStyleDeclaration =
+    and [<AllowNullLiteral>] CSSStyleDeclaration =
         abstract alignContent: string with get, set
         abstract alignItems: string with get, set
         abstract alignSelf: string with get, set
@@ -945,21 +945,21 @@ module Browser =
         abstract removeProperty: propertyName: string -> string
         abstract setProperty: propertyName: string * value: string * ?priority: string -> unit
 
-    and CSSStyleDeclarationType =
+    and [<AllowNullLiteral>] CSSStyleDeclarationType =
         abstract prototype: CSSStyleDeclaration with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSStyleDeclaration
 
-    and CSSStyleRule =
+    and [<AllowNullLiteral>] CSSStyleRule =
         inherit CSSRule
         abstract readOnly: bool with get, set
         abstract selectorText: string with get, set
         abstract style: CSSStyleDeclaration with get, set
 
-    and CSSStyleRuleType =
+    and [<AllowNullLiteral>] CSSStyleRuleType =
         abstract prototype: CSSStyleRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSStyleRule
 
-    and CSSStyleSheet =
+    and [<AllowNullLiteral>] CSSStyleSheet =
         inherit StyleSheet
         abstract cssRules: CSSRuleList with get, set
         abstract cssText: string with get, set
@@ -981,33 +981,33 @@ module Browser =
         abstract removeImport: lIndex: float -> unit
         abstract removeRule: lIndex: float -> unit
 
-    and CSSStyleSheetType =
+    and [<AllowNullLiteral>] CSSStyleSheetType =
         abstract prototype: CSSStyleSheet with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSStyleSheet
 
-    and CSSSupportsRule =
+    and [<AllowNullLiteral>] CSSSupportsRule =
         inherit CSSConditionRule
 
 
-    and CSSSupportsRuleType =
+    and [<AllowNullLiteral>] CSSSupportsRuleType =
         abstract prototype: CSSSupportsRule with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CSSSupportsRule
 
-    and CanvasGradient =
+    and [<AllowNullLiteral>] CanvasGradient =
         abstract addColorStop: offset: float * color: string -> unit
 
-    and CanvasGradientType =
+    and [<AllowNullLiteral>] CanvasGradientType =
         abstract prototype: CanvasGradient with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CanvasGradient
 
-    and CanvasPattern =
+    and [<AllowNullLiteral>] CanvasPattern =
         interface end
 
-    and CanvasPatternType =
+    and [<AllowNullLiteral>] CanvasPatternType =
         abstract prototype: CanvasPattern with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CanvasPattern
 
-    and CanvasRenderingContext2D =
+    and [<AllowNullLiteral>] CanvasRenderingContext2D =
         abstract canvas: HTMLCanvasElement with get, set
         abstract fillStyle: U3<string, CanvasGradient, CanvasPattern> with get, set
         abstract font: string with get, set
@@ -1063,27 +1063,27 @@ module Browser =
         abstract transform: m11: float * m12: float * m21: float * m22: float * dx: float * dy: float -> unit
         abstract translate: x: float * y: float -> unit
 
-    and CanvasRenderingContext2DType =
+    and [<AllowNullLiteral>] CanvasRenderingContext2DType =
         abstract prototype: CanvasRenderingContext2D with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CanvasRenderingContext2D
 
-    and ChannelMergerNode =
+    and [<AllowNullLiteral>] ChannelMergerNode =
         inherit AudioNode
 
 
-    and ChannelMergerNodeType =
+    and [<AllowNullLiteral>] ChannelMergerNodeType =
         abstract prototype: ChannelMergerNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ChannelMergerNode
 
-    and ChannelSplitterNode =
+    and [<AllowNullLiteral>] ChannelSplitterNode =
         inherit AudioNode
 
 
-    and ChannelSplitterNodeType =
+    and [<AllowNullLiteral>] ChannelSplitterNodeType =
         abstract prototype: ChannelSplitterNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ChannelSplitterNode
 
-    and CharacterData =
+    and [<AllowNullLiteral>] CharacterData =
         inherit Node
         inherit ChildNode
         abstract data: string with get, set
@@ -1095,11 +1095,11 @@ module Browser =
         abstract substringData: offset: float * count: float -> string
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and CharacterDataType =
+    and [<AllowNullLiteral>] CharacterDataType =
         abstract prototype: CharacterData with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CharacterData
 
-    and ClientRect =
+    and [<AllowNullLiteral>] ClientRect =
         abstract bottom: float with get, set
         abstract height: float with get, set
         abstract left: float with get, set
@@ -1107,66 +1107,66 @@ module Browser =
         abstract top: float with get, set
         abstract width: float with get, set
 
-    and ClientRectType =
+    and [<AllowNullLiteral>] ClientRectType =
         abstract prototype: ClientRect with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ClientRect
 
-    and ClientRectList =
+    and [<AllowNullLiteral>] ClientRectList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> ClientRect with get, set
         abstract item: index: float -> ClientRect
 
-    and ClientRectListType =
+    and [<AllowNullLiteral>] ClientRectListType =
         abstract prototype: ClientRectList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ClientRectList
 
-    and ClipboardEvent =
+    and [<AllowNullLiteral>] ClipboardEvent =
         inherit Event
         abstract clipboardData: DataTransfer with get, set
 
-    and ClipboardEventType =
+    and [<AllowNullLiteral>] ClipboardEventType =
         abstract prototype: ClipboardEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: ClipboardEventInit -> ClipboardEvent
 
-    and CloseEvent =
+    and [<AllowNullLiteral>] CloseEvent =
         inherit Event
         abstract code: float with get, set
         abstract reason: string with get, set
         abstract wasClean: bool with get, set
         abstract initCloseEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * wasCleanArg: bool * codeArg: float * reasonArg: string -> unit
 
-    and CloseEventType =
+    and [<AllowNullLiteral>] CloseEventType =
         abstract prototype: CloseEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CloseEvent
 
-    and CommandEvent =
+    and [<AllowNullLiteral>] CommandEvent =
         inherit Event
         abstract commandName: string with get, set
         abstract detail: string with get, set
 
-    and CommandEventType =
+    and [<AllowNullLiteral>] CommandEventType =
         abstract prototype: CommandEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: CommandEventInit -> CommandEvent
 
-    and Comment =
+    and [<AllowNullLiteral>] Comment =
         inherit CharacterData
         abstract text: string with get, set
 
-    and CommentType =
+    and [<AllowNullLiteral>] CommentType =
         abstract prototype: Comment with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Comment
 
-    and CompositionEvent =
+    and [<AllowNullLiteral>] CompositionEvent =
         inherit UIEvent
         abstract data: string with get, set
         abstract locale: string with get, set
         abstract initCompositionEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * dataArg: string * locale: string -> unit
 
-    and CompositionEventType =
+    and [<AllowNullLiteral>] CompositionEventType =
         abstract prototype: CompositionEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: CompositionEventInit -> CompositionEvent
 
-    and Console =
+    and [<AllowNullLiteral>] Console =
         abstract ``assert``: ?test: bool * ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
         abstract clear: unit -> unit
         abstract count: ?countTitle: string -> unit
@@ -1188,20 +1188,20 @@ module Browser =
         abstract trace: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
         abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
 
-    and ConsoleType =
+    and [<AllowNullLiteral>] ConsoleType =
         abstract prototype: Console with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Console
 
-    and ConvolverNode =
+    and [<AllowNullLiteral>] ConvolverNode =
         inherit AudioNode
         abstract buffer: AudioBuffer with get, set
         abstract normalize: bool with get, set
 
-    and ConvolverNodeType =
+    and [<AllowNullLiteral>] ConvolverNodeType =
         abstract prototype: ConvolverNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ConvolverNode
 
-    and Coordinates =
+    and [<AllowNullLiteral>] Coordinates =
         abstract accuracy: float with get, set
         abstract altitude: float with get, set
         abstract altitudeAccuracy: float with get, set
@@ -1210,54 +1210,54 @@ module Browser =
         abstract longitude: float with get, set
         abstract speed: float with get, set
 
-    and CoordinatesType =
+    and [<AllowNullLiteral>] CoordinatesType =
         abstract prototype: Coordinates with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Coordinates
 
-    and Crypto =
+    and [<AllowNullLiteral>] Crypto =
         inherit RandomSource
         abstract subtle: SubtleCrypto with get, set
 
-    and CryptoType =
+    and [<AllowNullLiteral>] CryptoType =
         abstract prototype: Crypto with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Crypto
 
-    and CryptoKey =
+    and [<AllowNullLiteral>] CryptoKey =
         abstract algorithm: KeyAlgorithm with get, set
         abstract extractable: bool with get, set
         abstract ``type``: string with get, set
         abstract usages: ResizeArray<string> with get, set
 
-    and CryptoKeyType =
+    and [<AllowNullLiteral>] CryptoKeyType =
         abstract prototype: CryptoKey with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CryptoKey
 
-    and CryptoKeyPair =
+    and [<AllowNullLiteral>] CryptoKeyPair =
         abstract privateKey: CryptoKey with get, set
         abstract publicKey: CryptoKey with get, set
 
-    and CryptoKeyPairType =
+    and [<AllowNullLiteral>] CryptoKeyPairType =
         abstract prototype: CryptoKeyPair with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> CryptoKeyPair
 
-    and CustomEvent =
+    and [<AllowNullLiteral>] CustomEvent =
         inherit Event
         abstract detail: obj with get, set
         abstract initCustomEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * detailArg: obj -> unit
 
-    and CustomEventType =
+    and [<AllowNullLiteral>] CustomEventType =
         abstract prototype: CustomEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: CustomEventInit -> CustomEvent
 
-    and DOMError =
+    and [<AllowNullLiteral>] DOMError =
         abstract name: string with get, set
         abstract toString: unit -> string
 
-    and DOMErrorType =
+    and [<AllowNullLiteral>] DOMErrorType =
         abstract prototype: DOMError with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DOMError
 
-    and DOMException =
+    and [<AllowNullLiteral>] DOMException =
         abstract code: float with get, set
         abstract message: string with get, set
         abstract name: string with get, set
@@ -1290,7 +1290,7 @@ module Browser =
         abstract WRONG_DOCUMENT_ERR: float with get, set
         abstract toString: unit -> string
 
-    and DOMExceptionType =
+    and [<AllowNullLiteral>] DOMExceptionType =
         abstract prototype: DOMException with get, set
         abstract ABORT_ERR: float with get, set
         abstract DATA_CLONE_ERR: float with get, set
@@ -1321,49 +1321,49 @@ module Browser =
         abstract WRONG_DOCUMENT_ERR: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DOMException
 
-    and DOMImplementation =
+    and [<AllowNullLiteral>] DOMImplementation =
         abstract createDocument: namespaceURI: string * qualifiedName: string * doctype: DocumentType -> Document
         abstract createDocumentType: qualifiedName: string * publicId: string * systemId: string -> DocumentType
         abstract createHTMLDocument: title: string -> Document
         abstract hasFeature: feature: string * version: string -> bool
 
-    and DOMImplementationType =
+    and [<AllowNullLiteral>] DOMImplementationType =
         abstract prototype: DOMImplementation with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DOMImplementation
 
-    and DOMParser =
+    and [<AllowNullLiteral>] DOMParser =
         abstract parseFromString: source: string * mimeType: string -> Document
 
-    and DOMParserType =
+    and [<AllowNullLiteral>] DOMParserType =
         abstract prototype: DOMParser with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DOMParser
 
-    and DOMSettableTokenList =
+    and [<AllowNullLiteral>] DOMSettableTokenList =
         inherit DOMTokenList
         abstract value: string with get, set
 
-    and DOMSettableTokenListType =
+    and [<AllowNullLiteral>] DOMSettableTokenListType =
         abstract prototype: DOMSettableTokenList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DOMSettableTokenList
 
-    and DOMStringList =
+    and [<AllowNullLiteral>] DOMStringList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
         abstract contains: str: string -> bool
         abstract item: index: float -> string
 
-    and DOMStringListType =
+    and [<AllowNullLiteral>] DOMStringListType =
         abstract prototype: DOMStringList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DOMStringList
 
-    and DOMStringMap =
+    and [<AllowNullLiteral>] DOMStringMap =
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: name: string -> string with get, set
 
-    and DOMStringMapType =
+    and [<AllowNullLiteral>] DOMStringMapType =
         abstract prototype: DOMStringMap with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DOMStringMap
 
-    and DOMTokenList =
+    and [<AllowNullLiteral>] DOMTokenList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
         abstract add: [<ParamArray>] token: string[] -> unit
@@ -1373,19 +1373,19 @@ module Browser =
         abstract toString: unit -> string
         abstract toggle: token: string * ?force: bool -> bool
 
-    and DOMTokenListType =
+    and [<AllowNullLiteral>] DOMTokenListType =
         abstract prototype: DOMTokenList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DOMTokenList
 
-    and DataCue =
+    and [<AllowNullLiteral>] DataCue =
         inherit TextTrackCue
         abstract data: ArrayBuffer with get, set
 
-    and DataCueType =
+    and [<AllowNullLiteral>] DataCueType =
         abstract prototype: DataCue with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DataCue
 
-    and DataTransfer =
+    and [<AllowNullLiteral>] DataTransfer =
         abstract dropEffect: string with get, set
         abstract effectAllowed: string with get, set
         abstract files: FileList with get, set
@@ -1395,21 +1395,21 @@ module Browser =
         abstract getData: format: string -> string
         abstract setData: format: string * data: string -> bool
 
-    and DataTransferType =
+    and [<AllowNullLiteral>] DataTransferType =
         abstract prototype: DataTransfer with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DataTransfer
 
-    and DataTransferItem =
+    and [<AllowNullLiteral>] DataTransferItem =
         abstract kind: string with get, set
         abstract ``type``: string with get, set
         abstract getAsFile: unit -> File
         abstract getAsString: _callback: FunctionStringCallback -> unit
 
-    and DataTransferItemType =
+    and [<AllowNullLiteral>] DataTransferItemType =
         abstract prototype: DataTransferItem with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DataTransferItem
 
-    and DataTransferItemList =
+    and [<AllowNullLiteral>] DataTransferItemList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> DataTransferItem with get, set
         abstract add: data: File -> DataTransferItem
@@ -1417,39 +1417,39 @@ module Browser =
         abstract item: index: float -> DataTransferItem
         abstract remove: index: float -> unit
 
-    and DataTransferItemListType =
+    and [<AllowNullLiteral>] DataTransferItemListType =
         abstract prototype: DataTransferItemList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DataTransferItemList
 
-    and DeferredPermissionRequest =
+    and [<AllowNullLiteral>] DeferredPermissionRequest =
         abstract id: float with get, set
         abstract ``type``: string with get, set
         abstract uri: string with get, set
         abstract allow: unit -> unit
         abstract deny: unit -> unit
 
-    and DeferredPermissionRequestType =
+    and [<AllowNullLiteral>] DeferredPermissionRequestType =
         abstract prototype: DeferredPermissionRequest with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DeferredPermissionRequest
 
-    and DelayNode =
+    and [<AllowNullLiteral>] DelayNode =
         inherit AudioNode
         abstract delayTime: AudioParam with get, set
 
-    and DelayNodeType =
+    and [<AllowNullLiteral>] DelayNodeType =
         abstract prototype: DelayNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DelayNode
 
-    and DeviceAcceleration =
+    and [<AllowNullLiteral>] DeviceAcceleration =
         abstract x: float with get, set
         abstract y: float with get, set
         abstract z: float with get, set
 
-    and DeviceAccelerationType =
+    and [<AllowNullLiteral>] DeviceAccelerationType =
         abstract prototype: DeviceAcceleration with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DeviceAcceleration
 
-    and DeviceMotionEvent =
+    and [<AllowNullLiteral>] DeviceMotionEvent =
         inherit Event
         abstract acceleration: DeviceAcceleration with get, set
         abstract accelerationIncludingGravity: DeviceAcceleration with get, set
@@ -1457,11 +1457,11 @@ module Browser =
         abstract rotationRate: DeviceRotationRate with get, set
         abstract initDeviceMotionEvent: ``type``: string * bubbles: bool * cancelable: bool * acceleration: DeviceAccelerationDict * accelerationIncludingGravity: DeviceAccelerationDict * rotationRate: DeviceRotationRateDict * interval: float -> unit
 
-    and DeviceMotionEventType =
+    and [<AllowNullLiteral>] DeviceMotionEventType =
         abstract prototype: DeviceMotionEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DeviceMotionEvent
 
-    and DeviceOrientationEvent =
+    and [<AllowNullLiteral>] DeviceOrientationEvent =
         inherit Event
         abstract absolute: bool with get, set
         abstract alpha: float with get, set
@@ -1469,20 +1469,20 @@ module Browser =
         abstract gamma: float with get, set
         abstract initDeviceOrientationEvent: ``type``: string * bubbles: bool * cancelable: bool * alpha: float * beta: float * gamma: float * absolute: bool -> unit
 
-    and DeviceOrientationEventType =
+    and [<AllowNullLiteral>] DeviceOrientationEventType =
         abstract prototype: DeviceOrientationEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DeviceOrientationEvent
 
-    and DeviceRotationRate =
+    and [<AllowNullLiteral>] DeviceRotationRate =
         abstract alpha: float with get, set
         abstract beta: float with get, set
         abstract gamma: float with get, set
 
-    and DeviceRotationRateType =
+    and [<AllowNullLiteral>] DeviceRotationRateType =
         abstract prototype: DeviceRotationRate with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DeviceRotationRate
 
-    and Document =
+    and [<AllowNullLiteral>] Document =
         inherit Node
         inherit GlobalEventHandlers
         inherit NodeSelector
@@ -2122,7 +2122,7 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and DocumentType =
+    and [<AllowNullLiteral>] DocumentType =
         abstract prototype: Document with get, set
         abstract entities: NamedNodeMap with get, set
         abstract internalSubset: string with get, set
@@ -2133,30 +2133,30 @@ module Browser =
         [<Emit("new $0($1...)")>] abstract Create: unit -> Document
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and DocumentFragment =
+    and [<AllowNullLiteral>] DocumentFragment =
         inherit Node
         inherit NodeSelector
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and DocumentFragmentType =
+    and [<AllowNullLiteral>] DocumentFragmentType =
         abstract prototype: DocumentFragment with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DocumentFragment
 
-    and DocumentTypeType =
+    and [<AllowNullLiteral>] DocumentTypeType =
         abstract prototype: DocumentType with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DocumentType
 
-    and DragEvent =
+    and [<AllowNullLiteral>] DragEvent =
         inherit MouseEvent
         abstract dataTransfer: DataTransfer with get, set
         abstract initDragEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float * screenXArg: float * screenYArg: float * clientXArg: float * clientYArg: float * ctrlKeyArg: bool * altKeyArg: bool * shiftKeyArg: bool * metaKeyArg: bool * buttonArg: float * relatedTargetArg: EventTarget * dataTransferArg: DataTransfer -> unit
         abstract msConvertURL: file: File * targetType: string * ?targetURL: string -> unit
 
-    and DragEventType =
+    and [<AllowNullLiteral>] DragEventType =
         abstract prototype: DragEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DragEvent
 
-    and DynamicsCompressorNode =
+    and [<AllowNullLiteral>] DynamicsCompressorNode =
         inherit AudioNode
         abstract attack: AudioParam with get, set
         abstract knee: AudioParam with get, set
@@ -2165,21 +2165,21 @@ module Browser =
         abstract release: AudioParam with get, set
         abstract threshold: AudioParam with get, set
 
-    and DynamicsCompressorNodeType =
+    and [<AllowNullLiteral>] DynamicsCompressorNodeType =
         abstract prototype: DynamicsCompressorNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> DynamicsCompressorNode
 
-    and EXT_texture_filter_anisotropic =
+    and [<AllowNullLiteral>] EXT_texture_filter_anisotropic =
         abstract MAX_TEXTURE_MAX_ANISOTROPY_EXT: float with get, set
         abstract TEXTURE_MAX_ANISOTROPY_EXT: float with get, set
 
-    and EXT_texture_filter_anisotropicType =
+    and [<AllowNullLiteral>] EXT_texture_filter_anisotropicType =
         abstract prototype: EXT_texture_filter_anisotropic with get, set
         abstract MAX_TEXTURE_MAX_ANISOTROPY_EXT: float with get, set
         abstract TEXTURE_MAX_ANISOTROPY_EXT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> EXT_texture_filter_anisotropic
 
-    and Element =
+    and [<AllowNullLiteral>] Element =
         inherit Node
         inherit GlobalEventHandlers
         inherit ElementTraversal
@@ -2471,11 +2471,11 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and ElementType =
+    and [<AllowNullLiteral>] ElementType =
         abstract prototype: Element with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Element
 
-    and ErrorEvent =
+    and [<AllowNullLiteral>] ErrorEvent =
         inherit Event
         abstract colno: float with get, set
         abstract error: obj with get, set
@@ -2484,11 +2484,11 @@ module Browser =
         abstract message: string with get, set
         abstract initErrorEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * messageArg: string * filenameArg: string * linenoArg: float -> unit
 
-    and ErrorEventType =
+    and [<AllowNullLiteral>] ErrorEventType =
         abstract prototype: ErrorEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ErrorEvent
 
-    and Event =
+    and [<AllowNullLiteral>] Event =
         abstract bubbles: bool with get, set
         abstract cancelBubble: bool with get, set
         abstract cancelable: bool with get, set
@@ -2509,48 +2509,48 @@ module Browser =
         abstract stopImmediatePropagation: unit -> unit
         abstract stopPropagation: unit -> unit
 
-    and EventType =
+    and [<AllowNullLiteral>] EventType =
         abstract prototype: Event with get, set
         abstract AT_TARGET: float with get, set
         abstract BUBBLING_PHASE: float with get, set
         abstract CAPTURING_PHASE: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: EventInit -> Event
 
-    and EventTarget =
+    and [<AllowNullLiteral>] EventTarget =
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
         abstract dispatchEvent: evt: Event -> bool
         abstract removeEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and EventTargetType =
+    and [<AllowNullLiteral>] EventTargetType =
         abstract prototype: EventTarget with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> EventTarget
 
-    and External =
+    and [<AllowNullLiteral>] External =
         interface end
 
-    and ExternalType =
+    and [<AllowNullLiteral>] ExternalType =
         abstract prototype: External with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> External
 
-    and File =
+    and [<AllowNullLiteral>] File =
         inherit Blob
         abstract lastModifiedDate: obj with get, set
         abstract name: string with get, set
 
-    and FileType =
+    and [<AllowNullLiteral>] FileType =
         abstract prototype: File with get, set
         [<Emit("new $0($1...)")>] abstract Create: parts: ResizeArray<U4<ArrayBuffer, ArrayBufferView, Blob, string>> * filename: string * ?properties: FilePropertyBag -> File
 
-    and FileList =
+    and [<AllowNullLiteral>] FileList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> File with get, set
         abstract item: index: float -> File
 
-    and FileListType =
+    and [<AllowNullLiteral>] FileListType =
         abstract prototype: FileList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> FileList
 
-    and FileReader =
+    and [<AllowNullLiteral>] FileReader =
         inherit EventTarget
         inherit MSBaseReader
         abstract error: DOMError with get, set
@@ -2560,35 +2560,35 @@ module Browser =
         abstract readAsText: blob: Blob * ?encoding: string -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and FileReaderType =
+    and [<AllowNullLiteral>] FileReaderType =
         abstract prototype: FileReader with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> FileReader
 
-    and FocusEvent =
+    and [<AllowNullLiteral>] FocusEvent =
         inherit UIEvent
         abstract relatedTarget: EventTarget with get, set
         abstract initFocusEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float * relatedTargetArg: EventTarget -> unit
 
-    and FocusEventType =
+    and [<AllowNullLiteral>] FocusEventType =
         abstract prototype: FocusEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: FocusEventInit -> FocusEvent
 
-    and FormData =
+    and [<AllowNullLiteral>] FormData =
         abstract append: name: obj * value: obj * ?blobName: string -> unit
 
-    and FormDataType =
+    and [<AllowNullLiteral>] FormDataType =
         abstract prototype: FormData with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?form: HTMLFormElement -> FormData
 
-    and GainNode =
+    and [<AllowNullLiteral>] GainNode =
         inherit AudioNode
         abstract gain: AudioParam with get, set
 
-    and GainNodeType =
+    and [<AllowNullLiteral>] GainNodeType =
         abstract prototype: GainNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> GainNode
 
-    and Gamepad =
+    and [<AllowNullLiteral>] Gamepad =
         abstract axes: ResizeArray<float> with get, set
         abstract buttons: ResizeArray<GamepadButton> with get, set
         abstract connected: bool with get, set
@@ -2597,44 +2597,44 @@ module Browser =
         abstract mapping: string with get, set
         abstract timestamp: float with get, set
 
-    and GamepadType =
+    and [<AllowNullLiteral>] GamepadType =
         abstract prototype: Gamepad with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Gamepad
 
-    and GamepadButton =
+    and [<AllowNullLiteral>] GamepadButton =
         abstract pressed: bool with get, set
         abstract value: float with get, set
 
-    and GamepadButtonType =
+    and [<AllowNullLiteral>] GamepadButtonType =
         abstract prototype: GamepadButton with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> GamepadButton
 
-    and GamepadEvent =
+    and [<AllowNullLiteral>] GamepadEvent =
         inherit Event
         abstract gamepad: Gamepad with get, set
 
-    and GamepadEventType =
+    and [<AllowNullLiteral>] GamepadEventType =
         abstract prototype: GamepadEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> GamepadEvent
 
-    and Geolocation =
+    and [<AllowNullLiteral>] Geolocation =
         abstract clearWatch: watchId: float -> unit
         abstract getCurrentPosition: successCallback: PositionCallback * ?errorCallback: PositionErrorCallback * ?options: PositionOptions -> unit
         abstract watchPosition: successCallback: PositionCallback * ?errorCallback: PositionErrorCallback * ?options: PositionOptions -> float
 
-    and GeolocationType =
+    and [<AllowNullLiteral>] GeolocationType =
         abstract prototype: Geolocation with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Geolocation
 
-    and HTMLAllCollection =
+    and [<AllowNullLiteral>] HTMLAllCollection =
         inherit HTMLCollection
         abstract namedItem: name: string -> Element
 
-    and HTMLAllCollectionType =
+    and [<AllowNullLiteral>] HTMLAllCollectionType =
         abstract prototype: HTMLAllCollection with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAllCollection
 
-    and HTMLAnchorElement =
+    and [<AllowNullLiteral>] HTMLAnchorElement =
         inherit HTMLElement
         abstract Methods: string with get, set
         abstract charset: string with get, set
@@ -2661,11 +2661,11 @@ module Browser =
         abstract urn: string with get, set
         abstract toString: unit -> string
 
-    and HTMLAnchorElementType =
+    and [<AllowNullLiteral>] HTMLAnchorElementType =
         abstract prototype: HTMLAnchorElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAnchorElement
 
-    and HTMLAppletElement =
+    and [<AllowNullLiteral>] HTMLAppletElement =
         inherit HTMLElement
         abstract BaseHref: string with get, set
         abstract align: string with get, set
@@ -2690,11 +2690,11 @@ module Browser =
         abstract vspace: float with get, set
         abstract width: float with get, set
 
-    and HTMLAppletElementType =
+    and [<AllowNullLiteral>] HTMLAppletElementType =
         abstract prototype: HTMLAppletElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAppletElement
 
-    and HTMLAreaElement =
+    and [<AllowNullLiteral>] HTMLAreaElement =
         inherit HTMLElement
         abstract alt: string with get, set
         abstract coords: string with get, set
@@ -2712,66 +2712,66 @@ module Browser =
         abstract target: string with get, set
         abstract toString: unit -> string
 
-    and HTMLAreaElementType =
+    and [<AllowNullLiteral>] HTMLAreaElementType =
         abstract prototype: HTMLAreaElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAreaElement
 
-    and HTMLAreasCollection =
+    and [<AllowNullLiteral>] HTMLAreasCollection =
         inherit HTMLCollection
         abstract add: element: HTMLElement * ?before: U2<HTMLElement, float> -> unit
         abstract remove: ?index: float -> unit
 
-    and HTMLAreasCollectionType =
+    and [<AllowNullLiteral>] HTMLAreasCollectionType =
         abstract prototype: HTMLAreasCollection with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAreasCollection
 
-    and HTMLAudioElement =
+    and [<AllowNullLiteral>] HTMLAudioElement =
         inherit HTMLMediaElement
 
 
-    and HTMLAudioElementType =
+    and [<AllowNullLiteral>] HTMLAudioElementType =
         abstract prototype: HTMLAudioElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLAudioElement
 
-    and HTMLBRElement =
+    and [<AllowNullLiteral>] HTMLBRElement =
         inherit HTMLElement
         abstract clear: string with get, set
 
-    and HTMLBRElementType =
+    and [<AllowNullLiteral>] HTMLBRElementType =
         abstract prototype: HTMLBRElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBRElement
 
-    and HTMLBaseElement =
+    and [<AllowNullLiteral>] HTMLBaseElement =
         inherit HTMLElement
         abstract href: string with get, set
         abstract target: string with get, set
 
-    and HTMLBaseElementType =
+    and [<AllowNullLiteral>] HTMLBaseElementType =
         abstract prototype: HTMLBaseElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBaseElement
 
-    and HTMLBaseFontElement =
+    and [<AllowNullLiteral>] HTMLBaseFontElement =
         inherit HTMLElement
         inherit DOML2DeprecatedColorProperty
         abstract face: string with get, set
         abstract size: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLBaseFontElementType =
+    and [<AllowNullLiteral>] HTMLBaseFontElementType =
         abstract prototype: HTMLBaseFontElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBaseFontElement
 
-    and HTMLBlockElement =
+    and [<AllowNullLiteral>] HTMLBlockElement =
         inherit HTMLElement
         abstract cite: string with get, set
         abstract clear: string with get, set
         abstract width: float with get, set
 
-    and HTMLBlockElementType =
+    and [<AllowNullLiteral>] HTMLBlockElementType =
         abstract prototype: HTMLBlockElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBlockElement
 
-    and HTMLBodyElement =
+    and [<AllowNullLiteral>] HTMLBodyElement =
         inherit HTMLElement
         abstract aLink: obj with get, set
         abstract background: string with get, set
@@ -2918,11 +2918,11 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLBodyElementType =
+    and [<AllowNullLiteral>] HTMLBodyElementType =
         abstract prototype: HTMLBodyElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLBodyElement
 
-    and HTMLButtonElement =
+    and [<AllowNullLiteral>] HTMLButtonElement =
         inherit HTMLElement
         abstract autofocus: bool with get, set
         abstract disabled: bool with get, set
@@ -2943,11 +2943,11 @@ module Browser =
         abstract createTextRange: unit -> TextRange
         abstract setCustomValidity: error: string -> unit
 
-    and HTMLButtonElementType =
+    and [<AllowNullLiteral>] HTMLButtonElementType =
         abstract prototype: HTMLButtonElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLButtonElement
 
-    and HTMLCanvasElement =
+    and [<AllowNullLiteral>] HTMLCanvasElement =
         inherit HTMLElement
         abstract height: float with get, set
         abstract width: float with get, set
@@ -2958,78 +2958,78 @@ module Browser =
         abstract toDataURL: ?``type``: string * [<ParamArray>] args: obj[] -> string
         abstract toBlob: unit -> Blob
 
-    and HTMLCanvasElementType =
+    and [<AllowNullLiteral>] HTMLCanvasElementType =
         abstract prototype: HTMLCanvasElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLCanvasElement
 
-    and HTMLCollection =
+    and [<AllowNullLiteral>] HTMLCollection =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Element with get, set
         abstract item: ?nameOrIndex: obj * ?optionalIndex: obj -> Element
         abstract namedItem: name: string -> Element
 
-    and HTMLCollectionType =
+    and [<AllowNullLiteral>] HTMLCollectionType =
         abstract prototype: HTMLCollection with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLCollection
 
-    and HTMLDDElement =
+    and [<AllowNullLiteral>] HTMLDDElement =
         inherit HTMLElement
         abstract noWrap: bool with get, set
 
-    and HTMLDDElementType =
+    and [<AllowNullLiteral>] HTMLDDElementType =
         abstract prototype: HTMLDDElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDDElement
 
-    and HTMLDListElement =
+    and [<AllowNullLiteral>] HTMLDListElement =
         inherit HTMLElement
         abstract compact: bool with get, set
 
-    and HTMLDListElementType =
+    and [<AllowNullLiteral>] HTMLDListElementType =
         abstract prototype: HTMLDListElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDListElement
 
-    and HTMLDTElement =
+    and [<AllowNullLiteral>] HTMLDTElement =
         inherit HTMLElement
         abstract noWrap: bool with get, set
 
-    and HTMLDTElementType =
+    and [<AllowNullLiteral>] HTMLDTElementType =
         abstract prototype: HTMLDTElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDTElement
 
-    and HTMLDataListElement =
+    and [<AllowNullLiteral>] HTMLDataListElement =
         inherit HTMLElement
         abstract options: HTMLCollection with get, set
 
-    and HTMLDataListElementType =
+    and [<AllowNullLiteral>] HTMLDataListElementType =
         abstract prototype: HTMLDataListElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDataListElement
 
-    and HTMLDirectoryElement =
+    and [<AllowNullLiteral>] HTMLDirectoryElement =
         inherit HTMLElement
         abstract compact: bool with get, set
 
-    and HTMLDirectoryElementType =
+    and [<AllowNullLiteral>] HTMLDirectoryElementType =
         abstract prototype: HTMLDirectoryElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDirectoryElement
 
-    and HTMLDivElement =
+    and [<AllowNullLiteral>] HTMLDivElement =
         inherit HTMLElement
         abstract align: string with get, set
         abstract noWrap: bool with get, set
 
-    and HTMLDivElementType =
+    and [<AllowNullLiteral>] HTMLDivElementType =
         abstract prototype: HTMLDivElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDivElement
 
-    and HTMLDocument =
+    and [<AllowNullLiteral>] HTMLDocument =
         inherit Document
 
 
-    and HTMLDocumentType =
+    and [<AllowNullLiteral>] HTMLDocumentType =
         abstract prototype: HTMLDocument with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLDocument
 
-    and HTMLElement =
+    and [<AllowNullLiteral>] HTMLElement =
         inherit Element
         abstract accessKey: string with get, set
         abstract children: HTMLCollection with get, set
@@ -3234,11 +3234,11 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLElementType =
+    and [<AllowNullLiteral>] HTMLElementType =
         abstract prototype: HTMLElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLElement
 
-    and HTMLEmbedElement =
+    and [<AllowNullLiteral>] HTMLEmbedElement =
         inherit HTMLElement
         inherit GetSVGDocument
         abstract height: string with get, set
@@ -3256,11 +3256,11 @@ module Browser =
         abstract width: string with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLEmbedElementType =
+    and [<AllowNullLiteral>] HTMLEmbedElementType =
         abstract prototype: HTMLEmbedElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLEmbedElement
 
-    and HTMLFieldSetElement =
+    and [<AllowNullLiteral>] HTMLFieldSetElement =
         inherit HTMLElement
         abstract align: string with get, set
         abstract disabled: bool with get, set
@@ -3271,22 +3271,22 @@ module Browser =
         abstract checkValidity: unit -> bool
         abstract setCustomValidity: error: string -> unit
 
-    and HTMLFieldSetElementType =
+    and [<AllowNullLiteral>] HTMLFieldSetElementType =
         abstract prototype: HTMLFieldSetElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFieldSetElement
 
-    and HTMLFontElement =
+    and [<AllowNullLiteral>] HTMLFontElement =
         inherit HTMLElement
         inherit DOML2DeprecatedColorProperty
         inherit DOML2DeprecatedSizeProperty
         abstract face: string with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLFontElementType =
+    and [<AllowNullLiteral>] HTMLFontElementType =
         abstract prototype: HTMLFontElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFontElement
 
-    and HTMLFormElement =
+    and [<AllowNullLiteral>] HTMLFormElement =
         inherit HTMLElement
         abstract acceptCharset: string with get, set
         abstract action: string with get, set
@@ -3306,11 +3306,11 @@ module Browser =
         abstract reset: unit -> unit
         abstract submit: unit -> unit
 
-    and HTMLFormElementType =
+    and [<AllowNullLiteral>] HTMLFormElementType =
         abstract prototype: HTMLFormElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFormElement
 
-    and HTMLFrameElement =
+    and [<AllowNullLiteral>] HTMLFrameElement =
         inherit HTMLElement
         inherit GetSVGDocument
         abstract border: string with get, set
@@ -3434,11 +3434,11 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLFrameElementType =
+    and [<AllowNullLiteral>] HTMLFrameElementType =
         abstract prototype: HTMLFrameElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFrameElement
 
-    and HTMLFrameSetElement =
+    and [<AllowNullLiteral>] HTMLFrameSetElement =
         inherit HTMLElement
         abstract border: string with get, set
         abstract borderColor: obj with get, set
@@ -3580,11 +3580,11 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLFrameSetElementType =
+    and [<AllowNullLiteral>] HTMLFrameSetElementType =
         abstract prototype: HTMLFrameSetElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLFrameSetElement
 
-    and HTMLHRElement =
+    and [<AllowNullLiteral>] HTMLHRElement =
         inherit HTMLElement
         inherit DOML2DeprecatedColorProperty
         inherit DOML2DeprecatedSizeProperty
@@ -3593,36 +3593,36 @@ module Browser =
         abstract width: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLHRElementType =
+    and [<AllowNullLiteral>] HTMLHRElementType =
         abstract prototype: HTMLHRElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLHRElement
 
-    and HTMLHeadElement =
+    and [<AllowNullLiteral>] HTMLHeadElement =
         inherit HTMLElement
         abstract profile: string with get, set
 
-    and HTMLHeadElementType =
+    and [<AllowNullLiteral>] HTMLHeadElementType =
         abstract prototype: HTMLHeadElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLHeadElement
 
-    and HTMLHeadingElement =
+    and [<AllowNullLiteral>] HTMLHeadingElement =
         inherit HTMLElement
         abstract align: string with get, set
         abstract clear: string with get, set
 
-    and HTMLHeadingElementType =
+    and [<AllowNullLiteral>] HTMLHeadingElementType =
         abstract prototype: HTMLHeadingElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLHeadingElement
 
-    and HTMLHtmlElement =
+    and [<AllowNullLiteral>] HTMLHtmlElement =
         inherit HTMLElement
         abstract version: string with get, set
 
-    and HTMLHtmlElementType =
+    and [<AllowNullLiteral>] HTMLHtmlElementType =
         abstract prototype: HTMLHtmlElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLHtmlElement
 
-    and HTMLIFrameElement =
+    and [<AllowNullLiteral>] HTMLIFrameElement =
         inherit HTMLElement
         inherit GetSVGDocument
         abstract align: string with get, set
@@ -3750,11 +3750,11 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLIFrameElementType =
+    and [<AllowNullLiteral>] HTMLIFrameElementType =
         abstract prototype: HTMLIFrameElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLIFrameElement
 
-    and HTMLImageElement =
+    and [<AllowNullLiteral>] HTMLImageElement =
         inherit HTMLElement
         abstract align: string with get, set
         abstract alt: string with get, set
@@ -3782,12 +3782,12 @@ module Browser =
         abstract y: float with get, set
         abstract msGetAsCastingSource: unit -> obj
 
-    and HTMLImageElementType =
+    and [<AllowNullLiteral>] HTMLImageElementType =
         abstract prototype: HTMLImageElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLImageElement
         abstract create: unit -> HTMLImageElement
 
-    and HTMLInputElement =
+    and [<AllowNullLiteral>] HTMLInputElement =
         inherit HTMLElement
         abstract accept: string with get, set
         abstract align: string with get, set
@@ -3844,48 +3844,48 @@ module Browser =
         abstract stepDown: ?n: float -> unit
         abstract stepUp: ?n: float -> unit
 
-    and HTMLInputElementType =
+    and [<AllowNullLiteral>] HTMLInputElementType =
         abstract prototype: HTMLInputElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLInputElement
 
-    and HTMLIsIndexElement =
+    and [<AllowNullLiteral>] HTMLIsIndexElement =
         inherit HTMLElement
         abstract action: string with get, set
         abstract form: HTMLFormElement with get, set
         abstract prompt: string with get, set
 
-    and HTMLIsIndexElementType =
+    and [<AllowNullLiteral>] HTMLIsIndexElementType =
         abstract prototype: HTMLIsIndexElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLIsIndexElement
 
-    and HTMLLIElement =
+    and [<AllowNullLiteral>] HTMLLIElement =
         inherit HTMLElement
         abstract ``type``: string with get, set
         abstract value: float with get, set
 
-    and HTMLLIElementType =
+    and [<AllowNullLiteral>] HTMLLIElementType =
         abstract prototype: HTMLLIElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLLIElement
 
-    and HTMLLabelElement =
+    and [<AllowNullLiteral>] HTMLLabelElement =
         inherit HTMLElement
         abstract form: HTMLFormElement with get, set
         abstract htmlFor: string with get, set
 
-    and HTMLLabelElementType =
+    and [<AllowNullLiteral>] HTMLLabelElementType =
         abstract prototype: HTMLLabelElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLLabelElement
 
-    and HTMLLegendElement =
+    and [<AllowNullLiteral>] HTMLLegendElement =
         inherit HTMLElement
         abstract align: string with get, set
         abstract form: HTMLFormElement with get, set
 
-    and HTMLLegendElementType =
+    and [<AllowNullLiteral>] HTMLLegendElementType =
         abstract prototype: HTMLLegendElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLLegendElement
 
-    and HTMLLinkElement =
+    and [<AllowNullLiteral>] HTMLLinkElement =
         inherit HTMLElement
         inherit LinkStyle
         abstract charset: string with get, set
@@ -3899,20 +3899,20 @@ module Browser =
         abstract ``type``: string with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLLinkElementType =
+    and [<AllowNullLiteral>] HTMLLinkElementType =
         abstract prototype: HTMLLinkElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLLinkElement
 
-    and HTMLMapElement =
+    and [<AllowNullLiteral>] HTMLMapElement =
         inherit HTMLElement
         abstract areas: HTMLAreasCollection with get, set
         abstract name: string with get, set
 
-    and HTMLMapElementType =
+    and [<AllowNullLiteral>] HTMLMapElementType =
         abstract prototype: HTMLMapElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMapElement
 
-    and HTMLMarqueeElement =
+    and [<AllowNullLiteral>] HTMLMarqueeElement =
         inherit HTMLElement
         abstract behavior: string with get, set
         abstract bgColor: obj with get, set
@@ -4037,11 +4037,11 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLMarqueeElementType =
+    and [<AllowNullLiteral>] HTMLMarqueeElementType =
         abstract prototype: HTMLMarqueeElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMarqueeElement
 
-    and HTMLMediaElement =
+    and [<AllowNullLiteral>] HTMLMediaElement =
         inherit HTMLElement
         abstract audioTracks: AudioTrackList with get, set
         abstract autoplay: bool with get, set
@@ -4202,7 +4202,7 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLMediaElementType =
+    and [<AllowNullLiteral>] HTMLMediaElementType =
         abstract prototype: HTMLMediaElement with get, set
         abstract HAVE_CURRENT_DATA: float with get, set
         abstract HAVE_ENOUGH_DATA: float with get, set
@@ -4215,16 +4215,16 @@ module Browser =
         abstract NETWORK_NO_SOURCE: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMediaElement
 
-    and HTMLMenuElement =
+    and [<AllowNullLiteral>] HTMLMenuElement =
         inherit HTMLElement
         abstract compact: bool with get, set
         abstract ``type``: string with get, set
 
-    and HTMLMenuElementType =
+    and [<AllowNullLiteral>] HTMLMenuElementType =
         abstract prototype: HTMLMenuElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMenuElement
 
-    and HTMLMetaElement =
+    and [<AllowNullLiteral>] HTMLMetaElement =
         inherit HTMLElement
         abstract charset: string with get, set
         abstract content: string with get, set
@@ -4233,38 +4233,38 @@ module Browser =
         abstract scheme: string with get, set
         abstract url: string with get, set
 
-    and HTMLMetaElementType =
+    and [<AllowNullLiteral>] HTMLMetaElementType =
         abstract prototype: HTMLMetaElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLMetaElement
 
-    and HTMLModElement =
+    and [<AllowNullLiteral>] HTMLModElement =
         inherit HTMLElement
         abstract cite: string with get, set
         abstract dateTime: string with get, set
 
-    and HTMLModElementType =
+    and [<AllowNullLiteral>] HTMLModElementType =
         abstract prototype: HTMLModElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLModElement
 
-    and HTMLNextIdElement =
+    and [<AllowNullLiteral>] HTMLNextIdElement =
         inherit HTMLElement
         abstract n: string with get, set
 
-    and HTMLNextIdElementType =
+    and [<AllowNullLiteral>] HTMLNextIdElementType =
         abstract prototype: HTMLNextIdElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLNextIdElement
 
-    and HTMLOListElement =
+    and [<AllowNullLiteral>] HTMLOListElement =
         inherit HTMLElement
         abstract compact: bool with get, set
         abstract start: float with get, set
         abstract ``type``: string with get, set
 
-    and HTMLOListElementType =
+    and [<AllowNullLiteral>] HTMLOListElementType =
         abstract prototype: HTMLOListElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLOListElement
 
-    and HTMLObjectElement =
+    and [<AllowNullLiteral>] HTMLObjectElement =
         inherit HTMLElement
         inherit GetSVGDocument
         abstract BaseHref: string with get, set
@@ -4301,11 +4301,11 @@ module Browser =
         abstract setCustomValidity: error: string -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLObjectElementType =
+    and [<AllowNullLiteral>] HTMLObjectElementType =
         abstract prototype: HTMLObjectElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLObjectElement
 
-    and HTMLOptGroupElement =
+    and [<AllowNullLiteral>] HTMLOptGroupElement =
         inherit HTMLElement
         abstract defaultSelected: bool with get, set
         abstract disabled: bool with get, set
@@ -4316,11 +4316,11 @@ module Browser =
         abstract text: string with get, set
         abstract value: string with get, set
 
-    and HTMLOptGroupElementType =
+    and [<AllowNullLiteral>] HTMLOptGroupElementType =
         abstract prototype: HTMLOptGroupElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLOptGroupElement
 
-    and HTMLOptionElement =
+    and [<AllowNullLiteral>] HTMLOptionElement =
         inherit HTMLElement
         abstract defaultSelected: bool with get, set
         abstract disabled: bool with get, set
@@ -4331,71 +4331,71 @@ module Browser =
         abstract text: string with get, set
         abstract value: string with get, set
 
-    and HTMLOptionElementType =
+    and [<AllowNullLiteral>] HTMLOptionElementType =
         abstract prototype: HTMLOptionElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLOptionElement
         abstract create: unit -> HTMLOptionElement
 
-    and HTMLParagraphElement =
+    and [<AllowNullLiteral>] HTMLParagraphElement =
         inherit HTMLElement
         abstract align: string with get, set
         abstract clear: string with get, set
 
-    and HTMLParagraphElementType =
+    and [<AllowNullLiteral>] HTMLParagraphElementType =
         abstract prototype: HTMLParagraphElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLParagraphElement
 
-    and HTMLParamElement =
+    and [<AllowNullLiteral>] HTMLParamElement =
         inherit HTMLElement
         abstract name: string with get, set
         abstract ``type``: string with get, set
         abstract value: string with get, set
         abstract valueType: string with get, set
 
-    and HTMLParamElementType =
+    and [<AllowNullLiteral>] HTMLParamElementType =
         abstract prototype: HTMLParamElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLParamElement
 
-    and HTMLPhraseElement =
+    and [<AllowNullLiteral>] HTMLPhraseElement =
         inherit HTMLElement
         abstract cite: string with get, set
         abstract dateTime: string with get, set
 
-    and HTMLPhraseElementType =
+    and [<AllowNullLiteral>] HTMLPhraseElementType =
         abstract prototype: HTMLPhraseElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLPhraseElement
 
-    and HTMLPreElement =
+    and [<AllowNullLiteral>] HTMLPreElement =
         inherit HTMLElement
         abstract cite: string with get, set
         abstract clear: string with get, set
         abstract width: float with get, set
 
-    and HTMLPreElementType =
+    and [<AllowNullLiteral>] HTMLPreElementType =
         abstract prototype: HTMLPreElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLPreElement
 
-    and HTMLProgressElement =
+    and [<AllowNullLiteral>] HTMLProgressElement =
         inherit HTMLElement
         abstract form: HTMLFormElement with get, set
         abstract max: float with get, set
         abstract position: float with get, set
         abstract value: float with get, set
 
-    and HTMLProgressElementType =
+    and [<AllowNullLiteral>] HTMLProgressElementType =
         abstract prototype: HTMLProgressElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLProgressElement
 
-    and HTMLQuoteElement =
+    and [<AllowNullLiteral>] HTMLQuoteElement =
         inherit HTMLElement
         abstract cite: string with get, set
         abstract dateTime: string with get, set
 
-    and HTMLQuoteElementType =
+    and [<AllowNullLiteral>] HTMLQuoteElementType =
         abstract prototype: HTMLQuoteElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLQuoteElement
 
-    and HTMLScriptElement =
+    and [<AllowNullLiteral>] HTMLScriptElement =
         inherit HTMLElement
         abstract async: bool with get, set
         abstract charset: string with get, set
@@ -4406,11 +4406,11 @@ module Browser =
         abstract text: string with get, set
         abstract ``type``: string with get, set
 
-    and HTMLScriptElementType =
+    and [<AllowNullLiteral>] HTMLScriptElementType =
         abstract prototype: HTMLScriptElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLScriptElement
 
-    and HTMLSelectElement =
+    and [<AllowNullLiteral>] HTMLSelectElement =
         inherit HTMLElement
         abstract autofocus: bool with get, set
         abstract disabled: bool with get, set
@@ -4436,50 +4436,50 @@ module Browser =
         abstract remove: ?index: float -> unit
         abstract setCustomValidity: error: string -> unit
 
-    and HTMLSelectElementType =
+    and [<AllowNullLiteral>] HTMLSelectElementType =
         abstract prototype: HTMLSelectElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLSelectElement
 
-    and HTMLSourceElement =
+    and [<AllowNullLiteral>] HTMLSourceElement =
         inherit HTMLElement
         abstract media: string with get, set
         abstract msKeySystem: string with get, set
         abstract src: string with get, set
         abstract ``type``: string with get, set
 
-    and HTMLSourceElementType =
+    and [<AllowNullLiteral>] HTMLSourceElementType =
         abstract prototype: HTMLSourceElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLSourceElement
 
-    and HTMLSpanElement =
+    and [<AllowNullLiteral>] HTMLSpanElement =
         inherit HTMLElement
 
 
-    and HTMLSpanElementType =
+    and [<AllowNullLiteral>] HTMLSpanElementType =
         abstract prototype: HTMLSpanElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLSpanElement
 
-    and HTMLStyleElement =
+    and [<AllowNullLiteral>] HTMLStyleElement =
         inherit HTMLElement
         inherit LinkStyle
         abstract media: string with get, set
         abstract ``type``: string with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLStyleElementType =
+    and [<AllowNullLiteral>] HTMLStyleElementType =
         abstract prototype: HTMLStyleElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLStyleElement
 
-    and HTMLTableCaptionElement =
+    and [<AllowNullLiteral>] HTMLTableCaptionElement =
         inherit HTMLElement
         abstract align: string with get, set
         abstract vAlign: string with get, set
 
-    and HTMLTableCaptionElementType =
+    and [<AllowNullLiteral>] HTMLTableCaptionElementType =
         abstract prototype: HTMLTableCaptionElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableCaptionElement
 
-    and HTMLTableCellElement =
+    and [<AllowNullLiteral>] HTMLTableCellElement =
         inherit HTMLElement
         inherit HTMLTableAlignment
         abstract abbr: string with get, set
@@ -4496,11 +4496,11 @@ module Browser =
         abstract width: string with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLTableCellElementType =
+    and [<AllowNullLiteral>] HTMLTableCellElementType =
         abstract prototype: HTMLTableCellElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableCellElement
 
-    and HTMLTableColElement =
+    and [<AllowNullLiteral>] HTMLTableColElement =
         inherit HTMLElement
         inherit HTMLTableAlignment
         abstract align: string with get, set
@@ -4508,19 +4508,19 @@ module Browser =
         abstract width: obj with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLTableColElementType =
+    and [<AllowNullLiteral>] HTMLTableColElementType =
         abstract prototype: HTMLTableColElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableColElement
 
-    and HTMLTableDataCellElement =
+    and [<AllowNullLiteral>] HTMLTableDataCellElement =
         inherit HTMLTableCellElement
 
 
-    and HTMLTableDataCellElementType =
+    and [<AllowNullLiteral>] HTMLTableDataCellElementType =
         abstract prototype: HTMLTableDataCellElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableDataCellElement
 
-    and HTMLTableElement =
+    and [<AllowNullLiteral>] HTMLTableElement =
         inherit HTMLElement
         abstract align: string with get, set
         abstract bgColor: obj with get, set
@@ -4549,19 +4549,19 @@ module Browser =
         abstract deleteTHead: unit -> unit
         abstract insertRow: ?index: float -> HTMLTableRowElement
 
-    and HTMLTableElementType =
+    and [<AllowNullLiteral>] HTMLTableElementType =
         abstract prototype: HTMLTableElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableElement
 
-    and HTMLTableHeaderCellElement =
+    and [<AllowNullLiteral>] HTMLTableHeaderCellElement =
         inherit HTMLTableCellElement
         abstract scope: string with get, set
 
-    and HTMLTableHeaderCellElementType =
+    and [<AllowNullLiteral>] HTMLTableHeaderCellElementType =
         abstract prototype: HTMLTableHeaderCellElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableHeaderCellElement
 
-    and HTMLTableRowElement =
+    and [<AllowNullLiteral>] HTMLTableRowElement =
         inherit HTMLElement
         inherit HTMLTableAlignment
         abstract align: string with get, set
@@ -4574,11 +4574,11 @@ module Browser =
         abstract insertCell: ?index: float -> HTMLTableCellElement
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLTableRowElementType =
+    and [<AllowNullLiteral>] HTMLTableRowElementType =
         abstract prototype: HTMLTableRowElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableRowElement
 
-    and HTMLTableSectionElement =
+    and [<AllowNullLiteral>] HTMLTableSectionElement =
         inherit HTMLElement
         inherit HTMLTableAlignment
         abstract align: string with get, set
@@ -4587,11 +4587,11 @@ module Browser =
         abstract insertRow: ?index: float -> HTMLTableRowElement
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLTableSectionElementType =
+    and [<AllowNullLiteral>] HTMLTableSectionElementType =
         abstract prototype: HTMLTableSectionElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTableSectionElement
 
-    and HTMLTextAreaElement =
+    and [<AllowNullLiteral>] HTMLTextAreaElement =
         inherit HTMLElement
         abstract autofocus: bool with get, set
         abstract cols: float with get, set
@@ -4619,19 +4619,19 @@ module Browser =
         abstract setCustomValidity: error: string -> unit
         abstract setSelectionRange: start: float * ``end``: float -> unit
 
-    and HTMLTextAreaElementType =
+    and [<AllowNullLiteral>] HTMLTextAreaElementType =
         abstract prototype: HTMLTextAreaElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTextAreaElement
 
-    and HTMLTitleElement =
+    and [<AllowNullLiteral>] HTMLTitleElement =
         inherit HTMLElement
         abstract text: string with get, set
 
-    and HTMLTitleElementType =
+    and [<AllowNullLiteral>] HTMLTitleElementType =
         abstract prototype: HTMLTitleElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTitleElement
 
-    and HTMLTrackElement =
+    and [<AllowNullLiteral>] HTMLTrackElement =
         inherit HTMLElement
         abstract ``default``: bool with get, set
         abstract kind: string with get, set
@@ -4645,7 +4645,7 @@ module Browser =
         abstract LOADING: float with get, set
         abstract NONE: float with get, set
 
-    and HTMLTrackElementType =
+    and [<AllowNullLiteral>] HTMLTrackElementType =
         abstract prototype: HTMLTrackElement with get, set
         abstract ERROR: float with get, set
         abstract LOADED: float with get, set
@@ -4653,24 +4653,24 @@ module Browser =
         abstract NONE: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTrackElement
 
-    and HTMLUListElement =
+    and [<AllowNullLiteral>] HTMLUListElement =
         inherit HTMLElement
         abstract compact: bool with get, set
         abstract ``type``: string with get, set
 
-    and HTMLUListElementType =
+    and [<AllowNullLiteral>] HTMLUListElementType =
         abstract prototype: HTMLUListElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLUListElement
 
-    and HTMLUnknownElement =
+    and [<AllowNullLiteral>] HTMLUnknownElement =
         inherit HTMLElement
 
 
-    and HTMLUnknownElementType =
+    and [<AllowNullLiteral>] HTMLUnknownElementType =
         abstract prototype: HTMLUnknownElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLUnknownElement
 
-    and HTMLVideoElement =
+    and [<AllowNullLiteral>] HTMLVideoElement =
         inherit HTMLMediaElement
         abstract height: float with get, set
         abstract msHorizontalMirror: bool with get, set
@@ -4804,20 +4804,20 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLVideoElementType =
+    and [<AllowNullLiteral>] HTMLVideoElementType =
         abstract prototype: HTMLVideoElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLVideoElement
 
-    and HashChangeEvent =
+    and [<AllowNullLiteral>] HashChangeEvent =
         inherit Event
         abstract newURL: string with get, set
         abstract oldURL: string with get, set
 
-    and HashChangeEventType =
+    and [<AllowNullLiteral>] HashChangeEventType =
         abstract prototype: HashChangeEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: HashChangeEventInit -> HashChangeEvent
 
-    and History =
+    and [<AllowNullLiteral>] History =
         abstract length: float with get, set
         abstract state: obj with get, set
         abstract back: ?distance: obj -> unit
@@ -4826,11 +4826,11 @@ module Browser =
         abstract pushState: statedata: obj * ?title: string * ?url: string -> unit
         abstract replaceState: statedata: obj * ?title: string * ?url: string -> unit
 
-    and HistoryType =
+    and [<AllowNullLiteral>] HistoryType =
         abstract prototype: History with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> History
 
-    and IDBCursor =
+    and [<AllowNullLiteral>] IDBCursor =
         abstract direction: string with get, set
         abstract key: obj with get, set
         abstract primaryKey: obj with get, set
@@ -4844,7 +4844,7 @@ module Browser =
         abstract delete: unit -> IDBRequest
         abstract update: value: obj -> IDBRequest
 
-    and IDBCursorType =
+    and [<AllowNullLiteral>] IDBCursorType =
         abstract prototype: IDBCursor with get, set
         abstract NEXT: string with get, set
         abstract NEXT_NO_DUPLICATE: string with get, set
@@ -4852,15 +4852,15 @@ module Browser =
         abstract PREV_NO_DUPLICATE: string with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBCursor
 
-    and IDBCursorWithValue =
+    and [<AllowNullLiteral>] IDBCursorWithValue =
         inherit IDBCursor
         abstract value: obj with get, set
 
-    and IDBCursorWithValueType =
+    and [<AllowNullLiteral>] IDBCursorWithValueType =
         abstract prototype: IDBCursorWithValue with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBCursorWithValue
 
-    and IDBDatabase =
+    and [<AllowNullLiteral>] IDBDatabase =
         inherit EventTarget
         abstract name: string with get, set
         abstract objectStoreNames: DOMStringList with get, set
@@ -4875,20 +4875,20 @@ module Browser =
         [<Emit("$0.addEventListener('error',$1...)")>] abstract addEventListener_error: listener: Func<ErrorEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and IDBDatabaseType =
+    and [<AllowNullLiteral>] IDBDatabaseType =
         abstract prototype: IDBDatabase with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBDatabase
 
-    and IDBFactory =
+    and [<AllowNullLiteral>] IDBFactory =
         abstract cmp: first: obj * second: obj -> float
         abstract deleteDatabase: name: string -> IDBOpenDBRequest
         abstract ``open``: name: string * ?version: float -> IDBOpenDBRequest
 
-    and IDBFactoryType =
+    and [<AllowNullLiteral>] IDBFactoryType =
         abstract prototype: IDBFactory with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBFactory
 
-    and IDBIndex =
+    and [<AllowNullLiteral>] IDBIndex =
         abstract keyPath: U2<string, ResizeArray<string>> with get, set
         abstract name: string with get, set
         abstract objectStore: IDBObjectStore with get, set
@@ -4900,17 +4900,17 @@ module Browser =
         abstract openCursor: ?range: IDBKeyRange * ?direction: string -> IDBRequest
         abstract openKeyCursor: ?range: IDBKeyRange * ?direction: string -> IDBRequest
 
-    and IDBIndexType =
+    and [<AllowNullLiteral>] IDBIndexType =
         abstract prototype: IDBIndex with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBIndex
 
-    and IDBKeyRange =
+    and [<AllowNullLiteral>] IDBKeyRange =
         abstract lower: obj with get, set
         abstract lowerOpen: bool with get, set
         abstract upper: obj with get, set
         abstract upperOpen: bool with get, set
 
-    and IDBKeyRangeType =
+    and [<AllowNullLiteral>] IDBKeyRangeType =
         abstract prototype: IDBKeyRange with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBKeyRange
         abstract bound: lower: obj * upper: obj * ?lowerOpen: bool * ?upperOpen: bool -> IDBKeyRange
@@ -4918,7 +4918,7 @@ module Browser =
         abstract only: value: obj -> IDBKeyRange
         abstract upperBound: bound: obj * ?``open``: bool -> IDBKeyRange
 
-    and IDBObjectStore =
+    and [<AllowNullLiteral>] IDBObjectStore =
         abstract indexNames: DOMStringList with get, set
         abstract keyPath: U2<string, ResizeArray<string>> with get, set
         abstract name: string with get, set
@@ -4935,11 +4935,11 @@ module Browser =
         abstract openCursor: ?range: obj * ?direction: string -> IDBRequest
         abstract put: value: obj * ?key: obj -> IDBRequest
 
-    and IDBObjectStoreType =
+    and [<AllowNullLiteral>] IDBObjectStoreType =
         abstract prototype: IDBObjectStore with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBObjectStore
 
-    and IDBOpenDBRequest =
+    and [<AllowNullLiteral>] IDBOpenDBRequest =
         inherit IDBRequest
         abstract onblocked: Func<Event, obj> with get, set
         abstract onupgradeneeded: Func<IDBVersionChangeEvent, obj> with get, set
@@ -4949,11 +4949,11 @@ module Browser =
         [<Emit("$0.addEventListener('upgradeneeded',$1...)")>] abstract addEventListener_upgradeneeded: listener: Func<IDBVersionChangeEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and IDBOpenDBRequestType =
+    and [<AllowNullLiteral>] IDBOpenDBRequestType =
         abstract prototype: IDBOpenDBRequest with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBOpenDBRequest
 
-    and IDBRequest =
+    and [<AllowNullLiteral>] IDBRequest =
         inherit EventTarget
         abstract error: DOMError with get, set
         abstract onerror: Func<Event, obj> with get, set
@@ -4966,11 +4966,11 @@ module Browser =
         [<Emit("$0.addEventListener('success',$1...)")>] abstract addEventListener_success: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and IDBRequestType =
+    and [<AllowNullLiteral>] IDBRequestType =
         abstract prototype: IDBRequest with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBRequest
 
-    and IDBTransaction =
+    and [<AllowNullLiteral>] IDBTransaction =
         inherit EventTarget
         abstract db: IDBDatabase with get, set
         abstract error: DOMError with get, set
@@ -4988,33 +4988,33 @@ module Browser =
         [<Emit("$0.addEventListener('error',$1...)")>] abstract addEventListener_error: listener: Func<ErrorEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and IDBTransactionType =
+    and [<AllowNullLiteral>] IDBTransactionType =
         abstract prototype: IDBTransaction with get, set
         abstract READ_ONLY: string with get, set
         abstract READ_WRITE: string with get, set
         abstract VERSION_CHANGE: string with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBTransaction
 
-    and IDBVersionChangeEvent =
+    and [<AllowNullLiteral>] IDBVersionChangeEvent =
         inherit Event
         abstract newVersion: float with get, set
         abstract oldVersion: float with get, set
 
-    and IDBVersionChangeEventType =
+    and [<AllowNullLiteral>] IDBVersionChangeEventType =
         abstract prototype: IDBVersionChangeEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> IDBVersionChangeEvent
 
-    and ImageData =
+    and [<AllowNullLiteral>] ImageData =
         abstract data: Uint8ClampedArray with get, set
         abstract height: float with get, set
         abstract width: float with get, set
 
-    and ImageDataType =
+    and [<AllowNullLiteral>] ImageDataType =
         abstract prototype: ImageData with get, set
         [<Emit("new $0($1...)")>] abstract Create: width: float * height: float -> ImageData
         [<Emit("new $0($1...)")>] abstract Create: array: Uint8ClampedArray * width: float * height: float -> ImageData
 
-    and KeyboardEvent =
+    and [<AllowNullLiteral>] KeyboardEvent =
         inherit UIEvent
         abstract altKey: bool with get, set
         abstract char: string with get, set
@@ -5037,7 +5037,7 @@ module Browser =
         abstract getModifierState: keyArg: string -> bool
         abstract initKeyboardEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * keyArg: string * locationArg: float * modifiersListArg: string * repeat: bool * locale: string -> unit
 
-    and KeyboardEventType =
+    and [<AllowNullLiteral>] KeyboardEventType =
         abstract prototype: KeyboardEvent with get, set
         abstract DOM_KEY_LOCATION_JOYSTICK: float with get, set
         abstract DOM_KEY_LOCATION_LEFT: float with get, set
@@ -5047,7 +5047,7 @@ module Browser =
         abstract DOM_KEY_LOCATION_STANDARD: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: KeyboardEventInit -> KeyboardEvent
 
-    and Location =
+    and [<AllowNullLiteral>] Location =
         abstract hash: string with get, set
         abstract host: string with get, set
         abstract hostname: string with get, set
@@ -5062,20 +5062,20 @@ module Browser =
         abstract replace: url: string -> unit
         abstract toString: unit -> string
 
-    and LocationType =
+    and [<AllowNullLiteral>] LocationType =
         abstract prototype: Location with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Location
 
-    and LongRunningScriptDetectedEvent =
+    and [<AllowNullLiteral>] LongRunningScriptDetectedEvent =
         inherit Event
         abstract executionTime: float with get, set
         abstract stopPageScriptExecution: bool with get, set
 
-    and LongRunningScriptDetectedEventType =
+    and [<AllowNullLiteral>] LongRunningScriptDetectedEventType =
         abstract prototype: LongRunningScriptDetectedEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> LongRunningScriptDetectedEvent
 
-    and MSApp =
+    and [<AllowNullLiteral>] MSApp =
         abstract CURRENT: string with get, set
         abstract HIGH: string with get, set
         abstract IDLE: string with get, set
@@ -5096,7 +5096,7 @@ module Browser =
         abstract suppressSubdownloadCredentialPrompts: suppress: bool -> unit
         abstract terminateApp: exceptionObject: obj -> unit
 
-    and MSAppAsyncOperation =
+    and [<AllowNullLiteral>] MSAppAsyncOperation =
         inherit EventTarget
         abstract error: DOMError with get, set
         abstract oncomplete: Func<Event, obj> with get, set
@@ -5111,22 +5111,22 @@ module Browser =
         [<Emit("$0.addEventListener('error',$1...)")>] abstract addEventListener_error: listener: Func<ErrorEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and MSAppAsyncOperationType =
+    and [<AllowNullLiteral>] MSAppAsyncOperationType =
         abstract prototype: MSAppAsyncOperation with get, set
         abstract COMPLETED: float with get, set
         abstract ERROR: float with get, set
         abstract STARTED: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSAppAsyncOperation
 
-    and MSBlobBuilder =
+    and [<AllowNullLiteral>] MSBlobBuilder =
         abstract append: data: obj * ?endings: string -> unit
         abstract getBlob: ?contentType: string -> Blob
 
-    and MSBlobBuilderType =
+    and [<AllowNullLiteral>] MSBlobBuilderType =
         abstract prototype: MSBlobBuilder with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSBlobBuilder
 
-    and MSCSSMatrix =
+    and [<AllowNullLiteral>] MSCSSMatrix =
         abstract a: float with get, set
         abstract b: float with get, set
         abstract c: float with get, set
@@ -5160,20 +5160,20 @@ module Browser =
         abstract toString: unit -> string
         abstract translate: x: float * y: float * ?z: float -> MSCSSMatrix
 
-    and MSCSSMatrixType =
+    and [<AllowNullLiteral>] MSCSSMatrixType =
         abstract prototype: MSCSSMatrix with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?text: string -> MSCSSMatrix
 
-    and MSGesture =
+    and [<AllowNullLiteral>] MSGesture =
         abstract target: Element with get, set
         abstract addPointer: pointerId: float -> unit
         abstract stop: unit -> unit
 
-    and MSGestureType =
+    and [<AllowNullLiteral>] MSGestureType =
         abstract prototype: MSGesture with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSGesture
 
-    and MSGestureEvent =
+    and [<AllowNullLiteral>] MSGestureEvent =
         inherit UIEvent
         abstract clientX: float with get, set
         abstract clientY: float with get, set
@@ -5199,7 +5199,7 @@ module Browser =
         abstract MSGESTURE_FLAG_NONE: float with get, set
         abstract initGestureEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float * screenXArg: float * screenYArg: float * clientXArg: float * clientYArg: float * offsetXArg: float * offsetYArg: float * translationXArg: float * translationYArg: float * scaleArg: float * expansionArg: float * rotationArg: float * velocityXArg: float * velocityYArg: float * velocityExpansionArg: float * velocityAngularArg: float * hwTimestampArg: float -> unit
 
-    and MSGestureEventType =
+    and [<AllowNullLiteral>] MSGestureEventType =
         abstract prototype: MSGestureEvent with get, set
         abstract MSGESTURE_FLAG_BEGIN: float with get, set
         abstract MSGESTURE_FLAG_CANCEL: float with get, set
@@ -5208,15 +5208,15 @@ module Browser =
         abstract MSGESTURE_FLAG_NONE: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSGestureEvent
 
-    and MSGraphicsTrust =
+    and [<AllowNullLiteral>] MSGraphicsTrust =
         abstract constrictionActive: bool with get, set
         abstract status: string with get, set
 
-    and MSGraphicsTrustType =
+    and [<AllowNullLiteral>] MSGraphicsTrustType =
         abstract prototype: MSGraphicsTrust with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSGraphicsTrust
 
-    and MSHTMLWebViewElement =
+    and [<AllowNullLiteral>] MSHTMLWebViewElement =
         inherit HTMLElement
         abstract canGoBack: bool with get, set
         abstract canGoForward: bool with get, set
@@ -5242,11 +5242,11 @@ module Browser =
         abstract refresh: unit -> unit
         abstract stop: unit -> unit
 
-    and MSHTMLWebViewElementType =
+    and [<AllowNullLiteral>] MSHTMLWebViewElementType =
         abstract prototype: MSHTMLWebViewElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSHTMLWebViewElement
 
-    and MSInputMethodContext =
+    and [<AllowNullLiteral>] MSInputMethodContext =
         inherit EventTarget
         abstract compositionEndOffset: float with get, set
         abstract compositionStartOffset: float with get, set
@@ -5263,11 +5263,11 @@ module Browser =
         [<Emit("$0.addEventListener('MSCandidateWindowUpdate',$1...)")>] abstract addEventListener_MSCandidateWindowUpdate: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and MSInputMethodContextType =
+    and [<AllowNullLiteral>] MSInputMethodContextType =
         abstract prototype: MSInputMethodContext with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSInputMethodContext
 
-    and MSManipulationEvent =
+    and [<AllowNullLiteral>] MSManipulationEvent =
         inherit UIEvent
         abstract currentState: float with get, set
         abstract inertiaDestinationX: float with get, set
@@ -5283,7 +5283,7 @@ module Browser =
         abstract MS_MANIPULATION_STATE_STOPPED: float with get, set
         abstract initMSManipulationEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float * lastState: float * currentState: float -> unit
 
-    and MSManipulationEventType =
+    and [<AllowNullLiteral>] MSManipulationEventType =
         abstract prototype: MSManipulationEvent with get, set
         abstract MS_MANIPULATION_STATE_ACTIVE: float with get, set
         abstract MS_MANIPULATION_STATE_CANCELLED: float with get, set
@@ -5295,7 +5295,7 @@ module Browser =
         abstract MS_MANIPULATION_STATE_STOPPED: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSManipulationEvent
 
-    and MSMediaKeyError =
+    and [<AllowNullLiteral>] MSMediaKeyError =
         abstract code: float with get, set
         abstract systemCode: float with get, set
         abstract MS_MEDIA_KEYERR_CLIENT: float with get, set
@@ -5305,7 +5305,7 @@ module Browser =
         abstract MS_MEDIA_KEYERR_SERVICE: float with get, set
         abstract MS_MEDIA_KEYERR_UNKNOWN: float with get, set
 
-    and MSMediaKeyErrorType =
+    and [<AllowNullLiteral>] MSMediaKeyErrorType =
         abstract prototype: MSMediaKeyError with get, set
         abstract MS_MEDIA_KEYERR_CLIENT: float with get, set
         abstract MS_MEDIA_KEYERR_DOMAIN: float with get, set
@@ -5315,24 +5315,24 @@ module Browser =
         abstract MS_MEDIA_KEYERR_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSMediaKeyError
 
-    and MSMediaKeyMessageEvent =
+    and [<AllowNullLiteral>] MSMediaKeyMessageEvent =
         inherit Event
         abstract destinationURL: string with get, set
         abstract message: Uint8Array with get, set
 
-    and MSMediaKeyMessageEventType =
+    and [<AllowNullLiteral>] MSMediaKeyMessageEventType =
         abstract prototype: MSMediaKeyMessageEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSMediaKeyMessageEvent
 
-    and MSMediaKeyNeededEvent =
+    and [<AllowNullLiteral>] MSMediaKeyNeededEvent =
         inherit Event
         abstract initData: Uint8Array with get, set
 
-    and MSMediaKeyNeededEventType =
+    and [<AllowNullLiteral>] MSMediaKeyNeededEventType =
         abstract prototype: MSMediaKeyNeededEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSMediaKeyNeededEvent
 
-    and MSMediaKeySession =
+    and [<AllowNullLiteral>] MSMediaKeySession =
         inherit EventTarget
         abstract error: MSMediaKeyError with get, set
         abstract keySystem: string with get, set
@@ -5340,35 +5340,35 @@ module Browser =
         abstract close: unit -> unit
         abstract update: key: Uint8Array -> unit
 
-    and MSMediaKeySessionType =
+    and [<AllowNullLiteral>] MSMediaKeySessionType =
         abstract prototype: MSMediaKeySession with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSMediaKeySession
 
-    and MSMediaKeys =
+    and [<AllowNullLiteral>] MSMediaKeys =
         abstract keySystem: string with get, set
         abstract createSession: ``type``: string * initData: Uint8Array * ?cdmData: Uint8Array -> MSMediaKeySession
 
-    and MSMediaKeysType =
+    and [<AllowNullLiteral>] MSMediaKeysType =
         abstract prototype: MSMediaKeys with get, set
         [<Emit("new $0($1...)")>] abstract Create: keySystem: string -> MSMediaKeys
         abstract isTypeSupported: keySystem: string * ?``type``: string -> bool
 
-    and MSMimeTypesCollection =
+    and [<AllowNullLiteral>] MSMimeTypesCollection =
         abstract length: float with get, set
 
-    and MSMimeTypesCollectionType =
+    and [<AllowNullLiteral>] MSMimeTypesCollectionType =
         abstract prototype: MSMimeTypesCollection with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSMimeTypesCollection
 
-    and MSPluginsCollection =
+    and [<AllowNullLiteral>] MSPluginsCollection =
         abstract length: float with get, set
         abstract refresh: ?reload: bool -> unit
 
-    and MSPluginsCollectionType =
+    and [<AllowNullLiteral>] MSPluginsCollectionType =
         abstract prototype: MSPluginsCollection with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSPluginsCollection
 
-    and MSPointerEvent =
+    and [<AllowNullLiteral>] MSPointerEvent =
         inherit MouseEvent
         abstract currentPoint: obj with get, set
         abstract height: float with get, set
@@ -5386,38 +5386,38 @@ module Browser =
         abstract getIntermediatePoints: element: Element -> unit
         abstract initPointerEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float * screenXArg: float * screenYArg: float * clientXArg: float * clientYArg: float * ctrlKeyArg: bool * altKeyArg: bool * shiftKeyArg: bool * metaKeyArg: bool * buttonArg: float * relatedTargetArg: EventTarget * offsetXArg: float * offsetYArg: float * widthArg: float * heightArg: float * pressure: float * rotation: float * tiltX: float * tiltY: float * pointerIdArg: float * pointerType: obj * hwTimestampArg: float * isPrimary: bool -> unit
 
-    and MSPointerEventType =
+    and [<AllowNullLiteral>] MSPointerEventType =
         abstract prototype: MSPointerEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: PointerEventInit -> MSPointerEvent
 
-    and MSRangeCollection =
+    and [<AllowNullLiteral>] MSRangeCollection =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Range with get, set
         abstract item: index: float -> Range
 
-    and MSRangeCollectionType =
+    and [<AllowNullLiteral>] MSRangeCollectionType =
         abstract prototype: MSRangeCollection with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSRangeCollection
 
-    and MSSiteModeEvent =
+    and [<AllowNullLiteral>] MSSiteModeEvent =
         inherit Event
         abstract actionURL: string with get, set
         abstract buttonID: float with get, set
 
-    and MSSiteModeEventType =
+    and [<AllowNullLiteral>] MSSiteModeEventType =
         abstract prototype: MSSiteModeEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSSiteModeEvent
 
-    and MSStream =
+    and [<AllowNullLiteral>] MSStream =
         abstract ``type``: string with get, set
         abstract msClose: unit -> unit
         abstract msDetachStream: unit -> obj
 
-    and MSStreamType =
+    and [<AllowNullLiteral>] MSStreamType =
         abstract prototype: MSStream with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSStream
 
-    and MSStreamReader =
+    and [<AllowNullLiteral>] MSStreamReader =
         inherit EventTarget
         inherit MSBaseReader
         abstract error: DOMError with get, set
@@ -5428,11 +5428,11 @@ module Browser =
         abstract readAsText: stream: MSStream * ?encoding: string * ?size: float -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and MSStreamReaderType =
+    and [<AllowNullLiteral>] MSStreamReaderType =
         abstract prototype: MSStreamReader with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSStreamReader
 
-    and MSWebViewAsyncOperation =
+    and [<AllowNullLiteral>] MSWebViewAsyncOperation =
         inherit EventTarget
         abstract error: DOMError with get, set
         abstract oncomplete: Func<Event, obj> with get, set
@@ -5452,7 +5452,7 @@ module Browser =
         [<Emit("$0.addEventListener('error',$1...)")>] abstract addEventListener_error: listener: Func<ErrorEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and MSWebViewAsyncOperationType =
+    and [<AllowNullLiteral>] MSWebViewAsyncOperationType =
         abstract prototype: MSWebViewAsyncOperation with get, set
         abstract COMPLETED: float with get, set
         abstract ERROR: float with get, set
@@ -5462,23 +5462,23 @@ module Browser =
         abstract TYPE_INVOKE_SCRIPT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSWebViewAsyncOperation
 
-    and MSWebViewSettings =
+    and [<AllowNullLiteral>] MSWebViewSettings =
         abstract isIndexedDBEnabled: bool with get, set
         abstract isJavaScriptEnabled: bool with get, set
 
-    and MSWebViewSettingsType =
+    and [<AllowNullLiteral>] MSWebViewSettingsType =
         abstract prototype: MSWebViewSettings with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MSWebViewSettings
 
-    and MediaElementAudioSourceNode =
+    and [<AllowNullLiteral>] MediaElementAudioSourceNode =
         inherit AudioNode
 
 
-    and MediaElementAudioSourceNodeType =
+    and [<AllowNullLiteral>] MediaElementAudioSourceNodeType =
         abstract prototype: MediaElementAudioSourceNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MediaElementAudioSourceNode
 
-    and MediaError =
+    and [<AllowNullLiteral>] MediaError =
         abstract code: float with get, set
         abstract msExtendedCode: float with get, set
         abstract MEDIA_ERR_ABORTED: float with get, set
@@ -5487,7 +5487,7 @@ module Browser =
         abstract MEDIA_ERR_SRC_NOT_SUPPORTED: float with get, set
         abstract MS_MEDIA_ERR_ENCRYPTED: float with get, set
 
-    and MediaErrorType =
+    and [<AllowNullLiteral>] MediaErrorType =
         abstract prototype: MediaError with get, set
         abstract MEDIA_ERR_ABORTED: float with get, set
         abstract MEDIA_ERR_DECODE: float with get, set
@@ -5496,7 +5496,7 @@ module Browser =
         abstract MS_MEDIA_ERR_ENCRYPTED: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MediaError
 
-    and MediaList =
+    and [<AllowNullLiteral>] MediaList =
         abstract length: float with get, set
         abstract mediaText: string with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
@@ -5505,21 +5505,21 @@ module Browser =
         abstract item: index: float -> string
         abstract toString: unit -> string
 
-    and MediaListType =
+    and [<AllowNullLiteral>] MediaListType =
         abstract prototype: MediaList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MediaList
 
-    and MediaQueryList =
+    and [<AllowNullLiteral>] MediaQueryList =
         abstract matches: bool with get, set
         abstract media: string with get, set
         abstract addListener: listener: MediaQueryListListener -> unit
         abstract removeListener: listener: MediaQueryListListener -> unit
 
-    and MediaQueryListType =
+    and [<AllowNullLiteral>] MediaQueryListType =
         abstract prototype: MediaQueryList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MediaQueryList
 
-    and MediaSource =
+    and [<AllowNullLiteral>] MediaSource =
         inherit EventTarget
         abstract activeSourceBuffers: SourceBufferList with get, set
         abstract duration: float with get, set
@@ -5529,20 +5529,20 @@ module Browser =
         abstract endOfStream: ?error: float -> unit
         abstract removeSourceBuffer: sourceBuffer: SourceBuffer -> unit
 
-    and MediaSourceType =
+    and [<AllowNullLiteral>] MediaSourceType =
         abstract prototype: MediaSource with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MediaSource
         abstract isTypeSupported: ``type``: string -> bool
 
-    and MessageChannel =
+    and [<AllowNullLiteral>] MessageChannel =
         abstract port1: MessagePort with get, set
         abstract port2: MessagePort with get, set
 
-    and MessageChannelType =
+    and [<AllowNullLiteral>] MessageChannelType =
         abstract prototype: MessageChannel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MessageChannel
 
-    and MessageEvent =
+    and [<AllowNullLiteral>] MessageEvent =
         inherit Event
         abstract data: obj with get, set
         abstract origin: string with get, set
@@ -5550,11 +5550,11 @@ module Browser =
         abstract source: Window with get, set
         abstract initMessageEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * dataArg: obj * originArg: string * lastEventIdArg: string * sourceArg: Window -> unit
 
-    and MessageEventType =
+    and [<AllowNullLiteral>] MessageEventType =
         abstract prototype: MessageEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: MessageEventInit -> MessageEvent
 
-    and MessagePort =
+    and [<AllowNullLiteral>] MessagePort =
         inherit EventTarget
         abstract onmessage: Func<MessageEvent, obj> with get, set
         abstract close: unit -> unit
@@ -5563,31 +5563,31 @@ module Browser =
         [<Emit("$0.addEventListener('message',$1...)")>] abstract addEventListener_message: listener: Func<MessageEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and MessagePortType =
+    and [<AllowNullLiteral>] MessagePortType =
         abstract prototype: MessagePort with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MessagePort
 
-    and MimeType =
+    and [<AllowNullLiteral>] MimeType =
         abstract description: string with get, set
         abstract enabledPlugin: Plugin with get, set
         abstract suffixes: string with get, set
         abstract ``type``: string with get, set
 
-    and MimeTypeType =
+    and [<AllowNullLiteral>] MimeTypeType =
         abstract prototype: MimeType with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MimeType
 
-    and MimeTypeArray =
+    and [<AllowNullLiteral>] MimeTypeArray =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Plugin with get, set
         abstract item: index: float -> Plugin
         abstract namedItem: ``type``: string -> Plugin
 
-    and MimeTypeArrayType =
+    and [<AllowNullLiteral>] MimeTypeArrayType =
         abstract prototype: MimeTypeArray with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MimeTypeArray
 
-    and MouseEvent =
+    and [<AllowNullLiteral>] MouseEvent =
         inherit UIEvent
         abstract altKey: bool with get, set
         abstract button: float with get, set
@@ -5616,22 +5616,22 @@ module Browser =
         abstract getModifierState: keyArg: string -> bool
         abstract initMouseEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float * screenXArg: float * screenYArg: float * clientXArg: float * clientYArg: float * ctrlKeyArg: bool * altKeyArg: bool * shiftKeyArg: bool * metaKeyArg: bool * buttonArg: float * relatedTargetArg: EventTarget -> unit
 
-    and MouseEventType =
+    and [<AllowNullLiteral>] MouseEventType =
         abstract prototype: MouseEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: MouseEventInit -> MouseEvent
 
-    and MouseWheelEvent =
+    and [<AllowNullLiteral>] MouseWheelEvent =
         inherit MouseEvent
         abstract wheelDelta: float with get, set
         abstract wheelDeltaX: float with get, set
         abstract wheelDeltaY: float with get, set
         abstract initMouseWheelEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float * screenXArg: float * screenYArg: float * clientXArg: float * clientYArg: float * buttonArg: float * relatedTargetArg: EventTarget * modifiersListArg: string * wheelDeltaArg: float -> unit
 
-    and MouseWheelEventType =
+    and [<AllowNullLiteral>] MouseWheelEventType =
         abstract prototype: MouseWheelEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MouseWheelEvent
 
-    and MutationEvent =
+    and [<AllowNullLiteral>] MutationEvent =
         inherit Event
         abstract attrChange: float with get, set
         abstract attrName: string with get, set
@@ -5643,23 +5643,23 @@ module Browser =
         abstract REMOVAL: float with get, set
         abstract initMutationEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * relatedNodeArg: Node * prevValueArg: string * newValueArg: string * attrNameArg: string * attrChangeArg: float -> unit
 
-    and MutationEventType =
+    and [<AllowNullLiteral>] MutationEventType =
         abstract prototype: MutationEvent with get, set
         abstract ADDITION: float with get, set
         abstract MODIFICATION: float with get, set
         abstract REMOVAL: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MutationEvent
 
-    and MutationObserver =
+    and [<AllowNullLiteral>] MutationObserver =
         abstract disconnect: unit -> unit
         abstract observe: target: Node * options: MutationObserverInit -> unit
         abstract takeRecords: unit -> ResizeArray<MutationRecord>
 
-    and MutationObserverType =
+    and [<AllowNullLiteral>] MutationObserverType =
         abstract prototype: MutationObserver with get, set
         [<Emit("new $0($1...)")>] abstract Create: callback: MutationCallback -> MutationObserver
 
-    and MutationRecord =
+    and [<AllowNullLiteral>] MutationRecord =
         abstract addedNodes: NodeList with get, set
         abstract attributeName: string with get, set
         abstract attributeNamespace: string with get, set
@@ -5670,11 +5670,11 @@ module Browser =
         abstract target: Node with get, set
         abstract ``type``: string with get, set
 
-    and MutationRecordType =
+    and [<AllowNullLiteral>] MutationRecordType =
         abstract prototype: MutationRecord with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> MutationRecord
 
-    and NamedNodeMap =
+    and [<AllowNullLiteral>] NamedNodeMap =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Attr with get, set
         abstract getNamedItem: name: string -> Attr
@@ -5685,36 +5685,36 @@ module Browser =
         abstract setNamedItem: arg: Attr -> Attr
         abstract setNamedItemNS: arg: Attr -> Attr
 
-    and NamedNodeMapType =
+    and [<AllowNullLiteral>] NamedNodeMapType =
         abstract prototype: NamedNodeMap with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> NamedNodeMap
 
-    and NavigationCompletedEvent =
+    and [<AllowNullLiteral>] NavigationCompletedEvent =
         inherit NavigationEvent
         abstract isSuccess: bool with get, set
         abstract webErrorStatus: float with get, set
 
-    and NavigationCompletedEventType =
+    and [<AllowNullLiteral>] NavigationCompletedEventType =
         abstract prototype: NavigationCompletedEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> NavigationCompletedEvent
 
-    and NavigationEvent =
+    and [<AllowNullLiteral>] NavigationEvent =
         inherit Event
         abstract uri: string with get, set
 
-    and NavigationEventType =
+    and [<AllowNullLiteral>] NavigationEventType =
         abstract prototype: NavigationEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> NavigationEvent
 
-    and NavigationEventWithReferrer =
+    and [<AllowNullLiteral>] NavigationEventWithReferrer =
         inherit NavigationEvent
         abstract referer: string with get, set
 
-    and NavigationEventWithReferrerType =
+    and [<AllowNullLiteral>] NavigationEventWithReferrerType =
         abstract prototype: NavigationEventWithReferrer with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> NavigationEventWithReferrer
 
-    and Navigator =
+    and [<AllowNullLiteral>] Navigator =
         inherit NavigatorID
         inherit NavigatorOnLine
         inherit NavigatorContentUtils
@@ -5745,11 +5745,11 @@ module Browser =
         abstract vibrate: pattern: U2<float, ResizeArray<float>> -> bool
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and NavigatorType =
+    and [<AllowNullLiteral>] NavigatorType =
         abstract prototype: Navigator with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Navigator
 
-    and Node =
+    and [<AllowNullLiteral>] Node =
         inherit EventTarget
         abstract attributes: NamedNodeMap with get, set
         abstract baseURI: string with get, set
@@ -5802,7 +5802,7 @@ module Browser =
         abstract replaceChild: newChild: Node * oldChild: Node -> Node
         abstract contains: node: Node -> bool
 
-    and NodeType =
+    and [<AllowNullLiteral>] NodeType =
         abstract prototype: Node with get, set
         abstract ATTRIBUTE_NODE: float with get, set
         abstract CDATA_SECTION_NODE: float with get, set
@@ -5824,10 +5824,10 @@ module Browser =
         abstract TEXT_NODE: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Node
 
-    and NodeFilter =
+    and [<AllowNullLiteral>] NodeFilter =
         abstract acceptNode: n: Node -> float
 
-    and NodeFilterType =
+    and [<AllowNullLiteral>] NodeFilterType =
         abstract FILTER_ACCEPT: float with get, set
         abstract FILTER_REJECT: float with get, set
         abstract FILTER_SKIP: float with get, set
@@ -5845,7 +5845,7 @@ module Browser =
         abstract SHOW_PROCESSING_INSTRUCTION: float with get, set
         abstract SHOW_TEXT: float with get, set
 
-    and NodeIterator =
+    and [<AllowNullLiteral>] NodeIterator =
         abstract expandEntityReferences: bool with get, set
         abstract filter: NodeFilter with get, set
         abstract root: Node with get, set
@@ -5854,68 +5854,68 @@ module Browser =
         abstract nextNode: unit -> Node
         abstract previousNode: unit -> Node
 
-    and NodeIteratorType =
+    and [<AllowNullLiteral>] NodeIteratorType =
         abstract prototype: NodeIterator with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> NodeIterator
 
-    and NodeList =
+    and [<AllowNullLiteral>] NodeList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Node with get, set
         abstract item: index: float -> Node
 
-    and NodeListType =
+    and [<AllowNullLiteral>] NodeListType =
         abstract prototype: NodeList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> NodeList
 
-    and OES_element_index_uint =
+    and [<AllowNullLiteral>] OES_element_index_uint =
         interface end
 
-    and OES_element_index_uintType =
+    and [<AllowNullLiteral>] OES_element_index_uintType =
         abstract prototype: OES_element_index_uint with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> OES_element_index_uint
 
-    and OES_standard_derivatives =
+    and [<AllowNullLiteral>] OES_standard_derivatives =
         abstract FRAGMENT_SHADER_DERIVATIVE_HINT_OES: float with get, set
 
-    and OES_standard_derivativesType =
+    and [<AllowNullLiteral>] OES_standard_derivativesType =
         abstract prototype: OES_standard_derivatives with get, set
         abstract FRAGMENT_SHADER_DERIVATIVE_HINT_OES: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> OES_standard_derivatives
 
-    and OES_texture_float =
+    and [<AllowNullLiteral>] OES_texture_float =
         interface end
 
-    and OES_texture_floatType =
+    and [<AllowNullLiteral>] OES_texture_floatType =
         abstract prototype: OES_texture_float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> OES_texture_float
 
-    and OES_texture_float_linear =
+    and [<AllowNullLiteral>] OES_texture_float_linear =
         interface end
 
-    and OES_texture_float_linearType =
+    and [<AllowNullLiteral>] OES_texture_float_linearType =
         abstract prototype: OES_texture_float_linear with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> OES_texture_float_linear
 
-    and OfflineAudioCompletionEvent =
+    and [<AllowNullLiteral>] OfflineAudioCompletionEvent =
         inherit Event
         abstract renderedBuffer: AudioBuffer with get, set
 
-    and OfflineAudioCompletionEventType =
+    and [<AllowNullLiteral>] OfflineAudioCompletionEventType =
         abstract prototype: OfflineAudioCompletionEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> OfflineAudioCompletionEvent
 
-    and OfflineAudioContext =
+    and [<AllowNullLiteral>] OfflineAudioContext =
         inherit AudioContext
         abstract oncomplete: Func<Event, obj> with get, set
         abstract startRendering: unit -> unit
         [<Emit("$0.addEventListener('complete',$1...)")>] abstract addEventListener_complete: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and OfflineAudioContextType =
+    and [<AllowNullLiteral>] OfflineAudioContextType =
         abstract prototype: OfflineAudioContext with get, set
         [<Emit("new $0($1...)")>] abstract Create: numberOfChannels: float * length: float * sampleRate: float -> OfflineAudioContext
 
-    and OscillatorNode =
+    and [<AllowNullLiteral>] OscillatorNode =
         inherit AudioNode
         abstract detune: AudioParam with get, set
         abstract frequency: AudioParam with get, set
@@ -5927,19 +5927,19 @@ module Browser =
         [<Emit("$0.addEventListener('ended',$1...)")>] abstract addEventListener_ended: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and OscillatorNodeType =
+    and [<AllowNullLiteral>] OscillatorNodeType =
         abstract prototype: OscillatorNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> OscillatorNode
 
-    and PageTransitionEvent =
+    and [<AllowNullLiteral>] PageTransitionEvent =
         inherit Event
         abstract persisted: bool with get, set
 
-    and PageTransitionEventType =
+    and [<AllowNullLiteral>] PageTransitionEventType =
         abstract prototype: PageTransitionEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PageTransitionEvent
 
-    and PannerNode =
+    and [<AllowNullLiteral>] PannerNode =
         inherit AudioNode
         abstract coneInnerAngle: float with get, set
         abstract coneOuterAngle: float with get, set
@@ -5953,11 +5953,11 @@ module Browser =
         abstract setPosition: x: float * y: float * z: float -> unit
         abstract setVelocity: x: float * y: float * z: float -> unit
 
-    and PannerNodeType =
+    and [<AllowNullLiteral>] PannerNodeType =
         abstract prototype: PannerNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PannerNode
 
-    and PerfWidgetExternal =
+    and [<AllowNullLiteral>] PerfWidgetExternal =
         abstract activeNetworkRequestCount: float with get, set
         abstract averageFrameTime: float with get, set
         abstract averagePaintTime: float with get, set
@@ -5980,11 +5980,11 @@ module Browser =
         abstract repositionWindow: x: float * y: float -> unit
         abstract resizeWindow: width: float * height: float -> unit
 
-    and PerfWidgetExternalType =
+    and [<AllowNullLiteral>] PerfWidgetExternalType =
         abstract prototype: PerfWidgetExternal with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PerfWidgetExternal
 
-    and Performance =
+    and [<AllowNullLiteral>] Performance =
         abstract navigation: PerformanceNavigation with get, set
         abstract timing: PerformanceTiming with get, set
         abstract clearMarks: ?markName: string -> unit
@@ -6001,37 +6001,37 @@ module Browser =
         abstract setResourceTimingBufferSize: maxSize: float -> unit
         abstract toJSON: unit -> obj
 
-    and PerformanceType =
+    and [<AllowNullLiteral>] PerformanceType =
         abstract prototype: Performance with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Performance
 
-    and PerformanceEntry =
+    and [<AllowNullLiteral>] PerformanceEntry =
         abstract duration: float with get, set
         abstract entryType: string with get, set
         abstract name: string with get, set
         abstract startTime: float with get, set
 
-    and PerformanceEntryType =
+    and [<AllowNullLiteral>] PerformanceEntryType =
         abstract prototype: PerformanceEntry with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceEntry
 
-    and PerformanceMark =
+    and [<AllowNullLiteral>] PerformanceMark =
         inherit PerformanceEntry
 
 
-    and PerformanceMarkType =
+    and [<AllowNullLiteral>] PerformanceMarkType =
         abstract prototype: PerformanceMark with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceMark
 
-    and PerformanceMeasure =
+    and [<AllowNullLiteral>] PerformanceMeasure =
         inherit PerformanceEntry
 
 
-    and PerformanceMeasureType =
+    and [<AllowNullLiteral>] PerformanceMeasureType =
         abstract prototype: PerformanceMeasure with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceMeasure
 
-    and PerformanceNavigation =
+    and [<AllowNullLiteral>] PerformanceNavigation =
         abstract redirectCount: float with get, set
         abstract ``type``: float with get, set
         abstract TYPE_BACK_FORWARD: float with get, set
@@ -6040,7 +6040,7 @@ module Browser =
         abstract TYPE_RESERVED: float with get, set
         abstract toJSON: unit -> obj
 
-    and PerformanceNavigationType =
+    and [<AllowNullLiteral>] PerformanceNavigationType =
         abstract prototype: PerformanceNavigation with get, set
         abstract TYPE_BACK_FORWARD: float with get, set
         abstract TYPE_NAVIGATE: float with get, set
@@ -6048,7 +6048,7 @@ module Browser =
         abstract TYPE_RESERVED: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceNavigation
 
-    and PerformanceNavigationTiming =
+    and [<AllowNullLiteral>] PerformanceNavigationTiming =
         inherit PerformanceEntry
         abstract connectEnd: float with get, set
         abstract connectStart: float with get, set
@@ -6073,11 +6073,11 @@ module Browser =
         abstract unloadEventEnd: float with get, set
         abstract unloadEventStart: float with get, set
 
-    and PerformanceNavigationTimingType =
+    and [<AllowNullLiteral>] PerformanceNavigationTimingType =
         abstract prototype: PerformanceNavigationTiming with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceNavigationTiming
 
-    and PerformanceResourceTiming =
+    and [<AllowNullLiteral>] PerformanceResourceTiming =
         inherit PerformanceEntry
         abstract connectEnd: float with get, set
         abstract connectStart: float with get, set
@@ -6091,11 +6091,11 @@ module Browser =
         abstract responseEnd: float with get, set
         abstract responseStart: float with get, set
 
-    and PerformanceResourceTimingType =
+    and [<AllowNullLiteral>] PerformanceResourceTimingType =
         abstract prototype: PerformanceResourceTiming with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceResourceTiming
 
-    and PerformanceTiming =
+    and [<AllowNullLiteral>] PerformanceTiming =
         abstract connectEnd: float with get, set
         abstract connectStart: float with get, set
         abstract domComplete: float with get, set
@@ -6119,35 +6119,35 @@ module Browser =
         abstract unloadEventStart: float with get, set
         abstract toJSON: unit -> obj
 
-    and PerformanceTimingType =
+    and [<AllowNullLiteral>] PerformanceTimingType =
         abstract prototype: PerformanceTiming with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PerformanceTiming
 
-    and PeriodicWave =
+    and [<AllowNullLiteral>] PeriodicWave =
         interface end
 
-    and PeriodicWaveType =
+    and [<AllowNullLiteral>] PeriodicWaveType =
         abstract prototype: PeriodicWave with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PeriodicWave
 
-    and PermissionRequest =
+    and [<AllowNullLiteral>] PermissionRequest =
         inherit DeferredPermissionRequest
         abstract state: string with get, set
         abstract defer: unit -> unit
 
-    and PermissionRequestType =
+    and [<AllowNullLiteral>] PermissionRequestType =
         abstract prototype: PermissionRequest with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PermissionRequest
 
-    and PermissionRequestedEvent =
+    and [<AllowNullLiteral>] PermissionRequestedEvent =
         inherit Event
         abstract permissionRequest: PermissionRequest with get, set
 
-    and PermissionRequestedEventType =
+    and [<AllowNullLiteral>] PermissionRequestedEventType =
         abstract prototype: PermissionRequestedEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PermissionRequestedEvent
 
-    and Plugin =
+    and [<AllowNullLiteral>] Plugin =
         abstract description: string with get, set
         abstract filename: string with get, set
         abstract length: float with get, set
@@ -6157,22 +6157,22 @@ module Browser =
         abstract item: index: float -> MimeType
         abstract namedItem: ``type``: string -> MimeType
 
-    and PluginType =
+    and [<AllowNullLiteral>] PluginType =
         abstract prototype: Plugin with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Plugin
 
-    and PluginArray =
+    and [<AllowNullLiteral>] PluginArray =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Plugin with get, set
         abstract item: index: float -> Plugin
         abstract namedItem: name: string -> Plugin
         abstract refresh: ?reload: bool -> unit
 
-    and PluginArrayType =
+    and [<AllowNullLiteral>] PluginArrayType =
         abstract prototype: PluginArray with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PluginArray
 
-    and PointerEvent =
+    and [<AllowNullLiteral>] PointerEvent =
         inherit MouseEvent
         abstract currentPoint: obj with get, set
         abstract height: float with get, set
@@ -6190,28 +6190,28 @@ module Browser =
         abstract getIntermediatePoints: element: Element -> unit
         abstract initPointerEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float * screenXArg: float * screenYArg: float * clientXArg: float * clientYArg: float * ctrlKeyArg: bool * altKeyArg: bool * shiftKeyArg: bool * metaKeyArg: bool * buttonArg: float * relatedTargetArg: EventTarget * offsetXArg: float * offsetYArg: float * widthArg: float * heightArg: float * pressure: float * rotation: float * tiltX: float * tiltY: float * pointerIdArg: float * pointerType: obj * hwTimestampArg: float * isPrimary: bool -> unit
 
-    and PointerEventType =
+    and [<AllowNullLiteral>] PointerEventType =
         abstract prototype: PointerEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: PointerEventInit -> PointerEvent
 
-    and PopStateEvent =
+    and [<AllowNullLiteral>] PopStateEvent =
         inherit Event
         abstract state: obj with get, set
         abstract initPopStateEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * stateArg: obj -> unit
 
-    and PopStateEventType =
+    and [<AllowNullLiteral>] PopStateEventType =
         abstract prototype: PopStateEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PopStateEvent
 
-    and Position =
+    and [<AllowNullLiteral>] Position =
         abstract coords: Coordinates with get, set
         abstract timestamp: float with get, set
 
-    and PositionType =
+    and [<AllowNullLiteral>] PositionType =
         abstract prototype: Position with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Position
 
-    and PositionError =
+    and [<AllowNullLiteral>] PositionError =
         abstract code: float with get, set
         abstract message: string with get, set
         abstract PERMISSION_DENIED: float with get, set
@@ -6219,33 +6219,33 @@ module Browser =
         abstract TIMEOUT: float with get, set
         abstract toString: unit -> string
 
-    and PositionErrorType =
+    and [<AllowNullLiteral>] PositionErrorType =
         abstract prototype: PositionError with get, set
         abstract PERMISSION_DENIED: float with get, set
         abstract POSITION_UNAVAILABLE: float with get, set
         abstract TIMEOUT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> PositionError
 
-    and ProcessingInstruction =
+    and [<AllowNullLiteral>] ProcessingInstruction =
         inherit CharacterData
         abstract target: string with get, set
 
-    and ProcessingInstructionType =
+    and [<AllowNullLiteral>] ProcessingInstructionType =
         abstract prototype: ProcessingInstruction with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ProcessingInstruction
 
-    and ProgressEvent =
+    and [<AllowNullLiteral>] ProgressEvent =
         inherit Event
         abstract lengthComputable: bool with get, set
         abstract loaded: float with get, set
         abstract total: float with get, set
         abstract initProgressEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * lengthComputableArg: bool * loadedArg: float * totalArg: float -> unit
 
-    and ProgressEventType =
+    and [<AllowNullLiteral>] ProgressEventType =
         abstract prototype: ProgressEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: ProgressEventInit -> ProgressEvent
 
-    and Range =
+    and [<AllowNullLiteral>] Range =
         abstract collapsed: bool with get, set
         abstract commonAncestorContainer: Node with get, set
         abstract endContainer: Node with get, set
@@ -6279,7 +6279,7 @@ module Browser =
         abstract surroundContents: newParent: Node -> unit
         abstract toString: unit -> string
 
-    and RangeType =
+    and [<AllowNullLiteral>] RangeType =
         abstract prototype: Range with get, set
         abstract END_TO_END: float with get, set
         abstract END_TO_START: float with get, set
@@ -6287,7 +6287,7 @@ module Browser =
         abstract START_TO_START: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Range
 
-    and SVGAElement =
+    and [<AllowNullLiteral>] SVGAElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -6298,11 +6298,11 @@ module Browser =
         abstract target: SVGAnimatedString with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGAElementType =
+    and [<AllowNullLiteral>] SVGAElementType =
         abstract prototype: SVGAElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAElement
 
-    and SVGAngle =
+    and [<AllowNullLiteral>] SVGAngle =
         abstract unitType: float with get, set
         abstract value: float with get, set
         abstract valueAsString: string with get, set
@@ -6315,7 +6315,7 @@ module Browser =
         abstract convertToSpecifiedUnits: unitType: float -> unit
         abstract newValueSpecifiedUnits: unitType: float * valueInSpecifiedUnits: float -> unit
 
-    and SVGAngleType =
+    and [<AllowNullLiteral>] SVGAngleType =
         abstract prototype: SVGAngle with get, set
         abstract SVG_ANGLETYPE_DEG: float with get, set
         abstract SVG_ANGLETYPE_GRAD: float with get, set
@@ -6324,103 +6324,103 @@ module Browser =
         abstract SVG_ANGLETYPE_UNSPECIFIED: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAngle
 
-    and SVGAnimatedAngle =
+    and [<AllowNullLiteral>] SVGAnimatedAngle =
         abstract animVal: SVGAngle with get, set
         abstract baseVal: SVGAngle with get, set
 
-    and SVGAnimatedAngleType =
+    and [<AllowNullLiteral>] SVGAnimatedAngleType =
         abstract prototype: SVGAnimatedAngle with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedAngle
 
-    and SVGAnimatedBoolean =
+    and [<AllowNullLiteral>] SVGAnimatedBoolean =
         abstract animVal: bool with get, set
         abstract baseVal: bool with get, set
 
-    and SVGAnimatedBooleanType =
+    and [<AllowNullLiteral>] SVGAnimatedBooleanType =
         abstract prototype: SVGAnimatedBoolean with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedBoolean
 
-    and SVGAnimatedEnumeration =
+    and [<AllowNullLiteral>] SVGAnimatedEnumeration =
         abstract animVal: float with get, set
         abstract baseVal: float with get, set
 
-    and SVGAnimatedEnumerationType =
+    and [<AllowNullLiteral>] SVGAnimatedEnumerationType =
         abstract prototype: SVGAnimatedEnumeration with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedEnumeration
 
-    and SVGAnimatedInteger =
+    and [<AllowNullLiteral>] SVGAnimatedInteger =
         abstract animVal: float with get, set
         abstract baseVal: float with get, set
 
-    and SVGAnimatedIntegerType =
+    and [<AllowNullLiteral>] SVGAnimatedIntegerType =
         abstract prototype: SVGAnimatedInteger with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedInteger
 
-    and SVGAnimatedLength =
+    and [<AllowNullLiteral>] SVGAnimatedLength =
         abstract animVal: SVGLength with get, set
         abstract baseVal: SVGLength with get, set
 
-    and SVGAnimatedLengthType =
+    and [<AllowNullLiteral>] SVGAnimatedLengthType =
         abstract prototype: SVGAnimatedLength with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedLength
 
-    and SVGAnimatedLengthList =
+    and [<AllowNullLiteral>] SVGAnimatedLengthList =
         abstract animVal: SVGLengthList with get, set
         abstract baseVal: SVGLengthList with get, set
 
-    and SVGAnimatedLengthListType =
+    and [<AllowNullLiteral>] SVGAnimatedLengthListType =
         abstract prototype: SVGAnimatedLengthList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedLengthList
 
-    and SVGAnimatedNumber =
+    and [<AllowNullLiteral>] SVGAnimatedNumber =
         abstract animVal: float with get, set
         abstract baseVal: float with get, set
 
-    and SVGAnimatedNumberType =
+    and [<AllowNullLiteral>] SVGAnimatedNumberType =
         abstract prototype: SVGAnimatedNumber with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedNumber
 
-    and SVGAnimatedNumberList =
+    and [<AllowNullLiteral>] SVGAnimatedNumberList =
         abstract animVal: SVGNumberList with get, set
         abstract baseVal: SVGNumberList with get, set
 
-    and SVGAnimatedNumberListType =
+    and [<AllowNullLiteral>] SVGAnimatedNumberListType =
         abstract prototype: SVGAnimatedNumberList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedNumberList
 
-    and SVGAnimatedPreserveAspectRatio =
+    and [<AllowNullLiteral>] SVGAnimatedPreserveAspectRatio =
         abstract animVal: SVGPreserveAspectRatio with get, set
         abstract baseVal: SVGPreserveAspectRatio with get, set
 
-    and SVGAnimatedPreserveAspectRatioType =
+    and [<AllowNullLiteral>] SVGAnimatedPreserveAspectRatioType =
         abstract prototype: SVGAnimatedPreserveAspectRatio with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedPreserveAspectRatio
 
-    and SVGAnimatedRect =
+    and [<AllowNullLiteral>] SVGAnimatedRect =
         abstract animVal: SVGRect with get, set
         abstract baseVal: SVGRect with get, set
 
-    and SVGAnimatedRectType =
+    and [<AllowNullLiteral>] SVGAnimatedRectType =
         abstract prototype: SVGAnimatedRect with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedRect
 
-    and SVGAnimatedString =
+    and [<AllowNullLiteral>] SVGAnimatedString =
         abstract animVal: string with get, set
         abstract baseVal: string with get, set
 
-    and SVGAnimatedStringType =
+    and [<AllowNullLiteral>] SVGAnimatedStringType =
         abstract prototype: SVGAnimatedString with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedString
 
-    and SVGAnimatedTransformList =
+    and [<AllowNullLiteral>] SVGAnimatedTransformList =
         abstract animVal: SVGTransformList with get, set
         abstract baseVal: SVGTransformList with get, set
 
-    and SVGAnimatedTransformListType =
+    and [<AllowNullLiteral>] SVGAnimatedTransformListType =
         abstract prototype: SVGAnimatedTransformList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGAnimatedTransformList
 
-    and SVGCircleElement =
+    and [<AllowNullLiteral>] SVGCircleElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -6432,11 +6432,11 @@ module Browser =
         abstract r: SVGAnimatedLength with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGCircleElementType =
+    and [<AllowNullLiteral>] SVGCircleElementType =
         abstract prototype: SVGCircleElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGCircleElement
 
-    and SVGClipPathElement =
+    and [<AllowNullLiteral>] SVGClipPathElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -6447,11 +6447,11 @@ module Browser =
         abstract clipPathUnits: SVGAnimatedEnumeration with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGClipPathElementType =
+    and [<AllowNullLiteral>] SVGClipPathElementType =
         abstract prototype: SVGClipPathElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGClipPathElement
 
-    and SVGComponentTransferFunctionElement =
+    and [<AllowNullLiteral>] SVGComponentTransferFunctionElement =
         inherit SVGElement
         abstract amplitude: SVGAnimatedNumber with get, set
         abstract exponent: SVGAnimatedNumber with get, set
@@ -6467,7 +6467,7 @@ module Browser =
         abstract SVG_FECOMPONENTTRANSFER_TYPE_TABLE: float with get, set
         abstract SVG_FECOMPONENTTRANSFER_TYPE_UNKNOWN: float with get, set
 
-    and SVGComponentTransferFunctionElementType =
+    and [<AllowNullLiteral>] SVGComponentTransferFunctionElementType =
         abstract prototype: SVGComponentTransferFunctionElement with get, set
         abstract SVG_FECOMPONENTTRANSFER_TYPE_DISCRETE: float with get, set
         abstract SVG_FECOMPONENTTRANSFER_TYPE_GAMMA: float with get, set
@@ -6477,7 +6477,7 @@ module Browser =
         abstract SVG_FECOMPONENTTRANSFER_TYPE_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGComponentTransferFunctionElement
 
-    and SVGDefsElement =
+    and [<AllowNullLiteral>] SVGDefsElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -6486,21 +6486,21 @@ module Browser =
         inherit SVGExternalResourcesRequired
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGDefsElementType =
+    and [<AllowNullLiteral>] SVGDefsElementType =
         abstract prototype: SVGDefsElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGDefsElement
 
-    and SVGDescElement =
+    and [<AllowNullLiteral>] SVGDescElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGLangSpace
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGDescElementType =
+    and [<AllowNullLiteral>] SVGDescElementType =
         abstract prototype: SVGDescElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGDescElement
 
-    and SVGElement =
+    and [<AllowNullLiteral>] SVGElement =
         inherit Element
         abstract id: string with get, set
         abstract onclick: Func<MouseEvent, obj> with get, set
@@ -6565,11 +6565,11 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGElementType =
+    and [<AllowNullLiteral>] SVGElementType =
         abstract prototype: SVGElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGElement
 
-    and SVGElementInstance =
+    and [<AllowNullLiteral>] SVGElementInstance =
         inherit EventTarget
         abstract childNodes: SVGElementInstanceList with get, set
         abstract correspondingElement: SVGElement with get, set
@@ -6580,19 +6580,19 @@ module Browser =
         abstract parentNode: SVGElementInstance with get, set
         abstract previousSibling: SVGElementInstance with get, set
 
-    and SVGElementInstanceType =
+    and [<AllowNullLiteral>] SVGElementInstanceType =
         abstract prototype: SVGElementInstance with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGElementInstance
 
-    and SVGElementInstanceList =
+    and [<AllowNullLiteral>] SVGElementInstanceList =
         abstract length: float with get, set
         abstract item: index: float -> SVGElementInstance
 
-    and SVGElementInstanceListType =
+    and [<AllowNullLiteral>] SVGElementInstanceListType =
         abstract prototype: SVGElementInstanceList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGElementInstanceList
 
-    and SVGEllipseElement =
+    and [<AllowNullLiteral>] SVGEllipseElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -6605,11 +6605,11 @@ module Browser =
         abstract ry: SVGAnimatedLength with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGEllipseElementType =
+    and [<AllowNullLiteral>] SVGEllipseElementType =
         abstract prototype: SVGEllipseElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGEllipseElement
 
-    and SVGFEBlendElement =
+    and [<AllowNullLiteral>] SVGFEBlendElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract in1: SVGAnimatedString with get, set
@@ -6634,7 +6634,7 @@ module Browser =
         abstract SVG_FEBLEND_MODE_UNKNOWN: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEBlendElementType =
+    and [<AllowNullLiteral>] SVGFEBlendElementType =
         abstract prototype: SVGFEBlendElement with get, set
         abstract SVG_FEBLEND_MODE_COLOR: float with get, set
         abstract SVG_FEBLEND_MODE_COLOR_BURN: float with get, set
@@ -6655,7 +6655,7 @@ module Browser =
         abstract SVG_FEBLEND_MODE_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEBlendElement
 
-    and SVGFEColorMatrixElement =
+    and [<AllowNullLiteral>] SVGFEColorMatrixElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract in1: SVGAnimatedString with get, set
@@ -6668,7 +6668,7 @@ module Browser =
         abstract SVG_FECOLORMATRIX_TYPE_UNKNOWN: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEColorMatrixElementType =
+    and [<AllowNullLiteral>] SVGFEColorMatrixElementType =
         abstract prototype: SVGFEColorMatrixElement with get, set
         abstract SVG_FECOLORMATRIX_TYPE_HUEROTATE: float with get, set
         abstract SVG_FECOLORMATRIX_TYPE_LUMINANCETOALPHA: float with get, set
@@ -6677,17 +6677,17 @@ module Browser =
         abstract SVG_FECOLORMATRIX_TYPE_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEColorMatrixElement
 
-    and SVGFEComponentTransferElement =
+    and [<AllowNullLiteral>] SVGFEComponentTransferElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract in1: SVGAnimatedString with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEComponentTransferElementType =
+    and [<AllowNullLiteral>] SVGFEComponentTransferElementType =
         abstract prototype: SVGFEComponentTransferElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEComponentTransferElement
 
-    and SVGFECompositeElement =
+    and [<AllowNullLiteral>] SVGFECompositeElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract in1: SVGAnimatedString with get, set
@@ -6706,7 +6706,7 @@ module Browser =
         abstract SVG_FECOMPOSITE_OPERATOR_XOR: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFECompositeElementType =
+    and [<AllowNullLiteral>] SVGFECompositeElementType =
         abstract prototype: SVGFECompositeElement with get, set
         abstract SVG_FECOMPOSITE_OPERATOR_ARITHMETIC: float with get, set
         abstract SVG_FECOMPOSITE_OPERATOR_ATOP: float with get, set
@@ -6717,7 +6717,7 @@ module Browser =
         abstract SVG_FECOMPOSITE_OPERATOR_XOR: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFECompositeElement
 
-    and SVGFEConvolveMatrixElement =
+    and [<AllowNullLiteral>] SVGFEConvolveMatrixElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract bias: SVGAnimatedNumber with get, set
@@ -6738,7 +6738,7 @@ module Browser =
         abstract SVG_EDGEMODE_WRAP: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEConvolveMatrixElementType =
+    and [<AllowNullLiteral>] SVGFEConvolveMatrixElementType =
         abstract prototype: SVGFEConvolveMatrixElement with get, set
         abstract SVG_EDGEMODE_DUPLICATE: float with get, set
         abstract SVG_EDGEMODE_NONE: float with get, set
@@ -6746,7 +6746,7 @@ module Browser =
         abstract SVG_EDGEMODE_WRAP: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEConvolveMatrixElement
 
-    and SVGFEDiffuseLightingElement =
+    and [<AllowNullLiteral>] SVGFEDiffuseLightingElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract diffuseConstant: SVGAnimatedNumber with get, set
@@ -6756,11 +6756,11 @@ module Browser =
         abstract surfaceScale: SVGAnimatedNumber with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEDiffuseLightingElementType =
+    and [<AllowNullLiteral>] SVGFEDiffuseLightingElementType =
         abstract prototype: SVGFEDiffuseLightingElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEDiffuseLightingElement
 
-    and SVGFEDisplacementMapElement =
+    and [<AllowNullLiteral>] SVGFEDisplacementMapElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract in1: SVGAnimatedString with get, set
@@ -6775,7 +6775,7 @@ module Browser =
         abstract SVG_CHANNEL_UNKNOWN: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEDisplacementMapElementType =
+    and [<AllowNullLiteral>] SVGFEDisplacementMapElementType =
         abstract prototype: SVGFEDisplacementMapElement with get, set
         abstract SVG_CHANNEL_A: float with get, set
         abstract SVG_CHANNEL_B: float with get, set
@@ -6784,57 +6784,57 @@ module Browser =
         abstract SVG_CHANNEL_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEDisplacementMapElement
 
-    and SVGFEDistantLightElement =
+    and [<AllowNullLiteral>] SVGFEDistantLightElement =
         inherit SVGElement
         abstract azimuth: SVGAnimatedNumber with get, set
         abstract elevation: SVGAnimatedNumber with get, set
 
-    and SVGFEDistantLightElementType =
+    and [<AllowNullLiteral>] SVGFEDistantLightElementType =
         abstract prototype: SVGFEDistantLightElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEDistantLightElement
 
-    and SVGFEFloodElement =
+    and [<AllowNullLiteral>] SVGFEFloodElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEFloodElementType =
+    and [<AllowNullLiteral>] SVGFEFloodElementType =
         abstract prototype: SVGFEFloodElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFloodElement
 
-    and SVGFEFuncAElement =
+    and [<AllowNullLiteral>] SVGFEFuncAElement =
         inherit SVGComponentTransferFunctionElement
 
 
-    and SVGFEFuncAElementType =
+    and [<AllowNullLiteral>] SVGFEFuncAElementType =
         abstract prototype: SVGFEFuncAElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFuncAElement
 
-    and SVGFEFuncBElement =
+    and [<AllowNullLiteral>] SVGFEFuncBElement =
         inherit SVGComponentTransferFunctionElement
 
 
-    and SVGFEFuncBElementType =
+    and [<AllowNullLiteral>] SVGFEFuncBElementType =
         abstract prototype: SVGFEFuncBElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFuncBElement
 
-    and SVGFEFuncGElement =
+    and [<AllowNullLiteral>] SVGFEFuncGElement =
         inherit SVGComponentTransferFunctionElement
 
 
-    and SVGFEFuncGElementType =
+    and [<AllowNullLiteral>] SVGFEFuncGElementType =
         abstract prototype: SVGFEFuncGElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFuncGElement
 
-    and SVGFEFuncRElement =
+    and [<AllowNullLiteral>] SVGFEFuncRElement =
         inherit SVGComponentTransferFunctionElement
 
 
-    and SVGFEFuncRElementType =
+    and [<AllowNullLiteral>] SVGFEFuncRElementType =
         abstract prototype: SVGFEFuncRElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEFuncRElement
 
-    and SVGFEGaussianBlurElement =
+    and [<AllowNullLiteral>] SVGFEGaussianBlurElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract in1: SVGAnimatedString with get, set
@@ -6843,11 +6843,11 @@ module Browser =
         abstract setStdDeviation: stdDeviationX: float * stdDeviationY: float -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEGaussianBlurElementType =
+    and [<AllowNullLiteral>] SVGFEGaussianBlurElementType =
         abstract prototype: SVGFEGaussianBlurElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEGaussianBlurElement
 
-    and SVGFEImageElement =
+    and [<AllowNullLiteral>] SVGFEImageElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         inherit SVGLangSpace
@@ -6856,28 +6856,28 @@ module Browser =
         abstract preserveAspectRatio: SVGAnimatedPreserveAspectRatio with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEImageElementType =
+    and [<AllowNullLiteral>] SVGFEImageElementType =
         abstract prototype: SVGFEImageElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEImageElement
 
-    and SVGFEMergeElement =
+    and [<AllowNullLiteral>] SVGFEMergeElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEMergeElementType =
+    and [<AllowNullLiteral>] SVGFEMergeElementType =
         abstract prototype: SVGFEMergeElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEMergeElement
 
-    and SVGFEMergeNodeElement =
+    and [<AllowNullLiteral>] SVGFEMergeNodeElement =
         inherit SVGElement
         abstract in1: SVGAnimatedString with get, set
 
-    and SVGFEMergeNodeElementType =
+    and [<AllowNullLiteral>] SVGFEMergeNodeElementType =
         abstract prototype: SVGFEMergeNodeElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEMergeNodeElement
 
-    and SVGFEMorphologyElement =
+    and [<AllowNullLiteral>] SVGFEMorphologyElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract in1: SVGAnimatedString with get, set
@@ -6889,14 +6889,14 @@ module Browser =
         abstract SVG_MORPHOLOGY_OPERATOR_UNKNOWN: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEMorphologyElementType =
+    and [<AllowNullLiteral>] SVGFEMorphologyElementType =
         abstract prototype: SVGFEMorphologyElement with get, set
         abstract SVG_MORPHOLOGY_OPERATOR_DILATE: float with get, set
         abstract SVG_MORPHOLOGY_OPERATOR_ERODE: float with get, set
         abstract SVG_MORPHOLOGY_OPERATOR_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEMorphologyElement
 
-    and SVGFEOffsetElement =
+    and [<AllowNullLiteral>] SVGFEOffsetElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract dx: SVGAnimatedNumber with get, set
@@ -6904,21 +6904,21 @@ module Browser =
         abstract in1: SVGAnimatedString with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFEOffsetElementType =
+    and [<AllowNullLiteral>] SVGFEOffsetElementType =
         abstract prototype: SVGFEOffsetElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEOffsetElement
 
-    and SVGFEPointLightElement =
+    and [<AllowNullLiteral>] SVGFEPointLightElement =
         inherit SVGElement
         abstract x: SVGAnimatedNumber with get, set
         abstract y: SVGAnimatedNumber with get, set
         abstract z: SVGAnimatedNumber with get, set
 
-    and SVGFEPointLightElementType =
+    and [<AllowNullLiteral>] SVGFEPointLightElementType =
         abstract prototype: SVGFEPointLightElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFEPointLightElement
 
-    and SVGFESpecularLightingElement =
+    and [<AllowNullLiteral>] SVGFESpecularLightingElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract in1: SVGAnimatedString with get, set
@@ -6929,11 +6929,11 @@ module Browser =
         abstract surfaceScale: SVGAnimatedNumber with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFESpecularLightingElementType =
+    and [<AllowNullLiteral>] SVGFESpecularLightingElementType =
         abstract prototype: SVGFESpecularLightingElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFESpecularLightingElement
 
-    and SVGFESpotLightElement =
+    and [<AllowNullLiteral>] SVGFESpotLightElement =
         inherit SVGElement
         abstract limitingConeAngle: SVGAnimatedNumber with get, set
         abstract pointsAtX: SVGAnimatedNumber with get, set
@@ -6944,21 +6944,21 @@ module Browser =
         abstract y: SVGAnimatedNumber with get, set
         abstract z: SVGAnimatedNumber with get, set
 
-    and SVGFESpotLightElementType =
+    and [<AllowNullLiteral>] SVGFESpotLightElementType =
         abstract prototype: SVGFESpotLightElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFESpotLightElement
 
-    and SVGFETileElement =
+    and [<AllowNullLiteral>] SVGFETileElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract in1: SVGAnimatedString with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFETileElementType =
+    and [<AllowNullLiteral>] SVGFETileElementType =
         abstract prototype: SVGFETileElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFETileElement
 
-    and SVGFETurbulenceElement =
+    and [<AllowNullLiteral>] SVGFETurbulenceElement =
         inherit SVGElement
         inherit SVGFilterPrimitiveStandardAttributes
         abstract baseFrequencyX: SVGAnimatedNumber with get, set
@@ -6975,7 +6975,7 @@ module Browser =
         abstract SVG_TURBULENCE_TYPE_UNKNOWN: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFETurbulenceElementType =
+    and [<AllowNullLiteral>] SVGFETurbulenceElementType =
         abstract prototype: SVGFETurbulenceElement with get, set
         abstract SVG_STITCHTYPE_NOSTITCH: float with get, set
         abstract SVG_STITCHTYPE_STITCH: float with get, set
@@ -6985,7 +6985,7 @@ module Browser =
         abstract SVG_TURBULENCE_TYPE_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFETurbulenceElement
 
-    and SVGFilterElement =
+    and [<AllowNullLiteral>] SVGFilterElement =
         inherit SVGElement
         inherit SVGUnitTypes
         inherit SVGStylable
@@ -7003,11 +7003,11 @@ module Browser =
         abstract setFilterRes: filterResX: float * filterResY: float -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGFilterElementType =
+    and [<AllowNullLiteral>] SVGFilterElementType =
         abstract prototype: SVGFilterElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGFilterElement
 
-    and SVGForeignObjectElement =
+    and [<AllowNullLiteral>] SVGForeignObjectElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -7020,11 +7020,11 @@ module Browser =
         abstract y: SVGAnimatedLength with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGForeignObjectElementType =
+    and [<AllowNullLiteral>] SVGForeignObjectElementType =
         abstract prototype: SVGForeignObjectElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGForeignObjectElement
 
-    and SVGGElement =
+    and [<AllowNullLiteral>] SVGGElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -7033,11 +7033,11 @@ module Browser =
         inherit SVGExternalResourcesRequired
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGGElementType =
+    and [<AllowNullLiteral>] SVGGElementType =
         abstract prototype: SVGGElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGGElement
 
-    and SVGGradientElement =
+    and [<AllowNullLiteral>] SVGGradientElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGExternalResourcesRequired
@@ -7052,7 +7052,7 @@ module Browser =
         abstract SVG_SPREADMETHOD_UNKNOWN: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGGradientElementType =
+    and [<AllowNullLiteral>] SVGGradientElementType =
         abstract prototype: SVGGradientElement with get, set
         abstract SVG_SPREADMETHOD_PAD: float with get, set
         abstract SVG_SPREADMETHOD_REFLECT: float with get, set
@@ -7060,7 +7060,7 @@ module Browser =
         abstract SVG_SPREADMETHOD_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGGradientElement
 
-    and SVGImageElement =
+    and [<AllowNullLiteral>] SVGImageElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -7075,11 +7075,11 @@ module Browser =
         abstract y: SVGAnimatedLength with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGImageElementType =
+    and [<AllowNullLiteral>] SVGImageElementType =
         abstract prototype: SVGImageElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGImageElement
 
-    and SVGLength =
+    and [<AllowNullLiteral>] SVGLength =
         abstract unitType: float with get, set
         abstract value: float with get, set
         abstract valueAsString: string with get, set
@@ -7098,7 +7098,7 @@ module Browser =
         abstract convertToSpecifiedUnits: unitType: float -> unit
         abstract newValueSpecifiedUnits: unitType: float * valueInSpecifiedUnits: float -> unit
 
-    and SVGLengthType =
+    and [<AllowNullLiteral>] SVGLengthType =
         abstract prototype: SVGLength with get, set
         abstract SVG_LENGTHTYPE_CM: float with get, set
         abstract SVG_LENGTHTYPE_EMS: float with get, set
@@ -7113,7 +7113,7 @@ module Browser =
         abstract SVG_LENGTHTYPE_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGLength
 
-    and SVGLengthList =
+    and [<AllowNullLiteral>] SVGLengthList =
         abstract numberOfItems: float with get, set
         abstract appendItem: newItem: SVGLength -> SVGLength
         abstract clear: unit -> unit
@@ -7123,11 +7123,11 @@ module Browser =
         abstract removeItem: index: float -> SVGLength
         abstract replaceItem: newItem: SVGLength * index: float -> SVGLength
 
-    and SVGLengthListType =
+    and [<AllowNullLiteral>] SVGLengthListType =
         abstract prototype: SVGLengthList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGLengthList
 
-    and SVGLineElement =
+    and [<AllowNullLiteral>] SVGLineElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -7140,22 +7140,22 @@ module Browser =
         abstract y2: SVGAnimatedLength with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGLineElementType =
+    and [<AllowNullLiteral>] SVGLineElementType =
         abstract prototype: SVGLineElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGLineElement
 
-    and SVGLinearGradientElement =
+    and [<AllowNullLiteral>] SVGLinearGradientElement =
         inherit SVGGradientElement
         abstract x1: SVGAnimatedLength with get, set
         abstract x2: SVGAnimatedLength with get, set
         abstract y1: SVGAnimatedLength with get, set
         abstract y2: SVGAnimatedLength with get, set
 
-    and SVGLinearGradientElementType =
+    and [<AllowNullLiteral>] SVGLinearGradientElementType =
         abstract prototype: SVGLinearGradientElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGLinearGradientElement
 
-    and SVGMarkerElement =
+    and [<AllowNullLiteral>] SVGMarkerElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGLangSpace
@@ -7178,7 +7178,7 @@ module Browser =
         abstract setOrientToAuto: unit -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGMarkerElementType =
+    and [<AllowNullLiteral>] SVGMarkerElementType =
         abstract prototype: SVGMarkerElement with get, set
         abstract SVG_MARKERUNITS_STROKEWIDTH: float with get, set
         abstract SVG_MARKERUNITS_UNKNOWN: float with get, set
@@ -7188,7 +7188,7 @@ module Browser =
         abstract SVG_MARKER_ORIENT_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGMarkerElement
 
-    and SVGMaskElement =
+    and [<AllowNullLiteral>] SVGMaskElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTests
@@ -7203,11 +7203,11 @@ module Browser =
         abstract y: SVGAnimatedLength with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGMaskElementType =
+    and [<AllowNullLiteral>] SVGMaskElementType =
         abstract prototype: SVGMaskElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGMaskElement
 
-    and SVGMatrix =
+    and [<AllowNullLiteral>] SVGMatrix =
         abstract a: float with get, set
         abstract b: float with get, set
         abstract c: float with get, set
@@ -7226,26 +7226,26 @@ module Browser =
         abstract skewY: angle: float -> SVGMatrix
         abstract translate: x: float * y: float -> SVGMatrix
 
-    and SVGMatrixType =
+    and [<AllowNullLiteral>] SVGMatrixType =
         abstract prototype: SVGMatrix with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGMatrix
 
-    and SVGMetadataElement =
+    and [<AllowNullLiteral>] SVGMetadataElement =
         inherit SVGElement
 
 
-    and SVGMetadataElementType =
+    and [<AllowNullLiteral>] SVGMetadataElementType =
         abstract prototype: SVGMetadataElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGMetadataElement
 
-    and SVGNumber =
+    and [<AllowNullLiteral>] SVGNumber =
         abstract value: float with get, set
 
-    and SVGNumberType =
+    and [<AllowNullLiteral>] SVGNumberType =
         abstract prototype: SVGNumber with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGNumber
 
-    and SVGNumberList =
+    and [<AllowNullLiteral>] SVGNumberList =
         abstract numberOfItems: float with get, set
         abstract appendItem: newItem: SVGNumber -> SVGNumber
         abstract clear: unit -> unit
@@ -7255,11 +7255,11 @@ module Browser =
         abstract removeItem: index: float -> SVGNumber
         abstract replaceItem: newItem: SVGNumber * index: float -> SVGNumber
 
-    and SVGNumberListType =
+    and [<AllowNullLiteral>] SVGNumberListType =
         abstract prototype: SVGNumberList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGNumberList
 
-    and SVGPathElement =
+    and [<AllowNullLiteral>] SVGPathElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -7291,11 +7291,11 @@ module Browser =
         abstract getTotalLength: unit -> float
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGPathElementType =
+    and [<AllowNullLiteral>] SVGPathElementType =
         abstract prototype: SVGPathElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathElement
 
-    and SVGPathSeg =
+    and [<AllowNullLiteral>] SVGPathSeg =
         abstract pathSegType: float with get, set
         abstract pathSegTypeAsLetter: string with get, set
         abstract PATHSEG_ARC_ABS: float with get, set
@@ -7319,7 +7319,7 @@ module Browser =
         abstract PATHSEG_MOVETO_REL: float with get, set
         abstract PATHSEG_UNKNOWN: float with get, set
 
-    and SVGPathSegType =
+    and [<AllowNullLiteral>] SVGPathSegType =
         abstract prototype: SVGPathSeg with get, set
         abstract PATHSEG_ARC_ABS: float with get, set
         abstract PATHSEG_ARC_REL: float with get, set
@@ -7343,7 +7343,7 @@ module Browser =
         abstract PATHSEG_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSeg
 
-    and SVGPathSegArcAbs =
+    and [<AllowNullLiteral>] SVGPathSegArcAbs =
         inherit SVGPathSeg
         abstract angle: float with get, set
         abstract largeArcFlag: bool with get, set
@@ -7353,11 +7353,11 @@ module Browser =
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and SVGPathSegArcAbsType =
+    and [<AllowNullLiteral>] SVGPathSegArcAbsType =
         abstract prototype: SVGPathSegArcAbs with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegArcAbs
 
-    and SVGPathSegArcRel =
+    and [<AllowNullLiteral>] SVGPathSegArcRel =
         inherit SVGPathSeg
         abstract angle: float with get, set
         abstract largeArcFlag: bool with get, set
@@ -7367,19 +7367,19 @@ module Browser =
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and SVGPathSegArcRelType =
+    and [<AllowNullLiteral>] SVGPathSegArcRelType =
         abstract prototype: SVGPathSegArcRel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegArcRel
 
-    and SVGPathSegClosePath =
+    and [<AllowNullLiteral>] SVGPathSegClosePath =
         inherit SVGPathSeg
 
 
-    and SVGPathSegClosePathType =
+    and [<AllowNullLiteral>] SVGPathSegClosePathType =
         abstract prototype: SVGPathSegClosePath with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegClosePath
 
-    and SVGPathSegCurvetoCubicAbs =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoCubicAbs =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract x1: float with get, set
@@ -7388,11 +7388,11 @@ module Browser =
         abstract y1: float with get, set
         abstract y2: float with get, set
 
-    and SVGPathSegCurvetoCubicAbsType =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoCubicAbsType =
         abstract prototype: SVGPathSegCurvetoCubicAbs with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoCubicAbs
 
-    and SVGPathSegCurvetoCubicRel =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoCubicRel =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract x1: float with get, set
@@ -7401,123 +7401,123 @@ module Browser =
         abstract y1: float with get, set
         abstract y2: float with get, set
 
-    and SVGPathSegCurvetoCubicRelType =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoCubicRelType =
         abstract prototype: SVGPathSegCurvetoCubicRel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoCubicRel
 
-    and SVGPathSegCurvetoCubicSmoothAbs =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoCubicSmoothAbs =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract x2: float with get, set
         abstract y: float with get, set
         abstract y2: float with get, set
 
-    and SVGPathSegCurvetoCubicSmoothAbsType =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoCubicSmoothAbsType =
         abstract prototype: SVGPathSegCurvetoCubicSmoothAbs with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoCubicSmoothAbs
 
-    and SVGPathSegCurvetoCubicSmoothRel =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoCubicSmoothRel =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract x2: float with get, set
         abstract y: float with get, set
         abstract y2: float with get, set
 
-    and SVGPathSegCurvetoCubicSmoothRelType =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoCubicSmoothRelType =
         abstract prototype: SVGPathSegCurvetoCubicSmoothRel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoCubicSmoothRel
 
-    and SVGPathSegCurvetoQuadraticAbs =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoQuadraticAbs =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract x1: float with get, set
         abstract y: float with get, set
         abstract y1: float with get, set
 
-    and SVGPathSegCurvetoQuadraticAbsType =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoQuadraticAbsType =
         abstract prototype: SVGPathSegCurvetoQuadraticAbs with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoQuadraticAbs
 
-    and SVGPathSegCurvetoQuadraticRel =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoQuadraticRel =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract x1: float with get, set
         abstract y: float with get, set
         abstract y1: float with get, set
 
-    and SVGPathSegCurvetoQuadraticRelType =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoQuadraticRelType =
         abstract prototype: SVGPathSegCurvetoQuadraticRel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoQuadraticRel
 
-    and SVGPathSegCurvetoQuadraticSmoothAbs =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoQuadraticSmoothAbs =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and SVGPathSegCurvetoQuadraticSmoothAbsType =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoQuadraticSmoothAbsType =
         abstract prototype: SVGPathSegCurvetoQuadraticSmoothAbs with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoQuadraticSmoothAbs
 
-    and SVGPathSegCurvetoQuadraticSmoothRel =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoQuadraticSmoothRel =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and SVGPathSegCurvetoQuadraticSmoothRelType =
+    and [<AllowNullLiteral>] SVGPathSegCurvetoQuadraticSmoothRelType =
         abstract prototype: SVGPathSegCurvetoQuadraticSmoothRel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegCurvetoQuadraticSmoothRel
 
-    and SVGPathSegLinetoAbs =
+    and [<AllowNullLiteral>] SVGPathSegLinetoAbs =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and SVGPathSegLinetoAbsType =
+    and [<AllowNullLiteral>] SVGPathSegLinetoAbsType =
         abstract prototype: SVGPathSegLinetoAbs with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoAbs
 
-    and SVGPathSegLinetoHorizontalAbs =
+    and [<AllowNullLiteral>] SVGPathSegLinetoHorizontalAbs =
         inherit SVGPathSeg
         abstract x: float with get, set
 
-    and SVGPathSegLinetoHorizontalAbsType =
+    and [<AllowNullLiteral>] SVGPathSegLinetoHorizontalAbsType =
         abstract prototype: SVGPathSegLinetoHorizontalAbs with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoHorizontalAbs
 
-    and SVGPathSegLinetoHorizontalRel =
+    and [<AllowNullLiteral>] SVGPathSegLinetoHorizontalRel =
         inherit SVGPathSeg
         abstract x: float with get, set
 
-    and SVGPathSegLinetoHorizontalRelType =
+    and [<AllowNullLiteral>] SVGPathSegLinetoHorizontalRelType =
         abstract prototype: SVGPathSegLinetoHorizontalRel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoHorizontalRel
 
-    and SVGPathSegLinetoRel =
+    and [<AllowNullLiteral>] SVGPathSegLinetoRel =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and SVGPathSegLinetoRelType =
+    and [<AllowNullLiteral>] SVGPathSegLinetoRelType =
         abstract prototype: SVGPathSegLinetoRel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoRel
 
-    and SVGPathSegLinetoVerticalAbs =
+    and [<AllowNullLiteral>] SVGPathSegLinetoVerticalAbs =
         inherit SVGPathSeg
         abstract y: float with get, set
 
-    and SVGPathSegLinetoVerticalAbsType =
+    and [<AllowNullLiteral>] SVGPathSegLinetoVerticalAbsType =
         abstract prototype: SVGPathSegLinetoVerticalAbs with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoVerticalAbs
 
-    and SVGPathSegLinetoVerticalRel =
+    and [<AllowNullLiteral>] SVGPathSegLinetoVerticalRel =
         inherit SVGPathSeg
         abstract y: float with get, set
 
-    and SVGPathSegLinetoVerticalRelType =
+    and [<AllowNullLiteral>] SVGPathSegLinetoVerticalRelType =
         abstract prototype: SVGPathSegLinetoVerticalRel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegLinetoVerticalRel
 
-    and SVGPathSegList =
+    and [<AllowNullLiteral>] SVGPathSegList =
         abstract numberOfItems: float with get, set
         abstract appendItem: newItem: SVGPathSeg -> SVGPathSeg
         abstract clear: unit -> unit
@@ -7527,29 +7527,29 @@ module Browser =
         abstract removeItem: index: float -> SVGPathSeg
         abstract replaceItem: newItem: SVGPathSeg * index: float -> SVGPathSeg
 
-    and SVGPathSegListType =
+    and [<AllowNullLiteral>] SVGPathSegListType =
         abstract prototype: SVGPathSegList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegList
 
-    and SVGPathSegMovetoAbs =
+    and [<AllowNullLiteral>] SVGPathSegMovetoAbs =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and SVGPathSegMovetoAbsType =
+    and [<AllowNullLiteral>] SVGPathSegMovetoAbsType =
         abstract prototype: SVGPathSegMovetoAbs with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegMovetoAbs
 
-    and SVGPathSegMovetoRel =
+    and [<AllowNullLiteral>] SVGPathSegMovetoRel =
         inherit SVGPathSeg
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and SVGPathSegMovetoRelType =
+    and [<AllowNullLiteral>] SVGPathSegMovetoRelType =
         abstract prototype: SVGPathSegMovetoRel with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPathSegMovetoRel
 
-    and SVGPatternElement =
+    and [<AllowNullLiteral>] SVGPatternElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTests
@@ -7567,20 +7567,20 @@ module Browser =
         abstract y: SVGAnimatedLength with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGPatternElementType =
+    and [<AllowNullLiteral>] SVGPatternElementType =
         abstract prototype: SVGPatternElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPatternElement
 
-    and SVGPoint =
+    and [<AllowNullLiteral>] SVGPoint =
         abstract x: float with get, set
         abstract y: float with get, set
         abstract matrixTransform: matrix: SVGMatrix -> SVGPoint
 
-    and SVGPointType =
+    and [<AllowNullLiteral>] SVGPointType =
         abstract prototype: SVGPoint with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPoint
 
-    and SVGPointList =
+    and [<AllowNullLiteral>] SVGPointList =
         abstract numberOfItems: float with get, set
         abstract appendItem: newItem: SVGPoint -> SVGPoint
         abstract clear: unit -> unit
@@ -7590,11 +7590,11 @@ module Browser =
         abstract removeItem: index: float -> SVGPoint
         abstract replaceItem: newItem: SVGPoint * index: float -> SVGPoint
 
-    and SVGPointListType =
+    and [<AllowNullLiteral>] SVGPointListType =
         abstract prototype: SVGPointList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPointList
 
-    and SVGPolygonElement =
+    and [<AllowNullLiteral>] SVGPolygonElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -7604,11 +7604,11 @@ module Browser =
         inherit SVGAnimatedPoints
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGPolygonElementType =
+    and [<AllowNullLiteral>] SVGPolygonElementType =
         abstract prototype: SVGPolygonElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPolygonElement
 
-    and SVGPolylineElement =
+    and [<AllowNullLiteral>] SVGPolylineElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -7618,11 +7618,11 @@ module Browser =
         inherit SVGAnimatedPoints
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGPolylineElementType =
+    and [<AllowNullLiteral>] SVGPolylineElementType =
         abstract prototype: SVGPolylineElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPolylineElement
 
-    and SVGPreserveAspectRatio =
+    and [<AllowNullLiteral>] SVGPreserveAspectRatio =
         abstract align: float with get, set
         abstract meetOrSlice: float with get, set
         abstract SVG_MEETORSLICE_MEET: float with get, set
@@ -7640,7 +7640,7 @@ module Browser =
         abstract SVG_PRESERVEASPECTRATIO_XMINYMID: float with get, set
         abstract SVG_PRESERVEASPECTRATIO_XMINYMIN: float with get, set
 
-    and SVGPreserveAspectRatioType =
+    and [<AllowNullLiteral>] SVGPreserveAspectRatioType =
         abstract prototype: SVGPreserveAspectRatio with get, set
         abstract SVG_MEETORSLICE_MEET: float with get, set
         abstract SVG_MEETORSLICE_SLICE: float with get, set
@@ -7658,7 +7658,7 @@ module Browser =
         abstract SVG_PRESERVEASPECTRATIO_XMINYMIN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGPreserveAspectRatio
 
-    and SVGRadialGradientElement =
+    and [<AllowNullLiteral>] SVGRadialGradientElement =
         inherit SVGGradientElement
         abstract cx: SVGAnimatedLength with get, set
         abstract cy: SVGAnimatedLength with get, set
@@ -7666,21 +7666,21 @@ module Browser =
         abstract fy: SVGAnimatedLength with get, set
         abstract r: SVGAnimatedLength with get, set
 
-    and SVGRadialGradientElementType =
+    and [<AllowNullLiteral>] SVGRadialGradientElementType =
         abstract prototype: SVGRadialGradientElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGRadialGradientElement
 
-    and SVGRect =
+    and [<AllowNullLiteral>] SVGRect =
         abstract height: float with get, set
         abstract width: float with get, set
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and SVGRectType =
+    and [<AllowNullLiteral>] SVGRectType =
         abstract prototype: SVGRect with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGRect
 
-    and SVGRectElement =
+    and [<AllowNullLiteral>] SVGRectElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -7695,11 +7695,11 @@ module Browser =
         abstract y: SVGAnimatedLength with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGRectElementType =
+    and [<AllowNullLiteral>] SVGRectElementType =
         abstract prototype: SVGRectElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGRectElement
 
-    and SVGSVGElement =
+    and [<AllowNullLiteral>] SVGSVGElement =
         inherit SVGElement
         inherit DocumentEvent
         inherit SVGLocatable
@@ -7805,32 +7805,32 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGSVGElementType =
+    and [<AllowNullLiteral>] SVGSVGElementType =
         abstract prototype: SVGSVGElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGSVGElement
 
-    and SVGScriptElement =
+    and [<AllowNullLiteral>] SVGScriptElement =
         inherit SVGElement
         inherit SVGExternalResourcesRequired
         inherit SVGURIReference
         abstract ``type``: string with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGScriptElementType =
+    and [<AllowNullLiteral>] SVGScriptElementType =
         abstract prototype: SVGScriptElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGScriptElement
 
-    and SVGStopElement =
+    and [<AllowNullLiteral>] SVGStopElement =
         inherit SVGElement
         inherit SVGStylable
         abstract offset: SVGAnimatedNumber with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGStopElementType =
+    and [<AllowNullLiteral>] SVGStopElementType =
         abstract prototype: SVGStopElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGStopElement
 
-    and SVGStringList =
+    and [<AllowNullLiteral>] SVGStringList =
         abstract numberOfItems: float with get, set
         abstract appendItem: newItem: string -> string
         abstract clear: unit -> unit
@@ -7840,11 +7840,11 @@ module Browser =
         abstract removeItem: index: float -> string
         abstract replaceItem: newItem: string * index: float -> string
 
-    and SVGStringListType =
+    and [<AllowNullLiteral>] SVGStringListType =
         abstract prototype: SVGStringList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGStringList
 
-    and SVGStyleElement =
+    and [<AllowNullLiteral>] SVGStyleElement =
         inherit SVGElement
         inherit SVGLangSpace
         abstract media: string with get, set
@@ -7852,11 +7852,11 @@ module Browser =
         abstract ``type``: string with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGStyleElementType =
+    and [<AllowNullLiteral>] SVGStyleElementType =
         abstract prototype: SVGStyleElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGStyleElement
 
-    and SVGSwitchElement =
+    and [<AllowNullLiteral>] SVGSwitchElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -7865,11 +7865,11 @@ module Browser =
         inherit SVGExternalResourcesRequired
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGSwitchElementType =
+    and [<AllowNullLiteral>] SVGSwitchElementType =
         abstract prototype: SVGSwitchElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGSwitchElement
 
-    and SVGSymbolElement =
+    and [<AllowNullLiteral>] SVGSymbolElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGLangSpace
@@ -7877,19 +7877,19 @@ module Browser =
         inherit SVGFitToViewBox
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGSymbolElementType =
+    and [<AllowNullLiteral>] SVGSymbolElementType =
         abstract prototype: SVGSymbolElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGSymbolElement
 
-    and SVGTSpanElement =
+    and [<AllowNullLiteral>] SVGTSpanElement =
         inherit SVGTextPositioningElement
 
 
-    and SVGTSpanElementType =
+    and [<AllowNullLiteral>] SVGTSpanElementType =
         abstract prototype: SVGTSpanElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTSpanElement
 
-    and SVGTextContentElement =
+    and [<AllowNullLiteral>] SVGTextContentElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTests
@@ -7911,23 +7911,23 @@ module Browser =
         abstract selectSubString: charnum: float * nchars: float -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGTextContentElementType =
+    and [<AllowNullLiteral>] SVGTextContentElementType =
         abstract prototype: SVGTextContentElement with get, set
         abstract LENGTHADJUST_SPACING: float with get, set
         abstract LENGTHADJUST_SPACINGANDGLYPHS: float with get, set
         abstract LENGTHADJUST_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTextContentElement
 
-    and SVGTextElement =
+    and [<AllowNullLiteral>] SVGTextElement =
         inherit SVGTextPositioningElement
         inherit SVGTransformable
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGTextElementType =
+    and [<AllowNullLiteral>] SVGTextElementType =
         abstract prototype: SVGTextElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTextElement
 
-    and SVGTextPathElement =
+    and [<AllowNullLiteral>] SVGTextPathElement =
         inherit SVGTextContentElement
         inherit SVGURIReference
         abstract ``method``: SVGAnimatedEnumeration with get, set
@@ -7941,7 +7941,7 @@ module Browser =
         abstract TEXTPATH_SPACINGTYPE_UNKNOWN: float with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGTextPathElementType =
+    and [<AllowNullLiteral>] SVGTextPathElementType =
         abstract prototype: SVGTextPathElement with get, set
         abstract TEXTPATH_METHODTYPE_ALIGN: float with get, set
         abstract TEXTPATH_METHODTYPE_STRETCH: float with get, set
@@ -7951,7 +7951,7 @@ module Browser =
         abstract TEXTPATH_SPACINGTYPE_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTextPathElement
 
-    and SVGTextPositioningElement =
+    and [<AllowNullLiteral>] SVGTextPositioningElement =
         inherit SVGTextContentElement
         abstract dx: SVGAnimatedLengthList with get, set
         abstract dy: SVGAnimatedLengthList with get, set
@@ -7959,21 +7959,21 @@ module Browser =
         abstract x: SVGAnimatedLengthList with get, set
         abstract y: SVGAnimatedLengthList with get, set
 
-    and SVGTextPositioningElementType =
+    and [<AllowNullLiteral>] SVGTextPositioningElementType =
         abstract prototype: SVGTextPositioningElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTextPositioningElement
 
-    and SVGTitleElement =
+    and [<AllowNullLiteral>] SVGTitleElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGLangSpace
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGTitleElementType =
+    and [<AllowNullLiteral>] SVGTitleElementType =
         abstract prototype: SVGTitleElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTitleElement
 
-    and SVGTransform =
+    and [<AllowNullLiteral>] SVGTransform =
         abstract angle: float with get, set
         abstract matrix: SVGMatrix with get, set
         abstract ``type``: float with get, set
@@ -7991,7 +7991,7 @@ module Browser =
         abstract setSkewY: angle: float -> unit
         abstract setTranslate: tx: float * ty: float -> unit
 
-    and SVGTransformType =
+    and [<AllowNullLiteral>] SVGTransformType =
         abstract prototype: SVGTransform with get, set
         abstract SVG_TRANSFORM_MATRIX: float with get, set
         abstract SVG_TRANSFORM_ROTATE: float with get, set
@@ -8002,7 +8002,7 @@ module Browser =
         abstract SVG_TRANSFORM_UNKNOWN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTransform
 
-    and SVGTransformList =
+    and [<AllowNullLiteral>] SVGTransformList =
         abstract numberOfItems: float with get, set
         abstract appendItem: newItem: SVGTransform -> SVGTransform
         abstract clear: unit -> unit
@@ -8014,16 +8014,16 @@ module Browser =
         abstract removeItem: index: float -> SVGTransform
         abstract replaceItem: newItem: SVGTransform * index: float -> SVGTransform
 
-    and SVGTransformListType =
+    and [<AllowNullLiteral>] SVGTransformListType =
         abstract prototype: SVGTransformList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGTransformList
 
-    and SVGUnitTypes =
+    and [<AllowNullLiteral>] SVGUnitTypes =
         abstract SVG_UNIT_TYPE_OBJECTBOUNDINGBOX: float with get, set
         abstract SVG_UNIT_TYPE_UNKNOWN: float with get, set
         abstract SVG_UNIT_TYPE_USERSPACEONUSE: float with get, set
 
-    and SVGUseElement =
+    and [<AllowNullLiteral>] SVGUseElement =
         inherit SVGElement
         inherit SVGStylable
         inherit SVGTransformable
@@ -8039,11 +8039,11 @@ module Browser =
         abstract y: SVGAnimatedLength with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGUseElementType =
+    and [<AllowNullLiteral>] SVGUseElementType =
         abstract prototype: SVGUseElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGUseElement
 
-    and SVGViewElement =
+    and [<AllowNullLiteral>] SVGViewElement =
         inherit SVGElement
         inherit SVGExternalResourcesRequired
         inherit SVGFitToViewBox
@@ -8051,19 +8051,19 @@ module Browser =
         abstract viewTarget: SVGStringList with get, set
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and SVGViewElementType =
+    and [<AllowNullLiteral>] SVGViewElementType =
         abstract prototype: SVGViewElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGViewElement
 
-    and SVGZoomAndPan =
+    and [<AllowNullLiteral>] SVGZoomAndPan =
         abstract zoomAndPan: float with get, set
 
-    and SVGZoomAndPanType =
+    and [<AllowNullLiteral>] SVGZoomAndPanType =
         abstract SVG_ZOOMANDPAN_DISABLE: float with get, set
         abstract SVG_ZOOMANDPAN_MAGNIFY: float with get, set
         abstract SVG_ZOOMANDPAN_UNKNOWN: float with get, set
 
-    and SVGZoomEvent =
+    and [<AllowNullLiteral>] SVGZoomEvent =
         inherit UIEvent
         abstract newScale: float with get, set
         abstract newTranslate: SVGPoint with get, set
@@ -8071,11 +8071,11 @@ module Browser =
         abstract previousTranslate: SVGPoint with get, set
         abstract zoomRectScreen: SVGRect with get, set
 
-    and SVGZoomEventType =
+    and [<AllowNullLiteral>] SVGZoomEventType =
         abstract prototype: SVGZoomEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SVGZoomEvent
 
-    and Screen =
+    and [<AllowNullLiteral>] Screen =
         inherit EventTarget
         abstract availHeight: float with get, set
         abstract availWidth: float with get, set
@@ -8098,31 +8098,31 @@ module Browser =
         [<Emit("$0.addEventListener('MSOrientationChange',$1...)")>] abstract addEventListener_MSOrientationChange: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and ScreenType =
+    and [<AllowNullLiteral>] ScreenType =
         abstract prototype: Screen with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Screen
 
-    and ScriptNotifyEvent =
+    and [<AllowNullLiteral>] ScriptNotifyEvent =
         inherit Event
         abstract callingUri: string with get, set
         abstract value: string with get, set
 
-    and ScriptNotifyEventType =
+    and [<AllowNullLiteral>] ScriptNotifyEventType =
         abstract prototype: ScriptNotifyEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ScriptNotifyEvent
 
-    and ScriptProcessorNode =
+    and [<AllowNullLiteral>] ScriptProcessorNode =
         inherit AudioNode
         abstract bufferSize: float with get, set
         abstract onaudioprocess: Func<AudioProcessingEvent, obj> with get, set
         [<Emit("$0.addEventListener('audioprocess',$1...)")>] abstract addEventListener_audioprocess: listener: Func<AudioProcessingEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and ScriptProcessorNodeType =
+    and [<AllowNullLiteral>] ScriptProcessorNodeType =
         abstract prototype: ScriptProcessorNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ScriptProcessorNode
 
-    and Selection =
+    and [<AllowNullLiteral>] Selection =
         abstract anchorNode: Node with get, set
         abstract anchorOffset: float with get, set
         abstract focusNode: Node with get, set
@@ -8145,11 +8145,11 @@ module Browser =
         abstract setBaseAndExtent: baseNode: Node * baseOffset: float * extentNode: Node * extentOffset: float -> unit
         abstract toString: unit -> string
 
-    and SelectionType =
+    and [<AllowNullLiteral>] SelectionType =
         abstract prototype: Selection with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Selection
 
-    and SourceBuffer =
+    and [<AllowNullLiteral>] SourceBuffer =
         inherit EventTarget
         abstract appendWindowEnd: float with get, set
         abstract appendWindowStart: float with get, set
@@ -8164,29 +8164,29 @@ module Browser =
         abstract appendStream: stream: MSStream * ?maxSize: float -> unit
         abstract remove: start: float * ``end``: float -> unit
 
-    and SourceBufferType =
+    and [<AllowNullLiteral>] SourceBufferType =
         abstract prototype: SourceBuffer with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SourceBuffer
 
-    and SourceBufferList =
+    and [<AllowNullLiteral>] SourceBufferList =
         inherit EventTarget
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> SourceBuffer with get, set
         abstract item: index: float -> SourceBuffer
 
-    and SourceBufferListType =
+    and [<AllowNullLiteral>] SourceBufferListType =
         abstract prototype: SourceBufferList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SourceBufferList
 
-    and StereoPannerNode =
+    and [<AllowNullLiteral>] StereoPannerNode =
         inherit AudioNode
         abstract pan: AudioParam with get, set
 
-    and StereoPannerNodeType =
+    and [<AllowNullLiteral>] StereoPannerNodeType =
         abstract prototype: StereoPannerNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> StereoPannerNode
 
-    and Storage =
+    and [<AllowNullLiteral>] Storage =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: key: string -> obj with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> string with get, set
@@ -8196,11 +8196,11 @@ module Browser =
         abstract removeItem: key: string -> unit
         abstract setItem: key: string * data: string -> unit
 
-    and StorageType =
+    and [<AllowNullLiteral>] StorageType =
         abstract prototype: Storage with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Storage
 
-    and StorageEvent =
+    and [<AllowNullLiteral>] StorageEvent =
         inherit Event
         abstract url: string with get, set
         abstract key: string option with get, set
@@ -8208,19 +8208,19 @@ module Browser =
         abstract newValue: string option with get, set
         abstract storageArea: Storage option with get, set
 
-    and StorageEventType =
+    and [<AllowNullLiteral>] StorageEventType =
         abstract prototype: StorageEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: StorageEventInit -> StorageEvent
 
-    and StyleMedia =
+    and [<AllowNullLiteral>] StyleMedia =
         abstract ``type``: string with get, set
         abstract matchMedium: mediaquery: string -> bool
 
-    and StyleMediaType =
+    and [<AllowNullLiteral>] StyleMediaType =
         abstract prototype: StyleMedia with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> StyleMedia
 
-    and StyleSheet =
+    and [<AllowNullLiteral>] StyleSheet =
         abstract disabled: bool with get, set
         abstract href: string with get, set
         abstract media: MediaList with get, set
@@ -8229,29 +8229,29 @@ module Browser =
         abstract title: string with get, set
         abstract ``type``: string with get, set
 
-    and StyleSheetType =
+    and [<AllowNullLiteral>] StyleSheetType =
         abstract prototype: StyleSheet with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> StyleSheet
 
-    and StyleSheetList =
+    and [<AllowNullLiteral>] StyleSheetList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> StyleSheet with get, set
         abstract item: ?index: float -> StyleSheet
 
-    and StyleSheetListType =
+    and [<AllowNullLiteral>] StyleSheetListType =
         abstract prototype: StyleSheetList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> StyleSheetList
 
-    and StyleSheetPageList =
+    and [<AllowNullLiteral>] StyleSheetPageList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> CSSPageRule with get, set
         abstract item: index: float -> CSSPageRule
 
-    and StyleSheetPageListType =
+    and [<AllowNullLiteral>] StyleSheetPageListType =
         abstract prototype: StyleSheetPageList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> StyleSheetPageList
 
-    and SubtleCrypto =
+    and [<AllowNullLiteral>] SubtleCrypto =
         abstract decrypt: algorithm: U2<string, Algorithm> * key: CryptoKey * data: ArrayBufferView -> obj
         abstract deriveBits: algorithm: U2<string, Algorithm> * baseKey: CryptoKey * length: float -> obj
         abstract deriveKey: algorithm: U2<string, Algorithm> * baseKey: CryptoKey * derivedKeyType: U2<string, Algorithm> * extractable: bool * keyUsages: ResizeArray<string> -> obj
@@ -8265,21 +8265,21 @@ module Browser =
         abstract verify: algorithm: U2<string, Algorithm> * key: CryptoKey * signature: ArrayBufferView * data: ArrayBufferView -> obj
         abstract wrapKey: format: string * key: CryptoKey * wrappingKey: CryptoKey * wrapAlgorithm: U2<string, Algorithm> -> obj
 
-    and SubtleCryptoType =
+    and [<AllowNullLiteral>] SubtleCryptoType =
         abstract prototype: SubtleCrypto with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> SubtleCrypto
 
-    and Text =
+    and [<AllowNullLiteral>] Text =
         inherit CharacterData
         abstract wholeText: string with get, set
         abstract replaceWholeText: content: string -> Text
         abstract splitText: offset: float -> Text
 
-    and TextType =
+    and [<AllowNullLiteral>] TextType =
         abstract prototype: Text with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Text
 
-    and TextEvent =
+    and [<AllowNullLiteral>] TextEvent =
         inherit UIEvent
         abstract data: string with get, set
         abstract inputMethod: float with get, set
@@ -8296,7 +8296,7 @@ module Browser =
         abstract DOM_INPUT_METHOD_VOICE: float with get, set
         abstract initTextEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * dataArg: string * inputMethod: float * locale: string -> unit
 
-    and TextEventType =
+    and [<AllowNullLiteral>] TextEventType =
         abstract prototype: TextEvent with get, set
         abstract DOM_INPUT_METHOD_DROP: float with get, set
         abstract DOM_INPUT_METHOD_HANDWRITING: float with get, set
@@ -8310,14 +8310,14 @@ module Browser =
         abstract DOM_INPUT_METHOD_VOICE: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TextEvent
 
-    and TextMetrics =
+    and [<AllowNullLiteral>] TextMetrics =
         abstract width: float with get, set
 
-    and TextMetricsType =
+    and [<AllowNullLiteral>] TextMetricsType =
         abstract prototype: TextMetrics with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TextMetrics
 
-    and TextRange =
+    and [<AllowNullLiteral>] TextRange =
         abstract boundingHeight: float with get, set
         abstract boundingLeft: float with get, set
         abstract boundingTop: float with get, set
@@ -8356,20 +8356,20 @@ module Browser =
         abstract select: unit -> unit
         abstract setEndPoint: how: string * SourceRange: TextRange -> unit
 
-    and TextRangeType =
+    and [<AllowNullLiteral>] TextRangeType =
         abstract prototype: TextRange with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TextRange
 
-    and TextRangeCollection =
+    and [<AllowNullLiteral>] TextRangeCollection =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> TextRange with get, set
         abstract item: index: float -> TextRange
 
-    and TextRangeCollectionType =
+    and [<AllowNullLiteral>] TextRangeCollectionType =
         abstract prototype: TextRangeCollection with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TextRangeCollection
 
-    and TextTrack =
+    and [<AllowNullLiteral>] TextTrack =
         inherit EventTarget
         abstract activeCues: TextTrackCueList with get, set
         abstract cues: TextTrackCueList with get, set
@@ -8396,7 +8396,7 @@ module Browser =
         [<Emit("$0.addEventListener('load',$1...)")>] abstract addEventListener_load: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and TextTrackType =
+    and [<AllowNullLiteral>] TextTrackType =
         abstract prototype: TextTrack with get, set
         abstract DISABLED: float with get, set
         abstract ERROR: float with get, set
@@ -8407,7 +8407,7 @@ module Browser =
         abstract SHOWING: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TextTrack
 
-    and TextTrackCue =
+    and [<AllowNullLiteral>] TextTrackCue =
         inherit EventTarget
         abstract endTime: float with get, set
         abstract id: string with get, set
@@ -8422,21 +8422,21 @@ module Browser =
         [<Emit("$0.addEventListener('exit',$1...)")>] abstract addEventListener_exit: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and TextTrackCueType =
+    and [<AllowNullLiteral>] TextTrackCueType =
         abstract prototype: TextTrackCue with get, set
         [<Emit("new $0($1...)")>] abstract Create: startTime: float * endTime: float * text: string -> TextTrackCue
 
-    and TextTrackCueList =
+    and [<AllowNullLiteral>] TextTrackCueList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> TextTrackCue with get, set
         abstract getCueById: id: string -> TextTrackCue
         abstract item: index: float -> TextTrackCue
 
-    and TextTrackCueListType =
+    and [<AllowNullLiteral>] TextTrackCueListType =
         abstract prototype: TextTrackCueList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TextTrackCueList
 
-    and TextTrackList =
+    and [<AllowNullLiteral>] TextTrackList =
         inherit EventTarget
         abstract length: float with get, set
         abstract onaddtrack: Func<TrackEvent, obj> with get, set
@@ -8445,20 +8445,20 @@ module Browser =
         [<Emit("$0.addEventListener('addtrack',$1...)")>] abstract addEventListener_addtrack: listener: Func<TrackEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and TextTrackListType =
+    and [<AllowNullLiteral>] TextTrackListType =
         abstract prototype: TextTrackList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TextTrackList
 
-    and TimeRanges =
+    and [<AllowNullLiteral>] TimeRanges =
         abstract length: float with get, set
         abstract ``end``: index: float -> float
         abstract start: index: float -> float
 
-    and TimeRangesType =
+    and [<AllowNullLiteral>] TimeRangesType =
         abstract prototype: TimeRanges with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TimeRanges
 
-    and Touch =
+    and [<AllowNullLiteral>] Touch =
         abstract clientX: float with get, set
         abstract clientY: float with get, set
         abstract identifier: float with get, set
@@ -8468,11 +8468,11 @@ module Browser =
         abstract screenY: float with get, set
         abstract target: EventTarget with get, set
 
-    and TouchType =
+    and [<AllowNullLiteral>] TouchType =
         abstract prototype: Touch with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Touch
 
-    and TouchEvent =
+    and [<AllowNullLiteral>] TouchEvent =
         inherit UIEvent
         abstract altKey: bool with get, set
         abstract changedTouches: TouchList with get, set
@@ -8482,38 +8482,38 @@ module Browser =
         abstract targetTouches: TouchList with get, set
         abstract touches: TouchList with get, set
 
-    and TouchEventType =
+    and [<AllowNullLiteral>] TouchEventType =
         abstract prototype: TouchEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TouchEvent
 
-    and TouchList =
+    and [<AllowNullLiteral>] TouchList =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> Touch with get, set
         abstract item: index: float -> Touch
 
-    and TouchListType =
+    and [<AllowNullLiteral>] TouchListType =
         abstract prototype: TouchList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TouchList
 
-    and TrackEvent =
+    and [<AllowNullLiteral>] TrackEvent =
         inherit Event
         abstract track: obj with get, set
 
-    and TrackEventType =
+    and [<AllowNullLiteral>] TrackEventType =
         abstract prototype: TrackEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TrackEvent
 
-    and TransitionEvent =
+    and [<AllowNullLiteral>] TransitionEvent =
         inherit Event
         abstract elapsedTime: float with get, set
         abstract propertyName: string with get, set
         abstract initTransitionEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * propertyNameArg: string * elapsedTimeArg: float -> unit
 
-    and TransitionEventType =
+    and [<AllowNullLiteral>] TransitionEventType =
         abstract prototype: TransitionEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TransitionEvent
 
-    and TreeWalker =
+    and [<AllowNullLiteral>] TreeWalker =
         abstract currentNode: Node with get, set
         abstract expandEntityReferences: bool with get, set
         abstract filter: NodeFilter with get, set
@@ -8527,33 +8527,33 @@ module Browser =
         abstract previousNode: unit -> Node
         abstract previousSibling: unit -> Node
 
-    and TreeWalkerType =
+    and [<AllowNullLiteral>] TreeWalkerType =
         abstract prototype: TreeWalker with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> TreeWalker
 
-    and UIEvent =
+    and [<AllowNullLiteral>] UIEvent =
         inherit Event
         abstract detail: float with get, set
         abstract view: Window with get, set
         abstract initUIEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float -> unit
 
-    and UIEventType =
+    and [<AllowNullLiteral>] UIEventType =
         abstract prototype: UIEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: ``type``: string * ?eventInitDict: UIEventInit -> UIEvent
 
-    and URL =
+    and [<AllowNullLiteral>] URL =
         abstract createObjectURL: ``object``: obj * ?options: ObjectURLOptions -> string
         abstract revokeObjectURL: url: string -> unit
 
-    and UnviewableContentIdentifiedEvent =
+    and [<AllowNullLiteral>] UnviewableContentIdentifiedEvent =
         inherit NavigationEventWithReferrer
         abstract mediaType: string with get, set
 
-    and UnviewableContentIdentifiedEventType =
+    and [<AllowNullLiteral>] UnviewableContentIdentifiedEventType =
         abstract prototype: UnviewableContentIdentifiedEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> UnviewableContentIdentifiedEvent
 
-    and ValidityState =
+    and [<AllowNullLiteral>] ValidityState =
         abstract badInput: bool with get, set
         abstract customError: bool with get, set
         abstract patternMismatch: bool with get, set
@@ -8565,22 +8565,22 @@ module Browser =
         abstract valid: bool with get, set
         abstract valueMissing: bool with get, set
 
-    and ValidityStateType =
+    and [<AllowNullLiteral>] ValidityStateType =
         abstract prototype: ValidityState with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> ValidityState
 
-    and VideoPlaybackQuality =
+    and [<AllowNullLiteral>] VideoPlaybackQuality =
         abstract corruptedVideoFrames: float with get, set
         abstract creationTime: float with get, set
         abstract droppedVideoFrames: float with get, set
         abstract totalFrameDelay: float with get, set
         abstract totalVideoFrames: float with get, set
 
-    and VideoPlaybackQualityType =
+    and [<AllowNullLiteral>] VideoPlaybackQualityType =
         abstract prototype: VideoPlaybackQuality with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> VideoPlaybackQuality
 
-    and VideoTrack =
+    and [<AllowNullLiteral>] VideoTrack =
         abstract id: string with get, set
         abstract kind: string with get, set
         abstract label: string with get, set
@@ -8588,11 +8588,11 @@ module Browser =
         abstract selected: bool with get, set
         abstract sourceBuffer: SourceBuffer with get, set
 
-    and VideoTrackType =
+    and [<AllowNullLiteral>] VideoTrackType =
         abstract prototype: VideoTrack with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> VideoTrack
 
-    and VideoTrackList =
+    and [<AllowNullLiteral>] VideoTrackList =
         inherit EventTarget
         abstract length: float with get, set
         abstract onaddtrack: Func<TrackEvent, obj> with get, set
@@ -8607,17 +8607,17 @@ module Browser =
         [<Emit("$0.addEventListener('removetrack',$1...)")>] abstract addEventListener_removetrack: listener: Func<TrackEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and VideoTrackListType =
+    and [<AllowNullLiteral>] VideoTrackListType =
         abstract prototype: VideoTrackList with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> VideoTrackList
 
-    and WEBGL_compressed_texture_s3tc =
+    and [<AllowNullLiteral>] WEBGL_compressed_texture_s3tc =
         abstract COMPRESSED_RGBA_S3TC_DXT1_EXT: float with get, set
         abstract COMPRESSED_RGBA_S3TC_DXT3_EXT: float with get, set
         abstract COMPRESSED_RGBA_S3TC_DXT5_EXT: float with get, set
         abstract COMPRESSED_RGB_S3TC_DXT1_EXT: float with get, set
 
-    and WEBGL_compressed_texture_s3tcType =
+    and [<AllowNullLiteral>] WEBGL_compressed_texture_s3tcType =
         abstract prototype: WEBGL_compressed_texture_s3tc with get, set
         abstract COMPRESSED_RGBA_S3TC_DXT1_EXT: float with get, set
         abstract COMPRESSED_RGBA_S3TC_DXT3_EXT: float with get, set
@@ -8625,90 +8625,90 @@ module Browser =
         abstract COMPRESSED_RGB_S3TC_DXT1_EXT: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WEBGL_compressed_texture_s3tc
 
-    and WEBGL_debug_renderer_info =
+    and [<AllowNullLiteral>] WEBGL_debug_renderer_info =
         abstract UNMASKED_RENDERER_WEBGL: float with get, set
         abstract UNMASKED_VENDOR_WEBGL: float with get, set
 
-    and WEBGL_debug_renderer_infoType =
+    and [<AllowNullLiteral>] WEBGL_debug_renderer_infoType =
         abstract prototype: WEBGL_debug_renderer_info with get, set
         abstract UNMASKED_RENDERER_WEBGL: float with get, set
         abstract UNMASKED_VENDOR_WEBGL: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WEBGL_debug_renderer_info
 
-    and WEBGL_depth_texture =
+    and [<AllowNullLiteral>] WEBGL_depth_texture =
         abstract UNSIGNED_INT_24_8_WEBGL: float with get, set
 
-    and WEBGL_depth_textureType =
+    and [<AllowNullLiteral>] WEBGL_depth_textureType =
         abstract prototype: WEBGL_depth_texture with get, set
         abstract UNSIGNED_INT_24_8_WEBGL: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WEBGL_depth_texture
 
-    and WaveShaperNode =
+    and [<AllowNullLiteral>] WaveShaperNode =
         inherit AudioNode
         abstract curve: Float32Array with get, set
         abstract oversample: string with get, set
 
-    and WaveShaperNodeType =
+    and [<AllowNullLiteral>] WaveShaperNodeType =
         abstract prototype: WaveShaperNode with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WaveShaperNode
 
-    and WebGLActiveInfo =
+    and [<AllowNullLiteral>] WebGLActiveInfo =
         abstract name: string with get, set
         abstract size: float with get, set
         abstract ``type``: float with get, set
 
-    and WebGLActiveInfoType =
+    and [<AllowNullLiteral>] WebGLActiveInfoType =
         abstract prototype: WebGLActiveInfo with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLActiveInfo
 
-    and WebGLBuffer =
+    and [<AllowNullLiteral>] WebGLBuffer =
         inherit WebGLObject
 
 
-    and WebGLBufferType =
+    and [<AllowNullLiteral>] WebGLBufferType =
         abstract prototype: WebGLBuffer with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLBuffer
 
-    and WebGLContextEvent =
+    and [<AllowNullLiteral>] WebGLContextEvent =
         inherit Event
         abstract statusMessage: string with get, set
 
-    and WebGLContextEventType =
+    and [<AllowNullLiteral>] WebGLContextEventType =
         abstract prototype: WebGLContextEvent with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLContextEvent
 
-    and WebGLFramebuffer =
+    and [<AllowNullLiteral>] WebGLFramebuffer =
         inherit WebGLObject
 
 
-    and WebGLFramebufferType =
+    and [<AllowNullLiteral>] WebGLFramebufferType =
         abstract prototype: WebGLFramebuffer with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLFramebuffer
 
-    and WebGLObject =
+    and [<AllowNullLiteral>] WebGLObject =
         interface end
 
-    and WebGLObjectType =
+    and [<AllowNullLiteral>] WebGLObjectType =
         abstract prototype: WebGLObject with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLObject
 
-    and WebGLProgram =
+    and [<AllowNullLiteral>] WebGLProgram =
         inherit WebGLObject
 
 
-    and WebGLProgramType =
+    and [<AllowNullLiteral>] WebGLProgramType =
         abstract prototype: WebGLProgram with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLProgram
 
-    and WebGLRenderbuffer =
+    and [<AllowNullLiteral>] WebGLRenderbuffer =
         inherit WebGLObject
 
 
-    and WebGLRenderbufferType =
+    and [<AllowNullLiteral>] WebGLRenderbufferType =
         abstract prototype: WebGLRenderbuffer with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLRenderbuffer
 
-    and WebGLRenderingContext =
+    and [<AllowNullLiteral>] WebGLRenderingContext =
         abstract canvas: HTMLCanvasElement with get, set
         abstract drawingBufferHeight: float with get, set
         abstract drawingBufferWidth: float with get, set
@@ -9154,7 +9154,7 @@ module Browser =
         abstract vertexAttribPointer: indx: float * size: float * ``type``: float * normalized: bool * stride: float * offset: float -> unit
         abstract viewport: x: float * y: float * width: float * height: float -> unit
 
-    and WebGLRenderingContextType =
+    and [<AllowNullLiteral>] WebGLRenderingContextType =
         abstract prototype: WebGLRenderingContext with get, set
         abstract ACTIVE_ATTRIBUTES: float with get, set
         abstract ACTIVE_TEXTURE: float with get, set
@@ -9455,39 +9455,39 @@ module Browser =
         abstract ZERO: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLRenderingContext
 
-    and WebGLShader =
+    and [<AllowNullLiteral>] WebGLShader =
         inherit WebGLObject
 
 
-    and WebGLShaderType =
+    and [<AllowNullLiteral>] WebGLShaderType =
         abstract prototype: WebGLShader with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLShader
 
-    and WebGLShaderPrecisionFormat =
+    and [<AllowNullLiteral>] WebGLShaderPrecisionFormat =
         abstract precision: float with get, set
         abstract rangeMax: float with get, set
         abstract rangeMin: float with get, set
 
-    and WebGLShaderPrecisionFormatType =
+    and [<AllowNullLiteral>] WebGLShaderPrecisionFormatType =
         abstract prototype: WebGLShaderPrecisionFormat with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLShaderPrecisionFormat
 
-    and WebGLTexture =
+    and [<AllowNullLiteral>] WebGLTexture =
         inherit WebGLObject
 
 
-    and WebGLTextureType =
+    and [<AllowNullLiteral>] WebGLTextureType =
         abstract prototype: WebGLTexture with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLTexture
 
-    and WebGLUniformLocation =
+    and [<AllowNullLiteral>] WebGLUniformLocation =
         interface end
 
-    and WebGLUniformLocationType =
+    and [<AllowNullLiteral>] WebGLUniformLocationType =
         abstract prototype: WebGLUniformLocation with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> WebGLUniformLocation
 
-    and WebKitCSSMatrix =
+    and [<AllowNullLiteral>] WebKitCSSMatrix =
         abstract a: float with get, set
         abstract b: float with get, set
         abstract c: float with get, set
@@ -9521,19 +9521,19 @@ module Browser =
         abstract toString: unit -> string
         abstract translate: x: float * y: float * ?z: float -> WebKitCSSMatrix
 
-    and WebKitCSSMatrixType =
+    and [<AllowNullLiteral>] WebKitCSSMatrixType =
         abstract prototype: WebKitCSSMatrix with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?text: string -> WebKitCSSMatrix
 
-    and WebKitPoint =
+    and [<AllowNullLiteral>] WebKitPoint =
         abstract x: float with get, set
         abstract y: float with get, set
 
-    and WebKitPointType =
+    and [<AllowNullLiteral>] WebKitPointType =
         abstract prototype: WebKitPoint with get, set
         [<Emit("new $0($1...)")>] abstract Create: ?x: float * ?y: float -> WebKitPoint
 
-    and WebSocket =
+    and [<AllowNullLiteral>] WebSocket =
         inherit EventTarget
         abstract binaryType: string with get, set
         abstract bufferedAmount: float with get, set
@@ -9557,7 +9557,7 @@ module Browser =
         [<Emit("$0.addEventListener('open',$1...)")>] abstract addEventListener_open: listener: Func<Event, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and WebSocketType =
+    and [<AllowNullLiteral>] WebSocketType =
         abstract prototype: WebSocket with get, set
         abstract CLOSED: float with get, set
         abstract CLOSING: float with get, set
@@ -9565,7 +9565,7 @@ module Browser =
         abstract OPEN: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: url: string * ?protocols: U2<string, ResizeArray<string>> -> WebSocket
 
-    and WheelEvent =
+    and [<AllowNullLiteral>] WheelEvent =
         inherit MouseEvent
         abstract deltaMode: float with get, set
         abstract deltaX: float with get, set
@@ -9577,14 +9577,14 @@ module Browser =
         abstract getCurrentPoint: element: Element -> unit
         abstract initWheelEvent: typeArg: string * canBubbleArg: bool * cancelableArg: bool * viewArg: Window * detailArg: float * screenXArg: float * screenYArg: float * clientXArg: float * clientYArg: float * buttonArg: float * relatedTargetArg: EventTarget * modifiersListArg: string * deltaXArg: float * deltaYArg: float * deltaZArg: float * deltaMode: float -> unit
 
-    and WheelEventType =
+    and [<AllowNullLiteral>] WheelEventType =
         abstract prototype: WheelEvent with get, set
         abstract DOM_DELTA_LINE: float with get, set
         abstract DOM_DELTA_PAGE: float with get, set
         abstract DOM_DELTA_PIXEL: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: typeArg: string * ?eventInitDict: WheelEventInit -> WheelEvent
 
-    and Window =
+    and [<AllowNullLiteral>] Window =
         inherit EventTarget
         inherit WindowTimers
         inherit WindowSessionStorage
@@ -9857,11 +9857,11 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and WindowType =
+    and [<AllowNullLiteral>] WindowType =
         abstract prototype: Window with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> Window
 
-    and Worker =
+    and [<AllowNullLiteral>] Worker =
         inherit EventTarget
         inherit AbstractWorker
         abstract onmessage: Func<MessageEvent, obj> with get, set
@@ -9871,19 +9871,19 @@ module Browser =
         [<Emit("$0.addEventListener('message',$1...)")>] abstract addEventListener_message: listener: Func<MessageEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and WorkerType =
+    and [<AllowNullLiteral>] WorkerType =
         abstract prototype: Worker with get, set
         [<Emit("new $0($1...)")>] abstract Create: stringUrl: string -> Worker
 
-    and XMLDocument =
+    and [<AllowNullLiteral>] XMLDocument =
         inherit Document
 
 
-    and XMLDocumentType =
+    and [<AllowNullLiteral>] XMLDocumentType =
         abstract prototype: XMLDocument with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> XMLDocument
 
-    and XMLHttpRequest =
+    and [<AllowNullLiteral>] XMLHttpRequest =
         inherit EventTarget
         inherit XMLHttpRequestEventTarget
         abstract msCaching: string with get, set
@@ -9924,7 +9924,7 @@ module Browser =
         [<Emit("$0.addEventListener('timeout',$1...)")>] abstract addEventListener_timeout: listener: Func<ProgressEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and XMLHttpRequestType =
+    and [<AllowNullLiteral>] XMLHttpRequestType =
         abstract prototype: XMLHttpRequest with get, set
         abstract DONE: float with get, set
         abstract HEADERS_RECEIVED: float with get, set
@@ -9934,46 +9934,46 @@ module Browser =
         [<Emit("new $0($1...)")>] abstract Create: unit -> XMLHttpRequest
         abstract create: unit -> XMLHttpRequest
 
-    and XMLHttpRequestUpload =
+    and [<AllowNullLiteral>] XMLHttpRequestUpload =
         inherit EventTarget
         inherit XMLHttpRequestEventTarget
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and XMLHttpRequestUploadType =
+    and [<AllowNullLiteral>] XMLHttpRequestUploadType =
         abstract prototype: XMLHttpRequestUpload with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> XMLHttpRequestUpload
 
-    and XMLSerializer =
+    and [<AllowNullLiteral>] XMLSerializer =
         abstract serializeToString: target: Node -> string
 
-    and XMLSerializerType =
+    and [<AllowNullLiteral>] XMLSerializerType =
         abstract prototype: XMLSerializer with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> XMLSerializer
 
-    and XPathEvaluator =
+    and [<AllowNullLiteral>] XPathEvaluator =
         abstract createExpression: expression: string * resolver: XPathNSResolver -> XPathExpression
         abstract createNSResolver: ?nodeResolver: Node -> XPathNSResolver
         abstract evaluate: expression: string * contextNode: Node * resolver: XPathNSResolver * ``type``: float * result: XPathResult -> XPathResult
 
-    and XPathEvaluatorType =
+    and [<AllowNullLiteral>] XPathEvaluatorType =
         abstract prototype: XPathEvaluator with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> XPathEvaluator
 
-    and XPathExpression =
+    and [<AllowNullLiteral>] XPathExpression =
         abstract evaluate: contextNode: Node * ``type``: float * result: XPathResult -> XPathExpression
 
-    and XPathExpressionType =
+    and [<AllowNullLiteral>] XPathExpressionType =
         abstract prototype: XPathExpression with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> XPathExpression
 
-    and XPathNSResolver =
+    and [<AllowNullLiteral>] XPathNSResolver =
         abstract lookupNamespaceURI: prefix: string -> string
 
-    and XPathNSResolverType =
+    and [<AllowNullLiteral>] XPathNSResolverType =
         abstract prototype: XPathNSResolver with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> XPathNSResolver
 
-    and XPathResult =
+    and [<AllowNullLiteral>] XPathResult =
         abstract booleanValue: bool with get, set
         abstract invalidIteratorState: bool with get, set
         abstract numberValue: float with get, set
@@ -9994,7 +9994,7 @@ module Browser =
         abstract iterateNext: unit -> Node
         abstract snapshotItem: index: float -> Node
 
-    and XPathResultType =
+    and [<AllowNullLiteral>] XPathResultType =
         abstract prototype: XPathResult with get, set
         abstract ANY_TYPE: float with get, set
         abstract ANY_UNORDERED_NODE_TYPE: float with get, set
@@ -10008,7 +10008,7 @@ module Browser =
         abstract UNORDERED_NODE_SNAPSHOT_TYPE: float with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> XPathResult
 
-    and XSLTProcessor =
+    and [<AllowNullLiteral>] XSLTProcessor =
         abstract clearParameters: unit -> unit
         abstract getParameter: namespaceURI: string * localName: string -> obj
         abstract importStylesheet: style: Node -> unit
@@ -10018,25 +10018,25 @@ module Browser =
         abstract transformToDocument: source: Node -> Document
         abstract transformToFragment: source: Node * document: Document -> DocumentFragment
 
-    and XSLTProcessorType =
+    and [<AllowNullLiteral>] XSLTProcessorType =
         abstract prototype: XSLTProcessor with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> XSLTProcessor
 
-    and AbstractWorker =
+    and [<AllowNullLiteral>] AbstractWorker =
         abstract onerror: Func<Event, obj> with get, set
         [<Emit("$0.addEventListener('error',$1...)")>] abstract addEventListener_error: listener: Func<ErrorEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and ChildNode =
+    and [<AllowNullLiteral>] ChildNode =
         abstract remove: unit -> unit
 
-    and DOML2DeprecatedColorProperty =
+    and [<AllowNullLiteral>] DOML2DeprecatedColorProperty =
         abstract color: string with get, set
 
-    and DOML2DeprecatedSizeProperty =
+    and [<AllowNullLiteral>] DOML2DeprecatedSizeProperty =
         abstract size: float with get, set
 
-    and DocumentEvent =
+    and [<AllowNullLiteral>] DocumentEvent =
         [<Emit("$0.createEvent('AnimationEvent')")>] abstract createEvent_AnimationEvent: unit -> AnimationEvent
         [<Emit("$0.createEvent('AriaRequestEvent')")>] abstract createEvent_AriaRequestEvent: unit -> AriaRequestEvent
         [<Emit("$0.createEvent('AudioProcessingEvent')")>] abstract createEvent_AudioProcessingEvent: unit -> AudioProcessingEvent
@@ -10094,17 +10094,17 @@ module Browser =
         [<Emit("$0.createEvent('WheelEvent')")>] abstract createEvent_WheelEvent: unit -> WheelEvent
         abstract createEvent: eventInterface: string -> Event
 
-    and ElementTraversal =
+    and [<AllowNullLiteral>] ElementTraversal =
         abstract childElementCount: float with get, set
         abstract firstElementChild: Element with get, set
         abstract lastElementChild: Element with get, set
         abstract nextElementSibling: Element with get, set
         abstract previousElementSibling: Element with get, set
 
-    and GetSVGDocument =
+    and [<AllowNullLiteral>] GetSVGDocument =
         abstract getSVGDocument: unit -> Document
 
-    and GlobalEventHandlers =
+    and [<AllowNullLiteral>] GlobalEventHandlers =
         abstract onpointercancel: Func<PointerEvent, obj> with get, set
         abstract onpointerdown: Func<PointerEvent, obj> with get, set
         abstract onpointerenter: Func<PointerEvent, obj> with get, set
@@ -10125,19 +10125,19 @@ module Browser =
         [<Emit("$0.addEventListener('wheel',$1...)")>] abstract addEventListener_wheel: listener: Func<WheelEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and HTMLTableAlignment =
+    and [<AllowNullLiteral>] HTMLTableAlignment =
         abstract ch: string with get, set
         abstract chOff: string with get, set
         abstract vAlign: string with get, set
 
-    and IDBEnvironment =
+    and [<AllowNullLiteral>] IDBEnvironment =
         abstract indexedDB: IDBFactory with get, set
         abstract msIndexedDB: IDBFactory with get, set
 
-    and LinkStyle =
+    and [<AllowNullLiteral>] LinkStyle =
         abstract sheet: StyleSheet with get, set
 
-    and MSBaseReader =
+    and [<AllowNullLiteral>] MSBaseReader =
         abstract onabort: Func<Event, obj> with get, set
         abstract onerror: Func<Event, obj> with get, set
         abstract onload: Func<Event, obj> with get, set
@@ -10158,11 +10158,11 @@ module Browser =
         [<Emit("$0.addEventListener('progress',$1...)")>] abstract addEventListener_progress: listener: Func<ProgressEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and MSFileSaver =
+    and [<AllowNullLiteral>] MSFileSaver =
         abstract msSaveBlob: blob: obj * ?defaultName: string -> bool
         abstract msSaveOrOpenBlob: blob: obj * ?defaultName: string -> bool
 
-    and MSNavigatorDoNotTrack =
+    and [<AllowNullLiteral>] MSNavigatorDoNotTrack =
         abstract confirmSiteSpecificTrackingException: args: ConfirmSiteSpecificExceptionsInformation -> bool
         abstract confirmWebWideTrackingException: args: ExceptionInformation -> bool
         abstract removeSiteSpecificTrackingException: args: ExceptionInformation -> unit
@@ -10170,13 +10170,13 @@ module Browser =
         abstract storeSiteSpecificTrackingException: args: StoreSiteSpecificExceptionsInformation -> unit
         abstract storeWebWideTrackingException: args: StoreExceptionsInformation -> unit
 
-    and NavigatorContentUtils =
+    and [<AllowNullLiteral>] NavigatorContentUtils =
         interface end
 
-    and NavigatorGeolocation =
+    and [<AllowNullLiteral>] NavigatorGeolocation =
         abstract geolocation: Geolocation with get, set
 
-    and NavigatorID =
+    and [<AllowNullLiteral>] NavigatorID =
         abstract appName: string with get, set
         abstract appVersion: string with get, set
         abstract platform: string with get, set
@@ -10186,30 +10186,30 @@ module Browser =
         abstract vendor: string with get, set
         abstract vendorSub: string with get, set
 
-    and NavigatorOnLine =
+    and [<AllowNullLiteral>] NavigatorOnLine =
         abstract onLine: bool with get, set
 
-    and NavigatorStorageUtils =
+    and [<AllowNullLiteral>] NavigatorStorageUtils =
         interface end
 
-    and NodeSelector =
+    and [<AllowNullLiteral>] NodeSelector =
         abstract querySelector: selectors: string -> Element
         abstract querySelectorAll: selectors: string -> NodeListOf<Element>
 
-    and RandomSource =
+    and [<AllowNullLiteral>] RandomSource =
         abstract getRandomValues: array: ArrayBufferView -> ArrayBufferView
 
-    and SVGAnimatedPathData =
+    and [<AllowNullLiteral>] SVGAnimatedPathData =
         abstract pathSegList: SVGPathSegList with get, set
 
-    and SVGAnimatedPoints =
+    and [<AllowNullLiteral>] SVGAnimatedPoints =
         abstract animatedPoints: SVGPointList with get, set
         abstract points: SVGPointList with get, set
 
-    and SVGExternalResourcesRequired =
+    and [<AllowNullLiteral>] SVGExternalResourcesRequired =
         abstract externalResourcesRequired: SVGAnimatedBoolean with get, set
 
-    and SVGFilterPrimitiveStandardAttributes =
+    and [<AllowNullLiteral>] SVGFilterPrimitiveStandardAttributes =
         inherit SVGStylable
         abstract height: SVGAnimatedLength with get, set
         abstract result: SVGAnimatedString with get, set
@@ -10217,15 +10217,15 @@ module Browser =
         abstract x: SVGAnimatedLength with get, set
         abstract y: SVGAnimatedLength with get, set
 
-    and SVGFitToViewBox =
+    and [<AllowNullLiteral>] SVGFitToViewBox =
         abstract preserveAspectRatio: SVGAnimatedPreserveAspectRatio with get, set
         abstract viewBox: SVGAnimatedRect with get, set
 
-    and SVGLangSpace =
+    and [<AllowNullLiteral>] SVGLangSpace =
         abstract xmllang: string with get, set
         abstract xmlspace: string with get, set
 
-    and SVGLocatable =
+    and [<AllowNullLiteral>] SVGLocatable =
         abstract farthestViewportElement: SVGElement with get, set
         abstract nearestViewportElement: SVGElement with get, set
         abstract getBBox: unit -> SVGRect
@@ -10233,50 +10233,50 @@ module Browser =
         abstract getScreenCTM: unit -> SVGMatrix
         abstract getTransformToElement: element: SVGElement -> SVGMatrix
 
-    and SVGStylable =
+    and [<AllowNullLiteral>] SVGStylable =
         abstract className: obj with get, set
         abstract style: CSSStyleDeclaration with get, set
 
-    and SVGTests =
+    and [<AllowNullLiteral>] SVGTests =
         abstract requiredExtensions: SVGStringList with get, set
         abstract requiredFeatures: SVGStringList with get, set
         abstract systemLanguage: SVGStringList with get, set
         abstract hasExtension: extension: string -> bool
 
-    and SVGTransformable =
+    and [<AllowNullLiteral>] SVGTransformable =
         inherit SVGLocatable
         abstract transform: SVGAnimatedTransformList with get, set
 
-    and SVGURIReference =
+    and [<AllowNullLiteral>] SVGURIReference =
         abstract href: SVGAnimatedString with get, set
 
-    and WindowBase64 =
+    and [<AllowNullLiteral>] WindowBase64 =
         abstract atob: encodedString: string -> string
         abstract btoa: rawString: string -> string
 
-    and WindowConsole =
+    and [<AllowNullLiteral>] WindowConsole =
         abstract console: Console with get, set
 
-    and WindowLocalStorage =
+    and [<AllowNullLiteral>] WindowLocalStorage =
         abstract localStorage: Storage with get, set
 
-    and WindowSessionStorage =
+    and [<AllowNullLiteral>] WindowSessionStorage =
         abstract sessionStorage: Storage with get, set
 
-    and WindowTimers =
+    and [<AllowNullLiteral>] WindowTimers =
         inherit WindowTimersExtension
         abstract clearInterval: handle: float -> unit
         abstract clearTimeout: handle: float -> unit
         abstract setInterval: handler: obj * ?timeout: obj * [<ParamArray>] args: obj[] -> float
         abstract setTimeout: handler: obj * ?timeout: obj * [<ParamArray>] args: obj[] -> float
 
-    and WindowTimersExtension =
+    and [<AllowNullLiteral>] WindowTimersExtension =
         abstract clearImmediate: handle: float -> unit
         abstract msClearImmediate: handle: float -> unit
         abstract msSetImmediate: expression: obj * [<ParamArray>] args: obj[] -> float
         abstract setImmediate: expression: obj * [<ParamArray>] args: obj[] -> float
 
-    and XMLHttpRequestEventTarget =
+    and [<AllowNullLiteral>] XMLHttpRequestEventTarget =
         abstract onabort: Func<Event, obj> with get, set
         abstract onerror: Func<Event, obj> with get, set
         abstract onload: Func<Event, obj> with get, set
@@ -10293,7 +10293,7 @@ module Browser =
         [<Emit("$0.addEventListener('timeout',$1...)")>] abstract addEventListener_timeout: listener: Func<ProgressEvent, obj> * ?useCapture: bool -> unit
         abstract addEventListener: ``type``: string * listener: EventListenerOrEventListenerObject * ?useCapture: bool -> unit
 
-    and StorageEventInit =
+    and [<AllowNullLiteral>] StorageEventInit =
         inherit EventInit
         abstract key: string option with get, set
         abstract oldValue: string option with get, set
@@ -10301,32 +10301,32 @@ module Browser =
         abstract url: string with get, set
         abstract storageArea: Storage option with get, set
 
-    and IDBObjectStoreParameters =
+    and [<AllowNullLiteral>] IDBObjectStoreParameters =
         abstract keyPath: U2<string, ResizeArray<string>> option with get, set
         abstract autoIncrement: bool option with get, set
 
-    and IDBIndexParameters =
+    and [<AllowNullLiteral>] IDBIndexParameters =
         abstract unique: bool option with get, set
         abstract multiEntry: bool option with get, set
 
-    and NodeListOf<'TNode> =
+    and [<AllowNullLiteral>] NodeListOf<'TNode> =
         inherit NodeList
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> 'TNode with get, set
         abstract item: index: float -> 'TNode
 
-    and BlobPropertyBag =
+    and [<AllowNullLiteral>] BlobPropertyBag =
         abstract ``type``: string option with get, set
         abstract endings: string option with get, set
 
-    and FilePropertyBag =
+    and [<AllowNullLiteral>] FilePropertyBag =
         abstract ``type``: string option with get, set
         abstract lastModified: float option with get, set
 
-    and EventListenerObject =
+    and [<AllowNullLiteral>] EventListenerObject =
         abstract handleEvent: evt: Event -> unit
 
-    and MessageEventInit =
+    and [<AllowNullLiteral>] MessageEventInit =
         inherit EventInit
         abstract data: obj option with get, set
         abstract origin: string option with get, set
@@ -10335,24 +10335,24 @@ module Browser =
         abstract source: obj option with get, set
         abstract ports: ResizeArray<MessagePort> option with get, set
 
-    and ProgressEventInit =
+    and [<AllowNullLiteral>] ProgressEventInit =
         inherit EventInit
         abstract lengthComputable: bool option with get, set
         abstract loaded: float option with get, set
         abstract total: float option with get, set
 
-    and HTMLTemplateElement =
+    and [<AllowNullLiteral>] HTMLTemplateElement =
         inherit HTMLElement
         abstract content: DocumentFragment with get, set
 
-    and HTMLTemplateElementType =
+    and [<AllowNullLiteral>] HTMLTemplateElementType =
         abstract prototype: HTMLTemplateElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLTemplateElement
 
-    and HTMLPictureElement =
+    and [<AllowNullLiteral>] HTMLPictureElement =
         inherit HTMLElement
 
-    and HTMLPictureElementType =
+    and [<AllowNullLiteral>] HTMLPictureElementType =
         abstract prototype: HTMLPictureElement with get, set
         [<Emit("new $0($1...)")>] abstract Create: unit -> HTMLPictureElement
 
@@ -11001,7 +11001,7 @@ module Browser =
 
     [<Global>]
     module Intl =
-        type CollatorOptions =
+        type [<AllowNullLiteral>] CollatorOptions =
             abstract usage: string option with get, set
             abstract localeMatcher: string option with get, set
             abstract numeric: bool option with get, set
@@ -11009,7 +11009,7 @@ module Browser =
             abstract sensitivity: string option with get, set
             abstract ignorePunctuation: bool option with get, set
 
-        and ResolvedCollatorOptions =
+        and [<AllowNullLiteral>] ResolvedCollatorOptions =
             abstract locale: string with get, set
             abstract usage: string with get, set
             abstract sensitivity: string with get, set
@@ -11018,11 +11018,11 @@ module Browser =
             abstract caseFirst: string with get, set
             abstract numeric: bool with get, set
 
-        and Collator =
+        and [<AllowNullLiteral>] Collator =
             abstract compare: x: string * y: string -> float
             abstract resolvedOptions: unit -> ResolvedCollatorOptions
 
-        and CollatorType =
+        and [<AllowNullLiteral>] CollatorType =
             [<Emit("new $0($1...)")>] abstract Create: ?locales: ResizeArray<string> * ?options: CollatorOptions -> Collator
             [<Emit("new $0($1...)")>] abstract Create: ?locale: string * ?options: CollatorOptions -> Collator
             [<Emit("$0($1...)")>] abstract Invoke: ?locales: ResizeArray<string> * ?options: CollatorOptions -> Collator
@@ -11030,7 +11030,7 @@ module Browser =
             abstract supportedLocalesOf: locales: ResizeArray<string> * ?options: CollatorOptions -> ResizeArray<string>
             abstract supportedLocalesOf: locale: string * ?options: CollatorOptions -> ResizeArray<string>
 
-        and NumberFormatOptions =
+        and [<AllowNullLiteral>] NumberFormatOptions =
             abstract localeMatcher: string option with get, set
             abstract style: string option with get, set
             abstract currency: string option with get, set
@@ -11042,7 +11042,7 @@ module Browser =
             abstract minimumSignificantDigits: float option with get, set
             abstract maximumSignificantDigits: float option with get, set
 
-        and ResolvedNumberFormatOptions =
+        and [<AllowNullLiteral>] ResolvedNumberFormatOptions =
             abstract locale: string with get, set
             abstract numberingSystem: string with get, set
             abstract style: string with get, set
@@ -11055,11 +11055,11 @@ module Browser =
             abstract maximumSignificantDigits: float option with get, set
             abstract useGrouping: bool with get, set
 
-        and NumberFormat =
+        and [<AllowNullLiteral>] NumberFormat =
             abstract format: value: float -> string
             abstract resolvedOptions: unit -> ResolvedNumberFormatOptions
 
-        and NumberFormatType =
+        and [<AllowNullLiteral>] NumberFormatType =
             [<Emit("new $0($1...)")>] abstract Create: ?locales: ResizeArray<string> * ?options: NumberFormatOptions -> NumberFormat
             [<Emit("new $0($1...)")>] abstract Create: ?locale: string * ?options: NumberFormatOptions -> NumberFormat
             [<Emit("$0($1...)")>] abstract Invoke: ?locales: ResizeArray<string> * ?options: NumberFormatOptions -> NumberFormat
@@ -11067,7 +11067,7 @@ module Browser =
             abstract supportedLocalesOf: locales: ResizeArray<string> * ?options: NumberFormatOptions -> ResizeArray<string>
             abstract supportedLocalesOf: locale: string * ?options: NumberFormatOptions -> ResizeArray<string>
 
-        and DateTimeFormatOptions =
+        and [<AllowNullLiteral>] DateTimeFormatOptions =
             abstract localeMatcher: string option with get, set
             abstract weekday: string option with get, set
             abstract era: string option with get, set
@@ -11082,7 +11082,7 @@ module Browser =
             abstract hour12: bool option with get, set
             abstract timeZone: string option with get, set
 
-        and ResolvedDateTimeFormatOptions =
+        and [<AllowNullLiteral>] ResolvedDateTimeFormatOptions =
             abstract locale: string with get, set
             abstract calendar: string with get, set
             abstract numberingSystem: string with get, set
@@ -11098,11 +11098,11 @@ module Browser =
             abstract second: string option with get, set
             abstract timeZoneName: string option with get, set
 
-        and DateTimeFormat =
+        and [<AllowNullLiteral>] DateTimeFormat =
             abstract format: ?date: U2<DateTime, float> -> string
             abstract resolvedOptions: unit -> ResolvedDateTimeFormatOptions
 
-        and DateTimeFormatType =
+        and [<AllowNullLiteral>] DateTimeFormatType =
             [<Emit("new $0($1...)")>] abstract Create: ?locales: ResizeArray<string> * ?options: DateTimeFormatOptions -> DateTimeFormat
             [<Emit("new $0($1...)")>] abstract Create: ?locale: string * ?options: DateTimeFormatOptions -> DateTimeFormat
             [<Emit("$0($1...)")>] abstract Invoke: ?locales: ResizeArray<string> * ?options: DateTimeFormatOptions -> DateTimeFormat
@@ -11118,15 +11118,15 @@ module Browser =
     // TODO        
     // [<AutoOpen>]
     // module Extensions =
-    //     type String =
+    //     type [<AllowNullLiteral>] String =
     //         abstract localeCompare: that: string * locales: ResizeArray<string> * ?options: Intl.CollatorOptions -> float
     //         abstract localeCompare: that: string * locale: string * ?options: Intl.CollatorOptions -> float
         
-    //     and Number =
+    //     and [<AllowNullLiteral>] Number =
     //         abstract toLocaleString: ?locales: ResizeArray<string> * ?options: Intl.NumberFormatOptions -> string
     //         abstract toLocaleString: ?locale: string * ?options: Intl.NumberFormatOptions -> string
         
-    //     and Date =
+    //     and [<AllowNullLiteral>] Date =
     //         abstract toLocaleString: ?locales: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
     //         abstract toLocaleDateString: ?locales: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string
     //         abstract toLocaleTimeString: ?locale: ResizeArray<string> * ?options: Intl.DateTimeFormatOptions -> string

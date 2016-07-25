@@ -15,7 +15,7 @@ open Fable.Import.JS
 `,
 
 interface:
-`[TYPE_KEYWORD] [DECORATOR][NAME][CONSTRUCTOR] =
+`[TYPE_KEYWORD] [<AllowNullLiteral>] [DECORATOR][NAME][CONSTRUCTOR] =
 `,
 
 classProperty:

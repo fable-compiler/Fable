@@ -27,7 +27,7 @@ type LogAsyncErrorsPlugin() =
             match info.ownerFullName with
             | "Microsoft.FSharp.Control.Async" ->
                 match info.methodName with
-                | "start" | "startImmediate" ->
+                | "Start" | "StartImmediate" ->
                     let import =
                         Fable.ImportRef ("Async", com.Options.coreLib)
                         |> Fable.Value

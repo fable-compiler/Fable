@@ -293,11 +293,11 @@ Target "FableCore" (fun _ ->
     Npm.script fableCoreNpmDir "tsc" ["fable-core.ts --target ES2015 --declaration"]
     // Compile Es2015 syntax to ES5 with different module targets 
     setEnvironVar "BABEL_ENV" "target-commonjs"
-    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o commonjs.js"] 
+    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o commonjs.js --compact=false"] 
     setEnvironVar "BABEL_ENV" "target-es2015"
-    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o es2015.js"] 
+    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o es2015.js --compact=false"] 
     setEnvironVar "BABEL_ENV" "target-umd"
-    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js"]
+    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
     // Minimize 
     Npm.script fableCoreNpmDir "uglifyjs" ["fable-core.js -c -m -o fable-core.min.js"] 
 )
