@@ -57,13 +57,14 @@ type Parent =
     member x.Sum() = x.children |> Seq.sumBy (fun c -> c.Sum())
 
 open Fable.Core
+open Fable.Core.JsInterop
 
 [<Test>]
 let ``Records can be JSON serialized forth and back``() =
     let parent = { children=[|{a="3";b=5}; {b=7;a="1"} |] }
     let sum1 = parent.Sum() 
-    let json = Serialize.toJson parent
-    let tree2 = Serialize.ofJson<Parent> json
+    let json = toJson parent
+    let tree2 = ofJson<Parent> json
     let sum2 = parent.Sum()
     equal true (box tree2 :? Parent) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed

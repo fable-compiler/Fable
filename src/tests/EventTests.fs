@@ -173,3 +173,34 @@ let ``IEvent.RemoveHandler works``() =
      
     source.Trigger 6
     equal 0 result
+
+type ClassWithCLIEvent() =
+    let event = new Event<_>()
+    [<CLIEvent>]
+    member this.Event = event.Publish
+    member this.TestEvent(arg) =
+        event.Trigger(this, arg)
+
+[<Test>]
+let ``Classes can trigger CLI events``() =
+    let mutable result = 0
+    let classWithEvent = new ClassWithCLIEvent()
+    classWithEvent.Event.Add(fun (sender, x) -> result <- x)
+    classWithEvent.TestEvent(5)
+    equal 5 result
+
+type ClassWithNonCLIEvent() =
+    let event = new Event<_>()
+    member this.Event = event.Publish
+    member this.TestEvent(arg) =
+        event.Trigger(this, arg)
+
+[<Test>]
+let ``Classes can trigger non-CLI events``() =
+    let mutable result = ""
+    let classWithEvent = new ClassWithNonCLIEvent()
+    let disp = classWithEvent.Event.Subscribe(fun (sender, arg) -> result <- arg)
+    classWithEvent.TestEvent("Hello")
+    disp.Dispose()
+    classWithEvent.TestEvent("Bye")    
+    equal "Hello" result

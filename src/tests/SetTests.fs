@@ -11,15 +11,17 @@ let ``set function works``() =
 
 [<Test>]
 let ``Set.isEmpty works``() =
-    let xs = Set.empty<int>
-    xs |> Seq.isEmpty
-    |> equal true
+    let xs = set []
+    Set.isEmpty xs |> equal true
+    let ys = set [1]
+    Set.isEmpty ys |> equal false
 
 [<Test>]
 let ``Set.IsEmpty works``() =
     let xs = Set.empty<int>
-    xs.IsEmpty
-    |> equal true
+    xs.IsEmpty |> equal true
+    let ys = set [1; 1]
+    ys.IsEmpty |> equal false
 
 [<Test>]
 let ``Set.Count works``() =
@@ -143,14 +145,14 @@ let ``Set.partition works``() =
 [<Test>]
 let ``Set.fold works``() =
     let xs = set [1.; 2.; 3.; 4.]
-    xs |> Set.fold (+) 0.
-    |> equal 10.
+    xs |> Set.fold (-) 0.
+    |> equal -10.
 
 [<Test>]
 let ``Set.foldBack works``() =
     let xs = set [1.; 2.; 3.; 4.]
-    Set.foldBack (+) xs 0.
-    |> equal 10.
+    Set.foldBack (-) xs 0.
+    |> equal -2.
 
 [<Test>]
 let ``Set.map works``() =

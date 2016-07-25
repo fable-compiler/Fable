@@ -36,16 +36,16 @@ type BitwiseWrapPlugin() =
                     | _ -> None
 
                 match info.methodName with
-                | "sbyte"
-                | "byte"
-                | "int8"
-                | "uint8"
-                | "int16"
-                | "uint16"
-                | "int"
-                | "int32"
-                | "uint"
-                | "uint32"
+                | "ToSByte"
+                | "ToByte"
+                | "ToInt8"
+                | "ToUInt8"
+                | "ToInt16"
+                | "ToUInt16"
+                | "ToInt"
+                | "ToInt32"
+                | "ToUInt"
+                | "ToUInt32"
                 | "op_UnaryNegation" 
                 | "op_UnaryPlus" ->
                     if info.args.Length <> 1 then

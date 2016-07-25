@@ -1,6 +1,6 @@
 {
   "name": "fable-import-vscode",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Fable bindings for Visual Studio Code",
   "repository": {
     "type": "git",

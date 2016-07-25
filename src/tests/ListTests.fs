@@ -311,6 +311,20 @@ let ``List.mapi2 works``() =
       List.sum zs |> equal 16
 
 [<Test>]
+let ``List.mapFold works`` () =   
+    let xs = [1y; 2y; 3y; 4y]
+    let result = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+    fst result |> List.sum |> equal 20y
+    snd result |> equal 10y
+
+[<Test>]
+let ``List.mapFoldBack works`` () =   
+    let xs = [1.; 2.; 3.; 4.]
+    let result = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+    fst result |> List.sum |> equal -20.
+    snd result |> equal -10.
+
+[<Test>]
 let ``List.max works``() =
       let xs = [1; 2]
       xs |> List.max

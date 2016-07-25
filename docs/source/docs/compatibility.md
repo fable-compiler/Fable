@@ -75,11 +75,11 @@ All methods in F# `Seq` module have been implemented. There may be some still mi
 and `Array` modules, but in that case the compiler will default to the corresponding
 `Seq` function and build a new list or array from the response if necessary.
 
-## Map, Set and Dictionary
+## Map, Set, Dictionary and HashSet
 
-Maps and Sets fall back to the [ES2015 corresponding classes](http://babeljs.io/docs/learn-es2015/#map-set-weak-map-weak-set)
-for performance. Adding and removing will create new objects. `System.Collections.Generic.Dictionary` compile to ES2015 `Map` too
-and allows mutable operations. Same for `System.Collections.Generic.HashSet`.
+`System.Collections.Generic.Dictionary` compiles to ES2015 `Map`. Likewise `System.Collections.Generic.HashSet`
+compiles to JS native `Set`. F# `Map` and `Set` are implemented as persistent data structures. All instance and
+static methods from the corresponding modules are available.
 
 ## Async
 

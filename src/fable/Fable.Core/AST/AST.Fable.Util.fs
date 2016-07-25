@@ -14,9 +14,13 @@ type CallKind =
     | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
 let makeLoop range loopKind = Loop (loopKind, range)
-let makeCoreRef (com: ICompiler) modname = Value (ImportRef (modname, com.Options.coreLib))
 let makeIdent name: Ident = {name=name; typ=UnknownType}
 let makeIdentExpr name = makeIdent name |> IdentValue |> Value
+let makeCoreRef (com: ICompiler) modname prop =
+    let import = Value(ImportRef(modname, com.Options.coreLib))
+    match prop with
+    | None -> import
+    | Some prop -> Apply (import, [Value(StringConst prop)], ApplyGet, UnknownType, None)
 
 let makeBinOp, makeUnOp, makeLogOp, makeEqOp =
     let makeOp range typ args op =
@@ -120,7 +124,7 @@ let makeCall com range typ kind =
         |> getCallee meth args
         |> apply (getKind isCons) args
     | CoreLibCall (modName, meth, isCons, args) ->
-        makeCoreRef com modName
+        makeCoreRef com modName None
         |> getCallee meth args
         |> apply (getKind isCons) args
     | GlobalCall (modName, meth, isCons, args) ->
@@ -155,16 +159,9 @@ let makeTypeTest com range (typ: Type) expr =
             |> attachRange range |> failwith
 
 let makeUnionCons () =
-    // We cannot use just arguments.length because sometimes null arguments are erased, see #231
-    let emit = Emit "this.Case=caseName; this.Fields = []; for (var i=0; i<fieldsLength; i++) { this.Fields[i]=arguments[i+2]; }" |> Value
+    let emit = Emit "this.Case=caseName; this.Fields = fields;" |> Value
     let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
-    Member(Constructor, SourceLocation.Empty, [makeIdent "caseName"; makeIdent "fieldsLength"], body, [], true)
-    |> MemberDeclaration
-
-let makeExceptionCons () =
-    let emit = Emit "for (var i=0; i<arguments.length; i++) { this['data'+i]=arguments[i]; }" |> Value
-    let body = Apply (emit, [], ApplyMeth, PrimitiveType Unit, None)
-    Member(Constructor, SourceLocation.Empty, [], body, [], true)
+    Member(".ctor", Constructor, SourceLocation.Empty, [makeIdent "caseName"; makeIdent "fields"], body, [], true)
     |> MemberDeclaration
 
 let makeRecordCons props =
@@ -177,8 +174,19 @@ let makeRecordCons props =
         props |> Seq.mapi (fun i x ->
             sprintf "this%s=$arg%i" (sanitizeField x) i) |> String.concat ";"
     let body = Apply (Value (Emit body), [], ApplyMeth, PrimitiveType Unit, None)
-    Member(Constructor, SourceLocation.Empty, args, body, [], true, false, false)
+    Member(".ctor", Constructor, SourceLocation.Empty, args, body, [], true, false, false)
     |> MemberDeclaration
+
+let makeUnionCompareMethods, makeRecordCompareMethods =
+    let boolType, intType = PrimitiveType Boolean, PrimitiveType(Number Int32)
+    let meth com typ name coreMeth =
+        let arg = makeIdent "x"
+        let body =
+            CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
+            |> makeCall com None typ
+        Member(name, Method, SourceLocation.Empty, [arg], body) |> MemberDeclaration
+    (fun (com: ICompiler) -> [meth com boolType "Equals" "equalsUnions"; meth com intType "CompareTo" "compareUnions"]),
+    (fun (com: ICompiler) -> [meth com boolType "Equals" "equalsRecords"; meth com intType "CompareTo" "compareRecords"])
 
 let makeDelegate arity (expr: Expr) =
     let rec flattenLambda (arity: int option) accArgs = function
@@ -228,7 +236,7 @@ let makeApply range typ callee exprs =
 
 let makeJsObject range (props: (string * Expr) list) =
     let members = props |> List.map (fun (name, body) ->
-        Member(Getter (name, true), range, [], body))
+        Member(name, Field, range, [], body))
     ObjExpr(members, [], None, Some range)
 
 let makeEmit args macro =

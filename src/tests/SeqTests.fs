@@ -246,6 +246,20 @@ let ``Seq.mapi works``() =
     |> equal 1.
 
 [<Test>]
+let ``Seq.mapFold works`` () =   
+    let xs = [1y; 2y; 3y; 4y]
+    let result = xs |> Seq.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+    fst result |> Seq.sum |> equal 20y
+    snd result |> equal 10y
+
+[<Test>]
+let ``Seq.mapFoldBack works`` () =   
+    let xs = [1.; 2.; 3.; 4.]
+    let result = Seq.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+    fst result |> Seq.sum |> equal -20.
+    snd result |> equal -10.
+
+[<Test>]
 let ``Seq.max works``() =
     let xs = [1.; 2.]
     xs |> Seq.max

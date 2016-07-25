@@ -84,6 +84,7 @@ let ``Union cases called Tag still work (bug due to Tag field)``() =
 
 #if MOCHA
 open Fable.Core
+open Fable.Core.JsInterop
 
 type JsonTypeInner = {
     Prop1: string
@@ -147,8 +148,8 @@ type Tree =
 let ``Unions can be JSON serialized forth and back``() =
     let tree = Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
     let sum1 = tree.Sum() 
-    let json = Serialize.toJson tree
-    let tree2 = Serialize.ofJson<Tree> json
+    let json = toJson tree
+    let tree2 = ofJson<Tree> json
     let sum2 = tree2.Sum()
     equal true (box tree2 :? Tree) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed
@@ -225,3 +226,14 @@ let ``Mixing refs and options works``() = // See #238
     setter (fun i -> res := i + 2)
     getter 5
     equal 7 !res
+
+exception MyEx of int*string
+
+[<Test>]
+let ``Custom exceptions work``() =
+    try
+        MyEx(4,"ERROR") |> raise
+    with
+    | MyEx(4, msg) -> msg + "!!"
+    | MyEx(_, msg) -> msg + "??"
+    |> equal "ERROR!!"

@@ -43,7 +43,7 @@ module Util =
         match decl with
         | Fable.MemberDeclaration m ->
             match m.Kind, (m.Decorators |> List.tryFind (fun x -> Map.containsKey x.Name methodDecorators)) with
-            | Fable.Method name, Some decorator -> Some (m, name, decorator)
+            | Fable.Method, Some decorator -> Some (m, m.Name, decorator)
             | _ -> None
         | _ -> None
         
@@ -100,7 +100,7 @@ module Util =
 
     let asserts com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | "areEqual" ->
+        | "AreEqual" ->
             Fable.Util.ImportCall("assert", "*", Some "equal", false, i.args)
             |> Fable.Util.makeCall com i.range i.returnType |> Some
         | _ -> None
@@ -113,7 +113,7 @@ module Util =
     let castStatements (decls: U2<Babel.Statement, Babel.ModuleDeclaration> list) =
         decls |> List.map (function
             | U2.Case1 statement -> statement
-            | U2.Case2 _ -> failwith "Unexepected export in test class")
+            | U2.Case2 _ -> failwith "Unexpected export in test class")
 
 open Util
 
@@ -144,7 +144,7 @@ type VisualStudioUnitTestsPlugin() =
         member x.TryReplace com info =
             match info.ownerFullName, info.methodName with
             | "Microsoft.VisualStudio.TestTools.UnitTesting.Assert", _ -> asserts com info
-            | "Microsoft.FSharp.Control.Async", "runSynchronously" ->
+            | "Microsoft.FSharp.Control.FSharpAsync", "RunSynchronously" ->
                 match info.returnType with
                 | Fable.PrimitiveType Fable.Unit ->
                     let warning = Fable.Throw(Fable.Value(Fable.StringConst Util.runSyncWarning), Fable.PrimitiveType Fable.Unit, None)
