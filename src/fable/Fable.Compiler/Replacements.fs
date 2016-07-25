@@ -246,6 +246,17 @@ module Util =
         |> fun args -> CoreLibCall("GenericComparer", None, true, args)
         |> makeCall com None Fable.UnknownType
 
+    let makeMapOrSetCons com (i: Fable.ApplyInfo) modName args =
+        let typArg =
+            match i.calleeTypeArgs, i.methodTypeArgs with
+            | x::_, _ | [], x::_ -> Some x
+            | [], [] -> None
+        let args =
+            (if List.isEmpty args then [Fable.Value Fable.Null] else args)
+            @ [makeComparer com typArg]
+        CoreLibCall(modName, Some "create", false, args)
+        |> makeCall com i.range i.returnType
+
 module private AstPass =
     open Util
     
@@ -409,9 +420,10 @@ module private AstPass =
         | "toDouble" -> toFloat com info args.Head |> Some
         | "toChar"  -> toChar com info args.Head |> Some
         | "toString" -> toString com info None args.Head |> Some
-        | "createDictionary" | "createSet" ->
-            let modName = if info.methodName = "createDictionary" then "Map" else "Set"
-            GlobalCall(modName, None, true, args) |> makeCall com r typ |> Some                
+        | "createDictionary" ->
+            GlobalCall("Map", None, true, args) |> makeCall com r typ |> Some
+        | "createSet" ->
+            makeMapOrSetCons com info "Set" args |> Some
         // Ignore: wrap to keep Unit type (see Fable2Babel.transformFunction)
         | "ignore" -> Fable.Wrapped (args.Head, Fable.PrimitiveType Fable.Unit) |> Some
         // Ranges
@@ -785,70 +797,42 @@ module private AstPass =
         let modName =
             if i.ownerFullName.Contains("Map")
             then "Map" else "Set"
-        let makeCons args =
-            let typArg =
-                match i.calleeTypeArgs, i.methodTypeArgs with
-                | x::_, _ | [], x::_ -> Some x
-                | [], [] -> None
-            let args =
-                (if List.isEmpty args then [Fable.Value Fable.Null] else args)
-                @ [makeComparer com typArg]
-            CoreLibCall(modName, Some "create", false, args)
-            |> makeCall com i.range i.returnType
         match i.methodName with
         // Instance and static shared methods
         | "count" -> prop "size" |> Some
         | "contains" | "containsKey" -> icall "has" |> Some
-        | "add" | "remove" | "find" | "tryFind" -> // find and tryFind are Map-only 
-            let args = match i.callee with Some c -> i.args@[c] | None -> i.args
+        | "add" | "remove" | "isEmpty"
+        | "find" | "tryFind" // Map-only
+        | "maximumElement" | "minimumElement"
+        | "maxElement" | "minElement" -> // Set-only
+            let args =
+                match i.methodName with
+                | "isEmpty" | "maximumElement" | "minimumElement"
+                | "maxElement" | "minElement" -> staticArgs i.callee i.args
+                | _ -> i.args @ (Option.toList i.callee)
             CoreLibCall(modName, Some i.methodName, false, args)
-            |> makeCall com i.range i.returnType |> Some
-        | "isEmpty" ->
-            CoreLibCall(modName, Some "isEmpty", false, staticArgs i.callee i.args)
             |> makeCall com i.range i.returnType |> Some
         // Map indexer
         | "item" -> icall "get" |> Some
-        // Set only instance and static methods
-        | KeyValue "maximumElement" "max" meth | KeyValue "maxElement" "max" meth
-        | KeyValue "minimumElement" "min" meth | KeyValue "minElement" "min" meth ->
-            let args = match i.callee with Some x -> [x] | None -> i.args
-            CoreLibCall("Seq", Some meth, false, args)
-            |> makeCall com i.range i.returnType |> Some
         // Constructors
-        | "empty" -> makeCons [] |> Some
-        | ".ctor" -> makeCons i.args |> Some
+        | "empty" -> makeMapOrSetCons com i modName [] |> Some
+        | ".ctor" -> makeMapOrSetCons com i modName i.args |> Some
         // Conversions
         | "toArray" -> toArray com i i.args.Head |> Some
         | "toList" -> toList com i i.args.Head |> Some
         | "toSeq" -> Some i.args.Head
-        | "ofArray" -> makeCons i.args |> Some
-        | "ofList" | "ofSeq" -> makeCons i.args |> Some
-        // Non-build static methods shared with Seq
-        | "exists" | "fold" | "foldBack" | "forAll" | "iterate" ->
-            let modName = if modName = "Map" then "Map" else "Seq"
+        | "ofArray" -> makeMapOrSetCons com i modName i.args |> Some
+        | "ofList" | "ofSeq" -> makeMapOrSetCons com i modName i.args |> Some
+        // Static methods
+        | "exists" | "fold" | "foldBack" | "forAll" | "iterate"
+        | "filter" | "map" | "partition"
+        | "findKey" | "tryFindKey" | "pick" | "tryPick" -> // Map-only
             CoreLibCall(modName, Some i.methodName, false, deleg i i.args)
-            |> makeCall com i.range i.returnType |> Some
-        // Build static methods shared with Seq
-        | "filter" | "map" ->
-            match modName with
-            | "Map" ->
-                CoreLibCall(modName, Some i.methodName, false, deleg i i.args)
-                |> makeCall com i.range i.returnType |> Some
-            | _ ->
-                CoreLibCall("Seq", Some i.methodName, false, deleg i i.args)
-                |> makeCall com i.range i.returnType
-                |> List.singleton |> makeCons |> Some
-        // Static method
-        | "partition" ->
-            CoreLibCall(modName, Some i.methodName, false, deleg i i.args)
-            |> makeCall com i.range i.returnType |> Some
-        // Map only static methods (make delegate)
-        | "findKey" | "tryFindKey" | "pick" | "tryPick" ->
-            CoreLibCall("Map", Some i.methodName, false, deleg i i.args)
             |> makeCall com i.range i.returnType |> Some
         // Set only static methods
         | "singleton" ->
-            emit i "new Set([$0])" i.args |> Some
+            [makeArray Fable.UnknownType i.args]
+            |> makeMapOrSetCons com i modName |> Some
         | _ -> None
 
     type CollectionKind =

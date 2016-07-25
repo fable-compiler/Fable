@@ -4,30 +4,16 @@ const FSymbol = {
 };
 export { FSymbol as Symbol }
 
-export class Choice<T1, T2> {
-  public Case: "Choice1Of2" | "Choice2Of2";
-  public Fields: Array<T1 | T2>;
+export interface IComparer<T> {
+  Compare(x: T, y: T): number;
+}
 
-  constructor(t: "Choice1Of2" | "Choice2Of2", d: T1[] | T2[]) {
-    this.Case = t;
-    this.Fields = d;
-  }
+export interface IComparable<T> {
+  CompareTo(x: T): number;
+}
 
-  static Choice1Of2<T1, T2>(v: T1) {
-    return new Choice<T1, T2>("Choice1Of2", [v]);
-  }
-
-  static Choice2Of2<T1, T2>(v: T2) {
-    return new Choice<T1, T2>("Choice2Of2", [v]);
-  }
-
-  get valueIfChoice1() {
-    return this.Case === "Choice1Of2" ? <T1>this.Fields[0] : null;
-  }
-
-  get valueIfChoice2() {
-    return this.Case === "Choice2Of2" ? <T2>this.Fields[0] : null;
-  }
+export interface IEquatable<T> {
+  Equals(x: T): boolean;
 }
 
 export type Tuple<T1, T2> = [T1, T2];
@@ -128,7 +114,7 @@ export class Util {
   }
 
   static equalsRecords(x: any, y: any): boolean {
-    const keys = Object.getOwnPropertyNames(x), keys2 = Object.getOwnPropertyNames(y);
+    const keys = Object.getOwnPropertyNames(x);
     for (let i=0; i<keys.length; i++) {
       if (!Util.equals(x[keys[i]], y[keys[i]]))
         return false;
@@ -137,7 +123,7 @@ export class Util {
   }
 
   static compareRecords(x: any, y: any): number {
-    const keys = Object.getOwnPropertyNames(x), keys2 = Object.getOwnPropertyNames(y);
+    const keys = Object.getOwnPropertyNames(x);
     for (let i=0; i<keys.length; i++) {
       let res = Util.compare(x[keys[i]], y[keys[i]]);
       if (res !== 0)
@@ -234,6 +220,42 @@ export class Util {
     });
   }
 }
+
+export class GenericComparer<T> implements IComparer<T> {
+  Compare: (x:T, y:T) => number;
+  
+  constructor(f?: (x:T, y:T) => number) {
+    this.Compare = f || Util.compare;
+  }
+} 
+Util.setInterfaces(GenericComparer.prototype, ["System.IComparer"], "Fable.Core.GenericComparer");
+
+export class Choice<T1, T2> {
+  public Case: "Choice1Of2" | "Choice2Of2";
+  public Fields: Array<T1 | T2>;
+
+  constructor(t: "Choice1Of2" | "Choice2Of2", d: T1[] | T2[]) {
+    this.Case = t;
+    this.Fields = d;
+  }
+
+  static Choice1Of2<T1, T2>(v: T1) {
+    return new Choice<T1, T2>("Choice1Of2", [v]);
+  }
+
+  static Choice2Of2<T1, T2>(v: T2) {
+    return new Choice<T1, T2>("Choice2Of2", [v]);
+  }
+
+  get valueIfChoice1() {
+    return this.Case === "Choice1Of2" ? <T1>this.Fields[0] : null;
+  }
+
+  get valueIfChoice2() {
+    return this.Case === "Choice2Of2" ? <T2>this.Fields[0] : null;
+  }
+}
+Util.setInterfaces(Choice.prototype, [], "Microsoft.FSharp.Core.FSharpChoice");
 
 export class TimeSpan extends Number {
   static create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
@@ -1970,67 +1992,822 @@ export class Seq {
   }
 }
 
-class FSet {
-  static union<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.fold((acc, x) => { acc.add(x); return acc; }, new Set(set1), set2);
+interface SetIterator {
+  stack: List<SetTree>;
+  started: boolean;
+}
+
+class SetTree {
+  public Case: string;
+  public Fields: any[];
+
+  constructor(caseName: "SetEmpty" | "SetOne" | "SetNode", fields: any[]) {
+    this.Case = caseName;
+    this.Fields = fields;
+  }
+
+  static countAux(s: SetTree, acc: number): number {
+    return s.Case === "SetOne" ? acc + 1 : s.Case === "SetEmpty" ? acc : SetTree.countAux(s.Fields[1], SetTree.countAux(s.Fields[2], acc + 1));
+  }
+
+  static count(s: SetTree) {
+    return SetTree.countAux(s, 0);
+  }
+
+  static SetOne(n: any) {
+    return new SetTree("SetOne", [n]);
+  }
+
+  static SetNode(x: any, l: SetTree, r: SetTree, h: number) {
+    return new SetTree("SetNode", [x, l, r, h]);
+  }
+
+  static height(t: SetTree): number {
+    return t.Case === "SetOne" ? 1 : t.Case === "SetNode" ? t.Fields[3] : 0;
+  }
+
+  static tolerance = 2;
+
+  static mk(l: SetTree, k: any, r: SetTree) {
+    var matchValue = [l, r];
+    var $target1 = () => {
+      var hl = SetTree.height(l);
+      var hr = SetTree.height(r);
+      var m = hl < hr ? hr : hl;
+      return SetTree.SetNode(k, l, r, m + 1);
+    }
+    if (matchValue[0].Case === "SetEmpty") {
+      if (matchValue[1].Case === "SetEmpty") {
+        return SetTree.SetOne(k);
+      } else {
+        return $target1();
+      }
+    } else {
+      return $target1();
+    }
+  }
+
+  static rebalance(t1: SetTree, k: any, t2: SetTree) {
+    var t1h = SetTree.height(t1);
+    var t2h = SetTree.height(t2);
+    if (t2h > t1h + SetTree.tolerance) {
+      if (t2.Case === "SetNode") {
+        if (SetTree.height(t2.Fields[1]) > t1h + 1) {
+          if (t2.Fields[1].Case === "SetNode") {
+            return SetTree.mk(SetTree.mk(t1, k, t2.Fields[1].Fields[1]), t2.Fields[1].Fields[0], SetTree.mk(t2.Fields[1].Fields[2], t2.Fields[0], t2.Fields[2]));
+          } else {
+            throw "rebalance";
+          }
+        } else {
+          return SetTree.mk(SetTree.mk(t1, k, t2.Fields[1]), t2.Fields[0], t2.Fields[2]);
+        }
+      } else {
+        throw "rebalance";
+      }
+    } else {
+      if (t1h > t2h + SetTree.tolerance) {
+        if (t1.Case === "SetNode") {
+          if (SetTree.height(t1.Fields[2]) > t2h + 1) {
+            if (t1.Fields[2].Case === "SetNode") {
+              return SetTree.mk(SetTree.mk(t1.Fields[1], t1.Fields[0], t1.Fields[2].Fields[1]), t1.Fields[2].Fields[0], SetTree.mk(t1.Fields[2].Fields[2], k, t2));
+            } else {
+              throw "rebalance";
+            }
+          } else {
+            return SetTree.mk(t1.Fields[1], t1.Fields[0], SetTree.mk(t1.Fields[2], k, t2));
+          }
+        } else {
+          throw "rebalance";
+        }
+      } else {
+        return SetTree.mk(t1, k, t2);
+      }
+    }
+  }
+
+  static add(comparer: IComparer<any>, k: any, t: SetTree): SetTree {
+    return t.Case === "SetOne" ? (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c < 0) {
+        return SetTree.SetNode(k, new SetTree("SetEmpty", []), t, 2);
+      } else {
+        if (c === 0) {
+          return t;
+        } else {
+          return SetTree.SetNode(k, t, new SetTree("SetEmpty", []), 2);
+        }
+      }
+    })() : t.Case === "SetEmpty" ? SetTree.SetOne(k) : (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c < 0) {
+        return SetTree.rebalance(SetTree.add(comparer, k, t.Fields[1]), t.Fields[0], t.Fields[2]);
+      } else {
+        if (c === 0) {
+          return t;
+        } else {
+          return SetTree.rebalance(t.Fields[1], t.Fields[0], SetTree.add(comparer, k, t.Fields[2]));
+        }
+      }
+    })();
+  }
+
+  static balance(comparer: IComparer<any>, t1: SetTree, k: any, t2: SetTree): SetTree {
+    var matchValue = [t1, t2];
+    var $target1 = (t1_1: SetTree) => SetTree.add(comparer, k, t1_1);
+    var $target2 = (k1: any, t2_1: SetTree) => SetTree.add(comparer, k, SetTree.add(comparer, k1, t2_1));
+    if (matchValue[0].Case === "SetOne") {
+      if (matchValue[1].Case === "SetEmpty") {
+        return $target1(matchValue[0]);
+      } else {
+        if (matchValue[1].Case === "SetOne") {
+          return $target2(matchValue[0].Fields[0], matchValue[1]);
+        } else {
+          return $target2(matchValue[0].Fields[0], matchValue[1]);
+        }
+      }
+    } else {
+      if (matchValue[0].Case === "SetNode") {
+        if (matchValue[1].Case === "SetOne") {
+          var k2 = matchValue[1].Fields[0];
+          var t1_1 = matchValue[0];
+          return SetTree.add(comparer, k, SetTree.add(comparer, k2, t1_1));
+        } else {
+          if (matchValue[1].Case === "SetNode") {
+            var h1 = matchValue[0].Fields[3];
+            var h2 = matchValue[1].Fields[3];
+            var k1 = matchValue[0].Fields[0];
+            var k2 = matchValue[1].Fields[0];
+            var t11 = matchValue[0].Fields[1];
+            var t12 = matchValue[0].Fields[2];
+            var t21 = matchValue[1].Fields[1];
+            var t22 = matchValue[1].Fields[2];
+            if (h1 + SetTree.tolerance < h2) {
+              return SetTree.rebalance(SetTree.balance(comparer, t1, k, t21), k2, t22);
+            } else {
+              if (h2 + SetTree.tolerance < h1) {
+                return SetTree.rebalance(t11, k1, SetTree.balance(comparer, t12, k, t2));
+              } else {
+                return SetTree.mk(t1, k, t2);
+              }
+            }
+          } else {
+            return $target1(matchValue[0]);
+          }
+        }
+      } else {
+        var t2_1 = matchValue[1];
+        return SetTree.add(comparer, k, t2_1);
+      }
+    }
+  }
+
+  static split(comparer: IComparer<any>, pivot: any, t: SetTree): any { // [SetTree, boolean, SetTree] {
+    return t.Case === "SetOne" ? (() => {
+      var c = comparer.Compare(t.Fields[0], pivot);
+      if (c < 0) {
+        return [t, false, new SetTree("SetEmpty", [])];
+      } else {
+        if (c === 0) {
+          return [new SetTree("SetEmpty", []), true, new SetTree("SetEmpty", [])];
+        } else {
+          return [new SetTree("SetEmpty", []), false, t];
+        }
+      }
+    })() : t.Case === "SetEmpty" ? [new SetTree("SetEmpty", []), false, new SetTree("SetEmpty", [])] : (() => {
+      var c = comparer.Compare(pivot, t.Fields[0]);
+      if (c < 0) {
+        var patternInput = SetTree.split(comparer, pivot, t.Fields[1]);
+        var t11Lo = patternInput[0];
+        var t11Hi = patternInput[2];
+        var havePivot = patternInput[1];
+        return [t11Lo, havePivot, SetTree.balance(comparer, t11Hi, t.Fields[0], t.Fields[2])];
+      } else {
+        if (c === 0) {
+          return [t.Fields[1], true, t.Fields[2]];
+        } else {
+          var patternInput = SetTree.split(comparer, pivot, t.Fields[2]);
+          var t12Lo = patternInput[0];
+          var t12Hi = patternInput[2];
+          var havePivot = patternInput[1];
+          return [SetTree.balance(comparer, t.Fields[1], t.Fields[0], t12Lo), havePivot, t12Hi];
+        }
+      }
+    })();
+  }
+
+  static spliceOutSuccessor(t: SetTree): any { // [any,SetTree] {
+    return t.Case === "SetOne" ? [t.Fields[0], new SetTree("SetEmpty", [])] : t.Case === "SetNode" ? t.Fields[1].Case === "SetEmpty" ? [t.Fields[0], t.Fields[2]] : (() => {
+      var patternInput = SetTree.spliceOutSuccessor(t.Fields[1]);
+      var l_ = patternInput[1];
+      var k3 = patternInput[0];
+      return [k3, SetTree.mk(l_, t.Fields[0], t.Fields[2])];
+    })() : (() => {
+      throw "internal error: Map.spliceOutSuccessor";
+    })();
+  }
+
+  static remove(comparer: IComparer<any>, k: any, t: SetTree): SetTree {
+    return t.Case === "SetOne" ? (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c === 0) {
+        return new SetTree("SetEmpty", []);
+      } else {
+        return t;
+      }
+    })() : t.Case === "SetNode" ? (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c < 0) {
+        return SetTree.rebalance(SetTree.remove(comparer, k, t.Fields[1]), t.Fields[0], t.Fields[2]);
+      } else {
+        if (c === 0) {
+          var matchValue = [t.Fields[1], t.Fields[2]];
+          if (matchValue[0].Case === "SetEmpty") {
+            return t.Fields[2];
+          } else {
+            if (matchValue[1].Case === "SetEmpty") {
+              return t.Fields[1];
+            } else {
+              var patternInput = SetTree.spliceOutSuccessor(t.Fields[2]);
+              var sk = patternInput[0];
+              var r_ = patternInput[1];
+              return SetTree.mk(t.Fields[1], sk, r_);
+            }
+          }
+        } else {
+          return SetTree.rebalance(t.Fields[1], t.Fields[0], SetTree.remove(comparer, k, t.Fields[2]));
+        }
+      }
+    })() : t;
+  }
+
+  static mem(comparer: IComparer<any>, k: any, t: SetTree): boolean {
+    return t.Case === "SetOne" ? comparer.Compare(k, t.Fields[0]) === 0 : t.Case === "SetEmpty" ? false : (() => {
+      var c = comparer.Compare(k, t.Fields[0]);
+      if (c < 0) {
+        return SetTree.mem(comparer, k, t.Fields[1]);
+      } else {
+        if (c === 0) {
+          return true;
+        } else {
+          return SetTree.mem(comparer, k, t.Fields[2]);
+        }
+      }
+    })();
+  }
+
+  static iter(f: (x:any)=>void, t: SetTree) {
+    if (t.Case === "SetOne") {
+      f(t.Fields[0]);
+    } else {
+      if (t.Case === "SetEmpty") {} else {
+        SetTree.iter(f, t.Fields[1]);
+        f(t.Fields[0]);
+        SetTree.iter(f, t.Fields[2]);
+      }
+    }
+  }
+
+  static foldBack(f: (x:any, acc:any)=>any, m: SetTree, x: any): any {
+    return m.Case === "SetOne" ? f(m.Fields[0], x) : m.Case === "SetEmpty" ? x : SetTree.foldBack(f, m.Fields[1], f(m.Fields[0], SetTree.foldBack(f, m.Fields[2], x)));
+  }
+
+  static fold(f: (acc:any, x:any)=>any, x: any, m: SetTree): any {
+    return m.Case === "SetOne" ? f(x, m.Fields[0]) : m.Case === "SetEmpty" ? x : (() => {
+      var x_1 = SetTree.fold(f, x, m.Fields[1]);
+      var x_2 = f(x_1, m.Fields[0]);
+      return SetTree.fold(f, x_2, m.Fields[2]);
+    })();
+  }
+
+  static forall(f: (x:any)=>boolean, m: SetTree): boolean {
+    return m.Case === "SetOne" ? f(m.Fields[0]) : m.Case === "SetEmpty" ? true : (f(m.Fields[0]) ? SetTree.forall(f, m.Fields[1]) : false) ? SetTree.forall(f, m.Fields[2]) : false;
+  }
+
+  static exists(f: (x:any)=>boolean, m: SetTree): boolean {
+    return m.Case === "SetOne" ? f(m.Fields[0]) : m.Case === "SetEmpty" ? false : (f(m.Fields[0]) ? true : SetTree.exists(f, m.Fields[1])) ? true : SetTree.exists(f, m.Fields[2]);
+  }
+
+  static isEmpty(m: SetTree): boolean {
+    return m.Case === "SetEmpty" ? true : false;
+  }
+
+  static subset(comparer: IComparer<any>, a: SetTree, b: SetTree) {
+    return SetTree.forall(x => SetTree.mem(comparer, x, b), a);
+  }
+
+  static psubset(comparer: IComparer<any>, a: SetTree, b: SetTree) {
+    return SetTree.forall(x => SetTree.mem(comparer, x, b), a) ? SetTree.exists(x => !SetTree.mem(comparer, x, a), b) : false;
+  }
+
+  static filterAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree, acc: SetTree): SetTree {
+    return s.Case === "SetOne" ? f(s.Fields[0]) ? SetTree.add(comparer, s.Fields[0], acc) : acc : s.Case === "SetEmpty" ? acc : (() => {
+      var acc_1 = f(s.Fields[0]) ? SetTree.add(comparer, s.Fields[0], acc) : acc;
+      return SetTree.filterAux(comparer, f, s.Fields[1], SetTree.filterAux(comparer, f, s.Fields[2], acc_1));
+    })();
+  }
+
+  static filter(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree): SetTree {
+    return SetTree.filterAux(comparer, f, s, new SetTree("SetEmpty", []));
+  }
+
+  static diffAux(comparer: IComparer<any>, m: SetTree, acc: SetTree): SetTree {
+    return m.Case === "SetOne" ? SetTree.remove(comparer, m.Fields[0], acc) : m.Case === "SetEmpty" ? acc : SetTree.diffAux(comparer, m.Fields[1], SetTree.diffAux(comparer, m.Fields[2], SetTree.remove(comparer, m.Fields[0], acc)));
+  }
+
+  static diff(comparer: IComparer<any>, a: SetTree, b: SetTree): SetTree {
+    return SetTree.diffAux(comparer, b, a);
+  }
+
+  static union(comparer: IComparer<any>, t1: SetTree, t2: SetTree): SetTree {
+    var matchValue = [t1, t2];
+    var $target2 = (t: SetTree) => t;
+    var $target3 = (k1: any, t2_1: SetTree) => SetTree.add(comparer, k1, t2_1);
+    if (matchValue[0].Case === "SetEmpty") {
+      var t = matchValue[1];
+      return t;
+    } else {
+      if (matchValue[0].Case === "SetOne") {
+        if (matchValue[1].Case === "SetEmpty") {
+          return $target2(matchValue[0]);
+        } else {
+          if (matchValue[1].Case === "SetOne") {
+            return $target3(matchValue[0].Fields[0], matchValue[1]);
+          } else {
+            return $target3(matchValue[0].Fields[0], matchValue[1]);
+          }
+        }
+      } else {
+        if (matchValue[1].Case === "SetEmpty") {
+          return $target2(matchValue[0]);
+        } else {
+          if (matchValue[1].Case === "SetOne") {
+            var k2 = matchValue[1].Fields[0];
+            var t1_1 = matchValue[0];
+            return SetTree.add(comparer, k2, t1_1);
+          } else {
+            var h1 = matchValue[0].Fields[3];
+            var h2 = matchValue[1].Fields[3];
+            var k1 = matchValue[0].Fields[0];
+            var k2 = matchValue[1].Fields[0];
+            var t11 = matchValue[0].Fields[1];
+            var t12 = matchValue[0].Fields[2];
+            var t21 = matchValue[1].Fields[1];
+            var t22 = matchValue[1].Fields[2];
+            if (h1 > h2) {
+              var patternInput = SetTree.split(comparer, k1, t2);
+              var lo = patternInput[0];
+              var hi = patternInput[2];
+              return SetTree.balance(comparer, SetTree.union(comparer, t11, lo), k1, SetTree.union(comparer, t12, hi));
+            } else {
+              var patternInput = SetTree.split(comparer, k2, t1);
+              var lo = patternInput[0];
+              var hi = patternInput[2];
+              return SetTree.balance(comparer, SetTree.union(comparer, t21, lo), k2, SetTree.union(comparer, t22, hi));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  static intersectionAux(comparer: IComparer<any>, b: SetTree, m: SetTree, acc: SetTree): SetTree {
+    return m.Case === "SetOne" ? SetTree.mem(comparer, m.Fields[0], b) ? SetTree.add(comparer, m.Fields[0], acc) : acc : m.Case === "SetEmpty" ? acc : (() => {
+      var acc_1 = SetTree.intersectionAux(comparer, b, m.Fields[2], acc);
+      var acc_2 = SetTree.mem(comparer, m.Fields[0], b) ? SetTree.add(comparer, m.Fields[0], acc_1) : acc_1;
+      return SetTree.intersectionAux(comparer, b, m.Fields[1], acc_2);
+    })();
+  }
+
+  static intersection(comparer: IComparer<any>, a: SetTree, b: SetTree) {
+    return SetTree.intersectionAux(comparer, b, a, new SetTree("SetEmpty", []));
+  }
+
+  static partition1(comparer: IComparer<any>, f: (x:any)=>boolean, k: any, acc1: SetTree, acc2: SetTree): [SetTree, SetTree] {
+    return f(k) ? [SetTree.add(comparer, k, acc1), acc2] : [acc1, SetTree.add(comparer, k, acc2)];
+  }
+
+  static partitionAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree, acc_0: SetTree, acc_1: SetTree): [SetTree, SetTree] {
+    var acc = <[SetTree,SetTree]>[acc_0, acc_1];
+    if (s.Case === "SetOne") {
+      var acc1 = acc[0];
+      var acc2 = acc[1];
+      return SetTree.partition1(comparer, f, s.Fields[0], acc1, acc2);
+    } else {
+      if (s.Case === "SetEmpty") {
+        return acc;
+      } else {
+        var acc_2 = (() => {
+          var arg30_ = acc[0];
+          var arg31_ = acc[1];
+          return SetTree.partitionAux(comparer, f, s.Fields[2], arg30_, arg31_);
+        })();
+        var acc_3 = (() => {
+          var acc1 = acc_2[0];
+          var acc2 = acc_2[1];
+          return SetTree.partition1(comparer, f, s.Fields[0], acc1, acc2);
+        })();
+        var arg30_ = acc_3[0];
+        var arg31_ = acc_3[1];
+        return SetTree.partitionAux(comparer, f, s.Fields[1], arg30_, arg31_);
+      }
+    }
+  }
+
+  static partition(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree) {
+    var seed = [new SetTree("SetEmpty", []), new SetTree("SetEmpty", [])];
+    var arg30_ = seed[0];
+    var arg31_ = seed[1];
+    return SetTree.partitionAux(comparer, f, s, arg30_, arg31_);
+  }
+
+  // static $MatchSetNode$MatchSetEmpty$(s: SetTree) {
+  //   return s.Case === "SetOne" ? new Choice("Choice1Of2", [[s.Fields[0], new SetTree("SetEmpty", []), new SetTree("SetEmpty", [])]]) : s.Case === "SetEmpty" ? new Choice("Choice2Of2", [null]) : new Choice("Choice1Of2", [[s.Fields[0], s.Fields[1], s.Fields[2]]]);
+  // }
+
+  static minimumElementAux(s: SetTree, n: any): any {
+    return s.Case === "SetOne" ? s.Fields[0] : s.Case === "SetEmpty" ? n : SetTree.minimumElementAux(s.Fields[1], s.Fields[0]);
+  }
+
+  static minimumElementOpt(s: SetTree): any {
+    return s.Case === "SetOne" ? s.Fields[0] : s.Case === "SetEmpty" ? null : SetTree.minimumElementAux(s.Fields[1], s.Fields[0]);
+  }
+
+  static maximumElementAux(s: SetTree, n: any): any {
+    return s.Case === "SetOne" ? s.Fields[0] : s.Case === "SetEmpty" ? n : SetTree.maximumElementAux(s.Fields[2], s.Fields[0]);
+  }
+
+  static maximumElementOpt(s: SetTree): any {
+    return s.Case === "SetOne" ? s.Fields[0] : s.Case === "SetEmpty" ? null : SetTree.maximumElementAux(s.Fields[2], s.Fields[0]);
+  }
+
+  static minimumElement(s: SetTree): any {
+    var matchValue = SetTree.minimumElementOpt(s);
+    if (matchValue == null) {
+      throw "Set contains no elements";
+    } else {
+      return matchValue;
+    }
+  }
+
+  static maximumElement(s: SetTree) {
+    var matchValue = SetTree.maximumElementOpt(s);
+    if (matchValue == null) {
+      throw "Set contains no elements";
+    } else {
+      return matchValue;
+    }
+  }
+
+  static collapseLHS(stack: List<SetTree>): List<SetTree> {
+    return stack.tail != null
+      ? stack.head.Case === "SetOne"
+        ? stack
+        : stack.head.Case === "SetNode"
+          ? SetTree.collapseLHS(List.ofArray([
+              stack.head.Fields[1],
+              SetTree.SetOne(stack.head.Fields[0]),
+              stack.head.Fields[2]
+            ], stack.tail))
+          : SetTree.collapseLHS(stack.tail)
+      : new List<SetTree>();
+  }
+
+  static mkIterator(s: SetTree): SetIterator {
+    return { stack: SetTree.collapseLHS(new List<SetTree>(s, new List<SetTree>())), started: false };
+  };
+
+  // static notStarted() {
+  //   throw "Enumeration not started";
+  // };
+
+  // var alreadyFinished = $exports.alreadyFinished = function () {
+  //   throw "Enumeration already started";
+  // };
+
+  static moveNext(i: SetIterator): IteratorResult<any> {
+    function current(i: SetIterator): any {
+      if (i.stack.tail == null) {
+        return null;
+      }
+      else if (i.stack.head.Case === "SetOne") {
+        return i.stack.head.Fields[0];
+      }
+      throw "Please report error: Set iterator, unexpected stack for current";
+    }
+    if (i.started) {
+      if (i.stack.tail == null) {
+        return { done: true };
+      } else {
+        if (i.stack.head.Case === "SetOne") {
+          i.stack = SetTree.collapseLHS(i.stack.tail);
+          return {
+            done: i.stack.tail == null,
+            value: current(i)
+          };
+        } else {
+          throw "Please report error: Set iterator, unexpected stack for moveNext";
+        }
+      }
+    }
+    else {
+      i.started = true;
+      return {
+        done: i.stack.tail == null,
+        value: current(i)
+      };
+    };
+  }
+
+  static compareStacks(comparer: IComparer<any>, l1: List<SetTree>, l2: List<SetTree>): number {
+    var $target8 = (n1k: any, t1: List<SetTree>) => SetTree.compareStacks(comparer, List.ofArray([new SetTree("SetEmpty", []), SetTree.SetOne(n1k)], t1), l2);
+    var $target9 = (n1k: any, n1l: any, n1r: any, t1: List<SetTree>) => SetTree.compareStacks(comparer, List.ofArray([n1l, SetTree.SetNode(n1k, new SetTree("SetEmpty", []), n1r, 0)], t1), l2);
+    var $target11 = (n2k: any, n2l: any, n2r: any, t2: List<SetTree>) => SetTree.compareStacks(comparer, l1, List.ofArray([n2l, SetTree.SetNode(n2k, new SetTree("SetEmpty", []), n2r, 0)], t2));
+    if (l1.tail != null) {
+      if (l2.tail != null) {
+        if (l2.head.Case === "SetOne") {
+          if (l1.head.Case === "SetOne") {
+            const n1k = l1.head.Fields[0], n2k = l2.head.Fields[0], t1 = l1.tail, t2 = l2.tail, c = comparer.Compare(n1k, n2k);
+            if (c !== 0) {
+              return c;
+            } else {
+              return SetTree.compareStacks(comparer, t1, t2);
+            }
+          } else {
+            if (l1.head.Case === "SetNode") {
+              if (l1.head.Fields[1].Case === "SetEmpty") {
+                const emp = l1.head.Fields[1], n1k = l1.head.Fields[0], n1r = l1.head.Fields[2], n2k = l2.head.Fields[0], t1 = l1.tail, t2 = l2.tail, c = comparer.Compare(n1k, n2k);
+                if (c !== 0) {
+                  return c;
+                } else {
+                  return SetTree.compareStacks(comparer, List.ofArray([n1r], t1), List.ofArray([emp], t2));
+                }
+              } else {
+                return $target9(l1.head.Fields[0], l1.head.Fields[1], l1.head.Fields[2], l1.tail);
+              }
+            } else {
+              const n2k = l2.head.Fields[0], t2 = l2.tail;
+              return SetTree.compareStacks(comparer, l1, List.ofArray([new SetTree("SetEmpty", []), SetTree.SetOne(n2k)], t2));
+            }
+          }
+        } else {
+          if (l2.head.Case === "SetNode") {
+            if (l2.head.Fields[1].Case === "SetEmpty") {
+              if (l1.head.Case === "SetOne") {
+                const n1k = l1.head.Fields[0], n2k = l2.head.Fields[0], n2r = l2.head.Fields[2], t1 = l1.tail, t2 = l2.tail, c = comparer.Compare(n1k, n2k);
+                if (c !== 0) {
+                  return c;
+                } else {
+                  return SetTree.compareStacks(comparer, List.ofArray([new SetTree("SetEmpty", [])], t1), List.ofArray([n2r], t2));
+                }
+              } else {
+                if (l1.head.Case === "SetNode") {
+                  if (l1.head.Fields[1].Case === "SetEmpty") {
+                    const n1k = l1.head.Fields[0], n1r = l1.head.Fields[2], n2k = l2.head.Fields[0], n2r = l2.head.Fields[2], t1 = l1.tail, t2 = l2.tail, c = comparer.Compare(n1k, n2k);
+                    if (c !== 0) {
+                      return c;
+                    } else {
+                      return SetTree.compareStacks(comparer, List.ofArray([n1r], t1), List.ofArray([n2r], t2));
+                    }
+                  } else {
+                    return $target9(l1.head.Fields[0], l1.head.Fields[1], l1.head.Fields[2], l1.tail);
+                  }
+                } else {
+                  return $target11(l2.head.Fields[0], l2.head.Fields[1], l2.head.Fields[2], l2.tail);
+                }
+              }
+            } else {
+              if (l1.head.Case === "SetOne") {
+                return $target8(l1.head.Fields[0], l1.tail);
+              } else {
+                if (l1.head.Case === "SetNode") {
+                  return $target9(l1.head.Fields[0], l1.head.Fields[1], l1.head.Fields[2], l1.tail);
+                } else {
+                  return $target11(l2.head.Fields[0], l2.head.Fields[1], l2.head.Fields[2], l2.tail);
+                }
+              }
+            }
+          } else {
+            if (l1.head.Case === "SetOne") {
+              return $target8(l1.head.Fields[0], l1.tail);
+            } else {
+              if (l1.head.Case === "SetNode") {
+                return $target9(l1.head.Fields[0], l1.head.Fields[1], l1.head.Fields[2], l1.tail);
+              } else {
+                return SetTree.compareStacks(comparer, l1.tail, l2.tail);
+              }
+            }
+          }
+        }
+      } else {
+        return 1;
+      }
+    } else {
+      if (l2.tail != null) {
+        return -1;
+      } else {
+        return 0;
+      }
+    }
+  }
+
+  static compare(comparer: IComparer<any>, s1: SetTree, s2: SetTree) {
+    if (s1.Case === "SetEmpty") {
+      if (s2.Case === "SetEmpty") {
+        return 0;
+      } else {
+        return -1;
+      }
+    } else {
+      if (s2.Case === "SetEmpty") {
+        return 1;
+      } else {
+        return SetTree.compareStacks(comparer, List.ofArray([s1]), List.ofArray([s2]));
+      }
+    }
+  }
+
+  static mkFromEnumerator(comparer: IComparer<any>, acc: SetTree, e: Iterator<any>): SetTree {
+    const cur = e.next();
+    return !cur.done
+      ? SetTree.mkFromEnumerator(comparer, SetTree.add(comparer, cur.value, acc), e)
+      : acc;
+  }
+
+  static ofSeq(comparer: IComparer<any>, c: Iterable<any>) {
+    var ie = c[Symbol.iterator]();
+    return SetTree.mkFromEnumerator(comparer, new SetTree("SetEmpty", []), ie);
+  }  
+}
+
+class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> {
+  private tree: SetTree;
+  private comparer: IComparer<T>;
+
+  /** Do not call, use Set.create instead. */
+  constructor () {}
+
+  private static from<T>(comparer: IComparer<T>, tree: SetTree) {
+    let s = new FSet<T>();
+    s.tree = tree
+    s.comparer = comparer || new GenericComparer<T>();
+    return s;
+  }
+
+  private static create<T>(ie?: Iterable<T>, comparer?: IComparer<T>) {
+    comparer = comparer || new GenericComparer<T>();
+    return FSet.from(comparer, ie ? SetTree.ofSeq(comparer, ie) : new SetTree("SetEmpty", []));
+  }
+
+  Equals(s2: FSet<T>) {
+    return this.CompareTo(s2) === 0;
+  }
+
+  CompareTo(s2: FSet<T>) {
+    return SetTree.compare(this.comparer, this.tree, s2.tree);
+  }
+
+  [Symbol.iterator](): Iterator<T> {
+    let i = SetTree.mkIterator(this.tree);
+    return <Iterator<T>>{
+      next: () => SetTree.moveNext(i)
+    };
+  }
+
+  values() {
+    return this[Symbol.iterator]();
+  }
+
+  has(v: T) {
+    return SetTree.mem(this.comparer, v, this.tree);
+  }
+
+  /** Not supported */
+  add(v: T): FSet<T> {
+    throw "not supported";
+  }
+
+  /** Not supported */
+  delete(v: T): boolean {
+    throw "not supported";
+  }
+
+  /** Not supported */
+  clear(): void {
+    throw "not supported";
+  }
+
+  get size() {
+    return SetTree.count(this.tree);
+  }
+
+  static isEmpty<T>(s: FSet<T>) {
+    return SetTree.isEmpty(s.tree);
+  }
+
+  static add<T>(item: T, s: FSet<T>) {
+    return FSet.from(s.comparer, SetTree.add(s.comparer, item, s.tree));
+  }
+
+  static remove<T>(item: T, s: FSet<T>) {
+    return FSet.from(s.comparer, SetTree.remove(s.comparer, item, s.tree));
+  }
+
+  static union<T>(set1: FSet<T> | Iterable<T>, set2: FSet<T> | Iterable<T>): FSet<T> | Set<T> {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return set2.tree.Case === "SetEmpty"
+        ? set1
+        : set1.tree.Case === "SetEmpty"
+          ? set2
+          : FSet.from(set1.comparer, SetTree.union(set1.comparer, set1.tree, set2.tree));
+    }
+    else {
+      return Seq.fold((acc, x) => { acc.add(x); return acc; }, new Set(set1), set2);
+    }
   }
   static op_Addition = FSet.union;
 
-  static unionMany<T>(sets: Iterable<Set<T>>) {
-    return Seq.fold((acc, s) => FSet.union(acc, s), new Set<T>(), sets);
+  static unionMany<T>(sets: Iterable<FSet<T>>) {
+    // Pass args as FSet.union(s, acc) instead of FSet.union(acc, s)
+    // to discard the comparer of the first empty set 
+    return Seq.fold((acc, s) => <FSet<T>>FSet.union(s, acc), FSet.create<T>(), sets);
   }
 
-  static difference<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.fold((acc, x) => { acc.delete(x); return acc; }, new Set(set1), set2);
+  static difference<T>(set1: FSet<T> | Iterable<T>, set2: FSet<T> | Iterable<T>): FSet<T> | Set<T> {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return set1.tree.Case === "SetEmpty"
+        ? set1
+        : set2.tree.Case === "SetEmpty"
+          ? set1
+          : FSet.from(set1.comparer, SetTree.diff(set1.comparer, set1.tree, set2.tree));
+    }
+    else {
+      return Seq.fold((acc, x) => { acc.delete(x); return acc; }, new Set(set1), set2);
+    }
   }
   static op_Subtraction = FSet.difference;
 
-  static intersect<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.fold((acc, x) => {
-      if (!set2.has(x))
-        acc.delete(x);
-      return acc;
-    }, new Set(set1), set1);
+  static intersect<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Iterable<T>): FSet<T> | Set<T> {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return set2.tree.Case === "SetEmpty"
+        ? set2
+        : set1.tree.Case === "SetEmpty"
+          ? set1
+          : FSet.from(set1.comparer, SetTree.intersection(set1.comparer, set1.tree, set2.tree));
+    }
+    else {
+      return Seq.fold((acc, x) => {
+        if (!set1.has(x))
+          acc.delete(x);
+        return acc;
+      }, new Set(set2), set2);
+    }
   }
 
-  static intersectMany<T>(sets: Iterable<Set<T>>) {
-    const ar = Array.isArray(sets) ? <Array<Set<T>>>sets : Array.from(sets);
-    if (ar.length == 0)
-      throw "Seq was empty";
-
-    const set = new Set<T>(ar[0]);
-    Seq.iterate((x: T) => {
-      for (let i = 1; i < ar.length; i++) {
-        if (!ar[i].has(x)) {
-          set.delete(x);
-          break;
-        }
-      }
-    }, ar[0]);
-    return set;
+  static intersectMany<T>(sets: Iterable<FSet<T>>) {
+    return Seq.reduce((s1, s2) => <FSet<T>>FSet.intersect(s1, s2), sets);
   }
 
-  static isProperSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.forAll(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
+  static isProperSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return SetTree.psubset(set1.comparer, set1.tree, set2.tree);
+    }
+    else {
+      return Seq.forAll(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
+    }
   }
   static isProperSubset = FSet.isProperSubsetOf;
 
-  static isSubsetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return Seq.forAll(x => set2.has(x), set1);
+  static isSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return SetTree.subset(set1.comparer, set1.tree, set2.tree);
+    }
+    else {
+      return Seq.forAll(x => set2.has(x), set1);
+    }
   }
   static isSubset = FSet.isSubsetOf;
 
-  static isProperSupersetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return FSet.isProperSubset(set2, set1);
+  static isProperSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return SetTree.psubset(set1.comparer, set2.tree, set1.tree);
+    }
+    else {
+      return FSet.isProperSubset(set2, set1);
+    }
   }
   static isProperSuperset = FSet.isProperSupersetOf;
 
-  static isSupersetOf<T>(set1: Set<T>, set2: Set<T>) {
-    return FSet.isSubset(set2, set1);
+  static isSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    if (set1 instanceof FSet && set2 instanceof FSet) {
+      return SetTree.subset(set1.comparer, set2.tree, set1.tree);
+    }
+    else {
+      return FSet.isSubset(set2, set1);
+    }
   }
   static isSuperset = FSet.isSupersetOf;
 
-  static copyTo<T>(xs: Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
+  static copyTo<T>(xs: FSet<T> | Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
     if (!Array.isArray(arr) && !ArrayBuffer.isView(arr))
       throw "Array is invalid";
 
@@ -2044,43 +2821,63 @@ class FSet {
     }
   }
 
-  static partition<T>(f: (x: T) => boolean, xs: Set<T>) {
-    return Seq.fold((acc, x) => {
-      const lacc = acc[0], racc = acc[1];
-      return f(x) ? Tuple(lacc.add(x), racc) : Tuple(lacc, racc.add(x));
-    }, Tuple(new Set<T>(), new Set<T>()), xs);
+  static partition<T>(f: (x: T) => boolean, s: FSet<T>): [FSet<T>,FSet<T>] {
+    if (s.tree.Case === "SetEmpty") {
+      return [s,s];
+    }
+    else {
+      const tuple = SetTree.partition(s.comparer, f, s.tree);
+      return [FSet.from(s.comparer, tuple[0]), FSet.from(s.comparer, tuple[1])];
+    }
   }
 
-  static remove<T>(item: T, xs: Set<T>) {
-    return FSet.removeInPlace(item, new Set(xs));
+  static filter<T>(f: (x: T) => boolean, s: FSet<T>): FSet<T> {
+    if (s.tree.Case === "SetEmpty") {
+      return s;
+    }
+    else {
+      return FSet.from(s.comparer, SetTree.filter(s.comparer, f, s.tree));
+    }
   }
 
-  static removeInPlace<T>(item: T, xs: Set<T>) {
-    xs.delete(item);
-    return xs;
+  static map<T,U>(f: (x: T) => U, s: FSet<T>): FSet<U> {
+    const comparer = new GenericComparer<U>();
+    return FSet.from(comparer, SetTree.fold((acc, k) => SetTree.add(comparer, f(k), acc), new SetTree("SetEmpty", []), s.tree));
   }
+
+  static exists<T>(f: (x: T) => boolean, s: FSet<T>): boolean {
+    return SetTree.exists(f, s.tree);
+  }
+
+  static forAll<T>(f: (x: T) => boolean, s: FSet<T>): boolean {
+    return SetTree.forall(f, s.tree);
+  }
+
+  static fold<T,U>(f: (acc: U, x: T) => U, seed: U, s: FSet<T>): U {
+    return SetTree.fold(f, seed, s.tree);
+  }
+
+  static foldBack<T,U>(f: (x: T, acc: U) => U, s: FSet<T>, seed: U): U {
+    return SetTree.foldBack(f, s.tree, seed);
+  }
+
+  static iterate<T>(f: (v: T) => void, s: FSet<T>) {
+    SetTree.iter(f, s.tree);
+  }
+
+  static minimumElement<T>(s: FSet<T>) {
+    return SetTree.minimumElement(s.tree);
+  }
+  static minElement = FSet.minimumElement;
+
+  static maximumElement<T>(s: FSet<T>) {
+    return SetTree.maximumElement(s.tree);
+  }
+  static maxElement = FSet.maximumElement;
 }
+Util.setInterfaces(FSet.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpSet"); 
+
 export { FSet as Set }
-
-export interface IComparer<T> {
-  Compare(x: T, y: T): number;
-}
-
-export interface IComparable<T> {
-  CompareTo(x: T): number;
-}
-
-export interface IEquatable<T> {
-  Equals(x: T): boolean;
-}
-
-export class GenericComparer<T> implements IComparer<T> {
-  Compare: (x:T, y:T) => number;
-  
-  constructor(f?: (x:T, y:T) => number) {
-    this.Compare = f || Util.compare;
-  }
-} 
 
 interface MapIterator {
   stack: List<MapTree>;
@@ -2474,43 +3271,40 @@ class MapTree {
   //   MapTree.iter((x, y) => { arr[i++] = [x, y]; }, s);
   // }
 
-  static collapseLHS(stack: List<any>): List<any> {
+  static collapseLHS(stack: List<MapTree>): List<MapTree> {
     if (stack.tail != null) {
       if (stack.head.Case === "MapOne") {
         return stack;
       }
       else if (stack.head.Case === "MapNode") {
-        var k = stack.head.Fields[0];
-        var l = stack.head.Fields[2];
-        var r = stack.head.Fields[3];
-        var rest = stack.tail;
-        var v = stack.head.Fields[1];
-        return MapTree.collapseLHS(List.ofArray([l, new MapTree("MapOne", [k, v]), r], rest));
+        return MapTree.collapseLHS(List.ofArray([
+          stack.head.Fields[2],
+          new MapTree("MapOne", [stack.head.Fields[0], stack.head.Fields[1]]),
+          stack.head.Fields[3]
+        ], stack.tail));
       }
       else {
         return MapTree.collapseLHS(stack.tail);
       }
     }
     else {
-      return new List();
+      return new List<MapTree>();
     }
   }
 
   static mkIterator(s: MapTree): MapIterator {
-    return { stack: MapTree.collapseLHS(new List(s, new List())), started: false };
+    return { stack: MapTree.collapseLHS(new List<MapTree>(s, new List<MapTree>())), started: false };
   }
 
   static moveNext(i: MapIterator): IteratorResult<[any,any]> {
     function current(i: MapIterator): [any,any] {
       if (i.stack.tail == null) {
         return null;
-      } else {
-        if (i.stack.head.Case === "MapOne") {
-          return [i.stack.head.Fields[0], i.stack.head.Fields[1]];
-        } else {
-          throw "Please report error: Map iterator, unexpected stack for current";
-        }
       }
+      else if (i.stack.head.Case === "MapOne") {
+        return [i.stack.head.Fields[0], i.stack.head.Fields[1]];
+      }
+      throw "Please report error: Map iterator, unexpected stack for current";
     }
     if (i.started) {
       if (i.stack.tail == null) {
@@ -2557,7 +3351,7 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
   }
 
   Equals(m2: FMap<K,V>) {
-    return this.CompareTo(m2) == 0;
+    return this.CompareTo(m2) === 0;
   }
 
   CompareTo(m2: FMap<K,V>) {
@@ -2594,11 +3388,18 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
     return MapTree.mem(this.comparer, k, this.tree);
   }
 
+  /** Not supported */
   set(k: K, v: V): FMap<K,V> {
     throw "not supported";
   }
 
+  /** Not supported */
   delete(k: K): boolean {
+    throw "not supported";
+  }
+
+  /** Not supported */
+  clear(): void {
     throw "not supported";
   }
 
@@ -2651,7 +3452,7 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
   }
 
   static iterate<K, V>(f: (k: K, v: V) => void, map: FMap<K, V>) {
-    return MapTree.iter(f, map.tree);
+    MapTree.iter(f, map.tree);
   }
 
   static map<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
