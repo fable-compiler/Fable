@@ -232,7 +232,14 @@ let ``Different ways of providing None to a function should be equal``() = // Se
     equal true (f2 None)
     equal true (f2 value)
     equal false (Some 5 |> f2)
-    
+
+[<Test>]
+let ``Accessing an option value gives correct expression type``() = // See #285
+    let test (x: float option) =
+        match x with
+        | Some y -> y + 3.
+        | None -> 0.
+    test(Some 4.) |> equal 7.
 
 [<Test>]
 let ``Mixing refs and options works``() = // See #238

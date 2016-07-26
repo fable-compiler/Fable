@@ -348,13 +348,13 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeGetFrom com ctx r typ tupleExpr (makeConst tupleElemIndex)
 
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, FableType com ctx unionType, unionCase, FieldName fieldName) ->
+        let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         match unionType with
-        | ErasedUnion | OptionUnion -> unionExpr
+        | ErasedUnion | OptionUnion ->
+            Fable.Wrapped(unionExpr, typ)
         | ListUnion ->
-            makeGet (makeRangeFrom fsExpr) (makeType com ctx fsExpr.Type)
-                    unionExpr (Naming.lowerFirst fieldName |> makeConst)
+            makeGet range typ unionExpr (Naming.lowerFirst fieldName |> makeConst)
         | _ ->
-            let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
             let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
             let fields = makeGet range typ unionExpr ("Fields" |> makeConst)
             makeGet range typ fields (i |> makeConst)
