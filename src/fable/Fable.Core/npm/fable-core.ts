@@ -985,6 +985,18 @@ class FArray {
       target[targetIndex++] = source[sourceIndex++];
   }
 
+  static choose<T, U>(f: (x: T) => U, xs: ArrayLike<T>) {
+    let result: Array<U> = [];
+    let r: U;
+    for (let i = 0; i < xs.length; i++) {
+        r = f(xs[i])
+        if (r != null) {
+            result.push(r)
+        }
+	}
+    return result;
+  }
+
   static partition<T>(f: (x: T) => boolean, xs: ArrayLike<T>) {
     let ys = <T[]>[], zs = <T[]>[], j = 0, k = 0;
     for (let i = 0; i < xs.length; i++)

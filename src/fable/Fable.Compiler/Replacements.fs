@@ -865,8 +865,8 @@ module private AstPass =
               "replicate"; "reverse"; "singleton"; "unzip"; "unzip3" ]
 
     let implementedArrayFunctions =
-        set [ "copyTo"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3" ]
-        
+        set [ "copyTo"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3"; "choose" ]
+
     let nativeArrayFunctions =
         dict [ "exists" => "some"; "filter" => "filter";
                "find" => "find"; "findIndex" => "findIndex"; "forAll" => "every";
