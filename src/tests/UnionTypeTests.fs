@@ -135,6 +135,7 @@ let ``Union cases json stringify is as we expect``() =
     ObjectType({Prop1 = "value1"; Prop2 = 2})
     |> jsonStringify
     |> equal """{"Case":"ObjectType","Fields":[{"Prop1":"value1","Prop2":2}]}"""
+#endif
 
 type Tree =
     | Leaf of int
@@ -147,13 +148,30 @@ type Tree =
 [<Test>]
 let ``Unions can be JSON serialized forth and back``() =
     let tree = Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
-    let sum1 = tree.Sum() 
+    let sum1 = tree.Sum()
+    #if MOCHA
     let json = toJson tree
     let tree2 = ofJson<Tree> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject tree
+    let tree2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Tree> json
+    #endif
     let sum2 = tree2.Sum()
     equal true (box tree2 :? Tree) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed
-#endif
+
+// TODO: Json.NET doesn't save the type name of discriminated unions 
+// [<Test>]
+// let ``Unions serialized with Json.NET can be deserialized``() =
+//     // let x = Leaf 5
+//     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+//     let json = """{"Case":"Leaf","Fields":[5]}"""
+//     #if MOCHA
+//     let x2 = Fable.Core.JsInterop.ofJson<Tree> json
+//     #else
+//     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Tree> json
+//     #endif
+//     x2.Sum() |> equal 5
 
 [<Test>]
 let ``Option.isSome/isNone works``() =

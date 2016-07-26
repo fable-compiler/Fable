@@ -87,3 +87,34 @@ let ``HashSet.Remove works``() =
     hs.Add("B") |> ignore
     hs.Remove("A") |> equal true
     hs.Remove("C") |> equal false
+
+type R = { i: int; s: string }
+
+[<Test>]
+let ``HashSet can be JSON serialized forth and back``() =
+    let x = HashSet<_>()
+    x.Add(1) |> ignore
+    x.Add(2) |> ignore
+    #if MOCHA
+    let json = Fable.Core.JsInterop.toJson x
+    let x2 = Fable.Core.JsInterop.ofJson<HashSet<int>> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject x
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<int>> json
+    #endif
+    x2.IsSubsetOf x |> equal true
+    (0, x2) ||> Seq.fold (fun acc v -> acc + v) |> equal 3
+
+[<Test>]
+let ``HashSet serialized with Json.NET can be deserialized``() =
+    // let x = HashSet<_>()
+    // x.Add({ i=1; s="1" }) |> ignore
+    // x.Add({ i=2; s="2" }) |> ignore
+    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+    let json = """{"$type":"System.Collections.Generic.HashSet`1[[Fable.Tests.SystemSets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.SystemSets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.SystemSets+R, Fable.Tests","i":2,"s":"2"}]}"""
+    #if MOCHA
+    let x2 = Fable.Core.JsInterop.ofJson<HashSet<R>> json
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<R>> json
+    #endif
+    (0, x2) ||> Seq.fold (fun acc v -> acc + v.i) |> equal 3

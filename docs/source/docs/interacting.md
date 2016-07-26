@@ -462,8 +462,8 @@ making it easier to interact with a .NET server.
 
 The only problem is `JSON.parse` will produce a plain JS object which won't work if
 you need to type test it or access the prototype members. When this is necessary, you
-can use `toJson` and `ofJson` functions in `Fable.Core.Serialize` module. This will
-save the type full name in a `__type` field so Fable will know which type to construct
+can use `toJson` and `ofJson` functions in `Fable.Core.JsInterop` module. This will
+save the type full name in a `$type` field so Fable will know which type to construct
 when deserializing:
 
 ```fsharp
@@ -489,14 +489,28 @@ let sum = tree2.Sum()   // Prototype members can be accessed
 ```
 
 > This will work when exchanging objects with a server, if the
-server includes the type full name in a `__type` field and the
-client code knows the type definiton.
+server includes the type full name in a `$type` field and the
+client code knows the type definiton. With Json.NET you can do
+this by simply using the `TypeNameHandling.All` setting.
 
-At the moment, there are the following caveats:
+```fsharp
+type R = { i: int; s: string }
 
-- Only works with records, unions and types with an argumentless primary constructor.
-- Doesn't work with lists, maps or sets.
+let x = { i=1; s="1" }
+let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+
+// {"$type":"Fable.Tests.Lists+R, Fable.Tests","i":1,"s":"1"}
+```
+
+Caveats:
+
 - Arrays will always be deserialized as dynamic JS arrays, not typed arrays.
+- Works with records, unions and types with an argumentless primary constructor.
+- Not compatible with atttibutes like `[<JsonIgnore>]`.
+- For classes, only properties (getters) will be serialized. Properties must also
+  have a public setter for correct deserialization (`[<CLIMutableAttribute>]` doesn't work).
+- At the time of writing, Json.NET doesn't serialize type info for F# unions even when
+  using the `TypeNameHandling.All` setting (reported as a bug).
 
 ## Publishing a Fable package
 

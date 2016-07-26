@@ -583,9 +583,15 @@ module Util =
         |> Seq.tryFind (Naming.replacedInterfaces.Contains)
         |> Option.iter (fun i ->
             failwithf "Fable doesn't support custom implementations of %s (%s)" i ent.FullName)
+        let interfaces =
+            match ent.Kind with
+            | Fable.Union -> "FSharpUnion"::ent.Interfaces
+            | Fable.Record -> "FSharpRecord"::ent.Interfaces
+            | Fable.Exception -> "FSharpException"::ent.Interfaces
+            | _ -> ent.Interfaces
         [ getCoreLibImport com ctx "Util"
           typeRef com ctx ent None
-          buildStringArray ent.Interfaces
+          buildStringArray interfaces
           upcast Babel.StringLiteral ent.FullName ]
         |> fun args ->
             // "$0.setInterfaces($1.prototype, $2, $3)"

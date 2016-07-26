@@ -776,10 +776,18 @@ module private AstPass =
         | "add" -> icall com i "add" |> Some
         | "clear" -> icall com i "clear" |> Some
         | "contains" -> icall com i "has" |> Some
-        | "copyTo" ->
-            CoreLibCall ("Set", Some "copyTo", false, i.callee.Value::i.args)
-            |> makeCall com i.range i.returnType |> Some
         | "remove" -> icall com i "delete" |> Some
+        | "isProperSubsetOf" | "isProperSupersetOf"
+        | "isSubsetOf" | "isSupersetOf" | "copyTo" -> 
+            CoreLibCall ("Set", Some i.methodName, false, i.callee.Value::i.args)
+            |> makeCall com i.range i.returnType |> Some
+        // TODO
+        // | "intersectWith"
+        // | "exceptWith"
+        // | "unionWith"
+        // | "setEquals"
+        // | "overlaps"
+        // | "symmetricExceptWith"
         | _ -> None
 
     let mapAndSets com (i: Fable.ApplyInfo) =

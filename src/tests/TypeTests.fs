@@ -259,3 +259,39 @@ let ``lazy.IsValueCreated works``() =
     equal true lazyVal.IsValueCreated
     lazyVal.Force() |> equal 5
     equal true lazyVal.IsValueCreated
+
+type Serializable(?i: int) =
+    let mutable deserialized = false
+    let mutable publicValue = 1
+    let mutable privateValue = defaultArg i 0
+    member x.PublicValue
+        with get() = publicValue
+        and set(i) = deserialized <- true; publicValue <- i
+    override x.ToString() =
+        sprintf "Public: %i - Private: %i - Deserialized: %b"
+                publicValue privateValue deserialized
+
+[<Test>]
+let ``Classes can be JSON serialized forth and back``() =
+    let x = Serializable(5)
+    #if MOCHA
+    let json = Fable.Core.JsInterop.toJson x
+    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject x
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
+    #endif
+    string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
+    string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
+
+[<Test>]
+let ``Classes serialized with Json.NET can be deserialized``() =
+    // let x = Serializable(5)
+    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+    let json = """{"$type":"Fable.Tests.TypeTests+Serializable","PublicValue":1}"""
+    #if MOCHA
+    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
+    #endif
+    string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"

@@ -50,8 +50,9 @@ export class Util {
     }
   }
 
-  static hasInterface(obj: any, interfaceName: string) {
-    return Array.isArray(obj[FSymbol.interfaces]) && obj[FSymbol.interfaces].indexOf(interfaceName) >= 0;
+  static hasInterface(obj: any, ...interfaceNames: string[]) {
+    return Array.isArray(obj[FSymbol.interfaces])
+      && obj[FSymbol.interfaces].some((x: string) => interfaceNames.indexOf(x) >= 0);
   }
 
   static getTypeFullName(cons: any): string {
@@ -195,29 +196,83 @@ export class Util {
     }
   }
 
-  static toJson(o: any) {
+  static toJson(o: any): string {
     return JSON.stringify(o, (k, v) => {
-      if (ArrayBuffer.isView(v))
+      if (ArrayBuffer.isView(v)) {
         return Array.from(v);
-
-      if (typeof v == "object") {
-        if (v instanceof List || v instanceof Map || v instanceof Set)
-          throw "JSON serialization of List, Map or Set is not supported";
-
-        if (v[FSymbol.typeName])
-          return Object.assign({ __type: v[FSymbol.typeName] }, v);
+      }
+      else if (typeof v === "object") {
+        if (v instanceof List || v instanceof FSet || v instanceof Set) {
+          return {
+            $type: v[FSymbol.typeName] || "System.Collections.Generic.HashSet",
+            $values: Array.from(v) };
+        }
+        else if (v instanceof FMap || v instanceof Map) {
+          return Seq.fold(
+            (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, 
+            { $type: v[FSymbol.typeName] || "System.Collections.Generic.Dictionary" }, v);
+        }
+        else if (v[FSymbol.typeName]) {
+          if (Util.hasInterface(v, "FSharpUnion", "FSharpRecord", "FSharpException")) {
+            return Object.assign({ $type: v[FSymbol.typeName] }, v);
+          }
+          else {
+            const proto = Object.getPrototypeOf(v),
+                  props = Object.getOwnPropertyNames(proto),
+                  o = { $type: v[FSymbol.typeName] } as {[k:string]:any};
+            for (let i = 0; i < props.length; i++) {
+              const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
+              if (prop.get)
+                o[props[i]] = prop.get.apply(v);
+            }
+            return o;
+          }
+        }
       }
       return v;
     });
   }
 
-  static ofJson(json: any) {
+  static ofJson(json: any): any {
     return JSON.parse(json, (k, v) => {
-      if (typeof v == "object" && v.__type) {
-        const T = Util.__types.get(v.__type);
-        if (T) {
-          delete v.__type;
-          return Object.assign(new T(), v);
+      if (typeof v === "object" && typeof v.$type === "string") {
+        // Remove generic args and assembly info added by Newtonsoft.Json
+        let type = v.$type.replace('+', '.'), i = type.indexOf('`');
+        if (i > -1) {
+          type = type.substr(0,i);
+        }
+        else {
+          i = type.indexOf(',');
+          type = i > -1 ? type.substr(0,i) : type;
+        }
+        if (type === "System.Collections.Generic.List" || (type.indexOf("[]") === type.length - 2)) {
+            return v.$values;
+        }
+        if (type === "Microsoft.FSharp.Collections.FSharpList") {
+            return List.ofArray(v.$values);
+        }
+        else if (type == "Microsoft.FSharp.Collections.FSharpSet") {
+          return FSet.create(v.$values);
+        }
+        else if (type == "System.Collections.Generic.HashSet") {
+          return new Set(v.$values);
+        }
+        else if (type == "Microsoft.FSharp.Collections.FSharpMap") {
+            delete v.$type;
+            return FMap.create(Object.getOwnPropertyNames(v)
+                                     .map(k => [k, v[k]] as [any,any]));
+        }
+        else if (type == "System.Collections.Generic.Dictionary") {
+            delete v.$type;
+            return new Map(Object.getOwnPropertyNames(v)
+                                 .map(k => [k, v[k]] as [any,any]));
+        }
+        else {
+          const T = Util.__types.get(type);
+          if (T) {
+            delete v.$type;
+            return Object.assign(new T(), v);
+          }
         }
       }
       return v;
@@ -2659,7 +2714,7 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
     return s;
   }
 
-  private static create<T>(ie?: Iterable<T>, comparer?: IComparer<T>) {
+  static create<T>(ie?: Iterable<T>, comparer?: IComparer<T>) {
     comparer = comparer || new GenericComparer<T>();
     return FSet.from(comparer, ie ? SetTree.ofSeq(comparer, ie) : new SetTree("SetEmpty", []));
   }
@@ -2775,9 +2830,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
 
   static isProperSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
     if (set1 instanceof FSet && set2 instanceof FSet) {
-      return SetTree.psubset(set1.comparer, set1.tree, set2.tree);
+      return SetTree.psubset(set1.comparer, set1.tree, (set2 as FSet<T>).tree);
     }
     else {
+      set2 = set2 instanceof Set ? set2 : new Set(set2);
       return Seq.forAll(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
     }
   }
@@ -2785,9 +2841,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
 
   static isSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
     if (set1 instanceof FSet && set2 instanceof FSet) {
-      return SetTree.subset(set1.comparer, set1.tree, set2.tree);
+      return SetTree.subset(set1.comparer, set1.tree, (set2 as FSet<T>).tree);
     }
     else {
+      set2 = set2 instanceof Set ? set2 : new Set(set2);
       return Seq.forAll(x => set2.has(x), set1);
     }
   }
@@ -2795,10 +2852,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
 
   static isProperSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
     if (set1 instanceof FSet && set2 instanceof FSet) {
-      return SetTree.psubset(set1.comparer, set2.tree, set1.tree);
+      return SetTree.psubset(set1.comparer, (set2 as FSet<T>).tree, set1.tree);
     }
     else {
-      return FSet.isProperSubset(set2, set1);
+      return FSet.isProperSubset(set2 instanceof Set ? set2 : new Set(set2), set1);
     }
   }
   static isProperSuperset = FSet.isProperSupersetOf;
@@ -2808,7 +2865,7 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
       return SetTree.subset(set1.comparer, set2.tree, set1.tree);
     }
     else {
-      return FSet.isSubset(set2, set1);
+      return FSet.isSubset(set2 instanceof Set ? set2 : new Set(set2), set1);
     }
   }
   static isSuperset = FSet.isSupersetOf;
@@ -3353,7 +3410,7 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
     return map;
   }
 
-  private static create<K,V>(ie?: Iterable<[K,V]>, comparer?: IComparer<K>) {
+  static create<K,V>(ie?: Iterable<[K,V]>, comparer?: IComparer<K>) {
     comparer = comparer || new GenericComparer<K>();
     return FMap.from(comparer, ie ? MapTree.ofSeq(comparer, ie) : MapTree.empty());
   }
