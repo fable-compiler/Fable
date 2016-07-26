@@ -1023,6 +1023,7 @@ module React =
         member __.createElement(``type``: string, props: 'P, [<ParamArray>] children: ReactNode[]): DOMElement<'P> = failwith "JS only"
         member __.createElement(``type``: ClassicComponentClass<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ClassicElement<'P> = failwith "JS only"
         member __.createElement(``type``: U2<ComponentClass<'P>, StatelessComponent<'P>>, props: 'P, [<ParamArray>] children: ReactNode[]): ReactElement<'P> = failwith "JS only"
+        member __.createElement(``type``: #ComponentClass<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ReactElement<'P> = failwith "JS only"
         member __.cloneElement(element: DOMElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): DOMElement<'P> = failwith "JS only"
         member __.cloneElement(element: ClassicElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ClassicElement<'P> = failwith "JS only"
         member __.cloneElement(element: ReactElement<'P>, props: 'P, [<ParamArray>] children: ReactNode[]): ReactElement<'P> = failwith "JS only"
