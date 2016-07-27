@@ -27,8 +27,6 @@ module Naming =
     let [<Literal>] fableInjectFile = "./fable_inject.js"
     let [<Literal>] exportsIdent = "$exports"
 
-    let getImportIdent i = sprintf "$import%i" i
-
     /// Calls to methods of these interfaces will be replaced
     /// so they cannot be customly implemented.
     let replacedInterfaces =
@@ -101,7 +99,7 @@ module Naming =
             check 0
         // Replace Forbidden Chars
         let sanitizedName =
-            identForbiddenCharsRegex.Replace(removeParens name, "_")
+            identForbiddenCharsRegex.Replace(name, "_")
         // Check if it's a keyword or clashes with module ident pattern
         jsKeywords.Contains sanitizedName
         |> function true -> "_" + sanitizedName | false -> sanitizedName

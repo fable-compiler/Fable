@@ -29,6 +29,7 @@ type IFableCompiler =
     abstract GetEntity: FSharpEntity -> Fable.Entity
     abstract TryGetInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) option
     abstract AddInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) -> unit
+    abstract AddUsedVarName: string -> unit
     abstract ReplacePlugins: (string*IReplacePlugin) list
     
 module Helpers =
@@ -449,19 +450,21 @@ module Identifiers =
         { ctx with scope = (Some fsRef, expr)::ctx.scope}
 
     /// Make a sanitized identifier from a tentative name
-    let bindIdent (ctx: Context) typ (fsRef: FSharpMemberOrFunctionOrValue option) tentativeName =
+    let bindIdent (com: IFableCompiler) (ctx: Context) typ
+                  (fsRef: FSharpMemberOrFunctionOrValue option) tentativeName =
         let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
             List.exists (fun (_,x') ->
                 match x' with
                 | Fable.Value (Fable.IdentValue {name=name}) -> x = name
                 | _ -> false) ctx.scope)
+        com.AddUsedVarName sanitizedName
         let ident: Fable.Ident = { name=sanitizedName; typ=typ}
         let identValue = Fable.Value (Fable.IdentValue ident)
         { ctx with scope = (fsRef, identValue)::ctx.scope}, ident
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
-        bindIdent ctx (makeType com ctx fsRef.FullType) (Some fsRef) fsRef.CompiledName
+        bindIdent com ctx (makeType com ctx fsRef.FullType) (Some fsRef) fsRef.CompiledName
     
     let (|BindIdent|) = bindIdentFrom
 

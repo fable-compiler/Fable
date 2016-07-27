@@ -10,12 +10,13 @@ type ReturnStrategy =
 type Import = {
     path: string
     selector: string
+    localIdent: string
     internalFile: string option
 }
 
 type Context = {
-    file: string
-    originalFile: string
+    file: Fable.File
+    fixedFileName: string
     moduleFullName: string
     imports: ResizeArray<Import>
     rootEntitiesPrivateNames: Map<string, string>
@@ -92,7 +93,7 @@ module Util =
 
     let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule =
         com.Options.coreLib
-        |> Path.getExternalImportPath com ctx.file
+        |> Path.getExternalImportPath com ctx.fixedFileName
         |> com.GetImport ctx None coreModule
 
     let get left propName =
@@ -133,19 +134,19 @@ module Util =
                 (match memb with Some memb -> [memb] | None ->  [])
         match ent.File with
         | None -> failwithf "Cannot reference type: %s" ent.FullName
-        | Some file when ctx.originalFile <> file ->
+        | Some file when ctx.file.FileName <> file ->
             let proj, ns = com.GetProjectAndNamespace file
             let importPath =
                 match proj.ImportPath with
                 | Some importPath ->
-                    let ext = Path.getExternalImportPath com ctx.file importPath
+                    let ext = Path.getExternalImportPath com ctx.fixedFileName importPath
                     let rel = Path.getRelativePath proj.BaseDir file
                     System.IO.Path.Combine(ext, rel)
                     |> Path.normalizePath
                     |> fun x -> System.IO.Path.ChangeExtension(x, null)
                 | None ->
                     Path.fixExternalPath com file
-                    |> Path.getRelativePath ctx.file
+                    |> Path.getRelativePath ctx.fixedFileName
                     |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
             getParts ns ent.FullName memb
             |> function
@@ -225,7 +226,7 @@ module Util =
             let memb, parts =
                 let parts = Array.toList(memb.Split('.'))
                 parts.Head, parts.Tail
-            Path.getExternalImportPath com ctx.file path
+            Path.getExternalImportPath com ctx.fixedFileName path
             |> com.GetImport ctx None memb
             |> Some |> accessExpr parts
         | Fable.This -> upcast Babel.ThisExpression ()
@@ -762,6 +763,10 @@ module Util =
                 | Some res -> res
                 | None -> failwithf "Cannot find file: %s" fileName                
             member bcom.GetImport ctx internalFile selector path =
+                let sanitizeImportLocalIdent (ctx: Context) (localId: string) =
+                    localId |> Naming.sanitizeIdent (fun s ->
+                        ctx.file.UsedVarNames.Contains s
+                            || (ctx.imports |> Seq.exists (fun i -> i.localIdent = s)))
                 let selector =
                     if selector = "*"
                     then selector
@@ -769,15 +774,20 @@ module Util =
                     then failwith "importMember must be assigned to a variable"
                     // Replace ident forbidden chars of root members, see #207
                     else Naming.replaceIdentForbiddenChars selector
-                let i =
-                    ctx.imports
-                    |> Seq.tryFindIndex (fun imp -> imp.selector = selector && imp.path = path)
-                    |> function
-                    | Some i -> i
-                    | None ->
-                        ctx.imports.Add { selector=selector; path=path; internalFile=internalFile }
-                        ctx.imports.Count - 1
-                upcast Babel.Identifier (Naming.getImportIdent i)
+                ctx.imports
+                |> Seq.tryFind (fun imp -> imp.selector = selector && imp.path = path)
+                |> function
+                | Some i -> upcast Babel.Identifier(i.localIdent)
+                | None ->
+                    let localId =
+                        match selector with
+                        | "*" | "default" | "" ->
+                            let x = path.TrimEnd('/') in x.Substring(x.LastIndexOf '/' + 1)
+                        | _ -> selector
+                        |> sanitizeImportLocalIdent ctx
+                    let i = { selector=selector; path=path; internalFile=internalFile; localIdent=localId }
+                    ctx.imports.Add i
+                    upcast Babel.Identifier (localId)
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
@@ -807,8 +817,8 @@ module Compiler =
             try
                 // let t = PerfTimer("Fable > Babel")
                 let ctx = {
-                    file = Path.fixExternalPath com file.FileName
-                    originalFile = file.FileName
+                    file = file
+                    fixedFileName = Path.fixExternalPath com file.FileName
                     moduleFullName = defaultArg (Map.tryFind file.FileName projs.Head.FileMap) ""
                     rootEntitiesPrivateNames = getRootEntitiesPrivateNames file.Declarations
                     imports = ResizeArray<_>()
@@ -825,7 +835,7 @@ module Compiler =
                 // Add imports
                 let rootDecls, dependencies =
                     ctx.imports |> Seq.mapi (fun ident import ->
-                        let localId = Babel.Identifier(Naming.getImportIdent ident)
+                        let localId = Babel.Identifier(import.localIdent)
                         let specifier =
                             match import.selector with
                             | "default" | "" ->

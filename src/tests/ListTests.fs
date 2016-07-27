@@ -618,4 +618,12 @@ let ``Lists serialized with Json.NET can be deserialized``() =
     | _::[{ i=2; s="2" }] -> true
     | _ -> false
     |> equal true
+
+type List(x: int) =
+    member val Value = x
+
+[<Test>]
+let ``Types with same name as imports work``() =
+      let li = [List 5]
+      equal 5 li.Head.Value 
     

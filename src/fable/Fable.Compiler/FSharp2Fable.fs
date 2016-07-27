@@ -1,6 +1,10 @@
 module Fable.FSharp2Fable.Compiler
 
 open System.IO
+open System.Collections.Generic
+open System.Collections.Concurrent
+open System.Text.RegularExpressions
+
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -270,7 +274,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeSequential (Some r) [assignment; transformExpr com ctx body]
 
     | BasicPatterns.Let((var, Transform com ctx value), body) ->
-        let ctx, ident = bindIdent ctx value.Type (Some var) var.CompiledName
+        let ctx, ident = bindIdent com ctx value.Type (Some var) var.CompiledName
         let body = transformExpr com ctx body
         let assignment = Fable.VarDeclaration (ident, value, var.IsMutable) 
         makeSequential (makeRangeFrom fsExpr) [assignment; body]
@@ -547,7 +551,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 let lambda =
                     Fable.Lambda (targetVars, com.Transform targetCtx targetExpr)
                     |> Fable.Value
-                let ctx, ident = bindIdent ctx lambda.Type None (sprintf "$target%i" k)
+                let ctx, ident = bindIdent com ctx lambda.Type None (sprintf "$target%i" k)
                 ctx, Map.add k (ident, lambda) acc) (ctx, Map.empty<_,_>)
         let decisionTargets =
             targetRefsCount |> Map.map (fun k v ->
@@ -614,7 +618,7 @@ type private DeclInfo(init: Fable.Declaration list) =
                 "at same level are not supported" name
         publicNames.Add name
     let decls = ResizeArray<_>(Seq.map Decl init)
-    let children = System.Collections.Generic.Dictionary<string, TmpDecl>()
+    let children = Dictionary<string, TmpDecl>()
     let tryFindChild (ent: FSharpEntity) =
         if children.ContainsKey ent.FullName
         then Some children.[ent.FullName] else None
@@ -688,7 +692,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             // name clashes (they will become variables in JS)
             if meth.EnclosingEntity.IsFSharpModule then
                 let typ = makeType com ctx meth.FullType
-                let ctx, privateName = bindIdent ctx typ (Some meth) memberName
+                let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
                 ctx, Some (privateName.name)
             // Make some checks on custom type operators
             elif memberName.StartsWith "op_" then
@@ -696,7 +700,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 if not arg.Type.HasTypeDefinition
                     || arg.Type.TypeDefinition <> meth.EnclosingEntity
                 then failwithf "First argument of custom type operators must be same as type: %s" meth.FullName
-                elif System.Text.RegularExpressions.Regex.IsMatch(memberName, "_\d+$")
+                elif Regex.IsMatch(memberName, "_\d+$")
                 then failwithf "Custom type operator overloads is not supported: %s" meth.FullName
                 else ctx, None
             else ctx, None
@@ -761,7 +765,7 @@ let rec private transformEntityDecl
         else
             // Bind entity name to context to prevent name
             // clashes (it will become a variable in JS)
-            let ctx, ident = sanitizeEntityName ent |> bindIdent ctx Fable.UnknownType None
+            let ctx, ident = sanitizeEntityName ent |> bindIdent com ctx Fable.UnknownType None
             declInfo.AddChild(com, ent, ident.name, childDecls)
             declInfo, ctx
 
@@ -809,19 +813,18 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
     
 // Make inlineExprs static so they can be reused in --watch compilations
 let private inlineExprs =
-    System.Collections.Concurrent.ConcurrentDictionary<
-        string, FSharpMemberOrFunctionOrValue list * FSharpExpr>()
+    ConcurrentDictionary<string, FSharpMemberOrFunctionOrValue list * FSharpExpr>()
 
-let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
-    let entities =
-        System.Collections.Concurrent.ConcurrentDictionary<string, Fable.Entity>()
+type FableCompiler(com: ICompiler, projs: Fable.Project list, entities: ConcurrentDictionary<string, Fable.Entity>) =
     let refAssemblies =
         projs |> Seq.choose (fun p -> p.AssemblyFileName) |> Set
     let replacePlugins =
         com.Plugins |> List.choose (function
             | path, (:? IReplacePlugin as plugin) -> Some (path, plugin)
             | _ -> None)
-    { new IFableCompiler with
+    let usedVarNames = HashSet<string>()
+    member fcom.UsedVarNames = set usedVarNames
+    interface IFableCompiler with
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
         member fcom.GetInternalFile tdef =
@@ -846,13 +849,15 @@ let private makeCompiler (com: ICompiler) (projs: Fable.Project list) =
                 System.Func<_,_>(fun _ -> inlineExpr),
                 System.Func<_,_,_>(fun _ _ -> inlineExpr))
             |> ignore
+        member fcom.AddUsedVarName varName =
+            usedVarNames.Add varName |> ignore
         member fcom.ReplacePlugins =
             replacePlugins
     interface ICompiler with
         member __.Options = com.Options
         member __.Plugins = com.Plugins
         member __.AddLog msg = com.AddLog msg
-        member __.GetLogs() = com.GetLogs() }
+        member __.GetLogs() = com.GetLogs()
         
 let private addInjections (com: ICompiler) (curProj: Fable.Project) =
     let createDeclaration (injection: IInjection) =
@@ -952,7 +957,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                     |> Some
             | None -> None)
     let projs = curProj::(refProjs @ refAssemblies)
-    let com = makeCompiler com projs
+    let entities = ConcurrentDictionary<string, Fable.Entity>()
     parsedProj.AssemblyContents.ImplementationFiles
     |> Seq.where (fun file ->
         curProj.FileMap.ContainsKey file.FileName
@@ -960,17 +965,18 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         && projInfo.IsMasked file)
     |> Seq.choose (fun file ->
         try
+            let fcom = FableCompiler(com, projs, entities)
             let rootEnt, rootDecls =
                 let rootNs = curProj.FileMap.[file.FileName]
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
-                let rootDecls = transformDeclarations com Context.Empty [] rootDecls
+                let rootDecls = transformDeclarations fcom Context.Empty [] rootDecls
                 match rootEnt with
-                | Some rootEnt when isErased rootEnt -> makeEntity com rootEnt, []
-                | Some rootEnt -> makeEntity com rootEnt, rootDecls
+                | Some rootEnt when isErased rootEnt -> makeEntity fcom rootEnt, []
+                | Some rootEnt -> makeEntity fcom rootEnt, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
             match rootDecls with
             | [] -> None
-            | rootDecls -> Fable.File(file.FileName, rootEnt, rootDecls) |> Some
+            | rootDecls -> Fable.File(file.FileName, rootEnt, rootDecls, fcom.UsedVarNames) |> Some
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
     )
