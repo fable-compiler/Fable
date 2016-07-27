@@ -1759,19 +1759,19 @@ export class Seq {
   }
 
   static max<T extends number>(xs: Iterable<T>) {
-    return Seq.reduce((acc: T, x: T) => Math.max(acc, x), xs);
+    return Seq.reduce((acc: T, x: T) => Util.compare(acc, x) === 1 ? acc : x, xs);
   }
 
   static maxBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>) {
-    return Seq.reduce((x, y) => f(x) > f(y) ? x : y, xs);
+    return Seq.reduce((acc: T, x: T) => Util.compare(f(acc), f(x)) === 1 ? acc : x, xs);
   }
 
   static min<T extends number>(xs: Iterable<T>) {
-    return Seq.reduce((acc: T, x: T) => Math.min(acc, x), xs);
+    return Seq.reduce((acc: T, x: T) => Util.compare(acc, x) === -1 ? acc : x, xs);
   }
 
   static minBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>) {
-    return Seq.reduce((x, y) => f(x) < f(y) ? x : y, xs);
+    return Seq.reduce((acc: T, x: T) => Util.compare(f(acc), f(x)) === -1 ? acc : x, xs);
   }
 
   static pairwise<T extends number>(xs: Iterable<T>) {

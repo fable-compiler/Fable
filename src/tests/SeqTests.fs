@@ -283,6 +283,45 @@ let ``Seq.minBy works``() =
     xs |> Seq.minBy (fun x -> -x)
     |> equal 2.
 
+type Point =
+    { x: int; y: int }
+    static member Neg(p: Point) = { x = -p.x; y = -p.y }
+
+let ``Seq.max with non numeric types works``() =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.max |> equal p2
+
+[<Test>]
+let ``Seq.maxBy with non numeric types works``() =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.maxBy Point.Neg |> equal p1
+
+[<Test>]
+let ``Seq.min with non numeric types works``() =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.min |> equal p1
+
+[<Test>]
+let ``Seq.minBy with non numeric types works``() =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.minBy Point.Neg |> equal p2
+
+[<Test>]
+let ``Seq.maxBy with numeric projection works``() =
+    let p1 = {x=1; y=2}
+    let p2 = {x=2; y=1}
+    [p1; p2] |> Seq.maxBy (fun p -> p.y) |> equal p1
+
+[<Test>]
+let ``Seq.minBy with numeric projection works``() =
+    let p1 = {x=1; y=2}
+    let p2 = {x=2; y=1}
+    [p1; p2] |> Seq.minBy (fun p -> p.y) |> equal p2
+
 [<Test>]
 let ``Seq.item works``() =
     let xs = [1.; 2.]

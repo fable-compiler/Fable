@@ -9,7 +9,7 @@ module Util =
     let [<Literal>] genericCollections = "System.Collections.Generic."
 
     let inline (=>) first second = first, second
-        
+
     let (|CoreMeth|_|) (com: ICompiler) coreMod meth expr =
         match expr with
         | Fable.Apply(Fable.Value(Fable.ImportRef(coreMod', importPath)),
@@ -24,16 +24,16 @@ module Util =
         | _ -> None
 
     let (|Null|_|) = function
-        | Fable.Wrapped(Fable.Value Fable.Null,_)    
+        | Fable.Wrapped(Fable.Value Fable.Null,_)
         | Fable.Value Fable.Null -> Some null
         | _ -> None
 
     let (|Type|) (expr: Fable.Expr) = expr.Type
-    
+
     let (|NumberType|) = function
         | Fable.PrimitiveType(Fable.Number kind) -> Some kind
         | _ -> None
-        
+
     let (|FullName|_|) (typ: Fable.Type) =
         match typ with
         | Fable.DeclaredType ent -> Some ent.FullName
@@ -43,7 +43,7 @@ module Util =
         match typ with
         | Fable.DeclaredType ent -> Some ent.Kind
         | _ -> None
-        
+
     let (|KeyValue|_|) (key: string) (value: string) (s: string) =
         if s = key then Some value else None
 
@@ -81,13 +81,13 @@ module Util =
         let c, args = instanceArgs i.callee i.args
         InstanceCall(c, meth, args)
         |> makeCall com i.range i.returnType
-        
+
     let emit (i: Fable.ApplyInfo) emit args =
         Fable.Apply(Fable.Emit(emit) |> Fable.Value, args, Fable.ApplyMeth, i.returnType, i.range)
 
     let emitNoInfo emit args =
         Fable.Apply(Fable.Emit(emit) |> Fable.Value, args, Fable.ApplyMeth, Fable.UnknownType, None)
-        
+
     let wrap typ expr =
         Fable.Wrapped (expr, typ)
 
@@ -184,7 +184,7 @@ module Util =
             |> Fable.BinaryOp |> Fable.Value
         let is equal expr =
             if equal then expr
-            else makeUnOp i.range i.returnType [expr] UnaryNot  
+            else makeUnOp i.range i.returnType [expr] UnaryNot
         match args.Head.Type with
         | FullName "Microsoft.FSharp.Core.FSharpOption"
         | Fable.PrimitiveType (Fable.Array _) ->
@@ -241,7 +241,7 @@ module Util =
             when ent.HasInterface "System.IComparable"
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
-            [emitNoInfo "(x,y) => x.CompareTo(y)" []] 
+            [emitNoInfo "(x,y) => x.CompareTo(y)" []]
         | Some _ -> [emitNoInfo "(x,y) => x < y ? -1 : x > y ? 1 : 0" []]
         |> fun args -> CoreLibCall("GenericComparer", None, true, args)
         |> makeCall com None Fable.UnknownType
@@ -259,7 +259,7 @@ module Util =
 
 module private AstPass =
     open Util
-    
+
     let fableCore com (i: Fable.ApplyInfo) =
         let destruct = function
             | Fable.Value (Fable.ArrayConst (Fable.ArrayValues exprs, Fable.Tuple)) -> exprs
@@ -331,7 +331,7 @@ module private AstPass =
             CoreLibCall("Util", Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
-            
+
     let references com (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
@@ -345,7 +345,7 @@ module private AstPass =
                 Fable.Set(i.callee.Value, Some prop, i.args.Head, i.range) |> Some
             | _ -> None
         | _ -> None
-    
+
     let operators (com: ICompiler) (info: Fable.ApplyInfo) =
         let math range typ args methName =
             GlobalCall ("Math", Some methName, false, args)
@@ -390,7 +390,7 @@ module private AstPass =
         // TODO: optimize square pow: x * x
         | "pow" | "powInteger" | "op_Exponentiation" -> math r typ args "pow"
         | "ceil" | "ceiling" -> math r typ args "ceil"
-        | "abs" | "acos" | "asin" | "atan" | "atan2" 
+        | "abs" | "acos" | "asin" | "atan" | "atan2"
         | "cos"  | "exp" | "floor" | "log" | "log10"
         | "round" | "sin" | "sqrt" | "tan" ->
             math r typ args info.methodName
@@ -412,7 +412,7 @@ module private AstPass =
         | "ref" -> makeJsObject r.Value [("contents", args.Head)] |> Some
         | "increment" | "decrement" ->
             if info.methodName = "increment" then "++" else "--"
-            |> sprintf "void($0.contents%s)" 
+            |> sprintf "void($0.contents%s)"
             |> emit info <| args |> Some
         // Conversions
         | "createSequence" | "identity" | "box" | "unbox" -> wrap typ args.Head |> Some
@@ -428,7 +428,7 @@ module private AstPass =
         | "ignore" -> Fable.Wrapped (args.Head, Fable.PrimitiveType Fable.Unit) |> Some
         // Ranges
         | "op_Range" | "op_RangeStep" ->
-            let meth = 
+            let meth =
                 match info.methodTypeArgs.Head with
                 | Fable.PrimitiveType (Fable.String) -> "rangeChar"
                 | _ -> if info.methodName = "op_Range" then "range" else "rangeStep"
@@ -443,11 +443,11 @@ module private AstPass =
         | "printFormatToString"         // sprintf
         | "printFormat" | "printFormatLine" // printf/printfn
         | "printFormatToStringThenFail" ->  // failwithf
-            let emit = 
+            let emit =
                 match info.methodName with
                 | "printFormatToString" -> "x=>x"
                 | "printFormat" | "printFormatLine" -> "x=>{console.log(x)}"
-                | "printFormatToStringThenFail" | _ -> "x=>{throw x}" 
+                | "printFormatToStringThenFail" | _ -> "x=>{throw x}"
                 |> Fable.Emit |> Fable.Value
             Fable.Apply(args.Head, [emit], Fable.ApplyMeth, typ, r)
             |> Some
@@ -536,7 +536,7 @@ module private AstPass =
             | Type (Fable.PrimitiveType Fable.String)::_ ->
                 CoreLibCall("String", Some "format", false, i.args)
                 |> makeCall com i.range (Fable.PrimitiveType Fable.String)
-            | _ -> i.args.Head 
+            | _ -> i.args.Head
         GlobalCall("console", Some "log", false, [v])
         |> makeCall com i.range i.returnType
 
@@ -650,7 +650,7 @@ module private AstPass =
                 Fable.VarDeclaration(ident, expr, false)
                 f(Fable.Value(Fable.IdentValue ident))
             ]
-            |> fun exprs -> Fable.Sequential(exprs, i.range) 
+            |> fun exprs -> Fable.Sequential(exprs, i.range)
         let toArray r optExpr =
             // "$0 != null ? [$0]: []"
             let makeArray exprs = Fable.ArrayConst(Fable.ArrayValues exprs, Fable.DynamicArray) |> Fable.Value
@@ -685,7 +685,7 @@ module private AstPass =
                 |> fun argsHead -> List.rev (argsHead::args.Tail)
             CoreLibCall("Seq", Some meth, false, deleg i args)
             |> makeCall com i.range i.returnType |> Some
-        
+
     let timeSpans com (i: Fable.ApplyInfo) =
         // let callee = match i.callee with Some c -> c | None -> i.args.Head
         match i.methodName with
@@ -713,7 +713,7 @@ module private AstPass =
             makeGet i.range i.returnType i.callee.Value (makeConst "kind")
             |> Some
         | _ -> None
-        
+
     let keyValuePairs com (i: Fable.ApplyInfo) =
         let get (k: obj) =
             makeGet i.range i.returnType i.callee.Value (makeConst k) |> Some
@@ -778,7 +778,7 @@ module private AstPass =
         | "contains" -> icall com i "has" |> Some
         | "remove" -> icall com i "delete" |> Some
         | "isProperSubsetOf" | "isProperSupersetOf"
-        | "isSubsetOf" | "isSupersetOf" | "copyTo" -> 
+        | "isSubsetOf" | "isSupersetOf" | "copyTo" ->
             CoreLibCall ("Set", Some i.methodName, false, i.callee.Value::i.args)
             |> makeCall com i.range i.returnType |> Some
         // TODO
@@ -845,7 +845,7 @@ module private AstPass =
 
     type CollectionKind =
         | Seq | List | Array
-    
+
     // Functions which don't return a new collection of the same type
     let implementedSeqNonBuildFunctions =
         set [ "average"; "averageBy"; "countBy"; "compareWith"; "empty";
@@ -874,14 +874,14 @@ module private AstPass =
 
     let implementedArrayFunctions =
         set [ "copyTo"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3" ]
-        
+
     let nativeArrayFunctions =
         dict [ "exists" => "some"; "filter" => "filter";
                "find" => "find"; "findIndex" => "findIndex"; "forAll" => "every";
                "indexed" => "entries"; "iterate" => "forEach";
                "reduce" => "reduce"; "reduceBack" => "reduceRight";
                "sortInPlace" => "sort"; "sortInPlaceWith" => "sort" ]
-               
+
     let collectionsSecondPass com (i: Fable.ApplyInfo) kind =
         let prop (meth: string) callee =
             makeGet i.range i.returnType callee (makeConst meth)
@@ -909,7 +909,7 @@ module private AstPass =
         | "head" | "tail" | "length" | "count" ->
             let meth = if meth = "count" then "length" else meth
             match kind with
-            | Seq -> 
+            | Seq ->
                 // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
                 let seqMeth = if meth = "length" then "count" else meth
                 ccall "Seq" seqMeth (staticArgs c args)
@@ -950,7 +950,7 @@ module private AstPass =
                     else comparison
                 Fable.Lambda(fnArgs, comparison) |> Fable.Value
             match c, kind with
-            // This is for calls to instance `Sort` member on ResizeArrays 
+            // This is for calls to instance `Sort` member on ResizeArrays
             | Some c, _ ->
                 match args with
                 | [] -> icall "sort" (c, [compareFn]) |> Some
@@ -1038,6 +1038,21 @@ module private AstPass =
             | Seq -> ccall "Seq" "ofList" args
             | Array -> toArray com i i.args.Head
             |> Some
+        | "min" | "minBy" | "max" | "maxBy" ->
+            let reduce macro macroArgs xs =
+                ccall "Seq" "reduce" [emit i macro macroArgs; xs] |> Some
+            match meth, i.methodTypeArgs with
+            // Optimization for numeric types
+            | "min", [Fable.PrimitiveType(Fable.Number _)] ->
+                // Note: if we use just Math.min it fails with typed arrays
+                reduce "(x,y) => Math.min(x,y)" [] args.Head
+            | "max", [Fable.PrimitiveType(Fable.Number _)] ->
+                reduce "(x,y) => Math.max(x,y)" [] args.Head
+            | "minBy", [_;Fable.PrimitiveType(Fable.Number _)] ->
+                reduce "(f=>(x, y) =>f(x)<f(y)?x:y)($0)" [args.Head] args.Tail.Head
+            | "maxBy", [_;Fable.PrimitiveType(Fable.Number _)] ->
+                reduce "(f=>(x, y) =>f(x)>f(y)?x:y)($0)" [args.Head] args.Tail.Head
+            | _ -> ccall "Seq" meth (deleg i args) |> Some
         // Default to Seq implementation in core lib
         | Patterns.SetContains implementedSeqNonBuildFunctions meth ->
             ccall "Seq" meth (deleg i args) |> Some
@@ -1048,7 +1063,7 @@ module private AstPass =
             | Array -> ccall "Seq" meth (deleg i args) |> toArray com i
             |> Some
         | _ -> None
-        
+
     let collectionsFirstPass com (i: Fable.ApplyInfo) kind =
         let icall meth (callee, args) =
             InstanceCall (callee, meth, args)
@@ -1105,7 +1120,7 @@ module private AstPass =
             ImportCall("assert", "default", Some "equal", false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
-        
+
     let exceptions com (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
@@ -1116,7 +1131,7 @@ module private AstPass =
             |> Some
         | "message" -> i.callee
         | _ -> None
-        
+
     let cancels com (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
@@ -1131,7 +1146,7 @@ module private AstPass =
         | "token" -> i.callee
         | "cancel" -> emit i "$0.isCancelled = true" [i.callee.Value] |> Some
         | "cancelAfter" -> emit i "setTimeout(function () { $0.isCancelled = true }, $1)" [i.callee.Value; i.args.Head] |> Some
-        | "isCancellationRequested" -> emit i "$0.isCancelled" [i.callee.Value] |> Some 
+        | "isCancellationRequested" -> emit i "$0.isCancelled" [i.callee.Value] |> Some
         // TODO: Add check so CancellationTokenSource cannot be cancelled after disposed?
         | "dispose" -> Fable.Null |> Fable.Value |> Some
         | _ -> None
@@ -1177,7 +1192,7 @@ module private AstPass =
             CoreLibCall("Util", Some "compare", false, info.args)
             |> makeCall com info.range info.returnType |> Some
         | _ -> None
-        
+
     let random com (info: Fable.ApplyInfo) =
         match info.methodName with
         | ".ctor" ->
@@ -1213,9 +1228,9 @@ module private AstPass =
             | [arg; Type(Fable.PrimitiveType (Fable.Number _)) as toBase] ->
                 toString com info (Some toBase) arg
             | _ -> failwithf "System.Convert.ToString with IFormatProvider is not supported %O" info.range
-            |> Some 
+            |> Some
         | _ ->
-            failwithf "Only System.Convert.ToString is supported %O" info.range 
+            failwithf "Only System.Convert.ToString is supported %O" info.range
 
     let mailbox com (info: Fable.ApplyInfo) =
         match info.callee with
@@ -1282,7 +1297,7 @@ module private AstPass =
         | "System.Console" -> console com info
         | "System.Diagnostics.Debug"
         | "System.Diagnostics.Debugger" -> debug com info
-        | "System.DateTime" -> dates com info 
+        | "System.DateTime" -> dates com info
         | "System.TimeSpan" -> timeSpans com info
         | "System.Action"
         | "System.Func" -> funcs com info
@@ -1308,12 +1323,12 @@ module private AstPass =
         | "System.Collections.Generic.IEnumerable"
         | "System.Collections.Generic.IEnumerator"
         | "System.Collections.IEnumerable"
-        | "System.Collections.IEnumerator" -> enumerator com info 
+        | "System.Collections.IEnumerator" -> enumerator com info
         | "System.Collections.Generic.Dictionary"
         | "System.Collections.Generic.IDictionary" -> dictionaries com info
         | "System.Collections.Generic.HashSet"
         | "System.Collections.Generic.ISet" -> systemSets com info
-        | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info 
+        | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info
         | "System.Collections.Generic.Dictionary.KeyCollection"
         | "System.Collections.Generic.Dictionary.ValueCollection"
         | "System.Collections.Generic.ICollection" -> collectionsSecondPass com info Seq
@@ -1349,7 +1364,7 @@ module private CoreLibPass =
     /// If they're bound only statically all methods will be called statically: if there's an
     /// instance, it'll be passed as the first argument and constructors will change to `create`.
     /// ATTENTION: currently there are no checks for instance methods. Make sure
-    /// the core library polyfills all instance methods when using MapKind.Both. 
+    /// the core library polyfills all instance methods when using MapKind.Both.
     type MapKind = Static | Both
 
     let mappings =
