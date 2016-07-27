@@ -68,9 +68,8 @@ type BitwiseWrapPlugin() =
                     if info.args.Length <> argCount then
                         failwithf "Unexpected arg count for %s" info.methodName
 
-                    match Fable.Replacements.Util.applyOp com info info.args info.methodName with
-                    | Some expr -> applyMask info.returnType [expr]
-                    | _ -> None
+                    Fable.Replacements.Util.applyOp com info info.args info.methodName
+                    |> List.singleton |> applyMask info.returnType
 
                 | _ -> None
 

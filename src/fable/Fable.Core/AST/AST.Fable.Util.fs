@@ -15,6 +15,7 @@ type CallKind =
 
 let makeLoop range loopKind = Loop (loopKind, range)
 let makeIdent name: Ident = {name=name; typ=UnknownType}
+let makeTypedIdent name typ: Ident = {name=name; typ=typ}
 let makeIdentExpr name = makeIdent name |> IdentValue |> Value
 let makeCoreRef (com: ICompiler) modname prop =
     let import = Value(ImportRef(modname, com.Options.coreLib))

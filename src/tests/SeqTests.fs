@@ -285,7 +285,9 @@ let ``Seq.minBy works``() =
 
 type Point =
     { x: int; y: int }
+    static member Zero = { x=0; y=0 }
     static member Neg(p: Point) = { x = -p.x; y = -p.y }
+    static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
 
 let ``Seq.max with non numeric types works``() =
     let p1 = {x=1; y=1}
@@ -434,6 +436,24 @@ let ``Seq.sumBy works``() =
     let xs = [1.; 2.]
     xs |> Seq.sumBy ((*) 2.)
     |> equal 6.
+
+[<Test>]
+let ``Seq.sum with non numeric types works``() =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [p1; p2] |> Seq.sum |> (=) {x=3;y=30} |> equal true
+
+[<Test>]
+let ``Seq.sumBy with non numeric types works``() =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [p1; p2] |> Seq.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
+
+[<Test>]
+let ``Seq.sumBy with numeric projection works``() =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [p1; p2] |> Seq.sumBy (fun p -> p.y) |> equal 30
 
 [<Test>]
 let ``Seq.skip works``() =

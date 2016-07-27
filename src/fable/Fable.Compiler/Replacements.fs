@@ -91,6 +91,10 @@ module Util =
     let wrap typ expr =
         Fable.Wrapped (expr, typ)
 
+    let wrapInLambda args f =
+        let argValues = List.map (Fable.IdentValue >> Fable.Value) args
+        Fable.Lambda(args, f argValues) |> Fable.Value
+
     let toChar com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
         match arg.Type with
         | Fable.PrimitiveType (Fable.String) -> arg
@@ -147,7 +151,6 @@ module Util =
             apply (Fable.BinaryOp BinaryDivide) args
             |> List.singleton |> apply (Fable.UnaryOp UnaryNotBitwise)
             |> List.singleton |> apply (Fable.UnaryOp UnaryNotBitwise)
-            |> Some
         | Fable.UnknownType
         | Fable.PrimitiveType _
         | FullName "System.TimeSpan" ->
@@ -168,15 +171,15 @@ module Util =
                 | "op_BooleanAnd" -> Fable.LogicalOp LogicalAnd
                 | "op_BooleanOr" -> Fable.LogicalOp LogicalOr
                 | _ -> failwithf "Unknown operator: %s" meth
-            apply op args |> Some
+            apply op args
         | FullName (KeyValue "System.DateTime" "Date" modName)
         | FullName (KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" modName) ->
             CoreLibCall (modName, Some meth, false, args)
-            |> makeCall com i.range i.returnType |> Some
+            |> makeCall com i.range i.returnType
         | Fable.DeclaredType ent ->
             let typRef = Fable.Value (Fable.TypeRef ent)
             InstanceCall(typRef, meth, args)
-            |> makeCall com i.range i.returnType |> Some
+            |> makeCall com i.range i.returnType
 
     let equals equal com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
         let op equal =
@@ -385,7 +388,7 @@ module private AstPass =
          | "op_Modulus" | "op_LeftShift" | "op_RightShift"
          | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
          | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
-            applyOp com info args info.methodName
+            applyOp com info args info.methodName |> Some
         // Math functions
         // TODO: optimize square pow: x * x
         | "pow" | "powInteger" | "op_Exponentiation" -> math r typ args "pow"
@@ -895,7 +898,6 @@ module private AstPass =
             i.methodName, i.callee, i.args
         match meth with
         // Deal with special cases first
-        // | "sum" | "sumBy" -> // TODO: Check if we need to use a custom operator
         | "cast" -> Some i.args.Head // Seq only, erase
         | "isEmpty" ->
             match kind with
@@ -1038,9 +1040,23 @@ module private AstPass =
             | Seq -> ccall "Seq" "ofList" args
             | Array -> toArray com i i.args.Head
             |> Some
+        | "sum" | "sumBy" ->
+            match meth, i.methodTypeArgs with
+            | "sum", [Fable.DeclaredType ent as t]
+            | "sumBy", [_;Fable.DeclaredType ent as t] ->
+                let zero = Fable.Apply(Fable.Value(Fable.TypeRef ent), [makeConst "Zero"],
+                                        Fable.ApplyGet, i.returnType, None)
+                let fargs = [makeTypedIdent "x" t; makeTypedIdent "y" t]
+                let addFn = wrapInLambda fargs (fun args -> applyOp com i args "op_Addition")
+                if meth = "sum"
+                then addFn, args.Head
+                else emitNoInfo "((f,add)=>(x,y)=>add(x,f(y)))($0,$1)" [args.Head;addFn], args.Tail.Head
+                |> fun (f, xs) -> ccall "Seq" "fold" [f; zero; xs] |> Some
+            | _ ->
+                ccall "Seq" meth (deleg i args) |> Some
         | "min" | "minBy" | "max" | "maxBy" ->
             let reduce macro macroArgs xs =
-                ccall "Seq" "reduce" [emit i macro macroArgs; xs] |> Some
+                ccall "Seq" "reduce" [emitNoInfo macro macroArgs; xs] |> Some
             match meth, i.methodTypeArgs with
             // Optimization for numeric types
             | "min", [Fable.PrimitiveType(Fable.Number _)] ->
@@ -1049,9 +1065,9 @@ module private AstPass =
             | "max", [Fable.PrimitiveType(Fable.Number _)] ->
                 reduce "(x,y) => Math.max(x,y)" [] args.Head
             | "minBy", [_;Fable.PrimitiveType(Fable.Number _)] ->
-                reduce "(f=>(x, y) =>f(x)<f(y)?x:y)($0)" [args.Head] args.Tail.Head
+                reduce "(f=>(x,y)=>f(x)<f(y)?x:y)($0)" [args.Head] args.Tail.Head
             | "maxBy", [_;Fable.PrimitiveType(Fable.Number _)] ->
-                reduce "(f=>(x, y) =>f(x)>f(y)?x:y)($0)" [args.Head] args.Tail.Head
+                reduce "(f=>(x,y)=>f(x)>f(y)?x:y)($0)" [args.Head] args.Tail.Head
             | _ -> ccall "Seq" meth (deleg i args) |> Some
         // Default to Seq implementation in core lib
         | Patterns.SetContains implementedSeqNonBuildFunctions meth ->
@@ -1164,7 +1180,7 @@ module private AstPass =
     let types com (info: Fable.ApplyInfo) =
         let makeString = Fable.StringConst >> Fable.Value >> Some
         match info.callee with
-        | Some(Fable.AST.Fable.Expr.Value(Fable.AST.Fable.TypeRef t)) ->
+        | Some(Fable.Value(Fable.TypeRef t)) ->
             match info.methodName with
             | "namespace" -> makeString t.Namespace
             | "fullName" -> makeString t.FullName

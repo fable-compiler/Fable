@@ -1890,22 +1890,12 @@ export class Seq {
     return Seq.ofArray(ys.sort(f));
   }
 
-  private static defaultAdder(x: number, y: number) {
-    return x + y;
+  static sum(xs: Iterable<number>) {
+    return Seq.fold((acc, x) => acc + x, 0, xs);
   }
 
-  static sum(xs: Iterable<number>, adder?: (x: number, y: number) => number) {
-    adder = adder || Seq.defaultAdder;
-    return Seq.reduce((acc, x) => adder(acc, x), xs);
-  }
-
-  static sumBy(f: (x: number) => number, xs: Iterable<number>, adder?: (x: number, y: number) => number) {
-    let fst = true;
-    adder = adder || Seq.defaultAdder;
-    return Seq.reduce((acc, x) => {
-      acc = fst ? f(acc) : acc, fst = false;
-      return adder(acc, f(x));
-    }, xs);
+  static sumBy<T>(f: (x: T) => number, xs: Iterable<T>) {
+    return Seq.fold((acc, x) => acc + f(x), 0, xs);
   }
 
   static tail<T>(xs: Iterable<T>) {
