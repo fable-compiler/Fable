@@ -1,0 +1,17 @@
+{
+    "module": "commonjs",
+    "sourceMaps": true,
+    "projFile": "mithril-todo.fsx",
+    "outDir": "out",
+    "scripts": {
+        "prebuild": "npm install",
+        "postbuild": "webpack"
+    },
+    "targets": {
+        "watch": {
+            "scripts": {
+                "postbuild": "webpack --watch"
+            }
+        }
+    }
+}

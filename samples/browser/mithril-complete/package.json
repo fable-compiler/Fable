@@ -1,0 +1,25 @@
+{
+  "private": true,
+  "dependencies": {
+    "core-js": "^2.4.0",
+    "fable-core": "^0.1.12",
+    "mithril": "^0.2.5",
+    "todomvc-app-css": "^2.0.6"
+  },
+  "devDependencies": {
+    "fable-compiler": "^0.2.15",
+    "source-map-loader": "^0.1.5",
+    "webpack": "^1.13.1"
+  },
+  "scripts": {
+    "build": "fable",
+    "watch": "fable -w --target watch"
+  },
+  "engines": {
+    "fable": ">=0.2.15"
+  },
+  "name": "mithril-todo",
+  "version": "1.0.0",
+  "description": "mithril.fs test",
+  "author": "orlando"
+}
