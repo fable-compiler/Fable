@@ -21,7 +21,9 @@ Follow instructions for [react-native-image-picker](https://github.com/marcshill
     <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />    
     <Compile Include="node_modules/fable-import-react/Fable.Helpers.React.fs" />
     <Compile Include="node_modules/fable-import-react/Fable.Import.ReactNative.fs" />
-    <Compile Include="node_modules/fable-import-react/Fable.Import.ReactNativeImagePicker.fs" />        
+    <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNative.fs" />
+    <Compile Include="node_modules/fable-import-react/Fable.Import.ReactNativeImagePicker.fs" />
+    <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNativeImagePicker.fs" />            
   </ItemGroup>
 ```
 
@@ -32,21 +34,23 @@ Follow instructions for [react-native-image-picker](https://github.com/marcshill
 #load "node_modules/fable-import-react/Fable.Import.React.fs"
 #load "node_modules/fable-import-react/Fable.Helpers.React.fs"
 #load "node_modules/fable-import-react/Fable.Import.ReactNative.fs"
+#load "node_modules/fable-import-react/Fable.Helpers.ReactNative.fs"
 #load "node_modules/fable-import-react/Fable.Import.ReactNativeImagePicker.fs"
+#load "node_modules/fable-import-react/Fable.Helpers.ReactNativeImagePicker.fs"
 
 open Fable.Core
 open Fable.Import
 module R = Fable.Helpers.React
 module RN = Fable.Import.ReactNative
 type IP = ReactImagePicker.Globals
+open Fable.Helpers.ReactNativeImagePicker
+open Fable.Helpers.ReactNativeImagePicker.Props
 
 ...
 
-let p = createEmpty<ImagePickerOptions>
-p.title <- Some "Meter device"
-p.allowsEditing <- Some true
-
-IP.ImagePicker.showImagePicker(p, fun result -> 
+showImagePicker
+  [Title "Image picker"; AllowsEditing true] 
+  (fun result -> 
     if not result.didCancel then
         if String.IsNullOrEmpty result.error then
             console.log("Image Uri: " + result.uri)
@@ -54,4 +58,5 @@ IP.ImagePicker.showImagePicker(p, fun result ->
             console.log("Error: " + result.error)
     else
         console.log("dialog canceled"))
+        
 ```

@@ -6,7 +6,7 @@ open Fable.Import
 open Fable.Import.JS
 open Fable.Import.Browser
 
-module ReactImagePicker =
+module ReactNativeImagePicker =
 
     [<StringEnum>]
     type CameraType =
