@@ -1,7 +1,6 @@
 {
     "module": "commonjs",
     "sourceMaps": true,
-    "projFile": "mithril-todo.fsx",
     "outDir": "out",
     "scripts": {
         "prebuild": "npm install",

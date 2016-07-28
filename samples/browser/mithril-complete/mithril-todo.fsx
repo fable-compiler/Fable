@@ -1,7 +1,7 @@
 
 // Load Fable.Core and bindings to JS global objects
 #r "node_modules/fable-core/Fable.Core.dll"
-#load "C:/Users/Orlando/Desktop/Active Projects/Fable/Fable/samples/browser/mithril-complete/Mithril.fs"
+#load "Mithril.fs"
 
 open System
 open Fable.Core
