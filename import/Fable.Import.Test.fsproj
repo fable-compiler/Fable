@@ -70,6 +70,7 @@
     <Compile Include="pixi/Fable.Import.Pixi.fs" />
     <Compile Include="webgl-ext/Fable.Import.WebGLExt.fs" />
     <Compile Include="dc/Fable.Import.DC.fs" />
+    <Compile Include="react-native-image-picker/Fable.Import.ReactNativeImagePicker.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>
