@@ -43,8 +43,8 @@ type IP = ReactImagePicker.Globals
 ...
 
 let p = createEmpty<ImagePickerOptions>
-p.title <- unbox "Meter device"
-p.allowsEditing <- unbox true
+p.title <- Some "Meter device"
+p.allowsEditing <- Some true
 
 IP.ImagePicker.showImagePicker(p, fun result -> 
     if not result.didCancel then
