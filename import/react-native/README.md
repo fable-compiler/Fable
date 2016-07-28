@@ -18,7 +18,8 @@ $ npm install --save-dev fable-import-react fable-import-react-native
     <Reference Include="node_modules/fable-core/Fable.Core.dll" />
     <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />    
     <Compile Include="node_modules/fable-import-react/Fable.Helpers.React.fs" />
-    <Compile Include="node_modules/fable-import-react/Fable.Import.ReactNative.fs" />    
+    <Compile Include="node_modules/fable-import-react/Fable.Import.ReactNative.fs" />
+    <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNative.fs" />    
   </ItemGroup>
 ```
 
@@ -29,10 +30,12 @@ $ npm install --save-dev fable-import-react fable-import-react-native
 #load "node_modules/fable-import-react/Fable.Import.React.fs"
 #load "node_modules/fable-import-react/Fable.Helpers.React.fs"
 #load "node_modules/fable-import-react/Fable.Import.ReactNative.fs"
+#load "node_modules/fable-import-react/Fable.Helpers.ReactNative.fs"
 
 open Fable.Core
 open Fable.Import
 module R = Fable.Helpers.React
 module RN = Fable.Import.ReactNative
-open R.Props
+open RN.Props
+
 ```
