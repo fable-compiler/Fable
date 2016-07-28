@@ -16,5 +16,11 @@
     "react-native",
     "F#"
   ],
+  "dependencies" :
+    { "react-native" : ">= 0.30.0"
+    },
+  "devDependencies" :
+    { "fable-import-react" : ">= 0.1.0"
+    },
   "homepage": "https://github.com/fsprojects/Fable#readme"
 }

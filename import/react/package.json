@@ -15,5 +15,8 @@
     "react",
     "F#"
   ],
+  "dependencies" :
+    { "react" : ">= 15.0.0"
+    },
   "homepage": "https://github.com/fsprojects/Fable#readme"
 }
