@@ -38,5 +38,20 @@ open Fable.Core
 open Fable.Import
 module R = Fable.Helpers.React
 module RN = Fable.Import.ReactNative
-open R.Props
+type IP = ReactImagePicker.Globals
+
+...
+
+let p = createEmpty<ImagePickerOptions>
+p.title <- unbox "Meter device"
+p.allowsEditing <- unbox true
+
+IP.ImagePicker.showImagePicker(p, fun result -> 
+    if not result.didCancel then
+        if String.IsNullOrEmpty result.error then
+            console.log("Image Uri: " + result.uri)
+        else
+            console.log("Error: " + result.error)
+    else
+        console.log("dialog canceled"))
 ```
