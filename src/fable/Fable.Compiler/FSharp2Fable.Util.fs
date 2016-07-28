@@ -206,6 +206,14 @@ module Patterns =
                 Some(3, e, [])
         | _ -> visit [] fsExpr
 
+    let (|PrintFormat|_|) = function
+        | Let((_,(Call(None,_,_,_,[arg]) as e)),_) ->
+            if arg.Type.HasTypeDefinition
+                && arg.Type.TypeDefinition.AccessPath = "Microsoft.FSharp.Core.PrintfModule"
+            then Some e
+            else None
+        | _ -> None
+
     let (|Pipe|_|) = function
         | Call(None, meth, _, _, [arg1; arg2]) ->
             match meth.FullName with

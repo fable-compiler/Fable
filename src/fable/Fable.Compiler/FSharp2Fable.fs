@@ -203,6 +203,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let lengthExpr = Fable.Apply(arr, [makeConst "length"], Fable.ApplyGet, intType, r)
         makeEqOp r [lengthExpr; makeConst length] BinaryEqualStrict
 
+    | PrintFormat (Transform com ctx expr) -> expr
+
     | Applicable (Transform com ctx expr) ->
         let appType =
             Fable.Entity(Fable.Interface, None, "Fable.Core.Applicable", [], [], true)

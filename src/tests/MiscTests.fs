@@ -64,6 +64,7 @@ let ``Dynamic application works``() =
                 createObj [
                     "multiply" ==> Func<_,_,_>(fun x y -> x * y)
                 ]
+            "foo" ==> "foo"
         ]
     dynObj?add(2,2) |> equal (box 4)
     // Assigning dynamic access result to a value
@@ -75,6 +76,7 @@ let ``Dynamic application works``() =
     dynObj?fn()?subtract(3,2) |> equal (box 1)
     // Using $ operator
     dynObj?add $ (2,2) |> equal (box 4)
+    dynObj?foo |> unbox |> equal "foo"
 
 [<Test>]
 let ``Symbols in external projects work``() =
