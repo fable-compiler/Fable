@@ -484,12 +484,16 @@ module ReactNative =
         abstract onLoadStart: Func<unit> option with get, set
         abstract onProgress: Func<unit> option with get, set
 
+    and ImageSource =
+        abstract uri: string option with get, set
+        abstract isStatic: bool option with get, set
+
     and ImageProperties =
         inherit ImagePropertiesIOS
         inherit React.Props<Image>
         abstract onLayout: Func<LayoutChangeEvent, unit> option with get, set
         abstract resizeMode: string option with get, set
-        abstract source: U2<obj, string> with get, set
+        abstract source: ImageSource option with get, set
         abstract style: ImageStyle option with get, set
         abstract testID: string option with get, set
 
