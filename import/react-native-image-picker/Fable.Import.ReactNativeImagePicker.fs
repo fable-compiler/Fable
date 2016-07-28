@@ -10,20 +10,20 @@ module ReactImagePicker =
 
     [<StringEnum>]
     type CameraType =
-    | [<CompiledName("front")>] Front
-    | [<CompiledName("back")>] Back
+    | Front
+    | Back
 
     [<StringEnum>]
     type MediaType =
-    | [<CompiledName("photo")>] Photo
-    | [<CompiledName("video")>] Video
-    | [<CompiledName("mixed")>] Mixed
+    | Photo
+    | Video
+    | Mixed
 
     [<StringEnum>]
     type VideoQuality =
-    | [<CompiledName("low")>] Low
-    | [<CompiledName("medium")>] Medium
-    | [<CompiledName("high")>] High    
+    | Low
+    | Medium
+    | High    
 
     type ImagePicker =
         abstract member showImagePicker: ImagePickerOptions * (ImagePickerResult -> unit) -> unit
