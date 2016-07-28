@@ -55,6 +55,7 @@
     <Compile Include="express/Fable.Import.Express.fs" />
     <Compile Include="react/Fable.Import.React.fs" />
     <Compile Include="react/Fable.Helpers.React.fs" />
+    <Compile Include="react/Fable.Helpers.ReactNative.fs" />
     <Compile Include="redux/Fable.Import.Redux.fs" />
     <Compile Include="react-redux/Fable.Import.ReactRedux.fs" />
     <Compile Include="react-router/Fable.Import.HistoryModule.fs" />
