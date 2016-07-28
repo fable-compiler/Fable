@@ -38,4 +38,22 @@ module R = Fable.Helpers.React
 module RN = Fable.Import.ReactNative
 open RN.Props
 
+...
+
+  let button =
+    text [] "click me!"
+    |> touchableHighlight [
+        OnPress (fun () -> console.log("clicked!"))]
+        
+  let image =
+    image 
+      [ Source [ Uri "http://facebook.github.io/react/img/logo_og.png"; IsStatic true ]]      
+      [ ]
+
+                                
+  view [] 
+   [ image
+     button ]
+
+
 ```
