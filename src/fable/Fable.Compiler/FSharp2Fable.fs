@@ -939,7 +939,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                             projName "Have you forgotten --refs argument?"
             | Some assembly ->
                 let fileMap = makeFileMap assembly.Contents.Entities
-                let baseDir = Path.GetDirectoryName opts.ProjectFileName
+                let baseDir = Path.GetDirectoryName opts.ProjectFileName |> Path.GetFullPath
                 Fable.Project(projName, baseDir, fileMap, assemblyPath, com.Options.refs.[projName])
                 |> Some
             | None -> None)
