@@ -1,18 +1,19 @@
 {
-  "name": "fable-import-react",
+  "name": "fable-import-react-native",
   "version": "0.1.0",
-  "description": "Fable bindings for React",
+  "description": "Fable bindings for React Native",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/react"
+    "url": "https://github.com/fsprojects/Fable/import/react-native"
   },
   "license": "Apache-2.0",
-  "author": "Alfonso Garcia-Caro",
+  "author": "Krzysztof Cieślak",
   "keywords": [
     "fable",
     "fable-compiler",
     "fsharp",
     "react",
+    "react-native",
     "F#"
   ],
   "homepage": "https://github.com/fsprojects/Fable#readme"
