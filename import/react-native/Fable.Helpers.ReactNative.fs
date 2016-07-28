@@ -44,6 +44,31 @@ module Props =
         interface ITextProperties
 
     [<KeyValueList>]
+    type IViewStyle =
+        interface end
+
+    [<KeyValueList>]
+    type ViewStyle =
+        | BackgroundColor of string
+        | BorderBottomColor of string
+        | BorderBottomLeftRadius of float
+        | BorderBottomRightRadius of float
+        | BorderColor of string
+        | BorderLeftColor of string
+        | BorderRadius of float
+        | BorderRightColor of string
+        | BorderTopColor of string
+        | BorderTopLeftRadius of float
+        | BorderTopRightRadius of float
+        | Opacity of float
+        | Overflow of string
+        | ShadowColor of string
+        | ShadowOffset of obj
+        | ShadowOpacity of float
+        | ShadowRadius of float
+        interface IViewStyle        
+
+    [<KeyValueList>]
     type ITouchableHighlightProperties =
         interface end
 
@@ -52,7 +77,7 @@ module Props =
         | ActiveOpacity of float
         | OnHideUnderlay of (unit -> unit)
         | OnShowUnderlay of (unit -> unit)
-        | Style of ViewStyle
+        | Style of ViewStyle list
         | UnderlayColor of string    
         | Accessible of bool
         | DelayLongPress of float
@@ -78,7 +103,7 @@ module Props =
         | OnMagicTap of (unit -> unit)
         | PointerEvents of string
         | RemoveClippedSubviews of bool
-        | Style of ViewStyle
+        | Style of ViewStyle list
         | TestID of string
         interface IViewProperties
 
