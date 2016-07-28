@@ -37,6 +37,6 @@ Follow instructions for [react-native-image-picker](https://github.com/marcshill
 open Fable.Core
 open Fable.Import
 module R = Fable.Helpers.React
-module RN = Fable.Helpers.ReactNative
+module RN = Fable.Import.ReactNative
 open R.Props
 ```
