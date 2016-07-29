@@ -1315,8 +1315,8 @@ module private AstPass =
         | "System.Diagnostics.Debugger" -> debug com info
         | "System.DateTime" -> dates com info
         | "System.TimeSpan" -> timeSpans com info
-        | "System.Action"
-        | "System.Func" -> funcs com info
+        | "System.Action" | "System.Func"
+        | "Microsoft.FSharp.Core.FSharpFunc" -> funcs com info
         | "System.Random" -> random com info
         | "Microsoft.FSharp.Core.FSharpOption"
         | "Microsoft.FSharp.Core.OptionModule" -> options com info

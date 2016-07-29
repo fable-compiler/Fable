@@ -114,7 +114,7 @@ type Program(fileName, originalFileName, loc, body, ?directives) =
     member x.directives: Directive list = defaultArg directives []
     // Properties below don't belong to babel specs
     member x.fileName: string = fileName
-    member x.originalFileName: string = originalFileName
+    member x.originalFileName: string option = originalFileName
 
 (** ##Statements *)
 /// An expression statement, i.e., a statement consisting of a single expression.

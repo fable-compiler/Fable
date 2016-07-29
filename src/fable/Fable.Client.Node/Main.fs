@@ -202,7 +202,9 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             |> Fable2Babel.Compiler.transformFile com
             |> Seq.fold (fun accDeps (babelFile, fileDeps) ->
                 printFile babelFile
-                Map.add babelFile.originalFileName fileDeps accDeps
+                match babelFile.originalFileName with
+                | Some fileName -> Map.add fileName fileDeps accDeps
+                | None -> accDeps
             ) projInfo.dependencies
 
         // Print logs

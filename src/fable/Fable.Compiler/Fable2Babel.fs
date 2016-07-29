@@ -855,7 +855,7 @@ module Compiler =
                 // Files not present in the FileMap are injected, no need for source maps
                 let originalFileName =
                     if Map.containsKey file.FileName projs.Head.FileMap
-                    then file.FileName else null
+                    then Some file.FileName else None
                 Babel.Program(Path.fixExternalPath com file.FileName,
                               originalFileName, file.Range, rootDecls),
                 dependencies
