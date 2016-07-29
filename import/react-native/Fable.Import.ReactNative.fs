@@ -885,7 +885,7 @@ module ReactNative =
         abstract alert: Func<string, string, ResizeArray<AlertIOSButton>, string, unit> with get, set
         abstract prompt: Func<string, string, ResizeArray<AlertIOSButton>, Func<string, unit>, unit> with get, set
 
-    and AppStateIOSStatic =
+    and AppStateStatic =
         abstract currentState: string with get, set
         abstract addEventListener: ``type``: string * listener: Func<string, unit> -> unit
         abstract removeEventListener: ``type``: string * listener: Func<string, unit> -> unit
@@ -1080,8 +1080,8 @@ module ReactNative =
     and AlertIOS =
         AlertIOSStatic
 
-    and AppStateIOS =
-        AppStateIOSStatic
+    and AppState =
+        AppStateStatic
 
     and AsyncStorage =
         AsyncStorageStatic
@@ -1137,7 +1137,7 @@ module ReactNative =
         static member ActionSheetIOS with get(): ActionSheetIOSStatic = failwith "JS only" and set(v: ActionSheetIOSStatic): unit = failwith "JS only"
         static member AdSupportIOS with get(): AdSupportIOSStatic = failwith "JS only" and set(v: AdSupportIOSStatic): unit = failwith "JS only"
         static member AlertIOS with get(): AlertIOSStatic = failwith "JS only" and set(v: AlertIOSStatic): unit = failwith "JS only"
-        static member AppStateIOS with get(): AppStateIOSStatic = failwith "JS only" and set(v: AppStateIOSStatic): unit = failwith "JS only"
+        static member AppState with get(): AppStateStatic = failwith "JS only" and set(v: AppStateStatic): unit = failwith "JS only"
         static member AsyncStorage with get(): AsyncStorageStatic = failwith "JS only" and set(v: AsyncStorageStatic): unit = failwith "JS only"
         static member CameraRoll with get(): CameraRollStatic = failwith "JS only" and set(v: CameraRollStatic): unit = failwith "JS only"
         static member NetInfo with get(): NetInfoStatic = failwith "JS only" and set(v: NetInfoStatic): unit = failwith "JS only"
