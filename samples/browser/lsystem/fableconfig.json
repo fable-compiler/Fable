@@ -1,0 +1,9 @@
+{
+    "module": "amd",
+    "sourceMaps": true,
+    "projFile": "./lsystem.fsproj",
+    "outDir": "out",
+    "scripts": {
+        "prebuild": "npm install"
+    }
+}
