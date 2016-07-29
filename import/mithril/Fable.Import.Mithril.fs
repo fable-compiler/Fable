@@ -10,12 +10,18 @@ open Fable.Import.Browser
 module Mithril =
    // type ChildArray = ResizeArray<Children>
 
-
+    [<Erase>]
     type Children =
-        U2<Child, ResizeArray<Object>>
+    | Child of obj
+    | Array of ResizeArray<obj>
+       // U2<Child, ResizeArray<Children>>
 
-    and Child =
-        U3<string, VirtualElement, Component<Controller>>
+    [<Erase>]   
+    type Child =
+    | String of string
+    | Element of VirtualElement
+    | Component of Component<Controller>
+       // U3<string, VirtualElement, Component<Controller>>
 
     and Static =
         abstract redraw: obj with get, set
@@ -61,23 +67,24 @@ module Mithril =
         abstract config: ElementConfig option with get, set
         abstract key: U2<string, float> option with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: property: string -> obj with get, set
+       
 
     and Controller =
         abstract onunload: evt: Event -> obj
 
-    and ControllerFunction<'T> =
-        [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: obj[] -> 'T
+ //   and ControllerFunction<'T> =
+//        [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: obj[] -> 'T
 
-    and ControllerConstructor<'T> =
-        [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: obj[] -> 'T
+   // and ControllerConstructor<'T> =
+  //      [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: obj[] -> 'T
 
     and Component<'T> =
-        abstract controller: U2<ControllerFunction<'T>, ControllerConstructor<'T>> with get, set
-        abstract view: ?ctrl: 'T * [<ParamArray>] args: obj[] -> VirtualElement
+        abstract controller: [<ParamArray>] args: obj[] -> 'T 
+        abstract view: ctrl: 'T * [<ParamArray>] args: obj[] -> VirtualElement
 
     and Property<'T> =
-        [<Emit("$0($1...)")>] abstract Invoke: unit -> 'T
-        [<Emit("$0($1...)")>] abstract Invoke: value: 'T -> 'T
+        [<Emit("$0()")>] abstract get: 'T
+        [<Emit("$0($1...)")>] abstract set: value: 'T -> 'T
 
     and BasicProperty<'T> =
         inherit Property<'T>

@@ -1,6 +1,8 @@
 namespace Fable.Import
 
 open System
+open System.Text.RegularExpressions
+open System.Collections.Generic
 open Fable.Core
 open Fable.Import.JS
 open Fable.Import.Browser
@@ -145,22 +147,18 @@ type Globals =
 module Mithril =
     open MithrilBase
 
-    let m = Fable.Import.Node.require.Invoke("mithril")
-
     [<AutoOpen>]
     module VirtualDOM =
          
         let inline elem (tagName :string) (attr :Attributes option) (children :obj list) :VirtualElement = 
-                let c = children |> List.choose (fun x -> match x with
-                                                         | :? string as s -> Some (Child (String s))
-                                                         | :? VirtualElement as v -> Some (Child v )
-                                                         | :? Component<Controller> as c -> Some (Child c )
-                                                         | :? seq<VirtualElement> as r -> r |> Seq.map (fun x -> x :> obj) |> Seq.toList |> ResizeArray<obj> |> Array |> Some
-                                                         | _ -> None) 
-                                 |> List.toArray
-                match attr with
-                    | Some(a) -> Globals.m.Invoke(selector = tagName, attributes = a,children = c)
-                    | None -> Globals.m.Invoke(selector = tagName,children = c)
+                children |> List.map (fun x -> match x with
+                                                | :? string as s -> Child (String s)
+                                                | :? VirtualElement as v -> Child v
+                                                | :? Component<Controller> as c -> Child c 
+                                                | :? (VirtualElement list) as r -> r |> List.map (fun x -> x :> obj) |> ResizeArray<obj> |> Array )
+                         |> (fun c -> match attr with
+                                | Some(a) -> (Globals.m.Invoke(tagName, a, List<Children>(c)))
+                                | None -> (Globals.m.Invoke(tagName,List<Children>(c))))
                 
 
         // Elements - list of ELEM.elements here: https://developer.mozilla.org/en-US/docs/Web/HTML/Element
@@ -293,11 +291,11 @@ module Mithril =
     [<AutoOpen>]
     module Events =
 
-        let inline onEvent (eventType :string) (f :obj) :string*obj = 
+        let inline onEvent (eventType :string) f :string*obj = 
             match f with 
              | :? Func<Event,unit> as fnc -> (eventType,fnc :> obj) 
              | :? (Event -> unit) as fn -> (eventType, Func<Event,unit>fn :> obj)
-             | _ -> failwith "onEvent binding not a valid function"
+             | _ -> Exception("event binding error")
 
         let inline onClick x = onEvent "onclick" x
         let inline onContextMenu x = onEvent "oncontextmenu" x
@@ -407,13 +405,13 @@ module Mithril =
 
     [<AutoOpen>]
     module Extentions =
-        let inline attr (ls :(string *obj) list) =
-            let a = createEmpty<Attributes>
+        let inline attr ls =
+            let m = createEmpty<Attributes>
             for (s,o) in ls do
                 match o with
-                | :? string as o2 -> if s = "class" then a.className <- Some(o2) else a.Item(s) <- o
-                | _ -> a.Item(s) <- o
-            Some(a)
+                | :? string as o2 -> if s = "class" then m.className <- Some(o2) else m.Item(s) <- o
+                | _ -> m.Item(s) <- o
+            Some(m)
 
         let inline prop str (o :obj) =
             (str,o)
@@ -424,7 +422,7 @@ module Mithril =
 
         let bindattr str func =
             let f = (fun (a :obj) -> func (a :?> 'a) :> obj)
-            Globals.m.withAttr(str,Func<obj,obj>(f))
+            Globals.m.withAttr(v,Func<obj,obj>(f))
 
         let css str =
             ("class",str)
@@ -445,18 +443,14 @@ module Mithril =
             o
      
      [<RequireQualifiedAccess>]
-     module M =     
-
-        let m = Fable.Import.Node.require.Invoke("mithril")  
+     module M =       
 
         let mount ((elm:Node),(componen:Component<'T>))=
             Globals.m.mount(elm,componen)
 
-        let prop (ob :'T) :BasicProperty<'T> =
-            Globals.m.prop(value = ob) 
+        let prop ob =
+            Globals.m.prop ob
 
-        let prom (ob :Thennable<'T>) :Promise<'T> =
-            Globals.m.prop(promise = ob)
        // abstract route: obj with get, set
       //  abstract deferred: obj with get, set
 

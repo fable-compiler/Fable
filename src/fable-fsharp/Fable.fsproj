@@ -22,8 +22,11 @@
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <Prefer32Bit>true</Prefer32Bit>
-    <StartArguments>--projFile src/tests/Other/Fable.Tests.Clamp.fsproj --clamp true</StartArguments>
-    <StartWorkingDirectory>..\..\..</StartWorkingDirectory>
+    <StartArguments>--copyExt true --verbose true --module commonjs --sourceMaps true --projFile "C:\Users\Orlando\Desktop\Active Projects\Fable\Fable\samples\browser\mithril-complete\mithril-todo.fsx" --outDir "C:\Users\Orlando\Desktop\Active Projects\Fable\Fable\samples\browser\mithril-complete\out" --ecma es5</StartArguments>
+    <StartWorkingDirectory>
+    </StartWorkingDirectory>
+    <StartAction>Program</StartAction>
+    <StartProgram>C:\Users\Orlando\Desktop\Active Projects\Fable\Fable\build\fable\bin\Fable.Client.Node.exe</StartProgram>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
