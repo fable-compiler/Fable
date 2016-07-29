@@ -504,11 +504,14 @@ let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandlin
 
 Caveats:
 
-- Arrays will always be deserialized as dynamic JS arrays, not typed arrays.
-- Works with records, unions and types with an argumentless primary constructor.
-- Not compatible with atttibutes like `[<JsonIgnore>]`.
+- Works with records, unions and classes with an argumentless primary constructor.
 - For classes, only properties (getters) will be serialized. Properties must also
-  have a public setter for correct deserialization (`[<CLIMutableAttribute>]` doesn't work).
+  have a public setter for correct deserialization (`[<CLIMutable>]` doesn't work).
+- Arrays will always be deserialized as dynamic JS arrays, not typed arrays.
+- Not compatible with atttibutes like `[<JsonIgnore>]`.
+- Fable doesn't include the same type information as Json.NET (generic arguments and assembly
+  name are missing), so you need to specify the target type for proper deserialization on
+  the server side.
 - At the time of writing, Json.NET doesn't serialize type info for F# unions even when
   using the `TypeNameHandling.All` setting (reported as a bug).
 

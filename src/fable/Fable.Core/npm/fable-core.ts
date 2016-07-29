@@ -201,7 +201,7 @@ export class Util {
       if (ArrayBuffer.isView(v)) {
         return Array.from(v);
       }
-      else if (typeof v === "object") {
+      else if (v != null && typeof v === "object") {
         if (v instanceof List || v instanceof FSet || v instanceof Set) {
           return {
             $type: v[FSymbol.typeName] || "System.Collections.Generic.HashSet",
@@ -235,7 +235,7 @@ export class Util {
 
   static ofJson(json: any): any {
     return JSON.parse(json, (k, v) => {
-      if (typeof v === "object" && typeof v.$type === "string") {
+      if (v != null && typeof v === "object" && typeof v.$type === "string") {
         // Remove generic args and assembly info added by Newtonsoft.Json
         let type = v.$type.replace('+', '.'), i = type.indexOf('`');
         if (i > -1) {
