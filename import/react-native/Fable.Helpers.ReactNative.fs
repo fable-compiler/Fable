@@ -378,6 +378,29 @@ module Props =
         | TestID of string 
         interface IImageProperties        
 
+    [<KeyValueList>]
+    type IListViewProperties =
+        interface end
+
+    [<KeyValueList>]
+    type ListViewProperties =
+        // TODO: inherit ScrollViewProperties
+        | DataSource of ListViewDataSource
+        | InitialListSize of float
+        | OnChangeVisibleRows of Func<ResizeArray<obj>, ResizeArray<obj>, unit>
+        | OnEndReached of (unit -> unit)
+        | OnEndReachedThreshold of float
+        | PageSize of float
+        | RemoveClippedSubviews of bool
+        | RenderFooter of Func<React.ReactElement<obj>>
+        | RenderHeader of Func<React.ReactElement<obj>>
+        | RenderRow of Func<obj, U2<string, float>, U2<string, float>, bool, React.ReactElement<obj>>
+        | RenderScrollComponent of Func<ScrollViewProperties, React.ReactElement<ScrollViewProperties>>
+        | RenderSectionHeader of Func<obj, U2<string, float>, React.ReactElement<obj>>
+        | RenderSeparator of Func<U2<string, float>, U2<string, float>, bool, React.ReactElement<obj>>
+        | ScrollRenderAheadDistance of float
+        interface IListViewProperties
+
 open Props
 
 let inline text (props: ITextProperties list) (text:string): React.ReactElement<obj> =
@@ -401,5 +424,11 @@ let inline touchableHighlight (props: ITouchableHighlightProperties list) (child
 let inline view (props: IViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     React.createElement(
         RN.View, 
+        unbox props,
+        unbox(List.toArray children)) |> unbox
+
+let inline listView (props: IListViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    React.createElement(
+        RN.ListView, 
         unbox props,
         unbox(List.toArray children)) |> unbox
