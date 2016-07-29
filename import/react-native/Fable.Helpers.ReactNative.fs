@@ -401,6 +401,31 @@ module Props =
         | ScrollRenderAheadDistance of float
         interface IListViewProperties
 
+    [<KeyValueList>]
+    type IMapViewProperties =
+        interface end
+
+    [<KeyValueList>]
+    type MapViewProperties =
+        // TODO: inherit Touchable
+        | ShowsPointsOfInterest of bool
+        | Annotations of ResizeArray<MapViewAnnotation>
+        | LegalLabelInsets of Insets
+        | MapType of string
+        | MaxDelta of float
+        | MinDelta of float
+        | OnAnnotationPress of (unit -> unit)
+        | OnRegionChange of (MapViewRegion -> unit)
+        | OnRegionChangeComplete of (MapViewRegion -> unit)
+        | PitchEnabled of bool
+        | Region of MapViewRegion
+        | RotateEnabled of bool
+        | ScrollEnabled of bool
+        | ShowsUserLocation of bool
+        | Style of ViewStyle
+        | ZoomEnabled of bool
+        interface IMapViewProperties
+
 open Props
 
 let inline text (props: ITextProperties list) (text:string): React.ReactElement<obj> =
@@ -430,5 +455,11 @@ let inline view (props: IViewProperties list) (children: React.ReactElement<obj>
 let inline listView (props: IListViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     React.createElement(
         RN.ListView, 
+        unbox props,
+        unbox(List.toArray children)) |> unbox
+
+let inline MapView (props: IMapViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    React.createElement(
+        RN.MapView, 
         unbox props,
         unbox(List.toArray children)) |> unbox
