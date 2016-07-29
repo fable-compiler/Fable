@@ -10,6 +10,30 @@ type RN = ReactNative.Globals
 
 module Props =
 
+    [<StringEnum>]
+    type Alignment =
+    | Auto
+    | [<CompiledName("flex-start")>] FlexStart
+    | Center 
+    | [<CompiledName("flex-end")>] FlexEnd
+    | Strech
+    
+    [<StringEnum>]
+    type ItemAlignment =
+    | [<CompiledName("flex-start")>] FlexStart
+    | Center 
+    | [<CompiledName("flex-end")>] FlexEnd
+    | Strech    
+    
+    [<StringEnum>]
+    type TextAlignment =
+    | Auto
+    | Default
+    | Left
+    | Center 
+    | Right
+    | Justify
+
     [<KeyValueList>]
     type ITransformsStyle =
         interface end
@@ -31,8 +55,8 @@ module Props =
 
     [<KeyValueList>]
     type FlexStyle =
-        | AlignItems of string
-        | AlignSelf of string
+        | AlignItems of ItemAlignment
+        | AlignSelf of Alignment
         | BorderBottomWidth of float
         | BorderLeftWidth of float
         | BorderRightWidth of float
@@ -64,12 +88,6 @@ module Props =
         | Top of float
         | Width of float
         interface IFlexStyle
-    
-    [<StringEnum>]
-    type Alignment =
-    | Left
-    | Center 
-    | Right
 
     [<KeyValueList>]
     type IViewStyle =
@@ -78,8 +96,8 @@ module Props =
     [<KeyValueList>]
     type ViewStyle =
         // FlexStyle
-        | AlignItems of Alignment
-        | AlignSelf of string
+        | AlignItems of ItemAlignment
+        | AlignSelf of Alignment
         | BorderBottomWidth of float
         | BorderLeftWidth of float
         | BorderRightWidth of float
@@ -146,8 +164,8 @@ module Props =
     [<KeyValueList>]
     type ImageStyle =
         // FlexStyle
-        | AlignItems of string
-        | AlignSelf of string
+        | AlignItems of ItemAlignment
+        | AlignSelf of Alignment
         | BorderBottomWidth of float
         | BorderLeftWidth of float
         | BorderRightWidth of float
@@ -204,8 +222,8 @@ module Props =
     [<KeyValueList>]
     type TextStyle =
         // ViewStyle
-        | AlignItems of string
-        | AlignSelf of string
+        | AlignItems of Alignment
+        | AlignSelf of Alignment
         | BorderBottomWidth of float
         | BorderLeftWidth of float
         | BorderRightWidth of float
@@ -268,7 +286,7 @@ module Props =
         | FontWeight of string
         | LetterSpacing of float
         | LineHeight of float
-        | TextAlign of string
+        | TextAlign of TextAlignment
         | TextDecorationLine of string
         | TextDecorationStyle of string
         | TextDecorationColor of string
