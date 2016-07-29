@@ -260,6 +260,7 @@ let ``lazy.IsValueCreated works``() =
     lazyVal.Force() |> equal 5
     equal true lazyVal.IsValueCreated
 
+[<AllowNullLiteral>]
 type Serializable(?i: int) =
     let mutable deserialized = false
     let mutable publicValue = 1
@@ -283,6 +284,18 @@ let ``Classes can be JSON serialized forth and back``() =
     #endif
     string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
+
+[<Test>]
+let ``Null values can be JSON serialized forth and back``() =
+    let x: Serializable = null
+    #if MOCHA
+    let json = Fable.Core.JsInterop.toJson x
+    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject x
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
+    #endif
+    equal x2 null
 
 [<Test>]
 let ``Classes serialized with Json.NET can be deserialized``() =
