@@ -3552,12 +3552,26 @@ export interface CancellationToken {
   isCancelled: boolean;
 }
 
+const maxTrampolineCallCount = 1000;
+
+export class Trampoline {
+  private callCount = 0;
+  incrementAndCheck() {
+    return this.callCount++ > maxTrampolineCallCount;
+  }
+  hijack(f:() => void) {
+    this.callCount = 0;
+    setTimeout(f, 0);
+  }
+}
+
 export interface IAsyncContext<T> {
   onSuccess: Continuation<T>;
   onError: Continuation<any>;
   onCancel: Continuation<any>;
 
   cancelToken: CancellationToken;
+  trampoline: Trampoline;
 }
 
 export type IAsync<T> = (x: IAsyncContext<T>) => void;
@@ -3567,6 +3581,8 @@ const AsyncImpl = {
     return (ctx: IAsyncContext<T>) => {
       if (ctx.cancelToken.isCancelled)
         ctx.onCancel("cancelled");
+      else if (ctx.trampoline.incrementAndCheck()) 
+        ctx.trampoline.hijack(() => f(ctx))
       else
         try {
           return f(ctx);
@@ -3581,7 +3597,8 @@ const AsyncImpl = {
         onSuccess: (x: T) => binder(x)(ctx),
         onError: ctx.onError,
         onCancel: ctx.onCancel,
-        cancelToken: ctx.cancelToken
+        cancelToken: ctx.cancelToken,
+        trampoline: ctx.trampoline
       });
     });
   },
@@ -3636,7 +3653,8 @@ export class AsyncBuilder {
           compensation();
           ctx.onCancel(x);
         },
-        cancelToken: ctx.cancelToken
+        cancelToken: ctx.cancelToken,
+        trampoline: ctx.trampoline
       });
     });
   }
@@ -3647,6 +3665,7 @@ export class AsyncBuilder {
         onSuccess: ctx.onSuccess,
         onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken,
+        trampoline: ctx.trampoline,
         onError: (ex: any) => catchHandler(ex)(ctx)
       });
     });
@@ -3687,7 +3706,8 @@ export class Async {
         onSuccess: x => ctx.onSuccess(Choice.Choice1Of2<T, any>(x)),
         onError: ex => ctx.onSuccess(Choice.Choice2Of2<T, any>(ex)),
         onCancel: ctx.onCancel,
-        cancelToken: ctx.cancelToken
+        cancelToken: ctx.cancelToken,
+        trampoline: ctx.trampoline
       });
     });
   }
@@ -3732,11 +3752,13 @@ export class Async {
       cancelToken = <CancellationToken>continuation;
       continuation = null;
     }
+    var trampoline = new Trampoline();
     computation({
       onSuccess: continuation ? <Continuation<T>>continuation : Async.emptyContinuation,
       onError: exceptionContinuation ? exceptionContinuation : Async.emptyContinuation,
       onCancel: cancellationContinuation ? cancellationContinuation : Async.emptyContinuation,
-      cancelToken: cancelToken ? cancelToken : Async.defaultCancellationToken
+      cancelToken: cancelToken ? cancelToken : Async.defaultCancellationToken,
+      trampoline: trampoline
     });
   }
 
