@@ -458,7 +458,7 @@ let inline listView (props: IListViewProperties list) (children: React.ReactElem
         unbox props,
         unbox(List.toArray children)) |> unbox
 
-let inline MapView (props: IMapViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+let inline mapView (props: IMapViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     React.createElement(
         RN.MapView, 
         unbox props,
