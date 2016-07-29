@@ -9,39 +9,21 @@ open Fable.Import
 type RN = ReactNative.Globals
 
 module Props =
+
     [<KeyValueList>]
-    type ITextStyle =
+    type ITransformsStyle =
         interface end
 
     [<KeyValueList>]
-    type TextStyle =
-        | Color of string
-        | FontFamily of string
-        | FontSize of float
-        | FontStyle of string
-        | FontWeight of string
-        | LetterSpacing of float
-        | LineHeight of float
-        | TextAlign of string
-        | TextDecorationLine of string
-        | TextDecorationStyle of string
-        | TextDecorationColor of string
-        | WritingDirection of string
-        interface ITextStyle
-
-    [<KeyValueList>]
-    type ITextProperties =
-        interface end
-
-    [<KeyValueList>]
-    type TextProperties =
-        | AllowFontScaling of bool
-        | NumberOfLines of int
-        | OnLayout of (LayoutChangeEvent -> unit)
-        | OnPress of (unit -> unit)
-        | Style of TextStyle
-        | TestID of string
-        interface ITextProperties
+    type TransformsStyle =
+        | Transform of obj * obj * obj * obj * obj * obj * obj * obj * obj * obj * obj * obj
+        | TransformMatrix of ResizeArray<float>
+        | Rotation of float
+        | ScaleX of float
+        | ScaleY of float
+        | TranslateX of float
+        | TranslateY of float
+        interface ITransformsStyle
 
     [<KeyValueList>]
     type IFlexStyle =
@@ -82,21 +64,6 @@ module Props =
         | Top of float
         | Width of float
         interface IFlexStyle
-
-    [<KeyValueList>]
-    type ITransformsStyle =
-        interface end
-
-    [<KeyValueList>]
-    type TransformsStyle =
-        | Transform of obj * obj * obj * obj * obj * obj * obj * obj * obj * obj * obj * obj
-        | TransformMatrix of ResizeArray<float>
-        | Rotation of float
-        | ScaleX of float
-        | ScaleY of float
-        | TranslateX of float
-        | TranslateY of float
-        interface ITransformsStyle        
 
     [<KeyValueList>]
     type IViewStyle =
@@ -164,46 +131,7 @@ module Props =
         | ShadowOffset of obj
         | ShadowOpacity of float
         | ShadowRadius of float
-        interface IViewStyle        
-
-    [<KeyValueList>]
-    type ITouchableHighlightProperties =
-        interface end
-
-    [<KeyValueList>]
-    type TouchableHighlightProperties =
-        | ActiveOpacity of float
-        | OnHideUnderlay of (unit -> unit)
-        | OnShowUnderlay of (unit -> unit)
-        | Style of ViewStyle list
-        | UnderlayColor of string    
-        | Accessible of bool
-        | DelayLongPress of float
-        | DelayPressIn of float
-        | DelayPressOut of float
-        | OnLayout of (LayoutChangeEvent -> unit)
-        | OnLongPress of (unit -> unit)
-        | OnPress of (unit -> unit)
-        | OnPressIn of (unit -> unit)
-        | OnPressOut of (unit -> unit)  
-        interface ITouchableHighlightProperties    
-
-    [<KeyValueList>]
-    type IViewProperties =
-        interface end
-
-    [<KeyValueList>]
-    type ViewProperties =
-        | AccessibilityLabel of string
-        | Accessible of bool
-        | OnAcccessibilityTap of (unit -> unit)
-        | OnLayout of (LayoutChangeEvent -> unit)
-        | OnMagicTap of (unit -> unit)
-        | PointerEvents of string
-        | RemoveClippedSubviews of bool
-        | Style of ViewStyle list
-        | TestID of string
-        interface IViewProperties
+        interface IViewStyle
 
     [<KeyValueList>]
     type IImageStyle =
@@ -262,6 +190,137 @@ module Props =
         | TintColor of string
         | Opacity of float
         interface IImageStyle
+
+    [<KeyValueList>]
+    type ITextStyle =
+        interface end
+
+    [<KeyValueList>]
+    type TextStyle =
+        // ViewStyle
+        | AlignItems of string
+        | AlignSelf of string
+        | BorderBottomWidth of float
+        | BorderLeftWidth of float
+        | BorderRightWidth of float
+        | BorderTopWidth of float
+        | BorderWidth of float
+        | Bottom of float
+        | Flex of float
+        | FlexDirection of string
+        | FlexWrap of string
+        | Height of float
+        | JustifyContent of string
+        | Left of float
+        | Margin of float
+        | MarginBottom of float
+        | MarginHorizontal of float
+        | MarginLeft of float
+        | MarginRight of float
+        | MarginTop of float
+        | MarginVertical of float
+        | Padding of float
+        | PaddingBottom of float
+        | PaddingHorizontal of float
+        | PaddingLeft of float
+        | PaddingRight of float
+        | PaddingTop of float
+        | PaddingVertical of float
+        | Position of string
+        | Right of float
+        | Top of float
+        | Width of float
+        | Transform of obj * obj * obj * obj * obj * obj * obj * obj * obj * obj * obj * obj
+        | TransformMatrix of ResizeArray<float>
+        | Rotation of float
+        | ScaleX of float
+        | ScaleY of float
+        | TranslateX of float
+        | TranslateY of float
+        | BackgroundColor of string
+        | BorderBottomColor of string
+        | BorderBottomLeftRadius of float
+        | BorderBottomRightRadius of float
+        | BorderColor of string
+        | BorderLeftColor of string
+        | BorderRadius of float
+        | BorderRightColor of string
+        | BorderTopColor of string
+        | BorderTopLeftRadius of float
+        | BorderTopRightRadius of float
+        | Opacity of float
+        | Overflow of string
+        | ShadowColor of string
+        | ShadowOffset of obj
+        | ShadowOpacity of float
+        | ShadowRadius of float
+        // End ViewStyle    
+        | Color of string
+        | FontFamily of string
+        | FontSize of float
+        | FontStyle of string
+        | FontWeight of string
+        | LetterSpacing of float
+        | LineHeight of float
+        | TextAlign of string
+        | TextDecorationLine of string
+        | TextDecorationStyle of string
+        | TextDecorationColor of string
+        | WritingDirection of string
+        interface ITextStyle
+
+    [<KeyValueList>]
+    type ITextProperties =
+        interface end
+
+    [<KeyValueList>]
+    type TextProperties =
+        | AllowFontScaling of bool
+        | NumberOfLines of int
+        | OnLayout of (LayoutChangeEvent -> unit)
+        | OnPress of (unit -> unit)
+        | Style of TextStyle
+        | TestID of string
+        interface ITextProperties
+
+    [<KeyValueList>]
+    type ITouchableHighlightProperties =
+        interface end
+
+    [<KeyValueList>]
+    type TouchableHighlightProperties =
+        | ActiveOpacity of float
+        | OnHideUnderlay of (unit -> unit)
+        | OnShowUnderlay of (unit -> unit)
+        | Style of ViewStyle list
+        | UnderlayColor of string    
+        | Accessible of bool
+        | DelayLongPress of float
+        | DelayPressIn of float
+        | DelayPressOut of float
+        | OnLayout of (LayoutChangeEvent -> unit)
+        | OnLongPress of (unit -> unit)
+        | OnPress of (unit -> unit)
+        | OnPressIn of (unit -> unit)
+        | OnPressOut of (unit -> unit)  
+        interface ITouchableHighlightProperties    
+
+    [<KeyValueList>]
+    type IViewProperties =
+        interface end
+
+    [<KeyValueList>]
+    type ViewProperties =
+        | AccessibilityLabel of string
+        | Accessible of bool
+        | OnAcccessibilityTap of (unit -> unit)
+        | OnLayout of (LayoutChangeEvent -> unit)
+        | OnMagicTap of (unit -> unit)
+        | PointerEvents of string
+        | RemoveClippedSubviews of bool
+        | Style of ViewStyle list
+        | TestID of string
+        interface IViewProperties
 
     [<KeyValueList>]
     type IImageSourceProperties =
