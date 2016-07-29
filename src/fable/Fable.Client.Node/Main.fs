@@ -148,6 +148,7 @@ let printFile =
     let jsonSettings =
         JsonSerializerSettings(
             Converters=[|Json.ErasedUnionConverter()|],
+            NullValueHandling=NullValueHandling.Ignore,
             StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
     fun (file: AST.Babel.Program) ->
         JsonConvert.SerializeObject (file, jsonSettings)

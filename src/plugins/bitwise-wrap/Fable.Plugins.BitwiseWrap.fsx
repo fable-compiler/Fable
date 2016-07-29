@@ -16,7 +16,7 @@ type BitwiseWrapPlugin() =
             | "Microsoft.FSharp.Core.Operators" ->
                 let patternFor t = 
                     match t with
-                    | PrimitiveType (Number kind) -> 
+                    | Number kind -> 
                         match kind with
                         | Int8 -> Some "($0 + 0x80 & 0xFF) - 0x80"
                         | UInt8 -> Some "$0 & 0xFF"

@@ -84,15 +84,15 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             | None ->
                 let args =
                     let args = args |> List.map (transformExpr com ctx)
-                    Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.DynamicArray))
+                    Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.Any))
                 let builder =
                     Fable.Emit("(o, kv) => { o[kv[0]] = kv[1]; return o; }") |> Fable.Value
                 CoreLibCall("Seq", Some "fold", false, [builder;Fable.ObjExpr([],[],None,None);args])
-                |> makeCall com (Some range) Fable.UnknownType
+                |> makeCall com (Some range) Fable.Any
     else
         let buildArgs (args, baseList) =
             let args = args |> List.rev |> (List.map (transformExpr com ctx))
-            let ar = Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.DynamicArray))
+            let ar = Fable.Value (Fable.ArrayConst (Fable.ArrayValues args, Fable.Any))
             ar::(match baseList with Some li -> [transformExpr com ctx li] | None -> [])
         match argExprs with
         | [] -> CoreLibCall("List", None, true, [])
@@ -116,8 +116,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             | [expr] -> expr
             | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s"
                             unionType.FullName
-        (Fable.ArrayValues [lowerUnionCaseName unionCase; v], Fable.Tuple)
-        |> Fable.ArrayConst |> Fable.Value 
+        Fable.TupleConst [lowerUnionCaseName unionCase; v] |> Fable.Value 
     | StringEnum ->
         // if argExprs.Length > 0 then
         //     failwithf "StringEnum must not have fields: %s" unionType.FullName
@@ -127,7 +126,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | OtherType ->
         let argExprs = [
             makeConst unionCase.Name    // Include Tag name in args
-            Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.DynamicArray))
+            Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))
         ]
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
@@ -193,22 +192,21 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | CreateEvent (callee, eventName, meth, typArgs, methTypArgs, methArgs) ->
         let callee, args = com.Transform ctx callee, List.map (com.Transform ctx) methArgs
-        let callee = Fable.Apply(callee, [makeConst eventName], Fable.ApplyGet, Fable.UnknownType, None)
+        let callee = Fable.Apply(callee, [makeConst eventName], Fable.ApplyGet, Fable.Any, None)
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) (Some callee) args
 
     | CheckArrayLength (Transform com ctx arr, length) ->
         let r = makeRangeFrom fsExpr
-        let intType = Fable.PrimitiveType(Fable.Number Int32)
-        let lengthExpr = Fable.Apply(arr, [makeConst "length"], Fable.ApplyGet, intType, r)
+        let lengthExpr = Fable.Apply(arr, [makeConst "length"], Fable.ApplyGet, Fable.Number Int32, r)
         makeEqOp r [lengthExpr; makeConst length] BinaryEqualStrict
 
     | PrintFormat (Transform com ctx expr) -> expr
 
     | Applicable (Transform com ctx expr) ->
         let appType =
-            Fable.Entity(Fable.Interface, None, "Fable.Core.Applicable", [], [], true)
-            |> Fable.DeclaredType
+            let ent = Fable.Entity(Fable.Interface, None, "Fable.Core.Applicable", [], [], [], true)
+            Fable.DeclaredType(ent, [Fable.Any;Fable.Any])
         Fable.Wrapped(expr, appType)
 
     (** ## Erased *)
@@ -238,8 +236,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 arr.GetValue(i) |> makeConst
         ]
         match arr.GetType().GetElementType().FullName with
-        | NumberKind kind -> Fable.Number kind |> Fable.PrimitiveType
-        | _ -> Fable.UnknownType
+        | NumberKind kind -> Fable.Number kind
+        | _ -> Fable.Any
         |> makeArray <| arrExprs
 
     | BasicPatterns.Const(value, FableType com ctx typ) ->
@@ -263,8 +261,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         let valueKind =
             match typ with
-            | Fable.PrimitiveType Fable.Boolean -> Fable.BoolConst false
-            | Fable.PrimitiveType (Fable.Number kind) -> Fable.NumberConst (U2.Case1 0, kind)
+            | Fable.Boolean -> Fable.BoolConst false
+            | Fable.Number kind -> Fable.NumberConst (U2.Case1 0, kind)
             | _ -> Fable.Null
         Fable.Value valueKind
 
@@ -300,7 +298,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             if flags.IsInstance
             then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
             else makeType com ctx sourceTypes.Head |> makeTypeRef com range, List.map (transformExpr com ctx) argExprs
-        let callee = makeGet range (Fable.PrimitiveType (Fable.Function argExprs.Length)) callee (makeConst traitName)
+        let callee = makeGet range (makeUnknownFnType argExprs.Length) callee (makeConst traitName)
         Fable.Apply (callee, args, Fable.ApplyMeth, makeType com ctx fsExpr.Type, range)
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
@@ -312,7 +310,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let args = List.map (transformExpr com ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         match callee.Type.FullName, args with
-        | "Fable.Core.Applicable", [Fable.Value(Fable.ArrayConst(Fable.ArrayValues args, Fable.Tuple))] ->
+        | "Fable.Core.Applicable", [Fable.Value(Fable.TupleConst args)] ->
             Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
         | _ -> makeApply range typ callee args
         
@@ -394,8 +392,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeArray elTyp (arrExprs |> List.map (transformExpr com ctx))
 
     | BasicPatterns.NewTuple(_, argExprs) ->
-        (argExprs |> List.map (transformExpr com ctx) |> Fable.ArrayValues, Fable.Tuple)
-        |> Fable.ArrayConst |> Fable.Value
+        argExprs |> List.map (transformExpr com ctx) |> Fable.TupleConst |> Fable.Value
 
     | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
         // If `this` is bound to context, replace it to avoid conflicts (see #158)
@@ -417,7 +414,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 let args = List.map (com.Transform ctx) args
                 let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
                 let baseClass =
-                    makeTypeFromDef com meth.EnclosingEntity
+                    makeTypeFromDef com ctx meth.EnclosingEntity []
                     |> makeTypeRef com (Some SourceLocation.Empty)
                     |> Some
                 let baseCons =
@@ -501,7 +498,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeTypeTest com (makeRangeFrom fsExpr) typ expr 
 
     | BasicPatterns.UnionCaseTest (Transform com ctx unionExpr, FableType com ctx unionType, unionCase) ->
-        let boolType = Fable.PrimitiveType Fable.Boolean
         match unionType with
         | ErasedUnion ->
             if unionCase.UnionCaseFields.Count <> 1 then
@@ -512,17 +508,17 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 makeTypeTest com (makeRangeFrom fsExpr) typ unionExpr
         | OptionUnion ->
             let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
-            makeBinOp (makeRangeFrom fsExpr) boolType [unionExpr; Fable.Value Fable.Null] opKind 
+            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.Value Fable.Null] opKind 
         | ListUnion ->
             let opKind = if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
-            let expr = makeGet None Fable.UnknownType unionExpr (makeConst "tail")
-            makeBinOp (makeRangeFrom fsExpr) boolType [expr; Fable.Value Fable.Null] opKind 
+            let expr = makeGet None Fable.Any unionExpr (makeConst "tail")
+            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [expr; Fable.Value Fable.Null] opKind 
         | StringEnum ->
-            makeBinOp (makeRangeFrom fsExpr) boolType [unionExpr; lowerUnionCaseName unionCase] BinaryEqualStrict 
+            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerUnionCaseName unionCase] BinaryEqualStrict 
         | _ ->
-            let left = makeGet None (Fable.PrimitiveType Fable.String) unionExpr (makeConst "Case")
+            let left = makeGet None Fable.String unionExpr (makeConst "Case")
             let right = makeConst unionCase.Name
-            makeBinOp (makeRangeFrom fsExpr) boolType [left; right] BinaryEqualStrict
+            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
 
     (** Pattern Matching *)
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
@@ -769,7 +765,7 @@ let rec private transformEntityDecl
         else
             // Bind entity name to context to prevent name
             // clashes (it will become a variable in JS)
-            let ctx, ident = sanitizeEntityName ent |> bindIdent com ctx Fable.UnknownType None
+            let ctx, ident = sanitizeEntityName ent |> bindIdent com ctx Fable.Any None
             declInfo.AddChild(com, ent, ident.name, childDecls)
             declInfo, ctx
 

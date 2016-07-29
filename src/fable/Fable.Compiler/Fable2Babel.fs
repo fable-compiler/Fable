@@ -164,9 +164,9 @@ module Util =
                 |> fun rootMemb -> accessExpr (rootMemb::parts) None
             | parts -> accessExpr parts None
 
-    let buildArray (com: IBabelCompiler) ctx consKind kind =
-        match kind with
-        | Fable.TypedArray kind ->
+    let buildArray (com: IBabelCompiler) ctx consKind typ =
+        match typ with
+        | Fable.Number kind ->
             let cons =
                 Fable.Util.getTypedArrayName com kind
                 |> Babel.Identifier
@@ -178,7 +178,7 @@ module Util =
                 | Fable.ArrayAlloc arg ->
                     [U2.Case1 (com.TransformExpr ctx arg)]
             Babel.NewExpression(cons, args) :> Babel.Expression
-        | Fable.DynamicArray | Fable.Tuple ->
+        | _ ->
             match consKind with
             | Fable.ArrayValues args ->
                 List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
@@ -241,7 +241,8 @@ module Util =
             let args, body = com.TransformFunction ctx args body
             // It's important to use arrow functions to lexically bind `this`
             upcast Babel.ArrowFunctionExpression (args, body, ?loc=r)
-        | Fable.ArrayConst (cons, kind) -> buildArray com ctx cons kind
+        | Fable.ArrayConst (cons, typ) -> buildArray com ctx cons typ
+        | Fable.TupleConst vals -> buildArray com ctx (Fable.ArrayValues vals) Fable.Any
         | Fable.Emit emit -> macroExpression None emit []
         | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
         | Fable.Spread _ ->
@@ -548,7 +549,7 @@ module Util =
             List.map (fun x -> upcast ident x) args
         let body: U2<Babel.BlockStatement, Babel.Expression> =
             match body with
-            | ExprType (Fable.PrimitiveType Fable.Unit)
+            | ExprType Fable.Unit
             | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _ ->
                 transformBlock com ctx None body |> U2.Case1
             | Fable.Sequential _ | Fable.TryCatch _ ->

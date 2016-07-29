@@ -1,5 +1,6 @@
 namespace Fable.FSharp2Fable
 
+open System.Collections.Generic
 open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
@@ -82,7 +83,7 @@ module Helpers =
         if fn.IsFunctionType
         then countFuncArgs (Seq.last fn.GenericArguments) + 1
         else 0
-        
+
     let getEntityLocation (ent: FSharpEntity) =
         match ent.ImplementationLocation with
         | Some loc -> loc
@@ -326,7 +327,7 @@ module Patterns =
         let (|FullName|) (ent: Fable.Entity) = ent.FullName
         let (|TryDecorator|_|) dec (ent: Fable.Entity) = ent.TryGetDecorator dec
         match typ with
-        | Fable.DeclaredType ent ->
+        | Fable.DeclaredType(ent,_) ->
             match ent with
             | FullName "Microsoft.FSharp.Core.FSharpOption" -> OptionUnion
             | FullName "Microsoft.FSharp.Collections.FSharpList" -> ListUnion
@@ -383,6 +384,8 @@ module Types =
             elif tdef.IsFSharpExceptionDeclaration then Fable.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
             else Fable.Class (getBaseClass com tdef)
+        let genParams =
+            tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
         let infcs =
             tdef.DeclaredInterfaces
             |> Seq.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
@@ -394,59 +397,74 @@ module Types =
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
         Fable.Entity (kind, com.GetInternalFile tdef,
-            sanitizeEntityFullName tdef, infcs, decs,
+            sanitizeEntityFullName tdef, genParams, infcs, decs,
             tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
-    and makeTypeFromDef (com: IFableCompiler) (tdef: FSharpEntity) =
+    and makeTypeFromDef (com: IFableCompiler) ctx (tdef: FSharpEntity)
+                        (genArgs: #seq<FSharpType>) =
         let fullName = defaultArg tdef.TryFullName tdef.CompiledName
         // Guard: F# abbreviations shouldn't be passed as argument
         if tdef.IsFSharpAbbreviation
         then failwith "Abbreviation passed to makeTypeFromDef"
+        // Array
+        elif tdef.IsArrayType
+        then Fable.Array(Seq.head genArgs |> makeType com ctx)
         // Enum
         elif tdef.IsEnum
-        then Fable.Enum fullName |> Fable.PrimitiveType
+        then Fable.Enum fullName
         // Delegate
         elif tdef.IsDelegate
-        then Fable.Function (tdef.GenericParameters.Count - 1) |> Fable.PrimitiveType
+        then
+            match Seq.length genArgs with
+            | 0 -> [Fable.Unit], Fable.Unit
+            | 1 -> [Seq.head genArgs |> makeType com ctx], Fable.Unit
+            | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList,
+                    Seq.last genArgs |> makeType com ctx
+            |> Fable.Function
         // Object
         elif fullName = "System.Object"
-        then Fable.UnknownType
+        then Fable.Any
         else
         // .NET Primitives
         match fullName with
-        | NumberKind kind -> Fable.Number kind |> Fable.PrimitiveType
-        | "System.Boolean" -> Fable.Boolean |> Fable.PrimitiveType
-        | "System.Char" | "System.String" | "System.Guid" -> Fable.String |> Fable.PrimitiveType
-        | "System.Text.RegularExpressions.Regex" -> Fable.Regex |> Fable.PrimitiveType
-        | "Microsoft.FSharp.Core.Unit" -> Fable.Unit |> Fable.PrimitiveType
-        | "System.Collections.Generic.List`1" -> Fable.DynamicArray |> Fable.Array |> Fable.PrimitiveType
+        | NumberKind kind -> Fable.Number kind
+        | "System.Boolean" -> Fable.Boolean
+        | "System.Char" | "System.String" | "System.Guid" -> Fable.String
+        | "System.Text.RegularExpressions.Regex" -> Fable.Regex
+        | "Microsoft.FSharp.Core.Unit" -> Fable.Unit
+        | "System.Collections.Generic.List`1" ->
+            let t = Seq.tryHead genArgs |> Option.map (makeType com ctx)
+            Fable.Array(defaultArg t Fable.Any)
         // Declared Type
-        | _ -> com.GetEntity tdef |> Fable.DeclaredType
+        | _ -> Fable.DeclaredType(com.GetEntity tdef,
+                genArgs |> Seq.map (makeType com ctx) |> Seq.toList)
 
     and makeType (com: IFableCompiler) (ctx: Context) (NonAbbreviatedType t) =
+        let rec getFnGenArgs (acc: FSharpType list) (fn: FSharpType) =
+            if fn.IsFunctionType
+            then getFnGenArgs (fn.GenericArguments.[0]::acc) fn.GenericArguments.[0]
+            else fn::acc
+        let makeGenArgs (genArgs: #seq<FSharpType>) =
+            Seq.map (makeType com ctx) genArgs |> Seq.toList
         let resolveGenParam (genParam: FSharpGenericParameter) =
             ctx.typeArgs
             |> List.tryFind (fun (name,_) -> name = genParam.Name)
-            |> function Some (_,typ) -> typ | None -> Fable.UnknownType
+            |> function Some (_,typ) -> typ | None -> Fable.GenericParam genParam.Name
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam t.GenericParameter
         // Tuple
         elif t.IsTupleType
-        then Fable.Tuple |> Fable.Array |> Fable.PrimitiveType
+        then Fable.Tuple(makeGenArgs t.GenericArguments)
         // Funtion
         elif t.IsFunctionType
-        then Fable.Function (countFuncArgs t) |> Fable.PrimitiveType
-        elif t.HasTypeDefinition then
-            // Array
-            if t.TypeDefinition.IsArrayType then
-                match makeType com ctx t.GenericArguments.[0] with
-                | Fable.PrimitiveType(Fable.Number kind) -> Fable.TypedArray kind
-                | _ -> Fable.DynamicArray
-                |> Fable.Array |> Fable.PrimitiveType
-            // Declared type
-            else makeTypeFromDef com t.TypeDefinition
-        else Fable.UnknownType // failwithf "Unexpected non-declared F# type: %A" t
+        then
+            let gs = getFnGenArgs [] t
+            (List.rev gs.Tail |> List.map (makeType com ctx), makeType com ctx gs.Head)
+            |> Fable.Function
+        elif t.HasTypeDefinition
+        then makeTypeFromDef com ctx t.TypeDefinition t.GenericArguments
+        else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
     let (|FableType|) = makeType
 
@@ -567,7 +585,7 @@ module Util =
         | [] -> ctx, []
         | [[singleArg]] ->
             makeType com ctx singleArg.FullType |> function
-            | Fable.PrimitiveType Fable.Unit -> ctx, []
+            | Fable.Unit -> ctx, []
             | _ -> let ctx, arg = bindIdentFrom com ctx singleArg in ctx, [arg]
         | _ ->
             List.foldBack (fun tupledArg (ctx, accArgs) ->
@@ -762,15 +780,17 @@ module Util =
         (**     *Check if this an extension *)
             match meth.IsExtensionMember, callee with
             | true, Some callee ->
-                let typRef = makeTypeFromDef com meth.EnclosingEntity |> makeTypeRef com r
-                let ext = makeGet r Fable.UnknownType typRef (makeConst methName)
+                let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
+                             |> makeTypeRef com r
+                let ext = makeGet r Fable.Any typRef (makeConst methName)
                 let bind = Fable.Emit("$0.bind($1)($2...)") |> Fable.Value
                 Fable.Apply (bind, ext::callee::args, Fable.ApplyMeth, typ, r)
             | _ ->
                 let callee =
                     match callee with
                     | Some callee -> callee
-                    | None -> makeTypeFromDef com meth.EnclosingEntity |> makeTypeRef com r
+                    | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
+                              |> makeTypeRef com r
         (**     *Check if this a getter or setter  *)
                 match methKind with
                 | Fable.Getter | Fable.Field ->
@@ -789,14 +809,14 @@ module Util =
                     match tryGetBoundExpr ctx meth with
                     | Some e -> e
                     | _ ->
-                        let calleeType = Fable.PrimitiveType (Fable.Function args.Length) 
+                        let calleeType = Fable.Function(List.map Fable.Expr.getType args, typ)
                         makeGet r calleeType callee (makeConst methName)
                     |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
 
     let wrapInLambda com ctx r typ (meth: FSharpMemberOrFunctionOrValue) =
         let arity =
             match typ with
-            | Fable.PrimitiveType (Fable.Function arity) -> arity
+            | Fable.Function(args,_) -> args.Length
             | _ -> failwithf "Expecting a function value but got %s" meth.FullName
         let lambdaArgs =
             [for i=1 to arity do yield Naming.getUniqueVar() |> makeIdent]
@@ -821,6 +841,6 @@ module Util =
             | Try (tryGetBoundExpr ctx) e -> e 
             | _ ->
                 let typeRef =
-                    makeTypeFromDef com v.EnclosingEntity
+                    makeTypeFromDef com ctx v.EnclosingEntity []
                     |> makeTypeRef com r
                 Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)

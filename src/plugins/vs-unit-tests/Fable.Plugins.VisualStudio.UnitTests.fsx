@@ -58,7 +58,7 @@ module Util =
                 let doneFn = doneFn |> Fable.IdentValue |> Fable.Value
                 let args = [asyncBuilder; doneFn; doneFn; doneFn]
                 AST.Fable.Util.CoreLibCall("Async", Some "startWithContinuations", false, args)
-                |> AST.Fable.Util.makeCall com range (Fable.PrimitiveType Fable.Unit)
+                |> AST.Fable.Util.makeCall com range Fable.Unit
             [doneFn], testBody
         if testMethod.Arguments.Length > 0 then
             failwithf "Test parameters are not supported (testName = '%s')." name
@@ -146,8 +146,8 @@ type VisualStudioUnitTestsPlugin() =
             | "Microsoft.VisualStudio.TestTools.UnitTesting.Assert", _ -> asserts com info
             | "Microsoft.FSharp.Control.FSharpAsync", "RunSynchronously" ->
                 match info.returnType with
-                | Fable.PrimitiveType Fable.Unit ->
-                    let warning = Fable.Throw(Fable.Value(Fable.StringConst Util.runSyncWarning), Fable.PrimitiveType Fable.Unit, None)
+                | Fable.Unit ->
+                    let warning = Fable.Throw(Fable.Value(Fable.StringConst Util.runSyncWarning), Fable.Unit, None)
                     AST.Fable.Util.makeSequential info.range [warning; info.args.Head] |> Some 
                 | _ -> failwithf "Async.RunSynchronously in tests is only allowed with Async<unit> %O" info.range
             | _ -> None
