@@ -39,7 +39,7 @@ module Props =
         | BorderTopWidth of float
         | BorderWidth of float
         | Bottom of float
-        | Flex of float
+        | Flex of int
         | FlexDirection of string
         | FlexWrap of string
         | Height of float
@@ -80,7 +80,7 @@ module Props =
         | BorderTopWidth of float
         | BorderWidth of float
         | Bottom of float
-        | Flex of float
+        | Flex of int
         | FlexDirection of string
         | FlexWrap of string
         | Height of float
@@ -148,7 +148,7 @@ module Props =
         | BorderTopWidth of float
         | BorderWidth of float
         | Bottom of float
-        | Flex of float
+        | Flex of int
         | FlexDirection of string
         | FlexWrap of string
         | Height of float
@@ -206,7 +206,7 @@ module Props =
         | BorderTopWidth of float
         | BorderWidth of float
         | Bottom of float
-        | Flex of float
+        | Flex of int
         | FlexDirection of string
         | FlexWrap of string
         | Height of float
