@@ -401,13 +401,33 @@ module Props =
         | ScrollRenderAheadDistance of float
         interface IListViewProperties
 
+
+    [<KeyValueList>]
+    type ITouchable =
+        interface end
+
+    [<KeyValueList>]
+    type Touchable =
+        | OnTouchStart of (GestureResponderEvent -> unit)
+        | OnTouchMove of (GestureResponderEvent -> unit)
+        | OnTouchEnd of (GestureResponderEvent -> unit)
+        | OnTouchCancel of (GestureResponderEvent -> unit)
+        | OnTouchEndCapture of (GestureResponderEvent -> unit)
+        interface ITouchable
+
     [<KeyValueList>]
     type IMapViewProperties =
         interface end
 
     [<KeyValueList>]
     type MapViewProperties =
-        // TODO: inherit Touchable
+        // from Touchable
+        | OnTouchStart of (GestureResponderEvent -> unit)
+        | OnTouchMove of (GestureResponderEvent -> unit)
+        | OnTouchEnd of (GestureResponderEvent -> unit)
+        | OnTouchCancel of (GestureResponderEvent -> unit)
+        | OnTouchEndCapture of (GestureResponderEvent -> unit)
+        // end touchable
         | ShowsPointsOfInterest of bool
         | Annotations of ResizeArray<MapViewAnnotation>
         | LegalLabelInsets of Insets
