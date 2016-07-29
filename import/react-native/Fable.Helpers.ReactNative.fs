@@ -64,6 +64,12 @@ module Props =
         | Top of float
         | Width of float
         interface IFlexStyle
+    
+    [<StringEnum>]
+    type Alignment =
+    | Left
+    | Center 
+    | Right
 
     [<KeyValueList>]
     type IViewStyle =
@@ -72,7 +78,7 @@ module Props =
     [<KeyValueList>]
     type ViewStyle =
         // FlexStyle
-        | AlignItems of string
+        | AlignItems of Alignment
         | AlignSelf of string
         | BorderBottomWidth of float
         | BorderLeftWidth of float
