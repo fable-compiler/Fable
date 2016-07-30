@@ -288,3 +288,17 @@ let ``Async try .. with returns correctly from 'with' branch``() =
     let mutable result = 0
     Async.StartWithContinuations(work, (fun r -> result <- r), ignore, ignore)
     equal result 42
+
+
+[<Test>]
+let ``Deep recursion with async doesn't cause stack overflow``() =
+    async {
+        let result = ref false
+        let rec trampolineTest res i = async {
+            if i > 100000
+            then res := true
+            else return! trampolineTest res (i+1)
+        }
+        do! trampolineTest result 0
+        equal !result true
+    } |> Async.RunSynchronously
