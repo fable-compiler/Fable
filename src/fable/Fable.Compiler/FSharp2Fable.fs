@@ -531,6 +531,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             | BasicPatterns.Let(_, BasicPatterns.IfThenElse (_, thenExpr, elseExpr)) ->
                 let map = getTargetRefsCount map thenExpr
                 getTargetRefsCount map elseExpr
+            | BasicPatterns.Let(_, e) ->
+                getTargetRefsCount map e
             | BasicPatterns.DecisionTreeSuccess (idx, _) ->
                 match (Map.tryFind idx map) with
                 | Some refCount -> Map.remove idx map |> Map.add idx (refCount + 1)
