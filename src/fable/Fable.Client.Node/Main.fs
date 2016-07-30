@@ -224,10 +224,13 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         false, projInfo
 
 let rec awaitInput (com: ICompiler) checker (projInfo: FSProjInfo) =
-    { projInfo with fileMask = Console.In.ReadLine() |> Some }
-    |> compile com checker
-    |> snd
-    |> awaitInput com checker
+    match Console.In.ReadLine() with
+    | "[SIGTERM]" -> ()
+    | fileMask ->
+        { projInfo with fileMask = Some fileMask }
+        |> compile com checker
+        |> snd
+        |> awaitInput com checker
 
 [<EntryPoint>]
 let main argv =
