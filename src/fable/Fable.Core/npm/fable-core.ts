@@ -3552,7 +3552,7 @@ export interface CancellationToken {
   isCancelled: boolean;
 }
 
-const maxTrampolineCallCount = 1000;
+const maxTrampolineCallCount = 2000;
 
 export class Trampoline {
   private callCount = 0;
@@ -3582,7 +3582,13 @@ const AsyncImpl = {
       if (ctx.cancelToken.isCancelled)
         ctx.onCancel("cancelled");
       else if (ctx.trampoline.incrementAndCheck()) 
-        ctx.trampoline.hijack(() => f(ctx))
+        ctx.trampoline.hijack(() => {
+          try {
+            return f(ctx);
+          } catch(err) {
+            ctx.onError(err);
+          }
+        });
       else
         try {
           return f(ctx);
