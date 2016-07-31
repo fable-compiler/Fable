@@ -1428,3 +1428,13 @@ let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
     with
     | ex -> failwithf "Cannot replace %s.%s: %s"
                 info.ownerFullName info.methodName ex.Message
+
+let coreLibMappedTypes =
+    Map [
+        fsharp + "Control.FSharpAsync" => "Async"
+        fsharp + "Collections.FSharpSet" => "Set"
+        fsharp + "Collections.FSharpMap" => "Map"
+        fsharp + "Collections.FSharpList" => "List"
+        fsharp + "Core.FSharpChoice" => "Choice"
+    ]
+

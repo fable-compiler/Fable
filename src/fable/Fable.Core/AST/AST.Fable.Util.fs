@@ -95,11 +95,12 @@ let makeTypeRef com (range: SourceLocation option) typ =
         match tryImported com ent.Name ent.Decorators with
         | Some expr -> expr
         | None -> Value (TypeRef ent)
-    | Any ->
-        "Cannot reference unknown type. "
-        + "If this a generic argument, try to make function inline."
+    | GenericParam name ->
+        "Cannot reference generic parameter " + name
+        + ". Try to make function inline."
         |> attachRange range |> failwith
     | _ ->
+        // TODO: Reference JS objects? Object, String, Number...
         sprintf "Cannot reference type %s" typ.FullName
         |> attachRange range |> failwith
 

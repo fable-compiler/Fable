@@ -255,13 +255,14 @@ type ForOfStatement(left, right, body, ?loc) =
     member x.right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
-type FunctionDeclaration(id, arguments, body, ?generator, ?async, ?loc) =
+type FunctionDeclaration(id, arguments, body, ?returnType, ?generator, ?async, ?loc) =
     inherit Declaration("FunctionDeclaration", ?loc = loc)
     member x.id: Identifier = id
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
     member x.generator = defaultArg generator false
     member x.async = defaultArg async false
+    member x.returnType: TypeAnnotation option = returnType
 
 (** ##Expressions *)
 
@@ -340,13 +341,14 @@ type ObjectProperty(key, value, ?shorthand, ?computed, ?loc) =
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
-type ObjectMethod(kind, key, arguments, body, ?computed, ?generator, ?async, ?loc) =
+type ObjectMethod(kind, key, arguments, body, ?returnType, ?computed, ?generator, ?async, ?loc) =
     inherit ObjectMember("ObjectMethod", key, ?computed=computed, ?loc=loc)
     member x.kind = match kind with ObjectGetter -> "get"
                                   | ObjectSetter -> "set"
                                   | ObjectMeth -> "method"
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
+    member x.returnType: TypeAnnotation option = returnType
     member x.generator: bool = defaultArg generator false
     member x.async: bool = defaultArg async false
 
@@ -499,7 +501,7 @@ type RestElement(argument, ?loc) =
 type ClassMethodKind =
     | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind, key, args, body, computed, ``static``, ?loc) =
+type ClassMethod(kind, key, args, body, computed, ``static``, ?returnType, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     member x.kind = match kind with ClassConstructor -> "constructor"
                                   | ClassGetter -> "get"
@@ -510,6 +512,7 @@ type ClassMethod(kind, key, args, body, computed, ``static``, ?loc) =
     member x.body: BlockStatement = body
     member x.computed: bool = computed
     member x.``static``: bool = ``static``
+    member x.returnType: TypeAnnotation option = returnType
     // member x.decorators: Decorator list = defaultArg decorators []
     // This appears in astexplorer.net but it's not documented
     // member x.expression: bool = false
@@ -639,6 +642,10 @@ type FunctionTypeAnnotation(args, returnType, ?rest) =
     member x.rest: FunctionTypeParam option = rest
     member x.returnType: TypeAnnotationInfo = returnType
 
+type NullableTypeAnnotation(typ) =
+    inherit TypeAnnotationInfo("NullableTypeAnnotation")
+    member x.typeAnnotation: TypeAnnotationInfo = typ
+
 type GenericTypeAnnotation(id, ?typeParams) =
     inherit TypeAnnotationInfo("GenericTypeAnnotation")
     member x.id: Identifier = id
@@ -654,8 +661,8 @@ type ObjectTypeProperty(key, value, ?isStatic, ?isOptional) =
 type ObjectTypeAnnotation(properties) =
     inherit TypeAnnotationInfo("ObjectTypeAnnotation")
     member x.properties: obj list = []
-    // member x.callProperties
-    // member x.indexers
+    member x.callProperties: obj list = []
+    member x.indexers: obj list = []
 
 type InterfaceExtends(id, ?typeParams) =
     member x.``type`` = "InterfaceExtends"

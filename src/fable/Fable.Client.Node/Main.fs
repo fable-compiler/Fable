@@ -58,7 +58,8 @@ let readOptions argv =
         msbuild = def opts "msbuild" [] (li id)
         refs = Map(def opts "refs" [] (li (fun (x: string) ->
             let xs = x.Split('=') in xs.[0], xs.[1])))
-        extra = Map.empty // TODO: Read extra options
+        extra = Map(def opts "extra" [] (li (fun (x: string) ->
+            let xs = x.Split('=') in xs.[0], xs.[1])))
     }
 
 let loadPlugins (pluginPaths: string list) =

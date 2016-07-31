@@ -625,8 +625,9 @@ type private DeclInfo(init: Fable.Declaration list) =
     let hasIgnoredAtt atts =
         atts |> tryFindAtt (Naming.ignoredAtts.Contains) |> Option.isSome
     member self.IsIgnoredEntity (ent: FSharpEntity) =
-        ent.IsFSharpAbbreviation || ent.IsInterface
-        || (hasIgnoredAtt ent.Attributes) || isAttributeEntity ent
+        ent.IsFSharpAbbreviation
+        || isAttributeEntity ent
+        || (hasIgnoredAtt ent.Attributes)
     /// Is compiler generated (CompareTo...) or belongs to ignored entity?
     /// (remember F# compiler puts class methods in enclosing modules)
     member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
