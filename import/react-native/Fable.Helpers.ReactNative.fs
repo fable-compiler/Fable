@@ -416,6 +416,48 @@ module Props =
         interface ITouchable
 
     [<KeyValueList>]
+    type ITextInputProperties =
+        interface end
+
+    [<KeyValueList>]
+    type TextInputProperties =
+        | BlurOnSubmit of bool
+        | ClearButtonMode of string
+        | ClearTextOnFocus of bool
+        | EnablesReturnKeyAutomatically of bool
+        | OnKeyPress of (unit -> unit)
+        | ReturnKeyType of string
+        | SelectTextOnFocus of bool
+        | SelectionState of obj
+        | NumberOfLines of float
+        | TextAlign of string
+        | TextAlignVertical of string
+        | UnderlineColorAndroid of string
+        | AutoCapitalize of string
+        | AutoCorrect of bool
+        | AutoFocus of bool
+        | DefaultValue of string
+        | Editable of bool
+        | KeyboardType of string
+        | MaxLength of float
+        | Multiline of bool
+        | OnBlur of (unit -> unit)
+        | OnChange of (obj -> unit)
+        | OnChangeText of (string -> unit)
+        | OnEndEditing of (obj -> unit)
+        | OnFocus of (unit -> unit)
+        | OnLayout of (obj -> unit)
+        | OnSubmitEditing of (obj -> unit)
+        | Password of bool
+        | Placeholder of string
+        | PlaceholderTextColor of string
+        | SecureTextEntry of bool
+        | Style of TextStyle
+        | TestID of string
+        | Value of string
+        interface ITextInputProperties
+
+    [<KeyValueList>]
     type IMapViewProperties =
         interface end
 
@@ -451,6 +493,12 @@ open Props
 let inline text (props: ITextProperties list) (text:string): React.ReactElement<obj> =
     React.createElement(
         RN.Text, 
+        unbox props,
+        unbox text) |> unbox
+
+let inline textInput (props: ITextInputProperties list) (text:string): React.ReactElement<obj> =
+    React.createElement(
+        RN.TextInput, 
         unbox props,
         unbox text) |> unbox
 
