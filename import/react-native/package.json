@@ -1,6 +1,6 @@
 {
   "name": "fable-import-react-native",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "description": "Fable bindings for React Native",
   "repository": {
     "type": "git",
