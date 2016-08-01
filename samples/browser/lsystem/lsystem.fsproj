@@ -51,7 +51,7 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="html.fs" />
-    <Compile Include="lsystem.fs" />
+    <Compile Include="lsystem.fsx" />
     <None Include="fableconfig.json" />
   </ItemGroup>
   <ItemGroup>

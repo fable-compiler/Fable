@@ -46,16 +46,28 @@ first. The [raw source code is on GitHub](https://github.com/fsprojects/Fable/bl
 
 ### [SameGame](samples/samegame/index.html)
 
-This demo shows a Fable implementation of SameGame. The functional implementation of the game follows the *type-first design* approach and consists of three main components: **types**, **game logic** and **front end**. This sample has been contributed by [Leif Battermann](https://twitter.com/leifbattermann). You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/samegame/samegame.fsx).
+This demo shows a Fable implementation of SameGame. The functional implementation of the game follows
+the *type-first design* approach and consists of three main components: _types_, _game logic_ and _front
+end_. This sample has been contributed by [Leif Battermann](https://twitter.com/leifbattermann). You can
+find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/samegame/samegame.fsx).
+
+<a href="samples/lsystem/index.html"><img src="samples/images/lsystem.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [Interactive L-system generator](samples/lsystem/index.html)
+
+This demo is based on [L-system workshop](https://github.com/Andrea/Lsystem) by Andrea Magnorsky
+and Ross McKinlay. Rather than working on the tasks they gave us, I compiled it with Fable, so that you
+can play with it in a browser!
 
 ## Productivity
 
-<a href="samples/virtualdom/index.html"><img src="samples/images/elm.png" style="width:80px;float:left;margin:15px 35px 10px 10px" /></a>
+<a href="samples/virtualdom/index.html"><img src="samples/images/elm.png" style="width:80px;float:left;margin:25px 35px 10px 10px" /></a>
 
 ### [TodoMVC with Elm architecture](samples/virtualdom/index.html)
 
 This demo is an implementation of the [Elm architecture](http://guide.elm-lang.org/architecture/)
 using the same [virtual-dom](https://github.com/Matt-Esch/virtual-dom) as Elm originally used.
+This architecture makes it easy to create complex and maintainable web applications.
 Contributed by [Tomas Jansson](https://twitter.com/TomasJansson).
 
 <a href="samples/nunit/index.html"><img src="samples/images/NUnit.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
@@ -66,7 +78,8 @@ This tutorial shows how to compile NUnit tests so they can be run in JS with [Mo
 You can view the [source code](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/index.fsx),
 [package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/package.json) and
 [fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/nunit/fableconfig.json) on
-GitHub.
+GitHub. This is done via a [plugin](http://fsprojects.github.io/Fable/docs/plugins.html), illustrating the
+extensibility of Fable.
 
 ## Visualizations
 
