@@ -190,6 +190,16 @@ Target "FableCompilerDebug" (fun _ ->
     Npm.command buildDir "version" [fableCompilerVersion]
 )
 
+
+Target "CompileFableImportTests" (fun _ ->
+    let buildDir = "build/imports/bin"
+    CleanDir buildDir
+
+    [ "import/Fable.Import.Test.fsproj" ]
+    |> MSBuildDebug buildDir "Build"
+    |> Log "Fable-Import-Test-Output: "
+)
+
 // Target "FableSuave" (fun _ ->
 //     let buildDir = "build/suave"
 //     !! "src/fable-client-suave/Fable.Client.Suave.fsproj"
@@ -335,6 +345,7 @@ Target "All" ignore
 "Clean"
   ==> "FableCore"
   ==> "FableCompilerRelease"
+  ==> "CompileFableImportTests"
   ==> "Plugins"
   ==> "MochaTest"
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")

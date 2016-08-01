@@ -55,13 +55,8 @@
     <Compile Include="express/Fable.Import.Express.fs" />
     <Compile Include="react/Fable.Import.React.fs" />
     <Compile Include="react/Fable.Helpers.React.fs" />
-    <Compile Include="react/Fable.Import.ReactNative.fs" />
-    <Compile Include="react/Fable.Helpers.ReactNative.fs" />
-    <Compile Include="redux/Fable.Import.Redux.fs" />
-    <Compile Include="react-redux/Fable.Import.ReactRedux.fs" />
-    <Compile Include="react-router/Fable.Import.HistoryModule.fs" />
-    <Compile Include="react-router/Fable.Import.ReactRouter.fs" />
-    <Compile Include="react-router-redux/Fable.Import.ReactRouterRedux.fs" />
+    <Compile Include="react-native/Fable.Import.ReactNative.fs" />
+    <Compile Include="react-native/Fable.Helpers.ReactNative.fs" />
     <Compile Include="vscode/Fable.Import.VSCode.fs" />
     <Compile Include="electron/Fable.Import.Electron.fs" />
     <Compile Include="d3/Fable.Import.D3.fs" />
