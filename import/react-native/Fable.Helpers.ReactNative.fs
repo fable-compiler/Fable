@@ -190,7 +190,26 @@ module Props =
         rightButtonTitle: string 
         sceneConfig: SceneConfig 
         wrapperStyle: obj } 
-        
+
+    [<KeyValueList>]
+    type IRouteProperties =
+        interface end
+
+    [<KeyValueList>]
+    type RouteProperties =
+        | Component of React.ComponentClass<ViewProperties>
+        | Id of string
+        | Title of string
+        | PassProps of obj
+        | BackButtonTitle of string
+        | Content of string
+        | Message of string
+        | Index of int
+        | OnRightButtonPress of (unit -> unit)
+        | RightButtonTitle of string
+        | SceneConfig of SceneConfig
+        | WrapperStyle of obj
+        interface IRouteProperties
 
     [<KeyValueList>]
     type INavigationBarRouteMapperProperties =
@@ -229,7 +248,7 @@ module Props =
         | Translucent of bool
         | Style of ViewStyle
         | ConfigureScene of (Route -> SceneConfig)
-        | InitialRoute of Route
+        | InitialRoute of RouteProperties list
         | InitialRouteStack of Route []
         | NavigationBar of React.ReactElement<obj>
         | Navigator of Navigator
@@ -239,7 +258,6 @@ module Props =
         | DebugOverlay of bool
         | RenderScene of Func<RouteResult, Navigator, React.ReactElement<obj>>
         interface INavigatorProperties
-
 
     [<KeyValueList>]
     type IImageStyle =
@@ -665,3 +683,9 @@ let inline navigator (props: INavigatorProperties list) : React.ReactElement<obj
         RN.Navigator, 
         unbox props,
         unbox [||]) |> unbox
+
+let inline createComponent<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    unbox(React.createElement(U2.Case1(unbox typeof<'T>), Serialize.toPlainJsObj props, unbox(List.toArray children)))
+
+let inline createScene<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) : React.ReactElement<obj> =
+    unbox(React.createElement(U2.Case1(unbox typeof<'T>), Serialize.toPlainJsObj props, unbox([||])))    
