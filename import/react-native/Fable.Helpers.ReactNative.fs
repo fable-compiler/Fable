@@ -192,26 +192,6 @@ module Props =
         wrapperStyle: obj } 
 
     [<KeyValueList>]
-    type IRouteProperties =
-        interface end
-
-    [<KeyValueList>]
-    type RouteProperties =
-        | Component of React.ComponentClass<ViewProperties>
-        | Id of string
-        | Title of string
-        | PassProps of obj
-        | BackButtonTitle of string
-        | Content of string
-        | Message of string
-        | Index of int
-        | OnRightButtonPress of (unit -> unit)
-        | RightButtonTitle of string
-        | SceneConfig of SceneConfig
-        | WrapperStyle of obj
-        interface IRouteProperties
-
-    [<KeyValueList>]
     type INavigationBarRouteMapperProperties =
         interface end
 
@@ -248,7 +228,7 @@ module Props =
         | Translucent of bool
         | Style of ViewStyle
         | ConfigureScene of (Route -> SceneConfig)
-        | InitialRoute of RouteProperties list
+        | InitialRoute of Route
         | InitialRouteStack of Route []
         | NavigationBar of React.ReactElement<obj>
         | Navigator of Navigator
