@@ -176,9 +176,9 @@ module Props =
 
     [<KeyValueList>]
     type NavigationBarRouteMapperProperties =
-        | Title of Func<Route, Navigator, float, NavState, React.ReactElement<obj>>
-        | LeftButton of Func<Route, Navigator, float, NavState, React.ReactElement<obj>>
-        | RightButton of Func<Route, Navigator, float, NavState, React.ReactElement<obj>>
+        | [<CompiledName("Title")>]Title of Func<Route, Navigator, float, NavState, React.ReactElement<obj>>
+        | [<CompiledName("LeftButton")>]LeftButton of Func<Route, Navigator, float, NavState, React.ReactElement<obj>>
+        | [<CompiledName("RightButton")>]RightButton of Func<Route, Navigator, float, NavState, React.ReactElement<obj>>
         interface INavigationBarRouteMapperProperties
                 
     [<KeyValueList>]
