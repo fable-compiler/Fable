@@ -330,7 +330,6 @@ Target "PublishDocs" (fun _ ->
 )
 
 Target "All" ignore
-Target "AllAndCore" ignore
 
 // Build order
 "Clean"

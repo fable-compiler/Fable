@@ -378,11 +378,127 @@ module Props =
         | TestID of string 
         interface IImageProperties        
 
+    [<KeyValueList>]
+    type IListViewProperties =
+        interface end
+
+    [<KeyValueList>]
+    type ListViewProperties =
+        // TODO: inherit ScrollViewProperties
+        | DataSource of ListViewDataSource
+        | InitialListSize of float
+        | OnChangeVisibleRows of Func<ResizeArray<obj>, ResizeArray<obj>, unit>
+        | OnEndReached of (unit -> unit)
+        | OnEndReachedThreshold of float
+        | PageSize of float
+        | RemoveClippedSubviews of bool
+        | RenderFooter of Func<React.ReactElement<obj>>
+        | RenderHeader of Func<React.ReactElement<obj>>
+        | RenderRow of Func<obj, U2<string, float>, U2<string, float>, bool, React.ReactElement<obj>>
+        | RenderScrollComponent of Func<ScrollViewProperties, React.ReactElement<ScrollViewProperties>>
+        | RenderSectionHeader of Func<obj, U2<string, float>, React.ReactElement<obj>>
+        | RenderSeparator of Func<U2<string, float>, U2<string, float>, bool, React.ReactElement<obj>>
+        | ScrollRenderAheadDistance of float
+        interface IListViewProperties
+
+
+    [<KeyValueList>]
+    type ITouchable =
+        interface end
+
+    [<KeyValueList>]
+    type Touchable =
+        | OnTouchStart of (GestureResponderEvent -> unit)
+        | OnTouchMove of (GestureResponderEvent -> unit)
+        | OnTouchEnd of (GestureResponderEvent -> unit)
+        | OnTouchCancel of (GestureResponderEvent -> unit)
+        | OnTouchEndCapture of (GestureResponderEvent -> unit)
+        interface ITouchable
+
+    [<KeyValueList>]
+    type ITextInputProperties =
+        interface end
+
+    [<KeyValueList>]
+    type TextInputProperties =
+        | BlurOnSubmit of bool
+        | ClearButtonMode of string
+        | ClearTextOnFocus of bool
+        | EnablesReturnKeyAutomatically of bool
+        | OnKeyPress of (unit -> unit)
+        | ReturnKeyType of string
+        | SelectTextOnFocus of bool
+        | SelectionState of obj
+        | NumberOfLines of float
+        | TextAlign of string
+        | TextAlignVertical of string
+        | UnderlineColorAndroid of string
+        | AutoCapitalize of string
+        | AutoCorrect of bool
+        | AutoFocus of bool
+        | DefaultValue of string
+        | Editable of bool
+        | KeyboardType of string
+        | MaxLength of float
+        | Multiline of bool
+        | OnBlur of (unit -> unit)
+        | OnChange of (obj -> unit)
+        | OnChangeText of (string -> unit)
+        | OnEndEditing of (obj -> unit)
+        | OnFocus of (unit -> unit)
+        | OnLayout of (obj -> unit)
+        | OnSubmitEditing of (obj -> unit)
+        | Password of bool
+        | Placeholder of string
+        | PlaceholderTextColor of string
+        | SecureTextEntry of bool
+        | Style of TextStyle
+        | TestID of string
+        | Value of string
+        interface ITextInputProperties
+
+    [<KeyValueList>]
+    type IMapViewProperties =
+        interface end
+
+    [<KeyValueList>]
+    type MapViewProperties =
+        // from Touchable
+        | OnTouchStart of (GestureResponderEvent -> unit)
+        | OnTouchMove of (GestureResponderEvent -> unit)
+        | OnTouchEnd of (GestureResponderEvent -> unit)
+        | OnTouchCancel of (GestureResponderEvent -> unit)
+        | OnTouchEndCapture of (GestureResponderEvent -> unit)
+        // end touchable
+        | ShowsPointsOfInterest of bool
+        | Annotations of ResizeArray<MapViewAnnotation>
+        | LegalLabelInsets of Insets
+        | MapType of string
+        | MaxDelta of float
+        | MinDelta of float
+        | OnAnnotationPress of (unit -> unit)
+        | OnRegionChange of (MapViewRegion -> unit)
+        | OnRegionChangeComplete of (MapViewRegion -> unit)
+        | PitchEnabled of bool
+        | Region of MapViewRegion
+        | RotateEnabled of bool
+        | ScrollEnabled of bool
+        | ShowsUserLocation of bool
+        | Style of ViewStyle
+        | ZoomEnabled of bool
+        interface IMapViewProperties
+
 open Props
 
 let inline text (props: ITextProperties list) (text:string): React.ReactElement<obj> =
     React.createElement(
         RN.Text, 
+        unbox props,
+        unbox text) |> unbox
+
+let inline textInput (props: ITextInputProperties list) (text:string): React.ReactElement<obj> =
+    React.createElement(
+        RN.TextInput, 
         unbox props,
         unbox text) |> unbox
 
@@ -401,5 +517,17 @@ let inline touchableHighlight (props: ITouchableHighlightProperties list) (child
 let inline view (props: IViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     React.createElement(
         RN.View, 
+        unbox props,
+        unbox(List.toArray children)) |> unbox
+
+let inline listView (props: IListViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    React.createElement(
+        RN.ListView, 
+        unbox props,
+        unbox(List.toArray children)) |> unbox
+
+let inline mapView (props: IMapViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+    React.createElement(
+        RN.MapView, 
         unbox props,
         unbox(List.toArray children)) |> unbox

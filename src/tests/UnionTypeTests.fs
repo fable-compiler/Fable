@@ -82,6 +82,17 @@ let ``Union cases called Tag still work (bug due to Tag field)``() =
     | _ -> failwith "unexpected"
     |> equal "abc"
 
+let (|A|) n = n
+
+[<Test>]
+let ``Active patterns can be combined with union case matching``() = // See #306
+    let test = function
+        | Some(A n, Some(A m)) -> n + m
+        | _ -> 0
+    Some(5, Some 2) |> test |> equal 7
+    Some(5, None) |> test |> equal 0
+    None |> test |> equal 0
+
 #if MOCHA
 open Fable.Core
 open Fable.Core.JsInterop

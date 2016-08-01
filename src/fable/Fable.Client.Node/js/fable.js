@@ -183,7 +183,17 @@ function watch(opts, fableProc) {
     // Watch only the project directory for performance
     var projDir = path.dirname(path.resolve(path.join(cfgDir, opts.projFile)));
     console.log("Watching " + projDir);
+    console.log("Press Enter to terminate process.");
     opts.watching = true;
+
+    process.stdin.on('data', function(data) {
+        data = data.toString();
+        if (data.length > 0 && data[data.length - 1] == '\n') {
+            console.log("Process terminated.");
+            fableProc.stdin.write("[SIGTERM]\n");
+            process.exit(0);
+        }
+    });
 
     var fsExtensions = [".fs", ".fsx", ".fsproj"];
     fs.watch(projDir, { persistent: true, recursive: true }, function(ev, filename) {
