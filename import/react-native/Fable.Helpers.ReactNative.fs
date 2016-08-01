@@ -688,4 +688,10 @@ let inline createComponent<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: '
     unbox(React.createElement(U2.Case1(unbox typeof<'T>), Serialize.toPlainJsObj props, unbox(List.toArray children)))
 
 let inline createScene<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) : React.ReactElement<obj> =
-    unbox(React.createElement(U2.Case1(unbox typeof<'T>), Serialize.toPlainJsObj props, unbox([||])))    
+    unbox(React.createElement(U2.Case1(unbox typeof<'T>), Serialize.toPlainJsObj props, unbox([||])))
+
+let inline createRoute(title:string,index:int) =
+    let r = createEmpty<Route>
+    r.title <- Some title
+    r.index <- Some index
+    r
