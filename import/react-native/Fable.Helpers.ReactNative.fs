@@ -157,6 +157,28 @@ module Props =
         | ShadowRadius of float
         interface IViewStyle
 
+    [<KeyValueList>]
+    type IWebViewProperties =
+        interface end
+
+    [<KeyValueList>]
+    type WebViewProperties =
+        | JavaScriptEnabledAndroid of bool
+        | ScalesPageToFit of bool
+        | AutomaticallyAdjustContentInsets of bool
+        | Bounces of bool
+        | ContentInset of Insets
+        | Html of string
+        | InjectedJavaScript of string
+        | OnNavigationStateChange of (NavState -> unit)
+        | OnShouldStartLoadWithRequest of (unit -> bool)
+        | RenderError of (unit -> ViewStatic)
+        | RenderLoading of (unit -> ViewStatic)
+        | ScrollEnabled of bool
+        | StartInLoadingState of bool
+        | Style of ViewStyle
+        | Url of string
+
     type RouteResult = {
         id: string 
         title: string 
@@ -570,7 +592,7 @@ module Props =
         | RotateEnabled of bool
         | ScrollEnabled of bool
         | ShowsUserLocation of bool
-        | Style of ViewStyle
+        | Style of ViewStyle list
         | ZoomEnabled of bool
         interface IMapViewProperties
 
@@ -605,6 +627,12 @@ let inline view (props: IViewProperties list) (children: React.ReactElement<obj>
         RN.View, 
         unbox props,
         unbox(List.toArray children)) |> unbox
+
+let inline webView (props: IWebViewProperties list) : React.ReactElement<obj> =
+    React.createElement(
+        RN.WebView, 
+        unbox props,
+        unbox [||]) |> unbox        
 
 let inline listView (props: IListViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
     React.createElement(
