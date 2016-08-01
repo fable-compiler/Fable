@@ -608,11 +608,11 @@ let inline textInput (props: ITextInputProperties list) (text:string): React.Rea
         unbox props,
         unbox text) |> unbox
 
-let inline image (props: IImageProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+let inline image (props: IImageProperties list) : React.ReactElement<obj> =
     React.createElement(
         RN.Image, 
         unbox props,
-        unbox(List.toArray children)) |> unbox
+        unbox([||])) |> unbox
 
 let inline touchableHighlight (props: ITouchableHighlightProperties list) (child: React.ReactElement<obj>): React.ReactElement<obj> =
     React.createElement(
