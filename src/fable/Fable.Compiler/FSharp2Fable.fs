@@ -453,6 +453,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                             |> function Some m -> hasRestParams m | None -> false
                     Fable.Member(name, kind, range, args',
                                  transformExpr com ctx over.Body,
+                                 over.GenericParameters |> List.map (fun x -> x.Name),
                                  hasRestParams = hasRestParams)))
             |> List.concat
         let members =
@@ -708,6 +709,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         let entMember =
             Fable.Member(memberName, memberKind,
                 getRefLocation meth |> makeRange, args', body,
+                meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList,
                 meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
                 isPublic = (not meth.Accessibility.IsPrivate && not meth.IsCompilerGenerated),
                 isMutable = meth.IsMutable,
@@ -743,7 +745,7 @@ let rec private transformEntityDecl
             then [makeUnionCons()]
             elif ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration
             then ent.FSharpFields
-                 |> Seq.map (fun x -> x.Name) |> Seq.toList
+                 |> Seq.map (fun x -> (x.Name, makeType com ctx x.FieldType)) |> Seq.toList
                  |> makeRecordCons
                  |> List.singleton
             else []
@@ -753,10 +755,11 @@ let rec private transformEntityDecl
             // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
             // Note: If `ReferenceEqualityAttribute` is used, the type doesn't implement IComparable 
             let fableEnt = com.GetEntity ent
+            let fableType = Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.GenericParam)
             if ent.IsFSharpUnion && fableEnt.HasInterface "System.IComparable"
-            then makeUnionCompareMethods com
+            then makeUnionCompareMethods com fableType
             elif ent.IsFSharpRecord && fableEnt.HasInterface "System.IComparable"
-            then makeRecordCompareMethods com
+            then makeRecordCompareMethods com fableType
             else []
         let childDecls = transformDeclarations com ctx (cons@compareMeths) subDecls
         // Even if a module is marked with Erase, transform its members

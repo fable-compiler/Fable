@@ -255,13 +255,15 @@ type ForOfStatement(left, right, body, ?loc) =
     member x.right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
-type FunctionDeclaration(id, arguments, body, ?returnType, ?generator, ?async, ?loc) =
+type FunctionDeclaration(id, arguments, body, ?generator, ?async,
+                         ?returnType, ?typeParams, ?loc) =
     inherit Declaration("FunctionDeclaration", ?loc = loc)
     member x.id: Identifier = id
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
     member x.generator = defaultArg generator false
     member x.async = defaultArg async false
+    member x.typeParameters: TypeParameterDeclaration option = typeParams    
     member x.returnType: TypeAnnotation option = returnType
 
 (** ##Expressions *)
@@ -341,16 +343,18 @@ type ObjectProperty(key, value, ?shorthand, ?computed, ?loc) =
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
-type ObjectMethod(kind, key, arguments, body, ?returnType, ?computed, ?generator, ?async, ?loc) =
+type ObjectMethod(kind, key, arguments, body, ?computed, ?generator,
+                  ?async, ?returnType, ?typeParams, ?loc) =
     inherit ObjectMember("ObjectMethod", key, ?computed=computed, ?loc=loc)
     member x.kind = match kind with ObjectGetter -> "get"
                                   | ObjectSetter -> "set"
                                   | ObjectMeth -> "method"
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
-    member x.returnType: TypeAnnotation option = returnType
     member x.generator: bool = defaultArg generator false
     member x.async: bool = defaultArg async false
+    member x.returnType: TypeAnnotation option = returnType
+    member x.typeParameters: TypeParameterDeclaration option = typeParams
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression. 
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
@@ -501,7 +505,8 @@ type RestElement(argument, ?loc) =
 type ClassMethodKind =
     | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind, key, args, body, computed, ``static``, ?returnType, ?loc) =
+type ClassMethod(kind, key, args, body, computed, ``static``,
+                 ?returnType, ?typeParams, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     member x.kind = match kind with ClassConstructor -> "constructor"
                                   | ClassGetter -> "get"
@@ -513,6 +518,7 @@ type ClassMethod(kind, key, args, body, computed, ``static``, ?returnType, ?loc)
     member x.computed: bool = computed
     member x.``static``: bool = ``static``
     member x.returnType: TypeAnnotation option = returnType
+    member x.typeParameters: TypeParameterDeclaration option = typeParams    
     // member x.decorators: Decorator list = defaultArg decorators []
     // This appears in astexplorer.net but it's not documented
     // member x.expression: bool = false

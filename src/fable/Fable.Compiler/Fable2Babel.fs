@@ -211,13 +211,16 @@ module Util =
             upcast Babel.GenericTypeAnnotation(Babel.Identifier("Date"))
         | Fable.DeclaredType(FullName "System.TimeSpan", _) ->
             upcast Babel.NumberTypeAnnotation()
-        // TODO: Generic arguments
-        | Fable.DeclaredType(ent, _genArgs) ->
+        | Fable.DeclaredType(ent, genArgs) ->
             try
                 match typeRef com ctx ent None with
                 | :? Babel.Identifier as id ->
-                    upcast Babel.GenericTypeAnnotation(id)
-                // TODO: Resolve references to type in nested modules
+                    let typeParams =
+                        match List.map (typeAnnotation com ctx) genArgs  with
+                        | [] -> None
+                        | xs -> Babel.TypeParameterInstantiation(xs) |> Some
+                    upcast Babel.GenericTypeAnnotation(id, ?typeParams=typeParams)
+                // TODO: Resolve references to types in nested modules
                 | _ -> upcast Babel.AnyTypeAnnotation()
             with
             | _ -> upcast Babel.AnyTypeAnnotation()
@@ -268,29 +271,30 @@ module Util =
     let macroExpression range (txt: string) args =
         Babel.MacroExpression(txt, args, ?loc=range) :> Babel.Expression
         
-    let getMemberArgs (com: IBabelCompiler) ctx args (body: Fable.Expr) hasRestParams =
-        let returnType = Babel.TypeAnnotation(typeAnnotation com ctx body.Type) |> Some
-        let jsArgs, jsBody = com.TransformFunction ctx args body
+    let getMemberArgs (com: IBabelCompiler) ctx args (body: Fable.Expr) typeParams hasRestParams =
+        let args', body' = com.TransformFunction ctx args body
+        let args, returnType, typeParams =
+            if com.Options.declaration then
+                args' |> List.mapi (fun i arg ->
+                    match arg with
+                    | :? Babel.Identifier as id ->
+                        Babel.Identifier(id.name,
+                            Babel.TypeAnnotation(typeAnnotation com ctx args.[i].typ))
+                        :> Babel.Pattern
+                    | arg -> arg),
+                Babel.TypeAnnotation(typeAnnotation com ctx body.Type) |> Some,
+                typeParams |> List.map Babel.TypeParameter |> Babel.TypeParameterDeclaration |> Some
+            else
+                args', None, None
         let args =
-            jsArgs
-            |> List.mapi (fun i arg -> // Add type annotations
-                match arg with
-                | :? Babel.Identifier as id ->
-                    Babel.Identifier(id.name,
-                        Babel.TypeAnnotation(typeAnnotation com ctx args.[i].typ))
-                    :> Babel.Pattern
-                | arg -> arg)
-            |> function
-                | args when not hasRestParams -> args
-                | args -> 
-                    let args = List.rev args
-                    (Babel.RestElement(args.Head) :> Babel.Pattern)
-                        :: args.Tail |> List.rev
+            if not hasRestParams then args else
+            let args = List.rev args
+            (Babel.RestElement(args.Head) :> Babel.Pattern) :: args.Tail |> List.rev
         let body =
-            match jsBody with
+            match body' with
             | U2.Case1 e -> e
             | U2.Case2 e -> Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
-        args, body, returnType
+        args, body, returnType, typeParams
 
     let transformValue (com: IBabelCompiler) ctx r = function
         | Fable.ImportRef (memb, path) ->
@@ -333,9 +337,10 @@ module Util =
             members |> List.map (fun m ->
                 let makeMethod kind name =
                     let name, computed = sanitizeName name
-                    let args, body, returnType = getMemberArgs com ctx m.Arguments m.Body m.HasRestParams
-                    Babel.ObjectMethod(kind, name, args, body,
-                        ?returnType=returnType, computed=computed, ?loc=Some m.Range)
+                    let args, body, returnType, typeParams =
+                        getMemberArgs com ctx m.Arguments m.Body m.GenericParameters m.HasRestParams
+                    Babel.ObjectMethod(kind, name, args, body, ?returnType=returnType,
+                        ?typeParams=typeParams, computed=computed, ?loc=Some m.Range)
                     |> U3.Case2
                 match m.Kind with
                 | Fable.Constructor ->
@@ -629,11 +634,13 @@ module Util =
             | _ -> transformExpr com ctx body |> U2.Case2
         args, body
         
-    let transformClass com ctx range ident baseClass decls =
-        let declareMember range kind name args (body: Fable.Expr) isStatic hasRestParams =
+    let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
+        let declareMember range kind name args (body: Fable.Expr) typeParams hasRestParams isStatic =
             let name, computed = sanitizeName name
-            let args, body, returnType = getMemberArgs com ctx args body hasRestParams
-            Babel.ClassMethod(kind, name, args, body, computed, isStatic, ?returnType=returnType, loc=range)
+            let args, body, returnType, typeParams =
+                getMemberArgs com ctx args body typeParams hasRestParams
+            Babel.ClassMethod(kind, name, args, body, computed, isStatic,
+                ?returnType=returnType, ?typeParams=typeParams, loc=range)
         let baseClass = baseClass |> Option.map (transformExpr com ctx)
         decls
         |> List.map (function
@@ -644,13 +651,22 @@ module Util =
                     | Fable.Method -> Babel.ClassFunction, m.Name, m.IsStatic
                     | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.IsStatic
                     | Fable.Setter -> Babel.ClassSetter, m.Name, m.IsStatic
-                declareMember m.Range kind name m.Arguments m.Body isStatic m.HasRestParams
+                declareMember m.Range kind name m.Arguments m.Body m.GenericParameters m.HasRestParams isStatic
             | Fable.ActionDeclaration _
             | Fable.EntityDeclaration _ as decl ->
                 failwithf "Unexpected declaration in class: %A" decl)
         |> List.map U2<_,Babel.ClassProperty>.Case1
-        |> fun meths -> Babel.ClassExpression(Babel.ClassBody(meths, ?loc=range),
-                            ?id=ident, ?super=baseClass, ?loc=range)
+        |> fun meths ->
+            let id = ent |> Option.map (fun x -> identFromName x.Name)
+            let typeParams =
+                match com.Options.declaration, ent with
+                | true, Some ent ->
+                    ent.GenericParameters
+                    |> List.map Babel.TypeParameter
+                    |> Babel.TypeParameterDeclaration |> Some 
+                | _ -> None
+            Babel.ClassExpression(Babel.ClassBody(meths, ?loc=range),
+                    ?id=id, ?typeParams=typeParams, ?super=baseClass, ?loc=range)
 
     let declareInterfaces (com: IBabelCompiler) ctx (ent: Fable.Entity) isClass =
         ent.Interfaces
@@ -705,8 +721,8 @@ module Util =
                 upcast Babel.ClassDeclaration(e.body, e.id.Value,
                     ?super=e.superClass, ?typeParams=e.typeParameters, ?loc=e.loc)
             | :? Babel.FunctionExpression as e when e.id.IsSome ->
-                upcast Babel.FunctionDeclaration(e.id.Value, e.``params``,
-                    e.body, ?returnType=e.returnType, ?loc=e.loc)
+                upcast Babel.FunctionDeclaration(e.id.Value, e.``params``, e.body,
+                    ?returnType=e.returnType, ?typeParams=e.typeParameters, ?loc=e.loc)
             | _ -> upcast varDeclaration (Some range) privateIdent expr
         match isPublic with
         | false -> U2.Case1 (decl :> Babel.Statement) |> List.singleton
@@ -729,11 +745,13 @@ module Util =
                     com.GetImport ctx None m.Name path
                 | _ -> transformExpr com ctx m.Body
             | Fable.Method ->
-                let args, body, returnType = getMemberArgs com ctx m.Arguments m.Body false
+                let args, body, returnType, typeParams =
+                    getMemberArgs com ctx m.Arguments m.Body m.GenericParameters false
                 // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
                 let id = Babel.Identifier(defaultArg m.PrivateName m.Name)
-                upcast Babel.FunctionExpression (args, body, id=id, ?returnType=returnType, ?loc=m.Body.Range)
+                upcast Babel.FunctionExpression (args, body, id=id,
+                    ?returnType=returnType, ?typeParams=typeParams, ?loc=m.Body.Range)
             | Fable.Constructor | Fable.Setter ->
                 failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
@@ -742,11 +760,11 @@ module Util =
         then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
         else declareMember memberRange m.Name m.PrivateName m.IsPublic m.IsMutable modIdent expr
 
-    let declareInterface (ent: Fable.Entity) =
-        // TODO: Do we need `export` for interfaces? It won't work anyways for nested modules
+    let declareInterfaceEntity (com: IBabelCompiler) (ent: Fable.Entity) =
         // TODO: Add `extends` (inherited interfaces)
         // TODO: Add generic parameters
         // TODO: Add abstract methods
+        if not com.Options.declaration then [] else
         let id = Babel.Identifier ent.Name
         let body = Babel.ObjectTypeAnnotation []
         Babel.InterfaceDeclaration(body, id, []) :> Babel.Statement
@@ -757,8 +775,7 @@ module Util =
                      entDecls entRange baseClass isClass =
         let classDecl =
             // Don't create a new context for class declarations
-            let classIdent = identFromName ent.Name |> Some
-            transformClass com ctx (Some entRange) classIdent baseClass entDecls
+            transformClass com ctx (Some entRange) (Some ent) baseClass entDecls
             |> declareMember entRange ent.Name (Some privateName) ent.IsPublic false modIdent
         let classDecl =
             declareInterfaces com ctx ent isClass
@@ -812,9 +829,8 @@ module Util =
                 | _ -> transformModMember com ctx declareMember modIdent m @ acc
             | Fable.EntityDeclaration (ent, privateName, entDecls, entRange) ->
                 match ent.Kind with
-                // Interfaces, attribute or erased declarations shouldn't reach this point
                 | Fable.Interface ->
-                    (declareInterface ent)@acc
+                    (declareInterfaceEntity com ent)@acc
                 | Fable.Class baseClass ->
                     let baseClass = Option.map snd baseClass
                     declareClass com ctx declareMember modIdent

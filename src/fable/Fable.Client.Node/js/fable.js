@@ -52,7 +52,8 @@ var optionDefinitions = [
 var fableConfig = "fableconfig.json";
 var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
 var fableBinOptions = new Set([
-    "projFile", "coreLib", "symbols", "plugins", "msbuild", "refs", "watch", "clamp", "copyExt", "extra"
+    "projFile", "coreLib", "symbols", "plugins", "msbuild",
+    "refs", "watch", "clamp", "copyExt", "extra", "declaration"
 ]);
 
 // Custom plugin to remove `null;` statements (e.g. at the end of constructors)
@@ -114,8 +115,6 @@ var transformMacroExpressions = {
 };
 
 var babelPlugins = [
-    // Strip flow type annotations and declarations
-    require("babel-plugin-transform-flow-strip-types"),
     transformMacroExpressions,
     // "transform-es2015-block-scoping", // This creates too many function wrappers
     removeNullStatements,
@@ -329,15 +328,16 @@ function addModulePlugin(opts, babelPlugins) {
 
 function build(opts) {
     if (opts.declaration) {
-        babelPlugins.splice(0,0,[
-            require("babel-dts-generator"),
+        babelPlugins.splice(0,0,
+            [require("babel-dts-generator"),
             {
                 "packageName": "",
                 "typings": path.resolve(opts.outDir),
                 "suppressAmbientDeclaration": true,
                 "ignoreEmptyInterfaces": false
-            }
-        ]);
+            }],
+            require("babel-plugin-transform-flow-strip-types")
+        );
     }
 
     // ECMAScript target

@@ -155,33 +155,43 @@ let makeTypeTest com range (typ: Type) expr =
             |> attachRange range |> failwith
 
 let makeUnionCons () =
+    let arg1 = {name="caseName"; typ=String}
+    let arg2 = {name="fields"; typ=Array Any}
     let emit = Emit "this.Case=caseName; this.Fields = fields;" |> Value
     let body = Apply (emit, [], ApplyMeth, Unit, None)
-    Member(".ctor", Constructor, SourceLocation.Empty, [makeIdent "caseName"; makeIdent "fields"], body, [], true)
+    Member(".ctor", Constructor, SourceLocation.Empty, [arg1; arg2], body)
     |> MemberDeclaration
 
-let makeRecordCons props =
-    let sanitizeField x =
-        if Naming.identForbiddenCharsRegex.IsMatch x
-        then "['" + (x.Replace("'", "\\'")) + "']"
-        else "." + x
-    let args, body =
-        props |> List.mapi (fun i _ -> sprintf "$arg%i" i |> makeIdent),
-        props |> Seq.mapi (fun i x ->
-            sprintf "this%s=$arg%i" (sanitizeField x) i) |> String.concat ";"
-    let body = Apply (Value (Emit body), [], ApplyMeth, Unit, None)
-    Member(".ctor", Constructor, SourceLocation.Empty, args, body, [], true, false, false)
+let makeRecordCons (props: (string*Type) list) =
+    let args =
+        ([], props) ||> List.fold (fun args (name, typ) ->
+            let name =
+                Naming.lowerFirst name |> Naming.sanitizeIdent (fun x ->
+                    List.exists (fun (y: Ident) -> y.name = x) args)
+            {name=name; typ=typ}::args)
+        |> List.rev
+    let body =
+        Seq.zip args props
+        |> Seq.map (fun (arg, (propName, _)) ->
+            let propName =
+                if Naming.identForbiddenCharsRegex.IsMatch propName
+                then "['" + (propName.Replace("'", "\\'")) + "']"
+                else "." + propName
+            "this" + propName + "=" + arg.name)
+        |> String.concat ";"
+        |> fun body -> Apply (Value (Emit body), [], ApplyMeth, Unit, None)
+    Member(".ctor", Constructor, SourceLocation.Empty, args, body)
     |> MemberDeclaration
 
 let makeUnionCompareMethods, makeRecordCompareMethods =
-    let meth com typ name coreMeth =
-        let arg = makeIdent "x"
+    let meth com argType returnType name coreMeth =
+        let arg = {name="other"; typ=argType}
         let body =
             CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
-            |> makeCall com None typ
+            |> makeCall com None returnType
         Member(name, Method, SourceLocation.Empty, [arg], body) |> MemberDeclaration
-    (fun (com: ICompiler) -> [meth com Boolean "Equals" "equalsUnions"; meth com (Number Int32) "CompareTo" "compareUnions"]),
-    (fun (com: ICompiler) -> [meth com Boolean "Equals" "equalsRecords"; meth com (Number Int32) "CompareTo" "compareRecords"])
+    (fun (com: ICompiler) argType -> [meth com argType Boolean "Equals" "equalsUnions"; meth com argType (Number Int32) "CompareTo" "compareUnions"]),
+    (fun (com: ICompiler) argType -> [meth com argType Boolean "Equals" "equalsRecords"; meth com argType (Number Int32) "CompareTo" "compareRecords"])
 
 let makeDelegate arity (expr: Expr) =
     let rec flattenLambda (arity: int option) accArgs = function

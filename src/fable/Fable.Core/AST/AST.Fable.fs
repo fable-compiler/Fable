@@ -90,11 +90,13 @@ and MemberKind =
     | Setter
     | Field
 
-and Member(name, kind, range, args, body, ?decorators, ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?privateName) =
+and Member(name, kind, range, args, body, ?genParams, ?decorators,
+           ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?privateName) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.Range: SourceLocation = range
     member x.Arguments: Ident list = args
+    member x.GenericParameters: string list = defaultArg genParams []
     member x.Body: Expr = body
     member x.Decorators: Decorator list = defaultArg decorators []
     member x.IsPublic: bool = defaultArg isPublic true

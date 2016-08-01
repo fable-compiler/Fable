@@ -10,6 +10,7 @@ type CompilerOptions = {
         watch: bool
         clamp: bool
         copyExt: bool
+        declaration: bool
         extra: Map<string, string>
     }
 
