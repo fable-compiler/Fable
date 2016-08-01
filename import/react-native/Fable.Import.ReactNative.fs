@@ -1209,8 +1209,6 @@ module ReactNative =
             static member NavigationBar with get(): NavigationBarStatic = failwith "JS only" and set(v: NavigationBarStatic): unit = failwith "JS only"
             static member BreadcrumbNavigationBar with get(): BreadcrumbNavigationBarStatic = failwith "JS only" and set(v: BreadcrumbNavigationBarStatic): unit = failwith "JS only"
 
-
-
     module addons =
         type TestModuleStatic =
             abstract verifySnapshot: Func<Func<obj, unit>, unit> with get, set

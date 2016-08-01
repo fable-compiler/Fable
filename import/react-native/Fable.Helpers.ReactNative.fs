@@ -169,6 +169,30 @@ module Props =
         sceneConfig: SceneConfig 
         wrapperStyle: obj } 
         
+
+    [<KeyValueList>]
+    type INavigationBarRouteMapperProperties =
+        interface end
+
+    [<KeyValueList>]
+    type NavigationBarRouteMapperProperties =
+        | Title of Func<Route, Navigator, float, NavState, React.ReactElement<obj>>
+        | LeftButton of Func<Route, Navigator, float, NavState, React.ReactElement<obj>>
+        | RightButton of Func<Route, Navigator, float, NavState, React.ReactElement<obj>>
+        interface INavigationBarRouteMapperProperties
+                
+    [<KeyValueList>]
+    type INavigationBarProperties =
+        interface end
+
+    [<KeyValueList>]
+    type NavigationBarProperties =
+        | Navigator of Navigator
+        | RouteMapper of NavigationBarRouteMapperProperties list
+        | NavState of NavState
+        | Style of ViewStyle list
+        interface INavigationBarProperties
+
     [<KeyValueList>]
     type INavigatorProperties =
         interface end
@@ -185,7 +209,7 @@ module Props =
         | ConfigureScene of (Route -> SceneConfig)
         | InitialRoute of Route
         | InitialRouteStack of Route []
-        | NavigationBar of obj
+        | NavigationBar of React.ReactElement<obj>
         | Navigator of Navigator
         | OnWillFocus of (unit -> unit)
         | OnDidFocus of (unit -> unit)
@@ -569,6 +593,13 @@ let inline mapView (props: IMapViewProperties list) (children: React.ReactElemen
         RN.MapView, 
         unbox props,
         unbox(List.toArray children)) |> unbox
+
+let inline navigationBar (props: INavigationBarProperties list) : React.ReactElement<obj> =
+    let element : React.ComponentClass<obj> = RN.Navigator.NavigationBar |> unbox
+    React.createElement(
+        element, 
+        unbox props,
+        unbox [||]) |> unbox
 
 let inline navigator (props: INavigatorProperties list) : React.ReactElement<obj> =
     React.createElement(
