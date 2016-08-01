@@ -43,10 +43,10 @@ type Type =
 (** ##Entities *)
 and EntityKind =
     | Module
-    | Class of baseClass: (string*Expr) option
     | Union
-    | Record
-    | Exception
+    | Record of fields: (string*Type) list
+    | Exception of fields: (string*Type) list
+    | Class of baseClass: (string*Expr) option
     | Interface
 
 and Entity(kind, file, fullName, genParams, interfaces, decorators, isPublic) =

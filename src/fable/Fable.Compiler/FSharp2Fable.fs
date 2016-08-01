@@ -739,22 +739,19 @@ let rec private transformEntityDecl
         declInfo.AddIgnoredChild ent
         declInfo, ctx
     else
+        let fableEnt = com.GetEntity ent
         // Unions, records and F# exceptions don't have a constructor
         let cons =
-            if ent.IsFSharpUnion
-            then [makeUnionCons()]
-            elif ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration
-            then ent.FSharpFields
-                 |> Seq.map (fun x -> (x.Name, makeType com ctx x.FieldType)) |> Seq.toList
-                 |> makeRecordCons
-                 |> List.singleton
-            else []
+            match fableEnt.Kind with
+            | Fable.Union -> [makeUnionCons()]
+            | Fable.Record fields
+            | Fable.Exception fields -> [makeRecordCons fields]
+            | _ -> []
         let compareMeths =
             // If F# union or records implement System.IComparable (in that case they
             // allways implement System.Equatable too) generate Equals and CompareTo methods
             // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
             // Note: If `ReferenceEqualityAttribute` is used, the type doesn't implement IComparable 
-            let fableEnt = com.GetEntity ent
             let fableType = Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.GenericParam)
             if ent.IsFSharpUnion && fableEnt.HasInterface "System.IComparable"
             then makeUnionCompareMethods com fableType

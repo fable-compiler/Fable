@@ -526,10 +526,11 @@ type ClassMethod(kind, key, args, body, computed, ``static``,
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
-type ClassProperty(key, value, ?loc) =
+type ClassProperty(key, ?value, ?typeAnnotation, ?loc) =
     inherit Node("ClassProperty", ?loc = loc)
     member x.key: Identifier = key
-    member x.value: Expression = value
+    member x.value: Expression option = value
+    member x.typeAnnotation: TypeAnnotation option = typeAnnotation
 
 type ClassBody(body, ?loc) =
     inherit Node("ClassBody", ?loc = loc)

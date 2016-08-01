@@ -377,11 +377,16 @@ module Types =
             None
 
     and makeEntity (com: IFableCompiler) (tdef: FSharpEntity) =
+        let makeFields (tdef: FSharpEntity) =
+            tdef.FSharpFields
+            // It's ok to use an empty context here, because we don't need to resolve generic params
+            |> Seq.map (fun x -> x.Name, makeType com Context.Empty x.FieldType)
+            |> Seq.toList
         let kind =
             if tdef.IsInterface then Fable.Interface
-            elif tdef.IsFSharpRecord then Fable.Record
             elif tdef.IsFSharpUnion then Fable.Union
-            elif tdef.IsFSharpExceptionDeclaration then Fable.Exception
+            elif tdef.IsFSharpRecord then makeFields tdef |> Fable.Record
+            elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
             else Fable.Class (getBaseClass com tdef)
         let genParams =

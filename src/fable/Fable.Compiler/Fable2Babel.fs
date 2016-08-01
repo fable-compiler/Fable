@@ -635,12 +635,17 @@ module Util =
         args, body
         
     let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
-        let declareMember range kind name args (body: Fable.Expr) typeParams hasRestParams isStatic =
+        let declareProperty com ctx name typ =
+            let typ = Babel.TypeAnnotation(typeAnnotation com ctx typ)
+            Babel.ClassProperty(Babel.Identifier(name), typeAnnotation=typ)
+            |> U2<Babel.ClassMethod,_>.Case2
+        let declareMethod range kind name args (body: Fable.Expr) typeParams hasRestParams isStatic =
             let name, computed = sanitizeName name
             let args, body, returnType, typeParams =
                 getMemberArgs com ctx args body typeParams hasRestParams
             Babel.ClassMethod(kind, name, args, body, computed, isStatic,
                 ?returnType=returnType, ?typeParams=typeParams, loc=range)
+            |> U2<_,Babel.ClassProperty>.Case1
         let baseClass = baseClass |> Option.map (transformExpr com ctx)
         decls
         |> List.map (function
@@ -651,21 +656,30 @@ module Util =
                     | Fable.Method -> Babel.ClassFunction, m.Name, m.IsStatic
                     | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.IsStatic
                     | Fable.Setter -> Babel.ClassSetter, m.Name, m.IsStatic
-                declareMember m.Range kind name m.Arguments m.Body m.GenericParameters m.HasRestParams isStatic
+                declareMethod m.Range kind name m.Arguments m.Body m.GenericParameters m.HasRestParams isStatic
             | Fable.ActionDeclaration _
             | Fable.EntityDeclaration _ as decl ->
                 failwithf "Unexpected declaration in class: %A" decl)
-        |> List.map U2<_,Babel.ClassProperty>.Case1
-        |> fun meths ->
+        |> fun members ->
             let id = ent |> Option.map (fun x -> identFromName x.Name)
-            let typeParams =
+            let typeParams, members =
                 match com.Options.declaration, ent with
                 | true, Some ent ->
-                    ent.GenericParameters
-                    |> List.map Babel.TypeParameter
-                    |> Babel.TypeParameterDeclaration |> Some 
-                | _ -> None
-            Babel.ClassExpression(Babel.ClassBody(meths, ?loc=range),
+                    let typeParams =
+                        ent.GenericParameters
+                        |> List.map Babel.TypeParameter
+                        |> Babel.TypeParameterDeclaration |> Some
+                    let props =
+                        match ent.Kind with
+                        | Fable.Union ->
+                            ["Case", Fable.String; "Fields", Fable.Array Fable.Any]
+                            |> List.map (fun (name, typ) -> declareProperty com ctx name typ)
+                        | Fable.Record fields | Fable.Exception fields ->
+                            fields |> List.map (fun (name, typ) -> declareProperty com ctx name typ)
+                        | _ -> []
+                    typeParams, props@members
+                | _ -> None, members
+            Babel.ClassExpression(Babel.ClassBody(members, ?loc=range),
                     ?id=id, ?typeParams=typeParams, ?super=baseClass, ?loc=range)
 
     let declareInterfaces (com: IBabelCompiler) ctx (ent: Fable.Entity) isClass =
@@ -676,8 +690,8 @@ module Util =
         let interfaces =
             match ent.Kind with
             | Fable.Union -> "FSharpUnion"::ent.Interfaces
-            | Fable.Record -> "FSharpRecord"::ent.Interfaces
-            | Fable.Exception -> "FSharpException"::ent.Interfaces
+            | Fable.Record _ -> "FSharpRecord"::ent.Interfaces
+            | Fable.Exception _ -> "FSharpException"::ent.Interfaces
             | _ -> ent.Interfaces
         [ getCoreLibImport com ctx "Util"
           typeRef com ctx ent None
@@ -836,7 +850,7 @@ module Util =
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange baseClass true
                     |> List.append <| acc
-                | Fable.Union | Fable.Record | Fable.Exception ->                
+                | Fable.Union | Fable.Record _ | Fable.Exception _ ->                
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange None false
                     |> List.append <| acc
