@@ -356,6 +356,30 @@ module Props =
         interface ITextStyle
 
     [<KeyValueList>]
+    type IBreadcrumbNavigationBarRouteProperties =
+        interface end
+
+    [<KeyValueList>]
+    type BreadcrumbNavigationBarRouteProperties =
+        | RightContentForRoute of Func<RouteResult, Navigator, React.ReactElement<obj>>
+        | TitleContentForRoute of Func<RouteResult, Navigator, React.ReactElement<obj>>
+        | IconForRoute of Func<RouteResult, Navigator, React.ReactElement<obj>>
+        | SeparatorForRoute of Func<RouteResult, Navigator, React.ReactElement<obj>>
+        interface IBreadcrumbNavigationBarRouteProperties
+
+    [<KeyValueList>]
+    type IBreadcrumbNavigationBarProperties =
+        interface end
+
+    [<KeyValueList>]
+    type BreadcrumbNavigationBarProperties = 
+        | Navigator of Navigator
+        | RouteMapper of BreadcrumbNavigationBarRouteProperties list
+        | NavState of NavState
+        | Style of ViewStyle list
+        interface IBreadcrumbNavigationBarProperties
+
+    [<KeyValueList>]
     type ITextProperties =
         interface end
 
@@ -596,6 +620,13 @@ let inline mapView (props: IMapViewProperties list) (children: React.ReactElemen
 
 let inline navigationBar (props: INavigationBarProperties list) : React.ReactElement<obj> =
     let element : React.ComponentClass<obj> = RN.Navigator.NavigationBar |> unbox
+    React.createElement(
+        element, 
+        unbox props,
+        unbox [||]) |> unbox
+
+let inline breadcrumbNavigationBar (props: IBreadcrumbNavigationBarProperties list) : React.ReactElement<obj> =
+    let element : React.ComponentClass<obj> = RN.Navigator.BreadcrumbNavigationBar |> unbox
     React.createElement(
         element, 
         unbox props,
