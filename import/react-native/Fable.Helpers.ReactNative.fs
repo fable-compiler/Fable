@@ -612,11 +612,11 @@ let inline listView (props: IListViewProperties list) (children: React.ReactElem
         unbox props,
         unbox(List.toArray children)) |> unbox
 
-let inline mapView (props: IMapViewProperties list) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
+let inline mapView (props: IMapViewProperties list) : React.ReactElement<obj> =
     React.createElement(
         RN.MapView, 
         unbox props,
-        unbox(List.toArray children)) |> unbox
+        unbox [||]) |> unbox
 
 let inline navigationBar (props: INavigationBarProperties list) : React.ReactElement<obj> =
     let element : React.ComponentClass<obj> = RN.Navigator.NavigationBar |> unbox
