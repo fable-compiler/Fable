@@ -157,6 +157,44 @@ module Props =
         | ShadowRadius of float
         interface IViewStyle
 
+    type RouteResult = {
+        id: string 
+        title: string 
+        passProps: obj 
+        backButtonTitle: string 
+        content: string 
+        message: string 
+        index: int 
+        rightButtonTitle: string 
+        sceneConfig: SceneConfig 
+        wrapperStyle: obj } 
+        
+    [<KeyValueList>]
+    type INavigatorProperties =
+        interface end
+
+    [<KeyValueList>]
+    type NavigatorProperties =
+        | ItemWrapperStyle of ViewStyle
+        | NavigationBarHidden of bool
+        | ShadowHidden of bool
+        | TintColor of string
+        | TitleTextColor of string
+        | Translucent of bool
+        | Style of ViewStyle
+        | ConfigureScene of (Route -> SceneConfig)
+        | InitialRoute of Route
+        | InitialRouteStack of Route []
+        | NavigationBar of obj
+        | Navigator of Navigator
+        | OnWillFocus of (unit -> unit)
+        | OnDidFocus of (unit -> unit)
+        | SceneStyle of ViewStyle
+        | DebugOverlay of bool
+        | RenderScene of Func<RouteResult, Navigator, React.ReactElement<obj>>
+        interface INavigatorProperties
+
+
     [<KeyValueList>]
     type IImageStyle =
         interface end
@@ -531,3 +569,9 @@ let inline mapView (props: IMapViewProperties list) (children: React.ReactElemen
         RN.MapView, 
         unbox props,
         unbox(List.toArray children)) |> unbox
+
+let inline navigator (props: INavigatorProperties list) : React.ReactElement<obj> =
+    React.createElement(
+        RN.Navigator, 
+        unbox props,
+        unbox [||]) |> unbox

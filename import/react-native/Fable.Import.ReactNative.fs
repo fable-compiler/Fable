@@ -660,7 +660,7 @@ module ReactNative =
         abstract backButtonTitle: string option with get, set
         abstract content: string option with get, set
         abstract message: string option with get, set
-        abstract index: float option with get, set
+        abstract index: int option with get, set
         abstract onRightButtonPress: Func<unit> option with get, set
         abstract rightButtonTitle: string option with get, set
         abstract sceneConfig: SceneConfig option with get, set
