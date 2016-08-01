@@ -11,6 +11,7 @@ type CompilerOptions = {
         clamp: bool
         copyExt: bool
         extra: Map<string, string>
+        declaration: bool
     }
 
 type LogMessage =

@@ -811,6 +811,98 @@ module Compiler =
             | _ -> None)
         |> Map
 
+    let outputTypeScriptDeclarations (decls: Fable.Declaration list) =
+        let imports = ["import { List } from 'fable-core';"]       // FixMe: import only needed types
+
+        let outputTypeScriptDeclaration (decl: Fable.Declaration) = 
+            let getTypeScriptType (t: Fable.Type) =
+                match t with 
+                | Fable.Type.UnknownType -> "any"
+                | Fable.Type.PrimitiveType k ->
+                    match k with 
+                    | Fable.PrimitiveTypeKind.Unit -> "void"
+                    | Fable.PrimitiveTypeKind.Enum name -> name
+                    | Fable.PrimitiveTypeKind.Number _ -> "number"
+                    | Fable.PrimitiveTypeKind.String -> "string"
+                    | Fable.PrimitiveTypeKind.Regex -> "RegExp"
+                    | Fable.PrimitiveTypeKind.Boolean -> "boolean"
+                    | Fable.PrimitiveTypeKind.Function arity -> sprintf "(function %d)" arity
+                    | Fable.PrimitiveTypeKind.Array _ -> "Array<any>"
+                | Fable.Type.DeclaredType e -> 
+                    match e.FullName with
+                    | "Microsoft.FSharp.Collections.FSharpList" -> "List<any>"
+                    | _ -> sprintf "%s /* %s */" e.Name e.FullName
+
+            let getArguments (args: Fable.Ident list) =
+                let mapArg (i: Fable.Ident) = sprintf "%s: %s" i.name (getTypeScriptType i.typ)
+                match args with
+                    | [] -> ""
+                    | _ -> "(" + String.concat ", " (List.map mapArg args) + ")"
+
+            let outputRootMember (m: Fable.Member) =
+                let returnType = getTypeScriptType m.Body.Type
+                let args = getArguments m.Arguments
+                match m.Kind with
+                | Fable.Method ->
+                    sprintf "export function %s%s: %s;" m.Name args returnType
+                | Fable.Getter -> 
+                    sprintf "declare var %s: %s;" m.Name returnType
+                | _ -> ""
+
+            let outputMembers (decls: Fable.Declaration list) =
+                let outputMember (decl: Fable.Declaration) =
+                    let outputConstructor args =
+                        sprintf "constructor%s;" args
+                    match decl with
+                    | Fable.MemberDeclaration m -> 
+                        let returnType = getTypeScriptType m.Body.Type
+                        let args = getArguments m.Arguments
+                        match m.Kind with
+                        | Fable.Constructor ->
+                            outputConstructor args
+                        | Fable.Method ->
+                            if m.Name = ".ctor" then
+                                outputConstructor args
+                            else
+                                sprintf "%s%s: %s;" m.Name args returnType
+                        | Fable.Getter -> 
+                            sprintf "%s: %s;" m.Name returnType
+                        | _ -> ""
+                    | _ ->
+                    ""                   
+                List.map outputMember decls
+
+            let outputClass (ent: Fable.Entity) privateName entDecls baseClass =
+                let getLastPart (name: string) = 
+                    name.Substring(name.LastIndexOf('.') + 1)
+                let extends = match baseClass with
+                                | Some bc -> sprintf " extends %s" (getLastPart bc)        // FixMe: Get correct base class
+                                | None -> ""
+                let implements = ""      // ToDo: interfaces
+                let separator = System.Environment.NewLine + "    "
+                let members = String.concat separator (outputMembers entDecls)
+                sprintf "export class %s%s%s {%s%s%s}" ent.Name extends implements separator members System.Environment.NewLine
+
+            match decl with
+            | Fable.ActionDeclaration _ ->
+                ""
+            | Fable.MemberDeclaration m -> 
+                outputRootMember m
+            | Fable.EntityDeclaration (ent, privateName, entDecls, _) ->
+                match ent.Kind with
+                | Fable.Interface ->
+                    sprintf "/* ToDo: interface %s */" ent.FullName
+                | Fable.Union 
+                | Fable.Record 
+                | Fable.Exception ->                
+                    outputClass ent privateName entDecls None 
+                | Fable.Class baseClass ->
+                    let baseClass = Option.map fst baseClass
+                    outputClass ent privateName entDecls baseClass 
+                | Fable.Module -> sprintf "/* ToDo: module %s */" ent.Name
+
+        List.append imports (List.map outputTypeScriptDeclaration decls)
+
     let transformFile (com: ICompiler) (projs, files) =
         let com = makeCompiler com projs
         files |> Seq.map (fun (file: Fable.File) ->
@@ -832,6 +924,12 @@ module Compiler =
                     |> function
                     | Some rootDecls -> rootDecls
                     | None -> transformModDecls com ctx declareRootModMember None file.Declarations
+
+                if com.Options.declaration then
+                    let tsDeclarations = outputTypeScriptDeclarations file.Declarations
+                    let declarationFileName = Path.ChangeExtension(file.FileName, ".d.ts");
+                    File.WriteAllLines(declarationFileName, tsDeclarations)
+
                 // Add imports
                 let rootDecls, dependencies =
                     ctx.imports |> Seq.mapi (fun ident import ->

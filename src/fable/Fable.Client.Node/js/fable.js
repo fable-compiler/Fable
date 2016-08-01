@@ -40,6 +40,7 @@ var optionDefinitions = [
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'copyExt', type: Boolean, defaultValue: true, description: "Copy external files into `fable_external` folder (true by default)." },
   { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
+  { name: 'declaration', type: Boolean, description: "Generates TypeScript declaration files ('.d.ts')." },
   { name: 'verbose', description: "Print more information about the compilation process." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
