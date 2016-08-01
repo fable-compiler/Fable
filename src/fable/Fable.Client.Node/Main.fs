@@ -53,12 +53,14 @@ let readOptions argv =
         watch = def opts "watch" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
         copyExt = def opts "copyExt" false (un bool.Parse)
+        declaration = def opts "declaration" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id)
         plugins = def opts "plugins" [] (li id)
         msbuild = def opts "msbuild" [] (li id)
         refs = Map(def opts "refs" [] (li (fun (x: string) ->
             let xs = x.Split('=') in xs.[0], xs.[1])))
-        extra = Map.empty // TODO: Read extra options
+        extra = Map(def opts "extra" [] (li (fun (x: string) ->
+            let xs = x.Split('=') in xs.[0], xs.[1])))
     }
 
 let loadPlugins (pluginPaths: string list) =
@@ -148,6 +150,7 @@ let printFile =
     let jsonSettings =
         JsonSerializerSettings(
             Converters=[|Json.ErasedUnionConverter()|],
+            NullValueHandling=NullValueHandling.Ignore,
             StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
     fun (file: AST.Babel.Program) ->
         JsonConvert.SerializeObject (file, jsonSettings)

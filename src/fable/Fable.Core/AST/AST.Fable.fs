@@ -10,39 +10,50 @@ type Decorator =
     member x.Name = x.FullName.Substring (x.FullName.LastIndexOf '.' + 1)
 
 (** ##Types *)
-type PrimitiveTypeKind =
+type Type =
+    | Any
     | Unit
-    | Enum of fullName: string
-    | Number of NumberKind
+    | Boolean
     | String
     | Regex
-    | Boolean
-    | Function of arity: int
-    | Array of ArrayKind
-
-and Type =
-    | UnknownType
-    | DeclaredType of Entity
-    | PrimitiveType of PrimitiveTypeKind
+    | Number of NumberKind
+    | Array of genericArg: Type
+    | Tuple of genericArgs: Type list
+    | Function of argTypes: Type list * returnType: Type
+    | GenericParam of name: string
+    | Enum of fullName: string
+    | DeclaredType of Entity * genericArgs: Type list
     member x.FullName =
         match x with
-        | UnknownType -> "unknown"
-        | DeclaredType ent -> ent.FullName
-        | PrimitiveType kind -> sprintf "%A" kind
+        | Number numberKind -> sprintf "%A" x
+        | Enum fullName -> fullName
+        | Array typ -> typ.FullName + "[]"
+        | Function (argTypes, returnType) ->
+            "(" + (argTypes |> Seq.map (fun x -> x.FullName) |> String.concat ", ") + ")=>" + returnType.FullName
+        | DeclaredType(ent,_) -> ent.FullName
+        | _ -> sprintf "%A" x
+    member x.GenericArgs =
+        match x with
+        | Array genArg -> [genArg]
+        | Tuple genArgs -> genArgs
+        | Function(argTypes, returnType) -> argTypes@[returnType]
+        | DeclaredType(_, genArgs) -> genArgs
+        | _ -> []
 
 (** ##Entities *)
 and EntityKind =
     | Module
-    | Class of baseClass: (string*Expr) option
     | Union
-    | Record
-    | Exception
+    | Record of fields: (string*Type) list
+    | Exception of fields: (string*Type) list
+    | Class of baseClass: (string*Expr) option
     | Interface
 
-and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
+and Entity(kind, file, fullName, genParams, interfaces, decorators, isPublic) =
     member x.Kind: EntityKind = kind
     member x.File: string option = file
     member x.FullName: string = fullName
+    member x.GenericParameters: string list = genParams
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
@@ -59,7 +70,7 @@ and Entity(kind, file, fullName, interfaces, decorators, isPublic) =
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
     static member CreateRootModule fileName modFullName =
-        Entity (Module, Some fileName, modFullName, [], [], true)
+        Entity (Module, Some fileName, modFullName, [], [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
@@ -79,11 +90,13 @@ and MemberKind =
     | Setter
     | Field
 
-and Member(name, kind, range, args, body, ?decorators, ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?privateName) =
+and Member(name, kind, range, args, body, ?genParams, ?decorators,
+           ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?privateName) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.Range: SourceLocation = range
     member x.Arguments: Ident list = args
+    member x.GenericParameters: string list = defaultArg genParams []
     member x.Body: Expr = body
     member x.Decorators: Decorator list = defaultArg decorators []
     member x.IsPublic: bool = defaultArg isPublic true
@@ -122,8 +135,6 @@ and Project(name, baseDir, fileMap, ?assemblyFile, ?importPath) =
     member __.ImportPath: string option = importPath
 
 (** ##Expressions *)
-and ArrayKind = TypedArray of NumberKind | DynamicArray | Tuple
-
 and ApplyInfo = {
         methodName: string
         ownerFullName: string
@@ -146,7 +157,9 @@ and ArrayConsKind =
     | ArrayValues of Expr list
     | ArrayAlloc of Expr
 
-and Ident = { name: string; typ: Type }
+and Ident =
+    { name: string; typ: Type }
+    static member getType (i: Ident) = i.typ
 
 and ValueKind =
     | Null
@@ -160,7 +173,8 @@ and ValueKind =
     | StringConst of string
     | BoolConst of bool
     | RegexConst of source: string * flags: RegexFlag list
-    | ArrayConst of ArrayConsKind * kind: ArrayKind
+    | ArrayConst of ArrayConsKind * Type
+    | TupleConst of Expr list
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
@@ -168,18 +182,19 @@ and ValueKind =
     | Emit of string
     member x.Type =
         match x with
-        | Null -> UnknownType
+        | Null -> Any
         | Spread x -> x.Type
         | IdentValue {typ=typ} -> typ
-        | This | Super | ImportRef _ | TypeRef _ | Emit _ -> UnknownType
-        | NumberConst (_,kind) -> PrimitiveType (Number kind)
-        | StringConst _ -> PrimitiveType String
-        | RegexConst _ -> PrimitiveType Regex
-        | BoolConst _ -> PrimitiveType Boolean
-        | ArrayConst (_,kind) -> PrimitiveType (Array kind)
-        | UnaryOp _ -> PrimitiveType (Function 1)
-        | BinaryOp _ | LogicalOp _ -> PrimitiveType (Function 2)
-        | Lambda (args, _) -> PrimitiveType (Function args.Length)
+        | This | Super | ImportRef _ | TypeRef _ | Emit _ -> Any
+        | NumberConst (_,kind) -> Number kind
+        | StringConst _ -> String
+        | RegexConst _ -> Regex
+        | BoolConst _ -> Boolean
+        | ArrayConst (_, typ) -> Array typ
+        | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
+        | UnaryOp _ -> Function([Any], Any)
+        | BinaryOp _ | LogicalOp _ -> Function([Any; Any], Any)
+        | Lambda (args, body) -> Function(List.map Ident.getType args, body.Type)
     member x.Range: SourceLocation option =
         match x with
         | Lambda (_, body) -> body.Range
@@ -211,20 +226,22 @@ and Expr =
     // E.g. enums, ignored expressions so they don't trigger a return in functions
     | Wrapped of Expr * Type
 
+    static member getType (expr: Expr) = expr.Type
+
     member x.Type =
         match x with
         | Value kind -> kind.Type
-        | ObjExpr _ -> UnknownType
+        | ObjExpr _ -> Any
         | Wrapped (_,typ) | Apply (_,_,_,typ,_) | Throw (_,typ,_) -> typ
         | IfThenElse (_,thenExpr,elseExpr,_) -> thenExpr.Type
-        | DebugBreak _ | Loop _ | Set _ | VarDeclaration _ -> PrimitiveType Unit
+        | DebugBreak _ | Loop _ | Set _ | VarDeclaration _ -> Unit
         | Sequential (exprs,_) ->
             match exprs with
-            | [] -> PrimitiveType Unit
+            | [] -> Unit
             | exprs -> (Seq.last exprs).Type
         | TryCatch (body,_,_,_) -> body.Type
         // TODO: Quotations must have their own primitive? type
-        | Quote _ -> UnknownType
+        | Quote _ -> Any
 
     member x.Range: SourceLocation option =
         match x with

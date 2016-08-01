@@ -38,17 +38,23 @@ var optionDefinitions = [
   { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
-  { name: 'copyExt', type: Boolean, defaultValue: true, description: "Copy external files into `fable_external` folder (true by default)." },
+  { name: 'copyExt', type: Boolean, description: "Copy external files into `fable_external` folder (true by default)." },
   { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
   { name: 'verbose', description: "Print more information about the compilation process." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
   { name: 'production', alias: 'p', description: "Shortcut for `--target production`." },
+  { name: 'declaration', type: Boolean, description: "[Experimental] Generates corresponding ‘.d.ts’ file." },
+  { name: 'extra', multiple: true, description: "Custom options in `Key=Value` format." },
   { name: 'help', alias: 'h', description: "Display usage guide." }
 ];
 
-var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
 var fableConfig = "fableconfig.json";
+var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
+var fableBinOptions = new Set([
+    "projFile", "coreLib", "symbols", "plugins", "msbuild",
+    "refs", "watch", "clamp", "copyExt", "extra", "declaration"
+]);
 
 // Custom plugin to remove `null;` statements (e.g. at the end of constructors)
 var removeNullStatements = {
@@ -141,23 +147,22 @@ function ensureDirExists(dir, cont) {
 
 function babelifyToFile(babelAst, opts) {
     var projDir = path.dirname(path.resolve(path.join(cfgDir, opts.projFile)));
-    var targetFile = path.join(opts.outDir, path.relative(projDir, path.resolve(babelAst.fileName)));
-    targetFile = targetFile.replace(path.extname(babelAst.fileName), ".js")
-
-    var fsCode = null, babelOpts = {};
-    if (opts.sourceMaps && babelAst.originalFileName) {
+    var targetFile = path.join(path.resolve(opts.outDir), path.relative(projDir, path.resolve(babelAst.fileName)))
+                         .replace(/\\/g, '/')
+                         .replace(path.extname(babelAst.fileName), ".js");
+    var fsCode = null,
         babelOpts = {
-            plugins: babelPlugins,
-            sourceMaps: opts.sourceMaps,
-            sourceMapTarget: path.basename(targetFile),
-            sourceFileName: path.relative(path.dirname(targetFile),
-                                babelAst.originalFileName).replace(/\\/g, '/')
+            filename: targetFile,
+            sourceRoot: path.resolve(opts.outDir),
+            plugins: babelPlugins
         };
+    if (opts.sourceMaps && babelAst.originalFileName) {
+        babelOpts.sourceMaps = opts.sourceMaps,
+        babelOpts.sourceMapTarget = path.basename(targetFile),
+        babelOpts.sourceFileName = path.relative(path.dirname(targetFile),
+            babelAst.originalFileName).replace(/\\/g, '/')
         // The F# code is only necessary when generating source maps
         fsCode = fs.readFileSync(babelAst.originalFileName);
-    }
-    else {
-        babelOpts = { plugins: babelPlugins }
     }
 
     var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
@@ -322,15 +327,49 @@ function addModulePlugin(opts, babelPlugins) {
 }
 
 function build(opts) {
+    if (opts.declaration) {
+        babelPlugins.splice(0,0,
+            [require("babel-dts-generator"),
+            {
+                "packageName": "",
+                "typings": path.resolve(opts.outDir),
+                "suppressAmbientDeclaration": true,
+                "ignoreEmptyInterfaces": false
+            }],
+            require("babel-plugin-transform-flow-strip-types")
+        );
+    }
+
     // ECMAScript target
     if (opts.ecma != "es2015" && opts.ecma != "es6") {
         babelPlugins = babelPlugins.concat(babelPlugins_es2015);
     }
     
     // Extra Babel plugins
+    function resolveBabelPlugin(id) {
+        var nodeModulesDir = path.join(path.resolve(cfgDir), "node_modules");
+        if (fs.existsSync(path.join(nodeModulesDir, id))) {
+            return path.join(nodeModulesDir, id);
+        }
+        else {
+            return path.join(nodeModulesDir, "babel-plugin-" + id);
+        }
+    }
+
     if (opts.babelPlugins) {
-        (Array.isArray(opts.babelPlugins) ? opts.babelPlugins : [opts.babelPlugins]).forEach(function (x) {
-            babelPlugins.push(require(path.join(path.resolve(cfgDir), "node_modules", "babel-plugin-" + x)));
+        (Array.isArray(opts.babelPlugins) ? opts.babelPlugins : [opts.babelPlugins]).forEach(function (plugin) {
+            if (typeof plugin === "string") {
+                babelPlugins.push(resolveBabelPlugin(plugin));
+            }
+            else if (Array.isArray(plugin)) { // plugin id + config obj
+                babelPlugins.push([
+                    resolveBabelPlugin(plugin[0]),
+                    plugin[1]
+                ]);
+            }
+            else {
+                throw "Babel plugin must be a string or a [string, object] tuple";
+            }
         });
     }
 
@@ -349,10 +388,12 @@ function build(opts) {
     var fableCmd = "mono", fableCmdArgs = [wrapInQuotes(fableBin)];
 
     for (var k in opts) {
-        if (Array.isArray(opts[k]))
-            opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, wrapInQuotes(v)) })
-        else if (typeof opts[k] !== "object")
-            fableCmdArgs.push("--" + k, wrapInQuotes(opts[k]));
+        if (fableBinOptions.has(k)) {
+            if (Array.isArray(opts[k]))
+                opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, wrapInQuotes(v)) })
+            else if (typeof opts[k] !== "object")
+                fableCmdArgs.push("--" + k, wrapInQuotes(opts[k]));
+        }
     }
 
     if (process.platform === "win32") {
@@ -458,6 +499,7 @@ try {
     }
 
     // Default values
+    opts.copyExt = "copyExt" in opts ? opts.copyExt : true;
     opts.outDir = opts.outDir ? (path.join(cfgDir, opts.outDir)) : path.dirname(path.join(cfgDir, opts.projFile));
     opts.ecma = opts.ecma || "es5";
     if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {

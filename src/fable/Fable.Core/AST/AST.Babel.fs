@@ -27,6 +27,27 @@ type Node(typ, ?loc) =
 /// A module import or export declaration.
 [<AbstractClass>] type ModuleDeclaration(typ, ?loc) = inherit Node(typ, ?loc = loc)
 
+[<AbstractClass>]
+type TypeAnnotationInfo(typ) =
+    member x.``type``: string = typ
+
+type TypeAnnotation(typeInfo) =
+    member x.``type`` = "TypeAnnotation"
+    member x.typeAnnotation: TypeAnnotationInfo = typeInfo
+
+// TODO: TypeParameter can also have `variance` and `bound` properties
+type TypeParameter(name) =
+    member x.``type`` = "TypeParameter"
+    member x.name: string = name
+
+type TypeParameterDeclaration(typeParams) =
+    member x.``type`` = "TypeParameterDeclaration"
+    member x.``params``: TypeParameter list = typeParams
+
+type TypeParameterInstantiation(typeParams) =
+    member x.``type`` = "TypeParameterInstantiation"
+    member x.``params``: TypeAnnotationInfo list = typeParams
+
 type Pattern = interface end
 
 /// Placeholder, doesn't belong to Babel specs
@@ -58,9 +79,10 @@ type TaggedTemplateExpression(tag, quasi, ?loc) =
 
 (** ##Identifier *)
 /// Note that an identifier may be an expression or a destructuring pattern.
-type Identifier(name, ?loc) =
+type Identifier(name, ?typeAnnotation, ?loc) =
     inherit Expression("Identifier", ?loc = loc)
     member x.name: string = name
+    member x.typeAnnotation: TypeAnnotation option = typeAnnotation
     interface Pattern
     override x.ToString() = x.name
 
@@ -233,13 +255,16 @@ type ForOfStatement(left, right, body, ?loc) =
     member x.right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
-type FunctionDeclaration(id, arguments, body, ?generator, ?async, ?loc) =
+type FunctionDeclaration(id, arguments, body, ?generator, ?async,
+                         ?returnType, ?typeParams, ?loc) =
     inherit Declaration("FunctionDeclaration", ?loc = loc)
     member x.id: Identifier = id
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
     member x.generator = defaultArg generator false
     member x.async = defaultArg async false
+    member x.typeParameters: TypeParameterDeclaration option = typeParams    
+    member x.returnType: TypeAnnotation option = returnType
 
 (** ##Expressions *)
 
@@ -259,13 +284,16 @@ type ArrowFunctionExpression(arguments, body, ?async, ?loc) =
     member x.body: U2<BlockStatement, Expression> = body
     member x.async: bool = defaultArg async false
         
-type FunctionExpression(arguments, body, ?generator, ?async, ?id, ?loc) =
+type FunctionExpression(arguments, body, ?generator, ?async,
+                        ?id, ?returnType, ?typeParams, ?loc) =
     inherit Expression("FunctionExpression", ?loc = loc)
     member x.id: Identifier option = id
     member x.``params``: Pattern list = arguments
     member x.body: BlockStatement = body
     member x.generator: bool = defaultArg generator false
     member x.async: bool = defaultArg async false
+    member x.typeParameters: TypeParameterDeclaration option = typeParams
+    member x.returnType: TypeAnnotation option = returnType
     
 /// e.g., x = do { var t = f(); t * t + 1 };
 /// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
@@ -315,7 +343,8 @@ type ObjectProperty(key, value, ?shorthand, ?computed, ?loc) =
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
-type ObjectMethod(kind, key, arguments, body, ?computed, ?generator, ?async, ?loc) =
+type ObjectMethod(kind, key, arguments, body, ?computed, ?generator,
+                  ?async, ?returnType, ?typeParams, ?loc) =
     inherit ObjectMember("ObjectMethod", key, ?computed=computed, ?loc=loc)
     member x.kind = match kind with ObjectGetter -> "get"
                                   | ObjectSetter -> "set"
@@ -324,6 +353,8 @@ type ObjectMethod(kind, key, arguments, body, ?computed, ?generator, ?async, ?lo
     member x.body: BlockStatement = body
     member x.generator: bool = defaultArg generator false
     member x.async: bool = defaultArg async false
+    member x.returnType: TypeAnnotation option = returnType
+    member x.typeParameters: TypeParameterDeclaration option = typeParams
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression. 
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
@@ -474,7 +505,8 @@ type RestElement(argument, ?loc) =
 type ClassMethodKind =
     | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind, key, args, body, computed, ``static``, ?loc) =
+type ClassMethod(kind, key, args, body, computed, ``static``,
+                 ?returnType, ?typeParams, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     member x.kind = match kind with ClassConstructor -> "constructor"
                                   | ClassGetter -> "get"
@@ -485,6 +517,8 @@ type ClassMethod(kind, key, args, body, computed, ``static``, ?loc) =
     member x.body: BlockStatement = body
     member x.computed: bool = computed
     member x.``static``: bool = ``static``
+    member x.returnType: TypeAnnotation option = returnType
+    member x.typeParameters: TypeParameterDeclaration option = typeParams    
     // member x.decorators: Decorator list = defaultArg decorators []
     // This appears in astexplorer.net but it's not documented
     // member x.expression: bool = false
@@ -492,28 +526,31 @@ type ClassMethod(kind, key, args, body, computed, ``static``, ?loc) =
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
-type ClassProperty(key, value, ?loc) =
+type ClassProperty(key, ?value, ?typeAnnotation, ?loc) =
     inherit Node("ClassProperty", ?loc = loc)
     member x.key: Identifier = key
-    member x.value: Expression = value
+    member x.value: Expression option = value
+    member x.typeAnnotation: TypeAnnotation option = typeAnnotation
 
 type ClassBody(body, ?loc) =
     inherit Node("ClassBody", ?loc = loc)
     member x.body: U2<ClassMethod, ClassProperty> list = body
 
-type ClassDeclaration(body, id, ?super, ?loc) =
+type ClassDeclaration(body, id, ?super, ?typeParams, ?loc) =
     inherit Declaration("ClassDeclaration", ?loc = loc)
     member x.body: ClassBody = body
     member x.id: Identifier = id
     member x.superClass: Expression option = super
+    member x.typeParameters: TypeParameterDeclaration option = typeParams
     // member x.decorators: Decorator list = defaultArg decorators []
 
 /// Anonymous class: e.g., var myClass = class { }
-type ClassExpression(body, ?id, ?super, ?loc) =
+type ClassExpression(body, ?id, ?super, ?typeParams, ?loc) =
     inherit Expression("ClassExpression", ?loc = loc)
     member x.body: ClassBody = body
     member x.id: Identifier option = id    
     member x.superClass: Expression option = super
+    member x.typeParameters: TypeParameterDeclaration option = typeParams
     // member x.decorators: Decorator list = defaultArg decorators []
 
 // type MetaProperty(meta, property, ?loc) =
@@ -578,3 +615,71 @@ type ExportDefaultDeclaration(declaration, ?loc) =
 type ExportAllDeclaration(source, ?loc) =
     inherit ModuleDeclaration("ExportAllDeclaration", ?loc = loc)
     member x.source: Literal = source
+
+(** ##Type Annotations *)
+
+type StringTypeAnnotation() =
+    inherit TypeAnnotationInfo("StringTypeAnnotation")
+
+type NumberTypeAnnotation() =
+    inherit TypeAnnotationInfo("NumberTypeAnnotation")
+
+type BooleanTypeAnnotation() =
+    inherit TypeAnnotationInfo("BooleanTypeAnnotation")
+
+type AnyTypeAnnotation() =
+    inherit TypeAnnotationInfo("AnyTypeAnnotation")
+
+type VoidTypeAnnotation() =
+    inherit TypeAnnotationInfo("VoidTypeAnnotation")
+
+type TupleTypeAnnotation(types) =
+    inherit TypeAnnotationInfo("TupleTypeAnnotation")
+    member x.types: TypeAnnotationInfo list = types
+
+type FunctionTypeParam(name, typeInfo, ?optional) =
+    member x.``type`` = "FunctionTypeParam"
+    member x.name: Identifier = name
+    member x.typeAnnotation: TypeAnnotationInfo = typeInfo
+    member x.optional = defaultArg optional false
+
+type FunctionTypeAnnotation(args, returnType, ?rest) =
+    inherit TypeAnnotationInfo("FunctionTypeAnnotation")
+    member x.``params``: FunctionTypeParam list = args
+    member x.rest: FunctionTypeParam option = rest
+    member x.returnType: TypeAnnotationInfo = returnType
+
+type NullableTypeAnnotation(typ) =
+    inherit TypeAnnotationInfo("NullableTypeAnnotation")
+    member x.typeAnnotation: TypeAnnotationInfo = typ
+
+type GenericTypeAnnotation(id, ?typeParams) =
+    inherit TypeAnnotationInfo("GenericTypeAnnotation")
+    member x.id: Identifier = id
+    member x.typeParameters: TypeParameterInstantiation option = typeParams
+
+type ObjectTypeProperty(key, value, ?isStatic, ?isOptional) =
+    inherit Node("ObjectTypeProperty")
+    member x.key: Identifier = key
+    member x.value: TypeAnnotationInfo = value
+    member x.``static``: bool = defaultArg isStatic false
+    member x.optional: bool = defaultArg isOptional false
+
+type ObjectTypeAnnotation(properties) =
+    inherit TypeAnnotationInfo("ObjectTypeAnnotation")
+    member x.properties: obj list = []
+    member x.callProperties: obj list = []
+    member x.indexers: obj list = []
+
+type InterfaceExtends(id, ?typeParams) =
+    member x.``type`` = "InterfaceExtends"
+    member x.id: Identifier = id
+    member x.typeParameters: TypeParameterInstantiation option = typeParams
+
+type InterfaceDeclaration(body, id, extends, ?typeParams, ?loc) =
+    inherit Declaration("InterfaceDeclaration", ?loc = loc)
+    member x.body: ObjectTypeAnnotation = body
+    member x.id: Identifier = id
+    member x.extends: InterfaceExtends list = extends
+    member x.typeParameters: TypeParameterDeclaration option = typeParams
+    // member x.mixins
