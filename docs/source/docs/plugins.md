@@ -3,7 +3,7 @@
 # Fable architecture
 
 Is it very easy to add features to Fable using plugins. The best example is the plugin
-to transform [NUnit tests into Mocha](https://github.com/fsprojects/Fable/blob/master/src/plugins/Fable.Plugins.NUnit.fsx). In order to understand the plugin
+to transform [NUnit tests into Mocha](https://github.com/fsprojects/Fable/blob/master/src/plugins/nunit/Fable.Plugins.NUnit.fsx). In order to understand the plugin
 system we'll review briefly how Fable works.
 
 ## Overview of Fable's Architecture
