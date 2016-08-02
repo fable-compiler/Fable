@@ -867,7 +867,7 @@ module private AstPass =
               "replicate"; "reverse"; "singleton"; "unzip"; "unzip3" ]
 
     let implementedArrayFunctions =
-        set [ "copyTo"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3" ]
+        set [ "copyTo"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3"; "truncate" ]
 
     let nativeArrayFunctions =
         dict [ "exists" => "some"; "filter" => "filter";
@@ -1438,4 +1438,3 @@ let coreLibMappedTypes =
         fsharp + "Collections.FSharpList" => "List"
         fsharp + "Core.FSharpChoice" => "Choice"
     ]
-
