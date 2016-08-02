@@ -183,15 +183,17 @@ let makeRecordCons (props: (string*Type) list) =
     Member(".ctor", Constructor, SourceLocation.Empty, args, body)
     |> MemberDeclaration
 
-let makeUnionCompareMethods, makeRecordCompareMethods =
-    let meth com argType returnType name coreMeth =
-        let arg = {name="other"; typ=argType}
-        let body =
-            CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
-            |> makeCall com None returnType
-        Member(name, Method, SourceLocation.Empty, [arg], body) |> MemberDeclaration
-    (fun (com: ICompiler) argType -> [meth com argType Boolean "Equals" "equalsUnions"; meth com argType (Number Int32) "CompareTo" "compareUnions"]),
-    (fun (com: ICompiler) argType -> [meth com argType Boolean "Equals" "equalsRecords"; meth com argType (Number Int32) "CompareTo" "compareRecords"])
+let private makeMeth com argType returnType name coreMeth =
+    let arg = {name="other"; typ=argType}
+    let body =
+        CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
+        |> makeCall com None returnType
+    Member(name, Method, SourceLocation.Empty, [arg], body) |> MemberDeclaration
+
+let makeUnionEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsUnions"
+let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsUnions"
+let makeUnionCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareUnions"
+let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareRecords"
 
 let makeDelegate arity (expr: Expr) =
     let rec flattenLambda (arity: int option) accArgs = function

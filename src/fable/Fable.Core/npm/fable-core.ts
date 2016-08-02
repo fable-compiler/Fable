@@ -1,7 +1,23 @@
-const FSymbol = {
-  interfaces: Symbol("interfaces"),
-  typeName: Symbol("typeName")
-};
+declare var global: any;
+
+const fableGlobal = function () {
+  const globalObj =
+    typeof window != "undefined" ? window
+    : (typeof global != "undefined" ? global
+    : (typeof self != "undefined" ? self : null));
+  if (typeof globalObj.__FABLE_CORE_GLOBAL__ == "undefined") {
+    globalObj.__FABLE_CORE_GLOBAL__ = {
+      types: new Map<string, any>(),
+      symbols: {
+        interfaces: Symbol("interfaces"),
+        typeName: Symbol("typeName")
+      }
+    };
+  }
+  return globalObj.__FABLE_CORE_GLOBAL__;
+}();
+
+const FSymbol = fableGlobal.symbols;
 export { FSymbol as Symbol }
 
 export interface IComparer<T> {
@@ -28,8 +44,6 @@ export function Tuple3<T1, T2, T3>(x: T1, y: T2, z: T3) {
 }
 
 export class Util {
-  private static __types = new Map<string, any>();
-
   // For legacy reasons the name is kept, but this method also adds
   // the type name to a cache. Use it after declaration:
   // Util.setInterfaces(Foo.prototype, ["IFoo", "IBar"], "MyModule.Foo");
@@ -46,7 +60,7 @@ export class Util {
 
     if (typeName) {
       proto[FSymbol.typeName] = typeName;
-      Util.__types.set(typeName, proto.constructor);
+      fableGlobal.types.set(typeName, proto.constructor);
     }
   }
 
@@ -268,7 +282,7 @@ export class Util {
                                  .map(k => [k, v[k]] as [any,any]));
         }
         else {
-          const T = Util.__types.get(type);
+          const T = fableGlobal.types.get(type);
           if (T) {
             delete v.$type;
             return Object.assign(new T(), v);
@@ -313,8 +327,16 @@ export class Choice<T1, T2> {
   get valueIfChoice2() {
     return this.Case === "Choice2Of2" ? <T2>this.Fields[0] : null;
   }
+
+  Equals(other: Choice<T1,T2>) {
+    return Util.equalsUnions(this, other);
+  }
+
+  CompareTo(other: Choice<T1,T2>) {
+    return Util.compareUnions(this, other);
+  }
 }
-Util.setInterfaces(Choice.prototype, [], "Microsoft.FSharp.Core.FSharpChoice");
+Util.setInterfaces(Choice.prototype, ["FSharpUnion","System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Core.FSharpChoice");
 
 export class TimeSpan extends Number {
   static create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {

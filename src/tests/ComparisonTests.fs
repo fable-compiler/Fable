@@ -78,7 +78,7 @@ let ``Union equality works``() =
     Object.ReferenceEquals(u1, u2) |> equal false
 
 type RTest = { a: int; b: int }
-    
+
 [<Test>]
 let ``Record equality works``() =  
     let r1 = { a = 1; b = 2 }
@@ -90,7 +90,16 @@ let ``Record equality works``() =
     equal false (r1 <> r2)
     Object.ReferenceEquals(r1, r1) |> equal true
     Object.ReferenceEquals(r1, r2) |> equal false
-    
+
+[<ReferenceEquality>]
+type RTest2 = { a2: int; b2: int }
+
+[<Test>]
+let ``Record reference equality works``() =  
+    let r1 = { a2 = 1; b2 = 2 }
+    let r2 = { a2 = 1; b2 = 2 }
+    equal false (r1 = r2)
+
 type Test(i: int) =
     member x.Value = i
     override x.GetHashCode() = i

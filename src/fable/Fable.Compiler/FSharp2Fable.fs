@@ -748,15 +748,17 @@ let rec private transformEntityDecl
             | Fable.Exception fields -> [makeRecordCons fields]
             | _ -> []
         let compareMeths =
-            // If F# union or records implement System.IComparable (in that case they
-            // allways implement System.Equatable too) generate Equals and CompareTo methods
+            // If F# union or records implement System.IComparable && System.Equatable
+            // generate the corresponding methods
             // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
-            // Note: If `ReferenceEqualityAttribute` is used, the type doesn't implement IComparable 
+            // let refEquality = tryFindAtt ((=) "ReferenceEquality") ent.Attributes |> Option.isSome
             let fableType = Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.GenericParam)
-            if ent.IsFSharpUnion && fableEnt.HasInterface "System.IComparable"
-            then makeUnionCompareMethods com fableType
-            elif ent.IsFSharpRecord && fableEnt.HasInterface "System.IComparable"
-            then makeRecordCompareMethods com fableType
+            if ent.IsFSharpUnion then
+                (if fableEnt.HasInterface "System.IEquatable" then [makeUnionEqualMethod com fableType] else [])
+                @ (if fableEnt.HasInterface "System.IComparable" then [makeUnionCompareMethod com fableType] else [])
+            elif ent.IsFSharpRecord then
+                (if fableEnt.HasInterface "System.IEquatable" then [makeRecordEqualMethod com fableType] else [])
+                @ (if fableEnt.HasInterface "System.IComparable" then [makeRecordCompareMethod com fableType] else [])
             else []
         let childDecls = transformDeclarations com ctx (cons@compareMeths) subDecls
         // Even if a module is marked with Erase, transform its members

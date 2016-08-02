@@ -189,22 +189,25 @@ module Util =
             if equal then expr
             else makeUnOp i.range i.returnType [expr] UnaryNot
         match args.Head.Type with
-        | EntFullName "Microsoft.FSharp.Core.FSharpOption"
-        | Fable.Array _ | Fable.Tuple _ ->
-            CoreLibCall("Util", Some "equals", false, args)
-            |> makeCall com i.range i.returnType |> is equal |> Some
+        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String | Fable.Regex
+        | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
+            Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | EntFullName "System.DateTime" ->
             CoreLibCall ("Date", Some "equals", false, args)
             |> makeCall com i.range i.returnType |> is equal |> Some
         | Fable.DeclaredType(ent, _)
-            when (ent.HasInterface "System.IEquatable" && ent.FullName <> "System.TimeSpan")
+            when (ent.HasInterface "System.IEquatable"
+                    && ent.FullName <> "System.TimeSpan"
+                    && ent.FullName <> "Microsoft.FSharp.Core.FSharpOption")
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpSet" ->
             InstanceCall(args.Head, "Equals", args.Tail)
             |> makeCall com i.range i.returnType |> is equal |> Some
-        | _ ->
-            Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+        | Fable.Array _ | Fable.Tuple _
+        | Fable.DeclaredType _ | Fable.GenericParam _ ->
+            CoreLibCall("Util", Some "equals", false, args)
+            |> makeCall com i.range i.returnType |> is equal |> Some
 
     /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
     /// If passed an optional binary operator, it will wrap the comparison like `comparison < 0`
@@ -214,21 +217,19 @@ module Util =
             | None -> comparison
             | Some op -> makeEqOp r [comparison; makeConst 0] op
         match args.Head.Type with
-        | EntFullName "Microsoft.FSharp.Core.FSharpOption"
-        | Fable.Array _ | Fable.Tuple _ ->
-            CoreLibCall("Util", Some "compare", false, args)
-            |> makeCall com r (Fable.Number Int32) |> wrapWith op
+        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String | Fable.Regex
+        | Fable.Number _ | Fable.Function _ | Fable.Enum _ when Option.isSome op ->
+            makeEqOp r args op.Value
         | Fable.DeclaredType(ent, _)
             when ent.HasInterface "System.IComparable"
+                && ent.FullName <> "Microsoft.FSharp.Core.FSharpOption"
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
             InstanceCall(args.Head, "CompareTo", args.Tail)
             |> makeCall com r (Fable.Number Int32) |> wrapWith op
         | _ ->
-            match op with
-            | Some op -> makeEqOp r args op
-            | None -> CoreLibCall("Util", Some "compare", false, args)
-                      |> makeCall com r (Fable.Number Int32)
+            CoreLibCall("Util", Some "compare", false, args)
+            |> makeCall com r (Fable.Number Int32) |> wrapWith op
 
     let makeComparer com (typArg: Fable.Type option) =
         match typArg with
