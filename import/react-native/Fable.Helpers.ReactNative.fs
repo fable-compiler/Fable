@@ -423,7 +423,7 @@ module Props =
         | NumberOfLines of int
         | OnLayout of (LayoutChangeEvent -> unit)
         | OnPress of (unit -> unit)
-        | Style of TextStyle
+        | Style of TextStyle list
         | TestID of string
         interface ITextProperties
 
@@ -485,7 +485,7 @@ module Props =
         | AccessibilityLabel of string
         | Accessible of bool
         | CapInsets of Insets
-        | Source of ImageSourceProperties list
+        | Source of IImageSourceProperties list
         | DefaultSource of obj
         | OnError of (obj -> unit)
         | OnLoad of (unit -> unit)
@@ -496,7 +496,7 @@ module Props =
         | ResizeMode of string 
         | Style of ImageStyle list
         | TestID of string 
-        interface IImageProperties        
+        interface IImageProperties
 
     [<KeyValueList>]
     type IListViewProperties =
@@ -609,6 +609,9 @@ module Props =
         interface IMapViewProperties
 
 open Props
+
+let inline localImage (path:string) : IImageSourceProperties list =
+    Node.require.Invoke("../" + path) |> unbox
 
 let inline text (props: ITextProperties list) (text:string): React.ReactElement<obj> =
     React.createElement(
