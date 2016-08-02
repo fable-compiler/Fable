@@ -319,6 +319,8 @@ module Extensions =
 
     type AnotherClass with
         member x.FullName = sprintf "%i" x.Value
+        member x.Overload(i: int) = i * 4
+        member x.Overload(s: string) = s + s
 
 open Extensions
 
@@ -343,7 +345,13 @@ let ``Type extension methods work``() =
 let ``Type extension methods with same name work``() =
     let c = AnotherClass(3)
     equal "3" c.FullName
-   
+
+[<Test>]
+let ``Type extension overloads work``() =
+    let c = AnotherClass(3)
+    c.Overload("3") |> equal "33"
+    c.Overload(3) |> equal 12
+
 module StyleBuilderHelper =
     type StyleBuilderHelper = { TopOffset : int; BottomOffset : int }
     type DomBuilder = { ElementType : string; StyleBuilderHelper : StyleBuilderHelper }

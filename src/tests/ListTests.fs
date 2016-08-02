@@ -119,6 +119,12 @@ let ``List.concat works``() =
       |> equal 28.
 
 [<Test>]
+let ``List.contains works``() =
+      let xs = [1; 2; 3; 4]
+      xs |> List.contains 2 |> equal true
+      xs |> List.contains 0 |> equal false
+
+[<Test>]
 let ``List.exists works``() =
       let xs = [1; 2; 3; 4]
       xs |> List.exists (fun x -> x = 2)

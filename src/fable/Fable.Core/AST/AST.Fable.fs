@@ -49,11 +49,13 @@ and EntityKind =
     | Class of baseClass: (string*Expr) option
     | Interface
 
-and Entity(kind, file, fullName, genParams, interfaces, decorators, isPublic) =
+and Entity(kind, file, fullName, members: Lazy<Member list>,
+           genParams, interfaces, decorators, isPublic) =
     member x.Kind: EntityKind = kind
     member x.File: string option = file
     member x.FullName: string = fullName
     member x.GenericParameters: string list = genParams
+    // member x.Members: Member list = members
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
@@ -69,19 +71,30 @@ and Entity(kind, file, fullName, genParams, interfaces, decorators, isPublic) =
         List.exists ((=) fullName) interfaces
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
+    member x.TryGetMember(name, kind, argTypes, isStatic) =
+        members.Value |> List.tryFind (fun m ->
+            if m.IsStatic <> isStatic
+                || m.Kind <> kind
+                || m.Name <> name
+            then false
+            elif m.OverloadIndex.IsNone
+            then true
+            else argTypes = m.ArgumentTypes)
     static member CreateRootModule fileName modFullName =
-        Entity (Module, Some fileName, modFullName, [], [], [], true)
+        Entity (Module, Some fileName, modFullName, lazy [], [], [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
     | ActionDeclaration of Expr * SourceLocation
+    /// Module members are also declared as variables, so they need
+    /// a private name that doesn't conflict with enclosing scope (see #130)
     | EntityDeclaration of Entity * privateName: string * Declaration list * SourceLocation
-    | MemberDeclaration of Member
+    | MemberDeclaration of Member * privateName: string option * args: Ident list * body: Expr * SourceLocation
     member x.Range =
         match x with
         | ActionDeclaration (_,r) -> r
         | EntityDeclaration (_,_,_,r) -> r
-        | MemberDeclaration m -> m.Range
+        | MemberDeclaration (_,_,_,_,r) -> r
 
 and MemberKind =
     | Constructor
@@ -90,25 +103,26 @@ and MemberKind =
     | Setter
     | Field
 
-and Member(name, kind, range, args, body, ?genParams, ?decorators,
-           ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?privateName) =
+and Member(name, kind, argTypes, returnType, ?genParams, ?decorators,
+           ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
-    member x.Range: SourceLocation = range
-    member x.Arguments: Ident list = args
+    member x.ArgumentTypes: Type list = argTypes
+    member x.ReturnType: Type = returnType
     member x.GenericParameters: string list = defaultArg genParams []
-    member x.Body: Expr = body
     member x.Decorators: Decorator list = defaultArg decorators []
     member x.IsPublic: bool = defaultArg isPublic true
     member x.IsMutable: bool = defaultArg isMutable false
     member x.IsStatic: bool = defaultArg isStatic false
     member x.HasRestParams: bool = defaultArg hasRestParams false
-    /// Module members are also declared as variables, so they need
-    /// a private name that doesn't conflict with enclosing scope (see #130)
-    member x.PrivateName: string option = privateName
+    member x.OverloadIndex: int option = overloadIndex
+    member x.OverloadName: string =
+        match overloadIndex with
+        | Some i -> name + "_" + (string i)
+        | None -> name
     member x.TryGetDecorator decorator =
         x.Decorators |> List.tryFind (fun x -> x.Name = decorator)
-    override x.ToString() = sprintf "%A" kind
+    override x.ToString() = sprintf "%A %s" kind name
 
 and ExternalEntity =
     | ImportModule of fullName: string * moduleName: string * isNs: bool
@@ -208,7 +222,7 @@ and LoopKind =
 and Expr =
     // Pure Expressions
     | Value of value: ValueKind
-    | ObjExpr of members: Member list * interfaces: string list * baseClass: Expr option * range: SourceLocation option
+    | ObjExpr of decls: Declaration list * interfaces: string list * baseClass: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
     | Apply of callee: Expr * args: Expr list * kind: ApplyKind * typ: Type * range: SourceLocation option
     | Quote of Expr

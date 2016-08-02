@@ -311,9 +311,9 @@ let ``String.replicate works``() =
       String.replicate 3 "hi there"
       |> equal "hi therehi therehi there" 
 
-[<Test>]
-let ``System.Convert.ToString works``() =
-      let x = 45
-      Convert.ToString(x) |> equal "45"
-      Convert.ToString(x, 2) |> equal "101101"
-      Convert.ToString(x, 16) |> equal "2d"
+// [<Test>]
+// let ``System.Convert.ToString works``() =
+//       let x = 45
+//       Convert.ToString(x) |> equal "45"
+//       Convert.ToString(x, 2) |> equal "101101"
+//       Convert.ToString(x, 16) |> equal "2d"

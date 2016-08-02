@@ -5,8 +5,8 @@ const fableGlobal = function () {
     typeof window != "undefined" ? window
     : (typeof global != "undefined" ? global
     : (typeof self != "undefined" ? self : null));
-  if (typeof globalObj.__FABLE_CORE_GLOBAL__ == "undefined") {
-    globalObj.__FABLE_CORE_GLOBAL__ = {
+  if (typeof globalObj.__FABLE_CORE__ == "undefined") {
+    globalObj.__FABLE_CORE__ = {
       types: new Map<string, any>(),
       symbols: {
         interfaces: Symbol("interfaces"),
@@ -14,7 +14,7 @@ const fableGlobal = function () {
       }
     };
   }
-  return globalObj.__FABLE_CORE_GLOBAL__;
+  return globalObj.__FABLE_CORE__;
 }();
 
 const FSymbol = fableGlobal.symbols;
@@ -94,6 +94,10 @@ export class Util {
     for (var _len = args.length, restArgs = Array(_len > idx ? _len - idx : 0), _key = idx; _key < _len; _key++)
       restArgs[_key - idx] = args[_key];
     return restArgs;
+  }
+
+  static toString(o: any) {
+    return o != null && typeof o.ToString == "function" ? o.ToString() : String(o);
   }
 
   static equals(x: any, y: any): boolean {
@@ -728,7 +732,7 @@ Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 class FString {
   private static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 
-  private static fsFormat(str: any) {
+  static fsFormat(str: any) {
     function isObject(x: any) {
       return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
     }
@@ -743,7 +747,7 @@ class FString {
           case "e": case "E":
             rep = rep.toExponential(precision); break;
           case "A":
-            rep = (rep instanceof Map ? "map " : rep instanceof Set ? "set " : "") + JSON.stringify(rep, function (k, v) {
+            rep = (rep instanceof FMap ? "map " : rep instanceof FSet ? "set " : "") + JSON.stringify(rep, function (k, v) {
               return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v) : v;
             });
             break;
@@ -772,7 +776,7 @@ class FString {
     };
   }
 
-  static formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
+  private static formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
 
   static format(str: string, ...args: any[]) {
     return str.replace(FString.formatRegExp, function (match: any, idx: any, pad: any, format: any) {
@@ -1145,6 +1149,10 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
   constructor(head?: T, tail?: List<T>) {
     this.head = head;
     this.tail = tail;
+  }
+
+  ToString() {
+    return "[" + Array.from(this).map(Util.toString).join("; ") + "]";
   }
 
   Equals(x: List<T>) {
@@ -2731,6 +2739,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
     return FSet.from(comparer, ie ? SetTree.ofSeq(comparer, ie) : new SetTree("SetEmpty", []));
   }
 
+  ToString() {
+    return "set [" + Array.from(this).map(Util.toString).join("; ") + "]";
+  }
+
   Equals(s2: FSet<T>) {
     return this.CompareTo(s2) === 0;
   }
@@ -3425,6 +3437,10 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
   static create<K,V>(ie?: Iterable<[K,V]>, comparer?: IComparer<K>) {
     comparer = comparer || new GenericComparer<K>();
     return FMap.from(comparer, ie ? MapTree.ofSeq(comparer, ie) : MapTree.empty());
+  }
+
+  ToString() {
+    return "map [" + Array.from(this).map(Util.toString).join("; ") + "]";
   }
 
   Equals(m2: FMap<K,V>) {

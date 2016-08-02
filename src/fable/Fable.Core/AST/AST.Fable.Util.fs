@@ -155,12 +155,11 @@ let makeTypeTest com range (typ: Type) expr =
             |> attachRange range |> failwith
 
 let makeUnionCons () =
-    let arg1 = {name="caseName"; typ=String}
-    let arg2 = {name="fields"; typ=Array Any}
+    let args = [{name="caseName"; typ=String}; {name="fields"; typ=Array Any}]
+    let argTypes = List.map Ident.getType args
     let emit = Emit "this.Case=caseName; this.Fields = fields;" |> Value
     let body = Apply (emit, [], ApplyMeth, Unit, None)
-    Member(".ctor", Constructor, SourceLocation.Empty, [arg1; arg2], body)
-    |> MemberDeclaration
+    MemberDeclaration(Member(".ctor", Constructor, argTypes, Any), None, args, body, SourceLocation.Empty)
 
 let makeRecordCons (props: (string*Type) list) =
     let args =
@@ -180,18 +179,17 @@ let makeRecordCons (props: (string*Type) list) =
             "this" + propName + "=" + arg.name)
         |> String.concat ";"
         |> fun body -> Apply (Value (Emit body), [], ApplyMeth, Unit, None)
-    Member(".ctor", Constructor, SourceLocation.Empty, args, body)
-    |> MemberDeclaration
+    MemberDeclaration(Member(".ctor", Constructor, List.map Ident.getType args, Any), None, args, body, SourceLocation.Empty)
 
 let private makeMeth com argType returnType name coreMeth =
     let arg = {name="other"; typ=argType}
     let body =
         CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
         |> makeCall com None returnType
-    Member(name, Method, SourceLocation.Empty, [arg], body) |> MemberDeclaration
+    MemberDeclaration(Member(name, Method, [arg.typ], returnType), None, [arg], body, SourceLocation.Empty)
 
 let makeUnionEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsUnions"
-let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsUnions"
+let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsRecords"
 let makeUnionCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareRecords"
 
@@ -242,9 +240,9 @@ let makeApply range typ callee exprs =
     |> snd
 
 let makeJsObject range (props: (string * Expr) list) =
-    let members = props |> List.map (fun (name, body) ->
-        Member(name, Field, range, [], body))
-    ObjExpr(members, [], None, Some range)
+    let decls = props |> List.map (fun (name, body) ->
+        MemberDeclaration(Member(name, Field, [], body.Type), None, [], body, range))
+    ObjExpr(decls, [], None, Some range)
 
 let makeEmit args macro =
     let emit = Fable.Emit macro |> Fable.Value

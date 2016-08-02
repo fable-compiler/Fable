@@ -48,7 +48,7 @@ module Util =
     let (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
     let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
     let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
-        
+
     let consBack tail head = head::tail
 
     let isNull = function
@@ -330,28 +330,30 @@ module Util =
         match baseClass with
         | Some _ as baseClass ->
             members
-            |> List.map Fable.MemberDeclaration
             |> com.TransformClass ctx range baseClass
             |> fun c -> upcast Babel.NewExpression(c, [], ?loc=range)
         | None ->
-            members |> List.map (fun m ->
-                let makeMethod kind name =
-                    let name, computed = sanitizeName name
-                    let args, body, returnType, typeParams =
-                        getMemberArgs com ctx m.Arguments m.Body m.GenericParameters m.HasRestParams
-                    Babel.ObjectMethod(kind, name, args, body, ?returnType=returnType,
-                        ?typeParams=typeParams, computed=computed, ?loc=Some m.Range)
-                    |> U3.Case2
-                match m.Kind with
-                | Fable.Constructor ->
-                    "Unexpected constructor in Object Expression"
-                    |> Fable.Util.attachRange range |> failwith
-                | Fable.Method -> makeMethod Babel.ObjectMeth m.Name
-                | Fable.Setter -> makeMethod Babel.ObjectSetter m.Name
-                | Fable.Getter -> makeMethod Babel.ObjectGetter m.Name
-                | Fable.Field ->
-                    let key, _ = sanitizeName m.Name
-                    Babel.ObjectProperty(key, com.TransformExpr ctx m.Body, ?loc=Some m.Range) |> U3.Case1)
+            members |> List.choose (function
+                | Fable.EntityDeclaration _ | Fable.ActionDeclaration _ -> None // Shouldn't happen
+                | Fable.MemberDeclaration(m, _, args, body, r) ->
+                    let makeMethod kind name =
+                        let name, computed = sanitizeName name
+                        let args, body, returnType, typeParams =
+                            getMemberArgs com ctx args body m.GenericParameters m.HasRestParams
+                        Babel.ObjectMethod(kind, name, args, body, ?returnType=returnType,
+                            ?typeParams=typeParams, computed=computed, ?loc=Some r)
+                        |> U3.Case2
+                    match m.Kind with
+                    | Fable.Constructor ->
+                        "Unexpected constructor in Object Expression"
+                        |> Fable.Util.attachRange range |> failwith
+                    | Fable.Method -> makeMethod Babel.ObjectMeth m.Name
+                    | Fable.Setter -> makeMethod Babel.ObjectSetter m.Name
+                    | Fable.Getter -> makeMethod Babel.ObjectGetter m.Name
+                    | Fable.Field ->
+                        let key, _ = sanitizeName m.Name
+                        Babel.ObjectProperty(key, com.TransformExpr ctx body, ?loc=Some r) |> U3.Case1
+                    |> Some)
             |> fun props ->
                 match interfaces with
                 | [] -> props
@@ -649,14 +651,14 @@ module Util =
         let baseClass = baseClass |> Option.map (transformExpr com ctx)
         decls
         |> List.map (function
-            | Fable.MemberDeclaration m ->
+            | Fable.MemberDeclaration(m, _, args, body, range) ->
                 let kind, name, isStatic =
                     match m.Kind with
                     | Fable.Constructor -> Babel.ClassConstructor, "constructor", false
-                    | Fable.Method -> Babel.ClassFunction, m.Name, m.IsStatic
+                    | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.IsStatic
                     | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.IsStatic
                     | Fable.Setter -> Babel.ClassSetter, m.Name, m.IsStatic
-                declareMethod m.Range kind name m.Arguments m.Body m.GenericParameters m.HasRestParams isStatic
+                declareMethod range kind name args body m.GenericParameters m.HasRestParams isStatic
             | Fable.ActionDeclaration _
             | Fable.EntityDeclaration _ as decl ->
                 failwithf "Unexpected declaration in class: %A" decl)
@@ -750,29 +752,31 @@ module Util =
             let expDecl = Babel.ExportNamedDeclaration(specifiers=[expSpec])
             [expDecl :> Babel.ModuleDeclaration |> U2.Case2; decl :> Babel.Statement |> U2.Case1]
 
-    let transformModMember (com: IBabelCompiler) ctx declareMember modIdent (m: Fable.Member) =
+    let transformModMember (com: IBabelCompiler) ctx declareMember modIdent
+                           (m: Fable.Member, privName, args, body, range) =
         let expr =
             match m.Kind with
             | Fable.Getter | Fable.Field ->
-                match m.Body with 
+                match body with 
                 | Fable.Value(Fable.ImportRef(Naming.placeholder, path)) ->
                     com.GetImport ctx None m.Name path
-                | _ -> transformExpr com ctx m.Body
+                | _ -> transformExpr com ctx body
             | Fable.Method ->
+                let bodyRange = body.Range
                 let args, body, returnType, typeParams =
-                    getMemberArgs com ctx m.Arguments m.Body m.GenericParameters false
+                    getMemberArgs com ctx args body m.GenericParameters false
                 // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
-                let id = Babel.Identifier(defaultArg m.PrivateName m.Name)
+                let id = Babel.Identifier(defaultArg privName m.OverloadName)
                 upcast Babel.FunctionExpression (args, body, id=id,
-                    ?returnType=returnType, ?typeParams=typeParams, ?loc=m.Body.Range)
+                    ?returnType=returnType, ?typeParams=typeParams, ?loc=bodyRange)
             | Fable.Constructor | Fable.Setter ->
                 failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
-            match expr.loc with Some loc -> m.Range + loc | None -> m.Range
+            match expr.loc with Some loc -> range + loc | None -> range
         if m.TryGetDecorator("EntryPoint").IsSome
         then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
-        else declareMember memberRange m.Name m.PrivateName m.IsPublic m.IsMutable modIdent expr
+        else declareMember memberRange m.OverloadName privName m.IsPublic m.IsMutable modIdent expr
 
     let declareInterfaceEntity (com: IBabelCompiler) (ent: Fable.Entity) =
         // TODO: Add `extends` (inherited interfaces)
@@ -796,7 +800,7 @@ module Util =
             |> fun ifcDecl -> (U2.Case1 ifcDecl)::classDecl
         // Check if there's a static constructor
         entDecls |> Seq.exists (function
-            | Fable.MemberDeclaration m ->
+            | Fable.MemberDeclaration(m,_,_,_,_) ->
                 match m.Kind, m.Name with
                 | Fable.Method, ".cctor" when m.IsStatic -> true
                 | _ -> false
@@ -837,10 +841,10 @@ module Util =
                 transformStatement com ctx e
                 |> U2.Case1
                 |> consBack acc
-            | Fable.MemberDeclaration m ->
+            | Fable.MemberDeclaration(m,privName,args,body,r) ->
                 match m.Kind with
-                | Fable.Constructor | Fable.Setter _ -> acc
-                | _ -> transformModMember com ctx declareMember modIdent m @ acc
+                | Fable.Constructor | Fable.Setter _ -> acc // Shouldn't happen
+                | _ -> transformModMember com ctx declareMember modIdent (m,privName,args,body,r) @ acc
             | Fable.EntityDeclaration (ent, privateName, entDecls, entRange) ->
                 match ent.Kind with
                 | Fable.Interface ->

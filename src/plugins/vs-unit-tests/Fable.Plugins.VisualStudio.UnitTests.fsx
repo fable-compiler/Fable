@@ -41,17 +41,17 @@ module Util =
 
     let (|TestMethod|_|) (decl: Fable.Declaration) =
         match decl with
-        | Fable.MemberDeclaration m ->
+        | Fable.MemberDeclaration(m,_,args,body,range) ->
             match m.Kind, (m.Decorators |> List.tryFind (fun x -> Map.containsKey x.Name methodDecorators)) with
-            | Fable.Method, Some decorator -> Some (m, m.Name, decorator)
+            | Fable.Method, Some decorator -> Some (m, decorator, args, body, range)
             | _ -> None
         | _ -> None
         
     let [<Literal>] runSyncWarning = "Async.RunSynchronously must wrap the whole test"
 
     // Compile tests using Mocha.js BDD interface
-    let transformTestMethod (com: IBabelCompiler) ctx (testMethod: Fable.Member)
-                            name (decorator: Fable.Decorator) =
+    let transformTestMethod (com: IBabelCompiler) ctx
+                            (testMeth: Fable.Member, decorator, args, body, range) =
         let buildAsyncTestBody range asyncBuilder =
             let doneFn = AST.Fable.Util.makeIdent "$done"
             let testBody =
@@ -60,26 +60,26 @@ module Util =
                 AST.Fable.Util.CoreLibCall("Async", Some "startWithContinuations", false, args)
                 |> AST.Fable.Util.makeCall com range Fable.Unit
             [doneFn], testBody
-        if testMethod.Arguments.Length > 0 then
-            failwithf "Test parameters are not supported (testName = '%s')." name
+        if List.length args > 0 then
+            failwithf "Test parameters are not supported (testName = '%s')." testMeth.Name
         let testArgs, testBody =
             let (|RunSync|_|) = function
                 | Fable.Sequential([Fable.Throw(Fable.Value(Fable.StringConst warning),_,_); arg],_)
                     when warning = runSyncWarning -> Some arg
                 | _ -> None
-            match testMethod.Body with
+            match body with
             | Fable.Apply(Fable.Value(Fable.Lambda(_,RunSync _)),[asyncBuilder],Fable.ApplyMeth,_,_)
-            | RunSync asyncBuilder -> buildAsyncTestBody testMethod.Body.Range asyncBuilder
-            | _ -> [], testMethod.Body
+            | RunSync asyncBuilder -> buildAsyncTestBody body.Range asyncBuilder
+            | _ -> [], body
         let testBody =
             let args, body = com.TransformFunction ctx testArgs testBody
             Babel.ArrowFunctionExpression (args, body, ?loc=testBody.Range) :> Babel.Expression
         let testName =
-            Babel.StringLiteral name :> Babel.Expression
+            Babel.StringLiteral testMeth.Name :> Babel.Expression
         let testRange =
             match testBody.loc with
-            | Some loc -> testMethod.Range + loc | None -> testMethod.Range
-        let newMethodName = methodDecorators.Item(decorator.Name)
+            | Some loc -> range + loc | None -> range
+        let newMethodName = methodDecorators.Item((decorator: Fable.Decorator).Name)
         // it('Test name', function() { /* Tests */ });
         Babel.ExpressionStatement(
             Babel.CallExpression(Babel.Identifier newMethodName,
@@ -129,8 +129,8 @@ type VisualStudioUnitTestsPlugin() =
             |> Some
         member x.TryDeclare com ctx decl =
             match decl with
-            | TestMethod (test, name, decorator) ->
-                transformTestMethod com ctx test name decorator
+            | TestMethod (test, decorator, args, body, range) ->
+                transformTestMethod com ctx (test, decorator, args, body, range)
                 |> List.singleton |> Some
             | TestClass (testClass, testDecls, testRange) ->
                 let ctx = { ctx with moduleFullName = testClass.FullName } 

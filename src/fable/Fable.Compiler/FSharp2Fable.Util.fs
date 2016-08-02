@@ -71,6 +71,10 @@ module Helpers =
         then sanitizeEntityFullName ent |> Naming.replacedInterfaces.Contains
         else ent.FullName.StartsWith "Fable.Core" || isExternalEntity com ent
 
+    let isUnit (typ: FSharpType) =
+        // unit doesn't have FullName
+        typ.HasTypeDefinition && typ.TypeDefinition.CompiledName = "unit"
+
     let makeRange (r: Range.range) = {
         start = { line = r.StartLine; column = r.StartColumn }
         ``end``= { line = r.EndLine; column = r.EndColumn }
@@ -102,6 +106,39 @@ module Helpers =
             | Some name -> name.ConstructorArguments.[0] |> snd |> string
             | None -> Naming.lowerFirst unionCase.DisplayName
         |> makeConst
+
+    let getArgCount (meth: FSharpMemberOrFunctionOrValue) =
+        let args = meth.CurriedParameterGroups
+        if args.Count = 0 then 0
+        elif args.Count = 1 && args.[0].Count = 1 then
+            if isUnit args.[0].[0].Type then 0 else 1
+        else args |> Seq.map (fun li -> li.Count) |> Seq.sum
+
+    let getMemberKind (meth: FSharpMemberOrFunctionOrValue) =
+        let argCount = getArgCount meth
+        if meth.EnclosingEntity.IsFSharpModule then
+            // TODO: Another way to check module values?
+            match meth.XmlDocSig.[0] with
+            | 'P' when argCount = 0 -> Fable.Field
+            | _ -> Fable.Method
+        elif meth.IsImplicitConstructor then Fable.Constructor
+        elif meth.IsPropertyGetterMethod && argCount = 0 then Fable.Getter
+        elif meth.IsPropertySetterMethod && argCount = 1 then Fable.Setter
+        else Fable.Method
+
+    let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
+        let kind = getMemberKind meth
+        let name =
+            match meth.IsExplicitInterfaceImplementation, kind with
+            | true, _ | _, (Fable.Getter | Fable.Setter) -> meth.DisplayName
+            | _ -> meth.CompiledName
+            |> Naming.sanitizeActivePattern
+        name, kind
+
+    let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
+        if meth.CurriedParameterGroups.Count <> 1 then false else
+        let args = meth.CurriedParameterGroups.[0]
+        args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
     
 module Patterns =
     open BasicPatterns
@@ -376,7 +413,54 @@ module Types =
         with _ ->
             None
 
-    and makeEntity (com: IFableCompiler) (tdef: FSharpEntity) =
+    and makeMethodFrom com name kind argTypes returnType overloadIndex
+                       (meth: FSharpMemberOrFunctionOrValue) =
+        Fable.Member(name, kind, argTypes, returnType,
+            genParams = (meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList),
+            decorators = (meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList),
+            isPublic = (not meth.Accessibility.IsPrivate && not meth.IsCompilerGenerated),
+            isMutable = meth.IsMutable,
+            isStatic = not meth.IsInstanceMember,
+            ?overloadIndex = overloadIndex,
+            hasRestParams = hasRestParams meth)
+
+    and getMembers com (tdef: FSharpEntity) =
+        let getArgTypes com isInstance (args: IList<IList<FSharpParameter>>) =
+            match args |> Seq.map Seq.toList |> Seq.toList with
+            | [_thisArg]::args when isInstance -> args
+            | args -> args
+            |> function
+            | [] -> []
+            | [[singleArg]] when isUnit singleArg.Type -> []
+            // The F# compiler "untuples" the args in methods
+            | args -> args |> List.collect (fun tupledArg ->
+                tupledArg |> List.map (fun x -> makeType com Context.Empty x.Type))
+        let isOverloadable =
+            not(isImported tdef || isReplaceCandidate com tdef)
+        let getMembers' isInstance (tdef: FSharpEntity) =
+            tdef.MembersFunctionsAndValues
+            |> Seq.filter (fun x ->
+                isInstance = x.IsInstanceMember
+                // Property members that are no getter nor setter don't actually get implemented
+                && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod)))
+            |> Seq.map (fun x -> sanitizeMethodName x, x)
+            |> Seq.groupBy fst
+            |> Seq.collect (fun ((name, kind), members) ->
+                let members = List.ofSeq members
+                // TODO: Raise error if there's an overloaded method with generic arguments
+                let isOverloaded = isOverloadable && members.Length > 1
+                members |> List.mapi (fun i (_, meth) ->
+                    let argTypes = getArgTypes com (isInstance && not meth.IsExtensionMember) meth.CurriedParameterGroups
+                    let returnType = makeType com Context.Empty meth.ReturnParameter.Type
+                    let overloadIndex = if isOverloaded then Some i else None
+                    makeMethodFrom com name kind argTypes returnType overloadIndex meth
+            ))
+            |> Seq.toList
+        let instanceMembers = getMembers' true tdef
+        let staticMembers = getMembers' false tdef
+        instanceMembers@staticMembers
+
+    and makeEntity (com: IFableCompiler) (tdef: FSharpEntity): Fable.Entity =
         let makeFields (tdef: FSharpEntity) =
             tdef.FSharpFields
             // It's ok to use an empty context here, because we don't need to resolve generic params
@@ -402,8 +486,8 @@ module Types =
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
         Fable.Entity (kind, com.GetInternalFile tdef,
-            sanitizeEntityFullName tdef, genParams, infcs, decs,
-            tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
+            sanitizeEntityFullName tdef, Lazy(fun () -> getMembers com tdef),
+            genParams, infcs, decs, tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
     and makeTypeFromDef (com: IFableCompiler) ctx (tdef: FSharpEntity)
                         (genArgs: #seq<FSharpType>) =
@@ -517,64 +601,6 @@ module Util =
     open Types
     open Identifiers
 
-    let getArgCount (meth: FSharpMemberOrFunctionOrValue) =
-        let args = meth.CurriedParameterGroups
-        if args.Count = 0 then 0
-        elif args.Count = 1 && args.[0].Count = 1 then
-            let typ = args.[0].[0].Type
-            // unit doesn't have FullName
-            if typ.HasTypeDefinition && typ.TypeDefinition.CompiledName = "unit"
-            then 0 else 1
-        else args |> Seq.map (fun li -> li.Count) |> Seq.sum
-
-    let getMemberKind (meth: FSharpMemberOrFunctionOrValue) =
-        let argCount = getArgCount meth
-        if meth.EnclosingEntity.IsFSharpModule then
-            // TODO: Another way to check module values?
-            match meth.XmlDocSig.[0] with
-            | 'P' when argCount = 0 -> Fable.Field
-            | _ -> Fable.Method
-        elif meth.IsImplicitConstructor then Fable.Constructor
-        elif meth.IsPropertyGetterMethod && argCount = 0 then Fable.Getter
-        elif meth.IsPropertySetterMethod && argCount = 1 then Fable.Setter
-        else Fable.Method
-
-    let lowerToString (methName: string) =
-        if methName = "ToString" then "toString" else methName
-        
-    let sanitizeMethodName com (meth: FSharpMemberOrFunctionOrValue) =
-        let isOverloadable (meth: FSharpMemberOrFunctionOrValue) =
-            not (meth.IsEvent || meth.IsImplicitConstructor || meth.IsExplicitInterfaceImplementation)
-        let overloadSuffix (meth: FSharpMemberOrFunctionOrValue) =
-            if not(isOverloadable meth)
-                || isImported meth.EnclosingEntity
-                || isReplaceCandidate com meth.EnclosingEntity
-            then ""
-            else
-                meth.EnclosingEntity.MembersFunctionsAndValues
-                |> Seq.filter (fun x ->
-                    isOverloadable x
-                    && x.CompiledName = meth.CompiledName
-                    && x.IsInstanceMember = meth.IsInstanceMember)
-                |> Seq.toArray
-                |> function
-                | overloads when overloads.Length = 1 -> ""
-                | overloads ->
-                    overloads
-                    |> Seq.mapi (fun i x -> i,x)
-                    |> Seq.tryPick (fun (i,x) ->
-                        if x.XmlDocSig = meth.XmlDocSig then Some i else None)
-                    |> function
-                    | Some i when i > 0 -> sprintf "_%i" i
-                    | _ -> ""
-        let kind = getMemberKind meth
-        match meth.IsExplicitInterfaceImplementation, kind with
-        | true, _ | _, (Fable.Getter | Fable.Setter) -> meth.DisplayName
-        | _ -> meth.CompiledName
-        |> lowerToString
-        |> Naming.sanitizeActivePattern
-        |> fun name -> name + overloadSuffix meth, kind
-
     let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
         List.foldBack (fun var (ctx, accArgs) ->
             let newContext, arg = bindIdentFrom com ctx var
@@ -588,21 +614,12 @@ module Util =
             | _ -> ctx, args
         match args with
         | [] -> ctx, []
-        | [[singleArg]] ->
-            makeType com ctx singleArg.FullType |> function
-            | Fable.Unit -> ctx, []
-            | _ -> let ctx, arg = bindIdentFrom com ctx singleArg in ctx, [arg]
-        | _ ->
+        | [[singleArg]] when isUnit singleArg.FullType -> ctx, []
+        | args ->
             List.foldBack (fun tupledArg (ctx, accArgs) ->
-                match tupledArg with
-                | [] -> failwith "Unexpected empty tupled in curried arguments"
-                | [nonTupledArg] ->
-                    let ctx, arg = bindIdentFrom com ctx nonTupledArg
-                    ctx, arg::accArgs
-                | _ ->
-                    // The F# compiler "untuples" the args in methods
-                    let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
-                    ctx, untupledArg@accArgs
+                // The F# compiler "untuples" the args in methods
+                let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
+                ctx, untupledArg@accArgs
             ) args (ctx, [])
 
     let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
@@ -627,11 +644,6 @@ module Util =
 //            tryFindAtt ((=) "ParamArray") (Seq.last args).Attributes
 //            |> Option.isSome
 //        | _ -> false
-
-    let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
-        if meth.CurriedParameterGroups.Count <> 1 then false else
-        let args = meth.CurriedParameterGroups.[0]
-        args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
     let buildApplyInfo com ctx r typ ownerName methName methKind
                        (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args)
@@ -658,7 +670,7 @@ module Util =
                 && meth.CurriedParameterGroups.[0].Count > 0
             then countFuncArgs meth.CurriedParameterGroups.[0].[0].Type
             else 0
-        let methName, methKind = sanitizeMethodName com meth
+        let methName, methKind = sanitizeMethodName meth
         buildApplyInfo com ctx r typ
             (sanitizeEntityFullName meth.EnclosingEntity) methName methKind
             (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
@@ -781,21 +793,26 @@ module Util =
         | Inlined com ctx methTypArgs (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
         | _ ->
-            let methName, methKind = sanitizeMethodName com meth
+            let methName, methKind = sanitizeMethodName meth
         (**     *Check if this an extension *)
             match meth.IsExtensionMember, callee with
             | true, Some callee ->
                 let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
                              |> makeTypeRef com r
+                let argTypes = List.map Fable.Expr.getType args
+                let methName =
+                    let ent = makeEntity com meth.EnclosingEntity
+                    ent.TryGetMember(methName, methKind, argTypes, not meth.IsInstanceMember)
+                    |> function Some m -> m.OverloadName | None -> methName
                 let ext = makeGet r Fable.Any typRef (makeConst methName)
                 let bind = Fable.Emit("$0.bind($1)($2...)") |> Fable.Value
                 Fable.Apply (bind, ext::callee::args, Fable.ApplyMeth, typ, r)
             | _ ->
-                let callee =
+                let callee, isStatic =
                     match callee with
-                    | Some callee -> callee
+                    | Some callee -> callee, false
                     | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
-                              |> makeTypeRef com r
+                              |> makeTypeRef com r, true
         (**     *Check if this a getter or setter  *)
                 match methKind with
                 | Fable.Getter | Fable.Field ->
@@ -814,7 +831,12 @@ module Util =
                     match tryGetBoundExpr ctx meth with
                     | Some e -> e
                     | _ ->
-                        let calleeType = Fable.Function(List.map Fable.Expr.getType args, typ)
+                        let argTypes = List.map Fable.Expr.getType args
+                        let methName =
+                            let ent = makeEntity com meth.EnclosingEntity
+                            ent.TryGetMember(methName, methKind, argTypes, isStatic)
+                            |> function Some m -> m.OverloadName | None -> methName
+                        let calleeType = Fable.Function(argTypes, typ)
                         makeGet r calleeType callee (makeConst methName)
                     |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
 

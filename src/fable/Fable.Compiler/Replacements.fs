@@ -106,11 +106,16 @@ module Util =
         | _ -> GlobalCall ("String", Some "fromCharCode", false, [arg])
                |> makeCall com i.range i.returnType
 
-    let toString com (i: Fable.ApplyInfo) (toBase: Fable.Expr option) (arg: Fable.Expr) =
+    let toString com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
         match arg.Type with
         | Fable.String -> arg
-        | _ -> InstanceCall (arg, "toString", Option.toList toBase)
-               |> makeCall com i.range i.returnType
+        | Fable.Unit | Fable.Boolean | Fable.Regex | Fable.Number _
+        | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
+            GlobalCall ("String", None, false, [arg])
+            |> makeCall com i.range i.returnType
+        | _ ->
+            CoreLibCall ("Util", Some "toString", false, [arg])
+            |> makeCall com i.range i.returnType
 
     let toInt, toFloat =
         let toNumber com (i: Fable.ApplyInfo) typ (arg: Fable.Expr) =
@@ -144,22 +149,30 @@ module Util =
         | _ -> arrayFrom "Array" expr
 
     let applyOp com (i: Fable.ApplyInfo) (args: Fable.Expr list) meth =
+        let replacedEntities =
+            set [ "System.TimeSpan"; "System.DateTime"; "Microsoft.FSharp.Collections.FSharpSet" ]
+        let (|CustomOp|_|) meth argTypes (ent: Fable.Entity) =
+            if replacedEntities.Contains ent.FullName then None else
+            ent.TryGetMember(meth, Fable.Method, argTypes, true)
+            |> function None -> None | Some m -> Some(ent, m)
         let apply op args =
             Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range)
-        match args.Head.Type with
+        let argTypes = List.map Fable.Expr.getType args
+        match argTypes with
+        | Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)::_
+        | _::[Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)] ->
+            let typRef = Fable.Value (Fable.TypeRef ent)
+            InstanceCall(typRef, m.OverloadName, args)
+            |> makeCall com i.range i.returnType
         // Floor result of integer divisions (see #172)
         // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
-        | Fable.Number Integer when meth = "op_Division" ->
+        | Fable.Number Integer::_ when meth = "op_Division" ->
             apply (Fable.BinaryOp BinaryDivide) args
             |> List.singleton |> apply (Fable.UnaryOp UnaryNotBitwise)
             |> List.singleton |> apply (Fable.UnaryOp UnaryNotBitwise)
-        | EntFullName (KeyValue "System.DateTime" "Date" modName)
-        | EntFullName (KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" modName) ->
+        | EntFullName (KeyValue "System.DateTime" "Date" modName)::_
+        | EntFullName (KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" modName)::_ ->
             CoreLibCall (modName, Some meth, false, args)
-            |> makeCall com i.range i.returnType
-        | Fable.DeclaredType(ent, _) when ent.FullName <> "System.TimeSpan" ->
-            let typRef = Fable.Value (Fable.TypeRef ent)
-            InstanceCall(typRef, meth, args)
             |> makeCall com i.range i.returnType
         | _ ->
             let op =
@@ -415,7 +428,7 @@ module private AstPass =
         | "toInt" -> toInt com info args.Head |> Some
         | "toDouble" -> toFloat com info args.Head |> Some
         | "toChar"  -> toChar com info args.Head |> Some
-        | "toString" -> toString com info None args.Head |> Some
+        | "toString" -> toString com info args.Head |> Some
         | "createDictionary" ->
             GlobalCall("Map", None, true, args) |> makeCall com r typ |> Some
         | "createSet" ->
@@ -991,7 +1004,16 @@ module private AstPass =
         | "clear" ->
             icall "splice" (c.Value, [makeConst 0]) |> Some
         | "contains" ->
-            emit i "$0.indexOf($1) > -1" (c.Value::args) |> Some
+            match c, args with
+            | Some c, args ->
+                emit i "$0.indexOf($1) > -1" (c::args) |> Some
+            | None, [item;xs] ->
+                let f =
+                    wrapInLambda [makeIdent "x"] (fun exprs ->
+                        CoreLibCall("Util", Some "equals", false, item::exprs)
+                        |> makeCall com None Fable.Boolean)
+                ccall "Seq" "exists" [f;xs] |> Some
+            | _ -> None
         | "indexOf" ->
             icall "indexOf" (c.Value, args) |> Some
         | "insert" ->
@@ -1157,7 +1179,7 @@ module private AstPass =
         // | "getHashCode" -> i.callee
         | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
-        | "toString" -> icall com i "toString" |> Some
+        | "toString" -> toString com i i.callee.Value |> Some
         | "equals" -> staticArgs i.callee i.args |> equals true com i
         | "getType" -> emit i "Object.getPrototypeOf($0).constructor" [i.callee.Value] |> Some
         | _ -> None
@@ -1220,18 +1242,6 @@ module private AstPass =
         | "current" ->
             emit info "$0.current.value" [info.callee.Value] |> Some
         | _ -> None
-
-    let conversions com (info: Fable.ApplyInfo) =
-        match info.methodName with
-        | "toString" ->
-            match info.args with
-            | [arg] -> toString com info None arg
-            | [arg; Type(Fable.Number _) as toBase] ->
-                toString com info (Some toBase) arg
-            | _ -> failwithf "System.Convert.ToString with IFormatProvider is not supported %O" info.range
-            |> Some
-        | _ ->
-            failwithf "Only System.Convert.ToString is supported %O" info.range
 
     let mailbox com (info: Fable.ApplyInfo) =
         match info.callee with
@@ -1349,7 +1359,6 @@ module private AstPass =
         | "System.Reflection.MemberInfo"
         | "System.Type" -> types com info
         | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com info
-        | "System.Convert" -> conversions com info
         | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
         | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com info
         | "System.Guid" -> guids com info

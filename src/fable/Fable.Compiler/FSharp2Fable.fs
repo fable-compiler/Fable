@@ -205,7 +205,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | Applicable (Transform com ctx expr) ->
         let appType =
-            let ent = Fable.Entity(Fable.Interface, None, "Fable.Core.Applicable", [], [], [], true)
+            let ent = Fable.Entity(Fable.Interface, None, "Fable.Core.Applicable", lazy [], [], [], [], true)
             Fable.DeclaredType(ent, [Fable.Any;Fable.Any])
         Fable.Wrapped(expr, appType)
 
@@ -418,8 +418,9 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                     |> makeTypeRef com (Some SourceLocation.Empty)
                     |> Some
                 let baseCons =
-                    Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
-                    |> fun c -> Fable.Member(".ctor", Fable.Constructor, range, [], c)
+                    let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
+                    let m = Fable.Member(".ctor", Fable.Constructor, [], Fable.Any)
+                    Fable.MemberDeclaration(m, None, [], c, range)
                     |> Some
                 baseClass, baseCons
             | _ -> None, None
@@ -436,7 +437,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                         then Some over.Signature.DeclaringType.TypeDefinition
                         else None
                     // TODO: Check for indexed getter and setter also in object expressions?
-                    let name = lowerToString over.Signature.Name |> Naming.removeGetSetPrefix
+                    let name = over.Signature.Name |> Naming.removeGetSetPrefix
                     let kind =
                         match over.Signature.Name with
                         | Naming.StartsWith "get_" _ -> Fable.Getter
@@ -451,10 +452,11 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                             typ.MembersFunctionsAndValues
                             |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
                             |> function Some m -> hasRestParams m | None -> false
-                    Fable.Member(name, kind, range, args',
-                                 transformExpr com ctx over.Body,
-                                 over.GenericParameters |> List.map (fun x -> x.Name),
-                                 hasRestParams = hasRestParams)))
+                    let body = transformExpr com ctx over.Body
+                    let m = Fable.Member(name, kind, List.map Fable.Ident.getType args', body.Type,
+                                over.GenericParameters |> List.map (fun x -> x.Name),
+                                hasRestParams = hasRestParams)
+                    Fable.MemberDeclaration(m, None, args', body, range)))
             |> List.concat
         let members =
             match baseCons with
@@ -680,7 +682,7 @@ type private DeclInfo(init: Fable.Declaration list) =
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let addMethod() =
-        let memberName, memberKind = sanitizeMethodName com meth
+        let memberName, memberKind = sanitizeMethodName meth
         let ctx', args' = getMethodArgs com ctx meth.IsInstanceMember args
         let body =
             let ctx' =
@@ -696,27 +698,14 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 let typ = makeType com ctx meth.FullType
                 let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
                 ctx, Some (privateName.name)
-            // Make some checks on custom type operators
-            elif memberName.StartsWith "op_" then
-                let arg = meth.CurriedParameterGroups.[0].[0]
-                if not arg.Type.HasTypeDefinition
-                    || arg.Type.TypeDefinition <> meth.EnclosingEntity
-                then failwithf "First argument of custom type operators must be same as type: %s" meth.FullName
-                elif Regex.IsMatch(memberName, "_\d+$")
-                then failwithf "Custom type operator overloads is not supported: %s" meth.FullName
-                else ctx, None
             else ctx, None
         let entMember =
-            Fable.Member(memberName, memberKind,
-                getRefLocation meth |> makeRange, args', body,
-                meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList,
-                meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList,
-                isPublic = (not meth.Accessibility.IsPrivate && not meth.IsCompilerGenerated),
-                isMutable = meth.IsMutable,
-                isStatic = not meth.IsInstanceMember,
-                hasRestParams = hasRestParams meth,
-                ?privateName = privateName)
-            |> Fable.MemberDeclaration
+            let fableEnt = makeEntity com meth.EnclosingEntity
+            let argTypes = List.map Fable.Ident.getType args'
+            match fableEnt.TryGetMember(memberName, memberKind, argTypes, not meth.IsInstanceMember) with
+            | Some m -> m
+            | None -> makeMethodFrom com memberName memberKind argTypes body.Type None meth
+            |> fun m -> Fable.MemberDeclaration(m, privateName, args', body, SourceLocation.Empty)
         declInfo.AddMethod (meth, entMember)
         ctx
     if declInfo.IsIgnoredMethod meth then ctx
@@ -751,7 +740,6 @@ let rec private transformEntityDecl
             // If F# union or records implement System.IComparable && System.Equatable
             // generate the corresponding methods
             // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
-            // let refEquality = tryFindAtt ((=) "ReferenceEquality") ent.Attributes |> Option.isSome
             let fableType = Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.GenericParam)
             if ent.IsFSharpUnion then
                 (if fableEnt.HasInterface "System.IEquatable" then [makeUnionEqualMethod com fableType] else [])
@@ -871,9 +859,10 @@ let private addInjections (com: ICompiler) (curProj: Fable.Project) =
         let body =
             args |> List.map (Fable.IdentValue >> Fable.Value)
             |> injection.GetBody
-        Fable.Member(injection.Name, Fable.Method,
-            SourceLocation.Empty, args, body)
-        |> Fable.MemberDeclaration
+        let memb = Fable.Member(injection.Name, Fable.Method,
+                    List.replicate args.Length Fable.Any, body.Type)
+        Fable.MemberDeclaration(memb, None, args, body, SourceLocation.Empty)
+
     com.Plugins
     |> List.choose (function
         | path, (:? IInjectPlugin as plugin) -> Some (path, plugin)
