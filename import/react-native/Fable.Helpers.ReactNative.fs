@@ -158,6 +158,20 @@ module Props =
         interface IViewStyle
 
     [<KeyValueList>]
+    type ISwitchProperties =
+        interface end
+
+    [<KeyValueList>]
+    type SwitchProperties =
+        | Disabled of bool
+        | OnTintColor of string
+        | OnValueChange of (bool -> unit)
+        | ThumbTintColor of string
+        | TintColor of string
+        | Value of bool
+        | Style of ViewStyle list
+
+    [<KeyValueList>]
     type IWebViewProperties =
         interface end
 
@@ -601,6 +615,12 @@ let inline text (props: ITextProperties list) (text:string): React.ReactElement<
         RN.Text, 
         unbox props,
         unbox text) |> unbox
+
+let inline switch (props: ISwitchProperties list): React.ReactElement<obj> =
+    React.createElement(
+        RN.Switch, 
+        unbox props,
+        unbox [||]) |> unbox
 
 let inline textInput (props: ITextInputProperties list) (text:string): React.ReactElement<obj> =
     React.createElement(

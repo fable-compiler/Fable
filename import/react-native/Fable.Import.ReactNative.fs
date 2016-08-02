@@ -437,23 +437,23 @@ module ReactNative =
         inherit React.ComponentClass<SliderIOSProperties>
 
 
-    and SwitchIOSStyle =
+    and SwitchStyle =
         inherit ViewStyle
         abstract height: float option with get, set
         abstract width: float option with get, set
 
-    and SwitchIOSProperties =
-        inherit React.Props<SwitchIOSStatic>
+    and SwitchProperties =
+        inherit React.Props<SwitchStatic>
         abstract disabled: bool option with get, set
         abstract onTintColor: string option with get, set
         abstract onValueChange: Func<bool, unit> option with get, set
         abstract thumbTintColor: string option with get, set
         abstract tintColor: string option with get, set
         abstract value: bool option with get, set
-        abstract style: SwitchIOSStyle option with get, set
+        abstract style: SwitchStyle option with get, set
 
-    and SwitchIOSStatic =
-        inherit React.ComponentClass<SwitchIOSProperties>
+    and SwitchStatic =
+        inherit React.ComponentClass<SwitchProperties>
 
 
     and ImageResizeModeStatic =
@@ -1041,8 +1041,8 @@ module ReactNative =
     and StyleSheet =
         StyleSheetStatic
 
-    and SwitchIOS =
-        SwitchIOSStatic
+    and Switch =
+        SwitchStatic
 
     and TabBarIOS =
         TabBarIOSStatic
@@ -1124,7 +1124,7 @@ module ReactNative =
         [<Import("SliderIOS", "react-native")>] static member SliderIOS with get(): SliderIOSStatic = failwith "JS only" and set(v: SliderIOSStatic): unit = failwith "JS only"
         [<Import("ScrollView", "react-native")>] static member ScrollView with get(): ScrollViewStatic = failwith "JS only" and set(v: ScrollViewStatic): unit = failwith "JS only"
         [<Import("StyleSheet", "react-native")>] static member StyleSheet with get(): StyleSheetStatic = failwith "JS only" and set(v: StyleSheetStatic): unit = failwith "JS only"
-        [<Import("SwitchIOS", "react-native")>] static member SwitchIOS with get(): SwitchIOSStatic = failwith "JS only" and set(v: SwitchIOSStatic): unit = failwith "JS only"
+        [<Import("Switch", "react-native")>] static member Switch with get(): SwitchStatic = failwith "JS only" and set(v: SwitchStatic): unit = failwith "JS only"
         [<Import("TabBarIOS", "react-native")>] static member TabBarIOS with get(): TabBarIOSStatic = failwith "JS only" and set(v: TabBarIOSStatic): unit = failwith "JS only"
         [<Import("Text", "react-native")>] static member Text with get(): TextStatic = failwith "JS only" and set(v: TextStatic): unit = failwith "JS only"
         [<Import("TextInput", "react-native")>] static member TextInput with get(): TextInputStatic = failwith "JS only" and set(v: TextInputStatic): unit = failwith "JS only"
