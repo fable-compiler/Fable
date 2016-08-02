@@ -611,7 +611,7 @@ module Props =
 open Props
 
 let inline localImage (path:string) : IImageSourceProperties list =
-    Node.require.Invoke("../" + path) |> unbox
+    Node.require.Invoke(path) |> unbox
 
 let inline text (props: ITextProperties list) (text:string): React.ReactElement<obj> =
     React.createElement(
