@@ -880,7 +880,7 @@ module private AstPass =
               "replicate"; "reverse"; "singleton"; "unzip"; "unzip3" ]
 
     let implementedArrayFunctions =
-        set [ "copyTo"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3"; "truncate" ]
+        set [ "copyTo"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3" ]
 
     let nativeArrayFunctions =
         dict [ "exists" => "some"; "filter" => "filter";
@@ -1109,6 +1109,9 @@ module private AstPass =
                 // Array.sub array startIndex count
                 // array.slice(startIndex, startIndex + count)
                 emit i "$0.slice($1, $1 + $2)" i.args |> Some
+            | "truncate" ->
+                // Array.truncate count array
+                emit i "$1.slice(0, $0)" i.args |> Some
             | "fill" ->
                 // Array.fill target targetIndex count value
                 // target.fill(value, targetIndex, targetIndex + count)
