@@ -550,6 +550,16 @@ let ``Array.sort works``() =
     ys |> Array.sort |> Array.item 1 |> equal "a" 
 
 [<Test>]
+let ``Array.truncate works``() =
+    let xs = [|1.; 2.; 3.; 4.; 5.|]
+    xs |> Array.truncate 2
+    |> Array.last
+    |> equal 2.
+    // Array.truncate shouldn't throw an exception if there're not enough elements 
+    try xs |> Array.truncate 20 |> Array.length with _ -> -1
+    |> equal 5
+
+[<Test>]
 let ``Array.sortDescending works``() =
     let xs = [|3; 4; 1; -3; 2; 10|]
     let ys = [|"a"; "c"; "B"; "d"|]

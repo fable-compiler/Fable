@@ -1113,6 +1113,10 @@ class FArray {
         target[i] = source[j];
   }
 
+  static truncate<T>(count: number, xs: Array<T>) {
+    return xs.slice(0, count);
+  }
+  
   static sortInPlaceBy<T>(f: (x: T) => T, xs: Array<T>, dir: number = 1) {
     return xs.sort((x, y) => {
       x = f(x);
