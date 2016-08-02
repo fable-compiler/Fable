@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+  <!--<script src="http://code.jquery.com/jquery-1.8.0.js"></script>-->
+  <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
+</head>
+<body>
+	<h1><!-- [title] -->Interactive L System Generator<!-- [/title] --></h1>
+
+  <!-- [body] -->
+  <textarea id="input" style="width:600px;height:140px;font-family:'roboto mono',consolas,monospace">Y
+Y -> ------X
+X -> F[[[+FX]-FXF]---X]
+F -> !FF</textarea><br />
+  <table class="table" style="margin:10px 0px 20px 0px">
+    <tr><th colspan="2">L-System Configuration</th></tr>
+    <tr><td>Number of iterations (0 to 10):</td><td><input type="range" id="iterations" min="0" max="10" value="7"></td></tr>
+    <tr><td>Rotation angle (0 to 180):</td><td><input type="range" id="angle" min="0" max="180" value="15"></td></tr>
+    <tr><td>Line width (1 to 10):</td><td><input type="range" id="width" min="1" max="10" value="4"></td></tr>
+  </table>
+
+  <div id="errors">
+  </div>
+  <div id="output">
+  </div>
+
+  <script src="node_modules/core-js/client/core.min.js"></script>
+  <script src="node_modules/requirejs/require.js"></script>
+  <script>
+    requirejs.config({
+        // Set the baseUrl to the path of the compiled JS code
+        baseUrl: 'out',
+        paths: {
+            // Explicit path to core lib (relative to baseUrl, omit .js)
+            'fable-core': '../node_modules/fable-core/fable-core.min'
+        }
+    });
+    // Load the entry file of the app (use array, omit .js)
+    requirejs(["lsystem"]);
+  </script>
+  <!-- [/body] -->
+</body>
+</html>
