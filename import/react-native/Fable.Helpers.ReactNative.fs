@@ -16,14 +16,14 @@ module Props =
     | [<CompiledName("flex-start")>] FlexStart
     | Center 
     | [<CompiledName("flex-end")>] FlexEnd
-    | Strech
+    | Stretch
     
     [<StringEnum>]
     type ItemAlignment =
     | [<CompiledName("flex-start")>] FlexStart
     | Center 
     | [<CompiledName("flex-end")>] FlexEnd
-    | Strech    
+    | Stretch    
     
     [<StringEnum>]
     type TextAlignment =
@@ -108,7 +108,7 @@ module Props =
         | FlexDirection of string
         | FlexWrap of string
         | Height of float
-        | JustifyContent of string
+        | JustifyContent of Alignment
         | Left of float
         | Margin of float
         | MarginBottom of float
