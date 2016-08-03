@@ -35,6 +35,22 @@ module Props =
     | Right
     | Justify
 
+    [<StringEnum>]
+    type KeyboardType =
+    | Default
+    | [<CompiledName("email-address")>] EmailAddress
+    | Numeric
+    | [<CompiledName("phone-pad")>] PhonePad
+    /// only iOS
+    | [<CompiledName("ascii-capable")>] AsciiCapable 
+    | [<CompiledName("numbers-and-punctuation")>] NumbersAndPunctuation
+    | [<CompiledName("url")>] Url
+    | [<CompiledName("number-pad")>] NumberPad
+    | [<CompiledName("name-phone-pad")>] NamePhonePad
+    | [<CompiledName("decimal-pad")>] DecimalPad
+    | Twitter
+    | [<CompiledName("web-search")>] WebSearch
+
     [<KeyValueList>]
     type ITransformsStyle =
         interface end
@@ -559,7 +575,7 @@ module Props =
         | AutoFocus of bool
         | DefaultValue of string
         | Editable of bool
-        | KeyboardType of string
+        | KeyboardType of KeyboardType
         | MaxLength of float
         | Multiline of bool
         | OnBlur of (unit -> unit)
