@@ -53,9 +53,9 @@ module Html =
         type Element<'TMessage> = string * Attribute<'TMessage> list
         /// A Node in Html have the following forms
         type VoidElement<'TMessage> = string * Attribute<'TMessage> list
-        type Node<'TMessage> =
+        type DomNode<'TMessage> =
         /// A regular html element that can contain a list of other nodes
-        | Element of Element<'TMessage> * Node<'TMessage> list
+        | Element of Element<'TMessage> * DomNode<'TMessage> list
         /// A void element is one that can't have content, like link, br, hr, meta
         /// See: https://dev.w3.org/html5/html-author/#void
         | VoidElement of VoidElement<'TMessage>
@@ -63,7 +63,7 @@ module Html =
         | Text of string
         /// Whitespace for formatting
         | WhiteSpace of string
-        | Svg of Element<'TMessage> * Node<'TMessage> list
+        | Svg of Element<'TMessage> * DomNode<'TMessage> list
 
     let mapEventHandler<'T1,'T2> (mapping:('T1 -> 'T2)) (eventHandler:EventHandlerBinding<'T1>) =
          match eventHandler with
@@ -86,7 +86,7 @@ module Html =
         let (tag, attrs) = node
         (tag, attrs |> List.map (mapAttributes mapping))
 
-    let rec map<'T1,'T2> (mapping:('T1 -> 'T2)) (node:Node<'T1>) = 
+    let rec map<'T1,'T2> (mapping:('T1 -> 'T2)) (node:DomNode<'T1>) = 
         match node with
         | Element(e,ns) -> Element(mapElem mapping e, ns |> List.map (map mapping))
         | VoidElement(ve) -> VoidElement(mapVoidElem mapping ve)
@@ -359,7 +359,7 @@ module App =
 
     type AppState<'TModel, 'TMessage> = {
             Model: 'TModel
-            View: 'TModel -> Html.Types.Node<'TMessage>
+            View: 'TModel -> DomNode<'TMessage>
             Update: 'TModel -> 'TMessage -> ('TModel * Action<'TMessage> list)
             }
 
@@ -399,7 +399,7 @@ module App =
 
     type Renderer<'TMessage> =
         {
-            Render: ('TMessage -> unit) -> Html.Types.Node<'TMessage> -> obj
+            Render: ('TMessage -> unit) -> DomNode<'TMessage> -> obj
             Diff: obj -> obj -> obj
             Patch: Fable.Import.Browser.Node -> obj -> Fable.Import.Browser.Node
             CreateElement: obj -> Fable.Import.Browser.Node
