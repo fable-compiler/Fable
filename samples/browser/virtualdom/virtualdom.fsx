@@ -363,6 +363,7 @@ let todoFooter model =
                 [ text "Clear completed" ] ]
 
 let inline onInput x = onEvent "oninput" (fun e -> x (unbox e?target?value)) 
+let onEnter succ nop = onKeyup (fun x -> if (unbox x?keyCode) = 13 then succ else nop)
 let todoHeader model =
     header
         [attribute "class" "header"]
@@ -372,10 +373,7 @@ let todoHeader model =
                     property "value" model
                     property "placeholder" "What needs to be done?"
                     onInput (fun x -> ChangeInput x)
-                    onKeyup (fun x ->
-                        if x.keyCode = 13
-                        then AddItem
-                        else NoOp) ]]
+                    onEnter AddItem NoOp ]]
 let listItem item =
     let itemChecked = if item.Done then "true" else ""
     let editClass = if item.IsEditing then "editing" else ""

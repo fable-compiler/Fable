@@ -19,33 +19,14 @@ let createElement (e:obj): Fable.Import.Browser.Node = failwith "JS only"
 module Html =
     [<AutoOpen>]
     module Types =
-        type MouseEvent =
-            {
-                altKey: bool
-                screenX: int
-                screenY: int
-            }
-        type KeyboardEvent =
-            {
-                code: string
-                keyCode: int
-            }
-
-        type MouseEventHandler<'TMessage> = string*(MouseEvent -> 'TMessage)
-        type KeyboardEventHandler<'TMessage> = string*(KeyboardEvent -> 'TMessage)
         type EventHandler<'TMessage> = string*(obj -> 'TMessage)
-
-        type EventHandlerBinding<'TMessage> =
-            | MouseEventHandler of MouseEventHandler<'TMessage>
-            | KeyboardEventHandler of KeyboardEventHandler<'TMessage>
-            | EventHandler of EventHandler<'TMessage>
 
         type Style = (string*string) list
 
         type KeyValue = string*string
 
         type Attribute<'TMessage> =
-            | EventHandlerBinding of EventHandlerBinding<'TMessage>
+            | EventHandler of EventHandler<'TMessage>
             | Style of Style
             | Property of KeyValue
             | Attribute of KeyValue
@@ -65,15 +46,11 @@ module Html =
         | WhiteSpace of string
         | Svg of Element<'TMessage> * DomNode<'TMessage> list
 
-    let mapEventHandler<'T1,'T2> (mapping:('T1 -> 'T2)) (eventHandler:EventHandlerBinding<'T1>) =
-         match eventHandler with
-         | MouseEventHandler(e,f) -> MouseEventHandler(e, f >> mapping) 
-         | KeyboardEventHandler(e,f) -> KeyboardEventHandler(e, f >> mapping) 
-         | EventHandler(e,f) -> EventHandler(e, f >> mapping) 
+    let mapEventHandler<'T1,'T2> (mapping:('T1 -> 'T2)) (e,f) = EventHandler(e, f >> mapping) 
 
     let mapAttributes<'T1,'T2> (mapping:('T1 -> 'T2)) (attribute:Attribute<'T1>) =
         match attribute with
-        | EventHandlerBinding(eb) -> EventHandlerBinding(mapEventHandler mapping eb)
+        | EventHandler(eb) -> mapEventHandler mapping eb
         | Style s -> Style s
         | Property kv -> Property kv
         | Attribute kv -> Attribute kv 
@@ -236,7 +213,7 @@ module Html =
 
     [<AutoOpen>]
     module Events =
-        let inline onMouseEvent eventType f = EventHandlerBinding (MouseEventHandler (eventType, f))
+        let inline onMouseEvent eventType f = EventHandler (eventType, f)
 
         let inline onMouseClick x = onMouseEvent "onclick" x
         let inline onContextMenu x = onMouseEvent "oncontextmenu" x
@@ -249,12 +226,12 @@ module Html =
         let inline onMouseOver x = onMouseEvent "onmouseover" x
         let inline onMouseUp x = onMouseEvent "onmouseup" x
         let inline onShow x = onMouseEvent "onshow" x
-        let inline onKeyboardEvent eventType f = EventHandlerBinding (KeyboardEventHandler (eventType, f))
+        let inline onKeyboardEvent eventType f = EventHandler (eventType, f)
         let inline onKeydown x = onKeyboardEvent "onkeydown" x
         let inline onKeypress x = onKeyboardEvent "onkeypress" x
         let inline onKeyup x = onKeyboardEvent "onkeyup" x
 
-        let inline onEvent eventType f = EventHandlerBinding (EventHandler (eventType, f))
+        let inline onEvent eventType f = EventHandler (eventType, f)
         let inline onAbort x = onEvent "onabort" x
         let inline onAfterPrint x = onEvent "onafterprint" x
         let inline onAudioEnd x = onEvent "onaudioend" x
@@ -533,11 +510,7 @@ let createTree<'T> (handler:'T -> unit) tag (attributes:Attribute<'T> list) chil
                 | Attribute _ -> failwith "Shouldn't happen"
                 | Style style -> "style" ==> createObj(unbox style)
                 | Property (k,v) -> k ==> v
-                | EventHandlerBinding binding ->
-                    match binding with
-                    | MouseEventHandler(ev, f) -> ev ==> ((f >> handler) :> obj)
-                    | KeyboardEventHandler(ev, f) -> ev ==> ((f >> handler) :> obj)
-                    | EventHandler(ev, f) -> ev ==> ((f >> handler) :> obj)
+                | EventHandler(ev,f) -> ev ==> ((f >> handler) :> obj)
             )
 
         match elAttributes with
