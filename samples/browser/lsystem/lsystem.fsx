@@ -17,12 +17,6 @@
 open Fable.Import.Browser
 open Fable.Html
 
-// Workaround for mismatching version of fable-core
-module List =
-  let rev l =
-    let rec loop acc = function [] -> acc | x::xs -> loop (x::acc) xs
-    loop [] l
-
 (*** define:arrayhacks ***)
 [<Fable.Core.Emit("$0.push($1)")>]
 let push (sb:'a[]) (v:'a) = failwith "js"
