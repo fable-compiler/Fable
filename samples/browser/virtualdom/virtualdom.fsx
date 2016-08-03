@@ -9,8 +9,8 @@
 *)
 (*** hide ***)
 #r "node_modules/fable-core/Fable.Core.dll"
-//#load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
-#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
+#load "node_modules/fable-import-virtualdom/Fable.Helpers.Virtualdom.fs"
+//#load "../../../import/virtualdom/Fable.Helpers.Virtualdom.fs"
 (**
 ##Architecture overview
 
@@ -65,7 +65,7 @@ let counterUpdate model command =
     match command with
     | Decrement x -> model - x
     | Increment x -> model + x
-    |> (fun m -> m, (fakeAjaxCall model) |> action) 
+    |> (fun m -> m, (fakeAjaxCall model) |> toActionList) 
 
 (**
 The counter can be incremented or decremented in step of `x`. If you look closely
@@ -122,12 +122,26 @@ createApp initCounter counterView counterUpdate
 |> withStartNodeSelector "#counter"
 |> start renderer
 
-let bindOpt<'T1,'T2> (m:'T1 -> 'T2 option) (o: 'T1 Option) =
-    match o with
-    | Some x -> m x
-    | None -> None
+(**
+The dsl has been separated from the actual rendering of the dsl, to allow for
+future server side rendering as well. In this example we first call the 
+`createApp` function to create the application, there is a `createSimpleApp`
+that requires a simpler version of the update function of you don't do actions
+from the update function. The `withInitMessage` takes a function that returns
+a message to bootstrap the application. The `withNodeSelector` is used to 
+place the application in the DOM. When we have an application we can call
+`start` with a given `renderer` to start the application.
 
-let mapOpt<'T1,'T2> (m:'T1 -> 'T2) (o: 'T1 Option) = (bindOpt (m >> Some) o)
+### Second example - nesting
+
+This is just an add-on to the first example to illustrate how you could
+nest applications together. Nesting basically means re-use the view
+and update function. 
+
+<div id="nested-counter">
+</div>
+
+*)
 
 type NestedModel = { Top: int; Bottom: int}
 
@@ -137,11 +151,6 @@ type NestedAction =
     | Bottom of CounterAction
 
 let nestedUpdate model action = 
-    let mapCounterAction tag action = 
-        match action with
-        | Some a -> (fun x -> a (tag >> x)) |> Some 
-        | None -> None
-
     match action with
     | Reset -> {Top = 0; Bottom = 0},[]
     | Top ca -> 
@@ -169,11 +178,14 @@ createApp {Top = 0; Bottom = 0} nestedView nestedUpdate
 |> start renderer
 
 (**
-The dsl has been separated from the actual rendering of the dsl, to allow for
-future server side rendering as well. So to get this application started you first
-need to create the application with the `createApp` function. The we pass that
-result to a helper function, `withStartNode` to specify where in the document 
-it should be rendered, default is directly in the body. We also want to start the 
+To get this application started you first
+need to create the application with the `createApp` function. Then we pass that
+result to a helper function, `withStartNodeSelector` to specify where in the document 
+it should be rendered, default is directly in the body. We also want to reset both
+counters every tenth second to simulate async updates from things that happens
+outside the application repeatedly, and to do that we use the `withProducer` helper. The 
+`withProducer` helper is a function that calls the given handler with a message
+when needed, in this example it is on a interval. To start the 
 application by making a call to our `fakeAjaxCall` function, this will result
 in an update of the model two seconds after the application starts.
 
@@ -301,7 +313,7 @@ let todoUpdate model msg =
 
     let jsCall =
         match msg with
-        | EditItem i -> action <| fun x -> document.getElementById("item-" + (i.Id.ToString())).focus()
+        | EditItem i -> toActionList <| fun x -> document.getElementById("item-" + (i.Id.ToString())).focus()
         | _ -> []
     model', jsCall
 
@@ -491,7 +503,7 @@ node where you set the css class directly you write something like:
 
 let inline myDiv className = elem "div" [attribute "class" className]
 
-(*
+(**
 
 Creating svg nodes are as easy as regular html nodes:
 
@@ -499,7 +511,7 @@ Creating svg nodes are as easy as regular html nodes:
 
 let inline redRect x = svgElem "rect" ((fill "red")::x)
 
-(*
+(**
 
 As you see the only difference is that you use `svgElem` instead of `elem`. 
 You do this to add the correct namespace to the svg nodes. To see more

@@ -332,7 +332,7 @@ module App =
         fun x -> action (mapping >> x)  
 
     let mapActions m = List.map (mapAction m)
-    let action a = [a]
+    let toActionList a = [a]
 
     type AppEvents<'TMessage, 'TModel> =
         | ModelChanged of 'TModel*'TModel
