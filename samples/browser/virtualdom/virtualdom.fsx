@@ -34,6 +34,7 @@ also called for each click on any of the labels faking more ajax call.
 
 *)
 open Fable.Core
+open Fable.Core.JsInterop
 open Fable.Import
 open Fable.Import.Browser
 

@@ -71,7 +71,11 @@ and Entity(kind, file, fullName, members: Lazy<Member list>,
         List.exists ((=) fullName) interfaces
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
-    member x.TryGetMember(name, kind, argTypes, isStatic) =
+    member x.TryGetMember(name, kind, typArgs, methTypArgs, argTypes, isStatic) =
+        let genArgs =
+            if List.length genParams = List.length typArgs
+            then List.zip genParams typArgs |> Map
+            else Map.empty
         members.Value |> List.tryFind (fun m ->
             if m.IsStatic <> isStatic
                 || m.Kind <> kind
@@ -79,7 +83,21 @@ and Entity(kind, file, fullName, members: Lazy<Member list>,
             then false
             elif m.OverloadIndex.IsNone
             then true
-            else argTypes = m.ArgumentTypes)
+            else
+                let genArgs =
+                    if List.length m.GenericParameters = List.length methTypArgs then
+                        (genArgs, List.zip m.GenericParameters methTypArgs)
+                        ||> Seq.fold (fun m (k, v) -> Map.add k v m)
+                    else genArgs
+                (m.ArgumentTypes, argTypes)
+                ||> List.compareWith (fun a1 a2 ->
+                    let a1 =
+                        match a1 with
+                        | GenericParam k -> defaultArg (Map.tryFind k genArgs) a1
+                        | _ -> a1
+                    if a1 = a2 then 0 else -1)
+                |> (=) 0
+        )
     static member CreateRootModule fileName modFullName =
         Entity (Module, Some fileName, modFullName, lazy [], [], [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind

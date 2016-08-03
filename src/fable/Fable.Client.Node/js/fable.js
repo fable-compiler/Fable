@@ -45,7 +45,7 @@ var optionDefinitions = [
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
   { name: 'production', alias: 'p', description: "Shortcut for `--target production`." },
   { name: 'declaration', type: Boolean, description: "[Experimental] Generates corresponding ‘.d.ts’ file." },
-  { name: 'extra', multiple: true, description: "Custom options in `Key=Value` format." },
+  { name: 'extra', multiple: true, description: "Custom options for plugins in `Key=Value` format." },
   { name: 'help', alias: 'h', description: "Display usage guide." }
 ];
 
@@ -116,13 +116,13 @@ var transformMacroExpressions = {
 
 var babelPlugins = [
     transformMacroExpressions,
-    // "transform-es2015-block-scoping", // This creates too many function wrappers
     removeNullStatements,
     // If this plugins is not used, glitches may appear in final code 
     require("babel-plugin-transform-es5-property-mutators"),
 ];
 
 var babelPlugins_es2015 = [
+    require("babel-plugin-transform-es2015-block-scoping"),    
     require("babel-plugin-transform-es2015-arrow-functions"),
     require("babel-plugin-transform-es2015-classes"),
     require("babel-plugin-transform-es2015-computed-properties"),

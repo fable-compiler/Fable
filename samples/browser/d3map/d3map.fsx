@@ -26,6 +26,7 @@ We'll write the mappings for those two inline:
 *)
 open System
 open Fable.Core
+open Fable.Core.JsInterop
 open Fable.Import
 open Fable.Import.Browser
 
@@ -39,8 +40,9 @@ type ITopojson =
     abstract member feature: obj * obj -> obj
     abstract member mesh: obj * obj * obj -> obj
 
-let [<Import("default","queue")>] queue: unit->IQueue = failwith "JS only"
-let [<Import("default","topojson")>] topojson: ITopojson = failwith "JS only"
+let queue = importDefault<unit->IQueue> "queue"
+let topojson = importDefault<ITopojson> "topojson"
+
 (**
 
 The `Import` attribute on the two values is used to import the code and make it available.

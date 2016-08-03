@@ -447,7 +447,6 @@ module Types =
             |> Seq.groupBy fst
             |> Seq.collect (fun ((name, kind), members) ->
                 let members = List.ofSeq members
-                // TODO: Raise error if there's an overloaded method with generic arguments
                 let isOverloaded = isOverloadable && members.Length > 1
                 members |> List.mapi (fun i (_, meth) ->
                     let argTypes = getArgTypes com (isInstance && not meth.IsExtensionMember) meth.CurriedParameterGroups
@@ -531,7 +530,7 @@ module Types =
     and makeType (com: IFableCompiler) (ctx: Context) (NonAbbreviatedType t) =
         let rec getFnGenArgs (acc: FSharpType list) (fn: FSharpType) =
             if fn.IsFunctionType
-            then getFnGenArgs (fn.GenericArguments.[0]::acc) fn.GenericArguments.[0]
+            then getFnGenArgs (fn.GenericArguments.[0]::acc) fn.GenericArguments.[1]
             else fn::acc
         let makeGenArgs (genArgs: #seq<FSharpType>) =
             Seq.map (makeType com ctx) genArgs |> Seq.toList
@@ -750,7 +749,7 @@ module Util =
                 |> Some
             | None -> None
 
-    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) methTypArgs
+    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) (typArgs, methTypArgs)
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         if not(isInline meth) then None else
         match com.TryGetInlineExpr meth.FullName with
@@ -762,7 +761,11 @@ module Util =
                     { ctx with scope = (Some var, arg)::ctx.scope })
             let ctx =
                 let typeArgs =
-                    ([], meth.GenericParameters, List.map (makeType com ctx) methTypArgs)
+                    let genArgs =
+                        ([], meth.EnclosingEntity.GenericParameters, List.map (makeType com ctx) typArgs)
+                        |||> Seq.fold2 (fun acc genPar typArg ->
+                            (genPar.Name, typArg)::acc)
+                    (genArgs, meth.GenericParameters, List.map (makeType com ctx) methTypArgs)
                     |||> Seq.fold2 (fun acc genPar typArg ->
                         (genPar.Name, typArg)::acc)
                 { ctx with typeArgs = typeArgs }
@@ -790,7 +793,7 @@ module Util =
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
         | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Imported com ctx r typ args imported -> imported
-        | Inlined com ctx methTypArgs (callee, args) expr -> expr
+        | Inlined com ctx (typArgs, methTypArgs) (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
         | _ ->
             let methName, methKind = sanitizeMethodName meth
@@ -799,10 +802,12 @@ module Util =
             | true, Some callee ->
                 let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
                              |> makeTypeRef com r
-                let argTypes = List.map Fable.Expr.getType args
                 let methName =
+                    let typArgs = List.map (makeType com ctx) typArgs
+                    let methTypArgs = List.map (makeType com ctx) methTypArgs
+                    let argTypes = List.map Fable.Expr.getType args
                     let ent = makeEntity com meth.EnclosingEntity
-                    ent.TryGetMember(methName, methKind, argTypes, not meth.IsInstanceMember)
+                    ent.TryGetMember(methName, methKind, typArgs, methTypArgs, argTypes, not meth.IsInstanceMember)
                     |> function Some m -> m.OverloadName | None -> methName
                 let ext = makeGet r Fable.Any typRef (makeConst methName)
                 let bind = Fable.Emit("$0.bind($1)($2...)") |> Fable.Value
@@ -833,8 +838,10 @@ module Util =
                     | _ ->
                         let argTypes = List.map Fable.Expr.getType args
                         let methName =
+                            let typArgs = List.map (makeType com ctx) typArgs
+                            let methTypArgs = List.map (makeType com ctx) methTypArgs
                             let ent = makeEntity com meth.EnclosingEntity
-                            ent.TryGetMember(methName, methKind, argTypes, isStatic)
+                            ent.TryGetMember(methName, methKind, typArgs, methTypArgs, argTypes, isStatic)
                             |> function Some m -> m.OverloadName | None -> methName
                         let calleeType = Fable.Function(argTypes, typ)
                         makeGet r calleeType callee (makeConst methName)

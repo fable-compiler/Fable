@@ -739,8 +739,8 @@ module Three =
         member __.updateMatrix(): unit = failwith "JS only"
         member __.updateMatrixWorld(force: bool): unit = failwith "JS only"
         member __.toJSON(?meta: obj): obj = failwith "JS only"
-        member __.clone(?recursive: bool): Object3D = failwith "JS only"
-        member __.copy(source: Object3D, ?recursive: bool): Object3D = failwith "JS only"
+        member __.clone(?``recursive``: bool): Object3D = failwith "JS only"
+        member __.copy(source: Object3D, ?``recursive``: bool): Object3D = failwith "JS only"
         member __.addEventListener(``type``: string, listener: Func<Event, unit>): unit = failwith "JS only"
         member __.hasEventListener(``type``: string, listener: Func<Event, unit>): unit = failwith "JS only"
         member __.removeEventListener(``type``: string, listener: Func<Event, unit>): unit = failwith "JS only"
@@ -772,8 +772,8 @@ module Three =
         member __.linePrecision with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.set(origin: Vector3, direction: Vector3): unit = failwith "JS only"
         member __.setFromCamera(coords: obj, camera: Camera): unit = failwith "JS only"
-        member __.intersectObject(``object``: Object3D, ?recursive: bool): ResizeArray<Intersection> = failwith "JS only"
-        member __.intersectObjects(objects: ResizeArray<Object3D>, ?recursive: bool): ResizeArray<Intersection> = failwith "JS only"
+        member __.intersectObject(``object``: Object3D, ?``recursive``: bool): ResizeArray<Intersection> = failwith "JS only"
+        member __.intersectObjects(objects: ResizeArray<Object3D>, ?``recursive``: bool): ResizeArray<Intersection> = failwith "JS only"
 
     and [<Import("Layers","three")>] Layers() =
         member __.mask with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
@@ -804,7 +804,7 @@ module Three =
         member __.shadowMapWidth with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
         member __.shadowMapHeight with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
         member __.copy(source: Light): Light = failwith "JS only"
-        member __.clone(?recursive: bool): Light = failwith "JS only"
+        member __.clone(?``recursive``: bool): Light = failwith "JS only"
 
     and [<Import("LightShadow","three")>] LightShadow(camera: Camera) =
         member __.camera with get(): Camera = failwith "JS only" and set(v: Camera): unit = failwith "JS only"
@@ -814,13 +814,13 @@ module Three =
         member __.map with get(): RenderTarget = failwith "JS only" and set(v: RenderTarget): unit = failwith "JS only"
         member __.matrix with get(): Matrix4 = failwith "JS only" and set(v: Matrix4): unit = failwith "JS only"
         member __.copy(source: LightShadow): LightShadow = failwith "JS only"
-        member __.clone(?recursive: bool): LightShadow = failwith "JS only"
+        member __.clone(?``recursive``: bool): LightShadow = failwith "JS only"
 
     and [<Import("AmbientLight","three")>] AmbientLight(?hex: U2<float, string>, ?intensity: float) =
         inherit Light()
         member __.castShadow with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
         member __.copy(source: AmbientLight): AmbientLight = failwith "JS only"
-        member __.clone(?recursive: bool): AmbientLight = failwith "JS only"
+        member __.clone(?``recursive``: bool): AmbientLight = failwith "JS only"
 
     and [<Import("DirectionalLight","three")>] DirectionalLight(?hex: U2<float, string>, ?intensity: float) =
         inherit Light()
@@ -828,14 +828,14 @@ module Three =
         member __.intensity with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.shadow with get(): LightShadow = failwith "JS only" and set(v: LightShadow): unit = failwith "JS only"
         member __.copy(source: DirectionalLight): DirectionalLight = failwith "JS only"
-        member __.clone(?recursive: bool): HemisphereLight = failwith "JS only"
+        member __.clone(?``recursive``: bool): HemisphereLight = failwith "JS only"
 
     and [<Import("HemisphereLight","three")>] HemisphereLight(?skyColorHex: U2<float, string>, ?groundColorHex: U2<float, string>, ?intensity: float) =
         inherit Light()
         member __.groundColor with get(): Color = failwith "JS only" and set(v: Color): unit = failwith "JS only"
         member __.intensity with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.copy(source: HemisphereLight): HemisphereLight = failwith "JS only"
-        member __.clone(?recursive: bool): HemisphereLight = failwith "JS only"
+        member __.clone(?``recursive``: bool): HemisphereLight = failwith "JS only"
 
     and [<Import("PointLight","three")>] PointLight(?hex: U2<float, string>, ?intensity: float, ?distance: float, ?decay: float) =
         inherit Light()
@@ -845,7 +845,7 @@ module Three =
         member __.shadow with get(): LightShadow = failwith "JS only" and set(v: LightShadow): unit = failwith "JS only"
         member __.power with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.copy(source: PointLight): PointLight = failwith "JS only"
-        member __.clone(?recursive: bool): PointLight = failwith "JS only"
+        member __.clone(?``recursive``: bool): PointLight = failwith "JS only"
 
     and [<Import("SpotLight","three")>] SpotLight(?hex: U2<float, string>, ?intensity: float, ?distance: float, ?angle: float, ?exponent: float, ?decay: float) =
         inherit Light()
@@ -857,7 +857,7 @@ module Three =
         member __.decay with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
         member __.shadow with get(): LightShadow = failwith "JS only" and set(v: LightShadow): unit = failwith "JS only"
         member __.power with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.clone(?recursive: bool): SpotLight = failwith "JS only"
+        member __.clone(?``recursive``: bool): SpotLight = failwith "JS only"
         member __.copy(source: PointLight): SpotLight = failwith "JS only"
 
     and [<Import("Loader","three")>] Loader() =
@@ -2663,7 +2663,7 @@ module Three =
         member __.fog with get(): IFog = failwith "JS only" and set(v: IFog): unit = failwith "JS only"
         member __.overrideMaterial with get(): Material = failwith "JS only" and set(v: Material): unit = failwith "JS only"
         member __.autoUpdate with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __.copy(source: Scene, ?recursive: bool): Scene = failwith "JS only"
+        member __.copy(source: Scene, ?``recursive``: bool): Scene = failwith "JS only"
 
     and IFog =
         abstract name: string with get, set

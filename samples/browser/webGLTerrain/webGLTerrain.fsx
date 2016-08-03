@@ -26,6 +26,7 @@ We'll write the mappings for those two inline.
 
 open System
 open Fable.Core
+open Fable.Core.JsInterop
 open Fable.Import
 
 /// Represents the API exposed by ImprovedNoise script

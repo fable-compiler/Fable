@@ -1,18 +1,16 @@
 // Load Fable.Core and bindings to JS global objects
 #r "../../../../build/fable/bin/Fable.Core.dll"
-// #load "../node_modules/fable-import-react/Fable.Import.React.fs"
-// #load "../node_modules/fable-import-react/Fable.Helpers.React.fs"
 #load "../node_modules/fable-import-d3/Fable.Import.D3.fs"
 // #load "../node_modules/fable-import-dc/Fable.Import.DC.fs"
 #load "../../../../import/dc/Fable.Import.DC.fs"
 
 open System
 open Fable.Core
+open Fable.Core.JsInterop
 open Fable.Import
 type dc = Fable.Import.DC.Globals
 
-[<Import("default", "crossfilter")>]
-let crossfilter(o: obj): obj = failwith "JS only"
+let crossfilter = importDefault<obj->obj> "crossfilter"
 
 [<Emit("+$0")>]
 let (~+) (x: obj): int = failwith "JS only"

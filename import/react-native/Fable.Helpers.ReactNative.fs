@@ -1,9 +1,10 @@
 [<Fable.Core.Erase>]
-module Fable.Helpers.ReactNative
+module internal Fable.Helpers.ReactNative
 
 open System
 open Fable.Import.ReactNative
 open Fable.Core
+open Fable.Core.JsInterop
 open Fable.Import
 
 type RN = ReactNative.Globals
@@ -688,10 +689,10 @@ let inline navigator (props: INavigatorProperties list) : React.ReactElement<obj
         unbox [||]) |> unbox
 
 let inline createComponent<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) (children: React.ReactElement<obj> list): React.ReactElement<obj> =
-    unbox(React.createElement(U2.Case1(unbox typeof<'T>), Serialize.toPlainJsObj props, unbox(List.toArray children)))
+    unbox(React.createElement(U2.Case1(unbox typeof<'T>), toPlainJsObj props, unbox(List.toArray children)))
 
 let inline createScene<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) : React.ReactElement<obj> =
-    unbox(React.createElement(U2.Case1(unbox typeof<'T>), Serialize.toPlainJsObj props, unbox([||])))
+    unbox(React.createElement(U2.Case1(unbox typeof<'T>), toPlainJsObj props, unbox([||])))
 
 let inline createRoute(title:string,index:int) =
     let r = createEmpty<Route>

@@ -13,11 +13,12 @@ There are several ways to interact with the JavaScript world:
 
 ## Dynamic programming
 
-[Fable.Core](https://github.com/fsprojects/Fable/blob/master/import/core/Fable.Core.fs) implements the F# dynamic operators so
-you can easily access an object property by name (without static check) as follows:
+[Fable.Core.JsInterop](https://github.com/fsprojects/Fable/blob/master/src/fable/Fable.Core/Fable.Core.fs)
+implements the F# dynamic operators so you can easily access an object property by name (without static check)
+as follows:
 
 ```fsharp
-open Fable.Core
+open Fable.Core.JsInterop
 
 printfn "Value: %O" jsObject?myProperty
 
@@ -29,7 +30,7 @@ tuple arguments as with normal method calls. These operations can also be chaine
 to replicate JS fluent APIs.
 
 ```fsharp
-open Fable.Core
+open Fable.Core.JsInterop
 
 let result = jsObject?myMethod(1, 2)
 // var result = jsObject.myMethod(1, 2)
@@ -61,7 +62,7 @@ tuple to an arbitrary value.
 If you want to call the function with the `new` keyword, use `Fable.Core.createNew` instead.
 
 ```fsharp
-open Fable.Core
+open Fable.Core.JsInterop
 
 let instance = createNew jsObject?method (1, 2)
 ```
@@ -69,7 +70,7 @@ let instance = createNew jsObject?method (1, 2)
 And when you need to create JS object literals, use `createObj`:
 
 ```fsharp
-open Fable.Core
+open Fable.Core.JsInterop
 
 let data =
     createObj [
@@ -90,6 +91,8 @@ the compiler where this module is coming from using the `Import` attribute (see 
 For example, if you want to use `string_decoder` from node, just write:
 
 ```fsharp
+open Fable.Core
+
 [<Import("*","string_decoder")>]
 module string_decoder =
     type NodeStringDecoder =
@@ -185,10 +188,12 @@ which can be later transformed to `commonjs`, `amd` or `umd` imports by Babel.
 > If the module or value is globally accessible in JavaScript,
 you can use the `Global` attribute without parameters instead.
 
-`Fable.Core` also contains import expressions. These are mostly
+`Fable.Core.JsInterop` also contains import expressions. These are mostly
 useful when you need to import JS libraries without a foreign interface.
 
 ```fsharp
+open Fable.Core.JsInterop
+
 let buttons = importAll<obj> "material-ui/buttons"
 // import * as buttons from "material-ui/buttons"
 
@@ -467,7 +472,7 @@ save the type full name in a `$type` field so Fable will know which type to cons
 when deserializing:
 
 ```fsharp
-open Fable.Core
+open Fable.Core.JsInterop
 
 type Tree =
     | Leaf of int
@@ -481,8 +486,8 @@ type Tree =
 let tree =
     Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
 
-let json = Serialize.toJson tree
-let tree2 = Serialize.ofJson<Tree> json
+let json = toJson tree
+let tree2 = ofJson<Tree> json
 
 let typeTest = box tree2 :? Tree    // Type is kept
 let sum = tree2.Sum()   // Prototype members can be accessed

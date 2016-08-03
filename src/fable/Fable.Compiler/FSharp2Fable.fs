@@ -292,14 +292,24 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         |> makeSequential (makeRangeFrom fsExpr)
 
     (** ## Applications *)
-    | BasicPatterns.TraitCall (sourceTypes, traitName, flags, _typeArgs, _typeInstantiation, argExprs) ->
-        let range = makeRangeFrom fsExpr
+    | BasicPatterns.TraitCall (sourceTypes, traitName, flags, typArgs, methTypArgs, argExprs) ->
+        let sourceType = makeType com ctx sourceTypes.Head
+        let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         let callee, args =
             if flags.IsInstance
             then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
-            else makeType com ctx sourceTypes.Head |> makeTypeRef com range, List.map (transformExpr com ctx) argExprs
-        let callee = makeGet range (makeUnknownFnType argExprs.Length) callee (makeConst traitName)
-        Fable.Apply (callee, args, Fable.ApplyMeth, makeType com ctx fsExpr.Type, range)
+            else makeTypeRef com range sourceType, List.map (transformExpr com ctx) argExprs
+        let argTypes = List.map Fable.Expr.getType args
+        let methName =
+            match sourceType with
+            | Fable.DeclaredType(ent,typArgs) ->
+                //let typArgs = List.map (makeType com ctx) typArgs
+                let methTypArgs = List.map (makeType com ctx) methTypArgs
+                ent.TryGetMember(traitName, Fable.Method, typArgs, methTypArgs, argTypes, not flags.IsInstance)
+                |> function Some m -> m.OverloadName | None -> traitName
+            | _ -> traitName
+        makeGet range (Fable.Function(argTypes, typ)) callee (makeConst methName)
+        |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, range)
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
@@ -702,7 +712,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         let entMember =
             let fableEnt = makeEntity com meth.EnclosingEntity
             let argTypes = List.map Fable.Ident.getType args'
-            match fableEnt.TryGetMember(memberName, memberKind, argTypes, not meth.IsInstanceMember) with
+            match fableEnt.TryGetMember(memberName, memberKind, [], [], argTypes, not meth.IsInstanceMember) with
             | Some m -> m
             | None -> makeMethodFrom com memberName memberKind argTypes body.Type None meth
             |> fun m -> Fable.MemberDeclaration(m, privateName, args', body, SourceLocation.Empty)

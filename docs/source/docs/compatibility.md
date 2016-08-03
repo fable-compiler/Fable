@@ -60,8 +60,6 @@ making them compatible with `JSON.parse` or any other function accepting plain J
 Unions are also compiled as classes with the case name held in a `Case` property.
 Particular cases: Lists are a bit more optimized (they don't have a tag) and options are erased.
 
-> Serialized unions can be read directly with Json.NET
-
 ## Enumerable
 
 All enumerables compile to [ES2015 iterable interface](http://babeljs.io/docs/learn-es2015/#iterators-for-of)
@@ -127,15 +125,13 @@ to extend union types.
 ## Overloads
 
 Overloads are allowed in class implementations (not for interfaces), but they'll
-have a suffix attached (`_1`, `_2`...) in generated code and are not recommended.
+have a suffix attached (`_0`, `_1`...) in generated code and are not recommended.
 The behaviour is similar for secondary constructors.
 
 ## Custom operators
 
 Custom operators are possible, just note it won't be idiomatic to call
 them from JS if necessary (e.g., `Time.op_Addition(ts1, ts2)`).
-Also, custom operators in types have some limitations: the first argument
-must be the same as the type and they cannot be overloaded nor inlined.
 
 ## Inheritance
 

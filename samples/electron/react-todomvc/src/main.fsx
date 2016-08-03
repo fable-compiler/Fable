@@ -4,6 +4,7 @@
 #load "../node_modules/fable-import-electron/Fable.Import.Electron.fs"
 
 open Fable.Core
+open Fable.Core.JsInterop
 open Fable.Import
 open Fable.Import.Electron
 

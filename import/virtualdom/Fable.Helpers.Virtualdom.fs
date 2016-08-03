@@ -1,6 +1,7 @@
 module Fable.Helpers.Virtualdom
 
 open Fable.Core
+open Fable.Core.JsInterop
 open System.Diagnostics
 
 [<Import("h","virtual-dom")>]

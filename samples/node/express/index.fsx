@@ -23,6 +23,7 @@ The following references the Express bindings:
 
 open System
 open Fable.Core
+open Fable.Core.JsInterop
 open Fable.Import
 (**
 

@@ -89,7 +89,7 @@ as we'll be running the tests on node, we have to polyfill it using the `isomorp
 
 open Fable.Import.Fetch
 
-Node.require.Invoke("isomorphic-fetch") |> ignore
+JsInterop.importAll "isomorphic-fetch"
 
 (**
 Here we're using the testing methods and attributes from `Fable.Core`. If you're referencing

@@ -59,11 +59,12 @@ two node.js dependencies:
 #r "node_modules/fable-core/Fable.Core.dll"
 open System
 open Fable.Core
+open Fable.Core.JsInterop
 open Fable.Import
 open Fable.Import.Node
 
-let finalhandler = require.Invoke("finalhandler")
-let serveStatic = require.Invoke("serve-static")
+let finalhandler = importDefault<obj> "finalhandler"
+let serveStatic = importDefault<obj> "serve-static"
 (**
 The `Fable.Import.Node` namespace contains mappings for global node.js objects. For example,
 we can access the `argv` parameters of the application and get the default port (note that
@@ -84,7 +85,7 @@ let server =
     let serve = serveStatic $ "./"
     let server =
         // As this lambda has more than one argument, it must be
-        // converted to delegate so it's called back correctly
+        // converted to a delegate so it's called back correctly
         http.createServer(Func<_,_,_>(fun req res ->
             let isDone = finalhandler $ (req, res)
             serve $ (req, res, isDone)

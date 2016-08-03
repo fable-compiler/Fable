@@ -45,6 +45,8 @@ Option                  | Short     | Description
 `--target`              | `-t`      | Use options from a specific target in `fableconfig.json`.
 `--debug`               | `-d`      | Shortcut for `--target debug`.
 `--production`          | `-p`      | Shortcut for `--target production`.
+`--declaration`         |           | [Experimental] Generates corresponding ‘.d.ts’ file.
+`--extra`               |           | Custom options for plugins in `Key=Value` format.
 `--help`                | `-h`      | Display usage guide.
 
 

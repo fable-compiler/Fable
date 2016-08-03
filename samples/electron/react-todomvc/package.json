@@ -4,7 +4,7 @@
     "start": "electron app/js/main.js"
   },
   "dependencies": {
-    "fable-core": "^0.2.2",
+    "fable-core": "^0.5.0",
     "classnames": "^2.2.5",
     "director": "^1.2.8",
     "react": "^15.1.0",
@@ -16,12 +16,12 @@
     "css-loader": "^0.23.1",
     "electron-prebuilt": "^1.2.5",
     "fable-import-electron": "^0.0.5",
-    "fable-import-react": "^0.0.19",
+    "fable-import-react": "^0.5.0",
     "source-map-loader": "^0.1.5",
     "style-loader": "^0.13.1",
     "webpack": "^1.13.1"
   },
   "engines": {
-    "fable": "^0.4.0"
+    "fable": "^0.5.0"
   }
 }
