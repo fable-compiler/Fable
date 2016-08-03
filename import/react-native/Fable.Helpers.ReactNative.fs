@@ -66,6 +66,13 @@ module Props =
     | Join
     | Route
     | Yahoo
+
+    [<StringEnum>]
+    type AutoCapitalizeType =
+    | None
+    | Sentences
+    | Words
+    | Characters
     
     [<KeyValueList>]
     type ITransformsStyle =
@@ -586,7 +593,7 @@ module Props =
         | TextAlign of string
         | TextAlignVertical of string
         | UnderlineColorAndroid of string
-        | AutoCapitalize of string
+        | AutoCapitalize of AutoCapitalizeType
         | AutoCorrect of bool
         | AutoFocus of bool
         | DefaultValue of string
