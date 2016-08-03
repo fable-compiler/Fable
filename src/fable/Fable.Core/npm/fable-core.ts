@@ -166,10 +166,11 @@ export class Util {
   }
 
   static compareUnions(x: any, y: any): number {
-    if (x.Case !== y.Case)
-      return -1;
+    let res = Util.compare(x.Case, y.Case)
+    if (res !== 0)
+      return res;
     for (let i=0; i<x.Fields.length; i++) {
-      let res = Util.compare(x.Fields[i], y.Fields[i]);
+      res = Util.compare(x.Fields[i], y.Fields[i]);
       if (res !== 0)
         return res;
     }
