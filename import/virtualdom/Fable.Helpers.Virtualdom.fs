@@ -357,13 +357,6 @@ module App =
     let mapActions m = List.map (mapAction m)
     let action a = [a]
 
-    type AppState<'TModel, 'TMessage> = {
-            Model: 'TModel
-            View: 'TModel -> DomNode<'TMessage>
-            Update: 'TModel -> 'TMessage -> ('TModel * Action<'TMessage> list)
-            }
-
-
     type AppEvents<'TMessage, 'TModel> =
         | ModelChanged of 'TModel*'TModel
         | ActionReceived of 'TMessage
@@ -377,8 +370,10 @@ module App =
 
     type App<'TModel, 'TMessage> =
         {
-            AppState: AppState<'TModel, 'TMessage>
-            Init : (('TMessage -> unit) -> unit) option
+            Model: 'TModel
+            View: 'TModel -> DomNode<'TMessage>
+            Update: 'TModel -> 'TMessage -> ('TModel * Action<'TMessage> list)
+            InitMessage : (('TMessage -> unit) -> unit) option
             Actions: Action<'TMessage> list
             Producers: Producer<'TMessage> list
             Node: Node option
@@ -405,26 +400,32 @@ module App =
             CreateElement: obj -> Fable.Import.Browser.Node
         }
 
-    let createApp appState =
+    let createApp model view update =
         {
-            AppState = appState
-            Init = None
-            Actions = []
-            Producers = []
-            Node = None
-            CurrentTree = None
-            Subscribers = Map.empty
+            Model = model
+            View = view
+            Update = update
             NodeSelector = None
+            InitMessage = None
+            Producers = []
+            Subscribers = Map.empty
+
+            CurrentTree = None
             RenderState = NoRequest
+            Actions = []
+            Node = None
         }
 
-    let withStartNode selector app = { app with NodeSelector = Some selector }
-    let withInit init app = { app with Init = Some init }
+    let createSimpleApp model view update =
+        createApp model view (fun x y -> (update x y), [])
+
+    let withStartNodeSelector selector app = { app with NodeSelector = Some selector }
+    let withInitMessage msg app = { app with InitMessage = Some msg }
+    let withProducer p app = 
+        {app with Producers = p::app.Producers}
     let withSubscriber subscriberId subscriber app =
         let subsribers = app.Subscribers |> Map.add subscriberId subscriber
         { app with Subscribers = subsribers }
-    let withProducer p app = 
-        {app with Producers = p::app.Producers}
 
     let createScheduler() = 
         MailboxProcessor.Start(fun inbox ->
@@ -439,6 +440,45 @@ module App =
             loop()
         )
 
+    let createFirstLoopState renderTree (startElem:Node) post renderer state =
+        let tree = renderTree state.View post state.Model
+        let rootNode = renderer.CreateElement tree
+        startElem.appendChild(rootNode) |> ignore
+        match state.InitMessage with
+        | None -> ()
+        | Some init -> init post
+        {state with CurrentTree = Some tree; Node = Some rootNode}
+
+    let handleMessage msg notify schedule state = 
+        ActionReceived msg |> (notify state.Subscribers)
+        let (model', actions) = state.Update state.Model msg
+
+        let renderState =
+            match state.RenderState with
+            | NoRequest ->
+                schedule()
+//                    scheduler.Post(PingIn(1000./60., (fun() -> inbox.Post(Draw))))
+                InProgress
+            | InProgress -> InProgress
+        {
+            state with 
+                Model = model'
+                RenderState = renderState
+                Actions = state.Actions @ actions }
+
+    let handleDraw renderTree renderer post notify rootNode currentTree state = 
+        match state.RenderState with
+        | InProgress ->
+            DrawStarted |> notify state.Subscribers
+            let model = state.Model
+            let tree = renderTree state.View post model
+            let patches = renderer.Diff currentTree tree
+            renderer.Patch rootNode patches |> ignore
+            state.Actions |> List.iter (fun i -> i post)
+            (ModelChanged (model, state.Model)) |> notify state.Subscribers
+            {state with RenderState = NoRequest; CurrentTree = Some tree; Actions = []}
+        | NoRequest -> raise (exn "Shouldn't happen")
+
     let start renderer app =
         let renderTree view handler model =
             view model
@@ -449,63 +489,29 @@ module App =
             | None -> document.body
             | Some sel -> document.body.querySelector(sel) :?> HTMLElement
 
-        
         let scheduler = createScheduler()
         MailboxProcessor.Start(fun inbox ->
             let post message =
                 inbox.Post (Message message)
-
             let notifySubscribers subs model =
                 subs |> Map.iter (fun key handler -> handler model)
-
             app.Producers |> List.iter (fun p -> p post)
-
+            let schedule() = scheduler.Post(PingIn(1000./60., (fun() -> inbox.Post(Draw))))
             let rec loop state =
                 async {
                     match state.Node, state.CurrentTree with
                     | None,_ ->
-                        let tree = renderTree state.AppState.View post state.AppState.Model
-                        let rootNode = renderer.CreateElement tree
-                        startElem.appendChild(rootNode) |> ignore
-                        match state.Init with
-                        | None -> ()
-                        | Some init -> init post
-                        return! loop {state with CurrentTree = Some tree; Node = Some rootNode}
+                        let state' = createFirstLoopState renderTree startElem post renderer state
+                        return! loop state'
                     | Some rootNode, Some currentTree ->
                         let! message = inbox.Receive()
-
                         match message with
                         | Message msg ->
-                            ActionReceived msg |> (notifySubscribers state.Subscribers)
-                            let (model', actions) = state.AppState.Update state.AppState.Model msg
-
-                            let renderState =
-                                match state.RenderState with
-                                | NoRequest ->
-                                    scheduler.Post(PingIn(1000./60., (fun() -> inbox.Post(Draw))))
-                                    InProgress
-                                | InProgress -> InProgress
-                            return! loop {
-                                state with 
-                                    AppState = { state.AppState with Model = model' }
-                                    RenderState = renderState
-                                    Actions = state.Actions @ actions }
+                            let state' = handleMessage msg notifySubscribers schedule state
+                            return! loop state'
                         | Draw -> 
-                            match state.RenderState with
-                            | InProgress ->
-                                DrawStarted |> notifySubscribers state.Subscribers
-
-                                let model = state.AppState.Model
-
-                                let tree = renderTree state.AppState.View post model
-                                let patches = renderer.Diff currentTree tree
-                                renderer.Patch rootNode patches |> ignore
-                                state.Actions |> List.iter (fun i -> i post)
-
-                                (ModelChanged (model, state.AppState.Model)) |> notifySubscribers state.Subscribers
-
-                                return! loop {state with RenderState = NoRequest; CurrentTree = Some tree; Actions = []}
-                            | NoRequest -> raise (exn "Shouldn't happen")
+                            let state' = handleDraw renderTree renderer post notifySubscribers rootNode currentTree state
+                            return! loop state'
                         | _ -> return! loop state
                     | _ -> failwith "Shouldn't happen"
                 }

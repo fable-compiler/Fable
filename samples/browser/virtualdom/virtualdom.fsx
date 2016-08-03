@@ -117,12 +117,10 @@ You define a `svg` the same way as you do with any other html element.
 *)
 
 // Start the application
-let counterApp =
-    createApp {Model = initCounter; View = counterView; Update = counterUpdate}
-    |> withInit (fakeAjaxCall initCounter) 
-    |> withStartNode "#counter"
-
-//counterApp |> start renderer
+createApp initCounter counterView counterUpdate
+|> withInitMessage (fakeAjaxCall initCounter) 
+|> withStartNodeSelector "#counter"
+|> start renderer
 
 let bindOpt<'T1,'T2> (m:'T1 -> 'T2 option) (o: 'T1 Option) =
     match o with
@@ -162,15 +160,11 @@ let nestedView model =
             Html.map Bottom (counterView model.Bottom)
         ]
 
-let nestedCounterApp =
-    createApp {Model = {Top = 0; Bottom = 0}; View = nestedView; Update = nestedUpdate}
-    |> withStartNode "#nested-counter"
-
-
 let resetEveryTenth h =
     window.setInterval((fun _ -> Reset |> h), 10000) |> ignore
 
-nestedCounterApp 
+createApp {Top = 0; Bottom = 0} nestedView nestedUpdate
+|> withStartNodeSelector "#nested-counter"
 |> withProducer resetEveryTenth
 |> start renderer
 
@@ -429,7 +423,7 @@ let todoMain model =
 
 let todoView model =
     section
-        [property "class" "todoapp"]
+        [attribute "class" "todoapp"]
         ((todoHeader model.Input)::(if model.Items |> List.isEmpty
                 then []
                 else [  (todoMain model)
@@ -471,16 +465,14 @@ open Storage
 let initList = fetch<Item>() |> List.ofArray
 let initModel = {Filter = All; Items = initList; Input = ""}
 
-let todoApp =
-    createApp {Model = initModel; View = todoView; Update = todoUpdate}
-    |> (withSubscriber "storagesub" (function
-            | ModelChanged (newModel,old) ->
-                save (newModel.Items |> Array.ofList)
-            | _ -> ()))
-    |> (withSubscriber "modellogger" (printfn "%A"))
-    |> withStartNode "#todo"
-
-todoApp |> start renderer
+createApp initModel todoView todoUpdate
+|> (withSubscriber "storagesub" (function
+        | ModelChanged (newModel,old) ->
+            save (newModel.Items |> Array.ofList)
+        | _ -> ()))
+|> (withSubscriber "modellogger" (printfn "%A"))
+|> withStartNodeSelector "#todo"
+|> start renderer
 
 (**
 First we initiate the model by checking the local storage if there are any items
