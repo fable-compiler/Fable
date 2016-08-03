@@ -66,8 +66,7 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
     let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
     if isKeyValueList fsType then
         let (|KeyValue|_|) = function
-            | Fable.Value(Fable.ArrayConst(Fable.ArrayValues
-                            [Fable.Value(Fable.StringConst k);v],_)) -> Some(k, v)
+            | Fable.Value(Fable.TupleConst([Fable.Value(Fable.StringConst k);v])) -> Some(k, v)
             | _ -> None
         match flattenList range [] argExprs with
         | _, Some baseList ->
