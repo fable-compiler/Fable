@@ -573,7 +573,7 @@ module Props =
         | Placeholder of string
         | PlaceholderTextColor of string
         | SecureTextEntry of bool
-        | Style of TextStyle
+        | Style of TextStyle list
         | TestID of string
         | Value of string
         interface ITextInputProperties
