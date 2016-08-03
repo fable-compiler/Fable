@@ -144,8 +144,9 @@ module Fake =
 // Targets
 Target "Clean" (fun _ ->
     // Don't delete node_modules for faster builds
-    !! "build/fable/bin" ++ "src/fable/**/obj/"
+    !! "build/fable/bin" ++ "src/fable/*/obj/"
     |> CleanDirs
+
     !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
     |> Seq.iter FileUtils.rm
     !! "build/tests/**/*.*" -- "build/tests/node_modules/**/*.*"
