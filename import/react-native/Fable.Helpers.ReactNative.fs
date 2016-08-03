@@ -36,6 +36,13 @@ module Props =
     | Justify
 
     [<StringEnum; RequireQualifiedAccess>]
+    type FlexDirection =
+    | Row
+    | [<CompiledName("row-reverse")>] RowReverse
+    | Column
+    | [<CompiledName("column-reverse")>] ColumnReverse
+
+    [<StringEnum; RequireQualifiedAccess>]
     type KeyboardType =
     | Default
     | [<CompiledName("email-address")>] EmailAddress
@@ -145,7 +152,7 @@ module Props =
         | BorderWidth of float
         | Bottom of float
         | Flex of int
-        | FlexDirection of string
+        | FlexDirection of FlexDirection
         | FlexWrap of string
         | Height of float
         | JustifyContent of Alignment
