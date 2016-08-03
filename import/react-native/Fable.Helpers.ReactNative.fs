@@ -11,7 +11,7 @@ type RN = ReactNative.Globals
 
 module Props =
 
-    [<StringEnum>]
+    [<StringEnum; RequireQualifiedAccess>]
     type Alignment =
     | Auto
     | [<CompiledName("flex-start")>] FlexStart
@@ -19,14 +19,14 @@ module Props =
     | [<CompiledName("flex-end")>] FlexEnd
     | Stretch
     
-    [<StringEnum>]
+    [<StringEnum; RequireQualifiedAccess>]
     type ItemAlignment =
     | [<CompiledName("flex-start")>] FlexStart
     | Center 
     | [<CompiledName("flex-end")>] FlexEnd
     | Stretch    
     
-    [<StringEnum>]
+    [<StringEnum; RequireQualifiedAccess>]
     type TextAlignment =
     | Auto
     | Default
@@ -35,7 +35,7 @@ module Props =
     | Right
     | Justify
 
-    [<StringEnum>]
+    [<StringEnum; RequireQualifiedAccess>]
     type KeyboardType =
     | Default
     | [<CompiledName("email-address")>] EmailAddress
@@ -51,7 +51,7 @@ module Props =
     | Twitter
     | [<CompiledName("web-search")>] WebSearch
 
-    [<StringEnum>]
+    [<StringEnum; RequireQualifiedAccess>]
     type ReturnKeyType =
     | Done
     | Go
@@ -67,7 +67,7 @@ module Props =
     | Route
     | Yahoo
 
-    [<StringEnum>]
+    [<StringEnum; RequireQualifiedAccess>]
     type AutoCapitalizeType =
     | None
     | Sentences
