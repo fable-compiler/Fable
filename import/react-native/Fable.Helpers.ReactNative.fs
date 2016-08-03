@@ -51,6 +51,22 @@ module Props =
     | Twitter
     | [<CompiledName("web-search")>] WebSearch
 
+    [<StringEnum>]
+    type ReturnKeyType =
+    | Done
+    | Go
+    | Next
+    | Search
+    | Send
+    | None
+    | Previous
+    | Default
+    | [<CompiledName("emergency-call")>] EmergencyCall
+    | Google
+    | Join
+    | Route
+    | Yahoo
+    
     [<KeyValueList>]
     type ITransformsStyle =
         interface end
@@ -563,7 +579,7 @@ module Props =
         | ClearTextOnFocus of bool
         | EnablesReturnKeyAutomatically of bool
         | OnKeyPress of (unit -> unit)
-        | ReturnKeyType of string
+        | ReturnKeyType of ReturnKeyType
         | SelectTextOnFocus of bool
         | SelectionState of obj
         | NumberOfLines of float
