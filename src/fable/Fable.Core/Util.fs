@@ -149,14 +149,14 @@ module Path =
 
     /// Creates a relative path from one file or folder to another.
     /// from http://stackoverflow.com/a/340454/3922220
-    let getRelativePath fromPath toPath =
+    let getRelativeFileOrDirPath fromIsDir fromPath toIsDir toPath =
         // Add a dummy file to make it work correctly with dirs
-        let addDummyFile path =
-            if IO.Directory.Exists(path)
+        let addDummyFile isDir path =
+            if isDir
             then IO.Path.Combine(path, "dummy.txt")
             else path
-        let fromPath = addDummyFile fromPath
-        let toPath = addDummyFile toPath
+        let fromPath = addDummyFile fromIsDir fromPath
+        let toPath = addDummyFile toIsDir toPath
         let fromUri = Uri(fromPath)
         let toUri = Uri(toPath)
         if fromUri.Scheme <> toUri.Scheme then
@@ -169,6 +169,11 @@ module Path =
                             IO.Path.AltDirectorySeparatorChar,
                             IO.Path.DirectorySeparatorChar)  |> normalizePath
             | _ -> relativePath |> normalizePath
+
+    let getRelativePath fromPath toPath =
+        getRelativeFileOrDirPath 
+          (IO.Directory.Exists fromPath) fromPath 
+          (IO.Directory.Exists toPath) toPath
 
     let getExternalImportPath (com: ICompiler) (filePath: string) (importPath: string) =
         if not(importPath.StartsWith ".")
