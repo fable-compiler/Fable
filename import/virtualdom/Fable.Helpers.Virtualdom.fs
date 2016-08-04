@@ -19,33 +19,14 @@ let createElement (e:obj): Fable.Import.Browser.Node = failwith "JS only"
 module Html =
     [<AutoOpen>]
     module Types =
-        type MouseEvent =
-            {
-                altKey: bool
-                screenX: int
-                screenY: int
-            }
-        type KeyboardEvent =
-            {
-                code: string
-                keyCode: int
-            }
-
-        type MouseEventHandler<'TMessage> = string*(MouseEvent -> 'TMessage)
-        type KeyboardEventHandler<'TMessage> = string*(KeyboardEvent -> 'TMessage)
         type EventHandler<'TMessage> = string*(obj -> 'TMessage)
-
-        type EventHandlerBinding<'TMessage> =
-            | MouseEventHandler of MouseEventHandler<'TMessage>
-            | KeyboardEventHandler of KeyboardEventHandler<'TMessage>
-            | EventHandler of EventHandler<'TMessage>
 
         type Style = (string*string) list
 
         type KeyValue = string*string
 
         type Attribute<'TMessage> =
-            | EventHandlerBinding of EventHandlerBinding<'TMessage>
+            | EventHandler of EventHandler<'TMessage>
             | Style of Style
             | Property of KeyValue
             | Attribute of KeyValue
@@ -53,9 +34,9 @@ module Html =
         type Element<'TMessage> = string * Attribute<'TMessage> list
         /// A Node in Html have the following forms
         type VoidElement<'TMessage> = string * Attribute<'TMessage> list
-        type Node<'TMessage> =
+        type DomNode<'TMessage> =
         /// A regular html element that can contain a list of other nodes
-        | Element of Element<'TMessage> * Node<'TMessage> list
+        | Element of Element<'TMessage> * DomNode<'TMessage> list
         /// A void element is one that can't have content, like link, br, hr, meta
         /// See: https://dev.w3.org/html5/html-author/#void
         | VoidElement of VoidElement<'TMessage>
@@ -63,7 +44,32 @@ module Html =
         | Text of string
         /// Whitespace for formatting
         | WhiteSpace of string
-        | Svg of Element<'TMessage> * Node<'TMessage> list
+        | Svg of Element<'TMessage> * DomNode<'TMessage> list
+
+    let mapEventHandler<'T1,'T2> (mapping:('T1 -> 'T2)) (e,f) = EventHandler(e, f >> mapping) 
+
+    let mapAttributes<'T1,'T2> (mapping:('T1 -> 'T2)) (attribute:Attribute<'T1>) =
+        match attribute with
+        | EventHandler(eb) -> mapEventHandler mapping eb
+        | Style s -> Style s
+        | Property kv -> Property kv
+        | Attribute kv -> Attribute kv 
+
+    let mapElem<'T1,'T2> (mapping:('T1 -> 'T2)) (node:Element<'T1>) =
+        let (tag, attrs) = node
+        (tag, attrs |> List.map (mapAttributes mapping))
+
+    let mapVoidElem<'T1,'T2> (mapping:('T1 -> 'T2)) (node:Element<'T1>) =
+        let (tag, attrs) = node
+        (tag, attrs |> List.map (mapAttributes mapping))
+
+    let rec map<'T1,'T2> (mapping:('T1 -> 'T2)) (node:DomNode<'T1>) = 
+        match node with
+        | Element(e,ns) -> Element(mapElem mapping e, ns |> List.map (map mapping))
+        | VoidElement(ve) -> VoidElement(mapVoidElem mapping ve)
+        | Text(s) -> Text s 
+        | WhiteSpace(ws) -> WhiteSpace ws   
+        | Svg(e,ns) -> Element(mapElem mapping e, ns |> List.map (map mapping))
 
     [<AutoOpen>]
     module Tags =
@@ -207,7 +213,7 @@ module Html =
 
     [<AutoOpen>]
     module Events =
-        let inline onMouseEvent eventType f = EventHandlerBinding (MouseEventHandler (eventType, f))
+        let inline onMouseEvent eventType f = EventHandler (eventType, f)
 
         let inline onMouseClick x = onMouseEvent "onclick" x
         let inline onContextMenu x = onMouseEvent "oncontextmenu" x
@@ -220,12 +226,12 @@ module Html =
         let inline onMouseOver x = onMouseEvent "onmouseover" x
         let inline onMouseUp x = onMouseEvent "onmouseup" x
         let inline onShow x = onMouseEvent "onshow" x
-        let inline onKeyboardEvent eventType f = EventHandlerBinding (KeyboardEventHandler (eventType, f))
+        let inline onKeyboardEvent eventType f = EventHandler (eventType, f)
         let inline onKeydown x = onKeyboardEvent "onkeydown" x
         let inline onKeypress x = onKeyboardEvent "onkeypress" x
         let inline onKeyup x = onKeyboardEvent "onkeyup" x
 
-        let inline onEvent eventType f = EventHandlerBinding (EventHandler (eventType, f))
+        let inline onEvent eventType f = EventHandler (eventType, f)
         let inline onAbort x = onEvent "onabort" x
         let inline onAfterPrint x = onEvent "onafterprint" x
         let inline onAudioEnd x = onEvent "onaudioend" x
@@ -319,11 +325,14 @@ open Fable.Import.Browser
 
 [<AutoOpen>]
 module App =
-    type AppState<'TModel, 'TMessage> = {
-            Model: 'TModel
-            View: 'TModel -> Html.Types.Node<'TMessage>
-            Update: 'TModel -> 'TMessage -> ('TModel * ((unit -> unit) list) * (('TMessage -> unit) -> unit) list) }
+    type Action<'TMessage> = ('TMessage -> unit) -> unit
+    type Producer<'TMessage> = ('TMessage -> unit) -> unit
 
+    let mapAction<'T1,'T2> (mapping:'T1 -> 'T2) (action:Action<'T1>) : Action<'T2> = 
+        fun x -> action (mapping >> x)  
+
+    let mapActions m = List.map (mapAction m)
+    let toActionList a = [a]
 
     type AppEvents<'TMessage, 'TModel> =
         | ModelChanged of 'TModel*'TModel
@@ -338,9 +347,12 @@ module App =
 
     type App<'TModel, 'TMessage> =
         {
-            AppState: AppState<'TModel, 'TMessage>
-            Init : (('TMessage -> unit) -> unit) option
-            JsCalls: (unit -> unit) list
+            Model: 'TModel
+            View: 'TModel -> DomNode<'TMessage>
+            Update: 'TModel -> 'TMessage -> ('TModel * Action<'TMessage> list)
+            InitMessage : (('TMessage -> unit) -> unit) option
+            Actions: Action<'TMessage> list
+            Producers: Producer<'TMessage> list
             Node: Node option
             CurrentTree: obj option
             Subscribers: Map<string, Subscriber<'TMessage, 'TModel>>
@@ -359,26 +371,35 @@ module App =
 
     type Renderer<'TMessage> =
         {
-            Render: ('TMessage -> unit) -> Html.Types.Node<'TMessage> -> obj
+            Render: ('TMessage -> unit) -> DomNode<'TMessage> -> obj
             Diff: obj -> obj -> obj
             Patch: Fable.Import.Browser.Node -> obj -> Fable.Import.Browser.Node
             CreateElement: obj -> Fable.Import.Browser.Node
         }
 
-    let createApp appState =
+    let createApp model view update =
         {
-            AppState = appState
-            Init = None
-            JsCalls = []
-            Node = None
-            CurrentTree = None
-            Subscribers = Map.empty
+            Model = model
+            View = view
+            Update = update
             NodeSelector = None
+            InitMessage = None
+            Producers = []
+            Subscribers = Map.empty
+
+            CurrentTree = None
             RenderState = NoRequest
+            Actions = []
+            Node = None
         }
 
-    let withStartNode selector app = { app with NodeSelector = Some selector }
-    let withInit init app = { app with Init = Some init }
+    let createSimpleApp model view update =
+        createApp model view (fun x y -> (update x y), [])
+
+    let withStartNodeSelector selector app = { app with NodeSelector = Some selector }
+    let withInitMessage msg app = { app with InitMessage = Some msg }
+    let withProducer p app = 
+        {app with Producers = p::app.Producers}
     let withSubscriber subscriberId subscriber app =
         let subsribers = app.Subscribers |> Map.add subscriberId subscriber
         { app with Subscribers = subsribers }
@@ -396,6 +417,45 @@ module App =
             loop()
         )
 
+    let createFirstLoopState renderTree (startElem:Node) post renderer state =
+        let tree = renderTree state.View post state.Model
+        let rootNode = renderer.CreateElement tree
+        startElem.appendChild(rootNode) |> ignore
+        match state.InitMessage with
+        | None -> ()
+        | Some init -> init post
+        {state with CurrentTree = Some tree; Node = Some rootNode}
+
+    let handleMessage msg notify schedule state = 
+        ActionReceived msg |> (notify state.Subscribers)
+        let (model', actions) = state.Update state.Model msg
+
+        let renderState =
+            match state.RenderState with
+            | NoRequest ->
+                schedule()
+//                    scheduler.Post(PingIn(1000./60., (fun() -> inbox.Post(Draw))))
+                InProgress
+            | InProgress -> InProgress
+        {
+            state with 
+                Model = model'
+                RenderState = renderState
+                Actions = state.Actions @ actions }
+
+    let handleDraw renderTree renderer post notify rootNode currentTree state = 
+        match state.RenderState with
+        | InProgress ->
+            DrawStarted |> notify state.Subscribers
+            let model = state.Model
+            let tree = renderTree state.View post model
+            let patches = renderer.Diff currentTree tree
+            renderer.Patch rootNode patches |> ignore
+            state.Actions |> List.iter (fun i -> i post)
+            (ModelChanged (model, state.Model)) |> notify state.Subscribers
+            {state with RenderState = NoRequest; CurrentTree = Some tree; Actions = []}
+        | NoRequest -> raise (exn "Shouldn't happen")
+
     let start renderer app =
         let renderTree view handler model =
             view model
@@ -406,63 +466,29 @@ module App =
             | None -> document.body
             | Some sel -> document.body.querySelector(sel) :?> HTMLElement
 
-        
         let scheduler = createScheduler()
         MailboxProcessor.Start(fun inbox ->
             let post message =
                 inbox.Post (Message message)
-
             let notifySubscribers subs model =
                 subs |> Map.iter (fun key handler -> handler model)
-
+            app.Producers |> List.iter (fun p -> p post)
+            let schedule() = scheduler.Post(PingIn(1000./60., (fun() -> inbox.Post(Draw))))
             let rec loop state =
                 async {
                     match state.Node, state.CurrentTree with
                     | None,_ ->
-                        let tree = renderTree state.AppState.View post state.AppState.Model
-                        let rootNode = renderer.CreateElement tree
-                        startElem.appendChild(rootNode) |> ignore
-                        match state.Init with
-                        | None -> ()
-                        | Some init -> init post
-                        return! loop {state with CurrentTree = Some tree; Node = Some rootNode}
+                        let state' = createFirstLoopState renderTree startElem post renderer state
+                        return! loop state'
                     | Some rootNode, Some currentTree ->
                         let! message = inbox.Receive()
-
                         match message with
                         | Message msg ->
-                            ActionReceived msg |> (notifySubscribers state.Subscribers)
-                            let (model', jsCalls, msgs) = state.AppState.Update state.AppState.Model msg
-
-                            let renderState =
-                                match state.RenderState with
-                                | NoRequest ->
-                                    scheduler.Post(PingIn(1000./60., (fun() -> inbox.Post(Draw))))
-                                    InProgress
-                                | InProgress -> InProgress
-                            msgs |> List.iter (fun m -> m post)
-                            return! loop {
-                                state with 
-                                    AppState = { state.AppState with Model = model' }
-                                    RenderState = renderState
-                                    JsCalls = state.JsCalls @ jsCalls }
+                            let state' = handleMessage msg notifySubscribers schedule state
+                            return! loop state'
                         | Draw -> 
-                            match state.RenderState with
-                            | InProgress ->
-                                DrawStarted |> notifySubscribers state.Subscribers
-
-                                let model = state.AppState.Model
-
-                                let jsCalls = state.JsCalls
-                                let tree = renderTree state.AppState.View post model
-                                let patches = renderer.Diff currentTree tree
-                                renderer.Patch rootNode patches |> ignore
-                                jsCalls |> List.iter (fun i -> i())
-
-                                (ModelChanged (model, state.AppState.Model)) |> notifySubscribers state.Subscribers
-
-                                return! loop {state with RenderState = NoRequest; CurrentTree = Some tree; JsCalls = []}
-                            | NoRequest -> raise (exn "Shouldn't happen")
+                            let state' = handleDraw renderTree renderer post notifySubscribers rootNode currentTree state
+                            return! loop state'
                         | _ -> return! loop state
                     | _ -> failwith "Shouldn't happen"
                 }
@@ -484,11 +510,7 @@ let createTree<'T> (handler:'T -> unit) tag (attributes:Attribute<'T> list) chil
                 | Attribute _ -> failwith "Shouldn't happen"
                 | Style style -> "style" ==> createObj(unbox style)
                 | Property (k,v) -> k ==> v
-                | EventHandlerBinding binding ->
-                    match binding with
-                    | MouseEventHandler(ev, f) -> ev ==> ((f >> handler) :> obj)
-                    | KeyboardEventHandler(ev, f) -> ev ==> ((f >> handler) :> obj)
-                    | EventHandler(ev, f) -> ev ==> ((f >> handler) :> obj)
+                | EventHandler(ev,f) -> ev ==> ((f >> handler) :> obj)
             )
 
         match elAttributes with

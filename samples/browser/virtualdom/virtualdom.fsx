@@ -56,16 +56,16 @@ type CounterAction =
     | Decrement of int
     | Increment of int
 
-let fakeAjaxCall model h = 
+let fakeAjaxCall model (h:CounterAction->unit) = 
     let message = if model < 30 then Increment 10 else Decrement 5 
     if model > 30 && model < 60 then () 
     else window.setTimeout((fun _ -> h (message)), 2000) |> ignore
 
-let counterUpdate model action =
-    match action with
+let counterUpdate model command =
+    match command with
     | Decrement x -> model - x
     | Increment x -> model + x
-    |> (fun m -> m,[],[fakeAjaxCall model])
+    |> (fun m -> m, (fakeAjaxCall model) |> toActionList) 
 
 (**
 The counter can be incremented or decremented in step of `x`. If you look closely
@@ -117,19 +117,75 @@ You define a `svg` the same way as you do with any other html element.
 *)
 
 // Start the application
-let counterApp =
-    createApp {Model = initCounter; View = counterView; Update = counterUpdate}
-    |> withInit (fakeAjaxCall initCounter) 
-    |> withStartNode "#counter"
-
-counterApp |> start renderer
+createApp initCounter counterView counterUpdate
+|> withInitMessage (fakeAjaxCall initCounter) 
+|> withStartNodeSelector "#counter"
+|> start renderer
 
 (**
 The dsl has been separated from the actual rendering of the dsl, to allow for
-future server side rendering as well. So to get this application started you first
-need to create the application with the `createApp` function. The we pass that
-result to a helper function, `withStartNode` to specify where in the document 
-it should be rendered, default is directly in the body. We also want to start the 
+future server side rendering as well. In this example we first call the 
+`createApp` function to create the application, there is a `createSimpleApp`
+that requires a simpler version of the update function of you don't do actions
+from the update function. The `withInitMessage` takes a function that returns
+a message to bootstrap the application. The `withNodeSelector` is used to 
+place the application in the DOM. When we have an application we can call
+`start` with a given `renderer` to start the application.
+
+### Second example - nesting
+
+This is just an add-on to the first example to illustrate how you could
+nest applications together. Nesting basically means re-use the view
+and update function. 
+
+<div id="nested-counter">
+</div>
+
+*)
+
+type NestedModel = { Top: int; Bottom: int}
+
+type NestedAction = 
+    | Reset
+    | Top of CounterAction
+    | Bottom of CounterAction
+
+let nestedUpdate model action = 
+    match action with
+    | Reset -> {Top = 0; Bottom = 0},[]
+    | Top ca -> 
+        let (res, action) = (counterUpdate model.Top ca)
+        let action' = App.mapActions Top action
+        {model with Top = res},action'
+    | Bottom ca -> 
+        let (res, action) = (counterUpdate model.Bottom ca)
+        let action' = App.mapActions Bottom action
+        {model with Bottom = res},action'
+
+let nestedView model = 
+    div []
+        [
+            Html.map Top (counterView model.Top)
+            Html.map Bottom (counterView model.Bottom)
+        ]
+
+let resetEveryTenth h =
+    window.setInterval((fun _ -> Reset |> h), 10000) |> ignore
+
+createApp {Top = 0; Bottom = 0} nestedView nestedUpdate
+|> withStartNodeSelector "#nested-counter"
+|> withProducer resetEveryTenth
+|> start renderer
+
+(**
+To get this application started you first
+need to create the application with the `createApp` function. Then we pass that
+result to a helper function, `withStartNodeSelector` to specify where in the document 
+it should be rendered, default is directly in the body. We also want to reset both
+counters every tenth second to simulate async updates from things that happens
+outside the application repeatedly, and to do that we use the `withProducer` helper. The 
+`withProducer` helper is a function that calls the given handler with a message
+when needed, in this example it is on a interval. To start the 
 application by making a call to our `fakeAjaxCall` function, this will result
 in an update of the model two seconds after the application starts.
 
@@ -255,12 +311,11 @@ let todoUpdate model msg =
         | SaveItem (i,str) ->
             updateItem { i with Name = str; IsEditing = false} model
 
-    let jsCalls =
+    let jsCall =
         match msg with
-        | EditItem i -> [fun () ->
-            document.getElementById("item-" + (i.Id.ToString())).focus()]
+        | EditItem i -> toActionList <| fun x -> document.getElementById("item-" + (i.Id.ToString())).focus()
         | _ -> []
-    model',jsCalls,[]
+    model', jsCall
 
 (**
 It might seem like a lot of code, but we need to handle all actions and respond
@@ -320,6 +375,7 @@ let todoFooter model =
                 [ text "Clear completed" ] ]
 
 let inline onInput x = onEvent "oninput" (fun e -> x (unbox e?target?value)) 
+let onEnter succ nop = onKeyup (fun x -> if (unbox x?keyCode) = 13 then succ else nop)
 let todoHeader model =
     header
         [attribute "class" "header"]
@@ -329,10 +385,7 @@ let todoHeader model =
                     property "value" model
                     property "placeholder" "What needs to be done?"
                     onInput (fun x -> ChangeInput x)
-                    onKeyup (fun x ->
-                        if x.keyCode = 13
-                        then AddItem
-                        else NoOp) ]]
+                    onEnter AddItem NoOp ]]
 let listItem item =
     let itemChecked = if item.Done then "true" else ""
     let editClass = if item.IsEditing then "editing" else ""
@@ -380,7 +433,7 @@ let todoMain model =
 
 let todoView model =
     section
-        [property "class" "todoapp"]
+        [attribute "class" "todoapp"]
         ((todoHeader model.Input)::(if model.Items |> List.isEmpty
                 then []
                 else [  (todoMain model)
@@ -422,16 +475,14 @@ open Storage
 let initList = fetch<Item>() |> List.ofArray
 let initModel = {Filter = All; Items = initList; Input = ""}
 
-let todoApp =
-    createApp {Model = initModel; View = todoView; Update = todoUpdate}
-    |> (withSubscriber "storagesub" (function
-            | ModelChanged (newModel,old) ->
-                save (newModel.Items |> Array.ofList)
-            | _ -> ()))
-    |> (withSubscriber "modellogger" (printfn "%A"))
-    |> withStartNode "#todo"
-
-todoApp |> start renderer
+createApp initModel todoView todoUpdate
+|> (withSubscriber "storagesub" (function
+        | ModelChanged (newModel,old) ->
+            save (newModel.Items |> Array.ofList)
+        | _ -> ()))
+|> (withSubscriber "modellogger" (printfn "%A"))
+|> withStartNodeSelector "#todo"
+|> start renderer
 
 (**
 First we initiate the model by checking the local storage if there are any items
@@ -452,7 +503,7 @@ node where you set the css class directly you write something like:
 
 let inline myDiv className = elem "div" [attribute "class" className]
 
-(*
+(**
 
 Creating svg nodes are as easy as regular html nodes:
 
@@ -460,7 +511,7 @@ Creating svg nodes are as easy as regular html nodes:
 
 let inline redRect x = svgElem "rect" ((fill "red")::x)
 
-(*
+(**
 
 As you see the only difference is that you use `svgElem` instead of `elem`. 
 You do this to add the correct namespace to the svg nodes. To see more
