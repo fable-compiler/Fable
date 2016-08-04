@@ -1,5 +1,5 @@
 [<Fable.Core.Erase>]
-module internal Fable.Helpers.SimpleStore
+module internal Fable.Helpers.ReactNative.SimpleStore
 
 open System
 open Fable.Import.ReactNative
