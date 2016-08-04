@@ -18,9 +18,9 @@ $ npm install --save-dev fable-import-react fable-import-react-native react-nati
     <Reference Include="node_modules/fable-core/Fable.Core.dll" />
     <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />    
     <Compile Include="node_modules/fable-import-react/Fable.Helpers.React.fs" />
-    <Compile Include="node_modules/fable-import-react/Fable.Import.ReactNative.fs" />
-    <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNative.fs" />
-    <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNative.SimpleStore.fs" />        
+    <Compile Include="node_modules/fable-import-react-native/Fable.Import.ReactNative.fs" />
+    <Compile Include="node_modules/fable-import-react-native/Fable.Helpers.ReactNative.fs" />
+    <Compile Include="node_modules/fable-react-native-simple-store/Fable.Helpers.ReactNative.SimpleStore.fs" />        
   </ItemGroup>
 ```
 
@@ -30,9 +30,9 @@ $ npm install --save-dev fable-import-react fable-import-react-native react-nati
 #r "node_modules/fable-core/Fable.Core.dll"
 #load "node_modules/fable-import-react/Fable.Import.React.fs"
 #load "node_modules/fable-import-react/Fable.Helpers.React.fs"
-#load "node_modules/fable-import-react/Fable.Import.ReactNative.fs"
-#load "node_modules/fable-import-react/Fable.Helpers.ReactNative.fs"
-#load "node_modules/fable-import-react/Fable.Helpers.ReactNative.SimpleStore.fs"
+#load "node_modules/fable-import-react-native/Fable.Import.ReactNative.fs"
+#load "node_modules/fable-import-react-native/Fable.Helpers.ReactNative.fs"
+#load "node_modules/fable-react-native-simple-store/Fable.Helpers.ReactNative.SimpleStore.fs"
 
 open Fable.Core
 open Fable.Import
