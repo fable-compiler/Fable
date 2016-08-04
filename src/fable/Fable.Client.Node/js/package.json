@@ -9,6 +9,7 @@
   "dependencies": {
     "babel-core": "^6.10.4",
     "babel-dts-generator": "^0.6.2",
+    "babel-plugin-transform-class-properties": "^6.11.5",    
     "babel-plugin-transform-es2015-arrow-functions": "^6.8.0",
     "babel-plugin-transform-es2015-block-scoping": "^6.10.1",
     "babel-plugin-transform-es2015-classes": "^6.9.0",

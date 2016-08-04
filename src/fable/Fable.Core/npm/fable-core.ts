@@ -254,7 +254,9 @@ export class Util {
 
   static ofJson(json: any): any {
     return JSON.parse(json, (k, v) => {
-      if (v != null && typeof v === "object" && typeof v.$type === "string") {
+      if (v == null)
+        return v;
+      else if (typeof v === "object" && typeof v.$type === "string") {
         // Remove generic args and assembly info added by Newtonsoft.Json
         let type = v.$type.replace('+', '.'), i = type.indexOf('`');
         if (i > -1) {
@@ -277,14 +279,14 @@ export class Util {
           return new Set(v.$values);
         }
         else if (type == "Microsoft.FSharp.Collections.FSharpMap") {
-            delete v.$type;
-            return FMap.create(Object.getOwnPropertyNames(v)
-                                     .map(k => [k, v[k]] as [any,any]));
+          delete v.$type;
+          return FMap.create(Object.getOwnPropertyNames(v)
+                                    .map(k => [k, v[k]] as [any,any]));
         }
         else if (type == "System.Collections.Generic.Dictionary") {
-            delete v.$type;
-            return new Map(Object.getOwnPropertyNames(v)
-                                 .map(k => [k, v[k]] as [any,any]));
+          delete v.$type;
+          return new Map(Object.getOwnPropertyNames(v)
+                                .map(k => [k, v[k]] as [any,any]));
         }
         else {
           const T = fableGlobal.types.get(type);
@@ -294,7 +296,10 @@ export class Util {
           }
         }
       }
-      return v;
+      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)$/.test(v))
+        return FDate.parse(v);
+      else
+        return v;
     });
   }
 }
@@ -467,7 +472,8 @@ class FDate extends Date {
     const date = (v == null) ? new Date() : new Date(v);
     if (isNaN(date.getTime()))
       throw "The string is not a valid Date.";
-    (<FDate>date).kind = kind || DateKind.Local;
+    (<FDate>date).kind = kind ||
+      (typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local); 
     return date;
   }
 
@@ -781,7 +787,7 @@ class FString {
 
   static format(str: string, ...args: any[]) {
     return str.replace(FString.formatRegExp, function (match: any, idx: any, pad: any, format: any) {
-      let rep = args[idx];
+      let rep = args[idx], padSymbol = " ";
       if (typeof rep === "number") {
         switch ((format || "").substring(0, 1)) {
           case "f": case "F":
@@ -796,6 +802,17 @@ class FString {
           case "p": case "P":
             rep = (format.length > 1 ? (rep * 100).toFixed(format.substring(1)) : (rep * 100).toFixed(2)) + " %";
             break;
+          default:
+            const m = /^(0+)(\.0+)?$/.exec(format);
+            if (m != null) {
+              let decs = 0;
+              if (m[2] != null)
+                rep = rep.toFixed(decs = m[2].length - 1);
+              pad = "," + (m[1].length + (decs ? decs + 1 : 0)).toString();
+              padSymbol = "0";
+            } else if (format) {
+              rep = format;
+            }
         }
       } else if (rep instanceof Date) {
         if (format.length === 1) {
@@ -808,41 +825,52 @@ class FString {
               rep = rep.toLocaleDateString(); break;
             case "t":
               rep = rep.toLocaleTimeString().replace(/:\d\d(?!:)/, ""); break;
+            case "o": case "O":
+              if (rep.kind === DateKind.Local) {
+                const offset = rep.getTimezoneOffset() * -1;
+                rep = FString.format("{0:yyyy-MM-dd}T{0:HH:mm}:{1:00.000}{2}{3:00}:{4:00}",
+                                      rep, FDate.second(rep), offset >= 0 ? "+" : "-",
+                                      ~~(offset / 60), offset % 60);
+              }
+              else {
+                rep = rep.toISOString()
+              }
           }
+        } else {
+          rep = format.replace(/\w+/g, function (match2: any) {
+            let rep2 = match2;
+            switch (match2.substring(0, 1)) {
+              case "y":
+                rep2 = match2.length < 4 ? FDate.year(rep) % 100 : FDate.year(rep);
+                break;
+              case "h":
+                rep2 = rep.getHours() > 12 ? FDate.hour(rep) % 12 : FDate.hour(rep);
+                break;
+              case "M":
+                rep2 = FDate.month(rep);
+                break;
+              case "d":
+                rep2 = FDate.day(rep);
+                break;
+              case "H":
+                rep2 = FDate.hour(rep);
+                break;
+              case "m":
+                rep2 = FDate.minute(rep);
+                break;
+              case "s":
+                rep2 = FDate.second(rep);
+                break;
+            }
+            if (rep2 !== match2 && rep2 < 10 && match2.length > 1) {
+              rep2 = "0" + rep2;
+            }
+            return rep2;
+          });
         }
-        rep = format.replace(/\w+/g, function (match2: any) {
-          let rep2 = match2;
-          switch (match2.substring(0, 1)) {
-            case "y":
-              rep2 = match2.length < 4 ? FDate.year(rep) % 100 : FDate.year(rep);
-              break;
-            case "h":
-              rep2 = rep.getHours() > 12 ? FDate.hour(rep) % 12 : FDate.hour(rep);
-              break;
-            case "M":
-              rep2 = FDate.month(rep);
-              break;
-            case "d":
-              rep2 = FDate.day(rep);
-              break;
-            case "H":
-              rep2 = FDate.hour(rep);
-              break;
-            case "m":
-              rep2 = FDate.minute(rep);
-              break;
-            case "s":
-              rep2 = FDate.second(rep);
-              break;
-          }
-          if (rep2 !== match2 && rep2 < 10 && match2.length > 1) {
-            rep2 = "0" + rep2;
-          }
-          return rep2;
-        });
       }
       if (!isNaN(pad = parseInt((pad || "").substring(1)))) {
-        rep = FString.padLeft(rep, Math.abs(pad), " ", pad < 0);
+        rep = FString.padLeft(rep, Math.abs(pad), padSymbol, pad < 0);
       }
       return rep;
     });
@@ -1470,8 +1498,8 @@ export class Seq {
       Seq.scan((tup, x) => {
         const acc = tup[1];
         const k = f(x);
-        return acc.has(k) ? Tuple(<T>null, acc) : Tuple(x, acc.add(k));
-      }, Tuple(<T>null, new Set<K>()), xs));
+        return acc.has(k) ? Tuple(<T>null, acc) : Tuple(x, FSet.add(k, acc));
+      }, Tuple(<T>null, FSet.create<K>()), xs));
   }
 
   static distinct<T>(xs: Iterable<T>) {

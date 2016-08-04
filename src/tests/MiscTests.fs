@@ -17,12 +17,18 @@ type Test(i) as myself =
     do myself.Mutate2(i)
     member this.Mutate2 i = y <- y + i
     member __.Value2 = y
+    member __.Foo() = myself.Value * 2
 
 [<Test>]
 let ``Self references in constructors work``() = // See #124
     let t = Test(5)
     equal 12 t.Value
     equal 17 t.Value2
+
+[<Test>]
+let ``Using self identifier from class definition in members works``() = // See #124
+    let t = Test(5)
+    t.Foo() |> equal 24
 
 let log (a: string) (b: string) = String.Format("a = {0}, b = {0}", a, b)
 let logItem1 = log "item1"

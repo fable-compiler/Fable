@@ -45,6 +45,7 @@ and IDeclarePlugin =
         -> (U2<Babel.Statement, Babel.ModuleDeclaration> list) option
 
 module Util =
+    let (|EntKind|) (ent: Fable.Entity) = ent.Kind
     let (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
     let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
     let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
@@ -270,7 +271,25 @@ module Util =
             
     let macroExpression range (txt: string) args =
         Babel.MacroExpression(txt, args, ?loc=range) :> Babel.Expression
-        
+
+    let rec flattenSequential = function
+        | Fable.Sequential(statements,_) ->
+            List.collect flattenSequential statements
+        | e -> [e]
+
+    // Sometimes F# compilers access `this` before calling `super` (this happens when using class self identifiers)
+    // We need to bring the `super` call to the top of the constructor
+    let checkBaseCall consBody =
+        let statements = flattenSequential consBody
+        ((None, []), statements) ||> List.fold (fun (baseCall, statements) statement ->
+            match baseCall, statement with
+            | Some baseCall, statement -> Some baseCall, statement::statements
+            | None, Fable.Apply(Fable.Value Fable.Super,_,_,_,_) -> Some statement, statements
+            | _ -> None, statement::statements)
+        |> function
+        | Some baseCall, statements -> Fable.Sequential(baseCall::(List.rev statements), consBody.Range)
+        | None, statements -> consBody
+                
     let getMemberArgs (com: IBabelCompiler) ctx args (body: Fable.Expr) typeParams hasRestParams =
         let args', body' = com.TransformFunction ctx args body
         let args, returnType, typeParams =
@@ -652,12 +671,17 @@ module Util =
         decls
         |> List.map (function
             | Fable.MemberDeclaration(m, _, args, body, range) ->
-                let kind, name, isStatic =
+                let kind, name, isStatic, body =
                     match m.Kind with
-                    | Fable.Constructor -> Babel.ClassConstructor, "constructor", false
-                    | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.IsStatic
-                    | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.IsStatic
-                    | Fable.Setter -> Babel.ClassSetter, m.Name, m.IsStatic
+                    | Fable.Constructor ->
+                        let body =
+                            match ent with
+                            | Some(EntKind(Fable.Class(Some _))) -> checkBaseCall body
+                            | _ -> body
+                        Babel.ClassConstructor, "constructor", false, body
+                    | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.IsStatic, body
+                    | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.IsStatic, body
+                    | Fable.Setter -> Babel.ClassSetter, m.Name, m.IsStatic, body
                 declareMethod range kind name args body m.GenericParameters m.HasRestParams isStatic
             | Fable.ActionDeclaration _
             | Fable.EntityDeclaration _ as decl ->
@@ -843,7 +867,7 @@ module Util =
                 |> consBack acc
             | Fable.MemberDeclaration(m,privName,args,body,r) ->
                 match m.Kind with
-                | Fable.Constructor | Fable.Setter _ -> acc // Shouldn't happen
+                | Fable.Constructor | Fable.Setter _ -> acc // Only happens for VS tests
                 | _ -> transformModMember com ctx declareMember modIdent (m,privName,args,body,r) @ acc
             | Fable.EntityDeclaration (ent, privateName, entDecls, entRange) ->
                 match ent.Kind with

@@ -194,7 +194,9 @@ let ``Async.Parallel works``() =
         !res |> Array.sum |> equal 6
     } |> Async.RunSynchronously
 
+#if MOCHA
 open Fable.Core
+#endif
 
 [<Test>]
 let ``Interaction between Async and Promise works``() =

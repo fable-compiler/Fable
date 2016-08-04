@@ -145,7 +145,8 @@ be able to access the base methods by casting the object.
 Anonymous lambdas will be curried by default. If you want to pass a callback with
 more than one argument to JS code, please wrap it in a delegate first (e.g.,
 `Func<_,_,_>(fun x y -> x + y)`). If the signature of the method expects a
-delegate, this will be done automatically by the compiler.
+delegate, this will be done automatically by the compiler. See [Calling F# code from JS](http://fsprojects.github.io/Fable/docs/interacting.html#Calling-F-code-from-JavaScript)
+for more info.
 
 ## Event and Observable
 

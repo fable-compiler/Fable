@@ -17,6 +17,30 @@ let thatYearSeconds (dt: DateTime) =
 let thatYearMilliseconds (dt: DateTime) =
     (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds
 
+[<Test>]
+let ``DateTime.ToString with format works``() =
+    DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm")
+    |> equal "16:37"
+
+// TODO
+// [<Test>]
+// let ``TimeSpan.ToString with format works``() =
+//     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
+//     |> equal "03:54:00"
+
+[<Test>]
+let ``DateTime can be JSON serialized forth and back``() =
+    let utc = DateTime(2016, 8, 4, 17, 30, 0, DateTimeKind.Utc)
+    #if MOCHA
+    let json = Fable.Core.JsInterop.toJson utc
+    let utc = Fable.Core.JsInterop.ofJson<DateTime> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject utc
+    let utc = Newtonsoft.Json.JsonConvert.DeserializeObject<DateTime> json
+    #endif
+    utc.Kind = DateTimeKind.Utc |> equal true
+    utc.ToString("HH:mm") |> equal "17:30"
+
 // TODO: These two tests give different values for .NET and JS because DateTime
 // becomes as a plain JS Date object, so I'm just checking the fields get translated
 [<Test>]

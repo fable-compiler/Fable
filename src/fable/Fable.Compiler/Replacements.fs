@@ -721,6 +721,13 @@ module private AstPass =
         | "kind" ->
             makeGet i.range i.returnType i.callee.Value (makeConst "kind")
             |> Some
+        | "toString" ->
+            match i.args with
+            | [Type Fable.String as format] ->
+                let format = emitNoInfo "'{0:' + $0 + '}'" [format]
+                CoreLibCall ("String", Some "format", false, [format;i.callee.Value])
+                |> makeCall com i.range i.returnType |> Some
+            | _ -> toString com i i.callee.Value |> Some
         | _ -> None
 
     let keyValuePairs com (i: Fable.ApplyInfo) =
@@ -867,7 +874,7 @@ module private AstPass =
 
     // Functions that must return a collection of the same type
     let implementedSeqBuildFunctions =
-        set [ "append"; "choose"; "collect"; "concat"; "distinctBy"; "distinctBy";
+        set [ "append"; "choose"; "collect"; "concat"; "distinct"; "distinctBy";
               "filter"; "where"; "groupBy"; "initialize";
               "map"; "mapIndexed"; "map2"; "mapIndexed2"; "map3";
               "ofArray"; "pairwise"; "permute"; "replicate"; "reverse";
@@ -1022,7 +1029,7 @@ module private AstPass =
             ccall "Array" "removeInPlace" [args.Head; c.Value] |> Some
         | "removeAt" ->
             icall "splice" (c.Value, [args.Head; makeConst 1]) |> Some
-        | "reverse" ->
+        | "reverse" when kind = Array ->
             icall "reverse" (instanceArgs c i.args) |> Some
         // Conversions
         | "toSeq" | "ofSeq" ->

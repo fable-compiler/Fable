@@ -125,6 +125,20 @@ let ``List.contains works``() =
       xs |> List.contains 0 |> equal false
 
 [<Test>]
+let ``List.distinct works``() =
+    let xs = [1; 1; 1; 2; 2; 3; 3]
+    let ys = xs |> List.distinct
+    ys |> List.length
+    |> equal 3
+
+[<Test>]
+let ``List.distinctBy works``() =
+    [1; 1; 1; 2; 2; 3; 3]
+    |> List.distinctBy (fun x -> x % 2)
+    |> List.length
+    |> equal 2
+
+[<Test>]
 let ``List.exists works``() =
       let xs = [1; 2; 3; 4]
       xs |> List.exists (fun x -> x = 2)

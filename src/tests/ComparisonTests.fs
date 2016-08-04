@@ -77,6 +77,28 @@ let ``Union equality works``() =
     Object.ReferenceEquals(u1, u1) |> equal true
     Object.ReferenceEquals(u1, u2) |> equal false
 
+[<CustomEquality; CustomComparison>]
+type UTest2 =
+    | String of string
+    interface System.IEquatable<UTest2> with
+        member x.Equals(y) =
+            match x, y with
+            | String s1, String s2 -> (s1 + s1) = s2    
+    interface System.IComparable with
+        member x.CompareTo(y) =
+            match y with
+            | :? UTest2 as y ->
+                match x, y with
+                | String s1, String s2 -> compare (s1 + s1) s2
+
+[<Test>]
+let ``Union custom equality works``() =  
+    let u1 = String "A"
+    let u2 = String "A"
+    let u3 = String "AA"
+    equal false (u1 = u2)
+    equal true (u1 = u3)
+
 type RTest = { a: int; b: int }
 
 [<Test>]
@@ -220,6 +242,14 @@ let ``Union comparison works``() =
     equal 1 (compare u1 u4)
     equal false (u1 < u4)
     (compare u1 u5) = 0 |> equal false
+
+[<Test>]
+let ``Union custom comparison works``() =  
+    let u1 = String "A"
+    let u2 = String "A"
+    let u3 = String "AA"
+    equal 0 (compare u1 u3)
+    equal true (compare u1 u2 > 0)
     
 [<Test>]
 let ``Record comparison works``() =  

@@ -336,7 +336,8 @@ function build(opts) {
                 "suppressAmbientDeclaration": true,
                 "ignoreEmptyInterfaces": false
             }],
-            require("babel-plugin-transform-flow-strip-types")
+            require("babel-plugin-transform-flow-strip-types"),
+            require("babel-plugin-transform-class-properties")
         );
     }
 
