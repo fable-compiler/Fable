@@ -9,31 +9,54 @@ open Fable.Import
 open Fable.Core.JsInterop
 
 module DB =
-  /// Loads a value as string with the given key from the local device storage. Returns None if the key is not found.
-  let inline getItem (key:string) = async {
-      let! v = Globals.AsyncStorage.getItem key |> Async.AwaitPromise
-      match v with
-      | null -> return None
-      | _ -> return Some v
-  }
-  
-  /// Loads a value with the given key from the local device storage. Returns None if the key is not found.
-  let inline load<'a> (key:string) : Async<'a option> = async {
-      let! v = Globals.AsyncStorage.getItem key |> Async.AwaitPromise
-      match v with
-      | null -> return None
-      | _ -> return Some (ofJson v)
-  }
-  
-  /// Saves a value with the given key to the local device storage.
-  let inline setItem (k:string) (v:string) = async {
-      let! v = Globals.AsyncStorage.setItem(k,v) |> Async.AwaitPromise
-      ()
-  }
-  
-  /// Saves a value with the given key to the local device storage.
-  let inline save<'a> (k:string) (v:'a) = async {
-      let s:string = toJson v
-      let! v = Globals.AsyncStorage.setItem(k,s) |> Async.AwaitPromise
-      ()
-  }    
+
+    type Table<'a> = {
+        TotalRows : int
+        AutoInc: int
+        Rows : 'a[]
+    }
+
+    /// Creates a new model.
+    let inline private getModel<'a> (key) : Async<Table<'a>> = async {
+        let! v = Globals.AsyncStorage.getItem (key) |> Async.AwaitPromise
+        match v with
+        | null -> 
+            return {
+                TotalRows = 0
+                AutoInc = 0
+                Rows = [||]
+            }
+        | _ -> return ofJson v
+    }
+
+
+    // Adds a row to a model
+    let inline add<'a>(data:'a) = 
+        let key = "models/" + typeof<'a>.FullName
+        async {
+            let! model = getModel<'a> key
+            let newModel : string =
+                { TotalRows = model.TotalRows + 1
+                  AutoInc = model.AutoInc + 1
+                  Rows = Array.append [| data |] model.Rows }
+                |> toJson
+
+            let! _ = Globals.AsyncStorage.setItem(key,newModel) |> Async.AwaitPromise
+            ()
+        }
+
+    // Gets a row from the model
+    let inline get<'a>(index:int) = 
+        let key = "models/" + typeof<'a>.FullName
+        async {
+            let! model = getModel<'a> key
+            return model.Rows.[index]
+        }
+
+    // Gets a row from the model
+    let inline getCount<'a>() = 
+        let key = "models/" + typeof<'a>.FullName
+        async {
+            let! model = getModel<'a> key
+            return model.TotalRows
+        }
