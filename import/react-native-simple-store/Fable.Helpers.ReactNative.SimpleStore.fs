@@ -63,6 +63,14 @@ module DB =
             return model.Rows.[index]
         }
 
+    // Gets all rows from the model
+    let inline getAll<'a>(index:int) = 
+        let key = modelsKey + typeof<'a>.FullName
+        async {
+            let! model = getModel<'a> key
+            return model.Rows
+        }
+
     // Gets the row count from the model
     let inline count<'a>() = 
         let key = modelsKey + typeof<'a>.FullName

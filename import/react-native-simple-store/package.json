@@ -1,6 +1,6 @@
 {
   "name": "fable-react-native-simple-store",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Fable bindings for a simple React Native data store",
   "repository": {
     "type": "git",
