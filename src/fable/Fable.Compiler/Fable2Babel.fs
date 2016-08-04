@@ -145,7 +145,7 @@ module Util =
                 match proj.ImportPath with
                 | Some importPath ->
                     let ext = Path.getExternalImportPath com ctx.fixedFileName importPath
-                    let rel = Path.getRelativePath proj.BaseDir file
+                    let rel = Path.getRelativeFileOrDirPath true proj.BaseDir false file
                     System.IO.Path.Combine(ext, rel)
                     |> Path.normalizePath
                     |> fun x -> System.IO.Path.ChangeExtension(x, null)
