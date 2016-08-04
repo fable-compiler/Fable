@@ -773,6 +773,7 @@ module Storage =
 
     /// Saves a value with the given key to the local device storage.
     let inline save<'a> (k:string) (v:'a) = async {
-        let! v = Globals.AsyncStorage.setItem(k,toJson v) |> Async.AwaitPromise
+        let s:string = toJson v
+        let! v = Globals.AsyncStorage.setItem(k,s) |> Async.AwaitPromise
         ()
     }    
