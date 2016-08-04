@@ -1,0 +1,28 @@
+{
+  "name": "fable-react-native-simple-store",
+  "version": "0.1.0",
+  "description": "Fable bindings for a simple React Native data store",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fsprojects/Fable/import/react-native-simple-store"
+  },
+  "license": "Apache-2.0",
+  "author": "Steffen Forkmann",
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "AsyncStore",
+    "fsharp",
+    "react",
+    "react-native",
+    "F#"
+  ],
+  "dependencies" :
+    { "react-native" : ">= 0.30.0"
+    },
+  "devDependencies" :
+    { "fable-import-react" : ">= 0.5.0",
+      "fable-import-react-native" : ">= 0.6.0"
+    },
+  "homepage": "https://github.com/fsprojects/Fable#readme"
+}

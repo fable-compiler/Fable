@@ -1,12 +1,12 @@
-# fable-import-react-native
+# fable-react-native-simple-store
 
-Fable bindings for React Native
+Fable bindings for a simple React Native data store
 
 ## Installation
 
 ```sh
 $ npm install --save react-native react-dom fable-core 
-$ npm install --save-dev fable-import-react fable-import-react-native
+$ npm install --save-dev fable-import-react fable-import-react-native react-native-simple-store
 ```
 
 ## Usage
@@ -19,7 +19,8 @@ $ npm install --save-dev fable-import-react fable-import-react-native
     <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />    
     <Compile Include="node_modules/fable-import-react/Fable.Helpers.React.fs" />
     <Compile Include="node_modules/fable-import-react/Fable.Import.ReactNative.fs" />
-    <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNative.fs" />    
+    <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNative.fs" />
+    <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNative.SimpleStore.fs" />        
   </ItemGroup>
 ```
 
@@ -31,6 +32,7 @@ $ npm install --save-dev fable-import-react fable-import-react-native
 #load "node_modules/fable-import-react/Fable.Helpers.React.fs"
 #load "node_modules/fable-import-react/Fable.Import.ReactNative.fs"
 #load "node_modules/fable-import-react/Fable.Helpers.ReactNative.fs"
+#load "node_modules/fable-import-react/Fable.Helpers.ReactNative.SimpleStore.fs"
 
 open Fable.Core
 open Fable.Import
@@ -40,20 +42,6 @@ open RN.Props
 
 ...
 
-  let button =
-    text [] "click me!"
-    |> touchableHighlight [
-        OnPress (fun () -> console.log("clicked!"))]
-        
-  let image =
-    image 
-      [ Source [ Uri "http://facebook.github.io/react/img/logo_og.png"; IsStatic true ]]      
-      [ ]
-
-                                
-  view [] 
-   [ image
-     button ]
-
+  
 
 ```
