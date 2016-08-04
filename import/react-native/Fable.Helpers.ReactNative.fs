@@ -747,14 +747,32 @@ let inline createRoute(title:string,index:int) =
     r
 
 module Storage =
-    let inline load (key:string) = async {
+    open Fable.Core.JsInterop
+
+    /// Loads a value as string with the given key from the local device storage. Returns None if the key is not found.
+    let inline getItem (key:string) = async {
         let! v = Globals.AsyncStorage.getItem key |> Async.AwaitPromise
         match v with
         | null -> return None
         | _ -> return Some v
     }
 
-    let inline save (k:string) (v:string) = async {
+    /// Loads a value with the given key from the local device storage. Returns None if the key is not found.
+    let inline load<'a> (key:string) : Async<'a option> = async {
+        let! v = Globals.AsyncStorage.getItem key |> Async.AwaitPromise
+        match v with
+        | null -> return None
+        | _ -> return Some (ofJson v)
+    }
+
+    /// Saves a value with the given key to the local device storage.
+    let inline setItem (k:string) (v:string) = async {
         let! v = Globals.AsyncStorage.setItem(k,v) |> Async.AwaitPromise
         ()
     }
+
+    /// Saves a value with the given key to the local device storage.
+    let inline save<'a> (k:string) (v:'a) = async {
+        let! v = Globals.AsyncStorage.setItem(k,toJson v) |> Async.AwaitPromise
+        ()
+    }    
