@@ -745,3 +745,16 @@ let inline createRoute(title:string,index:int) =
     r.title <- Some title
     r.index <- Some index
     r
+
+module Storage =
+    let inline load (key:string) = async {
+        let! v = Globals.AsyncStorage.getItem key |> Async.AwaitPromise
+        match v with
+        | null -> return None
+        | _ -> return Some v
+    }
+
+    let inline save (k:string) (v:string) = async {
+        let! v = Globals.AsyncStorage.setItem(k,v) |> Async.AwaitPromise
+        ()
+    }
