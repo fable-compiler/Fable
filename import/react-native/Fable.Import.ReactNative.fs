@@ -502,10 +502,10 @@ module ReactNative =
         abstract uri: string with get, set
         abstract resizeMode: ImageResizeModeStatic with get, set
 
-    and ListViewProperties =
+    and ListViewProperties<'a> =
         inherit ScrollViewProperties
-        inherit React.Props<ListViewStatic>
-        abstract dataSource: ListViewDataSource option with get, set
+        inherit React.Props<ListViewStatic<'a>>
+        abstract dataSource: ListViewDataSource<'a> option with get, set
         abstract initialListSize: float option with get, set
         abstract onChangeVisibleRows: Func<ResizeArray<obj>, ResizeArray<obj>, unit> option with get, set
         abstract onEndReached: Func<unit> option with get, set
@@ -520,9 +520,9 @@ module ReactNative =
         abstract renderSeparator: Func<U2<string, float>, U2<string, float>, bool, React.ReactElement<obj>> option with get, set
         abstract scrollRenderAheadDistance: float option with get, set
 
-    and ListViewStatic =
-        inherit React.ComponentClass<ListViewProperties>
-        abstract DataSource: ListViewDataSource with get, set
+    and ListViewStatic<'a> =
+        inherit React.ComponentClass<ListViewProperties<'a>>
+        abstract DataSource: ListViewDataSource<'a> with get, set
 
     and MapViewAnnotation =
         abstract latitude: float option with get, set
@@ -708,10 +708,10 @@ module ReactNative =
         abstract getRowData: Func<obj, U2<float, string>, U2<float, string>, 'T> option with get, set
         abstract getSectionHeaderData: Func<obj, U2<float, string>, 'T> option with get, set
 
-    and ListViewDataSource =
-        [<Emit("new $0($1...)")>] abstract Create: onAsset: DataSourceAssetCallback -> ListViewDataSource
-        abstract cloneWithRows: dataBlob: U2<ResizeArray<obj>, obj> * ?rowIdentities: ResizeArray<U2<string, float>> -> ListViewDataSource
-        abstract cloneWithRowsAndSections: dataBlob: U2<ResizeArray<obj>, obj> * ?sectionIdentities: ResizeArray<U2<string, float>> * ?rowIdentities: ResizeArray<ResizeArray<U2<string, float>>> -> ListViewDataSource
+    and ListViewDataSource<'a> =
+        [<Emit("new $0($1...)")>] abstract Create: onAsset: DataSourceAssetCallback -> ListViewDataSource<'a>
+        abstract cloneWithRows: dataBlob: U2<ResizeArray<obj>, obj> * ?rowIdentities: ResizeArray<U2<string, float>> -> ListViewDataSource<'a>
+        abstract cloneWithRowsAndSections: dataBlob: U2<ResizeArray<obj>, obj> * ?sectionIdentities: ResizeArray<U2<string, float>> * ?rowIdentities: ResizeArray<ResizeArray<U2<string, float>>> -> ListViewDataSource<'a>
         abstract getRowCount: unit -> float
         abstract getRowData: sectionIndex: float * rowIndex: float -> obj
         abstract getRowIDForFlatIndex: index: float -> string
@@ -1017,8 +1017,8 @@ module ReactNative =
     and LayoutAnimation =
         LayoutAnimationStatic
 
-    and ListView =
-        ListViewStatic
+    and ListView<'a> =
+        ListViewStatic<'a>
 
     and MapView =
         MapViewStatic
@@ -1116,7 +1116,7 @@ module ReactNative =
         [<Import("DatePickerIOS", "react-native")>] static member DatePickerIOS with get(): DatePickerIOSStatic = failwith "JS only" and set(v: DatePickerIOSStatic): unit = failwith "JS only"
         [<Import("Image", "react-native")>] static member Image with get(): ImageStatic = failwith "JS only" and set(v: ImageStatic): unit = failwith "JS only"
         [<Import("LayoutAnimation", "react-native")>] static member LayoutAnimation with get(): LayoutAnimationStatic = failwith "JS only" and set(v: LayoutAnimationStatic): unit = failwith "JS only"
-        [<Import("ListView", "react-native")>] static member ListView with get(): ListViewStatic = failwith "JS only" and set(v: ListViewStatic): unit = failwith "JS only"
+        [<Import("ListView", "react-native")>] static member ListView with get(): ListViewStatic<obj> = failwith "JS only" and set(v: ListViewStatic<obj>): unit = failwith "JS only"
         [<Import("MapView", "react-native")>] static member MapView with get(): MapViewStatic = failwith "JS only" and set(v: MapViewStatic): unit = failwith "JS only"
         [<Import("Navigator", "react-native")>] static member Navigator with get(): NavigatorStatic = failwith "JS only" and set(v: NavigatorStatic): unit = failwith "JS only"
         [<Import("NavigatorIOS", "react-native")>] static member NavigatorIOS with get(): NavigatorIOSStatic = failwith "JS only" and set(v: NavigatorIOSStatic): unit = failwith "JS only"
