@@ -552,7 +552,7 @@ module Props =
     [<KeyValueList>]
     type ListViewProperties<'a> =
         // TODO: inherit ScrollViewProperties
-        | DataSource of ListViewDataSource
+        | DataSource of ListViewDataSource<'a>
         | InitialListSize of float
         | OnChangeVisibleRows of Func<ResizeArray<obj>, ResizeArray<obj>, unit>
         | OnEndReached of (unit -> unit)
@@ -703,13 +703,19 @@ let inline webView (props: IWebViewProperties list) : React.ReactElement<obj> =
         unbox [||]) |> unbox
 
 [<Emit("new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2})")>]
-let private newDataSource() : ListViewDataSource = failwith "JS only"
+let emptyDataSource<'a>() : ListViewDataSource<'a> = failwith "JS only"
 
-let inline listView<'a> (props: IListViewProperties<'a> list) (initRows:'a []) : React.ReactElement<obj> =
+let inline newDataSource<'a> (elements:'a []) =
+    emptyDataSource<'a>().cloneWithRows(unbox elements)
+
+let inline updateDataSource<'a> (data:'a []) (dataSource : ListViewDataSource<'a>) : ListViewDataSource<'a> = 
+    dataSource.cloneWithRows (unbox data) |> unbox
+
+let inline listView<'a> (dataSource:ListViewDataSource<'a>) (props: IListViewProperties<'a> list)  : React.ReactElement<obj> =
     React.createElement(
         RN.ListView, 
         JS.Object.assign(
-            createObj ["dataSource" ==> newDataSource().cloneWithRows(initRows |> unbox)],
+            createObj ["dataSource" ==> dataSource],
             props)
         |> unbox,
         unbox [||]) |> unbox
