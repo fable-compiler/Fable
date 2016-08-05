@@ -16,18 +16,15 @@ module DB =
         AutoInc: int
         Rows : 'a[]
     }
-        with
-            static member Empty() = {
-                TotalRows = 0
-                AutoInc = 0
-                Rows = [||]
-            } 
 
     // Removes all rows from the model.
     let inline clear<'a>() =
        let key = modelsKey + typeof<'a>.FullName
        async {
-            let s:string = toJson(Table<'a>.Empty())
+            let s:string = {
+                TotalRows = 0
+                AutoInc = 0
+                Rows = [||] } |> toJson
             let! _ = Globals.AsyncStorage.setItem(key,s) |> Async.AwaitPromise
             ()
        }
@@ -36,7 +33,11 @@ module DB =
     let inline private getModel<'a> (key) : Async<Table<'a>> = async {
         let! v = Globals.AsyncStorage.getItem (key) |> Async.AwaitPromise
         match v with
-        | null -> return Table<'a>.Empty()
+        | null -> return {
+                TotalRows = 0
+                AutoInc = 0
+                Rows = [||]
+            } 
         | _ -> return ofJson v
     }
 
