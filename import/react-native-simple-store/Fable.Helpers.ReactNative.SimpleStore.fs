@@ -64,7 +64,7 @@ module DB =
         }
 
     // Gets all rows from the model
-    let inline getAll<'a>(index:int) = 
+    let inline getAll<'a>() = 
         let key = modelsKey + typeof<'a>.FullName
         async {
             let! model = getModel<'a> key
