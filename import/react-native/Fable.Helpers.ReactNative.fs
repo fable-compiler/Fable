@@ -249,6 +249,9 @@ module Props =
         message: string 
         index: int 
         rightButtonTitle: string 
+        payload: obj
+        onOkButton: unit -> unit
+        onCancelButton: unit -> unit
         sceneConfig: SceneConfig 
         wrapperStyle: obj } 
 
@@ -751,11 +754,19 @@ let inline createComponent<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: '
 let inline createScene<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) : React.ReactElement<obj> =
     unbox(React.createElement(U2.Case1(unbox typeof<'T>), toPlainJsObj props, unbox([||])))
 
-let inline createRoute(title:string,index:int) =
+let inline createFullRoute<'a>(title:string,index:int,payload:'a,onOkButton:unit -> unit,onCancelButton:unit -> unit) =
     let r = createEmpty<Route>
     r.title <- Some title
     r.index <- Some index
+    r.payload <- Some (unbox payload)
+    r.onOkButton <- Some (unbox onOkButton)
+    r.onCancelButton <- Some (unbox onCancelButton)
     r
+
+let inline createRoute(title:string,index:int) = createFullRoute(title,index,unbox null,id,id)
+
+type Scene<'PropertyType,'StateType> (props) =
+    inherit React.Component<'PropertyType,'StateType>(props)
 
 module Storage =
     open Fable.Core.JsInterop

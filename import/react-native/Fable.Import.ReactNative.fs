@@ -305,7 +305,6 @@ module ReactNative =
         inherit NativeComponent
         inherit React.ComponentClass<ViewProperties>
 
-
     and NavState =
         abstract url: string option with get, set
         abstract title: string option with get, set
@@ -661,6 +660,9 @@ module ReactNative =
         abstract content: string option with get, set
         abstract message: string option with get, set
         abstract index: int option with get, set
+        abstract payload: obj option with get, set
+        abstract onOkButton: (unit -> unit) option with get, set
+        abstract onCancelButton: (unit -> unit) option with get, set
         abstract onRightButtonPress: Func<unit> option with get, set
         abstract rightButtonTitle: string option with get, set
         abstract sceneConfig: SceneConfig option with get, set
