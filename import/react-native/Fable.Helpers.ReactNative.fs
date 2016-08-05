@@ -561,7 +561,6 @@ module Props =
         | RemoveClippedSubviews of bool
         | RenderFooter of Func<React.ReactElement<obj>>
         | RenderHeader of Func<React.ReactElement<obj>>
-        | RenderRow of Func<'a, U2<string, float>, U2<string, float>, bool, React.ReactElement<obj>>
         | RenderScrollComponent of Func<ScrollViewProperties, React.ReactElement<ScrollViewProperties>>
         | RenderSectionHeader of Func<obj, U2<string, float>, React.ReactElement<obj>>
         | RenderSeparator of Func<U2<string, float>, U2<string, float>, bool, React.ReactElement<obj>>
@@ -711,11 +710,14 @@ let inline newDataSource<'a> (elements:'a []) =
 let inline updateDataSource<'a> (data:'a []) (dataSource : ListViewDataSource<'a>) : ListViewDataSource<'a> = 
     dataSource.cloneWithRows (unbox data) |> unbox
 
-let inline listView<'a> (dataSource:ListViewDataSource<'a>) (props: IListViewProperties<'a> list)  : React.ReactElement<obj> =
+let inline listView<'a> (dataSource:ListViewDataSource<'a>) (renderRow: 'a -> string -> string -> bool -> React.ReactElement<obj>) (props: IListViewProperties<'a> list) : React.ReactElement<obj> =
+
     React.createElement(
         RN.ListView, 
         JS.Object.assign(
-            createObj ["dataSource" ==> dataSource],
+            createObj 
+                [ "dataSource" ==> dataSource
+                  "renderRow" ==> Func<_,_,_,_,_>(renderRow) ],
             props)
         |> unbox,
         unbox [||]) |> unbox
