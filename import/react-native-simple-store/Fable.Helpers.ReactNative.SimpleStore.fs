@@ -53,7 +53,7 @@ module DB =
                   Rows = Array.append data model.Rows }
                 |> toJson
             let! _ = Globals.AsyncStorage.setItem(key,newModel) |> Async.AwaitPromise
-            return newId
+            ()
         }
 
     // Adds a row to a model
