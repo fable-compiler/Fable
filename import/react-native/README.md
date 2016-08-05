@@ -5,7 +5,7 @@ Fable bindings for React Native
 ## Installation
 
 ```sh
-$ npm install --save react-native react-dom fable-core 
+$ npm install --save react-native fable-core 
 $ npm install --save-dev fable-import-react fable-import-react-native
 ```
 

@@ -4,10 +4,13 @@ Fable bindings for React Native Image Picker
 
 ## Installation
 
+Install [fable-import-react-native](https://www.npmjs.com/package/fable-import-react-native) and follow the instructions for that package.
+
 ```sh
-$ npm install --save react-native react-dom fable-core
-$ npm install --save-dev fable-import-react fable-import-react-native fable-import-react-native-image-picker
+$ npm install --save-dev fable-import-react-native-image-picker
 ```
+
+Follow install instructions for [react-native-image-picker](https://github.com/marcshilling/react-native-image-picker).
 
 ## Usage
 
@@ -17,11 +20,6 @@ Follow instructions for [react-native-image-picker](https://github.com/marcshill
 
 ```xml
   <ItemGroup>
-    <Reference Include="node_modules/fable-core/Fable.Core.dll" />
-    <Compile Include="node_modules/fable-import-react/Fable.Import.React.fs" />    
-    <Compile Include="node_modules/fable-import-react/Fable.Helpers.React.fs" />
-    <Compile Include="node_modules/fable-import-react/Fable.Import.ReactNative.fs" />
-    <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNative.fs" />
     <Compile Include="node_modules/fable-import-react/Fable.Import.ReactNativeImagePicker.fs" />
     <Compile Include="node_modules/fable-import-react/Fable.Helpers.ReactNativeImagePicker.fs" />            
   </ItemGroup>
@@ -30,11 +28,6 @@ Follow instructions for [react-native-image-picker](https://github.com/marcshill
 ### In a F# script (.fsx)
 
 ```fsharp
-#r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-react/Fable.Import.React.fs"
-#load "node_modules/fable-import-react/Fable.Helpers.React.fs"
-#load "node_modules/fable-import-react/Fable.Import.ReactNative.fs"
-#load "node_modules/fable-import-react/Fable.Helpers.ReactNative.fs"
 #load "node_modules/fable-import-react/Fable.Import.ReactNativeImagePicker.fs"
 #load "node_modules/fable-import-react/Fable.Helpers.ReactNativeImagePicker.fs"
 
