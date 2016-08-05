@@ -754,16 +754,22 @@ let inline createComponent<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: '
 let inline createScene<'T,'P,'S when 'T :> React.Component<'P,'S>> (props: 'P) : React.ReactElement<obj> =
     unbox(React.createElement(U2.Case1(unbox typeof<'T>), toPlainJsObj props, unbox([||])))
 
-let inline createFullRoute<'a>(title:string,index:int,payload:'a,onOkButton:unit -> unit,onCancelButton:unit -> unit) =
+let inline createFullRoute<'a>(routeId:string,index:int,payload:'a,onOkButton:unit -> unit,onCancelButton:unit -> unit) =
     let r = createEmpty<Route>
-    r.title <- Some title
+    r.id <- Some routeId
     r.index <- Some index
     r.payload <- Some (unbox payload)
     r.onOkButton <- Some (unbox onOkButton)
     r.onCancelButton <- Some (unbox onCancelButton)
     r
 
-let inline createRoute(title:string,index:int) = createFullRoute(title,index,unbox null,id,id)
+let inline createRoute(routeId:string,index:int) = 
+    let r = createEmpty<Route>
+    r.id <- Some routeId
+    r.index <- Some index
+    r.onOkButton <- Some id
+    r.onCancelButton <- Some id
+    r
 
 type Scene<'PropertyType,'StateType> (props) =
     inherit React.Component<'PropertyType,'StateType>(props)
