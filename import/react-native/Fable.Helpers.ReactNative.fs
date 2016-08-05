@@ -557,6 +557,7 @@ module Props =
         | OnChangeVisibleRows of Func<ResizeArray<obj>, ResizeArray<obj>, unit>
         | OnEndReached of (unit -> unit)
         | OnEndReachedThreshold of float
+        | RenderRow of Func<'a, U2<string, float>, U2<string, float>, bool, React.ReactElement<obj>>
         | PageSize of float
         | RemoveClippedSubviews of bool
         | RenderFooter of Func<React.ReactElement<obj>>
@@ -710,14 +711,11 @@ let inline newDataSource<'a> (elements:'a []) =
 let inline updateDataSource<'a> (data:'a []) (dataSource : ListViewDataSource<'a>) : ListViewDataSource<'a> = 
     dataSource.cloneWithRows (unbox data) |> unbox
 
-let inline listView<'a> (dataSource:ListViewDataSource<'a>) (renderRow: 'a -> string -> string -> bool -> React.ReactElement<obj>) (props: IListViewProperties<'a> list) : React.ReactElement<obj> =
-
+let inline listView<'a> (dataSource:ListViewDataSource<'a>) (props: IListViewProperties<'a> list)  : React.ReactElement<obj> =
     React.createElement(
         RN.ListView, 
         JS.Object.assign(
-            createObj 
-                [ "dataSource" ==> dataSource
-                  "renderRow" ==> Func<_,_,_,_,_>(renderRow) ],
+            createObj ["dataSource" ==> dataSource],
             props)
         |> unbox,
         unbox [||]) |> unbox
