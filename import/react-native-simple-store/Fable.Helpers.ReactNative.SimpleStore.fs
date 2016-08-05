@@ -41,14 +41,14 @@ module DB =
         | _ -> return ofJson v
     }
 
-    // Adds mutltiple rows to a model
+    // Adds multiple rows to a model
     let inline addMultiple<'a>(data:'a []) =
         let key = modelsKey + typeof<'a>.FullName
         async {
             let! model = getModel<'a> key
-            let newId = model.AutoInc + 1
+            let newId = model.AutoInc + data.Length
             let newModel : string =
-                { TotalRows = model.TotalRows + 1
+                { TotalRows = model.TotalRows + data.Length
                   AutoInc = newId
                   Rows = Array.append data model.Rows }
                 |> toJson
@@ -57,7 +57,19 @@ module DB =
         }
 
     // Adds a row to a model
-    let inline add<'a>(data:'a) = addMultiple<'a>([|data|])
+    let inline add<'a>(data:'a) = 
+        let key = modelsKey + typeof<'a>.FullName
+        async {
+            let! model = getModel<'a> key
+            let newId = model.AutoInc + 1
+            let newModel : string =
+                { TotalRows = model.TotalRows + 1
+                  AutoInc = newId
+                  Rows = Array.append [|data|] model.Rows }
+                |> toJson
+            let! _ = Globals.AsyncStorage.setItem(key,newModel) |> Async.AwaitPromise
+            return newId
+        }
 
     // Gets a row from the model
     let inline get<'a>(index:int) = 
