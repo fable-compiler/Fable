@@ -531,9 +531,7 @@ let createTree<'T> (handler:'T -> unit) tag (attributes:Attribute<'T> list) chil
         | None -> props
         | Some x -> x::props
         |> createObj
-        |> (fun x -> Debug.WriteLine("Attributes: {0}", x); x)
     let elem = h(tag, toAttrs attributes, List.toArray children)
-    Debug.WriteLine("Elem: {0}", elem)
     elem
 
 let rec render handler node =
