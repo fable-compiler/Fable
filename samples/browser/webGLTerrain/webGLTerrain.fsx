@@ -184,7 +184,7 @@ Here we initialize the elements necessary to draw the scene:
 the renderer, the scene itself, a camera and controls to move it.
 
 Note the use of a compiler directive: normally we take the whole window space,
-but if we are in the tutorial we should live space for the explanations.
+but if we are in the tutorial we should leave space for the explanations.
 *)
 
 let init() =

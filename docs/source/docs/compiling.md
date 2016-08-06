@@ -21,6 +21,7 @@ you are using the latest version of the compiler. If you installed it globally,
 you can update it with `npm install -g fable-compiler`. You can see the version
 installed with `fable --help` and the latest version available in npm with `npm info fable-compiler version`.
 
+> If you have problems on Windows [see this](https://github.com/fsprojects/Fable#requirements).
 
 ## CLI options
 

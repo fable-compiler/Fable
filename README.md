@@ -14,14 +14,14 @@ Some of its main features are:
 - Passes location data to Babel to generate source maps
 - Compatible with all Babel plugins and other JS development tools, like [Webpack](https://webpack.github.io)
 - Support for most of the [F# core library](http://fsprojects.github.io/Fable/docs/compatibility.html) and a bit of .NET Base Class Library
-- Tiny core library included (less than 10KB minified and gzipped) with no runtime
+- Tiny core library included (around 20KB minified and gzipped) with no runtime
 - Organizes code using ES6 modules
 - Interacts seamlessly with other [JavaScript libraries](http://fsprojects.github.io/Fable/docs/interacting.html)
 - Bonus: compile [NUnit tests to Mocha](http://fsprojects.github.io/Fable/docs/compiling.html#Testing)
 
 ## Usage
 
-A beta version has been released to [npm](https://www.npmjs.com/package/fable-compiler)! You can install and run it just by typing:
+Fable is distributed through [npm](https://www.npmjs.com/package/fable-compiler)! You can install and run it just by typing:
 
 ```shell
 npm install -g fable-compiler
@@ -30,19 +30,29 @@ fable path/to/your/project.fsproj
 
 > Note the package name is `fable-compiler` while the command is just `fable`
 
-> You must have [F# 4](http://fsharp.org) and [node 4.4](https://nodejs.org/en/) or higher installed in your computer.
-
-You can find more detailed instruction about F# to JS compilation in the [docs](http://fsprojects.github.io/Fable/docs/compiling.html).
+You can find more detailed instructions about F# to JS compilation in the [docs](http://fsprojects.github.io/Fable/docs/compiling.html).
 Also you can have a look at the [samples](http://fsprojects.github.io/Fable/samples.html) or download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
+
+## Requirements
+
+You must have [F# 4](http://fsharp.org) and [node 4.4](https://nodejs.org/en/) or higher installed in your computer.
+
+If you are having problems to use Fable under Windows, try the following:
+- Make sure `fsc.exe` is added to the path.
+- Install MSBuild tools 2013.
 
 ## Contributing
 
-At the moment, the best way to contribute is to battle-test the project, report issues,
-create samples and help promoting it. A [plugin system](http://fsprojects.github.io/Fable/docs/plugins.html) is also available
-to allow you extend Fable according to you needs.
+Just by using Fable you're already contributing! You can help a lot the community
+by sharing examples and experiences in your personal blog or by sending a PR to Fable's
+website ([see this](https://github.com/fsprojects/Fable/issues/162) for more info).
 
-Issues with the label `discussion` will be also added to ask the opinion of the community
-on different topics like the logo, roadmap, etc.
+Send bug reports (ideally with minimal code to reproduce the problem) and feature requests
+to the [GitHub repository](https://github.com/fsprojects/Fable/issues). Issues with the label `discussion` will be also added to ask the opinion of the community
+on different topics like the logo, roadmap, etc. For more immediate comments you can use the [Gitter chat](https://gitter.im/fsprojects/Fable).
+
+A [plugin system](http://fsprojects.github.io/Fable/docs/plugins.html) is also available
+to allow you extend Fable according to you needs.
 
 ## Caveats
 
