@@ -687,6 +687,12 @@ let inline image (props: IImageProperties list) : React.ReactElement<obj> =
         unbox props,
         unbox([||])) |> unbox
 
+let inline imageWithChild (props: IImageProperties list) (child: React.ReactElement<obj>) : React.ReactElement<obj> =
+    React.createElement(
+        RN.Image, 
+        unbox props,
+        unbox([|child|])) |> unbox        
+
 let inline touchableHighlight (props: ITouchableHighlightProperties list) (child: React.ReactElement<obj>): React.ReactElement<obj> =
     React.createElement(
         RN.TouchableHighlight,
