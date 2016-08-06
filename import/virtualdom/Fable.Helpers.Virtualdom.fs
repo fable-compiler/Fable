@@ -211,6 +211,20 @@ module Html =
         let inline attribute key value = Attribute.Attribute (key,value)
         let inline property key value = Attribute.Property (key,value)
 
+        /// Class attribute helper
+        let inline Class value = attribute "class" value
+
+        /// Helper to build space separated class
+        let inline classList (list: (string*bool) seq) =
+            list
+                |> Seq.filter (fun (c,cond) -> cond)
+                |> Seq.map (fun (c, cond) -> c)
+                |> String.concat " "
+                |> Class
+
+        let inline boolAttribute name (value: bool) =
+            attribute name (string value)
+
     [<AutoOpen>]
     module Events =
         let inline onMouseEvent eventType f = EventHandler (eventType, f)
