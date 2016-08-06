@@ -19,11 +19,11 @@ let m = Fable.Import.Node.require.Invoke("mithril")
 type Todo = { description: MithrilBase.Property<string>; complete: MithrilBase.Property<bool>;  }
 
 let todo (str :string) =
-    {description=M.prop str; complete=M.prop false}
+    {description=property str; complete=property false}
 
 type VM() =
     let mutable list :array<Todo> = [||]
-    let discription :BasicProperty<string> = M.prop ""
+    let discription :BasicProperty<string> = property ""
     
     member x.Discription with get () = discription
     
@@ -43,33 +43,33 @@ let vm = VM()
 let vm_init x = vm        
 
 
-
 let view = (fun (vm1 :VM) -> 
-    let attr1 = attr [ onChange (bindattr "value" vm1.Discription.set);
+    let attr1 = attr [ onChange (bindattr "value" vm1.Discription.set );
                        prop "value" (vm1.Discription.get ) ]
-    let children2 = vm1.List |> Seq.mapi (fun i x ->
-        tr None [
-                  td None [input (attr [ onClick (bindattr "checked" x.complete.set) ;
-                                                  prop "checked" (x.complete.get) ;
-                                                  prop "type" "checkbox"]) []] ;
-                  td (attr [style [ ("textDecoration",( if x.complete.get then "line-through" else "none") )] ]) [x.description.get]
-                ]) 
+    let children2 = 
+        vm1.List 
+        |> Seq.mapi (fun i x ->
+            tr None [
+                    td None [input (attr [ onClick (bindattr "checked" x.complete.set) ;
+                                                    prop "checked" (x.complete.get) ;
+                                                    prop "type" "checkbox"]) []] ;
+                    td (attr [incss [ ("textDecoration",( if x.complete.get then "line-through" else "none") )] ]) [x.description.get]
+                    ] :> obj) 
+        |> Seq.toList
+
     div None [
               input attr1 [];
-              button (attr [ onClick (fun e -> vm1.Add) ]) ["Add"];
-              table None [children2] 
+              button (attr [ onClick (fun e -> vm1.Add()) ]) ["Add"];
+              table None children2 
              ]
     )
         
-        
-    
 
-
-let com = newComponent vm_init view 
+let com = newComponent vm_init view
 
 
         
-M.mount(document.body, com )        
+mount(document.body, com )        
         
         
 (*  "devDependencies": {

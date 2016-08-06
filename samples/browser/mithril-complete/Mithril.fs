@@ -139,29 +139,37 @@ module MithrilBase =
 type Globals =
     [<Global>] static member m with get(): MithrilBase.Static = failwith "JS only" and set(v: MithrilBase.Static): unit = failwith "JS only"
 
-
-
-
 module Mithril =
     open MithrilBase
 
     let m = Fable.Import.Node.require.Invoke("mithril")
 
+    let (|VirtualElement|_|) (o: obj) =
+        if (box o?tag) <> null
+        then unbox<VirtualElement> o |> Some
+        else None 
+
+    let elem (tagName :string) (attr :Attributes option) (children :obj list) :VirtualElement = 
+                let c = children |> List.choose (fun x -> match x with
+                                                         | :? string as s -> Some (Child (String s))
+                                                         | VirtualElement v -> Some (Child v )
+                                                         | :? Component<Controller> as c -> Some (Child c )
+                                                        // | :? Seq<VirtualElement> as r -> r |> Seq.map (fun x -> x :> obj) |> ResizeArray<obj> |> Array |> Some
+                                                         | _ -> None) 
+                                 |> List.toArray
+                let ve =  match attr with
+                            | Some(a) -> Globals.m.Invoke(selector = tagName, attributes = a,children = c)
+                            | None -> Globals.m.Invoke(selector = tagName,children = c)
+
+                ve 
+
+    let onEvent (eventType :string) (f :Event -> unit) :string*obj = 
+            (eventType, Func<Event,unit>f :> obj)
+
+
     [<AutoOpen>]
     module VirtualDOM =
          
-        let inline elem (tagName :string) (attr :Attributes option) (children :obj list) :VirtualElement = 
-                let c = children |> List.choose (fun x -> match x with
-                                                         | :? string as s -> Some (Child (String s))
-                                                         | :? VirtualElement as v -> Some (Child v )
-                                                         | :? Component<Controller> as c -> Some (Child c )
-                                                         | :? seq<VirtualElement> as r -> r |> Seq.map (fun x -> x :> obj) |> Seq.toList |> ResizeArray<obj> |> Array |> Some
-                                                         | _ -> None) 
-                                 |> List.toArray
-                match attr with
-                    | Some(a) -> Globals.m.Invoke(selector = tagName, attributes = a,children = c)
-                    | None -> Globals.m.Invoke(selector = tagName,children = c)
-                
 
         // Elements - list of ELEM.elements here: https://developer.mozilla.org/en-US/docs/Web/HTML/Element
         // Void ELEM.elements
@@ -293,12 +301,6 @@ module Mithril =
     [<AutoOpen>]
     module Events =
 
-        let inline onEvent (eventType :string) (f :obj) :string*obj = 
-            match f with 
-             | :? Func<Event,unit> as fnc -> (eventType,fnc :> obj) 
-             | :? (Event -> unit) as fn -> (eventType, Func<Event,unit>fn :> obj)
-             | _ -> failwith "onEvent binding not a valid function"
-
         let inline onClick x = onEvent "onclick" x
         let inline onContextMenu x = onEvent "oncontextmenu" x
         let inline onDblClick x = onEvent "ondblclick" x
@@ -405,114 +407,91 @@ module Mithril =
 //        let inline fill x = attribute "fill" x
 
 
-    [<AutoOpen>]
-    module Extentions =
-        let inline attr (ls :(string *obj) list) =
-            let a = createEmpty<Attributes>
-            for (s,o) in ls do
-                match o with
-                | :? string as o2 -> if s = "class" then a.className <- Some(o2) else a.Item(s) <- o
-                | _ -> a.Item(s) <- o
-            Some(a)
 
-        let inline prop str (o :obj) =
-            (str,o)
+    let inline attr (ls :(string *obj) list) =
+        let a = createEmpty<Attributes>
+        for (s,o) in ls do
+            match o with
+            | :? string as o2 -> if s = "class" then a.className <- Some(o2) else a.Item(s) <- o
+            | _ -> a.Item(s) <- o
+        Some(a)
 
-        let event evt v func =
-            let f = (fun (a :obj) -> func (a :?> 'a) :> obj)
-            prop evt (Globals.m.withAttr(v,Func<obj,obj>(f)) :> obj)
+    let inline prop str (o :obj) =
+        (str,o)
 
-        let bindattr str func =
-            let f = (fun (a :obj) -> func (a :?> 'a) :> obj)
-            Globals.m.withAttr(str,Func<obj,obj>(f))
+    let event evt v func =
+        let f = (fun (a :obj) -> func (a :?> 'a) :> obj)
+        prop evt (Globals.m.withAttr(v,Func<obj,obj>(f)) :> obj)
 
-        let css str =
-            ("class",str)
+    let bindattr str func =
+        let f = (fun (a :obj) -> func (a :?> 'a) :> obj)
+        let s = Globals.m.withAttr(str,Func<obj,obj>(f))
+        (fun e -> s.Invoke(e))
 
-        let name str =
-            ("name",str)
+    let css str =
+        ("class",str)
 
-        let style ls =
-            let s = createEmpty
-            for (key,value) in ls do
-                s?key <- value
-            ("style",s)
+    let name str =
+        ("name",str)
 
-        let newComponent (c :obj [] -> 'a) (v :'a -> VirtualElement) =
-            let o = createEmpty<Component<'a>>
-            o?controller <- (fun x -> c x)
-            o?view <- v
-            o
-     
-     [<RequireQualifiedAccess>]
-     module M =     
+    let incss ls =
+        let s = createEmpty
+        for (key,value) in ls do
+            s?key <- value
+        ("style",s)
 
-        let m = Fable.Import.Node.require.Invoke("mithril")  
+    let newComponent (c :obj [] -> 'a) (v :'a -> VirtualElement) =
+        let o = createEmpty<Component<'a>>
+        o?controller <- (fun x -> c x)
+        o?view <- v
+        o
 
-        let mount ((elm:Node),(componen:Component<'T>))=
-            Globals.m.mount(elm,componen)
+    //m wraps
 
-        let prop (ob :'T) :BasicProperty<'T> =
-            Globals.m.prop(value = ob) 
+    let mount ((elm:Node),(componen:Component<'T>))=
+        Globals.m.mount(elm,componen)
 
-        let prom (ob :Thennable<'T>) :Promise<'T> =
-            Globals.m.prop(promise = ob)
-       // abstract route: obj with get, set
-      //  abstract deferred: obj with get, set
+    let property (ob :'T) :BasicProperty<'T> =
+        Globals.m.prop(value = ob) 
 
-        let defmodule ((elm:Node),(componen:Component<'T>)) =
-            Globals.m.``module``(elm,componen)
+    let prom (ob :Thennable<'T>) :Promise<'T> =
+        Globals.m.prop(promise = ob)
+    // abstract route: obj with get, set
+    //  abstract deferred: obj with get, set
 
-        let defcomponent ((componen:Component<'T>),(args:obj[])) =
-            Globals.m.``component``(componen,args)
+    let defmodule ((elm:Node),(componen:Component<'T>)) =
+        Globals.m.``module``(elm,componen)
 
-        let redraw() =
-            Globals.m.redraw.redraw()
+    let defcomponent ((componen:Component<'T>),(args:obj[])) =
+        Globals.m.``component``(componen,args)
 
-        let trust html =
-            Globals.m.trust html
+    let redraw() =
+        Globals.m.redraw.redraw()
 
-        let redrawStrategy(rdw:string) =
-            Globals.m.redraw.strategy <- rdw
+    let trust html =
+        Globals.m.trust html
 
-        let render (elm,children) =
-            Globals.m.render (elm,children)
+    let redrawStrategy(rdw:string) =
+        Globals.m.redraw.strategy <- rdw
 
-        let forceRender (elm,children,force) =
-            Globals.m.render (elm,children,force)
+    let render (elm,children) =
+        Globals.m.render (elm,children)
 
-        let requestJSON (opt: JSONPOptions) =
-            Globals.m.request opt
+    let forceRender (elm,children,force) =
+        Globals.m.render (elm,children,force)
 
-        let requestXHR (opt: XHROptions) =
-            Globals.m.request opt
+    let requestJSON (opt: JSONPOptions) =
+        Globals.m.request opt
 
-        let sync promises =
-            Globals.m.sync promises
+    let requestXHR (opt: XHROptions) =
+        Globals.m.request opt
 
-        let startComputation() =
-            Globals.m.startComputation()
-    
-        let endComputation() =
-            Globals.m.endComputation()
+    let sync promises =
+        Globals.m.sync promises
 
-        //    type AttributeBuilder a b = elem
-//
-//        //member this.Zero  a b = elem createEmpty<Attributes>
-//        member this.Bind (m :Attributes) f =
-//            let (s,o) = f ()
-//            m.Item(s) <- o
-//            m
-//
-//        member this.Return _ = createEmpty<Attributes>
-//
-//        [<CustomOperation("prop",MaintainsVariableSpaceUsingBind = true)>]    
-//        member this.Add m str obj =
-//            (fun () -> (str,obj))
-//
-//        [<CustomOperation("event",MaintainsVariableSpaceUsingBind = true)>]
-//        member this.With m evt (value :string) (func :('a -> 'b)) =
-//            let f = (fun (a :obj) ->  func (a :?> 'a) :> obj)
-//            (fun () -> (evt,Globals.m.withAttr(value,Func<obj,obj>(f))))
-//        
-//    let attr = AttributeBuilder()
+    let startComputation() =
+        Globals.m.startComputation()
+
+    let endComputation() =
+        Globals.m.endComputation()
+

@@ -1,6 +1,6 @@
 {
     "module": "commonjs",
-    "sourceMaps": true,
+    "sourceMaps": false,
     "outDir": "out",
     "scripts": {
         "prebuild": "npm install",
