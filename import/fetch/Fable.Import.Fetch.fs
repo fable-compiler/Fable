@@ -86,3 +86,24 @@ module Fetch =
         
     type GlobalFetch =
         [<Global>]static member fetch (req: RequestInfo, ?init: RequestInit) =  failwith "JS only" :Promise<Response>
+
+
+        static member fetchAsync (req: RequestInfo, init: RequestInit) : Async<Response> = 
+            GlobalFetch.fetch(req, init) |> Async.AwaitPromise
+
+        static member fetchAsync (req: RequestInfo) : Async<Response> = 
+            GlobalFetch.fetch(req) |> Async.AwaitPromise
+
+        static member fetchAs<'T> (req: RequestInfo, init: RequestInit) : Async<'T> = async {
+            let! fetched = GlobalFetch.fetch(req, init) |> Async.AwaitPromise
+            let! json = fetched.json() |> Async.AwaitPromise
+            let unpacked : 'T = unbox json
+            return unpacked
+        }
+
+        static member fetchAs<'T> (req: RequestInfo) : Async<'T> = async {
+            let! fetched = GlobalFetch.fetch(req) |> Async.AwaitPromise
+            let! json = fetched.json() |> Async.AwaitPromise
+            let unpacked : 'T = unbox json
+            return unpacked
+        }        
