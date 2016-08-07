@@ -1,6 +1,6 @@
 {
   "name": "fable-import-react-native",
-  "version": "0.6.11",
+  "version": "0.6.12",
   "description": "Fable bindings for React Native",
   "repository": {
     "type": "git",
@@ -8,6 +8,7 @@
   },
   "license": "Apache-2.0",
   "author": "Krzysztof Cieślak",
+  "contributors": ["Steffen Forkmann"],
   "keywords": [
     "fable",
     "fable-compiler",

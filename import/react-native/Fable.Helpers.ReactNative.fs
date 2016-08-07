@@ -319,7 +319,9 @@ module Props =
         | BorderWidth of float
         | Bottom of float
         | Flex of int
-        | FlexDirection of string
+        /// Adding flexDirection to a component's style determines the primary axis of its layout.
+        /// Should the children be organized horizontally (row) or vertically (column)? The default is column. 
+        | FlexDirection of FlexDirection
         | FlexWrap of string
         | Height of float
         | JustifyContent of string
