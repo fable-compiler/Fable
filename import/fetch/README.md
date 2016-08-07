@@ -18,6 +18,7 @@ $ npm install --save-dev fable-import-fetch
   <ItemGroup>
     <Reference Include="node_modules/fable-core/Fable.Core.dll" />
     <Compile Include="node_modules/fable-import-fetch/Fable.Import.Fetch.fs" />
+    <Compile Include="node_modules/fable-import-fetch/Fable.Helpers.Fetch.fs" />
   </ItemGroup>
 ```
 
@@ -26,7 +27,9 @@ $ npm install --save-dev fable-import-fetch
 ```fsharp
 #r "node_modules/fable-core/Fable.Core.dll"
 #load "node_modules/fable-import-fetch/Fable.Import.Fetch.fs"
+#load "node_modules/fable-import-fetch/Fable.Helpers.Fetch.fs"
 
 open Fable.Core
-open Fable.Import
+open Fable.Import.Fetch
+open Fable.Helpers.Fetch
 ```

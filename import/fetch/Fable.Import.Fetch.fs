@@ -34,19 +34,19 @@ module Fetch =
         abstract credentials: RequestCredentials option with get, set
         abstract cache: RequestCache option with get, set
 
-    and [<StringEnum>] RequestContext =
+    and [<StringEnum; RequireQualifiedAccess>] RequestContext =
         | Audio | Beacon | Cspreport | Download | Embed | Eventsource | Favicon | Fetch | Font 
         | Form | Frame | Hyperlink | Iframe | Image | Imageset | Import | Internal | Location 
         | Manifest | Object | Ping | Plugin | Prefetch | Script | Serviceworker | Sharedworker 
         | Subresource | Style | Track | Video | Worker | Xmlhttprequest | Xslt
 
-    and [<StringEnum>] RequestMode =
+    and [<StringEnum; RequireQualifiedAccess>] RequestMode =
         | [<CompiledName("same-origin")>]Sameorigin | [<CompiledName("no-cors")>]Nocors | Cors
 
-    and [<StringEnum>] RequestCredentials =
+    and [<StringEnum; RequireQualifiedAccess>] RequestCredentials =
         Omit | [<CompiledName("same-origin")>]Sameorigin | Include
 
-    and [<StringEnum>] RequestCache =
+    and [<StringEnum; RequireQualifiedAccess>] RequestCache =
         | Default
         | [<CompiledName("no-store")>]Nostore 
         | Reload
@@ -65,7 +65,7 @@ module Fetch =
     and [<AbstractClass; Import("*","Response")>] Response(?body: BodyInit, ?init: ResponseInit) =
         inherit Body()
 
-    and [<StringEnum>] ResponseType =
+    and [<StringEnum; RequireQualifiedAccess>] ResponseType =
         | Basic | Cors | Default | Error | Opaque
 
     and ResponseInit =
@@ -79,10 +79,31 @@ module Fetch =
     and BodyInit =
         U3<Browser.Blob, Browser.FormData, string>
 
-    [<Erase>]
+    [<Erase; RequireQualifiedAccess>]
     type RequestInfo =
         | Url of string
         | Req of Request
         
     type GlobalFetch =
         [<Global>]static member fetch (req: RequestInfo, ?init: RequestInit) =  failwith "JS only" :Promise<Response>
+
+
+        static member fetchAsync (req: RequestInfo, init: RequestInit) : Async<Response> = 
+            GlobalFetch.fetch(req, init) |> Async.AwaitPromise
+
+        static member fetchAsync (req: RequestInfo) : Async<Response> = 
+            GlobalFetch.fetch(req) |> Async.AwaitPromise
+
+        static member fetchAs<'T> (req: RequestInfo, init: RequestInit) : Async<'T> = async {
+            let! fetched = GlobalFetch.fetch(req, init) |> Async.AwaitPromise
+            let! json = fetched.json() |> Async.AwaitPromise
+            let unpacked : 'T = unbox json
+            return unpacked
+        }
+
+        static member fetchAs<'T> (req: RequestInfo) : Async<'T> = async {
+            let! fetched = GlobalFetch.fetch(req) |> Async.AwaitPromise
+            let! json = fetched.json() |> Async.AwaitPromise
+            let unpacked : 'T = unbox json
+            return unpacked
+        }        
