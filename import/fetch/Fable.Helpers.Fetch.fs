@@ -15,14 +15,12 @@ let inline fetchAsync (req: RequestInfo) : Async<Response> =
 
 let inline fetchAsWithInit<'T> (req: RequestInfo, init: RequestInit) : Async<'T> = async {
     let! fetched = GlobalFetch.fetch(req, init) |> Async.AwaitPromise
-    let! json = fetched.json() |> Async.AwaitPromise
-    let unpacked : 'T = unbox json
-    return unpacked
+    let! json = fetched.text() |> Async.AwaitPromise
+    return ofJson<'T> json
 }
 
 let inline fetchAs<'T> (req: RequestInfo) : Async<'T> = async {
     let! fetched = GlobalFetch.fetch(req) |> Async.AwaitPromise
-    let! json = fetched.json() |> Async.AwaitPromise
-    let unpacked : 'T = unbox json
-    return unpacked
-}        
+    let! json = fetched.text() |> Async.AwaitPromise
+    return ofJson<'T> json    
+}
