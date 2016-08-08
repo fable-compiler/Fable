@@ -51,3 +51,10 @@ let inline fetchAs<'T> (req: RequestInfo) : Async<'T> = async {
     let! json = fetched.text() |> Async.AwaitPromise
     return ofJson<'T> json    
 }
+
+/// Sends a HTTP post with the record serialized as JSON  
+let inline postRecord<'T> (req: RequestInfo,record:'T) : Async<Response> =
+    fetchAsyncWithInit(
+      req, 
+      [ RequestProperties.Method HttpMethod.POST
+        RequestProperties.Body (unbox (toJson record))])
