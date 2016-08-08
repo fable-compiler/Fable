@@ -129,7 +129,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         ]
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            buildApplyInfo com ctx r typ (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
+            buildApplyInfo com ctx r typ (unionType.FullName) ".ctor" Fable.Constructor ([],[],[]) (None,argExprs)
             |> replace com r
         else
             Fable.Apply (makeTypeRef com (Some range) unionType, argExprs, Fable.ApplyCons,
@@ -166,7 +166,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     // Pipe must come after ErasableLambda
     | Pipe (Transform com ctx callee, args) ->
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        makeApply range typ callee (List.map (transformExpr com ctx) args)
+        makeApply com range typ callee (List.map (transformExpr com ctx) args)
         
     | Composition (expr1, args1, expr2, args2) ->
         let lambdaArg = Naming.getUniqueVar() |> makeIdent
@@ -323,7 +323,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 ent.TryGetMember(traitName, Fable.Method, not flags.IsInstance, argTypes, argsEqual)
                 |> function Some m -> m.OverloadName | None -> traitName
             | _ -> traitName
-        makeGet range (Fable.Function(argTypes, typ)) callee (makeConst methName)
+        makeGet range (Fable.Function(List.map List.singleton argTypes, typ)) callee (makeConst methName)
         |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, range)
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
@@ -332,12 +332,18 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
+        // So far I've only seen application without arguments when accessing None values
+        if args.Length = 0 then callee else
         let args = List.map (transformExpr com ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        match callee.Type.FullName, args with
-        | "Fable.Core.Applicable", [Fable.Value(Fable.TupleConst args)] ->
+        match callee.Type.FullName with
+        | "Fable.Core.Applicable" ->
+            let args =
+                match args with
+                | [Fable.Value(Fable.TupleConst args)] -> args
+                | _ -> args
             Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
-        | _ -> makeApply range typ callee args
+        | _ -> makeApply com range typ callee args
         
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)
@@ -355,12 +361,30 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeSequential (makeRangeFrom fsExpr) [first; second]
 
     (** ## Lambdas *)
-    | BasicPatterns.Lambda (var, body) ->
-        let ctx, args = makeLambdaArgs com ctx [var]
-        Fable.Lambda (args, transformExpr com ctx body) |> Fable.Value
+    //| BasicPatterns.Lambda (var, body) ->
+    //    let ctx, args = makeLambdaArgs com ctx [var]
+    //    Fable.Lambda (args, transformExpr com ctx body) |> Fable.Value
+
+    | FlattenedLambda(args, body) ->
+        let ctx, args = makeLambdaArgs com ctx args
+        Fable.Lambda(args, transformExpr com ctx body) |> Fable.Value
+        // match transformExpr com ctx body with
+        // | Fable.Apply(Fable.Apply(_,_, Fable.ApplyGet,_,_) as callee, args', Fable.ApplyMeth,_,_) as e ->
+        //     let args = List.concat args
+        //     if args.Length = args'.Length then
+        //         (true, List.zip args args')
+        //         ||> List.fold (fun equal (a, a') ->
+        //             match equal, a' with
+        //             | false, _ -> false
+        //             | true, Fable.Value(Fable.IdentValue a') -> a = a'
+        //             | _ -> false)
+        //         |> function true -> callee | false -> e
+        //     else e
+        // | body ->
+        //     Fable.Lambda(args, body) |> Fable.Value
 
     | BasicPatterns.NewDelegate(_delegateType, Transform com ctx delegateBodyExpr) ->
-        makeDelegate None delegateBodyExpr
+        delegateBodyExpr
 
     (** ## Getters and Setters *)
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
@@ -508,7 +532,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            buildApplyInfo com ctx r typ (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
+            buildApplyInfo com ctx r typ (recordType.FullName) ".ctor" Fable.Constructor ([],[],[]) (None,argExprs)
             |> replace com r
         else
             Fable.Apply (makeTypeRef com (Some range) recordType, argExprs, Fable.ApplyCons,

@@ -737,49 +737,39 @@ export class Timer implements IDisposable {
 Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 
 class FString {
-  private static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+  private static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/g;
 
-  static fsFormat(str: any) {
+  static fsFormat(str: string) {
     function isObject(x: any) {
       return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
     }
-
-    function formatOnce(str: any, rep: any) {
-      return str.replace(FString.fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
-        switch (format) {
-          case "f": case "F":
-            rep = rep.toFixed(precision || 6); break;
-          case "g": case "G":
-            rep = rep.toPrecision(precision); break;
-          case "e": case "E":
-            rep = rep.toExponential(precision); break;
-          case "A":
-            rep = (rep instanceof FMap ? "map " : rep instanceof FSet ? "set " : "") + JSON.stringify(rep, function (k, v) {
-              return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v) : v;
-            });
-            break;
-        }
-        const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;
-        if (!isNaN(pad = parseInt(pad))) {
-          const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
-          rep = FString.padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
-        }
-        return prefix + (plusPrefix ? "+" + rep : rep);
-      });
-    }
-
-    function makeFn(str: any) {
-      return (rep: any) => {
-        const str2 = formatOnce(str, rep);
-        return FString.fsFormatRegExp.test(str2)
-          ? makeFn(str2) : _cont(str2.replace(/%%/g, "%"));
-      };
-    }
-
-    let _cont: any;
     return (cont: any) => {
-      _cont = cont;
-      return FString.fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
+      return (...args: any[]) => {
+        let i = 0;
+        const str2 = str.replace(FString.fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
+          let rep = args[i++];
+          switch (format) {
+            case "f": case "F":
+              rep = rep.toFixed(precision || 6); break;
+            case "g": case "G":
+              rep = rep.toPrecision(precision); break;
+            case "e": case "E":
+              rep = rep.toExponential(precision); break;
+            case "A":
+              rep = (rep instanceof FMap ? "map " : rep instanceof FSet ? "set " : "") + JSON.stringify(rep, function (k, v) {
+                return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v) : v;
+              });
+              break;
+          }
+          const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;
+          if (!isNaN(pad = parseInt(pad))) {
+            const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
+            rep = FString.padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
+          }
+          return prefix + (plusPrefix ? "+" + rep : rep);
+        });
+        return cont(str2.replace(/%%/g, "%"))
+      }
     };
   }
 
@@ -3762,9 +3752,9 @@ export const defaultAsyncBuilder = new AsyncBuilder();
 
 export class Async {
   static awaitPromise<T>(p: Promise<T>) {
-    return Async.fromContinuations((conts: Array<Continuation<T>>) =>
-      p.then(conts[0]).catch(err =>
-        (err == "cancelled" ? conts[2] : conts[1])(err)));
+    return Async.fromContinuations((successCont, errorCont, cancelCont) =>
+      p.then(successCont).catch(err =>
+        (err == "cancelled" ? cancelCont : errorCont)(err)));
   }
 
   static get cancellationToken() {
@@ -3787,8 +3777,8 @@ export class Async {
     isCancelled: false
   };
 
-  static fromContinuations<T>(f: (conts: Array<Continuation<T>>) => void) {
-    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
+  static fromContinuations<T>(f: (successCont: Continuation<T>, errorCont: Continuation<T>, cancelCont: Continuation<T>) => void) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => f(ctx.onSuccess, ctx.onError, ctx.onCancel));
   }
 
   static ignore<T>(computation: IAsync<T>) {
@@ -3915,11 +3905,11 @@ export class MailboxProcessor<Msg> {
   }
 
   receive() {
-    return Async.fromContinuations((conts: Array<Continuation<Msg>>) => {
+    return Async.fromContinuations((successCont, errorCont, cancelCont) => {
       if (this.continuation)
         throw "Receive can only be called once!";
 
-      this.continuation = conts[0];
+      this.continuation = successCont;
       this.__processEvents();
     });
   }
@@ -3944,8 +3934,8 @@ export class MailboxProcessor<Msg> {
     };
     this.messages.add(buildMessage(reply));
     this.__processEvents();
-    return Async.fromContinuations((conts: Array<Continuation<Reply>>) => {
-      continuation = conts[0];
+    return Async.fromContinuations((successCont, errorCont, cancelCont) => {
+      continuation = successCont;
       checkCompletion();
     });
   }

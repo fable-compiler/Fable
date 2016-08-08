@@ -68,10 +68,10 @@ let makeConst (value: obj) =
     |> Value
 
 let makeFnType args (body: Expr) =
-    Function(List.map Ident.getType args, body.Type)
+    Function(List.map (Ident.getType >> List.singleton) args, body.Type)
 
 let makeUnknownFnType (arity: int) =
-    Function(List.init arity (fun _ -> Any), Any)
+    Function(List.init arity (fun _ -> [Any]), Any)
 
 let makeGet range typ callee propExpr =
     Apply (callee, [propExpr], ApplyGet, typ, range)
@@ -111,7 +111,7 @@ let makeCall com range typ kind =
         match meth with
         | None -> owner
         | Some meth ->
-            let fnTyp = Function(List.map Expr.getType args, returnType)
+            let fnTyp = Function(List.map (Expr.getType >> List.singleton) args, returnType)
             Apply (owner, [makeConst meth], ApplyGet, fnTyp, None)
     let apply kind args callee =
         Apply(callee, args, kind, typ, range)
@@ -119,7 +119,7 @@ let makeCall com range typ kind =
         if isCons then ApplyCons else ApplyMeth
     match kind with
     | InstanceCall (callee, meth, args) ->
-        let fnTyp = Function(List.map Expr.getType args, typ)
+        let fnTyp = Function(List.map (Expr.getType >> List.singleton) args, typ)
         Apply (callee, [makeConst meth], ApplyGet, fnTyp, None)
         |> apply ApplyMeth args
     | ImportCall (importPath, modName, meth, isCons, args) ->
@@ -195,50 +195,60 @@ let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "e
 let makeUnionCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareRecords"
 
-let makeDelegate arity (expr: Expr) =
-    let rec flattenLambda (arity: int option) accArgs = function
-        | Value (Lambda (args, body)) when arity.IsNone || List.length accArgs < arity.Value ->
-            flattenLambda arity (accArgs@args) body
-        | _ when arity.IsSome && List.length accArgs < arity.Value ->
-            None
-        | _ as body ->
-            Value (Lambda (accArgs, body)) |> Some
-    let wrap arity expr =
-        match arity with
-        | Some arity when arity > 1 ->
-            let lambdaArgs =
-                [for i=1 to arity do
-                    yield {name=Naming.getUniqueVar(); typ=Any}]
-            let lambdaBody =
-                (expr, lambdaArgs)
-                ||> List.fold (fun callee arg ->
-                    Apply (callee, [Value (IdentValue arg)],
-                        ApplyMeth, Any, expr.Range))
-            Lambda (lambdaArgs, lambdaBody) |> Value
-        | _ -> expr // Do nothing
-    match expr, expr.Type with
-    | Value (Lambda (args, body)), _ ->
-        match flattenLambda arity args body with
-        | Some expr -> expr
-        | None -> wrap arity expr
-    | _, Function(args,_) ->
-        let arity = defaultArg arity (List.length args)
-        wrap (Some arity) expr
-    | _ -> expr
+let makeLambdaValue args body =
+    Value(Lambda(List.map List.singleton args, body))
 
 // Check if we're applying against a F# let binding
-let makeApply range typ callee exprs =
+let rec makeApply com range typ callee (args: Fable.Expr list) =
     let callee =
         match callee with
-        // If we're applying against a F# let binding, wrap it with a lambda
+        // F# let binding: Surround with a lambda
         | Sequential _ ->
             Apply(Value(Lambda([],callee)), [], ApplyMeth, callee.Type, callee.Range)
-        | _ -> callee        
-    let lasti = (List.length exprs) - 1
-    ((0, callee), exprs) ||> List.fold (fun (i, callee) expr ->
-        let typ' = if i = lasti then typ else makeUnknownFnType (i+1)
-        i + 1, Apply (callee, [expr], ApplyMeth, typ', range))
-    |> snd    
+        | _ -> callee
+    match callee.Type with
+    | Function(argGroups, _) ->
+        if argGroups.Length <= args.Length then
+            List.zip argGroups (List.take argGroups.Length args)
+            |> List.map (fun (argTypeGroup, arg) ->
+                if argTypeGroup.Length > 1 then
+                    match arg with
+                    | Value(TupleConst args) -> args, []
+                    | _ ->
+                        // Destruct the tuple
+                        let args, decls =
+                            argTypeGroup |> List.mapi (fun i _ ->
+                                let var = Naming.getUniqueVar() |> makeIdent
+                                Value(IdentValue var),
+                                VarDeclaration(var, Apply(arg, [makeConst i], ApplyGet, Any, None), false))
+                            |> List.unzip
+                        args, decls
+                else [arg], [])
+            |> List.unzip
+            |> fun (args', destruct) ->
+                let destruct = List.concat destruct
+                let args = (List.concat args')@(List.skip argGroups.Length args)
+                let apply = Apply(callee, args, ApplyMeth, typ, range)
+                if destruct.Length > 0
+                then Sequential(destruct@[apply], range)
+                else apply
+        else // argGroups.Length > args.Length
+            List.skip args.Length argGroups
+            |> List.map (fun ts ->
+                ts |> List.map (fun t -> {name=Naming.getUniqueVar(); typ=t}))
+            |> fun argGroups2 ->
+                let args2 = argGroups2 |> List.map (fun argGroup ->
+                    match List.map (IdentValue >> Value) argGroup with
+                    | [x] -> x
+                    | xs -> TupleConst xs |> Value)
+                Lambda(argGroups2, makeApply com range typ callee (args@args2)) |> Value
+    | _ ->
+        Apply(callee, args, ApplyMeth, typ, range)
+        // let lasti = (List.length args) - 1
+        // ((0, callee), args) ||> List.fold (fun (i, callee) expr ->
+        //     let typ = if i = lasti then typ else makeUnknownFnType (i+1)
+        //     i + 1, Apply (callee, [expr], ApplyMeth, typ, range))
+        // |> snd
 
 let makeJsObject range (props: (string * Expr) list) =
     let decls = props |> List.map (fun (name, body) ->

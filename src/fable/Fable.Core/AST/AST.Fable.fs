@@ -19,7 +19,7 @@ type Type =
     | Number of NumberKind
     | Array of genericArg: Type
     | Tuple of genericArgs: Type list
-    | Function of argTypes: Type list * returnType: Type
+    | Function of curriedParamGroups: Type list list * returnType: Type
     | GenericParam of name: string
     | Enum of fullName: string
     | DeclaredType of Entity * genericArgs: Type list
@@ -29,14 +29,14 @@ type Type =
         | Enum fullName -> fullName
         | Array typ -> typ.FullName + "[]"
         | Function (argTypes, returnType) ->
-            "(" + (argTypes |> Seq.map (fun x -> x.FullName) |> String.concat ", ") + ")=>" + returnType.FullName
+            "(" + (Seq.concat argTypes |> Seq.map (fun x -> x.FullName) |> String.concat ", ") + ")=>" + returnType.FullName
         | DeclaredType(ent,_) -> ent.FullName
         | _ -> sprintf "%A" x
     member x.GenericArgs =
         match x with
         | Array genArg -> [genArg]
         | Tuple genArgs -> genArgs
-        | Function(argTypes, returnType) -> argTypes@[returnType]
+        | Function(argTypes, returnType) -> (List.concat argTypes)@[returnType]
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
 
@@ -161,8 +161,6 @@ and ApplyInfo = {
         decorators: Decorator list
         calleeTypeArgs: Type list
         methodTypeArgs: Type list
-        /// If the method accepts a lambda as first argument, indicates its arity 
-        lambdaArgArity: int
     }
 
 and ApplyKind =
@@ -193,7 +191,7 @@ and ValueKind =
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
-    | Lambda of args: Ident list * body: Expr
+    | Lambda of curriedParamGroups: Ident list list * body: Expr
     | Emit of string
     member x.Type =
         match x with
@@ -207,12 +205,12 @@ and ValueKind =
         | BoolConst _ -> Boolean
         | ArrayConst (_, typ) -> Array typ
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
-        | UnaryOp _ -> Function([Any], Any)
-        | BinaryOp _ | LogicalOp _ -> Function([Any; Any], Any)
-        | Lambda (args, body) -> Function(List.map Ident.getType args, body.Type)
+        | UnaryOp _ -> Function([[Any]], Any)
+        | BinaryOp _ | LogicalOp _ -> Function([[Any]; [Any]], Any)
+        | Lambda (args, body) -> Function(List.map (List.map Ident.getType) args, body.Type)
     member x.Range: SourceLocation option =
         match x with
-        | Lambda (_, body) -> body.Range
+        | Lambda (_,body) -> body.Range
         | _ -> None
 
 and LoopKind =
