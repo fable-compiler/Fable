@@ -29,7 +29,23 @@ $ npm install --save-dev fable-import-fetch
 #load "node_modules/fable-import-fetch/Fable.Import.Fetch.fs"
 #load "node_modules/fable-import-fetch/Fable.Helpers.Fetch.fs"
 
+```
+
+### Using Fetch from F#
+
+```fsharp
 open Fable.Core
 open Fable.Import.Fetch
 open Fable.Helpers.Fetch
+
+// getting data and parsing from JSON
+async { 
+    try 
+        let! records =
+            fetchAs<MyRecord[]>(RequestInfo.Url "http://www.server.com/data.json" 
+        // ...
+    with
+    | error -> ...
+} 
+
 ```
