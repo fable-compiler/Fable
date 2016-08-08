@@ -239,7 +239,7 @@ let ``lazy works``() =
 let ``Lazy.CreateFromValue works``() =
     let mutable snitch = 0 
     let lazyVal =
-        Lazy.CreateFromValue(
+        Lazy<_>.CreateFromValue(
             snitch <- snitch + 1
             5)
     equal 1 snitch
@@ -250,7 +250,7 @@ let ``Lazy.CreateFromValue works``() =
 let ``lazy.IsValueCreated works``() =
     let mutable snitch = 0 
     let lazyVal =
-        Lazy.Create(fun () ->
+        Lazy<_>.Create(fun () ->
             snitch <- snitch + 1
             5)
     equal 0 snitch

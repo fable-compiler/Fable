@@ -1,0 +1,49 @@
+{
+  "version": "1.0.0-*",
+  "buildOptions": {
+    "debugType": "portable",
+    "emitEntryPoint": true,
+    "compilerName": "fsc",
+    "compile": {
+      "includeFiles": [
+        "Main.fs"
+      ]
+    },
+    "define": [
+      "DOTNETCORE",
+      "TRACE"
+    ]
+  },
+  "dependencies": {
+    "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*",
+    "Fable.Core": {
+      "version": "1.0.0-*",
+      "target": "project"
+    },
+    "Fable.Compiler": {
+      "version": "1.0.0-*",
+      "target": "project"
+    },
+    "FSharp.Compiler.Service.ProjectCracker": {
+      "version": "6.0.1",
+      "target": "project"
+    }
+  },
+  "frameworks": {
+    "netcoreapp1.0": {
+      "dependencies": {
+        "Microsoft.NETCore.App": {
+          "type": "platform",
+          "version": "1.0.0"
+        }
+      },
+      "imports": "dnxcore50"
+    }
+  },
+  "tools": {
+    "dotnet-compile-fsc": {
+      "version": "1.0.0-preview2-*",
+      "imports": "dnxcore50"
+    }
+  }
+}

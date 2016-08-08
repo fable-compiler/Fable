@@ -1,0 +1,3 @@
+{
+  "projects": [ "../FSharp.Compiler.Service/src/fsharp", "src/fable" ]
+}

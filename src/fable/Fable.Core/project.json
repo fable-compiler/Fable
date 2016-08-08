@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "buildOptions": {
+    "debugType": "portable",
+    "emitEntryPoint": false,
+    "compilerName": "fsc",
+    "compile": {
+      "includeFiles": [
+        "Compiler.fs",
+        "Util.fs",
+        "AST/AST.Common.fs",
+        "AST/AST.Fable.fs",
+        "AST/AST.Fable.Util.fs",
+        "AST/AST.Babel.fs",
+        "Plugins.fs",
+        "Fable.Core.fs",
+        "Import/Fable.Import.JS.fs",
+        "Import/Fable.Import.Browser.fs",
+        "Import/Fable.Import.Node.fs",
+        "Fable.Core.Extensions.fs"
+      ]
+    },
+    "define": [
+      "DOTNETCORE",
+      "TRACE"
+    ],
+    "nowarn": [
+      "44",
+      "2003"
+    ],
+    "xmlDoc": true,
+    "delaySign": true,
+    "warningsAsErrors": true,
+    "additionalArguments": [
+      "--fullpaths",
+      "--flaterrors",
+    ]
+  },
+  "dependencies": {
+    "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*",
+  },
+  "tools": {
+    "dotnet-compile-fsc": {
+      "version": "1.0.0-preview2-*",
+      "imports": "dnxcore50"
+    }
+  },
+  "frameworks": {
+    "netstandard1.6": {
+      "NETStandard.Library": "1.6.0"
+    }
+  }
+}

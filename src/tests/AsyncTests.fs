@@ -227,7 +227,14 @@ let ``Promises can be cancelled``() =
             #else
             Async.StartAsTask(work, cancellationToken=tcs.Token) |> Async.AwaitTask
             #endif
+#if DOTNETCORE
+        // For some reason in .NET Core the cancelled task is triggering the exception handler (unlike .NET 4.6)
+        // This is temporary work-around, until https://github.com/Microsoft/visualfsharp/issues/1416 is fixed.
+        let isCancelledEx ex = match box ex with | :? System.OperationCanceledException -> res := 1 | _ -> ()
+        Async.StartWithContinuations(work, ignore, isCancelledEx, (fun _ -> res := 1))
+#else
         Async.StartWithContinuations(work, ignore, ignore, (fun _ -> res := 1))
+#endif
         do! Async.Sleep 100
         equal 1 !res
     } |> Async.RunSynchronously

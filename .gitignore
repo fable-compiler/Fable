@@ -204,6 +204,7 @@ temp*/
 
 # Test results produced by build
 TestResults.xml
+TestResult.xml
 
 # Nuget outputs
 nuget/*.nupkg
@@ -219,3 +220,4 @@ docs/content/release-notes.md
 docs/tools/FSharp.Formatting.svclog
 .ionide.debug
 *.bak
+project.lock.json
