@@ -188,7 +188,7 @@ module Util =
             |> Babel.TupleTypeAnnotation
             :> Babel.TypeAnnotationInfo
         | Fable.Function(argTypes, returnType) ->
-            List.concat argTypes
+            argTypes
             |> List.mapi (fun i argType ->
                 Babel.FunctionTypeParam(
                     Babel.Identifier("arg" + (string i)),
@@ -332,7 +332,7 @@ module Util =
         | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
         | Fable.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
         | Fable.Lambda (args, body) ->
-            let args, body = com.TransformFunction ctx (List.concat args) body
+            let args, body = com.TransformFunction ctx args body
             // It's important to use arrow functions to lexically bind `this`
             upcast Babel.ArrowFunctionExpression (args, body, ?loc=r)
         | Fable.ArrayConst (cons, typ) -> buildArray com ctx cons typ

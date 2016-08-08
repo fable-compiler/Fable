@@ -67,12 +67,6 @@ let makeConst (value: obj) =
     | _ -> failwithf "Unexpected literal %O" value
     |> Value
 
-let makeFnType args (body: Expr) =
-    Function(List.map (Ident.getType >> List.singleton) args, body.Type)
-
-let makeUnknownFnType (arity: int) =
-    Function(List.init arity (fun _ -> [Any]), Any)
-
 let makeGet range typ callee propExpr =
     Apply (callee, [propExpr], ApplyGet, typ, range)
 
@@ -111,7 +105,7 @@ let makeCall com range typ kind =
         match meth with
         | None -> owner
         | Some meth ->
-            let fnTyp = Function(List.map (Expr.getType >> List.singleton) args, returnType)
+            let fnTyp = Function(List.map Expr.getType args, returnType)
             Apply (owner, [makeConst meth], ApplyGet, fnTyp, None)
     let apply kind args callee =
         Apply(callee, args, kind, typ, range)
@@ -119,7 +113,7 @@ let makeCall com range typ kind =
         if isCons then ApplyCons else ApplyMeth
     match kind with
     | InstanceCall (callee, meth, args) ->
-        let fnTyp = Function(List.map (Expr.getType >> List.singleton) args, typ)
+        let fnTyp = Function(List.map Expr.getType args, typ)
         Apply (callee, [makeConst meth], ApplyGet, fnTyp, None)
         |> apply ApplyMeth args
     | ImportCall (importPath, modName, meth, isCons, args) ->
@@ -195,9 +189,6 @@ let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "e
 let makeUnionCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareRecords"
 
-let makeLambdaValue args body =
-    Value(Lambda(List.map List.singleton args, body))
-
 // Check if we're applying against a F# let binding
 let rec makeApply com range typ callee (args: Fable.Expr list) =
     let callee =
@@ -207,41 +198,16 @@ let rec makeApply com range typ callee (args: Fable.Expr list) =
             Apply(Value(Lambda([],callee)), [], ApplyMeth, callee.Type, callee.Range)
         | _ -> callee
     match callee.Type with
-    | Function(argGroups, _) ->
-        if argGroups.Length <= args.Length then
-            List.zip argGroups (List.take argGroups.Length args)
-            |> List.map (fun (argTypeGroup, arg) ->
-                if argTypeGroup.Length > 1 then
-                    match arg with
-                    | Value(TupleConst args) -> args, []
-                    | _ ->
-                        // Destruct the tuple
-                        let args, decls =
-                            argTypeGroup |> List.mapi (fun i _ ->
-                                let var = Naming.getUniqueVar() |> makeIdent
-                                Value(IdentValue var),
-                                VarDeclaration(var, Apply(arg, [makeConst i], ApplyGet, Any, None), false))
-                            |> List.unzip
-                        args, decls
-                else [arg], [])
-            |> List.unzip
-            |> fun (args', destruct) ->
-                let destruct = List.concat destruct
-                let args = (List.concat args')@(List.skip argGroups.Length args)
-                let apply = Apply(callee, args, ApplyMeth, typ, range)
-                if destruct.Length > 0
-                then Sequential(destruct@[apply], range)
-                else apply
-        else // argGroups.Length > args.Length
-            List.skip args.Length argGroups
-            |> List.map (fun ts ->
-                ts |> List.map (fun t -> {name=Naming.getUniqueVar(); typ=t}))
-            |> fun argGroups2 ->
-                let args2 = argGroups2 |> List.map (fun argGroup ->
-                    match List.map (IdentValue >> Value) argGroup with
-                    | [x] -> x
-                    | xs -> TupleConst xs |> Value)
-                Lambda(argGroups2, makeApply com range typ callee (args@args2)) |> Value
+    | Function(argTypes, _) ->
+        if argTypes.Length <= args.Length
+        then Apply(callee, args, ApplyMeth, typ, range)
+        else
+            List.skip args.Length argTypes
+            |> List.map (fun t -> {name=Naming.getUniqueVar(); typ=t})
+            |> fun argTypes2 ->
+                let args2 = argTypes2 |> List.map (IdentValue >> Value)
+                makeApply com range typ callee (args@args2)
+                |> makeLambdaExpr argTypes2
     | _ ->
         Apply(callee, args, ApplyMeth, typ, range)
         // let lasti = (List.length args) - 1

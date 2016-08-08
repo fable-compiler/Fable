@@ -3752,9 +3752,9 @@ export const defaultAsyncBuilder = new AsyncBuilder();
 
 export class Async {
   static awaitPromise<T>(p: Promise<T>) {
-    return Async.fromContinuations((successCont, errorCont, cancelCont) =>
-      p.then(successCont).catch(err =>
-        (err == "cancelled" ? cancelCont : errorCont)(err)));
+    return Async.fromContinuations((conts: Array<Continuation<T>>) =>
+      p.then(conts[0]).catch(err =>
+        (err == "cancelled" ? conts[2] : conts[1])(err)));
   }
 
   static get cancellationToken() {
@@ -3777,8 +3777,8 @@ export class Async {
     isCancelled: false
   };
 
-  static fromContinuations<T>(f: (successCont: Continuation<T>, errorCont: Continuation<T>, cancelCont: Continuation<T>) => void) {
-    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => f(ctx.onSuccess, ctx.onError, ctx.onCancel));
+  static fromContinuations<T>(f: (conts: Array<Continuation<T>>) => void) {
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
   }
 
   static ignore<T>(computation: IAsync<T>) {
@@ -3905,11 +3905,11 @@ export class MailboxProcessor<Msg> {
   }
 
   receive() {
-    return Async.fromContinuations((successCont, errorCont, cancelCont) => {
+    return Async.fromContinuations((conts: Array<Continuation<Msg>>) => {
       if (this.continuation)
         throw "Receive can only be called once!";
 
-      this.continuation = successCont;
+      this.continuation = conts[0];
       this.__processEvents();
     });
   }
@@ -3934,8 +3934,8 @@ export class MailboxProcessor<Msg> {
     };
     this.messages.add(buildMessage(reply));
     this.__processEvents();
-    return Async.fromContinuations((successCont, errorCont, cancelCont) => {
-      continuation = successCont;
+    return Async.fromContinuations((conts: Array<Continuation<Reply>>) => {
+      continuation = conts[0];
       checkCompletion();
     });
   }

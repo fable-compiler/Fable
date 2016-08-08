@@ -323,7 +323,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 ent.TryGetMember(traitName, Fable.Method, not flags.IsInstance, argTypes, argsEqual)
                 |> function Some m -> m.OverloadName | None -> traitName
             | _ -> traitName
-        makeGet range (Fable.Function(List.map List.singleton argTypes, typ)) callee (makeConst methName)
+        makeGet range (Fable.Function(argTypes, typ)) callee (makeConst methName)
         |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, range)
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
@@ -365,23 +365,20 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     //    let ctx, args = makeLambdaArgs com ctx [var]
     //    Fable.Lambda (args, transformExpr com ctx body) |> Fable.Value
 
-    | FlattenedLambda(args, body) ->
+    | FlattenedLambda(args, destructs, body) ->
         let ctx, args = makeLambdaArgs com ctx args
-        Fable.Lambda(args, transformExpr com ctx body) |> Fable.Value
-        // match transformExpr com ctx body with
-        // | Fable.Apply(Fable.Apply(_,_, Fable.ApplyGet,_,_) as callee, args', Fable.ApplyMeth,_,_) as e ->
-        //     let args = List.concat args
-        //     if args.Length = args'.Length then
-        //         (true, List.zip args args')
-        //         ||> List.fold (fun equal (a, a') ->
-        //             match equal, a' with
-        //             | false, _ -> false
-        //             | true, Fable.Value(Fable.IdentValue a') -> a = a'
-        //             | _ -> false)
-        //         |> function true -> callee | false -> e
-        //     else e
-        // | body ->
-        //     Fable.Lambda(args, body) |> Fable.Value
+        let ctx, assignments =
+            ((ctx, []), destructs)
+            ||> List.fold (fun (ctx, assignments) (var, i, arg) ->
+                let ctx, ident = bindIdentFrom com ctx var
+                let tupleGet = Fable.Apply(getBoundExpr ctx arg, [makeConst i], Fable.ApplyGet, ident.typ, None)
+                let assignment = Fable.VarDeclaration(ident, tupleGet, false)
+                ctx, (assignment::assignments))
+        let body = transformExpr com ctx body
+        match assignments with
+        | [] -> body
+        | decls -> makeSequential (makeRangeFrom fsExpr) ((List.rev assignments)@[body])
+        |> makeLambdaExpr args
 
     | BasicPatterns.NewDelegate(_delegateType, Transform com ctx delegateBodyExpr) ->
         delegateBodyExpr

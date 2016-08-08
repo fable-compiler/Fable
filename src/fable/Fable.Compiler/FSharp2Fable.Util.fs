@@ -306,20 +306,20 @@ module Patterns =
         | _ -> None
 
     let (|FlattenedLambda|_|) fsExpr =
-        let rec destruct args = function
-            | Let ((arg, TupleGet _), body) -> destruct (arg::args) body
-            | e -> args, e
-        let rec flattenLambda args = function
+        let rec flattenDestructs destructs = function
+            | Let ((var, TupleGet(_,i,Value arg)), body) -> flattenDestructs ((var,i,arg)::destructs) body
+            | e -> destructs, e
+        let rec flattenLambda args destructs = function
             | Lambda(arg, body) ->
-                let args, body =
+                let destructs, body =
                     if arg.FullType.IsTupleType && arg.IsCompilerGenerated && arg.CompiledName = "tupledArg"
-                    then let args', body = destruct [] body in (List.rev args')::args, body
-                    else ([arg]::args), body
-                flattenLambda args body
-            | e -> args, e
-        match flattenLambda [] fsExpr with
-        | [], _ -> None
-        | args, body -> Some(List.rev args, body)
+                    then flattenDestructs destructs body
+                    else destructs, body
+                flattenLambda (arg::args) destructs body
+            | e -> args, destructs, e
+        match flattenLambda [] [] fsExpr with
+        | [], _, _ -> None
+        | args, destructs, body -> Some(List.rev args, List.rev destructs, body)
 
     /// This matches the boilerplate F# compiler generates for methods
     /// like Dictionary.TryGetValue (see #154)
@@ -521,9 +521,9 @@ module Types =
         elif tdef.IsDelegate
         then
             match Seq.length genArgs with
-            | 0 -> [[Fable.Unit]], Fable.Unit
-            | 1 -> [[Seq.head genArgs |> makeType com ctx]], Fable.Unit
-            | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx >> List.singleton) |> Seq.toList,
+            | 0 -> [Fable.Unit], Fable.Unit
+            | 1 -> [Seq.head genArgs |> makeType com ctx], Fable.Unit
+            | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList,
                     Seq.last genArgs |> makeType com ctx
             |> Fable.Function
         // Object
@@ -565,7 +565,7 @@ module Types =
         elif t.IsFunctionType
         then
             let gs = getFnGenArgs [] t
-            (List.rev gs.Tail |> List.map (makeType com ctx >> List.singleton), makeType com ctx gs.Head)
+            (List.rev gs.Tail |> List.map (makeType com ctx), makeType com ctx gs.Head)
             |> Fable.Function
         elif t.HasTypeDefinition
         then makeTypeFromDef com ctx t.TypeDefinition t.GenericArguments
@@ -636,9 +636,11 @@ module Util =
         | [[singleArg]] when isUnit singleArg.FullType -> ctx, []
         // The F# compiler "untuples" the args in methods
         | args ->
-            let ctx, args = makeLambdaArgs com ctx args
-            // The F# compiler "untuples" the args in methods
-            ctx, List.concat args
+            List.foldBack (fun tupledArg (ctx, accArgs) ->
+                // The F# compiler "untuples" the args in methods
+                let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
+                ctx, untupledArg@accArgs
+            ) args (ctx, [])
 
     let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
         let catchClause =
@@ -846,7 +848,7 @@ module Util =
                             let ent = makeEntity com meth.EnclosingEntity
                             ent.TryGetMember(methName, methKind, isStatic, argTypes)
                             |> function Some m -> m.OverloadName | None -> methName
-                        let calleeType = Fable.Function(List.map List.singleton argTypes, typ)
+                        let calleeType = Fable.Function(argTypes, typ)
                         makeGet r calleeType callee (makeConst methName)
                     |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
 
