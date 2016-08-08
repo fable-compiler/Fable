@@ -48,4 +48,15 @@ async {
     | error -> ...
 } 
 
+// posting data to a server
+async { 
+    let! response =
+        fetchAsyncWithInit(
+            RequestInfo.Url "http://www.server.com/data.json" , 
+            [ RequestProperties.Method HttpMethod.POST
+              RequestProperties.Body (unbox "hello world3!!")])
+
+        // ...              
+}
+
 ```
