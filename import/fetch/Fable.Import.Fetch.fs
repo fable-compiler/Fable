@@ -81,7 +81,9 @@ module Fetch =
 
     [<Erase; RequireQualifiedAccess>]
     type RequestInfo =
+        /// Uses a simple Url as string to create the request info
         | Url of string
+        /// Uses a Request object as request info
         | Req of Request
         
     type GlobalFetch =
