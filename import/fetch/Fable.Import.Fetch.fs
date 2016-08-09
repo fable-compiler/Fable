@@ -66,6 +66,8 @@ module Fetch =
 
         /// Verifies that the fetch was successful
         abstract ok: bool
+        /// Returns the HTTP status code
+        abstract status: int
 
     and [<StringEnum; RequireQualifiedAccess>] ResponseType =
         | Basic | Cors | Default | Error | Opaque
