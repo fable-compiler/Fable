@@ -305,6 +305,14 @@ module Patterns =
             else None
         | _ -> None
 
+    let (|FlattenedApplication|_|) fsExpr =
+        // Application args can be empty sometimes so a flag is needed
+        let rec flattenApplication flag args = function
+            | Application(callee, _, args2) ->
+                flattenApplication true (args2@args) callee
+            | callee -> if flag then Some(callee, args) else None 
+        flattenApplication false [] fsExpr
+
     let (|FlattenedLambda|_|) fsExpr =
         let rec flattenDestructs destructs = function
             | Let ((var, TupleGet(_,i,Value arg)), body) -> flattenDestructs ((var,i,arg)::destructs) body
@@ -316,10 +324,11 @@ module Patterns =
                     then flattenDestructs destructs body
                     else destructs, body
                 flattenLambda (arg::args) destructs body
-            | e -> args, destructs, e
-        match flattenLambda [] [] fsExpr with
-        | [], _, _ -> None
-        | args, destructs, body -> Some(List.rev args, List.rev destructs, body)
+            | body ->
+                if List.isEmpty args
+                then None
+                else Some(List.rev args, List.rev destructs, body)
+        flattenLambda [] [] fsExpr
 
     /// This matches the boilerplate F# compiler generates for methods
     /// like Dictionary.TryGetValue (see #154)
@@ -449,6 +458,13 @@ module Types =
         | args -> List.concat args |> List.map (fun x -> makeType com Context.Empty x.Type)            
 
     and getMembers com (tdef: FSharpEntity) =
+        let getArgTypes com (args: IList<IList<FSharpParameter>>) =
+            // FSharpParameters don't contain the `this` arg
+            match args |> Seq.map Seq.toList |> Seq.toList with
+            | [] -> []
+            | [[singleArg]] when isUnit singleArg.Type -> []
+            // The F# compiler "untuples" the args in methods
+            | args -> List.concat args |> List.map (fun x -> makeType com Context.Empty x.Type)
         let isOverloadable =
             // TODO: Use overload index for interfaces too? (See overloadIndex below too)
             not(tdef.IsInterface || isImported tdef || isReplaceCandidate com tdef)
@@ -791,6 +807,7 @@ module Util =
                      (typArgs, methTypArgs) callee args =
         let argTypes = getArgTypes com meth.CurriedParameterGroups                     
         let args =
+            let args = ensureArity argTypes args
             if hasRestParams meth then
                 let args = List.rev args
                 match args.Head with

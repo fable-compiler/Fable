@@ -166,7 +166,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     // Pipe must come after ErasableLambda
     | Pipe (Transform com ctx callee, args) ->
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        makeApply com range typ callee (List.map (transformExpr com ctx) args)
+        makeApply range typ callee (List.map (transformExpr com ctx) args)
         
     | Composition (expr1, args1, expr2, args2) ->
         let lambdaArg = Naming.getUniqueVar() |> makeIdent
@@ -331,7 +331,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
-    | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
+    | FlattenedApplication(Transform com ctx callee, args) ->
         // So far I've only seen application without arguments when accessing None values
         if args.Length = 0 then callee else
         let args = List.map (transformExpr com ctx) args
@@ -343,7 +343,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 | [Fable.Value(Fable.TupleConst args)] -> args
                 | _ -> args
             Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
-        | _ -> makeApply com range typ callee args
+        | _ -> makeApply range typ callee args
         
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)

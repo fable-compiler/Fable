@@ -189,8 +189,27 @@ let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "e
 let makeUnionCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareRecords"
 
+let ensureArity argTypes args =
+    let (|Type|) (expr: Fable.Expr) = expr.Type
+    if List.length argTypes <> List.length args then args else // TODO: Raise warning?
+    List.zip argTypes args
+    |> List.map (function
+        | Fable.Function(expected,_), (Type(Fable.Function(actual,returnType)) as f)
+            when expected.Length < actual.Length ->
+            let outerArgs =
+                expected |> List.map (fun t -> makeTypedIdent (Naming.getUniqueVar()) t)
+            let innerLambda =
+                List.skip expected.Length actual
+                |> List.map (fun t -> makeTypedIdent (Naming.getUniqueVar()) t)
+                |> fun innerArgs ->
+                    let args = outerArgs@innerArgs |> List.map (Fable.IdentValue >> Fable.Value)
+                    Fable.Apply(f, args, Fable.ApplyMeth, returnType, f.Range)
+                    |> makeLambdaExpr innerArgs
+            makeLambdaExpr outerArgs innerLambda
+        | (_,arg) -> arg)
+
 // Check if we're applying against a F# let binding
-let rec makeApply com range typ callee (args: Fable.Expr list) =
+let rec makeApply range typ callee (args: Fable.Expr list) =
     let callee =
         match callee with
         // F# let binding: Surround with a lambda
@@ -200,21 +219,16 @@ let rec makeApply com range typ callee (args: Fable.Expr list) =
     match callee.Type with
     | Function(argTypes, _) ->
         if argTypes.Length <= args.Length
-        then Apply(callee, args, ApplyMeth, typ, range)
+        then Apply(callee, ensureArity argTypes args, ApplyMeth, typ, range)
         else
             List.skip args.Length argTypes
             |> List.map (fun t -> {name=Naming.getUniqueVar(); typ=t})
             |> fun argTypes2 ->
                 let args2 = argTypes2 |> List.map (IdentValue >> Value)
-                makeApply com range typ callee (args@args2)
+                Apply(callee, ensureArity argTypes (args@args2), ApplyMeth, typ, range)
                 |> makeLambdaExpr argTypes2
     | _ ->
         Apply(callee, args, ApplyMeth, typ, range)
-        // let lasti = (List.length args) - 1
-        // ((0, callee), args) ||> List.fold (fun (i, callee) expr ->
-        //     let typ = if i = lasti then typ else makeUnknownFnType (i+1)
-        //     i + 1, Apply (callee, [expr], ApplyMeth, typ, range))
-        // |> snd
 
 let makeJsObject range (props: (string * Expr) list) =
     let decls = props |> List.map (fun (name, body) ->
