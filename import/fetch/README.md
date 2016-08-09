@@ -1,6 +1,11 @@
 # fable-import-fetch
 
 Fable bindings for Fetch API
+
+
+The Fetch API provides a JavaScript interface for accessing and manipulating parts of the HTTP pipeline, such as requests and responses. 
+It also provides a global fetch() method that provides an easy, logical way to fetch resources asynchronously across the network.
+
 See: https://developer.mozilla.org/en/docs/Web/API/Fetch_API
 
 ## Installation
@@ -41,11 +46,19 @@ open Fable.Helpers.Fetch
 // getting data and parsing from JSON
 async { 
     try 
-        let! records =
-            fetchAs<MyRecord[]>(RequestInfo.Url "http://www.server.com/data.json" 
+        let! records = fetchAs<MyRecord[]>("http://www.server.com/data.json" , [])
         // ...
     with
     | error -> ...
 } 
+
+// posting data to a server
+async { 
+    let! response = postRecord("http://www.server.com/data.json", myRecord,
+                      [ RequestProperties.Headers [ 
+                          HttpRequestHeaders.Accept "application/xml" ]
+                      ])
+    // ...              
+}
 
 ```

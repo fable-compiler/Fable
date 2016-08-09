@@ -18,8 +18,7 @@ module Fetch =
         inherit Body()
         abstract ``method`` : string with get
         abstract url: string with get
-        abstract headers: Headers with get
-        //Deprecated: abstract context: U2<string,RequestContext> 
+        abstract headers: Headers with get 
         abstract referrer: string with get
         abstract mode: U2<string,RequestMode> with get
         abstract credentials: U2<string,RequestCredentials> with get
@@ -65,6 +64,9 @@ module Fetch =
     and [<AbstractClass; Import("*","Response")>] Response(?body: BodyInit, ?init: ResponseInit) =
         inherit Body()
 
+        /// Verifies that the fetch was successful
+        abstract ok: bool
+
     and [<StringEnum; RequireQualifiedAccess>] ResponseType =
         | Basic | Cors | Default | Error | Opaque
 
@@ -85,6 +87,13 @@ module Fetch =
         | Url of string
         /// Uses a Request object as request info
         | Req of Request
-        
+    
+    
+    /// The Fetch API provides a JavaScript interface for accessing and manipulating parts of the HTTP pipeline, such as requests and responses. 
+    /// It also provides a global fetch() method that provides an easy, logical way to fetch resources asynchronously across the network.
     type GlobalFetch =
-        [<Global>]static member fetch (req: RequestInfo, ?init: RequestInit) =  failwith "JS only" :Promise<Response>
+        [<Global>]static member fetch (req: RequestInfo, ?init: RequestInit) = failwith "JS only" :Promise<Response>
+
+        [<Global>]static member fetch (url:string, ?init: RequestInit) = failwith "JS only" :Promise<Response>
+
+        [<Global>]static member fetch (url:Request, ?init: RequestInit) = failwith "JS only" :Promise<Response>
