@@ -87,7 +87,10 @@ module Fetch =
         | Url of string
         /// Uses a Request object as request info
         | Req of Request
-        
+    
+    
+    /// The Fetch API provides a JavaScript interface for accessing and manipulating parts of the HTTP pipeline, such as requests and responses. 
+    /// It also provides a global fetch() method that provides an easy, logical way to fetch resources asynchronously across the network.
     type GlobalFetch =
         [<Global>]static member fetch (req: RequestInfo, ?init: RequestInit) = failwith "JS only" :Promise<Response>
 
