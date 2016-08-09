@@ -88,3 +88,7 @@ module Fetch =
         
     type GlobalFetch =
         [<Global>]static member fetch (req: RequestInfo, ?init: RequestInit) = failwith "JS only" :Promise<Response>
+
+        [<Global>]static member fetch (url:string, ?init: RequestInit) = failwith "JS only" :Promise<Response>
+
+        [<Global>]static member fetch (url:Request, ?init: RequestInit) = failwith "JS only" :Promise<Response>

@@ -31,30 +31,19 @@ type RequestProperties =
     interface IRequestProperties
 
 /// Retrieves data from the specified resource.
-let inline fetchAsyncWithInit (req: RequestInfo, init: RequestProperties list) : Async<Response> = 
-    GlobalFetch.fetch(req, unbox init) |> Async.AwaitPromise
-
-/// Retrieves data from the specified resource.
-let inline fetchAsync (req: RequestInfo) : Async<Response> = 
-    GlobalFetch.fetch(req) |> Async.AwaitPromise
-
-/// Retrieves data from the specified resource, parses the json and returns the data as an object of type 'T.
-let inline fetchAsWithInit<'T> (req: RequestInfo, init: RequestProperties list) : Async<'T> = async {
-    let! fetched = GlobalFetch.fetch(req, unbox init) |> Async.AwaitPromise
-    let! json = fetched.text() |> Async.AwaitPromise
-    return ofJson<'T> json
-}
+let inline fetchAsync (url:string, init: RequestProperties list) : Async<Response> = 
+    GlobalFetch.fetch(url, unbox init) |> Async.AwaitPromise
 
 /// Retrieves data from the specified resource, parses the json and returns the data as an object of type 'T. 
-let inline fetchAs<'T> (req: RequestInfo) : Async<'T> = async {
-    let! fetched = GlobalFetch.fetch(req) |> Async.AwaitPromise
+let inline fetchAs<'T> (url:string, init: RequestProperties list) : Async<'T> = async {
+    let! fetched = GlobalFetch.fetch(url, unbox init) |> Async.AwaitPromise
     let! json = fetched.text() |> Async.AwaitPromise
     return ofJson<'T> json    
 }
 
 /// Sends a HTTP post with the record serialized as JSON  
-let inline postRecord<'T> (req: RequestInfo,record:'T) : Async<Response> =
-    fetchAsyncWithInit(
-      req, 
-      [ RequestProperties.Method HttpMethod.POST
-        RequestProperties.Body (unbox (toJson record))])
+let inline postRecord<'T> (url,record:'T) : Async<Response> =
+    fetchAsync(
+        url, 
+        [ RequestProperties.Method HttpMethod.POST
+          RequestProperties.Body (unbox (toJson record))])
