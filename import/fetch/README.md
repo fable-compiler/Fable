@@ -54,7 +54,10 @@ async {
 
 // posting data to a server
 async { 
-    let! response = postRecord("http://www.server.com/data.json", myRecord)
+    let! response = postRecord("http://www.server.com/data.json", myRecord,
+                      [ RequestProperties.Headers [ 
+                          HttpRequestHeaders.Accept "application/xml" ]
+                      ])
     // ...              
 }
 

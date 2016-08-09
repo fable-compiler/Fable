@@ -19,13 +19,66 @@ type [<StringEnum; RequireQualifiedAccess>] HttpMethod =
 | [<CompiledName("CONNECT")>] CONNECT
 
 [<KeyValueList>]
+type IHttpRequestHeaders =
+    interface end
+
+[<KeyValueList>]
+type HttpRequestHeaders =
+    | Accept of string
+    | [<CompiledName("Accept-Charset")>] AcceptCharset of string
+    | [<CompiledName("Accept-Encoding")>] AcceptEncoding of string
+    | [<CompiledName("Accept-Language")>] AcceptLanguage of string
+    | [<CompiledName("Accept-Datetime")>] AcceptDatetime of string
+    | Authorization of string
+    | [<CompiledName("Cache-Control")>] CacheControl of string
+    | Connection of string
+    | Cookie of string
+    | [<CompiledName("Content-Length")>] ContentLength of string
+    | [<CompiledName("Content-MD5")>] ContentMD5 of string
+    | [<CompiledName("ContentType")>] ContentType of string
+    | Date of string
+    | Expect of string
+    | Forwarded of string
+    | From of string
+    | Host of string
+    | [<CompiledName("If-Match")>] IfMatch of string
+    | [<CompiledName("If-Modified-Since")>] IfModifiedSince of string
+    | [<CompiledName("If-None-Match")>] IfNoneMatch of string
+    | [<CompiledName("If-Range")>] IfRange of string
+    | [<CompiledName("If-Unmodified-Since")>] IfUnmodifiedSince of string
+    | [<CompiledName("Max-Forwards")>] MaxForwards of int
+    | Origin of string
+    | Pragma of string
+    | [<CompiledName("Proxy-Authorization")>] ProxyAuthorization of string
+    | Range of string
+    | Referer of string
+    | [<CompiledName("TE")>] TE of string
+    | [<CompiledName("User-Agent")>] UserAgent of string
+    | Upgrade of string
+    | Via of string
+    | Warning of string
+    | [<CompiledName("X-Requested-With")>] XRequestedWith of string
+    | [<CompiledName("DNT")>] DNT of string
+    | [<CompiledName("X-Forwarded-For")>] XForwardedFor of string
+    | [<CompiledName("X-Forwarded-Host")>] XForwardedHost of string
+    | [<CompiledName("X-Forwarded-Proto")>] XForwardedProto of string
+    | [<CompiledName("Front-End-Https")>] FrontEndHttps of string
+    | [<CompiledName("X-Http-Method-Override")>] XHttpMethodOverride of string
+    | [<CompiledName("X-ATT-DeviceId")>] XATTDeviceId of string
+    | [<CompiledName("X-Wap-Profile")>] XWapProfile of string
+    | [<CompiledName("Proxy-Connection")>] ProxyConnection of string
+    | [<CompiledName("X-UIDH")>] XUIDH of string
+    | [<CompiledName("X-Csrf-Token")>] XCsrfToken of string
+    interface IHttpRequestHeaders
+
+[<KeyValueList>]
 type IRequestProperties =
     interface end
 
 [<KeyValueList>]
 type RequestProperties =
     | Method of HttpMethod
-    | Headers of U2<HeaderInit, obj>
+    | Headers of HttpRequestHeaders list
     | Body of BodyInit
     | Mode of RequestMode
     | Credentials of RequestCredentials
