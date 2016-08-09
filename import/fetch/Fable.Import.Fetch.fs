@@ -69,7 +69,7 @@ module Fetch =
         /// Returns the HTTP status code
         abstract status: int
         /// Returns the response headers
-        abstract headers: seq<(string*string)>
+        abstract headers: obj
 
     and [<StringEnum; RequireQualifiedAccess>] ResponseType =
         | Basic | Cors | Default | Error | Opaque
