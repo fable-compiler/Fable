@@ -1,6 +1,6 @@
 {
   "name": "fable-import-fetch",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Fable bindings for Fetch",
   "repository": {
     "type": "git",
