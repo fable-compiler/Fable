@@ -43,9 +43,14 @@ let inline fetchAs<'T> (url:string, init: RequestProperties list) : Async<'T> = 
     return ofJson<'T> json    
 }
 
+[<Emit("Object.assign({}, $0, $1)")>]
+let inline private ( ++ ) (a:'a list) (b:'a list) : 'a list = failwith "JS Only"
+
 /// Sends a HTTP post with the record serialized as JSON  
-let inline postRecord<'T> (url,record:'T) : Async<Response> =
-    fetchAsync(
-        url, 
+let inline postRecord<'T> (url,record:'T, properties: RequestProperties list) : Async<Response> =
+    let props = 
         [ RequestProperties.Method HttpMethod.POST
-          RequestProperties.Body (unbox (toJson record))])
+          RequestProperties.Body (unbox (toJson record))]
+          ++ properties 
+
+    fetchAsync(url,props)
