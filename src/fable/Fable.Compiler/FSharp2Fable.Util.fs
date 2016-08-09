@@ -458,13 +458,6 @@ module Types =
         | args -> List.concat args |> List.map (fun x -> makeType com Context.Empty x.Type)            
 
     and getMembers com (tdef: FSharpEntity) =
-        let getArgTypes com (args: IList<IList<FSharpParameter>>) =
-            // FSharpParameters don't contain the `this` arg
-            match args |> Seq.map Seq.toList |> Seq.toList with
-            | [] -> []
-            | [[singleArg]] when isUnit singleArg.Type -> []
-            // The F# compiler "untuples" the args in methods
-            | args -> List.concat args |> List.map (fun x -> makeType com Context.Empty x.Type)
         let isOverloadable =
             // TODO: Use overload index for interfaces too? (See overloadIndex below too)
             not(tdef.IsInterface || isImported tdef || isReplaceCandidate com tdef)
