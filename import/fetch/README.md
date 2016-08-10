@@ -62,6 +62,7 @@ async {
                       ])
 
     if response.ok then
+        let contentType = response.Headers.ContentType
         // ...
 }
 
