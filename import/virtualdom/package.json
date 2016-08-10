@@ -1,6 +1,6 @@
 {
   "name": "fable-import-virtualdom",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Fable bindings for virtual-dom",
   "repository": {
     "type": "git",
