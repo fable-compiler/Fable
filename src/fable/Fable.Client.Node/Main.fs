@@ -195,7 +195,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             |> Option.iter (fun fableCoreVersion ->
                 match getMinimumFableCoreVersion() with
                 | Some minVersion when fableCoreVersion < minVersion ->
-                    failwithf "Fable.Core %O required, please updgrade the project reference" minVersion
+                    failwithf "Fable.Core %O required, please upgrade the project reference" minVersion
                 | _ -> ())
 
         // Compile project files, print them and get the dependencies
