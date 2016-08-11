@@ -451,8 +451,14 @@ module private AstPass =
                 | "printFormat" | "printFormatLine" -> "x=>{console.log(x)}"
                 | "printFormatToStringThenFail" | _ -> "x=>{throw x}"
                 |> Fable.Emit |> Fable.Value
-            Fable.Apply(args.Head, [emit], Fable.ApplyMeth, typ, r)
-            |> Some
+            let printArgs =
+                match args.Head.Type with
+                | Fable.DeclaredType(_printFormat,Fable.Function(args,_)::_)
+                    when args.Length >= 1 -> [emit]
+                // If the method is not producing a function pass immediate=true
+                // so the continuation is immediately applied
+                | _ -> [emit; Fable.Value(Fable.BoolConst true)]
+            Fable.Apply(args.Head, printArgs, Fable.ApplyMeth, typ, r) |> Some
         // Exceptions
         | "failWith" | "raise" | "reraise" | "invalidOp" ->
             Fable.Throw (args.Head, typ, r) |> Some

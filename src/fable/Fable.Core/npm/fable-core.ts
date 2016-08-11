@@ -743,8 +743,10 @@ class FString {
     function isObject(x: any) {
       return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
     }
-    return (cont: any) => {
-      return (...args: any[]) => {
+    return (cont: any, immediate?: boolean) => {
+      return immediate
+        ? cont(str.replace(/%%/g, "%"))
+        : (...args: any[]) => {
         let i = 0;
         const str2 = str.replace(FString.fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
           let rep = args[i++];
