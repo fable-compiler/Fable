@@ -192,26 +192,39 @@ let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "C
 // Deal with function arguments with higher arity than expected
 // E.g.: [|"1";"2"|] |> Array.map (fun x y -> x + y)
 // JS: ["1","2"].map($var1 => $var2 => ((x, y) => x + y)($var1, $var2))
-let ensureArity argTypes args =
+let rec ensureArity com argTypes args =
+    let wrap (com: Fable.ICompiler) typ (f: Expr) expectedArgs actualArgs =
+        let outerArgs =
+            expectedArgs |> List.map (fun t -> makeTypedIdent (Naming.getUniqueVar()) t)
+        if List.length expectedArgs < List.length actualArgs then
+            List.skip expectedArgs.Length actualArgs
+            |> List.map (fun t -> makeTypedIdent (Naming.getUniqueVar()) t)
+            |> fun innerArgs ->
+                let args = outerArgs@innerArgs |> List.map (Fable.IdentValue >> Fable.Value)
+                makeApply com f.Range typ f args
+                |> makeLambdaExpr innerArgs
+        else
+            if Option.isSome f.Range then
+                sprintf "A function with less arguments than expected has been wrapped at %O. %s"
+                        f.Range.Value "Side effects may be delayed."
+                |> Warning |> com.AddLog
+            let innerArgs = List.take actualArgs.Length outerArgs |> List.map (IdentValue >> Value)
+            let outerArgs = List.skip actualArgs.Length outerArgs |> List.map (IdentValue >> Value)
+            let innerApply = makeApply com f.Range (Fable.Function(List.map Expr.getType outerArgs,typ)) f innerArgs
+            makeApply com f.Range typ innerApply outerArgs
+        |> makeLambdaExpr outerArgs
     let (|Type|) (expr: Fable.Expr) = expr.Type
     if List.length argTypes <> List.length args then args else // TODO: Raise warning?
     List.zip argTypes args
     |> List.map (function
-        | Fable.Function(expected,_), (Type(Fable.Function(actual,returnType)) as f)
-            when expected.Length < actual.Length ->
-            let outerArgs =
-                expected |> List.map (fun t -> makeTypedIdent (Naming.getUniqueVar()) t)
-            let innerLambda =
-                List.skip expected.Length actual
-                |> List.map (fun t -> makeTypedIdent (Naming.getUniqueVar()) t)
-                |> fun innerArgs ->
-                    let args = outerArgs@innerArgs |> List.map (Fable.IdentValue >> Fable.Value)
-                    Fable.Apply(f, args, Fable.ApplyMeth, returnType, f.Range)
-                    |> makeLambdaExpr innerArgs
-            makeLambdaExpr outerArgs innerLambda
+        | Fable.Function(expected,_), (Type(Fable.Function(actual,returnType)) as f) ->
+            if (expected.Length < actual.Length && expected.Length >= 1)
+                || (expected.Length > actual.Length && actual.Length >= 1)
+            then wrap com returnType f expected actual
+            else f
         | (_,arg) -> arg)
 
-let rec makeApply range typ callee (args: Fable.Expr list) =
+and makeApply com range typ callee (args: Fable.Expr list) =
     let callee =
         match callee with
         // If we're applying against a F# let binding, wrap it with a lambda
@@ -226,19 +239,19 @@ let rec makeApply range typ callee (args: Fable.Expr list) =
         then
             let innerArgs = List.take argTypes.Length args
             let outerArgs = List.skip argTypes.Length args
-            Apply(callee, ensureArity argTypes innerArgs, ApplyMeth,
+            Apply(callee, ensureArity com argTypes innerArgs, ApplyMeth,
                     Function(List.map Expr.getType outerArgs, typ), range)
-            |> makeApply range typ <| outerArgs
+            |> makeApply com range typ <| outerArgs
         elif argTypes.Length > args.Length && args.Length >= 1
         then
             List.skip args.Length argTypes
             |> List.map (fun t -> {name=Naming.getUniqueVar(); typ=t})
             |> fun argTypes2 ->
                 let args2 = argTypes2 |> List.map (IdentValue >> Value)
-                Apply(callee, ensureArity argTypes (args@args2), ApplyMeth, typ, range)
+                Apply(callee, ensureArity com argTypes (args@args2), ApplyMeth, typ, range)
                 |> makeLambdaExpr argTypes2
         else
-            Apply(callee, ensureArity argTypes args, ApplyMeth, typ, range)
+            Apply(callee, ensureArity com argTypes args, ApplyMeth, typ, range)
     | _ ->
         Apply(callee, args, ApplyMeth, typ, range)
 

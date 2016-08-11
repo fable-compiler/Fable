@@ -800,7 +800,7 @@ module Util =
                      (typArgs, methTypArgs) callee args =
         let argTypes = getArgTypes com meth.CurriedParameterGroups                     
         let args =
-            let args = ensureArity argTypes args
+            let args = ensureArity com argTypes args
             if hasRestParams meth then
                 let args = List.rev args
                 match args.Head with
