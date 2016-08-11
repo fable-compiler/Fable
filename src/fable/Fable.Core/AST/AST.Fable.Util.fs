@@ -218,15 +218,23 @@ let rec makeApply range typ callee (args: Fable.Expr list) =
         | _ -> callee
     match callee.Type with
     | Function(argTypes, _) ->
-        if argTypes.Length <= args.Length
-        then Apply(callee, ensureArity argTypes args, ApplyMeth, typ, range)
-        else
+        if argTypes.Length < args.Length && argTypes.Length >= 1
+        then
+            let innerArgs = List.take argTypes.Length args
+            let outerArgs = List.skip argTypes.Length args
+            Apply(callee, ensureArity argTypes innerArgs, ApplyMeth,
+                    Function(List.map Expr.getType outerArgs, typ), range)
+            |> makeApply range typ <| outerArgs
+        elif argTypes.Length > args.Length && args.Length >= 1
+        then
             List.skip args.Length argTypes
             |> List.map (fun t -> {name=Naming.getUniqueVar(); typ=t})
             |> fun argTypes2 ->
                 let args2 = argTypes2 |> List.map (IdentValue >> Value)
                 Apply(callee, ensureArity argTypes (args@args2), ApplyMeth, typ, range)
                 |> makeLambdaExpr argTypes2
+        else
+            Apply(callee, ensureArity argTypes args, ApplyMeth, typ, range)
     | _ ->
         Apply(callee, args, ApplyMeth, typ, range)
 
