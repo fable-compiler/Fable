@@ -516,7 +516,7 @@ class FDate extends Date {
   }
 
   static timeOfDay(d: Date) {
-    return TimeSpan.create(FDate.hour(d), FDate.minute(d), FDate.second(d));
+    return TimeSpan.create(0, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d));
   }
 
   static date(d: Date) {
