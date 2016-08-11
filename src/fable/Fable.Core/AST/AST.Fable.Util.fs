@@ -189,6 +189,9 @@ let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "e
 let makeUnionCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareRecords"
 
+// Deal with function arguments with higher arity than expected
+// E.g.: [|"1";"2"|] |> Array.map (fun x y -> x + y)
+// JS: ["1","2"].map($var1 => $var2 => ((x, y) => x + y)($var1, $var2))
 let ensureArity argTypes args =
     let (|Type|) (expr: Fable.Expr) = expr.Type
     if List.length argTypes <> List.length args then args else // TODO: Raise warning?
@@ -208,15 +211,16 @@ let ensureArity argTypes args =
             makeLambdaExpr outerArgs innerLambda
         | (_,arg) -> arg)
 
-// Check if we're applying against a F# let binding
 let rec makeApply range typ callee (args: Fable.Expr list) =
     let callee =
         match callee with
-        // F# let binding: Surround with a lambda
+        // If we're applying against a F# let binding, wrap it with a lambda
         | Sequential _ ->
             Apply(Value(Lambda([],callee)), [], ApplyMeth, callee.Type, callee.Range)
         | _ -> callee
     match callee.Type with
+    // Make necessary transformations if we're applying more or less
+    // arguments than the specified function arity
     | Function(argTypes, _) ->
         if argTypes.Length < args.Length && argTypes.Length >= 1
         then
