@@ -396,6 +396,13 @@ let ``DateTime Inequality works``() =
     test 0. false
 
 [<Test>]
+let ``DateTime TimeOfDay works``() =
+    let d = System.DateTime(2014, 10, 9, 13, 23, 30, 1, System.DateTimeKind.Utc)
+    let t = d.TimeOfDay
+
+    t |> equal (TimeSpan(0, 13, 23, 30, 1))
+
+[<Test>]
 let ``TimeSpan constructors work``() =
     let t1 = TimeSpan(20000L)
     let t2 = TimeSpan(3, 3, 3)
