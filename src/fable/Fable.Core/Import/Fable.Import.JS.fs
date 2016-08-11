@@ -1134,6 +1134,7 @@ module JS =
         abstract all: values: Iterable<U2<'TAll, PromiseLike<'TAll>>> -> Promise<ResizeArray<'TAll>>
         abstract race: values: Iterable<U2<'T, PromiseLike<'T>>> -> Promise<'T>
         abstract reject: reason: obj -> Promise<unit>
+        abstract reject: reason: obj -> Promise<'T>
         abstract resolve: value: U2<'T, PromiseLike<'T>> -> Promise<'T>
         abstract resolve: unit -> Promise<unit>
 

@@ -18,6 +18,7 @@ and PromiseConstructor =
     abstract all: values: ResizeArray<U2<'T, Thenable<'T>>> -> Promise<ResizeArray<'T>>
     abstract race: values: ResizeArray<U2<'T, Thenable<'T>>> -> Promise<'T>
     abstract reject: reason: obj -> Promise<unit>
+    abstract reject: reason: obj -> Promise<'T>
     abstract resolve: value: U2<'T, Thenable<'T>> -> Promise<'T>
     abstract resolve: unit -> Promise<unit>
 
