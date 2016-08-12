@@ -1,9 +1,46 @@
-[<NUnit.Framework.TestFixture>] 
-module Fable.Tests.SystemSets
-open System
-open System.Collections.Generic
+﻿[<NUnit.Framework.TestFixture>] 
+module Fable.Tests.HashSets
 open NUnit.Framework
 open Fable.Tests.Util
+open System.Collections.Generic
+
+[<Test>]
+let ``HashSet ctor creates empty HashSet``() =
+    let xs = HashSet<int>()
+    xs |> Seq.isEmpty
+    |> equal true
+
+let set l =
+    let xs = HashSet<_>()
+    for x in l do
+        xs.Add x |> ignore
+    xs
+
+[<Test>]
+let ``Count works``() =
+    let xs = set []
+    xs.Count |> equal 0
+    let ys = set [1]
+    ys.Count |> equal 1
+    let zs = set [1; 1]
+    zs.Count |> equal 1
+    let zs' = set [1; 2]
+    zs'.Count |> equal 2
+
+[<Test>]
+let ``Set.add returns true if not present``() =
+    let xs = set []
+    xs.Add(1) |> equal true
+    xs.Count |> equal 1
+
+
+[<Test>]
+let ``Set.add returns false if already present``() =
+    let xs = set [1]
+    xs.Add(1) |> equal false
+    xs.Count |> equal 1
+        
+
 
 [<Test>]
 let ``HashSet creation works``() =
