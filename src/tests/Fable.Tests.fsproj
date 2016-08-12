@@ -73,6 +73,7 @@
     <Compile Include="UnionTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="EventTests.fs" />
+    <Compile Include="SudokuTest.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
