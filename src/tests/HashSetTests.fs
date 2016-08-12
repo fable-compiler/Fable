@@ -41,6 +41,32 @@ let ``Set.add returns false if already present``() =
     xs.Count |> equal 1
         
 
+[<Test>]
+let ``Set.contains works``() =
+    let xs = set [1]
+    xs.Contains 1 |> equal true
+    xs.Contains 2 |> equal false
+
+
+[<Test>]
+let ``Set.remove works when item is present``() =
+    let xs = set [1] 
+    xs.Remove 1 |> equal true
+    xs.Count |> equal 0
+
+[<Test>]
+let ``Set.remove works when item is not present``() =
+    let xs = set [1; 2] 
+    xs.Remove 3 |> equal false
+    xs.Count |> equal 2
+
+[<Test>]
+let ``Set.union works``() =
+    let xs = set [1; 2] 
+    let ys = set [2; 4]
+    xs.UnionWith ys
+    (xs.Contains 1 && xs.Contains 2 && xs.Contains 4)
+    |> equal true
 
 [<Test>]
 let ``HashSet creation works``() =
@@ -74,23 +100,23 @@ let ``HashSet.Count works``() =
 [<Test>]
 let ``HashSet.Add works``() =
     let hs = HashSet<_>()
-    hs.Add("A", "Hello") |> ignore
-    hs.Add("B", "World!") |> ignore
+    hs.Add("A", "Hello") |> equal true
+    hs.Add("B", "World!") |> equal true
     hs.Count |> equal 2
 
 [<Test>]
 let ``HashSet.Clear works``() =
     let hs = HashSet<_>()
-    hs.Add("A", 1) |> ignore
-    hs.Add("B", 2) |> ignore
+    hs.Add("A", 1) |> equal true
+    hs.Add("B", 2) |> equal true
     hs.Clear()
     hs.Count |> equal 0
 
 [<Test>]
 let ``HashSet.Contains works``() =
     let hs = HashSet<_>()
-    hs.Add("Hello") |> ignore
-    hs.Add("World!") |> ignore
+    hs.Add("Hello") |> equal true
+    hs.Add("World!") |> equal true
     hs.Contains("Hello") |> equal true
     hs.Contains("Everybody!") |> equal false
 
@@ -155,3 +181,5 @@ let ``HashSet serialized with Json.NET can be deserialized``() =
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<R>> json
     #endif
     (0, x2) ||> Seq.fold (fun acc v -> acc + v.i) |> equal 3
+
+
