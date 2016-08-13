@@ -5,13 +5,18 @@ module Option =
         match opt with Some x when f x -> true | _ -> false 
 
 module Json =
+    open System.Reflection
     open FSharp.Reflection
     open Newtonsoft.Json
     
     let isErasedUnion (t: System.Type) =
         t.Name = "FSharpOption`1" ||
         FSharpType.IsUnion t &&
+#if NETSTANDARD1_6
+            t.GetTypeInfo().GetCustomAttributes(true)
+#else        
             t.GetCustomAttributes true
+#endif
             |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
             
     let getErasedUnionValue (v: obj) =

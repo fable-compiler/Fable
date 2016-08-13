@@ -67,7 +67,15 @@ let loadPlugins (pluginPaths: string list) =
     pluginPaths
     |> Seq.collect (fun path ->
         try
-            (Path.GetFullPath path |> Assembly.LoadFrom).GetTypes()
+            let filePath = Path.GetFullPath path
+#if NETSTANDARD1_6 || NETCOREAPP1_0
+            let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
+            let assemblyName = System.Runtime.Loader.AssemblyLoadContext.GetAssemblyName(filePath)
+            let assembly = globalLoadContext.LoadFromAssemblyName(assemblyName)
+#else
+            let assembly = (filePath |> Assembly.LoadFrom)
+#endif
+            assembly.GetTypes()
             |> Seq.filter typeof<IPlugin>.IsAssignableFrom
             |> Seq.map (fun x ->
                 Path.GetFileNameWithoutExtension path,
@@ -97,6 +105,8 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
                 match x.Split('=') with
                 | [|key;value|] -> Some(key,value)
                 | _ -> None)
+            // NOTE: .NET Core MSBuild can't successfully build .fsproj (yet)
+            // see https://github.com/Microsoft/msbuild/issues/709, 711, 713
             ProjectCracker.GetProjectOptionsFromProjectFile(projFile, props)
         |> addSymbols opts.symbols
     with
@@ -138,6 +148,10 @@ let makeCompiler opts plugins =
         member __.GetLogs() = logs :> seq<_> }
 
 let getMinimumFableCoreVersion() =
+#if NETSTANDARD1_6 || NETCOREAPP1_0    
+    let assembly = typeof<CompilerOptions>.GetTypeInfo().Assembly
+    assembly.GetName().Version |> Some
+#else
     Assembly.GetExecutingAssembly()
             .GetCustomAttributes(typeof<AssemblyMetadataAttribute>, false)
     |> Seq.tryPick (fun att ->
@@ -145,6 +159,7 @@ let getMinimumFableCoreVersion() =
         if att.Key = "fableCoreVersion"
         then Version att.Value |> Some
         else None)
+#endif
 
 let printFile =
     let jsonSettings =

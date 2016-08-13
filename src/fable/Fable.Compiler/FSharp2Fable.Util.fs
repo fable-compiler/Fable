@@ -1,6 +1,7 @@
 namespace Fable.FSharp2Fable
 
 open System.Collections.Generic
+open System.Reflection
 open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
@@ -708,7 +709,14 @@ module Util =
         let cache = System.Collections.Concurrent.ConcurrentDictionary<string, obj>()
         fun (tdef: FSharpEntity) ->
             cache.GetOrAdd(tdef.QualifiedName, fun _ ->
-                let assembly = System.Reflection.Assembly.LoadFrom(tdef.Assembly.FileName.Value)
+                let filePath = tdef.Assembly.FileName.Value
+#if NETSTANDARD1_6
+                let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
+                let assemblyName = System.Runtime.Loader.AssemblyLoadContext.GetAssemblyName(filePath)
+                let assembly = globalLoadContext.LoadFromAssemblyName(assemblyName)
+#else
+                let assembly = System.Reflection.Assembly.LoadFrom(filePath)
+#endif
                 let typ = assembly.GetTypes() |> Seq.find (fun x ->
                     x.AssemblyQualifiedName = tdef.QualifiedName)
                 System.Activator.CreateInstance(typ))

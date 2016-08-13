@@ -80,17 +80,30 @@ let ``Union equality works``() =
 [<CustomEquality; CustomComparison>]
 type UTest2 =
     | String of string
+#if DOTNETCORE
+    override x.GetHashCode() = x.GetHashCode()
+    override x.Equals(yobj) =
+       match yobj with
+         | :? UTest2 as y ->
+            match x, y with
+            | String s1, String s2 -> (s1 + s1) = s2
+         | _ -> false
+#endif
     interface System.IEquatable<UTest2> with
         member x.Equals(y) =
             match x, y with
-            | String s1, String s2 -> (s1 + s1) = s2    
+            | String s1, String s2 -> (s1 + s1) = s2
     interface System.IComparable with
-        member x.CompareTo(y) =
-            match y with
+        member x.CompareTo(yobj) =
+            match yobj with
             | :? UTest2 as y ->
                 match x, y with
                 | String s1, String s2 -> compare (s1 + s1) s2
+#if DOTNETCORE
+            | _ -> invalidArg "yobj" "cannot compare values of different types"
+#else
             | _ -> -1
+#endif
 
 [<Test>]
 let ``Union custom equality works``() =  
@@ -126,14 +139,23 @@ let ``Record reference equality works``() =
 type Test(i: int) =
     member x.Value = i
     override x.GetHashCode() = i
+    override x.Equals(yobj) =
+       match yobj with
+         | :? Test as y -> y.Value + 1 = x.Value
+         | _ -> false    
     interface System.IComparable with
-        member x.CompareTo(another) =
-            match another with
-            | :? Test as another -> compare (another.Value + 1) x.Value
+        member x.CompareTo(yobj) =
+            match yobj with
+            | :? Test as y -> compare (y.Value + 1) x.Value
+#if DOTNETCORE
+            | _ -> invalidArg "yobj" "cannot compare values of different types"
+#else
             | _ -> -1
+#endif
+
     interface System.IEquatable<Test> with
-        member x.Equals(another) =
-            another.Value + 1 = x.Value
+        member x.Equals(y) =
+            y.Value + 1 = x.Value
             
 [<Test>]
 let ``Equality with objects implementing IEquatable works``() =  

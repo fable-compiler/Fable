@@ -4,6 +4,14 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+#if DOTNETCORE
+    type System.DateTime with
+        member x.ToShortDateString() = x.ToString("d")
+        member x.ToShortTimeString() = x.ToString("t")
+        member x.ToLongDateString() = x.ToString("D")
+        member x.ToLongTimeString() = x.ToString("T")
+#endif
+
 let toSigFigs nSigFigs x =
     let absX = abs x
     let digitsToStartOfNumber = floor(log10 absX) + 1. // x > 0 => +ve | x < 0 => -ve
@@ -565,6 +573,9 @@ let ``TimeSpan Inequality works``() =
     test 2000. 1000. true
     test -2000. -2000. false
     
+#if !DOTNETCORE
+// Disabled for .NET Core until System.Timers.Timer is implemented.
+
 [<Test>]
 let ``Timer with AutoReset = true works``() =
     async {
@@ -604,3 +615,5 @@ let ``Timer.Elapsed.Subscribe works``() =
         equal 10 !res
         t.Stop()
     } |> Async.RunSynchronously
+
+#endif

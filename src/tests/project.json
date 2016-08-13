@@ -1,0 +1,80 @@
+{
+    "version": "1.0.0-*",
+    "buildOptions": {
+        "debugType": "portable",
+        "compilerName": "fsc",
+        "compile": {
+            "includeFiles": [
+                "DllRef/Util/Util.fs",
+                "DllRef/Lib.fs",
+                "Other/Util/Util.fs",
+                "Util/Util.fs",
+                "Util/Util2.fs",
+                "../tests_external/Util3.fs",
+                "ArithmeticTests.fs",
+                "ArrayTests.fs",
+                "AsyncTests.fs",
+                "ComparisonTests.fs",
+                "DateTimeTests.fs",
+                "DictionaryTests.fs",
+                "EnumTests.fs",
+                "ListTests.fs",
+                "MapTests.fs",
+                "MiscTests.fs",
+                "ObservableTests.fs",
+                "RecordTypeTests.fs",
+                "RegexTests.fs",
+                "ResizeArrayTests.fs",
+                "SeqExpressionTests.fs",
+                "SeqTests.fs",
+                "SetTests.fs",
+                "StringTests.fs",
+                "SystemSetsTests.fs",
+                "TupleTypeTests.fs",
+                "UnionTypeTests.fs",
+                "TypeTests.fs",
+                "EventTests.fs"
+            ]
+        },
+        "define": [
+            "DOTNETCORE",
+            "TRACE"
+        ],
+        "nowarn": [
+            "44"
+        ],
+        "xmlDoc": true,
+        "delaySign": true,
+        "warningsAsErrors": true,
+        "additionalArguments": [
+            "--fullpaths",
+            "--flaterrors"
+        ]
+    },
+    "dependencies": {
+        "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*",
+        "NUnit": "3.4.1",
+        "dotnet-test-nunit": "3.4.0-beta-2",
+        "Fable.Core": {
+            "target": "project"
+        }
+    },
+    "testRunner": "nunit",
+    "frameworks": {
+        "netcoreapp1.0": {
+            "imports": "portable-net45+win8",
+            "dependencies": {
+                "Microsoft.NETCore.App": {
+                    "version": "1.0.0-*",
+                    "type": "platform"
+                }
+            }
+        }
+    },
+    "tools": {
+        "dotnet-compile-fsc": {
+            "version": "1.0.0-preview2-*",
+            "imports": "dnxcore50"
+        }
+    }
+}
