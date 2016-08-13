@@ -737,49 +737,41 @@ export class Timer implements IDisposable {
 Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 
 class FString {
-  private static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+  private static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/g;
 
-  static fsFormat(str: any) {
+  static fsFormat(str: string) {
     function isObject(x: any) {
       return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
     }
-
-    function formatOnce(str: any, rep: any) {
-      return str.replace(FString.fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
-        switch (format) {
-          case "f": case "F":
-            rep = rep.toFixed(precision || 6); break;
-          case "g": case "G":
-            rep = rep.toPrecision(precision); break;
-          case "e": case "E":
-            rep = rep.toExponential(precision); break;
-          case "A":
-            rep = (rep instanceof FMap ? "map " : rep instanceof FSet ? "set " : "") + JSON.stringify(rep, function (k, v) {
-              return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v) : v;
-            });
-            break;
-        }
-        const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;
-        if (!isNaN(pad = parseInt(pad))) {
-          const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
-          rep = FString.padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
-        }
-        return prefix + (plusPrefix ? "+" + rep : rep);
-      });
-    }
-
-    function makeFn(str: any) {
-      return (rep: any) => {
-        const str2 = formatOnce(str, rep);
-        return FString.fsFormatRegExp.test(str2)
-          ? makeFn(str2) : _cont(str2.replace(/%%/g, "%"));
-      };
-    }
-
-    let _cont: any;
-    return (cont: any) => {
-      _cont = cont;
-      return FString.fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
+    return (cont: any, immediate?: boolean) => {
+      return immediate
+        ? cont(str.replace(/%%/g, "%"))
+        : (...args: any[]) => {
+        let i = 0;
+        const str2 = str.replace(FString.fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
+          let rep = args[i++];
+          switch (format) {
+            case "f": case "F":
+              rep = rep.toFixed(precision || 6); break;
+            case "g": case "G":
+              rep = rep.toPrecision(precision); break;
+            case "e": case "E":
+              rep = rep.toExponential(precision); break;
+            case "A":
+              rep = (rep instanceof FMap ? "map " : rep instanceof FSet ? "set " : "") + JSON.stringify(rep, function (k, v) {
+                return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v) : v;
+              });
+              break;
+          }
+          const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;
+          if (!isNaN(pad = parseInt(pad))) {
+            const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
+            rep = FString.padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
+          }
+          return prefix + (plusPrefix ? "+" + rep : rep);
+        });
+        return cont(str2.replace(/%%/g, "%"))
+      }
     };
   }
 

@@ -67,12 +67,6 @@ let makeConst (value: obj) =
     | _ -> failwithf "Unexpected literal %O" value
     |> Value
 
-let makeFnType args (body: Expr) =
-    Function(List.map Ident.getType args, body.Type)
-
-let makeUnknownFnType (arity: int) =
-    Function(List.init arity (fun _ -> Any), Any)
-
 let makeGet range typ callee propExpr =
     Apply (callee, [propExpr], ApplyGet, typ, range)
 
@@ -195,50 +189,71 @@ let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "e
 let makeUnionCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareRecords"
 
-let makeDelegate arity (expr: Expr) =
-    let rec flattenLambda (arity: int option) accArgs = function
-        | Value (Lambda (args, body)) when arity.IsNone || List.length accArgs < arity.Value ->
-            flattenLambda arity (accArgs@args) body
-        | _ when arity.IsSome && List.length accArgs < arity.Value ->
-            None
-        | _ as body ->
-            Value (Lambda (accArgs, body)) |> Some
-    let wrap arity expr =
-        match arity with
-        | Some arity when arity > 1 ->
-            let lambdaArgs =
-                [for i=1 to arity do
-                    yield {name=Naming.getUniqueVar(); typ=Any}]
-            let lambdaBody =
-                (expr, lambdaArgs)
-                ||> List.fold (fun callee arg ->
-                    Apply (callee, [Value (IdentValue arg)],
-                        ApplyMeth, Any, expr.Range))
-            Lambda (lambdaArgs, lambdaBody) |> Value
-        | _ -> expr // Do nothing
-    match expr, expr.Type with
-    | Value (Lambda (args, body)), _ ->
-        match flattenLambda arity args body with
-        | Some expr -> expr
-        | None -> wrap arity expr
-    | _, Function(args,_) ->
-        let arity = defaultArg arity (List.length args)
-        wrap (Some arity) expr
-    | _ -> expr
+// Deal with function arguments with higher arity than expected
+// E.g.: [|"1";"2"|] |> Array.map (fun x y -> x + y)
+// JS: ["1","2"].map($var1 => $var2 => ((x, y) => x + y)($var1, $var2))
+let rec ensureArity com argTypes args =
+    let wrap (com: Fable.ICompiler) typ (f: Expr) expectedArgs actualArgs =
+        let outerArgs =
+            expectedArgs |> List.map (fun t -> makeTypedIdent (Naming.getUniqueVar()) t)
+        if List.length expectedArgs < List.length actualArgs then
+            List.skip expectedArgs.Length actualArgs
+            |> List.map (fun t -> makeTypedIdent (Naming.getUniqueVar()) t)
+            |> fun innerArgs ->
+                let args = outerArgs@innerArgs |> List.map (Fable.IdentValue >> Fable.Value)
+                makeApply com f.Range typ f args
+                |> makeLambdaExpr innerArgs
+        else
+            if Option.isSome f.Range then
+                sprintf "A function with less arguments than expected has been wrapped at %O. %s"
+                        f.Range.Value "Side effects may be delayed."
+                |> Warning |> com.AddLog
+            let innerArgs = List.take actualArgs.Length outerArgs |> List.map (IdentValue >> Value)
+            let outerArgs = List.skip actualArgs.Length outerArgs |> List.map (IdentValue >> Value)
+            let innerApply = makeApply com f.Range (Fable.Function(List.map Expr.getType outerArgs,typ)) f innerArgs
+            makeApply com f.Range typ innerApply outerArgs
+        |> makeLambdaExpr outerArgs
+    let (|Type|) (expr: Fable.Expr) = expr.Type
+    if List.length argTypes <> List.length args then args else // TODO: Raise warning?
+    List.zip argTypes args
+    |> List.map (function
+        | Fable.Function(expected,_), (Type(Fable.Function(actual,returnType)) as f) ->
+            if (expected.Length < actual.Length && expected.Length >= 1)
+                || (expected.Length > actual.Length && actual.Length >= 1)
+            then wrap com returnType f expected actual
+            else f
+        | (_,arg) -> arg)
 
-// Check if we're applying against a F# let binding
-let makeApply range typ callee exprs =
+and makeApply com range typ callee (args: Fable.Expr list) =
     let callee =
         match callee with
         // If we're applying against a F# let binding, wrap it with a lambda
         | Sequential _ ->
             Apply(Value(Lambda([],callee)), [], ApplyMeth, callee.Type, callee.Range)
-        | _ -> callee        
-    let lasti = (List.length exprs) - 1
-    ((0, callee), exprs) ||> List.fold (fun (i, callee) expr ->
-        let typ' = if i = lasti then typ else makeUnknownFnType (i+1)
-        i + 1, Apply (callee, [expr], ApplyMeth, typ', range))
-    |> snd    
+        | _ -> callee
+    match callee.Type with
+    // Make necessary transformations if we're applying more or less
+    // arguments than the specified function arity
+    | Function(argTypes, _) ->
+        if argTypes.Length < args.Length && argTypes.Length >= 1
+        then
+            let innerArgs = List.take argTypes.Length args
+            let outerArgs = List.skip argTypes.Length args
+            Apply(callee, ensureArity com argTypes innerArgs, ApplyMeth,
+                    Function(List.map Expr.getType outerArgs, typ), range)
+            |> makeApply com range typ <| outerArgs
+        elif argTypes.Length > args.Length && args.Length >= 1
+        then
+            List.skip args.Length argTypes
+            |> List.map (fun t -> {name=Naming.getUniqueVar(); typ=t})
+            |> fun argTypes2 ->
+                let args2 = argTypes2 |> List.map (IdentValue >> Value)
+                Apply(callee, ensureArity com argTypes (args@args2), ApplyMeth, typ, range)
+                |> makeLambdaExpr argTypes2
+        else
+            Apply(callee, ensureArity com argTypes args, ApplyMeth, typ, range)
+    | _ ->
+        Apply(callee, args, ApplyMeth, typ, range)
 
 let makeJsObject range (props: (string * Expr) list) =
     let decls = props |> List.map (fun (name, body) ->

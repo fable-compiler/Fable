@@ -305,6 +305,31 @@ module Patterns =
             else None
         | _ -> None
 
+    let (|FlattenedApplication|_|) fsExpr =
+        // Application args can be empty sometimes so a flag is needed
+        let rec flattenApplication flag args = function
+            | Application(callee, _, args2) ->
+                flattenApplication true (args2@args) callee
+            | callee -> if flag then Some(callee, args) else None 
+        flattenApplication false [] fsExpr
+
+    let (|FlattenedLambda|_|) fsExpr =
+        let rec flattenDestructs destructs = function
+            | Let ((var, TupleGet(_,i,Value arg)), body) -> flattenDestructs ((var,i,arg)::destructs) body
+            | e -> destructs, e
+        let rec flattenLambda args destructs = function
+            | Lambda(arg, body) ->
+                let destructs, body =
+                    if arg.FullType.IsTupleType && arg.IsCompilerGenerated && arg.CompiledName = "tupledArg"
+                    then flattenDestructs destructs body
+                    else destructs, body
+                flattenLambda (arg::args) destructs body
+            | body ->
+                if List.isEmpty args
+                then None
+                else Some(List.rev args, List.rev destructs, body)
+        flattenLambda [] [] fsExpr
+
     /// This matches the boilerplate F# compiler generates for methods
     /// like Dictionary.TryGetValue (see #154)
     let (|TryGetValue|_|) = function
@@ -620,9 +645,11 @@ module Util =
         | [[singleArg]] when isUnit singleArg.FullType -> ctx, []
         // The F# compiler "untuples" the args in methods
         | args ->
-            let ctx, args = makeLambdaArgs com ctx args
-            // The F# compiler "untuples" the args in methods
-            ctx, List.concat args
+            List.foldBack (fun tupledArg (ctx, accArgs) ->
+                // The F# compiler "untuples" the args in methods
+                let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
+                ctx, untupledArg@accArgs
+            ) args (ctx, [])
 
     let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
         let catchClause =
@@ -648,8 +675,7 @@ module Util =
 //        | _ -> false
 
     let buildApplyInfo com ctx r typ ownerName methName methKind
-                       (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args)
-                       : Fable.ApplyInfo =
+                       (atts, typArgs, methTypArgs) (callee, args): Fable.ApplyInfo =
         {
             ownerFullName = ownerName
             methodName = methName
@@ -661,22 +687,15 @@ module Util =
             decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
             calleeTypeArgs = typArgs |> List.map (makeType com ctx) 
             methodTypeArgs = methTypArgs |> List.map (makeType com ctx)
-            lambdaArgArity = lambdaArgArity
         }
 
     let buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs)
                        (callee, args) (meth: FSharpMemberOrFunctionOrValue)
                        : Fable.ApplyInfo =
-        let lambdaArgArity =
-            if meth.CurriedParameterGroups.Count > 0
-                && meth.CurriedParameterGroups.[0].Count > 0
-            then countFuncArgs meth.CurriedParameterGroups.[0].[0].Type
-            else 0
         let methName, methKind = sanitizeMethodName meth
         buildApplyInfo com ctx r typ
             (sanitizeEntityFullName meth.EnclosingEntity) methName methKind
-            (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
-            (callee, args)
+            (meth.Attributes, typArgs, methTypArgs) (callee, args)
 
     let replace (com: IFableCompiler) r applyInfo =
         let pluginReplace i =
@@ -781,6 +800,7 @@ module Util =
                      (typArgs, methTypArgs) callee args =
         let argTypes = getArgTypes com meth.CurriedParameterGroups                     
         let args =
+            let args = ensureArity com argTypes args
             if hasRestParams meth then
                 let args = List.rev args
                 match args.Head with

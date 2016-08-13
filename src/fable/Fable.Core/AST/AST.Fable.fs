@@ -161,8 +161,6 @@ and ApplyInfo = {
         decorators: Decorator list
         calleeTypeArgs: Type list
         methodTypeArgs: Type list
-        /// If the method accepts a lambda as first argument, indicates its arity 
-        lambdaArgArity: int
     }
 
 and ApplyKind =
@@ -212,7 +210,7 @@ and ValueKind =
         | Lambda (args, body) -> Function(List.map Ident.getType args, body.Type)
     member x.Range: SourceLocation option =
         match x with
-        | Lambda (_, body) -> body.Range
+        | Lambda (_,body) -> body.Range
         | _ -> None
 
 and LoopKind =
