@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Name>Fable.Import.Test</Name>
@@ -50,7 +50,6 @@
     <Reference Include="System.Numerics" />
     <Reference Include="../build/fable/bin/Fable.Core.dll" />
   </ItemGroup>
-  <ItemGroup />
   <ItemGroup>
     <Compile Include="express/Fable.Import.Express.fs" />
     <Compile Include="react/Fable.Import.React.fs" />
