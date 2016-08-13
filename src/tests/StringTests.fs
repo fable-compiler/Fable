@@ -19,6 +19,10 @@ let ``sprintf works``() =
       printer "evening" |> equal "Hi Alfonso, good evening!"
 
 [<Test>]
+let ``sprintf withour arguments works``() =
+      sprintf "hello" |> equal "hello"
+
+[<Test>]
 let ``sprintf with escaped percent symbols works``() = // See #195
       let r, r1, r2 = "Ratio", 0.213849, 0.799898
       sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)

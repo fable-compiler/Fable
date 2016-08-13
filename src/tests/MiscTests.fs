@@ -585,3 +585,9 @@ let ``Root members with JS non-valid chars work``() = // See #207
     Lib.引く 3 2 |> equal 1
     Lib.モジュール.ファンクション 0 |> equal false
 #endif
+
+[<Test>]
+let ``Unchecked.defaultof works`` () =
+    Unchecked.defaultof<int> |> equal 0
+    Unchecked.defaultof<bool> |> equal false
+    Unchecked.defaultof<string> |> equal null

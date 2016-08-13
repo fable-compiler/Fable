@@ -177,7 +177,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let expr2 =
             (List.map (com.Transform ctx) args2)@[expr1]
             |> transformComposableExpr com ctx expr2
-        Fable.Lambda([lambdaArg], expr2) |> Fable.Value
+        makeLambdaExpr [lambdaArg] expr2             
 
     | BaseCons com ctx (meth, args) ->
         let args = List.map (com.Transform ctx) args
@@ -283,20 +283,44 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         |> makeSequential (makeRangeFrom fsExpr)
 
     (** ## Applications *)
-    | BasicPatterns.TraitCall (sourceTypes, traitName, flags, typArgs, methTypArgs, argExprs) ->
+    | BasicPatterns.TraitCall (sourceTypes, traitName, flags, argTypes, _, argExprs) ->
+        let listsEqual f li1 li2 =
+            if List.length li1 <> List.length li2
+            then false
+            else List.fold2 (fun b x y -> if b then f x y else false) true li1 li2
+        // TraitCalls don't know the generic definition of the method argument types,
+        // thus we need a bit more convoluted function to compare them.
+        let argsEqual (argTypes1: Fable.Type list) (argTypes2: Fable.Type list) =
+            let genArgs = Dictionary<string, Fable.Type>()
+            let rec argEqual x y =
+                match x, y with
+                | Fable.GenericParam name1, Fable.GenericParam name2 -> name1 = name2
+                | Fable.GenericParam name, y ->
+                    if genArgs.ContainsKey name
+                    then genArgs.[name] = y
+                    else genArgs.Add(name, y); true 
+                | Fable.Array genArg1, Fable.Array genArg2 ->
+                    argEqual genArg1 genArg2
+                | Fable.Tuple genArgs1, Fable.Tuple genArgs2 ->
+                    listsEqual argEqual genArgs1 genArgs2
+                | Fable.Function (genArgs1, typ1), Fable.Function (genArgs2, typ2) ->
+                    argEqual typ1 typ2 && listsEqual argEqual genArgs1 genArgs2
+                | Fable.DeclaredType(ent1, genArgs1), Fable.DeclaredType(ent2, genArgs2) ->
+                    ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2
+                | x, y -> x = y
+            listsEqual argEqual argTypes1 argTypes2
+        // TODO: For custom operators we may need to take the sourceType in second place
         let sourceType = makeType com ctx sourceTypes.Head
         let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         let callee, args =
             if flags.IsInstance
             then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
             else makeTypeRef com range sourceType, List.map (transformExpr com ctx) argExprs
-        let argTypes = List.map Fable.Expr.getType args
+        let argTypes = List.map (makeType com ctx) argTypes
         let methName =
             match sourceType with
-            | Fable.DeclaredType(ent,typArgs) ->
-                //let typArgs = List.map (makeType com ctx) typArgs
-                let methTypArgs = List.map (makeType com ctx) methTypArgs
-                ent.TryGetMember(traitName, Fable.Method, typArgs, methTypArgs, argTypes, not flags.IsInstance)
+            | Fable.DeclaredType(ent,_) ->
+                ent.TryGetMember(traitName, Fable.Method, not flags.IsInstance, argTypes, argsEqual)
                 |> function Some m -> m.OverloadName | None -> traitName
             | _ -> traitName
         makeGet range (Fable.Function(argTypes, typ)) callee (makeConst methName)
@@ -430,7 +454,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> List.map (fun (typ, overrides) ->
                 overrides |> List.map (fun over ->
                     let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
-                    let ctx, args' = getMethodArgs com ctx true args
+                    let ctx, args' = bindMemberArgs com ctx true args
                     // Don't use the typ argument as the override may come
                     // from another type, like ToString()
                     let typ =
@@ -553,8 +577,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                         let ctx, var = bindIdentFrom com ctx var
                         var::vars, ctx)
                 let lambda =
-                    Fable.Lambda (targetVars, com.Transform targetCtx targetExpr)
-                    |> Fable.Value
+                    com.Transform targetCtx targetExpr |> makeLambdaExpr targetVars
                 let ctx, ident = bindIdent com ctx lambda.Type None (sprintf "$target%i" k)
                 ctx, Map.add k (ident, lambda) acc) (ctx, Map.empty<_,_>)
         let decisionTargets =
@@ -684,7 +707,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let addMethod() =
         let memberName, memberKind = sanitizeMethodName meth
-        let ctx', args' = getMethodArgs com ctx meth.IsInstanceMember args
+        let ctx', args' = bindMemberArgs com ctx meth.IsInstanceMember args
         let body =
             let ctx' =
                 match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
@@ -703,7 +726,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         let entMember =
             let fableEnt = makeEntity com meth.EnclosingEntity
             let argTypes = List.map Fable.Ident.getType args'
-            match fableEnt.TryGetMember(memberName, memberKind, [], [], argTypes, not meth.IsInstanceMember) with
+            match fableEnt.TryGetMember(memberName, memberKind, not meth.IsInstanceMember, argTypes) with
             | Some m -> m
             | None -> makeMethodFrom com memberName memberKind argTypes body.Type None meth
             |> fun m -> Fable.MemberDeclaration(m, privateName, args', body, SourceLocation.Empty)

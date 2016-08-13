@@ -90,6 +90,7 @@ type UTest2 =
             | :? UTest2 as y ->
                 match x, y with
                 | String s1, String s2 -> compare (s1 + s1) s2
+            | _ -> -1
 
 [<Test>]
 let ``Union custom equality works``() =  
