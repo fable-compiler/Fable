@@ -273,8 +273,21 @@ let ``String.Join works``() =
       String.Join("--", seq { yield "a"; yield "b"; yield "c" })
       |> equal "a--b--c"
 
+[<Test>]
+let ``System.String.Concat works``() =
+      String.Concat("a", "b", "c")
+      |> equal "abc"
+      String.Concat("--", seq { yield "a"; yield "b"; yield "c" })
+      |> equal "--abc"
+
 // String - F# module functions
- 
+
+[<Test>]
+let ``String.concat works``() =
+      String.concat "--" ["a"; "b"; "c"] |> equal "a--b--c"
+      seq { yield "a"; yield "b"; yield "c" }
+      |> String.concat "-" |> equal "a-b-c"
+
 [<Test>]
 let ``String.forall and exists work``() =
       "!!!" |> String.forall (fun c -> c = '!') |> equal true 

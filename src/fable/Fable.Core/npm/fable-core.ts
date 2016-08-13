@@ -909,7 +909,6 @@ class FString {
     xs = typeof xs == "string" ? Util.getRestParams(arguments, 1) : xs;
     return (Array.isArray(xs) ? xs : Array.from(xs)).join(delimiter);
   }
-  static concat = FString.join;
 
   static newGuid() {
     let uuid = "";

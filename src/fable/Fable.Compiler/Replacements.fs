@@ -524,6 +524,12 @@ module private AstPass =
             |> List.singleton
             |> emit i "Array.from($0).join('')"
             |> Some
+        | "concat" ->
+            let args =
+                if i.ownerFullName = "System.String"
+                then (makeConst "")::i.args else i.args
+            CoreLibCall("String", Some "join", false, args)
+            |> makeCall com i.range i.returnType |> Some
         | "split" ->
             match i.args with
             | [Fable.Value(Fable.StringConst _) as separator]
