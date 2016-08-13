@@ -787,18 +787,21 @@ module private AstPass =
             makeGet i.range i.returnType i.callee.Value (makeConst "size") |> Some
         | "isReadOnly" ->
             Fable.BoolConst false |> Fable.Value |> Some
-        | "add" -> icall com i "add" |> Some
         | "clear" -> icall com i "clear" |> Some
         | "contains" -> icall com i "has" |> Some
         | "remove" -> icall com i "delete" |> Some
         | "isProperSubsetOf" | "isProperSupersetOf"
+        | "add" ->
+            CoreLibCall ("Set", Some "addInPlace", false, [i.args.Head;i.callee.Value])
+            |> makeCall com i.range i.returnType |> Some
+        | "unionWith" | "intersectWith" | "exceptWith"
         | "isSubsetOf" | "isSupersetOf" | "copyTo" ->
-            CoreLibCall ("Set", Some i.methodName, false, i.callee.Value::i.args)
+            let meth =
+                let m = match i.methodName with "exceptWith" -> "differenceWith" | m -> m
+                m.Replace("With", "InPlace")
+            CoreLibCall ("Set", Some meth, false, i.callee.Value::i.args)
             |> makeCall com i.range i.returnType |> Some
         // TODO
-        // | "intersectWith"
-        // | "exceptWith"
-        // | "unionWith"
         // | "setEquals"
         // | "overlaps"
         // | "symmetricExceptWith"

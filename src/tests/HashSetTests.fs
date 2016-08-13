@@ -17,56 +17,52 @@ let set l =
     xs
 
 [<Test>]
-let ``Count works``() =
-    let xs = set []
-    xs.Count |> equal 0
-    let ys = set [1]
-    ys.Count |> equal 1
-    let zs = set [1; 1]
-    zs.Count |> equal 1
-    let zs' = set [1; 2]
-    zs'.Count |> equal 2
-
-[<Test>]
-let ``Set.add returns true if not present``() =
+let ``HashSet.Add returns true if not present``() =
     let xs = set []
     xs.Add(1) |> equal true
     xs.Count |> equal 1
 
-
 [<Test>]
-let ``Set.add returns false if already present``() =
+let ``HashSet.Add returns false if already present``() =
     let xs = set [1]
     xs.Add(1) |> equal false
     xs.Count |> equal 1
-        
 
 [<Test>]
-let ``Set.contains works``() =
-    let xs = set [1]
-    xs.Contains 1 |> equal true
-    xs.Contains 2 |> equal false
-
-
-[<Test>]
-let ``Set.remove works when item is present``() =
+let ``HashSet.Remove works when item is present``() =
     let xs = set [1] 
     xs.Remove 1 |> equal true
     xs.Count |> equal 0
 
 [<Test>]
-let ``Set.remove works when item is not present``() =
+let ``HashSet.Remove works when item is not present``() =
     let xs = set [1; 2] 
     xs.Remove 3 |> equal false
     xs.Count |> equal 2
 
 [<Test>]
-let ``Set.union works``() =
+let ``HashSet.UnionWith works``() =
     let xs = set [1; 2] 
     let ys = set [2; 4]
     xs.UnionWith ys
     (xs.Contains 1 && xs.Contains 2 && xs.Contains 4)
     |> equal true
+
+[<Test>]
+let ``HashSet.IntersectWith works``() =
+    let xs = set [1; 2] 
+    let ys = set [2; 4]
+    xs.IntersectWith ys
+    xs.Contains 1 |> equal false
+    xs.Contains 2 |> equal true
+
+[<Test>]
+let ``HashSet.ExceptWith works``() =
+    let xs = set [1; 2] 
+    let ys = set [2; 4]
+    xs.ExceptWith ys
+    xs.Contains 1 |> equal true
+    xs.Contains 2 |> equal false
 
 [<Test>]
 let ``HashSet creation works``() =
@@ -96,6 +92,14 @@ let ``HashSet.Count works``() =
     for i in 1. .. 10. do hs.Add(i*i) |> ignore
     hs.Count
     |> equal 10
+    let xs = set []
+    xs.Count |> equal 0
+    let ys = set [1]
+    ys.Count |> equal 1
+    let zs = set [1; 1]
+    zs.Count |> equal 1
+    let zs' = set [1; 2]
+    zs'.Count |> equal 2    
 
 [<Test>]
 let ``HashSet.Add works``() =
@@ -118,7 +122,7 @@ let ``HashSet.Contains works``() =
     hs.Add("Hello") |> equal true
     hs.Add("World!") |> equal true
     hs.Contains("Hello") |> equal true
-    hs.Contains("Everybody!") |> equal false
+    hs.Contains("Everybody!") |> equal false        
 
 [<Test>]
 let ``HashSet.CopyTo works``() =
@@ -174,7 +178,7 @@ let ``HashSet serialized with Json.NET can be deserialized``() =
     // x.Add({ i=1; s="1" }) |> ignore
     // x.Add({ i=2; s="2" }) |> ignore
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-    let json = """{"$type":"System.Collections.Generic.HashSet`1[[Fable.Tests.SystemSets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.SystemSets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.SystemSets+R, Fable.Tests","i":2,"s":"2"}]}"""
+    let json = """{"$type":"System.Collections.Generic.HashSet`1[[Fable.Tests.HashSets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":2,"s":"2"}]}"""
     #if MOCHA
     let x2 = Fable.Core.JsInterop.ofJson<HashSet<R>> json
     #else

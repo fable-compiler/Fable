@@ -2822,23 +2822,26 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
     return FSet.from(s.comparer, SetTree.add(s.comparer, item, s.tree));
   }
 
+  static addInPlace<T>(item: T, s: Set<T>) {
+    return s.has(item) ? false : (s.add(item), true);
+  }  
+
   static remove<T>(item: T, s: FSet<T>) {
     return FSet.from(s.comparer, SetTree.remove(s.comparer, item, s.tree));
   }
 
-  static union<T>(set1: FSet<T> | Iterable<T>, set2: FSet<T> | Iterable<T>): FSet<T> | Set<T> {
-    if (set1 instanceof FSet && set2 instanceof FSet) {
-      return set2.tree.Case === "SetEmpty"
-        ? set1
-        : set1.tree.Case === "SetEmpty"
-          ? set2
-          : FSet.from(set1.comparer, SetTree.union(set1.comparer, set1.tree, set2.tree));
-    }
-    else {
-      return Seq.fold((acc, x) => { acc.add(x); return acc; }, new Set(set1), set2);
-    }
+  static union<T>(set1: FSet<T>, set2: FSet<T>) {
+    return set2.tree.Case === "SetEmpty"
+      ? set1
+      : set1.tree.Case === "SetEmpty"
+        ? set2
+        : FSet.from(set1.comparer, SetTree.union(set1.comparer, set1.tree, set2.tree));
   }
   static op_Addition = FSet.union;
+
+  static unionInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
+    for (const x of set2) { set1.add(x); }
+  }
 
   static unionMany<T>(sets: Iterable<FSet<T>>) {
     // Pass args as FSet.union(s, acc) instead of FSet.union(acc, s)
@@ -2846,35 +2849,30 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
     return Seq.fold((acc, s) => <FSet<T>>FSet.union(s, acc), FSet.create<T>(), sets);
   }
 
-  static difference<T>(set1: FSet<T> | Iterable<T>, set2: FSet<T> | Iterable<T>): FSet<T> | Set<T> {
-    if (set1 instanceof FSet && set2 instanceof FSet) {
-      return set1.tree.Case === "SetEmpty"
+  static difference<T>(set1: FSet<T>, set2: FSet<T>) {
+    return set1.tree.Case === "SetEmpty"
+      ? set1
+      : set2.tree.Case === "SetEmpty"
         ? set1
-        : set2.tree.Case === "SetEmpty"
-          ? set1
-          : FSet.from(set1.comparer, SetTree.diff(set1.comparer, set1.tree, set2.tree));
-    }
-    else {
-      return Seq.fold((acc, x) => { acc.delete(x); return acc; }, new Set(set1), set2);
-    }
+        : FSet.from(set1.comparer, SetTree.diff(set1.comparer, set1.tree, set2.tree));
   }
   static op_Subtraction = FSet.difference;
 
-  static intersect<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Iterable<T>): FSet<T> | Set<T> {
-    if (set1 instanceof FSet && set2 instanceof FSet) {
-      return set2.tree.Case === "SetEmpty"
-        ? set2
-        : set1.tree.Case === "SetEmpty"
-          ? set1
-          : FSet.from(set1.comparer, SetTree.intersection(set1.comparer, set1.tree, set2.tree));
-    }
-    else {
-      return Seq.fold((acc, x) => {
-        if (!set1.has(x))
-          acc.delete(x);
-        return acc;
-      }, new Set(set2), set2);
-    }
+  static differenceInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
+    for (const x of set2) { set1.delete(x); }
+  }
+
+  static intersect<T>(set1: FSet<T>, set2: FSet<T>) {
+    return set2.tree.Case === "SetEmpty"
+      ? set2
+      : set1.tree.Case === "SetEmpty"
+        ? set1
+        : FSet.from(set1.comparer, SetTree.intersection(set1.comparer, set1.tree, set2.tree));
+  }
+
+  static intersectInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
+    const set2_ = set2 instanceof Set ? set2 : new Set(set2);
+    for (const x of set1) { if (!set2_.has(x)) { set1.delete(x); } }
   }
 
   static intersectMany<T>(sets: Iterable<FSet<T>>) {
