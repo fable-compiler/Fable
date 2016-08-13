@@ -739,7 +739,7 @@ Util.setInterfaces(Timer.prototype, ["System.IDisposable"]);
 class FString {
   private static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 
-  static fsFormat(str: any) {
+  static fsFormat(str: string) {
     function isObject(x: any) {
       return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
     }
@@ -754,9 +754,15 @@ class FString {
           case "e": case "E":
             rep = rep.toExponential(precision); break;
           case "A":
-            rep = (rep instanceof FMap ? "map " : rep instanceof FSet ? "set " : "") + JSON.stringify(rep, function (k, v) {
-              return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v) : v;
-            });
+            try {
+              rep = (rep instanceof FMap ? "map " : rep instanceof FSet ? "set " : "") + JSON.stringify(rep, function (k, v) {
+                return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v) : v;
+              });
+            }
+            catch (err) {
+              // Fallback for objects with circular references
+              rep = "{" + Object.getOwnPropertyNames(rep).map(k => k + ": " + String(rep[k])).join(", ") + "}";
+            }
             break;
         }
         const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;

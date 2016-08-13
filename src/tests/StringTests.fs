@@ -19,7 +19,7 @@ let ``sprintf works``() =
       printer "evening" |> equal "Hi Alfonso, good evening!"
 
 [<Test>]
-let ``sprintf withour arguments works``() =
+let ``sprintf without arguments works``() =
       sprintf "hello" |> equal "hello"
 
 [<Test>]
@@ -27,6 +27,16 @@ let ``sprintf with escaped percent symbols works``() = // See #195
       let r, r1, r2 = "Ratio", 0.213849, 0.799898
       sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
       |> equal "Ratio1: 21.38% Ratio2: 79.99%"
+
+#if MOCHA
+open Fable.Core.JsInterop
+
+[<Test>]
+let ``sprintf "%A" with circular references doesn't crash``() = // See #338
+      let o = obj()
+      o?self <- o
+      sprintf "%A" o |> ignore
+#endif
 
 [<Test>]
 let ``String.Format works``() =

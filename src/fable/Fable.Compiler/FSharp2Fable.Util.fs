@@ -618,7 +618,6 @@ module Util =
         match args with
         | [] -> ctx, []
         | [[singleArg]] when isUnit singleArg.FullType -> ctx, []
-        // The F# compiler "untuples" the args in methods
         | args ->
             List.foldBack (fun tupledArg (ctx, accArgs) ->
                 // The F# compiler "untuples" the args in methods
