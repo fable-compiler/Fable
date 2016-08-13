@@ -18,6 +18,8 @@
                 "DateTimeTests.fs",
                 "DictionaryTests.fs",
                 "EnumTests.fs",
+                "EventTests.fs",
+                "HashSetTests.fs",
                 "ListTests.fs",
                 "MapTests.fs",
                 "MiscTests.fs",
@@ -29,11 +31,10 @@
                 "SeqTests.fs",
                 "SetTests.fs",
                 "StringTests.fs",
-                "SystemSetsTests.fs",
+                "SudokuTest.fs",
                 "TupleTypeTests.fs",
-                "UnionTypeTests.fs",
                 "TypeTests.fs",
-                "EventTests.fs"
+                "UnionTypeTests.fs",
             ]
         },
         "define": [
