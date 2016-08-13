@@ -6,12 +6,10 @@ var child_process = require('child_process');
 var commandLineArgs = require('command-line-args');
 var getUsage = require('command-line-usage');
 
-var cfgDir = process.cwd();
-
 function getAppDescription() {
     return [
         {
-            header: 'Fable ' + require("./package.json").version,
+            header: 'Fable ' + fableVersion,
             content: 'F# to JavaScript compiler'
         },
         {
@@ -49,7 +47,9 @@ var optionDefinitions = [
   { name: 'help', alias: 'h', description: "Display usage guide." }
 ];
 
+var cfgDir = process.cwd();
 var fableConfig = "fableconfig.json";
+var fableVersion = require("./package.json").version;
 var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
 var fableBinOptions = new Set([
     "projFile", "coreLib", "symbols", "plugins", "msbuild",
@@ -409,7 +409,7 @@ function build(opts) {
         console.log("WORKING DIR: " + path.resolve(cfgDir) + "\n");
         console.log("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
-    console.log("Start compilation...");
+    console.log("Fable " + fableVersion + ": Start compilation...");
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: cfgDir, windowsVerbatimArguments: true });
 
     fableProc.on('exit', function(code) {
@@ -528,7 +528,6 @@ try {
         if (curNpmCfg.engines && (curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"])) {
             var semver = require("semver");
             var fableRequiredVersion = curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"];
-            var fableVersion = require("./package.json").version;
             if (!semver.satisfies(fableVersion, fableRequiredVersion)) {
                 console.log("Fable version: " + fableVersion);
                 console.log("Required: " + fableRequiredVersion);
@@ -539,7 +538,7 @@ try {
     }
     
     if (opts.verbose) {
-        console.log("Fable F# to JS compiler version " + require("./package.json").version);
+        console.log("Fable F# to JS compiler version " + fableVersion);
     }
 
     if (opts.scripts && opts.scripts.prebuild) {
