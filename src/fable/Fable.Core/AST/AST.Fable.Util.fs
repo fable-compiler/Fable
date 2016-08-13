@@ -17,6 +17,8 @@ let makeLoop range loopKind = Loop (loopKind, range)
 let makeIdent name: Ident = {name=name; typ=Any}
 let makeTypedIdent name typ: Ident = {name=name; typ=typ}
 let makeIdentExpr name = makeIdent name |> IdentValue |> Value
+let makeLambdaExpr args body = Value(Lambda(args, body))
+
 let makeCoreRef (com: ICompiler) modname prop =
     let import = Value(ImportRef(modname, com.Options.coreLib))
     match prop with
@@ -226,18 +228,17 @@ let makeDelegate arity (expr: Expr) =
 
 // Check if we're applying against a F# let binding
 let makeApply range typ callee exprs =
+    let callee =
+        match callee with
+        // If we're applying against a F# let binding, wrap it with a lambda
+        | Sequential _ ->
+            Apply(Value(Lambda([],callee)), [], ApplyMeth, callee.Type, callee.Range)
+        | _ -> callee        
     let lasti = (List.length exprs) - 1
-    ((0, callee), exprs)
-    ||> List.fold (fun (i, callee) expr ->
-        let typ = if i = lasti then typ else makeUnknownFnType (i+1)
-        let callee =
-            match callee with
-            | Sequential _ ->
-                // F# let binding: Surround with a lambda
-                Apply (Lambda ([], callee) |> Value, [], ApplyMeth, typ, range)
-            | _ -> callee
-        i, Apply (callee, [expr], ApplyMeth, typ, range))
-    |> snd
+    ((0, callee), exprs) ||> List.fold (fun (i, callee) expr ->
+        let typ' = if i = lasti then typ else makeUnknownFnType (i+1)
+        i + 1, Apply (callee, [expr], ApplyMeth, typ', range))
+    |> snd    
 
 let makeJsObject range (props: (string * Expr) list) =
     let decls = props |> List.map (fun (name, body) ->
@@ -245,9 +246,8 @@ let makeJsObject range (props: (string * Expr) list) =
     ObjExpr(decls, [], None, Some range)
 
 let makeEmit args macro =
-    let emit = Fable.Emit macro |> Fable.Value
-    Fable.Apply(emit, args, Fable.ApplyMeth, Fable.Any, None)    
-    
+    Apply(Value(Emit macro), args, ApplyMeth, Any, None) 
+
 let getTypedArrayName (com: ICompiler) numberKind =
     match numberKind with
     | Int8 -> "Int8Array"

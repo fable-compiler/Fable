@@ -71,33 +71,16 @@ and Entity(kind, file, fullName, members: Lazy<Member list>,
         List.exists ((=) fullName) interfaces
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
-    member x.TryGetMember(name, kind, typArgs, methTypArgs, argTypes, isStatic) =
-        let genArgs =
-            if List.length genParams = List.length typArgs
-            then List.zip genParams typArgs |> Map
-            else Map.empty
+    member x.TryGetMember(name, kind, isStatic, argTypes, ?argsEqual) =
+        let argsEqual = defaultArg argsEqual (=)
         members.Value |> List.tryFind (fun m ->
             if m.IsStatic <> isStatic
-                || m.Kind <> kind
                 || m.Name <> name
+                || m.Kind <> kind
             then false
             elif m.OverloadIndex.IsNone
             then true
-            else
-                let genArgs =
-                    if List.length m.GenericParameters = List.length methTypArgs then
-                        (genArgs, List.zip m.GenericParameters methTypArgs)
-                        ||> Seq.fold (fun m (k, v) -> Map.add k v m)
-                    else genArgs
-                (m.ArgumentTypes, argTypes)
-                ||> List.compareWith (fun a1 a2 ->
-                    let a1 =
-                        match a1 with
-                        | GenericParam k -> defaultArg (Map.tryFind k genArgs) a1
-                        | _ -> a1
-                    if a1 = a2 then 0 else -1)
-                |> (=) 0
-        )
+            else argsEqual m.ArgumentTypes argTypes)
     static member CreateRootModule fileName modFullName =
         Entity (Module, Some fileName, modFullName, lazy [], [], [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind
@@ -288,31 +271,3 @@ and Expr =
         | Set (_,_,_,range)
         | Sequential (_,range)
         | TryCatch (_,_,_,range) -> range
-
-    // member x.Children: Expr list =
-    //     match x with
-    //     | Value _ -> []
-    //     | ObjExpr (decls,_) -> decls |> List.map snd
-    //     | Get (callee,prop,_) -> [callee; prop]
-    //     | Emit (_,args,_,_) -> args
-    //     | Apply (callee,args,_,_,_) -> (callee::args)
-    //     | IfThenElse (guardExpr,thenExpr,elseExpr,_) -> [guardExpr; thenExpr; elseExpr]
-    //     | Throw (ex,_,_) -> [ex]
-    //     | Loop (kind,_) ->
-    //         match kind with
-    //         | While (guard,body) -> [guard; body]
-    //         | For (_,start,limit,body,_) -> [start; limit; body]
-    //         | ForOf (_,enumerable,body) -> [enumerable; body]
-    //     | Set (callee,prop,value,_) ->
-    //         match prop with
-    //         | Some prop -> [callee; prop; value]
-    //         | None -> [callee; value]
-    //     | VarDeclaration (_,value,_) -> [value]
-    //     | Sequential (exprs,_) -> exprs
-    //     | Wrapped (e,_) -> [e]
-    //     | TryCatch (body,catch,finalizer,_) ->
-    //         match catch, finalizer with
-    //         | Some (_,catch), Some finalizer -> [body; catch; finalizer]
-    //         | Some (_,catch), None -> [body; catch]
-    //         | None, Some finalizer -> [body; finalizer]
-    //         | None, None -> [body]

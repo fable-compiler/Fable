@@ -92,8 +92,8 @@ module Util =
         Fable.Wrapped (expr, typ)
 
     let wrapInLambda args f =
-        let argValues = List.map (Fable.IdentValue >> Fable.Value) args
-        Fable.Lambda(args, f argValues) |> Fable.Value
+        List.map (Fable.IdentValue >> Fable.Value) args
+        |> f |> makeLambdaExpr args
 
     let genArg (t: Fable.Type) =
         match t.GenericArgs with
@@ -153,7 +153,7 @@ module Util =
             set [ "System.TimeSpan"; "System.DateTime"; "Microsoft.FSharp.Collections.FSharpSet" ]
         let (|CustomOp|_|) meth argTypes (ent: Fable.Entity) =
             if replacedEntities.Contains ent.FullName then None else
-            ent.TryGetMember(meth, Fable.Method, i.calleeTypeArgs, i.methodTypeArgs, argTypes, true)
+            ent.TryGetMember(meth, Fable.Method, true, argTypes)
             |> function None -> None | Some m -> Some(ent, m)
         let apply op args =
             Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range)
@@ -676,7 +676,7 @@ module private AstPass =
             | Fable.Boolean _ -> Some comp
             // Hack to fix instance member calls (e.g., myOpt.IsSome)
             // For some reason, F# compiler expects it to be applicable
-            | _ -> Fable.Lambda([], comp) |> Fable.Value |> Some
+            | _ -> makeLambdaExpr [] comp |> Some
         | "map" | "bind" ->
             // emit i "$1 != null ? $0($1) : $1" i.args |> Some
             let f, arg = i.args.Head, i.args.Tail.Head
@@ -964,7 +964,7 @@ module private AstPass =
                     if meth = "sortDescending" || meth = "sortByDescending"
                     then makeUnOp None (Fable.Number Int32) [comparison] UnaryMinus
                     else comparison
-                Fable.Lambda(fnArgs, comparison) |> Fable.Value
+                makeLambdaExpr fnArgs comparison
             match c, kind with
             // This is for calls to instance `Sort` member on ResizeArrays
             | Some c, _ ->
@@ -1218,7 +1218,7 @@ module private AstPass =
 
     let unchecked com (info: Fable.ApplyInfo) =
         match info.methodName with
-        | "defaultof" ->
+        | "defaultOf" ->
             match info.methodTypeArgs with
             | [Fable.Number _] -> makeConst 0
             | [Fable.Boolean _] -> makeConst false
