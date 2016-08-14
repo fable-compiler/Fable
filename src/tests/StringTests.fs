@@ -279,8 +279,8 @@ let ``String.Join works``() =
 let ``System.String.Concat works``() =
       String.Concat("a", "b", "c")
       |> equal "abc"
-      String.Concat("--", seq { yield "a"; yield "b"; yield "c" })
-      |> equal "--abc"
+      String.Concat(seq { yield "a"; yield "b"; yield "c" })
+      |> equal "abc"
 
 // String - F# module functions
 
