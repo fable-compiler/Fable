@@ -100,6 +100,9 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
         | ".fsx" ->
             checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile)
             |> Async.RunSynchronously
+        #if NETSTANDARD1_6 || NETCOREAPP1_0
+        | _ -> failwith "Only fsx files are supported at the moment"
+        #else            
         | _ -> // .fsproj
             let props = opts.msbuild |> List.choose (fun x ->
                 match x.Split('=') with
@@ -108,6 +111,7 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
             // NOTE: .NET Core MSBuild can't successfully build .fsproj (yet)
             // see https://github.com/Microsoft/msbuild/issues/709, 711, 713
             ProjectCracker.GetProjectOptionsFromProjectFile(projFile, props)
+        #endif
         |> addSymbols opts.symbols
     with
     | ex -> failwithf "Cannot read project options: %s" ex.Message
@@ -201,6 +205,9 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
 
         // Check Fable.Core version on first compilation (whe projInfo.fileMask is None)
         // -----------------------------------------------------------------------------
+        #if NETSTANDARD1_6 || NETCOREAPP1_0
+        // Skip this check in netcore for now
+        #else
         if Option.isNone projInfo.fileMask then
             parsedProj.ProjectContext.GetReferencedAssemblies()
             |> Seq.tryPick (fun asm ->
@@ -212,6 +219,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
                 | Some minVersion when fableCoreVersion < minVersion ->
                     failwithf "Fable.Core %O required, please upgrade the project reference" minVersion
                 | _ -> ())
+        #endif
 
         // Compile project files, print them and get the dependencies
         // ----------------------------------------------------------

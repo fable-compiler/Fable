@@ -1,11 +1,18 @@
 ﻿var fs = require("fs");
 var path = require("path");
 var babel = require("babel-core");
-var pkgInfo = require("./package.json");
 var template = require("babel-template");
 var child_process = require('child_process');
 var commandLineArgs = require('command-line-args');
 var getUsage = require('command-line-usage');
+
+var pkgInfo = (function() {
+    var pkgInfo = JSON.parse(fs.readFileSync(require.resolve("./package.json")).toString());
+    return {
+        name: pkgInfo.name,
+        version: pkgInfo.version
+    };
+}());
 
 function getAppDescription() {
     return [
@@ -51,11 +58,14 @@ var optionDefinitions = [
 
 var cfgDir = process.cwd();
 var fableConfig = "fableconfig.json";
-var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
 var fableBinOptions = new Set([
     "projFile", "coreLib", "symbols", "plugins", "msbuild",
     "refs", "watch", "clamp", "copyExt", "extra", "declaration"
 ]);
+var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
+if (pkgInfo.name === "fable-compiler-netcore") {
+    fableBin = fableBin.replace(".exe", ".dll");
+}
 
 // Custom plugin to remove `null;` statements (e.g. at the end of constructors)
 var removeNullStatements = {
@@ -368,7 +378,14 @@ function build(opts) {
             return arg;
         }
     };
-    var fableCmd = "mono", fableCmdArgs = [wrapInQuotes(fableBin)];
+    
+    var fableCmd, fableCmdArgs = [wrapInQuotes(fableBin)]
+    if (pkgInfo.name === "fable-compiler-netcore") {
+        fableCmd = "dotnet";
+    }
+    else {
+        fableCmd = process.platform === "win32" ? null : "mono";
+    }
 
     for (var k in opts) {
         if (fableBinOptions.has(k)) {
@@ -380,6 +397,7 @@ function build(opts) {
     }
 
     if (process.platform === "win32") {
+        if (fableCmd) { fableCmdArgs.splice(0, 0, fableCmd); }
         fableCmd = "cmd";
         fableCmdArgs = ["/S", "/C", '"' + fableCmdArgs.join(" ") + '"'];
     }
@@ -391,7 +409,7 @@ function build(opts) {
         console.log("WORKING DIR: " + path.resolve(cfgDir) + "\n");
         console.log("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
-    console.log("Fable " + pkgInfo.version + ": Start compilation...");
+    console.log(pkgInfo.name + " " + pkgInfo.version + ": Start compilation...");
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: cfgDir, windowsVerbatimArguments: true });
 
     fableProc.on('exit', function(code) {

@@ -23,10 +23,6 @@
     "Fable.Compiler": {
       "version": "1.0.0-*",
       "target": "project"
-    },
-    "FSharp.Compiler.Service.ProjectCracker": {
-      "version": "6.0.1",
-      "target": "project"
     }
   },
   "frameworks": {
