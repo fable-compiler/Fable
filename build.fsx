@@ -296,6 +296,7 @@ Target "FableCore" (fun _ ->
     !! "src/fable/Fable.Core/Fable.Core.fsproj"
     |> MSBuild fableCoreNpmDir "Build" [
         "Configuration","Release"
+        "DefineConstants","IMPORT"
         "DocumentationFile","npm/Fable.Core.xml"]
     |> ignore // Log outputs all files in node_modules
 

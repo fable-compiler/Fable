@@ -22,7 +22,7 @@
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
     <OutputPath>bin</OutputPath>
-    <DefineConstants>DEBUGTRACE</DefineConstants>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget />
     <Prefer32Bit />

@@ -33,7 +33,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Fable.Core">
-      <HintPath>..\..\build\fable\bin\Fable.Core.dll</HintPath>
+      <HintPath>../fable/Fable.Core/npm/Fable.Core.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">

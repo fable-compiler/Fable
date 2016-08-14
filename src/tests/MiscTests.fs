@@ -257,7 +257,7 @@ let ``Multiple active pattern calls work``() =
 open System
 type IFoo =
    abstract Bar: s: string * [<ParamArray>] rest: obj[] -> string
-   
+
 [<Test>]
 let ``ParamArray in object expression works``() =
    let o = { new IFoo with member x.Bar(s: string, [<ParamArray>] rest: obj[]) = String.Format(s, rest) }
@@ -298,7 +298,20 @@ let ``Nested object expression work``() = // See #158
     let f = Foo(5)
     let f2 = f.MakeFoo2()
     f2.MakeFoo().Bar("Numbers") |> equal "Numbers: 10 20"
-       
+
+type IFoo3 =
+   abstract Bar: int with get, set
+   
+[<Test>]
+let ``Properties in object expression works``() =
+    let mutable backend = 0
+    let o = { new IFoo3 with member x.Bar with get() = backend and set(v) = backend <- v }
+    o.Bar |> equal 0
+    backend <- 5
+    o.Bar |> equal 5
+    o.Bar <- 10
+    o.Bar |> equal 10
+
 type SomeClass(name: string) =
     member x.Name = name
 

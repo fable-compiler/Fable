@@ -1,6 +1,7 @@
 ﻿var fs = require("fs");
 var path = require("path");
 var babel = require("babel-core");
+var pkgInfo = require("./package.json");
 var template = require("babel-template");
 var child_process = require('child_process');
 var commandLineArgs = require('command-line-args');
@@ -9,7 +10,7 @@ var getUsage = require('command-line-usage');
 function getAppDescription() {
     return [
         {
-            header: 'Fable ' + fableVersion,
+            header: 'Fable ' + pkgInfo.version,
             content: 'F# to JavaScript compiler'
         },
         {
@@ -33,6 +34,7 @@ var optionDefinitions = [
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
+  { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins." },  
   { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
@@ -49,7 +51,6 @@ var optionDefinitions = [
 
 var cfgDir = process.cwd();
 var fableConfig = "fableconfig.json";
-var fableVersion = require("./package.json").version;
 var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
 var fableBinOptions = new Set([
     "projFile", "coreLib", "symbols", "plugins", "msbuild",
@@ -114,23 +115,10 @@ var transformMacroExpressions = {
   }
 };
 
+var babelPresets = [];
 var babelPlugins = [
     transformMacroExpressions,
-    removeNullStatements,
-    // If this plugins is not used, glitches may appear in final code 
-    require("babel-plugin-transform-es5-property-mutators"),
-];
-
-var babelPlugins_es2015 = [
-    require("babel-plugin-transform-es2015-block-scoping"),    
-    require("babel-plugin-transform-es2015-arrow-functions"),
-    require("babel-plugin-transform-es2015-classes"),
-    require("babel-plugin-transform-es2015-computed-properties"),
-    require("babel-plugin-transform-es2015-for-of"),
-    require("babel-plugin-transform-es2015-object-super"),
-    require("babel-plugin-transform-es2015-parameters"),
-    require("babel-plugin-transform-es2015-shorthand-properties"),
-    require("babel-plugin-transform-es2015-spread")
+    removeNullStatements
 ];
 
 function ensureDirExists(dir, cont) {
@@ -152,9 +140,11 @@ function babelifyToFile(babelAst, opts) {
                          .replace(path.extname(babelAst.fileName), ".js");
     var fsCode = null,
         babelOpts = {
+            babelrc: false,
             filename: targetFile,
             sourceRoot: path.resolve(opts.outDir),
-            plugins: babelPlugins
+            plugins: babelPlugins,
+            presets: babelPresets
         };
     if (opts.sourceMaps && babelAst.originalFileName) {
         babelOpts.sourceMaps = opts.sourceMaps,
@@ -311,21 +301,6 @@ function processJson(json, opts) {
     }
 }
 
-function addModulePlugin(opts, babelPlugins) {
-    // Default
-    opts.module = opts.module || "umd";
-
-    if (["amd", "commonjs", "umd"].indexOf(opts.module) >= 0) {
-        babelPlugins.push(require("babel-plugin-transform-es2015-modules-" + opts.module));
-    }
-    else if (opts.module === "es2015" || opts.module === "es6") {
-        // Do nothing
-    }
-    else {
-        throw "Unknown module target: " + opts.module;
-    }
-}
-
 function build(opts) {
     if (opts.declaration) {
         babelPlugins.splice(0,0,
@@ -343,7 +318,17 @@ function build(opts) {
 
     // ECMAScript target
     if (opts.ecma != "es2015" && opts.ecma != "es6") {
-        babelPlugins = babelPlugins.concat(babelPlugins_es2015);
+        opts.module = opts.module || "umd"; // Default module
+        if (opts.module === "es2015" || opts.module === "es6") {
+            opts.module = false;
+        }
+        else if (["amd", "commonjs", "systemjs", "umd"].indexOf(opts.module) == -1) {
+            throw "Unknown module target: " + opts.module;
+        }
+        babelPresets.push([require.resolve("babel-preset-es2015"), {
+            "loose": opts.loose || false,
+            "modules": opts.module
+        }]);
     }
     
     // Extra Babel plugins
@@ -373,9 +358,6 @@ function build(opts) {
             }
         });
     }
-
-    // Module target
-    addModulePlugin(opts, babelPlugins);
 
     var wrapInQuotes = function (arg) {
         if (process.platform === "win32") {
@@ -409,7 +391,7 @@ function build(opts) {
         console.log("WORKING DIR: " + path.resolve(cfgDir) + "\n");
         console.log("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
-    console.log("Fable " + fableVersion + ": Start compilation...");
+    console.log("Fable " + pkgInfo.version + ": Start compilation...");
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: cfgDir, windowsVerbatimArguments: true });
 
     fableProc.on('exit', function(code) {
@@ -528,8 +510,8 @@ try {
         if (curNpmCfg.engines && (curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"])) {
             var semver = require("semver");
             var fableRequiredVersion = curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"];
-            if (!semver.satisfies(fableVersion, fableRequiredVersion)) {
-                console.log("Fable version: " + fableVersion);
+            if (!semver.satisfies(pkgInfo.version, fableRequiredVersion)) {
+                console.log("Fable version: " + pkgInfo.version);
                 console.log("Required: " + fableRequiredVersion);
                 console.log("Please upgrade fable-compiler package");
                 process.exit(1);
@@ -538,7 +520,7 @@ try {
     }
     
     if (opts.verbose) {
-        console.log("Fable F# to JS compiler version " + fableVersion);
+        console.log("Fable F# to JS compiler version " + pkgInfo.version);
     }
 
     if (opts.scripts && opts.scripts.prebuild) {

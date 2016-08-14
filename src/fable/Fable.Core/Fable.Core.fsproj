@@ -55,6 +55,8 @@
     <Compile Include="AST\AST.Babel.fs" />
     <Compile Include="Plugins.fs" />
     <Compile Include="Fable.Core.fs" />
+  </ItemGroup>
+  <ItemGroup Condition="$(DefineConstants.Contains('IMPORT'))">
     <Compile Include="Import\Fable.Import.JS.fs" />
     <Compile Include="Import\Fable.Import.Browser.fs" />
     <Compile Include="Import\Fable.Import.Node.fs" />

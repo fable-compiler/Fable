@@ -13,11 +13,7 @@
         "AST/AST.Fable.Util.fs",
         "AST/AST.Babel.fs",
         "Plugins.fs",
-        "Fable.Core.fs",
-        "Import/Fable.Import.JS.fs",
-        "Import/Fable.Import.Browser.fs",
-        "Import/Fable.Import.Node.fs",
-        "Fable.Core.Extensions.fs"
+        "Fable.Core.fs"
       ]
     },
     "define": [
