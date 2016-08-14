@@ -335,8 +335,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let args = List.map (transformExpr com ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         match callee.Type.FullName, args with
-        | "Fable.Core.Applicable", [Fable.Value(Fable.TupleConst args)] ->
-            Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
+        | "Fable.Core.Applicable", args ->
+            match args with
+            | [Fable.Value(Fable.TupleConst args)] -> args
+            | args -> args
+            |> List.map (makeDelegate None)
+            |> fun args -> Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
         | _ -> makeApply range typ callee args
         
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->

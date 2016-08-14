@@ -295,22 +295,26 @@ module private AstPass =
         | "op_DynamicAssignment" ->
             match i.callee, i.args with
             | ThreeArgs (callee, prop, value) ->
+                let value = makeDelegate None value
                 Fable.Set (callee, Some prop, value, i.range) |> Some
             | _ -> None
-        | "op_Dollar" ->
-            Fable.Apply(i.args.Head, destruct i.args.Tail.Head,
-                Fable.ApplyMeth, i.returnType, i.range) |> Some
+        | "op_Dollar" | "createNew" ->
+            let args =
+                destruct i.args.Tail.Head
+                |> List.map (makeDelegate None)
+            let applyMeth =
+                if i.methodName = "createNew"
+                then Fable.ApplyCons else Fable.ApplyMeth
+            Fable.Apply(i.args.Head, args, applyMeth, i.returnType, i.range) |> Some
         | "op_EqualsEqualsGreater" ->
             Fable.TupleConst(List.take 2 i.args) |> Fable.Value |> Some
-        | "createNew" ->
-            Fable.Apply(i.args.Head, destruct i.args.Tail.Head,
-                Fable.ApplyCons, i.returnType, i.range) |> Some
         | "createObj" ->
             let (|Fields|_|) = function
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, _)) ->
                     exprs
                     |> List.choose (function
-                        | Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) -> Some(key, value)
+                        | Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
+                            Some(key, makeDelegate None value)
                         | _ -> None)
                     |> function
                         | fields when fields.Length = exprs.Length -> Some fields

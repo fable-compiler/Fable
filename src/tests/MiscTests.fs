@@ -84,6 +84,27 @@ let ``Dynamic application works``() =
     dynObj?add $ (2,2) |> equal (box 4)
     dynObj?foo |> unbox |> equal "foo"
 
+let myMeth (x: int) (y: int) = x - y
+
+[<Test>]
+let ``Lambdas are converted to delegates with dynamic operators``() =
+    let o =
+        createObj [
+            "bar" ==> fun x y z -> x * y * z
+            "bar2" ==> myMeth
+            "apply2and5" ==> fun (f: Func<int,int,int>) -> f.Invoke(2,5)
+        ]
+    o?bar(1,2,3) |> equal 6
+    o?bar2(5,2) |> equal 3
+
+    o?apply2and5(fun x y -> x + y) |> equal 7
+
+    let f = unbox<obj> o?apply2and5
+    f $ (fun x y -> x * y) |> equal 10
+    
+    o?foo <- fun x y -> x / y
+    o?foo(25, 5) |> equal 5
+
 [<Test>]
 let ``Symbols in external projects work``() =
     equal "Fable Rocks!" Clamp.Helper.ConditionalExternalValue

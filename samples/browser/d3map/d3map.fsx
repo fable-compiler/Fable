@@ -21,8 +21,8 @@ JavaScript helpers and imports
 
 Fable comes with [an F# mapping for the D3 library](https://github.com/fsprojects/Fable/tree/master/import/d3),
 which defines all the types and functions for D3 that we'll need in this example. In addition to
-D3, this demo uses [d3-queue](https://github.com/d3/d3-queue) and [topojson](https://github.com/mbostock/topojson).
-We'll write the mappings for those two inline:
+D3, this demo uses [d3-queue](https://github.com/d3/d3-queue) and [topojson](https://github.com/mbostock/topojson)
+which we'll just import and use dynamically:
 *)
 open System
 open Fable.Core
@@ -30,18 +30,8 @@ open Fable.Core.JsInterop
 open Fable.Import
 open Fable.Import.Browser
 
-/// Represents the operations of the 'queue' object
-type IQueue =
-    abstract member defer: obj * obj -> IQueue
-    abstract member await: obj -> unit
-
-/// Represents the API exposed by Topo JSON
-type ITopojson =
-    abstract member feature: obj * obj -> obj
-    abstract member mesh: obj * obj * obj -> obj
-
-let queue = importDefault<unit->IQueue> "queue"
-let topojson = importDefault<ITopojson> "topojson"
+let queue = importDefault<unit->obj> "queue"
+let topojson = importDefault<obj> "topojson"
 
 (**
 
@@ -50,18 +40,7 @@ We write the arguments as if we were writing [EcmaScript 2015 modules](https://d
 like `import defaultMember from 'queue'`, then Fable/Babel will transform the modules as needed.
 In this case, we use amd as a target so we can load them with [Require.js](http://requirejs.org/docs/whyamd.html).
 
-In addition to the library imports, we also define the following helpers that wrap an F#
-function into the `Func<...>` type. This creates a function value that is compatible with
-JavaScript. This is needed because F# uses curried representation of functions and so,
-for example, `fun a b -> a + b` would correspond to `function(a){ return function(b) { return a + b; }}`
-in JavaScript. The `Func<...>` delegate avoids the issue.
-
-> Note that if you pass an F# function to a method accepting a `Func<...>` delegate
-in its signature (like `D3.Transition.each` below) this conversion is done automatically.
 *)
-let inline f1 (f: 'a->'b) = Func<_,_> f
-let inline f2 (f: 'a->'b->'c) = Func<_,_,_> f
-let inline f3 (f: 'a->'b->'c->'d) = Func<_,_,_,_> f
 
 (**
 Setting up the canvas and projection
@@ -138,19 +117,17 @@ couuntries. We also find all countries for which we have both name and map:
   // Create globe object (to render the border)
   let globe = createObj [ "type" ==> "Sphere" ]
   // Create land feature (fill the world)
-  let landFeature = topojson.feature(world, world?objects?``land``)
+  let landFeature = topojson?feature(world, world?objects?``land``)
 
   // Used to render country borders, specify filter to
   // prune overlapping borders (shared by 2 countries)
   let borders =
-    topojson.mesh(world,
-                  world?objects?countries,
-                  f2 (fun x y -> x <> y))
+    topojson?mesh(world, world?objects?countries, (<>))
 
   // Get countries for which we have a name and set
   // their name property using the `?` operator
   let countries =
-    topojson.feature(world, world?objects?countries)?features
+    topojson?feature(world, world?objects?countries)?features
     |> unbox<obj[]>
     |> Array.filter (fun d ->
         names |> Seq.exists (fun n ->
@@ -205,7 +182,7 @@ then setting up a number of parameters:
         // that renders everything at a given time 't'
         let p1, p2 = D3.Geo.Globals.centroid(countries.[i])
         let r = D3.Globals.interpolate(projection.rotate(), (-p1, -p2))
-        f1 (fun t -> render countries.[i] (r.Invoke(t))) )
+        Func<_,_>(fun t -> render countries.[i] (r.Invoke(t))) )
       .transition()
       .each("end", fun _ _ ->
         // At the end, start the transition again!
@@ -222,8 +199,8 @@ of data. This is done by calling `queue().defer(...)`, which specifies that a fi
 `dataLoaded` function, which then starts the first transition.
 *)
 queue()
-  .defer(f2 (fun url callback -> D3.Globals.json(url, callback)), "data/world-110m.json")
-  .defer(D3.Globals.tsv, "data/world-country-names.tsv")
-  .await(f3 (fun error world names ->
+  ?defer((fun url callback -> D3.Globals.json(url, callback)), "data/world-110m.json")
+  ?defer(D3.Globals.tsv, "data/world-country-names.tsv")
+  ?await(fun error world names ->
     if error then error |> unbox |> raise
-    dataLoaded world names))
+    dataLoaded world names)
