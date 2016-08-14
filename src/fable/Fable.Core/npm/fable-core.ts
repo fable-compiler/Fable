@@ -252,8 +252,8 @@ export class Util {
     });
   }
 
-  static ofJson(json: any): any {
-    return JSON.parse(json, (k, v) => {
+  static ofJson(json: any, expected?: Function): any {
+    const parsed = JSON.parse(json, (k, v) => {
       if (v == null)
         return v;
       else if (typeof v === "object" && typeof v.$type === "string") {
@@ -301,6 +301,10 @@ export class Util {
       else
         return v;
     });
+    if (parsed != null && typeof expected == "function" && !(parsed instanceof expected)) {
+      throw "JSON is not of type " + expected.name + ": " + json;
+    }
+    return parsed;
   }
 }
 

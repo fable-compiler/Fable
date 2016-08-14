@@ -74,3 +74,17 @@ let ``Records can be JSON serialized forth and back``() =
     let sum2 = parent.Sum()
     equal true (box parent2 :? Parent) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed
+
+#if MOCHA
+[<Test>]
+let ``Trying to deserialize a JSON of different type throws an exception``() =
+    let child = {a="3";b=5}
+    let json = toJson child
+    let success =
+        try
+            ofJson<Parent> json |> ignore
+            true
+        with
+        | _ -> false
+    equal false success
+#endif

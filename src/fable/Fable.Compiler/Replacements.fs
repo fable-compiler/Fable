@@ -337,7 +337,12 @@ module private AstPass =
             CoreLibCall("Async", Some meth, false, deleg i i.args)
             |> makeCall com i.range i.returnType |> Some
         | "toJson" | "ofJson" | "toPlainJsObj" ->
-            CoreLibCall("Util", Some i.methodName, false, i.args)
+            let args =
+                match i.methodName, i.methodTypeArgs with
+                | "ofJson", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
+                    [i.args.Head; makeTypeRef com None t]
+                | _ -> i.args
+            CoreLibCall("Util", Some i.methodName, false, args)
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
 
