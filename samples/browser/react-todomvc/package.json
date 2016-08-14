@@ -2,7 +2,7 @@
   "private": true,
   "dependencies": {
     "core-js": "^2.1.0",
-    "fable-core": "^0.5.0",
+    "fable-core": "^0.5.4",
     "classnames": "^2.2.5",
     "director": "^1.2.8",
     "react": "^15.1.0",
@@ -15,6 +15,6 @@
     "fable-import-react": "^0.5.0"
   },
   "engines": {
-    "fable": "^0.5.0"
+    "fable": "^0.5.4"
   }
 }

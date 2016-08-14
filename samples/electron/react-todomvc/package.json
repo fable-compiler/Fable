@@ -4,7 +4,7 @@
     "start": "electron app/js/main.js"
   },
   "dependencies": {
-    "fable-core": "^0.5.0",
+    "fable-core": "^0.5.4",
     "classnames": "^2.2.5",
     "director": "^1.2.8",
     "react": "^15.1.0",
@@ -22,6 +22,6 @@
     "webpack": "^1.13.1"
   },
   "engines": {
-    "fable": "^0.5.0"
+    "fable": "^0.5.4"
   }
 }

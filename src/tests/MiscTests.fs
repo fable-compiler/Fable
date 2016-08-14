@@ -94,16 +94,16 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
             "bar2" ==> myMeth
             "apply2and5" ==> fun (f: Func<int,int,int>) -> f.Invoke(2,5)
         ]
-    o?bar(1,2,3) |> equal 6
-    o?bar2(5,2) |> equal 3
+    o?bar(1,2,3) |> unbox<int> |> equal 6
+    o?bar2(5,2) |> unbox<int> |> equal 3
 
-    o?apply2and5(fun x y -> x + y) |> equal 7
+    o?apply2and5(fun x y -> x + y) |> unbox<int> |> equal 7
 
     let f = unbox<obj> o?apply2and5
-    f $ (fun x y -> x * y) |> equal 10
+    f $ (fun x y -> x * y) |> unbox<int> |> equal 10
     
     o?foo <- fun x y -> x / y
-    o?foo(25, 5) |> equal 5
+    o?foo(25, 5) |> unbox<int> |> equal 5
 
 [<Test>]
 let ``Symbols in external projects work``() =
