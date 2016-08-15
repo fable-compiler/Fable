@@ -30,6 +30,13 @@ let ``sprintf with escaped percent symbols works``() = // See #195
       sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)
       |> equal "Ratio1: 21.38% Ratio2: 79.99%"
 
+[<Test>]
+let ``String slicing works``() =
+      let s = "cat and dog"
+      sprintf "%s" s.[2..8] |> equal "t and d"
+      sprintf "%s" s.[2..] |> equal "t and dog"
+      sprintf "%s" s.[..8] |> equal "cat and d"
+
 #if MOCHA
 open Fable.Core.JsInterop
 

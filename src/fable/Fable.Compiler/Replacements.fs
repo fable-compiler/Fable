@@ -637,11 +637,13 @@ module private AstPass =
             makeGet i.range i.returnType ar idx |> Some
         | "setArray", ThreeArgs (ar, idx, value) ->
             Fable.Set (ar, Some idx, value, i.range) |> Some
-        | "getArraySlice", ThreeArgs (ar, lower, upper) ->
+        | ("getArraySlice" | "getStringSlice"), ThreeArgs (ar, lower, upper) ->
             let upper =
+                let t = Fable.Number Int32
                 match upper with
-                | Null _ -> emitNoInfo "$0.length" [ar]
-                | _ -> emitNoInfo "$0 + 1" [upper]
+                | Null _ -> makeGet None t ar (makeConst "length")
+                | _ -> Fable.Apply(Fable.Value(Fable.BinaryOp BinaryPlus),
+                                [upper; makeConst 1], Fable.ApplyMeth, t, None) 
             InstanceCall (ar, "slice", [lower; upper])
             |> makeCall com i.range i.returnType |> Some
         | "setArraySlice", (None, args) ->
