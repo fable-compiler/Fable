@@ -16,7 +16,7 @@
     "requirejs": "^2.2.0"
   },
   "devDependencies": {
-    "fable-import-d3": "^0.0.2"
+    "fable-import-d3": "^0.0.3"
   },
   "engines": {
     "fable": "^0.5.4"
