@@ -93,7 +93,7 @@ let ``Active patterns can be combined with union case matching``() = // See #306
     Some(5, None) |> test |> equal 0
     None |> test |> equal 0
 
-#if MOCHA
+#if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
 
@@ -160,7 +160,7 @@ type Tree =
 let ``Unions can be JSON serialized forth and back``() =
     let tree = Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
     let sum1 = tree.Sum()
-    #if MOCHA
+    #if FABLE_COMPILER
     let json = toJson tree
     let tree2 = ofJson<Tree> json
     #else
@@ -177,7 +177,7 @@ let ``Unions can be JSON serialized forth and back``() =
 //     // let x = Leaf 5
 //     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
 //     let json = """{"Case":"Leaf","Fields":[5]}"""
-//     #if MOCHA
+//     #if FABLE_COMPILER
 //     let x2 = Fable.Core.JsInterop.ofJson<Tree> json
 //     #else
 //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Tree> json

@@ -198,7 +198,7 @@ let ``Dictionaries can be JSON serialized forth and back``() =
     let x = Dictionary<_,_>()
     x.Add("a", { i=1; s="1" })
     x.Add("b", { i=2; s="2" })    
-    #if MOCHA
+    #if FABLE_COMPILER
     let json = Fable.Core.JsInterop.toJson x
     let x2 = Fable.Core.JsInterop.ofJson<Dictionary<string, R>> json
     #else
@@ -215,7 +215,7 @@ let ``Dictionaries serialized with Json.NET can be deserialized``() =
     // x.Add("b", { i=2; s="2" })    
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[Fable.Tests.Maps+R, Fable.Tests]], FSharp.Core","a":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":1,"s":"1"},"b":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":2,"s":"2"}}"""
-    #if MOCHA
+    #if FABLE_COMPILER
     let x2 = Fable.Core.JsInterop.ofJson<Dictionary<string, R>> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, R>> json

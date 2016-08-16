@@ -3,6 +3,6 @@
 // Check that project references to folders work
 type [<Sealed>] Helper =
     static member CreateClampedArray() = [|5uy|]
-    #if MOCHA
+    #if FABLE_COMPILER
     static member ConditionalExternalValue = "Fable Rocks!"
     #endif

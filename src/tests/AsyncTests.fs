@@ -194,7 +194,7 @@ let ``Async.Parallel works``() =
         !res |> Array.sum |> equal 6
     } |> Async.RunSynchronously
 
-#if MOCHA
+#if FABLE_COMPILER
 open Fable.Core
 #endif
 
@@ -202,7 +202,7 @@ open Fable.Core
 let ``Interaction between Async and Promise works``() =
     let res = ref false
     async { res := true }
-    #if MOCHA
+    #if FABLE_COMPILER
     |> Async.StartAsPromise
     |> Async.AwaitPromise
     #else
@@ -222,7 +222,7 @@ let ``Promises can be cancelled``() =
                 do! Async.Sleep 75
                 res := -1
             }
-            #if MOCHA
+            #if FABLE_COMPILER
             Async.StartAsPromise(work, tcs.Token) |> Async.AwaitPromise
             #else
             Async.StartAsTask(work, cancellationToken=tcs.Token) |> Async.AwaitTask

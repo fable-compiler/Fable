@@ -2,7 +2,6 @@
     "projFile": "Fable.Tests.fsproj",
     "outDir": "../../build/tests",
     "module": "commonjs",
-    "symbols": ["MOCHA"],
     "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
     "refs": {
         "Fable.Tests.Clamp": "./Another Project",

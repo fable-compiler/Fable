@@ -162,7 +162,7 @@ let ``HashSet can be JSON serialized forth and back``() =
     let x = HashSet<_>()
     x.Add(1) |> ignore
     x.Add(2) |> ignore
-    #if MOCHA
+    #if FABLE_COMPILER
     let json = Fable.Core.JsInterop.toJson x
     let x2 = Fable.Core.JsInterop.ofJson<HashSet<int>> json
     #else
@@ -179,7 +179,7 @@ let ``HashSet serialized with Json.NET can be deserialized``() =
     // x.Add({ i=2; s="2" }) |> ignore
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"System.Collections.Generic.HashSet`1[[Fable.Tests.HashSets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":2,"s":"2"}]}"""
-    #if MOCHA
+    #if FABLE_COMPILER
     let x2 = Fable.Core.JsInterop.ofJson<HashSet<R>> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<R>> json

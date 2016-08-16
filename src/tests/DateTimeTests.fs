@@ -39,7 +39,7 @@ let ``DateTime.ToString with format works``() =
 [<Test>]
 let ``DateTime can be JSON serialized forth and back``() =
     let utc = DateTime(2016, 8, 4, 17, 30, 0, DateTimeKind.Utc)
-    #if MOCHA
+    #if FABLE_COMPILER
     let json = Fable.Core.JsInterop.toJson utc
     let utc = Fable.Core.JsInterop.ofJson<DateTime> json
     #else

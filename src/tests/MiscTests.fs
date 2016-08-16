@@ -53,7 +53,7 @@ let ``Local values from partial functions work``() = // See #115
     let logItem2 = log "item2"
     logItem1 "item1" |> equal "a = item1, b = item1" 
 
-#if MOCHA
+#if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
 
@@ -608,7 +608,7 @@ let ``use doesn't return on finally clause`` () = // See #211
         c.Foo()
     foo() |> equal 5
 
-#if MOCHA
+#if FABLE_COMPILER
 [<Test>]
 let ``Referencing a Fable project through a dll works``() =
     Fable.Tests.DllRef.Util.add2 5 |> equal 7

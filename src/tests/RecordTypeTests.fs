@@ -55,7 +55,7 @@ type Parent =
     { children: Child[] }
     member x.Sum() = x.children |> Seq.sumBy (fun c -> c.Sum())
 
-#if MOCHA
+#if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
 #endif
@@ -64,7 +64,7 @@ open Fable.Core.JsInterop
 let ``Records can be JSON serialized forth and back``() =
     let parent = { children=[|{a="3";b=5}; {b=7;a="1"} |] }
     let sum1 = parent.Sum() 
-    #if MOCHA
+    #if FABLE_COMPILER
     let json = toJson parent
     let parent2 = ofJson<Parent> json
     #else
@@ -75,7 +75,7 @@ let ``Records can be JSON serialized forth and back``() =
     equal true (box parent2 :? Parent) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed
 
-#if MOCHA
+#if FABLE_COMPILER
 [<Test>]
 let ``Trying to deserialize a JSON of different type throws an exception``() =
     let child = {a="3";b=5}

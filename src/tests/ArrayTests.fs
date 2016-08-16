@@ -32,7 +32,7 @@ let ``Passing an array to ParamArrayAttribute works``() =
 let ``Passing an array to ParamArrayAttribute from another function works``() =  
     add [|5;-7|] |> equal -2
 
-#if MOCHA
+#if FABLE_COMPILER
 open Fable.Core
 
 [<Emit("$1.constructor.name == $0")>]
@@ -101,7 +101,7 @@ let ``Byte arrays are not clamped by default``() =
     ar.[0] <- ar.[0] + 255uy
     equal 4uy ar.[0]
 
-#if MOCHA && !DOTNETCORE
+#if FABLE_COMPILER && !DOTNETCORE
 [<Test>]
 let ``Clamped byte arrays work``() =
     let ar = Util2.Helper2.CreateClampedArray()

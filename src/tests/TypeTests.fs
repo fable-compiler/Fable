@@ -28,7 +28,7 @@ type TestType5(greeting: string) =
     member __.Overload(x, y) = x + y
     
 let normalize (x: string) =
-    #if MOCHA
+    #if FABLE_COMPILER
     x
     #else
     x.Replace("+",".")
@@ -37,7 +37,7 @@ let normalize (x: string) =
 [<Test>]
 let ``Type Namespace``() =
     let x = typeof<TestType>.Namespace
-    #if MOCHA
+    #if FABLE_COMPILER
     equal "Fable.Tests.TypeTests" x
     #else
     equal "Fable.Tests" x
@@ -275,7 +275,7 @@ type Serializable(?i: int) =
 [<Test>]
 let ``Classes can be JSON serialized forth and back``() =
     let x = Serializable(5)
-    #if MOCHA
+    #if FABLE_COMPILER
     let json = Fable.Core.JsInterop.toJson x
     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
     #else
@@ -288,7 +288,7 @@ let ``Classes can be JSON serialized forth and back``() =
 [<Test>]
 let ``Null values can be JSON serialized forth and back``() =
     let x: Serializable = null
-    #if MOCHA
+    #if FABLE_COMPILER
     let json = Fable.Core.JsInterop.toJson x
     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
     #else
@@ -302,7 +302,7 @@ let ``Classes serialized with Json.NET can be deserialized``() =
     // let x = Serializable(5)
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"Fable.Tests.TypeTests+Serializable","PublicValue":1}"""
-    #if MOCHA
+    #if FABLE_COMPILER
     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json

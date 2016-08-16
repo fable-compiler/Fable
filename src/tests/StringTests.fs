@@ -37,7 +37,7 @@ let ``String slicing works``() =
       sprintf "%s" s.[2..] |> equal "t and dog"
       sprintf "%s" s.[..8] |> equal "cat and d"
 
-#if MOCHA
+#if FABLE_COMPILER
 open Fable.Core.JsInterop
 
 [<Test>]
