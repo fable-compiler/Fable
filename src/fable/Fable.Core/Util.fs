@@ -157,8 +157,8 @@ module Path =
             else path
         let fromPath = addDummyFile fromIsDir fromPath
         let toPath = addDummyFile toIsDir toPath
-        let fromUri = Uri(fromPath)
-        let toUri = Uri(toPath)
+        let fromUri = Uri("file://" + fromPath)
+        let toUri = Uri("file://" + toPath)
         if fromUri.Scheme <> toUri.Scheme then
             toPath   // path can't be made relative.
         else

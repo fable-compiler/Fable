@@ -470,7 +470,8 @@ module private AstPass =
             Fable.Apply(args.Head, [emit], Fable.ApplyMeth, typ, r)
             |> Some
         // Exceptions
-        | "failWith" | "raise" | "reraise" | "invalidOp" ->
+        | "failWith" | "raise" | "reraise" | "invalidOp" | "invalidArg" ->
+            // TODO: InvalidArg has two arguments
             Fable.Throw (args.Head, typ, r) |> Some
         // Type ref
         | "typeOf" ->
@@ -1206,7 +1207,7 @@ module private AstPass =
 
     let objects com (i: Fable.ApplyInfo) =
         match i.methodName with
-        // | "getHashCode" -> i.callee
+        | "getHashCode" -> i.callee
         | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
         | "toString" -> toString com i i.callee.Value |> Some

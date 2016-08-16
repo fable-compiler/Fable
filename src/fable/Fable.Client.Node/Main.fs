@@ -70,8 +70,7 @@ let loadPlugins (pluginPaths: string list) =
             let filePath = Path.GetFullPath path
 #if NETSTANDARD1_6 || NETCOREAPP1_0
             let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
-            let assemblyName = System.Runtime.Loader.AssemblyLoadContext.GetAssemblyName(filePath)
-            let assembly = globalLoadContext.LoadFromAssemblyName(assemblyName)
+            let assembly = globalLoadContext.LoadFromAssemblyPath(filePath)
 #else
             let assembly = (filePath |> Assembly.LoadFrom)
 #endif

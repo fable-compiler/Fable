@@ -105,9 +105,11 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
     o?foo <- fun x y -> x / y
     o?foo(25, 5) |> unbox<int> |> equal 5
 
+#if !DOTNETCORE
 [<Test>]
 let ``Symbols in external projects work``() =
     equal "Fable Rocks!" Clamp.Helper.ConditionalExternalValue
+#endif
 
 [<KeyValueList>]
 type MyOptions =
@@ -232,7 +234,7 @@ let ``Static constructors work``() =
 
 [<Test>]
 let ``File with single type in namespace compiles``() =
-    equal SingleTypeInNamespace.Hello "Hello" 
+    equal SingleTypeInNamespace.Hello "Hello"
 
 [<Test>]
 let ``Type abbreviation in namespace compiles``() = // See #140

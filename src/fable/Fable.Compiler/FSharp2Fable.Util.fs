@@ -712,8 +712,7 @@ module Util =
                 let filePath = tdef.Assembly.FileName.Value
 #if NETSTANDARD1_6
                 let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
-                let assemblyName = System.Runtime.Loader.AssemblyLoadContext.GetAssemblyName(filePath)
-                let assembly = globalLoadContext.LoadFromAssemblyName(assemblyName)
+                let assembly = globalLoadContext.LoadFromAssemblyPath(filePath)
 #else
                 let assembly = System.Reflection.Assembly.LoadFrom(filePath)
 #endif

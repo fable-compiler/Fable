@@ -101,7 +101,7 @@ let ``Byte arrays are not clamped by default``() =
     ar.[0] <- ar.[0] + 255uy
     equal 4uy ar.[0]
 
-#if MOCHA
+#if MOCHA && !DOTNETCORE
 [<Test>]
 let ``Clamped byte arrays work``() =
     let ar = Util2.Helper2.CreateClampedArray()

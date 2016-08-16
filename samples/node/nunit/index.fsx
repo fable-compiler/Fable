@@ -74,6 +74,7 @@ and open the appropriate namespaces.
 
 *)
 
+#r "System.Threading.dll"
 #r "node_modules/fable-core/Fable.Core.dll"
 
 open System
