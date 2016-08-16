@@ -14,4 +14,4 @@ $ npm install --save-dev fable-plugins-nunit
 $ fable MyScript.fsx --plugins node_modules/fable-plugins-nunit/Fable.Plugins.NUnit.dll
 ```
 
-Check [the tutorial](http://fsprojects.github.io/Fable/samples/nunit/) for more info.
+Check [the tutorial](http://fable-compiler.github.io/Fable/samples/nunit/) for more info.

@@ -21,7 +21,7 @@ you are using the latest version of the compiler. If you installed it globally,
 you can update it with `npm install -g fable-compiler`. You can see the version
 installed with `fable --help` and the latest version available in npm with `npm info fable-compiler version`.
 
-> If you have problems on Windows [see this](https://github.com/fsprojects/Fable#requirements).
+> If you have problems on Windows [see this](https://github.com/fable-compiler/Fable#requirements).
 
 ## CLI options
 
@@ -158,7 +158,7 @@ version of Fable required to compile the project.
 
 ## fable-core
 
-[Fable's core library](https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js) must be included in the project.
+[Fable's core library](https://github.com/fable-compiler/Fable/blob/master/import/core/fable-core.js) must be included in the project.
 When targeting node or using a module bundler you only need to add the dependency:
 
 ```shell
@@ -212,7 +212,7 @@ JsInterop.importAll "core-js"
 
 > Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/)
 with a lazy-sequence generator, but this is not needed as one is already included
-in [fable-core.ts](https://github.com/fsprojects/Fable/blob/master/src/fable/Fable.Core/npm/fable-core.ts).
+in [fable-core.ts](https://github.com/fable-compiler/Fable/blob/master/src/fable/Fable.Core/npm/fable-core.ts).
 
 
 ## Modules
@@ -280,11 +280,11 @@ or a capable IDE. In the case of Visual Studio Code, you can find instructions [
 You can use any JS testing library to write tests for your project, but to make it
 easier to share code across platforms, a plugin is available to make
 [NUnit](http://www.nunit.org) tests compatible with [Mocha](https://mochajs.org).
-Check [the tutorial](http://fsprojects.github.io/Fable/samples/nunit/index.html) for more info.
+Check [the tutorial](http://fable-compiler.github.io/Fable/samples/nunit/index.html) for more info.
 
 ## Samples
 
-There are several samples available in the [repository](https://github.com/fsprojects/Fable/blob/master/samples) and you can also download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
+There are several samples available in the [repository](https://github.com/fable-compiler/Fable/blob/master/samples) and you can also download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
 Every sample includes a `fableconfig.json` file so they can be compiled just by running
 the `fable` command in the sample directory (or from a different directory by passing the route).
 Just be sure to install the npm dependencies the first time.

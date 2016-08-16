@@ -6,7 +6,7 @@
  - intro: This demo is a Fable port of [Mike Bostock's World Tour](http://bl.ocks.org/mbostock/4183330)
    D3 demo. It uses the D3 library to create a visualization that loops through all countries of
    the world and shows them on the globe one by one.
-   You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/d3map/d3map.fsx).
+   You can find the [full source code on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/d3map/d3map.fsx).
 
    On the technical side, the demo shows some of the more interesting aspects of
    calling JavaScript libraries from Fable. You'll learn how to define mappings for
@@ -19,7 +19,7 @@
 JavaScript helpers and imports
 ------------------------------
 
-Fable comes with [an F# mapping for the D3 library](https://github.com/fsprojects/Fable/tree/master/import/d3),
+Fable comes with [an F# mapping for the D3 library](https://github.com/fable-compiler/Fable/tree/master/import/d3),
 which defines all the types and functions for D3 that we'll need in this example. In addition to
 D3, this demo uses [d3-queue](https://github.com/d3/d3-queue) and [topojson](https://github.com/mbostock/topojson)
 which we'll just import and use dynamically:
@@ -94,9 +94,9 @@ after D3 loads the country names and locations. The structure of the code looks 
       transition (0)
 
 The `dataLoaded` function will be called by D3 with a `world` value loaded from the
-[world-110m.json](https://github.com/fsprojects/Fable/blob/master/samples/browser/d3map/data/world-110m.json)
+[world-110m.json](https://github.com/fable-compiler/Fable/blob/master/samples/browser/d3map/data/world-110m.json)
 file that represents individual country areas; `names` loads country names from
-[world-country-names.tsv](https://github.com/fsprojects/Fable/blob/master/samples/browser/d3/data/world-country-names.tsv).
+[world-country-names.tsv](https://github.com/fable-compiler/Fable/blob/master/samples/browser/d3/data/world-country-names.tsv).
 
 After some setup, the code defines a recursive `transition` function, which performs one transition
 and then calls itself to setup the next transition step. In each step, it increments the index of

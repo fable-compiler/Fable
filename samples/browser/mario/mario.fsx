@@ -5,7 +5,7 @@
  - intro: Mario clone, based on functional reactive [sample written in
    Elm](http://debug.elm-lang.org/edit/Mario.elm). The Fable version is using HTML 5
    canvas to render the background and an `img` tag showing the Mario (using animated GIFs).
-   You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/mario/mario.fsx).
+   You can find the [full source code on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/mario/mario.fsx).
 
    To see how it works, use the left, right and up buttons to play. Our Mario respects
    no boundaries!

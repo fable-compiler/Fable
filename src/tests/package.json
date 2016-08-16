@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/src/tests"
+    "url": "https://github.com/fable-compiler/Fable/src/tests"
   },
   "keywords": [
     "fable",

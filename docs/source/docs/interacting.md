@@ -13,7 +13,7 @@ There are several ways to interact with the JavaScript world:
 
 ## Dynamic programming
 
-[Fable.Core.JsInterop](https://github.com/fsprojects/Fable/blob/master/src/fable/Fable.Core/Fable.Core.fs)
+[Fable.Core.JsInterop](https://github.com/fable-compiler/Fable/blob/master/src/fable/Fable.Core/Fable.Core.fs)
 implements the F# dynamic operators so you can easily access an object property by name (without static check)
 as follows:
 
@@ -113,7 +113,7 @@ See the [README](https://www.npmjs.com/package/ts2fable) for more information.
 npm install -g ts2fable
 ```
 
-You can find common definitions already parsed [here](https://github.com/fsprojects/Fable/blob/master/import).
+You can find common definitions already parsed [here](https://github.com/fable-compiler/Fable/blob/master/import).
 Some of them are available in npm, just search for `fable-import` packages.
 
 ## Special attributes

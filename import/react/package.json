@@ -4,7 +4,7 @@
   "description": "Fable bindings for React",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/react"
+    "url": "https://github.com/fable-compiler/Fable/import/react"
   },
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",
@@ -18,5 +18,5 @@
   "dependencies" :
     { "react" : ">= 15.0.0"
     },
-  "homepage": "https://github.com/fsprojects/Fable#readme"
+  "homepage": "https://github.com/fable-compiler/Fable#readme"
 }

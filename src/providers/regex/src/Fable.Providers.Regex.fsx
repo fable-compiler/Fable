@@ -1,7 +1,7 @@
 module Fable.Providers.Regex
 
 #r "../../../../build/fable/bin/Fable.AST.dll"
-#load "../../../../paket-files/fsprojects/FSharp.TypeProviders.StarterPack/src/ProvidedTypes.fs"
+#load "../../../../paket-files/fable-compiler/FSharp.TypeProviders.StarterPack/src/ProvidedTypes.fs"
 
 open ProviderImplementation.ProvidedTypes
 open Microsoft.FSharp.Core.CompilerServices

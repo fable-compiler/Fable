@@ -4,7 +4,7 @@
   "description": "Fable Plugin for NUnit Tests",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/src/plugins/nunit"
+    "url": "https://github.com/fable-compiler/Fable/src/plugins/nunit"
   },
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",
@@ -14,5 +14,5 @@
     "fsharp",
     "F#"
   ],
-  "homepage": "https://github.com/fsprojects/Fable#readme"
+  "homepage": "https://github.com/fable-compiler/Fable#readme"
 }

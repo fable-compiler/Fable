@@ -4,16 +4,16 @@
 
 This demo uses Fable to create a web application using [Express](http://expressjs.com/),
 a fast, unopinionated, minimalist web framework for Node.js. You can see full source code here, or
-view the [raw source](https://github.com/fsprojects/Fable/blob/master/samples/node/server/index.fsx)
+view the [raw source](https://github.com/fable-compiler/Fable/blob/master/samples/node/server/index.fsx)
 on GitHub. The application configuration is in 
-[package.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/package.json) and
-[fableconfig.json](https://github.com/fsprojects/Fable/blob/master/samples/node/server/fableconfig.json)
+[package.json](https://github.com/fable-compiler/Fable/blob/master/samples/node/server/package.json) and
+[fableconfig.json](https://github.com/fable-compiler/Fable/blob/master/samples/node/server/fableconfig.json)
 specifies Fable parameters.
 
 ## Using Express bindings
 
 Fable comes with bindings for a number of sample node.js libraries including Express. You can
-[view and contribute to it](https://github.com/fsprojects/Fable/tree/master/import/express) on GitHub.
+[view and contribute to it](https://github.com/fable-compiler/Fable/tree/master/import/express) on GitHub.
 The following references the Express bindings:
 
 *)
@@ -31,7 +31,7 @@ open Fable.Import
 
 For detailed documentation on defining Fable bindings, see the [Interacting with JavaScript](/docs/interacting.html)
 page. We won't cover all the details, but we briefly look at two snippets from the 
-[Fable.Import.Express.fs](https://github.com/fsprojects/Fable/blob/master/import/express/Fable.Import.Express.fs) file
+[Fable.Import.Express.fs](https://github.com/fable-compiler/Fable/blob/master/import/express/Fable.Import.Express.fs) file
 on GitHub.
 
 The first snippet defines the `Express` type. In JavaScript, this is a callable function, which is mapped

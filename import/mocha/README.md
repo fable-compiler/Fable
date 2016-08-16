@@ -11,7 +11,7 @@ $ npm install --save-dev fable-import-mocha
 
 ## Usage
 
-Check [the sample](http://fsprojects.github.io/Fable/samples/mocha/) for more info.
+Check [the sample](http://fable-compiler.github.io/Fable/samples/mocha/) for more info.
 
 ### With an F# project (.fsproj)
 

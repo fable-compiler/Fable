@@ -4,7 +4,7 @@
   "description": "Fable bindings for Express",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/express"
+    "url": "https://github.com/fable-compiler/Fable/import/express"
   },
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",
@@ -14,5 +14,5 @@
     "fsharp",
     "F#"
   ],
-  "homepage": "https://github.com/fsprojects/Fable#readme"
+  "homepage": "https://github.com/fable-compiler/Fable#readme"
 }

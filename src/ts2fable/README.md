@@ -1,6 +1,6 @@
 # ts2fable
 
-[Fable](https://github.com/fsprojects/Fable) parser for TypeScript definition files.
+[Fable](https://github.com/fable-compiler/Fable) parser for TypeScript definition files.
 
 ## Usage
 
@@ -18,7 +18,7 @@ ts2fable react.d.ts > Fable.Import.React.fs
 ```
 
 You can find more information about how to interact with JavaScript
-from F# [here](https://github.com/fsprojects/Fable/blob/master/docs/source/docs/interacting.md).
+from F# [here](https://github.com/fable-compiler/Fable/blob/master/docs/source/docs/interacting.md).
 Please note the parser is not perfect and some tweaking by hand may be needed.
 
 ## Conventions

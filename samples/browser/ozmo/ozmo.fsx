@@ -6,7 +6,7 @@
    [on BitBucket](https://bitbucket.org/ptrelford/ozmo) ported to Fable! Shows how to handle keyboard events and
    use HTML5 canvas. You can also get it (as a JavaScript app) from [the Windows
    Store](https://www.microsoft.com/en-gb/store/apps/ozmo/9nblggh4rjng). View the [raw source code on
-   GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/ozmo/ozmo.fsx).
+   GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/ozmo/ozmo.fsx).
    To play the game, use left and right keys!
 
 

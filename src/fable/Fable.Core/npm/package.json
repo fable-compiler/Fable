@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/core"
+    "url": "https://github.com/fable-compiler/Fable/import/core"
   },
   "license": "Apache-2.0",
   "author": "Alfonso Garcia-Caro",
@@ -21,7 +21,7 @@
     "fsharp",
     "F#"
   ],
-  "homepage": "https://github.com/fsprojects/Fable#readme",
+  "homepage": "https://github.com/fable-compiler/Fable#readme",
   "devDependencies": {
     "babel-cli": "^6.10.1",
     "babel-plugin-transform-es2015-classes": "^6.9.0",

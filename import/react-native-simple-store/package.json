@@ -4,7 +4,7 @@
   "description": "Fable bindings for a simple React Native data store",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/import/react-native-simple-store"
+    "url": "https://github.com/fable-compiler/Fable/import/react-native-simple-store"
   },
   "license": "Apache-2.0",
   "author": "Steffen Forkmann",
@@ -24,5 +24,5 @@
     { "fable-import-react" : ">= 0.5.0",
       "fable-import-react-native" : ">= 0.6.0"
     },
-  "homepage": "https://github.com/fsprojects/Fable#readme"
+  "homepage": "https://github.com/fable-compiler/Fable#readme"
 }

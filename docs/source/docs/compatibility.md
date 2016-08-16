@@ -4,7 +4,7 @@
 
 The compiler follows two rough guidelines when transforming the code:
 
-* Keep the [core library](https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js) small, falling back to native JS methods when possible.
+* Keep the [core library](https://github.com/fable-compiler/Fable/blob/master/import/core/fable-core.js) small, falling back to native JS methods when possible.
 * If it makes the JS code cleaner and more idiomatic, make small changes in F# semantics
   that don't have a big impact on developers' expectations.
 
@@ -145,13 +145,13 @@ be able to access the base methods by casting the object.
 Anonymous lambdas will be curried by default. If you want to pass a callback with
 more than one argument to JS code, please wrap it in a delegate first (e.g.,
 `Func<_,_,_>(fun x y -> x + y)`). If the signature of the method expects a
-delegate, this will be done automatically by the compiler. See [Calling F# code from JS](http://fsprojects.github.io/Fable/docs/interacting.html#Calling-F-code-from-JavaScript)
+delegate, this will be done automatically by the compiler. See [Calling F# code from JS](http://fable-compiler.github.io/Fable/docs/interacting.html#Calling-F-code-from-JavaScript)
 for more info.
 
 ## Event and Observable
 
-Both [Event](https://github.com/fsprojects/Fable/blob/master/src/tests/EventTests.fs) and
-[Observable](https://github.com/fsprojects/Fable/blob/master/src/tests/ObservableTests.fs) are supported.
+Both [Event](https://github.com/fable-compiler/Fable/blob/master/src/tests/EventTests.fs) and
+[Observable](https://github.com/fable-compiler/Fable/blob/master/src/tests/ObservableTests.fs) are supported.
 
 ## Object Expressions
 
@@ -169,5 +169,5 @@ only methods `Start`, `Receive`, `Post` and `PostAndAsyncReply` are implemented
 (`cancellationToken` or `timeout` optional arguments are not supported).
 
 
-You can check the [tests](https://github.com/fsprojects/Fable/tree/master/src/tests) when in doubt. If there's a test for something,
+You can check the [tests](https://github.com/fable-compiler/Fable/tree/master/src/tests) when in doubt. If there's a test for something,
 it's supported :)

@@ -41,7 +41,7 @@ type LineSegment = {startPoint : Point; endPoint : Point; color : Color }
 (**
 When rendering lines, we generate `<svg>` tag containing a number of
 `<line>` elements. This is done using a simple helper library (which you can find
-[in the Fable repository](https://github.com/fsprojects/Fable/blob/lsystems/samples/browser/lsystem/html.fs)).
+[in the Fable repository](https://github.com/fable-compiler/Fable/blob/lsystems/samples/browser/lsystem/html.fs)).
 The library uses the dynamic operator `?` to generate SVG elements. For example, you can write:
 
     s?svg [ "width" => 600 ] [

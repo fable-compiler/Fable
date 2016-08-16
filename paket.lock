@@ -274,7 +274,7 @@ NUGET
       System.Threading (>= 4.0.11) - framework: dnxcore50, >= netstandard13
       System.Xml.ReaderWriter (>= 4.0.11) - framework: dnxcore50, netstandard10, >= netstandard13
 GITHUB
-  remote: fsprojects/FSharp.TypeProviders.StarterPack
+  remote: fable-compiler/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (8f647a4cde71bdeda10e7f5b534ec3c879601570)
 GROUP Docs
 NUGET

@@ -5,7 +5,7 @@
  - intro: Pacman finds himself in a grid filled with monsters... This is probably the most complex sample here.
    It involves rendering the maze, AI for the ghosts, user interaction and even playing sound effects.
    The game has some brief commentary, but if you want to learn Fable, look at the other examples
-   first. The [raw source code is on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/pacman/pacman.fsx)
+   first. The [raw source code is on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/pacman/pacman.fsx)
    as usual!
 
    To play the game, click anywhere to start it and then use the `Z` and `X` keys for moving left and right

@@ -5,7 +5,7 @@
  - intro: This demo is a Fable port of the [WebGL Geometry Terrain](http://threejs.org/examples/#webgl_geometry_terrain)
    three.js demo. It uses the three.js library to randomly generate a 3D terrain which can be navigated in a first-person view.
    The code was originally written by [John Quigley](https://github.com/jmquigs) for FunScript,
-   you can find [Fable's version on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/webGLTerrain/webGLTerrain.fsx).
+   you can find [Fable's version on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/webGLTerrain/webGLTerrain.fsx).
 
    On the technical side, the demo shows some of the more interesting aspects of
    calling JavaScript libraries from Fable. You'll learn how to define mapping for
@@ -18,7 +18,7 @@
 JavaScript helpers and imports
 ------------------------------
 
-Fable comes with [an F# mapping for three.js](https://github.com/fsprojects/Fable/tree/master/import/three),
+Fable comes with [an F# mapping for three.js](https://github.com/fable-compiler/Fable/tree/master/import/three),
 which defines all the types and functions for three.js that we'll need in this example.
 In addition this demo uses custom scripts for ImprovedNoise and FirstPersonControls.
 We'll write the mappings for those two inline.

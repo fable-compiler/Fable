@@ -5,7 +5,7 @@
  - intro: This demo is based on Tomas Petricek's [F# Advent Calendar post](http://tomasp.net/blog/2014/japan-advent-art-en/)
    that explores Japanese art using the (now defunct) Freebase type provider and renders
    The Great Wave by Hokusai using the Julia fractal.
-   You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/hokusai/hokusai.fsx).
+   You can find the [full source code on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/hokusai/hokusai.fsx).
 
    In this demo, you'll see how to define a simple complex number arithmetic in F#,
    how to use it to implement the Julia set fractal and how to render the fractal

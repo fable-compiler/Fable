@@ -23,7 +23,7 @@ To clone and run this repository you'll need [Git](https://git-scm.com) and [Nod
 npm install -g fable-compiler
 
 # Clone this repository
-git clone https://github.com/fsprojects/Fable/samples/electron/helloworld
+git clone https://github.com/fable-compiler/Fable/samples/electron/helloworld
 
 # Go into the repository
 cd Fable/samples/electron/helloworld

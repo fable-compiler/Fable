@@ -21,7 +21,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable.git"
+    "url": "https://github.com/fable-compiler/Fable.git"
   },
   "keywords": [
     "fable",
@@ -29,9 +29,9 @@
     "F#"
   ],
   "bugs": {
-    "url": "https://github.com/fsprojects/Fable/issues"
+    "url": "https://github.com/fable-compiler/Fable/issues"
   },
-  "homepage": "https://github.com/fsprojects/Fable#readme",
+  "homepage": "https://github.com/fable-compiler/Fable#readme",
   "engineStrict": true,
   "engines": {
     "node": ">=4.4.0"
