@@ -280,7 +280,7 @@ or a capable IDE. In the case of Visual Studio Code, you can find instructions [
 You can use any JS testing library to write tests for your project, but to make it
 easier to share code across platforms, a plugin is available to make
 [NUnit](http://www.nunit.org) tests compatible with [Mocha](https://mochajs.org).
-Check [the tutorial](http://fable-compiler.github.io/Fable/samples/nunit/index.html) for more info.
+Check [the tutorial](http://fable-compiler.github.io/samples/nunit/index.html) for more info.
 
 ## Samples
 

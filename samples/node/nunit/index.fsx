@@ -4,7 +4,7 @@
 
 This tutorial shows how to compile NUnit tests so they can be run in JS with [Mocha](https://mochajs.org).
 [Fable's own tests](https://github.com/fable-compiler/Fable/tree/master/src/tests) are written using this method.
-However, please note this is not a core feature of Fable as it comes through a [plugin](http://fable-compiler.github.io/Fable/docs/plugins.html).
+However, please note this is not a core feature of Fable as it comes through a [plugin](http://fable-compiler.github.io/docs/plugins.html).
 You can view the [source code](https://github.com/fable-compiler/Fable/blob/master/samples/node/nunit/index.fsx),
 [package.json](https://github.com/fable-compiler/Fable/blob/master/samples/node/nunit/package.json) and
 [fableconfig.json](https://github.com/fable-compiler/Fable/blob/master/samples/node/nunit/fableconfig.json) on
@@ -12,7 +12,7 @@ GitHub. This page shows the full source code of the demo.
 
 ## Configuring Fable and packages
 
-Fable projects usually include a [package.json](https://docs.npmjs.com/files/package.json) and a [fableconfig.json](http://fable-compiler.github.io/Fable/docs/compiling.html#fableconfig-json) files.
+Fable projects usually include a [package.json](https://docs.npmjs.com/files/package.json) and a [fableconfig.json](http://fable-compiler.github.io/docs/compiling.html#fableconfig-json) files.
 Let's have a look at the first one: 
 
     [lang=js]
@@ -151,7 +151,7 @@ you just need to **wrap the whole test** with `async { ... } |> Async.RunSynchro
                 return txt.Length
             }
         let! results =
-          [ "http://fable-compiler.github.io/Fable"
+          [ "http://fable-compiler.github.io"
             "http://babeljs.io"
             "http://fsharp.org" ]
           |> List.map getWebPageLength

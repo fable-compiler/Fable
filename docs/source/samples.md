@@ -78,7 +78,7 @@ This tutorial shows how to compile NUnit tests so they can be run in JS with [Mo
 You can view the [source code](https://github.com/fable-compiler/Fable/blob/master/samples/node/nunit/index.fsx),
 [package.json](https://github.com/fable-compiler/Fable/blob/master/samples/node/nunit/package.json) and
 [fableconfig.json](https://github.com/fable-compiler/Fable/blob/master/samples/node/nunit/fableconfig.json) on
-GitHub. This is done via a [plugin](http://fable-compiler.github.io/Fable/docs/plugins.html), illustrating the
+GitHub. This is done via a [plugin](http://fable-compiler.github.io/docs/plugins.html), illustrating the
 extensibility of Fable.
 
 ## Visualizations

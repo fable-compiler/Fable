@@ -15,4 +15,4 @@ group Docs
   nuget FAKE
   nuget Suave
   nuget DotLiquid
-  nuget FSharp.Formatting
+  nuget FSharp.Formatting 2.14.2

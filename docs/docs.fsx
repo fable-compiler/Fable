@@ -29,9 +29,9 @@ open Fake.Git
 // --------------------------------------------------------------------------------------
 
 // Where to push generated documentation
-let publishSite = "//fable-compiler.github.io/Fable"
-let githubLink = "http://github.com/fable-compiler/Fable"
-let publishBranch = "gh-pages"
+let publishSite = "//fable-compiler.github.io"
+let githubLink = "http://github.com/fable-compiler/fable-compiler.github.io"
+let publishBranch = "master"
 
 // Paths with template/source/output locations
 let source      = __SOURCE_DIRECTORY__ </> "source"

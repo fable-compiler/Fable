@@ -2,55 +2,55 @@ namespace Fable.Core
 open System
 
 /// Used for erased union types and to ignore modules in JS compilation.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#Erase-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
 type EraseAttribute() =
     inherit Attribute()
 
 /// The module, type, function... is globally accessible in JS.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#Import-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#Import-attribute
 type GlobalAttribute() =
     inherit Attribute()
 
 /// References to the module, type, function... will be replaced by import statements.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#Import-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#Import-attribute
 type ImportAttribute(get: string, from: string) =
     inherit Attribute()
 
 /// Function calls will be replaced by inlined JS code.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#Import-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#Import-attribute
 type EmitAttribute private () =
     inherit Attribute()
     new (macro: string) = EmitAttribute()
     new (emitterType: Type, methodName: string) = EmitAttribute()
 
 /// Compile union case lists as JS object literals.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#KeyValueList-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#KeyValueList-attribute
 type KeyValueListAttribute() =
     inherit Attribute()
 
 /// Compile union types as string literals.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#StringEnum-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#StringEnum-attribute
 type StringEnumAttribute() =
     inherit Attribute()    
 
 /// Erased union type to represent one of two possible values.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#Erase-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U2<'a, 'b> = Case1 of 'a | Case2 of 'b
 
 /// Erased union type to represent one of three possible values.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#Erase-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c    
 
 /// Erased union type to represent one of four possible values.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#Erase-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U4<'a, 'b, 'c, 'd> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd    
 
 /// Erased union type to represent one of five possible values.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#Erase-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U5<'a, 'b, 'c, 'd, 'e> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e    
 
 /// Erased union type to represent one of six possible values.
-/// More info: http://fable-compiler.github.io/Fable/docs/interacting.html#Erase-attribute
+/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e | Case6 of 'f    
 
 /// DO NOT USE: Internal type for Fable dynamic operations

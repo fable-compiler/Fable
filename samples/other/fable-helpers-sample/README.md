@@ -1,6 +1,6 @@
 # Fable Helpers Sample
 
-This is an example of how to publish a [Fable](http://fable-compiler.github.io/Fable/) package to [npm](http://fable-compiler.github.io/Fable/).
+This is an example of how to publish a [Fable](http://fable-compiler.github.io/) package to [npm](http://fable-compiler.github.io/).
 The package includes both compiled F# and JavaScript code so it can be accessed from both platforms.
 
 Note our project is a library consisting of a single method to print key-value
@@ -46,7 +46,7 @@ open Fable.Helpers.Sample
 
 The tricky part is, when compiling to JS, how to tell Fable to replace
 the `dll` reference with references to the JS files. This is the purpose
-of the [`--refs` compiler parameter](http://fable-compiler.github.io/Fable/docs/compiling.html#Project-references).
+of the [`--refs` compiler parameter](http://fable-compiler.github.io/docs/compiling.html#Project-references).
 This parameter correlates the name of the referenced project (usually the name
 of the `dll` without the extension) and the path where the compiled JS files are.
 This way, we could compile our consumer script file like this: 
@@ -55,7 +55,7 @@ This way, we could compile our consumer script file like this:
 fable MyScript.fsx --refs Fable.Helpers.Sample=fable-helpers-sample/js
 ```
 
-When using [fableconfig.json](http://fable-compiler.github.io/Fable/docs/compiling.html#fableconfig-json), add this to the JSON config instead:
+When using [fableconfig.json](http://fable-compiler.github.io/docs/compiling.html#fableconfig-json), add this to the JSON config instead:
 
 ```json
 "refs": {
