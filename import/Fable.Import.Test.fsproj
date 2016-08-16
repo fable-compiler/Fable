@@ -52,21 +52,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="express/Fable.Import.Express.fs" />
-    <Compile Include="react/Fable.Import.React.fs" />
-    <Compile Include="react/Fable.Helpers.React.fs" />
-    <Compile Include="react-native/Fable.Import.ReactNative.fs" />
-    <Compile Include="react-native/Fable.Helpers.ReactNative.fs" />
-    <Compile Include="vscode/Fable.Import.VSCode.fs" />
-    <Compile Include="electron/Fable.Import.Electron.fs" />
-    <Compile Include="d3/Fable.Import.D3.fs" />
     <Compile Include="fetch/Fable.Import.Fetch.fs" />
-    <Compile Include="three/Fable.Import.Three.fs" />
     <Compile Include="mocha/Fable.Import.Mocha.fs" />
-    <Compile Include="virtualdom/Fable.Helpers.Virtualdom.fs" />
-    <Compile Include="pixi/Fable.Import.Pixi.fs" />
     <Compile Include="webgl-ext/Fable.Import.WebGLExt.fs" />
-    <Compile Include="dc/Fable.Import.DC.fs" />
-    <Compile Include="react-native-image-picker/Fable.Import.ReactNativeImagePicker.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>

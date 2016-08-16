@@ -274,12 +274,12 @@ NUGET
       System.Threading (>= 4.0.11) - framework: dnxcore50, >= netstandard13
       System.Xml.ReaderWriter (>= 4.0.11) - framework: dnxcore50, netstandard10, >= netstandard13
 GITHUB
-  remote: fable-compiler/FSharp.TypeProviders.StarterPack
+  remote: fsprojects/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (8f647a4cde71bdeda10e7f5b534ec3c879601570)
 GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2
-    DotLiquid (2.0.24)
+    DotLiquid (2.0.26)
     FAKE (4.37.2)
     FSharp.Compiler.Service (2.0.0.6)
     FSharp.Core (4.0.0.1)
