@@ -22,6 +22,8 @@ $ npm install --save-dev fable-import-fetch
 ```xml
   <ItemGroup>
     <Reference Include="node_modules/fable-core/Fable.Core.dll" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="node_modules/fable-import-fetch/Fable.Import.Fetch.fs" />
     <Compile Include="node_modules/fable-import-fetch/Fable.Helpers.Fetch.fs" />
   </ItemGroup>

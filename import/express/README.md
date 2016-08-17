@@ -16,6 +16,8 @@ $ npm install --save-dev fable-import-express
 ```xml
   <ItemGroup>
     <Reference Include="node_modules/fable-core/Fable.Core.dll" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="node_modules/fable-import-express/Fable.Import.Express.fs" />
   </ItemGroup>
 ```

@@ -18,6 +18,8 @@ Check [the sample](http://fable-compiler.github.io/samples/mocha/) for more info
 ```xml
   <ItemGroup>
     <Reference Include="node_modules/fable-core/Fable.Core.dll" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="node_modules/fable-import-mocha/Fable.Import.Mocha.fs" />
   </ItemGroup>
 ```
