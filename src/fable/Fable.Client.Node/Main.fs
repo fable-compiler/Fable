@@ -194,6 +194,13 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         // TODO: Find a way to check if the project is empty
         // (Unfortunately it seems `ProjectFileNames` is not reliable)
 
+        // Print F# compiler options (verbose mode) on first compilation
+        // (whe projInfo.fileMask is None)
+        if Option.isNone projInfo.fileMask then
+            projInfo.projectOpts.OtherOptions
+            |> String.concat "\n" |> sprintf "\nF# COMPILER OPTIONS:\n%s\n"
+            |> Log |> List.singleton |> printMessages
+
         // Parse project (F# Compiler Services) and print diagnostic info
         // --------------------------------------------------------------
         //let timer = PerfTimer("Warmup") |> Some
