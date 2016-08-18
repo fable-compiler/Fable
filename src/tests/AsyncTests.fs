@@ -200,17 +200,19 @@ open Fable.Core
 
 [<Test>]
 let ``Interaction between Async and Promise works``() =
-    let res = ref false
-    async { res := true }
-    #if FABLE_COMPILER
-    |> Async.StartAsPromise
-    |> Async.AwaitPromise
-    #else
-    |> Async.StartAsTask
-    |> Async.AwaitTask
-    #endif
-    |> Async.RunSynchronously
-    equal true !res
+    async {
+        let res = ref false
+        async { res := true }
+        #if FABLE_COMPILER
+        |> Async.StartAsPromise
+        |> Async.AwaitPromise
+        #else
+        |> Async.StartAsTask
+        |> Async.AwaitTask
+        #endif
+        |> Async.StartImmediate
+        equal true !res
+    } |> Async.RunSynchronously
     
 [<Test>]
 let ``Promises can be cancelled``() =    

@@ -21,7 +21,7 @@
   "author": "Alfonso Garcia-Caro",
   "license": "Apache-2.0",
   "dependencies": {
-    "fable-core": "^0.2.0-alpha",
-    "mocha": "^2.4.5"
+    "fable-core": "^0.5.4",
+    "mocha": "^3.0.2"
   }
 }

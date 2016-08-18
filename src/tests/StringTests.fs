@@ -59,8 +59,7 @@ let ``String.Format works``() =
 let ``String.Format with extra formatting works``() =
       let i = 0.5466788
       let dt = DateTime(2014, 9, 26).AddMinutes(19.)
-      let culture = System.Globalization.CultureInfo.InvariantCulture
-      String.Format(culture, "{0:F2} {0:P2} {1:yyyy-MM-dd HH:mm}", i, dt)
+      String.Format("{0:F2} {0:P2} {1:yyyy-MM-dd HH:mm}", i, dt)
       |> equal "0.55 54.67 % 2014-09-26 00:19"
           
 [<Test>]
