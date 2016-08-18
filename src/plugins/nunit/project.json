@@ -6,11 +6,7 @@
     "compilerName": "fsc",
     "compile": {
       "includeFiles": [
-        "Util.fs",
-        "Replacements.fs",
-        "FSharp2Fable.Util.fs",
-        "FSharp2Fable.fs",
-        "Fable2Babel.fs"
+        "Fable.Plugins.NUnit.fsx",
       ]
     },
     "define": [
@@ -31,15 +27,14 @@
   },
   "dependencies": {
     "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*",
-    "FSharp.Compiler.Service": {
-      "version": "6.0.2",
-      "target": "project"
-    },
     "Fable.Core": {
       "version": "1.0.0-*",
       "target": "project"
     },
-    "Newtonsoft.Json": "9.0.1"
+    "Fable.Compiler": {
+      "version": "1.0.0-*",
+      "target": "project"
+    },
   },
   "tools": {
     "dotnet-compile-fsc": {

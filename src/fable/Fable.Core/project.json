@@ -1,9 +1,9 @@
 {
   "version": "1.0.0",
   "buildOptions": {
+    "compilerName": "fsc",
     "debugType": "portable",
     "emitEntryPoint": false,
-    "compilerName": "fsc",
     "compile": {
       "includeFiles": [
         "Compiler.fs",
@@ -13,7 +13,11 @@
         "AST/AST.Fable.Util.fs",
         "AST/AST.Babel.fs",
         "Plugins.fs",
-        "Fable.Core.fs"
+        "Fable.Core.fs",
+        "Import/Fable.Import.JS.fs",
+        "Import/Fable.Import.Browser.fs",
+        "Import/Fable.Import.Node.fs",        
+        "Fable.Core.Extensions.fs",
       ]
     },
     "define": [

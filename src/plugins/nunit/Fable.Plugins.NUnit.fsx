@@ -1,7 +1,9 @@
 namespace Fable.Plugins
 
+#if !DOTNETCORE
 #r "../../../build/fable/bin/Fable.Core.dll"
 #r "../../../build/fable/bin/Fable.Compiler.dll"
+#endif
 
 open Fable
 open Fable.AST

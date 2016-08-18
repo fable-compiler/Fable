@@ -1,6 +1,9 @@
 [<NUnit.Framework.TestFixture>]
-#if !DOTNETCORE
-[<NUnit.Framework.SetCultureAttribute("en-US")>]
+#if DOTNETCORE
+//use invariant culture
+[<NUnit.Framework.Culture("")>]
+#else
+[<NUnit.Framework.SetCulture("en-US")>]
 #endif
 module Fable.Tests.Strings
 open System

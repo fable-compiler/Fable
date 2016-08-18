@@ -200,18 +200,22 @@ open Fable.Core
 
 [<Test>]
 let ``Interaction between Async and Promise works``() =
-    let res = ref false
-    async { res := true }
-    #if FABLE_COMPILER
-    |> Async.StartAsPromise
-    |> Async.AwaitPromise
-    #else
-    |> Async.StartAsTask
-    |> Async.AwaitTask
-    #endif
-    |> Async.StartImmediate
-    equal true !res
-    
+    async {
+        let res = ref false
+        async { res := true }
+        #if FABLE_COMPILER
+        |> Async.StartAsPromise
+        |> Async.AwaitPromise
+        #else
+        |> Async.StartAsTask
+        |> Async.AwaitTask
+        #endif
+        |> Async.StartImmediate
+        // some wait is needed on Linux for some reason
+        do! Async.Sleep 50
+        equal true !res
+    } |> Async.RunSynchronously
+
 [<Test>]
 let ``Promises can be cancelled``() =    
     async {
@@ -227,10 +231,11 @@ let ``Promises can be cancelled``() =
             #else
             Async.StartAsTask(work, cancellationToken=tcs.Token) |> Async.AwaitTask
             #endif
-#if DOTNETCORE
-        // For some reason in .NET Core the cancelled task is triggering the exception handler (unlike .NET 4.6)
-        // This is temporary work-around, until https://github.com/Microsoft/visualfsharp/issues/1416 is fixed.
-        let isCancelledEx (ex: Exception) = if ex.Message = "cancelled" then res := 1
+#if DOTNETCORE && !FABLE_COMPILER
+        // behavior change: a cancelled task is now triggering the exception continuation instead of
+        // the cancellation continuation, see: https://github.com/Microsoft/visualfsharp/issues/1416
+        // also, System.OperationCanceledException will be changed to TaskCanceledException (not yet)
+        let isCancelledEx ex = match box ex with | :? System.OperationCanceledException -> res := 1 | _ -> ()
         Async.StartWithContinuations(work, ignore, isCancelledEx, (fun _ -> res := 1))
 #else
         Async.StartWithContinuations(work, ignore, ignore, (fun _ -> res := 1))
