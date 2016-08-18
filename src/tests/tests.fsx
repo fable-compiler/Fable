@@ -1,6 +1,7 @@
 #r "System.Threading.dll"
 #r "System.Text.RegularExpressions.dll"
 #r "../../packages/NUnit/lib/nunit.framework.dll"
+//#r "/home/user/.nuget/packages/NUnit/3.4.1/lib/dotnet/nunit.framework.dll"
 #r "bin/Debug/netcoreapp1.0/Fable.Core.dll"
 
 #load

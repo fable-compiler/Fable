@@ -1,6 +1,7 @@
 [<NUnit.Framework.TestFixture>]
 #if DOTNETCORE
-[<NUnit.Framework.Culture("en-US")>]
+//use invariant culture
+[<NUnit.Framework.Culture("")>]
 #else
 [<NUnit.Framework.SetCulture("en-US")>]
 #endif

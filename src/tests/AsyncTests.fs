@@ -211,9 +211,11 @@ let ``Interaction between Async and Promise works``() =
         |> Async.AwaitTask
         #endif
         |> Async.StartImmediate
+        // some wait is needed on Linux for some reason
+        do! Async.Sleep 50
         equal true !res
     } |> Async.RunSynchronously
-    
+
 [<Test>]
 let ``Promises can be cancelled``() =    
     async {
@@ -229,15 +231,11 @@ let ``Promises can be cancelled``() =
             #else
             Async.StartAsTask(work, cancellationToken=tcs.Token) |> Async.AwaitTask
             #endif
-#if DOTNETCORE
+#if DOTNETCORE && !FABLE_COMPILER
         // behavior change: a cancelled task is now triggering the exception continuation instead of
         // the cancellation continuation, see: https://github.com/Microsoft/visualfsharp/issues/1416
-#if FABLE_COMPILER
-        let isCancelledEx (ex: Exception) = if ex.Message = "cancelled" then res := 1
-#else
         // also, System.OperationCanceledException will be changed to TaskCanceledException (not yet)
         let isCancelledEx ex = match box ex with | :? System.OperationCanceledException -> res := 1 | _ -> ()
-#endif
         Async.StartWithContinuations(work, ignore, isCancelledEx, (fun _ -> res := 1))
 #else
         Async.StartWithContinuations(work, ignore, ignore, (fun _ -> res := 1))
