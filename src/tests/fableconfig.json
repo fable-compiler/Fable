@@ -6,5 +6,12 @@
     "refs": {
         "Fable.Tests.Clamp": "./Another Project",
         "Fable.Tests.DllRef": "./DllRef"
+    },
+    "targets": {
+        "netcore": {
+            "projFile": "tests.fsx",
+            "symbols": ["DOTNETCORE", "FABLE_COMPILER"],
+            "plugins": ["../plugins/nunit/bin/Debug/netstandard1.6/nunit.dll"]
+        }
     }
 }
