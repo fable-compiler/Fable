@@ -9,6 +9,7 @@ open Fake.AssemblyInfoFile
 // version info
 let fableCompilerVersion = "0.5.6"
 let fableCoreVersion = "0.5.4"
+let fableCompilerNetcoreVersion = "0.5.7"
 
 module Util =
     open System.Net
@@ -114,6 +115,22 @@ module Npm =
             | None -> package
         commandAndReturn "." "show" [package; "version"]
 
+    let updatePackageKeyValue f pkgDir keys =
+        let pkgJson = Path.Combine(pkgDir, "package.json")
+        let reg =
+            String.concat "|" keys
+            |> sprintf "\"(%s)\"\\s*:\\s*\"(.*?)\""
+            |> Regex
+        File.ReadAllLines pkgJson
+        |> Seq.map (fun line ->
+            let m = reg.Match(line)
+            if m.Success then
+                match f(m.Groups.[1].Value, m.Groups.[2].Value) with
+                | Some(k,v) -> reg.Replace(line, sprintf "\"%s\": \"%s\"" k v)
+                | None -> line
+            else line)
+        |> fun lines -> File.WriteAllLines(pkgJson, lines)
+
 module Node =
     let run workingDir script args =
         let args = sprintf "%s %s" script (String.concat " " args)
@@ -191,6 +208,56 @@ Target "FableCompilerDebug" (fun _ ->
     Npm.command buildDir "version" [fableCompilerVersion]
 )
 
+Target "FableCompilerNetcore" (fun _ ->
+    try
+        // Copy JS files
+        let srcDir, buildDir = "src/fable/Fable.Client.Node", "build/fable"
+        FileUtils.cp_r (srcDir + "/js") buildDir
+        Npm.command buildDir "version" [fableCompilerNetcoreVersion]
+
+        // Edit package.json for NetCore
+        (buildDir, ["name"; "fable"])
+        ||> Npm.updatePackageKeyValue (function
+            | "name", _ -> Some("name", "fable-compiler-netcore")
+            | "fable", v -> Some("fable-netcore", v)
+            | _ -> None)
+
+        // Restore packages
+        [ "src/fable/Fable.Core"; "src/fable/Fable.Compiler"; srcDir ]
+        |> Seq.iter (fun dir -> Util.run dir "dotnet" "restore")
+
+        // Publish Fable NetCore
+        Util.run srcDir "dotnet" "publish -f netcoreapp1.0 -c Release"
+        FileUtils.cp_r (srcDir + "/bin/Release/netcoreapp1.0/publish") (buildDir + "/bin")        
+
+        // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
+        FileUtils.cp (buildDir + "/bin/runtimes/any/native/FSharp.Core.optdata") (buildDir + "/bin")
+        FileUtils.cp (buildDir + "/bin/runtimes/any/native/FSharp.Core.sigdata") (buildDir + "/bin")
+
+        // Compile tests
+        Node.run "." buildDir ["src/tests/tests.fsx --symbols DOTNETCORE"]
+
+        // Copy the development version of fable-core.js
+        let fableCoreNpmDir = "src/fable/Fable.Core/npm"
+        Npm.install fableCoreNpmDir []
+        Npm.script fableCoreNpmDir "tsc" ["fable-core.ts --target ES2015 --declaration"]
+        setEnvironVar "BABEL_ENV" "target-umd"
+        Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
+        FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
+
+        // Run tests
+        let testsBuildDir = "build/tests"
+        FileUtils.cp "src/tests/package.json" testsBuildDir
+        Npm.install testsBuildDir []
+        Npm.script testsBuildDir "test" []
+    with
+    | ex ->
+        printfn "Target FableCompilerNetcore didn't work, make sure of the following:"
+        printfn "- You have NetCore SDK installed"
+        printfn "- You cloned FSharp.Compiler.Service on same level as Fable"
+        printfn "- FSharp.Compiler.Service > build All.NetCore run successfully"
+        raise ex
+)
 
 Target "CompileFableImportTests" (fun _ ->
     let buildDir = "build/imports/bin"
@@ -279,17 +346,11 @@ Target "FableCore" (fun _ ->
     let fableCoreNpmDir = "src/fable/Fable.Core/npm"
 
     // Update fable-core npm version
-    fableCoreNpmDir + "/package.json"
-    |> File.ReadAllLines
-    |> Seq.fold (fun found line ->
-        match found with
-        | false ->
-            let m = Regex.Match(line, "\"version\": \"(.*?)\"")
-            if m.Success && m.Groups.[1].Value <> fableCoreVersion then
-                Npm.command fableCoreNpmDir "version" [fableCoreVersion]
-            m.Success
-        | true -> true) false
-    |> ignore
+    (fableCoreNpmDir, ["version"])
+    ||> Npm.updatePackageKeyValue (fun (_,v) ->
+        if v <> fableCoreVersion
+        then Some("version", fableCoreVersion)
+        else None)
 
     // Update Fable.Core version
     Util.assemblyInfo "src/fable/Fable.Core/" fableCoreVersion []
@@ -352,6 +413,9 @@ Target "All" ignore
   ==> "MochaTest"
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
+
+"Clean"
+  ==> "FableCompilerNetcore"
 
 // Start build
 RunTargetOrDefault "All"

@@ -1,8 +1,10 @@
+// This file is a replacemente for Fable.Tests.fsproj
+// as Fable NetCore version cannot read fsproj files
+
 #r "System.Threading.dll"
 #r "System.Text.RegularExpressions.dll"
 #r "../../packages/NUnit/lib/nunit.framework.dll"
-//#r "/home/user/.nuget/packages/NUnit/3.4.1/lib/dotnet/nunit.framework.dll"
-#r "bin/Debug/netcoreapp1.0/Fable.Core.dll"
+#r "../../build/fable/bin/Fable.Core.dll"
 
 #load
     "DllRef/Util/Util.fs"
