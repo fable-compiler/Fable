@@ -282,11 +282,10 @@ Target "NUnitTest" (fun _ ->
     
     !! "src/tests/Fable.Tests.fsproj"
     |> MSBuildRelease testsBuildDir "Build"
-    |> Log "Release-Output: "
+    |> ignore
     
     [Path.Combine(testsBuildDir, "Fable.Tests.dll")]
-    |> NUnit (fun p -> { p with DisableShadowCopy = true 
-                                OutputFile = Path.Combine(testsBuildDir, "TestResult.xml") })
+    |> Testing.NUnit3.NUnit3 id
 )
 
 Target "MochaTest" (fun _ ->
