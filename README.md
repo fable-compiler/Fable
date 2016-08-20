@@ -4,6 +4,7 @@
 
 [![Mono Build Status](https://travis-ci.org/fable-compiler/Fable.svg "Mono Build Status")](https://travis-ci.org/fable-compiler/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![npm](https://img.shields.io/npm/v/fable-compiler.svg)](https://www.npmjs.com/package/fable-compiler) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+[RELEASE NOTES](https://github.com/fable-compiler/Fable/blob/master/RELEASE_NOTES_COMPILER.md)
 
 Fable brings together the power of the [F# compiler](http://fsharp.github.io/FSharp.Compiler.Service/)
 and [Babel](http://babeljs.io) to make JavaScript a true backend for F#.
@@ -38,6 +39,7 @@ Also you can have a look at the [samples](http://fable-compiler.github.io/sample
 You must have [F# 4](http://fsharp.org) and [node 4.4](https://nodejs.org/en/) or higher installed in your computer.
 
 If you are having problems to use Fable under Windows, try the following:
+
 - Make sure `fsc.exe` is added to the path.
 - Install MSBuild tools 2013.
 
