@@ -1,10 +1,10 @@
-# ts2fable
+# **ts2fable**  [![npm version](https://badge.fury.io/js/ts2fable.svg)](https://www.npmjs.com/package/ts2fable)
 
-[Fable](https://github.com/fable-compiler/Fable) parser for TypeScript definition files.
+[Fable](https://github.com/fable-compiler/Fable) parser for [TypeScript declaration files](https://www.typescriptlang.org/docs/handbook/writing-declaration-files.html).
 
 ## Usage
 
-Install it with npm and run the `ts2fable` command on a TypeScript definition file.
+Install it with npm and run the `ts2fable` command on a TypeScript declaration file.
 
 ```
 npm install -g ts2fable
