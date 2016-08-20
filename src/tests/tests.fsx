@@ -3,7 +3,7 @@
 
 #r "System.Threading.dll"
 #r "System.Text.RegularExpressions.dll"
-#r "../../packages/NUnit/lib/nunit.framework.dll"
+#r "../../packages/NUnit/lib/dotnet/nunit.framework.dll"
 #r "../../build/fable/bin/Fable.Core.dll"
 
 #load

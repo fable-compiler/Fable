@@ -10,8 +10,8 @@
     "targets": {
         "netcore": {
             "projFile": "tests.fsx",
-            "symbols": ["DOTNETCORE", "FABLE_COMPILER"],
-            "plugins": ["../plugins/nunit/bin/Debug/netstandard1.6/nunit.dll"]
+            "symbols": ["DOTNETCORE"],
+            "plugins": ["../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
         }
     }
 }

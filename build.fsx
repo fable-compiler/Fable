@@ -18,6 +18,7 @@ module Util =
         Path.Combine(Array.ofSeq pathParts)
 
     let run workingDir fileName args =
+        printfn "CWD: %s" workingDir
         let fileName, args =
             if EnvironmentHelper.isUnix
             then fileName, args else "cmd", ("/C " + fileName + " " + args)
@@ -29,6 +30,7 @@ module Util =
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
 
     let runAndReturn workingDir fileName args =
+        printfn "CWD: %s" workingDir
         let fileName, args =
             if EnvironmentHelper.isUnix
             then fileName, args else "cmd", ("/C " + args)
@@ -212,8 +214,8 @@ Target "FableCompilerDebug" (fun _ ->
 Target "FableCompilerNetcore" (fun _ ->
     try
         // Copy JS files
-        let srcDir, buildDir = "src/fable/Fable.Client.Node", "build/fable"
-        FileUtils.cp_r (srcDir + "/js") buildDir
+        let srcDir, buildDir = "src/netcore/Fable.Client.Node", "build/fable"
+        FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
         Npm.command buildDir "version" [fableCompilerNetcoreVersion]
 
         // Edit package.json for NetCore
@@ -224,19 +226,24 @@ Target "FableCompilerNetcore" (fun _ ->
             | _ -> None)
 
         // Restore packages
-        [ "src/fable/Fable.Core"; "src/fable/Fable.Compiler"; srcDir ]
+        [ "src/netcore/Fable.Core"; "src/netcore/Fable.Compiler"; srcDir ]
         |> Seq.iter (fun dir -> Util.run dir "dotnet" "restore")
 
         // Publish Fable NetCore
-        Util.run srcDir "dotnet" "publish -f netcoreapp1.0 -c Release"
+        Util.run srcDir "dotnet" "publish -c Release"
         FileUtils.cp_r (srcDir + "/bin/Release/netcoreapp1.0/publish") (buildDir + "/bin")        
 
         // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
         FileUtils.cp (buildDir + "/bin/runtimes/any/native/FSharp.Core.optdata") (buildDir + "/bin")
         FileUtils.cp (buildDir + "/bin/runtimes/any/native/FSharp.Core.sigdata") (buildDir + "/bin")
 
+        // Compile NUnit plugin
+        let pluginDir = "src/plugins/nunit"
+        Util.run pluginDir "dotnet" "restore"
+        Util.run srcDir "dotnet" "build -c Release"
+
         // Compile tests
-        Node.run "." buildDir ["src/tests/tests.fsx --symbols DOTNETCORE"]
+        Node.run "." buildDir ["src/tests --target netcore"]
 
         // Copy the development version of fable-core.js
         let fableCoreNpmDir = "src/fable/Fable.Core/npm"
