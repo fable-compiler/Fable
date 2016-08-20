@@ -6,11 +6,6 @@ open System.Text.RegularExpressions
 open Fake
 open Fake.AssemblyInfoFile
 
-// version info
-let fableCompilerVersion = "0.5.6"
-let fableCoreVersion = "0.5.4"
-let fableCompilerNetcoreVersion = "0.5.7"
-
 module Util =
     open System.Net
     
@@ -93,6 +88,11 @@ module Util =
         (Attribute.Version version)::extra
         |> CreateFSharpAssemblyInfo asmInfoPath
 
+    let loadReleaseNotes pkg =
+        Lazy<_>(fun () ->
+            sprintf "RELEASE_NOTES_%s.md" pkg
+            |> ReleaseNotesHelper.LoadReleaseNotes) 
+
 module Npm =
     let script workingDir script args =
         sprintf "run %s -- %s" script (String.concat " " args)
@@ -160,6 +160,11 @@ module Fake =
         System.Threading.Thread.Sleep 1000
         exitCode
 
+// version info
+let releaseCompiler = Util.loadReleaseNotes "COMPILER"
+let releaseCompilerNetcore = Util.loadReleaseNotes "COMPILER_NETCORE"
+let releaseCore = Util.loadReleaseNotes "CORE"
+
 // Targets
 Target "Clean" (fun _ ->
     // Don't delete node_modules for faster builds
@@ -173,10 +178,10 @@ Target "Clean" (fun _ ->
 )
 
 Target "FableCompilerRelease" (fun _ ->
-    Util.assemblyInfo "src/fable/Fable.Core" fableCoreVersion []
-    Util.assemblyInfo "src/fable/Fable.Compiler" fableCompilerVersion []
-    Util.assemblyInfo "src/fable/Fable.Client.Node" fableCompilerVersion [
-        Attribute.Metadata ("fableCoreVersion", Util.normalizeVersion fableCoreVersion)
+    Util.assemblyInfo "src/fable/Fable.Core" releaseCore.Value.NugetVersion []
+    Util.assemblyInfo "src/fable/Fable.Compiler" releaseCompiler.Value.NugetVersion []
+    Util.assemblyInfo "src/fable/Fable.Client.Node" releaseCompiler.Value.NugetVersion [
+        Attribute.Metadata ("fableCoreVersion", Util.normalizeVersion releaseCore.Value.NugetVersion)
     ]
 
     let buildDir = "build/fable"
@@ -193,7 +198,7 @@ Target "FableCompilerRelease" (fun _ ->
 
     FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
     FileUtils.cp "README.md" buildDir
-    Npm.command buildDir "version" [fableCompilerVersion]
+    Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
     Npm.install buildDir []
 )
 
@@ -207,7 +212,7 @@ Target "FableCompilerDebug" (fun _ ->
     |> Log "Fable-Compiler-Debug-Output: "
 
     FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
-    Npm.command buildDir "version" [fableCompilerVersion]
+    Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
     Npm.install buildDir []
 )
 
@@ -216,7 +221,7 @@ Target "FableCompilerNetcore" (fun _ ->
         // Copy JS files
         let srcDir, buildDir = "src/netcore/Fable.Client.Node", "build/fable"
         FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
-        Npm.command buildDir "version" [fableCompilerNetcoreVersion]
+        Npm.command buildDir "version" [releaseCompilerNetcore.Value.NugetVersion]
 
         // Edit package.json for NetCore
         (buildDir, ["name"; "fable"])
@@ -336,16 +341,16 @@ Target "Publish" (fun _ ->
 
     // Check if fable-compiler and fable-core version are prerelease or not
     let fableCompilerTag, fableCoreTag =
-        (if fableCompilerVersion.IndexOf("-") > 0 then Some "next" else None),
-        (if fableCoreVersion.IndexOf("-") > 0 then Some "next" else None)
+        (if releaseCompiler.Value.NugetVersion.IndexOf("-") > 0 then Some "next" else None),
+        (if releaseCore.Value.NugetVersion.IndexOf("-") > 0 then Some "next" else None)
 
-    if Npm.getLatestVersion "fable-core" fableCoreTag <> fableCoreVersion then
+    if Npm.getLatestVersion "fable-core" fableCoreTag <> releaseCore.Value.NugetVersion then
         applyTag fableCoreTag |> Npm.command fableCoreNpmDir "publish" 
 
     let workingDir = "temp/build"
     let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
     Util.downloadArtifact workingDir url
-    // Npm.command workingDir "version" [fableCompilerVersion]
+    // Npm.command workingDir "version" [releaseCompiler.Value.NugetVersion]
     applyTag fableCompilerTag |> Npm.command workingDir "publish"
 )
 
@@ -355,12 +360,12 @@ Target "FableCore" (fun _ ->
     // Update fable-core npm version
     (fableCoreNpmDir, ["version"])
     ||> Npm.updatePackageKeyValue (fun (_,v) ->
-        if v <> fableCoreVersion
-        then Some("version", fableCoreVersion)
+        if v <> releaseCore.Value.NugetVersion
+        then Some("version", releaseCore.Value.NugetVersion)
         else None)
 
     // Update Fable.Core version
-    Util.assemblyInfo "src/fable/Fable.Core/" fableCoreVersion []
+    Util.assemblyInfo "src/fable/Fable.Core/" releaseCore.Value.NugetVersion []
     !! "src/fable/Fable.Core/Fable.Core.fsproj"
     |> MSBuild fableCoreNpmDir "Build" [
         "Configuration","Release"
@@ -388,8 +393,8 @@ Target "UpdateSampleRequirements" (fun _ ->
         match Regex.Match(line, "^(\s*)\"(fable(?:-core)?)\": \".*?\"(,)?") with
         | m when m.Success ->
             match m.Groups.[2].Value with
-            | "fable" -> sprintf "%s\"fable\": \"^%s\"%s" m.Groups.[1].Value fableCompilerVersion m.Groups.[3].Value
-            | "fable-core" -> sprintf "%s\"fable-core\": \"^%s\"%s" m.Groups.[1].Value fableCoreVersion m.Groups.[3].Value
+            | "fable" -> sprintf "%s\"fable\": \"^%s\"%s" m.Groups.[1].Value releaseCompiler.Value.NugetVersion m.Groups.[3].Value
+            | "fable-core" -> sprintf "%s\"fable-core\": \"^%s\"%s" m.Groups.[1].Value releaseCore.Value.NugetVersion m.Groups.[3].Value
             | _ -> line                 
         | _ -> line))
 )
