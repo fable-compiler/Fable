@@ -214,7 +214,7 @@ function watch(opts, fableProc) {
                         prev = next;
                         next = [filePath, new Date()];
                         if (!tooClose(filePath, prev)) {
-                            console.log(ev + filePath + " at " + next[1].toLocaleTimeString());
+                            console.log(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
                             fableProc.stdin.write(filePath + "\n");
                         }
                     }
