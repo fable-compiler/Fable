@@ -6,11 +6,11 @@
     "compilerName": "fsc",
     "compile": {
       "includeFiles": [
-        "Util.fs",
-        "Replacements.fs",
-        "FSharp2Fable.Util.fs",
-        "FSharp2Fable.fs",
-        "Fable2Babel.fs"
+        "../../fable/Fable.Compiler/Util.fs",
+        "../../fable/Fable.Compiler/Replacements.fs",
+        "../../fable/Fable.Compiler/FSharp2Fable.Util.fs",
+        "../../fable/Fable.Compiler/FSharp2Fable.fs",
+        "../../fable/Fable.Compiler/Fable2Babel.fs"
       ]
     },
     "define": [
@@ -26,7 +26,7 @@
     "warningsAsErrors": true,
     "additionalArguments": [
       "--fullpaths",
-      "--flaterrors",
+      "--flaterrors"
     ]
   },
   "dependencies": {

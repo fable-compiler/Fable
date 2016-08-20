@@ -13,7 +13,7 @@
             "watch": true,
             "symbols": ["DEV_SERVER"],
             "scripts": {
-                "postbuild": "node out/server"
+                "postbuild": ""
             }
         },
         "production": {

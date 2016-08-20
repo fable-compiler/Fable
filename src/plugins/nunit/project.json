@@ -6,7 +6,7 @@
     "compilerName": "fsc",
     "compile": {
       "includeFiles": [
-        "Fable.Plugins.NUnit.fsx",
+        "Fable.Plugins.NUnit.fsx"
       ]
     },
     "define": [
@@ -22,7 +22,7 @@
     "warningsAsErrors": true,
     "additionalArguments": [
       "--fullpaths",
-      "--flaterrors",
+      "--flaterrors"
     ]
   },
   "dependencies": {
@@ -34,7 +34,7 @@
     "Fable.Compiler": {
       "version": "1.0.0-*",
       "target": "project"
-    },
+    }
   },
   "tools": {
     "dotnet-compile-fsc": {
