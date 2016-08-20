@@ -123,15 +123,16 @@ module Npm =
             String.concat "|" keys
             |> sprintf "\"(%s)\"\\s*:\\s*\"(.*?)\""
             |> Regex
-        File.ReadAllLines pkgJson
-        |> Seq.map (fun line ->
-            let m = reg.Match(line)
-            if m.Success then
-                match f(m.Groups.[1].Value, m.Groups.[2].Value) with
-                | Some(k,v) -> reg.Replace(line, sprintf "\"%s\": \"%s\"" k v)
-                | None -> line
-            else line)
-        |> fun lines -> File.WriteAllLines(pkgJson, lines)
+        let lines =
+            File.ReadAllLines pkgJson
+            |> Array.map (fun line ->
+                let m = reg.Match(line)
+                if m.Success then
+                    match f(m.Groups.[1].Value, m.Groups.[2].Value) with
+                    | Some(k,v) -> reg.Replace(line, sprintf "\"%s\": \"%s\"" k v)
+                    | None -> line
+                else line)
+        File.WriteAllLines(pkgJson, lines)
 
 module Node =
     let run workingDir script args =

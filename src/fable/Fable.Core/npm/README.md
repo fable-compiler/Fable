@@ -1,21 +1,31 @@
 # fable-core
 
-Fable core lib & bindings for native JS objects, browser and node APIs
+Fable core lib and bindings for native JS objects, browser and node APIs
+
+[![npm](https://img.shields.io/npm/v/fable-core.svg)](https://www.npmjs.com/package/fable-compiler) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
+[RELEASE NOTES](https://github.com/fable-compiler/Fable/blob/master/RELEASE_NOTES_CORE.md)
+
+[![npm](https://img.shields.io/npm/v/fable-core.svg)](https://www.npmjs.com/package/fable-compiler) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
+[RELEASE NOTES](https://github.com/fable-compiler/Fable/blob/master/RELEASE_NOTES_CORE.md)
 
 ## Installation
 
 ```sh
-$ npm install --save fable-core
+npm install --save fable-core
 ```
 
 ## Usage
+
+For general information on how to use Fable, check the [docs](http://fable-compiler.github.io/docs/compiling.html).
 
 The default file when you import `fable-core` uses universal modules (UMD)
 which can be understood by node (commonjs) or require.js (amd). There's also
 a minified version `fable-core.min.js`, and if you need the library in other
 module formats you can import `fable-core/es2015` or `fable-core/commonjs` instead.
 
-### In a F# project (.fsproj)
+### F# project (.fsproj)
 
 ```xml
   <ItemGroup>
@@ -23,7 +33,7 @@ module formats you can import `fable-core/es2015` or `fable-core/commonjs` inste
   </ItemGroup>
 ```
 
-### In a F# script (.fsx)
+### F# script (.fsx)
 
 ```fsharp
 #r "node_modules/fable-core/Fable.Core.dll"
@@ -55,9 +65,9 @@ requirejs(["app"]);
 
 ## Development
 
-The source is written in TypeScript. The use of a TypeScript-aware editor 
+The source is written in TypeScript. The use of a TypeScript-aware editor
 (like [VSCode](https://code.visualstudio.com) or [ALM](http://alm.tools/))
-is highly recommended.  
+is highly recommended.
 
 Output files are generated as shown below:
 
@@ -69,10 +79,8 @@ Output files are generated as shown below:
 
 ### To build
 
-Simply run
+From Fable root project folder, simply run:
 
+```sh
+build FableCore
 ```
-build fablecore
-``` 
-
-from Fable root project folder.
