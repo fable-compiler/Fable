@@ -1,5 +1,6 @@
 ﻿var fs = require("fs");
 var path = require("path");
+var chokidar = require("chokidar");
 var babel = require("babel-core");
 var template = require("babel-template");
 var child_process = require('child_process');
@@ -201,17 +202,18 @@ function watch(opts, fableProc) {
     });
 
     var fsExtensions = [".fs", ".fsx", ".fsproj"];
-    fs.watch(projDir, { persistent: true, recursive: true }, function(ev, filename) {
-        var ext = path.extname(filename).toLowerCase();
-        if (/*ev == "change" &&*/ fsExtensions.indexOf(ext) >= 0) {
-            prev = next;
-            next = [filename, new Date()];
-            if (!tooClose(filename, prev)) {
-                console.log(ev + ": " + filename + " at " + next[1].toLocaleTimeString());
-                fableProc.stdin.write(path.join(projDir, filename) + "\n");
-            }
-        }
-    });
+    chokidar.watch(projDir, { ignored: /node_modules/, persistent: true })
+            .on("change", function(filePath) {
+                var ext = path.extname(filePath).toLowerCase();
+                if (fsExtensions.indexOf(ext) >= 0) {
+                    prev = next;
+                    next = [filePath, new Date()];
+                    if (!tooClose(filePath, prev)) {
+                        console.log("Updated: " + filePath + " at " + next[1].toLocaleTimeString());
+                        fableProc.stdin.write(filePath + "\n");
+                    }
+                }
+            });
 }
 
 function runCommand(command, continuation) {

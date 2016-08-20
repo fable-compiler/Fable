@@ -206,6 +206,7 @@ Target "FableCompilerDebug" (fun _ ->
 
     FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
     Npm.command buildDir "version" [fableCompilerVersion]
+    Npm.install buildDir []
 )
 
 Target "FableCompilerNetcore" (fun _ ->
