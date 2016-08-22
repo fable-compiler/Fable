@@ -178,6 +178,26 @@ Target "Clean" (fun _ ->
     |> Seq.iter FileUtils.rm
 )
 
+Target "FableSuaveRelease" (fun _ ->
+    Util.assemblyInfo "src/fable/Fable.Core" releaseCore.Value.NugetVersion []
+    Util.assemblyInfo "src/fable/Fable.Compiler" releaseCompiler.Value.NugetVersion []
+    Util.assemblyInfo "src/fable/Fable.Client.Suave" releaseCompiler.Value.NugetVersion [
+        Attribute.Metadata ("fableCoreVersion", Util.normalizeVersion releaseCore.Value.NugetVersion)
+    ]
+
+    let buildDir = "build/fable"
+
+    [ "src/fable/Fable.Core/Fable.Core.fsproj"
+      "src/fable/Fable.Compiler/Fable.Compiler.fsproj"
+      "src/fable/Fable.Client.Suave/Fable.Client.Suave.fsproj" ]
+    |> MSBuildRelease (buildDir + "/bin") "Build"
+    |> Log "Fable-Compiler-Release-Output: "
+    
+    // For some reason, ProjectCracker targets are not working after updating the package
+    !! "packages/FSharp.Compiler.Service.ProjectCracker/utilities/net45/FSharp.Compiler.Service.ProjectCrackerTool.exe*"
+    |> Seq.iter (fun x -> FileUtils.cp x "build/fable/bin")
+)
+
 Target "FableCompilerRelease" (fun _ ->
     Util.assemblyInfo "src/fable/Fable.Core" releaseCore.Value.NugetVersion []
     Util.assemblyInfo "src/fable/Fable.Compiler" releaseCompiler.Value.NugetVersion []
@@ -426,6 +446,9 @@ Target "All" ignore
   ==> "MochaTest"
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
+
+"Clean" 
+  ==> "FableSuaveRelease"
 
 "Clean"
   ==> "FableCompilerNetcore"
