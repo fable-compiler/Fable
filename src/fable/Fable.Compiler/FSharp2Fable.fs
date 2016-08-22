@@ -485,7 +485,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                             |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
                             |> function Some m -> hasRestParams m | None -> false
                     let body = transformExpr com ctx over.Body
-                    let m = Fable.Member(name, kind, List.map Fable.Ident.getType args', body.Type,
+                    let args = List.map Fable.Ident.getType args'
+                    let m = Fable.Member(name, kind, args, body.Type, Fable.Function(args, body.Type),
                                 over.GenericParameters |> List.map (fun x -> x.Name),
                                 hasRestParams = hasRestParams)
                     Fable.MemberDeclaration(m, None, args', body, range)))
@@ -742,9 +743,10 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         let entMember =
             let fableEnt = makeEntity com meth.EnclosingEntity
             let argTypes = List.map Fable.Ident.getType args'
+            let fullTyp = makeFullType com meth.CurriedParameterGroups body.Type
             match fableEnt.TryGetMember(memberName, memberKind, not meth.IsInstanceMember, argTypes) with
             | Some m -> m
-            | None -> makeMethodFrom com memberName memberKind argTypes body.Type None meth
+            | None -> makeMethodFrom com memberName memberKind argTypes body.Type fullTyp None meth
             |> fun m -> Fable.MemberDeclaration(m, privateName, args', body, SourceLocation.Empty)
         declInfo.AddMethod (meth, entMember)
         ctx
