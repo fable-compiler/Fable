@@ -414,9 +414,10 @@ module Types =
         with _ ->
             None
 
-    and makeMethodFrom com name kind argTypes returnType overloadIndex
+    and makeMethodFrom com name kind argTypes returnType fullTyp overloadIndex
                        (meth: FSharpMemberOrFunctionOrValue) =
         Fable.Member(name, kind, argTypes, returnType,
+            fullType = fullTyp,
             genParams = (meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList),
             decorators = (meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList),
             isPublic = (not meth.Accessibility.IsPrivate && not meth.IsCompilerGenerated),
@@ -432,6 +433,14 @@ module Types =
         | [[singleArg]] when isUnit singleArg.Type -> []
         // The F# compiler "untuples" the args in methods
         | args -> List.concat args |> List.map (fun x -> makeType com Context.Empty x.Type)            
+
+    and makeFullType com (args: IList<IList<FSharpParameter>>) returnType = 
+        let tys = args |> Seq.map (fun tuple ->
+            let tuple = tuple |> Seq.map (fun t -> makeType com Context.Empty t.Type)
+            match List.ofSeq tuple with
+            | [singleArg] -> singleArg
+            | args -> Fable.Tuple(args) )
+        Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function([a], b))
 
     and getMembers com (tdef: FSharpEntity) =
         let isOverloadable =
@@ -451,10 +460,11 @@ module Types =
                 members |> List.mapi (fun i (_, meth) ->
                     let argTypes = getArgTypes com meth.CurriedParameterGroups
                     let returnType = makeType com Context.Empty meth.ReturnParameter.Type
+                    let fullTyp = makeFullType com meth.CurriedParameterGroups returnType
                     let overloadIndex =
                         if isOverloaded && (not meth.IsExplicitInterfaceImplementation)
                         then Some i else None
-                    makeMethodFrom com name kind argTypes returnType overloadIndex meth
+                    makeMethodFrom com name kind argTypes returnType fullTyp overloadIndex meth
             ))
             |> Seq.toList
         let instanceMembers = getMembers' true tdef

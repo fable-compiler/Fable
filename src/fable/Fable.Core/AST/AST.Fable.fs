@@ -104,12 +104,13 @@ and MemberKind =
     | Setter
     | Field
 
-and Member(name, kind, argTypes, returnType, ?genParams, ?decorators,
+and Member(name, kind, argTypes, returnType, ?fullType, ?genParams, ?decorators,
            ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.ArgumentTypes: Type list = argTypes
     member x.ReturnType: Type = returnType
+    member x.FullType: Type = defaultArg fullType (Function(argTypes, returnType))
     member x.GenericParameters: string list = defaultArg genParams []
     member x.Decorators: Decorator list = defaultArg decorators []
     member x.IsPublic: bool = defaultArg isPublic true
