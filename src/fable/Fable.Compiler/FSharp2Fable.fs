@@ -731,7 +731,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         let entMember =
             let fableEnt = makeEntity com meth.EnclosingEntity
             let argTypes = List.map Fable.Ident.getType args'
-            let fullTyp = makeFullType com meth.CurriedParameterGroups body.Type
+            let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
             match fableEnt.TryGetMember(memberName, memberKind, not meth.IsInstanceMember, argTypes) with
             | Some m -> m
             | None -> makeMethodFrom com memberName memberKind argTypes body.Type fullTyp None meth

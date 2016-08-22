@@ -128,7 +128,7 @@ let getProjectOptions() =
       UnresolvedReferences = None }
 
 let parseFSharpProject (checker: FSharpChecker)
-                       (projOptions: FSharpProjectOptions) =
+                       (projOptions: FSharpProjectOptions) (com:ICompiler) =
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
@@ -136,15 +136,12 @@ let parseFSharpProject (checker: FSharpChecker)
     let errors =
         checkProjectResults.Errors
         |> Array.filter (fun x -> x.Severity = FSharpErrorSeverity.Error)
-    if errors.Length = 0
-    then checkProjectResults
-    else errors
-        |> Seq.map (fun e ->
-            sprintf "> %s: L%i (%s)"
-                e.Message e.StartLineAlternate (Path.GetFileName e.FileName))
-        |> Seq.append ["F# project contains errors:"]
-        |> String.concat "\n"
-        |> failwith
+    for e in checkProjectResults.Errors do 
+        ( if e.Severity = FSharpErrorSeverity.Error then LogMessage.Error e.Message
+          else LogMessage.Warning e.Message ) |> com.AddLog
+
+    if errors.Length = 0 then Some checkProjectResults
+    else None 
 
 let makeCompiler () =
     let opts: CompilerOptions = {
@@ -178,6 +175,12 @@ type Result = {
 }
 
 
+let formatMessages (logs:seq<LogMessage>) =
+    logs |> Seq.map (function 
+        | Error msg -> { kind = "error"; message = msg  }
+        | Warning msg -> { kind = "warning"; message = msg  }
+        | Info msg -> { kind = "info"; message = msg  }) |> Array.ofSeq
+
 let printFile =
     let jsonSettings = JsonSerializerSettings()
     jsonSettings.Converters <- [|Json.ErasedUnionConverter()|]
@@ -185,14 +188,10 @@ let printFile =
     jsonSettings.StringEscapeHandling <- StringEscapeHandling.EscapeNonAscii
 
     fun (logs:seq<LogMessage>) decls (file: AST.Babel.Program) ->
-        let msgs = 
-            logs |> Seq.map (function 
-              | Warning msg -> { kind = "warning"; message = msg  }
-              | Info msg -> { kind = "info"; message = msg  }) |> Array.ofSeq
-        JsonConvert.SerializeObject ({ declarations = decls; compiled = file; messages = msgs }, jsonSettings)          
+        JsonConvert.SerializeObject ({ declarations = decls; compiled = file; messages = formatMessages logs }, jsonSettings)          
 
-let printMessage typ msg =
-    { compiled = null; declarations = [||]; messages = [| { kind = typ; message = msg } |] }
+let printMessages logs =
+    { declarations = [||]; compiled = null; messages = formatMessages logs }          
     |> JsonConvert.SerializeObject
 
 type FSProjInfo = FSharp2Fable.Compiler.FSProjectInfo
@@ -228,26 +227,27 @@ let compile checker code projOpts (com: ICompiler) =
         Shim.FileSystem <- fs
         // Using 'Now' forces reloading
         let projOpts = { projOpts with LoadTime = System.DateTime.Now }
-        let proj = parseFSharpProject checker projOpts
-        
-        // Compile project files
-        let fable = 
-            { FSProjInfo.projectOpts = projOpts
-              FSProjInfo.fileMask = None
-              FSProjInfo.dependencies = Map.empty }
-            |> FSharp2Fable.Compiler.transformFiles com proj
+        match parseFSharpProject checker projOpts com with
+        | Some proj ->        
+            // Compile project files
+            let fable = 
+                { FSProjInfo.projectOpts = projOpts
+                  FSProjInfo.fileMask = None
+                  FSProjInfo.dependencies = Map.empty }
+                |> FSharp2Fable.Compiler.transformFiles com proj
 
-        let decls = 
-          [| for decl in (Seq.head (snd fable)).Declarations do
-                match decl with 
-                | AST.Fable.MemberDeclaration(m, n, a, _, _) ->
-                    yield { name = m.Name; ``type`` = formatFSharpTypeSig m.FullType }
-                | _ -> () |]
+            let decls = 
+              [| for decl in (Seq.head (snd fable)).Declarations do
+                    match decl with 
+                    | AST.Fable.MemberDeclaration(m, n, a, _, _) ->
+                        yield { name = m.Name; ``type`` = formatFSharpTypeSig m.OriginalCurriedType }
+                    | _ -> () |]
     
-        let babel = fable |> Fable2Babel.Compiler.transformFile com
-        printFile (com.GetLogs()) decls (fst (Seq.head babel))
+            let babel = fable |> Fable2Babel.Compiler.transformFile com
+            printFile (com.GetLogs()) decls (fst (Seq.head babel))
+        | _ -> printMessages (com.GetLogs())
     with ex ->
-        printMessage "error" ex.Message
+        printMessages [ LogMessage.Error(sprintf "Unexpected error: %s" ex.Message) ]
 
 open Suave
 open Suave.Filters
