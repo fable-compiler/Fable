@@ -333,25 +333,32 @@ Target "MakeArtifactLighter" (fun _ ->
     |> Seq.iter FileUtils.rm
 )
 
-Target "Publish" (fun _ ->
-    let fableCoreNpmDir = "src/fable/Fable.Core/npm"
+Target "PublishCompiler" (fun _ ->
     let applyTag = function
         | Some tag -> ["--tag"; tag]
         | None -> []
 
-    // Check if fable-compiler and fable-core version are prerelease or not
-    let fableCompilerTag, fableCoreTag =
-        (if releaseCompiler.Value.NugetVersion.IndexOf("-") > 0 then Some "next" else None),
-        (if releaseCore.Value.NugetVersion.IndexOf("-") > 0 then Some "next" else None)
-
-    if Npm.getLatestVersion "fable-core" fableCoreTag <> releaseCore.Value.NugetVersion then
-        applyTag fableCoreTag |> Npm.command fableCoreNpmDir "publish" 
+    // Check if version is prerelease or not
+    let fableCompilerTag =
+        if releaseCompiler.Value.NugetVersion.IndexOf("-") > 0 then Some "next" else None
 
     let workingDir = "temp/build"
     let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
     Util.downloadArtifact workingDir url
-    // Npm.command workingDir "version" [releaseCompiler.Value.NugetVersion]
+    Npm.command workingDir "version" [releaseCompiler.Value.NugetVersion]
     applyTag fableCompilerTag |> Npm.command workingDir "publish"
+)
+
+Target "PublishCore" (fun _ ->
+    // Check if version is prerelease or not
+    if releaseCore.Value.NugetVersion.IndexOf("-") > 0 then ["--tag next"] else []
+    |> Npm.command "src/fable/Fable.Core/npm" "publish" 
+)
+
+Target "PublishCompilerNetcore" (fun _ ->
+    // Check if version is prerelease or not
+    if releaseCompiler.Value.NugetVersion.IndexOf("-") > 0 then ["--tag next"] else []
+    |> Npm.command "build/fable" "publish" 
 )
 
 Target "FableCore" (fun _ ->
@@ -426,8 +433,14 @@ Target "All" ignore
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
 
+"FableCore"
+  ==> "PublishCore"
+
 "Clean"
   ==> "FableCompilerNetcore"
+
+"FableCompilerNetcore"
+  ==> "PublishCompilerNetcore"
 
 // Start build
 RunTargetOrDefault "All"
