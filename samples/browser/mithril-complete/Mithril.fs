@@ -73,7 +73,7 @@ module MithrilBase =
 
     and Property<'T> =
         [<Emit("$0()")>] abstract get: 'T
-        [<Emit("$0($1...)")>] abstract set: value: 'T -> 'T
+        [<Emit("$0($1...)")>] abstract set: value: 'T -> unit
 
     and BasicProperty<'T> =
         inherit Property<'T>
@@ -429,10 +429,10 @@ module Mithril =
         (fun e -> s.Invoke(e))
 
     let css str =
-        ("class",str)
+        ("class",str :> obj)
 
     let name str =
-        ("name",str)
+        ("name",str :> obj)
 
     let incss ls =
         let s = createEmpty
