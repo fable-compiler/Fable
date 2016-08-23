@@ -148,8 +148,28 @@ module Path =
                 addToCache cache filePath filePath
 
     /// Creates a relative path from one file or folder to another.
-    /// from http://stackoverflow.com/a/340454/3922220
     let getRelativeFileOrDirPath fromIsDir fromPath toIsDir toPath =
+        // Algorithm adapted from http://stackoverflow.com/a/6244188 
+        let pathDifference (path1: string) (path2: string) =
+            let path1 = normalizePath path1
+            let path2 = normalizePath path2
+            let mutable c = 0  //index up to which the paths are the same
+            let mutable d = -1 //index of trailing slash for the portion where the paths are the s
+            while c < path1.Length && c < path2.Length && path1.[c] = path2.[c] do
+                if path1.[c] = '/' then d <- c
+                c <- c + 1
+            if c = 0
+            then path2
+            elif c = path1.Length && c = path2.Length
+            then String.Empty
+            else
+                let builder = new System.Text.StringBuilder()
+                while c < path1.Length do
+                    if path1.[c] = '/' then builder.Append("../") |> ignore
+                    c <- c + 1
+                if builder.Length = 0 && path2.Length - 1 = d
+                then "./"
+                else builder.ToString() + path2.Substring(d + 1)
         // Add a dummy file to make it work correctly with dirs
         let addDummyFile isDir path =
             if isDir
@@ -157,18 +177,7 @@ module Path =
             else path
         let fromPath = addDummyFile fromIsDir fromPath
         let toPath = addDummyFile toIsDir toPath
-        let fromUri = Uri("file://" + fromPath)
-        let toUri = Uri("file://" + toPath)
-        if fromUri.Scheme <> toUri.Scheme then
-            toPath   // path can't be made relative.
-        else
-            let relativeUri = fromUri.MakeRelativeUri(toUri)
-            let relativePath = Uri.UnescapeDataString(relativeUri.ToString())
-            match toUri.Scheme.ToUpperInvariant() with
-            | "FILE" -> relativePath.Replace(
-                            IO.Path.AltDirectorySeparatorChar,
-                            IO.Path.DirectorySeparatorChar)  |> normalizePath
-            | _ -> relativePath |> normalizePath
+        pathDifference fromPath toPath
 
     let getRelativePath fromPath toPath =
         getRelativeFileOrDirPath 

@@ -60,7 +60,9 @@ let readOptions argv =
         refs = Map(def opts "refs" [] (li (fun (x: string) ->
             let xs = x.Split('=') in xs.[0], xs.[1])))
         extra = Map(def opts "extra" [] (li (fun (x: string) ->
-            let xs = x.Split('=') in xs.[0], xs.[1])))
+            if x.Contains("=")
+            then let xs = x.Split('=') in xs.[0], xs.[1]
+            else x, "")))
     }
 
 let loadPlugins (pluginPaths: string list) =
@@ -176,8 +178,7 @@ let printFile =
 
 let printMessages (msgs: #seq<CompilerMessage>) =
     msgs
-    |> Seq.map CompilerMessage.toDic
-    |> Seq.map JsonConvert.SerializeObject
+    |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
     |> Seq.iter Console.Out.WriteLine
 
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
@@ -214,7 +215,9 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         #if NETSTANDARD1_6 || NETCOREAPP1_0
         // Skip this check in netcore for now
         #else
-        if Option.isNone projInfo.fileMask then
+        if Option.isNone projInfo.fileMask
+            && com.Options.extra |> Map.containsKey "noVersionCheck" |> not
+        then
             parsedProj.ProjectContext.GetReferencedAssemblies()
             |> Seq.tryPick (fun asm ->
                 if asm.SimpleName <> "Fable.Core"

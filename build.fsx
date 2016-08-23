@@ -163,7 +163,6 @@ module Fake =
 
 // version info
 let releaseCompiler = Util.loadReleaseNotes "COMPILER"
-let releaseCompilerNetcore = Util.loadReleaseNotes "COMPILER_NETCORE"
 let releaseCore = Util.loadReleaseNotes "CORE"
 
 // Targets
@@ -222,7 +221,7 @@ Target "FableCompilerNetcore" (fun _ ->
         // Copy JS files
         let srcDir, buildDir = "src/netcore/Fable.Client.Node", "build/fable"
         FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
-        Npm.command buildDir "version" [releaseCompilerNetcore.Value.NugetVersion]
+        Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
 
         // Edit package.json for NetCore
         (buildDir, ["name"; "fable"])
@@ -250,6 +249,9 @@ Target "FableCompilerNetcore" (fun _ ->
 
         // Compile tests
         Node.run "." buildDir ["src/tests --target netcore"]
+        let testsBuildDir = "build/tests"
+        FileUtils.cp "src/tests/package.json" testsBuildDir
+        Npm.install testsBuildDir []
 
         // Copy the development version of fable-core.js
         let fableCoreNpmDir = "src/fable/Fable.Core/npm"
@@ -260,9 +262,6 @@ Target "FableCompilerNetcore" (fun _ ->
         FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
 
         // Run tests
-        let testsBuildDir = "build/tests"
-        FileUtils.cp "src/tests/package.json" testsBuildDir
-        Npm.install testsBuildDir []
         Npm.script testsBuildDir "test" []
     with
     | ex ->
