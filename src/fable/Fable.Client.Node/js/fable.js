@@ -82,16 +82,16 @@ var removeNullStatements = {
 var transformMacroExpressions = {
   visitor: {
     StringLiteral: function(path) {
-      if (!path.node.macro)
+      if (!path.node.macro || !path.node.value) {
           return;
-
+      }
+      var buildArgs = {}, macro = path.node.value;
       try {
-        var buildArgs = {}, args = path.node.args;
+        var args = path.node.args;
         for (var i = 0; i < args.length; i++) {
             buildArgs["$" + i] = args[i];
         }
-
-        var tmp = path.node.value
+        macro = macro
             // Replace spread aguments like in `$0($1...)`
             .replace(/\$(\d+)\.\.\./, function (m, i) {
                 var rep = [], j = parseInt(i);
@@ -110,12 +110,12 @@ var transformMacroExpressions = {
                 var i = parseInt(g2);
                 return i < args.length ? g1 : "";
             });
-
-        var buildMacro = template(tmp);
+        var buildMacro = template(macro);
         path.replaceWithMultiple(buildMacro(buildArgs));
       }
       catch (err) {
-          console.log("BABEL ERROR: Failed to parse macro: " + path.node.value);
+          console.log("BABEL ERROR: Failed to parse macro: " + macro);
+          console.log("MACRO ARGUMENTS: " + Object.getOwnPropertyNames(buildArgs).join());
           console.log(err.message);
           if (opts.verbose && err.stack) {
             console.log(err.stack);
