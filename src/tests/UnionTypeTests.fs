@@ -273,3 +273,21 @@ let ``Custom exceptions work``() =
     | MyEx(4, msg) -> msg + "!!"
     | MyEx(_, msg) -> msg + "??"
     |> equal "ERROR!!"
+
+#if FABLE_COMPILER
+open Fable.Core
+
+type Wrapper(s: string) =
+    member x.Value = s |> Seq.rev |> Seq.map string |> String.concat ""
+
+[<Test>]
+let ``Erased union type testing works``() =
+    let toString (arg: U3<string, int, Wrapper>) =
+        match arg with
+        | U3.Case1 s -> s
+        | U3.Case2 i -> i * 2 |> string 
+        | U3.Case3 t -> t.Value
+    U3.Case1 "HELLO" |> toString |> equal "HELLO"
+    U3.Case2 3 |> toString |> equal "6"
+    "HELLO" |> Wrapper |> U3.Case3 |> toString |> equal "OLLEH"
+#endif

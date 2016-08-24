@@ -529,14 +529,24 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.TypeTest (FableType com ctx typ as fsTyp, Transform com ctx expr) ->
         makeTypeTest com (makeRangeFrom fsExpr) typ expr 
 
-    | BasicPatterns.UnionCaseTest (Transform com ctx unionExpr, FableType com ctx unionType, unionCase) ->
+    | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr,
+                                  (FableType com ctx unionType as fsType),
+                                  unionCase) ->
         match unionType with
         | ErasedUnion ->
             if unionCase.UnionCaseFields.Count <> 1 then
                 failwithf "Erased Union Cases must have one single field: %s"
                           unionType.FullName
             else
-                let typ = makeType com ctx unionCase.UnionCaseFields.[0].FieldType
+                let typ =
+                    let m = Regex.Match(unionCase.Name, @"^Case(\d+)$")
+                    if m.Success
+                    then
+                        let idx = int m.Groups.[1].Value - 1 
+                        if fsType.GenericArguments.Count > idx
+                        then makeType com ctx fsType.GenericArguments.[idx]
+                        else unionType
+                    else unionType
                 makeTypeTest com (makeRangeFrom fsExpr) typ unionExpr
         | OptionUnion ->
             let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
