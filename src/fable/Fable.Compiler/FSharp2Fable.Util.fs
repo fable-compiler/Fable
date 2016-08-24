@@ -306,6 +306,17 @@ module Patterns =
             else None
         | _ -> None
 
+    let (|ImmutableBinding|_|) = function
+        | Let((var, (Value v as value)), body)
+            when not var.IsMutable && not v.IsMutable && not v.IsMemberThisValue -> Some((var, value), body)
+        | Let((var, (UnionCaseGet(Value v,_,_,_) as value)), body)
+            when not var.IsMutable && not v.IsMutable -> Some((var, value), body)            
+        | Let((var, (TupleGet(_,_,Value v) as value)), body)
+            when not var.IsMutable && not v.IsMutable -> Some((var, value), body)
+        | Let((var, (FSharpFieldGet(Some(Value v),_,fi) as value)), body)
+            when not var.IsMutable && not v.IsMutable && not fi.IsMutable -> Some((var, value), body)
+        | _ -> None
+
     /// This matches the boilerplate F# compiler generates for methods
     /// like Dictionary.TryGetValue (see #154)
     let (|TryGetValue|_|) = function

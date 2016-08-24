@@ -264,6 +264,10 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Value valueKind
 
     (** ## Assignments *)
+    // Optimization
+    | ImmutableBinding((var, value), body) ->
+        transformExpr com ctx value |> bindExpr ctx var |> transformExpr com <| body
+
     | BasicPatterns.Let((var, Transform com ctx value), body) ->
         let ctx, ident = bindIdent com ctx value.Type (Some var) var.CompiledName
         let body = transformExpr com ctx body
@@ -455,7 +459,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             | _ -> None, None
         let members =
             (objType, overrides)::otherOverrides
-            |> List.map (fun (typ, overrides) ->
+            |> List.collect (fun (typ, overrides) ->
                 overrides |> List.map (fun over ->
                     let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
                     let ctx, args' = bindMemberArgs com ctx true args
@@ -486,7 +490,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                                 over.GenericParameters |> List.map (fun x -> x.Name),
                                 hasRestParams = hasRestParams)
                     Fable.MemberDeclaration(m, None, args', body, range)))
-            |> List.concat
         let members =
             match baseCons with
             | Some baseCons -> baseCons::members
@@ -575,7 +578,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 match (Map.tryFind idx map) with
                 | Some refCount -> Map.remove idx map |> Map.add idx (refCount + 1)
                 | None -> Map.add idx 1 map
-            | _ as e ->
+            | e ->
                 failwithf "Unexpected DecisionTree branch in %O: %A"
                           (makeRange e.Range) e
         let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
