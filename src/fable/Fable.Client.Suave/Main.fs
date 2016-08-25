@@ -127,8 +127,11 @@ let getProjectOptions() =
       LoadTime = System.DateTime.Now
       UnresolvedReferences = None }
 
-let parseFSharpProject (checker: FSharpChecker)
+let parseFSharpProject (checker: FSharpChecker) code
                        (projOptions: FSharpProjectOptions) (com:ICompiler) =
+    let parseCodeResults = 
+        checker.ParseFileInProject("script.fsx", code, projOptions)
+        |> Async.RunSynchronously
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
@@ -140,8 +143,9 @@ let parseFSharpProject (checker: FSharpChecker)
         ( if e.Severity = FSharpErrorSeverity.Error then LogMessage.Error e.Message
           else LogMessage.Warning e.Message ) |> com.AddLog
 
-    if errors.Length = 0 then Some checkProjectResults
-    else None 
+    match parseCodeResults.ParseTree, errors.Length with
+    | Some tree, 0 -> Some(tree, checkProjectResults)
+    | _ -> None 
 
 let makeCompiler () =
     let opts: CompilerOptions = {
@@ -165,12 +169,21 @@ type Message = {
 
 type Declaration = {
     name : string
+    ``mutable`` : bool
+    argumentTypes : string[]
     ``type`` : string
+}
+
+type Types = {
+    names : string[]
+    code : string 
 }
 
 type Result = {
     compiled : obj
     declarations : Declaration[]
+    types : Types[]
+    resultType : string
     messages : Message[]
 }
 
@@ -187,11 +200,14 @@ let printFile =
     jsonSettings.NullValueHandling <- NullValueHandling.Ignore
     jsonSettings.StringEscapeHandling <- StringEscapeHandling.EscapeNonAscii
 
-    fun (logs:seq<LogMessage>) decls (file: AST.Babel.Program) ->
-        JsonConvert.SerializeObject ({ declarations = decls; compiled = file; messages = formatMessages logs }, jsonSettings)          
+    fun (logs:seq<LogMessage>) types decls resultType (file: AST.Babel.Program) ->
+        let o = 
+            { declarations = decls; types = types; compiled = file; 
+              resultType = resultType; messages = formatMessages logs }
+        JsonConvert.SerializeObject(o, jsonSettings)
 
 let printMessages logs =
-    { declarations = [||]; compiled = null; messages = formatMessages logs }          
+    { declarations = [||]; types = [||]; resultType = null; compiled = null; messages = formatMessages logs }          
     |> JsonConvert.SerializeObject
 
 type FSProjInfo = FSharp2Fable.Compiler.FSProjectInfo
@@ -204,7 +220,21 @@ let formatFSharpNumber = function
     | FableNum.Int16 -> "int16" | FableNum.UInt16 -> "uint16" 
     | FableNum.Int32 -> "int" | FableNum.UInt32 -> "uint" 
     | FableNum.Float32 -> "float32" | FableNum.Float64 -> "float"
-  
+
+let formatName (ent:AST.Fable.Entity) = 
+    // If it comes from this file, we just return short name
+    match ent.FullName with
+    | f when f.StartsWith("File1") -> ent.Name
+    | "Microsoft.FSharp.Collections.FSharpList" -> "list"
+    | "Microsoft.FSharp.Collections.FSharpMap" -> "Map"
+    | "Microsoft.FSharp.Core.FSharpOption" -> "option"
+    | "System.Collections.Generic.IEnumerable" -> "seq"
+    | _ -> ent.FullName
+
+let rec (|CurriedFunction|) = function
+    | FableType.Function([t1], CurriedFunction(ts, t)) -> (t1::ts, t)
+    | t -> [], t
+      
 let rec formatFSharpTypeSig = function
     | FableType.Any -> "obj"
     | FableType.Unit -> "unit"
@@ -214,11 +244,44 @@ let rec formatFSharpTypeSig = function
     | FableType.Number n -> formatFSharpNumber n
     | FableType.Array t -> formatFSharpTypeSig t + "[]"
     | FableType.Tuple ts ->  "(" + (List.map formatFSharpTypeSig ts |> String.concat " * ") + ")"
-    | FableType.Function([t1], t2) -> "(" + formatFSharpTypeSig t1 + " -> " + formatFSharpTypeSig t2 + ")"
+    | FableType.Function(ts, tr) -> 
+        Seq.append ts [tr] |> Seq.map formatFSharpTypeSig 
+        |> Seq.reduce (fun a b -> a + " -> " + b)
+        |> sprintf "(%s)"
     | FableType.Enum n -> n
-    | FableType.DeclaredType(ent, []) -> ent.FullName
-    | FableType.DeclaredType(ent, tya) -> ent.FullName + "<" + (List.map formatFSharpTypeSig tya |> String.concat ", ") + ">"
-    | _ -> failwith "Unsupported type signature"
+    | FableType.DeclaredType(ent, []) -> formatName ent
+    | FableType.DeclaredType(ent, tya) -> (formatName ent) + "<" + (List.map formatFSharpTypeSig tya |> String.concat ", ") + ">"
+    | FableType.GenericParam n -> "'" + n
+
+let collectTypes code (tree:ParsedInput) =
+  let lines =
+      use reader = new System.IO.StringReader(code)
+      let mutable line = reader.ReadLine()
+      [| while line <> null do yield line; line <- reader.ReadLine() |]
+
+  let getRange (sl, sc) (el, ec) =
+      [ if sl = el then yield lines.[sl-1].Substring(sc, ec)
+        else 
+            yield lines.[sl-1].Substring(sc)
+            for i in sl .. el-2 -> lines.[i]
+            yield lines.[el-1].Substring(0, ec) ]
+      |> String.concat "\n"
+
+  match tree with
+  | ParsedInput.ImplFile(ParsedImplFileInput(_, _, _, _, _, [body], _)) -> 
+      match body with
+      | SynModuleOrNamespace(decls=ds)->
+          ds |> List.choose (function 
+            | SynModuleDecl.Exception _ -> failwith "Exception declarations are not supported"
+            | SynModuleDecl.ModuleAbbrev _ -> failwith "Module abbreviations are not supported"
+            | SynModuleDecl.NamespaceFragment _ -> failwith "Namespace fragments are not supported"
+            | SynModuleDecl.NestedModule _ -> None // Intentionally ignored because Try F# sends previous types in nested modules
+            | SynModuleDecl.Types(tys, rng) -> Some (tys, rng)
+            | _ -> None (* Everything else is let binding or expression we run *) )
+          |> List.map (fun (tys, rng) -> 
+            { names = [| for TypeDefn(ComponentInfo(_, _, _, n, _, _, _, _), _, _, _) in tys -> String.concat "." [ for id in n -> id.idText ] |]
+              code = getRange (rng.StartLine, rng.StartColumn) (rng.EndLine, rng.EndColumn) })
+  | _ -> failwith "Input with multiple modules or namespaces is not supported"
 
 let compile checker code projOpts (com: ICompiler) =
     try
@@ -227,24 +290,31 @@ let compile checker code projOpts (com: ICompiler) =
         Shim.FileSystem <- fs
         // Using 'Now' forces reloading
         let projOpts = { projOpts with LoadTime = System.DateTime.Now }
-        match parseFSharpProject checker projOpts com with
-        | Some proj ->        
+        match parseFSharpProject checker code projOpts com with
+        | Some (tree, proj) ->
             // Compile project files
             let fable = 
                 { FSProjInfo.projectOpts = projOpts
                   FSProjInfo.fileMask = None
                   FSProjInfo.dependencies = Map.empty }
                 |> FSharp2Fable.Compiler.transformFiles com proj
-
+            let body = Seq.head (snd fable)
             let decls = 
-              [| for decl in (Seq.head (snd fable)).Declarations do
+              [| for decl in body.Declarations do
                     match decl with 
                     | AST.Fable.MemberDeclaration(m, n, a, _, _) ->
-                        yield { name = m.Name; ``type`` = formatFSharpTypeSig m.OriginalCurriedType }
+                        let (CurriedFunction(tas, tr)) = m.OriginalCurriedType 
+                        let args = tas |> Seq.map formatFSharpTypeSig |> Array.ofSeq
+                        yield { ``mutable`` = m.IsMutable; argumentTypes = args; 
+                                name = m.Name; ``type`` = formatFSharpTypeSig tr }
                     | _ -> () |]
-    
+            let resultType = 
+                match body.Declarations |> Seq.last with
+                | AST.Fable.ActionDeclaration(e, _) -> formatFSharpTypeSig e.Type
+                | _ -> null
+            let types = collectTypes code tree |> Array.ofSeq
             let babel = fable |> Fable2Babel.Compiler.transformFile com
-            printFile (com.GetLogs()) decls (fst (Seq.head babel))
+            printFile (com.GetLogs()) types decls resultType (fst (Seq.head babel))
         | _ -> printMessages (com.GetLogs())
     with ex ->
         printMessages [ LogMessage.Error(sprintf "Unexpected error: %s" ex.Message) ]
@@ -259,7 +329,7 @@ open Suave.Successful
 let main argv =
     let projOpts = getProjectOptions()
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
-    let port = match argv with [| port |] -> int port | _ -> 8083
+    let port = match argv with [| port |] -> int port | _ -> 7102
      
     let setCORSHeaders =
         setHeader  "Access-Control-Allow-Origin" "*"
