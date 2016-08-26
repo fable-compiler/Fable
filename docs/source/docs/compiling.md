@@ -51,6 +51,8 @@ Option                  | Short     | Description
 `--extra`               |           | Custom options for plugins in `Key=Value` format.
 `--help`                | `-h`      | Display usage guide.
 
+> Besides `projFile`, all paths (`outDir`, `plugins`...) will be considered relative to
+the project file directory if they're not absolute, but see `fableconfig.json` below.
 
 ## Project references
 
@@ -98,8 +100,8 @@ If you omit the path, the compiler will assume it's in the current directory.
 fable my/path/
 ```
 
-> Note that in this case, all path configurations (`outDir`, `plugins`...) will be relative to
-the directory where `fableconfig.json` resides.
+> Note that in this case, all path configurations (`projFile`, `outDir`, `plugins`...) will be
+relative to the directory where `fableconfig.json` resides.
 
 Project references can be passed using a plain object:
 
