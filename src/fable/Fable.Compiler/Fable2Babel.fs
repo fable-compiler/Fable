@@ -3,7 +3,6 @@ module Fable.Fable2Babel
 open Fable
 open Fable.AST
 open System.Collections.Generic
-open System.Collections.Concurrent
 
 type ReturnStrategy =
     | Return
@@ -968,7 +967,7 @@ module Compiler =
         let projs: Fable.Project list =
             ("projects", extra)
             ||> Map.findOrRun (fun () -> failwith "Expected project list")  
-        let dependenciesDic: ConcurrentDictionary<string, string list> =
+        let dependenciesDic: Dictionary<string, string list> =
             Map.findOrNew "dependencies" extra
         files |> Seq.map (fun (file: Fable.File) ->
             try

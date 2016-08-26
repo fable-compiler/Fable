@@ -717,7 +717,7 @@ module Util =
             None
 
     let getEmitter =
-        let cache = System.Collections.Concurrent.ConcurrentDictionary<string, obj>()
+        let cache = Dictionary<string, obj>()
         fun (tdef: FSharpEntity) ->
             cache.GetOrAdd(tdef.QualifiedName, fun _ ->
                 let filePath = tdef.Assembly.FileName.Value

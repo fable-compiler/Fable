@@ -147,7 +147,7 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
 let makeCompiler opts plugins =
     let id = ref 0
     let monitor = obj()    
-    let logs = System.Collections.Concurrent.ConcurrentBag()
+    let logs = ResizeArray()
     { new ICompiler with
         member __.Options = opts
         member __.Plugins = plugins

@@ -1,5 +1,25 @@
 namespace Fable
 
+[<AutoOpen>]
+module Extensions =
+    type System.Collections.Generic.Dictionary<'TKey,'TValue> with
+        member dic.GetOrAdd(key, addFn) =
+            match dic.TryGetValue(key) with
+            | true, v -> v
+            | false, _ ->
+                let v = addFn()
+                dic.Add(key, v)
+                v  
+        member dic.AddOrUpdate(key, addFn, updateFn) =
+            let v =
+                match dic.TryGetValue(key) with
+                | true, v ->
+                    dic.Remove(key) |> ignore
+                    updateFn key v
+                | false, _ -> addFn key
+            dic.Add(key, v)
+            v
+
 module Map = 
     let findOrNew<'T when 'T : (new : unit -> 'T)> (k: string) (m: Map<string, obj>) =
         match Map.tryFind k m with

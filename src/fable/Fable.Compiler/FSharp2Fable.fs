@@ -2,7 +2,6 @@ module Fable.FSharp2Fable.Compiler
 
 open System.IO
 open System.Collections.Generic
-open System.Collections.Concurrent
 open System.Text.RegularExpressions
 
 open Microsoft.FSharp.Compiler
@@ -865,8 +864,8 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
 //     |> function None -> None | Some f -> tryFindExpr meth f.Declarations
 
 type FableCompiler(com: ICompiler, projs: Fable.Project list,
-                   entitiesCache: ConcurrentDictionary<string, Fable.Entity>,
-                   inlineExprsCache: ConcurrentDictionary<string, FSharpMemberOrFunctionOrValue list * FSharpExpr>) =
+                   entitiesCache: Dictionary<string, Fable.Entity>,
+                   inlineExprsCache: Dictionary<string, FSharpMemberOrFunctionOrValue list * FSharpExpr>) =
     let refAssemblies =
         projs |> Seq.choose (fun p -> p.AssemblyFileName) |> Set
     let replacePlugins =
@@ -1021,8 +1020,8 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         ("projects", projInfo.Extra)
         ||> Map.findOrRun (fun () -> getProjects com parsedProj projInfo)
     // Cache for entities and inline expressions
-    let entitiesCache = ConcurrentDictionary<string, Fable.Entity>()
-    let inlineExprsCache: ConcurrentDictionary<string, FSharpMemberOrFunctionOrValue list * FSharpExpr> =
+    let entitiesCache = Dictionary<string, Fable.Entity>()
+    let inlineExprsCache: Dictionary<string, FSharpMemberOrFunctionOrValue list * FSharpExpr> =
         Map.findOrNew "inline" projInfo.Extra
     // Start transforming files
     parsedProj.AssemblyContents.ImplementationFiles
