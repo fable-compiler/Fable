@@ -61,10 +61,10 @@ module Util =
         | Float32 | Float64 -> Float
 
     // The core lib expects non-curried lambdas
-    let deleg (info: Fable.ApplyInfo) args =
+    let deleg com (info: Fable.ApplyInfo) args =
         if info.lambdaArgArity > 1
         then List.mapi (fun i x ->
-            if i=0 then (makeDelegate (Some info.lambdaArgArity) x) else x) args
+            if i=0 then (makeDelegate com (Some info.lambdaArgArity) x) else x) args
         else args
 
     let instanceArgs (callee: Fable.Expr option) (args: Fable.Expr list) =
@@ -83,10 +83,10 @@ module Util =
         |> makeCall com i.range i.returnType
 
     let emit (i: Fable.ApplyInfo) emit args =
-        Fable.Apply(Fable.Emit(emit) |> Fable.Value, args, Fable.ApplyMeth, i.returnType, i.range)
+        makeEmit i.range i.returnType args emit
 
     let emitNoInfo emit args =
-        Fable.Apply(Fable.Emit(emit) |> Fable.Value, args, Fable.ApplyMeth, Fable.Any, None)
+        makeEmit None Fable.Any args emit
 
     let wrap typ expr =
         Fable.Wrapped (expr, typ)
@@ -295,13 +295,13 @@ module private AstPass =
         | "op_DynamicAssignment" ->
             match i.callee, i.args with
             | ThreeArgs (callee, prop, value) ->
-                let value = makeDelegate None value
+                let value = makeDelegate com None value
                 Fable.Set (callee, Some prop, value, i.range) |> Some
             | _ -> None
         | "op_Dollar" | "createNew" ->
             let args =
                 destruct i.args.Tail.Head
-                |> List.map (makeDelegate None)
+                |> List.map (makeDelegate com None)
             let applyMeth =
                 if i.methodName = "createNew"
                 then Fable.ApplyCons else Fable.ApplyMeth
@@ -314,7 +314,7 @@ module private AstPass =
                     exprs
                     |> List.choose (function
                         | Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
-                            Some(key, makeDelegate None value)
+                            Some(key, makeDelegate com None value)
                         | _ -> None)
                     |> function
                         | fields when fields.Length = exprs.Length -> Some fields
@@ -338,7 +338,7 @@ module private AstPass =
             let meth =
                 if i.methodName = "async.AwaitPromise.Static"
                 then "awaitPromise" else "startAsPromise"
-            CoreLibCall("Async", Some meth, false, deleg i i.args)
+            CoreLibCall("Async", Some meth, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
         | "toJson" | "ofJson" | "toPlainJsObj" ->
             let args =
@@ -422,7 +422,7 @@ module private AstPass =
             let args = if info.methodName = "op_ComposeRight" then args else List.rev args
             let f0 = wrap args.Head "$0"
             let f1 = wrap args.Tail.Head "$1"
-            let pattern = System.String.Format("{0}=>{1}({2}({0}))", Naming.getUniqueVar(), f1,f0)
+            let pattern = System.String.Format("{0}=>{1}({2}({0}))", com.GetUniqueVar(), f1,f0)
             emit info pattern args |> Some
         // Reference
         | "op_Dereference" -> makeGet r Fable.Any args.Head (makeConst "contents") |> Some
@@ -526,10 +526,10 @@ module private AstPass =
             InstanceCall(i.callee.Value, "split", [makeConst ""])
             |> makeCall com i.range i.returnType |> Some
         | "iterate" | "iterateIndexed" | "forAll" | "exists" ->
-            CoreLibCall("Seq", Some i.methodName, false, deleg i i.args)
+            CoreLibCall("Seq", Some i.methodName, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
         | "map" | "mapIndexed" | "collect"  ->
-            CoreLibCall("Seq", Some i.methodName, false, deleg i i.args)
+            CoreLibCall("Seq", Some i.methodName, false, deleg com i i.args)
             |> makeCall com i.range Fable.Any
             |> List.singleton
             |> emit i "Array.from($0).join('')"
@@ -672,7 +672,7 @@ module private AstPass =
     let options (com: ICompiler) (i: Fable.ApplyInfo) =
         // Prevent functions being run twice, see #198
         let wrapInLet f expr =
-            let ident = Naming.getUniqueVar() |> makeIdent
+            let ident = com.GetUniqueVar() |> makeIdent
             [
                 Fable.VarDeclaration(ident, expr, false)
                 f(Fable.Value(Fable.IdentValue ident))
@@ -710,7 +710,7 @@ module private AstPass =
                 let args = List.rev i.args
                 wrapInLet (fun e -> toArray i.range e) args.Head
                 |> fun argsHead -> List.rev (argsHead::args.Tail)
-            CoreLibCall("Seq", Some meth, false, deleg i args)
+            CoreLibCall("Seq", Some meth, false, deleg com i args)
             |> makeCall com i.range i.returnType |> Some
 
     let timeSpans com (i: Fable.ApplyInfo) =
@@ -870,7 +870,7 @@ module private AstPass =
         | "exists" | "fold" | "foldBack" | "forAll" | "iterate"
         | "filter" | "map" | "partition"
         | "findKey" | "tryFindKey" | "pick" | "tryPick" -> // Map-only
-            CoreLibCall(modName, Some i.methodName, false, deleg i i.args)
+            CoreLibCall(modName, Some i.methodName, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
         // Set only static methods
         | "singleton" ->
@@ -988,7 +988,7 @@ module private AstPass =
             | Some c, _ ->
                 match args with
                 | [] -> icall "sort" (c, [compareFn]) |> Some
-                | [Type (Fable.Function _)] -> icall "sort" (c, deleg i args) |> Some
+                | [Type (Fable.Function _)] -> icall "sort" (c, deleg com i args) |> Some
                 | _ -> None
             | None, Seq -> ccall "Seq" "sortWith" (compareFn::args) |> Some
             | None, List -> ccall "Seq" "sortWith" (compareFn::args) |> toList com i |> Some
@@ -1088,7 +1088,7 @@ module private AstPass =
                 else emitNoInfo "((f,add)=>(x,y)=>add(x,f(y)))($0,$1)" [args.Head;addFn], args.Tail.Head
                 |> fun (f, xs) -> ccall "Seq" "fold" [f; zero; xs] |> Some
             | _ ->
-                ccall "Seq" meth (deleg i args) |> Some
+                ccall "Seq" meth (deleg com i args) |> Some
         | "min" | "minBy" | "max" | "maxBy" ->
             let reduce macro macroArgs xs =
                 ccall "Seq" "reduce" [emitNoInfo macro macroArgs; xs] |> Some
@@ -1103,15 +1103,15 @@ module private AstPass =
                 reduce "(f=>(x,y)=>f(x)<f(y)?x:y)($0)" [args.Head] args.Tail.Head
             | "maxBy", [_;Fable.Number _] ->
                 reduce "(f=>(x,y)=>f(x)>f(y)?x:y)($0)" [args.Head] args.Tail.Head
-            | _ -> ccall "Seq" meth (deleg i args) |> Some
+            | _ -> ccall "Seq" meth (deleg com i args) |> Some
         // Default to Seq implementation in core lib
         | Patterns.SetContains implementedSeqNonBuildFunctions meth ->
-            ccall "Seq" meth (deleg i args) |> Some
+            ccall "Seq" meth (deleg com i args) |> Some
         | Patterns.SetContains implementedSeqBuildFunctions meth ->
             match kind with
-            | Seq -> ccall "Seq" meth (deleg i args)
-            | List -> ccall "Seq" meth (deleg i args) |> toList com i
-            | Array -> ccall "Seq" meth (deleg i args) |> toArray com i
+            | Seq -> ccall "Seq" meth (deleg com i args)
+            | List -> ccall "Seq" meth (deleg com i args) |> toList com i
+            | Array -> ccall "Seq" meth (deleg com i args) |> toArray com i
             |> Some
         | _ -> None
 
@@ -1125,7 +1125,7 @@ module private AstPass =
             match i.methodName with
             | "getSlice" -> icall "slice" (i.callee.Value, i.args)
             | Patterns.SetContains implementedListFunctions meth ->
-                CoreLibCall ("List", Some meth, false, deleg i i.args)
+                CoreLibCall ("List", Some meth, false, deleg com i i.args)
                 |> makeCall com i.range i.returnType |> Some
             | _ -> None
         | Array ->
@@ -1150,20 +1150,20 @@ module private AstPass =
                 // the final result (see #120, #171)
                 | Fable.Any::_ | Fable.GenericParam _::_ -> None
                 | NumberType(Some _) as tin::[tout] when tin = tout ->
-                    icall "map" (i.args.[1], deleg i [i.args.[0]])
+                    icall "map" (i.args.[1], deleg com i [i.args.[0]])
                 | NumberType None::[NumberType None] ->
-                    icall "map" (i.args.[1], deleg i [i.args.[0]])
+                    icall "map" (i.args.[1], deleg com i [i.args.[0]])
                 | _ -> None
             | "append" ->
                 match i.methodTypeArgs with
                 | [Fable.Any] | [NumberType(Some _)] -> None
                 | _ -> icall "concat" (i.args.Head, i.args.Tail)
             | Patterns.SetContains implementedArrayFunctions meth ->
-                CoreLibCall ("Array", Some meth, false, deleg i i.args)
+                CoreLibCall ("Array", Some meth, false, deleg com i i.args)
                 |> makeCall com i.range i.returnType |> Some
             | Patterns.DicContains nativeArrayFunctions meth ->
                 let revArgs = List.rev i.args
-                icall meth (revArgs.Head, deleg i (List.rev revArgs.Tail))
+                icall meth (revArgs.Head, deleg com i (List.rev revArgs.Tail))
             | _ -> None
         | _ -> None
         |> function None -> collectionsSecondPass com i kind | someExpr -> someExpr
@@ -1437,7 +1437,7 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
         | CoreLibPass.Both ->
             match info.methodName, info.methodKind, info.callee with
             | ".ctor", _, None | _, Fable.Constructor, None ->
-                CoreLibCall(modName, None, true, deleg info info.args)
+                CoreLibCall(modName, None, true, deleg com info info.args)
                 |> makeCall com info.range info.returnType |> Some
             | _, Fable.Getter _, Some callee ->
                 let prop = Naming.upperFirst info.methodName |> makeConst
@@ -1446,15 +1446,15 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
                 let prop = Naming.upperFirst info.methodName |> makeConst
                 Fable.Set(callee, Some prop, info.args.Head, info.range) |> Some
             | _, _, Some callee ->
-                InstanceCall (callee, Naming.upperFirst info.methodName, deleg info info.args)
+                InstanceCall (callee, Naming.upperFirst info.methodName, deleg com info info.args)
                 |> makeCall com info.range info.returnType |> Some
             | _, _, None ->
-                CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args |> deleg info)
+                CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args |> deleg com info)
                 |> makeCall com info.range info.returnType |> Some
         | CoreLibPass.Static ->
             let meth =
                 if info.methodName = ".ctor" then "create" else info.methodName
-            CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args |> deleg info)
+            CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args |> deleg com info)
             |> makeCall com info.range info.returnType |> Some
     | _ -> None
 

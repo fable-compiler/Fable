@@ -135,17 +135,28 @@ let makeCall com range typ kind =
         |> getCallee meth args typ
         |> apply (getKind isCons) args
 
+let makeEmit r t args macro =
+    Apply(Value(Emit macro), args, ApplyMeth, t, r) 
+
 let makeTypeTest com range (typ: Type) expr =
-    let checkType (primitiveType: string) expr =
+    let jsTypeof (primitiveType: string) expr =
         let typof = makeUnOp None String [expr] UnaryTypeof
         makeBinOp range Boolean [typof; makeConst primitiveType] BinaryEqualStrict
+    let jsInstanceOf (typeRef: Expr) expr =
+        makeBinOp None Boolean [expr; typeRef] BinaryInstanceOf
     match typ with
-    | String _ -> checkType "string" expr
-    | Number _ -> checkType "number" expr
-    | Boolean -> checkType "boolean" expr
+    | String _ -> jsTypeof "string" expr
+    | Number _ -> jsTypeof "number" expr
+    | Boolean -> jsTypeof "boolean" expr
     | Unit -> makeBinOp range Boolean [expr; Value Null] BinaryEqual
-    | Function _ -> checkType "function" expr
-    // TODO: Regex and Array?
+    | Function _ -> jsTypeof "function" expr
+    | Regex ->
+        let typeRef = makeIdent "RegExp" |> IdentValue |> Value
+        jsInstanceOf typeRef expr
+    | Array _ ->
+        "Array.isArray($0) || ArrayBuffer.isView($0)"
+        |> makeEmit range Boolean [expr] 
+    | Any -> makeConst true
     | DeclaredType(typEnt, _) ->
         match typEnt.Kind with
         | Interface ->
@@ -180,7 +191,7 @@ let makeRecordCons (props: (string*Type) list) =
                 else "." + propName
             "this" + propName + "=" + arg.name)
         |> String.concat ";"
-        |> fun body -> Apply (Value (Emit body), [], ApplyMeth, Unit, None)
+        |> fun body -> makeEmit None Unit [] body
     MemberDeclaration(Member(".ctor", Constructor, List.map Ident.getType args, Any), None, args, body, SourceLocation.Empty)
 
 let private makeMeth com argType returnType name coreMeth =
@@ -195,20 +206,20 @@ let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "e
 let makeUnionCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareRecords"
 
-let makeDelegate arity (expr: Expr) =
+let makeDelegate (com: ICompiler) arity (expr: Expr) =
     let rec flattenLambda (arity: int option) accArgs = function
         | Value (Lambda (args, body)) when arity.IsNone || List.length accArgs < arity.Value ->
             flattenLambda arity (accArgs@args) body
         | _ when arity.IsSome && List.length accArgs < arity.Value ->
             None
-        | _ as body ->
+        | body ->
             Value (Lambda (accArgs, body)) |> Some
     let wrap arity expr =
         match arity with
         | Some arity when arity > 1 ->
             let lambdaArgs =
                 [for i=1 to arity do
-                    yield {name=Naming.getUniqueVar(); typ=Any}]
+                    yield {name=com.GetUniqueVar(); typ=Any}]
             let lambdaBody =
                 (expr, lambdaArgs)
                 ||> List.fold (fun callee arg ->
@@ -244,9 +255,6 @@ let makeJsObject range (props: (string * Expr) list) =
     let decls = props |> List.map (fun (name, body) ->
         MemberDeclaration(Member(name, Field, [], body.Type), None, [], body, range))
     ObjExpr(decls, [], None, Some range)
-
-let makeEmit args macro =
-    Apply(Value(Emit macro), args, ApplyMeth, Any, None) 
 
 let getTypedArrayName (com: ICompiler) numberKind =
     match numberKind with

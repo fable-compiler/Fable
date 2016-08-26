@@ -20,6 +20,12 @@ let ``ResizeArray creation with seq works``() =
     |> equal 15
 
 [<Test>]
+let ``ResizeArray creation with literal array works``() =
+    let li = ResizeArray<_> [|1;2;3;4;5|]
+    Seq.sum li
+    |> equal 15
+
+[<Test>]
 let ``ResizeArray casting to seq works``() =
     let xs = ResizeArray<_>(seq{1..5}) :> seq<_>
     Seq.sum xs

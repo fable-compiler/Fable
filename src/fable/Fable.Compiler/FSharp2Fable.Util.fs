@@ -29,7 +29,7 @@ type IFableCompiler =
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
     abstract GetInternalFile: FSharpEntity -> string option
     abstract GetEntity: FSharpEntity -> Fable.Entity
-    abstract TryGetInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) option
+    abstract TryGetInlineExpr: FSharpMemberOrFunctionOrValue -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) option
     abstract AddInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) -> unit
     abstract AddUsedVarName: string -> unit
     abstract ReplacePlugins: (string*IReplacePlugin) list
@@ -774,7 +774,7 @@ module Util =
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) (typArgs, methTypArgs)
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         if not(isInline meth) then None else
-        match com.TryGetInlineExpr meth.FullName with
+        match com.TryGetInlineExpr meth with
         | Some (vars, fsExpr) ->
             let args = match callee with Some x -> x::args | None -> args
             let ctx =
@@ -861,13 +861,13 @@ module Util =
                         makeGet r calleeType callee (makeConst methName)
                     |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
 
-    let wrapInLambda com ctx r typ (meth: FSharpMemberOrFunctionOrValue) =
+    let wrapInLambda (com: IFableCompiler) ctx r typ (meth: FSharpMemberOrFunctionOrValue) =
         let arity =
             match typ with
             | Fable.Function(args,_) -> args.Length
             | _ -> failwithf "Expecting a function value but got %s" meth.FullName
         let lambdaArgs =
-            [for i=1 to arity do yield Naming.getUniqueVar() |> makeIdent]
+            [for i=1 to arity do yield com.GetUniqueVar() |> makeIdent]
         lambdaArgs
         |> List.map (Fable.IdentValue >> Fable.Value)
         |> makeCallFrom com ctx r typ meth ([],[]) None

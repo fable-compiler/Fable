@@ -72,11 +72,6 @@ module Naming =
     let upperFirst (s: string) =
         s.Substring(0,1).ToUpperInvariant() + s.Substring(1)
 
-    let getUniqueVar =
-        let monitor = obj()    
-        let mutable id = ref 0
-        fun () -> lock monitor (fun () -> id := !id + 1; sprintf "$var%i" !id)
-    
     let jsKeywords =
         set [
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
@@ -117,7 +112,10 @@ module Path =
 
     let normalizePath (path: string) =
         path.Replace("\\", "/")
-        
+
+    let normalizeFullPath (path: string) =
+        Path.GetFullPath(path).Replace("\\", "/")
+
     /// If flag --copyExt is activated, copy files outside project folder into
     /// an internal `fable_external` folder (adding a hash to prevent naming conflicts) 
     let fixExternalPath =

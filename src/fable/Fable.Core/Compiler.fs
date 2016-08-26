@@ -30,4 +30,4 @@ type ICompiler =
     abstract Plugins: (string*IPlugin) list
     abstract AddLog: LogMessage->unit
     abstract GetLogs: unit->seq<LogMessage>
-
+    abstract GetUniqueVar: unit->string

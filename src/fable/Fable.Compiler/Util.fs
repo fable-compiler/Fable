@@ -1,5 +1,16 @@
 namespace Fable
 
+module Map = 
+    let findOrNew<'T when 'T : (new : unit -> 'T)> (k: string) (m: Map<string, obj>) =
+        match Map.tryFind k m with
+        | Some(:? 'T as x) -> x
+        | _ -> new 'T()
+
+    let findOrRun<'T> (f: unit->'T) (k: string) (m: Map<string, obj>) =
+        match Map.tryFind k m with
+        | Some(:? 'T as x) -> x
+        | _ -> f()
+
 module Option = 
     let toBool (f: 'T->bool) (opt: 'T option) =
         match opt with Some x when f x -> true | _ -> false 

@@ -91,6 +91,27 @@ let ``Interface testing in pattern matching``() =
     match x with | :? ITest2 -> true | _ -> false
     |> equal false
 
+[<Test>]
+let ``Type testing with JS primitive types works``() =
+    let test (o: obj) =
+        match o with
+        | :? string -> "string"
+        | :? float -> "number"
+        | :? bool -> "boolean"
+        | :? unit -> "null/undefined"
+        | :? (unit->unit) -> "function"
+        | :? System.Text.RegularExpressions.Regex -> "RegExp"
+        | :? (int[]) | :? (string[]) -> "Array"
+        | _ -> "unknown"
+    "A" :> obj |> test |> equal "string"
+    3. :> obj |> test |> equal "number"
+    false :> obj |> test |> equal "boolean"
+    () :> obj |> test |> equal "null/undefined"
+    (fun()->()) :> obj |> test |> equal "function"
+    System.Text.RegularExpressions.Regex(".") :> obj |> test |> equal "RegExp"
+    [|"A"|] :> obj |> test |> equal "Array"
+    [|1;2|] :> obj |> test |> equal "Array"
+
 let inline fullname<'T> () = typeof<'T>.FullName |> normalize
 
 [<Test>]

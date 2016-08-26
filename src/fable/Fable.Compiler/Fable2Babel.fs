@@ -2,6 +2,8 @@ module Fable.Fable2Babel
 
 open Fable
 open Fable.AST
+open System.Collections.Generic
+open System.Collections.Concurrent
 
 type ReturnStrategy =
     | Return
@@ -18,7 +20,6 @@ type Context = {
     file: Fable.File
     fixedFileName: string
     moduleFullName: string
-    imports: ResizeArray<Import>
     rootEntitiesPrivateNames: Map<string, string>
 }
 
@@ -26,7 +27,8 @@ type IBabelCompiler =
     inherit ICompiler
     abstract DeclarePlugins: (string*IDeclarePlugin) list
     abstract GetProjectAndNamespace: string -> Fable.Project * string
-    abstract GetImport: Context -> internalFile: string option -> selector: string -> path: string -> Babel.Expression
+    abstract GetImportExpr: Context -> internalFile: string option -> selector: string -> path: string -> Babel.Expression
+    abstract GetAllImports: unit -> seq<Import>
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
     abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Babel.Statement
@@ -72,7 +74,7 @@ module Util =
         |> List.map (function
             | Fable.Value (Fable.Spread expr) ->
                 Babel.SpreadElement(com.TransformExpr ctx expr) |> U2.Case2
-            | _ as expr -> com.TransformExpr ctx expr |> U2.Case1)
+            | expr -> com.TransformExpr ctx expr |> U2.Case1)
         
     let ident (id: Fable.Ident) =
         Babel.Identifier id.name
@@ -88,14 +90,14 @@ module Util =
 
     let sanitizeProp com ctx = function
         | Fable.Value (Fable.StringConst name)
-            when Naming.identForbiddenCharsRegex.IsMatch name = false ->
+            when not(Naming.identForbiddenCharsRegex.IsMatch name) ->
             Babel.Identifier (name) :> Babel.Expression, false
         | TransformExpr com ctx property -> property, true
 
     let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule =
         com.Options.coreLib
         |> Path.getExternalImportPath com ctx.fixedFileName
-        |> com.GetImport ctx None coreModule
+        |> com.GetImportExpr ctx None coreModule
 
     let get left propName =
         let expr, computed = sanitizeName propName
@@ -138,7 +140,7 @@ module Util =
             match Map.tryFind ent.FullName Replacements.coreLibMappedTypes with
             | Some mappedType ->
                 Path.getExternalImportPath com ctx.fixedFileName com.Options.coreLib
-                |> com.GetImport ctx None mappedType
+                |> com.GetImportExpr ctx None mappedType
             | None -> failwithf "Cannot reference type: %s" ent.FullName
         | Some file when ctx.file.FileName <> file ->
             let proj, ns = com.GetProjectAndNamespace file
@@ -156,9 +158,9 @@ module Util =
                     |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
             getParts ns ent.FullName memb
             |> function
-            | [] -> com.GetImport ctx (Some file) "*" importPath
+            | [] -> com.GetImportExpr ctx (Some file) "*" importPath
             | memb::parts ->
-                com.GetImport ctx (Some file) memb importPath
+                com.GetImportExpr ctx (Some file) memb importPath
                 |> Some |> accessExpr parts
         | _ ->
             match getParts ctx.moduleFullName ent.FullName memb with
@@ -321,7 +323,7 @@ module Util =
                 let parts = Array.toList(memb.Split('.'))
                 parts.Head, parts.Tail
             Path.getExternalImportPath com ctx.fixedFileName path
-            |> com.GetImport ctx None memb
+            |> com.GetImportExpr ctx None memb
             |> Some |> accessExpr parts
         | Fable.This -> upcast Babel.ThisExpression ()
         | Fable.Super -> upcast Babel.Super ()
@@ -498,7 +500,7 @@ module Util =
             com.TransformExprAndResolve ctx ret value
 
         | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path)), _isMutable) ->
-            let value = com.GetImport ctx None var.name path
+            let value = com.GetImportExpr ctx None var.name path
             varDeclaration expr.Range (ident var) value :> Babel.Statement
 
         | Fable.VarDeclaration (var, TransformExpr com ctx value, _isMutable) ->
@@ -783,7 +785,7 @@ module Util =
             | Fable.Getter | Fable.Field ->
                 match body with 
                 | Fable.Value(Fable.ImportRef(Naming.placeholder, path)) ->
-                    com.GetImport ctx None m.Name path
+                    com.GetImportExpr ctx None m.Name path
                 | _ -> transformExpr com ctx body
             | Fable.Method ->
                 let bodyRange = body.Range
@@ -897,6 +899,7 @@ module Util =
             |> List.rev
             
     let makeCompiler (com: ICompiler) (projs: Fable.Project list) =
+        let imports = Dictionary<string*string,Import>()
         let declarePlugins =
             com.Plugins |> List.choose (function
                 | path, (:? IDeclarePlugin as plugin) -> Some (path, plugin)
@@ -914,32 +917,36 @@ module Util =
                 | Some res -> res
                 | None -> failwithf "Cannot find file: %s" fileName
             // TODO: Create a cache to optimize imports
-            member bcom.GetImport ctx internalFile selector path =
-                let sanitizeImportLocalIdent (ctx: Context) (localId: string) =
-                    localId |> Naming.sanitizeIdent (fun s ->
-                        ctx.file.UsedVarNames.Contains s
-                            || (ctx.imports |> Seq.exists (fun i -> i.localIdent = s)))
-                let selector =
+            member bcom.GetImportExpr ctx internalFile selector path =
+                let sanitizeSelector selector =
                     if selector = "*"
                     then selector
                     elif selector = Naming.placeholder
                     then failwith "importMember must be assigned to a variable"
                     // Replace ident forbidden chars of root members, see #207
                     else Naming.replaceIdentForbiddenChars selector
-                ctx.imports
-                |> Seq.tryFind (fun imp -> imp.selector = selector && imp.path = path)
-                |> function
-                | Some i -> upcast Babel.Identifier(i.localIdent)
-                | None ->
-                    let localId =
-                        match selector with
-                        | "*" | "default" | "" ->
-                            let x = path.TrimEnd('/') in x.Substring(x.LastIndexOf '/' + 1)
-                        | _ -> selector
-                        |> sanitizeImportLocalIdent ctx
-                    let i = { selector=selector; path=path; internalFile=internalFile; localIdent=localId }
-                    ctx.imports.Add i
+                let getLocalIdent (ctx: Context) (selector: string) =
+                    match selector with
+                    | "*" | "default" | "" ->
+                        let x = path.TrimEnd('/')
+                        x.Substring(x.LastIndexOf '/' + 1)
+                    | _ -> selector
+                    |> Naming.sanitizeIdent (fun s ->
+                        ctx.file.UsedVarNames.Contains s
+                            || (imports.Values |> Seq.exists (fun i -> i.localIdent = s)))
+                match imports.TryGetValue((selector, path)) with
+                | true, i -> upcast Babel.Identifier(i.localIdent)
+                | false, _ ->
+                    let localId = getLocalIdent ctx selector
+                    let i = {
+                        selector = sanitizeSelector selector
+                        path = path
+                        internalFile = internalFile
+                        localIdent = localId
+                    }
+                    imports.Add((selector,path), i)
                     upcast Babel.Identifier (localId)
+            member bcom.GetAllImports () = upcast imports.Values                     
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
@@ -950,30 +957,34 @@ module Util =
             member __.Options = com.Options
             member __.Plugins = com.Plugins
             member __.AddLog msg = com.AddLog msg
-            member __.GetLogs() = com.GetLogs() }
+            member __.GetLogs() = com.GetLogs()
+            member __.GetUniqueVar() = com.GetUniqueVar() }
             
 module Compiler =
     open Util
     open System.IO
 
-    let private getRootEntitiesPrivateNames (decls: #seq<Fable.Declaration>) =
-        decls |> Seq.choose (function
-            | Fable.EntityDeclaration(ent, privName, _, _) when ent.Name <> privName ->
-                Some(ent.Name, privName)
-            | _ -> None)
-        |> Map
-
-    let transformFile (com: ICompiler) (projs, files) =
-        let com = makeCompiler com projs
+    let transformFiles (com: ICompiler) (extra: Map<string, obj>, files) =
+        let projs: Fable.Project list =
+            ("projects", extra)
+            ||> Map.findOrRun (fun () -> failwith "Expected project list")  
+        let dependenciesDic: ConcurrentDictionary<string, string list> =
+            Map.findOrNew "dependencies" extra
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 // let t = PerfTimer("Fable > Babel")
+                let com = makeCompiler com projs
                 let ctx = {
                     file = file
                     fixedFileName = Path.fixExternalPath com file.FileName
                     moduleFullName = defaultArg (Map.tryFind file.FileName projs.Head.FileMap) ""
-                    rootEntitiesPrivateNames = getRootEntitiesPrivateNames file.Declarations
-                    imports = ResizeArray<_>()
+                    rootEntitiesPrivateNames =
+                        file.Declarations
+                        |> Seq.choose (function
+                            | Fable.EntityDeclaration(ent, privName, _, _) when ent.Name <> privName ->
+                                Some(ent.Name, privName)
+                            | _ -> None)
+                        |> Map
                 }
                 let rootDecls =
                     com.DeclarePlugins
@@ -986,7 +997,8 @@ module Compiler =
                     | None -> transformModDecls com ctx declareRootModMember None file.Declarations
                 // Add imports
                 let rootDecls, dependencies =
-                    ctx.imports |> Seq.mapi (fun ident import ->
+                    com.GetAllImports()
+                    |> Seq.mapi (fun ident import ->
                         let localId = Babel.Identifier(import.localIdent)
                         let specifier =
                             match import.selector with
@@ -1004,13 +1016,22 @@ module Compiler =
                     |> Seq.toList |> List.unzip
                     |> fun (importDecls, dependencies) ->
                         (importDecls@rootDecls), (List.choose id dependencies |> List.distinct)
-                // Files not present in the FileMap are injected, no need for source maps
+                // Files not present in the FileMap are injected, no need for source maps or dependencies
                 let originalFileName =
                     if Map.containsKey file.FileName projs.Head.FileMap
-                    then Some file.FileName else None
+                    then
+                        dependenciesDic.AddOrUpdate(
+                            Path.normalizeFullPath file.FileName,
+                            (fun _ -> dependencies), (fun _ _ -> dependencies))
+                        |> ignore
+                        Some file.FileName
+                    else None
+                // Return the Babel file
                 Babel.Program(Path.fixExternalPath com file.FileName,
-                              originalFileName, file.Range, rootDecls),
-                dependencies
+                                originalFileName, file.Range, rootDecls)
             with
             | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
         )
+        |> fun seq ->
+            let extra = Map.add "dependencies" (box dependenciesDic) extra
+            extra, seq

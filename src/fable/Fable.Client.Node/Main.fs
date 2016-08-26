@@ -145,12 +145,18 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
         |> failwith
 
 let makeCompiler opts plugins =
+    let id = ref 0
+    let monitor = obj()    
     let logs = System.Collections.Concurrent.ConcurrentBag()
     { new ICompiler with
         member __.Options = opts
         member __.Plugins = plugins
         member __.AddLog msg = logs.Add msg
-        member __.GetLogs() = logs :> seq<_> }
+        member __.GetLogs() = logs :> seq<_>
+        member __.GetUniqueVar() =
+            lock monitor (fun () ->
+                id := !id + 1
+                "$var" + string !id) }
 
 let getMinimumFableCoreVersion() =
 #if NETSTANDARD1_6 || NETCOREAPP1_0    
@@ -186,10 +192,10 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         // Reload project options if necessary
         // -----------------------------------
         let projInfo =
-            match projInfo.fileMask with
+            match projInfo.FileMask with
             | Some file when com.Options.projFile = file ->
-                getProjectOpts checker com.Options
-                |> fun projOpts -> { projInfo with projectOpts = projOpts }
+                let projOpts = getProjectOpts checker com.Options
+                FSProjInfo(projOpts, ?fileMask=projInfo.FileMask, extra=projInfo.Extra)
             | _ -> projInfo
 
         // TODO: Find a way to check if the project is empty
@@ -197,8 +203,8 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
 
         // Print F# compiler options (verbose mode) on first compilation
         // (whe projInfo.fileMask is None)
-        if Option.isNone projInfo.fileMask then
-            projInfo.projectOpts.OtherOptions
+        if Option.isNone projInfo.FileMask then
+            projInfo.ProjectOpts.OtherOptions
             |> String.concat "\n" |> sprintf "\nF# COMPILER OPTIONS:\n%s\n"
             |> Log |> List.singleton |> printMessages
 
@@ -206,7 +212,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         // --------------------------------------------------------------
         //let timer = PerfTimer("Warmup") |> Some
         let warnings, parsedProj =
-            parseFSharpProject com checker projInfo.projectOpts
+            parseFSharpProject com checker projInfo.ProjectOpts
         //let warnings = match timer with Some timer -> (timer.Finish())::warnings | None -> warnings
         warnings |> Seq.map (string >> Log) |> printMessages
 
@@ -215,7 +221,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         #if NETSTANDARD1_6 || NETCOREAPP1_0
         // Skip this check in netcore for now
         #else
-        if Option.isNone projInfo.fileMask
+        if Option.isNone projInfo.FileMask
             && com.Options.extra |> Map.containsKey "noVersionCheck" |> not
         then
             parsedProj.ProjectContext.GetReferencedAssemblies()
@@ -230,17 +236,13 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
                 | _ -> ())
         #endif
 
-        // Compile project files, print them and get the dependencies
-        // ----------------------------------------------------------
-        let dependencies =
+        // Compile project files, print them and get extra info
+        // ----------------------------------------------------
+        let extraInfo, files =
             FSharp2Fable.Compiler.transformFiles com parsedProj projInfo
-            |> Fable2Babel.Compiler.transformFile com
-            |> Seq.fold (fun accDeps (babelFile, fileDeps) ->
-                printFile babelFile
-                match babelFile.originalFileName with
-                | Some fileName -> Map.add fileName fileDeps accDeps
-                | None -> accDeps
-            ) projInfo.dependencies
+            |> Fable2Babel.Compiler.transformFiles com
+        files
+        |> Seq.iter printFile
 
         // Print logs
         // ----------
@@ -249,7 +251,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         // Send empty string to signal end of compilation and return
         // ---------------------------------------------------------
         Console.Out.WriteLine()
-        true, { projInfo with dependencies = dependencies }
+        true, FSProjInfo(projInfo.ProjectOpts, ?fileMask=projInfo.FileMask, extra=extraInfo)
     with ex ->
         let stackTrace =
             match ex.InnerException with
@@ -262,7 +264,7 @@ let rec awaitInput (com: ICompiler) checker (projInfo: FSProjInfo) =
     match Console.In.ReadLine() with
     | "[SIGTERM]" -> ()
     | fileMask ->
-        { projInfo with fileMask = Some fileMask }
+        FSProjInfo(projInfo.ProjectOpts, fileMask=fileMask, extra=projInfo.Extra)
         |> compile com checker
         |> snd
         |> awaitInput com checker
@@ -276,9 +278,7 @@ let main argv =
         let com = loadPlugins opts.plugins |> makeCompiler opts
         // Full compilation
         let success, projInfo =
-            { FSProjInfo.projectOpts = projectOpts
-              FSProjInfo.fileMask = None
-              FSProjInfo.dependencies = Map.empty }
+            FSProjInfo(projectOpts)
             |> compile com checker
         // Keep on watching if necessary
         if success && opts.watch then
