@@ -16,13 +16,14 @@ type DecisionTarget =
 
 type Context =
     {
+    fileName: string
     scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
     typeArgs: (string * Fable.Type) list
     decisionTargets: Map<int, DecisionTarget>
     baseClass: string option
     }
     static member Empty =
-        { scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None }
+        { fileName="unknown"; scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None }
     
 type IFableCompiler =
     inherit ICompiler
@@ -660,7 +661,7 @@ module Util =
 //            |> Option.isSome
 //        | _ -> false
 
-    let buildApplyInfo com ctx r typ ownerName methName methKind
+    let buildApplyInfo com (ctx: Context) r typ ownerName methName methKind
                        (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args)
                        : Fable.ApplyInfo =
         {
@@ -668,6 +669,7 @@ module Util =
             methodName = methName
             methodKind = methKind
             range = r
+            fileName = ctx.fileName
             callee = callee
             args = args
             returnType = typ

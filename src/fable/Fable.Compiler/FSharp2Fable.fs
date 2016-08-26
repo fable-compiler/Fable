@@ -1033,9 +1033,10 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         try
             let fcom = FableCompiler(com, projs, entitiesCache, inlineExprsCache)
             let rootEnt, rootDecls =
+                let ctx = { Context.Empty with fileName = file.FileName }
                 let rootNs = projs.Head.FileMap.[file.FileName]
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
-                let rootDecls = transformDeclarations fcom Context.Empty [] rootDecls
+                let rootDecls = transformDeclarations fcom ctx [] rootDecls
                 match rootEnt with
                 | Some rootEnt when isErased rootEnt -> makeEntity fcom rootEnt, []
                 | Some rootEnt -> makeEntity fcom rootEnt, rootDecls

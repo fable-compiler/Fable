@@ -158,6 +158,7 @@ and ApplyInfo = {
         args: Expr list
         returnType: Type
         range: SourceLocation option
+        fileName: string
         decorators: Decorator list
         calleeTypeArgs: Type list
         methodTypeArgs: Type list

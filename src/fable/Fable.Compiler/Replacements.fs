@@ -757,9 +757,15 @@ module private AstPass =
         | "value" -> get 1
         | _ -> None
 
-    let dictionaries com (i: Fable.ApplyInfo) =
+    let dictionaries (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
+            match i.calleeTypeArgs.Head with
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+                "Structural equality is not supported for Dictionary keys, please use F# Map"
+                |> attachRangeAndFile i.range i.fileName
+                |> Warning |> com.AddLog
+            | _ -> ()
             let makeMap args =
                 GlobalCall("Map", None, true, args) |> makeCall com i.range i.returnType
             match i.args with
@@ -790,9 +796,15 @@ module private AstPass =
             | _ -> None
         | _ -> None
 
-    let systemSets com (i: Fable.ApplyInfo) =
+    let hashSets (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
+            match i.calleeTypeArgs.Head with
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+                "Structural equality is not supported for HashSet, please use F# Set"
+                |> attachRangeAndFile i.range i.fileName
+                |> Warning |> com.AddLog
+            | _ -> ()
             let makeSet args =
                 GlobalCall("Set", None, true, args) |> makeCall com i.range i.returnType
             match i.args with
@@ -1369,7 +1381,7 @@ module private AstPass =
         | "System.Collections.Generic.Dictionary"
         | "System.Collections.Generic.IDictionary" -> dictionaries com info
         | "System.Collections.Generic.HashSet"
-        | "System.Collections.Generic.ISet" -> systemSets com info
+        | "System.Collections.Generic.ISet" -> hashSets com info
         | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info
         | "System.Collections.Generic.Dictionary.KeyCollection"
         | "System.Collections.Generic.Dictionary.ValueCollection"

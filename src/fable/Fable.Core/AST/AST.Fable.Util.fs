@@ -7,6 +7,11 @@ let attachRange (range: SourceLocation option) msg =
     | Some range -> msg + " " + (string range)
     | None -> msg
 
+let attachRangeAndFile (range: SourceLocation option) (fileName: string) msg =
+    match range with
+    | Some range -> msg + " " + (string range) + " (" + fileName + ")"
+    | None -> msg + " (" + fileName + ")"
+
 type CallKind =
     | InstanceCall of callee: Expr * meth: string * args: Expr list
     | ImportCall of importPath: string * modName: string * meth: string option * isCons: bool * args: Expr list
