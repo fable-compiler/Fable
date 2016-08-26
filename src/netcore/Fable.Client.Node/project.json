@@ -23,6 +23,10 @@
     "Fable.Compiler": {
       "version": "1.0.0-*",
       "target": "project"
+    },
+    "Forge.Core": {
+      "version": "1.0.0-*",
+      "target": "project"
     }
   },
   "frameworks": {
