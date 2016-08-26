@@ -152,7 +152,10 @@ let makeCompiler opts plugins =
         member __.Options = opts
         member __.Plugins = plugins
         member __.AddLog msg = logs.Add msg
-        member __.GetLogs() = logs :> seq<_>
+        member __.GetLogs() =
+            let copy = logs.ToArray()
+            logs.Clear()
+            upcast copy
         member __.GetUniqueVar() =
             lock monitor (fun () ->
                 id := !id + 1
