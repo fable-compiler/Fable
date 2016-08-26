@@ -85,6 +85,68 @@ let loadPlugins (pluginPaths: string list) =
         | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.toList
 
+#if DOTNETCORE
+type private TypeInThisAssembly = class end
+
+let forgeGetProjectOptions projFile =
+    let projPath = Path.GetDirectoryName(projFile)
+    let projParsed = Forge.ProjectSystem.FsProject.load projFile
+    let sourceFiles =
+        projParsed.SourceFiles.AllFiles()
+        |> Seq.filter (fun fileName -> fileName.EndsWith(".fs") || fileName.EndsWith(".fsx"))
+        |> Seq.map (fun fileName -> Path.Combine(projPath, fileName))
+        |> Seq.toArray
+    let beforeComma (str: string) = match str.IndexOf(',', 0) with | -1 -> str | i -> str.Substring(0, i)
+    let projReferences = projParsed.References |> Seq.map (fun x -> beforeComma x.Include)
+    //NOTE: proper reference resolution ahead of time is necessary to avoid default FCS resolution
+    let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
+    let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
+    let sysPath = Path.GetDirectoryName(sysCoreLib)
+    let sysLib name = Path.Combine(sysPath, name + ".dll")
+    let localPath = Path.GetDirectoryName(typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location)
+    let localLib name = Path.Combine(localPath, name + ".dll")
+    let allFlags = [|
+        yield "--simpleresolution"
+        yield "--noframework"
+        //yield "--debug:full"
+        //yield "--define:DEBUG"
+        //yield "--doc:test.xml"
+        yield "--optimize-"
+        yield "--warn:3"
+        yield "--fullpaths"
+        yield "--flaterrors"
+        yield "--target:library"
+        //yield "--targetprofile:netcore"
+        //
+        let defaultReferences = [
+            "mscorlib"
+            "System.IO"
+            "System.Runtime"
+        ]
+        let references = Seq.append defaultReferences projReferences |> Seq.distinct
+        for r in references do 
+            //TODO: check more paths?
+            if File.Exists (sysLib r) then
+                yield "-r:" + (sysLib r)
+            elif File.Exists (localLib r) then
+                yield "-r:" + (localLib r)
+        yield "-r:" + fsCoreLib
+        yield "-r:" + sysCoreLib
+    |]
+    let projOptions: FSharpProjectOptions = {
+        ProjectFileName = projFile
+        ProjectFileNames = sourceFiles
+        OtherOptions = allFlags
+        ReferencedProjects = [| |] // TODO: read from projParsed.ProjectReferences
+        IsIncompleteTypeCheckEnvironment = false
+        UseScriptResolutionRules = true
+        LoadTime = DateTime.Now
+        UnresolvedReferences = None
+    }
+    //printfn "projOptions ===> %A" projOptions
+    projOptions
+#endif
+
 let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
     let rec addSymbols (symbols: string list) (opts: FSharpProjectOptions) =
         let addSymbols' (otherOpts: string[]) =
@@ -101,8 +163,9 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
         | ".fsx" ->
             checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile)
             |> Async.RunSynchronously
-        #if NETSTANDARD1_6 || NETCOREAPP1_0
-        | _ -> failwith "Only fsx files are supported at the moment"
+        #if DOTNETCORE
+        | ".fsproj" -> forgeGetProjectOptions projFile
+        | _ as s -> failwith (sprintf "Unsupported project type: %s" s)
         #else            
         | _ -> // .fsproj
             let props = opts.msbuild |> List.choose (fun x ->
