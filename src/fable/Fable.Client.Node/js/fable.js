@@ -259,10 +259,10 @@ function runCommand(command, continuation) {
         continuation(code);
     });
     proc.stderr.on('data', function(data) {
-        console.log("ERROR: " + data.toString());
+        process.stderr.write(data.toString());
     });
     proc.stdout.on("data", function(data) {
-        console.log(data.toString());
+        process.stdout.write(data.toString());
     });
 }
 
