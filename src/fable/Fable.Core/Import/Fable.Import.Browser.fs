@@ -9563,6 +9563,7 @@ module Browser =
         abstract CLOSING: float with get, set
         abstract CONNECTING: float with get, set
         abstract OPEN: float with get, set
+        [<Emit("new $0($1)")>] abstract Create: url: string -> WebSocket
         [<Emit("new $0($1...)")>] abstract Create: url: string * ?protocols: U2<string, ResizeArray<string>> -> WebSocket
 
     and [<AllowNullLiteral>] WheelEvent =
