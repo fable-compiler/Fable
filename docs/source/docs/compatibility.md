@@ -93,7 +93,8 @@ The following F# semantic and syntactic features are also available:
 
 ### Caveats
 
-- Options are **erased** in JS (`None` translates to `null`).
+- Options are **erased** in JS (`Some 5` becomes just `5` in JS and `None` translates to `null`).
+  This is needed for example, to represent TypeScript [optional properties](https://www.typescriptlang.org/docs/handbook/interfaces.html#optional-properties).
 - `IEnumerable` interface cannot be implemented. Use `seq` comprehensions
   or `Seq` module functions to generate lazy sequences.
 - `Async.RunSynchronously` is not supported.
@@ -109,25 +110,28 @@ The following F# semantic and syntactic features are also available:
 
 The following OOP features are compatible with Fable:
 
-**Interface** methods are compiled as normal object methods (care is needed to prevent name collision)
-and it's possible to test against an interface (e.g. `x :? IComparable`) for types defined in F# code.
+**Classes** translate to [ES6 classes](https://github.com/lukehoban/es6features#classes) and most
+of their .NET/F# characteristics are available: fields, methods, properties and constructors either
+instance/static or private/public (see below for a few caveats).
 
 **Overloads** and **secondary constructors** are allowed in class implementations (not for interfaces),
 but they'll have a suffix attached (`_0`, `_1`...) in JS and are not recommended.
 
-**Custom operators** are possible, just note it won't be idiomatic to call
-them from JS if necessary (e.g., `Time.op_Addition(ts1, ts2)`).
-
 **Inheritance** is possible and conforms to [ES2015 inheritance](https://github.com/lukehoban/es6features#classes)
 but must be done by calling the _primary_ constructor of the base class. Methods can be overridden, but in that case
-it won't be possible to access the base methods by casting the object.
+it won't be possible to access the base methods by casting the object. Classes can be made **abstract**.
 
+**Interface** methods are compiled as normal object methods (care is needed to prevent name collision)
+and it's possible to test against an interface (e.g. `x :? IComparable`) for types defined in F# code.
+
+**Custom operators** are possible, just note it won't be idiomatic to call
+them from JS if necessary (e.g., `Time.op_Addition(ts1, ts2)`).
 
 ## Reflection
 
 Some limited support for reflection is available:
 
-**Type testing** (e.g. `x :? MyType`) is possible, also with custom-defined
+**Type testing** (e.g. `x :? MyType`) is possible, also with customly defined
 interfaces (see above).
 
 **System.Type** can be accessed (either with `.GetType()` or `typeof<MyType>`)
