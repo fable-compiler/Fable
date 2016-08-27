@@ -2,7 +2,7 @@
   "private": true,
   "dependencies": {
     "express": "^4.13.4",
-    "fable-core": "^0.5.4",
+    "fable-core": "^0.5.5",
     "finalhandler": "^0.4.1",
     "serve-static": "^1.10.2"
   },
@@ -10,6 +10,6 @@
     "fable-import-express": "^0.0.10"
   },
   "engines": {
-    "fable": "^0.5.4"
+    "fable": "^0.5.9"
   }
 }

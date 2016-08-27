@@ -1,5 +1,26 @@
+(**
+ - title: React TodoMVC with Fable
+ - tagline: Unveil the power of React and functional programming!
+ - app-style: width:800px; margin:20px auto 50px auto;
+ - require-paths: `'classnames': 'lib/classnames/index', 'react': 'lib/react/react-with-addons', 'react-dom': 'lib/react/react-dom'`
+ - intro: This is a port of [React TodoMVC](http://todomvc.com/examples/react/) to show how easy
+   is to take advantage of the full power of [React](https://facebook.github.io/react/) in Fable apps.
+   You can also compare the [F# source code](https://github.com/fable-compiler/Fable/blob/master/samples/browser/react-todomvc/react-todomvc.fsx)
+   with the [original JS implementation](https://github.com/tastejs/todomvc/tree/gh-pages/examples/react)
+   to see the advantages of Fable programming. And remember [Fable is also compatible with React Native](http://www.navision-blog.de/blog/2016/08/06/fable-react-native/) for mobile development!
+*)
 
-// Load Fable.Core and bindings to JS global objects
+(**
+## JavaScript bindings and helpers
+
+Fable includes [React bindings and helpers](https://www.npmjs.com/package/fable-import-react)
+to make interaction with the tool more idiomatic in F#. We will also load a couple more of
+JS libraries: [classnames](https://github.com/JedWatson/classnames) with require.js and
+[director](https://github.com/flatiron/director) directly with a `<script>` tag.
+We will make them accessible to our program with [Import and Global attributes](https://fable-compiler.github.io/docs/interacting.html#Import-attribute)
+respectively.
+*)
+
 #r "node_modules/fable-core/Fable.Core.dll"
 #load "node_modules/fable-import-react/Fable.Import.React.fs"
 #load "node_modules/fable-import-react/Fable.Helpers.React.fs"
@@ -9,6 +30,26 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Import
 
+// JS utility for conditionally joining classNames together
+let [<Import("default","classnames")>] classNames(o: obj): string =
+    failwith "JS only"
+
+// Director is a router. Routing is the process of determining what code to run when a URL is requested.
+let [<Global>] Router(o: obj): obj =
+    failwith "JS only"
+
+(**
+## Utility module
+
+This module is the equivalent of [utils.js](https://github.com/tastejs/todomvc/blob/gh-pages/examples/react/js/utils.js)
+in the original implementation. Note we only need a couple of functions to load
+and save data from the browser local storage as things like Guid generation
+(`System.Guid.NewGuid()`) or record immutable updates are built-in in F#/Fable.
+
+> Because our `Todo` type is really simple (see below), `JSON.parse` will meet our needs.
+For more complicated structures see [JSON serialization with Fable](https://fable-compiler.github.io/docs/interacting.html#JSON-serialization). 
+*)
+
 module Util =
     let load<'T> key =
         Browser.localStorage.getItem(key) |> unbox
@@ -17,13 +58,14 @@ module Util =
     let save key (data: 'T) =
         Browser.localStorage.setItem(key, JS.JSON.stringify data)
 
-    // JS utility for conditionally joining classNames together
-    // See https://github.com/JedWatson/classnames
-    let [<Global>] classNames(o: obj): string = failwith "JS only"
+(**
+## Model definiton
 
-    // Director is a router. Routing is the process of determining what code to run when a URL is requested.
-    // See https://github.com/flatiron/director
-    let [<Global>] Router(o: obj): obj = failwith "JS only"
+This is an almost direct port of [todoModel.js](https://github.com/tastejs/todomvc/blob/gh-pages/examples/react/js/todoModel.js)
+which separates de logic of the app from the views. The biggest difference is with
+a line of code we can define our `Todo` type and let the F# compiler statically check
+we're always manipulating the structure correctly.
+*)
 
 type Todo = { id: Guid; title: string; completed: bool }
 
@@ -32,47 +74,64 @@ type TodoModel(key) =
     member val todos: Todo[] = defaultArg (Util.load key) [||] with get, set
     member val onChanges: (unit->unit)[] = [||] with get, set
 
-    member this.subscribe (onChange) =
+    member this.subscribe(onChange) =
         this.onChanges <- [|onChange|]
 
-    member this.inform () =
+    member this.inform() =
         Util.save this.key this.todos
         this.onChanges |> Seq.iter (fun cb -> cb())
 
-    member this.addTodo (title) =
+    member this.addTodo(title) =
         this.todos <-
             [|{ id=Guid.NewGuid(); title=title; completed=false }|]
             |> Array.append this.todos
         this.inform()
 
-    member this.toggleAll (checked') =
+    member this.toggleAll(checked') =
         this.todos <- this.todos |> Array.map (fun todo ->
             { todo with completed = checked' })
         this.inform()
 
-    member this.toggle (todoToToggle) =
+    member this.toggle(todoToToggle) =
         this.todos <- this.todos |> Array.map (fun todo ->
             if todo.id <> todoToToggle.id
             then todo
             else { todo with completed = (not todo.completed) })
         this.inform()
 
-    member this.destroy (todoToDestroy) =
+    member this.destroy(todoToDestroy) =
         this.todos <- this.todos |> Array.filter (fun todo ->
             todo.id <> todoToDestroy.id)
         this.inform()
 
-    member this.save (todoToSave, text) =
+    member this.save(todoToSave, text) =
         this.todos <- this.todos |> Array.map (fun todo ->
             if todo.id <> todoToSave.id
             then todo
             else { todo with title = text })
         this.inform()
 
-    member this.clearCompleted () =
+    member this.clearCompleted() =
         this.todos <- this.todos |> Array.filter (fun todo ->
             not todo.completed)
         this.inform()
+
+(**
+## React views
+
+We enter now in React's realm to define three views: TodoItem, TodoFooter and TodoApp.
+We can use classes to define the views as explained in [React docs](https://facebook.github.io/react/docs/reusable-components.html#es6-classes),
+inheriting from `React.Component` and defining a `render` method, where we can use
+the DSL defined in Fable's React helper to build HTML elements in a similar fashion
+as we would do with JSX. 
+
+> For convenience, we use a module alias (`R`) to shorten references to the React helper.
+
+A big difference from JS is we can define simple models for the state and props
+of custom views, either by using records or interfaces, to allow for autocompletion
+and static checking, making our app much more robust than by using plain JS objects.
+
+*)
 
 module R = Fable.Helpers.React
 open R.Props
@@ -140,11 +199,14 @@ type TodoItem(props, ctx) as this =
 
     member this.render () =
         let className =
-            Util.classNames(
+            classNames(
                 createObj [
                     "completed" ==> this.props.todo.completed
                     "editing" ==> this.props.editing
                 ])
+        // The React helper defines a simple DSL to build HTML elements.
+        // For more info about transforming F# unions to JS option objects:
+        // https://fable-compiler.github.io/docs/interacting.html#KeyValueList-attribute
         R.li [ ClassName className ] [
             R.div [ ClassName "view" ] [
                 R.input [
@@ -188,7 +250,7 @@ type TodoFooter(props, ctx) =
                 ] [ unbox "Clear completed" ] |> Some
             else None
         let className category =
-            Util.classNames(
+            classNames(
                 createObj ["selected" ==> (this.props.nowShowing = category)])
         R.footer [ ClassName "footer" ] [
             R.span [ ClassName "todo-count" ] [
@@ -228,13 +290,13 @@ type TodoApp(props, ctx) as this =
         let nowShowing category =
             fun () -> this.setState({this.state with nowShowing = category})
         let router =
-            Util.Router(
-                createObj [
+            Router(createObj [
                     "/" ==> nowShowing ALL_TODOS
                     "/active" ==> nowShowing ACTIVE_TODOS
                     "/completed" ==> nowShowing COMPLETED_TODOS
-                ]
-            )
+            ])
+        // We haven't defined any interface for the router object but we can
+        // can still dynamically access its properties with the `?` operator. 
         router?init("/")
 
     member this.handleChange (ev: React.SyntheticEvent) =
@@ -280,6 +342,8 @@ type TodoApp(props, ctx) as this =
                 | COMPLETED_TODOS -> todo.completed
                 | _ -> true)
             |> Seq.map (fun todo ->
+                // R.com is used to instantiate customly defined React components.
+                // Note we use an F# object expression to build the props.
                 R.com<TodoItem,_,_>(
                     { new TodoItemProps with
                         member __.key = todo.id
@@ -338,6 +402,13 @@ type TodoApp(props, ctx) as this =
             main.Value
             footer.Value
         ]
+
+(**
+## Firing up the app
+
+There's nothing left to do but building our model, mount our `TodoApp` view
+in the DOM by using `ReactDom.render` and subscribe to the events. Happy coding!
+*)   
 
 let model = TodoModel("react-todos")
 let render() =

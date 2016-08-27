@@ -12,10 +12,10 @@
   "license": "ISC",
   "dependencies": {
     "core-js": "^2.4.0",
-    "fable-core": "^0.5.4",
+    "fable-core": "^0.5.5",
     "requirejs": "^2.2.0"
   },
   "engines": {
-    "fable": "^0.5.4"
+    "fable": "^0.5.9"
   }
 }

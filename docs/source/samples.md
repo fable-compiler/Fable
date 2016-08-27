@@ -56,8 +56,8 @@ find the [full source code on GitHub](https://github.com/fable-compiler/Fable/bl
 ### [Interactive L-system generator](samples/lsystem/index.html)
 
 This demo is based on [L-system workshop](https://github.com/Andrea/Lsystem) by Andrea Magnorsky
-and Ross McKinlay. Rather than working on the tasks they gave us, I compiled it with Fable, so that you
-can play with it in a browser!
+and Ross McKinlay. Rather than working on the tasks they gave us, Tomas Petricek compiled it with Fable,
+so that you can play with it in a browser!
 
 ## Productivity
 
@@ -69,6 +69,16 @@ This demo is an implementation of the [Elm architecture](http://guide.elm-lang.o
 using the same [virtual-dom](https://github.com/Matt-Esch/virtual-dom) as Elm originally used.
 This architecture makes it easy to create complex and maintainable web applications.
 Contributed by [Tomas Jansson](https://twitter.com/TomasJansson).
+
+<a href="samples/react-todomvc/index.html"><img src="samples/images/react.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [TodoMVC with React](samples/react-todomvc/index.html)
+
+This is a port of [React TodoMVC](http://todomvc.com/examples/react/) to show how easy
+is to take advantage of the full power of [React](https://facebook.github.io/react/) in Fable apps.
+You can also compare the [F# source code](https://github.com/fable-compiler/Fable/blob/master/samples/browser/react-todomvc/react-todomvc.fsx)
+with the [original JS implementation](https://github.com/tastejs/todomvc/tree/gh-pages/examples/react)
+to see the advantages of Fable programming. And remember [Fable is also compatible with React Native](http://www.navision-blog.de/blog/2016/08/06/fable-react-native/) for mobile development!
 
 <a href="samples/nunit/index.html"><img src="samples/images/NUnit.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
 

@@ -1,7 +1,7 @@
 {
   "private": true,
   "dependencies": {
-    "fable-core": "^0.5.4"
+    "fable-core": "^0.5.5"
   },
   "devDependencies": {
     "fable-import-mocha": "^0.0.2",
@@ -11,6 +11,6 @@
     "test": "mocha out"
   },
   "engines": {
-    "fable": "^0.5.4"
+    "fable": "^0.5.9"
   }
 }

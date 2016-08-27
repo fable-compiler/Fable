@@ -14,7 +14,7 @@
     "body-parser": "^1.15.0",
     "core-js": "^2.1.0",
     "express": "^4.13.4",
-    "fable-core": "^0.5.4",
+    "fable-core": "^0.5.5",
     "marked": "^0.3.5",
     "react": "^15.1.0",
     "react-dom": "^15.1.0"
@@ -30,6 +30,6 @@
     "webpack-dev-server": "^1.14.1"
   },
   "engines": {
-    "fable": "^0.5.4"
+    "fable": "^0.5.9"
   }
 }
