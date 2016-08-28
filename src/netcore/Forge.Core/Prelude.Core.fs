@@ -6,6 +6,28 @@ open System.IO
 open System.Diagnostics
 
 
+// Writes a trace to the command line
+let traceWarning text = printfn "%s" text
+let traceException (ex: System.Exception) = printfn "%s" (ex.Message)
+
+module System =
+    let Converter (mapping: 'T -> 'U) =
+        mapping
+
+type System.Collections.Generic.List<'T> with
+    member this.ConvertAll (mapping: 'T -> 'U) =
+        let len = this.Count
+        let res = ResizeArray<_>(len)
+        for i = 0 to len - 1 do
+            res.Add(mapping this.[i])
+        res
+
+
+//===============================================================================================
+// below is a subset of https://github.com/fsprojects/Forge/blob/master/src/Forge.Core/Prelude.fs
+//===============================================================================================
+
+
 // Operators
 //========================
 
@@ -17,9 +39,6 @@ let inline (|?|) (pred1:'a->bool) (pred2:'a->bool)  =
 let inline (|&|) (pred1:'a->bool) (pred2:'a->bool)  =
     fun a -> pred1 a && pred2 a
 
-// Writes a trace to the command line
-let traceWarning text = printfn "%s" text
-let traceException (ex:Exception) = printfn "%s" (ex.Message)
 
 /// Detects whether the given path does not contains invalid characters.
 let isValidPath (path:string) =
