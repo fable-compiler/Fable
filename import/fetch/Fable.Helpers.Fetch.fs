@@ -35,7 +35,7 @@ type HttpRequestHeaders =
     | Cookie of string
     | [<CompiledName("Content-Length")>] ContentLength of string
     | [<CompiledName("Content-MD5")>] ContentMD5 of string
-    | [<CompiledName("ContentType")>] ContentType of string
+    | [<CompiledName("Content-Type")>] ContentType of string
     | Date of string
     | Expect of string
     | Forwarded of string
