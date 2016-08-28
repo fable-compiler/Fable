@@ -2,10 +2,10 @@
 var path = require("path");
 var chokidar = require("chokidar");
 var babel = require("babel-core");
-var template = require("babel-template");
 var child_process = require('child_process');
 var commandLineArgs = require('command-line-args');
 var getUsage = require('command-line-usage');
+var customPlugins = require("./plugins");
 
 var pkgInfo = (function() {
     var pkgInfo = JSON.parse(fs.readFileSync(require.resolve("./package.json")).toString());
@@ -68,68 +68,10 @@ if (pkgInfo.name === "fable-compiler-netcore") {
     fableBin = fableBin.replace(".exe", ".dll");
 }
 
-// Custom plugin to remove `null;` statements (e.g. at the end of constructors)
-var removeNullStatements = {
-  visitor: {
-    ExpressionStatement: function(path) {
-      if (path.node.expression.type == "NullLiteral")
-        path.remove();
-    }
-  }
-};
-
-// Custom plugin to simulate macro expressions
-var transformMacroExpressions = {
-  visitor: {
-    StringLiteral: function(path) {
-      if (!path.node.macro || !path.node.value) {
-          return;
-      }
-      var buildArgs = {}, macro = path.node.value;
-      try {
-        var args = path.node.args;
-        for (var i = 0; i < args.length; i++) {
-            buildArgs["$" + i] = args[i];
-        }
-        macro = macro
-            // Replace spread aguments like in `$0($1...)`
-            .replace(/\$(\d+)\.\.\./, function (m, i) {
-                var rep = [], j = parseInt(i);
-                for (; j < args.length; j++) {
-                    rep.push("$" + j);
-                }
-                return rep.join(",");
-            })
-            // Replace conditional arguments like in `/$0/g{{$1?i:}}{{$2?m:}}`
-            .replace(/\{\{\$(\d+)\?(.*?)\:(.*?)\}\}/g, function (_, g1, g2, g3) {
-                var i = parseInt(g1);
-                return i < args.length && args[i].value ? g2 : g3;
-            })
-            // Replace optional arguments like in `$0[$1]{{=$2}}`
-            .replace(/\{\{([^\}]*\$(\d+).*?)\}\}/g, function (_, g1, g2) {
-                var i = parseInt(g2);
-                return i < args.length ? g1 : "";
-            });
-        var buildMacro = template(macro);
-        path.replaceWithMultiple(buildMacro(buildArgs));
-      }
-      catch (err) {
-          console.log("BABEL ERROR: Failed to parse macro: " + macro);
-          console.log("MACRO ARGUMENTS: " + Object.getOwnPropertyNames(buildArgs).join());
-          console.log(err.message);
-          if (opts.verbose && err.stack) {
-            console.log(err.stack);
-          }
-          process.exit(1);
-      }
-    }
-  }
-};
-
 var babelPresets = [];
 var babelPlugins = [
-    transformMacroExpressions,
-    removeNullStatements
+    customPlugins.transformMacroExpressions,
+    customPlugins.removeUnneededNulls
 ];
 
 function ensureDirExists(dir, cont) {

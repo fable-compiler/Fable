@@ -345,7 +345,6 @@ Target "PublishCompiler" (fun _ ->
     let workingDir = "temp/build"
     let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
     Util.downloadArtifact workingDir url
-    Npm.command workingDir "version" [releaseCompiler.Value.NugetVersion]
     applyTag fableCompilerTag |> Npm.command workingDir "publish"
 )
 
