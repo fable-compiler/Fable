@@ -60,6 +60,10 @@ module Util =
         | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
         | Float32 | Float64 -> Float
 
+    let addWarning (com: ICompiler) (i: Fable.ApplyInfo) (warning: string) =
+        attachRangeAndFile i.range i.fileName warning
+        |> Warning |> com.AddLog
+
     // The core lib expects non-curried lambdas
     let deleg com (info: Fable.ApplyInfo) args =
         if info.lambdaArgArity > 1
@@ -464,7 +468,10 @@ module private AstPass =
             let emit =
                 match info.methodName with
                 | "printFormatToString" -> "x=>x"
-                | "printFormat" | "printFormatLine" -> "x=>{console.log(x)}"
+                | "printFormat" ->
+                    addWarning com info "printf will behave as printfn"
+                    "x=>{console.log(x)}"
+                | "printFormatLine" -> "x=>{console.log(x)}"
                 | "printFormatToStringThenFail" | _ -> "x=>{throw x}"
                 |> Fable.Emit |> Fable.Value
             Fable.Apply(args.Head, [emit], Fable.ApplyMeth, typ, r)
@@ -567,12 +574,18 @@ module private AstPass =
 
     let console com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | "write" | "writeLine" -> log com i |> Some
+        | "write" ->
+            addWarning com i "Write will behave as WriteLine"
+            log com i |> Some
+        | "writeLine" -> log com i |> Some
         | _ -> None
 
     let debug com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | "write" | "writeLine" -> log com i |> Some
+        | "write" ->
+            addWarning com i "Write will behave as WriteLine"
+            log com i |> Some
+        | "writeLine" -> log com i |> Some
         | "break" -> Fable.DebugBreak i.range |> Some
         | "assert" ->
             // emit i "if (!$0) { debugger; }" i.args |> Some
@@ -763,8 +776,7 @@ module private AstPass =
             match i.calleeTypeArgs.Head with
             | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
                 "Structural equality is not supported for Dictionary keys, please use F# Map"
-                |> attachRangeAndFile i.range i.fileName
-                |> Warning |> com.AddLog
+                |> addWarning com i
             | _ -> ()
             let makeMap args =
                 GlobalCall("Map", None, true, args) |> makeCall com i.range i.returnType
@@ -802,8 +814,7 @@ module private AstPass =
             match i.calleeTypeArgs.Head with
             | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
                 "Structural equality is not supported for HashSet, please use F# Set"
-                |> attachRangeAndFile i.range i.fileName
-                |> Warning |> com.AddLog
+                |> addWarning com i
             | _ -> ()
             let makeSet args =
                 GlobalCall("Set", None, true, args) |> makeCall com i.range i.returnType
@@ -1339,6 +1350,14 @@ module private AstPass =
             CoreLibCall("Observable", Some meth, false, args)
             |> makeCall com info.range info.returnType)
 
+    let asyncs com (info: Fable.ApplyInfo) =
+        match info.methodName with
+        | "start" ->
+            // Just add warning, the replacement will actually happen in coreLibPass
+            addWarning com info "Async.Start will behave as StartImmediate"
+            None
+        | _ -> None
+
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | Naming.StartsWith "Fable.Core" _ -> fableCore com info
@@ -1404,6 +1423,7 @@ module private AstPass =
         | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com info
         | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
         | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com info
+        | "Microsoft.FSharp.Control.FSharpAsync" -> asyncs com info
         | "System.Guid" -> guids com info
         | "System.Lazy" | "Microsoft.FSharp.Control.Lazy"
         | "Microsoft.FSharp.Control.LazyExtensions" -> laziness com info

@@ -71,6 +71,7 @@ if (pkgInfo.name === "fable-compiler-netcore") {
 var babelPresets = [];
 var babelPlugins = [
     customPlugins.transformMacroExpressions,
+    // removeUnneededNulls must come after transformMacroExpressions (see #377)
     customPlugins.removeUnneededNulls
 ];
 

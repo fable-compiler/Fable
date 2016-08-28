@@ -1,3 +1,9 @@
+### 0.5.10
+
+* Fix #369: Extra blank lines when running postbuild script
+* Fix #375: Add warning when replacements change semantics (printf, Async.Start...)
+* Fix #377: Remove null args at the end of method/constructor calls also with macros
+
 ### 0.5.9
 
 * Fix type testing with Erased Unions
