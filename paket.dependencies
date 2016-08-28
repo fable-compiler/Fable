@@ -8,10 +8,11 @@ nuget NUnit
 nuget NUnit.Runners
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
 
-github fsprojects/Forge:b04a1c64c3d2a4d7759fb06abddfcbb490ad787f src/Forge.Core/XLinq.fs
-github fsprojects/Forge:b04a1c64c3d2a4d7759fb06abddfcbb490ad787f src/Forge.Core/ResizeArray.fs
-github fsprojects/Forge:b04a1c64c3d2a4d7759fb06abddfcbb490ad787f src/Forge.Core/Constants.fs
-github fsprojects/Forge:b04a1c64c3d2a4d7759fb06abddfcbb490ad787f src/Forge.Core/ProjectSystem.fs
+github fsprojects/Forge:3ba0c1a84eb9ab36f673362084cca25f5cbb67f0 src/Forge.Core/Prelude.fs
+github fsprojects/Forge:3ba0c1a84eb9ab36f673362084cca25f5cbb67f0 src/Forge.Core/XLinq.fs
+github fsprojects/Forge:3ba0c1a84eb9ab36f673362084cca25f5cbb67f0 src/Forge.Core/ResizeArray.fs
+github fsprojects/Forge:3ba0c1a84eb9ab36f673362084cca25f5cbb67f0 src/Forge.Core/Constants.fs
+github fsprojects/Forge:3ba0c1a84eb9ab36f673362084cca25f5cbb67f0 src/Forge.Core/ProjectSystem.fs
 
 nuget Suave
 
