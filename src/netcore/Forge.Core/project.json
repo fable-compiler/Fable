@@ -7,10 +7,10 @@
     "compile": {
       "includeFiles": [
         "Prelude.Core.fs",
-        "XLinq.fs",
-        "ResizeArray.fs",
-        "Constants.fs",
-        "ProjectSystem.fs"
+        "../../../paket-files/fsprojects/Forge/src/Forge.Core/XLinq.fs",
+        "../../../paket-files/fsprojects/Forge/src/Forge.Core/ResizeArray.fs",
+        "../../../paket-files/fsprojects/Forge/src/Forge.Core/Constants.fs",
+        "../../../paket-files/fsprojects/Forge/src/Forge.Core/ProjectSystem.fs"
       ]
     },
     "define": [
