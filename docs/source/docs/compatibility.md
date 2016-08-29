@@ -105,7 +105,6 @@ The following F# semantic and syntactic features are also available:
   (`cancellationToken` or `timeout` optional arguments are not supported).
 
 
-
 ## Object Oriented Programming
 
 The following OOP features are compatible with Fable:
@@ -118,8 +117,24 @@ instance/static or private/public (see below for a few caveats).
 but they'll have a suffix attached (`_0`, `_1`...) in JS and are not recommended.
 
 **Inheritance** is possible and conforms to [ES2015 inheritance](https://github.com/lukehoban/es6features#classes)
-but must be done by calling the _primary_ constructor of the base class. Methods can be overridden, but in that case
-it won't be possible to access the base methods by casting the object. Classes can be made **abstract**.
+but must be done by calling the _primary_ constructor of the base class (which can be **abstract**).
+Methods can be overridden and call the base implementation. Just note it won't be possible to access the
+base implementation from outside by casting the object. Example:
+
+```fsharp
+type A() =
+    member x.Foo() = "Hello"
+
+type B() =
+    inherit A()
+    member x.Foo() = base.Foo() + " World!"
+
+// This prints "Hello World!" both in .NET and JS
+B().Foo() |> printfn "%s"
+
+// This prints "Hello" in .NET and "Hello World!" in JS
+(B() :> A).Foo() |> printfn "%s"
+```
 
 **Interface** methods are compiled as normal object methods (care is needed to prevent name collision)
 and it's possible to test against an interface (e.g. `x :? IComparable`) for types defined in F# code.
