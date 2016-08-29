@@ -7,7 +7,8 @@
    is to take advantage of the full power of [React](https://facebook.github.io/react/) in Fable apps.
    You can also compare the [F# source code](https://github.com/fable-compiler/Fable/blob/master/samples/browser/react-todomvc/react-todomvc.fsx)
    with the [original JS implementation](https://github.com/tastejs/todomvc/tree/gh-pages/examples/react)
-   to see the advantages of Fable programming. And remember [Fable is also compatible with React Native](http://www.navision-blog.de/blog/2016/08/06/fable-react-native/) for mobile development!
+   to see the advantages of Fable programming. There's also a port of the [React tutorial](https://github.com/fable-compiler/Fable/tree/master/samples/browser/react-tutorial),
+   including an express server and hot reloading. And remember [Fable is also compatible with React Native](http://www.navision-blog.de/blog/2016/08/06/fable-react-native/) for mobile development!
 *)
 
 (**
@@ -231,6 +232,17 @@ type TodoItem(props, ctx) as this =
             ] []
         ]
 
+(**
+The next view is `TodoFooter`. This component just presents some buttons below
+the Todo list to filter by or change the `completed` property of the Todos.
+
+Same as `TodoItem`, notice the component subscribes to some events (like `OnClick`)
+but instead of containing the logic to react to the event it just runs a callback
+received from its parent through the `props` object. Remember the state of React
+components cannot be directly updated, so this is a way to transmit the event to
+the parent and let it re-render the subtree if necessary. 
+*)
+
 type TodoFooterProps =
     abstract count: int
     abstract completedCount: int
@@ -279,6 +291,20 @@ type TodoFooter(props, ctx) =
             ]
         ]
 
+(**
+We finish with the `TodoApp` view. This component is the parent of the two previously
+defined components, which are invoked in `render` by calling the `R.com` helper.
+Notice that, among the arguments of `R.com`, we use F# object expressions to build the props.
+
+In the [original JS implementation](https://github.com/tastejs/todomvc/blob/gh-pages/examples/react/js/app.jsx#L28)
+of `componentDidMount` method, we need to take care to preserve the meaning of `this`
+when passing a lambda to another object by using `bind`. Luckily, that's not something
+we need to worry about in Fable :)
+
+Note also we haven't defined an interface for the object returned by `Router`,
+so we just access its `init` method with the dynamic `?` operator.
+*)
+
 type TodoAppProps = { model: TodoModel }
 type TodoAppState = { nowShowing: string; editing: Guid option; newTodo: string }
 
@@ -295,8 +321,6 @@ type TodoApp(props, ctx) as this =
                     "/active" ==> nowShowing ACTIVE_TODOS
                     "/completed" ==> nowShowing COMPLETED_TODOS
             ])
-        // We haven't defined any interface for the router object but we can
-        // can still dynamically access its properties with the `?` operator. 
         router?init("/")
 
     member this.handleChange (ev: React.SyntheticEvent) =
@@ -342,8 +366,6 @@ type TodoApp(props, ctx) as this =
                 | COMPLETED_TODOS -> todo.completed
                 | _ -> true)
             |> Seq.map (fun todo ->
-                // R.com is used to instantiate customly defined React components.
-                // Note we use an F# object expression to build the props.
                 R.com<TodoItem,_,_>(
                     { new TodoItemProps with
                         member __.key = todo.id
