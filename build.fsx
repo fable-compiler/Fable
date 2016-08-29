@@ -394,15 +394,18 @@ Target "FableCore" (fun _ ->
 )
 
 Target "UpdateSampleRequirements" (fun _ ->
+    let fableVersion = "^" + releaseCompiler.Value.NugetVersion
+    let fableCoreVersion = "^" + releaseCore.Value.NugetVersion
+
     !! "samples/**/package.json"
-    |> Seq.iter (Util.visitFile (fun line ->
-        match Regex.Match(line, "^(\s*)\"(fable(?:-core)?)\": \".*?\"(,)?") with
-        | m when m.Success ->
-            match m.Groups.[2].Value with
-            | "fable" -> sprintf "%s\"fable\": \"^%s\"%s" m.Groups.[1].Value releaseCompiler.Value.NugetVersion m.Groups.[3].Value
-            | "fable-core" -> sprintf "%s\"fable-core\": \"^%s\"%s" m.Groups.[1].Value releaseCore.Value.NugetVersion m.Groups.[3].Value
-            | _ -> line                 
-        | _ -> line))
+    |> Seq.iter (fun path ->
+        (Path.GetDirectoryName path, ["fable"; "fable-core"])
+        ||> Npm.updatePackageKeyValue (fun (k,v) ->
+            match k with
+            | "fable" when v <> fableVersion -> Some(k, fableVersion)
+            | "fable-core" when v <> fableCoreVersion -> Some(k, fableCoreVersion)
+            | _ -> None
+    ))
 )
 
 Target "BrowseDocs" (fun _ ->
