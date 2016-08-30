@@ -1,0 +1,10 @@
+{
+    "module": "commonjs",
+    "sourceMaps": true,
+    "projFile": "index.fsx",
+    "outDir": "temp",
+    "scripts": {
+        "prebuild": "npm install",
+        "postbuild": "webpack"
+    }
+}
