@@ -993,7 +993,12 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
                 | None -> None
                 | Some importPath ->
                     let fileMap = makeFileMap assembly.Contents.Entities
-                    let baseDir = fileMap |> Seq.map (fun kv -> kv.Key) |> Path.getCommonBaseDir
+                    let baseDir =
+                        fileMap
+                        |> Seq.choose (fun kv ->
+                            // TODO: This is a small hack to partially fix #382
+                            if kv.Key.Contains("node_modules") then None else Some kv.Key)
+                        |> Path.getCommonBaseDir
                     Fable.Project(asmName, baseDir, fileMap, asmFullName, importPath)
                     |> Some
             | None -> None)

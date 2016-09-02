@@ -1,3 +1,3 @@
-## fable-compiler 0.5.11
+## fable-compiler 0.5.12
 
 * ???

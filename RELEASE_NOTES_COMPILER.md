@@ -1,3 +1,8 @@
+### 0.5.11
+
+* Fix #382 (partially): Exclude files in "node_modules" when calculating the base
+  directory of referenced dlls.
+
 ### 0.5.10
 
 * Fix #369: Extra blank lines when running postbuild script
