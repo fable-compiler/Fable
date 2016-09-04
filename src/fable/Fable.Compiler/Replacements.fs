@@ -350,7 +350,9 @@ module private AstPass =
                 | "ofJson", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
                     [i.args.Head; makeTypeRef com None t]
                 | _ -> i.args
-            CoreLibCall("Util", Some i.methodName, false, args)
+            let modName =
+                if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
+            CoreLibCall(modName, Some i.methodName, false, args)
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
 
@@ -377,7 +379,7 @@ module private AstPass =
         | "defaultArg" ->
             let cond = makeEqOp r [args.Head; Fable.Value Fable.Null] BinaryUnequal
             Fable.IfThenElse(cond, args.Head, args.Tail.Head, r) |> Some
-        | "defaultAsyncBuilder" -> makeCoreRef com "defaultAsyncBuilder" None |> Some
+        | "defaultAsyncBuilder" -> makeCoreRef com "AsyncBuilder" (Some "singleton") |> Some
         // Negation
         | "not" -> makeUnOp r info.returnType args UnaryNot |> Some
         // Equality

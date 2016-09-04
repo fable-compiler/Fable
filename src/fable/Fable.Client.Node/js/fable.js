@@ -277,19 +277,24 @@ function build(opts) {
         );
     }
 
+    var knownModules = ["amd", "commonjs", "systemjs", "umd"];
+
     // ECMAScript target
     if (opts.ecma != "es2015" && opts.ecma != "es6") {
         opts.module = opts.module || "umd"; // Default module
         if (opts.module === "es2015" || opts.module === "es6") {
             opts.module = false;
         }
-        else if (["amd", "commonjs", "systemjs", "umd"].indexOf(opts.module) == -1) {
+        else if (knownModules.indexOf(opts.module) == -1) {
             throw "Unknown module target: " + opts.module;
         }
         babelPresets.push([require.resolve("babel-preset-es2015"), {
             "loose": opts.loose || false,
             "modules": opts.module
         }]);
+    }
+    else if (knownModules.indexOf(opts.module) >= 0) {
+        babelPlugins.push(require("babel-plugin-transform-es2015-modules-" + opts.module));
     }
     
     // Extra Babel plugins
