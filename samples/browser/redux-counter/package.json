@@ -11,7 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fable-core": "^0.5.5"
+    "fable-core": "^0.5.5",
+    "redux": "^3.5.2"
   },
   "devDependencies": {
     "source-map-loader": "^0.1.5"

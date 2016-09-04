@@ -39,7 +39,7 @@ as if it wouldn't.
 
 The simplest way to create a plugin is just to use a F# script file and that's
 what we'll be doing here. Create a file named `Fable.Plugins.Random.fsx` and
-put a reference to `Fable.exe` as follows (fix the path according to where
+put a reference to `Fable.Core.dll` as follows (fix the path according to where
 you place the plugin):
 
 ```fsharp

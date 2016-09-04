@@ -221,7 +221,9 @@ Target "FableCompilerNetcore" (fun _ ->
         // Copy JS files
         let srcDir, buildDir = "src/netcore/Fable.Client.Node", "build/fable"
         FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
+        FileUtils.cp "README.md" buildDir
         Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
+        Npm.install buildDir []
 
         // Edit package.json for NetCore
         (buildDir, ["name"; "fable"])
@@ -231,7 +233,7 @@ Target "FableCompilerNetcore" (fun _ ->
             | _ -> None)
 
         // Restore packages
-        [ "src/netcore/Fable.Core"; "src/netcore/Fable.Compiler"; srcDir ]
+        [ "src/netcore/Forge.Core"; "src/netcore/Fable.Core"; "src/netcore/Fable.Compiler"; srcDir ]
         |> Seq.iter (fun dir -> Util.run dir "dotnet" "restore")
 
         // Publish Fable NetCore
@@ -245,7 +247,7 @@ Target "FableCompilerNetcore" (fun _ ->
         // Compile NUnit plugin
         let pluginDir = "src/plugins/nunit"
         Util.run pluginDir "dotnet" "restore"
-        Util.run srcDir "dotnet" "build -c Release"
+        Util.run pluginDir "dotnet" "build -c Release"
 
         // Compile tests
         Node.run "." buildDir ["src/tests --target netcore"]
@@ -355,6 +357,8 @@ Target "PublishCore" (fun _ ->
 )
 
 Target "PublishCompilerNetcore" (fun _ ->
+
+
     // Check if version is prerelease or not
     if releaseCompiler.Value.NugetVersion.IndexOf("-") > 0 then ["--tag next"] else []
     |> Npm.command "build/fable" "publish" 
