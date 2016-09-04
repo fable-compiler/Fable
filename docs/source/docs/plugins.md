@@ -26,9 +26,11 @@ this intermediate AST.
 During the AST transformation process, several hooks are available for plugins.
 The most important one is the call replacement, that is, when Fable tries to
 replace a call to an external source, like the F# core library or .NET BCL.
-We are going to learn how to create a plugin to replace some of these calls.
+Below, we are going to learn how to create a plugin to replace some of these calls.
+Another useful plugin lets you transform Fable AST after it has been obtained
+from F# source code. This is briefly outlined in the second demo in this article.
 
-## Creating your own plugin
+## Creating call replacement plugin
 
 Fable's goal is to support most of the F# core library and some of the most
 used classes in .NET BCL, like `DateTime` or `Regex`. Fable now supports
@@ -222,7 +224,69 @@ fable temp/Test.fsx
 node temp/Test
 ```
 
-Nice, isn't it? Now you have the capability to extend Fable to fit your own needs.
 If you need more help to create replacements you can have a look at the [Fable.Replacements
 module](https://github.com/fable-compiler/Fable/blob/master/src/fable-fsharp/Replacements/Replacements.fs).
+
+## Creating rewriter plugins
+
+Rewriter plugins let you perform transformations on the Fable AST. This can be useful if you
+want to modify how Fable handles certain constructs, or if you want to perform something along
+the lines of [aspect-oriented programming](https://en.wikipedia.org/wiki/Aspect-oriented_programming)
+and, for example, insert custom logging or exception handling into every function declaration 
+in your project.
+
+To implement rewriter plugin, you need to implement the `IRewritePlugin` interface. For example,
+let's say we want to insert a `console.log` call at the beginning of every top-level function
+and use it to log the names of called functions. To do this, we can implement a rewrite plugin
+that will go through all declarations and inject the call at the beginning of each function 
+declaration. To inject the call, we write the following helper:
+
+```
+let injectLog name expr = 
+  let logExpr = 
+    Apply
+      ( Value(Emit("x=>console.log(x)")), 
+        [Value(StringConst name)], 
+        ApplyMeth, Unit, None )
+  Sequential([ logExpr; expr ], None)
+```
+
+The function takes a name of function and its body and it returns a `Sequential` expression that
+first calls `console.log` and then calls the original expression.  To call `console.log`, we
+use Fable's `Emit` constructor, which emits inline JavaScript and we use `Apply` to call the
+inline function with the function name as argument.
+
+Next, we need to write a function to transform all declarations in a file:
+
+```
+let transformFile (file:File) = 
+  let newDecls = 
+    file.Declarations
+    |> List.map (function
+      | MemberDeclaration(membr, name, args, body, loc) ->
+          let body = injectLog membr.Name body
+          MemberDeclaration(membr, name, args, body, loc)
+      | decl -> decl )
+
+  File(file.FileName, file.Root, newDecls, file.UsedVarNames)
+```
+
+A file has a list of declarations in `file.Declarations` and so we simply iterate over all the 
+declarations. If the declaration is `MemberDeclaration` (meaning top-level function), we use our
+`injectLog` function to add logging to its body. At the end, we create new `File` object using
+the original file information and new declarations. Finally, we need to implement 
+`IRewritePlugin`:
+
+```
+type LoggingRewrite() =
+  interface IRewritePlugin with
+    member x.Rewrite(files) = files |> Seq.map transformFile
+```
+
+Here, we transform all files in the project using the `transformFile` function. 
+The rest is the same as in the previous example - you'll need to compile the plugin 
+and specify it in `fableconfig.json` and that's all you need to do!
+
+
+Nice, isn't it? Now you have the capability to extend Fable to fit your own needs.
 I'm looking forward to seeing the wonderful plugins you'll create!

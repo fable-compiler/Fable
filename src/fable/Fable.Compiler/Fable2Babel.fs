@@ -525,6 +525,18 @@ module Util =
             statements |> List.map (com.TransformStatement ctx)
             |> block range :> Babel.Statement
 
+        | Fable.Label(name, body, range) ->
+            upcast Babel.LabeledStatement(ident name, com.TransformStatement ctx body, ?loc=range)
+
+        | Fable.Break(optName, range) ->
+            upcast Babel.BreakStatement(?label=Option.map ident optName, ?loc=range)
+
+        | Fable.Continue(optName, range) ->
+            upcast Babel.ContinueStatement(?label=Option.map ident optName, ?loc=range)
+
+        | Fable.Return(e, range) ->
+            com.TransformExprAndResolve ctx Return e
+
         | Fable.Wrapped (expr, _) ->
             com.TransformStatement ctx expr
 
@@ -559,7 +571,8 @@ module Util =
         // These cannot appear in expression position in JS
         // They must be wrapped in a lambda
         | Fable.Sequential _ | Fable.TryCatch _ | Fable.Throw _
-        | Fable.DebugBreak _ | Fable.Loop _ ->
+        | Fable.DebugBreak _ | Fable.Loop _ 
+        | Fable.Break _ | Fable.Continue _ | Fable.Label _ | Fable.Return _ ->
             transformBlock com ctx (Some Return) expr :> Babel.Statement
             |> iife expr.Range :> Babel.Expression
 
@@ -625,7 +638,8 @@ module Util =
         // These cannot be resolved (don't return anything)
         // Just compile as a statement
         | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _
-        | Fable.Set _ | Fable.VarDeclaration _ ->
+        | Fable.Set _ | Fable.VarDeclaration _
+        | Fable.Label _ | Fable.Continue _ | Fable.Break _ | Fable.Return _ ->
             com.TransformStatement ctx expr
             
         | Fable.Quote quote ->
