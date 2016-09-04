@@ -255,8 +255,9 @@ module Util =
             | _ -> Babel.BlockStatement([statement], ?loc=range) |> U2.Case1
         Babel.CallExpression(Babel.ArrowFunctionExpression([], block, ?loc=range), [], ?loc=range)
 
-    let varDeclaration range (var: Babel.Pattern) value =
-        Babel.VariableDeclaration (var, value, ?loc=range)
+    let varDeclaration range (var: Babel.Pattern) (isMutable: bool) value =
+        let kind = if isMutable then Babel.Let else Babel.Const
+        Babel.VariableDeclaration(var, value, kind, ?loc=range)
             
     let macroExpression range (txt: string) args =
         Babel.MacroExpression(txt, args, ?loc=range) :> Babel.Expression
@@ -468,14 +469,14 @@ module Util =
                 upcast Babel.WhileStatement (guard, transformBlock com ctx None body, ?loc=range)
             | Fable.ForOf (var, TransformExpr com ctx enumerable, body) ->
                 // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right 
-                let var = Babel.VariableDeclaration (ident var)
+                let var = Babel.VariableDeclaration(ident var, kind=Babel.Let)
                 upcast Babel.ForOfStatement (
                     U2.Case1 var, enumerable, transformBlock com ctx None body, ?loc=range)
             | Fable.For (var, TransformExpr com ctx start,
                             TransformExpr com ctx limit, body, isUp) ->
                 upcast Babel.ForStatement (
                     transformBlock com ctx None body,
-                    start |> varDeclaration None (ident var) |> U2.Case1,
+                    start |> varDeclaration None (ident var) true |> U2.Case1,
                     Babel.BinaryExpression (BinaryOperator.BinaryLessOrEqual, ident var, limit),
                     Babel.UpdateExpression (UpdateOperator.UpdatePlus, false, ident var), ?loc=range)
 
@@ -486,12 +487,12 @@ module Util =
                 | Some property -> Assign(getExpr com ctx callee property, range)
             com.TransformExprAndResolve ctx ret value
 
-        | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path)), _isMutable) ->
+        | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path)), isMutable) ->
             let value = com.GetImportExpr ctx None var.name path
-            varDeclaration expr.Range (ident var) value :> Babel.Statement
+            varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement
 
-        | Fable.VarDeclaration (var, TransformExpr com ctx value, _isMutable) ->
-            varDeclaration expr.Range (ident var) value :> Babel.Statement
+        | Fable.VarDeclaration (var, TransformExpr com ctx value, isMutable) ->
+            varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
             let handler =
@@ -751,10 +752,10 @@ module Util =
             else
                 assign (Some range) (get modIdent publicName) expr
         | _ -> expr
-        |> varDeclaration (Some range) (identFromName privateName) :> Babel.Statement
+        |> varDeclaration (Some range) (identFromName privateName) isMutable :> Babel.Statement
         |> U2.Case1 |> List.singleton
 
-    let declareRootModMember range publicName privateName isPublic _ _
+    let declareRootModMember range publicName privateName isPublic isMutable _
                              (expr: Babel.Expression) =
         let privateName = defaultArg privateName publicName
         let privateIdent = identFromName privateName
@@ -766,7 +767,7 @@ module Util =
             | :? Babel.FunctionExpression as e when e.id.IsSome ->
                 upcast Babel.FunctionDeclaration(e.id.Value, e.``params``, e.body,
                     ?returnType=e.returnType, ?typeParams=e.typeParameters, ?loc=e.loc)
-            | _ -> upcast varDeclaration (Some range) privateIdent expr
+            | _ -> upcast varDeclaration (Some range) privateIdent isMutable expr
         match isPublic with
         | false -> U2.Case1 (decl :> Babel.Statement) |> List.singleton
         | true when publicName = privateName ->
