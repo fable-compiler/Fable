@@ -14,3 +14,7 @@ type IInjection =
 type IInjectPlugin =
     inherit IPlugin
     abstract Inject: com: ICompiler -> IInjection list
+
+type IRewritePlugin = 
+    inherit IPlugin
+    abstract Rewrite : seq<Fable.File> -> seq<Fable.File>

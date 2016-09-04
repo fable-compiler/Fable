@@ -156,6 +156,22 @@ type EmptyStatement(?loc) =
 
 type DebuggerStatement(?loc) =
     inherit Statement("DebuggerStatement", ?loc = loc)
+
+/// Statement (typically loop) prefixed with a label (for continuue and break)
+type LabeledStatement(label, body, ?loc) =
+    inherit Statement("LabeledStatement", ?loc = loc)
+    member x.body: Statement = body
+    member x.label: Identifier = label
+
+/// Break can optionally take a label of a loop to break
+type BreakStatement(?label, ?loc) =
+    inherit Statement("BreakStatement", ?loc = loc)
+    member x.label: Identifier option = label
+
+/// Contineu can optionally take a label of a loop to continuue
+type ContinueStatement(?label, ?loc) =
+    inherit Statement("ContinueStatement", ?loc = loc)
+    member x.label: Identifier option = label
     
 // type WithStatement
 
