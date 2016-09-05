@@ -421,7 +421,7 @@ module private AstPass =
             // If expression is a let binding we have to wrap it in a function
             let wrap expr placeholder =
                 match expr with
-                | Fable.Sequential _ -> sprintf "(function(){return %s}())" placeholder
+                | Fable.Sequential _ -> sprintf "((()=>%s)())" placeholder
                 | _ -> placeholder
             let args = if info.methodName = "op_ComposeRight" then args else List.rev args
             let f0 = wrap args.Head "$0"

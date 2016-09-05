@@ -31,12 +31,15 @@ module Redux =
 
     let [<Import("createStore","redux")>] private createStore' = obj()
 
-    let inline createStore (reducer: 'TState->'TAction->'TState) (initState: 'TState) =
-        createStore'$((fun state action ->
+    let createStore (reducer: 'TState->'TAction->'TState) (initState: 'TState) =
+        // Check if the action is a union type before applying the reducer
+        let reducer = fun state action ->
             match box action?Case with
             | :? string -> reducer state action
-            | _ -> state), initState, unbox Browser.window?devToolsExtension
-                                      && unbox (Browser.window?devToolsExtension()))
+            | _ -> state
+        match unbox Browser.window?devToolsExtension with
+        | Some devTools -> createStore'$(System.Func<_,_,_> reducer, initState, devTools$())
+        | None -> createStore'$(System.Func<_,_,_> reducer, initState)
         |> unbox<IStore<'TState, 'TAction>>
 
     let dispatch (store: IStore<'TState, 'TAction>) (x: 'TAction) =
@@ -303,7 +306,7 @@ type App(props, ctx) as this =
     let dispatch = Redux.dispatch props.Store
     let getState() = { Todos=Redux.getState props.Store; Dispatch=dispatch }
     do this.state <- getState()
-    // TODO: `(getState >> this.setState)` doesn't work, investigate 
+    // TODO: Change to `(getState >> this.setState)` after fixing the bug 
     do Redux.subscribe props.Store (fun () -> getState() |> this.setState) 
 
     member this.render() =
