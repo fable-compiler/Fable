@@ -269,5 +269,7 @@ let getTypedArrayName (com: ICompiler) numberKind =
     | UInt16 -> "Uint16Array"
     | Int32 -> "Int32Array"
     | UInt32 -> "Uint32Array"
+    | Int64 -> "Float64Array"
+    | UInt64 -> "Float64Array"
     | Float32 -> "Float32Array"
     | Float64 -> "Float64Array"

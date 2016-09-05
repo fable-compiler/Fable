@@ -360,8 +360,8 @@ module Patterns =
         // Units of measure
         | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
         | "System.UInt32" -> Some UInt32
-        | "System.Int64" -> Some Float64
-        | "System.UInt64" -> Some Float64
+        | "System.Int64" -> Some Int64
+        | "System.UInt64" -> Some UInt64
         | "System.Single" -> Some Float32
         | "System.Double"
         // Units of measure

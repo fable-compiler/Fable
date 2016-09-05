@@ -57,7 +57,7 @@ module Util =
         match callee, args with None, arg1::arg2::arg3::_ -> Some (arg1, arg2, arg3) | _ -> None
 
     let (|Integer|Float|) = function
-        | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
+        | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
         | Float32 | Float64 -> Float
 
     let addWarning (com: ICompiler) (i: Fable.ApplyInfo) (warning: string) =
