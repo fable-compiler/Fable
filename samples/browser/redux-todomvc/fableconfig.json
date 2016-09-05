@@ -1,6 +1,6 @@
 {
     "module": "amd",
-    "sourceMaps": false,
+    "sourceMaps": true,
     "projFile": "redux-todomvc.fsx",
     "outDir": "out",
     "scripts": {
