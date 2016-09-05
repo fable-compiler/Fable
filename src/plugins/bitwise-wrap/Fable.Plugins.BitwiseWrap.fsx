@@ -1,7 +1,9 @@
 namespace Fable.Plugins
 
+#if !DOTNETCORE
 #r "../../../build/fable/bin/Fable.Core.dll"
 #r "../../../build/fable/bin/Fable.Compiler.dll"
+#endif
 
 open Fable
 open Fable.AST
@@ -24,6 +26,8 @@ type BitwiseWrapPlugin() =
                         | UInt16 -> Some "$0 & 0xFFFF"
                         | Int32 -> Some "($0 + 0x80000000 >>> 0) - 0x80000000"
                         | UInt32 -> Some "$0 >>> 0"
+                        | Int64 -> Some "Math.trunc($0)" // only 53-bit (still better than nothing)
+                        | UInt64 -> Some "($0 > 0) ? Math.trunc($0) : ($0 >>> 0)" // 53-bit positive, 32-bit negative
                         | _ -> None
                     | _ -> None
 
@@ -43,9 +47,11 @@ type BitwiseWrapPlugin() =
                 | "ToInt16"
                 | "ToUInt16"
                 | "ToInt"
-                | "ToInt32"
                 | "ToUInt"
+                | "ToInt32"
                 | "ToUInt32"
+                | "ToInt64"
+                | "ToUInt64"
                 | "op_UnaryNegation" 
                 | "op_UnaryPlus" ->
                     if info.args.Length <> 1 then
