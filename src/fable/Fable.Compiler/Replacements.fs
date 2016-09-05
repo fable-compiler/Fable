@@ -462,7 +462,8 @@ module private AstPass =
             |> makeConst
             |> makeGet r typ args.Head |> Some
         // Strings
-        | "printFormatToString"         // sprintf
+        | "printFormatToString"             // sprintf
+        | "printFormatToStringThen"         // sprintf (.NET Core)
         | "printFormat" | "printFormatLine" // printf/printfn
         | "printFormatToStringThenFail" ->  // failwithf
             let emit =
@@ -1366,6 +1367,7 @@ module private AstPass =
         | "System.Timers.ElapsedEventArgs" -> info.callee // only signalTime is available here
         | "System.String"
         | "Microsoft.FSharp.Core.StringModule" -> strings com info
+        | "Microsoft.FSharp.Core.PrintfModule"
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
         | "System.Console" -> console com info
         | "System.Diagnostics.Debug"
