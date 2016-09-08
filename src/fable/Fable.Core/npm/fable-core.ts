@@ -82,7 +82,7 @@ export class Util {
     const fullName = Util.getTypeFullName(cons);
     const i = fullName.lastIndexOf('.');
     return i > -1 ? fullName.substr(0, i) : "";
-  }
+  } 
 
   static getTypeName(cons: any): string {
     const fullName = Util.getTypeFullName(cons);
@@ -228,7 +228,7 @@ export class Util {
         }
         else if (v instanceof FMap || v instanceof Map) {
           return Seq.fold(
-            (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; },
+            (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, 
             { $type: v[FSymbol.typeName] || "System.Collections.Generic.Dictionary" }, v);
         }
         else if (v[FSymbol.typeName]) {
@@ -310,11 +310,11 @@ export class Util {
 
 export class GenericComparer<T> implements IComparer<T> {
   Compare: (x:T, y:T) => number;
-
+  
   constructor(f?: (x:T, y:T) => number) {
     this.Compare = f || Util.compare;
   }
-}
+} 
 Util.setInterfaces(GenericComparer.prototype, ["System.IComparer"], "Fable.Core.GenericComparer");
 
 export class Choice<T1, T2> {
@@ -477,7 +477,7 @@ class FDate extends Date {
     if (isNaN(date.getTime()))
       throw "The string is not a valid Date.";
     (<FDate>date).kind = kind ||
-      (typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local);
+      (typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local); 
     return date;
   }
 
@@ -669,7 +669,7 @@ export interface IDisposable {
 export class Timer implements IDisposable {
   public Interval: number;
   public AutoReset: boolean;
-
+  
   private _elapsed: Event<Date>;
   private _enabled: boolean;
   private _isDisposed: boolean;
@@ -1373,7 +1373,7 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
       Tuple3(new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])), xs, Tuple3(new List<T1>(), new List<T2>(), new List<T3>()));
   }
 }
-Util.setInterfaces(List.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpList");
+Util.setInterfaces(List.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpList"); 
 
 export class Seq {
   private static __failIfNone<T>(res: T) {
@@ -2762,7 +2762,7 @@ class SetTree {
   static ofSeq(comparer: IComparer<any>, c: Iterable<any>) {
     var ie = c[Symbol.iterator]();
     return SetTree.mkFromEnumerator(comparer, new SetTree("SetEmpty", []), ie);
-  }
+  }  
 }
 
 class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> {
@@ -2840,7 +2840,7 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
 
   static addInPlace<T>(item: T, s: Set<T>) {
     return s.has(item) ? false : (s.add(item), true);
-  }
+  }  
 
   static remove<T>(item: T, s: FSet<T>) {
     return FSet.from(s.comparer, SetTree.remove(s.comparer, item, s.tree));
@@ -2861,7 +2861,7 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
 
   static unionMany<T>(sets: Iterable<FSet<T>>) {
     // Pass args as FSet.union(s, acc) instead of FSet.union(acc, s)
-    // to discard the comparer of the first empty set
+    // to discard the comparer of the first empty set 
     return Seq.fold((acc, s) => <FSet<T>>FSet.union(s, acc), FSet.create<T>(), sets);
   }
 
@@ -3005,7 +3005,7 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
   }
   static maxElement = FSet.maximumElement;
 }
-Util.setInterfaces(FSet.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpSet");
+Util.setInterfaces(FSet.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpSet"); 
 
 export { FSet as Set }
 
@@ -3619,7 +3619,7 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
     return MapTree.tryPick(f, map.tree);
   }
 }
-Util.setInterfaces(FMap.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpMap");
+Util.setInterfaces(FMap.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpMap"); 
 
 export { FMap as Map }
 
@@ -3662,7 +3662,7 @@ const AsyncImpl = {
     return (ctx: IAsyncContext<T>) => {
       if (ctx.cancelToken.isCancelled)
         ctx.onCancel("cancelled");
-      else if (ctx.trampoline.incrementAndCheck())
+      else if (ctx.trampoline.incrementAndCheck()) 
         ctx.trampoline.hijack(() => {
           try {
             return f(ctx);
