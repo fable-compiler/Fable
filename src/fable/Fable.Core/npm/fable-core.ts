@@ -774,7 +774,8 @@ class FString {
           const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
           rep = FString.padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
         }
-        return prefix + (plusPrefix ? "+" + rep : rep);
+        let once = prefix + (plusPrefix ? "+" + rep : rep);
+        return once.replace(/%/g, "%%");
       });
     }
 
