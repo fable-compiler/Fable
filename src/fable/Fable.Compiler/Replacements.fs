@@ -658,7 +658,7 @@ module private AstPass =
                 match upper with
                 | Null _ -> makeGet None t ar (makeConst "length")
                 | _ -> Fable.Apply(Fable.Value(Fable.BinaryOp BinaryPlus),
-                                [upper; makeConst 1], Fable.ApplyMeth, t, None) 
+                                [upper; makeConst 1], Fable.ApplyMeth, t, None)
             InstanceCall (ar, "slice", [lower; upper])
             |> makeCall com i.range i.returnType |> Some
         | "setArraySlice", (None, args) ->
@@ -930,7 +930,7 @@ module private AstPass =
     // Functions that must return a collection of the same type
     let implementedSeqBuildFunctions =
         set [ "append"; "choose"; "collect"; "concat"; "distinct"; "distinctBy";
-              "filter"; "where"; "groupBy"; "initialize";
+              "except"; "filter"; "where"; "groupBy"; "initialize";
               "map"; "mapIndexed"; "map2"; "mapIndexed2"; "map3";
               "ofArray"; "pairwise"; "permute"; "replicate"; "reverse";
               "scan"; "scanBack"; "singleton"; "skip"; "skipWhile";
