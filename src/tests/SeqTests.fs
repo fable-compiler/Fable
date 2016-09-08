@@ -1,4 +1,4 @@
-[<NUnit.Framework.TestFixture>] 
+[<NUnit.Framework.TestFixture>]
 module Fable.Tests.Seqs
 open NUnit.Framework
 open Fable.Tests.Util
@@ -60,7 +60,7 @@ let ``Seq.choose works``() =
     let xs = [1.; 2.; 3.; 4.]
     let zs = xs |> Seq.choose (fun x ->
        if x > 2. then Some x
-       else None) 
+       else None)
     sumFirstTwo zs
     |> equal 7.
 
@@ -138,7 +138,7 @@ let ``Seq.tryFindIndexBack works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> Seq.tryFindIndex ((>) 4.) |> equal (Some 0)
     xs |> Seq.tryFindIndexBack ((>) 4.) |> equal (Some 2)
-    
+
 [<Test>]
 let ``Seq.fold works``() =
     let xs = [1.; 2.; 3.; 4.]
@@ -189,7 +189,7 @@ let ``Seq.init works``() =
     let xs = Seq.init 4 float
     sumFirstTwo xs
     |> equal 1.
-    
+
 [<Test>]
 let ``Seq.isEmpty works``() =
     let xs = [1]
@@ -246,14 +246,14 @@ let ``Seq.mapi works``() =
     |> equal 1.
 
 [<Test>]
-let ``Seq.mapFold works`` () =   
+let ``Seq.mapFold works`` () =
     let xs = [1y; 2y; 3y; 4y]
     let result = xs |> Seq.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
     fst result |> Seq.sum |> equal 20y
     snd result |> equal 10y
 
 [<Test>]
-let ``Seq.mapFoldBack works`` () =   
+let ``Seq.mapFoldBack works`` () =
     let xs = [1.; 2.; 3.; 4.]
     let result = Seq.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
     fst result |> Seq.sum |> equal -20.
@@ -329,13 +329,13 @@ let ``Seq.item works``() =
     let xs = [1.; 2.]
     Seq.item 1 xs
     |> equal 2.
-    
+
 [<Test>]
 let ``Seq.tryItem works``() =
     let xs = [1.; 2.; 3.; 4.]
     Seq.tryItem 3 xs |> equal (Some 4.)
     Seq.tryItem 4 xs |> equal None
-    Seq.tryItem -1 xs |> equal None    
+    Seq.tryItem -1 xs |> equal None
 
 [<Test>]
 let ``Seq.ofArray works``() =
@@ -377,7 +377,7 @@ let ``Seq.range works``() =
     seq{0. .. 2. .. 9.}
     |> Seq.reduce (+)
     |> equal 20.
-    
+
     seq{9 .. -2 .. 0}
     |> Seq.reduce (+)
     |> equal 25
@@ -386,7 +386,7 @@ let ``Seq.range works``() =
     |> Seq.toArray
     |> System.String
     |> equal "abcdef"
-    
+
     seq{'z' .. 'a'}
     |> Seq.length
     |> equal 0
@@ -409,7 +409,7 @@ let ``Seq.sort works``() =
     let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
     xs |> Seq.sort |> Seq.take 3 |> Seq.sum |> equal 0.
     let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
-    ys |> Seq.sort |> Seq.item 1 |> equal "a" 
+    ys |> Seq.sort |> Seq.item 1 |> equal "a"
 
 [<Test>]
 let ``Seq.sortDescending works``() =
@@ -535,8 +535,8 @@ let ``Seq.zip3 works``() =
 
 let ``Seq.cache works``() =
     let count = ref 0
-    let xs = 
-       1 |> Seq.unfold(fun i -> 
+    let xs =
+       1 |> Seq.unfold(fun i ->
           count := !count + 1
           if i <= 10 then Some(i, i+1)
           else None)
@@ -556,13 +556,13 @@ let ``Seq.compareWith works``() =
     let xs = [1; 2; 3; 4]
     let ys = [1; 2; 3; 5]
     let zs = [1; 2; 3; 3]
-    Seq.compareWith (fun x y -> x - y) xs xs 
+    Seq.compareWith (fun x y -> x - y) xs xs
     |> equal 0
-    Seq.compareWith (fun x y -> x - y) xs ys 
+    Seq.compareWith (fun x y -> x - y) xs ys
     |> equal -1
-    Seq.compareWith (fun x y -> x - y) xs zs 
+    Seq.compareWith (fun x y -> x - y) xs zs
     |> equal 1
-    
+
 [<Test>]
 let ``Seq.countBy works``() =
     let xs = [1; 2; 3; 4]
@@ -609,7 +609,7 @@ let ``Seq.last works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> Seq.last
     |> equal 4.
-    
+
 [<Test>]
 let ``Seq.tryLast works``() =
     let xs = [1.; 2.; 3.; 4.]
@@ -650,7 +650,7 @@ let ``Seq.take works``() =
     xs |> Seq.take 2
     |> Seq.last
     |> equal 2.
-    // Seq.take should throw an exception if there're not enough elements 
+    // Seq.take should throw an exception if there're not enough elements
     try xs |> Seq.take 20 |> Seq.length with _ -> -1
     |> equal -1
 
@@ -667,7 +667,7 @@ let ``Seq.truncate works``() =
     xs |> Seq.truncate 2
     |> Seq.last
     |> equal 2.
-    // Seq.truncate shouldn't throw an exception if there're not enough elements 
+    // Seq.truncate shouldn't throw an exception if there're not enough elements
     try xs |> Seq.truncate 20 |> Seq.length with _ -> -1
     |> equal 5
 
@@ -675,7 +675,7 @@ let ``Seq.truncate works``() =
 let ``Seq.where works``() =
     let xs = [1.; 2.; 3.; 4.; 5.]
     xs |> Seq.where (fun i -> i <= 3.)
-    |> Seq.length 
+    |> Seq.length
     |> equal 3
 
 [<Test>]
@@ -685,3 +685,7 @@ let ``Seq.except works``() =
     List.except [1] [1; 1; 1; 1] |> List.isEmpty |> equal true
     List.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> List.isEmpty |> equal true
     List.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> List.isEmpty |> equal true
+    List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
+    let m = Map.empty |> (fun m -> m.Add(1, 2))
+    let m2 = Map.ofList [(1, 2)]
+    List.except [m] [m2] |> List.isEmpty |> equal true
