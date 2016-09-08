@@ -1573,10 +1573,10 @@ export class Seq {
   }
 
   static except<T>(itemsToExclude: Iterable<T>, source: Iterable<T>) {
-    const exclusions = Array.from(itemsToExclude);
-    const withoutExclusions = (element: T) => !exclusions.some(item => item === element);
+    const exclusionItems = Array.from(itemsToExclude);
+    const testIsNotInExclusionItems = (element: T) => !exclusionItems.some(item => item === element);
 
-    return Seq.filter(withoutExclusions, source);
+    return Seq.filter(testIsNotInExclusionItems, source);
   }
 
   static exists<T>(f: (x: T) => boolean, xs: Iterable<T>) {
