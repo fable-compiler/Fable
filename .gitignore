@@ -10,6 +10,8 @@ src/fable/Fable.Core/npm/fable-core.min.js
 src/fable/Fable.Core/npm/fable-core.d.ts
 src/fable/Fable.Core/npm/es2015.js
 
+src/tools/temp/
+
 samples/**/out/
 samples/**/bundle.js*
 samples/other/fable-helpers-sample/js/*.*

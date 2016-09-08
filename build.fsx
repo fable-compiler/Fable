@@ -316,6 +316,17 @@ Target "MochaTest" (fun _ ->
     Npm.script testsBuildDir "test" []
 )
 
+let quickTest _ =
+    FileUtils.mkdir "src/tools/temp/node_modules/fable-core/"
+    FileUtils.cp "src/fable/Fable.Core/npm/package.json" "src/tools/temp/node_modules/fable-core/"
+    FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "src/tools/temp/node_modules/fable-core/"
+    Node.run "." "build/Fable" ["src/tools/QuickTest.fsx -o temp"]
+    Node.run "." "src/tools/temp/QuickTest.js" []
+
+Target "QuickFableCompilerTest" quickTest
+
+Target "QuickFableCoreTest" quickTest
+
 Target "Plugins" (fun _ ->
     !! "src/plugins/**/*.fsx"
     |> Seq.iter (fun fsx -> Util.compileScript [] (Path.GetDirectoryName fsx) fsx)
@@ -357,14 +368,12 @@ Target "PublishCore" (fun _ ->
 )
 
 Target "PublishCompilerNetcore" (fun _ ->
-
-
     // Check if version is prerelease or not
     if releaseCompiler.Value.NugetVersion.IndexOf("-") > 0 then ["--tag next"] else []
     |> Npm.command "build/fable" "publish" 
 )
 
-Target "FableCore" (fun _ ->
+Target "FableCoreRelease" (fun _ ->
     let fableCoreNpmDir = "src/fable/Fable.Core/npm"
 
     // Update fable-core npm version
@@ -395,6 +404,13 @@ Target "FableCore" (fun _ ->
     Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
     // Minimize 
     Npm.script fableCoreNpmDir "uglifyjs" ["fable-core.js -c -m -o fable-core.min.js"] 
+)
+
+Target "FableCoreDebug" (fun _ ->
+    let fableCoreNpmDir = "src/fable/Fable.Core/npm"
+    Npm.script fableCoreNpmDir "tsc" ["fable-core.ts --target ES2015 --declaration"]
+    setEnvironVar "BABEL_ENV" "target-umd"
+    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
 )
 
 Target "UpdateSampleRequirements" (fun _ ->
@@ -431,7 +447,7 @@ Target "All" ignore
 
 // Build order
 "Clean"
-  ==> "FableCore"
+  ==> "FableCoreRelease"
   ==> "FableCompilerRelease"
   ==> "CompileFableImportTests"
   ==> "Plugins"
@@ -439,7 +455,7 @@ Target "All" ignore
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
 
-"FableCore"
+"FableCoreRelease"
   ==> "PublishCore"
 
 "Clean"
@@ -447,6 +463,12 @@ Target "All" ignore
 
 "FableCompilerNetcore"
   ==> "PublishCompilerNetcore"
+
+"FableCompilerDebug"
+  ==> "QuickFableCompilerTest"
+
+"FableCoreDebug"
+  ==> "QuickFableCoreTest"
 
 // Start build
 RunTargetOrDefault "All"
