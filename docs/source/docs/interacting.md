@@ -4,12 +4,12 @@
 
 There are several ways to interact with the JavaScript world:
 
-- [Dynamic programming](#dynamic-programming)
-- [Foreign interfaces](#foreign-interfaces)
-- [Special attributes](#special-attributes)
-- [Calling F# code from JavaScript](#calling-f-code-from-javascript)
-- [JSON serialization](#json-serialization)
-- [Publishing a Fable package](#publishing-a-fable-package)
+- [Dynamic programming](#Dynamic-programming)
+- [Foreign interfaces](#Foreign-interfaces)
+- [Special attributes](#Special-attributes)
+- [Calling F# code from JavaScript](#Calling-F-code-from-JavaScript)
+- [JSON serialization](#JSON-serialization)
+- [Publishing a Fable package](#Publishing-a-Fable-package)
 
 ## Dynamic programming
 
@@ -21,6 +21,10 @@ as follows:
 open Fable.Core.JsInterop
 
 printfn "Value: %O" jsObject?myProperty
+
+let pname = "myProperty"
+
+printfn "Value: %O" jsObject?(pname) // Access with a string reference
 
 jsObject?myProperty <- 5 // Assignment is also possible
 ```
