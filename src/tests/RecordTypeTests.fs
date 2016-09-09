@@ -75,6 +75,19 @@ let ``Records can be JSON serialized forth and back``() =
     equal true (box parent2 :? Parent) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed
 
+[<Test>]
+let ``Records serialized with Json.NET can be deserialized``() =
+    // let x = { a="Hi"; b=20 }
+    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+    let json = """{"$type":"Fable.Tests.RecordTypes+Child","a":"Hi","b":10}"""
+    #if FABLE_COMPILER
+    let x2 = Fable.Core.JsInterop.ofJson<Child> json
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Child> json
+    #endif
+    x2.a |> equal "Hi"
+    x2.b |> equal 10
+
 #if FABLE_COMPILER
 [<Test>]
 let ``Trying to deserialize a JSON of different type throws an exception``() =

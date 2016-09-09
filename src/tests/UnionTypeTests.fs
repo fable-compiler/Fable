@@ -171,18 +171,52 @@ let ``Unions can be JSON serialized forth and back``() =
     equal true (box tree2 :? Tree) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed
 
-// TODO: Json.NET doesn't save the type name of discriminated unions 
-// [<Test>]
-// let ``Unions serialized with Json.NET can be deserialized``() =
-//     // let x = Leaf 5
-//     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-//     let json = """{"Case":"Leaf","Fields":[5]}"""
-//     #if FABLE_COMPILER
-//     let x2 = Fable.Core.JsInterop.ofJson<Tree> json
-//     #else
-//     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Tree> json
-//     #endif
-//     x2.Sum() |> equal 5
+
+#if !FABLE_COMPILER
+open FSharp.Reflection
+open Newtonsoft.Json
+open Newtonsoft.Json.Linq
+
+type UnionTypeInfoConverter() =
+    inherit JsonConverter()
+    override x.CanConvert t = FSharpType.IsUnion t
+    override x.ReadJson(reader, t, _, serializer) =
+        let token = JObject()
+        for prop in JToken.ReadFrom(reader).Children<JProperty>() do
+            if prop.Name <> "$type" then
+                token.Add(prop)
+        token.ToObject(t)
+    override x.WriteJson(writer, v, serializer) =
+        let t = v.GetType()
+        let typeFulName = t.FullName.Substring(0, t.FullName.LastIndexOf("+"))
+        let uci, fields = FSharpValue.GetUnionFields(v, t)
+        writer.WriteStartObject()
+        writer.WritePropertyName("$type")
+        writer.WriteValue(typeFulName)
+        writer.WritePropertyName("Case")
+        writer.WriteValue(uci.Name)
+        writer.WritePropertyName("Fields")
+        writer.WriteStartArray()
+        for field in fields do writer.WriteValue(field)
+        writer.WriteEndArray()
+        writer.WriteEndObject()
+#endif
+
+[<Test>]
+let ``Unions serialized with Json.NET can be deserialized``() =    
+    #if FABLE_COMPILER
+    let json = """{"$type":"Fable.Tests.UnionTypes+Tree","Case":"Leaf","Fields":[5]}"""
+    let x2 = Fable.Core.JsInterop.ofJson<Tree> json
+    #else
+    let x = Leaf 5
+    let settings =
+        JsonSerializerSettings(
+            Converters = [|UnionTypeInfoConverter()|],
+            TypeNameHandling = TypeNameHandling.All)
+    let json = JsonConvert.SerializeObject(x, settings)
+    let x2 = JsonConvert.DeserializeObject<Tree>(json, settings)
+    #endif
+    x2.Sum() |> equal 5
 
 [<Test>]
 let ``Option.isSome/isNone works``() =
