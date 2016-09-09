@@ -157,6 +157,17 @@ let ``Array indexer setter works``() =
     equal 10. x.[3]
 
 [<Test>]
+let ``Array getter works``() =  
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    Array.get x 2 |> equal 3.
+
+[<Test>]
+let ``Array setter works``() =  
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    Array.set x 3 10.
+    equal 10. x.[3]
+
+[<Test>]
 let ``Array.Length works``() =   
     let xs = [|1.; 2.; 3.; 4.|]
     xs.Length |> equal 4
