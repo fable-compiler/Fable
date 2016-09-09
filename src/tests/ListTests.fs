@@ -646,4 +646,15 @@ type List(x: int) =
 let ``Types with same name as imports work``() =
       let li = [List 5]
       equal 5 li.Head.Value 
-    
+
+type ExceptFoo = { Bar:string }
+[<Test>]
+let ``List.except works``() =
+    List.except [2] [1; 3; 2] |> List.last |> equal 3
+    List.except [2] [2; 4; 6] |> List.head |> equal 4
+    List.except [1] [1; 1; 1; 1] |> List.isEmpty |> equal true
+    List.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> List.isEmpty |> equal true
+    List.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> List.isEmpty |> equal true
+    List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
+    List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
+    List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true

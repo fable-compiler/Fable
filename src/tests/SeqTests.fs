@@ -678,14 +678,15 @@ let ``Seq.where works``() =
     |> Seq.length
     |> equal 3
 
+type ExceptFoo = { Bar:string }
 [<Test>]
 let ``Seq.except works``() =
     Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3
     Seq.except [2] [2; 4; 6] |> Seq.head |> equal 4
-    List.except [1] [1; 1; 1; 1] |> List.isEmpty |> equal true
-    List.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> List.isEmpty |> equal true
-    List.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> List.isEmpty |> equal true
-    List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
-    let m = Map.empty |> (fun m -> m.Add(1, 2))
-    let m2 = Map.ofList [(1, 2)]
-    List.except [m] [m2] |> List.isEmpty |> equal true
+    Seq.except [1] [1; 1; 1; 1] |> Seq.isEmpty |> equal true
+    Seq.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> Seq.isEmpty |> equal true
+    Seq.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> Seq.isEmpty |> equal true
+    Seq.except [(1, 2)] [(1, 2)] |> Seq.isEmpty |> equal true
+    Seq.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> Seq.isEmpty |> equal true
+    Seq.except [|49|] [|7; 49|] |> Seq.last|> equal 7
+    Seq.except [{ Bar= "test" }] [{ Bar = "test" }] |> Seq.isEmpty |> equal true
