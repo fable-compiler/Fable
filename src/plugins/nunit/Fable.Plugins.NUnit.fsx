@@ -90,9 +90,9 @@ module Util =
             |> Fable.Util.makeCall com i.range i.returnType |> Some
         | _ -> None
         
-    let declareModMember range publicName privateName _isPublic _isMutable _modIdent expr =
+    let declareModMember range publicName privateName _isPublic isMutable _modIdent expr =
         let privateName = defaultArg privateName publicName
-        Util.varDeclaration (Some range) (Util.identFromName privateName) expr
+        Util.varDeclaration (Some range) (Util.identFromName privateName) isMutable expr
         :> Babel.Statement |> U2.Case1 |> List.singleton
         
     let castStatements (decls: U2<Babel.Statement, Babel.ModuleDeclaration> list) =

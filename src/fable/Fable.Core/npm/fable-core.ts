@@ -214,7 +214,9 @@ export class Util {
       return source;
     }
   }
+}
 
+export class Serialize {
   static toJson(o: any): string {
     return JSON.stringify(o, (k, v) => {
       if (ArrayBuffer.isView(v)) {
@@ -759,7 +761,7 @@ class FString {
             rep = rep.toExponential(precision); break;
           case "A":
             try {
-              rep = (rep instanceof FMap ? "map " : rep instanceof FSet ? "set " : "") + JSON.stringify(rep, function (k, v) {
+              rep = JSON.stringify(rep, function (k, v) {
                 return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v) : v;
               });
             }
@@ -3773,9 +3775,9 @@ export class AsyncBuilder {
   Zero() {
     return AsyncImpl.protectedCont((ctx: IAsyncContext<Unit>) => ctx.onSuccess(Nothing));
   }
-}
 
-export const defaultAsyncBuilder = new AsyncBuilder();
+  static singleton = new AsyncBuilder();
+}
 
 export class Async {
   static awaitPromise<T>(p: Promise<T>) {
