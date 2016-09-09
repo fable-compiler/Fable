@@ -773,3 +773,15 @@ let ``Array.tryLast works``() =
 let ``Array.tail works``() =
     let xs = [|1.; 2.; 3.; 4.|]
     Array.tail xs |> Array.length |> equal 3
+
+type ExceptFoo = { Bar:string }
+[<Test>]
+let ``Array.except works``() =
+    Array.except [|2|] [|1; 3; 2|] |> Array.last |> equal 3
+    Array.except [|2|] [|2; 4; 6|] |> Array.head |> equal 4
+    Array.except [|1|] [|1; 1; 1; 1|] |> Array.isEmpty |> equal true
+    Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 'e'; 's'; 't'|] |> Array.isEmpty |> equal true
+    Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 't'|] |> Array.isEmpty |> equal true
+    Array.except [|(1, 2)|] [|(1, 2)|] |> Array.isEmpty |> equal true
+    Array.except [|Map.empty |> (fun m -> m.Add(1, 2))|] [|Map.ofList [(1, 2)]|] |> Array.isEmpty |> equal true
+    Array.except [|{ Bar= "test" }|] [|{ Bar = "test" }|] |> Array.isEmpty |> equal true

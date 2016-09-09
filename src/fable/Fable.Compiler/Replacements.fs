@@ -930,7 +930,7 @@ module private AstPass =
     // Functions that must return a collection of the same type
     let implementedSeqBuildFunctions =
         set [ "append"; "choose"; "collect"; "concat"; "distinct"; "distinctBy";
-              "filter"; "where"; "groupBy"; "initialize";
+              "except"; "filter"; "where"; "groupBy"; "initialize";
               "map"; "mapIndexed"; "map2"; "mapIndexed2"; "map3";
               "ofArray"; "pairwise"; "permute"; "replicate"; "reverse";
               "scan"; "scanBack"; "singleton"; "skip"; "skipWhile";
