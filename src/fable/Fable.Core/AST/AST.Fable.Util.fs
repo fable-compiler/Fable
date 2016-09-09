@@ -232,13 +232,12 @@ let makeDelegate (com: ICompiler) arity (expr: Expr) =
                         ApplyMeth, Any, expr.Range))
             Lambda (lambdaArgs, lambdaBody) |> Value
         | _ -> expr // Do nothing
-    match expr, expr.Type with
-    | Value (Lambda (args, body)), _ ->
+    match expr, expr.Type, arity with
+    | Value (Lambda (args, body)), _, _ ->
         match flattenLambda arity args body with
         | Some expr -> expr
         | None -> wrap arity expr
-    | _, Function(args,_) ->
-        let arity = defaultArg arity (List.length args)
+    | _, Function(args,_), Some arity ->
         wrap (Some arity) expr
     | _ -> expr
 

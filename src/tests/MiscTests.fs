@@ -71,6 +71,7 @@ let ``Dynamic application works``() =
                     "multiply" ==> Func<_,_,_>(fun x y -> x * y)
                 ]
             "foo" ==> "foo"
+            "apply" ==> fun (del: Func<int,int,int>) -> del.Invoke(2,3)
         ]
     dynObj?add(2,2) |> equal (box 4)
     // Assigning dynamic access result to a value
@@ -83,6 +84,10 @@ let ``Dynamic application works``() =
     // Using $ operator
     dynObj?add $ (2,2) |> equal (box 4)
     dynObj?foo |> unbox |> equal "foo"
+    // Delegates are not modified when applied dynamically
+    let del = Func<_,_,_>(fun x y -> y - x)
+    dynObj?apply(del) |> unbox |> equal 1    
+    dynObj?apply(Func<_,_,_>(fun x y -> x - y)) |> unbox |> equal -1    
 
 let myMeth (x: int) (y: int) = x - y
 
@@ -347,7 +352,18 @@ let ``Object expression from class works``() =
     match box o with
     | :? SomeClass as c -> c.ToString()
     | _ -> "Unknown"
-    |> equal "Hello World" 
+    |> equal "Hello World"
+
+type RecursiveType(subscribe) as this =
+    let getNumber() = 3
+    do subscribe (getNumber >> this.Add2)
+    member this.Add2(i) = i + 2 
+
+[<Test>]
+let ``Composition with recursive this works``() =
+    let mutable x = 0
+    RecursiveType(fun f -> x <- f()) |> ignore
+    equal 5 x
         
 module Extensions =
     type IDisposable with
