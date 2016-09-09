@@ -227,6 +227,17 @@ let ``Option.bind works``() =
         fun () -> match value with Some x -> value <- None; Some x | None -> None
     getOnlyOnce() |> Option.bind ((+) "Hello " >> Some) |> equal (Some "Hello Alfonso")
 
+[<Test>]
+let ``Option.filter works``() = // See #390
+    let optionToString opt = 
+        match opt with
+        | None -> "None"
+        | Some value -> sprintf "Some %s" value
+    Some 7 |> Option.filter (fun _ -> false) |> Option.map string |> optionToString |> equal "None"
+    Some 7 |> Option.filter (fun _ -> true)  |> Option.map string |> optionToString |> equal "Some 7"
+    Some "A" |> Option.filter (fun _ -> false) |> optionToString |> equal "None"
+    Some "A" |> Option.filter (fun _ -> true) |> optionToString |> equal "Some A"
+
 type OptTest = OptTest of int option
 
 [<Test>]

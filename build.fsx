@@ -320,8 +320,10 @@ let quickTest _ =
     FileUtils.mkdir "src/tools/temp/node_modules/fable-core/"
     FileUtils.cp "src/fable/Fable.Core/npm/package.json" "src/tools/temp/node_modules/fable-core/"
     FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "src/tools/temp/node_modules/fable-core/"
-    Node.run "." "build/Fable" ["src/tools/QuickTest.fsx -o temp"]
+    Node.run "." "build/Fable" ["src/tools/QuickTest.fsx -o temp -m commonjs"]
     Node.run "." "src/tools/temp/QuickTest.js" []
+
+Target "QuickTest" quickTest
 
 Target "QuickFableCompilerTest" quickTest
 

@@ -718,6 +718,16 @@ module private AstPass =
                     Fable.Apply(f, [e], Fable.ApplyMeth, Fable.Any, i.range),
                     e, i.range))
             |> Some
+        | "filter" ->
+            // emit i "$1 != null && $0($1) ? $1 : null" i.args |> Some
+            let f, arg = i.args.Head, i.args.Tail.Head
+            arg |> wrapInLet (fun e ->
+                let cond =
+                    [ makeEqOp i.range [e; Fable.Value Fable.Null] BinaryUnequal
+                      Fable.Apply(f, [e], Fable.ApplyMeth, Fable.Any, i.range) ]
+                    |> makeLogOp i.range <| LogicalAnd
+                Fable.IfThenElse(cond, e, Fable.Value Fable.Null, i.range))
+            |> Some
         | "toArray" -> toArray i.range i.args.Head |> Some
         | meth ->
             let args =
