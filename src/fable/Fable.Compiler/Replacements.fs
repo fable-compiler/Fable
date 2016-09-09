@@ -1154,6 +1154,16 @@ module private AstPass =
             | _ -> None
         | Array ->
             match i.methodName with
+            | "get" ->
+                match i.callee, i.args with
+                | TwoArgs (ar, idx) ->
+                    makeGet i.range i.returnType ar idx |> Some
+                | _ -> None
+            | "set" ->
+                match i.callee, i.args with
+                | ThreeArgs (ar, idx, value) ->
+                    Fable.Set (ar, Some idx, value, i.range) |> Some
+                | _ -> None
             | "take" -> icall "slice" (i.args.Tail.Head, [makeConst 0; i.args.Head])
             | "skip" -> icall "slice" (i.args.Tail.Head, [i.args.Head])
             | "copy" -> icall "slice" (i.args.Head, [])
