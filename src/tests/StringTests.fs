@@ -34,11 +34,15 @@ let ``sprintf with escaped percent symbols works``() = // See #195
       |> equal "Ratio1: 21.38% Ratio2: 79.99%"
 
 [<Test>]
-let ``String slicing works``() =
-      let s = "cat and dog"
-      sprintf "%s" s.[2..8] |> equal "t and d"
-      sprintf "%s" s.[2..] |> equal "t and dog"
-      sprintf "%s" s.[..8] |> equal "cat and d"
+let ``sprintf with percent symbols in arguments works``() = // See #329
+      let same s = sprintf "%s" s |> equal s
+      same "%"
+      same "%%"
+      same "%%%"
+      same "%%%%"
+      same "% %"
+      same "%% %%"
+      same "%% % % %%"
 
 #if FABLE_COMPILER
 open Fable.Core.JsInterop
@@ -49,6 +53,13 @@ let ``sprintf "%A" with circular references doesn't crash``() = // See #338
       o?self <- o
       sprintf "%A" o |> ignore
 #endif
+
+[<Test>]
+let ``String slicing works``() =
+      let s = "cat and dog"
+      sprintf "%s" s.[2..8] |> equal "t and d"
+      sprintf "%s" s.[2..] |> equal "t and dog"
+      sprintf "%s" s.[..8] |> equal "cat and d"
 
 [<Test>]
 let ``String.Format works``() =
