@@ -9,6 +9,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Compiler", "Fable.Com
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Client.Node", "Fable.Client.Node\Fable.Client.Node.fsproj", "{6C87964E-0B32-48D4-BAA3-BDDBD7264C97}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Client.Suave", "Fable.Client.Suave\Fable.Client.Suave.fsproj", "{DC81A9C2-8051-423A-A5ED-E24188EF665C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{6C87964E-0B32-48D4-BAA3-BDDBD7264C97}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6C87964E-0B32-48D4-BAA3-BDDBD7264C97}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6C87964E-0B32-48D4-BAA3-BDDBD7264C97}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DC81A9C2-8051-423A-A5ED-E24188EF665C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DC81A9C2-8051-423A-A5ED-E24188EF665C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DC81A9C2-8051-423A-A5ED-E24188EF665C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DC81A9C2-8051-423A-A5ED-E24188EF665C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

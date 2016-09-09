@@ -17,9 +17,11 @@ type CompilerOptions = {
 type LogMessage =
     | Warning of string
     | Info of string
+    | Error of string
     override x.ToString() =
         match x with
         | Warning s -> "[WARNING] " + s
+        | Error s -> "[ERROR] " + s
         | Info s -> "[INFO] " + s
     
 type IPlugin =
