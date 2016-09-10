@@ -67,8 +67,8 @@ let ``ResizeArray.Count works``() =
 let ``ResizeArray.Find works``() =
     let li = ResizeArray<_>()
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
-    let f = System.Predicate<_> (fun x -> x = 1.)
-    equal 1. <| li.Find f
+    System.Predicate<_> (fun x -> x = 1.)  |> li.Find |> equal 1.
+    System.Predicate<_> (fun x -> x = -1.) |> li.Find |> equal 0.
 
 [<Test>]
 let ``ResizeArray indexer getter works``() =
