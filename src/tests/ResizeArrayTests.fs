@@ -64,6 +64,13 @@ let ``ResizeArray.Count works``() =
     equal 5 li.Count
 
 [<Test>]
+let ``ResizeArray.Find works``() =
+    let li = ResizeArray<_>()
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
+    let f = System.Predicate<_> (fun x -> x = 1.)
+    equal 1. <| li.Find f
+
+[<Test>]
 let ``ResizeArray indexer getter works``() =
     let li = ResizeArray<_>()
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
