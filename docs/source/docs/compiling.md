@@ -117,7 +117,7 @@ Project references can be passed using a plain object:
 There are some options exclusive to `fableconfig.json`.
 
 * **scripts**: Commands that should be executed during specific phases of compilation.
-  Currently `prebuild`, `postbuild` and `onwatch` are accepted. For example, if you want
+  Currently `prebuild` and `postbuild` are accepted. For example, if you want
   to run tests defined in the npm `package.json` file after the build you can write.
 
 ```json
@@ -127,6 +127,13 @@ There are some options exclusive to `fableconfig.json`.
     }
 }
 ```
+
+> The scripts will run as if you typed the command on a terminal window from
+the directory where `fableconfig.json` is. Fable scripts are not as powerful
+as npm scripts in `package.json`: if you want to run a binary from a local
+npm package you must specify the full path (e.g. use `node node_modules/webpack/bin/webpack`
+instead of just `webpack`). But you can always call an npm script from `fableconfig.json`
+as in the sample above.
 
 * **targets**: You can group different options in targets. If you don't want,
   say, source maps when deploying for production, you can use a config file as
