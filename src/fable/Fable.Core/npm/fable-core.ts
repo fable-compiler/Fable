@@ -2019,11 +2019,11 @@ export class Seq {
     });
   }
 
-  static tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+  static tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T) {
     for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
       const cur = iter.next();
       if (cur.done)
-        return null;
+        return defaultValue === void 0 ? null : defaultValue;
       if (f(cur.value, i))
         return cur.value;
     }

@@ -104,6 +104,12 @@ module Util =
         | [genArg] -> genArg
         | _ -> Fable.Any
 
+    let defaultof (t: Fable.Type) =
+        match t with
+        | Fable.Number _ -> makeConst 0
+        | Fable.Boolean _ -> makeConst false
+        | _ -> Fable.Null |> Fable.Value
+
     let toChar com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
         match arg.Type with
         | Fable.String -> arg
@@ -1062,7 +1068,8 @@ module private AstPass =
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, _)) -> makeJsArray arVals
                 | _ -> emit i "Array.from($0)" i.args |> Some
         | "find" when Option.isSome c ->
-            icall "find" (c.Value, args) |> Some
+            let defaultValue = defaultof i.calleeTypeArgs.Head 
+            ccall "Seq" "tryFind" [args.Head;c.Value;defaultValue] |> Some
         | "add" ->
             icall "push" (c.Value, args) |> Some
         | "addRange" ->
@@ -1285,11 +1292,7 @@ module private AstPass =
     let unchecked com (info: Fable.ApplyInfo) =
         match info.methodName with
         | "defaultOf" ->
-            match info.methodTypeArgs with
-            | [Fable.Number _] -> makeConst 0
-            | [Fable.Boolean _] -> makeConst false
-            | _ -> Fable.Null |> Fable.Value
-            |> Some
+            defaultof info.methodTypeArgs.Head |> Some
         | "compare" ->
             CoreLibCall("Util", Some "compare", false, info.args)
             |> makeCall com info.range info.returnType |> Some
