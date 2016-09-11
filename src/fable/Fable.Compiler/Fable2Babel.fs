@@ -631,8 +631,7 @@ module Util =
                     Babel.CatchClause (ident param,
                         transformBlock com ctx (Some ret) body, ?loc=body.Range))
             let finalizer =
-                finalizer |> Option.map (fun finalizer ->
-                    transformBlock com ctx None body)
+                finalizer |> Option.map (transformBlock com ctx None)
             upcast Babel.TryStatement (transformBlock com ctx (Some ret) body,
                 ?handler=handler, ?finalizer=finalizer, ?loc=range)
         
