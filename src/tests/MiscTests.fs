@@ -624,6 +624,20 @@ let ``use doesn't return on finally clause`` () = // See #211
         c.Foo()
     foo() |> equal 5
 
+type DisposableBar(v) =
+    do v := 10
+    interface IDisposable with
+        member __.Dispose () = v := 20
+
+[<Test>]
+let ``use calls Dispose at the end of the scope`` () =
+    let cell = ref 0
+    let res = 
+        use c = new DisposableBar(cell)
+        !cell 
+    res |> equal 10
+    !cell |> equal 20
+
 #if FABLE_COMPILER
 [<Test>]
 let ``Referencing a Fable project through a dll works``() =
