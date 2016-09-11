@@ -268,7 +268,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         // (Unfortunately it seems `ProjectFileNames` is not reliable)
 
         // Print F# compiler options (verbose mode) on first compilation
-        // (whe projInfo.fileMask is None)
+        // (when projInfo.fileMask is None)
         if Option.isNone projInfo.FileMask then
             projInfo.ProjectOpts.OtherOptions
             |> String.concat "\n" |> sprintf "\nF# COMPILER OPTIONS:\n%s\n"
@@ -321,9 +321,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         // ----------
         com.GetLogs() |> Seq.map (string >> Log) |> printMessages
 
-        // Send empty string to signal end of compilation and return
-        // ---------------------------------------------------------
-        Console.Out.WriteLine()
+        Console.Out.WriteLine "[SIGSUCCESS]"
         true, FSProjInfo(projInfo.ProjectOpts, ?fileMask=projInfo.FileMask, extra=extraInfo)
     with ex ->
         let stackTrace =
@@ -331,16 +329,19 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             | null -> ex.StackTrace
             | inner -> inner.StackTrace
         printMessages [Error(ex.Message, stackTrace)]
+        Console.Out.WriteLine "[SIGFAIL]"
         false, projInfo
 
-let rec awaitInput (com: ICompiler) checker (projInfo: FSProjInfo) =
+let rec awaitInput (com: ICompiler) checker fullCompileSuccess (projInfo: FSProjInfo) =
     match Console.In.ReadLine() with
     | "[SIGTERM]" -> ()
     | fileMask ->
-        FSProjInfo(projInfo.ProjectOpts, fileMask=fileMask, extra=projInfo.Extra)
-        |> compile com checker
-        |> snd
-        |> awaitInput com checker
+        let projInfo =
+            if fullCompileSuccess
+            then FSProjInfo(projInfo.ProjectOpts, fileMask=fileMask, extra=projInfo.Extra)
+            else FSProjInfo(getProjectOpts checker com.Options)
+        let success, projInfo = compile com checker projInfo
+        awaitInput com checker (fullCompileSuccess || success) projInfo
 
 [<EntryPoint>]
 let main argv =
@@ -354,8 +355,8 @@ let main argv =
             FSProjInfo(projectOpts)
             |> compile com checker
         // Keep on watching if necessary
-        if success && opts.watch then
-            awaitInput com checker projInfo
+        if opts.watch then
+            awaitInput com checker success projInfo
     with
     | ex -> printMessages [Error(ex.Message, ex.StackTrace)]
     0

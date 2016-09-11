@@ -209,19 +209,18 @@ function runCommand(command, continuation) {
     });
 }
 
-function postbuild(opts, fableProc) {
+function postbuild(opts, buildSuccess, fableProc) {
     if (opts.watch && !opts.watching) {
         watch(opts, fableProc);
     }
-    if (opts.scripts && opts.scripts.postbuild) {
+    if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
         runCommand(opts.scripts.postbuild, function (exitCode) {
             if (!opts.watch)
                 process.exit(exitCode);
         });
     }
-    else {
-        if (!opts.watch)
-            process.exit(0);
+    else if (!opts.watch) {
+        process.exit(0);
     }
 }
 
@@ -390,9 +389,9 @@ function build(opts) {
                 txt = txt.substring(newLine + 1);
                 buffer = "";
 
-                // An empty string is the signal of the end of compilation
-                if (/^\s*$/.test(json)) {
-                    postbuild(opts, fableProc);
+                var buildFinished = /^\[SIG(SUCCESS|FAIL)\]$/.exec(json);
+                if (buildFinished) {
+                    postbuild(opts, buildFinished[1] === "SUCCESS", fableProc);
                 }
                 else {
                     processJson(json, opts);
