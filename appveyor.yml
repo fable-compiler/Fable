@@ -5,7 +5,7 @@ build:
   verbosity: detailed
   
 environment:
-  nodejs_version: "6.5"
+  nodejs_version: "4.4"
 
 # Install scripts. (runs after repo cloning)
 install:
