@@ -566,6 +566,24 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
 
     (** Pattern Matching *)
+    | Switch(matchValue, cases, defaultCase, decisionTargets) ->
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        match typ with
+        | Fable.Unit ->
+            let matchValue =
+                makeType com ctx matchValue.FullType
+                |> makeValueFrom com ctx None <| matchValue
+            let cases =
+                cases
+                |> Seq.map (fun kv ->
+                    List.map makeConst kv.Value,
+                    transformExpr com ctx (snd decisionTargets.[kv.Key]))
+                |> Seq.toList
+            let defaultCase =
+                transformExpr com ctx (snd decisionTargets.[defaultCase])
+            Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
+        | _ -> failwith "TODO"
+
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
         let rec getTargetRefsCount map = function
             | BasicPatterns.IfThenElse (_, thenExpr, elseExpr)
@@ -575,8 +593,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             | BasicPatterns.Let(_, e) ->
                 getTargetRefsCount map e
             | BasicPatterns.DecisionTreeSuccess (idx, _) ->
-                match (Map.tryFind idx map) with
-                | Some refCount -> Map.remove idx map |> Map.add idx (refCount + 1)
+                match Map.tryFind idx map with
+                | Some refCount -> Map.add idx (refCount + 1) map
                 | None -> Map.add idx 1 map
             | e ->
                 failwithf "Unexpected DecisionTree branch in %O: %A"

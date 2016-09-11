@@ -36,6 +36,9 @@ type IFableCompiler =
     abstract ReplacePlugins: (string*IReplacePlugin) list
     
 module Helpers =
+    let rec nonAbbreviatedType (t: FSharpType) =
+        if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
+
     let sanitizeEntityName, sanitizeEntityFullName =
         let reg = Regex("`\d+")
         (fun (ent: FSharpEntity) -> reg.Replace(ent.CompiledName, "")),
@@ -74,8 +77,9 @@ module Helpers =
         else ent.FullName.StartsWith "Fable.Core" || isExternalEntity com ent
 
     let isUnit (typ: FSharpType) =
-        // unit doesn't have FullName
-        typ.HasTypeDefinition && typ.TypeDefinition.CompiledName = "unit"
+        let typ = nonAbbreviatedType typ
+        typ.HasTypeDefinition
+        && typ.TypeDefinition.CompiledName = "Microsoft.FSharp.Core.Unit"
 
     let makeRange (r: Range.range) = {
         start = { line = r.StartLine; column = r.StartColumn }
@@ -156,9 +160,7 @@ module Patterns =
         if t.HasTypeDefinition then Some t.TypeDefinition else None
 
     let (|NonAbbreviatedType|) (t: FSharpType) =
-        let rec abbr (t: FSharpType) =
-            if t.IsAbbreviation then abbr t.AbbreviatedType else t
-        abbr t
+        nonAbbreviatedType t
 
     let (|RefType|_|) = function
         | NonAbbreviatedType(TypeDefinition tdef) as t
@@ -350,7 +352,7 @@ module Patterns =
                  Const (length,_typeInt2)]),
              Const (_falseConst,_typeBool)) -> Some (matchValue, length)
         | _ -> None
-        
+
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
         | "System.Byte" -> Some UInt8
@@ -368,7 +370,49 @@ module Patterns =
         | Naming.StartsWith "Microsoft.FSharp.Core.float" _ -> Some Float64
         | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
         | _ -> None
-        
+
+    let (|Switch|_|) fsExpr =
+        let isStringOrNumber (NonAbbreviatedType typ) =
+            if not typ.HasTypeDefinition then false else
+            match typ.TypeDefinition.TryFullName with
+            | Some("System.String") | Some(NumberKind _) -> true
+            | _ when typ.TypeDefinition.IsEnum -> true
+            | _ -> false
+        let rec makeSwitch map matchValue e =
+            let addCase map (idx: int) (case: obj) =
+                match Map.tryFind idx map with
+                | Some cases -> Map.add idx (case::cases) map
+                | None -> Map.add idx [case] map
+            match e with
+            | IfThenElse(Call(None,op_Equality,[],_,[Value var; Const(case,_)]),
+                         DecisionTreeSuccess(idx, []), elseExpr)
+                when op_Equality.CompiledName.Equals("op_Equality") ->
+                let matchValue =
+                    match matchValue with
+                    | None -> if isStringOrNumber var.FullType then Some var else None
+                    | Some matchValue when matchValue.Equals(var) -> Some matchValue
+                    | _ -> None
+                match matchValue with
+                | Some matchValue ->
+                    let map =
+                        match Map.tryFind idx map with
+                        | Some cases -> Map.add idx (cases@[case]) map
+                        | None -> Map.add idx [case] map
+                    match elseExpr with
+                    | DecisionTreeSuccess(idx, []) ->
+                        Some(matchValue, map, idx)
+                    | elseExpr -> makeSwitch map (Some matchValue) elseExpr
+                | None -> None
+            | _ -> None
+        match fsExpr with
+        | DecisionTree(decisionExpr, decisionTargets) ->
+            // TODO: Optimize also simple pattern matching with union types
+            match makeSwitch Map.empty None decisionExpr with
+            | Some(matchValue, cases, defaultCase) ->
+                Some(matchValue, cases, defaultCase, decisionTargets)
+            | None -> None
+        | _ -> None
+
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList) 

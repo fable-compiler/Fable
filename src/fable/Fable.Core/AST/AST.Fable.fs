@@ -238,6 +238,7 @@ and Expr =
     | Set of callee: Expr * property: Expr option * value: Expr * range: SourceLocation option
     | Sequential of Expr list * range: SourceLocation option
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
+    | Switch of matchValue: Expr * cases: (Expr list * Expr) list * defaultCase: Expr option * typ: Type * range: SourceLocation option
 
     // This wraps expressions with a different type for compile-time checkings
     // E.g. enums, ignored expressions so they don't trigger a return in functions
@@ -266,6 +267,7 @@ and Expr =
             | exprs -> (Seq.last exprs).Type
         | TryCatch (body,_,_,_)
         | Label(_, body, _)-> body.Type
+        | Switch (_,_,_,t,_) -> t
         | Break _
         | Continue _
         | Return _ -> Unit
@@ -285,6 +287,7 @@ and Expr =
         | Set (_,_,_,range)
         | Sequential (_,range)
         | TryCatch (_,_,_,range)
+        | Switch (_,_,_,_,range)
         | Label (_, _, range)
         | Break (_, range)
         | Continue (_, range) 

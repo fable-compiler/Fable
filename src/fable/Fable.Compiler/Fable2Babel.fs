@@ -522,6 +522,31 @@ module Util =
             upcast Babel.IfStatement(guardExpr, thenStatement,
                             ?alternate=elseStatement, ?loc=range)
 
+        | Fable.Switch(TransformExpr com ctx matchValue, cases, defaultBranch, _, range) ->
+            let transformBranch test branch =
+                let block = transformBlock com ctx None branch
+                match test with
+                | Some(TransformExpr com ctx test) ->
+                    Babel.SwitchCase(block.body@[Babel.BreakStatement()], test, ?loc=block.loc)
+                // Default branch
+                | None -> Babel.SwitchCase(block.body, ?loc=block.loc)
+            let cases =
+                cases |> List.collect(fun (tests, branch) ->
+                    let prev =
+                        match List.length tests with
+                        | l when l > 1 ->
+                            List.take (l - 1) tests
+                            |> List.map (fun test ->
+                                Babel.SwitchCase([], com.TransformExpr ctx test)) 
+                        | _ -> []
+                    let case = transformBranch (List.last tests |> Some) branch
+                    prev@[case])
+            let cases =
+                match defaultBranch with
+                | Some defaultBranch -> cases@[transformBranch None defaultBranch]
+                | None -> cases
+            upcast Babel.SwitchStatement(matchValue, cases, ?loc=range)
+
         | Fable.Sequential(statements, range) ->
             statements |> List.map (com.TransformStatement ctx)
             |> block range :> Babel.Statement
@@ -572,7 +597,7 @@ module Util =
         // These cannot appear in expression position in JS
         // They must be wrapped in a lambda
         | Fable.Sequential _ | Fable.TryCatch _ | Fable.Throw _
-        | Fable.DebugBreak _ | Fable.Loop _ 
+        | Fable.DebugBreak _ | Fable.Loop _ | Fable.Switch _
         | Fable.Break _ | Fable.Continue _ | Fable.Label _ | Fable.Return _ ->
             transformBlock com ctx (Some Return) expr :> Babel.Statement
             |> iife expr.Range :> Babel.Expression
@@ -639,7 +664,7 @@ module Util =
         // These cannot be resolved (don't return anything)
         // Just compile as a statement
         | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _
-        | Fable.Set _ | Fable.VarDeclaration _
+        | Fable.Set _ | Fable.VarDeclaration _ | Fable.Switch _
         | Fable.Label _ | Fable.Continue _ | Fable.Break _ | Fable.Return _ ->
             com.TransformStatement ctx expr
             
