@@ -1061,6 +1061,8 @@ module private AstPass =
                 | Type(Fable.Number Int32) -> makeJsArray []
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, _)) -> makeJsArray arVals
                 | _ -> emit i "Array.from($0)" i.args |> Some
+        | "find" when Option.isSome c ->
+            icall "find" (c.Value, args) |> Some
         | "add" ->
             icall "push" (c.Value, args) |> Some
         | "addRange" ->
