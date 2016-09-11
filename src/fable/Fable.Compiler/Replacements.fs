@@ -127,19 +127,39 @@ module Util =
             CoreLibCall ("Util", Some "toString", false, [arg])
             |> makeCall com i.range i.returnType
 
-    let toInt, toFloat =
-        let toNumber com (i: Fable.ApplyInfo) typ (arg: Fable.Expr) =
-            match arg.Type with
-            | Fable.String ->
-                GlobalCall ("Number", Some ("parse"+typ), false, [arg])
-                |> makeCall com i.range i.returnType
-            | _ ->
-                if typ = "Int"
-                then GlobalCall ("Math", Some "floor", false, [arg])
-                     |> makeCall com i.range i.returnType
-                else wrap i.returnType arg
-        (fun com i arg -> toNumber com i "Int" arg),
-        (fun com i arg -> toNumber com i "Float" arg)
+    let toFloat com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
+        match arg.Type with
+        | Fable.String ->
+            GlobalCall ("Number", Some "parseFloat", false, [arg])
+            |> makeCall com i.range i.returnType
+        | _ ->
+            wrap i.returnType arg
+
+    let toInt com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
+        let patternFor = function
+            | Fable.Number kind -> 
+                match kind with
+                | Int8 -> Some "($0 + 0x80 & 0xFF) - 0x80"
+                | UInt8 -> Some "$0 & 0xFF"
+                | Int16 -> Some "($0 + 0x8000 & 0xFFFF) - 0x8000"
+                | UInt16 -> Some "$0 & 0xFFFF"
+                | Int32 -> Some "($0 + 0x80000000 >>> 0) - 0x80000000"
+                | UInt32 -> Some "$0 >>> 0"
+                | Int64 -> Some "Math.trunc($0)" // only 53-bit (still better than nothing)
+                | UInt64 -> Some "($0 > 0) ? Math.trunc($0) : ($0 >>> 0)" // 53-bit positive, 32-bit negative
+                | Float32 -> Some "Math.trunc($0)"
+                | Float64 -> Some "Math.trunc($0)"
+            | _ -> None
+        match arg.Type with
+        | Fable.String ->
+            GlobalCall ("Number", Some "parseInt", false, [arg])
+            |> makeCall com i.range i.returnType
+        | Fable.Number kind ->
+            match patternFor i.returnType with
+            | Some pattern -> emit i pattern [arg]
+            | _ -> wrap i.returnType arg
+        | _ ->
+            wrap i.returnType arg
 
     let toList com (i: Fable.ApplyInfo) expr =
         CoreLibCall ("Seq", Some "toList", false, [expr])
@@ -446,9 +466,15 @@ module private AstPass =
             |> emit info <| args |> Some
         // Conversions
         | "createSequence" | "identity" | "box" | "unbox" -> wrap typ args.Head |> Some
-        | "toInt" -> toInt com info args.Head |> Some
-        | "toDouble" -> toFloat com info args.Head |> Some
-        | "toChar"  -> toChar com info args.Head |> Some
+        | "toSByte" | "toByte"
+        | "toInt8" | "toUInt8"
+        | "toInt16" | "toUInt16"
+        | "toInt" | "toUInt"
+        | "toInt32" | "toUInt32"
+        | "toInt64" | "toUInt64"
+            -> toInt com info args.Head |> Some
+        | "toSingle" | "toDouble" -> toFloat com info args.Head |> Some
+        | "toChar" -> toChar com info args.Head |> Some
         | "toString" -> toString com info args.Head |> Some
         | "createDictionary" ->
             GlobalCall("Map", None, true, args) |> makeCall com r typ |> Some
