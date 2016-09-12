@@ -186,12 +186,14 @@ let ``List.tryFindBack works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> List.tryFind ((>) 4.) |> equal (Some 1.)
     xs |> List.tryFindBack ((>) 4.) |> equal (Some 3.)
+    xs |> List.tryFindBack ((=) 5.) |> equal None
 
 [<Test>]
 let ``List.tryFindIndexBack works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> List.tryFindIndex ((>) 4.) |> equal (Some 0)
-    xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)      
+    xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+    xs |> List.tryFindIndexBack ((=) 5.) |> equal None    
 
 [<Test>]
 let ``List.fold works``() =
@@ -539,6 +541,8 @@ let ``List.tryFindIndex works``() =
       let xs = [1; 2]
       let ys = xs |> List.tryFindIndex ((=) 2)
       ys.Value |> equal 1
+      xs |> List.tryFindIndex ((=) 5) |> equal None    
+
 
 [<Test>]
 let ``List.unzip works``() =
