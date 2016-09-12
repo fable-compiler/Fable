@@ -1,8 +1,5 @@
 [<NUnit.Framework.TestFixture>]
-#if DOTNETCORE
-//use invariant culture
-[<NUnit.Framework.Culture("")>]
-#else
+#if !DOTNETCORE
 [<NUnit.Framework.SetCulture("en-US")>]
 #endif
 module Fable.Tests.Strings
@@ -99,24 +96,73 @@ let ``Padding with String.Format works``() =
 // Conversions
 
 [<Test>]
-let ``Conversion to char works``() =
+let ``Conversion string to char works``() =
       let c1 = char "h"
       equal "h" (string c1)
 
+[<Test>]
+let ``Conversion int to char works``() =
       let c2 = char 97
       equal "a" (string c2)
 
 [<Test>]
-let ``Conversion to int works``() =
+let ``Conversion string to int works``() =
       equal 5 (int "5")
       equal "5" (string 5)
 
 [<Test>]
-let ``Conversion to float works``() =
+let ``Conversion string to int8 works``() =
+      equal 5y (int8 "5")
+      equal "5" (string 5)
+
+[<Test>]
+let ``Conversion string to int16 works``() =
+      equal 5s (int16 "5")
+      equal "5" (string 5s)
+
+[<Test>]
+let ``Conversion string to int32 works``() =
+      equal 5 (int32 "5")
+      equal "5" (string 5)
+
+[<Test>]
+let ``Conversion to int64 works``() =
+      equal 5L (int64 "5")
+      equal "5" (string 5L)
+
+[<Test>]
+let ``Conversion string to uint8 works``() =
+      equal 5uy (uint8 "5")
+      equal "5" (string 5uy)
+
+[<Test>]
+let ``Conversion string to uint16 works``() =
+      equal 5us (uint16 "5")
+      equal "5" (string 5us)
+
+[<Test>]
+let ``Conversion string to uint32 works``() =
+      equal 5u (uint32 "5")
+      equal "5" (string 5u)
+
+[<Test>]
+let ``Conversion to uint64 works``() =
+      equal 5uL (uint64 "5")
+      equal "5" (string 5uL)
+
+[<Test>]
+let ``Conversion string to float works``() =
       equal 5. (float "5.0")
       (string 5.).StartsWith("5") |> equal true
       equal 5.25 (float "5.25")
       (string 5.25).StartsWith("5.25") |> equal true
+
+[<Test>]
+let ``Conversion string to float32 works``() =
+      equal 5.f (float32 "5.0")
+      (string 5.f).StartsWith("5") |> equal true
+      equal 5.25f (float32 "5.25")
+      (string 5.25f).StartsWith("5.25") |> equal true
 
 // System.String - constructors
 
@@ -367,3 +413,85 @@ let ``String.replicate works``() =
 //       Convert.ToString(x) |> equal "45"
 //       Convert.ToString(x, 2) |> equal "101101"
 //       Convert.ToString(x, 16) |> equal "2d"
+
+// String to number convertion
+
+[<Test>]
+let ``System.Convert.ToSByte works``() =
+      let x = "101"
+      Convert.ToSByte(x) |> equal 101y
+      Convert.ToSByte(x, 2) |> equal 5y
+      Convert.ToSByte(x, 8) |> equal 65y
+      Convert.ToSByte(x, 10) |> equal 101y
+
+[<Test>]
+let ``System.Convert.ToInt16 works``() =
+      let x = "101"
+      Convert.ToInt16(x) |> equal 101s
+      Convert.ToInt16(x, 2) |> equal 5s
+      Convert.ToInt16(x, 8) |> equal 65s
+      Convert.ToInt16(x, 10) |> equal 101s
+      Convert.ToInt16(x, 16) |> equal 257s
+
+[<Test>]
+let ``System.Convert.ToInt32 works``() =
+      let x = "101"
+      Convert.ToInt32(x) |> equal 101
+      Convert.ToInt32(x, 2) |> equal 5
+      Convert.ToInt32(x, 8) |> equal 65
+      Convert.ToInt32(x, 10) |> equal 101
+      Convert.ToInt32(x, 16) |> equal 257
+
+[<Test>]
+let ``System.Convert.ToInt64 works``() =
+      let x = "101"
+      Convert.ToInt64(x) |> equal 101L
+      Convert.ToInt64(x, 2) |> equal 5L
+      Convert.ToInt64(x, 8) |> equal 65L
+      Convert.ToInt64(x, 10) |> equal 101L
+      Convert.ToInt64(x, 16) |> equal 257L
+
+[<Test>]
+let ``System.Convert.ToByte works``() =
+      let x = "101"
+      Convert.ToByte(x) |> equal 101uy
+      Convert.ToByte(x, 2) |> equal 5uy
+      Convert.ToByte(x, 8) |> equal 65uy
+      Convert.ToByte(x, 10) |> equal 101uy
+
+[<Test>]
+let ``System.Convert.ToUInt16 works``() =
+      let x = "101"
+      Convert.ToUInt16(x) |> equal 101us
+      Convert.ToUInt16(x, 2) |> equal 5us
+      Convert.ToUInt16(x, 8) |> equal 65us
+      Convert.ToUInt16(x, 10) |> equal 101us
+      Convert.ToUInt16(x, 16) |> equal 257us
+
+[<Test>]
+let ``System.Convert.ToUInt32 works``() =
+      let x = "101"
+      Convert.ToUInt32(x) |> equal 101u
+      Convert.ToUInt32(x, 2) |> equal 5u
+      Convert.ToUInt32(x, 8) |> equal 65u
+      Convert.ToUInt32(x, 10) |> equal 101u
+      Convert.ToUInt32(x, 16) |> equal 257u
+
+[<Test>]
+let ``System.Convert.ToUInt64 works``() =
+      let x = "101"
+      Convert.ToUInt64(x) |> equal 101uL
+      Convert.ToUInt64(x, 2) |> equal 5uL
+      Convert.ToUInt64(x, 8) |> equal 65uL
+      Convert.ToUInt64(x, 10) |> equal 101uL
+      Convert.ToUInt64(x, 16) |> equal 257uL
+
+[<Test>]
+let ``System.Convert.ToSingle works``() =
+      let x = "101."
+      Convert.ToSingle(x) |> equal 101.f
+
+[<Test>]
+let ``System.Convert.ToDouble works``() =
+      let x = "101."
+      Convert.ToDouble(x) |> equal 101.
