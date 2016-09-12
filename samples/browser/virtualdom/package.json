@@ -18,6 +18,6 @@
     "fable-import-virtualdom": "^0.6.2"
   },
   "engines": {
-    "fable": "^0.6.0"
+    "fable": "^0.6.1"
   }
 }

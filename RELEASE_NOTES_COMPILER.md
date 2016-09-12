@@ -1,4 +1,4 @@
-### 0.6.0
+### 0.6.1
 
 * Multiple bug fixes
 * Internal Fable AST additions

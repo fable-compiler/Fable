@@ -755,14 +755,6 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let addMethod() =
         let memberName, memberKind = sanitizeMethodName meth
-        let ctx', args' = bindMemberArgs com ctx meth.IsInstanceMember args
-        let body =
-            let ctx' =
-                match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
-                | true, Some(EntityKind(Fable.Class(Some(fullName, _)))) ->
-                    { ctx' with baseClass = Some fullName }
-                | _ -> ctx'
-            transformExpr com ctx' body
         let ctx, privateName =
             // Bind module member names to context to prevent
             // name clashes (they will become variables in JS)
@@ -771,6 +763,14 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
                 ctx, Some (privateName.name)
             else ctx, None
+        let ctx', args' = bindMemberArgs com ctx meth.IsInstanceMember args
+        let body =
+            let ctx' =
+                match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
+                | true, Some(EntityKind(Fable.Class(Some(fullName, _)))) ->
+                    { ctx' with baseClass = Some fullName }
+                | _ -> ctx'
+            transformExpr com ctx' body
         let entMember =
             let fableEnt = makeEntity com meth.EnclosingEntity
             let argTypes = List.map Fable.Ident.getType args'

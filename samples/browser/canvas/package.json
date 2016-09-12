@@ -16,6 +16,6 @@
     "requirejs": "^2.2.0"
   },
   "engines": {
-    "fable": "^0.6.0"
+    "fable": "^0.6.1"
   }
 }
