@@ -1,3 +1,7 @@
+### 0.6.1
+
+* Fix Array/List/Seq.tryFindIndexBack (PR #410)
+
 ### 0.6.0
 
 * Bug fixes
