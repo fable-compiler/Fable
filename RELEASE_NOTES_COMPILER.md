@@ -1,3 +1,7 @@
+### 0.6.2
+
+* Integer conversions (see #407)
+
 ### 0.6.1
 
 * Multiple bug fixes
