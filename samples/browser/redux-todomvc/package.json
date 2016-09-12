@@ -2,7 +2,7 @@
   "private": true,
   "dependencies": {
     "core-js": "^2.1.0",
-    "fable-core": "^0.5.5",
+    "fable-core": "^0.6.0",
     "requirejs": "^2.1.22",
     "todomvc-app-css": "^2.0.0",
     "todomvc-common": "^1.0.1"
@@ -11,6 +11,6 @@
     "fable-import-react": "^0.5.0"
   },
   "engines": {
-    "fable": "^0.5.9"
+    "fable": "^0.6.0"
   }
 }

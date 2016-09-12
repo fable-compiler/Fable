@@ -306,8 +306,7 @@ type App(props, ctx) as this =
     let dispatch = Redux.dispatch props.Store
     let getState() = { Todos=Redux.getState props.Store; Dispatch=dispatch }
     do this.state <- getState()
-    // TODO: Change to `(getState >> this.setState)` after fixing the bug 
-    do Redux.subscribe props.Store (fun () -> getState() |> this.setState) 
+    do Redux.subscribe props.Store (getState >> this.setState)
 
     member this.render() =
         R.div [] [

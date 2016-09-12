@@ -31,7 +31,7 @@ open Fable.Import
 open Fable.Import.Browser
 
 let queue = importDefault<unit->obj> "queue"
-let topojson = importDefault<obj> "topojson"
+let topojson = importAll<obj> "topojson"
 
 (**
 

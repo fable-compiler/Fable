@@ -1,3 +1,11 @@
+### 0.6.0
+
+* Multiple bug fixes
+* Internal Fable AST additions
+* [Rewrite plugins](https://fable-compiler.github.io/docs/plugins.html#Creating-rewriter-plugins)
+* Use let/const when compiling value bindings to ES6
+* Compile pattern matching with string or number literals as switch statements
+
 ### 0.5.11
 
 * Fix #382 (partially): Exclude files in "node_modules" when calculating the base
