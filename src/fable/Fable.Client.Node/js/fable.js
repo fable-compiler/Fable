@@ -389,7 +389,7 @@ function build(opts) {
                 txt = txt.substring(newLine + 1);
                 buffer = "";
 
-                var buildFinished = /^\[SIG(SUCCESS|FAIL)\]$/.exec(json);
+                var buildFinished = /^\s*\[SIG(SUCCESS|FAIL)\]\s*$/.exec(json);
                 if (buildFinished) {
                     postbuild(opts, buildFinished[1] === "SUCCESS", fableProc);
                 }

@@ -1,3 +1,7 @@
+### 0.6.3
+
+* Fix watch compilation on Windows
+
 ### 0.6.2
 
 * Integer conversions (see #407)
