@@ -2033,12 +2033,12 @@ export class Seq {
     return Seq.__failIfNone(Seq.tryFind(f, xs));
   }
 
-  static tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+  static tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T) {
     let match = <T>null;
     for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
       const cur = iter.next();
       if (cur.done)
-        return match;
+        return match === null ? (defaultValue === void 0 ? null : defaultValue) : match;
       if (f(cur.value, i))
         match = cur.value;
     }

@@ -71,6 +71,12 @@ let ``ResizeArray.Find works``() =
     System.Predicate<_> (fun x -> x = -1.) |> li.Find |> equal 0.
 
 [<Test>]
+let ``ResizeArray.FindLast works``() =
+    let li = ResizeArray<_>()
+    li.Add(1.,0.); li.Add(2.,0.); li.Add(3.,0.); li.Add(4.,0.); li.Add(5.,0.); li.Add(1.,1.)
+    System.Predicate<_> (fun (x, _) -> x = 1.)  |> li.FindLast |> snd |> equal 1.
+
+[<Test>]
 let ``ResizeArray indexer getter works``() =
     let li = ResizeArray<_>()
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
