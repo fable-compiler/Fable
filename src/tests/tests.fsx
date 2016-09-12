@@ -17,6 +17,7 @@
     "ArrayTests.fs"
     "AsyncTests.fs"
     "ComparisonTests.fs"
+    "ConvertTests.fs"
     "DateTimeTests.fs"
     "DictionaryTests.fs"
     "EnumTests.fs"

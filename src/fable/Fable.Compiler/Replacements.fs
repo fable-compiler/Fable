@@ -127,19 +127,53 @@ module Util =
             CoreLibCall ("Util", Some "toString", false, [arg])
             |> makeCall com i.range i.returnType
 
-    let toInt, toFloat =
-        let toNumber com (i: Fable.ApplyInfo) typ (arg: Fable.Expr) =
-            match arg.Type with
-            | Fable.String ->
-                GlobalCall ("Number", Some ("parse"+typ), false, [arg])
-                |> makeCall com i.range i.returnType
-            | _ ->
-                if typ = "Int"
-                then GlobalCall ("Math", Some "floor", false, [arg])
-                     |> makeCall com i.range i.returnType
-                else wrap i.returnType arg
-        (fun com i arg -> toNumber com i "Int" arg),
-        (fun com i arg -> toNumber com i "Float" arg)
+    let toFloat com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
+        match arg.Type with
+        | Fable.String ->
+            GlobalCall ("Number", Some "parseFloat", false, [arg])
+            |> makeCall com i.range i.returnType
+        | _ ->
+            wrap i.returnType arg
+
+    let toInt com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
+        let kindIndex kind = //        0   1   2   3   4   5   6   7   8   9
+            match kind with  //        i8 i16 i32 i64  u8 u16 u32 u64 f32 f64
+            | Int8 -> 0      // 0 i8   -   -   -   -   +   +   +   +   -   -
+            | Int16 -> 1     // 1 i16  +   -   -   -   +   +   +   +   -   -
+            | Int32 -> 2     // 2 i32  +   +   -   -   +   +   +   +   -   -
+            | Int64 -> 3     // 3 i64  +   +   +   -   +   +   +   +   -   -
+            | UInt8 -> 4     // 4 u8   +   +   +   +   -   -   -   -   -   -
+            | UInt16 -> 5    // 5 u16  +   +   +   +   +   -   -   -   -   -
+            | UInt32 -> 6    // 6 u32  +   +   +   +   +   +   -   -   -   -
+            | UInt64 -> 7    // 7 u64  +   +   +   +   +   +   +   -   -   -
+            | Float32 -> 8   // 8 f32  +   +   +   +   +   +   +   +   -   -
+            | Float64 -> 9   // 9 f64  +   +   +   +   +   +   +   +   -   -
+        let needToCast kindFrom kindTo =
+            let v = kindIndex kindFrom // argument type
+            let h = kindIndex kindTo   // return type
+            ((v > h) || (v < 4 && h > 3)) && (h < 8)
+        let patternFor = function
+            | Int8 -> "($0 + 0x80 & 0xFF) - 0x80"
+            | Int16 -> "($0 + 0x8000 & 0xFFFF) - 0x8000"
+            | Int32 -> "($0 + 0x80000000 >>> 0) - 0x80000000"
+            | Int64 -> "Math.trunc($0)" // only 53-bit (still better than nothing)
+            | UInt8 -> "$0 & 0xFF"
+            | UInt16 -> "$0 & 0xFFFF"
+            | UInt32 -> "$0 >>> 0"
+            | UInt64 -> "(x => (x > 0) ? Math.trunc(x) : (x >>> 0))($0)" // 53-bit positive, 32-bit negative
+            | Float32 -> "$0"
+            | Float64 -> "$0"
+        match args.Head.Type with
+        | Fable.String ->
+            GlobalCall ("Number", Some "parseInt", false, args)
+            |> makeCall com i.range i.returnType
+        | Fable.Number kindFrom ->
+            match i.returnType with
+            | Fable.Number kindTo ->
+                let pattern = if needToCast kindFrom kindTo then patternFor kindTo else "$0"
+                emit i pattern [args.Head]
+            | _ -> wrap i.returnType args.Head
+        | _ -> wrap i.returnType args.Head
 
     let toList com (i: Fable.ApplyInfo) expr =
         CoreLibCall ("Seq", Some "toList", false, [expr])
@@ -446,9 +480,15 @@ module private AstPass =
             |> emit info <| args |> Some
         // Conversions
         | "createSequence" | "identity" | "box" | "unbox" -> wrap typ args.Head |> Some
-        | "toInt" -> toInt com info args.Head |> Some
-        | "toDouble" -> toFloat com info args.Head |> Some
-        | "toChar"  -> toChar com info args.Head |> Some
+        | "toSByte" | "toByte"
+        | "toInt8" | "toUInt8"
+        | "toInt16" | "toUInt16"
+        | "toInt" | "toUInt"
+        | "toInt32" | "toUInt32"
+        | "toInt64" | "toUInt64"
+            -> toInt com info args |> Some
+        | "toSingle" | "toDouble" -> toFloat com info args.Head |> Some
+        | "toChar" -> toChar com info args.Head |> Some
         | "toString" -> toString com info args.Head |> Some
         | "createDictionary" ->
             GlobalCall("Map", None, true, args) |> makeCall com r typ |> Some
@@ -580,6 +620,17 @@ module private AstPass =
             | _ -> i.args.Head
         GlobalCall("console", Some "log", false, [v])
         |> makeCall com i.range i.returnType
+
+    let convert com (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | "toSByte" | "toByte"
+        | "toInt16" | "toUInt16"
+        | "toInt32" | "toUInt32"
+        | "toInt64" | "toUInt64"
+            -> toInt com i i.args |> Some
+        | "toSingle" | "toDouble"
+            -> toFloat com i i.args.Head |> Some
+        | _ -> None
 
     let console com (i: Fable.ApplyInfo) =
         match i.methodName with
@@ -1399,6 +1450,7 @@ module private AstPass =
         | "Microsoft.FSharp.Core.StringModule" -> strings com info
         | "Microsoft.FSharp.Core.PrintfModule"
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
+        | "System.Convert" -> convert com info
         | "System.Console" -> console com info
         | "System.Diagnostics.Debug"
         | "System.Diagnostics.Debugger" -> debug com info
