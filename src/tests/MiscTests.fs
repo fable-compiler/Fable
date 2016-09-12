@@ -5,6 +5,17 @@ open System
 open NUnit.Framework
 open Fable.Tests.Util
 
+[<Test>]
+let ``for .. downto works``() = // See #411
+    let mutable x = ""
+    for i = 1 to 5 do
+        x <- x + (string i)
+    equal "12345" x
+    let mutable y = ""
+    for i = 5 downto 1 do
+        y <- y + (string i)
+    equal "54321" y
+
 type Base() =
     let mutable x = 5
     member this.Mutate i = x <- x + i

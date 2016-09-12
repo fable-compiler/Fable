@@ -1,3 +1,8 @@
+### 0.6.4
+
+* Fix #411: for .. downto
+* Fix Array/List/Seq.tryFindIndexBack (PR #410)
+
 ### 0.6.3
 
 * Fix watch compilation on Windows

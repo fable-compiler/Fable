@@ -474,11 +474,15 @@ module Util =
                     U2.Case1 var, enumerable, transformBlock com ctx None body, ?loc=range)
             | Fable.For (var, TransformExpr com ctx start,
                             TransformExpr com ctx limit, body, isUp) ->
+                let op1, op2 =
+                    if isUp
+                    then BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
+                    else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
                 upcast Babel.ForStatement (
                     transformBlock com ctx None body,
                     start |> varDeclaration None (ident var) true |> U2.Case1,
-                    Babel.BinaryExpression (BinaryOperator.BinaryLessOrEqual, ident var, limit),
-                    Babel.UpdateExpression (UpdateOperator.UpdatePlus, false, ident var), ?loc=range)
+                    Babel.BinaryExpression (op1, ident var, limit),
+                    Babel.UpdateExpression (op2, false, ident var), ?loc=range)
 
         | Fable.Set (callee, property, value, range) ->
             let ret =
