@@ -567,22 +567,35 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     (** Pattern Matching *)
     | Switch(matchValue, cases, defaultCase, decisionTargets) ->
+        let transformCases assignVar =
+            let transformBody idx =
+                let body = transformExpr com ctx (snd decisionTargets.[idx])
+                match assignVar with
+                | Some assignVar -> Fable.Set(assignVar, None, body, body.Range)  
+                | None -> body
+            let cases =
+                cases |> Seq.map (fun kv ->
+                    List.map makeConst kv.Value, transformBody kv.Key)
+                |> Seq.toList
+            let defaultCase = transformBody defaultCase
+            cases, defaultCase
+        let matchValue =
+            makeType com ctx matchValue.FullType
+            |> makeValueFrom com ctx None <| matchValue
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         match typ with
         | Fable.Unit ->
-            let matchValue =
-                makeType com ctx matchValue.FullType
-                |> makeValueFrom com ctx None <| matchValue
-            let cases =
-                cases
-                |> Seq.map (fun kv ->
-                    List.map makeConst kv.Value,
-                    transformExpr com ctx (snd decisionTargets.[kv.Key]))
-                |> Seq.toList
-            let defaultCase =
-                transformExpr com ctx (snd decisionTargets.[defaultCase])
+            let cases, defaultCase = transformCases None
             Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
-        | _ -> failwith "TODO"
+        | _ ->
+            let assignVar = com.GetUniqueVar() |> makeIdent
+            let cases, defaultCase =
+                Fable.IdentValue assignVar |> Fable.Value |> Some |> transformCases
+            makeSequential r [
+                Fable.VarDeclaration(assignVar, Fable.Value Fable.Null, true)
+                Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
+                Fable.Value(Fable.IdentValue assignVar)
+            ]
 
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
         let rec getTargetRefsCount map = function

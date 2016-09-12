@@ -78,8 +78,11 @@ module Helpers =
 
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
-        typ.HasTypeDefinition
-        && typ.TypeDefinition.CompiledName = "Microsoft.FSharp.Core.Unit"
+        let fullName =
+            if typ.HasTypeDefinition
+            then typ.TypeDefinition.TryFullName
+            else None
+        fullName = Some "Microsoft.FSharp.Core.Unit"
 
     let makeRange (r: Range.range) = {
         start = { line = r.StartLine; column = r.StartColumn }
