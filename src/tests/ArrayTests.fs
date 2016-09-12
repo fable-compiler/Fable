@@ -312,12 +312,14 @@ let ``Array.tryFindBack works``() =
     let xs = [|1.; 2.; 3.; 4.|]
     xs |> Array.tryFind ((>) 4.) |> equal (Some 1.)
     xs |> Array.tryFindBack ((>) 4.) |> equal (Some 3.)
+    xs |> Array.tryFindBack ((=) 5.) |> equal None
 
 [<Test>]
 let ``Array.tryFindIndexBack works``() =
     let xs = [|1.; 2.; 3.; 4.|]
     xs |> Array.tryFindIndex ((>) 4.) |> equal (Some 0)
-    xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)    
+    xs |> Array.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+    xs |> Array.tryFindIndexBack ((=) 5.) |> equal None
 
 [<Test>]
 let ``Array.fold works``() =   
@@ -651,7 +653,7 @@ let ``Array.tryFindIndex works``() =
     let xs = [|1.; 2.|]
     xs |> Array.tryFindIndex ((=) 2.)
     |> equal (Some 1)
-    xs |> Array.tryFindIndex ((=) 5.)
+    xs |> Array.tryFindIndex ((=) 3.)
     |> equal None
 
 [<Test>]
