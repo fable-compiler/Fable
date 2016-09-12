@@ -2063,11 +2063,11 @@ export class Seq {
   }
 
   static tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-    let match = 0;
+    let match = -1;
     for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
       const cur = iter.next();
       if (cur.done)
-        return match;
+        return match === -1 ? null : match;
       if (f(cur.value, i))
         match = i;
     }
