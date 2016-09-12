@@ -54,6 +54,7 @@ let samples =
     "samples/browser/samegame", true
     "samples/browser/virtualdom", true
     "samples/browser/react-todomvc", true
+    "samples/browser/redux-todomvc", true
     "samples/browser/lsystem", true
 
     // Non-browser samples without embedded HTML

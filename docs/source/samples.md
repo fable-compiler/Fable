@@ -80,6 +80,16 @@ You can also compare the [F# source code](https://github.com/fable-compiler/Fabl
 with the [original JS implementation](https://github.com/tastejs/todomvc/tree/gh-pages/examples/react)
 to see the advantages of Fable programming. And remember [Fable is also compatible with React Native](http://www.navision-blog.de/blog/2016/08/06/fable-react-native/) for mobile development!
 
+<a href="samples/redux-todomvc/index.html"><img src="samples/images/redux.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [TodoMVC with Redux](samples/redux-todomvc/index.html)
+
+This is a port of [Redux TodoMVC](https://github.com/reactjs/redux/tree/master/examples/todomvc)
+and the third instalment in the Fable TodoMVC series. [Redux](http://redux.js.org/) is a predictable
+state container for JavaScript apps, easy to use and compatible with functional patterns.
+Redux greatly improves your development experience with extensions like [Redux DevTools](http://zalmoxisus.github.io/redux-devtools-extension/)
+allowing for live code editing combined with a time traveling debugger.
+
 <a href="samples/nunit/index.html"><img src="samples/images/NUnit.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
 
 ### [Testing with NUnit](samples/nunit/index.html)
