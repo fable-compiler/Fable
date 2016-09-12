@@ -657,3 +657,60 @@ let ``Unchecked.defaultof works`` () =
     Unchecked.defaultof<int> |> equal 0
     Unchecked.defaultof<bool> |> equal false
     Unchecked.defaultof<string> |> equal null
+
+type MyEnum =
+    | One = 1
+    | Two = 2
+
+[<Test>]
+let ``Pattern matching optimization works (switch statement)``() =
+    let mutable x = ""
+    let i = 4
+    match i with
+    | 1 -> x <- "1"
+    | 2 -> x <- "2"
+    | 3 | 4 -> x <- "3" // Multiple cases are allowed
+    // | 5 | 6 as j -> x <- string j // This prevents the optimization
+    | 4 -> x <- "4" // Unreachable cases are removed
+    | _ -> x <- "?"
+    equal "3" x
+
+    match "Bye" with
+    | "Hi" -> x <- "Bye"
+    | "Bye" -> let h = "Hi" in x <- sprintf "%s there!" h
+    | _ -> x <- "?"
+    equal "Hi there!" x
+
+    // Pattern matching with boolean is not converted to switch
+    match false with
+    | true -> x <- "True"
+    | false -> x <- "False"
+    equal "False" x
+
+    match MyEnum.One with
+    | MyEnum.One -> x <- "One"
+    | MyEnum.Two -> x <- "Two"
+    | _ -> failwith "never"
+    equal "One" x
+
+[<Test>]
+let ``Pattern matching optimization works (switch expression)``() =
+    let i = 4
+    match i with
+    | 1 -> "1"
+    | 2 -> "2"
+    | 3 | 4 -> "3"
+    | _ -> "?"
+    |> equal "3"
+
+    match "Bye" with
+    | "Hi" -> "Bye"
+    | "Bye" -> let h = "Hi" in sprintf "%s there!" h
+    | _ -> "?"
+    |> equal "Hi there!"
+
+    match MyEnum.One with
+    | MyEnum.One -> "One"
+    | MyEnum.Two -> "Two"
+    | _ -> failwith "never"
+    |> equal "One"
