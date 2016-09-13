@@ -218,9 +218,10 @@ type FableNum = Fable.AST.NumberKind
 let formatFSharpNumber = function
     | FableNum.Int8 -> "sbyte" | FableNum.UInt8 -> "byte" 
     | FableNum.Int16 -> "int16" | FableNum.UInt16 -> "uint16" 
-    | FableNum.Int32 -> "int" | FableNum.UInt32 -> "uint"
+    | FableNum.Int32 -> "int" | FableNum.UInt32 -> "uint32"
     | FableNum.Int64 -> "int64" | FableNum.UInt64 -> "uint64" 
     | FableNum.Float32 -> "float32" | FableNum.Float64 -> "float"
+    | FableNum.Decimal -> "decimal"
 
 let formatName (ent:AST.Fable.Entity) = 
     // If it comes from this file, we just return short name

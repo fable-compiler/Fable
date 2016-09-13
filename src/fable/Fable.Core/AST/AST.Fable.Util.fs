@@ -64,9 +64,10 @@ let makeConst (value: obj) =
     | :? uint32 as x -> NumberConst (U2.Case1 (int x), UInt32)
     // Float types
     | :? float as x -> NumberConst (U2.Case2 x, Float64)
-    | :? int64 as x -> NumberConst (U2.Case2 (float x), Float64)
-    | :? uint64 as x -> NumberConst (U2.Case2 (float x), Float64)
+    | :? int64 as x -> NumberConst (U2.Case2 (float x), Int64)
+    | :? uint64 as x -> NumberConst (U2.Case2 (float x), UInt64)
     | :? float32 as x -> NumberConst (U2.Case2 (float x), Float32)
+    | :? decimal as x -> NumberConst (U2.Case2 (float x), Float64)
     // TODO: Regex
     | :? unit | _ when value = null -> Null
     | _ -> failwithf "Unexpected literal %O" value
@@ -272,3 +273,4 @@ let getTypedArrayName (com: ICompiler) numberKind =
     | UInt64 -> "Float64Array"
     | Float32 -> "Float32Array"
     | Float64 -> "Float64Array"
+    | Decimal -> "Float64Array"

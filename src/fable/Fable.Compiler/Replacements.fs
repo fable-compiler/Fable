@@ -58,7 +58,7 @@ module Util =
 
     let (|Integer|Float|) = function
         | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
-        | Float32 | Float64 -> Float
+        | Float32 | Float64 | Decimal -> Float
 
     let addWarning (com: ICompiler) (i: Fable.ApplyInfo) (warning: string) =
         attachRangeAndFile i.range i.fileName warning
@@ -136,18 +136,19 @@ module Util =
             wrap i.returnType arg
 
     let toInt com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
-        let kindIndex kind = //        0   1   2   3   4   5   6   7   8   9
-            match kind with  //        i8 i16 i32 i64  u8 u16 u32 u64 f32 f64
-            | Int8 -> 0      // 0 i8   -   -   -   -   +   +   +   +   -   -
-            | Int16 -> 1     // 1 i16  +   -   -   -   +   +   +   +   -   -
-            | Int32 -> 2     // 2 i32  +   +   -   -   +   +   +   +   -   -
-            | Int64 -> 3     // 3 i64  +   +   +   -   +   +   +   +   -   -
-            | UInt8 -> 4     // 4 u8   +   +   +   +   -   -   -   -   -   -
-            | UInt16 -> 5    // 5 u16  +   +   +   +   +   -   -   -   -   -
-            | UInt32 -> 6    // 6 u32  +   +   +   +   +   +   -   -   -   -
-            | UInt64 -> 7    // 7 u64  +   +   +   +   +   +   +   -   -   -
-            | Float32 -> 8   // 8 f32  +   +   +   +   +   +   +   +   -   -
-            | Float64 -> 9   // 9 f64  +   +   +   +   +   +   +   +   -   -
+        let kindIndex kind = //        0   1   2   3   4   5   6   7   8   9  10
+            match kind with  //        i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec
+            | Int8 -> 0      // 0 i8   -   -   -   -   +   +   +   +   -   -   -
+            | Int16 -> 1     // 1 i16  +   -   -   -   +   +   +   +   -   -   -
+            | Int32 -> 2     // 2 i32  +   +   -   -   +   +   +   +   -   -   -
+            | Int64 -> 3     // 3 i64  +   +   +   -   +   +   +   +   -   -   -
+            | UInt8 -> 4     // 4 u8   +   +   +   +   -   -   -   -   -   -   -
+            | UInt16 -> 5    // 5 u16  +   +   +   +   +   -   -   -   -   -   -
+            | UInt32 -> 6    // 6 u32  +   +   +   +   +   +   -   -   -   -   -
+            | UInt64 -> 7    // 7 u64  +   +   +   +   +   +   +   -   -   -   -
+            | Float32 -> 8   // 8 f32  +   +   +   +   +   +   +   +   -   -   -
+            | Float64 -> 9   // 9 f64  +   +   +   +   +   +   +   +   -   -   -
+            | Decimal -> 10  //10 dec  +   +   +   +   +   +   +   +   -   -   -
         let needToCast kindFrom kindTo =
             let v = kindIndex kindFrom // argument type
             let h = kindIndex kindTo   // return type
@@ -163,6 +164,7 @@ module Util =
             | UInt64 -> "(x => (x > 0) ? Math.trunc(x) : (x >>> 0))($0)" // 53-bit positive, 32-bit negative
             | Float32 -> "$0"
             | Float64 -> "$0"
+            | Decimal -> "$0"
         match args.Head.Type with
         | Fable.String ->
             GlobalCall ("Number", Some "parseInt", false, args)
@@ -706,6 +708,12 @@ module private AstPass =
         match i.methodName, (i.callee, i.args) with
         | "checkThis", (None, [arg]) -> Some arg
         | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
+        | "makeDecimal", (_, (Fable.Value (Fable.NumberConst (U2.Case1 low, Int32)))::
+                             (Fable.Value (Fable.NumberConst (U2.Case1 medium, Int32)))::
+                             (Fable.Value (Fable.NumberConst (U2.Case1 high, Int32)))::
+                             (Fable.Value (Fable.BoolConst isNegative))::
+                             (Fable.Value (Fable.NumberConst (U2.Case1 scale, UInt8)))::_) ->
+            makeConst (new decimal(low,medium,high,isNegative,byte scale)) |> Some
         | "getString", TwoArgs (ar, idx)
         | "getArray", TwoArgs (ar, idx) ->
             makeGet i.range i.returnType ar idx |> Some
