@@ -71,6 +71,18 @@ let ``ResizeArray.Find works``() =
     System.Predicate<_> (fun x -> x = -1.) |> li.Find |> equal 0.
 
 [<Test>]
+let ``ResizeArray.FindAll using ResizeArray.Count works``() =
+    let xs = ResizeArray<_> [1.; 2.; 3.; 4.]
+    System.Predicate<_> (fun x -> x <= 3.) |> xs.FindAll |> (fun l -> l.Count) |> equal 3
+    System.Predicate<_> (fun x -> x = 5.) |> xs.FindAll |> (fun l -> l.Count) |> equal 0
+
+[<Test>]
+let ``ResizeArray.FindAll using Seq.length works``() =
+    let xs = ResizeArray<_> [1.; 2.; 3.; 4.]
+    System.Predicate<_> (fun x -> x <= 3.) |> xs.FindAll |> Seq.length |> equal 3
+    System.Predicate<_> (fun x -> x = 5.) |> xs.FindAll |> Seq.length |> equal 0
+
+[<Test>]
 let ``ResizeArray.FindLast works``() =
     let li = ResizeArray<_>()
     li.Add(1.,0.); li.Add(2.,0.); li.Add(3.,0.); li.Add(4.,0.); li.Add(5.,0.); li.Add(1.,1.)

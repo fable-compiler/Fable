@@ -1129,6 +1129,8 @@ module private AstPass =
         | "find" when Option.isSome c ->
             let defaultValue = defaultof i.calleeTypeArgs.Head 
             ccall "Seq" "tryFind" [args.Head;c.Value;defaultValue] |> Some
+        | "findAll" when Option.isSome c ->
+            ccall "Seq" "filter" [args.Head;c.Value] |> Some
         | "findLast" when Option.isSome c ->
             let defaultValue = defaultof i.calleeTypeArgs.Head 
             ccall "Seq" "tryFindBack" [args.Head;c.Value;defaultValue] |> Some
