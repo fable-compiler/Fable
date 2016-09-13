@@ -407,13 +407,6 @@ let ``String.replicate works``() =
       String.replicate 3 "hi there"
       |> equal "hi therehi therehi there" 
 
-// [<Test>]
-// let ``System.Convert.ToString works``() =
-//       let x = 45
-//       Convert.ToString(x) |> equal "45"
-//       Convert.ToString(x, 2) |> equal "101101"
-//       Convert.ToString(x, 16) |> equal "2d"
-
 // String to number convertion
 
 [<Test>]
@@ -495,3 +488,8 @@ let ``System.Convert.ToSingle works``() =
 let ``System.Convert.ToDouble works``() =
       let x = "101."
       Convert.ToDouble(x) |> equal 101.
+
+[<Test>]
+let ``System.Convert.ToDecimal works``() =
+      let x = "101."
+      Convert.ToDecimal(x) |> equal 101.m

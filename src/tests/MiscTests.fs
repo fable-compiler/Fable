@@ -661,7 +661,6 @@ let ``Root members with JS non-valid chars work``() = // See #207
     Lib.足す 3 2 |> equal 5
     Lib.引く 3 2 |> equal 1
     Lib.モジュール.ファンクション 0 |> equal false
-#endif
 
 [<Test>]
 let ``Unchecked.defaultof works`` () =
@@ -725,3 +724,5 @@ let ``Pattern matching optimization works (switch expression)``() =
     | MyEnum.Two -> "Two"
     | _ -> failwith "never"
     |> equal "One"
+
+#endif // FABLE_COMPILER

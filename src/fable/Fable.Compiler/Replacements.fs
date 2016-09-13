@@ -487,7 +487,7 @@ module private AstPass =
         | "toInt32" | "toUInt32"
         | "toInt64" | "toUInt64"
             -> toInt com info args |> Some
-        | "toSingle" | "toDouble" -> toFloat com info args.Head |> Some
+        | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info args.Head |> Some
         | "toChar" -> toChar com info args.Head |> Some
         | "toString" -> toString com info args.Head |> Some
         | "createDictionary" ->
@@ -628,7 +628,7 @@ module private AstPass =
         | "toInt32" | "toUInt32"
         | "toInt64" | "toUInt64"
             -> toInt com i i.args |> Some
-        | "toSingle" | "toDouble"
+        | "toSingle" | "toDouble" | "toDecimal"
             -> toFloat com i i.args.Head |> Some
         | _ -> None
 
