@@ -203,7 +203,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | Applicable (Transform com ctx expr) ->
         let appType =
-            let ent = Fable.Entity(Fable.Interface, None, "Fable.Core.Applicable", lazy [], [], [], [], true)
+            let ent = Fable.Entity(lazy Fable.Interface, None, "Fable.Core.Applicable", lazy [], [], [], [], true)
             Fable.DeclaredType(ent, [Fable.Any;Fable.Any])
         Fable.Wrapped(expr, appType)
 

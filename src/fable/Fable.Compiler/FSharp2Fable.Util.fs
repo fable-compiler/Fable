@@ -536,7 +536,7 @@ module Types =
             // It's ok to use an empty context here, because we don't need to resolve generic params
             |> Seq.map (fun x -> x.Name, makeType com Context.Empty x.FieldType)
             |> Seq.toList
-        let kind =
+        let getKind () =
             if tdef.IsInterface then Fable.Interface
             elif tdef.IsFSharpUnion then Fable.Union
             elif tdef.IsFSharpRecord then makeFields tdef |> Fable.Record
@@ -555,7 +555,7 @@ module Types =
             tdef.Attributes
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
-        Fable.Entity (kind, com.GetInternalFile tdef,
+        Fable.Entity (Lazy(fun () -> getKind()), com.GetInternalFile tdef,
             sanitizeEntityFullName tdef, Lazy(fun () -> getMembers com tdef),
             genParams, infcs, decs, tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
