@@ -126,7 +126,7 @@ let ``Conversion string to int32 works``() =
       equal "5" (string 5)
 
 [<Test>]
-let ``Conversion to int64 works``() =
+let ``Conversion string to int64 works``() =
       equal 5L (int64 "5")
       equal "5" (string 5L)
 
@@ -146,23 +146,30 @@ let ``Conversion string to uint32 works``() =
       equal "5" (string 5u)
 
 [<Test>]
-let ``Conversion to uint64 works``() =
+let ``Conversion string to uint64 works``() =
       equal 5uL (uint64 "5")
       equal "5" (string 5uL)
 
 [<Test>]
-let ``Conversion string to float works``() =
+let ``Conversion string to single works``() =
+      equal 5.f (float32 "5.0")
+      (string 5.f).StartsWith("5") |> equal true
+      equal 5.25f (float32 "5.25")
+      (string 5.25f).StartsWith("5.25") |> equal true
+
+[<Test>]
+let ``Conversion string to double works``() =
       equal 5. (float "5.0")
       (string 5.).StartsWith("5") |> equal true
       equal 5.25 (float "5.25")
       (string 5.25).StartsWith("5.25") |> equal true
 
 [<Test>]
-let ``Conversion string to float32 works``() =
-      equal 5.f (float32 "5.0")
-      (string 5.f).StartsWith("5") |> equal true
-      equal 5.25f (float32 "5.25")
-      (string 5.25f).StartsWith("5.25") |> equal true
+let ``Conversion string to decimal works``() =
+      equal 5.m (decimal "5.0")
+      (string 5.m).StartsWith("5") |> equal true
+      equal 5.25m (decimal "5.25")
+      (string 5.25m).StartsWith("5.25") |> equal true
 
 // System.String - constructors
 
@@ -407,13 +414,6 @@ let ``String.replicate works``() =
       String.replicate 3 "hi there"
       |> equal "hi therehi therehi there" 
 
-// [<Test>]
-// let ``System.Convert.ToString works``() =
-//       let x = 45
-//       Convert.ToString(x) |> equal "45"
-//       Convert.ToString(x, 2) |> equal "101101"
-//       Convert.ToString(x, 16) |> equal "2d"
-
 // String to number convertion
 
 [<Test>]
@@ -495,3 +495,8 @@ let ``System.Convert.ToSingle works``() =
 let ``System.Convert.ToDouble works``() =
       let x = "101."
       Convert.ToDouble(x) |> equal 101.
+
+[<Test>]
+let ``System.Convert.ToDecimal works``() =
+      let x = "101."
+      Convert.ToDecimal(x) |> equal 101.m

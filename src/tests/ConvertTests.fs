@@ -16,6 +16,9 @@ let ``System.Convert.ToSByte works``() =
     sbyte(257us) |> equal x
     sbyte(257ul) |> equal x
     sbyte(257uL) |> equal x
+    sbyte(1.f) |> equal x
+    sbyte(1.) |> equal x
+    sbyte(1.m) |> equal x
     Convert.ToSByte(1y) |> equal x
     Convert.ToSByte(1uy) |> equal x
     Convert.ToSByte(1s) |> equal x
@@ -25,6 +28,9 @@ let ``System.Convert.ToSByte works``() =
     Convert.ToSByte(1us) |> equal x
     Convert.ToSByte(1ul) |> equal x
     Convert.ToSByte(1uL) |> equal x
+    Convert.ToSByte(1.f) |> equal x
+    Convert.ToSByte(1.) |> equal x
+    Convert.ToSByte(1.m) |> equal x
 
 [<Test>]
 let ``System.Convert.ToInt16 works``() =
@@ -38,6 +44,9 @@ let ``System.Convert.ToInt16 works``() =
     int16(1us) |> equal x
     int16(65537ul) |> equal x
     int16(65537uL) |> equal x
+    int16(1.f) |> equal x
+    int16(1.) |> equal x
+    int16(1.m) |> equal x
     Convert.ToInt16(1y) |> equal x
     Convert.ToInt16(1uy) |> equal x
     Convert.ToInt16(1s) |> equal x
@@ -47,6 +56,9 @@ let ``System.Convert.ToInt16 works``() =
     Convert.ToInt16(1us) |> equal x
     Convert.ToInt16(1ul) |> equal x
     Convert.ToInt16(1uL) |> equal x
+    Convert.ToInt16(1.f) |> equal x
+    Convert.ToInt16(1.) |> equal x
+    Convert.ToInt16(1.m) |> equal x
 
 [<Test>]
 let ``System.Convert.ToInt32 works``() =
@@ -60,6 +72,9 @@ let ``System.Convert.ToInt32 works``() =
     int(1us) |> equal x
     int(1ul) |> equal x
     int(1uL) |> equal x
+    int(1.f) |> equal x
+    int(1.) |> equal x
+    int(1.m) |> equal x
     Convert.ToInt32(1y) |> equal x
     Convert.ToInt32(1uy) |> equal x
     Convert.ToInt32(1s) |> equal x
@@ -69,6 +84,9 @@ let ``System.Convert.ToInt32 works``() =
     Convert.ToInt32(1us) |> equal x
     Convert.ToInt32(1ul) |> equal x
     Convert.ToInt32(1uL) |> equal x
+    Convert.ToInt32(1.f) |> equal x
+    Convert.ToInt32(1.) |> equal x
+    Convert.ToInt32(1.m) |> equal x
 
 [<Test>]
 let ``System.Convert.ToInt64 works``() =
@@ -82,6 +100,9 @@ let ``System.Convert.ToInt64 works``() =
     int64(1us) |> equal x
     int64(1ul) |> equal x
     int64(1uL) |> equal x
+    int64(1.f) |> equal x
+    int64(1.) |> equal x
+    int64(1.m) |> equal x
     Convert.ToInt64(1y) |> equal x
     Convert.ToInt64(1uy) |> equal x
     Convert.ToInt64(1s) |> equal x
@@ -91,6 +112,9 @@ let ``System.Convert.ToInt64 works``() =
     Convert.ToInt64(1us) |> equal x
     Convert.ToInt64(1ul) |> equal x
     Convert.ToInt64(1uL) |> equal x
+    Convert.ToInt64(1.f) |> equal x
+    Convert.ToInt64(1.) |> equal x
+    Convert.ToInt64(1.m) |> equal x
 
 [<Test>]
 let ``System.Convert.ToByte works``() =
@@ -104,6 +128,9 @@ let ``System.Convert.ToByte works``() =
     byte(257us) |> equal x
     byte(257ul) |> equal x
     byte(257uL) |> equal x
+    byte(1.f) |> equal x
+    byte(1.) |> equal x
+    byte(1.m) |> equal x
     Convert.ToByte(1y) |> equal x
     Convert.ToByte(1uy) |> equal x
     Convert.ToByte(1s) |> equal x
@@ -113,6 +140,9 @@ let ``System.Convert.ToByte works``() =
     Convert.ToByte(1us) |> equal x
     Convert.ToByte(1ul) |> equal x
     Convert.ToByte(1uL) |> equal x
+    Convert.ToByte(1.f) |> equal x
+    Convert.ToByte(1.) |> equal x
+    Convert.ToByte(1.m) |> equal x
 
 [<Test>]
 let ``System.Convert.ToUInt16 works``() =
@@ -126,6 +156,9 @@ let ``System.Convert.ToUInt16 works``() =
     uint16(1us) |> equal x
     uint16(65537ul) |> equal x
     uint16(65537uL) |> equal x
+    uint16(1.f) |> equal x
+    uint16(1.) |> equal x
+    uint16(1.m) |> equal x
     Convert.ToUInt16(1y) |> equal x
     Convert.ToUInt16(1uy) |> equal x
     Convert.ToUInt16(1s) |> equal x
@@ -135,6 +168,9 @@ let ``System.Convert.ToUInt16 works``() =
     Convert.ToUInt16(1us) |> equal x
     Convert.ToUInt16(1ul) |> equal x
     Convert.ToUInt16(1uL) |> equal x
+    Convert.ToUInt16(1.f) |> equal x
+    Convert.ToUInt16(1.) |> equal x
+    Convert.ToUInt16(1.m) |> equal x
 
 [<Test>]
 let ``System.Convert.ToUInt32 works``() =
@@ -148,6 +184,9 @@ let ``System.Convert.ToUInt32 works``() =
     uint32(1us) |> equal x
     uint32(1ul) |> equal x
     uint32(1uL) |> equal x
+    uint32(1.f) |> equal x
+    uint32(1.) |> equal x
+    uint32(1.m) |> equal x
     Convert.ToUInt32(1y) |> equal x
     Convert.ToUInt32(1uy) |> equal x
     Convert.ToUInt32(1s) |> equal x
@@ -157,6 +196,9 @@ let ``System.Convert.ToUInt32 works``() =
     Convert.ToUInt32(1us) |> equal x
     Convert.ToUInt32(1ul) |> equal x
     Convert.ToUInt32(1uL) |> equal x
+    Convert.ToUInt32(1.f) |> equal x
+    Convert.ToUInt32(1.) |> equal x
+    Convert.ToUInt32(1.m) |> equal x
 
 [<Test>]
 let ``System.Convert.ToUInt64 works``() =
@@ -170,6 +212,9 @@ let ``System.Convert.ToUInt64 works``() =
     uint64(1us) |> equal x
     uint64(1ul) |> equal x
     uint64(1uL) |> equal x
+    uint64(1.f) |> equal x
+    uint64(1.) |> equal x
+    uint64(1.m) |> equal x
     Convert.ToUInt64(1y) |> equal x
     Convert.ToUInt64(1uy) |> equal x
     Convert.ToUInt64(1s) |> equal x
@@ -179,6 +224,9 @@ let ``System.Convert.ToUInt64 works``() =
     Convert.ToUInt64(1us) |> equal x
     Convert.ToUInt64(1ul) |> equal x
     Convert.ToUInt64(1uL) |> equal x
+    Convert.ToUInt64(1.f) |> equal x
+    Convert.ToUInt64(1.) |> equal x
+    Convert.ToUInt64(1.m) |> equal x
 
 [<Test>]
 let ``System.Convert.ToSingle works``() =
@@ -192,6 +240,9 @@ let ``System.Convert.ToSingle works``() =
     float32(1us) |> equal x
     float32(1ul) |> equal x
     float32(1uL) |> equal x
+    float32(1.f) |> equal x
+    float32(1.) |> equal x
+    float32(1.m) |> equal x
     Convert.ToSingle(1y) |> equal x
     Convert.ToSingle(1uy) |> equal x
     Convert.ToSingle(1s) |> equal x
@@ -201,6 +252,9 @@ let ``System.Convert.ToSingle works``() =
     Convert.ToSingle(1us) |> equal x
     Convert.ToSingle(1ul) |> equal x
     Convert.ToSingle(1uL) |> equal x
+    Convert.ToSingle(1.f) |> equal x
+    Convert.ToSingle(1.) |> equal x
+    Convert.ToSingle(1.m) |> equal x
 
 [<Test>]
 let ``System.Convert.ToDouble works``() =
@@ -214,6 +268,9 @@ let ``System.Convert.ToDouble works``() =
     float(1us) |> equal x
     float(1ul) |> equal x
     float(1uL) |> equal x
+    float(1.f) |> equal x
+    float(1.) |> equal x
+    float(1.m) |> equal x
     Convert.ToDouble(1y) |> equal x
     Convert.ToDouble(1uy) |> equal x
     Convert.ToDouble(1s) |> equal x
@@ -223,3 +280,33 @@ let ``System.Convert.ToDouble works``() =
     Convert.ToDouble(1us) |> equal x
     Convert.ToDouble(1ul) |> equal x
     Convert.ToDouble(1uL) |> equal x
+    Convert.ToDouble(1.f) |> equal x
+    Convert.ToDouble(1.) |> equal x
+    Convert.ToDouble(1.m) |> equal x
+
+[<Test>]
+let ``System.Convert.ToDecimal works``() =
+    let x = 1.m
+    decimal(1y) |> equal x
+    decimal(1uy) |> equal x
+    decimal(1s) |> equal x
+    decimal(1) |> equal x
+    decimal(1L) |> equal x
+    decimal(1u) |> equal x
+    decimal(1us) |> equal x
+    decimal(1ul) |> equal x
+    decimal(1.f) |> equal x
+    decimal(1.) |> equal x
+    decimal(1.m) |> equal x
+    Convert.ToDecimal(1y) |> equal x
+    Convert.ToDecimal(1uy) |> equal x
+    Convert.ToDecimal(1s) |> equal x
+    Convert.ToDecimal(1) |> equal x
+    Convert.ToDecimal(1L) |> equal x
+    Convert.ToDecimal(1u) |> equal x
+    Convert.ToDecimal(1us) |> equal x
+    Convert.ToDecimal(1ul) |> equal x
+    Convert.ToDecimal(1uL) |> equal x
+    Convert.ToDecimal(1.f) |> equal x
+    Convert.ToDecimal(1.) |> equal x
+    Convert.ToDecimal(1.m) |> equal x
