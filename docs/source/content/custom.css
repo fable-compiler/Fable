@@ -45,12 +45,30 @@ body {
   padding:25px 0px 40px 0px;
   text-align:center;
 }
+.fb-hp-heading {
+  padding:15px 0px 20px 0px;
+}
 .fb-heading h1 {
   font-weight:400;
   font-size:35pt;
 }
 .fb-heading p {
   font-size:20pt;
+}
+.fb-heading .links {
+  margin:20px 0px 10px 0px;
+}
+.fb-heading .links a {
+  margin:0px 10px 0px 10px;
+  color:#CC86B0;
+  font-size:14pt;
+}
+.fb-heading .links a:hover, .fb-heading .links a:active {
+  text-decoration:none;
+  color:#FFC6E8;
+}
+.fb-heading .links a i {
+  margin-right:5px;
 }
 
 
