@@ -3,11 +3,19 @@ module Fable.Tests.RecordTypes
 open NUnit.Framework
 open Fable.Tests.Util
 
+type RecursiveRecord = 
+    { things : RecursiveRecord list }
+    
 type Person =
     { name: string; mutable luckyNumber: int }
     member x.LuckyDay = x.luckyNumber % 30
     member x.SignDoc str = str + " by " + x.name
 
+[<Test>]
+let ``Recursive record does not cause issues``() = 
+    let r = { things = [ { things = [] } ] }
+    equal r.things.Length 1
+    
 [<Test>]
 let ``Record property access can be generated``() =
     let x = { name = "Alfonso"; luckyNumber = 7 }
