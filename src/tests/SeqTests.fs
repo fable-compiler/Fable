@@ -601,6 +601,15 @@ let ``Seq.groupBy works``() =
     ys |> Seq.length
     |> equal 2
 
+type DummyUnion = Number of int
+
+[<Test>]
+let ``Seq.groupBy with structural equality works``() =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> Seq.groupBy (fun x -> Number (x % 2))
+    ys |> Seq.length
+    |> equal 2
+
 [<Test>]
 let ``Seq.initInfinite works``() =
     Seq.initInfinite (fun i -> 2. * float i)

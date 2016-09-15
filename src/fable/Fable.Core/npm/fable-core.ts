@@ -1669,11 +1669,11 @@ export class Seq {
 
   // TODO: Should return a Iterable<Tuple<K, Iterable<T>>> instead of a Map<K, Iterable<T>>
   // Seq.groupBy : ('T -> 'Key) -> seq<'T> -> seq<'Key * seq<'T>>
-  static groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
+  static groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>): Iterable<[K, Iterable<T>]> {
     return Seq.fold((acc, x) => {
-      const k = f(x), vs = acc.get(k);
-      return vs != null ? acc.set(k, new List(x, <List<T>>vs)) : acc.set(k, List.singleton(x));
-    }, new Map<K, Iterable<T>>(), xs);
+      const k = f(x), vs = FMap.tryFind(k, acc);
+      return FMap.add(k, vs != null ? new List(x, <List<T>>vs) : List.singleton(x), acc) as FMap<K, Iterable<T>>;
+    }, FMap.create() as FMap<K, Iterable<T>>, xs);
   }
 
   static tryHead<T>(xs: Iterable<T>) {
