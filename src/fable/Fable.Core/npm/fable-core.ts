@@ -315,6 +315,19 @@ export class Serialize {
   }
 
     private static updateObject(obj: any, type: string): any {
+        if (obj == null) {
+            return obj;
+        }
+
+        if (type === "System.DateTime" && typeof obj === "string") {
+            return FDate.parse(obj);
+        }
+
+        if (type.endsWith("[]") && Array.isArray(obj)) {
+            const t = type.substring(0, type.length - 2)
+            return obj.map((c:any) => Serialize.updateObject(c, t))
+        }
+
         const fields = fableGlobal.typeFields.get(type);
         if (fields) {
             for (let prop in obj) {
@@ -328,7 +341,6 @@ export class Serialize {
                 }
             }
         }
-
         const T = fableGlobal.types.get(type);
         return T ? Object.assign(new T(), obj) : obj;
     }

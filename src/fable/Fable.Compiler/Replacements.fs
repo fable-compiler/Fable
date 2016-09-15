@@ -391,8 +391,18 @@ module private AstPass =
                 match i.methodName, i.methodTypeArgs with
                 | "ofJson", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
                     [i.args.Head; makeTypeRef com None t]
-                | "ofJsonSimple", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
-                    [i.args.Head; makeConst t.FullName]
+
+                | "ofJsonSimple", _  ->
+                    match i.methodTypeArgs with
+                    | [Fable.DeclaredType(ent,_) as t] ->
+                        [i.args.Head; makeConst t.FullName]
+
+                    | [Fable.Array(t)] ->
+                        [i.args.Head; makeConst (t.FullName + "[]")]
+
+                    | _ ->
+                       i.args
+
                 | _ -> i.args
             let modName =
                 if i.methodName = "toPlainJsObj" then "Util" else "Serialize"

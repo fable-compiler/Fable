@@ -74,6 +74,7 @@
     <Compile Include="TypeTests.fs" />
     <Compile Include="EventTests.fs" />
     <Compile Include="SudokuTest.fs" />
+    <Compile Include="JsonTests.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
