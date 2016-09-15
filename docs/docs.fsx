@@ -377,7 +377,7 @@ Target "BrowseDocs" (fun _ ->
     System.Threading.Thread.Sleep(-1)
 )
 
-Target "PublishDocs" (fun _ ->
+let publishDocs() =
   CleanDir temp
   Repository.cloneSingleBranch "" (githubLink + ".git") publishBranch temp
 
@@ -385,6 +385,14 @@ Target "PublishDocs" (fun _ ->
   StageAll temp
   Git.Commit.Commit temp (sprintf "Update site (%s)" (DateTime.Now.ToShortDateString()))
   Branches.push temp
+
+Target "PublishDocs" (fun _ ->
+    publishDocs()
+)
+
+Target "PublishStaticPages" (fun _ ->
+    generateStaticPages publishSite true ()
+    publishDocs()
 )
 
 // --------------------------------------------------------------------------------------

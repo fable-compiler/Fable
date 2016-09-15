@@ -474,6 +474,11 @@ Target "PublishDocs" (fun _ ->
     if exit <> 0 then failwith "Publishing documentation failed"
 )
 
+Target "PublishStaticPages" (fun _ ->
+    let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "PublishStaticPages"]
+    if exit <> 0 then failwith "Publishing documentation failed"
+)
+
 Target "All" ignore
 
 // Build order
