@@ -47,7 +47,8 @@ Events            | fable-core/Event
 
 ### Caveats
 
-- No bound checks for numeric types.
+- All numeric types become JS `number` (64-bit floating type), including `decimal` and `int64`.
+- No bound checks for numeric types, unless you do explicit conversions (e.g. `byte 500`).
 - Integer division will always produce an integer.
 - Numeric arrays are compiled to [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray) when possible.
 - `Regex` will always behave as if passed `RegexOptions.ECMAScript` flag (e.g., no negative look-behind or named groups).
