@@ -1,3 +1,7 @@
+### 0.6.2
+
+* Fix groupBy with structural equality
+
 ### 0.6.1
 
 * Fix Array/List/Seq.tryFindIndexBack (PR #410)

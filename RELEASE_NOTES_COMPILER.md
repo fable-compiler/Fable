@@ -1,3 +1,8 @@
+### 0.6.5
+
+* Support decimal (converted to JS number): PR #413
+* Support recursive records: PR #417
+
 ### 0.6.4
 
 * Fix #411: for .. downto
