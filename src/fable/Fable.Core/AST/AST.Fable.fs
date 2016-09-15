@@ -49,9 +49,9 @@ and EntityKind =
     | Class of baseClass: (string*Expr) option
     | Interface
 
-and Entity(kind, file, fullName, members: Lazy<Member list>,
+and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
            genParams, interfaces, decorators, isPublic) =
-    member x.Kind: EntityKind = kind
+    member x.Kind: EntityKind = kind.Value
     member x.File: string option = file
     member x.FullName: string = fullName
     member x.GenericParameters: string list = genParams
@@ -82,7 +82,7 @@ and Entity(kind, file, fullName, members: Lazy<Member list>,
             then true
             else argsEqual m.ArgumentTypes argTypes)
     static member CreateRootModule fileName modFullName =
-        Entity (Module, Some fileName, modFullName, lazy [], [], [], [], true)
+        Entity (lazy Module, Some fileName, modFullName, lazy [], [], [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
