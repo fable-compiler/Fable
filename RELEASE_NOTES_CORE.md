@@ -1,3 +1,7 @@
+### 0.6.3
+
+* Fix sprintf "%O" with types overloading ToString
+
 ### 0.6.2
 
 * Fix groupBy with structural equality

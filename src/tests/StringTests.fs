@@ -41,6 +41,14 @@ let ``sprintf with percent symbols in arguments works``() = // See #329
       same "%% %%"
       same "%% % % %%"
 
+type Test(i: int) =
+      override __.ToString() = string(i + i)
+
+[<Test>]
+let ``sprintf "%O" with overloaded string works``() =
+      let o = Test(5)
+      sprintf "%O" o |> equal "10"
+
 #if FABLE_COMPILER
 open Fable.Core.JsInterop
 

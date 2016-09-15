@@ -759,6 +759,8 @@ class FString {
             rep = rep.toPrecision(precision); break;
           case "e": case "E":
             rep = rep.toExponential(precision); break;
+          case "O":
+            rep = Util.toString(rep); break;
           case "A":
             try {
               rep = JSON.stringify(rep, function (k, v) {

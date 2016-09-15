@@ -1,3 +1,7 @@
+### 0.6.6
+
+* Support ResizeArray.FindAll: PR #412
+
 ### 0.6.5
 
 * Support decimal (converted to JS number): PR #413
