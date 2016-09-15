@@ -96,6 +96,34 @@ let ``Records serialized with Json.NET can be deserialized``() =
     x2.a |> equal "Hi"
     x2.b |> equal 10
 
+
+type Simple = {
+    Name : string
+    Child : Child
+}
+
+[<Test>]
+let ``Records serialized with simple json``() =
+    let json = 
+        """
+        {
+            "Name": "foo",
+            "Child": {
+                "a": "Hi",
+                "b": 10
+            }
+        }
+        """
+
+    let result: Simple = Fable.Core.JsInterop.ofJsonSimple json
+    
+    result.Name |> equal "foo"
+    
+    // Use the built in compare to ensure the fields are beening hooked up.
+    // Should compile to something like: result.Child.Equals(new Child("Hi", 10))
+    if result.Child <> {a="Hi"; b=10} then
+        invalidOp "Child not equal"    
+
 #if FABLE_COMPILER
 [<Test>]
 let ``Trying to deserialize a JSON of different type throws an exception``() =

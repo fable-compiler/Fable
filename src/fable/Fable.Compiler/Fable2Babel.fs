@@ -243,6 +243,19 @@ module Util =
         |> List.map (fun x -> Babel.StringLiteral x :> Babel.Expression |> U2.Case1 |> Some)
         |> Babel.ArrayExpression :> Babel.Expression
 
+    let buildFields com ctx (ent: Fable.Entity)  =
+        match ent.Kind with
+        | Fable.Record fields -> fields
+        | _ -> []
+
+        |> List.map(fun (n,t) -> 
+            [ Babel.StringLiteral n :> Babel.Expression |> U2.Case1 |> Some
+              Babel.StringLiteral t.FullName :> Babel.Expression |> U2.Case1 |> Some ]
+            |> Babel.ArrayExpression :> Babel.Expression
+            |> U2.Case1 |> Some
+        )
+        |> Babel.ArrayExpression :> Babel.Expression
+
     let assign range left right =
         Babel.AssignmentExpression(AssignEqual, left, right, ?loc=range)
         :> Babel.Expression
@@ -754,12 +767,13 @@ module Util =
         [ getCoreLibImport com ctx "Util"
           typeRef com ctx ent None
           buildStringArray interfaces
-          upcast Babel.StringLiteral ent.FullName ]
+          upcast Babel.StringLiteral ent.FullName
+          buildFields com ctx ent ]
         |> fun args ->
             // "$0.setInterfaces($1.prototype, $2, $3)"
             Babel.CallExpression(
                 get args.[0] "setInterfaces",
-                [get args.[1] "prototype"; args.[2]; args.[3]] |> List.map U2.Case1)
+                [get args.[1] "prototype"; args.[2]; args.[3]; args.[4]] |> List.map U2.Case1)
         |> Babel.ExpressionStatement :> Babel.Statement
 
     let declareEntryPoint com ctx (funcExpr: Babel.Expression) =

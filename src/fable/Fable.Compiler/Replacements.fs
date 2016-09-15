@@ -386,11 +386,13 @@ module private AstPass =
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
-        | "toJson" | "ofJson" | "toPlainJsObj" ->
+        | "toJson" | "ofJson" | "toPlainJsObj" | "ofJsonSimple" ->
             let args =
                 match i.methodName, i.methodTypeArgs with
                 | "ofJson", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
                     [i.args.Head; makeTypeRef com None t]
+                | "ofJsonSimple", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
+                    [i.args.Head; makeConst t.FullName]
                 | _ -> i.args
             let modName =
                 if i.methodName = "toPlainJsObj" then "Util" else "Serialize"

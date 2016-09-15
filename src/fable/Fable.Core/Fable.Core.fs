@@ -107,6 +107,10 @@ module JsInterop =
     /// (compatible with Newtonsoft.Json)
     let ofJson<'T> (json: string): 'T = failwith "JS only"
 
+    /// Instantiate F# objects from JSON with type info - simple mode
+    /// (compatible with Newtonsoft.Json)
+    let ofJsonSimple<'T> (json: string): 'T = failwith "JS only"
+
     /// Convert F# unions, records and classes into plain JS objects
     let toPlainJsObj (o: 'T): obj = failwith "JS only"
 

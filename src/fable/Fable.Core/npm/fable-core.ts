@@ -8,6 +8,7 @@ const fableGlobal = function () {
   if (typeof globalObj.__FABLE_CORE__ == "undefined") {
     globalObj.__FABLE_CORE__ = {
       types: new Map<string, any>(),
+      typeFields: new Map<string, Map<string, string>>(),
       symbols: {
         interfaces: Symbol("interfaces"),
         typeName: Symbol("typeName")
@@ -47,7 +48,7 @@ export class Util {
   // For legacy reasons the name is kept, but this method also adds
   // the type name to a cache. Use it after declaration:
   // Util.setInterfaces(Foo.prototype, ["IFoo", "IBar"], "MyModule.Foo");
-  public static setInterfaces(proto: any, interfaces: string[], typeName?: string) {
+  public static setInterfaces(proto: any, interfaces: string[], typeName?: string, typeFields?: string[][]) {
     if (Array.isArray(interfaces) && interfaces.length > 0) {
       const currentInterfaces = proto[FSymbol.interfaces];
       if (Array.isArray(currentInterfaces)) {
@@ -61,6 +62,10 @@ export class Util {
     if (typeName) {
       proto[FSymbol.typeName] = typeName;
       fableGlobal.types.set(typeName, proto.constructor);
+    }
+
+    if (Array.isArray(typeFields) && typeFields.length > 0) {
+      fableGlobal.typeFields.set(typeName, new Map<string, string>(typeFields));
     }
   }
 
@@ -308,6 +313,29 @@ export class Serialize {
     }
     return parsed;
   }
+
+    private static updateObject(obj: any, type: string): any {
+        const fields = fableGlobal.typeFields.get(type);
+        if (fields) {
+            for (let prop in obj) {
+                if (!obj.hasOwnProperty(prop)) {
+                    continue;
+                }
+
+                const field = fields.get(prop);
+                if (field) {
+                    obj[prop] = Serialize.updateObject(obj[prop], field);
+                }
+            }
+        }
+
+        const T = fableGlobal.types.get(type);
+        return T ? Object.assign(new T(), obj) : obj;
+    }
+
+    static ofJsonSimple(json: any, type: string): any {
+        return Serialize.updateObject(JSON.parse(json), type);
+    }
 }
 
 export class GenericComparer<T> implements IComparer<T> {
