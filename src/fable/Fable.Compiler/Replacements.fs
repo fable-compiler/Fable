@@ -852,7 +852,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for Dictionary keys, please use F# Map"
                 |> addWarning com i
             | _ -> ()
@@ -890,7 +890,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for HashSet, please use F# Set"
                 |> addWarning com i
             | _ -> ()

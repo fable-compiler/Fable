@@ -537,13 +537,17 @@ module Types =
             // It's ok to use an empty context here, because we don't need to resolve generic params
             |> Seq.map (fun x -> x.Name, makeType com Context.Empty x.FieldType)
             |> Seq.toList
+        let makeCases (tdef: FSharpEntity) =
+            tdef.UnionCases |> Seq.map (fun x ->
+                x.Name, [for fi in x.UnionCaseFields do yield makeType com Context.Empty fi.FieldType])
+            |> Map
         let getKind () =
             if tdef.IsInterface then Fable.Interface
-            elif tdef.IsFSharpUnion then Fable.Union
+            elif tdef.IsFSharpUnion then makeCases tdef |> Fable.Union
             elif tdef.IsFSharpRecord then makeFields tdef |> Fable.Record
             elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
-            else Fable.Class (getBaseClass com tdef)
+            else Fable.Class(getBaseClass com tdef, makeFields tdef)
         let genParams =
             tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
         let infcs =

@@ -767,7 +767,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         let body =
             let ctx' =
                 match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
-                | true, Some(EntityKind(Fable.Class(Some(fullName, _)))) ->
+                | true, Some(EntityKind(Fable.Class(Some(fullName, _), _))) ->
                     { ctx' with baseClass = Some fullName }
                 | _ -> ctx'
             transformExpr com ctx' body
@@ -804,7 +804,7 @@ let rec private transformEntityDecl
         // Unions, records and F# exceptions don't have a constructor
         let cons =
             match fableEnt.Kind with
-            | Fable.Union -> [makeUnionCons()]
+            | Fable.Union _ -> [makeUnionCons()]
             | Fable.Record fields
             | Fable.Exception fields -> [makeRecordCons fields]
             | _ -> []

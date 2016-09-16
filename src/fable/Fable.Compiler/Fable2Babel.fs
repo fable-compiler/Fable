@@ -708,7 +708,7 @@ module Util =
                     | Fable.Constructor ->
                         let body =
                             match ent with
-                            | Some(EntKind(Fable.Class(Some _))) -> checkBaseCall body
+                            | Some(EntKind(Fable.Class(Some _, _))) -> checkBaseCall body
                             | _ -> body
                         Babel.ClassConstructor, "constructor", false, body
                     | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.IsStatic, body
@@ -729,7 +729,7 @@ module Util =
                         |> Babel.TypeParameterDeclaration |> Some
                     let props =
                         match ent.Kind with
-                        | Fable.Union ->
+                        | Fable.Union _ ->
                             ["Case", Fable.String; "Fields", Fable.Array Fable.Any]
                             |> List.map (fun (name, typ) -> declareProperty com ctx name typ)
                         | Fable.Record fields | Fable.Exception fields ->
@@ -747,7 +747,7 @@ module Util =
             failwithf "Fable doesn't support custom implementations of %s (%s)" i ent.FullName)
         let interfaces =
             match ent.Kind with
-            | Fable.Union -> "FSharpUnion"::ent.Interfaces
+            | Fable.Union _ -> "FSharpUnion"::ent.Interfaces
             | Fable.Record _ -> "FSharpRecord"::ent.Interfaces
             | Fable.Exception _ -> "FSharpException"::ent.Interfaces
             | _ -> ent.Interfaces
@@ -905,12 +905,12 @@ module Util =
                 match ent.Kind with
                 | Fable.Interface ->
                     (declareInterfaceEntity com ent)@acc
-                | Fable.Class baseClass ->
+                | Fable.Class(baseClass, _) ->
                     let baseClass = Option.map snd baseClass
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange baseClass true
                     |> List.append <| acc
-                | Fable.Union | Fable.Record _ | Fable.Exception _ ->                
+                | Fable.Union _ | Fable.Record _ | Fable.Exception _ ->                
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange None false
                     |> List.append <| acc

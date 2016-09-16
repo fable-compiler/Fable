@@ -43,10 +43,10 @@ type Type =
 (** ##Entities *)
 and EntityKind =
     | Module
-    | Union
+    | Union of cases: Map<string, Type list>
     | Record of fields: (string*Type) list
     | Exception of fields: (string*Type) list
-    | Class of baseClass: (string*Expr) option
+    | Class of baseClass: (string*Expr) option * fields: (string*Type) list
     | Interface
 
 and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
