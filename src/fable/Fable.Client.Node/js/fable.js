@@ -235,7 +235,10 @@ function processJson(json, opts) {
             return; // If console out is not in JSON format, just ignore
         }
         if (babelAst.type == "LOG") {
-            if (opts.verbose || babelAst.message.indexOf("[WARNING]") == 0) {
+            if (babelAst.message.indexOf("[WARNING]") == 0) {
+                process.stderr.write (babelAst.message + "\n");
+            }
+            else if (opts.verbose) {
                 console.log(babelAst.message);
             }
         }
@@ -251,9 +254,9 @@ function processJson(json, opts) {
         err = e.message ? e : { message: e };
     }
     if (err != null) {
-        console.log("ERROR: " + err.message);
+        process.stderr.write("ERROR: " + err.message + "\n");
         if (opts.verbose && err.stack) {
-            console.log(err.stack);
+            process.stderr.write(err.stack + "\n");
         }
         if (!opts.watch) {
             process.exit(1);
