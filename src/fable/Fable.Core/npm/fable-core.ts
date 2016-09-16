@@ -348,8 +348,15 @@ export class Serialize {
         }
 
         if (type.startsWith("Microsoft.FSharp.Collections.FSharpMap[[")) {
-            const t = type.substring(40, type.length - 2);
-            return FMap.create(Object.getOwnPropertyNames(obj).map(k => [k, Serialize.updateObject(obj[k], t)] as [any, any]));
+            // Should we handle none string keys?
+            const [kt, kv] = type.substring(40, type.length - 2).split("],[");
+            return FMap.create(Object.getOwnPropertyNames(obj).map(k => [k, Serialize.updateObject(obj[k], kv)] as [any, any]));
+        }
+
+        if (type.startsWith("System.Collections.Generic.Dictionary[[")) {
+            // Should we handle none string keys?
+            const [kt, kv] = type.substring(39, type.length - 2).split("],[");
+            return new Map(Object.getOwnPropertyNames(obj).map(k => [k, Serialize.updateObject(obj[k], kv)] as [any, any]));
         }
 
         if (type.startsWith("Microsoft.FSharp.Core.FSharpOption[[") && obj.Case && Array.isArray(obj.Fields) && obj.Fields.length === 1) {

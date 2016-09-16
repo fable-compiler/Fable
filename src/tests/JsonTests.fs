@@ -200,12 +200,25 @@ let ``Simple json - Set`` () =
         invalidOp "b is missing"
 
 type MapJson =
-    { a: Map<string, string> }
+    { a: Map<string, Child> }
 
 [<Test>]
 let ``Simple json - Map`` () =
-    let json = """ {"a":{"a":"a1","b":"b1"}} """
+    let json = """ {"a":{"a":{"a":"aa","b":1},"b":{"a":"bb","b":2}}} """
     let result : MapJson = Fable.Core.JsInterop.ofJsonSimple json
 
-    result.a |> Map.toArray |> Array.length |> equal 2
-    result.a |> Map.find "b" |> equal "b1"
+    result.a.Count |> equal 2
+    if result.a.["b"] <> { a="bb"; b=2 } then 
+        invalidOp "Not equal"
+    
+type DictionaryJson =
+    { a: System.Collections.Generic.Dictionary<string, Child> }
+
+[<Test>]
+let ``Simple json - Dictionary`` () =
+    let json = """ {"a":{"a":{"a":"aa","b":1},"b":{"a":"bb","b":2}}} """
+    let result : DictionaryJson = Fable.Core.JsInterop.ofJsonSimple json
+
+    result.a.Count |> equal 2
+    if result.a.["b"] <> { a="bb"; b=2 } then 
+        invalidOp "Not equal"
