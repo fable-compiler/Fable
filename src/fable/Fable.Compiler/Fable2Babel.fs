@@ -249,6 +249,9 @@ module Util =
         | _ -> []
 
         |> List.map(fun (n,t) -> 
+//            let name = [ [t.FullName]
+//                         t.GenericArgs |> List.map(fun tt -> tt.FullName) ] |> List.concat |> String.concat " "
+
             [ Babel.StringLiteral n :> Babel.Expression |> U2.Case1 |> Some
               Babel.StringLiteral t.FullName :> Babel.Expression |> U2.Case1 |> Some ]
             |> Babel.ArrayExpression :> Babel.Expression

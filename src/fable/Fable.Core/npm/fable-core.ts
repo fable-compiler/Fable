@@ -320,8 +320,21 @@ export class Serialize {
         }
 
         if (obj.$type) {
-            type = obj.$type;
+            type = obj.$type.replace(/\+/, '.');
             delete obj.$type;
+
+            let i = type.indexOf('`');
+            if (i > -1) {
+                type = type.substr(0, i);
+            }
+            else {
+                i = type.indexOf(',');
+                type = i > -1 ? type.substr(0, i) : type;
+            }
+        }
+
+        if (obj.$values) {
+            obj = obj.$values;
         }
 
         if (type === "System.DateTime" && typeof obj === "string") {
@@ -331,6 +344,10 @@ export class Serialize {
         if (type.endsWith("[]") && Array.isArray(obj)) {
             const t = type.substring(0, type.length - 2)
             return obj.map((c:any) => Serialize.updateObject(c, t))
+        }
+
+        if (type === "Microsoft.FSharp.Collections.FSharpList" && Array.isArray(obj)) {
+            return List.ofArray(obj);
         }
 
         const fields = fableGlobal.typeFields.get(type);

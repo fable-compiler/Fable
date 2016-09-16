@@ -84,6 +84,46 @@ let ``Simple json - Child Array``() =
     if result.Children.[1] <> { Name="b" } then
         invalidOp "Child not equal"  
 
+[<Test>] 
+let ``Simple json - String Generic List``() =
+    let json = """["a","b"]"""
+    let result : System.Collections.Generic.List<string> = Fable.Core.JsInterop.ofJsonSimple json
+
+    result.Count |> equal 2
+    result.[1] |> equal "b"
+
+[<Test>] 
+let ``Simple json - Child Generic List``() =
+    let json = """[{ "Name": "a" }, { "Name": "b" }]"""
+    let result : System.Collections.Generic.List<JsonArray> = Fable.Core.JsInterop.ofJsonSimple json
+
+    result.Count |> equal 2
+
+    if result.[1] <> { Name="b" } then
+        invalidOp "Child not equal"  
+
+[<Test>] 
+let ``Simple json - List``() =
+    let json = """["a","b"]"""
+    let result : string list = Fable.Core.JsInterop.ofJsonSimple json
+
+    result |> List.length |> equal 2
+    result.[1] |> equal "b"
+
+type ChildList = {
+    Children : JsonArray list
+}
+
+//[<Test>] 
+//let ``Simple json - Child List``() =
+//    let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
+//    let result : ChildList = Fable.Core.JsInterop.ofJsonSimple json
+//
+//    result.Children |> List.length |> equal 2
+//
+//    if result.Children.[1] <> { Name="b" } then
+//        invalidOp "Child not equal"  
+
 type Wrapper<'T> = { thing : 'T }
 
 [<Test>]
@@ -108,6 +148,6 @@ let ``Simple json - generic`` () =
     if parsedCorrectly then
         invalidOp "Complex object should not have equal hooked up" 
 
-    let result4 : Child = parseAndUnwrap """ { "thing" : { "$type":"Fable.Tests.Json.Child", "a": "a", "b": 1 } } """
+    let result4 : Child = parseAndUnwrap """ { "thing" : {"$type":"Fable.Tests.Json+Child, Fable.Tests","a":"a","b":1} } """
     if result4 <> {a = "a"; b = 1} then
         invalidOp "things not equal" 
