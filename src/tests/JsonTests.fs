@@ -175,3 +175,16 @@ let ``Simple json - Tuple`` () =
 
     if result.a <> (1, 2) then
         invalidOp "Not equal"
+
+
+type TupleComplexJson =
+    { a: int * Child }
+
+[<Test>]
+let ``Simple json - Complex Tuple`` () =
+    let json = """ {"a":{"Item1":1,"Item2":{"a":"A","b":1}}} """
+    let result : TupleComplexJson = Fable.Core.JsInterop.ofJsonSimple json
+
+    if snd result.a  <> { a = "A"; b = 1 } then
+        invalidOp "Not equal"
+

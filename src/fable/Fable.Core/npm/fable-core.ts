@@ -351,14 +351,14 @@ export class Serialize {
             return null
         }
 
-        if (type.endsWith("]]")) {
-            type = type.substr(0, type.indexOf("[["));
+        if (type.startsWith("Tuple [")) {
+            return type.substring(type.indexOf('][') + 2, type.length - 2).split("],[").map((t, i) => {
+                return Serialize.updateObject(obj["Item" + (i + 1)], t)
+            });
         }
 
-        if (type.startsWith("Tuple [")) {
-            return type.substring(7, type.length - 1).split("; ").map((t, i) => 
-                Serialize.updateObject(obj["Item" + (i + 1)], t)
-            );
+        if (type.endsWith("]]")) {
+            type = type.substr(0, type.indexOf("[["));
         }
 
         const fields = fableGlobal.typeFields.get(type);
