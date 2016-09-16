@@ -319,6 +319,11 @@ export class Serialize {
             return obj;
         }
 
+        if (obj.$type) {
+            type = obj.$type;
+            delete obj.$type;
+        }
+
         if (type === "System.DateTime" && typeof obj === "string") {
             return FDate.parse(obj);
         }
