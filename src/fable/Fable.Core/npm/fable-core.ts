@@ -342,8 +342,23 @@ export class Serialize {
             return List.ofArray(obj.map((c: any) => Serialize.updateObject(c, t)));
         }
 
+        if (type.startsWith("Microsoft.FSharp.Core.FSharpOption[[") && obj.Case && Array.isArray(obj.Fields) && obj.Fields.length === 1) {
+            if (obj.Case === "Some") {
+                const t = type.substring(36, type.length - 2);
+                return Serialize.updateObject(obj.Fields[0], t);
+            }
+
+            return null
+        }
+
         if (type.endsWith("]]")) {
             type = type.substr(0, type.indexOf("[["));
+        }
+
+        if (type.startsWith("Tuple [")) {
+            return type.substring(7, type.length - 1).split("; ").map((t, i) => 
+                Serialize.updateObject(obj["Item" + (i + 1)], t)
+            );
         }
 
         const fields = fableGlobal.typeFields.get(type);

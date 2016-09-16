@@ -151,3 +151,27 @@ let ``Simple json - generic`` () =
     let result4 : Child = parseAndUnwrap """ {"$type":"Fable.Tests.Json+Wrapper`1[[Fable.Tests.Json+Child, Fable.Tests]], Fable.Tests","thing":{"$type":"Fable.Tests.Json+Child, Fable.Tests","a":"a","b":1}} """
     if result4 <> {a = "a"; b = 1} then
         invalidOp "things not equal" 
+
+type OptionJson =
+    { a: int option }
+
+[<Test>]
+let ``Simple json - Option Some`` () =
+    let json = """ {"a":{"Case":"Some","Fields":[1]}} """
+    let result : OptionJson = Fable.Core.JsInterop.ofJsonSimple json
+
+    match result.a with
+    | Some v -> v |> equal 1
+    | _ -> invalidOp "Doesn't equal 1"
+
+
+type TupleJson =
+    { a: int * int }
+
+[<Test>]
+let ``Simple json - Tuple`` () =
+    let json = """ {"a":{"Item1":1,"Item2":2}} """
+    let result : TupleJson = Fable.Core.JsInterop.ofJsonSimple json
+
+    if result.a <> (1, 2) then
+        invalidOp "Not equal"
