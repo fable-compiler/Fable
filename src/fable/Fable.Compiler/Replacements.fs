@@ -393,12 +393,16 @@ module private AstPass =
                     [i.args.Head; makeTypeRef com None t]
 
                 | "ofJsonSimple", _  ->
+                    let rec convertType (tp: Fable.Type) = 
+                        if tp.FullName.EndsWith("[]") || List.length tp.GenericArgs = 0 then tp.FullName
+                        else tp.FullName + "[" + (tp.GenericArgs |> List.map(fun a -> "[" + convertType a + "]") |> String.concat "," )  + "]"
+ 
                     match i.methodTypeArgs with
                     | [Fable.DeclaredType(ent,_) as t] ->
-                        [i.args.Head; makeConst t.FullName]
+                        [i.args.Head; makeConst (convertType t)]
 
-                    | [Fable.Array(t)] ->
-                        [i.args.Head; makeConst (t.FullName + "[]")]
+                    | [Fable.Array(_) as t] ->
+                        [i.args.Head; makeConst (convertType t)]
 
                     | _ ->
                        i.args

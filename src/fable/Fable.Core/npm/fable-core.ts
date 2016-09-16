@@ -320,17 +320,8 @@ export class Serialize {
         }
 
         if (obj.$type) {
-            type = obj.$type.replace(/\+/, '.');
+            type = obj.$type.replace(/\+/g, '.').replace(/`[0-9]+/g, '').replace(/, [^\]]+/g, '');
             delete obj.$type;
-
-            let i = type.indexOf('`');
-            if (i > -1) {
-                type = type.substr(0, i);
-            }
-            else {
-                i = type.indexOf(',');
-                type = i > -1 ? type.substr(0, i) : type;
-            }
         }
 
         if (obj.$values) {
@@ -342,12 +333,17 @@ export class Serialize {
         }
 
         if (type.endsWith("[]") && Array.isArray(obj)) {
-            const t = type.substring(0, type.length - 2)
+            const t = type.substring(0, type.length - 2);
             return obj.map((c:any) => Serialize.updateObject(c, t))
         }
 
-        if (type === "Microsoft.FSharp.Collections.FSharpList" && Array.isArray(obj)) {
-            return List.ofArray(obj);
+        if (type.startsWith("Microsoft.FSharp.Collections.FSharpList[[") && Array.isArray(obj)) {
+            const t = type.substring(41, type.length - 2);
+            return List.ofArray(obj.map((c: any) => Serialize.updateObject(c, t)));
+        }
+
+        if (type.endsWith("]]")) {
+            type = type.substr(0, type.indexOf("[["));
         }
 
         const fields = fableGlobal.typeFields.get(type);

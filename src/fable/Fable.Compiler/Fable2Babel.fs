@@ -249,11 +249,12 @@ module Util =
         | _ -> []
 
         |> List.map(fun (n,t) -> 
-//            let name = [ [t.FullName]
-//                         t.GenericArgs |> List.map(fun tt -> tt.FullName) ] |> List.concat |> String.concat " "
+            let rec convertType (tp: Fable.Type) = 
+                if tp.FullName.EndsWith("[]") || List.length tp.GenericArgs = 0 then tp.FullName
+                else tp.FullName + "[" + (tp.GenericArgs |> List.map(fun a -> "[" + convertType a + "]") |> String.concat "," )  + "]"
 
             [ Babel.StringLiteral n :> Babel.Expression |> U2.Case1 |> Some
-              Babel.StringLiteral t.FullName :> Babel.Expression |> U2.Case1 |> Some ]
+              Babel.StringLiteral (convertType t) :> Babel.Expression |> U2.Case1 |> Some ]
             |> Babel.ArrayExpression :> Babel.Expression
             |> U2.Case1 |> Some
         )

@@ -114,15 +114,15 @@ type ChildList = {
     Children : JsonArray list
 }
 
-//[<Test>] 
-//let ``Simple json - Child List``() =
-//    let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
-//    let result : ChildList = Fable.Core.JsInterop.ofJsonSimple json
-//
-//    result.Children |> List.length |> equal 2
-//
-//    if result.Children.[1] <> { Name="b" } then
-//        invalidOp "Child not equal"  
+[<Test>] 
+let ``Simple json - Child List``() =
+    let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
+    let result : ChildList = Fable.Core.JsInterop.ofJsonSimple json
+
+    result.Children |> List.length |> equal 2
+
+    if result.Children.[1] <> { Name="b" } then
+        invalidOp "Child not equal"  
 
 type Wrapper<'T> = { thing : 'T }
 
@@ -148,6 +148,6 @@ let ``Simple json - generic`` () =
     if parsedCorrectly then
         invalidOp "Complex object should not have equal hooked up" 
 
-    let result4 : Child = parseAndUnwrap """ { "thing" : {"$type":"Fable.Tests.Json+Child, Fable.Tests","a":"a","b":1} } """
+    let result4 : Child = parseAndUnwrap """ {"$type":"Fable.Tests.Json+Wrapper`1[[Fable.Tests.Json+Child, Fable.Tests]], Fable.Tests","thing":{"$type":"Fable.Tests.Json+Child, Fable.Tests","a":"a","b":1}} """
     if result4 <> {a = "a"; b = 1} then
         invalidOp "things not equal" 
