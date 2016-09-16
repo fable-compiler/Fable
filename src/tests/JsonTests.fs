@@ -188,3 +188,24 @@ let ``Simple json - Complex Tuple`` () =
     if snd result.a  <> { a = "A"; b = 1 } then
         invalidOp "Not equal"
 
+type SetJson =
+    { a: Set<string> }
+
+[<Test>]
+let ``Simple json - Set`` () =
+    let json = """ {"a":["a","b"]} """
+    let result : SetJson = Fable.Core.JsInterop.ofJsonSimple json
+
+    if result.a |> Set.contains "b" |> not then
+        invalidOp "b is missing"
+
+type MapJson =
+    { a: Map<string, string> }
+
+[<Test>]
+let ``Simple json - Map`` () =
+    let json = """ {"a":{"a":"a1","b":"b1"}} """
+    let result : MapJson = Fable.Core.JsInterop.ofJsonSimple json
+
+    result.a |> Map.toArray |> Array.length |> equal 2
+    result.a |> Map.find "b" |> equal "b1"

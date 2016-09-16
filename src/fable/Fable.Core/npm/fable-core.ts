@@ -342,6 +342,16 @@ export class Serialize {
             return List.ofArray(obj.map((c: any) => Serialize.updateObject(c, t)));
         }
 
+        if (type.startsWith("Microsoft.FSharp.Collections.FSharpSet[[") && Array.isArray(obj)) {
+            const t = type.substring(40, type.length - 2);
+            return FSet.create(obj.map((c: any) => Serialize.updateObject(c, t)));
+        }
+
+        if (type.startsWith("Microsoft.FSharp.Collections.FSharpMap[[")) {
+            const t = type.substring(40, type.length - 2);
+            return FMap.create(Object.getOwnPropertyNames(obj).map(k => [k, Serialize.updateObject(obj[k], t)] as [any, any]));
+        }
+
         if (type.startsWith("Microsoft.FSharp.Core.FSharpOption[[") && obj.Case && Array.isArray(obj.Fields) && obj.Fields.length === 1) {
             if (obj.Case === "Some") {
                 const t = type.substring(36, type.length - 2);
