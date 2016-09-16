@@ -1,5 +1,5 @@
 ﻿[<NUnit.Framework.TestFixture>] 
-module Fable.Tests.JsonTests
+module Fable.Tests.Json
 open NUnit.Framework
 open Fable.Tests.Util
 
@@ -83,3 +83,31 @@ let ``Simple json - Child Array``() =
 
     if result.Children.[1] <> { Name="b" } then
         invalidOp "Child not equal"  
+
+type Wrapper<'T> = { thing : 'T }
+
+[<Test>]
+let ``Simple json - generic`` () =
+    let parseAndUnwrap (json) : 'T = (Fable.Core.JsInterop.ofJsonSimple<Wrapper<'T>> json).thing
+
+    let result1 : string = parseAndUnwrap """ { "thing" : "a" } """
+    result1 |> equal "a"
+
+    let result2 : int = parseAndUnwrap """ { "thing" : 1 } """
+    result2 |> equal 1
+
+    let result3 : Child = parseAndUnwrap """ { "thing" : { "a": "a", "b": 1 } } """
+    result3.a |> equal "a"
+
+    let parsedCorrectly =
+        try 
+            result3 = {a = "a"; b = 1}
+        with _ ->
+            false
+
+    if parsedCorrectly then
+        invalidOp "Complex object should not have equal hooked up" 
+
+    let result4 : Child = parseAndUnwrap """ { "thing" : { "$type":"Fable.Tests.Json.Child", "a": "a", "b": 1 } } """
+    if result4 <> {a = "a"; b = 1} then
+        invalidOp "things not equal" 
