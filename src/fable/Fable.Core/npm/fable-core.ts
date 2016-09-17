@@ -32,6 +32,10 @@ export interface IEquatable<T> {
   Equals(x: T): boolean;
 }
 
+export interface ISchema {
+  [prop: string]: string;
+}
+
 export type Tuple<T1, T2> = [T1, T2];
 export type Tuple3<T1, T2, T3> = [T1, T2, T3];
 
@@ -224,23 +228,19 @@ export class Serialize {
       }
       else if (v != null && typeof v === "object") {
         if (v instanceof List || v instanceof FSet || v instanceof Set) {
-          return {
-            $type: v[FSymbol.typeName] || "System.Collections.Generic.HashSet",
-            $values: Array.from(v) };
+          return Array.from(v);
         }
         else if (v instanceof FMap || v instanceof Map) {
-          return Seq.fold(
-            (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, 
-            { $type: v[FSymbol.typeName] || "System.Collections.Generic.Dictionary" }, v);
+          return Seq.fold((o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, {}, v);
         }
         else if (v[FSymbol.typeName]) {
           if (Util.hasInterface(v, "FSharpUnion", "FSharpRecord", "FSharpException")) {
-            return Object.assign({ $type: v[FSymbol.typeName] }, v);
+            return v;
           }
           else {
             const proto = Object.getPrototypeOf(v),
                   props = Object.getOwnPropertyNames(proto),
-                  o = { $type: v[FSymbol.typeName] } as {[k:string]:any};
+                  o = {} as {[k:string]:any};
             for (let i = 0; i < props.length; i++) {
               const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
               if (prop.get)
@@ -254,59 +254,28 @@ export class Serialize {
     });
   }
 
-  static ofJson(json: any, expected?: Function): any {
-    const parsed = JSON.parse(json, (k, v) => {
-      if (v == null)
-        return v;
-      else if (typeof v === "object" && typeof v.$type === "string") {
-        // Remove generic args and assembly info added by Newtonsoft.Json
-        let type = v.$type.replace('+', '.'), i = type.indexOf('`');
-        if (i > -1) {
-          type = type.substr(0,i);
-        }
-        else {
-          i = type.indexOf(',');
-          type = i > -1 ? type.substr(0,i) : type;
-        }
-        if (type === "System.Collections.Generic.List" || (type.indexOf("[]") === type.length - 2)) {
-            return v.$values;
-        }
-        if (type === "Microsoft.FSharp.Collections.FSharpList") {
-            return List.ofArray(v.$values);
-        }
-        else if (type == "Microsoft.FSharp.Collections.FSharpSet") {
-          return FSet.create(v.$values);
-        }
-        else if (type == "System.Collections.Generic.HashSet") {
-          return new Set(v.$values);
-        }
-        else if (type == "Microsoft.FSharp.Collections.FSharpMap") {
-          delete v.$type;
-          return FMap.create(Object.getOwnPropertyNames(v)
-                                    .map(k => [k, v[k]] as [any,any]));
-        }
-        else if (type == "System.Collections.Generic.Dictionary") {
-          delete v.$type;
-          return new Map(Object.getOwnPropertyNames(v)
-                                .map(k => [k, v[k]] as [any,any]));
-        }
-        else {
-          const T = fableGlobal.types.get(type);
-          if (T) {
-            delete v.$type;
-            return Object.assign(new T(), v);
+  static ofJson(json: any, expected?: string, schemas?: {[idx:string]:ISchema}): any {
+    function inflate(val: any, expected?: string) {
+      // TODO: Handle lists, sets, maps
+      let T: any;
+      if (!expected || !(T = fableGlobal.types.get(expected))) {
+        return val;
+      }
+      else {
+        let schema: ISchema;
+        if (typeof schemas === "object" && typeof (schema = schemas[expected]) === "object") {
+          const nonPrimitiveProps = Object.getOwnPropertyNames(schema);
+          for (let i = 0; i < nonPrimitiveProps.length; i++) {
+            const prop = nonPrimitiveProps[i];
+            const value = val[prop];
+            if (value)
+              val[prop] = inflate(value, schema[prop]);
           }
         }
+        return Object.assign(new T(), val);
       }
-      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)$/.test(v))
-        return FDate.parse(v);
-      else
-        return v;
-    });
-    if (parsed != null && typeof expected == "function" && !(parsed instanceof expected)) {
-      throw "JSON is not of type " + expected.name + ": " + json;
     }
-    return parsed;
+    return inflate(JSON.parse(json), expected);
   }
 }
 

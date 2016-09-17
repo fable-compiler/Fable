@@ -46,7 +46,7 @@ and EntityKind =
     | Union of cases: Map<string, Type list>
     | Record of fields: (string*Type) list
     | Exception of fields: (string*Type) list
-    | Class of baseClass: (string*Expr) option * fields: (string*Type) list
+    | Class of baseClass: (string*Expr) option * properties: (string*Type) list
     | Interface
 
 and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
@@ -81,6 +81,13 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
             elif m.OverloadIndex.IsNone
             then true
             else argsEqual m.ArgumentTypes argTypes)
+    member x.FieldsOrProperties =
+        match x.Kind with
+        | Module | Interface -> []
+        | Union _ -> [] // TODO
+        | Record fields -> fields
+        | Exception fields -> fields
+        | Class(_, properties) -> properties
     static member CreateRootModule fileName modFullName =
         Entity (lazy Module, Some fileName, modFullName, lazy [], [], [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind

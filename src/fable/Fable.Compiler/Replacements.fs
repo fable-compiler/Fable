@@ -387,10 +387,68 @@ module private AstPass =
             CoreLibCall("Async", Some meth, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
         | "toJson" | "ofJson" | "toPlainJsObj" ->
+            /// Check if a type needs to be inflated when parsed from JSON
+            let rec needsInflate genArgsMap = function
+                | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
+                | Fable.Number _ | Fable.Enum _ -> None
+                // These types are not being considered for Json serialization at the moment
+                | Fable.Regex | Fable.Function _ -> None
+                // Arrays and tuples must be inflated to resolve the generic arguments 
+                | Fable.Array _ | Fable.Tuple _ | Fable.DeclaredType _ as t -> Some t
+                | Fable.GenericParam name ->
+                    match Map.tryFind name genArgsMap with
+                    | Some typ -> needsInflate genArgsMap typ
+                    | None -> None
             let args =
-                match i.methodName, i.methodTypeArgs with
-                | "ofJson", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
-                    [i.args.Head; makeTypeRef com None t]
+                let expected, genArgsMap = i.methodTypeArgs.Head, Map.empty
+                match i.methodName with
+                | "ofJson" when needsInflate genArgsMap expected |> Option.isSome ->
+                    let getProps = function
+                        | Fable.DeclaredType(ent,_) -> ent.FieldsOrProperties
+                        | _ -> []
+                    let rec buildSchema acc (typ: Fable.Type) =
+                        if Map.containsKey typ.FullName acc then acc else
+                        let genArgs, genArgsMap =
+                            match typ with
+                            | Fable.DeclaredType(ent, genArgs) ->
+                                genArgs, List.zip ent.GenericParameters genArgs |> Map
+                            | Fable.Array genArg -> [genArg], Map.empty
+                            | Fable.Tuple genArgs -> genArgs, Map.empty
+                            | _ -> [], Map.empty
+                        let acc, props =
+                            ((acc, []), getProps typ)
+                            ||> List.fold (fun (acc, props) (propName, propType) ->
+                                // Optimization: discard primitive properties from schema
+                                match needsInflate genArgsMap propType with
+                                | None -> acc, props
+                                | Some propType ->
+                                    let acc = buildSchema acc propType
+                                    acc, (propName, propType.FullName)::props
+                            )
+                        let acc, genArgs, _ =
+                            ((acc, [], -1), genArgs)
+                            ||> List.fold (fun (acc, genArgs, i) genArg ->
+                                let i = i + 1
+                                // genArgs are already resolved, no need for genArgsMap
+                                match needsInflate Map.empty genArg with
+                                | None -> acc, genArgs, i
+                                | Some genArg ->
+                                    let acc = buildSchema acc genArg
+                                    acc, (sprintf "$genArg%i" i, genArg.FullName)::genArgs, i
+                            )
+                        match (List.rev props)@(List.rev genArgs) with
+                        | [] -> acc
+                        | xs -> Map.add typ.FullName xs acc
+                    let schema =
+                        buildSchema Map.empty expected
+                        |> Seq.map (fun kv ->
+                            kv.Value
+                            |> List.map (fun (k, typName) -> k, makeConst typName)
+                            |> makeJsObject SourceLocation.Empty
+                            |> fun value -> kv.Key, value)
+                        |> Seq.toList
+                        |> makeJsObject SourceLocation.Empty
+                    [i.args.Head; makeConst expected.FullName; schema]
                 | _ -> i.args
             let modName =
                 if i.methodName = "toPlainJsObj" then "Util" else "Serialize"

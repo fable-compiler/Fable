@@ -537,6 +537,13 @@ module Types =
             // It's ok to use an empty context here, because we don't need to resolve generic params
             |> Seq.map (fun x -> x.Name, makeType com Context.Empty x.FieldType)
             |> Seq.toList
+        let makeProperties (tdef: FSharpEntity) =
+            tdef.MembersFunctionsAndValues
+            |> Seq.choose (fun x ->
+                if x.IsPropertyGetterMethod
+                then Some(x.DisplayName, makeType com Context.Empty x.FullType)
+                else None)
+            |> Seq.toList
         let makeCases (tdef: FSharpEntity) =
             tdef.UnionCases |> Seq.map (fun x ->
                 x.Name, [for fi in x.UnionCaseFields do yield makeType com Context.Empty fi.FieldType])
@@ -547,7 +554,7 @@ module Types =
             elif tdef.IsFSharpRecord then makeFields tdef |> Fable.Record
             elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
-            else Fable.Class(getBaseClass com tdef, makeFields tdef)
+            else Fable.Class(getBaseClass com tdef, makeProperties tdef)
         let genParams =
             tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
         let infcs =
