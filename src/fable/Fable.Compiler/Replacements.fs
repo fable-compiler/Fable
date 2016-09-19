@@ -169,11 +169,13 @@ module Util =
         | Fable.String ->
             GlobalCall ("Number", Some "parseInt", false, args)
             |> makeCall com i.range i.returnType
+            |> wrap i.returnType
         | Fable.Number kindFrom ->
             match i.returnType with
             | Fable.Number kindTo ->
                 let pattern = if needToCast kindFrom kindTo then patternFor kindTo else "$0"
                 emit i pattern [args.Head]
+                |> wrap i.returnType
             | _ -> wrap i.returnType args.Head
         | _ -> wrap i.returnType args.Head
 
