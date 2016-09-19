@@ -860,7 +860,7 @@ module private AstPass =
                 match upper with
                 | Null _ -> makeGet None t ar (makeConst "length")
                 | _ -> Fable.Apply(Fable.Value(Fable.BinaryOp BinaryPlus),
-                                [upper; makeConst 1], Fable.ApplyMeth, t, None)
+                                [upper; makeConst 1], Fable.ApplyMeth, t, None) 
             InstanceCall (ar, "slice", [lower; upper])
             |> makeCall com i.range i.returnType |> Some
         | "setArraySlice", (None, args) ->
@@ -1262,12 +1262,12 @@ module private AstPass =
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, _)) -> makeJsArray arVals
                 | _ -> emit i "Array.from($0)" i.args |> Some
         | "find" when Option.isSome c ->
-            let defaultValue = defaultof i.calleeTypeArgs.Head
+            let defaultValue = defaultof i.calleeTypeArgs.Head 
             ccall "Seq" "tryFind" [args.Head;c.Value;defaultValue] |> Some
         | "findAll" when Option.isSome c ->
             ccall "Seq" "filter" [args.Head;c.Value] |> toArray com i |> Some
         | "findLast" when Option.isSome c ->
-            let defaultValue = defaultof i.calleeTypeArgs.Head
+            let defaultValue = defaultof i.calleeTypeArgs.Head 
             ccall "Seq" "tryFindBack" [args.Head;c.Value;defaultValue] |> Some
         | "add" ->
             icall "push" (c.Value, args) |> Some

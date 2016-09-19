@@ -97,15 +97,15 @@ let ``Records serialized with Json.NET can be deserialized``() =
     x2.b |> equal 10
 
 #if FABLE_COMPILER
-[<Test>]
-let ``Trying to deserialize a JSON of different type throws an exception``() =
-    let child = {a="3";b=5}
-    let json = toJson child
-    let success =
-        try
-            ofJson<Parent> json |> ignore
-            true
-        with
-        | _ -> false
-    equal false success
+// [<Test>]
+// let ``Trying to deserialize a JSON of different type throws an exception``() =
+//     let child = {a="3";b=5}
+//     let json = toJson child
+//     let success =
+//         try
+//             ofJson<Parent> json |> ignore
+//             true
+//         with
+//         | _ -> false
+//     equal false success
 #endif
