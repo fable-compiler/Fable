@@ -444,7 +444,10 @@ module private AstPass =
                                     match ent.Kind with
                                     | Fable.Record fields | Fable.Exception fields -> fields, []
                                     | Fable.Class(_, properties) -> properties, []
-                                    | Fable.Union cases -> [], Map.toList cases
+                                    | Fable.Union cases ->
+                                        if ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
+                                        then [], []
+                                        else [], Map.toList cases
                                     | Fable.Module | Fable.Interface -> [], []
                                 let genArgsMap =
                                     if ent.GenericParameters.Length = genArgs.Length
@@ -474,7 +477,9 @@ module private AstPass =
                                         | Some caseType -> buildSchema acc caseType
                                     acc, (fullName caseType)::caseTypes)
                                 |> fun (acc, caseTypes) -> acc, (caseName, caseTypes)::cases)
-                            |> fun (acc, cases) -> acc, ["$cases", box cases]
+                            |> function
+                                | acc, [] -> acc, []
+                                | (acc, cases) -> acc, ["$cases", box cases]
                         let acc, genArgs, _ =
                             ((acc, [], -1), genArgs)
                             ||> List.fold (fun (acc, genArgs, i) genArg ->
