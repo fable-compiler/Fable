@@ -268,7 +268,10 @@ export class Serialize {
     }
     function inflate(val: any, schema: any): any {
       let T: any, expected: string = schema.$type;
-      if (expected === "System.DateTime") {
+      if (val == null) {
+        return null;
+      }
+      else if (expected === "System.DateTime") {
         return FDate.parse(val);
       }
       else if (expected === "Tuple" && Array.isArray(val)) {
@@ -299,7 +302,10 @@ export class Serialize {
         // Union types
         if (schema.$cases && schema.$cases[val.Case] && Array.isArray(val.Fields)) {
           const fieldIndices: number[] = schema.$cases[val.Case];
-          val.Fields = val.Fields.map((x: any, i: number) => inflate(x, schemas[fieldIndices[i]]));
+          val.Fields = val.Fields.map((x: any, i: number) => {
+            const fieldSchema = schemas[fieldIndices[i]];
+            return fieldSchema ? inflate(x, fieldSchema) : x;
+          });
         }
         else {
           // TODO: Ideally parsed JSON should be validated, but this is difficult

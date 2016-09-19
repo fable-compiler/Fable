@@ -20,7 +20,10 @@ type Simple = {
     Child : Child
 }
 
-// TODO: Union types 
+type U =
+    | CaseA of int
+    | CaseB of Simple list
+
 [<Test>]
 let ``Simple json - Records``() =
     let json = 
@@ -33,37 +36,36 @@ let ``Simple json - Records``() =
             }
         }
         """
-
     let result: Simple = ofJson json
-    
     result.Name |> equal "foo"
-    
     // Use the built in compare to ensure the fields are being hooked up.
     // Should compile to something like: result.Child.Equals(new Child("Hi", 10))
-    if result.Child <> {a="Hi"; b=10} then
-        invalidOp "Child not equal"  
-      
+    result.Child = {a="Hi"; b=10} |> equal true  
+
+[<Test>]
+let ``Simple json - Unions``() =
+    let u = CaseB [{Name="Sarah";Child={a="John";b=14}}]
+    toJson u |> ofJson<U> |> (=) u |> equal true
+    """{"Case":"CaseB","Fields":[[{"Name":"Sarah","Child":{"a":"John","b":14}}]]}"""
+    |> ofJson<U> |> (=) u |> equal true
+
 [<Test>] 
 let ``Simple json - Date``() =
     let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
     let json = d |> toJson
     let result : System.DateTime = ofJson json
-
     result.Year |> equal 2016
 
 type JsonDate = {  
     Date : System.DateTime
 }
-
         
 [<Test>] 
 let ``Simple json - Child Date``() =
     let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
     let json = { Date = d } |> toJson
     let result : JsonDate = ofJson json
-
     result.Date.Year |> equal 2016
-
 
 type JsonArray = {
     Name : string
@@ -73,11 +75,8 @@ type JsonArray = {
 let ``Simple json - Array``() =
     let json = """[{ "Name": "a" }, { "Name": "b" }]"""
     let result : JsonArray[] = ofJson json
-
     result |> Array.length |> equal 2
-
-    if result.[1] <> { Name="b" } then
-        invalidOp "Child not equal"  
+    result.[1] = { Name="b" } |> equal true  
 
 type ChildArray = {
     Children : JsonArray[]
@@ -87,17 +86,13 @@ type ChildArray = {
 let ``Simple json - Child Array``() =
     let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
     let result : ChildArray = ofJson json
-
     result.Children |> Array.length |> equal 2
-
-    if result.Children.[1] <> { Name="b" } then
-        invalidOp "Child not equal"  
+    result.Children.[1] = { Name="b" } |> equal true
 
 [<Test>] 
 let ``Simple json - String Generic List``() =
     let json = """["a","b"]"""
     let result : System.Collections.Generic.List<string> = ofJson json
-
     result.Count |> equal 2
     result.[1] |> equal "b"
 
@@ -105,19 +100,18 @@ let ``Simple json - String Generic List``() =
 let ``Simple json - Child Generic List``() =
     let json = """[{ "Name": "a" }, { "Name": "b" }]"""
     let result : System.Collections.Generic.List<JsonArray> = ofJson json
-
     result.Count |> equal 2
-
-    if result.[1] <> { Name="b" } then
-        invalidOp "Child not equal"  
+    result.[1] = { Name="b" } |> equal true  
 
 [<Test>] 
 let ``Simple json - List``() =
     let json = """["a","b"]"""
     let result : string list = ofJson json
-
     result |> List.length |> equal 2
+    result.Tail |> List.length |> equal 1
     result.[1] |> equal "b"
+    result.Head |> equal "a"
+
 
 type ChildList = {
     Children : JsonArray list
@@ -127,11 +121,8 @@ type ChildList = {
 let ``Simple json - Child List``() =
     let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
     let result : ChildList = ofJson json
-
     result.Children |> List.length |> equal 2
-
-    if result.Children.[1] <> { Name="b" } then
-        invalidOp "Child not equal"  
+    result.Children.[1] = { Name="b" } |> equal true
 
 type Wrapper<'T> = { thing : 'T }
 
@@ -141,15 +132,11 @@ let inline parseAndUnwrap json: 'T = (ofJson<Wrapper<'T>> json).thing
 let ``Simple json - generic`` () =
     let result1 : string = parseAndUnwrap """ { "thing" : "a" } """
     result1 |> equal "a"
-
     let result2 : int = parseAndUnwrap """ { "thing" : 1 } """
     result2 |> equal 1
-
     let result3 : Child = parseAndUnwrap """ { "thing" : { "a": "a", "b": 1 } } """
     result3.a |> equal "a"
-
     result3 = {a = "a"; b = 1} |> equal true
-
     // let result4 : Child = parseAndUnwrap """ {"$type":"Fable.Tests.Json+Wrapper`1[[Fable.Tests.Json+Child, Fable.Tests]], Fable.Tests","thing":{"$type":"Fable.Tests.Json+Child, Fable.Tests","a":"a","b":1}} """
     // if result4 <> {a = "a"; b = 1} then
     //     invalidOp "things not equal" 

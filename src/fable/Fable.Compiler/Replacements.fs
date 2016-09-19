@@ -468,17 +468,13 @@ module private AstPass =
                             ||> List.fold (fun (acc, cases) (caseName, caseTypes) ->
                                 ((acc, []), caseTypes)
                                 ||> List.fold (fun (acc, caseTypes) caseType ->
-                                    match needsInflate genArgsMap caseType with
-                                    | None -> acc, caseTypes
-                                    | Some caseType ->
-                                        let acc = buildSchema acc caseType
-                                        acc, (fullName caseType |> box)::caseTypes)
-                                |> function
-                                    | acc, [] -> acc, []
-                                    | acc, caseTypes -> acc, (caseName, caseTypes)::cases)
-                            |> function
-                                | acc, [] -> acc, []
-                                | acc, cases -> acc, ["$cases", box cases]
+                                    let acc =
+                                        match needsInflate genArgsMap caseType with
+                                        | None -> acc
+                                        | Some caseType -> buildSchema acc caseType
+                                    acc, (fullName caseType)::caseTypes)
+                                |> fun (acc, caseTypes) -> acc, (caseName, caseTypes)::cases)
+                            |> fun (acc, cases) -> acc, ["$cases", box cases]
                         let acc, genArgs, _ =
                             ((acc, [], -1), genArgs)
                             ||> List.fold (fun (acc, genArgs, i) genArg ->
@@ -514,7 +510,7 @@ module private AstPass =
                                         |> makeArray Fable.Any
                                         |> tuple2 k)
                                     |> makeJsObject SourceLocation.Empty
-                                | _ -> failwith "unexpected value in ofJson schema"
+                                | _ -> failwithf "unexpected value in ofJson schema %s" <| v.GetType().FullName
                                 |> tuple2 k)
                             |> List.append
                                 [ "$type",
