@@ -32,10 +32,6 @@ export interface IEquatable<T> {
   Equals(x: T): boolean;
 }
 
-export interface ISchema {
-  [prop: string]: string;
-}
-
 export type Tuple<T1, T2> = [T1, T2];
 export type Tuple3<T1, T2, T3> = [T1, T2, T3];
 
@@ -231,7 +227,10 @@ export class Serialize {
           return Array.from(v);
         }
         else if (v instanceof FMap || v instanceof Map) {
-          return Seq.fold((o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, {}, v);
+          return Seq.fold((o: ({ [i:string]: any}), kv: [any,any]) => {
+            o[Serialize.toJson(kv[0])] = kv[1];
+            return o;
+          }, {}, v);
         }
         else if (v[FSymbol.typeName]) {
           if (Util.hasInterface(v, "FSharpUnion", "FSharpRecord", "FSharpException")) {
@@ -254,28 +253,80 @@ export class Serialize {
     });
   }
 
-  static ofJson(json: any, expected?: string, schemas?: {[idx:string]:ISchema}): any {
-    function inflate(val: any, expected?: string) {
-      // TODO: Handle lists, sets, maps
-      let T: any;
-      if (!expected || !(T = fableGlobal.types.get(expected))) {
-        return val;
+  static ofJson(json: any, expectedIdx?: number, schemas?: any[]): any {
+    function inflateArray(arr: any[], schema: any): any[] {
+      return Array.isArray(arr) && schema ? arr.map((x: any) => inflate(x, schema)) : arr;
+    }
+    function inflateMap(obj: any, keySchema: any, valSchema: any): [any,any][] {
+      return Object
+        .getOwnPropertyNames(obj)
+        .map(k => {
+          const key = keySchema ? inflate(JSON.parse(k), keySchema) : k;
+          const val = valSchema ? inflate(obj[k], valSchema) : obj[k];
+          return [key, val] as [any,any];
+        });
+    }
+    function inflate(val: any, schema: any): any {
+      let T: any, expected: string = schema.$type;
+      if (expected === "System.DateTime") {
+        return FDate.parse(val);
       }
-      else {
-        let schema: ISchema;
-        if (typeof schemas === "object" && typeof (schema = schemas[expected]) === "object") {
-          const nonPrimitiveProps = Object.getOwnPropertyNames(schema);
+      else if (expected === "Tuple" && Array.isArray(val)) {
+        return val.map((x,i) => {
+          const genArgSchema = schemas[schema["$genArg" + i]];
+          return genArgSchema ? inflate(x, genArgSchema) : x;
+        });
+      }
+      else if (expected === "System.Collections.Generic.List" || (expected.indexOf("[]") === expected.length - 2)) {
+        return inflateArray(val, schemas[schema.$genArg0]);
+      }
+      else if (expected === "Microsoft.FSharp.Collections.FSharpList") {
+        return List.ofArray(inflateArray(val, schemas[schema.$genArg0]));
+      }
+      else if (expected == "Microsoft.FSharp.Collections.FSharpSet") {
+        return FSet.create(inflateArray(val, schemas[schema.$genArg0]));
+      }
+      else if (expected == "System.Collections.Generic.HashSet") {
+        return new Set(inflateArray(val, schemas[schema.$genArg0]));
+      }
+      else if (expected == "Microsoft.FSharp.Collections.FSharpMap") {
+        return FMap.create(inflateMap(val, schemas[schema.$genArg0], schemas[schema.$genArg1]));
+      }
+      else if (expected == "System.Collections.Generic.Dictionary") {
+        return new Map(inflateMap(val, schemas[schema.$genArg0], schemas[schema.$genArg1]));
+      }
+      else if (T = fableGlobal.types.get(expected)) {
+        // Union types
+        if (schema.$cases && schema.$cases[val.Case] && Array.isArray(val.Fields)) {
+          const fieldIndices: number[] = schema.$cases[val.Case];
+          val.Fields = val.Fields.map((x: any, i: number) => inflate(x, schemas[fieldIndices[i]]));
+        }
+        else {
+          // TODO: Ideally parsed JSON should be validated, but this is difficult
+          // because the schema is optimized and doesn't contain primitive types.
+          const nonPrimitiveProps =
+            Object.getOwnPropertyNames(schema)
+                  .filter(x => !/^\$(?:type|cases|genArg)\d*$/.test(x));
           for (let i = 0; i < nonPrimitiveProps.length; i++) {
             const prop = nonPrimitiveProps[i];
-            const value = val[prop];
-            if (value)
-              val[prop] = inflate(value, schema[prop]);
+            if (val[prop] != null) {
+              val[prop] = inflate(val[prop], schemas[schema[prop]]);
+            }
           }
         }
         return Object.assign(new T(), val);
       }
+      else {
+        return val;
+      }
     }
-    return inflate(JSON.parse(json), expected);
+    let schema: any, val = JSON.parse(json);
+    if (Array.isArray(schemas) && (schema = schemas[expectedIdx])) {
+      return inflate(val, schema);
+    }
+    else {
+      return val;
+    }
   }
 }
 

@@ -388,43 +388,97 @@ module private AstPass =
             |> makeCall com i.range i.returnType |> Some
         | "toJson" | "ofJson" | "toPlainJsObj" ->
             /// Check if a type needs to be inflated when parsed from JSON
-            let rec needsInflate genArgsMap = function
+            let rec needsInflate genArgsMap t =
+                match t with
                 | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
                 | Fable.Number _ | Fable.Enum _ -> None
                 // These types are not being considered for Json serialization at the moment
                 | Fable.Regex | Fable.Function _ -> None
-                // Arrays and tuples must be inflated to resolve the generic arguments 
-                | Fable.Array _ | Fable.Tuple _ | Fable.DeclaredType _ as t -> Some t
+                // Arrays and tuples must be inflated to resolve the generic arguments
+                | Fable.Array t ->
+                    match needsInflate genArgsMap t with
+                    | Some t -> Some(Fable.Array t)
+                    | None -> None
+                | Fable.Tuple ts ->
+                    (ts, (false, []))
+                    ||> List.foldBack (fun t (inflate, acc) ->
+                        match needsInflate genArgsMap t with
+                        | Some t -> true, t::acc
+                        | None -> inflate, t::acc)
+                    |> function
+                    | true, ts -> Some(Fable.Tuple ts)
+                    | false, _ -> None
+                | Fable.DeclaredType(ent, [genArg])
+                    when ent.FullName = "Microsoft.FSharp.Core.FSharpOption" ->
+                    needsInflate genArgsMap genArg
+                | Fable.DeclaredType _ as t -> Some t
                 | Fable.GenericParam name ->
                     match Map.tryFind name genArgsMap with
+                    | Some(Fable.GenericParam _) -> None // This causes infinite recursion
                     | Some typ -> needsInflate genArgsMap typ
                     | None -> None
+            let rec fullName t =
+                match t with 
+                | Fable.Array genArg ->
+                    fullName genArg |> sprintf "[]<%s>" 
+                | Fable.Tuple genArgs ->
+                    genArgs |> Seq.map fullName
+                    |> String.concat ", " |> sprintf "Tuple<%s>"
+                | Fable.DeclaredType(ent, genArgs) ->
+                    genArgs |> List.map fullName |> function
+                    | [] -> ent.FullName
+                    | genArgs -> String.concat ", " genArgs |> sprintf "%s<%s>" ent.FullName
+                | _ -> "$PrimType"                
             let args =
                 let expected, genArgsMap = i.methodTypeArgs.Head, Map.empty
                 match i.methodName with
                 | "ofJson" when needsInflate genArgsMap expected |> Option.isSome ->
-                    let getProps = function
-                        | Fable.DeclaredType(ent,_) -> ent.FieldsOrProperties
-                        | _ -> []
                     let rec buildSchema acc (typ: Fable.Type) =
-                        if Map.containsKey typ.FullName acc then acc else
-                        let genArgs, genArgsMap =
+                        let typFullName = fullName typ
+                        if Map.containsKey typFullName acc then acc else
+                        let acc = Map.add typFullName [] acc // Prevent endless recursion
+                        let propsOrfields, cases, genArgs, genArgsMap =
                             match typ with
                             | Fable.DeclaredType(ent, genArgs) ->
-                                genArgs, List.zip ent.GenericParameters genArgs |> Map
-                            | Fable.Array genArg -> [genArg], Map.empty
-                            | Fable.Tuple genArgs -> genArgs, Map.empty
-                            | _ -> [], Map.empty
+                                let propsOrfields, cases =
+                                    match ent.Kind with
+                                    | Fable.Record fields | Fable.Exception fields -> fields, []
+                                    | Fable.Class(_, properties) -> properties, []
+                                    | Fable.Union cases -> [], Map.toList cases
+                                    | Fable.Module | Fable.Interface -> [], []
+                                let genArgsMap =
+                                    if ent.GenericParameters.Length = genArgs.Length
+                                    then List.zip ent.GenericParameters genArgs |> Map
+                                    else Map.empty
+                                propsOrfields, cases, genArgs, genArgsMap
+                            | Fable.Array genArg -> [], [], [genArg], Map.empty
+                            | Fable.Tuple genArgs -> [], [], genArgs, Map.empty
+                            | _ -> [], [], [], Map.empty
                         let acc, props =
-                            ((acc, []), getProps typ)
+                            ((acc, []), propsOrfields)
                             ||> List.fold (fun (acc, props) (propName, propType) ->
                                 // Optimization: discard primitive properties from schema
                                 match needsInflate genArgsMap propType with
                                 | None -> acc, props
                                 | Some propType ->
                                     let acc = buildSchema acc propType
-                                    acc, (propName, propType.FullName)::props
-                            )
+                                    acc, (propName, fullName propType |> box)::props)
+                        let acc, cases =
+                            ((acc, []), cases)
+                            ||> List.fold (fun (acc, cases) (caseName, caseTypes) ->
+                                ((acc, []), caseTypes)
+                                ||> List.fold (fun (acc, caseTypes) caseType ->
+                                    match needsInflate genArgsMap caseType with
+                                    | None -> acc, caseTypes
+                                    | Some caseType ->
+                                        let acc = buildSchema acc caseType
+                                        acc, (fullName caseType |> box)::caseTypes)
+                                |> function
+                                    | acc, [] -> acc, []
+                                    | acc, caseTypes -> acc, (caseName, caseTypes)::cases)
+                            |> function
+                                | acc, [] -> acc, []
+                                | acc, cases -> acc, ["$cases", box cases]
                         let acc, genArgs, _ =
                             ((acc, [], -1), genArgs)
                             ||> List.fold (fun (acc, genArgs, i) genArg ->
@@ -434,21 +488,48 @@ module private AstPass =
                                 | None -> acc, genArgs, i
                                 | Some genArg ->
                                     let acc = buildSchema acc genArg
-                                    acc, (sprintf "$genArg%i" i, genArg.FullName)::genArgs, i
-                            )
-                        match (List.rev props)@(List.rev genArgs) with
-                        | [] -> acc
-                        | xs -> Map.add typ.FullName xs acc
-                    let schema =
-                        buildSchema Map.empty expected
-                        |> Seq.map (fun kv ->
+                                    acc, (sprintf "$genArg%i" i, fullName genArg |> box)::genArgs, i)
+                        (List.rev props)@(List.rev cases)@(List.rev genArgs)
+                        |> Map.add typFullName <| acc
+                    let expected, schema =
+                        let schema = buildSchema Map.empty expected
+                        // Optimization: use indices instead of strings
+                        let typeIndices, _ =
+                            ((Map.empty, 0), schema)
+                            ||> Map.fold (fun (acc, i) k _ ->
+                                Map.add k i acc, i + 1)
+                        let nameToIndex name = Map.tryFind name typeIndices |> defaultArg <| -1
+                        let intExpr i = Fable.NumberConst(U2.Case1 i, Int32) |> Fable.Value
+                        let tuple2 a b = a, b
+                        schema |> Seq.map (fun kv ->
                             kv.Value
-                            |> List.map (fun (k, typName) -> k, makeConst typName)
+                            |> List.map (fun (k, v) ->
+                                match v with
+                                | :? string as s -> nameToIndex s |> intExpr
+                                | :? ((string * string list) list) as cases ->
+                                    cases
+                                    |> List.map (fun (k, v) ->
+                                        v
+                                        |> List.map (nameToIndex >> intExpr)
+                                        |> makeArray Fable.Any
+                                        |> tuple2 k)
+                                    |> makeJsObject SourceLocation.Empty
+                                | _ -> failwith "unexpected value in ofJson schema"
+                                |> tuple2 k)
+                            |> List.append
+                                [ "$type",
+                                  match kv.Key.IndexOf('<') with
+                                  | -1 -> kv.Key
+                                  | i -> kv.Key.Substring(0,i)
+                                  |> Fable.StringConst |> Fable.Value ]
                             |> makeJsObject SourceLocation.Empty
                             |> fun value -> kv.Key, value)
-                        |> Seq.toList
-                        |> makeJsObject SourceLocation.Empty
-                    [i.args.Head; makeConst expected.FullName; schema]
+                        |> Seq.sortBy (fun (k, _) -> nameToIndex k)
+                        |> Seq.map snd |> Seq.toList
+                        |> makeArray Fable.Any
+                        |> fun schema ->
+                            fullName expected |> nameToIndex |> intExpr, schema
+                    [i.args.Head; expected; schema]
                 | _ -> i.args
             let modName =
                 if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
@@ -783,7 +864,7 @@ module private AstPass =
                 match upper with
                 | Null _ -> makeGet None t ar (makeConst "length")
                 | _ -> Fable.Apply(Fable.Value(Fable.BinaryOp BinaryPlus),
-                                [upper; makeConst 1], Fable.ApplyMeth, t, None) 
+                                [upper; makeConst 1], Fable.ApplyMeth, t, None)
             InstanceCall (ar, "slice", [lower; upper])
             |> makeCall com i.range i.returnType |> Some
         | "setArraySlice", (None, args) ->
@@ -1185,12 +1266,12 @@ module private AstPass =
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, _)) -> makeJsArray arVals
                 | _ -> emit i "Array.from($0)" i.args |> Some
         | "find" when Option.isSome c ->
-            let defaultValue = defaultof i.calleeTypeArgs.Head 
+            let defaultValue = defaultof i.calleeTypeArgs.Head
             ccall "Seq" "tryFind" [args.Head;c.Value;defaultValue] |> Some
         | "findAll" when Option.isSome c ->
             ccall "Seq" "filter" [args.Head;c.Value] |> toArray com i |> Some
         | "findLast" when Option.isSome c ->
-            let defaultValue = defaultof i.calleeTypeArgs.Head 
+            let defaultValue = defaultof i.calleeTypeArgs.Head
             ccall "Seq" "tryFindBack" [args.Head;c.Value;defaultValue] |> Some
         | "add" ->
             icall "push" (c.Value, args) |> Some

@@ -81,13 +81,6 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
             elif m.OverloadIndex.IsNone
             then true
             else argsEqual m.ArgumentTypes argTypes)
-    member x.FieldsOrProperties =
-        match x.Kind with
-        | Module | Interface -> []
-        | Union _ -> [] // TODO
-        | Record fields -> fields
-        | Exception fields -> fields
-        | Class(_, properties) -> properties
     static member CreateRootModule fileName modFullName =
         Entity (lazy Module, Some fileName, modFullName, lazy [], [], [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind
