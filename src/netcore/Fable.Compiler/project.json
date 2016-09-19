@@ -32,7 +32,7 @@
   "dependencies": {
     "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*",
     "FSharp.Compiler.Service": {
-      "version": "6.0.2",
+      "version": "7.0.0",
       "target": "project"
     },
     "Fable.Core": {
