@@ -232,9 +232,6 @@ export class Serialize {
           return Array.from(v);
         }
         else if (v instanceof FMap || v instanceof Map) {
-
-            console.log(v);
-
           return Seq.fold(
             (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, 
             {}, v);
