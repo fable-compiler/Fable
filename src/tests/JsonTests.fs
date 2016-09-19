@@ -25,7 +25,7 @@ let ``Simple json - Records``() =
         }
         """
 
-    let result: Simple = Fable.Core.JsInterop.ofJsonSimple json
+    let result: Simple = Fable.Core.JsInterop.ofJson json
     
     result.Name |> equal "foo"
     
@@ -38,7 +38,7 @@ let ``Simple json - Records``() =
 let ``Simple json - Date``() =
     let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
     let json = d |> Fable.Core.JsInterop.toJson
-    let result : System.DateTime = Fable.Core.JsInterop.ofJsonSimple json
+    let result : System.DateTime = Fable.Core.JsInterop.ofJson json
 
     result.Year |> equal 2016
 
@@ -51,7 +51,7 @@ type JsonDate = {
 let ``Simple json - Child Date``() =
     let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
     let json = { Date = d } |> Fable.Core.JsInterop.toJson
-    let result : JsonDate = Fable.Core.JsInterop.ofJsonSimple json
+    let result : JsonDate = Fable.Core.JsInterop.ofJson json
 
     result.Date.Year |> equal 2016
 
@@ -63,7 +63,7 @@ type JsonArray = {
 [<Test>] 
 let ``Simple json - Array``() =
     let json = """[{ "Name": "a" }, { "Name": "b" }]"""
-    let result : JsonArray[] = Fable.Core.JsInterop.ofJsonSimple json
+    let result : JsonArray[] = Fable.Core.JsInterop.ofJson json
 
     result |> Array.length |> equal 2
 
@@ -77,7 +77,7 @@ type ChildArray = {
 [<Test>] 
 let ``Simple json - Child Array``() =
     let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
-    let result : ChildArray = Fable.Core.JsInterop.ofJsonSimple json
+    let result : ChildArray = Fable.Core.JsInterop.ofJson json
 
     result.Children |> Array.length |> equal 2
 
@@ -87,7 +87,7 @@ let ``Simple json - Child Array``() =
 [<Test>] 
 let ``Simple json - String Generic List``() =
     let json = """["a","b"]"""
-    let result : System.Collections.Generic.List<string> = Fable.Core.JsInterop.ofJsonSimple json
+    let result : System.Collections.Generic.List<string> = Fable.Core.JsInterop.ofJson json
 
     result.Count |> equal 2
     result.[1] |> equal "b"
@@ -95,7 +95,7 @@ let ``Simple json - String Generic List``() =
 [<Test>] 
 let ``Simple json - Child Generic List``() =
     let json = """[{ "Name": "a" }, { "Name": "b" }]"""
-    let result : System.Collections.Generic.List<JsonArray> = Fable.Core.JsInterop.ofJsonSimple json
+    let result : System.Collections.Generic.List<JsonArray> = Fable.Core.JsInterop.ofJson json
 
     result.Count |> equal 2
 
@@ -105,7 +105,7 @@ let ``Simple json - Child Generic List``() =
 [<Test>] 
 let ``Simple json - List``() =
     let json = """["a","b"]"""
-    let result : string list = Fable.Core.JsInterop.ofJsonSimple json
+    let result : string list = Fable.Core.JsInterop.ofJson json
 
     result |> List.length |> equal 2
     result.[1] |> equal "b"
@@ -117,7 +117,7 @@ type ChildList = {
 [<Test>] 
 let ``Simple json - Child List``() =
     let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
-    let result : ChildList = Fable.Core.JsInterop.ofJsonSimple json
+    let result : ChildList = Fable.Core.JsInterop.ofJson json
 
     result.Children |> List.length |> equal 2
 
@@ -128,7 +128,7 @@ type Wrapper<'T> = { thing : 'T }
 
 [<Test>]
 let ``Simple json - generic`` () =
-    let parseAndUnwrap (json) : 'T = (Fable.Core.JsInterop.ofJsonSimple<Wrapper<'T>> json).thing
+    let parseAndUnwrap (json) : 'T = (Fable.Core.JsInterop.ofJson<Wrapper<'T>> json).thing
 
     let result1 : string = parseAndUnwrap """ { "thing" : "a" } """
     result1 |> equal "a"
@@ -158,7 +158,7 @@ type OptionJson =
 [<Test>]
 let ``Simple json - Option Some`` () =
     let json = """ {"a":{"Case":"Some","Fields":[1]}} """
-    let result : OptionJson = Fable.Core.JsInterop.ofJsonSimple json
+    let result : OptionJson = Fable.Core.JsInterop.ofJson json
 
     match result.a with
     | Some v -> v |> equal 1
@@ -171,7 +171,7 @@ type TupleJson =
 [<Test>]
 let ``Simple json - Tuple`` () =
     let json = """ {"a":{"Item1":1,"Item2":2}} """
-    let result : TupleJson = Fable.Core.JsInterop.ofJsonSimple json
+    let result : TupleJson = Fable.Core.JsInterop.ofJson json
 
     if result.a <> (1, 2) then
         invalidOp "Not equal"
@@ -183,7 +183,7 @@ type TupleComplexJson =
 [<Test>]
 let ``Simple json - Complex Tuple`` () =
     let json = """ {"a":{"Item1":1,"Item2":{"a":"A","b":1}}} """
-    let result : TupleComplexJson = Fable.Core.JsInterop.ofJsonSimple json
+    let result : TupleComplexJson = Fable.Core.JsInterop.ofJson json
 
     if snd result.a  <> { a = "A"; b = 1 } then
         invalidOp "Not equal"
@@ -194,7 +194,7 @@ type SetJson =
 [<Test>]
 let ``Simple json - Set`` () =
     let json = """ {"a":["a","b"]} """
-    let result : SetJson = Fable.Core.JsInterop.ofJsonSimple json
+    let result : SetJson = Fable.Core.JsInterop.ofJson json
 
     if result.a |> Set.contains "b" |> not then
         invalidOp "b is missing"
@@ -205,7 +205,7 @@ type MapJson =
 [<Test>]
 let ``Simple json - Map`` () =
     let json = """ {"a":{"a":{"a":"aa","b":1},"b":{"a":"bb","b":2}}} """
-    let result : MapJson = Fable.Core.JsInterop.ofJsonSimple json
+    let result : MapJson = Fable.Core.JsInterop.ofJson json
 
     result.a.Count |> equal 2
     if result.a.["b"] <> { a="bb"; b=2 } then 
@@ -217,8 +217,42 @@ type DictionaryJson =
 [<Test>]
 let ``Simple json - Dictionary`` () =
     let json = """ {"a":{"a":{"a":"aa","b":1},"b":{"a":"bb","b":2}}} """
-    let result : DictionaryJson = Fable.Core.JsInterop.ofJsonSimple json
+    let result : DictionaryJson = Fable.Core.JsInterop.ofJson json
 
     result.a.Count |> equal 2
     if result.a.["b"] <> { a="bb"; b=2 } then 
         invalidOp "Not equal"
+
+type PropertyJson() =
+    member val Prop1 = {a="";b=0} with get,set
+
+[<Test>]
+let ``Simple json - Properties`` () =
+    let json = """ {"Prop1": { "a":"aa", "b": 1 }} """
+    let result : PropertyJson = Fable.Core.JsInterop.ofJson json
+
+    if result.Prop1 <> { a="aa"; b=1 } then 
+        invalidOp "Not equal"
+        
+        
+
+type UnionJson =
+    | Type1 of string
+    | Type2 of Child
+
+type UnionHolder =
+    { a : UnionJson }
+
+
+[<Test>]
+let ``Simple json - Union`` () =
+    let json = """ {"a":{"Case":"Type2","Fields":[{"a":"a","b":1}]}} """
+    let result : UnionHolder = Fable.Core.JsInterop.ofJson json
+
+    match result.a with
+    | Type2 t -> 
+        if t <> { a="a"; b=1 } then 
+            invalidOp "Not equal" 
+    | _ ->
+        invalidOp "Wrong case" 
+ 

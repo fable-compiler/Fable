@@ -23,6 +23,7 @@ type Type =
     | GenericParam of name: string
     | Enum of fullName: string
     | DeclaredType of Entity * genericArgs: Type list
+    //| UnionCase of name: string * types : Type list
     member x.FullName =
         match x with
         | Number numberKind -> sprintf "%A" x
@@ -43,7 +44,7 @@ type Type =
 (** ##Entities *)
 and EntityKind =
     | Module
-    | Union
+    | Union of cases: (string*(Type list)) list
     | Record of fields: (string*Type) list
     | Exception of fields: (string*Type) list
     | Class of baseClass: (string*Expr) option
@@ -81,6 +82,10 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
             elif m.OverloadIndex.IsNone
             then true
             else argsEqual m.ArgumentTypes argTypes)
+    member x.GetProperties() =
+        members.Value
+        |> List.choose (fun m -> if m.Kind = MemberKind.Getter then Some(m.Name, m.ReturnType) else None)
+        
     static member CreateRootModule fileName modFullName =
         Entity (lazy Module, Some fileName, modFullName, lazy [], [], [], [], true)
     override x.ToString() = sprintf "%s %A" x.Name kind

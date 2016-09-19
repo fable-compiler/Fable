@@ -245,9 +245,13 @@ module Util =
 
     let buildFields com ctx (ent: Fable.Entity)  =
         match ent.Kind with
-        | Fable.Record fields -> fields
+        | Fable.Record fields ->
+           fields |> List.map(fun (n,t) -> n, t)
+        | Fable.Union (cases) ->
+           cases |> List.map(fun (n,fs) -> "UnionCase " + n, Fable.Tuple fs)
         | _ -> []
-
+        
+        |> List.append (ent.GetProperties() |> List.map(fun (n,t) -> n, t))
         |> List.map(fun (n,t) -> 
             let rec convertType (tp: Fable.Type) = 
                 if tp.FullName.EndsWith("[]") || List.length tp.GenericArgs = 0 then tp.FullName
@@ -746,7 +750,7 @@ module Util =
                         |> Babel.TypeParameterDeclaration |> Some
                     let props =
                         match ent.Kind with
-                        | Fable.Union ->
+                        | Fable.Union _ ->
                             ["Case", Fable.String; "Fields", Fable.Array Fable.Any]
                             |> List.map (fun (name, typ) -> declareProperty com ctx name typ)
                         | Fable.Record fields | Fable.Exception fields ->
@@ -764,7 +768,7 @@ module Util =
             failwithf "Fable doesn't support custom implementations of %s (%s)" i ent.FullName)
         let interfaces =
             match ent.Kind with
-            | Fable.Union -> "FSharpUnion"::ent.Interfaces
+            | Fable.Union _ -> "FSharpUnion"::ent.Interfaces
             | Fable.Record _ -> "FSharpRecord"::ent.Interfaces
             | Fable.Exception _ -> "FSharpException"::ent.Interfaces
             | _ -> ent.Interfaces
@@ -928,7 +932,7 @@ module Util =
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange baseClass true
                     |> List.append <| acc
-                | Fable.Union | Fable.Record _ | Fable.Exception _ ->                
+                | Fable.Union _ | Fable.Record _ | Fable.Exception _ ->                
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange None false
                     |> List.append <| acc

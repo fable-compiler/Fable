@@ -177,8 +177,8 @@ let ``HashSet serialized with Json.NET can be deserialized``() =
     // let x = HashSet<_>()
     // x.Add({ i=1; s="1" }) |> ignore
     // x.Add({ i=2; s="2" }) |> ignore
-    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-    let json = """{"$type":"System.Collections.Generic.HashSet`1[[Fable.Tests.HashSets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":2,"s":"2"}]}"""
+    // let json = JsonConvert.SerializeObject(x)
+    let json = """[{"i":1,"s":"1"},{"i":2,"s":"2"}]"""
     #if FABLE_COMPILER
     let x2 = Fable.Core.JsInterop.ofJson<HashSet<R>> json
     #else

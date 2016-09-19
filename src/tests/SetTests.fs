@@ -312,9 +312,9 @@ let ``Sets can be JSON serialized forth and back``() =
 
 [<Test>]
 let ``Sets serialized with Json.NET can be deserialized``() =
-    // let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map    
-    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-    let json = """{"$type":"Microsoft.FSharp.Collections.FSharpSet`1[[Fable.Tests.Sets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Sets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.Sets+R, Fable.Tests","i":2,"s":"2"}]}"""
+    // let x = [{ i=1; s="1" }; { i=2; s="2" } ] |> Set.ofList
+    // let json = JsonConvert.SerializeObject(x)
+    let json = """[{"i":1,"s":"1"},{"i":2,"s":"2"}]"""
     #if FABLE_COMPILER
     let x2 = Fable.Core.JsInterop.ofJson<Set<R>> json
     #else

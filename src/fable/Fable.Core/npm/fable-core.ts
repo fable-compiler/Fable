@@ -229,23 +229,24 @@ export class Serialize {
       }
       else if (v != null && typeof v === "object") {
         if (v instanceof List || v instanceof FSet || v instanceof Set) {
-          return {
-            $type: v[FSymbol.typeName] || "System.Collections.Generic.HashSet",
-            $values: Array.from(v) };
+          return Array.from(v);
         }
         else if (v instanceof FMap || v instanceof Map) {
+
+            console.log(v);
+
           return Seq.fold(
             (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, 
-            { $type: v[FSymbol.typeName] || "System.Collections.Generic.Dictionary" }, v);
+            {}, v);
         }
         else if (v[FSymbol.typeName]) {
           if (Util.hasInterface(v, "FSharpUnion", "FSharpRecord", "FSharpException")) {
-            return Object.assign({ $type: v[FSymbol.typeName] }, v);
+            return Object.assign({}, v);
           }
           else {
             const proto = Object.getPrototypeOf(v),
                   props = Object.getOwnPropertyNames(proto),
-                  o = { $type: v[FSymbol.typeName] } as {[k:string]:any};
+                  o = { } as {[k:string]:any};
             for (let i = 0; i < props.length; i++) {
               const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
               if (prop.get)
@@ -259,61 +260,7 @@ export class Serialize {
     });
   }
 
-  static ofJson(json: any, expected?: Function): any {
-    const parsed = JSON.parse(json, (k, v) => {
-      if (v == null)
-        return v;
-      else if (typeof v === "object" && typeof v.$type === "string") {
-        // Remove generic args and assembly info added by Newtonsoft.Json
-        let type = v.$type.replace('+', '.'), i = type.indexOf('`');
-        if (i > -1) {
-          type = type.substr(0,i);
-        }
-        else {
-          i = type.indexOf(',');
-          type = i > -1 ? type.substr(0,i) : type;
-        }
-        if (type === "System.Collections.Generic.List" || (type.indexOf("[]") === type.length - 2)) {
-            return v.$values;
-        }
-        if (type === "Microsoft.FSharp.Collections.FSharpList") {
-            return List.ofArray(v.$values);
-        }
-        else if (type == "Microsoft.FSharp.Collections.FSharpSet") {
-          return FSet.create(v.$values);
-        }
-        else if (type == "System.Collections.Generic.HashSet") {
-          return new Set(v.$values);
-        }
-        else if (type == "Microsoft.FSharp.Collections.FSharpMap") {
-          delete v.$type;
-          return FMap.create(Object.getOwnPropertyNames(v)
-                                    .map(k => [k, v[k]] as [any,any]));
-        }
-        else if (type == "System.Collections.Generic.Dictionary") {
-          delete v.$type;
-          return new Map(Object.getOwnPropertyNames(v)
-                                .map(k => [k, v[k]] as [any,any]));
-        }
-        else {
-          const T = fableGlobal.types.get(type);
-          if (T) {
-            delete v.$type;
-            return Object.assign(new T(), v);
-          }
-        }
-      }
-      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)$/.test(v))
-        return FDate.parse(v);
-      else
-        return v;
-    });
-    if (parsed != null && typeof expected == "function" && !(parsed instanceof expected)) {
-      throw "JSON is not of type " + expected.name + ": " + json;
-    }
-    return parsed;
-  }
-
+  
     private static updateObject(obj: any, type: string): any {
         if (obj == null) {
             return obj;
@@ -365,13 +312,25 @@ export class Serialize {
                 return Serialize.updateObject(obj.Fields[0], t);
             }
 
-            return null
+            return null;
         }
 
         if (type.startsWith("Tuple [")) {
-            return type.substring(type.indexOf('][') + 2, type.length - 2).split("],[").map((t, i) => {
-                return Serialize.updateObject(obj["Item" + (i + 1)], t)
+            const arrayMode = Array.isArray(obj)
+            return type.substring(type.indexOf('][') + 2, type.length - 1).split(",").map((t, i) => {
+                t = t.substr(1, t.length - 2);
+                const v = arrayMode ? obj[i] : obj["Item" + (i + 1)]
+                return Serialize.updateObject(v, t)
             });
+        }
+
+        const T = fableGlobal.types.get(type);
+        if (obj.Case && Array.isArray(obj.Fields)) {
+            const fields = fableGlobal.typeFields.get(type);
+            if (fields) {
+                const caseType = fields.get("UnionCase " + obj.Case);
+                obj.Fields = Serialize.updateObject(obj.Fields, caseType);
+            }
         }
 
         if (type.endsWith("]]")) {
@@ -391,11 +350,10 @@ export class Serialize {
                 }
             }
         }
-        const T = fableGlobal.types.get(type);
         return T ? Object.assign(new T(), obj) : obj;
     }
 
-    static ofJsonSimple(json: any, type: string): any {
+    static ofJson(json: any, type: string): any {
         return Serialize.updateObject(JSON.parse(json), type);
     }
 }
