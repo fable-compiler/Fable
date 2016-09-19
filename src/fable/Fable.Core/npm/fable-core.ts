@@ -257,7 +257,6 @@ export class Serialize {
     });
   }
 
-  
     private static updateObject(obj: any, type: string): any {
         if (obj == null) {
             return obj;
