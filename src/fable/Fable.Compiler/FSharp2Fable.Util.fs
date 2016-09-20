@@ -540,7 +540,8 @@ module Types =
         let makeProperties (tdef: FSharpEntity) =
             tdef.MembersFunctionsAndValues
             |> Seq.choose (fun x ->
-                if x.IsPropertyGetterMethod
+                // TODO: Remove anymore unneeded props?
+                if x.IsProperty
                 then Some(x.DisplayName, makeType com Context.Empty x.FullType)
                 else None)
             |> Seq.toList

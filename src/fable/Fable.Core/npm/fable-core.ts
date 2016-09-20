@@ -255,30 +255,48 @@ export class Serialize {
 
   static ofJson(json: any, expectedIdx?: number, schemas?: any[]): any {
     function inflateArray(arr: any[], schema: any): any[] {
-      return Array.isArray(arr) && schema ? arr.map((x: any) => inflate(x, schema)) : arr;
+      return Array.isArray(arr) ? arr.map((x: any) => inflate(x, schema)) : arr;
     }
     function inflateMap(obj: any, keySchema: any, valSchema: any): [any,any][] {
       return Object
         .getOwnPropertyNames(obj)
         .map(k => {
           const key = keySchema ? inflate(JSON.parse(k), keySchema) : k;
-          const val = valSchema ? inflate(obj[k], valSchema) : obj[k];
+          const val = inflate(obj[k], valSchema);
           return [key, val] as [any,any];
         });
     }
     function inflate(val: any, schema: any): any {
-      let T: any, expected: string = schema.$type;
       if (val == null) {
         return null;
+      }
+      if (!schema) {
+         schema = {};
+      }
+      if (val.$type) {
+        schema.$type = val.$type.split("`")[0].split(", ")[0].replace(/\+/g, ".");
+        delete val.$type;
+      }
+      if (val.$values) {
+        val = val.$values;
+      }
+
+      let T: any, expected: string = schema.$type;
+      if (!expected) {
+        return val;
       }
       else if (expected === "System.DateTime") {
         return FDate.parse(val);
       }
-      else if (expected === "Tuple" && Array.isArray(val)) {
-        return val.map((x,i) => {
+      else if (expected === "Tuple") {
+        const tupleLength = schema["$tupleLength"]
+        let result:any[] = [];
+        for (let i = 0; i < tupleLength; i++) {
+          const item = val["Item" + (i + 1)];
           const genArgSchema = schemas[schema["$genArg" + i]];
-          return genArgSchema ? inflate(x, genArgSchema) : x;
-        });
+          result.push(genArgSchema ? inflate(item, genArgSchema) : item)
+        }
+        return result;
       }
       else if (expected === "System.Collections.Generic.List" || (expected.indexOf("[]") === expected.length - 2)) {
         return inflateArray(val, schemas[schema.$genArg0]);
@@ -297,6 +315,9 @@ export class Serialize {
       }
       else if (expected == "System.Collections.Generic.Dictionary") {
         return new Map(inflateMap(val, schemas[schema.$genArg0], schemas[schema.$genArg1]));
+      }
+      else if (expected === "Microsoft.FSharp.Core.FSharpOption") {
+        return val.Case === "Some" ? inflate(val.Fields[0], schemas[schema.$genArg0]) : null;
       }
       else if (T = fableGlobal.types.get(expected)) {
         // Union types
