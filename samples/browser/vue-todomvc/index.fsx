@@ -7,6 +7,7 @@
 
 open Fable.Core
 open Fable.Import
+open Fable.Core.JsInterop
 
 // Use this dummy module to hold references to Vue and Router objects
 // exposed globally by loading the corresponding libraries with HTML script tags
@@ -114,10 +115,10 @@ module Main =
             todo.title <- beforeEditCache
         member __.removeCompleted() =
             todos <- filters.["active"] todos
-            
+
     type Directives =
         abstract ``todo-focus``: obj option -> unit
-            
+
     let extraOpts =
         createObj [
             "el" ==> ".todoapp"
@@ -139,9 +140,9 @@ module Main =
                             Lib.Vue?nextTick(fun () ->
                                 el?focus() |> ignore)
                             |> ignore
-            } 
+            }
         ]
-        
+
     // Now instantiate the type and create a Vue view model
     // using the helper method
     let app = VueHelper.createFromObj(TodoViewModel(), extraOpts)
