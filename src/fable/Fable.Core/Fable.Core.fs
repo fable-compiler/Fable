@@ -96,7 +96,7 @@ module JsInterop =
     /// JS: import defaultMember from "myModule"
     let importDefault<'T> (path: string):'T = failwith "JS only"
 
-    /// F#: let myLib = importDefault<obj> "myLib"
+    /// F#: let myLib = importAll<obj> "myLib"
     /// JS: import * as myLib from "myLib"
     let importAll<'T> (path: string):'T = failwith "JS only"
 

@@ -24,7 +24,7 @@
       "version": "1.0.0-*",
       "target": "project"
     },
-    "Forge.Core": {
+    "Forge.ProjectSystem": {
       "version": "1.0.0-*",
       "target": "project"
     }

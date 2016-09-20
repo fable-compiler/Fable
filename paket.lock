@@ -1,6 +1,6 @@
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.37.2)
+    FAKE (4.40)
     FSharp.Compiler.Service (6.0.2)
       System.Collections.Immutable (>= 1.2)
       System.Reflection.Metadata (>= 1.4.1-beta-24227-04)
@@ -287,18 +287,18 @@ NUGET
       System.Xml.ReaderWriter (>= 4.0.11) - framework: dnxcore50, netstandard10, >= netstandard13
 GITHUB
   remote: fsprojects/FSharp.TypeProviders.StarterPack
-    src/ProvidedTypes.fs (1d13aac8510fe20e417ff7083d616f7494156e93)
+    src/ProvidedTypes.fs (dbbfb58d1238bf21c84c455451501c7f31ae95e1)
   remote: fsprojects/Forge
-    src/Forge.Core/Constants.fs (3ba0c1a84eb9ab36f673362084cca25f5cbb67f0)
-    src/Forge.Core/Prelude.fs (3ba0c1a84eb9ab36f673362084cca25f5cbb67f0)
-    src/Forge.Core/ProjectSystem.fs (3ba0c1a84eb9ab36f673362084cca25f5cbb67f0)
-    src/Forge.Core/ResizeArray.fs (3ba0c1a84eb9ab36f673362084cca25f5cbb67f0)
-    src/Forge.Core/XLinq.fs (3ba0c1a84eb9ab36f673362084cca25f5cbb67f0)
+    src/Forge.ProjectSystem/Constants.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
+    src/Forge.ProjectSystem/Prelude.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
+    src/Forge.ProjectSystem/ProjectSystem.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
+    src/Forge.ProjectSystem/ResizeArray.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
+    src/Forge.ProjectSystem/XLinq.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
 GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2
-    DotLiquid (2.0.26)
-    FAKE (4.37.2)
+    DotLiquid (2.0.30)
+    FAKE (4.40)
     FSharp.Compiler.Service (2.0.0.6)
     FSharp.Core (4.0.0.1)
     FSharp.Formatting (2.14.2)
