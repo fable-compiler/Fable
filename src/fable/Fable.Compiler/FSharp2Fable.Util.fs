@@ -33,19 +33,14 @@ type Context =
     thisAvailability: ThisAvailability
     }
     static member Empty =
-<<<<<<< HEAD
         { fileName="unknown"; scope=[]; typeArgs=[]; baseClass=None;
           decisionTargets=Map.empty<_,_>; thisAvailability=ThisUnavailable }
-    
-=======
-        { fileName="unknown"; scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None }
 
 type Role =
     | AppliedArgument
     // For now we're only interested in applied arguments
     | UnknownRole
 
->>>>>>> Prepare types
 type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
@@ -170,6 +165,16 @@ module Helpers =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
+    let areBindingsErasable (identAndRepls: (FSharpMemberOrFunctionOrValue*FSharpExpr) list) args =
+        if identAndRepls.Length <> (List.length args) then false else
+        (args, identAndRepls)
+        ||> List.forall2 (fun arg (ident, _) ->
+            if ident.IsMutable then false else 
+            match arg with
+            | BasicPatterns.Coerce(_, BasicPatterns.Value arg)
+            | BasicPatterns.Value arg -> ident = arg
+            | _ -> false)
+
 module Patterns =
     open BasicPatterns
     open Helpers
@@ -222,15 +227,7 @@ module Patterns =
     // These are closures created by F# compiler, e.g. given `let add x y z = x+y+z`
     // `3 |> add 1 2` will become `let x=1 in let y=2 in fun z -> add(x,y,z)`
     let (|Closure|_|) fsExpr =
-        let checkArgs (identAndRepls: (FSharpMemberOrFunctionOrValue*FSharpExpr) list) args =
-            if identAndRepls.Length <> (List.length args) then false else
-            (args, identAndRepls)
-            ||> List.forall2 (fun arg (ident, _) ->
-                if ident.IsMutable then false else 
-                match arg with
-                | Coerce(_, Value arg) | Value arg -> ident = arg
-                | _ -> false)
-        let checkArgs2 lambdaArgs methArgs =
+        let areArgsEquivalent lambdaArgs methArgs =
             (lambdaArgs, methArgs)
             ||> List.forall2 (fun larg marg ->
                 match marg with
@@ -241,34 +238,34 @@ module Patterns =
                 let identAndRepls = identAndRepls@[(letArg, letValue)]
                 match letBody with
                 | Lambda(lambdaArg1, ComposableExpr(e, Rev (last1::args))) ->
-                    if checkArgs identAndRepls (List.rev args) &&
-                        checkArgs2 [lambdaArg1] [last1]
+                    if areBindingsErasable identAndRepls (List.rev args) &&
+                        areArgsEquivalent [lambdaArg1] [last1]
                     then Some(1, e, List.map snd identAndRepls)
                     else None
                 | Lambda(lambdaArg1,
                          Lambda(lambdaArg2, ComposableExpr(e, Rev (last2::last1::args)))) ->
-                    if checkArgs identAndRepls (List.rev args) &&
-                        checkArgs2 [lambdaArg1;lambdaArg2] [last1;last2]
+                    if areBindingsErasable identAndRepls (List.rev args) &&
+                        areArgsEquivalent [lambdaArg1;lambdaArg2] [last1;last2]
                     then Some(2, e, List.map snd identAndRepls)
                     else None
                 | Lambda(lambdaArg1,
                          Lambda(lambdaArg2,
                             Lambda(lambdaArg3,ComposableExpr(e, Rev (last3::last2::last1::args))))) ->
-                    if checkArgs identAndRepls (List.rev args) &&
-                        checkArgs2 [lambdaArg1;lambdaArg2;lambdaArg3] [last1;last2;last3]
+                    if areBindingsErasable identAndRepls (List.rev args) &&
+                        areArgsEquivalent [lambdaArg1;lambdaArg2;lambdaArg3] [last1;last2;last3]
                     then Some(3, e, List.map snd identAndRepls)
                     else None
                 | _ -> visit identAndRepls letBody
             | _ -> None
         match fsExpr with
         | Lambda(larg1, ComposableExpr(e, [marg1]))
-            when checkArgs2 [larg1] [marg1] ->
+            when areArgsEquivalent [larg1] [marg1] ->
                 Some(1, e, [])
         | Lambda(larg1, Lambda(larg2, ComposableExpr(e, [marg1;marg2])))
-            when checkArgs2 [larg1;larg2] [marg1;marg2] ->
+            when areArgsEquivalent [larg1;larg2] [marg1;marg2] ->
                 Some(2, e, [])
         | Lambda(larg1, Lambda(larg2, Lambda(larg3, ComposableExpr(e, [marg1;marg2;marg3]))))
-            when checkArgs2 [larg1;larg2;larg3] [marg1;marg2;marg3] ->
+            when areArgsEquivalent [larg1;larg2;larg3] [marg1;marg2;marg3] ->
                 Some(3, e, [])
         | _ -> visit [] fsExpr
 
@@ -436,6 +433,43 @@ module Patterns =
             | Some(matchValue, cases, defaultCase) ->
                 Some(matchValue, cases, defaultCase, decisionTargets)
             | None -> None
+        | _ -> None
+
+    // TODO: Check record attribute
+    /// Record updates as in `{ a with name = "Anna" }`
+    let (|RecordUpdate|_|) fsExpr =
+        let rec visit identAndRepls = function
+            | Let(identAndRepl, letBody) -> visit (identAndRepl::identAndRepls) letBody
+            | NewRecord(NonAbbreviatedType recType, argExprs)
+                when recType.HasTypeDefinition
+                    && recType.TypeDefinition.FSharpFields.Count = argExprs.Length ->
+                ((true, None, []), Seq.zip recType.TypeDefinition.FSharpFields argExprs)
+                ||> Seq.fold (fun (isRecordUpdate, prevRec, updatedFields) (fi, e) ->
+                    match isRecordUpdate, e with
+                    | false, _ -> false, None, []
+                    | _, FSharpFieldGet(Some(Value prevRec'), recType', fi')
+                        when recType' = recType && fi.Name = fi'.Name ->
+                        match prevRec with
+                        | Some prevRec ->
+                            if prevRec = prevRec'
+                            then true, Some prevRec', updatedFields
+                            else false, None, []
+                        | None ->
+                            if not prevRec'.IsMutable
+                            then true, Some prevRec', updatedFields
+                            else false, None, []                            
+                    | _, (Value v as e) -> true, prevRec, (fi, e)::updatedFields
+                    | _ -> false, None, [])
+                |> function
+                    | true, Some prevRec, updatedFields 
+                        when updatedFields |> List.map snd |> areBindingsErasable identAndRepls ->
+                        (identAndRepls, updatedFields)
+                        ||> List.map2 (fun (_, v) (fi, _) -> fi, v)
+                        |> fun updatedFields -> Some(recType, prevRec, updatedFields)
+                    | _ -> None
+            | _ -> None
+        match fsExpr with
+        | Let(identAndRepl, letBody) -> visit [identAndRepl] letBody
         | _ -> None
 
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
@@ -699,8 +733,8 @@ module Identifiers =
         |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
         |> function
             | Some(_, (Fable.Value(Fable.IdentValue i) as boundExpr)) ->
-                // TODO: Check if value is uniqueness type
-                // if i.IsConsumed then failwithf "Value %s has already been consumed" i.Name
+                // TODO: Check if value is uniqueness type and add range info
+                if i.IsConsumed then failwithf "Value '%s' has already been consumed" i.Name
                 Some boundExpr
             | Some(_, boundExpr) -> Some boundExpr
             | None -> None
@@ -712,12 +746,11 @@ module Identifiers =
         | None -> failwithf "Detected non-bound identifier: %s in %O"
                     fsRef.CompiledName (getRefLocation fsRef |> makeRange)
 
-    let tryConsumeBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
-        tryGetBoundExpr ctx fsRef
-        |> Option.map (function
-            | Fable.Value(Fable.IdentValue i) as e ->
-                i.Consume(); e
-            | e -> e)
+    let consumeBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
+        getBoundExpr ctx fsRef
+        |> function
+            | Fable.Value(Fable.IdentValue i) as e -> i.Consume(); e
+            | e -> e
 
 module Util =
     open Helpers
@@ -1040,17 +1073,18 @@ module Util =
         then
             if typ = Fable.Unit
             then Fable.Value Fable.Null
-            else getBoundExpr ctx v
+            else match role with
+                 | AppliedArgument -> consumeBoundExpr ctx v
+                 | _ -> getBoundExpr ctx v
         // External entities contain functions that will be replaced,
         // when they appear as a stand alone values, they must be wrapped in a lambda
         elif isReplaceCandidate com v.EnclosingEntity
         then wrapInLambda com ctx r typ v
         else
-            match role, v with
-            | _, Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
-            | _, Imported com ctx r typ [] imported -> imported
-            | AppliedArgument, Try (tryConsumeBoundExpr ctx) e -> e 
-            | _, Try (tryGetBoundExpr ctx) e -> e 
+            match v with
+            | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
+            | Imported com ctx r typ [] imported -> imported
+            | Try (tryGetBoundExpr ctx) e -> e 
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []

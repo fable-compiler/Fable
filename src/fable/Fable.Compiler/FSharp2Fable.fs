@@ -217,6 +217,18 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             Fable.DeclaredType(ent, [Fable.Any; Fable.Any])
         Fable.Wrapped(expr, appType)
 
+    | RecordUpdate(NonAbbreviatedType fsType, record, updatedFields) ->
+        // TODO: Use a different role type?
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsType
+        let record = makeValueFrom com ctx r typ AppliedArgument record
+        let assignments =
+            ([record], updatedFields)
+            ||> List.fold (fun acc (FieldName fieldName, e) ->
+                let r, value = makeRangeFrom e, com.Transform ctx e
+                let e = Fable.Set(record, Some(makeConst fieldName), value, r)
+                e::acc)
+        Fable.Sequential(assignments, r)
+
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
     // TypeLambda is a local generic lambda
