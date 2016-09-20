@@ -64,7 +64,7 @@ module Util =
             | expr -> com.TransformExpr ctx expr |> U2.Case1)
         
     let ident (id: Fable.Ident) =
-        Babel.Identifier id.name
+        Babel.Identifier id.Name
 
     let identFromName name =
         let name = Naming.sanitizeIdent (fun _ -> false) name
@@ -292,7 +292,7 @@ module Util =
                     match arg with
                     | :? Babel.Identifier as id ->
                         Babel.Identifier(id.name,
-                            Babel.TypeAnnotation(typeAnnotation com ctx args.[i].typ))
+                            Babel.TypeAnnotation(typeAnnotation com ctx args.[i].Type))
                         :> Babel.Pattern
                     | arg -> arg),
                 Babel.TypeAnnotation(typeAnnotation com ctx body.Type) |> Some,
@@ -320,7 +320,7 @@ module Util =
         | Fable.This -> upcast Babel.ThisExpression ()
         | Fable.Super -> upcast Babel.Super ()
         | Fable.Null -> upcast Babel.NullLiteral ()
-        | Fable.IdentValue {name=name} -> upcast Babel.Identifier (name)
+        | Fable.IdentValue i -> upcast Babel.Identifier (i.Name)
         | Fable.NumberConst (x,_) -> upcast Babel.NumericLiteral x
         | Fable.StringConst x -> upcast Babel.StringLiteral (x)
         | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
@@ -496,7 +496,7 @@ module Util =
             com.TransformExprAndResolve ctx ret value
 
         | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path)), isMutable) ->
-            let value = com.GetImportExpr ctx None var.name path
+            let value = com.GetImportExpr ctx None var.Name path
             varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement
 
         | Fable.VarDeclaration (var, TransformExpr com ctx value, isMutable) ->

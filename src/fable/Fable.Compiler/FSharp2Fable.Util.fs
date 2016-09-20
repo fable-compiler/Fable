@@ -33,9 +33,19 @@ type Context =
     thisAvailability: ThisAvailability
     }
     static member Empty =
+<<<<<<< HEAD
         { fileName="unknown"; scope=[]; typeArgs=[]; baseClass=None;
           decisionTargets=Map.empty<_,_>; thisAvailability=ThisUnavailable }
     
+=======
+        { fileName="unknown"; scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None }
+
+type Role =
+    | AppliedArgument
+    // For now we're only interested in applied arguments
+    | UnknownRole
+
+>>>>>>> Prepare types
 type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
@@ -671,10 +681,10 @@ module Identifiers =
         let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
             List.exists (fun (_,x') ->
                 match x' with
-                | Fable.Value (Fable.IdentValue {name=name}) -> x = name
+                | Fable.Value (Fable.IdentValue i) -> x = i.Name
                 | _ -> false) ctx.scope)
         com.AddUsedVarName sanitizedName
-        let ident: Fable.Ident = { name=sanitizedName; typ=typ}
+        let ident = Fable.Ident(sanitizedName, typ)
         let identValue = Fable.Value (Fable.IdentValue ident)
         { ctx with scope = (fsRef, identValue)::ctx.scope}, ident
 
@@ -687,7 +697,13 @@ module Identifiers =
     let tryGetBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
         ctx.scope
         |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
-        |> function Some (_,boundExpr) -> Some boundExpr | None -> None
+        |> function
+            | Some(_, (Fable.Value(Fable.IdentValue i) as boundExpr)) ->
+                // TODO: Check if value is uniqueness type
+                // if i.IsConsumed then failwithf "Value %s has already been consumed" i.Name
+                Some boundExpr
+            | Some(_, boundExpr) -> Some boundExpr
+            | None -> None
 
     /// Get corresponding identifier to F# value in current scope
     let getBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
@@ -695,6 +711,13 @@ module Identifiers =
         | Some boundExpr -> boundExpr
         | None -> failwithf "Detected non-bound identifier: %s in %O"
                     fsRef.CompiledName (getRefLocation fsRef |> makeRange)
+
+    let tryConsumeBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
+        tryGetBoundExpr ctx fsRef
+        |> Option.map (function
+            | Fable.Value(Fable.IdentValue i) as e ->
+                i.Consume(); e
+            | e -> e)
 
 module Util =
     open Helpers
@@ -1012,7 +1035,7 @@ module Util =
          // TODO: This shouldn't happen, throw exception?
         | ThisUnavailable -> Fable.Value Fable.This
 
-    let makeValueFrom com ctx r typ (v: FSharpMemberOrFunctionOrValue) =
+    let makeValueFrom com ctx r typ role (v: FSharpMemberOrFunctionOrValue) =
         if not v.IsModuleValueOrMember
         then
             if typ = Fable.Unit
@@ -1023,10 +1046,11 @@ module Util =
         elif isReplaceCandidate com v.EnclosingEntity
         then wrapInLambda com ctx r typ v
         else
-            match v with
-            | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
-            | Imported com ctx r typ [] imported -> imported
-            | Try (tryGetBoundExpr ctx) e -> e 
+            match role, v with
+            | _, Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
+            | _, Imported com ctx r typ [] imported -> imported
+            | AppliedArgument, Try (tryConsumeBoundExpr ctx) e -> e 
+            | _, Try (tryGetBoundExpr ctx) e -> e 
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []
