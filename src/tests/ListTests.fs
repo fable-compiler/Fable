@@ -614,8 +614,12 @@ let ``List.tryLast works``() =
     
 [<Test>]
 let ``List.unfold works``() =
-    let xs = 0. |> List.unfold (fun n -> if n < 10.0 then Some(n+1., n+1.) else None)
-    List.sum xs |> equal (55.)
+    let xs = 0. |> List.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
+    let sum = 
+      match xs with 
+      | n1::n2::n3::[] -> n1 + n2 + n3
+      | _ -> 0.0
+    sum |> equal 6.0
     
 type R = { i: int; s: string }
 
