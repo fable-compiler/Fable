@@ -611,6 +611,12 @@ let ``List.tryLast works``() =
     List.tryLast xs |> equal (Some 4.)
     List.tryLast [] |> equal None
 
+    
+[<Test>]
+let ``List.unfold works``() =
+    let xs = 0. |> List.unfold (fun n -> if n < 10.0 then Some(n+1., n+1.) else None)
+    List.sum xs |> equal (55.)
+    
 type R = { i: int; s: string }
 
 [<Test>]
