@@ -107,7 +107,7 @@ module Helpers =
         then typ.TypeDefinition.IsFSharpRecord
                 && typ.TypeDefinition.Attributes
                    |> tryFindAtt ((=) "Uniqueness")
-                   |> Option.isSome 
+                   |> Option.isSome
         else false
 
     let makeRange (r: Range.range) = {
@@ -175,16 +175,6 @@ module Helpers =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
-    let areBindingsErasable (identAndRepls: (FSharpMemberOrFunctionOrValue*FSharpExpr) list) args =
-        if identAndRepls.Length <> (List.length args) then false else
-        (args, identAndRepls)
-        ||> List.forall2 (fun arg (ident, _) ->
-            if ident.IsMutable then false else 
-            match arg with
-            | BasicPatterns.Coerce(_, BasicPatterns.Value arg)
-            | BasicPatterns.Value arg -> ident = arg
-            | _ -> false)
-
 module Patterns =
     open BasicPatterns
     open Helpers
@@ -237,7 +227,15 @@ module Patterns =
     // These are closures created by F# compiler, e.g. given `let add x y z = x+y+z`
     // `3 |> add 1 2` will become `let x=1 in let y=2 in fun z -> add(x,y,z)`
     let (|Closure|_|) fsExpr =
-        let areArgsEquivalent lambdaArgs methArgs =
+        let checkArgs (identAndRepls: (FSharpMemberOrFunctionOrValue*FSharpExpr) list) args =
+            if identAndRepls.Length <> (List.length args) then false else
+            (args, identAndRepls)
+            ||> List.forall2 (fun arg (ident, _) ->
+                if ident.IsMutable then false else 
+                match arg with
+                | Coerce(_, Value arg) | Value arg -> ident = arg
+                | _ -> false)
+        let checkArgs2 lambdaArgs methArgs =
             (lambdaArgs, methArgs)
             ||> List.forall2 (fun larg marg ->
                 match marg with
@@ -248,34 +246,34 @@ module Patterns =
                 let identAndRepls = identAndRepls@[(letArg, letValue)]
                 match letBody with
                 | Lambda(lambdaArg1, ComposableExpr(e, Rev (last1::args))) ->
-                    if areBindingsErasable identAndRepls (List.rev args) &&
-                        areArgsEquivalent [lambdaArg1] [last1]
+                    if checkArgs identAndRepls (List.rev args) &&
+                        checkArgs2 [lambdaArg1] [last1]
                     then Some(1, e, List.map snd identAndRepls)
                     else None
                 | Lambda(lambdaArg1,
                          Lambda(lambdaArg2, ComposableExpr(e, Rev (last2::last1::args)))) ->
-                    if areBindingsErasable identAndRepls (List.rev args) &&
-                        areArgsEquivalent [lambdaArg1;lambdaArg2] [last1;last2]
+                    if checkArgs identAndRepls (List.rev args) &&
+                        checkArgs2 [lambdaArg1;lambdaArg2] [last1;last2]
                     then Some(2, e, List.map snd identAndRepls)
                     else None
                 | Lambda(lambdaArg1,
                          Lambda(lambdaArg2,
                             Lambda(lambdaArg3,ComposableExpr(e, Rev (last3::last2::last1::args))))) ->
-                    if areBindingsErasable identAndRepls (List.rev args) &&
-                        areArgsEquivalent [lambdaArg1;lambdaArg2;lambdaArg3] [last1;last2;last3]
+                    if checkArgs identAndRepls (List.rev args) &&
+                        checkArgs2 [lambdaArg1;lambdaArg2;lambdaArg3] [last1;last2;last3]
                     then Some(3, e, List.map snd identAndRepls)
                     else None
                 | _ -> visit identAndRepls letBody
             | _ -> None
         match fsExpr with
         | Lambda(larg1, ComposableExpr(e, [marg1]))
-            when areArgsEquivalent [larg1] [marg1] ->
+            when checkArgs2 [larg1] [marg1] ->
                 Some(1, e, [])
         | Lambda(larg1, Lambda(larg2, ComposableExpr(e, [marg1;marg2])))
-            when areArgsEquivalent [larg1;larg2] [marg1;marg2] ->
+            when checkArgs2 [larg1;larg2] [marg1;marg2] ->
                 Some(2, e, [])
         | Lambda(larg1, Lambda(larg2, Lambda(larg3, ComposableExpr(e, [marg1;marg2;marg3]))))
-            when areArgsEquivalent [larg1;larg2;larg3] [marg1;marg2;marg3] ->
+            when checkArgs2 [larg1;larg2;larg3] [marg1;marg2;marg3] ->
                 Some(3, e, [])
         | _ -> visit [] fsExpr
 
@@ -448,38 +446,38 @@ module Patterns =
     // TODO: Check record attribute
     /// Record updates as in `{ a with name = "Anna" }`
     let (|RecordUpdate|_|) fsExpr =
-        let rec visit identAndRepls = function
-            | Let(identAndRepl, letBody) -> visit (identAndRepl::identAndRepls) letBody
-            | NewRecord(NonAbbreviatedType recType, argExprs)
-                when isUniqueness recType ->
-                ((true, None, []), Seq.zip recType.TypeDefinition.FSharpFields argExprs)
-                ||> Seq.fold (fun (isRecordUpdate, prevRec, updatedFields) (fi, e) ->
-                    match isRecordUpdate, e with
-                    | false, _ -> false, None, []
-                    | _, FSharpFieldGet(Some(Value prevRec'), recType', fi')
+        let rec visit identAndBindings = function
+            | Let((ident, binding), letBody) when ident.IsCompilerGenerated ->
+                visit ((ident, binding)::identAndBindings) letBody
+            | NewRecord(NonAbbreviatedType recType, argExprs) when isUniqueness recType ->
+                ((None, []), Seq.zip recType.TypeDefinition.FSharpFields argExprs)
+                ||> Seq.fold (fun (prevRec, updatedFields) (fi, e) ->
+                    match e with
+                    | FSharpFieldGet(Some(Value prevRec'), recType', fi')
                         when recType' = recType && fi.Name = fi'.Name ->
                         match prevRec with
                         | Some prevRec ->
                             if prevRec = prevRec'
-                            then true, Some prevRec', updatedFields
-                            else false, None, []
+                            then Some prevRec', updatedFields
+                            else None, []
                         | None ->
                             if not prevRec'.IsMutable
-                            then true, Some prevRec', updatedFields
-                            else false, None, []                            
-                    | _, (Value v as e) -> true, prevRec, (fi, e)::updatedFields
-                    | _ -> false, None, [])
+                            then Some prevRec', updatedFields
+                            else None, []
+                    | e -> prevRec, (fi, e)::updatedFields)
                 |> function
-                    | true, Some prevRec, updatedFields 
-                        when updatedFields |> List.map snd |> areBindingsErasable identAndRepls ->
-                        (identAndRepls, updatedFields)
-                        ||> List.map2 (fun (_, v) (fi, _) -> fi, v)
-                        |> fun updatedFields -> Some(recType, prevRec, updatedFields)
+                    | Some prevRec, updatedFields ->
+                        let updatedFields =
+                            let identAndBindings = dict identAndBindings
+                            updatedFields |> List.map (fun (fi, e) ->
+                                match e with
+                                | Value ident when identAndBindings.ContainsKey ident ->
+                                    fi, identAndBindings.[ident]
+                                | e -> fi, e)
+                        Some(recType, prevRec, updatedFields)
                     | _ -> None
             | _ -> None
-        match fsExpr with
-        | Let(identAndRepl, letBody) -> visit [identAndRepl] letBody
-        | _ -> None
+        visit [] fsExpr
 
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->

@@ -116,7 +116,11 @@ let ``Uniqueness records work``() =
     let x = { uniqueA = 10; uniqueB = 20 }
     equal 10 x.uniqueA
     equal 20 x.uniqueB
-    let x' = { x with uniqueB = -20 }
+    let uniqueB' = -x.uniqueB
+    let x' = { x with uniqueB = uniqueB' }
     // equal 10 x.uniqueA // This would make Fable compilation fail
     equal 10 x'.uniqueA
     equal -20 x'.uniqueB
+    let x'' = { x with uniqueA = -10 }
+    equal -10 x''.uniqueA
+    equal 20 x''.uniqueB
