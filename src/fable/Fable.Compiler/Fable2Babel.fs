@@ -51,18 +51,19 @@ module Util =
     let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
     let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
 
+    /// Matches a sequence of assignments and a return value: a.b = 1, a.c = 2, a
     let (|Assignments|_|) e =
         match e with
-        | Fable.Sequential(exprs, r) when exprs.Length > 1 ->
-            (true, List.take (exprs.Length - 1) exprs)
-            ||> List.fold (fun areAssignments e ->
-                match e with
-                | Fable.Set _ -> areAssignments
-                | _ -> false)
-            |> fun areAssignments ->
-                match areAssignments, List.last exprs with
-                | true, Fable.Value _ -> Some(exprs, r)
-                | _ -> None
+        | Fable.Sequential(exprs, r) ->
+            let length = exprs.Length
+            ((true, 1), exprs)
+            ||> List.fold (fun (areAssignments, i) e ->
+                match areAssignments, e with
+                | false, _ -> false, 0
+                | _, Fable.Set _ when i < length -> true, i + 1
+                | _, Fable.Value _ -> true, i + 1
+                | _ -> false, 0)
+            |> function true, _ -> Some(exprs, r) | _ -> None
         | _ -> None
 
     let consBack tail head = head::tail
@@ -617,7 +618,6 @@ module Util =
             |> assign range <| value
 
         // Optimization: Compile sequential as expression if possible
-        | Fable.Sequential([TransformExpr com ctx expr], _) -> expr
         | Assignments(exprs, r) ->
             List.map (com.TransformExpr ctx) exprs
             |> fun exprs -> upcast Babel.SequenceExpression(exprs, ?loc=r)

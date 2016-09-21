@@ -100,6 +100,16 @@ module Helpers =
             else None
         fullName = Some "Microsoft.FSharp.Core.Unit"
 
+    // TODO: Check that all record fields are immutable?
+    let isUniqueness (typ: FSharpType) =
+        let typ = nonAbbreviatedType typ
+        if typ.HasTypeDefinition
+        then typ.TypeDefinition.IsFSharpRecord
+                && typ.TypeDefinition.Attributes
+                   |> tryFindAtt ((=) "Uniqueness")
+                   |> Option.isSome 
+        else false
+
     let makeRange (r: Range.range) = {
         start = { line = r.StartLine; column = r.StartColumn }
         ``end``= { line = r.EndLine; column = r.EndColumn }
@@ -441,8 +451,7 @@ module Patterns =
         let rec visit identAndRepls = function
             | Let(identAndRepl, letBody) -> visit (identAndRepl::identAndRepls) letBody
             | NewRecord(NonAbbreviatedType recType, argExprs)
-                when recType.HasTypeDefinition
-                    && recType.TypeDefinition.FSharpFields.Count = argExprs.Length ->
+                when isUniqueness recType ->
                 ((true, None, []), Seq.zip recType.TypeDefinition.FSharpFields argExprs)
                 ||> Seq.fold (fun (isRecordUpdate, prevRec, updatedFields) (fi, e) ->
                     match isRecordUpdate, e with
@@ -733,8 +742,9 @@ module Identifiers =
         |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
         |> function
             | Some(_, (Fable.Value(Fable.IdentValue i) as boundExpr)) ->
-                // TODO: Check if value is uniqueness type and add range info
-                if i.IsConsumed then failwithf "Value '%s' has already been consumed" i.Name
+                if i.IsConsumed && isUniqueness fsRef.FullType then
+                    failwithf "Uniqueness value has already been consumed: %s %O"
+                                i.Name (getRefLocation fsRef |> makeRange)
                 Some boundExpr
             | Some(_, boundExpr) -> Some boundExpr
             | None -> None

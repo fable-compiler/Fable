@@ -218,8 +218,8 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         Fable.Wrapped(expr, appType)
 
     | RecordUpdate(NonAbbreviatedType fsType, record, updatedFields) ->
-        // TODO: Use a different role type?
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsType
+        // TODO: Use a different role type?
         let record = makeValueFrom com ctx r typ AppliedArgument record
         let assignments =
             ([record], updatedFields)
