@@ -443,7 +443,6 @@ module Patterns =
             | None -> None
         | _ -> None
 
-    // TODO: Check record attribute
     /// Record updates as in `{ a with name = "Anna" }`
     let (|RecordUpdate|_|) fsExpr =
         let rec visit identAndBindings = function
@@ -735,27 +734,27 @@ module Identifiers =
     
     let (|BindIdent|) = bindIdentFrom
 
-    let tryGetBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
+    let tryGetBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
         ctx.scope
         |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
         |> function
             | Some(_, (Fable.Value(Fable.IdentValue i) as boundExpr)) ->
                 if i.IsConsumed && isUniqueness fsRef.FullType then
-                    failwithf "Uniqueness value has already been consumed: %s %O"
-                                i.Name (getRefLocation fsRef |> makeRange)
+                    "Uniqueness value has already been consumed: " + i.Name
+                    |> attachRange r |> failwith
                 Some boundExpr
             | Some(_, boundExpr) -> Some boundExpr
             | None -> None
 
     /// Get corresponding identifier to F# value in current scope
-    let getBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
-        match tryGetBoundExpr ctx fsRef with
+    let getBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
+        match tryGetBoundExpr ctx r fsRef with
         | Some boundExpr -> boundExpr
         | None -> failwithf "Detected non-bound identifier: %s in %O"
                     fsRef.CompiledName (getRefLocation fsRef |> makeRange)
 
-    let consumeBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
-        getBoundExpr ctx fsRef
+    let consumeBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
+        getBoundExpr ctx r fsRef
         |> function
             | Fable.Value(Fable.IdentValue i) as e -> i.Consume(); e
             | e -> e
@@ -1019,11 +1018,11 @@ module Util =
         (**     *Check if this a getter or setter  *)
                 match methKind with
                 | Fable.Getter | Fable.Field ->
-                    match tryGetBoundExpr ctx meth with
+                    match tryGetBoundExpr ctx r meth with
                     | Some e -> e
                     | _ -> makeGetFrom com ctx r typ callee (makeConst methName)
                 | Fable.Setter ->
-                    match tryGetBoundExpr ctx meth with
+                    match tryGetBoundExpr ctx r meth with
                     | Some e -> Fable.Set (e, None, args.Head, r)
                     | _ -> Fable.Set (callee, Some (makeConst methName), args.Head, r)
         (**     *Check if this is an implicit constructor *)
@@ -1031,7 +1030,7 @@ module Util =
                     Fable.Apply (callee, args, Fable.ApplyCons, typ, r)
         (**     *If nothing of the above applies, call the method normally *)
                 | Fable.Method ->
-                    match tryGetBoundExpr ctx meth with
+                    match tryGetBoundExpr ctx r meth with
                     | Some e -> e
                     | _ ->
                         let methName =
@@ -1082,8 +1081,8 @@ module Util =
             if typ = Fable.Unit
             then Fable.Value Fable.Null
             else match role with
-                 | AppliedArgument -> consumeBoundExpr ctx v
-                 | _ -> getBoundExpr ctx v
+                 | AppliedArgument -> consumeBoundExpr ctx r v
+                 | _ -> getBoundExpr ctx r v
         // External entities contain functions that will be replaced,
         // when they appear as a stand alone values, they must be wrapped in a lambda
         elif isReplaceCandidate com v.EnclosingEntity
@@ -1092,7 +1091,7 @@ module Util =
             match v with
             | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
             | Imported com ctx r typ [] imported -> imported
-            | Try (tryGetBoundExpr ctx) e -> e 
+            | Try (tryGetBoundExpr ctx r) e -> e 
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []

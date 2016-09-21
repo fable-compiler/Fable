@@ -121,6 +121,6 @@ let ``Uniqueness records work``() =
     // equal 10 x.uniqueA // This would make Fable compilation fail
     equal 10 x'.uniqueA
     equal -20 x'.uniqueB
-    let x'' = { x with uniqueA = -10 }
+    let x'' = { x' with uniqueA = -10 }
     equal -10 x''.uniqueA
-    equal 20 x''.uniqueB
+    equal -20 x''.uniqueB
