@@ -52,6 +52,7 @@ type HttpRequestHeaders =
     | [<CompiledName("Proxy-Authorization")>] ProxyAuthorization of string
     | Range of string
     | Referer of string
+    | [<CompiledName("SOAPAction")>] SOAPAction of string
     | [<CompiledName("TE")>] TE of string
     | [<CompiledName("User-Agent")>] UserAgent of string
     | Upgrade of string
