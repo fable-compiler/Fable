@@ -1,3 +1,9 @@
+### 0.6.7
+
+* Fix #416: Can't ifdef around a load directive
+* Fix List.unfold: PR #428
+* Use reference hint paths for netcore: PR #423
+
 ### 0.6.6
 
 * Support ResizeArray.FindAll: PR #412

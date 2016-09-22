@@ -178,7 +178,7 @@ type TodoItem(props, ctx) as this =
                             this.props.CompleteTodo(this.props.Todo.Id))
                     ] []
                     R.label [OnDoubleClick this.HandleDoubleClick]
-                            [unbox this.props.Todo.Text]
+                            [R.str this.props.Todo.Text]
                     R.div [
                         ClassName "destroy"
                         OnClick (fun _ ->
@@ -195,7 +195,7 @@ type HeaderProps = { AddTodo: string->unit }
 
 let Header (props: HeaderProps) =
     R.header [ClassName "header"] [
-        R.h1 [] [unbox "todos"]
+        R.h1 [] [R.str "todos"]
         R.com<TodoTextInput,_,_>
             { new TodoTextInputProps with
                 member __.OnSave(text: string) =
@@ -223,22 +223,23 @@ let Footer =
         ]
     let renderTodoCount activeCount =
         R.span [ClassName "todo-count"] [
-            unbox(sprintf "%s item%s left"
+            sprintf "%s item%s left"
                 (if activeCount > 0 then string activeCount else "No")
-                (if activeCount <> 1 then "s" else ""))
+                (if activeCount <> 1 then "s" else "")
+            |> R.str
         ]
     let renderFilterLink filter selectedFilter onShow =
         R.a [
             ClassName (classNames ["selected", filter = selectedFilter])
             Style [unbox("cursor", "pointer")]
             OnClick (fun _ -> onShow filter)
-        ] [unbox filterTitles.[filter]]
+        ] [R.str filterTitles.[filter]]
     let renderClearButton completedCount onClearCompleted =
         if completedCount > 0
         then R.button [
                 ClassName "clear-completed"
                 OnClick onClearCompleted
-             ] [unbox "Clear completed"] |> Some
+             ] [R.str "Clear completed"] |> Some
         else None
     fun (props: FooterProps) ->
         let listItems =
@@ -251,9 +252,7 @@ let Footer =
         R.footer [ClassName "footer"] [
             renderTodoCount props.ActiveCount
             R.ul [ClassName "filters"] listItems
-            // We can pass option types as React children but we
-            // need to use `unbox` to appease the F# compiler
-            unbox(renderClearButton props.CompletedCount props.OnClearCompleted)
+            R.opt(renderClearButton props.CompletedCount props.OnClearCompleted)
         ]
 
 type MainSectionProps = { Todos: Todo[]; Dispatch: TodoAction->unit }
@@ -307,7 +306,7 @@ type MainSection(props, ctx) as this =
             (0, this.props.Todos) ||> Array.fold (fun count todo ->
                 if todo.Completed then count + 1 else count)
         R.section [ClassName "main"] [
-            unbox(this.renderToggleAll completedCount)
+            R.opt(this.renderToggleAll completedCount)
             R.ul [ClassName "todo-list"]
                 (filteredTodos
                 |> List.map (fun todo ->
@@ -320,7 +319,7 @@ type MainSection(props, ctx) as this =
                                 this.props.Dispatch(DeleteTodo id)
                             member __.CompleteTodo(id) =
                                 this.props.Dispatch(CompleteTodo id) } []))
-            unbox(this.renderFooter completedCount)
+            R.opt(this.renderFooter completedCount)
         ]
 
 (**
