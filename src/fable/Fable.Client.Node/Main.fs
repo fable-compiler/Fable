@@ -169,7 +169,8 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
         let projFile = Path.GetFullPath opts.projFile
         match (Path.GetExtension projFile).ToLower() with
         | ".fsx" ->
-            checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile)
+            let defines = [|for symbol in opts.symbols do yield "--define:" + symbol|]
+            checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = defines)
             |> Async.RunSynchronously
         #if DOTNETCORE
         | ".fsproj" -> forgeGetProjectOptions projFile
