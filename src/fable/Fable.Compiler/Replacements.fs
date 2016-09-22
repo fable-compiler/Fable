@@ -991,7 +991,7 @@ module private AstPass =
               "isEmpty"; "last"; "tryLast"; "length";
               "mapFold"; "mapFoldBack"; "max"; "maxBy"; "min"; "minBy";
               "reduce"; "reduceBack"; "sum"; "sumBy"; "tail"; "toList";
-              "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; "unfold";
+              "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; 
               "tryFindBack"; "findBack"; "tryFindIndexBack"; "findIndexBack" ]
 
     // Functions that must return a collection of the same type
@@ -1001,7 +1001,7 @@ module private AstPass =
               "map"; "mapIndexed"; "map2"; "mapIndexed2"; "map3";
               "ofArray"; "pairwise"; "permute"; "replicate"; "reverse";
               "scan"; "scanBack"; "singleton"; "skip"; "skipWhile";
-              "take"; "takeWhile"; "sortWith"; "zip"; "zip3" ]
+              "take"; "takeWhile"; "sortWith"; "unfold"; "zip"; "zip3" ]
 
     let implementedListFunctions =
         set [ "append"; "choose"; "collect"; "concat"; "filter"; "where";
