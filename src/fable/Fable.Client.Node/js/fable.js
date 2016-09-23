@@ -262,10 +262,16 @@ function processJson(json, opts) {
         err = e.message ? e : { message: e };
     }
     if (err != null) {
+<<<<<<< HEAD
         stderrLog
     ("ERROR: " + err.message);
         if (opts.verbose && err.stack) {
             stderrLog(err.stack);
+=======
+        process.stderr.write("ERROR: " + err.message + "\n");
+        if (opts.verbose && err.stack) {
+            process.stderr.write(err.stack + "\n");
+>>>>>>> bc0603a379c481ff99bf47edb711ac42b7763345
         }
         if (!opts.watch) {
             process.exit(1);
