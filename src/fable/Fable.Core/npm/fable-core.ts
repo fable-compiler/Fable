@@ -157,10 +157,19 @@ export class Util {
       return false;
     else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
       return false;
-    else if (Array.isArray(x) || ArrayBuffer.isView(x))
-      return x.length != y.length
-        ? false
-        : Seq.fold2((prev, v1, v2) => !prev ? prev : Util.equals(v1, v2), true, x, y);
+    else if (Array.isArray(x)) {
+      if (x.length != y.length) return false;
+      for (let i = 0; i < x.length; i++)
+        if (!Util.equals(x[i], y[i])) return false;
+      return true;
+    }
+    else if (ArrayBuffer.isView(x)) {
+      if (x.byteLength !== y.byteLength) return false;
+      const dv1 = new DataView(x.buffer), dv2 = new DataView(y.buffer);
+      for (let i = 0; i < x.byteLength; i++)
+        if (dv1.getUint8(i) !== dv2.getUint8(i)) return false;
+      return true;
+    }
     else if (x instanceof Date)
       return FDate.equals(x, y);
     else if (Util.hasInterface(x, "System.IEquatable"))
@@ -176,10 +185,23 @@ export class Util {
       return -1;
     else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
       return -1;
-    else if (Array.isArray(x) || ArrayBuffer.isView(x))
-      return x.length != y.length
-        ? (x.length < y.length ? -1 : 1)
-        : Seq.fold2((prev, v1, v2) => prev !== 0 ? prev : Util.compare(v1, v2), 0, x, y);
+    else if (Array.isArray(x)) {
+      if (x.length != y.length) return x.length < y.length ? -1 : 1;
+      for (let i = 0, j = 0; i < x.length; i++)
+        if ((j = Util.compare(x[i], y[i])) !== 0)
+          return j;
+      return 0;
+    }
+    else if (ArrayBuffer.isView(x)) {
+      if (x.byteLength != y.byteLength) return x.byteLength < y.byteLength ? -1 : 1;
+      const dv1 = new DataView(x.buffer), dv2 = new DataView(y.buffer);
+      for (let i = 0, b1 = 0, b2 = 0; i < x.byteLength; i++) {
+        b1 = dv1.getUint8(i), b2 = dv2.getUint8(i);
+        if (b1 < b2) return -1;
+        if (b1 > b2) return 1;
+      }
+      return 0;
+    }
     else if (Util.hasInterface(x, "System.IComparable"))
       return x.CompareTo(y);
     else
