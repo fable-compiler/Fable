@@ -21,6 +21,10 @@ You can find more information about how to interact with JavaScript
 from F# [here](https://github.com/fable-compiler/Fable/blob/master/docs/source/docs/interacting.md).
 Please note the parser is not perfect and some tweaking by hand may be needed.
 
+> **Attention**: Files starting with `Fable.Import` are ignored by Fable compiler as they're supposed
+to contain only empty bindings. If you're writing you're own bindings, please be aware of this fact
+and don't include any compilable code in a file with this prefix.
+
 ## Conventions
 
 Some JavaScript/TypeScript features have no direct translation to F#. Here is

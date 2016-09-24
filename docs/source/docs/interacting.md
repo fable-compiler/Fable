@@ -120,6 +120,10 @@ npm install -g ts2fable
 You can find common definitions already parsed [here](https://github.com/fable-compiler/Fable/blob/master/import).
 Some of them are available in npm, just search for `fable-import` packages.
 
+> **Attention**: Files starting with `Fable.Import` are ignored by Fable compiler as they're supposed
+to contain only empty bindings. If you're writing you're own bindings, please be aware of this fact
+and don't include any compilable code in a file with this prefix.
+
 ## Special attributes
 
 There are some attributes available in the `Fable.Core` namespace to ease the interaction with JS.
