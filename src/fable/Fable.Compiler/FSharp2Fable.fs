@@ -128,7 +128,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         ]
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            buildApplyInfo com ctx r typ (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
+            buildApplyInfo com ctx r typ unionType (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
             Fable.Apply (makeTypeRef com (Some range) unionType, argExprs, Fable.ApplyCons,
@@ -515,7 +515,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            buildApplyInfo com ctx r typ (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
+            buildApplyInfo com ctx r typ recordType (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
             Fable.Apply (makeTypeRef com (Some range) recordType, argExprs, Fable.ApplyCons,

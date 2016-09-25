@@ -719,11 +719,12 @@ module Util =
 //            |> Option.isSome
 //        | _ -> false
 
-    let buildApplyInfo com (ctx: Context) r typ ownerName methName methKind
+    let buildApplyInfo com (ctx: Context) r typ ownerType ownerFullName methName methKind
                        (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args)
                        : Fable.ApplyInfo =
         {
-            ownerFullName = ownerName
+            ownerType = ownerType
+            ownerFullName = ownerFullName
             methodName = methName
             methodKind = methKind
             range = r
@@ -746,8 +747,10 @@ module Util =
             then countFuncArgs meth.CurriedParameterGroups.[0].[0].Type
             else 0
         let methName, methKind = sanitizeMethodName meth
+        let ownerType = makeTypeFromDef com ctx meth.EnclosingEntity []
+        let ownerFullName = sanitizeEntityFullName meth.EnclosingEntity
         buildApplyInfo com ctx r typ
-            (sanitizeEntityFullName meth.EnclosingEntity) methName methKind
+            ownerType ownerFullName methName methKind
             (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
             (callee, args)
 
