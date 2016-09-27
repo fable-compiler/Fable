@@ -13,8 +13,8 @@ open Fable.Core.JsInterop
 // exposed globally by loading the corresponding libraries with HTML script tags
 [<Erase>]
 module Lib =
-    let [<Global>] Vue: obj = failwith "JS only"
-    let [<Global>] Router: obj = failwith "JS only"
+    let [<Global>] Vue: obj = jsNative
+    let [<Global>] Router: obj = jsNative
 
 type Todo = {
     mutable title: string
