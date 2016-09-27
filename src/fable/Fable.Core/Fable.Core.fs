@@ -1,6 +1,11 @@
 namespace Fable.Core
 open System
 
+[<AutoOpen>]
+module Exceptions =
+    ///This is used to indicate that the implementation is only implemented in native Javascript
+    let jsNative<'T> : 'T = failwith "JS only"
+
 /// Used for erased union types and to ignore modules in JS compilation.
 /// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
 type EraseAttribute() =
@@ -60,55 +65,55 @@ module JsInterop =
     /// Dynamically access a property of an arbitrary object.
     /// `myObj?propA` in JS becomes `myObj.propA`
     /// `myObj?(propA)` in JS becomes `myObj[propA]`
-    let (?) (o: obj) (prop: obj): Applicable = failwith "JS only"
+    let (?) (o: obj) (prop: obj): Applicable = jsNative
     
     /// Dynamically assign a value to a property of an arbitrary object.
     /// `myObj?propA <- 5` in JS becomes `myObj.propA = 5`
     /// `myObj?(propA) <- 5` in JS becomes `myObj[propA] = 5`
-    let (?<-) (o: obj) (prop: obj) (v: obj): unit = failwith "JS only"
+    let (?<-) (o: obj) (prop: obj) (v: obj): unit = jsNative
 
     /// Destructure and apply a tuple to an arbitrary value.
     /// E.g. `myFn $ (arg1, arg2)` in JS becomes `myFn(arg1, arg2)`
-    let ($) (callee: obj) (args: obj): obj = failwith "JS only"
+    let ($) (callee: obj) (args: obj): obj = jsNative
     
     /// Upcast the right operand to obj and create a key-value tuple.
     /// Mostly convenient when used with createObj.
     /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
-    let (==>) (key: string) (v: obj): string*obj = failwith "JS only"
+    let (==>) (key: string) (v: obj): string*obj = jsNative
     
     /// Destructure and apply a tuple to an arbitrary value with `new` keyword.
     /// E.g. `createNew myCons (arg1, arg2)` in JS becomes `new myCons(arg1, arg2)`
-    let createNew (o: obj) (args: obj): obj = failwith "JS only"
+    let createNew (o: obj) (args: obj): obj = jsNative
 
     /// Create a literal JS object from a collection of key-value tuples.
     /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
-    let createObj (fields: #seq<string*obj>): obj = failwith "JS only"
+    let createObj (fields: #seq<string*obj>): obj = jsNative
     
     /// Create an empty JS object: {}
-    let createEmpty<'T> : 'T = failwith "JS only"
+    let createEmpty<'T> : 'T = jsNative
 
     /// F#: let myMember = importMember<string> "myModule"
     /// JS: import { myMember } from "myModule"
     /// Note the import must be immediately assigned to a value in a let binding
-    let importMember<'T> (path: string):'T = failwith "JS only"
+    let importMember<'T> (path: string):'T = jsNative
 
     /// F#: let defaultMember = importDefault<unit->obj> "myModule"
     /// JS: import defaultMember from "myModule"
-    let importDefault<'T> (path: string):'T = failwith "JS only"
+    let importDefault<'T> (path: string):'T = jsNative
 
     /// F#: let myLib = importAll<obj> "myLib"
     /// JS: import * as myLib from "myLib"
-    let importAll<'T> (path: string):'T = failwith "JS only"
+    let importAll<'T> (path: string):'T = jsNative
 
     /// Serialize F# objects to JSON with type info
-    let toJson (o: 'T): string = failwith "JS only"
+    let toJson (o: 'T): string = jsNative
 
     /// Instantiate F# objects from JSON with type info
     /// (compatible with Newtonsoft.Json)
-    let ofJson<'T> (json: string): 'T = failwith "JS only"
+    let ofJson<'T> (json: string): 'T = jsNative
 
     /// Convert F# unions, records and classes into plain JS objects
-    let toPlainJsObj (o: 'T): obj = failwith "JS only"
+    let toPlainJsObj (o: 'T): obj = jsNative
 
 module Testing =
     type TestAttribute() =
@@ -130,6 +135,6 @@ module Testing =
         inherit Attribute()     
         
     type Assert =
-        static member AreEqual(x: 'T, y: 'T): unit = failwith "JS only"
+        static member AreEqual(x: 'T, y: 'T): unit = jsNative
 
     
