@@ -191,7 +191,8 @@ module Util =
         | CoreCons com "List" _, _ ->
             Fable.ArrayConst(Fable.ArrayValues [], genArg i.returnType) |> Fable.Value
         // Typed arrays
-        | _, Fable.Array(Fable.Number numberKind) -> arrayFrom (getTypedArrayName com numberKind) expr
+        | _, Fable.Array(Fable.Number numberKind) when not com.Options.noTypedArrays ->
+            arrayFrom (getTypedArrayName com numberKind) expr
         | _ -> arrayFrom "Array" expr
 
     let applyOp com (i: Fable.ApplyInfo) (args: Fable.Expr list) meth =

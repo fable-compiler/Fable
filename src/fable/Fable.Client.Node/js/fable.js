@@ -54,6 +54,7 @@ var optionDefinitions = [
   { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
   { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
+  { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },  
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'copyExt', type: Boolean, description: "Copy external files into `fable_external` folder (true by default)." },
   { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
@@ -70,7 +71,7 @@ var cfgDir = process.cwd();
 var fableConfig = "fableconfig.json";
 var fableBinOptions = new Set([
     "projFile", "coreLib", "symbols", "plugins", "msbuild",
-    "refs", "watch", "clamp", "copyExt", "extra", "declaration"
+    "refs", "watch", "clamp", "copyExt", "extra", "declaration", "noTypedArrays"
 ]);
 var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
 if (pkgInfo.name === "fable-compiler-netcore") {
