@@ -37,7 +37,7 @@ in a dummy static typed named `Globals`. For example:
 ```fsharp
 module ReactDom =
     type [<Import("react-dom")>] Globals =
-        static member render(element: DOMElement<'P>, container: Element, ?callback: Func<Element, obj>): Element = failwith "JS only"
+        static member render(element: DOMElement<'P>, container: Element, ?callback: Func<Element, obj>): Element = jsNative
 ```
 
 > Note the `Import` attribute is on the `Globals` value, not the module.
