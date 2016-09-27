@@ -30,14 +30,14 @@ Besides the default argument (`--projFile`), the following options are available
 Option                  | Short     | Description
 ------------------------|-----------|----------------------------------------------------------------------
 `--outDir`              | `-o`      | Where to put compiled JS files. Defaults to project directory.
-`--module`              | `-m`      | Specify module code generation: `umd` (default), `commonjs`, `amd` or `es2015`.
+`--module`              | `-m`      | Specify module code generation: `commonjs` (default), `amd`, `umd` or `es2015`.
 `--sourceMaps`          | `-s`      | Generate source maps: `false` (default), `true` or `inline`.
 `--watch`               | `-w`      | Recompile project much faster on file modifications.
 `--ecma`                |           | Specify ECMAScript target version: `es5` (default) or `es2015`.
 `--symbols`             |           | F# symbols for conditional compilation, like `DEBUG`.
 `--plugins`             |           | Paths to Fable plugins.
 `--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
-`--loose`               |           | Enable “loose” transformations for babel-preset-es2015 plugins.
+`--loose`               |           | Enable “loose” transformations for babel-preset-es2015 plugins (true by default).
 `--refs`                |           | Specify dll or project references in `Reference=js/import/path` format (see below).
 `--msbuild`             |           | Pass MSBuild arguments like `Configuration=Release`.
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.

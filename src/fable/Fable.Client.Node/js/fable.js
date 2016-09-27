@@ -42,7 +42,7 @@ var optionDefinitions = [
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
-  { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins." },  
+  { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins (true by default)." },
   { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
@@ -289,7 +289,6 @@ function build(opts) {
 
     // ECMAScript target
     if (opts.ecma != "es2015" && opts.ecma != "es6") {
-        opts.module = opts.module || "umd"; // Default module
         if (opts.module === "es2015" || opts.module === "es6") {
             opts.module = false;
         }
@@ -297,7 +296,7 @@ function build(opts) {
             throw "Unknown module target: " + opts.module;
         }
         babelPresets.push([require.resolve("babel-preset-es2015"), {
-            "loose": opts.loose || false,
+            "loose": opts.loose,
             "modules": opts.module
         }]);
     }
@@ -467,6 +466,8 @@ try {
     opts.copyExt = "copyExt" in opts ? opts.copyExt : true;
     opts.outDir = opts.outDir ? (path.join(cfgDir, opts.outDir)) : path.dirname(path.join(cfgDir, opts.projFile));
     opts.ecma = opts.ecma || "es5";
+    opts.module = opts.module || "commonjs";
+    opts.loose = "loose" in opts ? opts.loose : true;
     if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {
         var refs = [];
         for (var k in opts.refs)
