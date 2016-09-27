@@ -38,6 +38,7 @@ Option                  | Short     | Description
 `--plugins`             |           | Paths to Fable plugins.
 `--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
 `--loose`               |           | Enable “loose” transformations for babel-preset-es2015 plugins (true by default).
+`--babelrc`             |           | Use a `.babelrc` file for Babel configuration (invalidates other Babel related options).
 `--refs`                |           | Specify dll or project references in `Reference=js/import/path` format (see below).
 `--msbuild`             |           | Pass MSBuild arguments like `Configuration=Release`.
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.

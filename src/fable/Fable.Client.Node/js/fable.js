@@ -43,6 +43,7 @@ var optionDefinitions = [
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
   { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins (true by default)." },
+  { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
   { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
@@ -94,7 +95,7 @@ function babelifyToFile(babelAst, opts) {
                          .replace(path.extname(babelAst.fileName), ".js");
     var fsCode = null,
         babelOpts = {
-            babelrc: false,
+            babelrc: opts.babelrc || false,
             filename: targetFile,
             sourceRoot: path.resolve(opts.outDir),
             plugins: babelPlugins,
@@ -270,7 +271,7 @@ function processJson(json, opts) {
     }
 }
 
-function build(opts) {
+function resolveBabelPluginsAndPresets(opts) {
     if (opts.declaration) {
         babelPlugins.splice(0,0,
             [require("babel-dts-generator"),
@@ -284,6 +285,9 @@ function build(opts) {
             require("babel-plugin-transform-class-properties")
         );
     }
+
+    // if opts.babelrc is true, read Babel plugins and presets from .babelrc
+    if (opts.babelrc) { return; }
 
     var knownModules = ["amd", "commonjs", "systemjs", "umd"];
 
@@ -331,6 +335,10 @@ function build(opts) {
             }
         });
     }
+}
+
+function build(opts) {
+    resolveBabelPluginsAndPresets(opts);
 
     var wrapInQuotes = function (arg) {
         if (process.platform === "win32") {

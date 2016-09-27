@@ -1,6 +1,7 @@
 ### 0.6.8
 
 * Fix #432: Add "postbuild-once" script
+* Fix #431: Add --babelrc compiler argument
 * Change compilation defaults: module=commonjs & loose=true
 
 ### 0.6.7
