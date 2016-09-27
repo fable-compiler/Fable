@@ -117,7 +117,7 @@ Project references can be passed using a plain object:
 There are some options exclusive to `fableconfig.json`.
 
 * **scripts**: Commands that should be executed during specific phases of compilation.
-  Currently `prebuild` and `postbuild` are accepted. For example, if you want
+  Currently `prebuild`, `postbuild` and `postbuild-once` are accepted. For example, if you want
   to run tests defined in the npm `package.json` file after the build you can write.
 
 ```json
@@ -127,6 +127,9 @@ There are some options exclusive to `fableconfig.json`.
     }
 }
 ```
+
+> `postbuild` will also run for every compilation in watch mode. If you only want
+to run the script after the first full compilation, use `postbuild-once`.
 
 > The scripts will run as if you typed the command on a terminal window from
 the directory where `fableconfig.json` is. Fable scripts are not as powerful

@@ -1,3 +1,7 @@
+### 0.6.8
+
+* Fix #432: Add "postbuild-once" script
+
 ### 0.6.7
 
 * Fix #416: Can't ifdef around a load directive

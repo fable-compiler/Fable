@@ -210,17 +210,26 @@ function runCommand(command, continuation) {
 }
 
 function postbuild(opts, buildSuccess, fableProc) {
-    if (opts.watch && !opts.watching) {
-        watch(opts, fableProc);
+    if (buildSuccess && opts.scripts && opts.scripts["postbuild-once"]) {
+        var postbuildScript = opts.scripts["postbuild-once"];
+        delete opts.scripts["postbuild-once"];
+        runCommand(postbuildScript, function () {
+            postbuild(opts, buildSuccess, fableProc)
+        });
     }
-    if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
+    else if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
         runCommand(opts.scripts.postbuild, function (exitCode) {
             if (!opts.watch)
                 process.exit(exitCode);
+            else if (!opts.watching)
+                watch(opts, fableProc);
         });
     }
     else if (!opts.watch) {
         process.exit(0);
+    }
+    else if (!opts.watching) {
+        watch(opts, fableProc);
     }
 }
 
