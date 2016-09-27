@@ -9738,8 +9738,6 @@ module Browser =
         abstract captureEvents: unit -> unit
         abstract close: unit -> unit
         abstract confirm: ?message: string -> bool
-        abstract encodeURI: string -> string
-        abstract encodeURIComponent: string -> string
         abstract focus: unit -> unit
         abstract getComputedStyle: elt: Element * ?pseudoElt: string -> CSSStyleDeclaration
         abstract getMatchedCSSRules: elt: Element * ?pseudoElt: string -> CSSRuleList
@@ -10858,8 +10856,6 @@ module Browser =
     let [<Global>] document: Document = failwith "JS only"
     let [<Global>] ``event``: Event = failwith "JS only"
     let [<Global>] ``external``: External = failwith "JS only"
-    let [<Global>] encodeURI: string -> string = failwith "JS only"
-    let [<Global>] encodeURIComponent: string -> string = failwith "JS only"
     let [<Global>] frameElement: Element = failwith "JS only"
     let [<Global>] frames: Window = failwith "JS only"
     let [<Global>] history: History = failwith "JS only"
