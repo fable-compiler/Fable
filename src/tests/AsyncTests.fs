@@ -300,3 +300,37 @@ let ``Deep recursion with async doesn't cause stack overflow``() =
         do! trampolineTest result 0
         equal !result true
     } |> Async.RunSynchronously
+
+[<Test>]
+let ``nested failure propagates``() =
+    let data = ref ""
+    let f1 x = 
+        async {
+            try
+                failwith "1"
+                return x
+            with
+            | e -> return! failwith ("2 " + e.Message) 
+        }
+
+    let f2 x = 
+        async {
+            try
+                return! f1 x
+            with
+            | e -> return! failwith ("3 " + e.Message) 
+        }
+
+    let f() =
+        async { 
+            try
+                let! y = f2 4
+                return ()
+            with
+            | e -> data := e.Message
+        } 
+        |> Async.StartImmediate
+
+    f()
+
+    equal "3 2 1" !data
