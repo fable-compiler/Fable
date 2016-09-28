@@ -631,11 +631,11 @@ let ``Seq.tryLast works``() =
 
 [<Test>]
 let ``Seq.pairwise works``() =
-    let xs = [1.; 2.; 3.; 4.]
+    let xs = [1; 2; 3; 4]
     xs |> Seq.pairwise
-    |> Seq.map (fun (x, y) -> x * y)
-    |> Seq.sum
-    |> equal 20.
+    |> Seq.map (fun (x, y) -> sprintf "%i%i" x y)
+    |> String.concat ""
+    |> equal "122334"
 
 [<Test>]
 let ``Seq.readonly works``() =

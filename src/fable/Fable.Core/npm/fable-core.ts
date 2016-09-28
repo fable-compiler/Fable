@@ -1855,7 +1855,7 @@ export class Seq {
   }
 
   static pairwise<T extends number>(xs: Iterable<T>) {
-    return Seq.skip(1, Seq.scan((last, next) => Tuple(last[1], next), Tuple(0, 0), xs));
+    return Seq.skip(2, Seq.scan((last, next) => Tuple(last[1], next), Tuple(0, 0), xs));
   }
 
   static permute<T>(f: (i: number) => number, xs: Iterable<T>) {

@@ -1,3 +1,7 @@
+### 0.6.4
+
+* Fix Seq/List/Array.pairwise
+
 ### 0.6.3
 
 * Fix sprintf "%O" with types overloading ToString
