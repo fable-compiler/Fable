@@ -17,7 +17,7 @@ open Fable.Core
 open Fable.Import.Browser
 
 [<Emit("Math.random()")>]
-let rand (): float = failwith "JS only"
+let rand (): float = jsNative
 
 module Keyboard =
   let mutable keysPressed = Set.empty
