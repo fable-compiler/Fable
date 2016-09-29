@@ -2,6 +2,7 @@
 
 * Fix #432: Add "postbuild-once" script
 * Fix #431: Add --babelrc compiler argument
+* Fix #436: Inform users about not supported overloads of String.IndexOf/LastIndexOf 
 * Change compilation defaults: module=commonjs & loose=true
 
 ### 0.6.7

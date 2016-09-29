@@ -571,7 +571,11 @@ module private AstPass =
         | "toUpperInvariant" -> icall com i "toUpperCase" |> Some
         | "toLower" -> icall com i "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall com i "toLowerCase" |> Some
-        | "indexOf" | "lastIndexOf" -> icall com i i.methodName |> Some
+        | "indexOf" | "lastIndexOf" ->
+            match i.args with
+            | [Type Fable.String]
+            | [Type Fable.String; Type(Fable.Number Int32)] -> icall com i i.methodName |> Some
+            | _ -> failwith "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
         | "trim" | "trimStart" | "trimEnd" ->
             let side =
                 match i.methodName with
