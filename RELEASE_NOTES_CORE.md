@@ -1,3 +1,7 @@
+### 0.6.6
+
+* Fix #440: Order of values in Seq.groupBy
+
 ### 0.6.5
 
 * Fix nested failures in async expressions

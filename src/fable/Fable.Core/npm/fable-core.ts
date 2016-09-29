@@ -1672,10 +1672,19 @@ export class Seq {
   // TODO: Should return a Iterable<Tuple<K, Iterable<T>>> instead of a Map<K, Iterable<T>>
   // Seq.groupBy : ('T -> 'Key) -> seq<'T> -> seq<'Key * seq<'T>>
   static groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>): Iterable<[K, Iterable<T>]> {
-    return Seq.fold((acc, x) => {
+    const keys: K[] = [];
+    const map = Seq.fold((acc: FMap<K,T[]>, x: T) => {
       const k = f(x), vs = FMap.tryFind(k, acc);
-      return FMap.add(k, vs != null ? new List(x, <List<T>>vs) : List.singleton(x), acc) as FMap<K, Iterable<T>>;
-    }, FMap.create() as FMap<K, Iterable<T>>, xs);
+      if (vs == null) {
+        keys.push(k);
+        return FMap.add<K, T[]>(k, [x], acc);
+      }
+      else {
+        vs.push(x);
+        return acc;
+      }
+    }, FMap.create<K, T[]>(), xs);
+    return keys.map(k => [k, map.get(k)] as [K, Iterable<T>]);
   }
 
   static tryHead<T>(xs: Iterable<T>) {
@@ -3000,12 +3009,12 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
     SetTree.iter(f, s.tree);
   }
 
-  static minimumElement<T>(s: FSet<T>) {
+  static minimumElement<T>(s: FSet<T>): T {
     return SetTree.minimumElement(s.tree);
   }
   static minElement = FSet.minimumElement;
 
-  static maximumElement<T>(s: FSet<T>) {
+  static maximumElement<T>(s: FSet<T>): T {
     return SetTree.maximumElement(s.tree);
   }
   static maxElement = FSet.maximumElement;
@@ -3484,7 +3493,7 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
 
   static create<K,V>(ie?: Iterable<[K,V]>, comparer?: IComparer<K>) {
     comparer = comparer || new GenericComparer<K>();
-    return FMap.from(comparer, ie ? MapTree.ofSeq(comparer, ie) : MapTree.empty());
+    return FMap.from(comparer, ie ? MapTree.ofSeq(comparer, ie) : MapTree.empty()) as FMap<K,V>;
   }
 
   ToString() {
@@ -3521,11 +3530,11 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
     return Seq.map(kv => kv[1], this);
   }
 
-  get(k: K) {
+  get(k: K): V {
     return MapTree.find(this.comparer, k, this.tree);
   }
 
-  has(k: K) {
+  has(k: K): boolean {
     return MapTree.mem(this.comparer, k, this.tree);
   }
 
@@ -3549,11 +3558,11 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
   }
 
   static add<K,V>(k: K, v: V, map: FMap<K,V>) {
-    return FMap.from(map.comparer, MapTree.add(map.comparer, k, v, map.tree));
+    return FMap.from(map.comparer, MapTree.add(map.comparer, k, v, map.tree)) as FMap<K, V>;
   }
 
   static remove<K, V>(item: K, map: FMap<K, V>) {
-    return FMap.from(map.comparer, MapTree.remove(map.comparer, item, map.tree));
+    return FMap.from(map.comparer, MapTree.remove(map.comparer, item, map.tree)) as FMap<K, V>;
   }
 
   static containsValue<K, V>(v: V, map: Map<K, V> | FMap<K,V>) {
@@ -3565,23 +3574,23 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
   }
 
   static find<K, V>(k: K, map: FMap<K, V>) {
-    return MapTree.find(map.comparer, k, map.tree);
+    return MapTree.find(map.comparer, k, map.tree) as V;
   }
 
   static tryFind<K, V>(k: K, map: FMap<K, V>) {
-    return MapTree.tryFind(map.comparer, k, map.tree);
+    return MapTree.tryFind(map.comparer, k, map.tree) as V;
   }
 
   static filter<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
-    return FMap.from(map.comparer, MapTree.filter(map.comparer, f, map.tree));
+    return FMap.from(map.comparer, MapTree.filter(map.comparer, f, map.tree)) as FMap<K, V>;
   }
 
   static fold<K, V, ST>(f: (acc: ST, k: K, v: V) => ST, seed: ST, map: FMap<K, V>) {
-    return MapTree.fold(f, seed, map.tree);
+    return MapTree.fold(f, seed, map.tree) as ST;
   }
 
   static foldBack<K, V, ST>(f: (k: K, v: V, acc: ST) => ST, map: FMap<K, V>, seed: ST) {
-    return MapTree.foldBack(f, map.tree, seed);
+    return MapTree.foldBack(f, map.tree, seed) as ST;
   }
 
   static forAll<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
@@ -3597,12 +3606,12 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
   }
 
   static map<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
-    return FMap.from(map.comparer, MapTree.mapi(f, map.tree));
+    return FMap.from(map.comparer, MapTree.mapi(f, map.tree)) as FMap<K, U>;
   }
 
   static partition<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
     const rs = MapTree.partition(map.comparer, f, map.tree);
-    return [FMap.from(map.comparer, rs[0]), FMap.from(map.comparer, rs[1])];
+    return [FMap.from(map.comparer, rs[0]), FMap.from(map.comparer, rs[1])] as [FMap<K, V>, FMap<K, V>];
   }
 
   static findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FMap<K, V>) {
@@ -3614,14 +3623,14 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
   }
 
   static pick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
-    const res = FMap.tryPick(f, map);
+    const res = FMap.tryPick(f, map) as U;
     if (res != null)
       return res;
     throw "key not found";
   }
 
   static tryPick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
-    return MapTree.tryPick(f, map.tree);
+    return MapTree.tryPick(f, map.tree) as U;
   }
 }
 Util.setInterfaces(FMap.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpMap"); 

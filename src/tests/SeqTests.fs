@@ -598,8 +598,9 @@ let ``Seq.exactlyOne works``() =
 let ``Seq.groupBy works``() =
     let xs = [1; 2; 3; 4]
     let ys = xs |> Seq.groupBy (fun x -> x % 2)
-    ys |> Seq.length
-    |> equal 2
+    ys |> Seq.length |> equal 2
+    ys |> Seq.item 0 |> snd |> Seq.item 1 |> equal 3
+    ys |> Seq.item 1 |> snd |> Seq.item 0 |> equal 2
 
 type DummyUnion = Number of int
 
