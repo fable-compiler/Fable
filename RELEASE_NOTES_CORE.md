@@ -1,3 +1,7 @@
+### 0.6.5
+
+* Fix nested failures in async expressions
+
 ### 0.6.4
 
 * Fix Seq/List/Array.pairwise

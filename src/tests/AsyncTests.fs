@@ -302,35 +302,72 @@ let ``Deep recursion with async doesn't cause stack overflow``() =
     } |> Async.RunSynchronously
 
 [<Test>]
-let ``nested failure propagates``() =
-    let data = ref ""
-    let f1 x = 
+let ``Nested failure propagates in async expressions``() =
+    async {
+        let data = ref ""
+        let f1 x = 
+            async {
+                try
+                    failwith "1"
+                    return x
+                with
+                | e -> return! failwith ("2 " + e.Message) 
+            }
+        let f2 x = 
+            async {
+                try
+                    return! f1 x
+                with
+                | e -> return! failwith ("3 " + e.Message) 
+            }
+        let f() =
+            async { 
+                try
+                    let! y = f2 4
+                    return ()
+                with
+                | e -> data := e.Message
+            } 
+            |> Async.StartImmediate
+        f()
+        do! Async.Sleep 100
+        equal "3 2 1" !data
+    } |> Async.RunSynchronously
+
+[<Test>]
+let ``Try .. finally expressions inside async expressions work``() =
+    async {
+        let data = ref ""
+        async {
+            try data := !data + "1 "
+            finally data := !data + "2 "
+        } |> Async.StartImmediate
         async {
             try
-                failwith "1"
-                return x
-            with
-            | e -> return! failwith ("2 " + e.Message) 
-        }
+                try failwith "boom!"
+                finally data := !data + "3"
+            with _ -> ()
+        } |> Async.StartImmediate
+        do! Async.Sleep 100
+        equal "1 2 3" !data
+    } |> Async.RunSynchronously
 
-    let f2 x = 
-        async {
-            try
-                return! f1 x
-            with
-            | e -> return! failwith ("3 " + e.Message) 
+[<Test>]
+let ``Final statement inside async expressions can throw``() =
+    async {
+        let data = ref ""
+        let f() = async {
+            try data := !data + "1 "
+            finally failwith "boom!"
         }
-
-    let f() =
         async { 
             try
-                let! y = f2 4
+                do! f()
                 return ()
             with
-            | e -> data := e.Message
+            | e -> data := !data + e.Message
         } 
         |> Async.StartImmediate
-
-    f()
-
-    equal "3 2 1" !data
+        do! Async.Sleep 100
+        equal "1 boom!" !data
+    } |> Async.RunSynchronously

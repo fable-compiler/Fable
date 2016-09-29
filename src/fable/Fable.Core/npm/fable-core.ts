@@ -3670,14 +3670,14 @@ const AsyncImpl = {
       else if (ctx.trampoline.incrementAndCheck()) 
         ctx.trampoline.hijack(() => {
           try {
-            return f(ctx);
+            f(ctx);
           } catch(err) {
             ctx.onError(err);
           }
         });
       else
         try {
-          return f(ctx);
+          f(ctx);
         } catch (err) {
           ctx.onError(err);
         }
@@ -3758,7 +3758,14 @@ export class AsyncBuilder {
         onCancel: ctx.onCancel,
         cancelToken: ctx.cancelToken,
         trampoline: ctx.trampoline,
-        onError: (ex: any) => catchHandler(ex)(ctx)
+        onError: (ex: any) => {
+          try {
+            catchHandler(ex)(ctx)
+          }
+          catch (ex2) {
+            ctx.onError(ex2);
+          }
+        }
       });
     });
   }
