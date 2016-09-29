@@ -94,8 +94,14 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             ar::(match baseList with Some li -> [transformExpr com ctx li] | None -> [])
         match argExprs with
         | [] -> CoreLibCall("List", None, true, [])
-        | _ -> CoreLibCall("List", Some "ofArray", false,
-                flattenList range [] argExprs |> buildArgs)
+        | _ ->
+            match flattenList range [] argExprs with
+            | [arg], Some baseList ->
+                let args = List.map (transformExpr com ctx) [arg; baseList]
+                CoreLibCall("List", None, true, args)
+            | args, baseList ->
+                let args = buildArgs(args, baseList)
+                CoreLibCall("List", Some "ofArray", false, args)
         |> makeCall com (Some range) unionType
 
 and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
