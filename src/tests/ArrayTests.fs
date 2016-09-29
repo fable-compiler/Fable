@@ -787,3 +787,10 @@ let ``Array.except works``() =
     Array.except [|(1, 2)|] [|(1, 2)|] |> Array.isEmpty |> equal true
     Array.except [|Map.empty |> (fun m -> m.Add(1, 2))|] [|Map.ofList [(1, 2)]|] |> Array.isEmpty |> equal true
     Array.except [|{ Bar= "test" }|] [|{ Bar = "test" }|] |> Array.isEmpty |> equal true
+
+[<Fable.Core.Emit ("$0 === undefined")>]
+let isUndefined _ = failwith "JS Only"
+[<Test>]
+let ``Array.[i] is undefined when i is out of range`` () =
+    let xs = [|0|]
+    xs.[1] |> isUndefined |> equal true
