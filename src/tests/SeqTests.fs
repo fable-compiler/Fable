@@ -703,3 +703,8 @@ let ``Seq.except works``() =
     Seq.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> Seq.isEmpty |> equal true
     Seq.except [|49|] [|7; 49|] |> Seq.last|> equal 7
     Seq.except [{ Bar= "test" }] [{ Bar = "test" }] |> Seq.isEmpty |> equal true
+    
+[<Test>]
+let ``Seq.item throws exception when index is out of range`` () =
+    let xs = [0]
+    (try Seq.item 1 xs |> ignore; false with | _ -> true) |> equal true
