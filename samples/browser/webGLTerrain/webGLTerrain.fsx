@@ -51,12 +51,12 @@ This is very useful when we have a method with `ParamArray` args.
 
 // Globally imported JS libs (loaded with <script> tag)    
 [<Global>]
-let ImprovedNoise(): IPerlin = failwith "JS only"
+let ImprovedNoise(): IPerlin = jsNative
 
 [<Emit("new THREE.FirstPersonControls($0...)")>]
 let FirstPersonControls(camera: Three.Camera,
                         domElement: Browser.HTMLElement):
-                        IFirstPersonControls = failwith "JS only"
+                        IFirstPersonControls = jsNative
 
 (**
 Initial settings and helper functions

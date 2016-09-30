@@ -1,3 +1,15 @@
+### 0.6.6
+
+* Fix #440: Order of values in Seq.groupBy
+
+### 0.6.5
+
+* Fix nested failures in async expressions
+
+### 0.6.4
+
+* Fix Seq/List/Array.pairwise
+
 ### 0.6.3
 
 * Fix sprintf "%O" with types overloading ToString

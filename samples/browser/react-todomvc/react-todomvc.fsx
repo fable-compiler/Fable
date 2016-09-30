@@ -33,11 +33,11 @@ open Fable.Import
 
 // JS utility for conditionally joining classNames together
 let [<Import("default","classnames")>] classNames(o: obj): string =
-    failwith "JS only"
+    jsNative
 
 // Director is a router. Routing is the process of determining what code to run when a URL is requested.
 let [<Global>] Router(o: obj): obj =
-    failwith "JS only"
+    jsNative
 
 (**
 ## Utility module

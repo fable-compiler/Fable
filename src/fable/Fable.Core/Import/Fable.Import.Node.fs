@@ -272,20 +272,20 @@ module net_types =
         abstract address: unit -> obj
 
     type Globals =
-        member __.Socket with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.createServer(?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
-        member __.createServer(?options: obj, ?connectionListener: Func<Socket, unit>): Server = failwith "JS only"
-        member __.connect(options: obj, ?connectionListener: Function): Socket = failwith "JS only"
-        member __.connect(port: float, ?host: string, ?connectionListener: Function): Socket = failwith "JS only"
-        member __.connect(path: string, ?connectionListener: Function): Socket = failwith "JS only"
-        member __.createConnection(options: obj, ?connectionListener: Function): Socket = failwith "JS only"
-        member __.createConnection(port: float, ?host: string, ?connectionListener: Function): Socket = failwith "JS only"
-        member __.createConnection(path: string, ?connectionListener: Function): Socket = failwith "JS only"
-        member __.isIP(input: string): float = failwith "JS only"
-        member __.isIPv4(input: string): bool = failwith "JS only"
-        member __.isIPv6(input: string): bool = failwith "JS only"
+        member __.Socket with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.createServer(?connectionListener: Func<Socket, unit>): Server = jsNative
+        member __.createServer(?options: obj, ?connectionListener: Func<Socket, unit>): Server = jsNative
+        member __.connect(options: obj, ?connectionListener: Function): Socket = jsNative
+        member __.connect(port: float, ?host: string, ?connectionListener: Function): Socket = jsNative
+        member __.connect(path: string, ?connectionListener: Function): Socket = jsNative
+        member __.createConnection(options: obj, ?connectionListener: Function): Socket = jsNative
+        member __.createConnection(port: float, ?host: string, ?connectionListener: Function): Socket = jsNative
+        member __.createConnection(path: string, ?connectionListener: Function): Socket = jsNative
+        member __.isIP(input: string): float = jsNative
+        member __.isIPv4(input: string): bool = jsNative
+        member __.isIPv6(input: string): bool = jsNative
         
-let [<Import("*","net")>] net: net_types.Globals = failwith "JS only"
+let [<Import("*","net")>] net: net_types.Globals = jsNative
 
 
 module crypto_types =
@@ -348,47 +348,47 @@ module crypto_types =
         abstract setPrivateKey: public_key: string * ?encoding: string -> unit
 
     type Globals =
-        member __.createCredentials(details: CredentialDetails): Credentials = failwith "JS only"
-        member __.createHash(algorithm: string): Hash = failwith "JS only"
-        member __.createHmac(algorithm: string, key: string): Hmac = failwith "JS only"
-        member __.createHmac(algorithm: string, key: Buffer): Hmac = failwith "JS only"
-        member __.createCipher(algorithm: string, password: obj): Cipher = failwith "JS only"
-        member __.createCipheriv(algorithm: string, key: obj, iv: obj): Cipher = failwith "JS only"
-        member __.createDecipher(algorithm: string, password: obj): Decipher = failwith "JS only"
-        member __.createDecipheriv(algorithm: string, key: obj, iv: obj): Decipher = failwith "JS only"
-        member __.createSign(algorithm: string): Signer = failwith "JS only"
-        member __.createVerify(algorith: string): Verify = failwith "JS only"
-        member __.createDiffieHellman(prime_length: float): DiffieHellman = failwith "JS only"
-        member __.createDiffieHellman(prime: float, ?encoding: string): DiffieHellman = failwith "JS only"
-        member __.getDiffieHellman(group_name: string): DiffieHellman = failwith "JS only"
-        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, callback: Func<Error, Buffer, obj>): unit = failwith "JS only"
-        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, digest: string, callback: Func<Error, Buffer, obj>): unit = failwith "JS only"
-        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float): Buffer = failwith "JS only"
-        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float, digest: string): Buffer = failwith "JS only"
-        member __.randomBytes(size: float): Buffer = failwith "JS only"
-        member __.randomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
-        member __.pseudoRandomBytes(size: float): Buffer = failwith "JS only"
-        member __.pseudoRandomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = failwith "JS only"
+        member __.createCredentials(details: CredentialDetails): Credentials = jsNative
+        member __.createHash(algorithm: string): Hash = jsNative
+        member __.createHmac(algorithm: string, key: string): Hmac = jsNative
+        member __.createHmac(algorithm: string, key: Buffer): Hmac = jsNative
+        member __.createCipher(algorithm: string, password: obj): Cipher = jsNative
+        member __.createCipheriv(algorithm: string, key: obj, iv: obj): Cipher = jsNative
+        member __.createDecipher(algorithm: string, password: obj): Decipher = jsNative
+        member __.createDecipheriv(algorithm: string, key: obj, iv: obj): Decipher = jsNative
+        member __.createSign(algorithm: string): Signer = jsNative
+        member __.createVerify(algorith: string): Verify = jsNative
+        member __.createDiffieHellman(prime_length: float): DiffieHellman = jsNative
+        member __.createDiffieHellman(prime: float, ?encoding: string): DiffieHellman = jsNative
+        member __.getDiffieHellman(group_name: string): DiffieHellman = jsNative
+        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, callback: Func<Error, Buffer, obj>): unit = jsNative
+        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, digest: string, callback: Func<Error, Buffer, obj>): unit = jsNative
+        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float): Buffer = jsNative
+        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float, digest: string): Buffer = jsNative
+        member __.randomBytes(size: float): Buffer = jsNative
+        member __.randomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = jsNative
+        member __.pseudoRandomBytes(size: float): Buffer = jsNative
+        member __.pseudoRandomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = jsNative
 
-let [<Import("*","crypto")>] crypto: crypto_types.Globals = failwith "JS only"
+let [<Import("*","crypto")>] crypto: crypto_types.Globals = jsNative
 
 
 module events =
     type [<AllowNullLiteral>] [<Import("EventEmitter","events")>] EventEmitter() =
         interface NodeJS.EventEmitter with
-            member __.addListener(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
-            member __.on(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
-            member __.once(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
-            member __.removeListener(``event``: string, listener: Function): NodeJS.EventEmitter = failwith "JS only"
-            member __.removeAllListeners(?``event``: string): NodeJS.EventEmitter = failwith "JS only"
-            member __.setMaxListeners(n: int): unit = failwith "JS only"
-            member __.getMaxListeners(): int = failwith "JS only"
-            member __.listeners(``event``: string): ResizeArray<Function> = failwith "JS only"
-            member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
-            member __.listenerCount(``type``: string): int = failwith "JS only"
-        member __.listenerCount(emitter: EventEmitter, ``event``: string): float = failwith "JS only"
-        static member EventEmitter with get(): EventEmitter = failwith "JS only"
-        static member defaultMaxListeners with get(): int = failwith "JS only"
+            member __.addListener(``event``: string, listener: Function): NodeJS.EventEmitter = jsNative
+            member __.on(``event``: string, listener: Function): NodeJS.EventEmitter = jsNative
+            member __.once(``event``: string, listener: Function): NodeJS.EventEmitter = jsNative
+            member __.removeListener(``event``: string, listener: Function): NodeJS.EventEmitter = jsNative
+            member __.removeAllListeners(?``event``: string): NodeJS.EventEmitter = jsNative
+            member __.setMaxListeners(n: int): unit = jsNative
+            member __.getMaxListeners(): int = jsNative
+            member __.listeners(``event``: string): ResizeArray<Function> = jsNative
+            member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = jsNative
+            member __.listenerCount(``type``: string): int = jsNative
+        member __.listenerCount(emitter: EventEmitter, ``event``: string): float = jsNative
+        static member EventEmitter with get(): EventEmitter = jsNative
+        static member defaultMaxListeners with get(): int = jsNative
 
 
 module stream =
@@ -404,20 +404,20 @@ module stream =
     and [<AllowNullLiteral>] [<Import("Readable","stream")>] Readable(?opts: ReadableOptions) =
         inherit events.EventEmitter()
         interface ReadableStream with
-            member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-            member __.read(?size: float): U2<string, Buffer> = failwith "JS only"
-            member __.setEncoding(encoding: string): unit = failwith "JS only"
-            member __.pause(): unit = failwith "JS only"
-            member __.resume(): unit = failwith "JS only"
-            member __.pipe(destination: 'T, ?options: obj): 'T = failwith "JS only"
-            member __.unpipe(?destination: 'T): unit = failwith "JS only"
-            member __.unshift(chunk: string): unit = failwith "JS only"
-            member __.unshift(chunk: Buffer): unit = failwith "JS only"
-            member __.wrap(oldStream: ReadableStream): ReadableStream = failwith "JS only"
-        member __._read(size: float): unit = failwith "JS only"
-        member __.unshift(chunk: obj): unit = failwith "JS only"
-        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = failwith "JS only"
-        member __.push(chunk: obj, ?encoding: string): bool = failwith "JS only"
+            member __.readable with get(): bool = jsNative and set(v: bool): unit = jsNative
+            member __.read(?size: float): U2<string, Buffer> = jsNative
+            member __.setEncoding(encoding: string): unit = jsNative
+            member __.pause(): unit = jsNative
+            member __.resume(): unit = jsNative
+            member __.pipe(destination: 'T, ?options: obj): 'T = jsNative
+            member __.unpipe(?destination: 'T): unit = jsNative
+            member __.unshift(chunk: string): unit = jsNative
+            member __.unshift(chunk: Buffer): unit = jsNative
+            member __.wrap(oldStream: ReadableStream): ReadableStream = jsNative
+        member __._read(size: float): unit = jsNative
+        member __.unshift(chunk: obj): unit = jsNative
+        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = jsNative
+        member __.push(chunk: obj, ?encoding: string): bool = jsNative
 
     and [<AllowNullLiteral>] WritableOptions =
         abstract highWaterMark: float option with get, set
@@ -427,18 +427,18 @@ module stream =
     and [<AllowNullLiteral>] [<Import("Writable","stream")>] Writable(?opts: WritableOptions) =
         inherit events.EventEmitter()
         interface WritableStream with
-            member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-            member __.write(buffer: U2<Buffer, string>, ?cb: Function): bool = failwith "JS only"
-            member __.write(str: string, ?encoding: string, ?cb: Function): bool = failwith "JS only"
-            member __.``end``(): unit = failwith "JS only"
-            member __.``end``(buffer: Buffer, ?cb: Function): unit = failwith "JS only"
-            member __.``end``(str: string, ?cb: Function): unit = failwith "JS only"
-            member __.``end``(str: string, ?encoding: string, ?cb: Function): unit = failwith "JS only"
-        member __._write(chunk: obj, encoding: string, callback: Function): unit = failwith "JS only"
-        member __.write(chunk: obj, ?cb: Function): bool = failwith "JS only"
-        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = failwith "JS only"
-        member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
+            member __.writable with get(): bool = jsNative and set(v: bool): unit = jsNative
+            member __.write(buffer: U2<Buffer, string>, ?cb: Function): bool = jsNative
+            member __.write(str: string, ?encoding: string, ?cb: Function): bool = jsNative
+            member __.``end``(): unit = jsNative
+            member __.``end``(buffer: Buffer, ?cb: Function): unit = jsNative
+            member __.``end``(str: string, ?cb: Function): unit = jsNative
+            member __.``end``(str: string, ?encoding: string, ?cb: Function): unit = jsNative
+        member __._write(chunk: obj, encoding: string, callback: Function): unit = jsNative
+        member __.write(chunk: obj, ?cb: Function): bool = jsNative
+        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = jsNative
+        member __.``end``(chunk: obj, ?cb: Function): unit = jsNative
+        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = jsNative
 
     and [<AllowNullLiteral>] DuplexOptions =
         inherit ReadableOptions
@@ -448,13 +448,13 @@ module stream =
     and [<AllowNullLiteral>] [<Import("Duplex","stream")>] Duplex(?opts: DuplexOptions) =
         inherit Readable()
         // interface NodeJS.ReadWriteStream
-        member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __._write(chunk: obj, encoding: string, callback: Function): unit = failwith "JS only"
-        member __.write(chunk: obj, ?cb: Function): bool = failwith "JS only"
-        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = failwith "JS only"
-        member __.``end``(): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
+        member __.writable with get(): bool = jsNative and set(v: bool): unit = jsNative
+        member __._write(chunk: obj, encoding: string, callback: Function): unit = jsNative
+        member __.write(chunk: obj, ?cb: Function): bool = jsNative
+        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = jsNative
+        member __.``end``(): unit = jsNative
+        member __.``end``(chunk: obj, ?cb: Function): unit = jsNative
+        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = jsNative
 
     and [<AllowNullLiteral>] TransformOptions =
         inherit ReadableOptions
@@ -464,24 +464,24 @@ module stream =
     and [<AllowNullLiteral>] [<Import("Transform","stream")>] Transform(?opts: TransformOptions) =
         inherit events.EventEmitter()
         // interface NodeJS.ReadWriteStream
-        member __.readable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __.writable with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __._transform(chunk: obj, encoding: string, callback: Function): unit = failwith "JS only"
-        member __._flush(callback: Function): unit = failwith "JS only"
-        member __.read(?size: float): obj = failwith "JS only"
-        member __.setEncoding(encoding: string): unit = failwith "JS only"
-        member __.pause(): unit = failwith "JS only"
-        member __.resume(): unit = failwith "JS only"
-        member __.pipe(destination: 'T, ?options: obj): 'T = failwith "JS only"
-        member __.unpipe(?destination: 'T): unit = failwith "JS only"
-        member __.unshift(chunk: obj): unit = failwith "JS only"
-        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = failwith "JS only"
-        member __.push(chunk: obj, ?encoding: string): bool = failwith "JS only"
-        member __.write(chunk: obj, ?cb: Function): bool = failwith "JS only"
-        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = failwith "JS only"
-        member __.``end``(): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?cb: Function): unit = failwith "JS only"
-        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = failwith "JS only"
+        member __.readable with get(): bool = jsNative and set(v: bool): unit = jsNative
+        member __.writable with get(): bool = jsNative and set(v: bool): unit = jsNative
+        member __._transform(chunk: obj, encoding: string, callback: Function): unit = jsNative
+        member __._flush(callback: Function): unit = jsNative
+        member __.read(?size: float): obj = jsNative
+        member __.setEncoding(encoding: string): unit = jsNative
+        member __.pause(): unit = jsNative
+        member __.resume(): unit = jsNative
+        member __.pipe(destination: 'T, ?options: obj): 'T = jsNative
+        member __.unpipe(?destination: 'T): unit = jsNative
+        member __.unshift(chunk: obj): unit = jsNative
+        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = jsNative
+        member __.push(chunk: obj, ?encoding: string): bool = jsNative
+        member __.write(chunk: obj, ?cb: Function): bool = jsNative
+        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = jsNative
+        member __.``end``(): unit = jsNative
+        member __.``end``(chunk: obj, ?cb: Function): unit = jsNative
+        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = jsNative
 
     and [<AllowNullLiteral>] [<Import("PassThrough","stream")>] PassThrough() =
         inherit Transform()
@@ -561,16 +561,16 @@ module tls_types =
         abstract context: obj with get, set
 
     type Globals =
-        member __.CLIENT_RENEG_LIMIT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.CLIENT_RENEG_WINDOW with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.createServer(options: TlsOptions, ?secureConnectionListener: Func<ClearTextStream, unit>): Server = failwith "JS only"
-        member __.connect(options: TlsOptions, ?secureConnectionListener: Func<unit, unit>): ClearTextStream = failwith "JS only"
-        member __.connect(port: float, ?host: string, ?options: ConnectionOptions, ?secureConnectListener: Func<unit, unit>): ClearTextStream = failwith "JS only"
-        member __.connect(port: float, ?options: ConnectionOptions, ?secureConnectListener: Func<unit, unit>): ClearTextStream = failwith "JS only"
-        member __.createSecurePair(?credentials: crypto_types.Credentials, ?isServer: bool, ?requestCert: bool, ?rejectUnauthorized: bool): SecurePair = failwith "JS only"
-        member __.createSecureContext(details: SecureContextOptions): SecureContext = failwith "JS only"
+        member __.CLIENT_RENEG_LIMIT with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.CLIENT_RENEG_WINDOW with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.createServer(options: TlsOptions, ?secureConnectionListener: Func<ClearTextStream, unit>): Server = jsNative
+        member __.connect(options: TlsOptions, ?secureConnectionListener: Func<unit, unit>): ClearTextStream = jsNative
+        member __.connect(port: float, ?host: string, ?options: ConnectionOptions, ?secureConnectListener: Func<unit, unit>): ClearTextStream = jsNative
+        member __.connect(port: float, ?options: ConnectionOptions, ?secureConnectListener: Func<unit, unit>): ClearTextStream = jsNative
+        member __.createSecurePair(?credentials: crypto_types.Credentials, ?isServer: bool, ?requestCert: bool, ?rejectUnauthorized: bool): SecurePair = jsNative
+        member __.createSecureContext(details: SecureContextOptions): SecureContext = jsNative
 
-let [<Import("*","tls")>] tls: tls_types.Globals = failwith "JS only"
+let [<Import("*","tls")>] tls: tls_types.Globals = jsNative
 
 
 module child_process_types =
@@ -587,18 +587,18 @@ module child_process_types =
         abstract unref: unit -> unit
 
     type Globals =
-        member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = failwith "JS only"
-        member __.exec(command: string, options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        member __.exec(command: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        member __.execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = failwith "JS only"
-        member __.fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = failwith "JS only"
-        member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = failwith "JS only"
-        member __.execSync(command: string, ?options: obj): U2<string, Buffer> = failwith "JS only"
-        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = failwith "JS only"
+        member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
+        member __.exec(command: string, options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.exec(command: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
+        member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = jsNative
+        member __.execSync(command: string, ?options: obj): U2<string, Buffer> = jsNative
+        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = jsNative
 
-let [<Import("*","child_process")>] child_process: child_process_types.Globals = failwith "JS only"
+let [<Import("*","child_process")>] child_process: child_process_types.Globals = jsNative
 
 
 type [<AllowNullLiteral>] NodeRequireFunction =
@@ -620,32 +620,32 @@ and [<AllowNullLiteral>] NodeModule =
     abstract parent: obj with get, set
     abstract children: ResizeArray<obj> with get, set
 
-let [<Global>] ``process``: NodeJS.Process = failwith "JS only"
-let [<Global>] ``global``: NodeJS.Global = failwith "JS only"
-let [<Global>] __filename: string = failwith "JS only"
-let [<Global>] __dirname: string = failwith "JS only"
-let [<Global>] require: NodeRequire = failwith "JS only"
-let [<Global>] ``module``: NodeModule = failwith "JS only"
-let [<Global>] exports: obj = failwith "JS only"
-let [<Global>] SlowBuffer: obj = failwith "JS only"
-let [<Global>] Buffer: obj = failwith "JS only"
+let [<Global>] ``process``: NodeJS.Process = jsNative
+let [<Global>] ``global``: NodeJS.Global = jsNative
+let [<Global>] __filename: string = jsNative
+let [<Global>] __dirname: string = jsNative
+let [<Global>] require: NodeRequire = jsNative
+let [<Global>] ``module``: NodeModule = jsNative
+let [<Global>] exports: obj = jsNative
+let [<Global>] SlowBuffer: obj = jsNative
+let [<Global>] Buffer: obj = jsNative
 
 
 module buffer_types =
     type Globals =
-        member __.INSPECT_MAX_BYTES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+        member __.INSPECT_MAX_BYTES with get(): float = jsNative and set(v: float): unit = jsNative
 
-let [<Import("*","buffer")>] buffer: buffer_types.Globals = failwith "JS only"
+let [<Import("*","buffer")>] buffer: buffer_types.Globals = jsNative
 
 
 module querystring_types =
     type Globals =
-        member __.stringify(obj: obj, ?sep: string, ?eq: string): string = failwith "JS only"
-        member __.parse(str: string, ?sep: string, ?eq: string, ?options: obj): obj = failwith "JS only"
-        member __.escape(str: string): string = failwith "JS only"
-        member __.unescape(str: string): string = failwith "JS only"
+        member __.stringify(obj: obj, ?sep: string, ?eq: string): string = jsNative
+        member __.parse(str: string, ?sep: string, ?eq: string, ?options: obj): obj = jsNative
+        member __.escape(str: string): string = jsNative
+        member __.unescape(str: string): string = jsNative
 
-let [<Import("*","querystring")>] querystring: querystring_types.Globals = failwith "JS only"
+let [<Import("*","querystring")>] querystring: querystring_types.Globals = jsNative
 
 
 module http_types =
@@ -752,21 +752,21 @@ module http_types =
         abstract maxFreeSockets: float option with get, set
 
     and [<AllowNullLiteral>] [<Import("Agent","http")>] Agent(?opts: AgentOptions) =
-        member __.maxSockets with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.sockets with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.requests with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.destroy(): unit = failwith "JS only"
+        member __.maxSockets with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.sockets with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.requests with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.destroy(): unit = jsNative
 
     type Globals =
-        member __.METHODS with get(): ResizeArray<string> = failwith "JS only" and set(v: ResizeArray<string>): unit = failwith "JS only"
-        member __.STATUS_CODES with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.globalAgent with get(): Agent = failwith "JS only" and set(v: Agent): unit = failwith "JS only"
-        member __.createServer(?requestListener: Func<IncomingMessage, ServerResponse, unit>): Server = failwith "JS only"
-        member __.createClient(?port: float, ?host: string): obj = failwith "JS only"
-        member __.request(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
-        member __.get(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = failwith "JS only"
+        member __.METHODS with get(): ResizeArray<string> = jsNative and set(v: ResizeArray<string>): unit = jsNative
+        member __.STATUS_CODES with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.globalAgent with get(): Agent = jsNative and set(v: Agent): unit = jsNative
+        member __.createServer(?requestListener: Func<IncomingMessage, ServerResponse, unit>): Server = jsNative
+        member __.createClient(?port: float, ?host: string): obj = jsNative
+        member __.request(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = jsNative
+        member __.get(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = jsNative
 
-let [<Import("*","http")>] http: http_types.Globals = failwith "JS only"
+let [<Import("*","http")>] http: http_types.Globals = jsNative
 
 module cluster_types =
     type [<AllowNullLiteral>] ClusterSettings =
@@ -776,33 +776,33 @@ module cluster_types =
 
     and [<AllowNullLiteral>] [<Import("Worker","cluster")>] Worker() =
         inherit events.EventEmitter()
-        member __.id with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        member __.``process`` with get(): child_process_types.ChildProcess = failwith "JS only" and set(v: child_process_types.ChildProcess): unit = failwith "JS only"
-        member __.suicide with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __.send(message: obj, ?sendHandle: obj): unit = failwith "JS only"
-        member __.kill(?signal: string): unit = failwith "JS only"
-        member __.destroy(?signal: string): unit = failwith "JS only"
-        member __.disconnect(): unit = failwith "JS only"
+        member __.id with get(): string = jsNative and set(v: string): unit = jsNative
+        member __.``process`` with get(): child_process_types.ChildProcess = jsNative and set(v: child_process_types.ChildProcess): unit = jsNative
+        member __.suicide with get(): bool = jsNative and set(v: bool): unit = jsNative
+        member __.send(message: obj, ?sendHandle: obj): unit = jsNative
+        member __.kill(?signal: string): unit = jsNative
+        member __.destroy(?signal: string): unit = jsNative
+        member __.disconnect(): unit = jsNative
 
     type Globals =
-        member __.settings with get(): ClusterSettings = failwith "JS only" and set(v: ClusterSettings): unit = failwith "JS only"
-        member __.isMaster with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __.isWorker with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
-        member __.worker with get(): Worker = failwith "JS only" and set(v: Worker): unit = failwith "JS only"
-        member __.workers with get(): ResizeArray<Worker> = failwith "JS only" and set(v: ResizeArray<Worker>): unit = failwith "JS only"
-        member __.setupMaster(?settings: ClusterSettings): unit = failwith "JS only"
-        member __.fork(?env: obj): Worker = failwith "JS only"
-        member __.disconnect(?callback: Function): unit = failwith "JS only"
-        member __.addListener(``event``: string, listener: Function): unit = failwith "JS only"
-        member __.on(``event``: string, listener: Function): obj = failwith "JS only"
-        member __.once(``event``: string, listener: Function): unit = failwith "JS only"
-        member __.removeListener(``event``: string, listener: Function): unit = failwith "JS only"
-        member __.removeAllListeners(?``event``: string): unit = failwith "JS only"
-        member __.setMaxListeners(n: float): unit = failwith "JS only"
-        member __.listeners(``event``: string): ResizeArray<Function> = failwith "JS only"
-        member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = failwith "JS only"
+        member __.settings with get(): ClusterSettings = jsNative and set(v: ClusterSettings): unit = jsNative
+        member __.isMaster with get(): bool = jsNative and set(v: bool): unit = jsNative
+        member __.isWorker with get(): bool = jsNative and set(v: bool): unit = jsNative
+        member __.worker with get(): Worker = jsNative and set(v: Worker): unit = jsNative
+        member __.workers with get(): ResizeArray<Worker> = jsNative and set(v: ResizeArray<Worker>): unit = jsNative
+        member __.setupMaster(?settings: ClusterSettings): unit = jsNative
+        member __.fork(?env: obj): Worker = jsNative
+        member __.disconnect(?callback: Function): unit = jsNative
+        member __.addListener(``event``: string, listener: Function): unit = jsNative
+        member __.on(``event``: string, listener: Function): obj = jsNative
+        member __.once(``event``: string, listener: Function): unit = jsNative
+        member __.removeListener(``event``: string, listener: Function): unit = jsNative
+        member __.removeAllListeners(?``event``: string): unit = jsNative
+        member __.setMaxListeners(n: float): unit = jsNative
+        member __.listeners(``event``: string): ResizeArray<Function> = jsNative
+        member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = jsNative
 
-let [<Import("*","cluster")>] cluster: cluster_types.Globals = failwith "JS only"
+let [<Import("*","cluster")>] cluster: cluster_types.Globals = jsNative
 
 
 module zlib_types =
@@ -962,79 +962,79 @@ module zlib_types =
 
 
     type Globals =
-        member __.Z_NO_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_PARTIAL_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_SYNC_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_FULL_FLUSH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_FINISH with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_BLOCK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_TREES with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_STREAM_END with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_NEED_DICT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_ERRNO with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_STREAM_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_DATA_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_MEM_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_BUF_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_VERSION_ERROR with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_NO_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_BEST_SPEED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_BEST_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_DEFAULT_COMPRESSION with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_FILTERED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_HUFFMAN_ONLY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_RLE with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_FIXED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_DEFAULT_STRATEGY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_BINARY with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_TEXT with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_ASCII with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_UNKNOWN with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_DEFLATED with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.Z_NULL with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.createGzip(?options: ZlibOptions): Gzip = failwith "JS only"
-        member __.createGunzip(?options: ZlibOptions): Gunzip = failwith "JS only"
-        member __.createDeflate(?options: ZlibOptions): Deflate = failwith "JS only"
-        member __.createInflate(?options: ZlibOptions): Inflate = failwith "JS only"
-        member __.createDeflateRaw(?options: ZlibOptions): DeflateRaw = failwith "JS only"
-        member __.createInflateRaw(?options: ZlibOptions): InflateRaw = failwith "JS only"
-        member __.createUnzip(?options: ZlibOptions): Unzip = failwith "JS only"
-        member __.deflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        member __.deflateSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        member __.deflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        member __.deflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        member __.gzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        member __.gzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        member __.gunzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        member __.gunzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        member __.inflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        member __.inflateSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        member __.inflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        member __.inflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
-        member __.unzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = failwith "JS only"
-        member __.unzipSync(buf: Buffer, ?options: ZlibOptions): obj = failwith "JS only"
+        member __.Z_NO_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_PARTIAL_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_SYNC_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_FULL_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_FINISH with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_BLOCK with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_TREES with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_STREAM_END with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_NEED_DICT with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_ERRNO with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_STREAM_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_DATA_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_MEM_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_BUF_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_VERSION_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_NO_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_BEST_SPEED with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_BEST_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_DEFAULT_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_FILTERED with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_HUFFMAN_ONLY with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_RLE with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_FIXED with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_DEFAULT_STRATEGY with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_BINARY with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_TEXT with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_ASCII with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_UNKNOWN with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_DEFLATED with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.Z_NULL with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.createGzip(?options: ZlibOptions): Gzip = jsNative
+        member __.createGunzip(?options: ZlibOptions): Gunzip = jsNative
+        member __.createDeflate(?options: ZlibOptions): Deflate = jsNative
+        member __.createInflate(?options: ZlibOptions): Inflate = jsNative
+        member __.createDeflateRaw(?options: ZlibOptions): DeflateRaw = jsNative
+        member __.createInflateRaw(?options: ZlibOptions): InflateRaw = jsNative
+        member __.createUnzip(?options: ZlibOptions): Unzip = jsNative
+        member __.deflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
+        member __.deflateSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
+        member __.deflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
+        member __.deflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
+        member __.gzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
+        member __.gzipSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
+        member __.gunzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
+        member __.gunzipSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
+        member __.inflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
+        member __.inflateSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
+        member __.inflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
+        member __.inflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
+        member __.unzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
+        member __.unzipSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
 
-let [<Import("*","zlib")>] zlib: zlib_types.Globals = failwith "JS only"
+let [<Import("*","zlib")>] zlib: zlib_types.Globals = jsNative
 
 
 module os_types =
     type Globals =
-        member __.EOL with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        member __.tmpdir(): string = failwith "JS only"
-        member __.hostname(): string = failwith "JS only"
-        member __.``type``(): string = failwith "JS only"
-        member __.platform(): string = failwith "JS only"
-        member __.arch(): string = failwith "JS only"
-        member __.release(): string = failwith "JS only"
-        member __.uptime(): float = failwith "JS only"
-        member __.loadavg(): ResizeArray<float> = failwith "JS only"
-        member __.totalmem(): float = failwith "JS only"
-        member __.freemem(): float = failwith "JS only"
-        member __.cpus(): ResizeArray<obj> = failwith "JS only"
-        member __.networkInterfaces(): obj = failwith "JS only"
+        member __.EOL with get(): string = jsNative and set(v: string): unit = jsNative
+        member __.tmpdir(): string = jsNative
+        member __.hostname(): string = jsNative
+        member __.``type``(): string = jsNative
+        member __.platform(): string = jsNative
+        member __.arch(): string = jsNative
+        member __.release(): string = jsNative
+        member __.uptime(): float = jsNative
+        member __.loadavg(): ResizeArray<float> = jsNative
+        member __.totalmem(): float = jsNative
+        member __.freemem(): float = jsNative
+        member __.cpus(): ResizeArray<obj> = jsNative
+        member __.networkInterfaces(): obj = jsNative
 
-let [<Import("*","os")>] os: os_types.Globals = failwith "JS only"
+let [<Import("*","os")>] os: os_types.Globals = jsNative
 
 
 module https_types =
@@ -1079,13 +1079,13 @@ module https_types =
 
 
     type Globals =
-        member __.Agent with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.globalAgent with get(): Agent = failwith "JS only" and set(v: Agent): unit = failwith "JS only"
-        member __.createServer(options: ServerOptions, ?requestListener: Function): Server = failwith "JS only"
-        member __.request(options: RequestOptions, ?callback: Func<http_types.IncomingMessage, unit>): http_types.ClientRequest = failwith "JS only"
-        member __.get(options: RequestOptions, ?callback: Func<http_types.IncomingMessage, unit>): http_types.ClientRequest = failwith "JS only"
+        member __.Agent with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.globalAgent with get(): Agent = jsNative and set(v: Agent): unit = jsNative
+        member __.createServer(options: ServerOptions, ?requestListener: Function): Server = jsNative
+        member __.request(options: RequestOptions, ?callback: Func<http_types.IncomingMessage, unit>): http_types.ClientRequest = jsNative
+        member __.get(options: RequestOptions, ?callback: Func<http_types.IncomingMessage, unit>): http_types.ClientRequest = jsNative
 
-let [<Import("*","https")>] https: https_types.Globals = failwith "JS only"
+let [<Import("*","https")>] https: https_types.Globals = jsNative
 
 
 module punycode_types =
@@ -1094,14 +1094,14 @@ module punycode_types =
         abstract encode: codePoints: ResizeArray<float> -> string
 
     type Globals =
-        member __.ucs2 with get(): ucs2 = failwith "JS only" and set(v: ucs2): unit = failwith "JS only"
-        member __.version with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.decode(string: string): string = failwith "JS only"
-        member __.encode(string: string): string = failwith "JS only"
-        member __.toUnicode(domain: string): string = failwith "JS only"
-        member __.toASCII(domain: string): string = failwith "JS only"
+        member __.ucs2 with get(): ucs2 = jsNative and set(v: ucs2): unit = jsNative
+        member __.version with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.decode(string: string): string = jsNative
+        member __.encode(string: string): string = jsNative
+        member __.toUnicode(domain: string): string = jsNative
+        member __.toASCII(domain: string): string = jsNative
 
-let [<Import("*","punycode")>] punycode: punycode_types.Globals = failwith "JS only"
+let [<Import("*","punycode")>] punycode: punycode_types.Globals = jsNative
 
 
 module repl_types =
@@ -1117,9 +1117,9 @@ module repl_types =
         abstract writer: Function option with get, set
 
     type Globals =
-        member __.start(options: ReplOptions): events.EventEmitter = failwith "JS only"
+        member __.start(options: ReplOptions): events.EventEmitter = jsNative
 
-let [<Import("*","repl")>] repl: repl_types.Globals = failwith "JS only"
+let [<Import("*","repl")>] repl: repl_types.Globals = jsNative
 
 
 module readline_types =
@@ -1140,9 +1140,9 @@ module readline_types =
         abstract terminal: bool option with get, set
 
     type Globals =
-        member __.createInterface(options: ReadLineOptions): ReadLine = failwith "JS only"
+        member __.createInterface(options: ReadLineOptions): ReadLine = jsNative
 
-let [<Import("*","readline")>] readline: readline_types.Globals = failwith "JS only"
+let [<Import("*","readline")>] readline: readline_types.Globals = jsNative
 
 
 module vm_types =
@@ -1154,13 +1154,13 @@ module vm_types =
         abstract runInNewContext: ?sandbox: Context -> unit
 
     type Globals =
-        member __.runInThisContext(code: string, ?filename: string): unit = failwith "JS only"
-        member __.runInNewContext(code: string, ?sandbox: Context, ?filename: string): unit = failwith "JS only"
-        member __.runInContext(code: string, context: Context, ?filename: string): unit = failwith "JS only"
-        member __.createContext(?initSandbox: Context): Context = failwith "JS only"
-        member __.createScript(code: string, ?filename: string): Script = failwith "JS only"
+        member __.runInThisContext(code: string, ?filename: string): unit = jsNative
+        member __.runInNewContext(code: string, ?sandbox: Context, ?filename: string): unit = jsNative
+        member __.runInContext(code: string, context: Context, ?filename: string): unit = jsNative
+        member __.createContext(?initSandbox: Context): Context = jsNative
+        member __.createScript(code: string, ?filename: string): Script = jsNative
 
-let [<Import("*","vm")>] vm: vm_types.Globals = failwith "JS only"
+let [<Import("*","vm")>] vm: vm_types.Globals = jsNative
 
 
 module url_types =
@@ -1191,29 +1191,29 @@ module url_types =
         abstract path: string option with get, set
 
     type Globals =
-        member __.parse(urlStr: string, ?parseQueryString: bool, ?slashesDenoteHost: bool): Url = failwith "JS only"
-        member __.format(url: UrlOptions): string = failwith "JS only"
-        member __.resolve(from: string, ``to``: string): string = failwith "JS only"
+        member __.parse(urlStr: string, ?parseQueryString: bool, ?slashesDenoteHost: bool): Url = jsNative
+        member __.format(url: UrlOptions): string = jsNative
+        member __.resolve(from: string, ``to``: string): string = jsNative
 
-let [<Import("*","url")>] url: url_types.Globals = failwith "JS only"
+let [<Import("*","url")>] url: url_types.Globals = jsNative
 
 
 module dns_types =
     type Globals =
-        member __.lookup(domain: string, family: float, callback: Func<Error, string, float, unit>): string = failwith "JS only"
-        member __.lookup(domain: string, callback: Func<Error, string, float, unit>): string = failwith "JS only"
-        member __.resolve(domain: string, rrtype: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        member __.resolve(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        member __.resolve4(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        member __.resolve6(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        member __.resolveMx(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        member __.resolveTxt(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        member __.resolveSrv(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        member __.resolveNs(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        member __.resolveCname(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
-        member __.reverse(ip: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = failwith "JS only"
+        member __.lookup(domain: string, family: float, callback: Func<Error, string, float, unit>): string = jsNative
+        member __.lookup(domain: string, callback: Func<Error, string, float, unit>): string = jsNative
+        member __.resolve(domain: string, rrtype: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        member __.resolve(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        member __.resolve4(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        member __.resolve6(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        member __.resolveMx(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        member __.resolveTxt(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        member __.resolveSrv(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        member __.resolveNs(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        member __.resolveCname(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        member __.reverse(ip: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
 
-let [<Import("*","dns")>] dns: dns_types.Globals = failwith "JS only"
+let [<Import("*","dns")>] dns: dns_types.Globals = jsNative
 
 
 module dgram_types =
@@ -1240,9 +1240,9 @@ module dgram_types =
         abstract dropMembership: multicastAddress: string * ?multicastInterface: string -> unit
 
     type Globals =
-        member __.createSocket(``type``: string, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = failwith "JS only"
+        member __.createSocket(``type``: string, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = jsNative
 
-let [<Import("*","dgram")>] dgram: dgram_types.Globals = failwith "JS only"
+let [<Import("*","dgram")>] dgram: dgram_types.Globals = jsNative
 
 
 module fs_types =
@@ -1299,114 +1299,114 @@ module fs_types =
         abstract close: unit -> unit
 
     type Globals =
-        member __.F_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.R_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.W_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.X_OK with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
-        member __.rename(oldPath: string, newPath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.renameSync(oldPath: string, newPath: string): unit = failwith "JS only"
-        member __.truncate(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.truncate(path: string, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.truncateSync(path: string, ?len: float): unit = failwith "JS only"
-        member __.ftruncate(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.ftruncate(fd: float, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.ftruncateSync(fd: float, ?len: float): unit = failwith "JS only"
-        member __.chown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.chownSync(path: string, uid: float, gid: float): unit = failwith "JS only"
-        member __.fchown(fd: float, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.fchownSync(fd: float, uid: float, gid: float): unit = failwith "JS only"
-        member __.lchown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.lchownSync(path: string, uid: float, gid: float): unit = failwith "JS only"
-        member __.chmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.chmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.chmodSync(path: string, mode: float): unit = failwith "JS only"
-        member __.chmodSync(path: string, mode: string): unit = failwith "JS only"
-        member __.fchmod(fd: float, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.fchmod(fd: float, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.fchmodSync(fd: float, mode: float): unit = failwith "JS only"
-        member __.fchmodSync(fd: float, mode: string): unit = failwith "JS only"
-        member __.lchmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.lchmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.lchmodSync(path: string, mode: float): unit = failwith "JS only"
-        member __.lchmodSync(path: string, mode: string): unit = failwith "JS only"
-        member __.stat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
-        member __.lstat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
-        member __.fstat(fd: float, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = failwith "JS only"
-        member __.statSync(path: string): Stats = failwith "JS only"
-        member __.lstatSync(path: string): Stats = failwith "JS only"
-        member __.fstatSync(fd: float): Stats = failwith "JS only"
-        member __.link(srcpath: string, dstpath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.linkSync(srcpath: string, dstpath: string): unit = failwith "JS only"
-        member __.symlink(srcpath: string, dstpath: string, ?``type``: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.symlinkSync(srcpath: string, dstpath: string, ?``type``: string): unit = failwith "JS only"
-        member __.readlink(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
-        member __.readlinkSync(path: string): string = failwith "JS only"
-        member __.realpath(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
-        member __.realpath(path: string, cache: obj, callback: Func<NodeJS.ErrnoException, string, obj>): unit = failwith "JS only"
-        member __.realpathSync(path: string, ?cache: obj): string = failwith "JS only"
-        member __.unlink(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.unlinkSync(path: string): unit = failwith "JS only"
-        member __.rmdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.rmdirSync(path: string): unit = failwith "JS only"
-        member __.mkdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.mkdir(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.mkdir(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.mkdirSync(path: string, ?mode: float): unit = failwith "JS only"
-        member __.mkdirSync(path: string, ?mode: string): unit = failwith "JS only"
-        member __.readdir(path: string, ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit>): unit = failwith "JS only"
-        member __.readdirSync(path: string): ResizeArray<string> = failwith "JS only"
-        member __.close(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.closeSync(fd: float): unit = failwith "JS only"
-        member __.``open``(path: string, flags: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
-        member __.``open``(path: string, flags: string, mode: float, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
-        member __.``open``(path: string, flags: string, mode: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = failwith "JS only"
-        member __.openSync(path: string, flags: string, ?mode: float): float = failwith "JS only"
-        member __.openSync(path: string, flags: string, ?mode: string): float = failwith "JS only"
-        member __.utimes(path: string, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.utimes(path: string, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.utimesSync(path: string, atime: float, mtime: float): unit = failwith "JS only"
-        member __.utimesSync(path: string, atime: DateTime, mtime: DateTime): unit = failwith "JS only"
-        member __.futimes(fd: float, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.futimes(fd: float, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.futimesSync(fd: float, atime: float, mtime: float): unit = failwith "JS only"
-        member __.futimesSync(fd: float, atime: DateTime, mtime: DateTime): unit = failwith "JS only"
-        member __.fsync(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.fsyncSync(fd: float): unit = failwith "JS only"
-        member __.write(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
-        member __.write(fd: float, buffer: Buffer, offset: float, length: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
-        member __.write(fd: float, data: obj, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
-        member __.write(fd: float, data: obj, offset: float, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
-        member __.write(fd: float, data: obj, offset: float, encoding: string, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = failwith "JS only"
-        member __.writeSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = failwith "JS only"
-        member __.read(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = failwith "JS only"
-        member __.readSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = failwith "JS only"
-        member __.readFile(filename: string, encoding: string, callback: Func<NodeJS.ErrnoException, string, unit>): unit = failwith "JS only"
-        member __.readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, string, unit>): unit = failwith "JS only"
-        member __.readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = failwith "JS only"
-        member __.readFile(filename: string, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = failwith "JS only"
-        member __.readFileSync(filename: string, encoding: string): string = failwith "JS only"
-        member __.readFileSync(filename: string, options: obj): string = failwith "JS only"
-        member __.readFileSync(filename: string, ?options: obj): Buffer = failwith "JS only"
-        member __.writeFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.writeFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.writeFileSync(filename: string, data: obj, ?options: obj): unit = failwith "JS only"
-        member __.appendFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.appendFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.appendFileSync(filename: string, data: obj, ?options: obj): unit = failwith "JS only"
-        member __.watchFile(filename: string, listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
-        member __.watchFile(filename: string, options: obj, listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
-        member __.unwatchFile(filename: string, ?listener: Func<Stats, Stats, unit>): unit = failwith "JS only"
-        member __.watch(filename: string, ?listener: Func<string, string, obj>): FSWatcher = failwith "JS only"
-        member __.watch(filename: string, options: obj, ?listener: Func<string, string, obj>): FSWatcher = failwith "JS only"
-        member __.exists(path: string, ?callback: Func<bool, unit>): unit = failwith "JS only"
-        member __.existsSync(path: string): bool = failwith "JS only"
-        member __.access(path: string, callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.access(path: string, mode: float, callback: Func<NodeJS.ErrnoException, unit>): unit = failwith "JS only"
-        member __.accessSync(path: string, ?mode: float): unit = failwith "JS only"
-        member __.createReadStream(path: string, ?options: obj): ReadStream = failwith "JS only"
-        member __.createWriteStream(path: string, ?options: obj): WriteStream = failwith "JS only"
+        member __.F_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.R_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.W_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.X_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.rename(oldPath: string, newPath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.renameSync(oldPath: string, newPath: string): unit = jsNative
+        member __.truncate(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.truncate(path: string, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.truncateSync(path: string, ?len: float): unit = jsNative
+        member __.ftruncate(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.ftruncate(fd: float, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.ftruncateSync(fd: float, ?len: float): unit = jsNative
+        member __.chown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.chownSync(path: string, uid: float, gid: float): unit = jsNative
+        member __.fchown(fd: float, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.fchownSync(fd: float, uid: float, gid: float): unit = jsNative
+        member __.lchown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.lchownSync(path: string, uid: float, gid: float): unit = jsNative
+        member __.chmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.chmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.chmodSync(path: string, mode: float): unit = jsNative
+        member __.chmodSync(path: string, mode: string): unit = jsNative
+        member __.fchmod(fd: float, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.fchmod(fd: float, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.fchmodSync(fd: float, mode: float): unit = jsNative
+        member __.fchmodSync(fd: float, mode: string): unit = jsNative
+        member __.lchmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.lchmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.lchmodSync(path: string, mode: float): unit = jsNative
+        member __.lchmodSync(path: string, mode: string): unit = jsNative
+        member __.stat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
+        member __.lstat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
+        member __.fstat(fd: float, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
+        member __.statSync(path: string): Stats = jsNative
+        member __.lstatSync(path: string): Stats = jsNative
+        member __.fstatSync(fd: float): Stats = jsNative
+        member __.link(srcpath: string, dstpath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.linkSync(srcpath: string, dstpath: string): unit = jsNative
+        member __.symlink(srcpath: string, dstpath: string, ?``type``: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.symlinkSync(srcpath: string, dstpath: string, ?``type``: string): unit = jsNative
+        member __.readlink(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
+        member __.readlinkSync(path: string): string = jsNative
+        member __.realpath(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
+        member __.realpath(path: string, cache: obj, callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
+        member __.realpathSync(path: string, ?cache: obj): string = jsNative
+        member __.unlink(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.unlinkSync(path: string): unit = jsNative
+        member __.rmdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.rmdirSync(path: string): unit = jsNative
+        member __.mkdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.mkdir(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.mkdir(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.mkdirSync(path: string, ?mode: float): unit = jsNative
+        member __.mkdirSync(path: string, ?mode: string): unit = jsNative
+        member __.readdir(path: string, ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit>): unit = jsNative
+        member __.readdirSync(path: string): ResizeArray<string> = jsNative
+        member __.close(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.closeSync(fd: float): unit = jsNative
+        member __.``open``(path: string, flags: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = jsNative
+        member __.``open``(path: string, flags: string, mode: float, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = jsNative
+        member __.``open``(path: string, flags: string, mode: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = jsNative
+        member __.openSync(path: string, flags: string, ?mode: float): float = jsNative
+        member __.openSync(path: string, flags: string, ?mode: string): float = jsNative
+        member __.utimes(path: string, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.utimes(path: string, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.utimesSync(path: string, atime: float, mtime: float): unit = jsNative
+        member __.utimesSync(path: string, atime: DateTime, mtime: DateTime): unit = jsNative
+        member __.futimes(fd: float, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.futimes(fd: float, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.futimesSync(fd: float, atime: float, mtime: float): unit = jsNative
+        member __.futimesSync(fd: float, atime: DateTime, mtime: DateTime): unit = jsNative
+        member __.fsync(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.fsyncSync(fd: float): unit = jsNative
+        member __.write(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
+        member __.write(fd: float, buffer: Buffer, offset: float, length: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
+        member __.write(fd: float, data: obj, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
+        member __.write(fd: float, data: obj, offset: float, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
+        member __.write(fd: float, data: obj, offset: float, encoding: string, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
+        member __.writeSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = jsNative
+        member __.read(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
+        member __.readSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = jsNative
+        member __.readFile(filename: string, encoding: string, callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
+        member __.readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
+        member __.readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = jsNative
+        member __.readFile(filename: string, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = jsNative
+        member __.readFileSync(filename: string, encoding: string): string = jsNative
+        member __.readFileSync(filename: string, options: obj): string = jsNative
+        member __.readFileSync(filename: string, ?options: obj): Buffer = jsNative
+        member __.writeFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.writeFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.writeFileSync(filename: string, data: obj, ?options: obj): unit = jsNative
+        member __.appendFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.appendFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.appendFileSync(filename: string, data: obj, ?options: obj): unit = jsNative
+        member __.watchFile(filename: string, listener: Func<Stats, Stats, unit>): unit = jsNative
+        member __.watchFile(filename: string, options: obj, listener: Func<Stats, Stats, unit>): unit = jsNative
+        member __.unwatchFile(filename: string, ?listener: Func<Stats, Stats, unit>): unit = jsNative
+        member __.watch(filename: string, ?listener: Func<string, string, obj>): FSWatcher = jsNative
+        member __.watch(filename: string, options: obj, ?listener: Func<string, string, obj>): FSWatcher = jsNative
+        member __.exists(path: string, ?callback: Func<bool, unit>): unit = jsNative
+        member __.existsSync(path: string): bool = jsNative
+        member __.access(path: string, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.access(path: string, mode: float, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        member __.accessSync(path: string, ?mode: float): unit = jsNative
+        member __.createReadStream(path: string, ?options: obj): ReadStream = jsNative
+        member __.createWriteStream(path: string, ?options: obj): WriteStream = jsNative
 
-let [<Import("*","fs")>] fs: fs_types.Globals = failwith "JS only"
+let [<Import("*","fs")>] fs: fs_types.Globals = jsNative
 
 
 module path_types =
@@ -1418,55 +1418,55 @@ module path_types =
         abstract name: string with get, set
 
     type Globals =
-        member __.sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        member __.delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        member __.normalize(p: string): string = failwith "JS only"
-        member __.join([<ParamArray>] paths: obj[]): string = failwith "JS only"
-        member __.join([<ParamArray>] paths: string[]): string = failwith "JS only"
-        member __.resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
-        member __.isAbsolute(path: string): bool = failwith "JS only"
-        member __.relative(from: string, ``to``: string): string = failwith "JS only"
-        member __.dirname(p: string): string = failwith "JS only"
-        member __.basename(p: string, ?ext: string): string = failwith "JS only"
-        member __.extname(p: string): string = failwith "JS only"
-        member __.parse(pathString: string): ParsedPath = failwith "JS only"
-        member __.format(pathObject: ParsedPath): string = failwith "JS only"
+        member __.sep with get(): string = jsNative and set(v: string): unit = jsNative
+        member __.delimiter with get(): string = jsNative and set(v: string): unit = jsNative
+        member __.normalize(p: string): string = jsNative
+        member __.join([<ParamArray>] paths: obj[]): string = jsNative
+        member __.join([<ParamArray>] paths: string[]): string = jsNative
+        member __.resolve([<ParamArray>] pathSegments: obj[]): string = jsNative
+        member __.isAbsolute(path: string): bool = jsNative
+        member __.relative(from: string, ``to``: string): string = jsNative
+        member __.dirname(p: string): string = jsNative
+        member __.basename(p: string, ?ext: string): string = jsNative
+        member __.extname(p: string): string = jsNative
+        member __.parse(pathString: string): ParsedPath = jsNative
+        member __.format(pathObject: ParsedPath): string = jsNative
 
     module posix_types =
         type Globals =
-            member __.sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            member __.delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            member __.normalize(p: string): string = failwith "JS only"
-            member __.join([<ParamArray>] paths: obj[]): string = failwith "JS only"
-            member __.resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
-            member __.isAbsolute(p: string): bool = failwith "JS only"
-            member __.relative(from: string, ``to``: string): string = failwith "JS only"
-            member __.dirname(p: string): string = failwith "JS only"
-            member __.basename(p: string, ?ext: string): string = failwith "JS only"
-            member __.extname(p: string): string = failwith "JS only"
-            member __.parse(p: string): ParsedPath = failwith "JS only"
-            member __.format(pP: ParsedPath): string = failwith "JS only"
+            member __.sep with get(): string = jsNative and set(v: string): unit = jsNative
+            member __.delimiter with get(): string = jsNative and set(v: string): unit = jsNative
+            member __.normalize(p: string): string = jsNative
+            member __.join([<ParamArray>] paths: obj[]): string = jsNative
+            member __.resolve([<ParamArray>] pathSegments: obj[]): string = jsNative
+            member __.isAbsolute(p: string): bool = jsNative
+            member __.relative(from: string, ``to``: string): string = jsNative
+            member __.dirname(p: string): string = jsNative
+            member __.basename(p: string, ?ext: string): string = jsNative
+            member __.extname(p: string): string = jsNative
+            member __.parse(p: string): ParsedPath = jsNative
+            member __.format(pP: ParsedPath): string = jsNative
             
-    let [<Import("posix","path")>] posix: posix_types.Globals = failwith "JS only"
+    let [<Import("posix","path")>] posix: posix_types.Globals = jsNative
 
     module win32_types =
         type Globals =
-            member __.sep with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            member __.delimiter with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            member __.normalize(p: string): string = failwith "JS only"
-            member __.join([<ParamArray>] paths: obj[]): string = failwith "JS only"
-            member __.resolve([<ParamArray>] pathSegments: obj[]): string = failwith "JS only"
-            member __.isAbsolute(p: string): bool = failwith "JS only"
-            member __.relative(from: string, ``to``: string): string = failwith "JS only"
-            member __.dirname(p: string): string = failwith "JS only"
-            member __.basename(p: string, ?ext: string): string = failwith "JS only"
-            member __.extname(p: string): string = failwith "JS only"
-            member __.parse(p: string): ParsedPath = failwith "JS only"
-            member __.format(pP: ParsedPath): string = failwith "JS only"
+            member __.sep with get(): string = jsNative and set(v: string): unit = jsNative
+            member __.delimiter with get(): string = jsNative and set(v: string): unit = jsNative
+            member __.normalize(p: string): string = jsNative
+            member __.join([<ParamArray>] paths: obj[]): string = jsNative
+            member __.resolve([<ParamArray>] pathSegments: obj[]): string = jsNative
+            member __.isAbsolute(p: string): bool = jsNative
+            member __.relative(from: string, ``to``: string): string = jsNative
+            member __.dirname(p: string): string = jsNative
+            member __.basename(p: string, ?ext: string): string = jsNative
+            member __.extname(p: string): string = jsNative
+            member __.parse(p: string): ParsedPath = jsNative
+            member __.format(pP: ParsedPath): string = jsNative
 
-    let [<Import("win32","path")>] win32: win32_types.Globals = failwith "JS only"
+    let [<Import("win32","path")>] win32: win32_types.Globals = jsNative
 
-let [<Import("*","path")>] path: path_types.Globals = failwith "JS only"
+let [<Import("*","path")>] path: path_types.Globals = jsNative
 
 
 [<Import("*","string_decoder")>]
@@ -1475,7 +1475,7 @@ module string_decoder =
         abstract write: buffer: Buffer -> string
         abstract detectIncompleteChar: buffer: Buffer -> float
 
-    let StringDecoder: NodeStringDecoder = failwith "JS only"
+    let StringDecoder: NodeStringDecoder = jsNative
 
 
 module util_types =
@@ -1486,48 +1486,48 @@ module util_types =
         abstract customInspect: bool option with get, set
 
     type Globals =
-        member __.format(format: obj, [<ParamArray>] param: obj[]): string = failwith "JS only"
-        member __.debug(string: string): unit = failwith "JS only"
-        member __.error([<ParamArray>] param: obj[]): unit = failwith "JS only"
-        member __.puts([<ParamArray>] param: obj[]): unit = failwith "JS only"
-        member __.print([<ParamArray>] param: obj[]): unit = failwith "JS only"
-        member __.log(string: string): unit = failwith "JS only"
-        member __.inspect(``object``: obj, ?showHidden: bool, ?depth: float, ?color: bool): string = failwith "JS only"
-        member __.inspect(``object``: obj, options: InspectOptions): string = failwith "JS only"
-        member __.isArray(``object``: obj): bool = failwith "JS only"
-        member __.isRegExp(``object``: obj): bool = failwith "JS only"
-        member __.isDate(``object``: obj): bool = failwith "JS only"
-        member __.isError(``object``: obj): bool = failwith "JS only"
-        member __.inherits(``constructor``: obj, superConstructor: obj): unit = failwith "JS only"
-        member __.debuglog(key: string): Func<string, obj, unit> = failwith "JS only"
+        member __.format(format: obj, [<ParamArray>] param: obj[]): string = jsNative
+        member __.debug(string: string): unit = jsNative
+        member __.error([<ParamArray>] param: obj[]): unit = jsNative
+        member __.puts([<ParamArray>] param: obj[]): unit = jsNative
+        member __.print([<ParamArray>] param: obj[]): unit = jsNative
+        member __.log(string: string): unit = jsNative
+        member __.inspect(``object``: obj, ?showHidden: bool, ?depth: float, ?color: bool): string = jsNative
+        member __.inspect(``object``: obj, options: InspectOptions): string = jsNative
+        member __.isArray(``object``: obj): bool = jsNative
+        member __.isRegExp(``object``: obj): bool = jsNative
+        member __.isDate(``object``: obj): bool = jsNative
+        member __.isError(``object``: obj): bool = jsNative
+        member __.inherits(``constructor``: obj, superConstructor: obj): unit = jsNative
+        member __.debuglog(key: string): Func<string, obj, unit> = jsNative
 
-let [<Import("*","util")>] util: util_types.Globals = failwith "JS only"
+let [<Import("*","util")>] util: util_types.Globals = jsNative
 
 
 module assert_types =
     type [<AllowNullLiteral>] [<Import("AssertionError","assert")>] AssertionError(?options: obj) =
         // interface Error
-        member __.name with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        member __.message with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        member __.actual with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.expected with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.operator with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-        member __.generatedMessage with get(): bool = failwith "JS only" and set(v: bool): unit = failwith "JS only"
+        member __.name with get(): string = jsNative and set(v: string): unit = jsNative
+        member __.message with get(): string = jsNative and set(v: string): unit = jsNative
+        member __.actual with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.expected with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.operator with get(): string = jsNative and set(v: string): unit = jsNative
+        member __.generatedMessage with get(): bool = jsNative and set(v: bool): unit = jsNative
 
     type Globals =
-        member __.throws with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.doesNotThrow with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
-        member __.fail(?actual: obj, ?expected: obj, ?message: string, ?operator: string): unit = failwith "JS only"
-        member __.ok(value: obj, ?message: string): unit = failwith "JS only"
-        member __.equal(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-        member __.notEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-        member __.deepEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-        member __.notDeepEqual(acutal: obj, expected: obj, ?message: string): unit = failwith "JS only"
-        member __.strictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-        member __.notStrictEqual(actual: obj, expected: obj, ?message: string): unit = failwith "JS only"
-        member __.ifError(value: obj): unit = failwith "JS only"
+        member __.throws with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.doesNotThrow with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.fail(?actual: obj, ?expected: obj, ?message: string, ?operator: string): unit = jsNative
+        member __.ok(value: obj, ?message: string): unit = jsNative
+        member __.equal(actual: obj, expected: obj, ?message: string): unit = jsNative
+        member __.notEqual(actual: obj, expected: obj, ?message: string): unit = jsNative
+        member __.deepEqual(actual: obj, expected: obj, ?message: string): unit = jsNative
+        member __.notDeepEqual(acutal: obj, expected: obj, ?message: string): unit = jsNative
+        member __.strictEqual(actual: obj, expected: obj, ?message: string): unit = jsNative
+        member __.notStrictEqual(actual: obj, expected: obj, ?message: string): unit = jsNative
+        member __.ifError(value: obj): unit = jsNative
 
-let [<Import("*","assert")>] ``assert``: assert_types.Globals = failwith "JS only"
+let [<Import("*","assert")>] ``assert``: assert_types.Globals = jsNative
 
 
 [<Import("*","tty")>] 
@@ -1542,248 +1542,248 @@ module tty =
         abstract columns: float with get, set
         abstract rows: float with get, set
 
-    let isatty(fd: float): bool = failwith "JS only"
+    let isatty(fd: float): bool = jsNative
 
 
 [<Import("*","domain")>] 
 module domain =
     type [<AllowNullLiteral>] [<Import("Domain","domain")>] Domain() =
         inherit events.EventEmitter()
-        member __.run(fn: Function): unit = failwith "JS only"
-        member __.add(emitter: events.EventEmitter): unit = failwith "JS only"
-        member __.remove(emitter: events.EventEmitter): unit = failwith "JS only"
-        member __.bind(cb: Func<Error, obj, obj>): obj = failwith "JS only"
-        member __.intercept(cb: Func<obj, obj>): obj = failwith "JS only"
-        member __.dispose(): unit = failwith "JS only"
-        member __.addListener(``event``: string, listener: Function): Domain = failwith "JS only"
-        member __.on(``event``: string, listener: Function): Domain = failwith "JS only"
-        member __.once(``event``: string, listener: Function): Domain = failwith "JS only"
-        member __.removeListener(``event``: string, listener: Function): Domain = failwith "JS only"
-        member __.removeAllListeners(?``event``: string): Domain = failwith "JS only"
+        member __.run(fn: Function): unit = jsNative
+        member __.add(emitter: events.EventEmitter): unit = jsNative
+        member __.remove(emitter: events.EventEmitter): unit = jsNative
+        member __.bind(cb: Func<Error, obj, obj>): obj = jsNative
+        member __.intercept(cb: Func<obj, obj>): obj = jsNative
+        member __.dispose(): unit = jsNative
+        member __.addListener(``event``: string, listener: Function): Domain = jsNative
+        member __.on(``event``: string, listener: Function): Domain = jsNative
+        member __.once(``event``: string, listener: Function): Domain = jsNative
+        member __.removeListener(``event``: string, listener: Function): Domain = jsNative
+        member __.removeAllListeners(?``event``: string): Domain = jsNative
 
-    let create(): Domain = failwith "JS only"
+    let create(): Domain = jsNative
 
 
 [<Import("*","constants")>]
 module constants =
-    let E2BIG: float = failwith "JS only"
-    let EACCES: float = failwith "JS only"
-    let EADDRINUSE: float = failwith "JS only"
-    let EADDRNOTAVAIL: float = failwith "JS only"
-    let EAFNOSUPPORT: float = failwith "JS only"
-    let EAGAIN: float = failwith "JS only"
-    let EALREADY: float = failwith "JS only"
-    let EBADF: float = failwith "JS only"
-    let EBADMSG: float = failwith "JS only"
-    let EBUSY: float = failwith "JS only"
-    let ECANCELED: float = failwith "JS only"
-    let ECHILD: float = failwith "JS only"
-    let ECONNABORTED: float = failwith "JS only"
-    let ECONNREFUSED: float = failwith "JS only"
-    let ECONNRESET: float = failwith "JS only"
-    let EDEADLK: float = failwith "JS only"
-    let EDESTADDRREQ: float = failwith "JS only"
-    let EDOM: float = failwith "JS only"
-    let EEXIST: float = failwith "JS only"
-    let EFAULT: float = failwith "JS only"
-    let EFBIG: float = failwith "JS only"
-    let EHOSTUNREACH: float = failwith "JS only"
-    let EIDRM: float = failwith "JS only"
-    let EILSEQ: float = failwith "JS only"
-    let EINPROGRESS: float = failwith "JS only"
-    let EINTR: float = failwith "JS only"
-    let EINVAL: float = failwith "JS only"
-    let EIO: float = failwith "JS only"
-    let EISCONN: float = failwith "JS only"
-    let EISDIR: float = failwith "JS only"
-    let ELOOP: float = failwith "JS only"
-    let EMFILE: float = failwith "JS only"
-    let EMLINK: float = failwith "JS only"
-    let EMSGSIZE: float = failwith "JS only"
-    let ENAMETOOLONG: float = failwith "JS only"
-    let ENETDOWN: float = failwith "JS only"
-    let ENETRESET: float = failwith "JS only"
-    let ENETUNREACH: float = failwith "JS only"
-    let ENFILE: float = failwith "JS only"
-    let ENOBUFS: float = failwith "JS only"
-    let ENODATA: float = failwith "JS only"
-    let ENODEV: float = failwith "JS only"
-    let ENOENT: float = failwith "JS only"
-    let ENOEXEC: float = failwith "JS only"
-    let ENOLCK: float = failwith "JS only"
-    let ENOLINK: float = failwith "JS only"
-    let ENOMEM: float = failwith "JS only"
-    let ENOMSG: float = failwith "JS only"
-    let ENOPROTOOPT: float = failwith "JS only"
-    let ENOSPC: float = failwith "JS only"
-    let ENOSR: float = failwith "JS only"
-    let ENOSTR: float = failwith "JS only"
-    let ENOSYS: float = failwith "JS only"
-    let ENOTCONN: float = failwith "JS only"
-    let ENOTDIR: float = failwith "JS only"
-    let ENOTEMPTY: float = failwith "JS only"
-    let ENOTSOCK: float = failwith "JS only"
-    let ENOTSUP: float = failwith "JS only"
-    let ENOTTY: float = failwith "JS only"
-    let ENXIO: float = failwith "JS only"
-    let EOPNOTSUPP: float = failwith "JS only"
-    let EOVERFLOW: float = failwith "JS only"
-    let EPERM: float = failwith "JS only"
-    let EPIPE: float = failwith "JS only"
-    let EPROTO: float = failwith "JS only"
-    let EPROTONOSUPPORT: float = failwith "JS only"
-    let EPROTOTYPE: float = failwith "JS only"
-    let ERANGE: float = failwith "JS only"
-    let EROFS: float = failwith "JS only"
-    let ESPIPE: float = failwith "JS only"
-    let ESRCH: float = failwith "JS only"
-    let ETIME: float = failwith "JS only"
-    let ETIMEDOUT: float = failwith "JS only"
-    let ETXTBSY: float = failwith "JS only"
-    let EWOULDBLOCK: float = failwith "JS only"
-    let EXDEV: float = failwith "JS only"
-    let WSAEINTR: float = failwith "JS only"
-    let WSAEBADF: float = failwith "JS only"
-    let WSAEACCES: float = failwith "JS only"
-    let WSAEFAULT: float = failwith "JS only"
-    let WSAEINVAL: float = failwith "JS only"
-    let WSAEMFILE: float = failwith "JS only"
-    let WSAEWOULDBLOCK: float = failwith "JS only"
-    let WSAEINPROGRESS: float = failwith "JS only"
-    let WSAEALREADY: float = failwith "JS only"
-    let WSAENOTSOCK: float = failwith "JS only"
-    let WSAEDESTADDRREQ: float = failwith "JS only"
-    let WSAEMSGSIZE: float = failwith "JS only"
-    let WSAEPROTOTYPE: float = failwith "JS only"
-    let WSAENOPROTOOPT: float = failwith "JS only"
-    let WSAEPROTONOSUPPORT: float = failwith "JS only"
-    let WSAESOCKTNOSUPPORT: float = failwith "JS only"
-    let WSAEOPNOTSUPP: float = failwith "JS only"
-    let WSAEPFNOSUPPORT: float = failwith "JS only"
-    let WSAEAFNOSUPPORT: float = failwith "JS only"
-    let WSAEADDRINUSE: float = failwith "JS only"
-    let WSAEADDRNOTAVAIL: float = failwith "JS only"
-    let WSAENETDOWN: float = failwith "JS only"
-    let WSAENETUNREACH: float = failwith "JS only"
-    let WSAENETRESET: float = failwith "JS only"
-    let WSAECONNABORTED: float = failwith "JS only"
-    let WSAECONNRESET: float = failwith "JS only"
-    let WSAENOBUFS: float = failwith "JS only"
-    let WSAEISCONN: float = failwith "JS only"
-    let WSAENOTCONN: float = failwith "JS only"
-    let WSAESHUTDOWN: float = failwith "JS only"
-    let WSAETOOMANYREFS: float = failwith "JS only"
-    let WSAETIMEDOUT: float = failwith "JS only"
-    let WSAECONNREFUSED: float = failwith "JS only"
-    let WSAELOOP: float = failwith "JS only"
-    let WSAENAMETOOLONG: float = failwith "JS only"
-    let WSAEHOSTDOWN: float = failwith "JS only"
-    let WSAEHOSTUNREACH: float = failwith "JS only"
-    let WSAENOTEMPTY: float = failwith "JS only"
-    let WSAEPROCLIM: float = failwith "JS only"
-    let WSAEUSERS: float = failwith "JS only"
-    let WSAEDQUOT: float = failwith "JS only"
-    let WSAESTALE: float = failwith "JS only"
-    let WSAEREMOTE: float = failwith "JS only"
-    let WSASYSNOTREADY: float = failwith "JS only"
-    let WSAVERNOTSUPPORTED: float = failwith "JS only"
-    let WSANOTINITIALISED: float = failwith "JS only"
-    let WSAEDISCON: float = failwith "JS only"
-    let WSAENOMORE: float = failwith "JS only"
-    let WSAECANCELLED: float = failwith "JS only"
-    let WSAEINVALIDPROCTABLE: float = failwith "JS only"
-    let WSAEINVALIDPROVIDER: float = failwith "JS only"
-    let WSAEPROVIDERFAILEDINIT: float = failwith "JS only"
-    let WSASYSCALLFAILURE: float = failwith "JS only"
-    let WSASERVICE_NOT_FOUND: float = failwith "JS only"
-    let WSATYPE_NOT_FOUND: float = failwith "JS only"
-    let WSA_E_NO_MORE: float = failwith "JS only"
-    let WSA_E_CANCELLED: float = failwith "JS only"
-    let WSAEREFUSED: float = failwith "JS only"
-    let SIGHUP: float = failwith "JS only"
-    let SIGINT: float = failwith "JS only"
-    let SIGILL: float = failwith "JS only"
-    let SIGABRT: float = failwith "JS only"
-    let SIGFPE: float = failwith "JS only"
-    let SIGKILL: float = failwith "JS only"
-    let SIGSEGV: float = failwith "JS only"
-    let SIGTERM: float = failwith "JS only"
-    let SIGBREAK: float = failwith "JS only"
-    let SIGWINCH: float = failwith "JS only"
-    let SSL_OP_ALL: float = failwith "JS only"
-    let SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION: float = failwith "JS only"
-    let SSL_OP_CIPHER_SERVER_PREFERENCE: float = failwith "JS only"
-    let SSL_OP_CISCO_ANYCONNECT: float = failwith "JS only"
-    let SSL_OP_COOKIE_EXCHANGE: float = failwith "JS only"
-    let SSL_OP_CRYPTOPRO_TLSEXT_BUG: float = failwith "JS only"
-    let SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS: float = failwith "JS only"
-    let SSL_OP_EPHEMERAL_RSA: float = failwith "JS only"
-    let SSL_OP_LEGACY_SERVER_CONNECT: float = failwith "JS only"
-    let SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER: float = failwith "JS only"
-    let SSL_OP_MICROSOFT_SESS_ID_BUG: float = failwith "JS only"
-    let SSL_OP_MSIE_SSLV2_RSA_PADDING: float = failwith "JS only"
-    let SSL_OP_NETSCAPE_CA_DN_BUG: float = failwith "JS only"
-    let SSL_OP_NETSCAPE_CHALLENGE_BUG: float = failwith "JS only"
-    let SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG: float = failwith "JS only"
-    let SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG: float = failwith "JS only"
-    let SSL_OP_NO_COMPRESSION: float = failwith "JS only"
-    let SSL_OP_NO_QUERY_MTU: float = failwith "JS only"
-    let SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION: float = failwith "JS only"
-    let SSL_OP_NO_SSLv2: float = failwith "JS only"
-    let SSL_OP_NO_SSLv3: float = failwith "JS only"
-    let SSL_OP_NO_TICKET: float = failwith "JS only"
-    let SSL_OP_NO_TLSv1: float = failwith "JS only"
-    let SSL_OP_NO_TLSv1_1: float = failwith "JS only"
-    let SSL_OP_NO_TLSv1_2: float = failwith "JS only"
-    let SSL_OP_PKCS1_CHECK_1: float = failwith "JS only"
-    let SSL_OP_PKCS1_CHECK_2: float = failwith "JS only"
-    let SSL_OP_SINGLE_DH_USE: float = failwith "JS only"
-    let SSL_OP_SINGLE_ECDH_USE: float = failwith "JS only"
-    let SSL_OP_SSLEAY_080_CLIENT_DH_BUG: float = failwith "JS only"
-    let SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG: float = failwith "JS only"
-    let SSL_OP_TLS_BLOCK_PADDING_BUG: float = failwith "JS only"
-    let SSL_OP_TLS_D5_BUG: float = failwith "JS only"
-    let SSL_OP_TLS_ROLLBACK_BUG: float = failwith "JS only"
-    let ENGINE_METHOD_DSA: float = failwith "JS only"
-    let ENGINE_METHOD_DH: float = failwith "JS only"
-    let ENGINE_METHOD_RAND: float = failwith "JS only"
-    let ENGINE_METHOD_ECDH: float = failwith "JS only"
-    let ENGINE_METHOD_ECDSA: float = failwith "JS only"
-    let ENGINE_METHOD_CIPHERS: float = failwith "JS only"
-    let ENGINE_METHOD_DIGESTS: float = failwith "JS only"
-    let ENGINE_METHOD_STORE: float = failwith "JS only"
-    let ENGINE_METHOD_PKEY_METHS: float = failwith "JS only"
-    let ENGINE_METHOD_PKEY_ASN1_METHS: float = failwith "JS only"
-    let ENGINE_METHOD_ALL: float = failwith "JS only"
-    let ENGINE_METHOD_NONE: float = failwith "JS only"
-    let DH_CHECK_P_NOT_SAFE_PRIME: float = failwith "JS only"
-    let DH_CHECK_P_NOT_PRIME: float = failwith "JS only"
-    let DH_UNABLE_TO_CHECK_GENERATOR: float = failwith "JS only"
-    let DH_NOT_SUITABLE_GENERATOR: float = failwith "JS only"
-    let NPN_ENABLED: float = failwith "JS only"
-    let RSA_PKCS1_PADDING: float = failwith "JS only"
-    let RSA_SSLV23_PADDING: float = failwith "JS only"
-    let RSA_NO_PADDING: float = failwith "JS only"
-    let RSA_PKCS1_OAEP_PADDING: float = failwith "JS only"
-    let RSA_X931_PADDING: float = failwith "JS only"
-    let RSA_PKCS1_PSS_PADDING: float = failwith "JS only"
-    let POINT_CONVERSION_COMPRESSED: float = failwith "JS only"
-    let POINT_CONVERSION_UNCOMPRESSED: float = failwith "JS only"
-    let POINT_CONVERSION_HYBRID: float = failwith "JS only"
-    let O_RDONLY: float = failwith "JS only"
-    let O_WRONLY: float = failwith "JS only"
-    let O_RDWR: float = failwith "JS only"
-    let S_IFMT: float = failwith "JS only"
-    let S_IFREG: float = failwith "JS only"
-    let S_IFDIR: float = failwith "JS only"
-    let S_IFCHR: float = failwith "JS only"
-    let S_IFLNK: float = failwith "JS only"
-    let O_CREAT: float = failwith "JS only"
-    let O_EXCL: float = failwith "JS only"
-    let O_TRUNC: float = failwith "JS only"
-    let O_APPEND: float = failwith "JS only"
-    let F_OK: float = failwith "JS only"
-    let R_OK: float = failwith "JS only"
-    let W_OK: float = failwith "JS only"
-    let X_OK: float = failwith "JS only"
-    let UV_UDP_REUSEADDR: float = failwith "JS only"
+    let E2BIG: float = jsNative
+    let EACCES: float = jsNative
+    let EADDRINUSE: float = jsNative
+    let EADDRNOTAVAIL: float = jsNative
+    let EAFNOSUPPORT: float = jsNative
+    let EAGAIN: float = jsNative
+    let EALREADY: float = jsNative
+    let EBADF: float = jsNative
+    let EBADMSG: float = jsNative
+    let EBUSY: float = jsNative
+    let ECANCELED: float = jsNative
+    let ECHILD: float = jsNative
+    let ECONNABORTED: float = jsNative
+    let ECONNREFUSED: float = jsNative
+    let ECONNRESET: float = jsNative
+    let EDEADLK: float = jsNative
+    let EDESTADDRREQ: float = jsNative
+    let EDOM: float = jsNative
+    let EEXIST: float = jsNative
+    let EFAULT: float = jsNative
+    let EFBIG: float = jsNative
+    let EHOSTUNREACH: float = jsNative
+    let EIDRM: float = jsNative
+    let EILSEQ: float = jsNative
+    let EINPROGRESS: float = jsNative
+    let EINTR: float = jsNative
+    let EINVAL: float = jsNative
+    let EIO: float = jsNative
+    let EISCONN: float = jsNative
+    let EISDIR: float = jsNative
+    let ELOOP: float = jsNative
+    let EMFILE: float = jsNative
+    let EMLINK: float = jsNative
+    let EMSGSIZE: float = jsNative
+    let ENAMETOOLONG: float = jsNative
+    let ENETDOWN: float = jsNative
+    let ENETRESET: float = jsNative
+    let ENETUNREACH: float = jsNative
+    let ENFILE: float = jsNative
+    let ENOBUFS: float = jsNative
+    let ENODATA: float = jsNative
+    let ENODEV: float = jsNative
+    let ENOENT: float = jsNative
+    let ENOEXEC: float = jsNative
+    let ENOLCK: float = jsNative
+    let ENOLINK: float = jsNative
+    let ENOMEM: float = jsNative
+    let ENOMSG: float = jsNative
+    let ENOPROTOOPT: float = jsNative
+    let ENOSPC: float = jsNative
+    let ENOSR: float = jsNative
+    let ENOSTR: float = jsNative
+    let ENOSYS: float = jsNative
+    let ENOTCONN: float = jsNative
+    let ENOTDIR: float = jsNative
+    let ENOTEMPTY: float = jsNative
+    let ENOTSOCK: float = jsNative
+    let ENOTSUP: float = jsNative
+    let ENOTTY: float = jsNative
+    let ENXIO: float = jsNative
+    let EOPNOTSUPP: float = jsNative
+    let EOVERFLOW: float = jsNative
+    let EPERM: float = jsNative
+    let EPIPE: float = jsNative
+    let EPROTO: float = jsNative
+    let EPROTONOSUPPORT: float = jsNative
+    let EPROTOTYPE: float = jsNative
+    let ERANGE: float = jsNative
+    let EROFS: float = jsNative
+    let ESPIPE: float = jsNative
+    let ESRCH: float = jsNative
+    let ETIME: float = jsNative
+    let ETIMEDOUT: float = jsNative
+    let ETXTBSY: float = jsNative
+    let EWOULDBLOCK: float = jsNative
+    let EXDEV: float = jsNative
+    let WSAEINTR: float = jsNative
+    let WSAEBADF: float = jsNative
+    let WSAEACCES: float = jsNative
+    let WSAEFAULT: float = jsNative
+    let WSAEINVAL: float = jsNative
+    let WSAEMFILE: float = jsNative
+    let WSAEWOULDBLOCK: float = jsNative
+    let WSAEINPROGRESS: float = jsNative
+    let WSAEALREADY: float = jsNative
+    let WSAENOTSOCK: float = jsNative
+    let WSAEDESTADDRREQ: float = jsNative
+    let WSAEMSGSIZE: float = jsNative
+    let WSAEPROTOTYPE: float = jsNative
+    let WSAENOPROTOOPT: float = jsNative
+    let WSAEPROTONOSUPPORT: float = jsNative
+    let WSAESOCKTNOSUPPORT: float = jsNative
+    let WSAEOPNOTSUPP: float = jsNative
+    let WSAEPFNOSUPPORT: float = jsNative
+    let WSAEAFNOSUPPORT: float = jsNative
+    let WSAEADDRINUSE: float = jsNative
+    let WSAEADDRNOTAVAIL: float = jsNative
+    let WSAENETDOWN: float = jsNative
+    let WSAENETUNREACH: float = jsNative
+    let WSAENETRESET: float = jsNative
+    let WSAECONNABORTED: float = jsNative
+    let WSAECONNRESET: float = jsNative
+    let WSAENOBUFS: float = jsNative
+    let WSAEISCONN: float = jsNative
+    let WSAENOTCONN: float = jsNative
+    let WSAESHUTDOWN: float = jsNative
+    let WSAETOOMANYREFS: float = jsNative
+    let WSAETIMEDOUT: float = jsNative
+    let WSAECONNREFUSED: float = jsNative
+    let WSAELOOP: float = jsNative
+    let WSAENAMETOOLONG: float = jsNative
+    let WSAEHOSTDOWN: float = jsNative
+    let WSAEHOSTUNREACH: float = jsNative
+    let WSAENOTEMPTY: float = jsNative
+    let WSAEPROCLIM: float = jsNative
+    let WSAEUSERS: float = jsNative
+    let WSAEDQUOT: float = jsNative
+    let WSAESTALE: float = jsNative
+    let WSAEREMOTE: float = jsNative
+    let WSASYSNOTREADY: float = jsNative
+    let WSAVERNOTSUPPORTED: float = jsNative
+    let WSANOTINITIALISED: float = jsNative
+    let WSAEDISCON: float = jsNative
+    let WSAENOMORE: float = jsNative
+    let WSAECANCELLED: float = jsNative
+    let WSAEINVALIDPROCTABLE: float = jsNative
+    let WSAEINVALIDPROVIDER: float = jsNative
+    let WSAEPROVIDERFAILEDINIT: float = jsNative
+    let WSASYSCALLFAILURE: float = jsNative
+    let WSASERVICE_NOT_FOUND: float = jsNative
+    let WSATYPE_NOT_FOUND: float = jsNative
+    let WSA_E_NO_MORE: float = jsNative
+    let WSA_E_CANCELLED: float = jsNative
+    let WSAEREFUSED: float = jsNative
+    let SIGHUP: float = jsNative
+    let SIGINT: float = jsNative
+    let SIGILL: float = jsNative
+    let SIGABRT: float = jsNative
+    let SIGFPE: float = jsNative
+    let SIGKILL: float = jsNative
+    let SIGSEGV: float = jsNative
+    let SIGTERM: float = jsNative
+    let SIGBREAK: float = jsNative
+    let SIGWINCH: float = jsNative
+    let SSL_OP_ALL: float = jsNative
+    let SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION: float = jsNative
+    let SSL_OP_CIPHER_SERVER_PREFERENCE: float = jsNative
+    let SSL_OP_CISCO_ANYCONNECT: float = jsNative
+    let SSL_OP_COOKIE_EXCHANGE: float = jsNative
+    let SSL_OP_CRYPTOPRO_TLSEXT_BUG: float = jsNative
+    let SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS: float = jsNative
+    let SSL_OP_EPHEMERAL_RSA: float = jsNative
+    let SSL_OP_LEGACY_SERVER_CONNECT: float = jsNative
+    let SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER: float = jsNative
+    let SSL_OP_MICROSOFT_SESS_ID_BUG: float = jsNative
+    let SSL_OP_MSIE_SSLV2_RSA_PADDING: float = jsNative
+    let SSL_OP_NETSCAPE_CA_DN_BUG: float = jsNative
+    let SSL_OP_NETSCAPE_CHALLENGE_BUG: float = jsNative
+    let SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG: float = jsNative
+    let SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG: float = jsNative
+    let SSL_OP_NO_COMPRESSION: float = jsNative
+    let SSL_OP_NO_QUERY_MTU: float = jsNative
+    let SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION: float = jsNative
+    let SSL_OP_NO_SSLv2: float = jsNative
+    let SSL_OP_NO_SSLv3: float = jsNative
+    let SSL_OP_NO_TICKET: float = jsNative
+    let SSL_OP_NO_TLSv1: float = jsNative
+    let SSL_OP_NO_TLSv1_1: float = jsNative
+    let SSL_OP_NO_TLSv1_2: float = jsNative
+    let SSL_OP_PKCS1_CHECK_1: float = jsNative
+    let SSL_OP_PKCS1_CHECK_2: float = jsNative
+    let SSL_OP_SINGLE_DH_USE: float = jsNative
+    let SSL_OP_SINGLE_ECDH_USE: float = jsNative
+    let SSL_OP_SSLEAY_080_CLIENT_DH_BUG: float = jsNative
+    let SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG: float = jsNative
+    let SSL_OP_TLS_BLOCK_PADDING_BUG: float = jsNative
+    let SSL_OP_TLS_D5_BUG: float = jsNative
+    let SSL_OP_TLS_ROLLBACK_BUG: float = jsNative
+    let ENGINE_METHOD_DSA: float = jsNative
+    let ENGINE_METHOD_DH: float = jsNative
+    let ENGINE_METHOD_RAND: float = jsNative
+    let ENGINE_METHOD_ECDH: float = jsNative
+    let ENGINE_METHOD_ECDSA: float = jsNative
+    let ENGINE_METHOD_CIPHERS: float = jsNative
+    let ENGINE_METHOD_DIGESTS: float = jsNative
+    let ENGINE_METHOD_STORE: float = jsNative
+    let ENGINE_METHOD_PKEY_METHS: float = jsNative
+    let ENGINE_METHOD_PKEY_ASN1_METHS: float = jsNative
+    let ENGINE_METHOD_ALL: float = jsNative
+    let ENGINE_METHOD_NONE: float = jsNative
+    let DH_CHECK_P_NOT_SAFE_PRIME: float = jsNative
+    let DH_CHECK_P_NOT_PRIME: float = jsNative
+    let DH_UNABLE_TO_CHECK_GENERATOR: float = jsNative
+    let DH_NOT_SUITABLE_GENERATOR: float = jsNative
+    let NPN_ENABLED: float = jsNative
+    let RSA_PKCS1_PADDING: float = jsNative
+    let RSA_SSLV23_PADDING: float = jsNative
+    let RSA_NO_PADDING: float = jsNative
+    let RSA_PKCS1_OAEP_PADDING: float = jsNative
+    let RSA_X931_PADDING: float = jsNative
+    let RSA_PKCS1_PSS_PADDING: float = jsNative
+    let POINT_CONVERSION_COMPRESSED: float = jsNative
+    let POINT_CONVERSION_UNCOMPRESSED: float = jsNative
+    let POINT_CONVERSION_HYBRID: float = jsNative
+    let O_RDONLY: float = jsNative
+    let O_WRONLY: float = jsNative
+    let O_RDWR: float = jsNative
+    let S_IFMT: float = jsNative
+    let S_IFREG: float = jsNative
+    let S_IFDIR: float = jsNative
+    let S_IFCHR: float = jsNative
+    let S_IFLNK: float = jsNative
+    let O_CREAT: float = jsNative
+    let O_EXCL: float = jsNative
+    let O_TRUNC: float = jsNative
+    let O_APPEND: float = jsNative
+    let F_OK: float = jsNative
+    let R_OK: float = jsNative
+    let W_OK: float = jsNative
+    let X_OK: float = jsNative
+    let UV_UDP_REUSEADDR: float = jsNative

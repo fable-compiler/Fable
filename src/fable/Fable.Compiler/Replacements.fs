@@ -191,7 +191,8 @@ module Util =
         | CoreCons com "List" _, _ ->
             Fable.ArrayConst(Fable.ArrayValues [], genArg i.returnType) |> Fable.Value
         // Typed arrays
-        | _, Fable.Array(Fable.Number numberKind) -> arrayFrom (getTypedArrayName com numberKind) expr
+        | _, Fable.Array(Fable.Number numberKind) when not com.Options.noTypedArrays ->
+            arrayFrom (getTypedArrayName com numberKind) expr
         | _ -> arrayFrom "Array" expr
 
     let applyOp com (i: Fable.ApplyInfo) (args: Fable.Expr list) meth =
@@ -400,17 +401,10 @@ module private AstPass =
                     | Some t -> Some(Fable.Array t)
                     | None -> None
                 | Fable.Tuple ts ->
-                    (ts, (false, []))
-                    ||> List.foldBack (fun t (inflate, acc) ->
-                        match needsInflate genArgsMap t with
-                        | Some t -> true, t::acc
-                        | None -> inflate, t::acc)
-                    |> function
-                    | true, ts -> Some(Fable.Tuple ts)
-                    | false, _ -> None
+                    Some(Fable.Tuple ts)
                 | Fable.DeclaredType(ent, [genArg])
                     when ent.FullName = "Microsoft.FSharp.Core.FSharpOption" ->
-                    needsInflate genArgsMap genArg
+                    Some(Fable.DeclaredType(ent, [genArg]))
                 | Fable.DeclaredType _ as t -> Some t
                 | Fable.GenericParam name ->
                     match Map.tryFind name genArgsMap with
@@ -437,7 +431,7 @@ module private AstPass =
                         let typFullName = fullName typ
                         if Map.containsKey typFullName acc then acc else
                         let acc = Map.add typFullName [] acc // Prevent endless recursion
-                        let propsOrfields, cases, genArgs, genArgsMap =
+                        let propsOrfields, cases, genArgs, genArgsMap, options =
                             match typ with
                             | Fable.DeclaredType(ent, genArgs) ->
                                 let propsOrfields, cases =
@@ -445,18 +439,18 @@ module private AstPass =
                                     | Fable.Record fields | Fable.Exception fields -> fields, []
                                     | Fable.Class(_, properties) -> properties, []
                                     | Fable.Union cases ->
-                                        if ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
-                                        then [], []
+                                        if ent.FullName = "Microsoft.FSharp.Collections.FSharpList" then [], []
+                                        else if ent.FullName = "Microsoft.FSharp.Core.FSharpOption" then [], []
                                         else [], Map.toList cases
                                     | Fable.Module | Fable.Interface -> [], []
                                 let genArgsMap =
                                     if ent.GenericParameters.Length = genArgs.Length
                                     then List.zip ent.GenericParameters genArgs |> Map
                                     else Map.empty
-                                propsOrfields, cases, genArgs, genArgsMap
-                            | Fable.Array genArg -> [], [], [genArg], Map.empty
-                            | Fable.Tuple genArgs -> [], [], genArgs, Map.empty
-                            | _ -> [], [], [], Map.empty
+                                propsOrfields, cases, genArgs, genArgsMap, []
+                            | Fable.Array genArg -> [], [], [genArg], Map.empty, []
+                            | Fable.Tuple genArgs -> [], [], genArgs, Map.empty, ["$tupleLength", box(List.length genArgs)]
+                            | _ -> [], [], [], Map.empty, []
                         let acc, props =
                             ((acc, []), propsOrfields)
                             ||> List.fold (fun (acc, props) (propName, propType) ->
@@ -490,7 +484,7 @@ module private AstPass =
                                 | Some genArg ->
                                     let acc = buildSchema acc genArg
                                     acc, (sprintf "$genArg%i" i, fullName genArg |> box)::genArgs, i)
-                        (List.rev props)@(List.rev cases)@(List.rev genArgs)
+                        (List.rev props)@(List.rev cases)@(List.rev genArgs)@(options)
                         |> Map.add typFullName <| acc
                     let expected, schema =
                         let schema = buildSchema Map.empty expected
@@ -515,7 +509,9 @@ module private AstPass =
                                         |> makeArray Fable.Any
                                         |> tuple2 k)
                                     |> makeJsObject SourceLocation.Empty
-                                | _ -> failwithf "unexpected value in ofJson schema %s" <| v.GetType().FullName
+                                | _ -> 
+                                    if k.StartsWith("$") then makeConst v
+                                    else failwithf "unexpected value in ofJson schema %s" <| v.GetType().FullName
                                 |> tuple2 k)
                             |> List.append
                                 [ "$type",
@@ -711,7 +707,11 @@ module private AstPass =
         | "toUpperInvariant" -> icall com i "toUpperCase" |> Some
         | "toLower" -> icall com i "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall com i "toLowerCase" |> Some
-        | "indexOf" | "lastIndexOf" -> icall com i i.methodName |> Some
+        | "indexOf" | "lastIndexOf" ->
+            match i.args with
+            | [Type Fable.String]
+            | [Type Fable.String; Type(Fable.Number Int32)] -> icall com i i.methodName |> Some
+            | _ -> failwith "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
         | "trim" | "trimStart" | "trimEnd" ->
             let side =
                 match i.methodName with
@@ -1131,7 +1131,7 @@ module private AstPass =
               "isEmpty"; "last"; "tryLast"; "length";
               "mapFold"; "mapFoldBack"; "max"; "maxBy"; "min"; "minBy";
               "reduce"; "reduceBack"; "sum"; "sumBy"; "tail"; "toList";
-              "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; "unfold";
+              "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; 
               "tryFindBack"; "findBack"; "tryFindIndexBack"; "findIndexBack" ]
 
     // Functions that must return a collection of the same type
@@ -1141,7 +1141,7 @@ module private AstPass =
               "map"; "mapIndexed"; "map2"; "mapIndexed2"; "map3";
               "ofArray"; "pairwise"; "permute"; "replicate"; "reverse";
               "scan"; "scanBack"; "singleton"; "skip"; "skipWhile";
-              "take"; "takeWhile"; "sortWith"; "zip"; "zip3" ]
+              "take"; "takeWhile"; "sortWith"; "unfold"; "zip"; "zip3" ]
 
     let implementedListFunctions =
         set [ "append"; "choose"; "collect"; "concat"; "filter"; "where";

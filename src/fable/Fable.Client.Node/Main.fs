@@ -53,6 +53,7 @@ let readOptions argv =
         watch = def opts "watch" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
         copyExt = def opts "copyExt" false (un bool.Parse)
+        noTypedArrays = def opts "noTypedArrays" false (un bool.Parse)
         declaration = def opts "declaration" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id) |> List.append ["FABLE_COMPILER"] |> List.distinct
         plugins = def opts "plugins" [] (li id)
@@ -97,7 +98,9 @@ let forgeGetProjectOptions projFile =
         |> Seq.map (fun fileName -> Path.Combine(projPath, fileName))
         |> Seq.toArray
     let beforeComma (str: string) = match str.IndexOf(',', 0) with | -1 -> str | i -> str.Substring(0, i)
-    let projReferences = projParsed.References |> Seq.map (fun x -> beforeComma x.Include)
+    let projReferences = projParsed.References |> Seq.map (fun x ->
+        (beforeComma x.Include),
+        (match x.HintPath with | Some path -> Path.Combine(projPath, path) |> Some | _ -> None))
     //NOTE: proper reference resolution ahead of time is necessary to avoid default FCS resolution
     let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
     let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
@@ -117,21 +120,27 @@ let forgeGetProjectOptions projFile =
         yield "--flaterrors"
         yield "--target:library"
         //yield "--targetprofile:netcore"
-        //
-        let defaultReferences = [
-            "mscorlib"
-            "System.IO"
-            "System.Runtime"
+        
+        let coreReferences = [
+            "FSharp.Core", Some fsCoreLib
+            "CoreLib", Some sysCoreLib
+            "mscorlib", None
+            "System.IO", None
+            "System.Runtime", None
         ]
-        let references = Seq.append defaultReferences projReferences |> Seq.distinct
-        for r in references do 
-            //TODO: check more paths?
-            if File.Exists (sysLib r) then
-                yield "-r:" + (sysLib r)
-            elif File.Exists (localLib r) then
-                yield "-r:" + (localLib r)
-        yield "-r:" + fsCoreLib
-        yield "-r:" + sysCoreLib
+
+        // add distinct project references
+        let references = Seq.append coreReferences projReferences |> Seq.distinctBy fst
+        for r in references do
+            match r with
+                | _, Some path -> // absolute paths
+                    yield "-r:" + path
+                | name, None -> // try to resolve path
+                    if File.Exists (sysLib name) then
+                        yield "-r:" + (sysLib name)
+                    elif File.Exists (localLib name) then
+                        yield "-r:" + (localLib name)
+                    //TODO: check more paths?
     |]
     let projOptions: FSharpProjectOptions = {
         ProjectFileName = projFile
@@ -161,7 +170,8 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
         let projFile = Path.GetFullPath opts.projFile
         match (Path.GetExtension projFile).ToLower() with
         | ".fsx" ->
-            checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile)
+            let defines = [|for symbol in opts.symbols do yield "--define:" + symbol|]
+            checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = defines)
             |> Async.RunSynchronously
         #if DOTNETCORE
         | ".fsproj" -> forgeGetProjectOptions projFile

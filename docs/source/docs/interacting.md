@@ -103,7 +103,7 @@ module string_decoder =
         abstract write: buffer: Buffer -> strings
         abstract detectIncompleteChar: buffer: Buffer -> float
 
-    let StringDecoder: NodeStringDecoder = failwith "JS only"
+    let StringDecoder: NodeStringDecoder = jsNative
 ```
 
 > If a method accepts a lambda make sure to use `System.Func` in the signature to force
@@ -120,6 +120,10 @@ npm install -g ts2fable
 You can find common definitions already parsed [here](https://github.com/fable-compiler/Fable/blob/master/import).
 Some of them are available in npm, just search for `fable-import` packages.
 
+> **Attention**: Files starting with `Fable.Import` are ignored by Fable compiler as they're supposed
+to contain only empty bindings. If you're writing you're own bindings, please be aware of this fact
+and don't include any compilable code in a file with this prefix.
+
 ## Special attributes
 
 There are some attributes available in the `Fable.Core` namespace to ease the interaction with JS.
@@ -135,7 +139,7 @@ the following code will generate JavaScript as seen below.
 open Fable.Core
 
 [<Emit("$0 + $1")>]
-let add (x: int) (y: string): float = failwith "JS only"
+let add (x: int) (y: string): float = jsNative
 
 let result = add 1 "2"
 ```
@@ -149,7 +153,7 @@ When you don't know the exact number of arguments you can use the following synt
 ```fsharp
 type Test() =
     [<Emit("$0($1...)")>]
-    member __.Invoke([<ParamArray>] args: int[]): obj = failwith "JS only"
+    member __.Invoke([<ParamArray>] args: int[]): obj = jsNative
 ```
 
 It's also possible to pass syntax conditioned to optional parameters.
@@ -157,11 +161,11 @@ It's also possible to pass syntax conditioned to optional parameters.
 ```fsharp
 type Test() =
     [<Emit("$0[$1]{{=$2}}")>]
-    member __.Item with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    member __.Item with get(): float = jsNative and set(v: float): unit = jsNative
 
     // This syntax means: if second arg evals to true in JS print 'i' and nothing otherwise
     [<Emit("new RegExp($0,'g{{$1?i:}}')")>]
-    member __.ParseRegex(pattern: string, ?ignoreCase: bool): Regex = failwith "JS only"
+    member __.ParseRegex(pattern: string, ?ignoreCase: bool): Regex = jsNative
 ```
 
 The content of `Emit` will actually be parsed by Babel so it will still be
@@ -338,7 +342,7 @@ type CSSProp =
     | Display of string
 
 [<Emit("Object.assign({}, $0, $1)")>]
-let ( ++ ) (a:'a list) (b:'a list) : 'a list = failwith "JS Only"
+let ( ++ ) (a:'a list) (b:'a list) : 'a list = jsNative
 
 let niceBorder = [ Border "1px solid blue" ]
 let style = [ Display "inline-block" ] ++ niceBorder

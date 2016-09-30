@@ -52,7 +52,7 @@ and ITestDefinition =
 
 module reporters =
     type [<Import("reporters.Base","Mocha")>] Base(runner: IRunner) =
-        member __.stats with get(): obj = failwith "JS only" and set(v: obj): unit = failwith "JS only"
+        member __.stats with get(): obj = jsNative and set(v: obj): unit = jsNative
 
     and [<Import("reporters.Doc","Mocha")>] Doc(runner: IRunner) =
         inherit Base(runner)
@@ -103,36 +103,36 @@ module reporters =
         inherit Base(runner)
 
 type [<Import("default","Mocha")>] Mocha(?options: obj) =
-    member __.setup(options: MochaSetupOptions): Mocha = failwith "JS only"
-    member __.bail(?value: bool): Mocha = failwith "JS only"
-    member __.addFile(file: string): Mocha = failwith "JS only"
-    member __.reporter(name: string): Mocha = failwith "JS only"
-    member __.reporter(reporter: Func<IRunner, obj, obj>): Mocha = failwith "JS only"
-    member __.ui(value: string): Mocha = failwith "JS only"
-    member __.grep(value: string): Mocha = failwith "JS only"
-    member __.grep(value: Regex): Mocha = failwith "JS only"
-    member __.invert(): Mocha = failwith "JS only"
-    member __.ignoreLeaks(value: bool): Mocha = failwith "JS only"
-    member __.checkLeaks(): Mocha = failwith "JS only"
-    member __.throwError(error: Error): unit = failwith "JS only"
-    member __.growl(): Mocha = failwith "JS only"
-    member __.globals(value: string): Mocha = failwith "JS only"
-    member __.globals(values: ResizeArray<string>): Mocha = failwith "JS only"
-    member __.useColors(value: bool): Mocha = failwith "JS only"
-    member __.useInlineDiffs(value: bool): Mocha = failwith "JS only"
-    member __.timeout(value: float): Mocha = failwith "JS only"
-    member __.slow(value: float): Mocha = failwith "JS only"
-    member __.enableTimeouts(value: bool): Mocha = failwith "JS only"
-    member __.asyncOnly(value: bool): Mocha = failwith "JS only"
-    member __.noHighlighting(value: bool): Mocha = failwith "JS only"
-    member __.run(?onComplete: float->unit): IRunner = failwith "JS only"
+    member __.setup(options: MochaSetupOptions): Mocha = jsNative
+    member __.bail(?value: bool): Mocha = jsNative
+    member __.addFile(file: string): Mocha = jsNative
+    member __.reporter(name: string): Mocha = jsNative
+    member __.reporter(reporter: Func<IRunner, obj, obj>): Mocha = jsNative
+    member __.ui(value: string): Mocha = jsNative
+    member __.grep(value: string): Mocha = jsNative
+    member __.grep(value: Regex): Mocha = jsNative
+    member __.invert(): Mocha = jsNative
+    member __.ignoreLeaks(value: bool): Mocha = jsNative
+    member __.checkLeaks(): Mocha = jsNative
+    member __.throwError(error: Error): unit = jsNative
+    member __.growl(): Mocha = jsNative
+    member __.globals(value: string): Mocha = jsNative
+    member __.globals(values: ResizeArray<string>): Mocha = jsNative
+    member __.useColors(value: bool): Mocha = jsNative
+    member __.useInlineDiffs(value: bool): Mocha = jsNative
+    member __.timeout(value: float): Mocha = jsNative
+    member __.slow(value: float): Mocha = jsNative
+    member __.enableTimeouts(value: bool): Mocha = jsNative
+    member __.asyncOnly(value: bool): Mocha = jsNative
+    member __.noHighlighting(value: bool): Mocha = jsNative
+    member __.run(?onComplete: float->unit): IRunner = jsNative
 
 module Globals =
-    let [<Global>] mocha: Mocha = failwith "JS only"
-    let [<Global>] describe: IContextDefinition = failwith "JS only"
-    let [<Global>] xdescribe: IContextDefinition = failwith "JS only"
-    let [<Global>] context: IContextDefinition = failwith "JS only"
-    let [<Global>] suite: IContextDefinition = failwith "JS only"
-    let [<Global>] it: ITestDefinition = failwith "JS only"
-    let [<Global>] xit: ITestDefinition = failwith "JS only"
-    let [<Global>] test: ITestDefinition = failwith "JS only"
+    let [<Global>] mocha: Mocha = jsNative
+    let [<Global>] describe: IContextDefinition = jsNative
+    let [<Global>] xdescribe: IContextDefinition = jsNative
+    let [<Global>] context: IContextDefinition = jsNative
+    let [<Global>] suite: IContextDefinition = jsNative
+    let [<Global>] it: ITestDefinition = jsNative
+    let [<Global>] xit: ITestDefinition = jsNative
+    let [<Global>] test: ITestDefinition = jsNative

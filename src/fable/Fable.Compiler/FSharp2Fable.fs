@@ -94,8 +94,14 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             ar::(match baseList with Some li -> [transformExpr com ctx li] | None -> [])
         match argExprs with
         | [] -> CoreLibCall("List", None, true, [])
-        | _ -> CoreLibCall("List", Some "ofArray", false,
-                flattenList range [] argExprs |> buildArgs)
+        | _ ->
+            match flattenList range [] argExprs with
+            | [arg], Some baseList ->
+                let args = List.map (transformExpr com ctx) [arg; baseList]
+                CoreLibCall("List", None, true, args)
+            | args, baseList ->
+                let args = buildArgs(args, baseList)
+                CoreLibCall("List", Some "ofArray", false, args)
         |> makeCall com (Some range) unionType
 
 and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
@@ -128,7 +134,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         ]
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            buildApplyInfo com ctx r typ (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
+            buildApplyInfo com ctx r typ unionType (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
             Fable.Apply (makeTypeRef com (Some range) unionType, argExprs, Fable.ApplyCons,
@@ -247,8 +253,11 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.BaseValue typ ->
         Fable.Super |> Fable.Value 
 
-    | BasicPatterns.ThisValue typ ->
-        Fable.Value Fable.This
+    | BasicPatterns.ThisValue _typ ->
+        makeThisRef com ctx None
+
+    | BasicPatterns.Value v when v.IsMemberThisValue ->
+        Some v |> makeThisRef com ctx
 
     | BasicPatterns.Value v ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
@@ -427,18 +436,13 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         argExprs |> List.map (transformExpr com ctx) |> Fable.TupleConst |> Fable.Value
 
     | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
-        // If `this` is bound to context, replace it to avoid conflicts (see #158)
-        let capturedThis, ctx =
-            (ctx.scope, (None, [])) ||> List.foldBack (fun (fsRef, expr) (capturedThis, scope) ->
-                match expr with
-                | Fable.Value Fable.This ->
-                    let thisVar =
-                        match capturedThis with
-                        | Some v -> v
-                        | None -> com.GetUniqueVar() |> makeIdent
-                    Some thisVar, (fsRef, Fable.IdentValue thisVar |> Fable.Value)::scope
-                | _ -> capturedThis, (fsRef, expr)::scope)
-            |> fun (capturedThis, scope) -> capturedThis, { ctx with scope = scope}
+        // If `this` is available, capture it to avoid conflicts (see #158)
+        let capturedThis =
+            match ctx.thisAvailability with
+            | ThisUnavailable -> None
+            | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdent]
+            | ThisCaptured(prevThis, prevVars) ->
+                (Some prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
         let baseClass, baseCons =
             match baseCallExpr with
             | BasicPatterns.Call(None, meth, _, _, args)
@@ -461,7 +465,13 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> List.collect (fun (typ, overrides) ->
                 overrides |> List.map (fun over ->
                     let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
-                    let ctx, args' = bindMemberArgs com ctx true args
+                    let ctx, thisArg, args' = bindMemberArgs com ctx true args
+                    let ctx =
+                        match capturedThis, thisArg with
+                        | None, _ -> ctx
+                        | Some(capturedThis), Some thisArg ->
+                            { ctx with thisAvailability=ThisCaptured(thisArg, capturedThis) } 
+                        | Some _, None -> failwithf "Unexpected Object Expression method withouth this argument %O" range
                     // Don't use the typ argument as the override may come
                     // from another type, like ToString()
                     let typ =
@@ -501,10 +511,10 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let range = makeRangeFrom fsExpr
         let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
         match capturedThis with
-        | None -> objExpr
-        | Some thisVar ->
-            let varDecl = Fable.VarDeclaration (thisVar, Fable.Value Fable.This, false)
+        | Some((_,capturedThis)::_) ->
+            let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
             Fable.Sequential([varDecl; objExpr], range)
+        | _ -> objExpr
 
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
@@ -515,7 +525,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         if isReplaceCandidate com fsType.TypeDefinition then
             let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            buildApplyInfo com ctx r typ (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
+            buildApplyInfo com ctx r typ recordType (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
             Fable.Apply (makeTypeRef com (Some range) recordType, argExprs, Fable.ApplyCons,
@@ -763,22 +773,27 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
                 ctx, Some (privateName.name)
             else ctx, None
-        let ctx', args' = bindMemberArgs com ctx meth.IsInstanceMember args
-        let body =
-            let ctx' =
+        let args, body =
+            bindMemberArgs com ctx meth.IsInstanceMember args
+            |> fun (ctx, _, args) ->
+                if meth.IsInstanceMember || meth.IsImplicitConstructor
+                then { ctx with thisAvailability = ThisAvailable }, args
+                else ctx, args
+            |> fun (ctx, args) ->
                 match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
                 | true, Some(EntityKind(Fable.Class(Some(fullName, _), _))) ->
-                    { ctx' with baseClass = Some fullName }
-                | _ -> ctx'
-            transformExpr com ctx' body
+                    { ctx with baseClass = Some fullName }, args
+                | _ -> ctx, args
+            |> fun (ctx, args) ->
+                args, transformExpr com ctx body
         let entMember =
             let fableEnt = makeEntity com meth.EnclosingEntity
-            let argTypes = List.map Fable.Ident.getType args'
+            let argTypes = List.map Fable.Ident.getType args
             let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
             match fableEnt.TryGetMember(memberName, memberKind, not meth.IsInstanceMember, argTypes) with
             | Some m -> m
             | None -> makeMethodFrom com memberName memberKind argTypes body.Type fullTyp None meth
-            |> fun m -> Fable.MemberDeclaration(m, privateName, args', body, SourceLocation.Empty)
+            |> fun m -> Fable.MemberDeclaration(m, privateName, args, body, SourceLocation.Empty)
         declInfo.AddMethod (meth, entMember)
         ctx
     if declInfo.IsIgnoredMethod meth then ctx

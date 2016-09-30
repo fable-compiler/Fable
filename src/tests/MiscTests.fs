@@ -320,7 +320,7 @@ type Foo(i) =
         member x2.MakeFoo() = {
             new IFoo with
             member x3.Bar(s: string, [<ParamArray>] rest: obj[]) =
-                sprintf "%s: %i %i" s x.Value x2.Value
+                sprintf "%s: %i %i %i" s x.Value x2.Value j
         }
     }
 
@@ -333,16 +333,40 @@ let ``Object expression can reference enclosing type and self``() = // See #158
     f2.Test(2) |> equal 22
 
 [<Test>]
-let ``Nested object expression work``() = // See #158
+let ``Nested object expressions work``() = // See #158
     let f = Foo(5)
     let f2 = f.MakeFoo2()
-    f2.MakeFoo().Bar("Numbers") |> equal "Numbers: 10 20"
+    f2.MakeFoo().Bar("Numbers") |> equal "Numbers: 10 20 5"
+
+type IRenderer =
+  abstract member doWork: unit -> string
+
+type MyComponent(name) as self =
+  let work i = sprintf "%s-%i" name i
+  let create2 () = { new IRenderer with member __.doWork () = work 2 }
+  let create3 = { new IRenderer with member __.doWork () = work 3 }
+  let create4 = { new IRenderer with member __.doWork () = self.Work 4 }
+  let create5() = { new IRenderer with member __.doWork () = self.Work 5 }
+  member __.Work i = work i
+  member __.works1 () = { new IRenderer with member __.doWork () = work 1 }
+  member __.works2 () = create2()
+  member __.works3 () = create3
+  member __.works4 () = create4
+  member __.works5 () = create5()
+
+[<Test>]
+let ``References to enclosing type from object expression work``() = // See #438
+    MyComponent("TestA").works1().doWork() |> equal "TestA-1"
+    MyComponent("TestB").works2().doWork() |> equal "TestB-2"
+    MyComponent("TestC").works3().doWork() |> equal "TestC-3"
+    MyComponent("TestD").works4().doWork() |> equal "TestD-4"
+    MyComponent("TestE").works5().doWork() |> equal "TestE-5"
 
 type IFoo3 =
    abstract Bar: int with get, set
    
 [<Test>]
-let ``Properties in object expression works``() =
+let ``Properties in object expression work``() =
     let mutable backend = 0
     let o = { new IFoo3 with member x.Bar with get() = backend and set(v) = backend <- v }
     o.Bar |> equal 0

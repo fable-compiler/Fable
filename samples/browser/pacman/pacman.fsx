@@ -19,7 +19,7 @@ open Fable.Core
 open Fable.Import.Browser
 
 [<Emit("Math.random()")>]
-let random (): float = failwith "JS only"
+let random (): float = jsNative
 (**
 This is a full blown Pacman game. If you're looking for an introduction to Fable
 then visit other tutorials, in particular the [Mario game](../mario/index.html) which

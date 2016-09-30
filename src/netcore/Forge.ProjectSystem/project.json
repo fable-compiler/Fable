@@ -7,11 +7,11 @@
     "compile": {
       "includeFiles": [
         "Stubs.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.Core/Prelude.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.Core/XLinq.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.Core/ResizeArray.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.Core/Constants.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.Core/ProjectSystem.fs"
+        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/Prelude.fs",
+        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/XLinq.fs",
+        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/ResizeArray.fs",
+        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/Constants.fs",
+        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/ProjectSystem.fs"
       ]
     },
     "define": [
@@ -23,7 +23,7 @@
     ],
     "xmlDoc": true,
     "delaySign": true,
-    "warningsAsErrors": true,
+    "warningsAsErrors": false,
     "additionalArguments": [
       "--fullpaths",
       "--flaterrors",

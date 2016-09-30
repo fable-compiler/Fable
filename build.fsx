@@ -488,6 +488,8 @@ Target "All" ignore
   ==> "CompileFableImportTests"
   ==> "Plugins"
   ==> "MochaTest"
+  =?> ("NUnitTest", environVar "APPVEYOR" = "True")
+  =?> ("NUnitTest", environVar "TRAVIS" = "true")
   =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
   ==> "All"
 
