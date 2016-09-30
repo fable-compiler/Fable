@@ -165,29 +165,45 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
             OtherOptions = addSymbols' opts.OtherOptions
             ReferencedProjects = opts.ReferencedProjects
                 |> Array.map (fun (k,v) -> k, addSymbols symbols v) }
-    try
-        let projFile = Path.GetFullPath opts.projFile
-        match (Path.GetExtension projFile).ToLower() with
-        | ".fsx" ->
-            let defines = [|for symbol in opts.symbols do yield "--define:" + symbol|]
-            checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = defines)
-            |> Async.RunSynchronously
-        #if DOTNETCORE
-        | ".fsproj" -> forgeGetProjectOptions projFile
-        | _ as s -> failwith (sprintf "Unsupported project type: %s" s)
-        #else            
-        | _ -> // .fsproj
-            let props = opts.msbuild |> List.choose (fun x ->
-                match x.Split('=') with
-                | [|key;value|] -> Some(key,value)
-                | _ -> None)
-            // NOTE: .NET Core MSBuild can't successfully build .fsproj (yet)
-            // see https://github.com/Microsoft/msbuild/issues/709, 711, 713
-            ProjectCracker.GetProjectOptionsFromProjectFile(projFile, props)
-        #endif
-        |> addSymbols opts.symbols
-    with
-    | ex -> failwithf "Cannot read project options: %s" ex.Message
+    let projFile = Path.GetFullPath opts.projFile
+    match (Path.GetExtension projFile).ToLower() with
+    | ".fsx" ->
+      let defines = [|for symbol in opts.symbols do yield "--define:" + symbol|]
+      checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = defines)
+      |> Async.RunSynchronously
+    #if DOTNETCORE
+    | ".fsproj" -> forgeGetProjectOptions projFile
+    | _ as s -> failwith (sprintf "Unsupported project type: %s" s)
+    #else            
+    | _ -> // .fsproj
+      let props = opts.msbuild |> List.choose (fun x ->
+          match x.Split('=') with
+          | [|key;value|] -> Some(key,value)
+          | _ -> None)
+      // NOTE: .NET Core MSBuild can't successfully build .fsproj (yet)
+      // see https://github.com/Microsoft/msbuild/issues/709, 711, 713
+      ProjectCracker.GetProjectOptionsFromProjectFile(projFile, props)
+    #endif
+    |> addSymbols opts.symbols
+
+// It is common for editors with rich editing or 'intellisense' to also be watching the project
+// file for changes. In some cases that editor will lock the file which can cause fable to
+// get a read error. If that happens the lock is usually brief so we can reasonably wait 
+// for it to be released.
+let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
+    let retryUntil = (DateTime.UtcNow + TimeSpan.FromSeconds 5.) 
+    let rec retry () =
+        try
+            getProjectOpts checker opts
+        with 
+        | :? IOException as ioex -> 
+            if retryUntil > DateTime.UtcNow then
+                System.Threading.Thread.Sleep 100
+                retry()
+            else
+                failwithf "IO Error trying read project options: %s " ioex.Message
+        | ex -> failwithf "Cannot read project options: %s" ex.Message
+    retry() 
 
 let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
                         (projOptions: FSharpProjectOptions) =
@@ -269,7 +285,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         let projInfo =
             match projInfo.FileMask with
             | Some file when com.Options.projFile = file ->
-                let projOpts = getProjectOpts checker com.Options
+                let projOpts = retryGetProjectOpts checker com.Options
                 FSProjInfo(projOpts, ?fileMask=projInfo.FileMask, extra=projInfo.Extra)
             | _ -> projInfo
 
@@ -348,7 +364,7 @@ let rec awaitInput (com: ICompiler) checker fullCompileSuccess (projInfo: FSProj
         let projInfo =
             if fullCompileSuccess
             then FSProjInfo(projInfo.ProjectOpts, fileMask=fileMask, extra=projInfo.Extra)
-            else FSProjInfo(getProjectOpts checker com.Options)
+            else FSProjInfo(retryGetProjectOpts checker com.Options)
         let success, projInfo = compile com checker projInfo
         awaitInput com checker (fullCompileSuccess || success) projInfo
 
@@ -357,7 +373,7 @@ let main argv =
     try
         let opts = readOptions argv
         let checker = FSharpChecker.Create(keepAssemblyContents=true)
-        let projectOpts = getProjectOpts checker opts
+        let projectOpts = retryGetProjectOpts checker opts
         let com = loadPlugins opts.plugins |> makeCompiler opts
         // Full compilation
         let success, projInfo =
