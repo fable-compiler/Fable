@@ -218,7 +218,7 @@ module Util =
 
     let buildArray (com: IBabelCompiler) ctx consKind typ =
         match typ with
-        | Fable.Number kind ->
+        | Fable.Number kind when not com.Options.noTypedArrays ->
             let cons =
                 Fable.Util.getTypedArrayName com kind
                 |> Babel.Identifier

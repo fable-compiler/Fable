@@ -300,3 +300,74 @@ let ``Deep recursion with async doesn't cause stack overflow``() =
         do! trampolineTest result 0
         equal !result true
     } |> Async.RunSynchronously
+
+[<Test>]
+let ``Nested failure propagates in async expressions``() =
+    async {
+        let data = ref ""
+        let f1 x = 
+            async {
+                try
+                    failwith "1"
+                    return x
+                with
+                | e -> return! failwith ("2 " + e.Message) 
+            }
+        let f2 x = 
+            async {
+                try
+                    return! f1 x
+                with
+                | e -> return! failwith ("3 " + e.Message) 
+            }
+        let f() =
+            async { 
+                try
+                    let! y = f2 4
+                    return ()
+                with
+                | e -> data := e.Message
+            } 
+            |> Async.StartImmediate
+        f()
+        do! Async.Sleep 100
+        equal "3 2 1" !data
+    } |> Async.RunSynchronously
+
+[<Test>]
+let ``Try .. finally expressions inside async expressions work``() =
+    async {
+        let data = ref ""
+        async {
+            try data := !data + "1 "
+            finally data := !data + "2 "
+        } |> Async.StartImmediate
+        async {
+            try
+                try failwith "boom!"
+                finally data := !data + "3"
+            with _ -> ()
+        } |> Async.StartImmediate
+        do! Async.Sleep 100
+        equal "1 2 3" !data
+    } |> Async.RunSynchronously
+
+[<Test>]
+let ``Final statement inside async expressions can throw``() =
+    async {
+        let data = ref ""
+        let f() = async {
+            try data := !data + "1 "
+            finally failwith "boom!"
+        }
+        async { 
+            try
+                do! f()
+                return ()
+            with
+            | e -> data := !data + e.Message
+        } 
+        |> Async.StartImmediate
+        do! Async.Sleep 100
+        equal "1 boom!" !data
+    } |> Async.RunSynchronously

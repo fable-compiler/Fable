@@ -191,7 +191,8 @@ module Util =
         | CoreCons com "List" _, _ ->
             Fable.ArrayConst(Fable.ArrayValues [], genArg i.returnType) |> Fable.Value
         // Typed arrays
-        | _, Fable.Array(Fable.Number numberKind) -> arrayFrom (getTypedArrayName com numberKind) expr
+        | _, Fable.Array(Fable.Number numberKind) when not com.Options.noTypedArrays ->
+            arrayFrom (getTypedArrayName com numberKind) expr
         | _ -> arrayFrom "Array" expr
 
     let applyOp com (i: Fable.ApplyInfo) (args: Fable.Expr list) meth =
@@ -706,7 +707,11 @@ module private AstPass =
         | "toUpperInvariant" -> icall com i "toUpperCase" |> Some
         | "toLower" -> icall com i "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall com i "toLowerCase" |> Some
-        | "indexOf" | "lastIndexOf" -> icall com i i.methodName |> Some
+        | "indexOf" | "lastIndexOf" ->
+            match i.args with
+            | [Type Fable.String]
+            | [Type Fable.String; Type(Fable.Number Int32)] -> icall com i i.methodName |> Some
+            | _ -> failwith "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
         | "trim" | "trimStart" | "trimEnd" ->
             let side =
                 match i.methodName with
@@ -1126,7 +1131,7 @@ module private AstPass =
               "isEmpty"; "last"; "tryLast"; "length";
               "mapFold"; "mapFoldBack"; "max"; "maxBy"; "min"; "minBy";
               "reduce"; "reduceBack"; "sum"; "sumBy"; "tail"; "toList";
-              "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; "unfold";
+              "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; 
               "tryFindBack"; "findBack"; "tryFindIndexBack"; "findIndexBack" ]
 
     // Functions that must return a collection of the same type
@@ -1136,7 +1141,7 @@ module private AstPass =
               "map"; "mapIndexed"; "map2"; "mapIndexed2"; "map3";
               "ofArray"; "pairwise"; "permute"; "replicate"; "reverse";
               "scan"; "scanBack"; "singleton"; "skip"; "skipWhile";
-              "take"; "takeWhile"; "sortWith"; "zip"; "zip3" ]
+              "take"; "takeWhile"; "sortWith"; "unfold"; "zip"; "zip3" ]
 
     let implementedListFunctions =
         set [ "append"; "choose"; "collect"; "concat"; "filter"; "where";
