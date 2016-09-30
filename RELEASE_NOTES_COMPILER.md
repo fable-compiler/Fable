@@ -1,7 +1,8 @@
 ### 0.6.8
 
+* Fix #431: Add --babelrc compiler option
 * Fix #432: Add "postbuild-once" script
-* Fix #431: Add --babelrc compiler argument
+* Fix #433: Add --noTypedArrays compiler option
 * Fix #436: Inform users about not supported overloads of String.IndexOf/LastIndexOf
 * Fix #438: Incorrect this in local let functions creating object expressions
 * Change compilation defaults: module=commonjs & loose=true

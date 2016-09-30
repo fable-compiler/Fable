@@ -53,6 +53,7 @@ let readOptions argv =
         watch = def opts "watch" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
         copyExt = def opts "copyExt" false (un bool.Parse)
+        noTypedArrays = def opts "noTypedArrays" false (un bool.Parse)
         declaration = def opts "declaration" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id) |> List.append ["FABLE_COMPILER"] |> List.distinct
         plugins = def opts "plugins" [] (li id)
