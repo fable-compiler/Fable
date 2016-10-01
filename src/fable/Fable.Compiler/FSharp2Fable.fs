@@ -217,6 +217,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
+    // TODO: We may need to resolve the genArgs, probably adding them to the context
+    // and matching them with typeArgs in BasicPatterns.Application(callee, typeArgs, args)
     | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
 
     (** ## Flow control *)
@@ -321,8 +323,14 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                     ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2
                 | x, y -> x = y
             listsEqual argEqual argTypes1 argTypes2
-        // TODO: For custom operators we may need to take the sourceType in second place
-        let sourceType = makeType com ctx sourceTypes.Head
+        let sourceType =
+            sourceTypes |> List.tryFind (fun (NonAbbreviatedType t) ->
+                if not t.HasTypeDefinition
+                then false
+                else t.TypeDefinition.MembersFunctionsAndValues
+                     |> Seq.exists (fun m -> m.CompiledName = traitName))
+            |> defaultArg <| sourceTypes.Head // TODO: Throw exception instead?
+            |> makeType com ctx
         let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         let callee, args =
             if flags.IsInstance
