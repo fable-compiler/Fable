@@ -19,10 +19,10 @@ interface:
 `,
 
 classProperty:
-`[STATIC]member [INSTANCE][NAME] with get(): [TYPE][OPTION] = failwith "JS only" and set(v: [TYPE][OPTION]): unit = failwith "JS only"`,
+`[STATIC]member [INSTANCE][NAME] with get(): [TYPE][OPTION] = jsNative and set(v: [TYPE][OPTION]): unit = jsNative`,
 
 classMethod:
-`[STATIC][MEMBER_KEYWORD] [INSTANCE][NAME]([PARAMETERS]): [TYPE] = failwith "JS only"`,
+`[STATIC][MEMBER_KEYWORD] [INSTANCE][NAME]([PARAMETERS]): [TYPE] = jsNative`,
 
 module:
 `module [NAME] =

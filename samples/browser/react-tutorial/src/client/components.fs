@@ -45,7 +45,7 @@ module R = Fable.Helpers.React
 open R.Props
 
 [<Import("default","marked")>]
-let marked (s: string) (opts: obj): string = failwith "JS only"
+let marked (s: string) (opts: obj): string = jsNative
 
 // Check we can also use interfaces as props, see #192
 // type CVProps = {author: string; key: DateTime option}

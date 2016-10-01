@@ -1,3 +1,19 @@
+### 0.6.9
+
+* Fix #431: Add --babelrc compiler option
+* Fix #432: Add "postbuild-once" script
+* Fix #433: Add --noTypedArrays compiler option
+* Fix #436: Inform users about not supported overloads of String.IndexOf/LastIndexOf
+* Fix #438: Incorrect this in local let functions creating object expressions
+* Fix #439: IDE locking project file and preventing watch compilations
+* Change compilation defaults: module=commonjs & loose=true
+
+### 0.6.7
+
+* Fix #416: Can't ifdef around a load directive
+* Fix List.unfold: PR #428
+* Use reference hint paths for netcore: PR #423
+
 ### 0.6.6
 
 * Support ResizeArray.FindAll: PR #412

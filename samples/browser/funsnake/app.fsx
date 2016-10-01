@@ -9,7 +9,7 @@ open Fable.Core
 open Fable.Import.Browser
 
 [<Emit("Math.random()")>]
-let random (): float = failwith "JS only"
+let random (): float = jsNative
 
 // ------------------------------------------------------------------
 // Initialization

@@ -109,10 +109,10 @@ type JsonTestUnion =
     | ObjectType of JsonTypeInner
 
 [<Emit("JSON.parse($0)")>]
-let jsonParse (json: string) = failwith "JS Only"
+let jsonParse (json: string) = jsNative
 
 [<Emit("JSON.stringify($0)")>]
-let jsonStringify (json): string = failwith "JS Only"
+let jsonStringify (json): string = jsNative
 
 [<Test>]
 let ``Pattern matching json parse union cases still works``() =

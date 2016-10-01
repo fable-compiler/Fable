@@ -98,7 +98,7 @@ let inline fetchAs<'T> (url:string, init: RequestProperties list) : Async<'T> = 
 }
 
 [<Emit("Object.assign({}, $0, $1)")>]
-let inline private ( ++ ) (a:'a list) (b:'a list) : 'a list = failwith "JS Only"
+let inline private ( ++ ) (a:'a list) (b:'a list) : 'a list = jsNative
 
 /// Sends a HTTP post with the record serialized as JSON.
 /// This function already sets the HTTP Method to POST sets the json into the body.

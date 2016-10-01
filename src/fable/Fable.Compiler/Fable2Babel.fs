@@ -128,7 +128,7 @@ module Util =
             | Some mappedType ->
                 Path.getExternalImportPath com ctx.fixedFileName com.Options.coreLib
                 |> com.GetImportExpr ctx None mappedType
-            | None -> failwithf "Cannot reference type: %s" ent.FullName
+            | None -> failwithf "Cannot access type: %s" ent.FullName
         | Some file when ctx.file.FileName <> file ->
             let proj, ns = com.GetProjectAndNamespace file
             let importPath =
@@ -218,7 +218,7 @@ module Util =
 
     let buildArray (com: IBabelCompiler) ctx consKind typ =
         match typ with
-        | Fable.Number kind ->
+        | Fable.Number kind when not com.Options.noTypedArrays ->
             let cons =
                 Fable.Util.getTypedArrayName com kind
                 |> Babel.Identifier

@@ -14,6 +14,15 @@ type DecisionTarget =
     | TargetRef of Fable.Ident
     | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
 
+type ThisAvailability =
+    | ThisUnavailable
+    | ThisAvailable
+    // Object expressions must capture the `this` reference and
+    // they can also be nested (see makeThisRef and the ObjectExpr pattern)
+    | ThisCaptured
+        of currentThis: FSharpMemberOrFunctionOrValue
+        * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Ident) list
+
 type Context =
     {
     fileName: string
@@ -21,9 +30,11 @@ type Context =
     typeArgs: (string * Fable.Type) list
     decisionTargets: Map<int, DecisionTarget>
     baseClass: string option
+    thisAvailability: ThisAvailability
     }
     static member Empty =
-        { fileName="unknown"; scope=[]; typeArgs=[]; decisionTargets=Map.empty<_,_>; baseClass=None }
+        { fileName="unknown"; scope=[]; typeArgs=[]; baseClass=None;
+          decisionTargets=Map.empty<_,_>; thisAvailability=ThisUnavailable }
     
 type IFableCompiler =
     inherit ICompiler
@@ -681,20 +692,20 @@ module Util =
         ctx, List.rev args
 
     let bindMemberArgs com ctx isInstance (args: FSharpMemberOrFunctionOrValue list list) =
-        let ctx, args =
+        let thisArg, args =
             match args with
             | [thisArg]::args when isInstance ->
-                bindExpr ctx thisArg (Fable.Value Fable.This), args
-            | _ -> ctx, args
+                Some thisArg, args
+            | _ -> None, args
         match args with
-        | [] -> ctx, []
-        | [[singleArg]] when isUnit singleArg.FullType -> ctx, []
+        | [] -> ctx, thisArg, []
+        | [[singleArg]] when isUnit singleArg.FullType -> ctx, thisArg, []
         | args ->
-            List.foldBack (fun tupledArg (ctx, accArgs) ->
+            List.foldBack (fun tupledArg (ctx, thisArg, accArgs) ->
                 // The F# compiler "untuples" the args in methods
                 let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
-                ctx, untupledArg@accArgs
-            ) args (ctx, [])
+                ctx, thisArg, untupledArg@accArgs
+            ) args (ctx, thisArg, [])
 
     let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
         let catchClause =
@@ -719,11 +730,12 @@ module Util =
 //            |> Option.isSome
 //        | _ -> false
 
-    let buildApplyInfo com (ctx: Context) r typ ownerName methName methKind
+    let buildApplyInfo com (ctx: Context) r typ ownerType ownerFullName methName methKind
                        (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args)
                        : Fable.ApplyInfo =
         {
-            ownerFullName = ownerName
+            ownerType = ownerType
+            ownerFullName = ownerFullName
             methodName = methName
             methodKind = methKind
             range = r
@@ -746,8 +758,10 @@ module Util =
             then countFuncArgs meth.CurriedParameterGroups.[0].[0].Type
             else 0
         let methName, methKind = sanitizeMethodName meth
+        let ownerType = makeTypeFromDef com ctx meth.EnclosingEntity []
+        let ownerFullName = sanitizeEntityFullName meth.EnclosingEntity
         buildApplyInfo com ctx r typ
-            (sanitizeEntityFullName meth.EnclosingEntity) methName methKind
+            ownerType ownerFullName methName methKind
             (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
             (callee, args)
 
@@ -933,11 +947,31 @@ module Util =
         |> makeCallFrom com ctx r typ meth ([],[]) None
         |> makeLambdaExpr lambdaArgs
 
+    let makeThisRef _com (ctx: Context) (v: FSharpMemberOrFunctionOrValue option) =
+        match ctx.thisAvailability with
+        | ThisAvailable -> Fable.Value Fable.This
+        | ThisCaptured(currentThis, capturedThis) ->
+            match v with
+            | Some v when currentThis = v ->
+                Fable.Value Fable.This
+            | Some v ->
+                capturedThis |> List.pick (function
+                    | Some fsRef, ident when v = fsRef -> Some ident
+                    | Some _, _ -> None
+                    // The last fsRef of capturedThis must be None
+                    // (the unknown `this` ref outside nested object expressions),
+                    // so this means we've reached the end of the list.
+                    | None, ident -> Some ident)
+                |> Fable.IdentValue |> Fable.Value
+            | None ->
+                capturedThis |> List.last |> snd
+                |> Fable.IdentValue |> Fable.Value
+         // TODO: This shouldn't happen, throw exception?
+        | ThisUnavailable -> Fable.Value Fable.This
+
     let makeValueFrom com ctx r typ (v: FSharpMemberOrFunctionOrValue) =
         if not v.IsModuleValueOrMember
         then getBoundExpr ctx v
-        elif v.IsMemberThisValue
-        then Fable.This |> Fable.Value
         // External entities contain functions that will be replaced,
         // when they appear as a stand alone values, they must be wrapped in a lambda
         elif isReplaceCandidate com v.EnclosingEntity

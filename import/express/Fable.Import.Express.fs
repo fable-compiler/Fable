@@ -232,12 +232,12 @@ module express =
             abstract lookup: mime: string -> string
 
         type Globals =
-            member __.charsets with get(): Charsets = failwith "JS only" and set(v: Charsets): unit = failwith "JS only"
-            member __.default_type with get(): string = failwith "JS only" and set(v: string): unit = failwith "JS only"
-            member __.lookup(path: string): string = failwith "JS only"
-            member __.extension(mime: string): string = failwith "JS only"
-            member __.load(filepath: string): unit = failwith "JS only"
-            member __.define(mimes: obj): unit = failwith "JS only"
+            member __.charsets with get(): Charsets = jsNative and set(v: Charsets): unit = jsNative
+            member __.default_type with get(): string = jsNative and set(v: string): unit = jsNative
+            member __.lookup(path: string): string = jsNative
+            member __.extension(mime: string): string = jsNative
+            member __.load(filepath: string): unit = jsNative
+            member __.define(mimes: obj): unit = jsNative
 
     module ``serve-static`` =
         type Options =
@@ -251,15 +251,15 @@ module express =
             abstract setHeaders: Func<Response, string, obj, obj> option with get, set
     
         type Globals =
-            member __.mime: mime.Globals = failwith "JS only"
-            [<Emit("$0($1...)")>] member __.Invoke(root: string, ?options: Options): Handler = failwith "JS only"
+            member __.mime: mime.Globals = jsNative
+            [<Emit("$0($1...)")>] member __.Invoke(root: string, ?options: Options): Handler = jsNative
 
     type Globals =
-        member __.``static``: ``serve-static``.Globals = failwith "JS only"
-        member __.Router(?options: obj): Router = failwith "JS only"
-        [<Emit("$0($1...)")>] member __.Invoke(): Express = failwith "JS only"
+        member __.``static``: ``serve-static``.Globals = jsNative
+        member __.Router(?options: obj): Router = jsNative
+        [<Emit("$0($1...)")>] member __.Invoke(): Express = jsNative
 
 
 [<AutoOpen>]
 module express_Extensions =
-    let [<Import("default","express")>] express: express.Globals = failwith "JS only"
+    let [<Import("default","express")>] express: express.Globals = jsNative

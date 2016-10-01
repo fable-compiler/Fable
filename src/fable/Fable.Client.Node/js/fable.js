@@ -15,6 +15,14 @@ var pkgInfo = (function() {
     };
 }());
 
+function stderrLog(s) {
+    process.stderr.write(s + "\n")
+}
+
+function stdoutLog(s) {
+    process.stdout.write(s + "\n")
+}
+
 function getAppDescription() {
     return [
         {
@@ -42,9 +50,11 @@ var optionDefinitions = [
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
-  { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins." },  
+  { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins (true by default)." },
+  { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
   { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
+  { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },  
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'copyExt', type: Boolean, description: "Copy external files into `fable_external` folder (true by default)." },
   { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
@@ -61,7 +71,7 @@ var cfgDir = process.cwd();
 var fableConfig = "fableconfig.json";
 var fableBinOptions = new Set([
     "projFile", "coreLib", "symbols", "plugins", "msbuild",
-    "refs", "watch", "clamp", "copyExt", "extra", "declaration"
+    "refs", "watch", "clamp", "copyExt", "extra", "declaration", "noTypedArrays"
 ]);
 var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
 if (pkgInfo.name === "fable-compiler-netcore") {
@@ -94,7 +104,7 @@ function babelifyToFile(babelAst, opts) {
                          .replace(path.extname(babelAst.fileName), ".js");
     var fsCode = null,
         babelOpts = {
-            babelrc: false,
+            babelrc: opts.babelrc || false,
             filename: targetFile,
             sourceRoot: path.resolve(opts.outDir),
             plugins: babelPlugins,
@@ -131,14 +141,14 @@ function watch(opts, fableProc) {
 
     // Watch only the project directory for performance
     var projDir = path.dirname(path.resolve(path.join(cfgDir, opts.projFile)));
-    console.log("Watching " + projDir);
-    console.log("Press Enter to terminate process.");
+    stdoutLog("Watching " + projDir);
+    stdoutLog("Press Enter to terminate process.");
     opts.watching = true;
 
     process.stdin.on('data', function(data) {
         data = data.toString();
         if (data.length > 0 && data[data.length - 1] == '\n') {
-            console.log("Process terminated.");
+            stdoutLog("Process terminated.");
             fableProc.stdin.write("[SIGTERM]\n");
             process.exit(0);
         }
@@ -157,7 +167,7 @@ function watch(opts, fableProc) {
                         prev = next;
                         next = [filePath, new Date()];
                         if (!tooClose(filePath, prev)) {
-                            console.log(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
+                            stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
                             fableProc.stdin.write(filePath + "\n");
                         }
                     }
@@ -186,7 +196,7 @@ function runCommand(command, continuation) {
         return results;
     }
     var cmd, args;
-    console.log(command);
+    stdoutLog(command);
     if (process.platform === "win32") {
         cmd = "cmd";
         args = splitByWhitespace(command);
@@ -210,17 +220,26 @@ function runCommand(command, continuation) {
 }
 
 function postbuild(opts, buildSuccess, fableProc) {
-    if (opts.watch && !opts.watching) {
-        watch(opts, fableProc);
+    if (buildSuccess && opts.scripts && opts.scripts["postbuild-once"]) {
+        var postbuildScript = opts.scripts["postbuild-once"];
+        delete opts.scripts["postbuild-once"];
+        runCommand(postbuildScript, function () {
+            postbuild(opts, buildSuccess, fableProc)
+        });
     }
-    if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
+    else if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
         runCommand(opts.scripts.postbuild, function (exitCode) {
             if (!opts.watch)
                 process.exit(exitCode);
+            else if (!opts.watching)
+                watch(opts, fableProc);
         });
     }
     else if (!opts.watch) {
         process.exit(0);
+    }
+    else if (!opts.watching) {
+        watch(opts, fableProc);
     }
 }
 
@@ -232,11 +251,14 @@ function processJson(json, opts) {
             babelAst = JSON.parse(json);
         }
         catch (_err) {
-            return; // If console out is not in JSON format, just ignore
+            return; // If stdout is not in JSON format, just ignore
         }
         if (babelAst.type == "LOG") {
-            if (opts.verbose || babelAst.message.indexOf("[WARNING]") == 0) {
-                console.log(babelAst.message);
+            if (babelAst.message.indexOf("[WARNING]") == 0) {
+                stderrLog(babelAst.message);
+            }
+            else if (opts.verbose) {
+                stdoutLog(babelAst.message);
             }
         }
         else if (babelAst.type == "ERROR") {
@@ -244,16 +266,16 @@ function processJson(json, opts) {
         }
         else {
             babelifyToFile(babelAst, opts);
-            console.log("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
+            stdoutLog("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
         }
     }
     catch (e) {
         err = e.message ? e : { message: e };
     }
     if (err != null) {
-        console.log("ERROR: " + err.message);
+        stderrLog("ERROR: " + err.message);
         if (opts.verbose && err.stack) {
-            console.log(err.stack);
+            stderrLog(err.stack);
         }
         if (!opts.watch) {
             process.exit(1);
@@ -261,7 +283,7 @@ function processJson(json, opts) {
     }
 }
 
-function build(opts) {
+function resolveBabelPluginsAndPresets(opts) {
     if (opts.declaration) {
         babelPlugins.splice(0,0,
             [require("babel-dts-generator"),
@@ -276,11 +298,13 @@ function build(opts) {
         );
     }
 
+    // if opts.babelrc is true, read Babel plugins and presets from .babelrc
+    if (opts.babelrc) { return; }
+
     var knownModules = ["amd", "commonjs", "systemjs", "umd"];
 
     // ECMAScript target
     if (opts.ecma != "es2015" && opts.ecma != "es6") {
-        opts.module = opts.module || "umd"; // Default module
         if (opts.module === "es2015" || opts.module === "es6") {
             opts.module = false;
         }
@@ -288,7 +312,7 @@ function build(opts) {
             throw "Unknown module target: " + opts.module;
         }
         babelPresets.push([require.resolve("babel-preset-es2015"), {
-            "loose": opts.loose || false,
+            "loose": opts.loose,
             "modules": opts.module
         }]);
     }
@@ -323,6 +347,10 @@ function build(opts) {
             }
         });
     }
+}
+
+function build(opts) {
+    resolveBabelPluginsAndPresets(opts);
 
     var wrapInQuotes = function (arg) {
         if (process.platform === "win32") {
@@ -359,12 +387,12 @@ function build(opts) {
 
     // Call Fable.exe
     if (opts.verbose) {
-        console.log("\nPROJECT FILE: " + path.resolve(path.join(cfgDir, opts.projFile)));
-        console.log("OUTPUT DIR: " + path.resolve(opts.outDir));
-        console.log("WORKING DIR: " + path.resolve(cfgDir) + "\n");
-        console.log("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
+        stdoutLog("\nPROJECT FILE: " + path.resolve(path.join(cfgDir, opts.projFile)));
+        stdoutLog("OUTPUT DIR: " + path.resolve(opts.outDir));
+        stdoutLog("WORKING DIR: " + path.resolve(cfgDir) + "\n");
+        stdoutLog("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
-    console.log(pkgInfo.name + " " + pkgInfo.version + ": Start compilation...");
+    stdoutLog(pkgInfo.name + " " + pkgInfo.version + ": Start compilation...");
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: cfgDir, windowsVerbatimArguments: true });
 
     fableProc.on('exit', function(code) {
@@ -372,7 +400,7 @@ function build(opts) {
     });
 
     fableProc.stderr.on('data', function(data) {
-        console.log("FABLE ERROR: " + data.toString().substring(0, 300) + "...");
+        stderrLog("FABLE ERROR: " + data.toString().substring(0, 300) + "...");
         process.exit(1);
     });
 
@@ -405,7 +433,7 @@ function build(opts) {
 try {
     var opts = commandLineArgs(optionDefinitions);
     if (opts.help) {
-        console.log(getUsage(getAppDescription()));
+        stdoutLog(getUsage(getAppDescription()));
         process.exit(0);
     }
 
@@ -450,7 +478,7 @@ try {
         }
     }
     catch (err) {
-        console.log("ERROR: Cannot parse fableconfig.json: " + err);
+        stderrLog("ERROR: Cannot parse fableconfig.json: " + err);
         process.exit(1);
     }
 
@@ -458,6 +486,8 @@ try {
     opts.copyExt = "copyExt" in opts ? opts.copyExt : true;
     opts.outDir = opts.outDir ? (path.join(cfgDir, opts.outDir)) : path.dirname(path.join(cfgDir, opts.projFile));
     opts.ecma = opts.ecma || "es5";
+    opts.module = opts.module || "commonjs";
+    opts.loose = "loose" in opts ? opts.loose : true;
     if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {
         var refs = [];
         for (var k in opts.refs)
@@ -466,13 +496,13 @@ try {
     }
 
     if ([".fsproj", ".fsx"].indexOf(path.extname(opts.projFile)) == -1 ) {
-        console.log("ERROR: Please provide a F# project (.fsproj) or script (.fsx) file");
-        console.log("Use 'fable --help' to see available options");
+        stderrLog("ERROR: Please provide a F# project (.fsproj) or script (.fsx) file");
+        stderrLog("Use 'fable --help' to see available options");
         process.exit(1);
     }
 
     if (!fs.existsSync(path.resolve(path.join(cfgDir, opts.projFile)))) {
-        console.log("ERROR: Cannot find project file: " + opts.projFile);
+        stderrLog("ERROR: Cannot find project file: " + opts.projFile);
         process.exit(1);
     }
 
@@ -484,16 +514,16 @@ try {
             var semver = require("semver");
             var fableRequiredVersion = curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"];
             if (!semver.satisfies(pkgInfo.version, fableRequiredVersion)) {
-                console.log("Fable version: " + pkgInfo.version);
-                console.log("Required: " + fableRequiredVersion);
-                console.log("Please upgrade fable-compiler package");
+                stderrLog("Fable version: " + pkgInfo.version);
+                stderrLog("Required: " + fableRequiredVersion);
+                stderrLog("Please upgrade fable-compiler package");
                 process.exit(1);
             }
         }
     }
     
     if (opts.verbose) {
-        console.log("Fable F# to JS compiler version " + pkgInfo.version);
+        stdoutLog("Fable F# to JS compiler version " + pkgInfo.version);
     }
 
     if (opts.scripts && opts.scripts.prebuild) {
@@ -509,7 +539,7 @@ try {
     }
 }
 catch (err) {
-    console.log("ARG ERROR: " + err);
-    console.log("Use 'fable --help' to see available options");
+    stderrLog("ARG ERROR: " + err);
+    stderrLog("Use 'fable --help' to see available options");
     process.exit(1);
 }

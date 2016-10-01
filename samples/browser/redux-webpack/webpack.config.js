@@ -1,14 +1,19 @@
 var path = require("path");
 var webpack = require("webpack");
 
+var entry = process.env.WEBPACK_DEV_SERVER
+    ? "./temp/index"
+    : ["webpack-dev-server/client?http://localhost:8080",
+        'webpack/hot/only-dev-server',
+        "./temp/index"];
+
 module.exports = {
     devtool: "source-map",
-    entry: [
-        "webpack-dev-server/client?http://localhost:8080",
-        'webpack/hot/only-dev-server',
-        "./temp/index"
-    ],
-    output: "./bundle.js",
+    entry: entry,
+    output: {
+        path: __dirname,
+        filename: "bundle.js"
+    },    
     module: {
         preLoaders: [{
             test: /\.js$/,

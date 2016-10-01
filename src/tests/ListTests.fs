@@ -620,6 +620,15 @@ let ``List.groupBy returns valid list``() =
       | _ -> false
     worked |> equal true
 
+[<Test>]
+let ``List.unfold works``() =
+    let xs = 0. |> List.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
+    let sum = 
+      match xs with 
+      | n1::n2::n3::[] -> n1 + n2 + n3
+      | _ -> 0.0
+    sum |> equal 6.0
+    
 type R = { i: int; s: string }
 
 [<Test>]
@@ -671,3 +680,8 @@ let ``List.except works``() =
     List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
     List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
     List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true
+
+[<Test>]
+let ``List.Item throws exception when index is out of range`` () =
+    let xs = [0]
+    (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true

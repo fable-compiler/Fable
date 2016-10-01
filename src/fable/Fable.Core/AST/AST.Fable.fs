@@ -152,8 +152,9 @@ and Project(name, baseDir, fileMap, ?assemblyFile, ?importPath) =
 
 (** ##Expressions *)
 and ApplyInfo = {
-        methodName: string
+        ownerType: Type
         ownerFullName: string
+        methodName: string
         methodKind: MemberKind
         callee: Expr option
         args: Expr list
