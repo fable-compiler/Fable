@@ -188,9 +188,12 @@ let ``ResizeArray.ToArray works``() =
     equal 3. li.[0]
     equal 2. ar.[0]
 
-[<Fable.Core.Emit ("$0 === undefined")>]
-let isUndefined _ = failwith "JS Only"
 [<Test>]
 let ``ResizeArray.Item is undefined when index is out of range``()  =
     let xs = ResizeArray [0]
-    xs.Item 1 |> isUndefined |> equal true
+    #if FABLE_COMPILER
+    isNull <| box (xs.Item 1)
+    #else
+    try (xs.Item 1) |> ignore; false with _ -> true
+    #endif
+    |> equal true
