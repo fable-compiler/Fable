@@ -98,6 +98,7 @@ The following F# semantic and syntactic features are also available:
   This is needed for example, to represent TypeScript [optional properties](https://www.typescriptlang.org/docs/handbook/interfaces.html#optional-properties).
 - `IEnumerable` interface cannot be implemented. Use `seq` comprehensions
   or `Seq` module functions to generate lazy sequences.
+- anArray.[i] where anArray's type is either Array or ResizeArray, and the index i is out of range, will not produce an exception but will return null
 - `Async.RunSynchronously` is not supported.
 - When opening `Fable.Core` you'll have access to `Async.AwaitPromise`
   and `Async.StartAsPromise` extensions for easy interaction with [JS Promises](http://babeljs.io/docs/learn-es2015/#promises).

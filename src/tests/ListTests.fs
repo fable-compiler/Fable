@@ -672,3 +672,8 @@ let ``List.except works``() =
     List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
     List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
     List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true
+
+[<Test>]
+let ``List.Item throws exception when index is out of range`` () =
+    let xs = [0]
+    (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
