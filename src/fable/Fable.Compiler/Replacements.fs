@@ -1009,7 +1009,7 @@ module private AstPass =
               "take"; "takeWhile"; "sortWith"; "unfold"; "zip"; "zip3" ]
 
     let implementedListFunctions =
-        set [ "append"; "choose"; "collect"; "concat"; "filter"; "where";
+        set [ "append"; "choose"; "collect"; "concat"; "filter"; "groupBy"; "where";
               "initialize"; "map"; "mapIndexed"; "ofArray"; "partition";
               "replicate"; "reverse"; "singleton"; "unzip"; "unzip3" ]
 
