@@ -1,3 +1,8 @@
+### 0.6.7
+
+* List.groupBy now returns valid list (see PR #453)
+* Fix #454: Range sequence iterators not rewinding
+
 ### 0.6.6
 
 * Fix #440: Order of values in Seq.groupBy

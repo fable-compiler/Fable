@@ -3,7 +3,7 @@ namespace System
 open System.Reflection
 
 [<assembly: AssemblyVersionAttribute("0.6.9")>]
-[<assembly: AssemblyMetadataAttribute("fableCoreVersion","0.6.6")>]
+[<assembly: AssemblyMetadataAttribute("fableCoreVersion","0.6.7")>]
 do ()
 
 module internal AssemblyVersionInformation =

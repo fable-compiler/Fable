@@ -1878,11 +1878,11 @@ export class Seq {
   static rangeStep(first: number, step: number, last: number) {
     if (step === 0)
       throw "Step cannot be 0";
-    return Seq.unfold(x => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first);
+    return Seq.delay(() => Seq.unfold(x => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first));
   }
 
   static rangeChar(first: string, last: string) {
-    return Seq.unfold(x => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first);
+    return Seq.delay(() => Seq.unfold(x => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first));
   }
 
   static range(first: number, last: number) {

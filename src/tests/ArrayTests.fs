@@ -777,7 +777,7 @@ let ``Array.tail works``() =
     Array.tail xs |> Array.length |> equal 3
 
 [<Test>]
-let ``Array.groupBy returns valid list``() =
+let ``Array.groupBy returns valid array``() =
     let xs = [|1; 2|]
     let actual = Array.groupBy (fun _ -> true) xs
     let actualKey, actualGroup = actual.[0]
@@ -797,7 +797,7 @@ let ``Array.except works``() =
     Array.except [|{ Bar= "test" }|] [|{ Bar = "test" }|] |> Array.isEmpty |> equal true
 
 [<Test>]
-let ``Array.[i] is undefined when i is out of range`` () =
+let ``Array.[i] is undefined in Fable when i is out of range`` () =
     let xs = [|0|]
     #if FABLE_COMPILER
     isNull <| box xs.[1]
@@ -805,3 +805,9 @@ let ``Array.[i] is undefined when i is out of range`` () =
     try xs.[1] |> ignore; false with _ -> true
     #endif
     |> equal true
+
+[<Test>]
+let ``Array iterators from range do rewind`` () =
+    let xs = [|1..5|] |> Array.toSeq
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"

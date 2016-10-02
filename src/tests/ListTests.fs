@@ -685,3 +685,9 @@ let ``List.except works``() =
 let ``List.Item throws exception when index is out of range`` () =
     let xs = [0]
     (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
+
+[<Test>]
+let ``List iterators from range do rewind`` () =
+    let xs = [1..5] |> List.toSeq
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"

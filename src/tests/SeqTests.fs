@@ -709,3 +709,17 @@ let ``Seq.except works``() =
 let ``Seq.item throws exception when index is out of range`` () =
     let xs = [0]
     (try Seq.item 1 xs |> ignore; false with | _ -> true) |> equal true
+
+[<Test>]
+let ``Seq iterators from range do rewind`` () =
+    let xs = seq {for i=1 to 5 do yield i}
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+    let xs = seq {1..5}
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+    let xs = seq {'A'..'F'}
+    xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
+    xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
