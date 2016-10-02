@@ -1377,6 +1377,10 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
     return Seq.foldBack((xyz, acc) =>
       Tuple3(new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])), xs, Tuple3(new List<T1>(), new List<T2>(), new List<T3>()));
   }
+
+  static groupBy<T, K>(f: (x: T) => K, xs: List<T>): List<Tuple<K, List<T>>> {
+    return Seq.toList(Seq.map(k => Tuple(k[0], Seq.toList(k[1])), Seq.groupBy(f, xs)));
+  }
 }
 Util.setInterfaces(List.prototype, ["System.IEquatable", "System.IComparable"], "Microsoft.FSharp.Collections.FSharpList"); 
 

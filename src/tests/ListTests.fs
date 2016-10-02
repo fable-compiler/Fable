@@ -611,7 +611,15 @@ let ``List.tryLast works``() =
     List.tryLast xs |> equal (Some 4.)
     List.tryLast [] |> equal None
 
-    
+[<Test>]
+let ``List.groupBy returns valid list``() =
+    let xs = [1; 2]
+    let worked = 
+      match List.groupBy (fun _ -> true) xs with
+      | [true, [1; 2]] -> true
+      | _ -> false
+    worked |> equal true
+
 [<Test>]
 let ``List.unfold works``() =
     let xs = 0. |> List.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)

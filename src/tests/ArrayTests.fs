@@ -776,6 +776,14 @@ let ``Array.tail works``() =
     let xs = [|1.; 2.; 3.; 4.|]
     Array.tail xs |> Array.length |> equal 3
 
+[<Test>]
+let ``Array.groupBy returns valid list``() =
+    let xs = [|1; 2|]
+    let actual = Array.groupBy (fun _ -> true) xs
+    let actualKey, actualGroup = actual.[0]
+    let worked = actualKey = true && actualGroup.[0] = 1 && actualGroup.[1] = 2
+    worked |> equal true
+
 type ExceptFoo = { Bar:string }
 [<Test>]
 let ``Array.except works``() =
