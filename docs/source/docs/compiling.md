@@ -129,8 +129,10 @@ There are some options exclusive to `fableconfig.json`.
 }
 ```
 
-> `postbuild` will also run for every compilation in watch mode. If you only want
+> `postbuild` will run for every compilation in watch mode. If you only want
 to run the script after the first full compilation, use `postbuild-once`.
+Attention: On Windows, `postbuild-once` can only be used with executable files (`.exe`),
+not with `.bat` or `.cmd` scripts.
 
 > The scripts will run as if you typed the command on a terminal window from
 the directory where `fableconfig.json` is. Fable scripts are not as powerful

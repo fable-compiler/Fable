@@ -1,3 +1,7 @@
+### 0.6.11
+
+* Don't wait until "postbuild-once" script is finished (see #432)
+
 ### 0.6.9
 
 * Fix #431: Add --babelrc compiler option

@@ -130,7 +130,7 @@ function babelifyToFile(babelAst, opts) {
     }
 }
 
-function watch(opts, fableProc) {
+function watch(opts, fableProc, parallelProc) {
     function tooClose(filename, prev) {
         return prev != null &&
             filename == prev[0] &&
@@ -145,34 +145,37 @@ function watch(opts, fableProc) {
     stdoutLog("Press Enter to terminate process.");
     opts.watching = true;
 
+    var fsExtensions = [".fs", ".fsx", ".fsproj"];
+    var ready = false;
+    var watcher = chokidar
+        .watch(projDir, { ignored: /node_modules/, persistent: true })
+        .on("ready", function() { ready = true; })
+        .on("all", function(ev, filePath) {
+            if (ready) {
+                var ext = path.extname(filePath).toLowerCase();
+                if (fsExtensions.indexOf(ext) >= 0) {
+                    prev = next;
+                    next = [filePath, new Date()];
+                    if (!tooClose(filePath, prev)) {
+                        stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
+                        fableProc.stdin.write(filePath + "\n");
+                    }
+                }
+            }
+        });
+
     process.stdin.on('data', function(data) {
         data = data.toString();
         if (data.length > 0 && data[data.length - 1] == '\n') {
-            stdoutLog("Process terminated.");
+            if (parallelProc) {
+                parallelProc.kill();
+            }
             fableProc.stdin.write("[SIGTERM]\n");
+            watcher.close();
+            stdoutLog("Process terminated.");
             process.exit(0);
         }
     });
-
-    var fsExtensions = [".fs", ".fsx", ".fsproj"];
-    var ready = false;
-    chokidar.watch(projDir, { ignored: /node_modules/, persistent: true })
-            .on("ready", function() {
-                ready = true;
-            })
-            .on("all", function(ev, filePath) {
-                if (ready) {
-                    var ext = path.extname(filePath).toLowerCase();
-                    if (fsExtensions.indexOf(ext) >= 0) {
-                        prev = next;
-                        next = [filePath, new Date()];
-                        if (!tooClose(filePath, prev)) {
-                            stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
-                            fableProc.stdin.write(filePath + "\n");
-                        }
-                    }
-                }
-            });
 }
 
 function runCommand(command, continuation) {
@@ -197,10 +200,13 @@ function runCommand(command, continuation) {
     }
     var cmd, args;
     stdoutLog(command);
-    if (process.platform === "win32") {
+    // If there's no continuation, it means the process will run in parallel (postbuild-once).    
+    // If we use `cmd /C` on Windows we won't be able to kill the cmd child process later. 
+    // See http://stackoverflow.com/a/32814686 (unfortutanely the solutions didn't seem to apply here)
+    if (process.platform === "win32" && continuation) {
         cmd = "cmd";
         args = splitByWhitespace(command);
-        args.splice(0,0,"/C")
+        args.splice(0,0,"/C");
     }
     else {
         args = splitByWhitespace(command);
@@ -209,7 +215,8 @@ function runCommand(command, continuation) {
     }
     var proc = child_process.spawn(cmd, args, { cwd: cfgDir });
     proc.on('exit', function(code) {
-        continuation(code);
+        if (typeof continuation === "function")
+            continuation(code);
     });
     proc.stderr.on('data', function(data) {
         process.stderr.write(data.toString());
@@ -217,29 +224,35 @@ function runCommand(command, continuation) {
     proc.stdout.on("data", function(data) {
         process.stdout.write(data.toString());
     });
+    return proc;
 }
 
 function postbuild(opts, buildSuccess, fableProc) {
+    var parallelProc = null;
+    // The "postbuild-once" script must be run only once (well done, Captain Obvious)
+    // and it musn't wait till the process is finished, as it's normally used
+    // to fire up watch mode of bundlers (Webpack, Rollup...)
     if (buildSuccess && opts.scripts && opts.scripts["postbuild-once"]) {
         var postbuildScript = opts.scripts["postbuild-once"];
         delete opts.scripts["postbuild-once"];
-        runCommand(postbuildScript, function () {
-            postbuild(opts, buildSuccess, fableProc)
-        });
+        parallelProc = runCommand(postbuildScript);
     }
-    else if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
+
+    // If present, run "postbuild" script after every build and wait till it's finished
+    // to exit the process or start watch mode
+    if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
         runCommand(opts.scripts.postbuild, function (exitCode) {
             if (!opts.watch)
                 process.exit(exitCode);
             else if (!opts.watching)
-                watch(opts, fableProc);
+                watch(opts, fableProc, parallelProc);
         });
     }
     else if (!opts.watch) {
         process.exit(0);
     }
     else if (!opts.watching) {
-        watch(opts, fableProc);
+        watch(opts, fableProc, parallelProc);
     }
 }
 
