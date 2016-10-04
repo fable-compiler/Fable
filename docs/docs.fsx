@@ -116,10 +116,9 @@ type Page =
     Tagline : string
     Content : string }
 
-
 // Copy static files from the 'source' folder to 'output' folder (add more extensions!)
 let copyFiles force =
-    Helpers.processDirectory force source output [".css"; ".js"; ".png"; ".gif"; ".jpg"]
+    Helpers.processDirectory force source output [".css"; ".js"; ".png"; ".gif"; ".jpg"; ""]
       (fun source outdir ->
           let name = Path.GetFileName(source)
           File.Copy(source, outdir </> name, true) )
