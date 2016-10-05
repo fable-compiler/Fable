@@ -29,7 +29,7 @@ open Fake.Git
 // --------------------------------------------------------------------------------------
 
 // Where to push generated documentation
-let publishSite = "//fable-compiler.github.io"
+let publishSite = "//fable.io"
 let githubLink = "http://github.com/fable-compiler/fable-compiler.github.io"
 let publishBranch = "master"
 
