@@ -355,3 +355,11 @@ let ``Equality works in filter``() =
     |> Array.filter (fun r -> r.Case = MyUnion.Case1)
     |> Array.length
     |> equal 2
+
+[<Test>]
+let ``Pattern matching works in filter``() =
+    let original = [| { Name = "1"; Case = Case1 } ; { Name = "2"; Case = Case1 }; { Name = "3"; Case = Case2 }; { Name = "4"; Case = Case3 } |]
+    original
+    |> Array.filter (fun r -> match r.Case with MyUnion.Case1 -> true | _ -> false)
+    |> Array.length
+    |> equal 2
