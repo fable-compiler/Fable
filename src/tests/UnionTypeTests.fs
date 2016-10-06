@@ -336,3 +336,22 @@ let ``Erased union type testing works``() =
     U3.Case2 3 |> toString |> equal "6"
     "HELLO" |> Wrapper |> U3.Case3 |> toString |> equal "OLLEH"
 #endif
+
+
+type MyUnion =
+| Case1
+| Case2
+| Case3
+
+type R = {
+    Name: string
+    Case: MyUnion
+}
+
+[<Test>]
+let ``Equality works in filter``() =
+    let original = [| { Name = "1"; Case = Case1 } ; { Name = "2"; Case = Case1 }; { Name = "3"; Case = Case2 }; { Name = "4"; Case = Case3 } |]
+    original
+    |> Array.filter (fun r -> r.Case = MyUnion.Case1)
+    |> Array.length
+    |> equal 2
