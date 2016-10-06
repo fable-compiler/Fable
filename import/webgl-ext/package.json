@@ -1,6 +1,6 @@
 {
-  "name": "fable-import-wegl-ext",
-  "version": "0.0.3",
+  "name": "fable-import-webgl-ext",
+  "version": "0.0.4",
   "description": "Fable bindings for WebGL extensions",
   "repository": {
     "type": "git",
