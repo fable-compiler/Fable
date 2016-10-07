@@ -684,12 +684,15 @@ module Util =
     open Identifiers
 
     let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
-        let ctx, args =
-            ((ctx, []), vars)
-            ||> List.fold (fun (ctx, accArgs) var ->
-                let newContext, arg = bindIdentFrom com ctx var
-                newContext, arg::accArgs)
-        ctx, List.rev args
+        match vars with
+        | [var] when isUnit var.FullType -> ctx, []
+        | _ ->
+            let ctx, args =
+                ((ctx, []), vars)
+                ||> List.fold (fun (ctx, accArgs) var ->
+                    let newContext, arg = bindIdentFrom com ctx var
+                    newContext, arg::accArgs)
+            ctx, List.rev args
 
     let bindMemberArgs com ctx isInstance (args: FSharpMemberOrFunctionOrValue list list) =
         let thisArg, args =
@@ -971,7 +974,10 @@ module Util =
 
     let makeValueFrom com ctx r typ (v: FSharpMemberOrFunctionOrValue) =
         if not v.IsModuleValueOrMember
-        then getBoundExpr ctx v
+        then
+            if typ = Fable.Unit
+            then Fable.Value Fable.Null
+            else getBoundExpr ctx v
         // External entities contain functions that will be replaced,
         // when they appear as a stand alone values, they must be wrapped in a lambda
         elif isReplaceCandidate com v.EnclosingEntity

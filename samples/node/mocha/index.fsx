@@ -18,15 +18,15 @@ open Fable.Import.Mocha.Globals
 
 (** Synchronous tests *)
 
-// describe.Invoke("Array", fun () ->
-//     describe.Invoke("#indexOf()", fun () ->
-//         it.Invoke("should return -1 when the value is not present", fun () ->
-//           let jsArray = [|1;2;3|] |> unbox<JS.Array<int>>
-//           ``assert``.equal(jsArray.indexOf(5), -1)
-//           ``assert``.equal(jsArray.indexOf(0), -1)
-//         ) |> ignore
-//     ) |> ignore
-// ) |> ignore
+describe.Invoke("Array", fun () ->
+    describe.Invoke("#indexOf()", fun () ->
+        it.Invoke("should return -1 when the value is not present", fun () ->
+          let jsArray = [|1;2;3|] |> unbox<JS.Array<int>>
+          ``assert``.equal(jsArray.indexOf(5), -1)
+          ``assert``.equal(jsArray.indexOf(0), -1)
+        ) |> ignore
+    ) |> ignore
+) |> ignore
 
 (** Asynchronous tests *)
 

@@ -1,7 +1,7 @@
 ### 0.6.12
 
 * Now fableconfig.json can be in JSON5 format (comments!)
-
+* Omit lambda argument when it's of unit type
 
 ### 0.6.11
 
