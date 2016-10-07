@@ -1,3 +1,8 @@
+### 0.6.12
+
+* Now fableconfig.json can be in JSON5 format (comments!)
+
+
 ### 0.6.11
 
 * Don't wait until "postbuild-once" script is finished (see #432)

@@ -1606,9 +1606,11 @@ export class Seq {
 
   static filter<T>(f: (x: T) => boolean, xs: Iterable<T>) {
     function trySkipToNext(iter: Iterator<T>): Tuple<T, Iterator<T>> {
-      const cur = iter.next();
-      if (!cur.done)
-        return f(cur.value) ? [cur.value, iter] : trySkipToNext(iter);
+      let cur = iter.next();
+      while (!cur.done) {
+        if (f(cur.value)) { return [cur.value, iter]; }
+        cur = iter.next();
+      }
       return void 0;
     }
     return Seq.delay(() => Seq.unfold(trySkipToNext, xs[Symbol.iterator]()));

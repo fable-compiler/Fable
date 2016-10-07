@@ -1,5 +1,6 @@
 ﻿var fs = require("fs");
 var path = require("path");
+var JSON5 = require('json5');
 var chokidar = require("chokidar");
 var babel = require("babel-core");
 var child_process = require('child_process');
@@ -465,7 +466,7 @@ try {
     try {
         var cfgFile = path.join(cfgDir, fableConfig);
         if (fs.existsSync(cfgFile)) {
-            var cfg = JSON.parse(fs.readFileSync(cfgFile).toString());
+            var cfg = JSON5.parse(fs.readFileSync(cfgFile).toString());
             for (var key in cfg)
                 if (key in opts == false)
                     opts[key] = cfg[key];

@@ -723,3 +723,10 @@ let ``Seq iterators from range do rewind`` () =
     let xs = seq {'A'..'F'}
     xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
     xs |> Seq.map string |> String.concat "," |> equal "A,B,C,D,E,F"
+
+[<Test>]
+let ``Seq.filter doesn't blow the stack with long sequences`` () = // See #459
+  let max = 1000000
+  let a = [| for i in 1 .. max -> 0  |] // init with 0
+  let b = a |> Seq.filter( fun x -> x > 10) |> Seq.toArray
+  equal 0 b.Length

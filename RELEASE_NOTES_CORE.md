@@ -1,3 +1,7 @@
+### 0.6.8
+
+* Fix #459: Seq.filter doesn't blow the stack with long sequences
+
 ### 0.6.7
 
 * List.groupBy now returns valid list (see PR #453)
