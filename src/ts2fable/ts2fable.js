@@ -493,8 +493,7 @@ function getType(type) {
             var cbParams = type.parameters.map(function (x) {
                 return x.dotDotDotToken ? "obj" : getType(x.type);
             }).join(", ");
-            cbParams = cbParams.length > 0 ? cbParams + ", " : "";
-            return "Func<" + cbParams + getType(type.type) + ">";
+            return "Func<" + (cbParams || "unit") + ", " + getType(type.type) + ">";
         case ts.SyntaxKind.UnionType:
             if (type.types && type.types[0].kind == ts.SyntaxKind.StringLiteralType)
                 return "(* TODO StringEnum " + type.types.map(x=>x.text).join(" | ") + " *) string";
