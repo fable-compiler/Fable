@@ -97,22 +97,42 @@ let tryImported com name (decs: #seq<Decorator>) =
             | _ -> failwith "Import attributes must contain two string arguments"
         | _ -> None)
 
-let makeTypeRef com (range: SourceLocation option) typ =
+let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) generics typ =      
+    let makePrimType name fields =
+        let name = StringConst name |> Value
+        let fields = ArrayConst(ArrayValues fields, Any) |> Value
+        CoreLibCall("PrimType", None, true, [name; fields])
+        |> makeCall com range Any
     match typ with
-    | DeclaredType(ent, _) ->
-        match tryImported com ent.Name ent.Decorators with
-        | Some expr -> expr
-        | None -> Value (TypeRef ent)
-    | GenericParam name ->
-        "Cannot reference generic parameter " + name
-        + ". Try to make function inline."
-        |> attachRange range |> failwith
-    | _ ->
-        // TODO: Reference JS objects? Object, String, Number...
-        sprintf "Cannot reference type %s" typ.FullName
-        |> attachRange range |> failwith
+    | Any -> makePrimType "Any" []
+    | Unit -> makePrimType "Unit" []
+    | Boolean -> makePrimType "Boolean" []
+    | String -> makePrimType "String" []
+    | Number kind -> makePrimType "String" [sprintf "%A" kind |> makeConst]
+    | Enum _ ->  makePrimType "Number" [sprintf "%A" Int32 |> makeConst]
+    | Array genArg  -> [makeTypeRef com range generics genArg] |> makePrimType "Array"
+    | Option genArg -> [makeTypeRef com range generics genArg] |> makePrimType "Option"
+    | Tuple genArgs ->
+        genArgs |> List.map (makeTypeRef com range generics) |> makePrimType "Tuple"
+    | Function(genArgs, returnType) ->
+        genArgs@[returnType] |> List.map (makeTypeRef com range generics) |> makePrimType "Function"
+    | Generic name -> makePrimType "Generic" [makeConst name]
+    | DeclaredType(ent, genArgs) ->
+        if ent.FullName = "System.Text.RegularExpressions.Regex"
+        then makeIdentExpr "RegExp"
+        elif ent.Kind = Interface
+        then makePrimType "Interface" [makeConst ent.FullName]
+        else
+            // Imported types come from JS so they don't need to be made generic
+            match tryImported com ent.Name ent.Decorators with
+            | Some expr -> expr
+            | None when not generics -> Value (TypeRef ent)
+            | None ->
+                let genArgs = List.map (makeTypeRef com range generics) genArgs
+                CoreLibCall("Reflection", Some "makeGeneric", false, (Value (TypeRef ent))::genArgs)
+                |> makeCall com range Any
 
-let makeCall com range typ kind =
+and makeCall com range typ kind =
     let getCallee meth args returnType owner =
         match meth with
         | None -> owner
@@ -144,7 +164,7 @@ let makeCall com range typ kind =
 let makeEmit r t args macro =
     Apply(Value(Emit macro), args, ApplyMeth, t, r) 
 
-let makeTypeTest com range (typ: Type) expr =
+let rec makeTypeTest com range (typ: Type) expr =
     let jsTypeof (primitiveType: string) expr =
         let typof = makeUnOp None String [expr] UnaryTypeof
         makeBinOp range Boolean [typof; makeConst primitiveType] BinaryEqualStrict
@@ -152,26 +172,25 @@ let makeTypeTest com range (typ: Type) expr =
         makeBinOp None Boolean [expr; typeRef] BinaryInstanceOf
     match typ with
     | String _ -> jsTypeof "string" expr
-    | Number _ -> jsTypeof "number" expr
+    | Number _ | Enum _ -> jsTypeof "number" expr
     | Boolean -> jsTypeof "boolean" expr
     | Unit -> makeBinOp range Boolean [expr; Value Null] BinaryEqual
     | Function _ -> jsTypeof "function" expr
-    | Regex ->
-        let typeRef = makeIdent "RegExp" |> IdentValue |> Value
-        jsInstanceOf typeRef expr
-    | Array _ ->
+    | Array _ | Tuple _ ->
         "Array.isArray($0) || ArrayBuffer.isView($0)"
         |> makeEmit range Boolean [expr] 
     | Any -> makeConst true
+    | Option typ -> makeTypeTest com range typ expr
     | DeclaredType(typEnt, _) ->
         match typEnt.Kind with
         | Interface ->
             CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
             |> makeCall com range Boolean
         | _ ->
-            makeBinOp range Boolean [expr; makeTypeRef com range typ] BinaryInstanceOf
-    | _ -> "Unsupported type test: " + typ.FullName
-            |> attachRange range |> failwith
+            makeBinOp range Boolean [expr; makeTypeRef com range false typ] BinaryInstanceOf
+    | Generic name ->
+        "Cannot type test generic parameter " + name
+        |> attachRange range |> failwith
 
 let makeUnionCons () =
     let args = [{name="caseName"; typ=String}; {name="fields"; typ=Array Any}]
@@ -211,6 +230,25 @@ let makeUnionEqualMethod com argType = makeMeth com argType Boolean "Equals" "eq
 let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsRecords"
 let makeUnionCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "CompareTo" "compareRecords"
+
+let private makeObjMeth com fields name =
+    let body =
+        fields |> List.map (fun (name, typ) ->
+            MemberDeclaration(Member(name, Field, [], Any), None, [], makeTypeRef com None false typ, SourceLocation.Empty))
+        |> fun decls -> ObjExpr(decls, [], None, None)
+    MemberDeclaration(Member(name, Method, [], Any, isStatic=true), None, [], body, SourceLocation.Empty)
+
+let makeFieldsMethod com fields = makeObjMeth com fields "$fields"
+let makePropertiesMethod com properties = makeObjMeth com properties "$properties"
+
+let makeCasesMethod com (cases: Map<string, Type list>) =
+    let body =
+        cases |> Seq.map (fun kv ->
+            let typs = kv.Value |> List.map (makeTypeRef com None false)
+            let typs = Fable.ArrayConst(Fable.ArrayValues typs, Any) |> Fable.Value
+            MemberDeclaration(Member(kv.Key, Field, [], Any), None, [], typs, SourceLocation.Empty))
+        |> fun decls -> ObjExpr(Seq.toList decls, [], None, None)
+    MemberDeclaration(Member("$cases", Method, [], Any, isStatic=true), None, [], body, SourceLocation.Empty)
 
 let makeDelegate (com: ICompiler) arity (expr: Expr) =
     let rec flattenLambda (arity: int option) accArgs = function

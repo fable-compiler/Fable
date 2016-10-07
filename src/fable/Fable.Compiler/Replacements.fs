@@ -119,11 +119,11 @@ module Util =
     let toString com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
         match arg.Type with
         | Fable.String -> arg
-        | Fable.Unit | Fable.Boolean | Fable.Regex | Fable.Number _
+        | Fable.Unit | Fable.Boolean | Fable.Number _
         | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
             GlobalCall ("String", None, false, [arg])
             |> makeCall com i.range i.returnType
-        | _ ->
+        | Fable.Any | Fable.Generic _ | Fable.DeclaredType _ | Fable.Option _ -> 
             CoreLibCall ("Util", Some "toString", false, [arg])
             |> makeCall com i.range i.returnType
 
@@ -249,7 +249,7 @@ module Util =
             if equal then expr
             else makeUnOp i.range i.returnType [expr] UnaryNot
         match args.Head.Type with
-        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String | Fable.Regex
+        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
             Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | EntFullName "System.DateTime" ->
@@ -257,15 +257,14 @@ module Util =
             |> makeCall com i.range i.returnType |> is equal |> Some
         | Fable.DeclaredType(ent, _)
             when (ent.HasInterface "System.IEquatable"
-                    && ent.FullName <> "System.TimeSpan"
-                    && ent.FullName <> "Microsoft.FSharp.Core.FSharpOption")
+                    && ent.FullName <> "System.TimeSpan")
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpSet" ->
             InstanceCall(args.Head, "Equals", args.Tail)
             |> makeCall com i.range i.returnType |> is equal |> Some
         | Fable.Array _ | Fable.Tuple _
-        | Fable.DeclaredType _ | Fable.GenericParam _ ->
+        | Fable.DeclaredType _ | Fable.Generic _ | Fable.Option _ ->
             CoreLibCall("Util", Some "equals", false, args)
             |> makeCall com i.range i.returnType |> is equal |> Some
 
@@ -277,12 +276,11 @@ module Util =
             | None -> comparison
             | Some op -> makeEqOp r [comparison; makeConst 0] op
         match args.Head.Type with
-        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String | Fable.Regex
+        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ when Option.isSome op ->
             makeEqOp r args op.Value
         | Fable.DeclaredType(ent, _)
             when ent.HasInterface "System.IComparable"
-                && ent.FullName <> "Microsoft.FSharp.Core.FSharpOption"
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
             InstanceCall(args.Head, "CompareTo", args.Tail)
@@ -294,8 +292,7 @@ module Util =
     let makeComparer com (typArg: Fable.Type option) =
         match typArg with
         | None
-        | Some(EntFullName "Microsoft.FSharp.Core.FSharpOption")
-        | Some(Fable.Array _ | Fable.Tuple _) ->
+        | Some(Fable.Option _) | Some(Fable.Array _ | Fable.Tuple _) ->
             [makeCoreRef com "Util" (Some "compare")]
         | Some(Fable.DeclaredType(ent, _))
             when ent.HasInterface "System.IComparable"
@@ -391,7 +388,7 @@ module private AstPass =
             let args =
                 match i.methodName, i.methodTypeArgs with
                 | "ofJson", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
-                    [i.args.Head; makeTypeRef com None t]
+                    [i.args.Head; makeTypeRef com None true t]
                 | _ -> i.args
             let modName =
                 if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
@@ -534,7 +531,7 @@ module private AstPass =
             Fable.Throw (args.Head, typ, r) |> Some
         // Type ref
         | "typeOf" ->
-            makeTypeRef com info.range info.methodTypeArgs.Head |> Some
+            makeTypeRef com info.range true info.methodTypeArgs.Head |> Some
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -739,7 +736,7 @@ module private AstPass =
         | "typeTestGeneric", (None, [expr]) ->
             makeTypeTest com i.range i.methodTypeArgs.Head expr |> Some
         | "createInstance", (None, _) ->
-            let typRef, args = makeTypeRef com i.range i.methodTypeArgs.Head, []
+            let typRef, args = makeTypeRef com i.range false i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
@@ -857,7 +854,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for Dictionary keys, please use F# Map"
                 |> addWarning com i
             | _ -> ()
@@ -895,7 +892,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for HashSet, please use F# Set"
                 |> addWarning com i
             | _ -> ()
@@ -1272,7 +1269,7 @@ module private AstPass =
                 match i.methodTypeArgs with
                 // Native JS map is risky with typed arrays as they coerce
                 // the final result (see #120, #171)
-                | Fable.Any::_ | Fable.GenericParam _::_ -> None
+                | Fable.Any::_ | Fable.Generic _::_ -> None
                 | NumberType(Some _) as tin::[tout] when tin = tout ->
                     icall "map" (i.args.[1], deleg com i [i.args.[0]])
                 | NumberType None::[NumberType None] ->

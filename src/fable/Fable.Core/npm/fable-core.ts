@@ -43,6 +43,24 @@ export function Tuple3<T1, T2, T3>(x: T1, y: T2, z: T3) {
   return <Tuple3<T1, T2, T3>>[x, y, z];
 }
 
+export type PrimTypes = "Any" | "Unit" | "Boolean" | "String" | "Number" | "Option" | "Array" | "Tuple" | "Function" | "Generic" | "Interface";
+
+export class PrimType {
+    public Case: PrimTypes;
+    public Fields: any[];
+
+    constructor(t: PrimTypes, d: any[]) {
+        this.Case = t;
+        this.Fields = d;
+    }
+}
+
+export class Reflection {
+    static makeGeneric(typeDef: FunctionConstructor, genArgs: any): any {
+        return class extends typeDef { static get $generics() { return genArgs } }
+    }
+}
+
 export class Util {
   // For legacy reasons the name is kept, but this method also adds
   // the type name to a cache. Use it after declaration:

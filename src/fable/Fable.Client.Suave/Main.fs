@@ -242,8 +242,8 @@ let rec formatFSharpTypeSig = function
     | FableType.Unit -> "unit"
     | FableType.Boolean -> "bool"
     | FableType.String -> "string"
-    | FableType.Regex -> "System.Text.RegularExpressions.Regex"
     | FableType.Number n -> formatFSharpNumber n
+    | FableType.Option t -> formatFSharpTypeSig t + "option"
     | FableType.Array t -> formatFSharpTypeSig t + "[]"
     | FableType.Tuple ts ->  "(" + (List.map formatFSharpTypeSig ts |> String.concat " * ") + ")"
     | FableType.Function(ts, tr) -> 
@@ -253,7 +253,7 @@ let rec formatFSharpTypeSig = function
     | FableType.Enum n -> n
     | FableType.DeclaredType(ent, []) -> formatName ent
     | FableType.DeclaredType(ent, tya) -> (formatName ent) + "<" + (List.map formatFSharpTypeSig tya |> String.concat ", ") + ">"
-    | FableType.GenericParam n -> "'" + n
+    | FableType.Generic n -> "'" + n
 
 let collectTypes code (tree:ParsedInput) =
   let lines =

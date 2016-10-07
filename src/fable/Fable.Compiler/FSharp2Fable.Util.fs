@@ -436,9 +436,9 @@ module Patterns =
         let (|FullName|) (ent: Fable.Entity) = ent.FullName
         let (|TryDecorator|_|) dec (ent: Fable.Entity) = ent.TryGetDecorator dec
         match typ with
+        | Fable.Option _ -> OptionUnion
         | Fable.DeclaredType(ent,_) ->
             match ent with
-            | FullName "Microsoft.FSharp.Core.FSharpOption" -> OptionUnion
             | FullName "Microsoft.FSharp.Collections.FSharpList" -> ListUnion
             | TryDecorator "Erase" _ -> ErasedUnion
             | TryDecorator "KeyValueList" _ -> KeyValueUnion
@@ -468,7 +468,7 @@ module Types =
             if isIgnored t then None else
             let typeRef =
                 makeType com Context.Empty t
-                |> makeTypeRef com (Some SourceLocation.Empty)
+                |> makeTypeRef com None false
             Some (sanitizeEntityFullName t.TypeDefinition, typeRef)
             
     // Some attributes (like ComDefaultInterface) will throw an exception
@@ -548,13 +548,24 @@ module Types =
             // It's ok to use an empty context here, because we don't need to resolve generic params
             |> Seq.map (fun x -> x.Name, makeType com Context.Empty x.FieldType)
             |> Seq.toList
+        let makeProperties (tdef: FSharpEntity) =
+            tdef.MembersFunctionsAndValues
+            |> Seq.choose (fun x ->
+                if x.IsPropertyGetterMethod
+                then Some(x.DisplayName, makeType com Context.Empty x.FullType)
+                else None)
+            |> Seq.toList
+        let makeCases (tdef: FSharpEntity) =
+            tdef.UnionCases |> Seq.map (fun x ->
+                x.Name, [for fi in x.UnionCaseFields do yield makeType com Context.Empty fi.FieldType])
+            |> Map
         let getKind () =
             if tdef.IsInterface then Fable.Interface
-            elif tdef.IsFSharpUnion then Fable.Union
+            elif tdef.IsFSharpUnion then makeCases tdef |> Fable.Union
             elif tdef.IsFSharpRecord then makeFields tdef |> Fable.Record
             elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
-            else Fable.Class (getBaseClass com tdef)
+            else Fable.Class(getBaseClass com tdef, makeProperties tdef)
         let genParams =
             tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
         let infcs =
@@ -596,16 +607,18 @@ module Types =
         elif fullName = "System.Object"
         then Fable.Any
         else
-        // .NET Primitives
         match fullName with
-        | NumberKind kind -> Fable.Number kind
         | "System.Boolean" -> Fable.Boolean
         | "System.Char" | "System.String" | "System.Guid" -> Fable.String
-        | "System.Text.RegularExpressions.Regex" -> Fable.Regex
+        | "System.Text.RegularExpressions.Regex" -> Fable.Type.Regex
         | "Microsoft.FSharp.Core.Unit" -> Fable.Unit
+        | "Microsoft.FSharp.Core.FSharpOption`1" ->
+            let t = Seq.tryHead genArgs |> Option.map (makeType com ctx)
+            Fable.Option(defaultArg t Fable.Any)
         | "System.Collections.Generic.List`1" ->
             let t = Seq.tryHead genArgs |> Option.map (makeType com ctx)
             Fable.Array(defaultArg t Fable.Any)
+        | NumberKind kind -> Fable.Number kind
         // Declared Type
         | _ -> Fable.DeclaredType(com.GetEntity tdef,
                 genArgs |> Seq.map (makeType com ctx) |> Seq.toList)
@@ -620,7 +633,7 @@ module Types =
         let resolveGenParam (genParam: FSharpGenericParameter) =
             ctx.typeArgs
             |> List.tryFind (fun (name,_) -> name = genParam.Name)
-            |> function Some (_,typ) -> typ | None -> Fable.GenericParam genParam.Name
+            |> function Some (_,typ) -> typ | None -> Fable.Generic genParam.Name
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam t.GenericParameter
@@ -898,7 +911,7 @@ module Util =
             match meth.IsExtensionMember, callee with
             | true, Some callee ->
                 let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
-                             |> makeTypeRef com r
+                             |> makeTypeRef com r false
                 let methName =
                     let ent = makeEntity com meth.EnclosingEntity
                     ent.TryGetMember(methName, methKind, not meth.IsInstanceMember, argTypes)
@@ -911,7 +924,7 @@ module Util =
                     match callee with
                     | Some callee -> callee, false
                     | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
-                              |> makeTypeRef com r, true
+                              |> makeTypeRef com r false, true
         (**     *Check if this a getter or setter  *)
                 match methKind with
                 | Fable.Getter | Fable.Field ->
@@ -990,5 +1003,5 @@ module Util =
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []
-                    |> makeTypeRef com r
+                    |> makeTypeRef com r false
                 Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)

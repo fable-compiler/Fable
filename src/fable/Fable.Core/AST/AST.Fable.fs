@@ -15,12 +15,12 @@ type Type =
     | Unit
     | Boolean
     | String
-    | Regex
     | Number of NumberKind
+    | Option of genericArg: Type
     | Array of genericArg: Type
     | Tuple of genericArgs: Type list
     | Function of argTypes: Type list * returnType: Type
-    | GenericParam of name: string
+    | Generic of name: string
     | Enum of fullName: string
     | DeclaredType of Entity * genericArgs: Type list
     member x.FullName =
@@ -39,14 +39,16 @@ type Type =
         | Function(argTypes, returnType) -> argTypes@[returnType]
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
+    static member Regex =
+        DeclaredType(Entity(Lazy(fun () -> Class(None, [])), None, "System.Text.RegularExpressions.Regex", Lazy(fun () -> []), [], [], [], true), [])
 
 (** ##Entities *)
 and EntityKind =
     | Module
-    | Union
+    | Union of cases: Map<string, Type list>
     | Record of fields: (string*Type) list
     | Exception of fields: (string*Type) list
-    | Class of baseClass: (string*Expr) option
+    | Class of baseClass: (string*Expr) option * properties: (string*Type) list
     | Interface
 
 and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
@@ -206,7 +208,7 @@ and ValueKind =
         | This | Super | ImportRef _ | TypeRef _ | Emit _ -> Any
         | NumberConst (_,kind) -> Number kind
         | StringConst _ -> String
-        | RegexConst _ -> Regex
+        | RegexConst _ -> Type.Regex
         | BoolConst _ -> Boolean
         | ArrayConst (_, typ) -> Array typ
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
