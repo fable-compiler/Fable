@@ -1,3 +1,6 @@
+### 0.7.0
+
+
 ### 0.6.8
 
 * Fix #459: Seq.filter doesn't blow the stack with long sequences
