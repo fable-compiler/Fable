@@ -30,13 +30,21 @@ type EmitAttribute private () =
 
 /// Compile union case lists as JS object literals.
 /// More info: http://fable-compiler.github.io/docs/interacting.html#KeyValueList-attribute
+[<AttributeUsage(AttributeTargets.Class)>]
 type KeyValueListAttribute() =
     inherit Attribute()
 
 /// Compile union types as string literals.
 /// More info: http://fable-compiler.github.io/docs/interacting.html#StringEnum-attribute
+[<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute() =
-    inherit Attribute()    
+    inherit Attribute()
+
+/// When set on a optional System.Type parameter, Fable will pass the type
+/// of the generic parameter of that name if omitted by the user. 
+[<AttributeUsage(AttributeTargets.Parameter)>]
+type GenericParamAttribute(name: string) =
+    inherit Attribute()
 
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute

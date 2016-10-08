@@ -108,12 +108,15 @@ let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) generics typ
         let kind = "kind", Value(NumberConst(U2.Case1(int kind), Int32))
         match arg with
         | None -> [kind]
-        | Some arg -> [kind; ("args", arg)]
+        | Some arg -> [kind; ("arg", arg)]
         |> makeJsObject SourceLocation.Empty
     let makeGenInfo (kind: TypeKind) genArgs =
-        let genArgs = List.map (makeTypeRef com range generics) genArgs
-        ArrayConst(ArrayValues genArgs, Any)
-        |> Value |> Some |> makeInfo kind         
+        match genArgs with
+        | [genArg] -> makeTypeRef com range generics genArg
+        | genArgs ->
+            let genArgs = List.map (makeTypeRef com range generics) genArgs
+            ArrayConst(ArrayValues genArgs, Any) |> Value
+        |> Some |> makeInfo kind
     match typ with
     | Boolean -> str "boolean"
     | String -> str "string"

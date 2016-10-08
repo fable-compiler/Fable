@@ -159,7 +159,7 @@ module Helpers =
         if meth.CurriedParameterGroups.Count <> 1 then false else
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
-    
+
 module Patterns =
     open BasicPatterns
     open Helpers
@@ -445,6 +445,11 @@ module Patterns =
             | TryDecorator "StringEnum" _ -> StringEnum
             | _ -> OtherType
         | _ -> failwithf "Unexpected union type: %s" typ.FullName
+
+    let (|FableNull|_|) = function
+        | Fable.Wrapped(Fable.Value Fable.Null, _)
+        | Fable.Value Fable.Null as e -> Some e
+        | _ -> None
 
 module Types =
     open Helpers
@@ -795,7 +800,36 @@ module Util =
             sprintf "Cannot find replacement for %s.%s"
                 applyInfo.ownerFullName applyInfo.methodName
             |> attachRange r |> failwith
-        
+
+    let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) = 
+        let genArgs =
+            ([], meth.EnclosingEntity.GenericParameters, List.map (makeType com ctx) typArgs)
+            |||> Seq.fold2 (fun acc genPar typArg ->
+                (genPar.Name, typArg)::acc)
+        (genArgs, meth.GenericParameters, List.map (makeType com ctx) methTypArgs)
+        |||> Seq.fold2 (fun acc genPar typArg ->
+            (genPar.Name, typArg)::acc)
+
+    let fillImplicitGenericParams
+            com ctx r (meth: FSharpMemberOrFunctionOrValue)
+            (typArgs, methTypArgs) (args: Fable.Expr list) =
+        if meth.CurriedParameterGroups.Count <> 1
+            || meth.CurriedParameterGroups.[0].Count <> args.Length
+        then args
+        else
+            let genParams = lazy(Map <| matchGenericParams com ctx meth (typArgs, methTypArgs))
+            (Seq.zip meth.CurriedParameterGroups.[0] args, ([], false))
+            ||> Seq.foldBack (fun (p, e) (acc, finish) ->
+                match finish, p.IsOptionalArg, e, p.Attributes with
+                | false, true, FableNull _, ContainsAtt "GenericParam" [:?string as genName] ->
+                    match Map.tryFind genName genParams.Value with
+                    | Some typArg -> (makeTypeRef com r true typArg)::acc, false
+                    | None ->
+                        sprintf "Cannot find generic parameter %s" genName
+                        |> attachRange r |> failwith
+                | _ -> e::acc, true)
+            |> fst
+
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ
                     (typArgs, methTypArgs) (callee, args)
                     (meth: FSharpMemberOrFunctionOrValue) =
@@ -843,9 +877,9 @@ module Util =
                             (typArgs, methTypArgs) (callee, args) meth
                     emitMeth.Invoke(emitInstance, [|com; applyInfo|]) |> unbox |> Some
                 with
-                | _ -> failwithf "Cannot build instance of type %s or it doesn't contain an appropriate %s method %O"
-                        emitFsType.TypeDefinition.DisplayName emitMethName r 
-            | _ -> failwithf "EmitAttribute must receive a string or Type argument %O" r
+                | _ -> sprintf "Cannot build instance of type %s or it doesn't contain an appropriate %s method"
+                        emitFsType.TypeDefinition.DisplayName emitMethName |> attachRange r |> failwith 
+            | _ -> "EmitAttribute must receive a string or Type argument" |> attachRange r |> failwith
         | _ -> None
         
     let (|Imported|_|) com ctx r typ (args: Fable.Expr list) (meth: FSharpMemberOrFunctionOrValue) =
@@ -872,15 +906,7 @@ module Util =
                 (ctx, vars, args) |||> Seq.fold2 (fun ctx var arg ->
                     { ctx with scope = (Some var, arg)::ctx.scope })
             let ctx =
-                let typeArgs =
-                    let genArgs =
-                        ([], meth.EnclosingEntity.GenericParameters, List.map (makeType com ctx) typArgs)
-                        |||> Seq.fold2 (fun acc genPar typArg ->
-                            (genPar.Name, typArg)::acc)
-                    (genArgs, meth.GenericParameters, List.map (makeType com ctx) methTypArgs)
-                    |||> Seq.fold2 (fun acc genPar typArg ->
-                        (genPar.Name, typArg)::acc)
-                { ctx with typeArgs = typeArgs }
+                { ctx with typeArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) }
             com.Transform ctx fsExpr |> Some
         | None ->
             failwithf "%s is inlined but is not reachable. %s"
@@ -898,7 +924,7 @@ module Util =
                     (List.rev args.Tail)@items
                 | _ ->
                     (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
-            else args
+            else fillImplicitGenericParams com ctx r meth (typArgs, methTypArgs) args
         match meth with
         (** -Check for replacements, emits... *)
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
