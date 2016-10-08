@@ -209,8 +209,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | Applicable (Transform com ctx expr) ->
         let appType =
-            let ent = Fable.Entity(lazy Fable.Interface, None, "Fable.Core.Applicable", lazy [], [], [], [], true)
-            Fable.DeclaredType(ent, [Fable.Any;Fable.Any])
+            let ent = Fable.Entity(lazy Fable.Interface, None, "Fable.Core.Applicable", lazy [])
+            Fable.DeclaredType(ent, [Fable.Any; Fable.Any])
         Fable.Wrapped(expr, appType)
 
     (** ## Erased *)
@@ -308,8 +308,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             let genArgs = Dictionary<string, Fable.Type>()
             let rec argEqual x y =
                 match x, y with
-                | Fable.Generic name1, Fable.Generic name2 -> name1 = name2
-                | Fable.Generic name, y ->
+                | Fable.GenericParam name1, Fable.GenericParam name2 -> name1 = name2
+                | Fable.GenericParam name, y ->
                     if genArgs.ContainsKey name
                     then genArgs.[name] = y
                     else genArgs.Add(name, y); true 
@@ -838,7 +838,7 @@ let rec private transformEntityDecl
             // If F# union or records implement System.IComparable && System.Equatable
             // generate the corresponding methods
             // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
-            let fableType = Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.Generic)
+            let fableType = Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.GenericParam)
             match fableEnt.Kind with
             | Fable.Union cases ->
                 (if needsImpl "System.IEquatable" then [makeUnionEqualMethod com fableType] else [])
@@ -847,9 +847,9 @@ let rec private transformEntityDecl
             | Fable.Record fields | Fable.Exception fields ->
                 (if needsImpl "System.IEquatable" then [makeRecordEqualMethod com fableType] else [])
                 @ (if needsImpl "System.IComparable" then [makeRecordCompareMethod com fableType] else [])
-                @ [makeFieldsMethod com fields]
+                @ [makeFieldsGetter com fields]
             | Fable.Class(_, properties) ->
-                [makePropertiesMethod com properties]
+                [makePropertiesGetter com properties]
             | _ -> []
         let childDecls = transformDeclarations com ctx (cons@compareMeths) subDecls
         // Even if a module is marked with Erase, transform its members

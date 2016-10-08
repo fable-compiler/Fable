@@ -43,16 +43,15 @@ export function Tuple3<T1, T2, T3>(x: T1, y: T2, z: T3) {
   return <Tuple3<T1, T2, T3>>[x, y, z];
 }
 
-export type PrimTypes = "Any" | "Unit" | "Boolean" | "String" | "Number" | "Option" | "Array" | "Tuple" | "Function" | "Generic" | "Interface";
-
-export class PrimType {
-    public Case: PrimTypes;
-    public Fields: any[];
-
-    constructor(t: PrimTypes, d: any[]) {
-        this.Case = t;
-        this.Fields = d;
-    }
+enum TypeKind {
+  Other = 0,
+  Any = 1,
+  Unit = 2,
+  Option = 3,
+  Array = 4,
+  Tuple = 5,
+  GenericParam = 6,
+  Interface = 7,
 }
 
 export class Reflection {

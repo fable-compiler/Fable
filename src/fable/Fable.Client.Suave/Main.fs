@@ -253,7 +253,7 @@ let rec formatFSharpTypeSig = function
     | FableType.Enum n -> n
     | FableType.DeclaredType(ent, []) -> formatName ent
     | FableType.DeclaredType(ent, tya) -> (formatName ent) + "<" + (List.map formatFSharpTypeSig tya |> String.concat ", ") + ">"
-    | FableType.Generic n -> "'" + n
+    | FableType.GenericParam n -> "'" + n
 
 let collectTypes code (tree:ParsedInput) =
   let lines =

@@ -551,9 +551,11 @@ module Types =
         let makeProperties (tdef: FSharpEntity) =
             tdef.MembersFunctionsAndValues
             |> Seq.choose (fun x ->
-                if x.IsPropertyGetterMethod
-                then Some(x.DisplayName, makeType com Context.Empty x.FullType)
-                else None)
+                if not x.IsPropertyGetterMethod then None else
+                match makeType com Context.Empty x.FullType with
+                | Fable.Function([Fable.Unit], returnType) ->
+                    Some(x.DisplayName, returnType)
+                | _ -> None)
             |> Seq.toList
         let makeCases (tdef: FSharpEntity) =
             tdef.UnionCases |> Seq.map (fun x ->
@@ -610,7 +612,6 @@ module Types =
         match fullName with
         | "System.Boolean" -> Fable.Boolean
         | "System.Char" | "System.String" | "System.Guid" -> Fable.String
-        | "System.Text.RegularExpressions.Regex" -> Fable.Type.Regex
         | "Microsoft.FSharp.Core.Unit" -> Fable.Unit
         | "Microsoft.FSharp.Core.FSharpOption`1" ->
             let t = Seq.tryHead genArgs |> Option.map (makeType com ctx)
@@ -633,7 +634,7 @@ module Types =
         let resolveGenParam (genParam: FSharpGenericParameter) =
             ctx.typeArgs
             |> List.tryFind (fun (name,_) -> name = genParam.Name)
-            |> function Some (_,typ) -> typ | None -> Fable.Generic genParam.Name
+            |> function Some (_,typ) -> typ | None -> Fable.GenericParam genParam.Name
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam t.GenericParameter

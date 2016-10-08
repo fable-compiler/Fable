@@ -123,7 +123,7 @@ module Util =
         | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
             GlobalCall ("String", None, false, [arg])
             |> makeCall com i.range i.returnType
-        | Fable.Any | Fable.Generic _ | Fable.DeclaredType _ | Fable.Option _ -> 
+        | Fable.Any | Fable.GenericParam _ | Fable.DeclaredType _ | Fable.Option _ -> 
             CoreLibCall ("Util", Some "toString", false, [arg])
             |> makeCall com i.range i.returnType
 
@@ -264,7 +264,7 @@ module Util =
             InstanceCall(args.Head, "Equals", args.Tail)
             |> makeCall com i.range i.returnType |> is equal |> Some
         | Fable.Array _ | Fable.Tuple _
-        | Fable.DeclaredType _ | Fable.Generic _ | Fable.Option _ ->
+        | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
             CoreLibCall("Util", Some "equals", false, args)
             |> makeCall com i.range i.returnType |> is equal |> Some
 
@@ -1269,7 +1269,7 @@ module private AstPass =
                 match i.methodTypeArgs with
                 // Native JS map is risky with typed arrays as they coerce
                 // the final result (see #120, #171)
-                | Fable.Any::_ | Fable.Generic _::_ -> None
+                | Fable.Any::_ | Fable.GenericParam _::_ -> None
                 | NumberType(Some _) as tin::[tout] when tin = tout ->
                     icall "map" (i.args.[1], deleg com i [i.args.[0]])
                 | NumberType None::[NumberType None] ->
@@ -1598,11 +1598,15 @@ let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
     | ex -> failwithf "Cannot replace %s.%s: %s"
                 info.ownerFullName info.methodName ex.Message
 
-let coreLibMappedTypes =
-    Map [
-        fsharp + "Control.FSharpAsync" => "Async"
-        fsharp + "Collections.FSharpSet" => "Set"
-        fsharp + "Collections.FSharpMap" => "Map"
-        fsharp + "Collections.FSharpList" => "List"
-        fsharp + "Core.FSharpChoice" => "Choice"
-    ]
+let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) =
+    let coreLibType name =
+        Fable.ImportRef(name, com.Options.coreLib)
+        |> Fable.Value |> Some
+    match ent.FullName with
+    | "System.Text.RegularExpressions.Regex" -> makeIdentExpr "RegExp" |> Some
+    | "Microsoft.FSharp.Control.FSharpAsync" -> coreLibType "Async"
+    | "Microsoft.FSharp.Collections.FSharpSet" -> coreLibType "Set"
+    | "Microsoft.FSharp.Collections.FSharpMap" -> coreLibType "Map"
+    | "Microsoft.FSharp.Collections.FSharpList" -> coreLibType "List"
+    | "Microsoft.FSharp.Core.FSharpChoice" -> coreLibType "Choice"
+    | _ -> None

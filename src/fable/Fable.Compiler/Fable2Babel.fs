@@ -124,10 +124,8 @@ module Util =
                 (match memb with Some memb -> [memb] | None ->  [])
         match ent.File with
         | None ->
-            match Map.tryFind ent.FullName Replacements.coreLibMappedTypes with
-            | Some mappedType ->
-                Path.getExternalImportPath com ctx.fixedFileName com.Options.coreLib
-                |> com.GetImportExpr ctx None mappedType
+            match Replacements.tryReplaceEntity com ent with
+            | Some expr -> com.TransformExpr ctx expr
             | None -> failwithf "Cannot access type: %s" ent.FullName
         | Some file when ctx.file.FileName <> file ->
             let proj, ns = com.GetProjectAndNamespace file
@@ -185,7 +183,7 @@ module Util =
                 Babel.FunctionTypeAnnotation(
                     argTypes, typeAnnotation com ctx returnType)
                 :> Babel.TypeAnnotationInfo
-        | Fable.Generic name ->
+        | Fable.GenericParam name ->
             upcast Babel.GenericTypeAnnotation(Babel.Identifier(name))
         // TODO: Make union type annotation?
         | Fable.Enum _ ->

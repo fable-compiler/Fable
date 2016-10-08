@@ -20,7 +20,7 @@ type Type =
     | Array of genericArg: Type
     | Tuple of genericArgs: Type list
     | Function of argTypes: Type list * returnType: Type
-    | Generic of name: string
+    | GenericParam of name: string
     | Enum of fullName: string
     | DeclaredType of Entity * genericArgs: Type list
     member x.FullName =
@@ -39,8 +39,18 @@ type Type =
         | Function(argTypes, returnType) -> argTypes@[returnType]
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
-    static member Regex =
-        DeclaredType(Entity(Lazy(fun () -> Class(None, [])), None, "System.Text.RegularExpressions.Regex", Lazy(fun () -> []), [], [], [], true), [])
+
+and TypeKind =
+    // | Boolean | String | Number _ | Enum _
+    // | Function _ | DeclaredType _
+    | Other = 0
+    | Any = 1
+    | Unit = 2
+    | Option = 3
+    | Array = 4
+    | Tuple = 5
+    | GenericParam = 6
+    | Interface = 7
 
 (** ##Entities *)
 and EntityKind =
@@ -52,7 +62,11 @@ and EntityKind =
     | Interface
 
 and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
-           genParams, interfaces, decorators, isPublic) =
+           ?genParams, ?interfaces, ?decorators, ?isPublic) =
+    let genParams = defaultArg genParams []
+    let decorators = defaultArg decorators []
+    let interfaces = defaultArg interfaces []
+    let isPublic = defaultArg isPublic true
     member x.Kind: EntityKind = kind.Value
     member x.File: string option = file
     member x.FullName: string = fullName
@@ -208,7 +222,9 @@ and ValueKind =
         | This | Super | ImportRef _ | TypeRef _ | Emit _ -> Any
         | NumberConst (_,kind) -> Number kind
         | StringConst _ -> String
-        | RegexConst _ -> Type.Regex
+        | RegexConst _ ->
+            let fullName = "System.Text.RegularExpressions.Regex"
+            DeclaredType(Entity(lazy Class(None, []), None, fullName, lazy []), [])        
         | BoolConst _ -> Boolean
         | ArrayConst (_, typ) -> Array typ
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
