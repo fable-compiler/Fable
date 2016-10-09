@@ -3,12 +3,14 @@ module Fable.Tests.Json
 open NUnit.Framework
 open Fable.Tests.Util
 
+type S =
 #if FABLE_COMPILER
-let inline toJson x = Fable.Core.Serialize.toJson x
-let inline ofJson<'T> x = Fable.Core.Serialize.ofJson<'T> x
+    static member toJson(x) = Fable.Core.Serialize.toJson(x)
+    static member ofJson<'T>(x, [<Fable.Core.GenericParam("T")>]?t) =
+        Fable.Core.Serialize.ofJson<'T>(x, t)
 #else
-let toJson = Newtonsoft.Json.JsonConvert.SerializeObject
-let ofJson<'T> = Newtonsoft.Json.JsonConvert.DeserializeObject<'T>
+    static member toJson x = Newtonsoft.Json.JsonConvert.SerializeObject x
+    static member ofJson<'T> x = Newtonsoft.Json.JsonConvert.DeserializeObject<'T> x
 #endif
 
 type Child =
@@ -36,7 +38,7 @@ let ``Simple json - Records``() =
             }
         }
         """
-    let result: Simple = ofJson json
+    let result: Simple = S.ofJson json
     result.Name |> equal "foo"
     // Use the built in compare to ensure the fields are being hooked up.
     // Should compile to something like: result.Child.Equals(new Child("Hi", 10))
@@ -45,15 +47,15 @@ let ``Simple json - Records``() =
 [<Test>]
 let ``Simple json - Unions``() =
     let u = CaseB [{Name="Sarah";Child={a="John";b=14}}]
-    toJson u |> ofJson<U> |> (=) u |> equal true
+    S.toJson u |> S.ofJson<U> |> (=) u |> equal true
     """{"Case":"CaseB","Fields":[[{"Name":"Sarah","Child":{"a":"John","b":14}}]]}"""
-    |> ofJson<U> |> (=) u |> equal true
+    |> S.ofJson<U> |> (=) u |> equal true
 
 [<Test>] 
 let ``Simple json - Date``() =
     let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
-    let json = d |> toJson
-    let result : System.DateTime = ofJson json
+    let json = d |> S.toJson
+    let result : System.DateTime = S.ofJson json
     result.Year |> equal 2016
 
 type JsonDate = {  
@@ -63,8 +65,8 @@ type JsonDate = {
 [<Test>] 
 let ``Simple json - Child Date``() =
     let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
-    let json = { Date = d } |> toJson
-    let result : JsonDate = ofJson json
+    let json = { Date = d } |> S.toJson
+    let result : JsonDate = S.ofJson json
     result.Date.Year |> equal 2016
 
 type JsonArray = {
@@ -74,7 +76,7 @@ type JsonArray = {
 [<Test>] 
 let ``Simple json - Array``() =
     let json = """[{ "Name": "a" }, { "Name": "b" }]"""
-    let result : JsonArray[] = ofJson json
+    let result : JsonArray[] = S.ofJson json
     result |> Array.length |> equal 2
     result.[1] = { Name="b" } |> equal true  
 
@@ -85,28 +87,28 @@ type ChildArray = {
 [<Test>] 
 let ``Simple json - Child Array``() =
     let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
-    let result : ChildArray = ofJson json
+    let result : ChildArray = S.ofJson json
     result.Children |> Array.length |> equal 2
     result.Children.[1] = { Name="b" } |> equal true
 
 [<Test>] 
 let ``Simple json - String Generic List``() =
     let json = """["a","b"]"""
-    let result : System.Collections.Generic.List<string> = ofJson json
+    let result : System.Collections.Generic.List<string> = S.ofJson json
     result.Count |> equal 2
     result.[1] |> equal "b"
 
 [<Test>] 
 let ``Simple json - Child Generic List``() =
     let json = """[{ "Name": "a" }, { "Name": "b" }]"""
-    let result : System.Collections.Generic.List<JsonArray> = ofJson json
+    let result : System.Collections.Generic.List<JsonArray> = S.ofJson json
     result.Count |> equal 2
     result.[1] = { Name="b" } |> equal true  
 
 [<Test>] 
 let ``Simple json - List``() =
     let json = """["a","b"]"""
-    let result : string list = ofJson json
+    let result : string list = S.ofJson json
     result |> List.length |> equal 2
     result.Tail |> List.length |> equal 1
     result.[1] |> equal "b"
@@ -120,13 +122,13 @@ type ChildList = {
 [<Test>] 
 let ``Simple json - Child List``() =
     let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
-    let result : ChildList = ofJson json
+    let result : ChildList = S.ofJson json
     result.Children |> List.length |> equal 2
     result.Children.[1] = { Name="b" } |> equal true
 
 type Wrapper<'T> = { thing : 'T }
 
-let inline parseAndUnwrap json: 'T = (ofJson<Wrapper<'T>> json).thing
+let inline parseAndUnwrap json: 'T = (S.ofJson<Wrapper<'T>> json).thing
 
 [<Test>]
 let ``Simple json - generic`` () =
@@ -141,6 +143,9 @@ let ``Simple json - generic`` () =
     // if result4 <> {a = "a"; b = 1} then
     //     invalidOp "things not equal" 
 
+// Tuples and options are serialized differently
+// in Fable and Json.NET
+#if FABLE_COMPILER
 type OptionJson =
     { a: int option }
 
@@ -149,9 +154,9 @@ let ``Simple json - Option Some`` () =
     // TODO: Deserialize also options as normal union cases?
     // let json = """ {"a":{"Case":"Some","Fields":[1]}} """
     let json1 = """ {"a":1 } """
-    let result1 : OptionJson = ofJson json1
+    let result1 : OptionJson = S.ofJson json1
     let json2 = """ {"a":null } """
-    let result2 : OptionJson = ofJson json2
+    let result2 : OptionJson = S.ofJson json2
     match result1.a, result2.a with
     | Some v, None -> v
     | _ -> -1
@@ -165,7 +170,7 @@ let ``Simple json - Tuple`` () =
     // TODO: Deserialize also tuples as objects?
     // let json = """ {"a":{"Item1":1,"Item2":2}} """
     let json = """ {"a":[1,2]} """
-    let result : TupleJson = ofJson json
+    let result : TupleJson = S.ofJson json
     result.a = (1, 2) |> equal true
 
 type TupleComplexJson =
@@ -176,8 +181,9 @@ let ``Simple json - Complex Tuple`` () =
     // TODO: Deserialize also tuples as objects?
     // let json = """ {"a":{"Item1":1,"Item2":{"a":"A","b":1}}} """
     let json = """ {"a":[1,{"a":"A","b":1}]} """
-    let result : TupleComplexJson = ofJson json
+    let result : TupleComplexJson = S.ofJson json
     snd result.a = { a = "A"; b = 1 } |> equal true
+#endif
 
 type SetJson =
     { a: Set<string> }
@@ -185,7 +191,7 @@ type SetJson =
 [<Test>]
 let ``Simple json - Set`` () =
     let json = """ {"a":["a","b"]} """
-    let result : SetJson = ofJson json
+    let result : SetJson = S.ofJson json
     result.a |> Set.contains "b" |> equal true
 
 type MapJson =
@@ -194,7 +200,7 @@ type MapJson =
 [<Test>]
 let ``Simple json - Map`` () =
     let json = """ {"a":{"a":{"a":"aa","b":1},"b":{"a":"bb","b":2}}} """
-    let result : MapJson = ofJson json
+    let result : MapJson = S.ofJson json
     result.a.Count |> equal 2
     result.a.["b"] = { a="bb"; b=2 } |> equal true
     
@@ -204,6 +210,6 @@ type DictionaryJson =
 [<Test>]
 let ``Simple json - Dictionary`` () =
     let json = """ {"a":{"a":{"a":"aa","b":1},"b":{"a":"bb","b":2}}} """
-    let result : DictionaryJson = ofJson json
+    let result : DictionaryJson = S.ofJson json
     result.a.Count |> equal 2
     result.a.["b"] = { a="bb"; b=2 } |> equal true
