@@ -121,7 +121,7 @@ and MemberKind =
     | Field
 
 and Member(name, kind, argTypes, returnType, ?originalType, ?genParams, ?decorators,
-           ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?overloadIndex) =
+           ?isPublic, ?isMutable, ?isStatic, ?isSymbol, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.ArgumentTypes: Type list = argTypes
@@ -132,6 +132,7 @@ and Member(name, kind, argTypes, returnType, ?originalType, ?genParams, ?decorat
     member x.IsPublic: bool = defaultArg isPublic true
     member x.IsMutable: bool = defaultArg isMutable false
     member x.IsStatic: bool = defaultArg isStatic false
+    member x.IsSymbol: bool = defaultArg isSymbol false
     member x.HasRestParams: bool = defaultArg hasRestParams false
     member x.OverloadIndex: int option = overloadIndex
     member x.OverloadName: string =

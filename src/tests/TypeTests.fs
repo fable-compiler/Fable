@@ -297,8 +297,8 @@ type Serializable(?i: int) =
 let ``Classes can be JSON serialized forth and back``() =
     let x = Serializable(5)
     #if FABLE_COMPILER
-    let json = Fable.Core.JsInterop.toJson x
-    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    let json = Fable.Core.Serialize.toJson x
+    let x2 = Fable.Core.Serialize.ofJson<Serializable> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
@@ -310,8 +310,8 @@ let ``Classes can be JSON serialized forth and back``() =
 let ``Null values can be JSON serialized forth and back``() =
     let x: Serializable = null
     #if FABLE_COMPILER
-    let json = Fable.Core.JsInterop.toJson x
-    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    let json = Fable.Core.Serialize.toJson x
+    let x2 = Fable.Core.Serialize.ofJson<Serializable> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
@@ -324,7 +324,7 @@ let ``Classes serialized with Json.NET can be deserialized``() =
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"Fable.Tests.TypeTests+Serializable","PublicValue":1}"""
     #if FABLE_COMPILER
-    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    let x2 = Fable.Core.Serialize.ofJson<Serializable> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
     #endif

@@ -845,12 +845,19 @@ let rec private transformEntityDecl
                 (if needsImpl "System.IEquatable" then [makeUnionEqualMethod com fableType] else [])
                 @ (if needsImpl "System.IComparable" then [makeUnionCompareMethod com fableType] else [])
                 @ [makeCasesMethod com cases]
+                @ [makeTypeNameMeth com ent.FullName]
+                @ [makeInterfacesMethod com false ("FSharpUnion"::fableEnt.Interfaces)]
             | Fable.Record fields | Fable.Exception fields ->
                 (if needsImpl "System.IEquatable" then [makeRecordEqualMethod com fableType] else [])
                 @ (if needsImpl "System.IComparable" then [makeRecordCompareMethod com fableType] else [])
-                @ [makeFieldsGetter com fields]
-            | Fable.Class(_, properties) ->
-                [makePropertiesGetter com properties]
+                // TODO: Use specific interface for FSharpException?
+                @ [makePropertiesMethod com false fields]
+                @ [makeTypeNameMeth com ent.FullName]
+                @ [makeInterfacesMethod com false ("FSharpRecord"::fableEnt.Interfaces)]
+            | Fable.Class(baseClass, properties) ->
+                [makePropertiesMethod com baseClass.IsSome properties]
+                @ [makeTypeNameMeth com ent.FullName]
+                @ [makeInterfacesMethod com baseClass.IsSome fableEnt.Interfaces]
             | _ -> []
         let childDecls = transformDeclarations com ctx (cons@compareMeths) subDecls
         // Even if a module is marked with Erase, transform its members

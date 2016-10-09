@@ -19,20 +19,6 @@ let equal expected actual =
 
 // Write here the code you want to test,
 // you can later put the code in a unit test.
-open System
-
-[<AttributeUsage(AttributeTargets.Parameter)>]
-type GenericParamAttribute(name: string) =
-    inherit Attribute()
-
-type A<'K> = { x: 'K }
-
-type Test =
-    static member Foo<'T>(x: int, [<GenericParam("T")>] ?t: Type) = printfn "Foo"
-    static member Bar<'T,'U>([<GenericParam("U")>] ?t: Type, [<GenericParam("T")>] ?t2: Type) = printfn "Bar"
-
-Test.Foo<string>(5)
-Test.Bar<A<int>,bool>()
 
 // Example:
 // Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3

@@ -69,7 +69,7 @@ module Util =
     let identFromName name =
         let name = Naming.sanitizeIdent (fun _ -> false) name
         Babel.Identifier name
-        
+
     let sanitizeName propName: Babel.Expression * bool =
         if Naming.identForbiddenCharsRegex.IsMatch propName
         then upcast Babel.StringLiteral propName, true
@@ -85,6 +85,11 @@ module Util =
         com.Options.coreLib
         |> Path.getExternalImportPath com ctx.fixedFileName
         |> com.GetImportExpr ctx None coreModule
+
+    let getSymbol com ctx name =
+        Babel.MemberExpression(
+                getCoreLibImport com ctx "Symbol",
+                Babel.Identifier name) :> Babel.Expression
 
     let get left propName =
         let expr, computed = sanitizeName propName
@@ -190,19 +195,19 @@ module Util =
             upcast Babel.NumberTypeAnnotation()
         | Fable.Option genArg ->
             upcast Babel.NullableTypeAnnotation(typeAnnotation com ctx genArg)
-        | Fable.DeclaredType(FullName "System.Text.RegularExpressions.Regex", []) ->
-            upcast Babel.GenericTypeAnnotation(Babel.Identifier("RegExp"))
         | Fable.DeclaredType(FullName "System.Collections.Generic.IEnumerable", [genArg]) ->
             upcast Babel.GenericTypeAnnotation(
                 Babel.Identifier("Iterable"),
                 Babel.TypeParameterInstantiation([typeAnnotation com ctx genArg]))
-        | Fable.DeclaredType(FullName "System.DateTime", _) ->
-            upcast Babel.GenericTypeAnnotation(Babel.Identifier("Date"))
-        | Fable.DeclaredType(FullName "System.TimeSpan", _) ->
-            upcast Babel.NumberTypeAnnotation()
         | Fable.DeclaredType(ent, genArgs) ->
             try
                 match typeRef com ctx ent None with
+                | :? Babel.StringLiteral as str ->
+                    match str.value with
+                    | "number" -> upcast Babel.NumberTypeAnnotation()
+                    | "boolean" -> upcast Babel.BooleanTypeAnnotation()
+                    | "string" -> upcast Babel.StringTypeAnnotation()
+                    | _ -> upcast Babel.AnyTypeAnnotation()
                 | :? Babel.Identifier as id ->
                     let typeParams =
                         match List.map (typeAnnotation com ctx) genArgs  with
@@ -366,11 +371,11 @@ module Util =
                 match interfaces with
                 | [] -> props
                 | interfaces ->
-                    let ifcsSymbol =
-                        getCoreLibImport com ctx "Symbol" 
-                        |> get <| "interfaces"
-                    Babel.ObjectProperty(ifcsSymbol, buildStringArray interfaces, computed=true)
-                    |> U3.Case1 |> consBack props
+                    let body =
+                        [buildStringArray interfaces |> Babel.ExpressionStatement :> Babel.Statement]
+                        |> Babel.BlockStatement
+                    Babel.ObjectMethod(Babel.ObjectMeth, getSymbol com ctx "interfaces", [], body, computed=true)
+                    |> U3.Case2 |> consBack props
             |> fun props ->
                 upcast Babel.ObjectExpression(props, ?loc=range)
 
@@ -691,8 +696,12 @@ module Util =
             let typ = Babel.TypeAnnotation(typeAnnotation com ctx typ)
             Babel.ClassProperty(Babel.Identifier(name), typeAnnotation=typ)
             |> U2<Babel.ClassMethod,_>.Case2
-        let declareMethod range kind name args (body: Fable.Expr) typeParams hasRestParams isStatic =
-            let name, computed = sanitizeName name
+        let declareMethod range kind name args (body: Fable.Expr)
+                          typeParams hasRestParams isStatic isSymbol =
+            let name, computed =
+                if isSymbol
+                then getSymbol com ctx name, true
+                else sanitizeName name
             let args, body, returnType, typeParams =
                 getMemberArgs com ctx args body typeParams hasRestParams
             Babel.ClassMethod(kind, name, args, body, computed, isStatic,
@@ -702,18 +711,18 @@ module Util =
         decls
         |> List.map (function
             | Fable.MemberDeclaration(m, _, args, body, range) ->
-                let kind, name, isStatic, body =
+                let kind, name, isStatic, isSymbol, body =
                     match m.Kind with
                     | Fable.Constructor ->
                         let body =
                             match ent with
                             | Some(EntKind(Fable.Class(Some _, _))) -> checkBaseCall body
                             | _ -> body
-                        Babel.ClassConstructor, "constructor", false, body
-                    | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.IsStatic, body
-                    | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.IsStatic, body
-                    | Fable.Setter -> Babel.ClassSetter, m.Name, m.IsStatic, body
-                declareMethod range kind name args body m.GenericParameters m.HasRestParams isStatic
+                        Babel.ClassConstructor, "constructor", false, false, body
+                    | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.IsStatic, m.IsSymbol, body
+                    | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.IsStatic, m.IsSymbol, body
+                    | Fable.Setter -> Babel.ClassSetter, m.Name, m.IsStatic, m.IsSymbol, body
+                declareMethod range kind name args body m.GenericParameters m.HasRestParams isStatic isSymbol
             | Fable.ActionDeclaration _
             | Fable.EntityDeclaration _ as decl ->
                 failwithf "Unexpected declaration in class: %A" decl)
@@ -738,28 +747,6 @@ module Util =
                 | _ -> None, members
             Babel.ClassExpression(Babel.ClassBody(members, ?loc=range),
                     ?id=id, ?typeParams=typeParams, ?super=baseClass, ?loc=range)
-
-    let declareInterfaces (com: IBabelCompiler) ctx (ent: Fable.Entity) isClass =
-        ent.Interfaces
-        |> Seq.tryFind (Naming.replacedInterfaces.Contains)
-        |> Option.iter (fun i ->
-            failwithf "Fable doesn't support custom implementations of %s (%s)" i ent.FullName)
-        let interfaces =
-            match ent.Kind with
-            | Fable.Union _ -> "FSharpUnion"::ent.Interfaces
-            | Fable.Record _ -> "FSharpRecord"::ent.Interfaces
-            | Fable.Exception _ -> "FSharpException"::ent.Interfaces
-            | _ -> ent.Interfaces
-        [ getCoreLibImport com ctx "Util"
-          typeRef com ctx ent None
-          buildStringArray interfaces
-          upcast Babel.StringLiteral ent.FullName ]
-        |> fun args ->
-            // "$0.setInterfaces($1.prototype, $2, $3)"
-            Babel.CallExpression(
-                get args.[0] "setInterfaces",
-                [get args.[1] "prototype"; args.[2]; args.[3]] |> List.map U2.Case1)
-        |> Babel.ExpressionStatement :> Babel.Statement
 
     let declareEntryPoint com ctx (funcExpr: Babel.Expression) =
         let argv = macroExpression None "process.argv.slice(2)" []
@@ -850,9 +837,6 @@ module Util =
             // Don't create a new context for class declarations
             transformClass com ctx (Some entRange) (Some ent) baseClass entDecls
             |> declareMember entRange ent.Name (Some privateName) ent.IsPublic false modIdent
-        let classDecl =
-            declareInterfaces com ctx ent isClass
-            |> fun ifcDecl -> (U2.Case1 ifcDecl)::classDecl
         // Check if there's a static constructor
         entDecls |> Seq.exists (function
             | Fable.MemberDeclaration(m,_,_,_,_) ->
