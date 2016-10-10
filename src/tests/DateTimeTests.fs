@@ -40,8 +40,8 @@ let ``DateTime.ToString with format works``() =
 let ``DateTime can be JSON serialized forth and back``() =
     let utc = DateTime(2016, 8, 4, 17, 30, 0, DateTimeKind.Utc)
     #if FABLE_COMPILER
-    let json = Fable.Core.JsInterop.toJson utc
-    let utc = Fable.Core.JsInterop.ofJson<DateTime> json
+    let json = Fable.Core.Serialize.toJson utc
+    let utc = Fable.Core.Serialize.ofJson<DateTime> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject utc
     let utc = Newtonsoft.Json.JsonConvert.DeserializeObject<DateTime> json
