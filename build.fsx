@@ -404,6 +404,32 @@ Target "PublishCompilerNetcore" (fun _ ->
     |> Npm.command "build/fable" "publish" 
 )
 
+let publishNugetPackage pkg =
+    let release =
+        sprintf "src/nuget/%s/RELEASE_NOTES.md" pkg
+        |> ReleaseNotesHelper.LoadReleaseNotes
+    CleanDir <| sprintf "nuget/%s" pkg
+    Paket.Pack(fun p ->
+        { p with
+            Version = release.NugetVersion
+            OutputPath = sprintf "nuget/%s" pkg
+            TemplateFile = sprintf "src/nuget/%s/%s.fsproj.paket.template" pkg pkg
+            // IncludeReferencedProjects = true
+        })
+    Paket.Push(fun p ->
+        { p with 
+            WorkingDir = sprintf "nuget/%s" pkg
+            PublishUrl = "https://www.nuget.org/api/v2/package" })
+    
+Target "PublishJsonConverter" (fun _ ->
+    let pkg = "Fable.JsonConverter"
+    let pkgDir = "src" </> "nuget" </> pkg
+    !! (pkgDir + "/*.fsproj")
+    |> MSBuildRelease (pkgDir </> "bin" </> "Release") "Build"
+    |> Log (pkg + ": ")
+    publishNugetPackage pkg
+)
+
 Target "FableCoreRelease" (fun _ ->
     let fableCoreNpmDir = "src/fable/Fable.Core/npm"
 
