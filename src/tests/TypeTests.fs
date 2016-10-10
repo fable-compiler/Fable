@@ -297,8 +297,8 @@ type Serializable(?i: int) =
 let ``Classes can be JSON serialized forth and back``() =
     let x = Serializable(5)
     #if FABLE_COMPILER
-    let json = Fable.Core.JsInterop.toJson x
-    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    let json = Fable.Core.Serialize.toJson x
+    let x2 = Fable.Core.Serialize.ofJson<Serializable> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
@@ -310,8 +310,8 @@ let ``Classes can be JSON serialized forth and back``() =
 let ``Null values can be JSON serialized forth and back``() =
     let x: Serializable = null
     #if FABLE_COMPILER
-    let json = Fable.Core.JsInterop.toJson x
-    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    let json = Fable.Core.Serialize.toJson x
+    let x2 = Fable.Core.Serialize.ofJson<Serializable> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
@@ -324,7 +324,7 @@ let ``Classes serialized with Json.NET can be deserialized``() =
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"Fable.Tests.TypeTests+Serializable","PublicValue":1}"""
     #if FABLE_COMPILER
-    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    let x2 = Fable.Core.Serialize.ofJson<Serializable> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
     #endif
@@ -354,3 +354,18 @@ let ``Multiple constructors work``() =
     equal 5 m1.Value
     equal 9 m2.Value
     equal 14 m3.Value
+
+#if FABLE_COMPILER
+open Fable.Core
+type GenericParamTest =
+    static member Foo<'T>(x: int, [<GenericParam("T")>] ?t: Type) = t.Value
+    static member Bar<'T,'U>([<GenericParam("U")>] ?t1: Type, [<GenericParam("T")>] ?t2: Type) = t1.Value, t2.Value
+
+[<Test>]
+let ``GenericParamAttribute works``() =
+    let t = GenericParamTest.Foo<string>(5)
+    let t1, t2 = GenericParamTest.Bar<TestType, bool>()
+    box t |> equal (box "string")
+    box t1 |> equal (box "boolean")
+    box t2 |> equal (box typeof<TestType>)
+#endif

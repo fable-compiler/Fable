@@ -30,13 +30,21 @@ type EmitAttribute private () =
 
 /// Compile union case lists as JS object literals.
 /// More info: http://fable-compiler.github.io/docs/interacting.html#KeyValueList-attribute
+[<AttributeUsage(AttributeTargets.Class)>]
 type KeyValueListAttribute() =
     inherit Attribute()
 
 /// Compile union types as string literals.
 /// More info: http://fable-compiler.github.io/docs/interacting.html#StringEnum-attribute
+[<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute() =
-    inherit Attribute()    
+    inherit Attribute()
+
+/// When set on a optional System.Type parameter, Fable will pass the type
+/// of the generic parameter of that name if omitted by the user. 
+[<AttributeUsage(AttributeTargets.Parameter)>]
+type GenericParamAttribute(name: string) =
+    inherit Attribute()
 
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
@@ -60,6 +68,13 @@ type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> = Case1 of 'a | Case2 of 'b | Case3 of
 
 /// DO NOT USE: Internal type for Fable dynamic operations
 type Applicable = obj->obj
+
+type Serialize =
+    /// Serialize F# objects to JSON
+    static member toJson(o: 'T): string = jsNative
+
+    /// Instantiate F# objects from JSON
+    static member ofJson<'T> (json: string, [<GenericParam("T")>]?t: Type): 'T = jsNative
 
 module JsInterop =
     /// Dynamically access a property of an arbitrary object.
@@ -104,13 +119,6 @@ module JsInterop =
     /// F#: let myLib = importAll<obj> "myLib"
     /// JS: import * as myLib from "myLib"
     let importAll<'T> (path: string):'T = jsNative
-
-    /// Serialize F# objects to JSON with type info
-    let toJson (o: 'T): string = jsNative
-
-    /// Instantiate F# objects from JSON with type info
-    /// (compatible with Newtonsoft.Json)
-    let ofJson<'T> (json: string): 'T = jsNative
 
     /// Convert F# unions, records and classes into plain JS objects
     let toPlainJsObj (o: 'T): obj = jsNative
