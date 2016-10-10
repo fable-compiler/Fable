@@ -192,9 +192,13 @@ and ArrayConsKind =
     | ArrayValues of Expr list
     | ArrayAlloc of Expr
 
-and Ident =
-    { name: string; typ: Type }
-    static member getType (i: Ident) = i.typ
+and Ident(name: string, ?typ: Type) =
+    let mutable consumed = false
+    member x.Name = name
+    member x.Type = defaultArg typ Any
+    member x.IsConsumed = consumed
+    member x.Consume() = consumed <- true
+    static member getType (i: Ident) = i.Type
 
 and ValueKind =
     | Null
@@ -219,7 +223,7 @@ and ValueKind =
         match x with
         | Null -> Any
         | Spread x -> x.Type
-        | IdentValue {typ=typ} -> typ
+        | IdentValue i -> i.Type
         | This | Super | ImportRef _ | TypeRef _ | Emit _ -> Any
         | NumberConst (_,kind) -> Number kind
         | StringConst _ -> String

@@ -154,6 +154,9 @@ and private transformComposableExpr com ctx fsExpr argExprs =
     | _ -> failwith "ComposableExpr expected"
 
 and private transformExpr (com: IFableCompiler) ctx fsExpr =
+    transformExprWithRole UnknownRole com ctx fsExpr
+
+and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr =
     match fsExpr with
     (** ## Custom patterns *)
     | SpecialValue com ctx replacement ->
@@ -165,27 +168,28 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         |> makeLoop (makeRangeFrom fsExpr)
         
     | ErasableLambda (expr, argExprs) ->
-        List.map (com.Transform ctx) argExprs
+        List.map (transformExprWithRole AppliedArgument com ctx) argExprs
         |> transformComposableExpr com ctx expr
 
     // Pipe must come after ErasableLambda
     | Pipe (Transform com ctx callee, args) ->
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        makeApply range typ callee (List.map (transformExpr com ctx) args)
+        makeApply range typ callee (List.map (transformExprWithRole AppliedArgument com ctx) args)
         
     | Composition (expr1, args1, expr2, args2) ->
         let lambdaArg = com.GetUniqueVar() |> makeIdent
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         let expr1 =
-            (List.map (com.Transform ctx) args1)@[Fable.Value (Fable.IdentValue lambdaArg)]
+            (List.map (transformExprWithRole AppliedArgument com ctx) args1)
+                @ [Fable.Value (Fable.IdentValue lambdaArg)]
             |> transformComposableExpr com ctx expr1
         let expr2 =
-            (List.map (com.Transform ctx) args2)@[expr1]
+            (List.map (transformExprWithRole AppliedArgument com ctx) args2)@[expr1]
             |> transformComposableExpr com ctx expr2
         makeLambdaExpr [lambdaArg] expr2             
 
     | BaseCons com ctx (meth, args) ->
-        let args = List.map (com.Transform ctx) args
+        let args = List.map (transformExprWithRole AppliedArgument com ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
 
@@ -212,6 +216,18 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             let ent = Fable.Entity(lazy Fable.Interface, None, "Fable.Core.Applicable", lazy [])
             Fable.DeclaredType(ent, [Fable.Any; Fable.Any])
         Fable.Wrapped(expr, appType)
+
+    | RecordMutatingUpdate(NonAbbreviatedType fsType, record, updatedFields) ->
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsType
+        // TODO: Use a different role type?
+        let record = makeValueFrom com ctx r typ AppliedArgument record
+        let assignments =
+            ([record], updatedFields)
+            ||> List.fold (fun acc (FieldName fieldName, e) ->
+                let r, value = makeRangeFrom e, com.Transform ctx e
+                let e = Fable.Set(record, Some(makeConst fieldName), value, r)
+                e::acc)
+        Fable.Sequential(assignments, r)
 
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -263,7 +279,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.Value v ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-        makeValueFrom com ctx r typ v
+        makeValueFrom com ctx r typ role v
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         let valueKind =
@@ -334,8 +350,10 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         let callee, args =
             if flags.IsInstance
-            then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
-            else makeTypeRef com range false sourceType, List.map (transformExpr com ctx) argExprs
+            then transformExpr com ctx argExprs.Head,
+                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail
+            else makeTypeRef com range false sourceType,
+                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs
         let argTypes = List.map (makeType com ctx) argTypes
         let methName =
             match sourceType with
@@ -347,12 +365,13 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, range)
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
-        let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) args
+        let callee = Option.map (com.Transform ctx) callee
+        let args = List.map (transformExprWithRole AppliedArgument com ctx) args
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
-        let args = List.map (transformExpr com ctx) args
+        let args = List.map (transformExprWithRole AppliedArgument com ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
         match callee.Type.FullName, args with
         | "Fable.Core.Applicable", args ->
@@ -433,7 +452,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.ValueSet (valToSet, Transform com ctx valueExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx valToSet.FullType
-        let valToSet = makeValueFrom com ctx r typ valToSet
+        let valToSet = makeValueFrom com ctx r typ UnknownRole valToSet
         Fable.Set (valToSet, None, valueExpr, r)
 
     (** Instantiation *)
@@ -598,8 +617,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             let defaultCase = transformBody defaultCase
             cases, defaultCase
         let matchValue =
-            makeType com ctx matchValue.FullType
-            |> makeValueFrom com ctx None <| matchValue
+            let t = makeType com ctx matchValue.FullType
+            makeValueFrom com ctx None t UnknownRole matchValue
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         match typ with
         | Fable.Unit ->
@@ -780,7 +799,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             if meth.EnclosingEntity.IsFSharpModule then
                 let typ = makeType com ctx meth.FullType
                 let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
-                ctx, Some (privateName.name)
+                ctx, Some (privateName.Name)
             else ctx, None
         let args, body =
             bindMemberArgs com ctx meth.IsInstanceMember args
@@ -868,7 +887,7 @@ let rec private transformEntityDecl
             // Bind entity name to context to prevent name
             // clashes (it will become a variable in JS)
             let ctx, ident = sanitizeEntityName ent |> bindIdent com ctx Fable.Any None
-            declInfo.AddChild(com, ent, ident.name, childDecls)
+            declInfo.AddChild(com, ent, ident.Name, childDecls)
             declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx init decls =
