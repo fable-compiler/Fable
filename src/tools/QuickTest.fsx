@@ -7,9 +7,9 @@
 // Please don't add this file to your commits
 
 // Uncomment these lines if you need access to Fable.Core helpers:
-#r "../fable/Fable.Core/npm/Fable.Core.dll"
-open Fable.Core
-open Fable.Core.JsInterop
+// #r "../fable/Fable.Core/npm/Fable.Core.dll"
+// open Fable.Core
+// open Fable.Core.JsInterop
 
 let equal expected actual =
     let areEqual = expected = actual

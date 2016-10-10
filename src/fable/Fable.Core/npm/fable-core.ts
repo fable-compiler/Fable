@@ -64,14 +64,15 @@ export enum TypeKind {
 
 export class Reflection {
   static resolveGeneric(idx: string | number, enclosing: List<any>): List<any> {
+    let name: string = null;
     try {
       const t = enclosing.head as FunctionConstructor;
       const generics = (<any>t.prototype)[FSymbol.generics]();
-      const name = typeof idx === "string"
+      name = typeof idx === "string"
         ? idx : Object.getOwnPropertyNames(generics)[idx];
       const resolved = generics[name];
       return resolved[0] === TypeKind.GenericParam
-        ? Reflection.resolveGeneric(resolved.arg, enclosing.tail)
+        ? Reflection.resolveGeneric(resolved[1], enclosing.tail)
         : new List(resolved, enclosing);
     }
     catch (err) {
