@@ -15,8 +15,8 @@ type Type =
     | Unit
     | Boolean
     | String
-    | Regex
     | Number of NumberKind
+    | Option of genericArg: Type
     | Array of genericArg: Type
     | Tuple of genericArgs: Type list
     | Function of argTypes: Type list * returnType: Type
@@ -40,17 +40,33 @@ type Type =
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
 
+and TypeKind =
+    // | Boolean | String | Number _ | Enum _
+    // | Function _ | DeclaredType _
+    | Other = 0
+    | Any = 1
+    | Unit = 2
+    | Option = 3
+    | Array = 4
+    | Tuple = 5
+    | GenericParam = 6
+    | Interface = 7
+
 (** ##Entities *)
 and EntityKind =
     | Module
-    | Union
+    | Union of cases: Map<string, Type list>
     | Record of fields: (string*Type) list
     | Exception of fields: (string*Type) list
-    | Class of baseClass: (string*Expr) option
+    | Class of baseClass: (string*Expr) option * properties: (string*Type) list
     | Interface
 
 and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
-           genParams, interfaces, decorators, isPublic) =
+           ?genParams, ?interfaces, ?decorators, ?isPublic) =
+    let genParams = defaultArg genParams []
+    let decorators = defaultArg decorators []
+    let interfaces = defaultArg interfaces []
+    let isPublic = defaultArg isPublic true
     member x.Kind: EntityKind = kind.Value
     member x.File: string option = file
     member x.FullName: string = fullName
@@ -105,7 +121,7 @@ and MemberKind =
     | Field
 
 and Member(name, kind, argTypes, returnType, ?originalType, ?genParams, ?decorators,
-           ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?overloadIndex) =
+           ?isPublic, ?isMutable, ?isStatic, ?isSymbol, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.ArgumentTypes: Type list = argTypes
@@ -116,6 +132,7 @@ and Member(name, kind, argTypes, returnType, ?originalType, ?genParams, ?decorat
     member x.IsPublic: bool = defaultArg isPublic true
     member x.IsMutable: bool = defaultArg isMutable false
     member x.IsStatic: bool = defaultArg isStatic false
+    member x.IsSymbol: bool = defaultArg isSymbol false
     member x.HasRestParams: bool = defaultArg hasRestParams false
     member x.OverloadIndex: int option = overloadIndex
     member x.OverloadName: string =
@@ -175,9 +192,13 @@ and ArrayConsKind =
     | ArrayValues of Expr list
     | ArrayAlloc of Expr
 
-and Ident =
-    { name: string; typ: Type }
-    static member getType (i: Ident) = i.typ
+and Ident(name: string, ?typ: Type) =
+    let mutable consumed = false
+    member x.Name = name
+    member x.Type = defaultArg typ Any
+    member x.IsConsumed = consumed
+    member x.Consume() = consumed <- true
+    static member getType (i: Ident) = i.Type
 
 and ValueKind =
     | Null
@@ -202,11 +223,13 @@ and ValueKind =
         match x with
         | Null -> Any
         | Spread x -> x.Type
-        | IdentValue {typ=typ} -> typ
+        | IdentValue i -> i.Type
         | This | Super | ImportRef _ | TypeRef _ | Emit _ -> Any
         | NumberConst (_,kind) -> Number kind
         | StringConst _ -> String
-        | RegexConst _ -> Regex
+        | RegexConst _ ->
+            let fullName = "System.Text.RegularExpressions.Regex"
+            DeclaredType(Entity(lazy Class(None, []), None, fullName, lazy []), [])        
         | BoolConst _ -> Boolean
         | ArrayConst (_, typ) -> Array typ
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple

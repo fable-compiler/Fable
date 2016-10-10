@@ -1,3 +1,7 @@
+### 0.7.0
+
+* Serialize.ofJson doesn't need JSON to contain `$type` info any more
+
 ### 0.6.8
 
 * Fix #459: Seq.filter doesn't blow the stack with long sequences

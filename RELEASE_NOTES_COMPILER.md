@@ -1,3 +1,9 @@
+### 0.7.0
+
+* Add type info to JS constructors: cases (unions) and properties (records and classes)
+* Extend type references with generic info when calling `typeof`
+* Add `GenericParamAttribute` to implicitly pass type info of generic parameters
+
 ### 0.6.12
 
 * Now fableconfig.json can be in JSON5 format (comments!)

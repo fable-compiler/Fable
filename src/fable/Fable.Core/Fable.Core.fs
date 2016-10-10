@@ -7,59 +7,81 @@ module Exceptions =
     let jsNative<'T> : 'T = failwith "JS only"
 
 /// Used for erased union types and to ignore modules in JS compilation.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
+/// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type EraseAttribute() =
     inherit Attribute()
 
 /// The module, type, function... is globally accessible in JS.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#Import-attribute
+/// More info: http://fable.io/docs/interacting.html#Import-attribute
 type GlobalAttribute() =
     inherit Attribute()
 
 /// References to the module, type, function... will be replaced by import statements.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#Import-attribute
+/// More info: http://fable.io/docs/interacting.html#Import-attribute
 type ImportAttribute(get: string, from: string) =
     inherit Attribute()
 
 /// Function calls will be replaced by inlined JS code.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#Import-attribute
+/// More info: http://fable.io/docs/interacting.html#Import-attribute
 type EmitAttribute private () =
     inherit Attribute()
     new (macro: string) = EmitAttribute()
     new (emitterType: Type, methodName: string) = EmitAttribute()
 
 /// Compile union case lists as JS object literals.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#KeyValueList-attribute
+/// More info: http://fable.io/docs/interacting.html#KeyValueList-attribute
+[<AttributeUsage(AttributeTargets.Class)>]
 type KeyValueListAttribute() =
     inherit Attribute()
 
 /// Compile union types as string literals.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#StringEnum-attribute
+/// More info: http://fable.io/docs/interacting.html#StringEnum-attribute
+[<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute() =
-    inherit Attribute()    
+    inherit Attribute()
+
+/// When set on a optional System.Type parameter, Fable will pass the type
+/// of the generic parameter of that name if omitted by the user. 
+[<AttributeUsage(AttributeTargets.Parameter)>]
+type GenericParamAttribute(name: string) =
+    inherit Attribute()
+
+/// [EXPERIMENTAL] Record updates will be compiled as mutations: { x with a = 5 }
+/// Fable will fail if the original value is used after being updated or passed to a function.
+/// More info: http://fable.io/docs/interacting.html#MutatingUpdate-attribute
+[<AttributeUsage(AttributeTargets.Class)>]
+type MutatingUpdateAttribute() =
+    inherit Attribute()      
 
 /// Erased union type to represent one of two possible values.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
+/// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U2<'a, 'b> = Case1 of 'a | Case2 of 'b
 
 /// Erased union type to represent one of three possible values.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
+/// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c    
 
 /// Erased union type to represent one of four possible values.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
+/// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U4<'a, 'b, 'c, 'd> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd    
 
 /// Erased union type to represent one of five possible values.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
+/// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U5<'a, 'b, 'c, 'd, 'e> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e    
 
 /// Erased union type to represent one of six possible values.
-/// More info: http://fable-compiler.github.io/docs/interacting.html#Erase-attribute
+/// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e | Case6 of 'f    
 
 /// DO NOT USE: Internal type for Fable dynamic operations
 type Applicable = obj->obj
+
+type Serialize =
+    /// Serialize F# objects to JSON
+    static member toJson(o: 'T): string = jsNative
+
+    /// Instantiate F# objects from JSON
+    static member ofJson<'T> (json: string, [<GenericParam("T")>]?t: Type): 'T = jsNative
 
 module JsInterop =
     /// Dynamically access a property of an arbitrary object.
@@ -104,13 +126,6 @@ module JsInterop =
     /// F#: let myLib = importAll<obj> "myLib"
     /// JS: import * as myLib from "myLib"
     let importAll<'T> (path: string):'T = jsNative
-
-    /// Serialize F# objects to JSON with type info
-    let toJson (o: 'T): string = jsNative
-
-    /// Instantiate F# objects from JSON with type info
-    /// (compatible with Newtonsoft.Json)
-    let ofJson<'T> (json: string): 'T = jsNative
 
     /// Convert F# unions, records and classes into plain JS objects
     let toPlainJsObj (o: 'T): obj = jsNative
