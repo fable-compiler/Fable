@@ -1,3 +1,8 @@
+### 0.6.15
+
+* Revert change from 0.6.14: ES6 modules automatically enable
+  strict mode, so the directive is not needed
+
 ### 0.6.14
 
 * Add always "use strict" directive
