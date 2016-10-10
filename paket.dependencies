@@ -3,6 +3,7 @@ source https://www.nuget.org/api/v2
 nuget FAKE
 nuget FSharp.Compiler.Service
 nuget FSharp.Compiler.Service.ProjectCracker
+nuget FSharp.Core
 nuget Newtonsoft.Json
 nuget NUnit
 nuget NUnit.Runners
