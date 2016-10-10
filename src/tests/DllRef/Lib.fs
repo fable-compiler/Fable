@@ -1,3 +1,4 @@
+[<Fable.Core.EntryModule("./DllRef")>]
 module Fable.Tests.DllRef.Lib
 
 let 足す x y = x + y
