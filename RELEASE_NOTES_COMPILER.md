@@ -1,8 +1,9 @@
-### 0.7.0
+### 0.7.0-alpha
 
 * Add type info to JS constructors: cases (unions) and properties (records and classes)
 * Extend type references with generic info when calling `typeof`
 * Add `GenericParamAttribute` to implicitly pass type info of generic parameters
+* Add `MutatingUpdateAttribute` to compile record updates as mutations
 * Add `EntryModuleAttribute` to mark assemblies as Fable libraries
 
 ### 0.6.15
