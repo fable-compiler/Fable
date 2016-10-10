@@ -1,4 +1,4 @@
-### 0.7.0
+### 0.7.0-alpha
 
 * Serialize.ofJson doesn't need JSON to contain `$type` info any more
 
