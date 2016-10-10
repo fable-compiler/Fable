@@ -48,9 +48,6 @@ module Naming =
     let ignoredAtts =
         set ["Import"; "Global"; "Emit"]
 
-    let ignoredFilesRegex =
-        Regex(@"Fable\.Import\.[\w.]*\.fs$")
-
     let identForbiddenCharsRegex =
         Regex @"^[^a-zA-Z_$]|[^0-9a-zA-Z_$]"
 
