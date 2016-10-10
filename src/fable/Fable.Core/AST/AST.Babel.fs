@@ -117,13 +117,15 @@ type Decorator(value, ?loc) =
     inherit Node("Decorator", ?loc = loc)
     member x.value = value
     
-type DirectiveLiteral(?loc) =
-    inherit StringLiteral("DirectiveLiteral", ?loc = loc)
+type DirectiveLiteral(value, ?loc) =
+    inherit Literal("DirectiveLiteral", ?loc = loc)
+    member x.value: string = value
 
 /// e.g. "use strict";
 type Directive(value, ?loc) =
     inherit Node("Directive", ?loc = loc)
-    member x.value: DirectiveLiteral = value    
+    new (str, ?loc) = Directive(DirectiveLiteral str, ?loc = loc) 
+    member x.value: DirectiveLiteral = value
 
 (** ##Program *)
 /// A complete program source tree.

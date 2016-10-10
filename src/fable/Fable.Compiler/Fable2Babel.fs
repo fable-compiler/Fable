@@ -1057,8 +1057,9 @@ module Compiler =
                         Some file.FileName
                     else None
                 // Return the Babel file
+                let directives = [Babel.Directive "use strict"]
                 Babel.Program(Path.fixExternalPath com file.FileName,
-                                originalFileName, file.Range, rootDecls)
+                                originalFileName, file.Range, rootDecls, directives)
             with
             | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
         )
