@@ -119,11 +119,11 @@ module Util =
     let toString com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
         match arg.Type with
         | Fable.String -> arg
-        | Fable.Unit | Fable.Boolean | Fable.Regex | Fable.Number _
+        | Fable.Unit | Fable.Boolean | Fable.Number _
         | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
             GlobalCall ("String", None, false, [arg])
             |> makeCall com i.range i.returnType
-        | _ ->
+        | Fable.Any | Fable.GenericParam _ | Fable.DeclaredType _ | Fable.Option _ -> 
             CoreLibCall ("Util", Some "toString", false, [arg])
             |> makeCall com i.range i.returnType
 
@@ -249,7 +249,7 @@ module Util =
             if equal then expr
             else makeUnOp i.range i.returnType [expr] UnaryNot
         match args.Head.Type with
-        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String | Fable.Regex
+        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
             Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | EntFullName "System.DateTime" ->
@@ -257,15 +257,14 @@ module Util =
             |> makeCall com i.range i.returnType |> is equal |> Some
         | Fable.DeclaredType(ent, _)
             when (ent.HasInterface "System.IEquatable"
-                    && ent.FullName <> "System.TimeSpan"
-                    && ent.FullName <> "Microsoft.FSharp.Core.FSharpOption")
+                    && ent.FullName <> "System.TimeSpan")
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpSet" ->
             InstanceCall(args.Head, "Equals", args.Tail)
             |> makeCall com i.range i.returnType |> is equal |> Some
         | Fable.Array _ | Fable.Tuple _
-        | Fable.DeclaredType _ | Fable.GenericParam _ ->
+        | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
             CoreLibCall("Util", Some "equals", false, args)
             |> makeCall com i.range i.returnType |> is equal |> Some
 
@@ -277,12 +276,11 @@ module Util =
             | None -> comparison
             | Some op -> makeEqOp r [comparison; makeConst 0] op
         match args.Head.Type with
-        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String | Fable.Regex
+        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ when Option.isSome op ->
             makeEqOp r args op.Value
         | Fable.DeclaredType(ent, _)
             when ent.HasInterface "System.IComparable"
-                && ent.FullName <> "Microsoft.FSharp.Core.FSharpOption"
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
             InstanceCall(args.Head, "CompareTo", args.Tail)
@@ -294,8 +292,7 @@ module Util =
     let makeComparer com (typArg: Fable.Type option) =
         match typArg with
         | None
-        | Some(EntFullName "Microsoft.FSharp.Core.FSharpOption")
-        | Some(Fable.Array _ | Fable.Tuple _) ->
+        | Some(Fable.Option _) | Some(Fable.Array _ | Fable.Tuple _) ->
             [makeCoreRef com "Util" (Some "compare")]
         | Some(Fable.DeclaredType(ent, _))
             when ent.HasInterface "System.IComparable"
@@ -388,14 +385,9 @@ module private AstPass =
             CoreLibCall("Async", Some meth, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
         | "toJson" | "ofJson" | "toPlainJsObj" ->
-            let args =
-                match i.methodName, i.methodTypeArgs with
-                | "ofJson", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
-                    [i.args.Head; makeTypeRef com None t]
-                | _ -> i.args
             let modName =
                 if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
-            CoreLibCall(modName, Some i.methodName, false, args)
+            CoreLibCall(modName, Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | _ -> None
 
@@ -537,7 +529,7 @@ module private AstPass =
             Fable.Throw (args.Head, typ, r) |> Some
         // Type ref
         | "typeOf" ->
-            makeTypeRef com info.range info.methodTypeArgs.Head |> Some
+            makeTypeRef com info.range true info.methodTypeArgs.Head |> Some
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -753,7 +745,7 @@ module private AstPass =
         | "typeTestGeneric", (None, [expr]) ->
             makeTypeTest com i.range i.methodTypeArgs.Head expr |> Some
         | "createInstance", (None, _) ->
-            let typRef, args = makeTypeRef com i.range i.methodTypeArgs.Head, []
+            let typRef, args = makeTypeRef com i.range false i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
@@ -871,7 +863,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for Dictionary keys, please use F# Map"
                 |> addWarning com i
             | _ -> ()
@@ -909,7 +901,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for HashSet, please use F# Set"
                 |> addWarning com i
             | _ -> ()
@@ -1354,24 +1346,24 @@ module private AstPass =
         | _ -> None
 
     let types com (info: Fable.ApplyInfo) =
-        let makeString = Fable.StringConst >> Fable.Value >> Some
+        let str x = Fable.Value(Fable.StringConst x)
         match info.callee with
         | Some(Fable.Value(Fable.TypeRef t)) ->
             match info.methodName with
-            | "namespace" -> makeString t.Namespace
-            | "fullName" -> makeString t.FullName
-            | "name" -> makeString t.Name
+            | "namespace" -> str t.Namespace |> Some
+            | "fullName" -> str t.FullName |> Some
+            | "name" -> str t.Name |> Some
             | _ -> None
         | _ ->
             match info.methodName with
-            | "namespace" -> Some "getTypeNamespace"
-            | "fullName" -> Some "getTypeFullName"
-            | "name" -> Some "getTypeName"
+            | "fullName" -> Some [info.callee.Value]
+            | "name" -> Some [info.callee.Value; str "name"]
+            | "namespace" -> Some [info.callee.Value; str "namespace"]
             | _ -> None
-            |> Option.map (fun meth ->
-                CoreLibCall("Util", Some meth, false, [info.callee.Value])
+            |> Option.map (fun args ->
+                CoreLibCall("Reflection", Some "getTypeFullName", false, args)
                 |> makeCall com info.range info.returnType)
-
+        
     let unchecked com (info: Fable.ApplyInfo) =
         match info.methodName with
         | "defaultOf" ->
@@ -1502,7 +1494,7 @@ module private AstPass =
         | "Microsoft.FSharp.Core.Operators"
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
         | "Microsoft.FSharp.Core.FSharpRef" -> references com info
-        | "System.Activator" -> activator com info
+        | "System.Activator" -> activator com info        
         | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info
@@ -1621,11 +1613,20 @@ let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
     | ex -> failwithf "Cannot replace %s.%s: %s"
                 info.ownerFullName info.methodName ex.Message
 
-let coreLibMappedTypes =
-    Map [
-        fsharp + "Control.FSharpAsync" => "Async"
-        fsharp + "Collections.FSharpSet" => "Set"
-        fsharp + "Collections.FSharpMap" => "Map"
-        fsharp + "Collections.FSharpList" => "List"
-        fsharp + "Core.FSharpChoice" => "Choice"
-    ]
+let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) =
+    let coreLibType name =
+        Fable.ImportRef(name, com.Options.coreLib)
+        |> Fable.Value |> Some
+    match ent.FullName with
+    | "System.TimeSpan" -> Fable.StringConst "number" |> Fable.Value |> Some
+    | "System.DateTime" -> makeIdentExpr "Date" |> Some
+    | "System.Collections.Generic.Dictionary" -> makeIdentExpr "Map" |> Some
+    | "System.Collections.Generic.HashSet" -> makeIdentExpr "Set" |> Some
+    | "System.Text.RegularExpressions.Regex" -> makeIdentExpr "RegExp" |> Some
+    | "Microsoft.FSharp.Control.FSharpAsync" -> coreLibType "Async"
+    | "Microsoft.FSharp.Collections.FSharpSet" -> coreLibType "Set"
+    | "Microsoft.FSharp.Collections.FSharpMap" -> coreLibType "Map"
+    | "Microsoft.FSharp.Collections.FSharpList" -> coreLibType "List"
+    | "Microsoft.FSharp.Core.FSharpChoice" -> coreLibType "Choice"
+    | "System.Timers.Timer" -> coreLibType "Timer"
+    | _ -> None

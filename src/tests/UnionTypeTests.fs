@@ -95,7 +95,6 @@ let ``Active patterns can be combined with union case matching``() = // See #306
 
 #if FABLE_COMPILER
 open Fable.Core
-open Fable.Core.JsInterop
 
 type JsonTypeInner = {
     Prop1: string
@@ -161,8 +160,8 @@ let ``Unions can be JSON serialized forth and back``() =
     let tree = Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
     let sum1 = tree.Sum()
     #if FABLE_COMPILER
-    let json = toJson tree
-    let tree2 = ofJson<Tree> json
+    let json = Fable.Core.Serialize.toJson tree
+    let tree2 = Fable.Core.Serialize.ofJson<Tree> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject tree
     let tree2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Tree> json
@@ -206,7 +205,7 @@ type UnionTypeInfoConverter() =
 let ``Unions serialized with Json.NET can be deserialized``() =    
     #if FABLE_COMPILER
     let json = """{"$type":"Fable.Tests.UnionTypes+Tree","Case":"Leaf","Fields":[5]}"""
-    let x2 = Fable.Core.JsInterop.ofJson<Tree> json
+    let x2 = Fable.Core.Serialize.ofJson<Tree> json
     #else
     let x = Leaf 5
     let settings =

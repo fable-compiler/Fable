@@ -1,5 +1,9 @@
 ### 0.7.0
 
+* Add type info to JS constructors: cases (unions) and properties (records and classes)
+* Extend type references with generic info when calling `typeof`
+* Add `GenericParamAttribute` to implicitly pass type info of generic parameters
+
 ### 0.6.15
 
 * Revert change from 0.6.14: ES6 modules automatically enable

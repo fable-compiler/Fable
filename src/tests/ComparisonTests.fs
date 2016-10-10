@@ -6,14 +6,28 @@ open Fable.Tests.Util
 open System.Collections.Generic
 
 [<Test>]
-let ``Array equality works``() =  
+let ``Typed array equality works``() =  
     let xs1 = [| 1; 2; 3 |]
     let xs2 = [| 1; 2; 3 |]
     let xs3 = [| 1; 2; 4 |]
+    let xs4 = [| 1; 2 |]
     equal true (xs1 = xs2)
     equal false (xs1 = xs3)
     equal true (xs1 <> xs3)
     equal false (xs1 <> xs2)
+    equal true (xs1 <> xs4)
+
+[<Test>]
+let ``Array equality works``() =  
+    let xs1 = [| "1"; "2"; "3" |]
+    let xs2 = [| "1"; "2"; "3" |]
+    let xs3 = [| "1"; "2"; "4" |]
+    let xs4 = [| "1"; "2" |]
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal true (xs1 <> xs4)
 
 [<Test>]
 let ``Tuple equality works``() =  
@@ -170,13 +184,31 @@ let ``Equality with objects implementing IEquatable works``() =
     Object.ReferenceEquals(c1, c2) |> equal false
 
 [<Test>]
-let ``Array comparison works``() =  
+let ``Typed array comparison works``() =  
     let xs1 = [| 1; 2; 3 |]
     let xs2 = [| 1; 2; 3 |]
     let xs3 = [| 1; 2; 4 |]
     let xs4 = [| 1; 2; 2 |]
     let xs5 = [| 1; 2 |]
     let xs6 = [| 1; 2; 3; 1 |]
+    equal 0 (compare xs1 xs2)
+    equal -1 (compare xs1 xs3)
+    equal true (xs1 < xs3)
+    equal 1 (compare xs1 xs4)
+    equal false (xs1 < xs4)
+    equal 1 (compare xs1 xs5)
+    equal true (xs1 > xs5)
+    equal -1 (compare xs1 xs6)
+    equal false (xs1 > xs6)
+
+[<Test>]
+let ``Array comparison works``() =  
+    let xs1 = [| "1"; "2"; "3" |]
+    let xs2 = [| "1"; "2"; "3" |]
+    let xs3 = [| "1"; "2"; "4" |]
+    let xs4 = [| "1"; "2"; "2" |]
+    let xs5 = [| "1"; "2" |]
+    let xs6 = [| "1"; "2"; "3"; "1" |]
     equal 0 (compare xs1 xs2)
     equal -1 (compare xs1 xs3)
     equal true (xs1 < xs3)
