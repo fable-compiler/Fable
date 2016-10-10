@@ -1,5 +1,6 @@
 ### 0.7.0
 
+* Serialize.ofJson doesn't need JSON to contain `$type` info any more
 
 ### 0.6.8
 

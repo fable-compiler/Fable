@@ -137,8 +137,8 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             buildApplyInfo com ctx r typ unionType (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
-            Fable.Apply (makeTypeRef com (Some range) unionType, argExprs, Fable.ApplyCons,
-                            makeType com ctx fsExpr.Type, Some range)
+            Fable.Apply(makeTypeRef com (Some range) false unionType, argExprs, Fable.ApplyCons,
+                        makeType com ctx fsExpr.Type, Some range)
 
 and private transformComposableExpr com ctx fsExpr argExprs =
     // See (|ComposableExpr|_|) active pattern to check which expressions are valid here
@@ -209,8 +209,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | Applicable (Transform com ctx expr) ->
         let appType =
-            let ent = Fable.Entity(lazy Fable.Interface, None, "Fable.Core.Applicable", lazy [], [], [], [], true)
-            Fable.DeclaredType(ent, [Fable.Any;Fable.Any])
+            let ent = Fable.Entity(lazy Fable.Interface, None, "Fable.Core.Applicable", lazy [])
+            Fable.DeclaredType(ent, [Fable.Any; Fable.Any])
         Fable.Wrapped(expr, appType)
 
     (** ## Erased *)
@@ -335,7 +335,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let callee, args =
             if flags.IsInstance
             then transformExpr com ctx argExprs.Head, List.map (transformExpr com ctx) argExprs.Tail
-            else makeTypeRef com range sourceType, List.map (transformExpr com ctx) argExprs
+            else makeTypeRef com range false sourceType, List.map (transformExpr com ctx) argExprs
         let argTypes = List.map (makeType com ctx) argTypes
         let methName =
             match sourceType with
@@ -392,7 +392,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx calleeType
-                      |> makeTypeRef com (makeRangeFrom fsExpr)
+                      |> makeTypeRef com (makeRangeFrom fsExpr) false
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeGetFrom com ctx r typ callee (makeConst fieldName)
 
@@ -420,7 +420,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeTypeRef com (makeRangeFrom fsExpr) calleeType
+            | None -> makeTypeRef com (makeRangeFrom fsExpr) false calleeType
         Fable.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -459,7 +459,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
                 let baseClass =
                     makeTypeFromDef com ctx meth.EnclosingEntity []
-                    |> makeTypeRef com (Some SourceLocation.Empty)
+                    |> makeTypeRef com (Some SourceLocation.Empty) false
                     |> Some
                 let baseCons =
                     let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
@@ -536,8 +536,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             buildApplyInfo com ctx r typ recordType (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
-            Fable.Apply (makeTypeRef com (Some range) recordType, argExprs, Fable.ApplyCons,
-                            makeType com ctx fsExpr.Type, Some range)
+            Fable.Apply(makeTypeRef com (Some range) false recordType, argExprs, Fable.ApplyCons,
+                        makeType com ctx fsExpr.Type, Some range)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
         match fsType with
@@ -718,7 +718,8 @@ type private DeclInfo(init: Fable.Declaration list) =
     let hasIgnoredAtt atts =
         atts |> tryFindAtt (Naming.ignoredAtts.Contains) |> Option.isSome
     member self.IsIgnoredEntity (ent: FSharpEntity) =
-        ent.IsFSharpAbbreviation
+        ent.IsEnum
+        || ent.IsFSharpAbbreviation
         || isAttributeEntity ent
         || (hasIgnoredAtt ent.Attributes)
     /// Is compiler generated (CompareTo...) or belongs to ignored entity?
@@ -789,7 +790,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 else ctx, args
             |> fun (ctx, args) ->
                 match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
-                | true, Some(EntityKind(Fable.Class(Some(fullName, _)))) ->
+                | true, Some(EntityKind(Fable.Class(Some(fullName, _), _))) ->
                     { ctx with baseClass = Some fullName }, args
                 | _ -> ctx, args
             |> fun (ctx, args) ->
@@ -827,7 +828,7 @@ let rec private transformEntityDecl
         // Unions, records and F# exceptions don't have a constructor
         let cons =
             match fableEnt.Kind with
-            | Fable.Union -> [makeUnionCons()]
+            | Fable.Union _ -> [makeUnionCons()]
             | Fable.Record fields
             | Fable.Exception fields -> [makeRecordCons fields]
             | _ -> []
@@ -839,13 +840,25 @@ let rec private transformEntityDecl
             // generate the corresponding methods
             // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
             let fableType = Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.GenericParam)
-            if ent.IsFSharpUnion then
+            match fableEnt.Kind with
+            | Fable.Union cases ->
                 (if needsImpl "System.IEquatable" then [makeUnionEqualMethod com fableType] else [])
                 @ (if needsImpl "System.IComparable" then [makeUnionCompareMethod com fableType] else [])
-            elif ent.IsFSharpRecord then
+                @ [makeCasesMethod com cases]
+                @ [makeTypeNameMeth com fableEnt.FullName]
+                @ [makeInterfacesMethod com false ("FSharpUnion"::fableEnt.Interfaces)]
+            | Fable.Record fields | Fable.Exception fields ->
                 (if needsImpl "System.IEquatable" then [makeRecordEqualMethod com fableType] else [])
                 @ (if needsImpl "System.IComparable" then [makeRecordCompareMethod com fableType] else [])
-            else []
+                // TODO: Use specific interface for FSharpException?
+                @ [makePropertiesMethod com false fields]
+                @ [makeTypeNameMeth com fableEnt.FullName]
+                @ [makeInterfacesMethod com false ("FSharpRecord"::fableEnt.Interfaces)]
+            | Fable.Class(baseClass, properties) ->
+                [makePropertiesMethod com baseClass.IsSome properties]
+                @ [makeTypeNameMeth com fableEnt.FullName]
+                @ [makeInterfacesMethod com baseClass.IsSome fableEnt.Interfaces]
+            | _ -> []
         let childDecls = transformDeclarations com ctx (cons@compareMeths) subDecls
         // Even if a module is marked with Erase, transform its members
         // in case they contain inline methods
