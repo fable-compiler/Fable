@@ -23,8 +23,8 @@ let getSymbol (com: ICompiler) name =
     Apply (import, [Value(StringConst name)], ApplyGet, Any, None)
 
 let makeLoop range loopKind = Loop (loopKind, range)
-let makeIdent name: Ident = {name=name; typ=Any}
-let makeTypedIdent name typ: Ident = {name=name; typ=typ}
+let makeIdent name = Ident(name)
+let makeTypedIdent name typ = Ident(name, typ)
 let makeIdentExpr name = makeIdent name |> IdentValue |> Value
 let makeLambdaExpr args body = Value(Lambda(args, body))
 
@@ -210,7 +210,7 @@ let rec makeTypeTest com range (typ: Type) expr =
         |> attachRange range |> failwith
 
 let makeUnionCons () =
-    let args = [{name="caseName"; typ=String}; {name="fields"; typ=Array Any}]
+    let args = [Ident("caseName", String); Ident("fields", Array Any)]
     let argTypes = List.map Ident.getType args
     let emit = Emit "this.Case=caseName; this.Fields = fields;" |> Value
     let body = Apply (emit, [], ApplyMeth, Unit, None)
@@ -221,8 +221,8 @@ let makeRecordCons (props: (string*Type) list) =
         ([], props) ||> List.fold (fun args (name, typ) ->
             let name =
                 Naming.lowerFirst name |> Naming.sanitizeIdent (fun x ->
-                    List.exists (fun (y: Ident) -> y.name = x) args)
-            {name=name; typ=typ}::args)
+                    List.exists (fun (y: Ident) -> y.Name = x) args)
+            (Ident(name, typ))::args)
         |> List.rev
     let body =
         Seq.zip args props
@@ -231,17 +231,17 @@ let makeRecordCons (props: (string*Type) list) =
                 if Naming.identForbiddenCharsRegex.IsMatch propName
                 then "['" + (propName.Replace("'", "\\'")) + "']"
                 else "." + propName
-            "this" + propName + "=" + arg.name)
+            "this" + propName + "=" + arg.Name)
         |> String.concat ";"
         |> fun body -> makeEmit None Unit [] body
     MemberDeclaration(Member(".ctor", Constructor, List.map Ident.getType args, Any), None, args, body, SourceLocation.Empty)
 
 let private makeMeth com argType returnType name coreMeth =
-    let arg = {name="other"; typ=argType}
+    let arg = Ident("other", argType)
     let body =
         CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
         |> makeCall com None returnType
-    MemberDeclaration(Member(name, Method, [arg.typ], returnType), None, [arg], body, SourceLocation.Empty)
+    MemberDeclaration(Member(name, Method, [arg.Type], returnType), None, [arg], body, SourceLocation.Empty)
 
 let makeUnionEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsUnions"
 let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsRecords"
@@ -297,8 +297,7 @@ let makeDelegate (com: ICompiler) arity (expr: Expr) =
         match arity with
         | Some arity when arity > 1 ->
             let lambdaArgs =
-                [for i=1 to arity do
-                    yield {name=com.GetUniqueVar(); typ=Any}]
+                [for i=1 to arity do yield Ident(com.GetUniqueVar(), Any)]
             let lambdaBody =
                 (expr, lambdaArgs)
                 ||> List.fold (fun callee arg ->

@@ -51,6 +51,21 @@ module Util =
     let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
     let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
 
+    /// Matches a sequence of assignments and a return value: a.b = 1, a.c = 2, a
+    let (|Assignments|_|) e =
+        match e with
+        | Fable.Sequential(exprs, r) ->
+            let length = exprs.Length
+            ((true, 1), exprs)
+            ||> List.fold (fun (areAssignments, i) e ->
+                match areAssignments, e with
+                | false, _ -> false, 0
+                | _, Fable.Set _ when i < length -> true, i + 1
+                | _, Fable.Value _ -> true, i + 1
+                | _ -> false, 0)
+            |> function true, _ -> Some(exprs, r) | _ -> None
+        | _ -> None
+
     let consBack tail head = head::tail
 
     let isNull = function
@@ -64,7 +79,7 @@ module Util =
             | expr -> com.TransformExpr ctx expr |> U2.Case1)
         
     let ident (id: Fable.Ident) =
-        Babel.Identifier id.name
+        Babel.Identifier id.Name
 
     let identFromName name =
         let name = Naming.sanitizeIdent (fun _ -> false) name
@@ -292,7 +307,7 @@ module Util =
                     match arg with
                     | :? Babel.Identifier as id ->
                         Babel.Identifier(id.name,
-                            Babel.TypeAnnotation(typeAnnotation com ctx args.[i].typ))
+                            Babel.TypeAnnotation(typeAnnotation com ctx args.[i].Type))
                         :> Babel.Pattern
                     | arg -> arg),
                 Babel.TypeAnnotation(typeAnnotation com ctx body.Type) |> Some,
@@ -320,7 +335,7 @@ module Util =
         | Fable.This -> upcast Babel.ThisExpression ()
         | Fable.Super -> upcast Babel.Super ()
         | Fable.Null -> upcast Babel.NullLiteral ()
-        | Fable.IdentValue {name=name} -> upcast Babel.Identifier (name)
+        | Fable.IdentValue i -> upcast Babel.Identifier (i.Name)
         | Fable.NumberConst (x,_) -> upcast Babel.NumericLiteral x
         | Fable.StringConst x -> upcast Babel.StringLiteral (x)
         | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
@@ -496,7 +511,7 @@ module Util =
             com.TransformExprAndResolve ctx ret value
 
         | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path)), isMutable) ->
-            let value = com.GetImportExpr ctx None var.name path
+            let value = com.GetImportExpr ctx None var.Name path
             varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement
 
         | Fable.VarDeclaration (var, TransformExpr com ctx value, isMutable) ->
@@ -601,6 +616,11 @@ module Util =
             | None -> com.TransformExpr ctx callee
             | Some property -> getExpr com ctx callee property
             |> assign range <| value
+
+        // Optimization: Compile sequential as expression if possible
+        | Assignments(exprs, r) ->
+            List.map (com.TransformExpr ctx) exprs
+            |> fun exprs -> upcast Babel.SequenceExpression(exprs, ?loc=r)
 
         // These cannot appear in expression position in JS
         // They must be wrapped in a lambda
