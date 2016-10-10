@@ -217,7 +217,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             Fable.DeclaredType(ent, [Fable.Any; Fable.Any])
         Fable.Wrapped(expr, appType)
 
-    | RecordUpdate(NonAbbreviatedType fsType, record, updatedFields) ->
+    | RecordMutatingUpdate(NonAbbreviatedType fsType, record, updatedFields) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsType
         // TODO: Use a different role type?
         let record = makeValueFrom com ctx r typ AppliedArgument record
@@ -352,7 +352,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             if flags.IsInstance
             then transformExpr com ctx argExprs.Head,
                  List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail
-            else makeTypeRef com range sourceType,
+            else makeTypeRef com range false sourceType,
                  List.map (transformExprWithRole AppliedArgument com ctx) argExprs
         let argTypes = List.map (makeType com ctx) argTypes
         let methName =

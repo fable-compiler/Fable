@@ -101,12 +101,12 @@ module Helpers =
         fullName = Some "Microsoft.FSharp.Core.Unit"
 
     // TODO: Check that all record fields are immutable?
-    let isUniqueness (typ: FSharpType) =
+    let isMutatingUpdate (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition
         then typ.TypeDefinition.IsFSharpRecord
                 && typ.TypeDefinition.Attributes
-                   |> tryFindAtt ((=) "Uniqueness")
+                   |> tryFindAtt ((=) "MutatingUpdate")
                    |> Option.isSome
         else false
 
@@ -444,11 +444,11 @@ module Patterns =
         | _ -> None
 
     /// Record updates as in `{ a with name = "Anna" }`
-    let (|RecordUpdate|_|) fsExpr =
+    let (|RecordMutatingUpdate|_|) fsExpr =
         let rec visit identAndBindings = function
             | Let((ident, binding), letBody) when ident.IsCompilerGenerated ->
                 visit ((ident, binding)::identAndBindings) letBody
-            | NewRecord(NonAbbreviatedType recType, argExprs) when isUniqueness recType ->
+            | NewRecord(NonAbbreviatedType recType, argExprs) when isMutatingUpdate recType ->
                 ((None, []), Seq.zip recType.TypeDefinition.FSharpFields argExprs)
                 ||> Seq.fold (fun (prevRec, updatedFields) (fi, e) ->
                     match e with
@@ -739,8 +739,8 @@ module Identifiers =
         |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
         |> function
             | Some(_, (Fable.Value(Fable.IdentValue i) as boundExpr)) ->
-                if i.IsConsumed && isUniqueness fsRef.FullType then
-                    "Uniqueness value has already been consumed: " + i.Name
+                if i.IsConsumed && isMutatingUpdate fsRef.FullType then
+                    "Value marked as MutatingUpdate has already been consumed: " + i.Name
                     |> attachRange r |> failwith
                 Some boundExpr
             | Some(_, boundExpr) -> Some boundExpr

@@ -106,13 +106,13 @@ let ``Records can be JSON serialized forth and back``() =
 // #endif
 
 #if FABLE_COMPILER
-[<Fable.Core.Uniqueness>]
+[<Fable.Core.MutatingUpdate>]
 #endif
-type UniquenessRecord =
+type MutatingRecord =
     { uniqueA: int; uniqueB: int }
 
 [<Test>]
-let ``Uniqueness records work``() =
+let ``Mutating records work``() =
     let x = { uniqueA = 10; uniqueB = 20 }
     equal 10 x.uniqueA
     equal 20 x.uniqueB
