@@ -336,3 +336,30 @@ let ``Erased union type testing works``() =
     U3.Case2 3 |> toString |> equal "6"
     "HELLO" |> Wrapper |> U3.Case3 |> toString |> equal "OLLEH"
 #endif
+
+[<RequireQualifiedAccess>]
+type MyUnion =
+| Case1
+| Case2
+| Case3
+
+type R = {
+    Name: string
+    Case: MyUnion
+}
+
+[<Test>]
+let ``Equality works in filter``() =
+    let original = [| { Name = "1"; Case = MyUnion.Case1 } ; { Name = "2"; Case = MyUnion.Case1 }; { Name = "3"; Case = MyUnion.Case2 }; { Name = "4"; Case = MyUnion.Case3 } |]
+    original
+    |> Array.filter (fun r -> r.Case = MyUnion.Case1)
+    |> Array.length
+    |> equal 2
+
+[<Test>]
+let ``Pattern matching works in filter``() =
+    let original = [| { Name = "1"; Case = MyUnion.Case1 } ; { Name = "2"; Case = MyUnion.Case1 }; { Name = "3"; Case = MyUnion.Case2 }; { Name = "4"; Case = MyUnion.Case3 } |]
+    original
+    |> Array.filter (fun r -> match r.Case with MyUnion.Case1 -> true | _ -> false)
+    |> Array.length
+    |> equal 2
