@@ -88,6 +88,8 @@ fable src/main/MyProject.fsproj --refs MyLib=my-lib/js
 
 > See [fable-helpers-sample](https://www.npmjs.com/package/fable-helpers-sample) to know how to publish a Fable package.
 
+TODO: Explain how to use the EntryModule attribute
+
 ## fableconfig.json
 
 Rather than passing all the options to the CLI, it may be more convenient to put them
