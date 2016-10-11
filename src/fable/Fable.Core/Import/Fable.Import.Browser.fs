@@ -5053,10 +5053,12 @@ module Browser =
         abstract hostname: string with get, set
         abstract href: string with get, set
         abstract origin: string with get, set
+        abstract password: string with get, set
         abstract pathname: string with get, set
         abstract port: string with get, set
         abstract protocol: string with get, set
         abstract search: string with get, set
+        abstract username: string with get, set
         abstract assign: url: string -> unit
         abstract reload: ?forcedReload: bool -> unit
         abstract replace: url: string -> unit
