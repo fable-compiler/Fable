@@ -389,6 +389,11 @@ module private AstPass =
                 if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
             CoreLibCall(modName, Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
+        | "jsNative" ->
+            // TODO: Fail at compile time?
+            "A function supposed to be replaced by JS native code has been called, please check."
+            |> Fable.StringConst |> Fable.Value
+            |> fun msg -> Fable.Throw(msg, i.returnType, i.range) |> Some
         | _ -> None
 
     let references com (i: Fable.ApplyInfo) =

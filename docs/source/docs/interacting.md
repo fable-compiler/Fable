@@ -292,6 +292,9 @@ As with `StringEnum` the first letter of the key (the union case name)
 will be lowered. Again, you can modify this behaviour with the `CompiledName`
 attribute.
 
+You can also allow custom key value pairs by adding an extra
+union case with the `Erase` attribute.
+
 ```fsharp
 open Fable.Core
 
@@ -300,11 +303,13 @@ type MyOptions =
     | Flag1
     | Name of string
     | [<CompiledName("QTY")>] QTY of int
+    | [<Erase>] Extra of string * obj
 
 myLib.myMethod [
     Name "Fable"
     QTY 5
     Flag1
+    Extra ("newOption", 10.5)
 ]
 ```
 
@@ -312,18 +317,16 @@ myLib.myMethod [
 myLib.myMethod({
     name: "Fable",
     QTY: 5,
-    flag1: true
+    flag1: true,
+    newOption: 10.5
 })
 ```
 
-If necessary you can cheat the compiler using tuples:
+> Note: Using tuples directly will have the same effect as the `Erase` attribute:
 
 ```fsharp
 myLib.myMethod [Name "Fable"; unbox("level", 4)]
-```
-
-```js
-myLib.myMethod({ name: "Fable", level: 4 })
+// myLib.myMethod({ name: "Fable", level: 4 })
 ```
 
 As these lists will be compiled as JS objects, please note you
