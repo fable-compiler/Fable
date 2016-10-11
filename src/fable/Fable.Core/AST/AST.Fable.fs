@@ -43,7 +43,6 @@ type Type =
 and TypeKind =
     // | Boolean | String | Number _ | Enum _
     // | Function _ | DeclaredType _
-    | Other = 0
     | Any = 1
     | Unit = 2
     | Option = 3
@@ -75,6 +74,12 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
+    member x.IsErased =
+        match kind.Value with
+        | Interface -> true
+        | Class(Some("System.Attribute", _), _) -> true
+        | _ -> decorators |> Seq.exists (fun dec ->
+            Naming.eraseAtts.Contains dec.Name)
     member x.Name =
         x.FullName.Substring(x.FullName.LastIndexOf('.') + 1)
     member x.Namespace =

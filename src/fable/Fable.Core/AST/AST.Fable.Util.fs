@@ -139,8 +139,8 @@ let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) generics typ
         // Imported types come from JS so they don't need to be made generic
         match tryImported com ent.Name ent.Decorators with
         | Some expr -> expr
-        | None when not generics || List.isEmpty genArgs ->
-            Value (TypeRef ent)
+        | None when ent.IsErased -> makeInfo TypeKind.Any None
+        | None when not generics || genArgs.IsEmpty -> Value (TypeRef ent)
         | None ->
             let genArgs =
                 List.map (makeTypeRef com range generics) genArgs

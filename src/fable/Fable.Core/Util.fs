@@ -45,8 +45,11 @@ module Naming =
     let ignoredCompilerGenerated =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
 
-    let ignoredAtts =
-        set ["Import"; "Global"; "Emit"]
+    let importAtts =
+        set ["Import"; "Global"]
+
+    let eraseAtts =
+        set ["Erase"; "Emit"; "KeyValueList"; "StringEnum"]
 
     let identForbiddenCharsRegex =
         Regex @"^[^a-zA-Z_$]|[^0-9a-zA-Z_$]"

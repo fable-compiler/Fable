@@ -52,7 +52,6 @@ export function Tuple3<T1, T2, T3>(x: T1, y: T2, z: T3) {
 }
 
 export enum TypeKind {
-  // Other = 0,
   Any = 1,
   Unit = 2,
   Option = 3,

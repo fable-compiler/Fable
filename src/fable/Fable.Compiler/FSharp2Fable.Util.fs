@@ -81,8 +81,8 @@ module Helpers =
         ent.FullName.StartsWith "Fable.Import"
         || Option.isSome(tryFindAtt isImportedAtt ent.Attributes)
 
-    let isErased (ent: FSharpEntity) =
-        ent.Attributes |> tryFindAtt ((=) "Erase") |> Option.isSome
+    let hasEraseAtt (atts: #seq<FSharpAttribute>) =
+        atts |> tryFindAtt ((=) "Erase") |> Option.isSome
         
     let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
         not(isImported ent) && Option.isNone(com.GetInternalFile ent)
@@ -134,7 +134,7 @@ module Helpers =
         | None -> ent.DeclarationLocation   
 
     /// Lower first letter if there's no explicit compiled name
-    let lowerUnionCaseName (unionCase: FSharpUnionCase) =
+    let lowerCaseName (unionCase: FSharpUnionCase) =
         unionCase.Attributes
         |> tryFindAtt ((=) "CompiledName")
         |> function
