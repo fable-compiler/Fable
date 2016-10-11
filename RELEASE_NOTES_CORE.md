@@ -1,3 +1,7 @@
+### 0.6.9
+
+* Fix #466: Add password and username to Fable.Import.Browser.Location
+
 ### 0.6.8
 
 * Fix #459: Seq.filter doesn't blow the stack with long sequences
