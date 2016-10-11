@@ -114,17 +114,17 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         | _ -> failwithf "Erased Union Cases must have one single field: %s" unionType.FullName
         |> fun v -> Fable.Wrapped(v, unionType)
     | KeyValueUnion ->
-        let v =
+        let key, value =
             match argExprs with
-            | [] -> makeConst true 
-            | [expr] -> expr
-            | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s"
-                            unionType.FullName
-        Fable.TupleConst [lowerUnionCaseName unionCase; v] |> Fable.Value 
+            | [] -> lowerCaseName unionCase, makeConst true 
+            | [expr] -> lowerCaseName unionCase, expr
+            | [key; expr] when hasEraseAtt unionCase.Attributes -> key, expr
+            | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s" unionType.FullName
+        Fable.TupleConst [key; value] |> Fable.Value 
     | StringEnum ->
         // if argExprs.Length > 0 then
         //     failwithf "StringEnum must not have fields: %s" unionType.FullName
-        lowerUnionCaseName unionCase
+        lowerCaseName unionCase
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
@@ -596,7 +596,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             let expr = makeGet None Fable.Any unionExpr (makeConst "tail")
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [expr; Fable.Value Fable.Null] opKind 
         | StringEnum ->
-            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerUnionCaseName unionCase] BinaryEqualStrict 
+            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict 
         | _ ->
             let left = makeGet None Fable.String unionExpr (makeConst "Case")
             let right = makeConst unionCase.Name
@@ -735,7 +735,10 @@ type private DeclInfo(init: Fable.Declaration list) =
         if children.ContainsKey ent.FullName
         then Some children.[ent.FullName] else None
     let hasIgnoredAtt atts =
-        atts |> tryFindAtt (Naming.ignoredAtts.Contains) |> Option.isSome
+        atts |> tryFindAtt (fun name ->
+            Naming.importAtts.Contains name || Naming.eraseAtts.Contains name)
+        |> Option.isSome
+    // Interfaces don't appear in the AST so we don't need to check them
     member self.IsIgnoredEntity (ent: FSharpEntity) =
         ent.IsEnum
         || ent.IsFSharpAbbreviation
@@ -772,7 +775,11 @@ type private DeclInfo(init: Fable.Declaration list) =
         children.Add(newChild.FullName, ent)
         decls.Add(ent)
     member self.AddIgnoredChild (ent: FSharpEntity) =
-        children.Add(ent.FullName, IgnoredEnt)
+        // Entities with no FullName will be abbreviations, so we don't need to
+        // check if there're members in the enclosing module belonging to them
+        match ent.TryFullName with
+        | Some fullName -> children.Add(fullName, IgnoredEnt)
+        | None -> ()
     member self.TryGetOwner (meth: FSharpMemberOrFunctionOrValue) =
         match tryFindChild meth.EnclosingEntity with
         | Some (Ent (ent,_,_,_)) -> Some ent
@@ -881,7 +888,7 @@ let rec private transformEntityDecl
         let childDecls = transformDeclarations com ctx (cons@compareMeths) subDecls
         // Even if a module is marked with Erase, transform its members
         // in case they contain inline methods
-        if isErased ent
+        if hasEraseAtt ent.Attributes
         then declInfo, ctx
         else
             // Bind entity name to context to prevent name
@@ -895,9 +902,7 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
         decls |> List.fold (fun (declInfo: DeclInfo, ctx) decl ->
             match decl with
             | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-                if e.IsFSharpAbbreviation
-                then declInfo, ctx
-                else transformEntityDecl com ctx declInfo e sub
+                transformEntityDecl com ctx declInfo e sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                 transformMemberDecl com ctx declInfo meth args body
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx e as fe) ->
@@ -1147,8 +1152,8 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
                 let rootDecls = transformDeclarations fcom ctx [] rootDecls
                 match rootEnt with
-                | Some rootEnt when isErased rootEnt -> makeEntity fcom rootEnt, []
-                | Some rootEnt -> makeEntity fcom rootEnt, rootDecls
+                | Some e when hasEraseAtt e.Attributes -> makeEntity fcom e, []
+                | Some e -> makeEntity fcom e, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
             match rootDecls with
             | [] -> None
@@ -1157,8 +1162,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
     )
     // In first compilation (FileMask is None) add injections
-    |> Seq.append (if projInfo.FileMask.IsNone
-                   then addInjections com projs.Head else [])
+    |> Seq.append (if projInfo.FileMask.IsNone then addInjections com projs.Head else [])
     |> fun seq ->
         let extra =
             projInfo.Extra
