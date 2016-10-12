@@ -3,11 +3,27 @@
 open System
 open System.IO
 open System.Text.RegularExpressions
+open System.Collections.Generic
 open Fake
 open Fake.AssemblyInfoFile
 
 module Util =
     open System.Net
+
+    let (|RegexReplace|_|) =
+        let cache = new Dictionary<string, Regex>()
+        fun pattern (replacement: string) input ->
+            let regex =
+                match cache.TryGetValue(pattern) with
+                | true, regex -> regex
+                | false, _ ->
+                    let regex = Regex pattern
+                    cache.Add(pattern, regex)
+                    regex
+            let m = regex.Match(input)
+            if m.Success
+            then regex.Replace(input, replacement) |> Some
+            else None
     
     let join pathParts =
         Path.Combine(Array.ofSeq pathParts)
@@ -197,6 +213,33 @@ Target "FableSuaveRelease" (fun _ ->
     |> Seq.iter (fun x -> FileUtils.cp x "build/fable/bin")
 )
 
+let buildFableCompilerJs buildDir isNetcore =
+    FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
+    FileUtils.cp "README.md" buildDir
+    Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
+    Npm.install buildDir []
+
+    // Update constants.js
+    let pkgVersion =
+        releaseCompiler.Value.NugetVersion
+        |> sprintf "PKG_VERSION = \"%s\""
+    let pkgName =
+        if isNetcore then "-netcore" else ""
+        |> sprintf "PKG_NAME = \"fable-compiler%s\"" 
+    buildDir </> "constants.js"
+    |> Util.visitFile (function
+        | Util.RegexReplace "PKG_VERSION\s*=\s\".*?\"" pkgVersion newLine -> newLine
+        | Util.RegexReplace "PKG_NAME\s*=\s\".*?\"" pkgName newLine -> newLine
+        | line -> line)
+
+    // Update name and command in package.json if necessary
+    if isNetcore then
+        (buildDir, ["name"; "fable"])
+        ||> Npm.updatePackageKeyValue (function
+            | "name", _ -> Some("name", "fable-compiler-netcore")
+            | "fable", v -> Some("fable-netcore", v)
+            | _ -> None)
+
 Target "FableCompilerRelease" (fun _ ->
     Util.assemblyInfo "src/fable/Fable.Core" releaseCore.Value.NugetVersion []
     Util.assemblyInfo "src/fable/Fable.Compiler" releaseCompiler.Value.NugetVersion []
@@ -216,10 +259,7 @@ Target "FableCompilerRelease" (fun _ ->
     !! "packages/FSharp.Compiler.Service.ProjectCracker/utilities/net45/FSharp.Compiler.Service.ProjectCrackerTool.exe*"
     |> Seq.iter (fun x -> FileUtils.cp x "build/fable/bin")
 
-    FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
-    FileUtils.cp "README.md" buildDir
-    Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
-    Npm.install buildDir []
+    buildFableCompilerJs buildDir false
 )
 
 Target "FableCompilerDebug" (fun _ ->
@@ -231,26 +271,13 @@ Target "FableCompilerDebug" (fun _ ->
     |> MSBuildDebug (buildDir + "/bin") "Build"
     |> Log "Fable-Compiler-Debug-Output: "
 
-    FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
-    Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
-    Npm.install buildDir []
+    buildFableCompilerJs buildDir false
 )
 
 Target "FableCompilerNetcore" (fun _ ->
     try
-        // Copy JS files
         let srcDir, buildDir = "src/netcore/Fable.Client.Node", "build/fable"
-        FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
-        FileUtils.cp "README.md" buildDir
-        Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
-        Npm.install buildDir []
-
-        // Edit package.json for NetCore
-        (buildDir, ["name"; "fable"])
-        ||> Npm.updatePackageKeyValue (function
-            | "name", _ -> Some("name", "fable-compiler-netcore")
-            | "fable", v -> Some("fable-netcore", v)
-            | _ -> None)
+        buildFableCompilerJs buildDir true
 
         // Restore packages
         [ "src/netcore/Forge.Core"; "src/netcore/Fable.Core"; "src/netcore/Fable.Compiler"; srcDir ]
