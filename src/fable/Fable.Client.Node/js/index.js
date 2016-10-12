@@ -3,7 +3,11 @@
 var fableMain = require("./fable");
 
 if (require.main === module) {
-    fableMain.init();
+    fableMain.run();
 } else {
-    console.log('TODO: API for Fable as a service');
+    module.exports = function(opts) {
+        if (typeof opts !== "object")
+            throw "You must pass an object with Fable options";
+        return fableMain.run(opts);
+    }
 }

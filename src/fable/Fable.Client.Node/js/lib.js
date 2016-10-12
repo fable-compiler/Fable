@@ -1,27 +1,64 @@
+var path = require("path") || require("./path");
+
 /** Prints a new line with the message on process.stderr */
-exports.stderrLog = function stderrLog(s) {
-    process.stderr.write(s + "\n")
+function stderrLog(s) {
+    if (typeof process === "object") {
+        process.stderr.write(s + "\n");
+    }
+    else {
+        console.log(s);
+    }
 }
+exports.stderrLog = stderrLog;
 
 /** Prints a new line with the message on process.stdout */
-exports.stdoutLog = function stdoutLog(s) {
-    process.stdout.write(s + "\n")
+function stdoutLog(s) {
+    if (typeof process === "object") {
+        process.stdout.write(s + "\n")
+    }
+    else {
+        console.log(s);
+    }
 }
+exports.stdoutLog = stdoutLog;
+
+/** Finish the process according to the environment */
+function finish(code, opts, resolve, reject) {
+    var err = code === 0 ? null : "FABLE EXIT CODE: " + code;
+    if (typeof resolve === "function") {
+        if (err && typeof reject === "function")
+            reject(err);
+        else
+            resolve();
+    }
+    else {
+        if (typeof process === "object") {
+            process.exit(code);
+        }
+        else if (err) {
+            throw err;
+        }
+    }
+}
+exports.finish = finish;
 
 /**
  * Converts a Babel AST to JS code. `fsCode` is optional,
  * if `path` is null, Node's "path" module will be used.
  */
-function babelify(babelAst, fsCode, babelOpts, opts, path) {
+function babelify(babelAst, fsCode, babelOpts, opts) {
     var babel = require("babel-core");
-    // For the browser we could use a polyfill
-    // like https://github.com/jinder/path or path-browserify    
-    path = path || require("path");
 
-    var projDir = path.dirname(path.resolve(path.join(opts.cfgDir, opts.projFile)));
-    var targetFile = path.join(path.resolve(opts.outDir), path.relative(projDir, path.resolve(babelAst.fileName)))
-                         .replace(/\\/g, '/')
-                         .replace(path.extname(babelAst.fileName), ".js");
+    var projDir = path.dirname(path.resolve(
+        typeof opts.workingDir === "string"
+        ? path.join(opts.workingDir, opts.projFile)
+        : opts.projFile
+    ));
+
+    var targetFile =
+        path.join(path.resolve(opts.outDir), path.relative(projDir, path.resolve(babelAst.fileName)))
+            .replace(/\\/g, '/')
+            .replace(path.extname(babelAst.fileName), ".js");
 
     babelOpts = {
         babelrc: opts.babelrc || false,
@@ -51,7 +88,7 @@ exports.babelify = babelify;
  * Converts a Babel AST to JS code and writes to disc.
  */
 function babelifyToFile(babelAst, babelOpts, opts) {
-    var fs = require("fs"), path = require("path");
+    var fs = require("fs");
 
     function ensureDirExists(dir, cont) {
         if (fs.existsSync(dir)) {
