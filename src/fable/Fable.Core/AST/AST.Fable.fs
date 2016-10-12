@@ -165,12 +165,13 @@ and File(fileName, root, decls, ?usedVarNames) =
         | [] -> SourceLocation.Empty
         | decls -> SourceLocation.Empty + (List.last decls).Range
 
-and Project(name, baseDir, fileMap, ?assemblyFile, ?importPath) =
+and Project(name, baseDir, fileMap, ?assemblyFile, ?importPath, ?entryFile) =
     member __.Name: string = name
     member __.BaseDir: string = baseDir
     member __.FileMap: Map<string, string> = fileMap
     member __.AssemblyFileName: string option = assemblyFile
     member __.ImportPath: string option = importPath
+    member __.EntryFile: string option = entryFile
 
 (** ##Expressions *)
 and ApplyInfo = {

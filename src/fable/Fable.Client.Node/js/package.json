@@ -18,7 +18,9 @@
     "command-line-usage": "^3.0.3",
     "json5": "^0.5.0",
     "rollup": "^0.36.3",
+    "rollup-plugin-commonjs": "^5.0.5",
     "rollup-plugin-hypothetical": "^1.2.1",
+    "rollup-plugin-node-resolve": "^2.0.0",
     "semver": "^5.3.0"
   },
   "author": "Alfonso Garcia-Caro",

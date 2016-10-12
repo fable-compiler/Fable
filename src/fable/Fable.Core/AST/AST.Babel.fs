@@ -131,12 +131,13 @@ type Directive(value, ?loc) =
 /// A complete program source tree.
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module. 
 /// Otherwise, sourceType must be "script".
-type Program(fileName, originalFileName, loc, body, ?directives) =
+type Program(fileName, originalFileName, loc, body, ?isEntry, ?directives) =
     inherit Node("Program", loc)
     member x.sourceType = "module" // Don't use "script"
     member x.body: U2<Statement, ModuleDeclaration> list = body
     member x.directives: Directive list = defaultArg directives []
     // Properties below don't belong to babel specs
+    member x.isEntry: bool = defaultArg isEntry false
     member x.fileName: string = fileName
     member x.originalFileName: string option = originalFileName
 

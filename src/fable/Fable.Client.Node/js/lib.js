@@ -77,30 +77,32 @@ function babelify(babelAst, fsCode, babelOpts, opts) {
 
     var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
     return {
-        targetFile: targetFile,
+        isEntry: babelAst.isEntry,
+        fileName: targetFile,
         code: parsed.code,
         map: parsed.map
     };    
 }
 exports.babelify = babelify;
 
-/**
- * Converts a Babel AST to JS code and writes to disc.
- */
+/** Create directory if it doesn't exist, requires 'fs' module */
+function ensureDirExists(dir, cont) {
+    var fs = require("fs");
+    if (fs.existsSync(dir)) {
+        if (typeof cont === "function") { cont(); }
+    }
+    else {
+        ensureDirExists(path.dirname(dir), function() {
+            if (!fs.existsSync(dir)) { fs.mkdirSync(dir); }
+            if (typeof cont === "function") { cont(); }
+        })
+    }
+}
+exports.ensureDirExists = ensureDirExists;
+
+/** Converts a Babel AST to JS code and writes to disc, requires 'fs' module */
 function babelifyToFile(babelAst, babelOpts, opts) {
     var fs = require("fs");
-
-    function ensureDirExists(dir, cont) {
-        if (fs.existsSync(dir)) {
-            if (typeof cont === "function") { cont(); }
-        }
-        else {
-            ensureDirExists(path.dirname(dir), function() {
-                if (!fs.existsSync(dir)) { fs.mkdirSync(dir); }
-                if (typeof cont === "function") { cont(); }
-            })
-        }
-    }
     
     // The F# code is only necessary when generating source maps
     var fsCode = opts.sourceMaps && babelAst.originalFileName
@@ -108,13 +110,13 @@ function babelifyToFile(babelAst, babelOpts, opts) {
         : null;
 
     var parsed = babelify(babelAst, fsCode, babelOpts, opts);
-    ensureDirExists(path.dirname(parsed.targetFile));
-    fs.writeFileSync(parsed.targetFile, parsed.code);
+    ensureDirExists(path.dirname(parsed.fileName));
+    fs.writeFileSync(parsed.fileName, parsed.code);
 
     // Use strict equality so it evals to false when opts.sourceMaps === "inline"
     if (opts.sourceMaps === true && babelAst.originalFileName) {
-        fs.appendFileSync(parsed.targetFile, "\n//# sourceMappingURL=" + path.basename(parsed.targetFile)+".map");
-        fs.writeFileSync(targetFile + ".map", JSON.stringify(parsed.map));
+        fs.appendFileSync(parsed.fileName, "\n//# sourceMappingURL=" + path.basename(parsed.fileName)+".map");
+        fs.writeFileSync(parsed.fileName + ".map", JSON.stringify(parsed.map));
     }
 }
 exports.babelifyToFile = babelifyToFile;

@@ -15,3 +15,14 @@ exports.FABLE_BIN_OPTIONS = new Set([
     "projFile", "coreLib", "symbols", "plugins", "msbuild",
     "refs", "watch", "clamp", "copyExt", "extra", "declaration", "noTypedArrays"
 ]);
+
+/**
+ * Accepted JS modules an the alias for Rollup
+ * (Rollup also accepts 'iife')
+*/
+exports.JS_MODULES = {
+    "amd": "amd",
+    "commonjs": "cjs",
+    "systemjs": null,
+    "umd": "umd"
+};
