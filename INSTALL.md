@@ -1,4 +1,4 @@
-# Installation
+# Installing Fable and Launching Samples
 
 ## Release Builds
 
