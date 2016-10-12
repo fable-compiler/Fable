@@ -100,6 +100,18 @@ function ensureDirExists(dir, cont) {
 }
 exports.ensureDirExists = ensureDirExists;
 
+function writeFile(fileName, code, map, opts) {
+    var fs = require("fs");
+    ensureDirExists(path.dirname(fileName));
+    fs.writeFileSync(fileName, code);
+    // Use strict equality so it evals to false when opts.sourceMaps === "inline"
+    if (opts.sourceMaps === true && map) {
+        fs.appendFileSync(fileName, "\n//# sourceMappingURL=" + path.basename(fileName) + ".map");
+        fs.writeFileSync(fileName + ".map", JSON.stringify(map));
+    }
+}
+exports.writeFile = writeFile;
+
 /** Converts a Babel AST to JS code and writes to disc, requires 'fs' module */
 function babelifyToFile(babelAst, babelOpts, opts) {
     var fs = require("fs");
@@ -110,13 +122,6 @@ function babelifyToFile(babelAst, babelOpts, opts) {
         : null;
 
     var parsed = babelify(babelAst, fsCode, babelOpts, opts);
-    ensureDirExists(path.dirname(parsed.fileName));
-    fs.writeFileSync(parsed.fileName, parsed.code);
-
-    // Use strict equality so it evals to false when opts.sourceMaps === "inline"
-    if (opts.sourceMaps === true && babelAst.originalFileName) {
-        fs.appendFileSync(parsed.fileName, "\n//# sourceMappingURL=" + path.basename(parsed.fileName)+".map");
-        fs.writeFileSync(parsed.fileName + ".map", JSON.stringify(parsed.map));
-    }
+    writeFile(parsed.fileName, parsed.code, parsed.map, opts);
 }
 exports.babelifyToFile = babelifyToFile;

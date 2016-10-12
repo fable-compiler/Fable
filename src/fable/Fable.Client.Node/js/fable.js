@@ -129,6 +129,7 @@ function watch(opts, fableProc, parallelProc, resolve) {
             }
             fableProc.stdin.write("[SIGTERM]\n");
             watcher.close();
+            bundleCache = null; // Clean bundle cache just in case
             fableLib.stdoutLog("Process terminated.");
             fableLib.finish(0, opts, resolve);
         }
@@ -183,6 +184,7 @@ function runCommand(command, continuation) {
     return proc;
 }
 
+var bundleCache = null;
 /** Bundles generated JS files and dependencies, requires rollup and plugins */
 function bundle(jsFiles, opts, fableProc, resolve, reject) {
     var rollup = require('rollup'),
@@ -191,7 +193,7 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
         hypothetical = require('rollup-plugin-hypothetical');
 
     var bundleFileName = typeof opts.bundle === "string" ? opts.bundle : "bundle.js";
-    bundleFileName = path.join(opts.outDir, bundleFileName);
+    bundleFileName = path.join(path.resolve(opts.outDir), bundleFileName).replace(/\\/g, '/');
 
     var entryFile = null;
     for (var file in jsFiles) {
@@ -207,26 +209,24 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
             nodeResolve({ jsnext: true, main: true, browser: true }),
             commonjs({ ignoreGlobal: true }),
             hypothetical({ files: jsFiles, allowRealFiles: true })
-        ]
+        ],
+        cache: bundleCache
     })
     .then(function(bundle) {
         var parsed = bundle.generate({
             format: constants.JS_MODULES[opts.module] 
         });
-        parsed.fileName = bundleFileName;
         if (opts.inMemory && typeof resolve === "function") {
+            parsed.fileName = bundleFileName;
             resolve(parsed);
         }
         else {
-            // Write to disk
-            fableLib.ensureDirExists(path.dirname(parsed.fileName));
-            fs.writeFileSync(parsed.fileName, parsed.code);
-            // Use strict equality so it evals to false when opts.sourceMaps === "inline"
-            if (opts.sourceMaps === true) {
-                fs.appendFileSync(parsed.fileName, "\n//# sourceMappingURL=" + path.basename(parsed.fileName)+".map");
-                fs.writeFileSync(parsed.fileName + ".map", JSON.stringify(parsed.map));
+            if (opts.watch) {
+                bundleCache = bundle;
             }
-            fableLib.stdoutLog("Compiled " + path.basename(parsed.fileName) + " at " + (new Date()).toLocaleTimeString());
+            // Write to disk, bundle.write doesn't seem to work
+            fableLib.writeFile(bundleFileName, parsed.code, parsed.map, opts);
+            fableLib.stdoutLog("Compiled " + path.basename(bundleFileName) + " at " + (new Date()).toLocaleTimeString());
             postbuild(opts, true, fableProc, resolve, reject);
         }
     });
