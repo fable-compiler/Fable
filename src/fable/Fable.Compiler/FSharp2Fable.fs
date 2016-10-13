@@ -1073,7 +1073,9 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
         let projName = Path.GetFileNameWithoutExtension com.Options.projFile
         let fileMap = makeFileMap parsedProj.AssemblySignature.Entities
         let baseDir = Path.GetDirectoryName com.Options.projFile
-        Fable.Project(projName, baseDir, fileMap)
+        let entryFile = parsedProj.AssemblyContents.ImplementationFiles
+                        |> Seq.last |> fun file -> file.FileName
+        Fable.Project(projName, baseDir, fileMap, entryFile=entryFile)
     let refProjs =
         projInfo.ProjectOpts.ReferencedProjects
         |> Seq.choose (fun (assemblyPath, opts) ->
@@ -1088,7 +1090,8 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
                         match baseDir with
                         | Some baseDir -> baseDir
                         | None -> Path.GetDirectoryName opts.ProjectFileName |> Path.GetFullPath
-                    Fable.Project(projName, baseDir, fileMap, assemblyPath, importPath)
+                    Fable.Project(projName, baseDir, fileMap,
+                                  assemblyFile=assemblyPath, importPath=importPath)
                 | None ->
                     failwithf "Cannot find import path for referenced project %s. %s"
                                 projName "Have you forgotten --refs argument?"))
@@ -1111,7 +1114,8 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
                             // TODO: This is a small hack to partially fix #382
                             if kv.Key.Contains("node_modules") then None else Some kv.Key)
                         |> Path.getCommonBaseDir
-                Fable.Project(projName, baseDir, fileMap, assembly.FileName.Value, importPath)))
+                Fable.Project(projName, baseDir, fileMap,
+                        assemblyFile=assembly.FileName.Value, importPath=importPath)))
     curProj::(refProjs @ refAssemblies)
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =

@@ -1,44 +1,10 @@
-﻿var fs = require("fs");
-var path = require("path");
-var JSON5 = require('json5');
-var chokidar = require("chokidar");
-var babel = require("babel-core");
-var child_process = require('child_process');
-var commandLineArgs = require('command-line-args');
-var getUsage = require('command-line-usage');
-var customPlugins = require("./plugins");
+﻿var fableLib = require("./lib");
+var constants = require("./constants");
+var customPlugins = require("./babelPlugins");
 
-var pkgInfo = (function() {
-    var pkgInfo = JSON.parse(fs.readFileSync(require.resolve("./package.json")).toString());
-    return {
-        name: pkgInfo.name,
-        version: pkgInfo.version
-    };
-}());
-
-function stderrLog(s) {
-    process.stderr.write(s + "\n")
-}
-
-function stdoutLog(s) {
-    process.stdout.write(s + "\n")
-}
-
-function getAppDescription() {
-    return [
-        {
-            header: 'Fable ' + pkgInfo.version,
-            content: 'F# to JavaScript compiler'
-        },
-        {
-            header: 'Options',
-            optionList: optionDefinitions
-        },
-        {
-            content: 'All arguments can be defined in a fableconfig.json file'
-        }
-    ];
-}
+// In the browser this should be set to a falsy value
+var fs = require("fs");
+var path = require("path") || require("./path");
 
 // Don't use default values as they would block options from fableconfig.json
 var optionDefinitions = [
@@ -68,70 +34,60 @@ var optionDefinitions = [
   { name: 'help', alias: 'h', description: "Display usage guide." }
 ];
 
-var cfgDir = process.cwd();
-var fableConfig = "fableconfig.json";
-var fableBinOptions = new Set([
-    "projFile", "coreLib", "symbols", "plugins", "msbuild",
-    "refs", "watch", "clamp", "copyExt", "extra", "declaration", "noTypedArrays"
-]);
-var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
-if (pkgInfo.name === "fable-compiler-netcore") {
-    fableBin = fableBin.replace(".exe", ".dll");
+function getAppDescription() {
+    return [{ header: 'Fable ' + constants.PKG_VERSION, content: 'F# to JavaScript compiler' },
+            { header: 'Options', optionList: optionDefinitions },
+            { content: 'All arguments can be defined in a fableconfig.json file' }];
 }
 
-var babelPresets = [];
-var babelPlugins = [
-    customPlugins.transformMacroExpressions,
-    // removeUnneededNulls must come after transformMacroExpressions (see #377)
-    customPlugins.removeUnneededNulls
-];
-
-function ensureDirExists(dir, cont) {
-    if (fs.existsSync(dir)) {
-        if (typeof cont === "function") { cont(); }
+/** Processes a JSON received from .NET process. If it's a Babel AST it will be compiled. */
+function processJson(json, babelOpts, opts, resolve, reject) {;
+    try {
+        var babelAst;
+        try {
+            babelAst = JSON.parse(json);
+        }
+        catch (_err) {
+            return; // If stdout is not in JSON format, just ignore
+        }
+        if (babelAst.type == "LOG") {
+            if (babelAst.message.indexOf("[WARNING]") == 0) {
+                fableLib.stderrLog(babelAst.message);
+            }
+            else if (opts.verbose) {
+                fableLib.stdoutLog(babelAst.message);
+            }
+        }
+        else if (babelAst.type == "ERROR") {
+            throw babelAst;
+        }
+        else if (opts.inMemory || opts.bundle) {
+            var fsCode = fs && opts.sourceMaps && babelAst.originalFileName
+                ? fs.readFileSync(babelAst.originalFileName)
+                : null;
+            return fableLib.babelify(babelAst, fsCode, babelOpts, opts);
+        }
+        else {
+            fableLib.babelifyToFile(babelAst, babelOpts, opts);
+            fableLib.stdoutLog("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
+        }
     }
-    else {
-        ensureDirExists(path.dirname(dir), function() {
-            if (!fs.existsSync(dir)) { fs.mkdirSync(dir); }
-            if (typeof cont === "function") { cont(); }
-        })
-    }
-}
-
-function babelifyToFile(babelAst, opts) {
-    var projDir = path.dirname(path.resolve(path.join(cfgDir, opts.projFile)));
-    var targetFile = path.join(path.resolve(opts.outDir), path.relative(projDir, path.resolve(babelAst.fileName)))
-                         .replace(/\\/g, '/')
-                         .replace(path.extname(babelAst.fileName), ".js");
-    var fsCode = null,
-        babelOpts = {
-            babelrc: opts.babelrc || false,
-            filename: targetFile,
-            sourceRoot: path.resolve(opts.outDir),
-            plugins: babelPlugins,
-            presets: babelPresets
-        };
-    if (opts.sourceMaps && babelAst.originalFileName) {
-        babelOpts.sourceMaps = opts.sourceMaps,
-        babelOpts.sourceMapTarget = path.basename(targetFile),
-        babelOpts.sourceFileName = path.relative(path.dirname(targetFile),
-            babelAst.originalFileName).replace(/\\/g, '/')
-        // The F# code is only necessary when generating source maps
-        fsCode = fs.readFileSync(babelAst.originalFileName);
-    }
-
-    var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
-    ensureDirExists(path.dirname(targetFile));
-    fs.writeFileSync(targetFile, parsed.code);
-
-    // Use strict equality so it evals to false when opts.sourceMaps === "inline"
-    if (opts.sourceMaps === true && babelAst.originalFileName) {
-        fs.appendFileSync(targetFile, "\n//# sourceMappingURL=" + path.basename(targetFile)+".map");
-        fs.writeFileSync(targetFile + ".map", JSON.stringify(parsed.map));
+    catch (e) {
+        var err = e.message ? e : { message: e };
+        fableLib.stderrLog("ERROR: " + err.message);
+        if (opts.verbose && err.stack) {
+            fableLib.stderrLog(err.stack);
+        }
+        if (!opts.watch) {
+            fableLib.finish(1, opts, resolve, reject);
+        }
     }
 }
 
-function watch(opts, fableProc, parallelProc) {
+/** Watches for file changes. Requires chokidar */
+function watch(opts, fableProc, parallelProc, resolve) {
+    var chokidar = require("chokidar");
+
     function tooClose(filename, prev) {
         return prev != null &&
             filename == prev[0] &&
@@ -141,9 +97,9 @@ function watch(opts, fableProc, parallelProc) {
     fableProc.stdin.setEncoding('utf-8');
 
     // Watch only the project directory for performance
-    var projDir = path.dirname(path.resolve(path.join(cfgDir, opts.projFile)));
-    stdoutLog("Watching " + projDir);
-    stdoutLog("Press Enter to terminate process.");
+    var projDir = path.dirname(path.resolve(path.join(opts.workingDir, opts.projFile)));
+    fableLib.stdoutLog("Watching " + projDir);
+    fableLib.stdoutLog("Press Enter to terminate process.");
     opts.watching = true;
 
     var fsExtensions = [".fs", ".fsx", ".fsproj"];
@@ -158,7 +114,7 @@ function watch(opts, fableProc, parallelProc) {
                     prev = next;
                     next = [filePath, new Date()];
                     if (!tooClose(filePath, prev)) {
-                        stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
+                        fableLib.stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
                         fableProc.stdin.write(filePath + "\n");
                     }
                 }
@@ -173,13 +129,16 @@ function watch(opts, fableProc, parallelProc) {
             }
             fableProc.stdin.write("[SIGTERM]\n");
             watcher.close();
-            stdoutLog("Process terminated.");
-            process.exit(0);
+            bundleCache = null; // Clean bundle cache just in case
+            fableLib.stdoutLog("Process terminated.");
+            fableLib.finish(0, opts, resolve);
         }
     });
 }
 
+/** Runs a command, requires child_process */
 function runCommand(command, continuation) {
+    var child_process = require('child_process');
     function splitByWhitespace(str) {
         function stripQuotes(str, start, end) {
             return str[start] === '"' && str[end - 1] === '"'
@@ -187,9 +146,6 @@ function runCommand(command, continuation) {
                     : str.substring(start, end);
         }
         var reg = /\s+(?=([^"]*"[^"]*")*[^"]*$)/g;
-        if (typeof str !== "string" || str.length == 0) {
-            throw "'str' argument must be a non-empty string"
-        }
         reg.lastIndex = 0;
         var tmp, tmp2, results = [], lastIndex = 0;
         while ((tmp = reg.exec(str)) !== null) {
@@ -200,7 +156,7 @@ function runCommand(command, continuation) {
         return results;
     }
     var cmd, args;
-    stdoutLog(command);
+    fableLib.stdoutLog(command);
     // If there's no continuation, it means the process will run in parallel (postbuild-once).    
     // If we use `cmd /C` on Windows we won't be able to kill the cmd child process later. 
     // See http://stackoverflow.com/a/32814686 (unfortutanely the solutions didn't seem to apply here)
@@ -214,7 +170,7 @@ function runCommand(command, continuation) {
         cmd = args[0];
         args = args.slice(1);
     }
-    var proc = child_process.spawn(cmd, args, { cwd: cfgDir });
+    var proc = child_process.spawn(cmd, args, { cwd: opts.workingDir });
     proc.on('exit', function(code) {
         if (typeof continuation === "function")
             continuation(code);
@@ -228,7 +184,56 @@ function runCommand(command, continuation) {
     return proc;
 }
 
-function postbuild(opts, buildSuccess, fableProc) {
+var bundleCache = null;
+/** Bundles generated JS files and dependencies, requires rollup and plugins */
+function bundle(jsFiles, opts, fableProc, resolve, reject) {
+    var rollup = require('rollup'),
+        commonjs = require('rollup-plugin-commonjs'),
+        nodeResolve = require('rollup-plugin-node-resolve'),
+        hypothetical = require('rollup-plugin-hypothetical');
+
+    var bundleFileName = typeof opts.bundle === "string" ? opts.bundle : "bundle.js";
+    bundleFileName = path.join(path.resolve(opts.outDir), bundleFileName).replace(/\\/g, '/');
+
+    var entryFile = null;
+    for (var file in jsFiles) {
+        if (jsFiles[file].isEntry) {
+            entryFile = file;
+            break;
+        }
+    }
+
+    rollup.rollup({
+        entry: entryFile,
+        plugins: [
+            nodeResolve({ jsnext: true, main: true, browser: true }),
+            commonjs({ ignoreGlobal: true }),
+            hypothetical({ files: jsFiles, allowRealFiles: true })
+        ],
+        cache: bundleCache
+    })
+    .then(function(bundle) {
+        var parsed = bundle.generate({
+            format: constants.JS_MODULES[opts.module] 
+        });
+        if (opts.inMemory && typeof resolve === "function") {
+            parsed.fileName = bundleFileName;
+            resolve(parsed);
+        }
+        else {
+            if (opts.watch) {
+                bundleCache = bundle;
+            }
+            // Write to disk, bundle.write doesn't seem to work
+            fableLib.writeFile(bundleFileName, parsed.code, parsed.map, opts);
+            fableLib.stdoutLog("Compiled " + path.basename(bundleFileName) + " at " + (new Date()).toLocaleTimeString());
+            postbuild(opts, true, fableProc, resolve, reject);
+        }
+    });
+}
+
+/** Runs the postbuild script and starts watching if necessary */
+function postbuild(opts, buildSuccess, fableProc, resolve, reject) {
     var parallelProc = null;
     // The "postbuild-once" script must be run only once (well done, Captain Obvious)
     // and it musn't wait till the process is finished, as it's normally used
@@ -243,130 +248,28 @@ function postbuild(opts, buildSuccess, fableProc) {
     // to exit the process or start watch mode
     if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
         runCommand(opts.scripts.postbuild, function (exitCode) {
-            if (!opts.watch)
-                process.exit(exitCode);
-            else if (!opts.watching)
-                watch(opts, fableProc, parallelProc);
+            if (!opts.watch) {
+                fableLib.finish(exitCode, opts, resolve, reject);
+            }
+            else if (!opts.watching) {
+                watch(opts, fableProc, parallelProc, resolve);
+            }
         });
     }
     else if (!opts.watch) {
-        process.exit(0);
+        fableLib.finish(0, opts, resolve, reject);
     }
     else if (!opts.watching) {
-        watch(opts, fableProc, parallelProc);
+        watch(opts, fableProc, parallelProc, resolve);
     }
 }
 
-function processJson(json, opts) {
-    var err = null;
-    try {
-        var babelAst;
-        try {
-            babelAst = JSON.parse(json);
-        }
-        catch (_err) {
-            return; // If stdout is not in JSON format, just ignore
-        }
-        if (babelAst.type == "LOG") {
-            if (babelAst.message.indexOf("[WARNING]") == 0) {
-                stderrLog(babelAst.message);
-            }
-            else if (opts.verbose) {
-                stdoutLog(babelAst.message);
-            }
-        }
-        else if (babelAst.type == "ERROR") {
-            err = babelAst;
-        }
-        else {
-            babelifyToFile(babelAst, opts);
-            stdoutLog("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
-        }
-    }
-    catch (e) {
-        err = e.message ? e : { message: e };
-    }
-    if (err != null) {
-        stderrLog("ERROR: " + err.message);
-        if (opts.verbose && err.stack) {
-            stderrLog(err.stack);
-        }
-        if (!opts.watch) {
-            process.exit(1);
-        }
-    }
-}
+/** Builds the project, requires child_process */
+function build(opts, resolve, reject) {
+    var child_process = require('child_process');    
+    var babelOpts = readBabelOptions(opts, resolve, reject);
 
-function resolveBabelPluginsAndPresets(opts) {
-    if (opts.declaration) {
-        babelPlugins.splice(0,0,
-            [require("babel-dts-generator"),
-            {
-                "packageName": "",
-                "typings": path.resolve(opts.outDir),
-                "suppressAmbientDeclaration": true,
-                "ignoreEmptyInterfaces": false
-            }],
-            require("babel-plugin-transform-flow-strip-types"),
-            require("babel-plugin-transform-class-properties")
-        );
-    }
-
-    // if opts.babelrc is true, read Babel plugins and presets from .babelrc
-    if (opts.babelrc) { return; }
-
-    var knownModules = ["amd", "commonjs", "systemjs", "umd"];
-
-    // ECMAScript target
-    if (opts.ecma != "es2015" && opts.ecma != "es6") {
-        if (opts.module === "es2015" || opts.module === "es6") {
-            opts.module = false;
-        }
-        else if (knownModules.indexOf(opts.module) == -1) {
-            throw "Unknown module target: " + opts.module;
-        }
-        babelPresets.push([require.resolve("babel-preset-es2015"), {
-            "loose": opts.loose,
-            "modules": opts.module
-        }]);
-    }
-    else if (knownModules.indexOf(opts.module) >= 0) {
-        babelPlugins.push(require("babel-plugin-transform-es2015-modules-" + opts.module));
-    }
-    
-    // Extra Babel plugins
-    function resolveBabelPlugin(id) {
-        var nodeModulesDir = path.join(path.resolve(cfgDir), "node_modules");
-        if (fs.existsSync(path.join(nodeModulesDir, id))) {
-            return path.join(nodeModulesDir, id);
-        }
-        else {
-            return path.join(nodeModulesDir, "babel-plugin-" + id);
-        }
-    }
-
-    if (opts.babelPlugins) {
-        (Array.isArray(opts.babelPlugins) ? opts.babelPlugins : [opts.babelPlugins]).forEach(function (plugin) {
-            if (typeof plugin === "string") {
-                babelPlugins.push(resolveBabelPlugin(plugin));
-            }
-            else if (Array.isArray(plugin)) { // plugin id + config obj
-                babelPlugins.push([
-                    resolveBabelPlugin(plugin[0]),
-                    plugin[1]
-                ]);
-            }
-            else {
-                throw "Babel plugin must be a string or a [string, object] tuple";
-            }
-        });
-    }
-}
-
-function build(opts) {
-    resolveBabelPluginsAndPresets(opts);
-
-    var wrapInQuotes = function (arg) {
+    function wrapInQuotes(arg) {
         if (process.platform === "win32") {
             arg = arg.toString().trim();
             return arg.indexOf(" ") > 0 && arg[0] != '"' ? '"' + arg + '"' : arg;
@@ -375,9 +278,14 @@ function build(opts) {
             return arg;
         }
     };
+
+    var fableBin = path.resolve(__dirname, "bin/Fable.Client.Node.exe");
+    if (constants.PKG_NAME === "fable-compiler-netcore") {
+        fableBin = fableBin.replace(".exe", ".dll");
+    }
     
     var fableCmd, fableCmdArgs = [wrapInQuotes(fableBin)]
-    if (pkgInfo.name === "fable-compiler-netcore") {
+    if (constants.PKG_NAME === "fable-compiler-netcore") {
         fableCmd = "dotnet";
     }
     else {
@@ -385,7 +293,7 @@ function build(opts) {
     }
 
     for (var k in opts) {
-        if (fableBinOptions.has(k)) {
+        if (constants.FABLE_BIN_OPTIONS.has(k)) {
             if (Array.isArray(opts[k]))
                 opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, wrapInQuotes(v)) })
             else if (typeof opts[k] !== "object")
@@ -401,24 +309,24 @@ function build(opts) {
 
     // Call Fable.exe
     if (opts.verbose) {
-        stdoutLog("\nPROJECT FILE: " + path.resolve(path.join(cfgDir, opts.projFile)));
-        stdoutLog("OUTPUT DIR: " + path.resolve(opts.outDir));
-        stdoutLog("WORKING DIR: " + path.resolve(cfgDir) + "\n");
-        stdoutLog("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
+        fableLib.stdoutLog("\nPROJECT FILE: " + path.resolve(path.join(opts.workingDir, opts.projFile)));
+        fableLib.stdoutLog("OUTPUT DIR: " + path.resolve(opts.outDir));
+        fableLib.stdoutLog("WORKING DIR: " + path.resolve(opts.workingDir) + "\n");
+        fableLib.stdoutLog("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
-    stdoutLog(pkgInfo.name + " " + pkgInfo.version + ": Start compilation...");
-    var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: cfgDir, windowsVerbatimArguments: true });
+    fableLib.stdoutLog(constants.PKG_NAME + " " + constants.PKG_VERSION + ": Start compilation...");
+    var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: opts.workingDir, windowsVerbatimArguments: true });
 
     fableProc.on('exit', function(code) {
         // There may be pending messages, do nothing here
     });
 
     fableProc.stderr.on('data', function(data) {
-        stderrLog("FABLE ERROR: " + data.toString().substring(0, 300) + "...");
-        process.exit(1);
+        fableLib.stderrLog("FABLE ERROR: " + data.toString().substring(0, 300) + "...");
+        fableLib.finish(1, opts);
     });
 
-    var buffer = "";
+    var buffer = "", jsFiles = {};
     fableProc.stdout.on("data", function(data) {
         var txt = data.toString(), newLine = 0;
         while (newLine >= 0) {
@@ -430,54 +338,84 @@ function build(opts) {
                 var json = buffer + txt.substring(0, newLine);
                 txt = txt.substring(newLine + 1);
                 buffer = "";
-
                 var buildFinished = /^\s*\[SIG(SUCCESS|FAIL)\]\s*$/.exec(json);
                 if (buildFinished) {
-                    postbuild(opts, buildFinished[1] === "SUCCESS", fableProc);
+                    var buildSuccess = buildFinished[1] === "SUCCESS";
+                    if (opts.bundle && buildSuccess) {
+                        bundle(jsFiles, opts, fableProc, resolve, reject);
+                    }
+                    else if (opts.inMemory && typeof resolve === "function") {
+                        if (buildSuccess)
+                            resolve(jsFiles);
+                        else
+                            reject("Build failed");
+                    }
+                    else {
+                        postbuild(opts, buildSuccess, fableProc, resolve, reject);
+                    }
                 }
                 else {
-                    processJson(json, opts);
+                    var jsFile = processJson(json, babelOpts, opts, resolve, reject);
+                    if (jsFile != null)
+                        jsFiles[jsFile.fileName] = jsFile;
                 }
             }
         }
     });
 }
 
-// Init
-try {
-    var opts = commandLineArgs(optionDefinitions);
-    if (opts.help) {
-        stdoutLog(getUsage(getAppDescription()));
-        process.exit(0);
-    }
-
-    if (opts.projFile) {
-        if (fs.statSync(opts.projFile).isDirectory()) {
-            cfgDir = opts.projFile;
-            delete opts.projFile;
+/** Reads options from command line, requires command-line-args */
+function readOptionsFromCommandLine() {
+    try {
+        var commandLineArgs = require('command-line-args');
+        var opts = commandLineArgs(optionDefinitions);
+        if (opts.help) {
+            fableLib.stdoutLog(require('command-line-usage')(getAppDescription()));
+            fableLib.finish(0, opts);
         }
         else {
-            cfgDir = path.dirname(opts.projFile);
-            opts.projFile = path.basename(opts.projFile);
+            opts.workingDir = process.cwd();
+            return opts;
         }
     }
+    catch (err) {
+        throw "Cannot read command line arguments: " + err + "\n" +
+                "Use 'fable --help' to see available options";
+    }    
+}
 
-    // Parse fableconfig.json if present
+/** Reads options from fableconfig.json, requires json5 */
+function readOptionsFromFableConfig(opts) {
     try {
-        var cfgFile = path.join(cfgDir, fableConfig);
-        if (fs.existsSync(cfgFile)) {
-            var cfg = JSON5.parse(fs.readFileSync(cfgFile).toString());
-            for (var key in cfg)
-                if (key in opts == false)
-                    opts[key] = cfg[key];
+        if (opts.projFile) {
+            if (fs && fs.statSync(opts.projFile).isDirectory()) {
+                opts.workingDir = opts.projFile;
+                delete opts.projFile;
+            }
+            else {
+                opts.workingDir = path.dirname(opts.projFile);
+                opts.projFile = path.basename(opts.projFile);
+            }
+        }
 
+        var cfgFile = opts.workingDir
+            ? path.join(opts.workingDir, constants.FABLE_CONFIG_FILE)
+            : constants.FABLE_CONFIG_FILE;
+
+        // Parse fableconfig.json if present
+        if (fs && fs.existsSync(cfgFile)) {
+            var cfg = require('json5').parse(fs.readFileSync(cfgFile).toString());
+            for (var key in cfg) {
+                if (key in opts === false)
+                    opts[key] = cfg[key];
+            }
             // Check if a target is requested
             if (opts.debug) { opts.target = "debug" }
             if (opts.production) { opts.target = "production" }
             if (opts.target) {
-                if (!opts.targets || !opts.targets[opts.target])
+                if (!opts.targets || !opts.targets[opts.target]) {
                     throw "Target " + opts.target + " is missing";
-
+                }
                 cfg = opts.targets[opts.target];
                 for (key in cfg) {
                     if (typeof opts[key] == "object") {
@@ -490,18 +428,109 @@ try {
                 }
             }
         }
+        return opts;
     }
     catch (err) {
-        stderrLog("ERROR: Cannot parse fableconfig.json: " + err);
-        process.exit(1);
+        throw "Cannot parse fableconfig.json: " + err;
     }
+}
+
+/** Reads Babel options: plugins and presets */
+function readBabelOptions(opts) {
+    try {
+        var babelPresets = [],
+            // Add plugins to emit .d.ts files if necessary
+            babelPlugins = opts.declaration
+            ? [[require("babel-dts-generator"),
+                {
+                    "packageName": "",
+                    "typings": path.resolve(opts.outDir),
+                    "suppressAmbientDeclaration": true,
+                    "ignoreEmptyInterfaces": false
+                }],
+                require("babel-plugin-transform-flow-strip-types"),
+                require("babel-plugin-transform-class-properties")]
+            : [];
+        
+        // Add custom plugins
+        babelPlugins = babelPlugins.concat(
+            customPlugins.transformMacroExpressions,
+            // removeUnneededNulls must come after transformMacroExpressions (see #377)
+            customPlugins.removeUnneededNulls
+        );
+
+        // if opts.babelrc is true, read Babel plugins and presets from .babelrc
+        if (opts.babelrc) {
+            return { babelPresets: babelPresets, babelPlugins: babelPlugins };
+        }
+
+        // ECMAScript target
+        if (opts.ecma != "es2015" && opts.ecma != "es6") {
+            if (opts.module === "es2015" || opts.module === "es6") {
+                opts.module = false;
+            }
+            else if (opts.module in constants.JS_MODULES === false) {
+                throw "Unknown module target: " + opts.module;
+            }
+            babelPresets.push([require.resolve("babel-preset-es2015"), {
+                "loose": opts.loose,
+                "modules": opts.bundle ? false : opts.module
+            }]);
+        }
+        else if (!opts.bundle && opts.module in constants.JS_MODULES) {
+            babelPlugins.push(require("babel-plugin-transform-es2015-modules-" + opts.module));
+        }
+        
+        // Extra Babel plugins
+        function resolveBabelPlugin(id) {
+            var nodeModulesDir = path.join(path.resolve(opts.workingDir), "node_modules");
+            if (fs && fs.existsSync(path.join(nodeModulesDir, id))) {
+                return path.join(nodeModulesDir, id);
+            }
+            else {
+                return path.join(nodeModulesDir, "babel-plugin-" + id);
+            }
+        }
+
+        if (opts.babelPlugins) {
+            (Array.isArray(opts.babelPlugins) ? opts.babelPlugins : [opts.babelPlugins]).forEach(function (plugin) {
+                if (typeof plugin === "string") {
+                    babelPlugins.push(resolveBabelPlugin(plugin));
+                }
+                else if (Array.isArray(plugin)) { // plugin id + config obj
+                    babelPlugins.push([
+                        resolveBabelPlugin(plugin[0]),
+                        plugin[1]
+                    ]);
+                }
+                else {
+                    throw "Babel plugin must be a string or a [string, object] tuple";
+                }
+            });
+        }
+
+        return { babelPresets: babelPresets, babelPlugins: babelPlugins };
+    }
+    catch (err) {
+        throw "Cannot read Babel options: " + err;
+    }
+}
+
+/** Prepares options: read from command line, fableconfig.json, etc */
+function prepareOptions(opts) {
+    opts = opts || readOptionsFromCommandLine();
+    opts = readOptionsFromFableConfig(opts);
 
     // Default values
-    opts.copyExt = "copyExt" in opts ? opts.copyExt : true;
-    opts.outDir = opts.outDir ? (path.join(cfgDir, opts.outDir)) : path.dirname(path.join(cfgDir, opts.projFile));
     opts.ecma = opts.ecma || "es5";
-    opts.module = opts.module || "commonjs";
-    opts.loose = "loose" in opts ? opts.loose : true;
+    opts.loose = opts.loose != null ? opts.loose : true;
+    opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
+    opts.workingDir = opts.workingDir != null ? opts.workingDir : "";
+    opts.coreLib = opts.coreLib || (opts.bundle ? "fable-core/es2015" : "fable-core");
+    opts.module = opts.module || (opts.ecma != "es2015" && opts.ecma != "es6" ? "commonjs" : "es2015");
+    opts.outDir = opts.outDir ? (path.join(opts.workingDir, opts.outDir)) : path.dirname(path.join(opts.workingDir, opts.projFile));
+
+    // If refs is set in fableconfig.json, convert them to an array
     if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {
         var refs = [];
         for (var k in opts.refs)
@@ -510,50 +539,63 @@ try {
     }
 
     if ([".fsproj", ".fsx"].indexOf(path.extname(opts.projFile)) == -1 ) {
-        stderrLog("ERROR: Please provide a F# project (.fsproj) or script (.fsx) file");
-        stderrLog("Use 'fable --help' to see available options");
-        process.exit(1);
+        throw "Please provide an F# project (.fsproj) or script (.fsx) file";
     }
 
-    if (!fs.existsSync(path.resolve(path.join(cfgDir, opts.projFile)))) {
-        stderrLog("ERROR: Cannot find project file: " + opts.projFile);
-        process.exit(1);
+    if (fs && !fs.existsSync(path.resolve(path.join(opts.workingDir, opts.projFile)))) {
+        throw "Cannot find project file: " + opts.projFile;
     }
 
     // Check version
-    var curNpmCfg = path.join(cfgDir, "package.json");
-    if (fs.existsSync(curNpmCfg)) {
+    var curNpmCfg = path.join(opts.workingDir, "package.json");
+    if (fs && fs.existsSync(curNpmCfg)) {
         curNpmCfg = JSON.parse(fs.readFileSync(curNpmCfg).toString());
         if (curNpmCfg.engines && (curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"])) {
             var semver = require("semver");
             var fableRequiredVersion = curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"];
-            if (!semver.satisfies(pkgInfo.version, fableRequiredVersion)) {
-                stderrLog("Fable version: " + pkgInfo.version);
-                stderrLog("Required: " + fableRequiredVersion);
-                stderrLog("Please upgrade fable-compiler package");
-                process.exit(1);
+            if (!semver.satisfies(constants.PKG_VERSION, fableRequiredVersion)) {
+                throw "Fable version: " + constants.PKG_VERSION + "\n" +
+                        "Required: " + fableRequiredVersion + "\n" +
+                        "Please upgrade fable-compiler package";
             }
         }
     }
-    
-    if (opts.verbose) {
-        stdoutLog("Fable F# to JS compiler version " + pkgInfo.version);
-    }
 
-    if (opts.scripts && opts.scripts.prebuild) {
-        runCommand(opts.scripts.prebuild, function (exitCode) {
-            if (exitCode == 0)
-                build(opts);
-            else
-                process.exit(exitCode);
-        })
+    return opts;
+}
+
+function main(opts, resolve, reject) {
+    try {
+        opts = prepareOptions(opts, resolve, reject);
+        if (opts.scripts && opts.scripts.prebuild) {
+            runCommand(opts.scripts.prebuild, function (exitCode) {
+                if (exitCode == 0) {
+                    build(opts, resolve, reject);
+                }
+                else {
+                    fableLib.finish(exitCode, opts, resolve, reject);
+                }
+            })
+        }
+        else {
+            build(opts, resolve, reject);
+        }
     }
-    else {
-        build(opts);
+    catch (err) {
+        fableLib.stderrLog("ERROR: " + err);
+        fableLib.finish(1, opts, resolve, reject);
     }
 }
-catch (err) {
-    stderrLog("ARG ERROR: " + err);
-    stderrLog("Use 'fable --help' to see available options");
-    process.exit(1);
+
+/**
+ * Starts compilation, if opts is not empty assumes it's
+ * running from API and returns a Promise.
+*/
+exports.run = function(opts) {
+    if (opts) {
+        return new Promise(function (resolve, reject) {
+            main(opts, resolve, reject);
+        });
+    }
+    main(opts);
 }
