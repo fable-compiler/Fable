@@ -768,6 +768,12 @@ module Util =
             Babel.ClassExpression(Babel.ClassBody(members, ?loc=range),
                     ?id=id, ?typeParams=typeParams, ?super=baseClass, ?loc=range)
 
+    let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) =
+        Babel.CallExpression(
+                get (getCoreLibImport com ctx "Util") "declare",
+                [typeRef com ctx ent None |> U2.Case1])
+        |> Babel.ExpressionStatement :> Babel.Statement
+
     let declareEntryPoint com ctx (funcExpr: Babel.Expression) =
         let argv = macroExpression None "process.argv.slice(2)" []
         let main = Babel.CallExpression (funcExpr, [U2.Case1 argv], ?loc=funcExpr.loc) :> Babel.Expression
@@ -857,6 +863,8 @@ module Util =
             // Don't create a new context for class declarations
             transformClass com ctx (Some entRange) (Some ent) baseClass entDecls
             |> declareMember entRange ent.Name (Some privateName) ent.IsPublic false modIdent
+        let classDecl =
+            (declareType com ctx ent |> U2.Case1)::classDecl
         // Check if there's a static constructor
         entDecls |> Seq.exists (function
             | Fable.MemberDeclaration(m,_,_,_,_) ->

@@ -89,7 +89,12 @@ type Serialize =
     static member toJson(o: 'T): string = jsNative
 
     /// Instantiate F# objects from JSON
-    static member ofJson<'T> (json: string, [<GenericParam("T")>]?t: Type): 'T = jsNative
+    static member ofJson<'T>(json: string, [<GenericParam("T")>]?t: Type): 'T = jsNative
+    /// Serialize F# objects to JSON adding $type info
+    static member toJsonWithTypeInfo(o: 'T): string = jsNative
+
+    /// Instantiate F# objects from JSON containing $type info
+    static member ofJsonWithTypeInfo<'T>(json: string, [<GenericParam("T")>]?t: Type): 'T = jsNative
 
 module JsInterop =
     /// Dynamically access a property of an arbitrary object.

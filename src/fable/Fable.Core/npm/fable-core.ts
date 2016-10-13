@@ -1,12 +1,22 @@
 declare var global: any;
 
-const fableGlobal = function () {
+const fableGlobal: {
+  types: Map<string, FunctionConstructor>,
+  symbols: {
+    interfaces: symbol,
+    typeName: symbol,
+    properties: symbol,
+    generics: symbol,
+    cases: symbol
+  }
+} = function () {
   const globalObj =
     typeof window !== "undefined" ? window
     : (typeof global !== "undefined" ? global
     : (typeof self !== "undefined" ? self : null));
   if (typeof globalObj.__FABLE_CORE__ === "undefined") {
     globalObj.__FABLE_CORE__ = {
+      types: new Map<string, FunctionConstructor>(),
       symbols: {
         interfaces: Symbol("interfaces"),
         typeName: Symbol("typeName"),
@@ -19,13 +29,7 @@ const fableGlobal = function () {
   return globalObj.__FABLE_CORE__;
 }();
 
-const FSymbol: {
-  interfaces: symbol,
-  typeName: symbol,
-  properties: symbol,
-  generics: symbol,
-  cases: symbol
-} = fableGlobal.symbols;
+const FSymbol = fableGlobal.symbols;
 export { FSymbol as Symbol }
 
 export interface IComparer<T> {
@@ -123,8 +127,19 @@ export class Reflection {
 }
 
 export class Util {
+  static declare(cons: FunctionConstructor) {
+    if ((cons.prototype as any)[FSymbol.typeName])
+        fableGlobal.types.set((cons.prototype as any)[FSymbol.typeName](), cons);
+  }
+
   static makeGeneric(typeDef: FunctionConstructor, genArgs: any): any {
     return class extends typeDef { [FSymbol.generics]() { return genArgs; } };
+  }
+
+  /** Returns the parent if this is a generic type or the argument otherwise */
+  static getDefinition(cons: FunctionConstructor): any {
+      return (cons.prototype as any)[FSymbol.generics]
+          ? Object.getPrototypeOf(cons.prototype).constructor : cons;
   }
 
   static extendInfo(info: any, parent: FunctionConstructor, symbolName: string) {
@@ -321,7 +336,7 @@ export class Serialize {
     });
   }
 
-  static ofJson(json: any, typ: any): any {
+  static inflate(val: any, typ: any): any {
     function needsInflate(enclosing: List<any>): boolean {
       const typ = enclosing.head;
       if (typeof typ === "string") {
@@ -342,82 +357,189 @@ export class Serialize {
       }
       return true;
     }
+
     function inflateArray(arr: any[], enclosing: List<any>): any[] {
       return Array.isArray(arr) && needsInflate(enclosing)
-              ? arr.map((x: any) => inflate(x, enclosing))
+              ? arr.map((x: any) => Serialize.inflate(x, enclosing))
               : arr;
     }
+
     function inflateMap(obj: any, keyEnclosing: List<any>, valEnclosing: List<any>): [any, any][] {
       const inflateKey = keyEnclosing.head !== "string";
       const inflateVal = needsInflate(valEnclosing);
       return Object
         .getOwnPropertyNames(obj)
         .map(k => {
-          const key = inflateKey ? inflate(JSON.parse(k), keyEnclosing): k;
-          const val = inflateVal ? inflate(obj[k], valEnclosing) : obj[k];
+          const key = inflateKey ? Serialize.inflate(JSON.parse(k), keyEnclosing): k;
+          const val = inflateVal ? Serialize.inflate(obj[k], valEnclosing) : obj[k];
           return [key, val] as [any, any];
         });
     }
-    function inflate(val: any, enclosing: List<any>): any {
-      const typ = enclosing.head;
-      if (val == null || typeof typ === "string") {
-        return val;
-      }
-      else if (Array.isArray(typ)) {
-        switch (typ[0] as TypeKind) {
-          case TypeKind.Unit:
-            return null;
-          case TypeKind.Option:
-            return inflate(val, new List(typ[1], enclosing));
-          case TypeKind.Array:
-            return inflateArray(val, new List(typ[1], enclosing));
-          case TypeKind.Tuple:
-            return (typ[1] as any[]).map((x, i) => inflate(val[i], new List(x, enclosing)));
-          case TypeKind.GenericParam:
-            return inflate(val, Reflection.resolveGeneric(typ[1], enclosing.tail));
-          // case TypeKind.Interface:
-          // case TypeKind.Any:
-          default: return val;
-        }
-      }
-      else if (typeof typ === "function") {
-        if (typ === Date) {
-          return FDate.parse(val);
-        }
-        if (typ.prototype instanceof List) {
-          return List.ofArray(inflateArray(val, Reflection.resolveGeneric(0, enclosing)));
-        }
-        if (typ.prototype instanceof FSet) {
-          return FSet.create(inflateArray(val, Reflection.resolveGeneric(0, enclosing)));
-        }
-        if (typ.prototype instanceof Set) {
-          return new Set(inflateArray(val, Reflection.resolveGeneric(0, enclosing)));
-        }
-        if (typ.prototype instanceof FMap) {
-          return FMap.create(inflateMap(val, Reflection.resolveGeneric(0, enclosing), Reflection.resolveGeneric(1, enclosing)));
-        }
-        if (typ.prototype instanceof Map) {
-          return new Map(inflateMap(val, Reflection.resolveGeneric(0, enclosing), Reflection.resolveGeneric(1, enclosing)));
-        }
-        // Union types
-        if (typ.prototype[FSymbol.cases]) {
-          const fieldTypes: any[] = typ.prototype[FSymbol.cases]()[val.Case];
-          for (let i = 0; i < fieldTypes.length; i++) {
-            val.Fields[i] = inflate(val.Fields[i], new List(fieldTypes[i], enclosing));
-          }
-        }
-        if (typ.prototype[FSymbol.properties]) {
-          const properties: {[k:string]:any} = typ.prototype[FSymbol.properties]();
-          for (let k of Object.getOwnPropertyNames(properties)) {
-            val[k] = inflate(val[k], new List(properties[k], enclosing));
-          }
-        }
-        return Object.assign(new typ(), val);
-      }
-      throw "Unexpected type when deserializing JSON: " + typ;
+
+    let enclosing: List<any> = null;
+    if (typ instanceof List) {
+      enclosing = typ;
+      typ = typ.head;
     }
-    return inflate(JSON.parse(json), new List(typ, new List()));
+    else {
+      enclosing = new List(typ, new List());
+    }
+
+    if (val == null || typeof typ === "string") {
+      return val;
+    }
+    else if (Array.isArray(typ)) {
+      switch (typ[0] as TypeKind) {
+        case TypeKind.Unit:
+          return null;
+        case TypeKind.Option:
+          return Serialize.inflate(val, new List(typ[1], enclosing));
+        case TypeKind.Array:
+          return inflateArray(val, new List(typ[1], enclosing));
+        case TypeKind.Tuple:
+          return (typ[1] as any[]).map((x, i) => Serialize.inflate(val[i], new List(x, enclosing)));
+        case TypeKind.GenericParam:
+          return Serialize.inflate(val, Reflection.resolveGeneric(typ[1], enclosing.tail));
+        // case TypeKind.Interface: // case TypeKind.Any:
+        default: return val;
+      }
+    }
+    else if (typeof typ === "function") {
+      if (typ === Date) {
+        return FDate.parse(val);
+      }
+      if (typ.prototype instanceof List) {
+        return List.ofArray(inflateArray(val, Reflection.resolveGeneric(0, enclosing)));
+      }
+      if (typ.prototype instanceof FSet) {
+        return FSet.create(inflateArray(val, Reflection.resolveGeneric(0, enclosing)));
+      }
+      if (typ.prototype instanceof Set) {
+        return new Set(inflateArray(val, Reflection.resolveGeneric(0, enclosing)));
+      }
+      if (typ.prototype instanceof FMap) {
+        return FMap.create(inflateMap(val, Reflection.resolveGeneric(0, enclosing), Reflection.resolveGeneric(1, enclosing)));
+      }
+      if (typ.prototype instanceof Map) {
+        return new Map(inflateMap(val, Reflection.resolveGeneric(0, enclosing), Reflection.resolveGeneric(1, enclosing)));
+      }
+      // Union types (note this condition is not returning)
+      if (typ.prototype[FSymbol.cases]) {
+        const fieldTypes: any[] = typ.prototype[FSymbol.cases]()[val.Case];
+        for (let i = 0; i < fieldTypes.length; i++) {
+          val.Fields[i] = Serialize.inflate(val.Fields[i], new List(fieldTypes[i], enclosing));
+        }
+      }
+      if (typ.prototype[FSymbol.properties]) {
+        const properties: {[k:string]:any} = typ.prototype[FSymbol.properties]();
+        for (let k of Object.getOwnPropertyNames(properties)) {
+          val[k] = Serialize.inflate(val[k], new List(properties[k], enclosing));
+        }
+      }
+      return Object.assign(new typ(), val);
+    }
+    throw "Unexpected type when deserializing JSON: " + typ;
   }
+
+  static ofJson(json: any, typ: any): any {
+    return Serialize.inflate(JSON.parse(json), typ);
+  }
+}
+
+// Use a different class so it can be removed when bundling if not used
+export class SerializeWithTypeInfo {
+  static toJson(o: any): string {
+    return JSON.stringify(o, (k, v) => {
+      if (ArrayBuffer.isView(v)) {
+        return Array.from(v);
+      }
+      else if (v != null && typeof v === "object") {
+        if (v instanceof List || v instanceof FSet || v instanceof Set) {
+          return {
+            $type: (v as any)[FSymbol.typeName] ? (v as any)[FSymbol.typeName]() : "System.Collections.Generic.HashSet",
+            $values: Array.from(v) };
+        }
+        else if (v instanceof FMap || v instanceof Map) {
+          return Seq.fold(
+            (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, 
+            { $type: (v as any)[FSymbol.typeName] ? (v as any)[FSymbol.typeName]() : "System.Collections.Generic.Dictionary" }, v);
+        }
+        else if (v[FSymbol.typeName]) {
+          if (Util.hasInterface(v, "FSharpUnion", "FSharpRecord")) {
+            return Object.assign({ $type: v[FSymbol.typeName]() }, v);
+          }
+          else {
+            const proto = Object.getPrototypeOf(v),
+                  props = Object.getOwnPropertyNames(proto),
+                  o = { $type: v[FSymbol.typeName]() } as {[k:string]:any};
+            for (let i = 0; i < props.length; i++) {
+              const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
+              if (prop.get)
+                o[props[i]] = prop.get.apply(v);
+            }
+            return o;
+          }
+        }
+      }
+      return v;
+    });
+  }
+
+  static ofJson(json: any, expected?: Function): any {
+    const parsed = JSON.parse(json, (k, v) => {
+      if (v == null)
+        return v;
+      else if (typeof v === "object" && typeof v.$type === "string") {
+        // Remove generic args and assembly info added by Newtonsoft.Json
+        let type = v.$type.replace('+', '.'), i = type.indexOf('`');
+        if (i > -1) {
+          type = type.substr(0,i);
+        }
+        else {
+          i = type.indexOf(',');
+          type = i > -1 ? type.substr(0,i) : type;
+        }
+        if (type === "System.Collections.Generic.List" || (type.indexOf("[]") === type.length - 2)) {
+            return v.$values;
+        }
+        if (type === "Microsoft.FSharp.Collections.FSharpList") {
+            return List.ofArray(v.$values);
+        }
+        else if (type == "Microsoft.FSharp.Collections.FSharpSet") {
+          return FSet.create(v.$values);
+        }
+        else if (type == "System.Collections.Generic.HashSet") {
+          return new Set(v.$values);
+        }
+        else if (type == "Microsoft.FSharp.Collections.FSharpMap") {
+          delete v.$type;
+          return FMap.create(Object.getOwnPropertyNames(v)
+                                    .map(k => [k, v[k]] as [any,any]));
+        }
+        else if (type == "System.Collections.Generic.Dictionary") {
+          delete v.$type;
+          return new Map(Object.getOwnPropertyNames(v)
+                                .map(k => [k, v[k]] as [any,any]));
+        }
+        else {
+          const T = fableGlobal.types.get(type);
+          if (T) {
+            delete v.$type;
+            return Object.assign(new T(), v);
+          }
+        }
+      }
+      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)$/.test(v))
+        return FDate.parse(v);
+      else
+        return v;
+    });
+    if (parsed != null && typeof expected === "function"
+      && !(parsed instanceof Util.getDefinition(expected as FunctionConstructor))) {
+      throw "JSON is not of type " + expected.name + ": " + json;
+    }
+    return parsed;
+  }  
 }
 
 export class GenericComparer<T> implements IComparer<T> {

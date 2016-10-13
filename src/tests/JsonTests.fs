@@ -272,27 +272,27 @@ let ``Union`` () =
     | Type2 t -> t = { a="a"; b=1 }
     | Type1 _ -> false
     |> equal true 
-  
-// type IData = interface end
 
-// type Text =
-//   { kind:string; text:string }
-//   interface IData
+#if FABLE_COMPILER
+type IData = interface end
 
-// type Numbered =
-//   { kind:string; number:int }
-//   interface IData
+type Text =
+  { kind:string; text:string }
+  interface IData
 
-// type Things = { name:string; data:IData }
+type Numbered =
+  { kind:string; number:int }
+  interface IData
 
-// [<Test>]
-// let ``Generics with interface`` () =
-//     // let x = [ { name = "one"; data = { kind = "number"; number = 4 } };
-//     //            { name = "two"; data = { kind = "number"; number = 3 } };
-//     //            { name = "three"; data = { kind = "text"; text = "yo!" } } ]
-//     // let json = Newtonsoft.Json.JsonConvert.SerializeObject(x, Newtonsoft.Json.JsonSerializerSettings(TypeNameHandling=Newtonsoft.Json.TypeNameHandling.All))
+type Things = { name:string; data:IData }
 
-//     let json = """ {"$type":"Microsoft.FSharp.Collections.FSharpList`1[[Fable.Tests.Json+Things, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Json+Things, Fable.Tests","name":"one","data":{"$type":"Fable.Tests.Json+Numbered, Fable.Tests","kind":"number","number":4}},{"$type":"Fable.Tests.Json+Things, Fable.Tests","name":"two","data":{"$type":"Fable.Tests.Json+Numbered, Fable.Tests","kind":"number","number":3}},{"$type":"Fable.Tests.Json+Things, Fable.Tests","name":"three","data":{"$type":"Fable.Tests.Json+Text, Fable.Tests","kind":"text","text":"yo!"}}]} """
-//     let result : Things list = S.ofJson json
-
-//     result.[1].data = ({ kind = "number"; number = 3 } :> IData) |> equal true
+[<Test>]
+let ``Generics with interface`` () =
+    // let x = [ { name = "one"; data = { kind = "number"; number = 4 } };
+    //            { name = "two"; data = { kind = "number"; number = 3 } };
+    //            { name = "three"; data = { kind = "text"; text = "yo!" } } ]
+    // let json = Newtonsoft.Json.JsonConvert.SerializeObject(x, Newtonsoft.Json.JsonSerializerSettings(TypeNameHandling=Newtonsoft.Json.TypeNameHandling.All))
+    let json = """ {"$type":"Microsoft.FSharp.Collections.FSharpList`1[[Fable.Tests.Json+Things, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Json+Things, Fable.Tests","name":"one","data":{"$type":"Fable.Tests.Json+Numbered, Fable.Tests","kind":"number","number":4}},{"$type":"Fable.Tests.Json+Things, Fable.Tests","name":"two","data":{"$type":"Fable.Tests.Json+Numbered, Fable.Tests","kind":"number","number":3}},{"$type":"Fable.Tests.Json+Things, Fable.Tests","name":"three","data":{"$type":"Fable.Tests.Json+Text, Fable.Tests","kind":"text","text":"yo!"}}]} """
+    let result : Things list = Fable.Core.Serialize.ofJsonWithTypeInfo json
+    result.[1].data = ({ kind = "number"; number = 3 } :> IData) |> equal true
+#endif
