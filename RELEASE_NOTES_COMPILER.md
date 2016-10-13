@@ -1,3 +1,8 @@
+### 0.7.2-alpha
+
+* Convert functions to delegates when passed as arguments to EmitAttribute
+* Add warning when passing generic param to Serialize.ofJson/inflate
+
 ### 0.7.1-alpha
 
 * Add `--bundle` compiler option
