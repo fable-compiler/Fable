@@ -924,6 +924,7 @@ module Util =
         | ContainsAtt "Emit" attArgs ->
             match attArgs with
             | [:? string as macro] ->
+                let args = List.map (makeDelegate com None) args
                 let args = match callee with None -> args | Some c -> c::args
                 Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r)
                 |> Some

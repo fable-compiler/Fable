@@ -375,6 +375,7 @@ System.Func<_,_,_>(fun x y -> x + y)
 
 - Fable will **automatically convert F# functions to delegates** in some situations:
     - When passing an F# lambda to a method accepting a delegate.
+    - When passing functions as arguments to `EmitAttribute`.
     - When using dynamic programming, with `?`, `$`, `createObj` or `createNew`.
 
 > Note: If you experience problems make the conversion explicit.

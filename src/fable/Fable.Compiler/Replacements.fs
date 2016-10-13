@@ -388,6 +388,14 @@ module private AstPass =
             CoreLibCall("Util", Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | "toJson" | "ofJson" | "inflate" ->
+            match i.args with
+            | [_; Fable.Value(Fable.ArrayConst(Fable.ArrayValues[Fable.Value(Fable.NumberConst(U2.Case1 kind, _));_], Fable.Any))]
+                when kind = (int Fable.TypeKind.GenericParam) ->
+                sprintf "%s %s"
+                    "An unresolved generic parameter is being passed to Serialize.ofJson/inflate,"
+                    "this will fail at runtime. Please check."
+                |> addWarning com i 
+            | _ -> ()
             CoreLibCall("Serialize", Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" ->
