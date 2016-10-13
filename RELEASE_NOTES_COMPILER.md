@@ -1,3 +1,8 @@
+### 0.7.1-alpha
+
+* Add `--bundle` compiler option
+* Bring back JSON serialization with `$type` info
+
 ### 0.7.0-alpha
 
 * Add type info to JS constructors: cases (unions) and properties (records and classes)

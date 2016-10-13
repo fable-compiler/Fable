@@ -1,3 +1,7 @@
+### 0.7.1-alpha
+
+* Bring back JSON serialization with `$type` info
+
 ### 0.7.0-alpha
 
 * Serialize.ofJson doesn't need JSON to contain `$type` info any more
