@@ -96,6 +96,9 @@ type Serialize =
     /// Instantiate F# objects from JSON containing $type info
     static member ofJsonWithTypeInfo<'T>(json: string, [<GenericParam("T")>]?t: Type): 'T = jsNative
 
+    /// Converts a plain JS object (POJO) to an instance of the specified type
+    static member inflate<'T>(pojo: obj, [<GenericParam("T")>]?t: Type): 'T = jsNative
+
 module JsInterop =
     /// Dynamically access a property of an arbitrary object.
     /// `myObj?propA` in JS becomes `myObj.propA`

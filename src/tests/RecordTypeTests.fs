@@ -111,9 +111,14 @@ let ``Trying to deserialize a JSON with unexpected $type info throws an exceptio
     |> equal true
     success (fun () -> Serialize.ofJsonWithTypeInfo<obj> json)
     |> equal true
-#endif
 
-#if FABLE_COMPILER
+[<Test>]
+let ``POJOS can be inflated``() =
+    let x = Fable.Import.JS.JSON.parse """{"a":"Hi","b":10}"""
+    let x2: Child = Serialize.inflate x
+    x2.a |> equal "Hi"
+    x2.b |> equal 10    
+
 [<Fable.Core.MutatingUpdate>]
 #endif
 type MutatingRecord =
