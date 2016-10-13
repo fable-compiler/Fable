@@ -14,6 +14,7 @@ var optionDefinitions = [
   { name: 'sourceMaps', alias: 's', description: "Generate source maps: `false` (default), `true` or `inline`." },
   { name: 'watch', alias: 'w', type: Boolean, description: "Recompile project much faster on file modifications." },
   { name: 'ecma', description: "Specify ECMAScript target version: `es5` (default) or `es2015`." },
+  { name: 'bundle', description: "Bundle files and dependencies and put it in `outDir`, if used as a flag defaults to `bundle.js`." },
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
@@ -137,7 +138,7 @@ function watch(opts, fableProc, parallelProc, resolve) {
 }
 
 /** Runs a command, requires child_process */
-function runCommand(command, continuation) {
+function runCommand(command, opts, continuation) {
     var child_process = require('child_process');
     function splitByWhitespace(str) {
         function stripQuotes(str, start, end) {
@@ -241,13 +242,13 @@ function postbuild(opts, buildSuccess, fableProc, resolve, reject) {
     if (buildSuccess && opts.scripts && opts.scripts["postbuild-once"]) {
         var postbuildScript = opts.scripts["postbuild-once"];
         delete opts.scripts["postbuild-once"];
-        parallelProc = runCommand(postbuildScript);
+        parallelProc = runCommand(postbuildScript, opts);
     }
 
     // If present, run "postbuild" script after every build and wait till it's finished
     // to exit the process or start watch mode
     if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
-        runCommand(opts.scripts.postbuild, function (exitCode) {
+        runCommand(opts.scripts.postbuild, opts, function (exitCode) {
             if (!opts.watch) {
                 fableLib.finish(exitCode, opts, resolve, reject);
             }
@@ -568,7 +569,7 @@ function main(opts, resolve, reject) {
     try {
         opts = prepareOptions(opts, resolve, reject);
         if (opts.scripts && opts.scripts.prebuild) {
-            runCommand(opts.scripts.prebuild, function (exitCode) {
+            runCommand(opts.scripts.prebuild, opts, function (exitCode) {
                 if (exitCode == 0) {
                     build(opts, resolve, reject);
                 }
