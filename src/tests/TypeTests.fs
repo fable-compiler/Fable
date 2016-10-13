@@ -299,6 +299,10 @@ let ``Classes can be JSON serialized forth and back``() =
     #if FABLE_COMPILER
     let json = Fable.Core.Serialize.toJson x
     let x2 = Fable.Core.Serialize.ofJson<Serializable> json
+    string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
+    string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo x
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Serializable> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
@@ -312,6 +316,9 @@ let ``Null values can be JSON serialized forth and back``() =
     #if FABLE_COMPILER
     let json = Fable.Core.Serialize.toJson x
     let x2 = Fable.Core.Serialize.ofJson<Serializable> json
+    equal x2 null
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo x
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Serializable> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
@@ -325,6 +332,8 @@ let ``Classes serialized with Json.NET can be deserialized``() =
     let json = """{"$type":"Fable.Tests.TypeTests+Serializable","PublicValue":1}"""
     #if FABLE_COMPILER
     let x2 = Fable.Core.Serialize.ofJson<Serializable> json
+    string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Serializable> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
     #endif

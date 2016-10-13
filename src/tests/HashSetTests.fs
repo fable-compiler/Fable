@@ -165,6 +165,10 @@ let ``HashSet can be JSON serialized forth and back``() =
     #if FABLE_COMPILER
     let json = Fable.Core.Serialize.toJson x
     let x2 = Fable.Core.Serialize.ofJson<HashSet<int>> json
+    x2.IsSubsetOf x |> equal true
+    (0, x2) ||> Seq.fold (fun acc v -> acc + v) |> equal 3
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo x
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<HashSet<int>> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<int>> json
@@ -172,18 +176,16 @@ let ``HashSet can be JSON serialized forth and back``() =
     x2.IsSubsetOf x |> equal true
     (0, x2) ||> Seq.fold (fun acc v -> acc + v) |> equal 3
 
-// [<Test>]
-// let ``HashSet serialized with Json.NET can be deserialized``() =
-//     // let x = HashSet<_>()
-//     // x.Add({ i=1; s="1" }) |> ignore
-//     // x.Add({ i=2; s="2" }) |> ignore
-//     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-//     let json = """{"$type":"System.Collections.Generic.HashSet`1[[Fable.Tests.HashSets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":2,"s":"2"}]}"""
-//     #if FABLE_COMPILER
-//     let x2 = Fable.Core.Serialize.ofJson<HashSet<R>> json
-//     #else
-//     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<R>> json
-//     #endif
-//     (0, x2) ||> Seq.fold (fun acc v -> acc + v.i) |> equal 3
-
-
+[<Test>]
+let ``HashSet serialized with Json.NET can be deserialized``() =
+    // let x = HashSet<_>()
+    // x.Add({ i=1; s="1" }) |> ignore
+    // x.Add({ i=2; s="2" }) |> ignore
+    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+    let json = """{"$type":"System.Collections.Generic.HashSet`1[[Fable.Tests.HashSets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.HashSets+R, Fable.Tests","i":2,"s":"2"}]}"""
+    #if FABLE_COMPILER
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<HashSet<R>> json
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<R>> json
+    #endif
+    (0, x2) ||> Seq.fold (fun acc v -> acc + v.i) |> equal 3

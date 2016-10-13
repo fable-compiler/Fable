@@ -70,6 +70,11 @@ let ``Records can be JSON serialized forth and back``() =
     #if FABLE_COMPILER
     let json = Fable.Core.Serialize.toJson parent
     let parent2 = Fable.Core.Serialize.ofJson<Parent> json
+    let sum2 = parent.Sum()
+    equal true (box parent2 :? Parent) // Type is kept
+    equal true (sum1 = sum2) // Prototype methods can be accessed
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo parent
+    let parent2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Parent> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject parent
     let parent2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Parent> json    
@@ -78,32 +83,35 @@ let ``Records can be JSON serialized forth and back``() =
     equal true (box parent2 :? Parent) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed
 
-// [<Test>]
-// let ``Records serialized with Json.NET can be deserialized``() =
-//     // let x = { a="Hi"; b=20 }
-//     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-//     let json = """{"$type":"Fable.Tests.RecordTypes+Child","a":"Hi","b":10}"""
-//     #if FABLE_COMPILER
-//     let x2 = Fable.Core.Serialize.ofJson<Child> json
-//     #else
-//     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Child> json
-//     #endif
-//     x2.a |> equal "Hi"
-//     x2.b |> equal 10
+[<Test>]
+let ``Records serialized with Json.NET can be deserialized``() =
+    // let x = { a="Hi"; b=20 }
+    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
+    let json = """{"$type":"Fable.Tests.RecordTypes+Child","a":"Hi","b":10}"""
+    #if FABLE_COMPILER
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Child> json
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Child> json
+    #endif
+    x2.a |> equal "Hi"
+    x2.b |> equal 10
 
-// #if FABLE_COMPILER
-// [<Test>]
-// let ``Trying to deserialize a JSON of different type throws an exception``() =
-//     let child = {a="3";b=5}
-//     let json = Fable.Core.Serialize.toJson child
-//     let success =
-//         try
-//             Fable.Core.Serialize.ofJson<Parent> json |> ignore
-//             true
-//         with
-//         | _ -> false
-//     equal false success
-// #endif
+#if FABLE_COMPILER
+open Fable.Core
+[<Test>]
+let ``Trying to deserialize a JSON with unexpected $type info throws an exception``() =
+    let success (f:unit->'T) =
+        try f() |> ignore; true
+        with _ -> false
+    let child = {a="3";b=5}
+    let json = Serialize.toJsonWithTypeInfo child
+    success (fun () -> Serialize.ofJsonWithTypeInfo<Parent> json)
+    |> equal false
+    success (fun () -> Serialize.ofJsonWithTypeInfo<Child> json)
+    |> equal true
+    success (fun () -> Serialize.ofJsonWithTypeInfo<obj> json)
+    |> equal true
+#endif
 
 #if FABLE_COMPILER
 [<Fable.Core.MutatingUpdate>]

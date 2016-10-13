@@ -384,10 +384,14 @@ module private AstPass =
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
-        | "toJson" | "ofJson" | "toPlainJsObj" ->
-            let modName =
-                if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
-            CoreLibCall(modName, Some i.methodName, false, i.args)
+        | "toJson" | "ofJson" | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" | "toPlainJsObj" ->
+            let modName, methName =
+                match i.methodName with
+                | "toPlainJsObj" -> "Util", i.methodName
+                | "toJson" | "ofJson" -> "Serialize", i.methodName
+                // | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo"
+                | _ -> "SerializeWithTypeInfo", i.methodName.Replace("WithTypeInfo", "")
+            CoreLibCall(modName, Some methName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | "jsNative" ->
             // TODO: Fail at compile time?
