@@ -384,17 +384,18 @@ module private AstPass =
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
-        | "toJson" | "ofJson" | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" | "toPlainJsObj" ->
-            let modName, methName =
-                match i.methodName with
-                | "toPlainJsObj" -> "Util", i.methodName
-                | "toJson" | "ofJson" -> "Serialize", i.methodName
-                // | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo"
-                | _ -> "SerializeWithTypeInfo", i.methodName.Replace("WithTypeInfo", "")
-            CoreLibCall(modName, Some methName, false, i.args)
+        | "toPlainJsObj" ->
+            CoreLibCall("Util", Some i.methodName, false, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "toJson" | "ofJson" | "inflate" ->
+            CoreLibCall("Serialize", Some i.methodName, false, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" ->
+            CoreLibCall("SerializeWithTypeInfo", i.methodName.Replace("WithTypeInfo", "") |> Some, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | "jsNative" ->
             // TODO: Fail at compile time?
+            addWarning com i "jsNative is being compiled without replacement, this will fail at runtime."
             "A function supposed to be replaced by JS native code has been called, please check."
             |> Fable.StringConst |> Fable.Value
             |> fun msg -> Fable.Throw(msg, i.returnType, i.range) |> Some
