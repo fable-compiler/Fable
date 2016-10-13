@@ -1061,7 +1061,8 @@ module Compiler =
                     else None
                 // Return the Babel file
                 Babel.Program(Path.fixExternalPath com file.FileName,
-                                originalFileName, file.Range, rootDecls)
+                                originalFileName, file.Range, rootDecls,
+                                isEntry = (originalFileName = projs.Head.EntryFile))
             with
             | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
         )
