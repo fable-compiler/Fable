@@ -345,7 +345,7 @@ function printClassMembers(prefix, ent) {
 
 function printImport(path, name) {
     if (!name) {
-        return "";
+        return "[<Erase>]";
     }
     else {
         var fullPath = joinPath(path, name.replace(genReg, ""));
