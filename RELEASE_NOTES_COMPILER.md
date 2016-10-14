@@ -1,3 +1,7 @@
+### 0.7.3-alpha
+
+* Add warning when creating references of types unknown at compile time
+
 ### 0.7.2-alpha
 
 * Convert functions to delegates when passed as arguments to EmitAttribute

@@ -547,7 +547,15 @@ module private AstPass =
             Fable.Throw (args.Head, typ, r) |> Some
         // Type ref
         | "typeOf" ->
-            makeTypeRef com info.range true info.methodTypeArgs.Head |> Some
+            let t = info.methodTypeArgs.Head
+            match t with
+            | Fable.Any | Fable.GenericParam _ ->
+                sprintf "%s %s"
+                    "Cannot resolve typeof<> at compile time."
+                    "This will likely cause unexpected behavior at runtime."
+                |> addWarning com info
+            | _ -> ()
+            makeTypeRef com info.range true t |> Some
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -1360,7 +1368,15 @@ module private AstPass =
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
         | "toString" -> toString com i i.callee.Value |> Some
         | "equals" -> staticArgs i.callee i.args |> equals true com i
-        | "getType" -> emit i "Object.getPrototypeOf($0).constructor" [i.callee.Value] |> Some
+        | "getType" ->
+            match i.callee.Value.Type with
+            | Fable.Any | Fable.GenericParam _ ->
+                sprintf "%s %s"
+                    "Cannot resolve .GetType() at compile time."
+                    "The type created at runtime won't contain generic information."
+                |> addWarning com i
+                emit i "Object.getPrototypeOf($0).constructor" [i.callee.Value] |> Some
+            | t -> makeTypeRef com i.range true t |> Some            
         | _ -> None
 
     let types com (info: Fable.ApplyInfo) =
