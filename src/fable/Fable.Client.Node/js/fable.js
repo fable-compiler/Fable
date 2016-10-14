@@ -185,6 +185,11 @@ function runCommand(command, opts, continuation) {
     return proc;
 }
 
+function normalizeProjectName(opts) {
+    var projName = path.basename(opts.projFile);
+    return projName.substr(0, projName.indexOf(".")).replace(/[^A-Z_]/ig, "_");
+}
+
 var bundleCache = null;
 /** Bundles generated JS files and dependencies, requires rollup and plugins */
 function bundle(jsFiles, opts, fableProc, resolve, reject) {
@@ -193,44 +198,56 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
         nodeResolve = require('rollup-plugin-node-resolve'),
         hypothetical = require('rollup-plugin-hypothetical');
 
-    var bundleFileName = typeof opts.bundle === "string" ? opts.bundle : "bundle.js";
-    bundleFileName = path.join(path.resolve(opts.outDir), bundleFileName).replace(/\\/g, '/');
-
-    var entryFile = null;
-    for (var file in jsFiles) {
-        if (jsFiles[file].isEntry) {
-            entryFile = file;
-            break;
+    var rollupOpts = {};
+    if (typeof opts.bundle === "string" && opts.bundle.endsWith("config.js")) {
+        var cfgPath = path.resolve(path.join(opts.workingDir, opts.bundle));
+        rollupOpts = require(cfgPath);
+        // If "dest" is set, check if it's relative
+        if (rollupOpts.dest && path.resolve(rollupOpts.dest) !== rollupOpts.dest) {
+            rollupOpts.dest = path.join(path.dirname(cfgPath), rollupOpts.dest);
         }
     }
 
-    rollup.rollup({
-        entry: entryFile,
-        plugins: [
-            nodeResolve({ jsnext: true, main: true, browser: true }),
-            commonjs({ ignoreGlobal: true }),
-            hypothetical({ files: jsFiles, allowRealFiles: true })
-        ],
-        cache: bundleCache
-    })
-    .then(function(bundle) {
-        var parsed = bundle.generate({
-            format: constants.JS_MODULES[opts.module] 
-        });
-        if (opts.inMemory && typeof resolve === "function") {
-            parsed.fileName = bundleFileName;
-            resolve(parsed);
-        }
-        else {
-            if (opts.watch) {
-                bundleCache = bundle;
+    rollupOpts.dest = rollupOpts.dest || path.join(
+        path.resolve(opts.outDir),
+        typeof opts.bundle === "string" ? opts.bundle : "bundle.js"
+    ).replace(/\\/g, '/');
+    
+    rollupOpts.cache = bundleCache;
+    rollupOpts.format = rollupOpts.format == null ? constants.JS_MODULES[opts.module] : rollupOpts.format;
+    rollupOpts.sourceMap = rollupOpts.sourceMap == null ? opts.sourceMaps : rollupOpts.sourceMap
+    rollupOpts.entry = Object.getOwnPropertyNames(jsFiles).find(file => jsFiles[file].isEntry);
+    rollupOpts.moduleName = rollupOpts.moduleName || normalizeProjectName(opts);
+    rollupOpts.plugins = Array.isArray(rollupOpts.plugins) ? rollupOpts.plugins : [];
+    rollupOpts.plugins.push(
+        nodeResolve({ jsnext: true, main: true, browser: true }),
+        commonjs({ ignoreGlobal: true }),
+        hypothetical({ files: jsFiles, allowRealFiles: true, allowExternalModules: true })
+    );
+
+    rollup.rollup(rollupOpts)
+        .then(function(bundle) {
+            var parsed = bundle.generate(rollupOpts);
+            if (opts.inMemory && typeof resolve === "function") {
+                parsed.fileName = rollupOpts.dest;
+                resolve(parsed);
             }
-            // Write to disk, bundle.write doesn't seem to work
-            fableLib.writeFile(bundleFileName, parsed.code, parsed.map, opts);
-            fableLib.stdoutLog("Compiled " + path.basename(bundleFileName) + " at " + (new Date()).toLocaleTimeString());
-            postbuild(opts, true, fableProc, resolve, reject);
-        }
-    });
+            else {
+                if (opts.watch) {
+                    bundleCache = bundle;
+                }
+                // Write to disk, bundle.write doesn't seem to work
+                // bundle.write({ dest: rollupOpts.dest, format: rollupOpts.format, sourceMap: rollupOpts.sourceMap });
+                fableLib.writeFile(rollupOpts.dest, parsed.code,
+                    rollupOpts.sourceMap === true ? parsed.map : null);
+                fableLib.stdoutLog("Compiled " + path.basename(rollupOpts.dest) + " at " + (new Date()).toLocaleTimeString());
+                postbuild(opts, true, fableProc, resolve, reject);
+            }
+        })
+        .catch(function (err) {
+            fableLib.stderrLog("BUNDLE ERROR: " + err);
+            fableLib.finish(1, opts, resolve, reject);
+        });
 }
 
 /** Runs the postbuild script and starts watching if necessary */
@@ -324,7 +341,7 @@ function build(opts, resolve, reject) {
 
     fableProc.stderr.on('data', function(data) {
         fableLib.stderrLog("FABLE ERROR: " + data.toString().substring(0, 300) + "...");
-        fableLib.finish(1, opts);
+        fableLib.finish(1, opts, resolve, reject);
     });
 
     var buffer = "", jsFiles = {};
@@ -528,8 +545,12 @@ function prepareOptions(opts) {
     opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
     opts.workingDir = opts.workingDir != null ? opts.workingDir : "";
     opts.coreLib = opts.coreLib || (opts.bundle ? "fable-core/es2015" : "fable-core");
-    opts.module = opts.module || (opts.ecma != "es2015" && opts.ecma != "es6" ? "commonjs" : "es2015");
     opts.outDir = opts.outDir ? (path.join(opts.workingDir, opts.outDir)) : path.dirname(path.join(opts.workingDir, opts.projFile));
+    if (opts.module == null) {
+        opts.module = opts.bundle
+            ? "iife"
+            : (opts.ecma != "es2015" && opts.ecma != "es6" ? "commonjs" : "es2015");
+    }
 
     // If refs is set in fableconfig.json, convert them to an array
     if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {

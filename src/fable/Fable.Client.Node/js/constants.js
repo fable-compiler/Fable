@@ -16,13 +16,13 @@ exports.FABLE_BIN_OPTIONS = new Set([
     "refs", "watch", "clamp", "copyExt", "extra", "declaration", "noTypedArrays"
 ]);
 
-/**
- * Accepted JS modules an the alias for Rollup
- * (Rollup also accepts 'iife')
-*/
+/** Accepted JS modules an the alias for Rollup */
 exports.JS_MODULES = {
     "amd": "amd",
     "commonjs": "cjs",
     "systemjs": null,
-    "umd": "umd"
+    "umd": "umd",
+    "es2105": "es",
+    "es6": "es",
+    "iife": "iife" // Accepted by Rollup
 };

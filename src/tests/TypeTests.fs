@@ -18,9 +18,12 @@ type TestType2 =
     
 type TestType3() =
     member __.Value = "Hi"
+    interface ITest
 
 type TestType4() =
-    member __.Value = "Bye"
+    inherit TestType3()
+    member __.Value2 = "Bye"
+    interface ITest2
 
 type TestType5(greeting: string) =
     member __.Value = greeting
@@ -33,6 +36,11 @@ let normalize (x: string) =
     #else
     x.Replace("+",".")
     #endif
+
+[<Test>]
+let ``Children inherits parent interfaces``() =
+    let t4 = TestType4() |> box
+    t4 :? ITest |> equal true
 
 [<Test>]
 let ``Type Namespace``() =
@@ -124,7 +132,7 @@ let inline create<'T when 'T:(new : unit -> 'T)> () = new 'T()
 [<Test>]
 let ``Create new generic objects with inline function``() =
     create<TestType3>().Value |> equal "Hi"
-    create<TestType4>().Value |> equal "Bye"
+    create<TestType4>().Value2 |> equal "Bye"
     // create<TestType5>() // Doesn't compile    
 
 let inline create2<'T> (args: obj[]) =
@@ -133,7 +141,7 @@ let inline create2<'T> (args: obj[]) =
 [<Test>]
 let ``Create new generic objects with System.Activator``() =
     (create2<TestType3> [||]).Value |> equal "Hi"
-    (create2<TestType4> [||]).Value |> equal "Bye"
+    (create2<TestType4> [||]).Value2 |> equal "Bye"
     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
         
 type RenderState = 
@@ -161,7 +169,7 @@ type T4 = TestType4
 [<Test>]
 let ``Type abbreviation works``() =
     let t = T4()
-    t.Value |> equal "Bye"
+    t.Value2 |> equal "Bye"
 
 type TestType6(x: int) =
     let mutable i = x
