@@ -178,6 +178,9 @@ and makeCall com range typ kind =
         |> getCallee meth args typ
         |> apply (getKind isCons) args
 
+let makeTypeRefFrom com ent =
+    DeclaredType(ent, []) |> makeTypeRef com None false
+
 let makeEmit r t args macro =
     Apply(Value(Emit macro), args, ApplyMeth, t, r) 
 
@@ -253,25 +256,27 @@ let makeTypeNameMeth com typeFullName =
     MemberDeclaration(Member("typeName", Method, [], String, isSymbol=true),
                         None, [], typeFullName, SourceLocation.Empty)
 
-let makeInterfacesMethod com extend interfaces =
+let makeInterfacesMethod com (ent: Fable.Entity) extend interfaces =
     let interfaces: Expr =
         let interfaces = List.map (StringConst >> Value) interfaces
         ArrayConst(ArrayValues interfaces, String) |> Value
     let interfaces =
         if not extend then interfaces else
-        CoreLibCall("Util", Some "extendInfo", false, [interfaces; Value Super; makeConst "interfaces"])
+        CoreLibCall("Util", Some "extendInfo", false,
+            [makeTypeRefFrom com ent; makeConst "interfaces"; interfaces])
         |> makeCall com None Any
     MemberDeclaration(Member("interfaces", Method, [], Array String, isSymbol=true),
                         None, [], interfaces, SourceLocation.Empty)
 
-let makePropertiesMethod com extend properties =
+let makePropertiesMethod com ent extend properties =
     let body =
         properties |> List.map (fun (name, typ) ->
             MemberDeclaration(Member(name, Field, [], Any), None, [], makeTypeRef com None true typ, SourceLocation.Empty))
         |> fun decls -> ObjExpr(decls, [], None, None)
     let body =
         if not extend then body else
-        CoreLibCall("Util", Some "extendInfo", false, [body; Value Super; makeConst "properties"])
+        CoreLibCall("Util", Some "extendInfo", false,
+            [makeTypeRefFrom com ent; makeConst "properties"; body])
         |> makeCall com None Any
     MemberDeclaration(Member("properties", Method, [], Any, isSymbol=true),
                         None, [], body, SourceLocation.Empty)

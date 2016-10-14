@@ -100,12 +100,11 @@ function ensureDirExists(dir, cont) {
 }
 exports.ensureDirExists = ensureDirExists;
 
-function writeFile(fileName, code, map, opts) {
+function writeFile(fileName, code, map) {
     var fs = require("fs");
     ensureDirExists(path.dirname(fileName));
     fs.writeFileSync(fileName, code);
-    // Use strict equality so it evals to false when opts.sourceMaps === "inline"
-    if (opts.sourceMaps === true && map) {
+    if (map) {
         fs.appendFileSync(fileName, "\n//# sourceMappingURL=" + path.basename(fileName) + ".map");
         fs.writeFileSync(fileName + ".map", JSON.stringify(map));
     }
@@ -122,6 +121,8 @@ function babelifyToFile(babelAst, babelOpts, opts) {
         : null;
 
     var parsed = babelify(babelAst, fsCode, babelOpts, opts);
-    writeFile(parsed.fileName, parsed.code, parsed.map, opts);
+    // Use strict equality so it evals to false when opts.sourceMaps === "inline"
+    writeFile(parsed.fileName, parsed.code,
+        opts.sourceMaps === true ? parsed.map : null);
 }
 exports.babelifyToFile = babelifyToFile;

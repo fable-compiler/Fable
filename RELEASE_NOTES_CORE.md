@@ -1,3 +1,7 @@
+### 0.7.2-alpha
+
+* Improve tree shaking
+
 ### 0.7.1-alpha
 
 * Bring back JSON serialization with `$type` info

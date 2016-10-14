@@ -44,18 +44,7 @@ export interface IEquatable<T> {
   Equals(x: T): boolean;
 }
 
-export type Tuple<T1, T2> = [T1, T2];
-export type Tuple3<T1, T2, T3> = [T1, T2, T3];
-
-export function Tuple<T1, T2>(x: T1, y: T2) {
-  return <Tuple<T1, T2>>[x, y];
-}
-
-export function Tuple3<T1, T2, T3>(x: T1, y: T2, z: T3) {
-  return <Tuple3<T1, T2, T3>>[x, y, z];
-}
-
-export enum TypeKind {
+enum TypeKind {
   Any = 1,
   Unit = 2,
   Option = 3,
@@ -142,9 +131,10 @@ export class Util {
           ? Object.getPrototypeOf(cons.prototype).constructor : cons;
   }
 
-  static extendInfo(info: any, parent: FunctionConstructor, symbolName: string) {
+  static extendInfo(cons: FunctionConstructor, symbolName: string, info: any) {
     const sym: symbol = (<any>FSymbol)[symbolName];
-    const parentObj = (<any>parent)[sym] ? (<any>parent)[sym]() : null;
+    const parent: any = Object.getPrototypeOf(cons.prototype);
+    const parentObj = parent[sym] ? parent[sym]() : null;
     return Array.isArray(info)
       ? info.concat(parentObj || [])
       : Object.assign(info, parentObj);
@@ -278,11 +268,11 @@ export class Util {
     };
   }
 
-  static createObj(fields: Iterable<Tuple<string, any>>) {
+  static createObj(fields: Iterable<[string, any]>) {
     return Seq.fold((acc, kv) => { acc[kv[0]] = kv[1]; return acc; }, <any>{}, fields);
   }
 
-  static toPlainJsObj = function (source: any) {
+  static toPlainJsObj(source: any) {
     if (source != null && source.constructor != Object) {
       let target: { [index: string]: string } = {};
       let props = Object.getOwnPropertyNames(source);
@@ -686,9 +676,17 @@ export class TimeSpan extends Number {
     return <number>ts1 - <number>ts2;
   }
 
-  static compare = Util.compare;
-  static compareTo = Util.compare;
-  static duration = Math.abs;
+  static compare(x: TimeSpan, y: TimeSpan) {
+    return Util.compare(x, y)
+  }
+
+  static compareTo(x: TimeSpan, y: TimeSpan) {
+    return Util.compare(x, y)
+  }
+
+  static duration(x: TimeSpan) {
+    return Math.abs(x as number)
+  }
 }
 
 export enum DateKind {
@@ -696,16 +694,14 @@ export enum DateKind {
   Local
 }
 
-class FDate extends Date {
-  public kind: DateKind;
-
+class FDate {
   private static __changeKind(d: Date, kind: DateKind) {
     let d2: Date;
-    return (<FDate>d).kind == kind ? d : (d2 = new Date(d.getTime()), (<FDate>d2).kind = kind, d2);
+    return (<any>d).kind == kind ? d : (d2 = new Date(d.getTime()), (<any>d2).kind = kind, d2);
   }
 
   private static __getValue(d: Date, key: string): number {
-    return (<any>d)[((<FDate>d).kind == DateKind.UTC ? "getUTC" : "get") + key]();
+    return (<any>d)[((<any>d).kind == DateKind.UTC ? "getUTC" : "get") + key]();
   }
 
   static minValue() {
@@ -720,7 +716,7 @@ class FDate extends Date {
     const date = (v == null) ? new Date() : new Date(v);
     if (isNaN(date.getTime()))
       throw "The string is not a valid Date.";
-    (<FDate>date).kind = kind ||
+    (<any>date).kind = kind ||
       (typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local); 
     return date;
   }
@@ -731,11 +727,13 @@ class FDate extends Date {
       : new Date(year, month - 1, day, h, m, s, ms);
     if (isNaN(date.getTime()))
       throw "The parameters describe an unrepresentable Date.";
-    (<FDate>date).kind = kind;
+    (<any>date).kind = kind;
     return date;
   }
 
-  static now = FDate.parse;
+  static now() {
+    return FDate.parse();
+  }
 
   static utcNow() {
     return FDate.parse(null, 1);
@@ -768,7 +766,7 @@ class FDate extends Date {
   }
 
   static date(d: Date) {
-    return FDate.create(FDate.year(d), FDate.month(d), FDate.day(d), 0, 0, 0, 0, (<FDate>d).kind);
+    return FDate.create(FDate.year(d), FDate.month(d), FDate.day(d), 0, 0, 0, 0, (<any>d).kind);
   }
 
   static day(d: Date) {
@@ -803,7 +801,9 @@ class FDate extends Date {
     return (d.getTime() + 6.2135604e+13 /* millisecondsJSOffset */) * 10000;
   }
 
-  static toBinary = FDate.ticks;
+  static toBinary(d: Date) {
+    return FDate.ticks(d);
+  }
 
   static dayOfWeek(d: Date) {
     return FDate.__getValue(d, "Day");
@@ -819,31 +819,31 @@ class FDate extends Date {
   }
 
   static add(d: Date, ts: TimeSpan) {
-    return FDate.parse(d.getTime() + <number>ts, (<FDate>d).kind);
+    return FDate.parse(d.getTime() + <number>ts, (<any>d).kind);
   }
 
   static addDays(d: Date, v: number) {
-    return FDate.parse(d.getTime() + v * 86400000, (<FDate>d).kind);
+    return FDate.parse(d.getTime() + v * 86400000, (<any>d).kind);
   }
 
   static addHours(d: Date, v: number) {
-    return FDate.parse(d.getTime() + v * 3600000, (<FDate>d).kind);
+    return FDate.parse(d.getTime() + v * 3600000, (<any>d).kind);
   }
 
   static addMinutes(d: Date, v: number) {
-    return FDate.parse(d.getTime() + v * 60000, (<FDate>d).kind);
+    return FDate.parse(d.getTime() + v * 60000, (<any>d).kind);
   }
 
   static addSeconds(d: Date, v: number) {
-    return FDate.parse(d.getTime() + v * 1000, (<FDate>d).kind);
+    return FDate.parse(d.getTime() + v * 1000, (<any>d).kind);
   }
 
   static addMilliseconds(d: Date, v: number) {
-    return FDate.parse(d.getTime() + v, (<FDate>d).kind);
+    return FDate.parse(d.getTime() + v, (<any>d).kind);
   }
 
   static addTicks(d: Date, v: number) {
-    return FDate.parse(d.getTime() + v / 10000, (<FDate>d).kind);
+    return FDate.parse(d.getTime() + v / 10000, (<any>d).kind);
   }
 
   static addYears(d: Date, v: number) {
@@ -851,7 +851,7 @@ class FDate extends Date {
     const newYear = FDate.year(d) + v;
     const daysInMonth = FDate.daysInMonth(newYear, newMonth);
     const newDay = Math.min(daysInMonth, FDate.day(d));
-    return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<FDate>d).kind);
+    return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<any>d).kind);
   }
 
   static addMonths(d: Date, v: number) {
@@ -870,12 +870,12 @@ class FDate extends Date {
     const newYear = FDate.year(d) + yearOffset;
     const daysInMonth = FDate.daysInMonth(newYear, newMonth);
     const newDay = Math.min(daysInMonth, FDate.day(d));
-    return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<FDate>d).kind);
+    return FDate.create(newYear, newMonth, newDay, FDate.hour(d), FDate.minute(d), FDate.second(d), FDate.millisecond(d), (<any>d).kind);
   }
 
   static subtract(d: Date, that: Date | number) {
     return typeof that == "number"
-      ? FDate.parse(d.getTime() - <number>that, (<FDate>d).kind)
+      ? FDate.parse(d.getTime() - <number>that, (<any>d).kind)
       : d.getTime() - (<Date>that).getTime();
   }
 
@@ -899,10 +899,21 @@ class FDate extends Date {
     return d1.getTime() == d2.getTime();
   }
 
-  static compareTo = Util.compare;
-  static compare = Util.compare;
-  static op_Addition = FDate.add;
-  static op_Subtraction = FDate.subtract;
+  static compare(x: Date, y: Date) {
+    return Util.compare(x, y)
+  }
+
+  static compareTo(x: Date, y: Date) {
+    return Util.compare(x, y)
+  }
+
+  static op_Addition(x: Date, y: TimeSpan) {
+    return FDate.add(x, y);
+  }
+
+  static op_Subtraction(x: Date, y: number | Date) {
+    return FDate.subtract(x, y);
+  }
 }
 export { FDate as Date }
 
@@ -992,7 +1003,9 @@ export class Timer implements IDisposable {
 }
 
 class FString {
-  private static fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+  private static get fsFormatRegExp() {
+    return /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+  }
 
   static fsFormat(str: string) {
     function isObject(x: any) {
@@ -1047,7 +1060,9 @@ class FString {
     };
   }
 
-  private static formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
+  private static get formatRegExp() {
+    return /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
+  }
 
   static format(str: string, ...args: any[]) {
     return str.replace(FString.formatRegExp, function (match: any, idx: any, pad: any, format: any) {
@@ -1375,7 +1390,7 @@ class FArray {
         ys[j++] = xs[i];
       else
         zs[k++] = xs[i];
-    return Tuple(ys, zs);
+    return [ys, zs];
   }
 
   static permute<T>(f: (i: number) => number, xs: Array<T>) {
@@ -1423,23 +1438,23 @@ class FArray {
     });
   }
 
-  static unzip<T1, T2>(xs: ArrayLike<Tuple<T1, T2>>) {
+  static unzip<T1, T2>(xs: ArrayLike<[T1, T2]>) {
     const bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length);
     for (let i = 0; i < xs.length; i++) {
       bs[i] = xs[i][0];
       cs[i] = xs[i][1];
     }
-    return Tuple(bs, cs);
+    return [bs, cs];
   }
 
-  static unzip3<T1, T2, T3>(xs: ArrayLike<Tuple3<T1, T2, T3>>) {
+  static unzip3<T1, T2, T3>(xs: ArrayLike<[T1, T2, T3]>) {
     const bs = new Array<T1>(xs.length), cs = new Array<T2>(xs.length), ds = new Array<T3>(xs.length);
     for (let i = 0; i < xs.length; i++) {
       bs[i] = xs[i][0];
       cs[i] = xs[i][1];
       ds[i] = xs[i][2];
     }
-    return Tuple3(bs, cs, ds);
+    return [bs, cs, ds];
   }
 }
 export { FArray as Array }
@@ -1587,14 +1602,14 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
   }
 
   partition(f: (x: T) => boolean): [List<T>, List<T>] {
-    return List.partition(f, this);
+    return List.partition(f, this) as [List<T>, List<T>];
   }
 
   static partition<T>(f: (x: T) => boolean, xs: List<T>) {
     return Seq.fold((acc, x) => {
       const lacc = acc[0], racc = acc[1];
-      return f(x) ? Tuple(new List<T>(x, lacc), racc) : Tuple(lacc, new List<T>(x, racc));
-    }, Tuple(new List<T>(), new List<T>()), List.reverse(xs));
+      return f(x) ? [new List<T>(x, lacc), racc] : [lacc, new List<T>(x, racc)];
+    }, [new List<T>(), new List<T>()], List.reverse(xs));
   }
 
   static replicate<T>(n: number, x: T) {
@@ -1625,20 +1640,20 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
 
   /* ToDo: instance unzip() */
 
-  static unzip<T1, T2>(xs: List<Tuple<T1, T2>>) {
+  static unzip<T1, T2>(xs: List<[T1, T2]>) {
     return Seq.foldBack((xy, acc) =>
-      Tuple(new List<T1>(xy[0], acc[0]), new List<T2>(xy[1], acc[1])), xs, Tuple(new List<T1>(), new List<T2>()));
+      [new List<T1>(xy[0], acc[0]), new List<T2>(xy[1], acc[1])] as [List<T1>, List<T2>], xs, [new List<T1>(), new List<T2>()] as [List<T1>, List<T2>]);
   }
 
   /* ToDo: instance unzip3() */
 
-  static unzip3<T1, T2, T3>(xs: List<Tuple3<T1, T2, T3>>) {
+  static unzip3<T1, T2, T3>(xs: List<[T1, T2, T3]>) {
     return Seq.foldBack((xyz, acc) =>
-      Tuple3(new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])), xs, Tuple3(new List<T1>(), new List<T2>(), new List<T3>()));
+      [new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])] as [List<T1>, List<T2>, List<T3>], xs, [new List<T1>(), new List<T2>(), new List<T3>()] as [List<T1>, List<T2>, List<T3>]);
   }
 
-  static groupBy<T, K>(f: (x: T) => K, xs: List<T>): List<Tuple<K, List<T>>> {
-    return Seq.toList(Seq.map(k => Tuple(k[0], Seq.toList(k[1])), Seq.groupBy(f, xs)));
+  static groupBy<T, K>(f: (x: T) => K, xs: List<T>): List<[K, List<T>]> {
+    return Seq.toList(Seq.map(k => [k[0], Seq.toList(k[1])], Seq.groupBy(f, xs))) as List<[K, List<T>]>;
   }
 
   [FSymbol.interfaces]() {
@@ -1678,7 +1693,7 @@ export class Seq {
     return Seq.delay(() => {
       let firstDone = false;
       let i = xs[Symbol.iterator]();
-      let iters = Tuple(i, <Iterator<T>>null);
+      let iters = [i, <Iterator<T>>null];
       return Seq.unfold(() => {
         let cur: IteratorResult<T>;
         if (!firstDone) {
@@ -1715,7 +1730,7 @@ export class Seq {
   }
 
   static countBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
-    return Seq.map(kv => Tuple(kv[0], Seq.count(kv[1])), Seq.groupBy(f, xs));
+    return Seq.map(kv => [kv[0], Seq.count(kv[1])], Seq.groupBy(f, xs));
   }
 
   static concat<T>(xs: Iterable<Iterable<T>>) {
@@ -1752,11 +1767,11 @@ export class Seq {
   }
 
   static choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
-    const trySkipToNext = (iter: Iterator<T>): Tuple<U, Iterator<T>> => {
+    const trySkipToNext = (iter: Iterator<T>): [U, Iterator<T>] => {
       const cur = iter.next();
       if (!cur.done) {
         const y = f(cur.value);
-        return y != null ? Tuple(y, iter) : trySkipToNext(iter);
+        return y != null ? [y, iter] : trySkipToNext(iter);
       }
       return void 0;
     };
@@ -1778,12 +1793,12 @@ export class Seq {
 
   static distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
     return Seq.choose(
-      tup => tup[0],
-      Seq.scan((tup, x) => {
+      (tup: [T, FSet<K>]) => tup[0],
+      Seq.scan((tup: [T, FSet<K>], x: T) => {
         const acc = tup[1];
         const k = f(x);
-        return acc.has(k) ? Tuple(<T>null, acc) : Tuple(x, FSet.add(k, acc));
-      }, Tuple(<T>null, FSet.create<K>()), xs));
+        return acc.has(k) ? [<T>null, acc] : [x, FSet.add(k, acc)];
+      }, [<T>null, FSet.create<K>()] as [T, FSet<K>], xs));
   }
 
   static distinct<T>(xs: Iterable<T>) {
@@ -1791,7 +1806,7 @@ export class Seq {
   }
 
   static empty<T>() {
-    return Seq.unfold((): Tuple<T, T> => { return void 0; });
+    return Seq.unfold((): [T, T] => { return void 0; });
   }
 
   static enumerateWhile<T>(cond: () => boolean, xs: Iterable<T>) {
@@ -1871,7 +1886,7 @@ export class Seq {
   }
 
   static filter<T>(f: (x: T) => boolean, xs: Iterable<T>) {
-    function trySkipToNext(iter: Iterator<T>): Tuple<T, Iterator<T>> {
+    function trySkipToNext(iter: Iterator<T>): [T, Iterator<T>] {
       let cur = iter.next();
       while (!cur.done) {
         if (f(cur.value)) { return [cur.value, iter]; }
@@ -1941,7 +1956,7 @@ export class Seq {
     return Seq.fold2((acc, x, y) => acc && f(x, y), true, xs, ys);
   }
 
-  // TODO: Should return a Iterable<Tuple<K, Iterable<T>>> instead of a Map<K, Iterable<T>>
+  // TODO: Should return a Iterable<[K, Iterable<T]>> instead of a Map<K, Iterable<T>>
   // Seq.groupBy : ('T -> 'Key) -> seq<'T> -> seq<'Key * seq<'T>>
   static groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>): Iterable<[K, Iterable<T>]> {
     const keys: K[] = [];
@@ -2093,7 +2108,7 @@ export class Seq {
     });
   }
 
-  static mapFold<T, ST, R>(f: (acc: ST, x: T) => Tuple<R, ST>, acc: ST, xs: Iterable<T>) {
+  static mapFold<T, ST, R>(f: (acc: ST, x: T) => [R, ST], acc: ST, xs: Iterable<T>) {
     let result: Array<R> = [];
     let r: R;
     let cur: IteratorResult<T>;
@@ -2105,10 +2120,10 @@ export class Seq {
       [r, acc] = f(acc, cur.value);
       result.push(r);
     }
-    return Tuple(<Iterable<R>>result, acc);
+    return [<Iterable<R>>result, acc];
   }
 
-  static mapFoldBack<T, ST, R>(f: (x: T, acc: ST) => Tuple<R, ST>, xs: Iterable<T>, acc: ST) {
+  static mapFoldBack<T, ST, R>(f: (x: T, acc: ST) => [R, ST], xs: Iterable<T>, acc: ST) {
     const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as Array<T> : Array.from(xs);
     let result: Array<R> = [];
     let r: R;
@@ -2116,7 +2131,7 @@ export class Seq {
       [r, acc] = f(arr[i], acc);
       result.push(r);
     }
-    return Tuple(<Iterable<R>>result, acc);
+    return [<Iterable<R>>result, acc];
   }
 
   static max<T extends number>(xs: Iterable<T>) {
@@ -2136,7 +2151,7 @@ export class Seq {
   }
 
   static pairwise<T extends number>(xs: Iterable<T>) {
-    return Seq.skip(2, Seq.scan((last, next) => Tuple(last[1], next), Tuple(0, 0), xs));
+    return Seq.skip(2, Seq.scan((last, next) => [last[1], next], [0, 0], xs));
   }
 
   static permute<T>(f: (i: number) => number, xs: Iterable<T>) {
@@ -2376,7 +2391,7 @@ export class Seq {
     return Seq.__failIfNone(Seq.tryPick(f, xs));
   }
 
-  static unfold<T, ST>(f: (st: ST) => Tuple<T, ST>, acc?: ST) {
+  static unfold<T, ST>(f: (st: ST) => [T, ST], acc?: ST) {
     return <Iterable<T>>{
       [Symbol.iterator]: () => {
         return {
@@ -2436,7 +2451,7 @@ class SetTree {
     return t.Case === "SetOne" ? 1 : t.Case === "SetNode" ? t.Fields[3] : 0;
   }
 
-  static tolerance = 2;
+  static get tolerance() { return 2; }
 
   static mk(l: SetTree, k: any, r: SetTree) {
     var matchValue = [l, r];
@@ -3139,7 +3154,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
         ? set2
         : FSet.from(set1.comparer, SetTree.union(set1.comparer, set1.tree, set2.tree));
   }
-  static op_Addition = FSet.union;
+
+  static op_Addition<T>(set1: FSet<T>, set2: FSet<T>) {
+    return FSet.union(set1, set2);
+  }
 
   static unionInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
     for (const x of set2) { set1.add(x); }
@@ -3158,7 +3176,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
         ? set1
         : FSet.from(set1.comparer, SetTree.diff(set1.comparer, set1.tree, set2.tree));
   }
-  static op_Subtraction = FSet.difference;
+
+  static op_Subtraction<T>(set1: FSet<T>, set2: FSet<T>) {
+    return FSet.difference(set1, set2);
+  }
 
   static differenceInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
     for (const x of set2) { set1.delete(x); }
@@ -3190,7 +3211,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
       return Seq.forAll(x => set2.has(x), set1) && Seq.exists(x => !set1.has(x), set2);
     }
   }
-  static isProperSubset = FSet.isProperSubsetOf;
+
+  static isProperSubset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    return FSet.isProperSubsetOf(set1, set2);
+  }
 
   static isSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
     if (set1 instanceof FSet && set2 instanceof FSet) {
@@ -3201,7 +3225,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
       return Seq.forAll(x => set2.has(x), set1);
     }
   }
-  static isSubset = FSet.isSubsetOf;
+
+  static isSubset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    return FSet.isSubsetOf(set1, set2);
+  }  
 
   static isProperSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
     if (set1 instanceof FSet && set2 instanceof FSet) {
@@ -3211,7 +3238,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
       return FSet.isProperSubset(set2 instanceof Set ? set2 : new Set(set2), set1);
     }
   }
-  static isProperSuperset = FSet.isProperSupersetOf;
+
+  static isProperSuperset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    return FSet.isProperSupersetOf(set1, set2);
+  }
 
   static isSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
     if (set1 instanceof FSet && set2 instanceof FSet) {
@@ -3221,7 +3251,10 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
       return FSet.isSubset(set2 instanceof Set ? set2 : new Set(set2), set1);
     }
   }
-  static isSuperset = FSet.isSupersetOf;
+
+  static isSuperset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+    return FSet.isSupersetOf(set1, set2);
+  }
 
   static copyTo<T>(xs: FSet<T> | Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
     if (!Array.isArray(arr) && !ArrayBuffer.isView(arr))
@@ -3284,12 +3317,18 @@ class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> 
   static minimumElement<T>(s: FSet<T>): T {
     return SetTree.minimumElement(s.tree);
   }
-  static minElement = FSet.minimumElement;
+
+  static minElement<T>(s: FSet<T>): T {
+    return SetTree.minimumElement(s.tree);
+  }
 
   static maximumElement<T>(s: FSet<T>): T {
     return SetTree.maximumElement(s.tree);
   }
-  static maxElement = FSet.maximumElement;
+
+  static maxElement<T>(s: FSet<T>): T {
+    return SetTree.maximumElement(s.tree);
+  }  
 
   [FSymbol.interfaces]() {
     return ["System.IEquatable", "System.IComparable"];
@@ -3921,22 +3960,22 @@ class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterab
 }
 export { FMap as Map }
 
-export type Unit = void;
-
-export const Nothing: Unit = void 0;
-
-export type Continuation<T> = (x: T) => Unit;
+export type Continuation<T> = (x: T) => void;
 
 export interface CancellationToken {
   isCancelled: boolean;
 }
 
-const maxTrampolineCallCount = 2000;
-
 export class Trampoline {
-  private callCount = 0;
+  static get maxTrampolineCallCount() {
+    return 2000;
+  }
+  private callCount: number;
+  constructor() {
+    this.callCount = 0;
+  }
   incrementAndCheck() {
-    return this.callCount++ > maxTrampolineCallCount;
+    return this.callCount++ > Trampoline.maxTrampolineCallCount;
   }
   hijack(f:() => void) {
     this.callCount = 0;
@@ -3955,8 +3994,8 @@ export interface IAsyncContext<T> {
 
 export type IAsync<T> = (x: IAsyncContext<T>) => void;
 
-const AsyncImpl = {
-  protectedCont<T>(f: IAsync<T>) {
+export class AsyncImpl {
+  static protectedCont<T>(f: IAsync<T>) {
     return (ctx: IAsyncContext<T>) => {
       if (ctx.cancelToken.isCancelled)
         ctx.onCancel("cancelled");
@@ -3975,8 +4014,9 @@ const AsyncImpl = {
           ctx.onError(err);
         }
     };
-  },
-  bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
+  }
+  
+  static bind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
     return AsyncImpl.protectedCont((ctx: IAsyncContext<U>) => {
       computation({
         onSuccess: (x: T) => binder(x)(ctx),
@@ -3986,8 +4026,9 @@ const AsyncImpl = {
         trampoline: ctx.trampoline
       });
     });
-  },
-  return<T>(value?: T) {
+  }
+
+  static return<T>(value?: T) {
     return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
   }
 }
@@ -3997,7 +4038,7 @@ export class AsyncBuilder {
     return AsyncImpl.bind(computation, binder);
   }
 
-  Combine<T>(computation1: IAsync<Unit>, computation2: IAsync<T>) {
+  Combine<T>(computation1: IAsync<void>, computation2: IAsync<T>) {
     return this.Bind(computation1, () => computation2);
   }
 
@@ -4005,7 +4046,7 @@ export class AsyncBuilder {
     return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => generator()(ctx));
   }
 
-  For<T>(sequence: Iterable<T>, body: (x: T) => IAsync<Unit>) {
+  For<T>(sequence: Iterable<T>, body: (x: T) => IAsync<void>) {
     const iter = sequence[Symbol.iterator]();
     let cur = iter.next();
     return this.While(() => !cur.done, this.Delay(() => {
@@ -4067,18 +4108,21 @@ export class AsyncBuilder {
     return this.TryFinally(binder(resource), () => resource.Dispose());
   }
 
-  While(guard: () => boolean, computation: IAsync<Unit>): IAsync<Unit> {
+  While(guard: () => boolean, computation: IAsync<void>): IAsync<void> {
     if (guard())
       return this.Bind(computation, () => this.While(guard, computation));
     else
-      return this.Return(Nothing);
+      return this.Return(void 0);
   }
 
   Zero() {
-    return AsyncImpl.protectedCont((ctx: IAsyncContext<Unit>) => ctx.onSuccess(Nothing));
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<void>) => ctx.onSuccess(void 0));
   }
 
-  static singleton = new AsyncBuilder();
+  // TODO: Change name, this is not a singleton any more
+  static get singleton() {
+    return new AsyncBuilder();
+  }
 }
 
 export class Async {
@@ -4104,16 +4148,16 @@ export class Async {
     });
   }
 
-  static defaultCancellationToken = {
-    isCancelled: false
-  };
+  static get defaultCancellationToken() {
+    return { isCancelled: false };
+  }
 
   static fromContinuations<T>(f: (conts: Array<Continuation<T>>) => void) {
     return AsyncImpl.protectedCont((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
   }
 
   static ignore<T>(computation: IAsync<T>) {
-    return AsyncImpl.bind(computation, x => AsyncImpl.return(Nothing));
+    return AsyncImpl.bind(computation, x => AsyncImpl.return(void 0));
   }
 
   static parallel<T>(computations: Iterable<IAsync<T>>) {
@@ -4121,15 +4165,18 @@ export class Async {
   }
 
   static sleep(millisecondsDueTime: number) {
-    return AsyncImpl.protectedCont((ctx: IAsyncContext<Unit>) => {
-      setTimeout(() => ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess(Nothing), millisecondsDueTime);
+    return AsyncImpl.protectedCont((ctx: IAsyncContext<void>) => {
+      setTimeout(() => ctx.cancelToken.isCancelled ? ctx.onCancel("cancelled") : ctx.onSuccess(void 0), millisecondsDueTime);
     });
   }
 
-  private static start<T>(computation: IAsync<Unit>, cancellationToken?: CancellationToken) {
+  static start<T>(computation: IAsync<void>, cancellationToken?: CancellationToken) {
     return Async.startWithContinuations(computation, cancellationToken);
   }
-  static startImmediate = Async.start;
+
+  static startImmediate(computation: IAsync<void>, cancellationToken?: CancellationToken) {
+    return Async.start(computation, cancellationToken);
+  }
 
   private static emptyContinuation<T>(x: T) {
     // NOP
@@ -4170,7 +4217,7 @@ class QueueCell<Msg> {
 }
 
 class MailboxQueue<Msg> {
-  private firstAndLast: Tuple<QueueCell<Msg>, QueueCell<Msg>>;
+  private firstAndLast: [QueueCell<Msg>, QueueCell<Msg>];
 
   add(message: Msg) {
     const itCell = new QueueCell(message);
@@ -4195,10 +4242,10 @@ class MailboxQueue<Msg> {
   }
 }
 
-export type MailboxBody<Msg> = (m: MailboxProcessor<Msg>) => IAsync<Unit>;
+export type MailboxBody<Msg> = (m: MailboxProcessor<Msg>) => IAsync<void>;
 
 export interface AsyncReplyChannel<Reply> {
-  reply: (r: Reply) => Unit;
+  reply: (r: Reply) => void;
 }
 
 export class MailboxProcessor<Msg> {
@@ -4319,7 +4366,7 @@ class FObservable {
     }
   }
 
-  static add<T>(callback: (x: T) => Unit, source: IObservable<T>) {
+  static add<T>(callback: (x: T) => void, source: IObservable<T>) {
     source.Subscribe(new Observer(callback));
   }
 
@@ -4395,7 +4442,7 @@ class FObservable {
   }
 
   static pairwise<T>(source: IObservable<T>) {
-    return <IObservable<Tuple<T, T>>>new Observable<Tuple<T, T>>(observer => {
+    return <IObservable<[T, T]>>new Observable<[T, T]>(observer => {
       let last: T = null;
       return source.Subscribe(new Observer<T>(next => {
         if (last != null)
@@ -4406,7 +4453,7 @@ class FObservable {
   }
 
   static partition<T>(predicate: (x: T) => boolean, source: IObservable<T>) {
-    return Tuple(FObservable.filter(predicate, source), FObservable.filter(x => !predicate(x), source));
+    return [FObservable.filter(predicate, source), FObservable.filter(x => !predicate(x), source)];
   }
 
   static scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObservable<T>) {
@@ -4421,10 +4468,10 @@ class FObservable {
   }
 
   static split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, source: IObservable<T>) {
-    return Tuple(FObservable.choose(v => splitter(v).valueIfChoice1, source), FObservable.choose(v => splitter(v).valueIfChoice2, source));
+    return [FObservable.choose(v => splitter(v).valueIfChoice1, source), FObservable.choose(v => splitter(v).valueIfChoice2, source)];
   }
 
-  static subscribe<T>(callback: (x: T) => Unit, source: IObservable<T>) {
+  static subscribe<T>(callback: (x: T) => void, source: IObservable<T>) {
     return source.Subscribe(new Observer(callback));
   }
 }
@@ -4508,7 +4555,7 @@ export class Event<T> implements IEvent<T> {
       : this._subscribeFromObserver(<IObserver<T>>arg);
   }
 
-  static add<T>(callback: (x: T) => Unit, sourceEvent: IEvent<T>) {
+  static add<T>(callback: (x: T) => void, sourceEvent: IEvent<T>) {
     (<Event<T>>sourceEvent).Subscribe(new Observer(callback));
   }
 
@@ -4591,7 +4638,7 @@ export class Event<T> implements IEvent<T> {
 
   static pairwise<T>(sourceEvent: IEvent<T>) {
     const source = <Event<T>>sourceEvent;
-    return <IEvent<Tuple<T, T>>>new Event<Tuple<T, T>>(observer => {
+    return <IEvent<[T, T]>>new Event<[T, T]>(observer => {
       let last: T = null;
       return source.Subscribe(new Observer<T>(next => {
         if (last != null)
@@ -4602,7 +4649,7 @@ export class Event<T> implements IEvent<T> {
   }
 
   static partition<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
-    return Tuple(Event.filter(predicate, sourceEvent), Event.filter(x => !predicate(x), sourceEvent));
+    return [Event.filter(predicate, sourceEvent), Event.filter(x => !predicate(x), sourceEvent)];
   }
 
   static scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: IEvent<T>) {
@@ -4618,7 +4665,7 @@ export class Event<T> implements IEvent<T> {
   }
 
   static split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>) {
-    return Tuple(Event.choose(v => splitter(v).valueIfChoice1, sourceEvent), Event.choose(v => splitter(v).valueIfChoice2, sourceEvent));
+    return [Event.choose(v => splitter(v).valueIfChoice1, sourceEvent), Event.choose(v => splitter(v).valueIfChoice2, sourceEvent)];
   }
 }
 
