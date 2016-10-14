@@ -364,6 +364,21 @@ let ``System.String.Concat works``() =
       String.Concat(seq { yield "a"; yield "b"; yield "c" })
       |> equal "abc"
 
+[<Test>]
+let ``String.Remove works``() =
+      let str = "abcd"
+      str.Remove(1)
+      |> equal "abc"
+      str.Remove(1, 1)
+      |> equal "bc"
+      str.Remove(3,1)
+      |> equal ""
+      // Even offset values should works
+      // Not need to handle exception here
+      str.Remove(5,5)
+      |> equal ""
+
+
 // String - F# module functions
 
 [<Test>]

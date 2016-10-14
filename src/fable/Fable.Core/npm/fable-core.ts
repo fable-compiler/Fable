@@ -943,6 +943,18 @@ class FString {
     return FString.padLeft(str, len, ch, true);
   }
 
+  static remove(str: string, args1: number, args2?: number) {
+    var start = 0;
+    var len = 0;
+    if (args2 === undefined) {
+      len = args1;
+    } else {
+      start = args1;
+      len = args2;
+    }
+    return str.slice(start, -len);
+  }
+
   static replace(str: string, search: string, replace: string) {
     return str.replace(new RegExp(FRegExp.escape(search), "g"), replace);
   }
