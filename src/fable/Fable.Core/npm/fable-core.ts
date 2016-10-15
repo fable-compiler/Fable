@@ -321,6 +321,17 @@ export class Serialize {
             return o[prop] = v[prop], o;
           }, {}, Object.getOwnPropertyNames(v[FSymbol.properties]()));
         }
+        else if (Util.hasInterface(v, "FSharpUnion")) {
+          if (!v.Fields || !v.Fields.length) {
+            return v.Case;
+          }
+          else if (v.Fields.length === 1) {
+            return { [v.Case]: v.Fields[0] };
+          }
+          else {
+            return { [v.Case]: v.Fields };
+          }
+        }
       }
       return v;
     });
@@ -415,18 +426,29 @@ export class Serialize {
       }
       // Union types (note this condition is not returning)
       if (typ.prototype[FSymbol.cases]) {
-        const fieldTypes: any[] = typ.prototype[FSymbol.cases]()[val.Case];
-        for (let i = 0; i < fieldTypes.length; i++) {
-          val.Fields[i] = Serialize.inflate(val.Fields[i], new List(fieldTypes[i], enclosing));
+        let u: any = { Fields: [] };
+        if (typeof val === "string") {
+          u.Case = val;
         }
+        else {
+          const caseName = Object.getOwnPropertyNames(val)[0];
+          const fieldTypes: any[] = typ.prototype[FSymbol.cases]()[caseName];
+          const fields = fieldTypes.length > 1 ? val[caseName] : [val[caseName]]; 
+          u.Case = caseName;
+          for (let i = 0; i < fieldTypes.length; i++) {
+            u.Fields.push(Serialize.inflate(fields[i], new List(fieldTypes[i], enclosing)));
+          }
+        }
+        return Object.assign(new typ(), u);
       }
       if (typ.prototype[FSymbol.properties]) {
         const properties: {[k:string]:any} = typ.prototype[FSymbol.properties]();
         for (let k of Object.getOwnPropertyNames(properties)) {
           val[k] = Serialize.inflate(val[k], new List(properties[k], enclosing));
         }
+        return Object.assign(new typ(), val);
       }
-      return Object.assign(new typ(), val);
+      return val;
     }
     throw "Unexpected type when deserializing JSON: " + typ;
   }

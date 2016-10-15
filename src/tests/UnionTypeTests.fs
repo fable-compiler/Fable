@@ -210,8 +210,6 @@ type UnionTypeInfoConverter() =
 let ``Unions serialized with Json.NET can be deserialized``() =    
     #if FABLE_COMPILER
     let json = """{"$type":"Fable.Tests.UnionTypes+Tree","Case":"Leaf","Fields":[5]}"""
-    let x2 = Fable.Core.Serialize.ofJson<Tree> json
-    x2.Sum() |> equal 5
     let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Tree> json
     #else
     let x = Leaf 5
