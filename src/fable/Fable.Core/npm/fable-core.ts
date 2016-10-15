@@ -943,16 +943,22 @@ class FString {
     return FString.padLeft(str, len, ch, true);
   }
 
-  static remove(str: string, args1: number, args2?: number) {
-    var start = 0;
-    var len = 0;
-    if (args2 === undefined) {
-      len = args1;
+  static remove(str: string, startIndex: number, count?: number) {
+    if (count === undefined) {
+      if (startIndex >= str.length) {
+        throw "startIndex must be less than length of string";
+      }
     } else {
-      start = args1;
-      len = args2;
+      if (startIndex >= str.length || count > str.length) {
+        throw "Index and count must refer to a location within the string."
+      }
     }
-    return str.slice(start, -len);
+
+    if (count === undefined) {
+      return str.slice(0, startIndex);
+    } else {
+      return str.slice(0, startIndex) + str.substring(startIndex + count);
+    }
   }
 
   static replace(str: string, search: string, replace: string) {

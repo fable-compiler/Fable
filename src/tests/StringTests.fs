@@ -366,18 +366,16 @@ let ``System.String.Concat works``() =
 
 [<Test>]
 let ``String.Remove works``() =
-      let str = "abcd"
-      str.Remove(1)
-      |> equal "abc"
-      str.Remove(1, 1)
-      |> equal "bc"
-      str.Remove(3,1)
+      "abcd".Remove(2)
+      |> equal "ab"
+      "abcd".Remove(1,2)
+      |> equal "ad"
+      "abcd".Remove(0,2)
+      |> equal "cd"
+      "abcd".Remove(0,4)
       |> equal ""
-      // Even offset values should works
-      // Not need to handle exception here
-      str.Remove(5,5)
-      |> equal ""
-
+      "abcd".Remove(0,0)
+      |> equal "abcd"
 
 // String - F# module functions
 
