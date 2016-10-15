@@ -2,6 +2,7 @@
 module Fable.Tests.Json
 open NUnit.Framework
 open Fable.Tests.Util
+open Newtonsoft.Json
 
 type S =
 #if FABLE_COMPILER
@@ -9,8 +10,8 @@ type S =
     static member ofJson<'T>(x, [<Fable.Core.GenericParam("T")>]?t) =
         Fable.Core.Serialize.ofJson<'T>(x, ?t=t)
 #else
-    static member toJson x = Newtonsoft.Json.JsonConvert.SerializeObject x
-    static member ofJson<'T> x = Newtonsoft.Json.JsonConvert.DeserializeObject<'T> x
+    static member toJson x = JsonConvert.SerializeObject(x, Fable.JsonConverter())
+    static member ofJson<'T> x = JsonConvert.DeserializeObject<'T>(x, Fable.JsonConverter())
 #endif
 
 type Child =
@@ -57,17 +58,6 @@ let ``Records``() =
     // Use the built in compare to ensure the fields are being hooked up.
     // Should compile to something like: result.Child.Equals(new Child("Hi", 10))
     result.Child = {a="Hi"; b=10} |> equal true  
-
-[<Test>]
-let ``Unions``() =
-    let u = CaseB [{Name="Sarah";Child={a="John";b=14}}]
-    // Providing type parameters when treating method as a first class value
-    // isn't supported in AppVeyor, see http://stackoverflow.com/a/2743479
-    let json = S.toJson u
-    let u2: U = S.ofJson json
-    u = u2 |> equal true
-    let u3: U = S.ofJson """{"Case":"CaseB","Fields":[[{"Name":"Sarah","Child":{"a":"John","b":14}}]]}"""
-    u = u3 |> equal true
 
 [<Test>] 
 let ``Date``() =
@@ -161,16 +151,11 @@ let ``generic`` () =
     // if result4 <> {a = "a"; b = 1} then
     //     invalidOp "things not equal" 
 
-// Tuples and options are serialized differently
-// in Fable and Json.NET
-#if FABLE_COMPILER
 type OptionJson =
     { a: int option }
 
 [<Test>]
 let ``Option Some`` () =
-    // TODO: Deserialize also options as normal union cases?
-    // let json = """ {"a":{"Case":"Some","Fields":[1]}} """
     let json1 = """ {"a":1 } """
     let result1 : OptionJson = S.ofJson json1
     let json2 = """ {"a":null } """
@@ -197,8 +182,6 @@ type TupleJson =
 
 [<Test>]
 let ``Tuple`` () =
-    // TODO: Deserialize also tuples as objects?
-    // let json = """ {"a":{"Item1":1,"Item2":2}} """
     let json = """ {"a":[1,2]} """
     let result : TupleJson = S.ofJson json
     result.a = (1, 2) |> equal true
@@ -208,12 +191,9 @@ type TupleComplexJson =
 
 [<Test>]
 let ``Complex Tuple`` () =
-    // TODO: Deserialize also tuples as objects?
-    // let json = """ {"a":{"Item1":1,"Item2":{"a":"A","b":1}}} """
     let json = """ {"a":[1,{"a":"A","b":1}]} """
     let result : TupleComplexJson = S.ofJson json
     snd result.a = { a = "A"; b = 1 } |> equal true
-#endif
 
 type SetJson =
     { a: Set<string> }
@@ -257,6 +237,17 @@ let ``Properties`` () =
     result.Prop1.b |> equal 1
 #endif
 
+[<Test>]
+let ``Union of list``() =
+    let u = CaseB [{Name="Sarah";Child={a="John";b=14}}]
+    // Providing type parameters when treating method as a first class value
+    // isn't supported in AppVeyor, see http://stackoverflow.com/a/2743479
+    let json = S.toJson u
+    let u2: U = S.ofJson json
+    u = u2 |> equal true
+    let u3: U = S.ofJson """{"CaseB":[{"Name":"Sarah","Child":{"a":"John","b":14}}]}"""
+    u = u3 |> equal true
+
 type UnionJson =
     | Type1 of string
     | Type2 of Child
@@ -265,13 +256,34 @@ type UnionHolder =
     { a : UnionJson }
 
 [<Test>]
-let ``Union`` () =
-    let json = """ {"a":{"Case":"Type2","Fields":[{"a":"a","b":1}]}} """
+let ``Union of record`` () =
+    let json = """ {"a":{"Type2": {"a":"a","b":1} }} """
     let result : UnionHolder = S.ofJson json
     match result.a with
     | Type2 t -> t = { a="a"; b=1 }
     | Type1 _ -> false
     |> equal true 
+
+type MultiUnion =
+    | EmptyCase
+    | SingleCase of int
+    | MultiCase of string * Child
+
+[<Test>]
+let ``Union case with no fields``() =
+    let u: MultiUnion = S.ofJson """ "EmptyCase" """
+    u = EmptyCase |> equal true
+
+[<Test>]
+let ``Union case with single field``() =
+    let u: MultiUnion = S.ofJson """ {"SingleCase": 100} """
+    u = (SingleCase 100) |> equal true
+
+[<Test>]
+let ``Union case with multiple fields``() =
+    let u: MultiUnion = S.ofJson """ {"MultiCase": ["foo",{"a":"John","b":14}]} """
+    let u2 = MultiCase("foo", {a="John"; b=14})
+    u = u2 |> equal true
 
 #if FABLE_COMPILER
 type IData = interface end

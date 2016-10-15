@@ -1,3 +1,7 @@
+### 0.7.3-alpha
+
+* Optimize JSON serialization of union types (as in FSharpLu.Json)
+
 ### 0.7.2-alpha
 
 * Improve tree shaking
