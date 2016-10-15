@@ -386,3 +386,21 @@ let ``GenericParamAttribute works``() =
     box t1 |> equal (box "boolean")
     box t2 |> equal (box typeof<TestType>)
 #endif
+
+type GenericParamTest2 =
+    static member OnlyAccept<'T>(msg: obj, [<Fable.Core.GenericParam("T")>] ?t: Type) =
+        #if FABLE_COMPILER
+        let t = t.Value
+        #else
+        let t = typeof<'T>
+        #endif
+        t = typeof<obj> || msg.GetType() = t
+
+[<Test>]
+let ``Comparing types work with primitives``() =
+    GenericParamTest2.OnlyAccept<int>(43) |> equal true
+    GenericParamTest2.OnlyAccept<string>("hi") |> equal true
+    GenericParamTest2.OnlyAccept<string>(43) |> equal false
+    GenericParamTest2.OnlyAccept<TestType>(Union1 "bye") |> equal true
+    GenericParamTest2.OnlyAccept<TestType>(Union2 "bye") |> equal false
+    GenericParamTest2.OnlyAccept<obj>("I'll accept anything") |> equal true

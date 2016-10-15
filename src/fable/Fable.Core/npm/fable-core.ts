@@ -72,6 +72,19 @@ export class Reflection {
     }
   }
 
+  static getType(obj: any): any {
+    const t = typeof obj;
+    switch (t) {
+      case "boolean":
+      case "number":
+      case "string":
+      case "function":
+        return t;
+      default:
+        return Object.getPrototypeOf(obj).constructor
+    }
+  }
+
   // TODO: This needs improvement, check namespace for non-custom types?
   static getTypeFullName(typ: any, option?: string): string {
     function trim(fullName: string, option?: string) {

@@ -1375,8 +1375,9 @@ module private AstPass =
                     "Cannot resolve .GetType() at compile time."
                     "The type created at runtime won't contain generic information."
                 |> addWarning com i
-                emit i "Object.getPrototypeOf($0).constructor" [i.callee.Value] |> Some
-            | t -> makeTypeRef com i.range i.fileName true t |> Some            
+                CoreLibCall("Reflection", Some "getType", false, [i.callee.Value])
+                |> makeCall com i.range i.returnType |> Some
+            | t -> makeTypeRef com i.range i.fileName true t |> Some
         | _ -> None
 
     let types com (info: Fable.ApplyInfo) =

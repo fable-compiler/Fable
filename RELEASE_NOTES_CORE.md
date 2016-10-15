@@ -1,6 +1,8 @@
 ### 0.7.4-alpha
 
 * Add `outDir` to Fable.CompilerOptions (see #472)
+* Make `GetType` return "boolean", "number", "string" or "function"
+  for primitive values (see https://goo.gl/J6GeKY)
 
 ### 0.7.3-alpha
 
