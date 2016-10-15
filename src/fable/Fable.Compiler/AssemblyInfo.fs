@@ -6,5 +6,4 @@ open System.Reflection
 do ()
 
 module internal AssemblyVersionInformation =
-    let [<Literal>] Version = "0.7.3"
-    let [<Literal>] InformationalVersion = "0.7.3"
+    let [<Literal>] AssemblyVersion = "0.7.3"
