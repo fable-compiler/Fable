@@ -3,6 +3,13 @@ module Fable.Tests.Util
 open System
 open NUnit.Framework
 
+#if FABLE_COMPILER
+let foo: string = Fable.Core.JsInterop.importMember "../js/foo.js"
+
+[<Fable.Core.Import("foo", "../js/foo.js")>]
+let foo2: string = failwith "JS only"
+#endif
+
 let equal (expected: 'T) (actual: 'T) =
     Assert.AreEqual(expected, actual)
     

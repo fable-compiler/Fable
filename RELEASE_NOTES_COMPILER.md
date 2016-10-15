@@ -1,3 +1,8 @@
+### 0.7.4-alpha
+
+* Resolve import relative paths so they can be reached from `outDir`
+  if they don't point to an internal file (see #472)
+
 ### 0.7.3-alpha
 
 * Add warning when creating references of types unknown at compile time

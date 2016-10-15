@@ -2,6 +2,7 @@ module Fable.Fable2Babel
 
 open Fable
 open Fable.AST
+open System
 open System.Collections.Generic
 
 type ReturnStrategy =
@@ -157,7 +158,7 @@ module Util =
                     System.IO.Path.Combine(ext, rel)
                     |> Path.normalizePath
                     |> fun x -> System.IO.Path.ChangeExtension(x, null)
-                | None ->
+                | None ->   // Current project
                     Path.fixExternalPath com file
                     |> Path.getRelativePath ctx.fixedFileName
                     |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
@@ -329,8 +330,7 @@ module Util =
             let memb, parts =
                 let parts = Array.toList(memb.Split('.'))
                 parts.Head, parts.Tail
-            Path.getExternalImportPath com ctx.fixedFileName path
-            |> com.GetImportExpr ctx None memb
+            com.GetImportExpr ctx None memb path
             |> Some |> accessExpr parts
         | Fable.This -> upcast Babel.ThisExpression ()
         | Fable.Super -> upcast Babel.Super ()
@@ -975,15 +975,28 @@ module Util =
                     |> Naming.sanitizeIdent (fun s ->
                         ctx.file.UsedVarNames.Contains s
                             || (imports.Values |> Seq.exists (fun i -> i.localIdent = s)))
+                let resolvePath (ctx: Context) (importPath: string) =
+                    if not(importPath.StartsWith ".") then importPath else
+                    let fileDir = IO.Path.GetDirectoryName(ctx.file.FileName)
+                    let importPath = IO.Path.GetFullPath(IO.Path.Combine(fileDir, importPath))
+                    // Attention, here we use ctx.fixedFileName to take files in `fable_external` into account
+                    let relPathToProj = Path.getRelativeFileOrDirPath false bcom.Options.projFile false ctx.fixedFileName
+                    let pathInOutDir = IO.Path.GetFullPath(IO.Path.Combine(bcom.Options.outDir, relPathToProj))
+                    "./" + Path.getRelativePath pathInOutDir importPath
                 match imports.TryGetValue((selector, path)) with
                 | true, i -> upcast Babel.Identifier(i.localIdent)
                 | false, _ ->
                     let localId = getLocalIdent ctx selector
                     let i = {
                         selector = sanitizeSelector selector
-                        path = path
                         internalFile = internalFile
                         localIdent = localId
+                        path =
+                            // Resolve relative paths with `outDir` if
+                            // they don't point to an internal file: see #472
+                            match internalFile with
+                            | Some _ -> path
+                            | None -> resolvePath ctx path
                     }
                     imports.Add((selector,path), i)
                     upcast Babel.Identifier (localId)
@@ -1068,9 +1081,8 @@ module Compiler =
                         Some file.FileName
                     else None
                 // Return the Babel file
-                Babel.Program(Path.fixExternalPath com file.FileName,
-                                originalFileName, file.Range, rootDecls,
-                                isEntry = (originalFileName = projs.Head.EntryFile))
+                Babel.Program(ctx.fixedFileName, originalFileName, file.Range, rootDecls,
+                            isEntry = (originalFileName = projs.Head.EntryFile))
             with
             | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
         )

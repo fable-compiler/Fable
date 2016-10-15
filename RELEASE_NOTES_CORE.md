@@ -1,3 +1,7 @@
+### 0.7.4-alpha
+
+* Add `outDir` to Fable.CompilerOptions (see #472)
+
 ### 0.7.3-alpha
 
 * Optimize JSON serialization of union types (as in FSharpLu.Json)

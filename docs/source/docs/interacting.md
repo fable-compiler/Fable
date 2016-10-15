@@ -192,6 +192,9 @@ which can be later transformed to `commonjs`, `amd` or `umd` imports by Babel.
 > If the module or value is globally accessible in JavaScript,
 you can use the `Global` attribute without parameters instead.
 
+> When importing a relative path (starting with `.` as in `./js/myLib.js`),
+the path will be resolved so it can be reached from `outDir` in the compiled JS code.
+
 `Fable.Core.JsInterop` also contains import expressions. These are mostly
 useful when you need to import JS libraries without a foreign interface.
 
@@ -211,6 +214,12 @@ let getMuiTheme = importDefault<obj->obj> "material-ui/styles/getMuiTheme"
 > Note that Fable automatically uses the name of the let-bound variable
 in the second example, this means you must always immediately assign the
 result of `importMember` to a named value.
+
+> A difference between import attributes and expressions is the former are
+not resolved in the file where they're declared (as this can be erased
+bindings) but in the file where thery're used. While import expressions are
+always resolved where they're declared. But if you don't understand this,
+don't worry too much, this is usually transparent to the user :)
 
 ### Erase attribute
 

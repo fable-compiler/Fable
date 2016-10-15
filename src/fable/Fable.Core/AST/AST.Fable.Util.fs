@@ -89,15 +89,25 @@ let makeGet range typ callee propExpr =
 let makeArray elementType arrExprs =
     ArrayConst(ArrayValues arrExprs, elementType) |> Value
 
-let tryImported com name (decs: #seq<Decorator>) =
+let tryImported com name srcFile curFile (decs: #seq<Decorator>) =
     decs |> Seq.tryPick (fun x ->
         match x.Name with
         | "Global" ->
             makeIdent name |> IdentValue |> Value |> Some
         | "Import" ->
+            // Relative import paths in attributes will be resolved in the file
+            // where the import is used, so it must be fixed to avoid conflicts: see #472
             match x.Arguments with
+            | [(:? string as memb);(:? string as path)]
+                when path.StartsWith(".") && not(System.String.IsNullOrWhiteSpace(srcFile)) ->
+                // 1. Join(dirname(srcFile), path)
+                // 2. GetRelativePath(curFile, 1)
+                System.IO.Path.Combine(System.IO.Path.GetDirectoryName(srcFile), path)
+                |> System.IO.Path.GetFullPath
+                |> Path.getRelativePath curFile
+                |> fun path -> Some(Value(ImportRef(memb, "./" + path)))
             | [(:? string as memb);(:? string as path)] ->
-                ImportRef(memb, path) |> Value |> Some
+                Some(Value(ImportRef(memb, path)))
             | _ -> failwith "Import attributes must contain two string arguments"
         | _ -> None)
 
@@ -106,7 +116,7 @@ let makeJsObject range (props: (string * Expr) list) =
         MemberDeclaration(Member(name, Field, [], body.Type), None, [], body, range))
     ObjExpr(decls, [], None, Some range)
 
-let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) generics typ =
+let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) curFile generics typ =
     let str s = Value(StringConst s)
     let makeInfo (kind: TypeKind) arg =
         let kind = Value(NumberConst(U2.Case1(int kind), Int32))
@@ -116,9 +126,9 @@ let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) generics typ
         |> makeArray Any
     let makeGenInfo (kind: TypeKind) genArgs =
         match genArgs with
-        | [genArg] -> makeTypeRef com range generics genArg
+        | [genArg] -> makeTypeRef com range curFile generics genArg
         | genArgs ->
-            let genArgs = List.map (makeTypeRef com range generics) genArgs
+            let genArgs = List.map (makeTypeRef com range curFile generics) genArgs
             ArrayConst(ArrayValues genArgs, Any) |> Value
         |> Some |> makeInfo kind
     match typ with
@@ -136,14 +146,15 @@ let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) generics typ
     | DeclaredType(ent, _) when ent.Kind = Interface ->
         str ent.FullName |> Some |> makeInfo TypeKind.Interface
     | DeclaredType(ent, genArgs) ->
+        let srcFile = defaultArg ent.File ""
         // Imported types come from JS so they don't need to be made generic
-        match tryImported com ent.Name ent.Decorators with
+        match tryImported com ent.Name srcFile curFile ent.Decorators with
         | Some expr -> expr
         | None when ent.IsErased -> makeInfo TypeKind.Any None
         | None when not generics || genArgs.IsEmpty -> Value (TypeRef ent)
         | None ->
             let genArgs =
-                List.map (makeTypeRef com range generics) genArgs
+                List.map (makeTypeRef com range curFile generics) genArgs
                 |> List.zip ent.GenericParameters
                 |> makeJsObject SourceLocation.Empty
             CoreLibCall("Util", Some "makeGeneric", false, [Value (TypeRef ent); genArgs])
@@ -178,13 +189,13 @@ and makeCall com range typ kind =
         |> getCallee meth args typ
         |> apply (getKind isCons) args
 
-let makeTypeRefFrom com ent =
-    DeclaredType(ent, []) |> makeTypeRef com None false
+let makeTypeRefFrom com curFile ent =
+    DeclaredType(ent, []) |> makeTypeRef com None curFile false
 
 let makeEmit r t args macro =
     Apply(Value(Emit macro), args, ApplyMeth, t, r) 
 
-let rec makeTypeTest com range (typ: Type) expr =
+let rec makeTypeTest com range curFile (typ: Type) expr =
     let jsTypeof (primitiveType: string) expr =
         let typof = makeUnOp None String [expr] UnaryTypeof
         makeBinOp range Boolean [typof; makeConst primitiveType] BinaryEqualStrict
@@ -200,14 +211,14 @@ let rec makeTypeTest com range (typ: Type) expr =
         "Array.isArray($0) || ArrayBuffer.isView($0)"
         |> makeEmit range Boolean [expr] 
     | Any -> makeConst true
-    | Option typ -> makeTypeTest com range typ expr
+    | Option typ -> makeTypeTest com range curFile typ expr
     | DeclaredType(typEnt, _) ->
         match typEnt.Kind with
         | Interface ->
             CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
             |> makeCall com range Boolean
         | _ ->
-            makeBinOp range Boolean [expr; makeTypeRef com range false typ] BinaryInstanceOf
+            makeBinOp range Boolean [expr; makeTypeRef com range curFile false typ] BinaryInstanceOf
     | GenericParam name ->
         "Cannot type test generic parameter " + name
         |> attachRange range |> failwith
@@ -256,35 +267,35 @@ let makeTypeNameMeth com typeFullName =
     MemberDeclaration(Member("typeName", Method, [], String, isSymbol=true),
                         None, [], typeFullName, SourceLocation.Empty)
 
-let makeInterfacesMethod com (ent: Fable.Entity) extend interfaces =
+let makeInterfacesMethod com curFile (ent: Fable.Entity) extend interfaces =
     let interfaces: Expr =
         let interfaces = List.map (StringConst >> Value) interfaces
         ArrayConst(ArrayValues interfaces, String) |> Value
     let interfaces =
         if not extend then interfaces else
         CoreLibCall("Util", Some "extendInfo", false,
-            [makeTypeRefFrom com ent; makeConst "interfaces"; interfaces])
+            [makeTypeRefFrom com curFile ent; makeConst "interfaces"; interfaces])
         |> makeCall com None Any
     MemberDeclaration(Member("interfaces", Method, [], Array String, isSymbol=true),
                         None, [], interfaces, SourceLocation.Empty)
 
-let makePropertiesMethod com ent extend properties =
+let makePropertiesMethod com curFile ent extend properties =
     let body =
         properties |> List.map (fun (name, typ) ->
-            MemberDeclaration(Member(name, Field, [], Any), None, [], makeTypeRef com None true typ, SourceLocation.Empty))
+            MemberDeclaration(Member(name, Field, [], Any), None, [], makeTypeRef com None curFile true typ, SourceLocation.Empty))
         |> fun decls -> ObjExpr(decls, [], None, None)
     let body =
         if not extend then body else
         CoreLibCall("Util", Some "extendInfo", false,
-            [makeTypeRefFrom com ent; makeConst "properties"; body])
+            [makeTypeRefFrom com curFile ent; makeConst "properties"; body])
         |> makeCall com None Any
     MemberDeclaration(Member("properties", Method, [], Any, isSymbol=true),
                         None, [], body, SourceLocation.Empty)
 
-let makeCasesMethod com (cases: Map<string, Type list>) =
+let makeCasesMethod com curFile (cases: Map<string, Type list>) =
     let body =
         cases |> Seq.map (fun kv ->
-            let typs = kv.Value |> List.map (makeTypeRef com None true)
+            let typs = kv.Value |> List.map (makeTypeRef com None curFile true)
             let typs = Fable.ArrayConst(Fable.ArrayValues typs, Any) |> Fable.Value
             MemberDeclaration(Member(kv.Key, Field, [], Any), None, [], typs, SourceLocation.Empty))
         |> fun decls -> ObjExpr(Seq.toList decls, [], None, None)

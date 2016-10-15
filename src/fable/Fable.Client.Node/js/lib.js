@@ -49,21 +49,18 @@ exports.finish = finish;
 function babelify(babelAst, fsCode, babelOpts, opts) {
     var babel = require("babel-core");
 
-    var projDir = path.dirname(path.resolve(
-        typeof opts.workingDir === "string"
-        ? path.join(opts.workingDir, opts.projFile)
-        : opts.projFile
-    ));
+    var outDir = path.resolve(path.join(opts.workingDir, opts.outDir)),
+        projDir = path.dirname(path.resolve(path.join(opts.workingDir, opts.projFile)));
 
     var targetFile =
-        path.join(path.resolve(opts.outDir), path.relative(projDir, path.resolve(babelAst.fileName)))
+        path.join(outDir, path.relative(projDir, path.resolve(babelAst.fileName)))
             .replace(/\\/g, '/')
             .replace(path.extname(babelAst.fileName), ".js");
 
     babelOpts = {
         babelrc: opts.babelrc || false,
         filename: targetFile,
-        sourceRoot: path.resolve(opts.outDir),
+        sourceRoot: outDir,
         presets: babelOpts.babelPresets,
         plugins: babelOpts.babelPlugins,
     };

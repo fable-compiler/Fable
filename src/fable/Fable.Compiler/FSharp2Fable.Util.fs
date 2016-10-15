@@ -45,7 +45,7 @@ type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
     abstract GetInternalFile: FSharpEntity -> string option
-    abstract GetEntity: FSharpEntity -> Fable.Entity
+    abstract GetEntity: Context -> FSharpEntity -> Fable.Entity
     abstract TryGetInlineExpr: FSharpMemberOrFunctionOrValue -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) option
     abstract AddInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) -> unit
     abstract AddUsedVarName: string -> unit
@@ -514,7 +514,7 @@ module Types =
             | _ -> isAttributeEntity t.TypeDefinition
         | _ -> false
 
-    let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
+    let rec getBaseClass (com: IFableCompiler) (ctx: Context) (tdef: FSharpEntity) =
         let isIgnored (t: FSharpType) =
             not t.HasTypeDefinition || isExternalEntity com t.TypeDefinition
         match tdef.BaseType with
@@ -523,7 +523,7 @@ module Types =
             if isIgnored t then None else
             let typeRef =
                 makeType com Context.Empty t
-                |> makeTypeRef com None false
+                |> makeTypeRef com None ctx.fileName false
             Some (sanitizeEntityFullName t.TypeDefinition, typeRef)
             
     // Some attributes (like ComDefaultInterface) will throw an exception
@@ -597,7 +597,7 @@ module Types =
         let staticMembers = getMembers' false tdef
         instanceMembers@staticMembers
 
-    and makeEntity (com: IFableCompiler) (tdef: FSharpEntity): Fable.Entity =
+    and makeEntity (com: IFableCompiler) ctx (tdef: FSharpEntity): Fable.Entity =
         let makeFields (tdef: FSharpEntity) =
             tdef.FSharpFields
             // It's ok to use an empty context here, because we don't need to resolve generic params
@@ -622,7 +622,7 @@ module Types =
             elif tdef.IsFSharpRecord then makeFields tdef |> Fable.Record
             elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
-            else Fable.Class(getBaseClass com tdef, makeProperties tdef)
+            else Fable.Class(getBaseClass com ctx tdef, makeProperties tdef)
         let genParams =
             tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
         let infcs =
@@ -676,7 +676,7 @@ module Types =
             Fable.Array(defaultArg t Fable.Any)
         | NumberKind kind -> Fable.Number kind
         // Declared Type
-        | _ -> Fable.DeclaredType(com.GetEntity tdef,
+        | _ -> Fable.DeclaredType(com.GetEntity ctx tdef,
                 genArgs |> Seq.map (makeType com ctx) |> Seq.toList)
 
     and makeType (com: IFableCompiler) (ctx: Context) (NonAbbreviatedType t) =
@@ -886,7 +886,7 @@ module Util =
                 match finish, p.IsOptionalArg, e, p.Attributes with
                 | false, true, FableNull _, ContainsAtt "GenericParam" [:?string as genName] ->
                     match Map.tryFind genName genParams.Value with
-                    | Some typArg -> (makeTypeRef com r true typArg)::acc, false
+                    | Some typArg -> (makeTypeRef com r ctx.fileName true typArg)::acc, false
                     | None ->
                         sprintf "Cannot find generic parameter %s" genName
                         |> attachRange r |> failwith
@@ -947,9 +947,10 @@ module Util =
         | _ -> None
         
     let (|Imported|_|) com ctx r typ (args: Fable.Expr list) (meth: FSharpMemberOrFunctionOrValue) =
+        let srcFile = (getEntityLocation meth.EnclosingEntity).FileName
         meth.Attributes
         |> Seq.choose (makeDecorator com)
-        |> tryImported com meth.CompiledName
+        |> tryImported com meth.CompiledName srcFile ctx.fileName
         |> function
             | Some expr ->
                 match getMemberKind meth with
@@ -1002,9 +1003,9 @@ module Util =
             match meth.IsExtensionMember, callee with
             | true, Some callee ->
                 let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
-                             |> makeTypeRef com r false
+                             |> makeTypeRef com r ctx.fileName false
                 let methName =
-                    let ent = makeEntity com meth.EnclosingEntity
+                    let ent = makeEntity com ctx meth.EnclosingEntity
                     ent.TryGetMember(methName, methKind, not meth.IsInstanceMember, argTypes)
                     |> function Some m -> m.OverloadName | None -> methName
                 let ext = makeGet r Fable.Any typRef (makeConst methName)
@@ -1015,7 +1016,7 @@ module Util =
                     match callee with
                     | Some callee -> callee, false
                     | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
-                              |> makeTypeRef com r false, true
+                              |> makeTypeRef com r ctx.fileName false, true
         (**     *Check if this a getter or setter  *)
                 match methKind with
                 | Fable.Getter | Fable.Field ->
@@ -1035,7 +1036,7 @@ module Util =
                     | Some e -> e
                     | _ ->
                         let methName =
-                            let ent = makeEntity com meth.EnclosingEntity
+                            let ent = makeEntity com ctx meth.EnclosingEntity
                             ent.TryGetMember(methName, methKind, isStatic, argTypes)
                             |> function Some m -> m.OverloadName | None -> methName
                         let calleeType = Fable.Function(argTypes, typ)
@@ -1096,5 +1097,5 @@ module Util =
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []
-                    |> makeTypeRef com r false
+                    |> makeTypeRef com r ctx.fileName false
                 Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
