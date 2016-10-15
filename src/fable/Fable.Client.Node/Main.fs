@@ -49,6 +49,7 @@ let readOptions argv =
     let opts = readOpts Map.empty<_,_> (List.ofArray argv)
     {
         projFile = def opts "projFile" null (un Path.GetFullPath)
+        outDir = def opts "outDir" null (un Path.GetFullPath)
         coreLib = def opts "coreLib" "fable-core" (un id)
         watch = def opts "watch" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)

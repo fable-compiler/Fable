@@ -555,7 +555,7 @@ module private AstPass =
                     "This will likely cause unexpected behavior at runtime."
                 |> addWarning com info
             | _ -> ()
-            makeTypeRef com info.range true t |> Some
+            makeTypeRef com info.range info.fileName true t |> Some
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -769,9 +769,9 @@ module private AstPass =
             CoreLibCall("Array", Some "setSlice", false, args)
             |> makeCall com i.range i.returnType |> Some
         | "typeTestGeneric", (None, [expr]) ->
-            makeTypeTest com i.range i.methodTypeArgs.Head expr |> Some
+            makeTypeTest com i.range i.fileName i.methodTypeArgs.Head expr |> Some
         | "createInstance", (None, _) ->
-            let typRef, args = makeTypeRef com i.range false i.methodTypeArgs.Head, []
+            let typRef, args = makeTypeRef com i.range i.fileName false i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
@@ -1376,7 +1376,7 @@ module private AstPass =
                     "The type created at runtime won't contain generic information."
                 |> addWarning com i
                 emit i "Object.getPrototypeOf($0).constructor" [i.callee.Value] |> Some
-            | t -> makeTypeRef com i.range true t |> Some            
+            | t -> makeTypeRef com i.range i.fileName true t |> Some            
         | _ -> None
 
     let types com (info: Fable.ApplyInfo) =

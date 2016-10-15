@@ -209,7 +209,7 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
     }
 
     rollupOpts.dest = rollupOpts.dest || path.join(
-        path.resolve(opts.outDir),
+        path.resolve(path.join(opts.workingDir, opts.outDir)),
         typeof opts.bundle === "string" ? opts.bundle : "bundle.js"
     ).replace(/\\/g, '/');
     
@@ -328,7 +328,7 @@ function build(opts, resolve, reject) {
     // Call Fable.exe
     if (opts.verbose) {
         fableLib.stdoutLog("\nPROJECT FILE: " + path.resolve(path.join(opts.workingDir, opts.projFile)));
-        fableLib.stdoutLog("OUTPUT DIR: " + path.resolve(opts.outDir));
+        fableLib.stdoutLog("OUTPUT DIR: " + path.resolve(path.join(opts.workingDir, opts.outDir)));
         fableLib.stdoutLog("WORKING DIR: " + path.resolve(opts.workingDir) + "\n");
         fableLib.stdoutLog("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
@@ -462,7 +462,7 @@ function readBabelOptions(opts) {
             ? [[require("babel-dts-generator"),
                 {
                     "packageName": "",
-                    "typings": path.resolve(opts.outDir),
+                    "typings": path.resolve(path.join(opts.workingDir, opts.outDir)),
                     "suppressAmbientDeclaration": true,
                     "ignoreEmptyInterfaces": false
                 }],
@@ -545,7 +545,7 @@ function prepareOptions(opts) {
     opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
     opts.workingDir = opts.workingDir != null ? opts.workingDir : "";
     opts.coreLib = opts.coreLib || (opts.bundle ? "fable-core/es2015" : "fable-core");
-    opts.outDir = opts.outDir ? (path.join(opts.workingDir, opts.outDir)) : path.dirname(path.join(opts.workingDir, opts.projFile));
+    opts.outDir = opts.outDir ? opts.outDir : ".";
     if (opts.module == null) {
         opts.module = opts.bundle
             ? "iife"

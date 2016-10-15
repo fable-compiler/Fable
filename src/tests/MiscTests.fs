@@ -749,4 +749,37 @@ let ``Pattern matching optimization works (switch expression)``() =
     | _ -> failwith "never"
     |> equal "One"
 
+type IFooImported =
+    abstract foo: string
+
+[<Import("*", "./js/foo.js")>]
+let fooAll: IFooImported = failwith "JS only"
+
+[<Test>]
+let ``Import with relative paths works``() =
+    fooAll.foo |> equal "foo"
+    let fooAll2: IFooImported = importAll "./js/foo.js"
+    fooAll2.foo |> equal "foo"
+
+[<Test>]
+let ``Import with relative paths from project subdirectory works``() =
+    // Import expression
+    Fable.Tests.Util.foo |> equal "foo"
+    // Import attribute
+    Fable.Tests.Util.foo2 |> equal "foo"
+
+[<Test>]
+let ``Import with relative paths from external files works``() =
+    // Import expressions
+    Fable.Tests.Util4.foo |> equal "foo"
+    Fable.Tests.Util4.bar |> equal 5
+    // Import attribute
+    Fable.Tests.Util4.bar2 |> equal 5
+
+[<Test>]
+let ``Import with relative paths from referenced dll works``() =
+    DllRef.Lib.モジュール.one |> equal 1
+    DllRef.Lib.モジュール.three |> equal 3
+    DllRef.Util.two |> equal 2
+    DllRef.Util.four |> equal 4
 #endif // FABLE_COMPILER

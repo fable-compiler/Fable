@@ -12,7 +12,7 @@ exports.FABLE_CONFIG_FILE = "fableconfig.json";
 
 /** Set of options compatible with Fable's .NET process */
 exports.FABLE_BIN_OPTIONS = new Set([
-    "projFile", "coreLib", "symbols", "plugins", "msbuild",
+    "projFile", "outDir", "coreLib", "symbols", "plugins", "msbuild",
     "refs", "watch", "clamp", "copyExt", "extra", "declaration", "noTypedArrays"
 ]);
 
