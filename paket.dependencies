@@ -5,6 +5,7 @@ nuget FSharp.Compiler.Service
 nuget FSharp.Compiler.Service.ProjectCracker
 nuget FSharp.Core
 nuget Newtonsoft.Json
+nuget Fable.JsonConverter
 nuget NUnit
 nuget NUnit.Runners
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
