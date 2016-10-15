@@ -943,6 +943,16 @@ class FString {
     return FString.padLeft(str, len, ch, true);
   }
 
+  static remove(str: string, startIndex: number, count?: number) {
+    if (startIndex >= str.length) {
+      throw "startIndex must be less than length of string";
+    }
+    if (typeof count === "number" && (startIndex + count) > str.length) {
+      throw "Index and count must refer to a location within the string."
+    }
+    return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
+  }
+  
   static replace(str: string, search: string, replace: string) {
     return str.replace(new RegExp(FRegExp.escape(search), "g"), replace);
   }
