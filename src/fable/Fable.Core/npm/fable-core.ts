@@ -944,23 +944,15 @@ class FString {
   }
 
   static remove(str: string, startIndex: number, count?: number) {
-    if (count === undefined) {
-      if (startIndex >= str.length) {
-        throw "startIndex must be less than length of string";
-      }
-    } else {
-      if (startIndex >= str.length || count > str.length) {
-        throw "Index and count must refer to a location within the string."
-      }
+    if (startIndex >= str.length) {
+      throw "startIndex must be less than length of string";
     }
-
-    if (count === undefined) {
-      return str.slice(0, startIndex);
-    } else {
-      return str.slice(0, startIndex) + str.substring(startIndex + count);
+    if (typeof count === "number" && (startIndex + count) > str.length) {
+      throw "Index and count must refer to a location within the string."
     }
+    return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
   }
-
+  
   static replace(str: string, search: string, replace: string) {
     return str.replace(new RegExp(FRegExp.escape(search), "g"), replace);
   }
