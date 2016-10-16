@@ -1,4 +1,5 @@
-[<Fable.Core.EntryModule("./DllRef")>]
+// This points to the generated JS code from the dll file (in `bin`folder) 
+[<Fable.Core.EntryModule("../../../../build/tests/DllRef")>]
 module Fable.Tests.DllRef.Lib
 
 let 足す x y = x + y

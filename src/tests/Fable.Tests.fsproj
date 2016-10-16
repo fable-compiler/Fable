@@ -62,6 +62,8 @@
     <Compile Include="DateTimeTests.fs" />
     <Compile Include="DictionaryTests.fs" />
     <Compile Include="EnumTests.fs" />
+    <Compile Include="EventTests.fs" />
+    <Compile Include="HashSetTests.fs" />
     <Compile Include="JsonTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
@@ -74,13 +76,11 @@
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
     <Compile Include="SetTests.fs" />
-    <Compile Include="HashSetTests.fs" />
     <Compile Include="StringTests.fs" />
-    <Compile Include="TupleTypeTests.fs" />
-    <Compile Include="UnionTypeTests.fs" />
-    <Compile Include="TypeTests.fs" />
-    <Compile Include="EventTests.fs" />
     <Compile Include="SudokuTest.fs" />
+    <Compile Include="TupleTypeTests.fs" />
+    <Compile Include="TypeTests.fs" />
+    <Compile Include="UnionTypeTests.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

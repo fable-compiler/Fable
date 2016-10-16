@@ -1069,6 +1069,15 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
                     | _ -> None)
             with _ -> None
         | None -> None
+    // Resolve relative paths with the referenced project or assembly full path
+    // and then make it relative to outDir: see #472
+    let resolveRelativePath projFile (path: string) =
+        if not(path.StartsWith ".") then path else
+        let projDir = Path.GetDirectoryName projFile
+        let path = Path.GetFullPath(Path.Combine(projDir, path))
+        match Fable.Path.getRelativePath com.Options.outDir path with
+        | path when path.StartsWith "." -> path
+        | path -> "./" + path
     let curProj =
         let projName = Path.GetFileNameWithoutExtension com.Options.projFile
         let fileMap = makeFileMap parsedProj.AssemblySignature.Entities
@@ -1090,8 +1099,8 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
                         match baseDir with
                         | Some baseDir -> baseDir
                         | None -> Path.GetDirectoryName opts.ProjectFileName |> Path.GetFullPath
-                    Fable.Project(projName, baseDir, fileMap,
-                                  assemblyFile=assemblyPath, importPath=importPath)
+                    Fable.Project(projName, baseDir, fileMap, assemblyFile=assemblyPath,
+                            importPath=resolveRelativePath opts.ProjectFileName importPath)
                 | None ->
                     failwithf "Cannot find import path for referenced project %s. %s"
                                 projName "Have you forgotten --refs argument?"))
@@ -1109,13 +1118,12 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
                     match baseDir with
                     | Some baseDir -> baseDir
                     | None ->
-                        fileMap
-                        |> Seq.choose (fun kv ->
+                        fileMap |> Seq.choose (fun kv ->
                             // TODO: This is a small hack to partially fix #382
                             if kv.Key.Contains("node_modules") then None else Some kv.Key)
                         |> Path.getCommonBaseDir
-                Fable.Project(projName, baseDir, fileMap,
-                        assemblyFile=assembly.FileName.Value, importPath=importPath)))
+                Fable.Project(projName, baseDir, fileMap, assemblyFile=assembly.FileName.Value,
+                        importPath=resolveRelativePath assembly.FileName.Value importPath)))
     curProj::(refProjs @ refAssemblies)
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
