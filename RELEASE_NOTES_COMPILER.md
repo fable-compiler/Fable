@@ -1,3 +1,7 @@
+### 0.7.5-alpha.1
+
+* Fix prerelease semver. See: https://docs.npmjs.com/misc/semver#prerelease-tags
+
 ### 0.7.5-alpha
 
 * Add `typedefof<>`, `.IsGenericType`, `.GetGenericTypeDefinition`
