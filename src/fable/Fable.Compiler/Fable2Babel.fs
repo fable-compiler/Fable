@@ -981,8 +981,10 @@ module Util =
                     let importPath = IO.Path.GetFullPath(IO.Path.Combine(fileDir, importPath))
                     // Attention, here we use ctx.fixedFileName to take files in `fable_external` into account
                     let relPathToProj = Path.getRelativeFileOrDirPath false bcom.Options.projFile false ctx.fixedFileName
-                    let pathInOutDir = IO.Path.GetFullPath(IO.Path.Combine(bcom.Options.outDir, relPathToProj))
-                    "./" + Path.getRelativePath pathInOutDir importPath
+                    let pathFromOutDir = IO.Path.GetFullPath(IO.Path.Combine(bcom.Options.outDir, relPathToProj))
+                    match Path.getRelativePath pathFromOutDir importPath with
+                    | path when path.StartsWith "." -> path
+                    | path -> "./" + path
                 match imports.TryGetValue((selector, path)) with
                 | true, i -> upcast Babel.Identifier(i.localIdent)
                 | false, _ ->

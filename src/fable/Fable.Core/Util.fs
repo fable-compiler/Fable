@@ -23,6 +23,7 @@ module Naming =
         if txt.EndsWith pattern then Some pattern else None
     
     let [<Literal>] placeholder = "PLACE-HOLDER"
+    let [<Literal>] dummyFile = "ThiS-is-A-duMMy.FilE"
     let [<Literal>] fableExternalDir = "fable_external"
     let [<Literal>] fableInjectFile = "./fable_inject.js"
     let [<Literal>] exportsIdent = "$exports"
@@ -171,11 +172,12 @@ module Path =
         // Add a dummy file to make it work correctly with dirs
         let addDummyFile isDir path =
             if isDir
-            then IO.Path.Combine(path, "dummy.txt")
+            then IO.Path.Combine(path, Naming.dummyFile)
             else path
         let fromPath = addDummyFile fromIsDir fromPath
         let toPath = addDummyFile toIsDir toPath
-        pathDifference fromPath toPath
+        (pathDifference fromPath toPath).Replace(Naming.dummyFile, "")
+        
 
     let getRelativePath fromPath toPath =
         getRelativeFileOrDirPath 

@@ -1,3 +1,9 @@
+### 0.7.5-alpha.2
+
+* Resolve relative paths of referenced projects/dlls as
+  if they were pointing to generated JS code from the fsproj/dll file
+  and make them reachable from `outDir` (see #472)
+
 ### 0.7.5-alpha.1
 
 * Fix prerelease semver. See: https://docs.npmjs.com/misc/semver#prerelease-tags
