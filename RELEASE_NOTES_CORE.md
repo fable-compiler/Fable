@@ -1,3 +1,7 @@
+### 0.6.10
+
+* Add `String.Remove`
+
 ### 0.6.9
 
 * Fix #466: Add password and username to Fable.Import.Browser.Location
