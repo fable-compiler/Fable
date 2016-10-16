@@ -62,6 +62,8 @@ and EntityKind =
 
 and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
            ?genParams, ?interfaces, ?decorators, ?isPublic) =
+    static let metaType =
+        DeclaredType(Entity(lazy Class(None, []), None, "System.Type", lazy []), [])
     let genParams = defaultArg genParams []
     let decorators = defaultArg decorators []
     let interfaces = defaultArg interfaces []
@@ -104,6 +106,10 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
             else argsEqual m.ArgumentTypes argTypes)
     static member CreateRootModule fileName modFullName =
         Entity (lazy Module, Some fileName, modFullName, lazy [], [], [], [], true)
+
+    static member MetaType =
+        DeclaredType(Entity(lazy Class(None, []), None, "System.Type", lazy []), [])
+        
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
@@ -230,9 +236,10 @@ and ValueKind =
         | Null -> Any
         | Spread x -> x.Type
         | IdentValue i -> i.Type
-        | This | Super | ImportRef _ | TypeRef _ | Emit _ -> Any
+        | This | Super | ImportRef _ | Emit _ -> Any
         | NumberConst (_,kind) -> Number kind
         | StringConst _ -> String
+        | TypeRef _ -> Entity.MetaType
         | RegexConst _ ->
             let fullName = "System.Text.RegularExpressions.Regex"
             DeclaredType(Entity(lazy Class(None, []), None, fullName, lazy []), [])        

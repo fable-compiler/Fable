@@ -2,10 +2,10 @@
 namespace System
 open System.Reflection
 
-[<assembly: AssemblyVersionAttribute("0.7.4")>]
-[<assembly: AssemblyMetadataAttribute("fableCoreVersion","0.7.4")>]
+[<assembly: AssemblyVersionAttribute("0.7.5")>]
+[<assembly: AssemblyMetadataAttribute("fableCoreVersion","0.7.5")>]
 do ()
 
 module internal AssemblyVersionInformation =
-    let [<Literal>] AssemblyVersion = "0.7.4"
-    let [<Literal>] AssemblyMetadata_fableCoreVersion = "0.7.4"
+    let [<Literal>] AssemblyVersion = "0.7.5"
+    let [<Literal>] AssemblyMetadata_fableCoreVersion = "0.7.5"
