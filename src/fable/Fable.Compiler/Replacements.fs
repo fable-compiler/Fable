@@ -546,8 +546,9 @@ module private AstPass =
             // TODO: InvalidArg has two arguments
             Fable.Throw (args.Head, typ, r) |> Some
         // Type ref
-        | "typeOf" ->
+        | "typeOf" | "typeDefOf" ->
             let t = info.methodTypeArgs.Head
+            let generics = info.methodName = "typeOf"
             match t with
             | Fable.Any | Fable.GenericParam _ ->
                 sprintf "%s %s"
@@ -555,7 +556,7 @@ module private AstPass =
                     "This will likely cause unexpected behavior at runtime."
                 |> addWarning com info
             | _ -> ()
-            makeTypeRef com info.range info.fileName true t |> Some
+            makeTypeRef com info.range info.fileName generics t |> Some
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -1383,22 +1384,32 @@ module private AstPass =
     let types com (info: Fable.ApplyInfo) =
         let str x = Fable.Value(Fable.StringConst x)
         match info.callee with
-        | Some(Fable.Value(Fable.TypeRef t)) ->
+        | Some(Fable.Value(Fable.TypeRef ent)) ->
             match info.methodName with
-            | "namespace" -> str t.Namespace |> Some
-            | "fullName" -> str t.FullName |> Some
-            | "name" -> str t.Name |> Some
+            | "namespace" -> str ent.Namespace |> Some
+            | "fullName" -> str ent.FullName |> Some
+            | "name" -> str ent.Name |> Some
+            | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeConst |> Some
+            | "getGenericTypeDefinition" ->
+                Fable.DeclaredType(ent, [])
+                |> makeTypeRef com info.range info.fileName false |> Some
             | _ -> None
         | _ ->
-            match info.methodName with
-            | "fullName" -> Some [info.callee.Value]
-            | "name" -> Some [info.callee.Value; str "name"]
-            | "namespace" -> Some [info.callee.Value; str "namespace"]
-            | _ -> None
-            |> Option.map (fun args ->
+            let getTypeFullName args =
+                args |> Option.map (fun args ->
                 CoreLibCall("Reflection", Some "getTypeFullName", false, args)
                 |> makeCall com info.range info.returnType)
-        
+            match info.methodName with
+            | "fullName" -> Some [info.callee.Value] |> getTypeFullName
+            | "name" -> Some [info.callee.Value; str "name"] |> getTypeFullName
+            | "namespace" -> Some [info.callee.Value; str "namespace"] |> getTypeFullName
+            | "isGenericType" ->
+                CoreLibCall("Util", Some "isGeneric", false, [info.callee.Value])
+                |> makeCall com info.range info.returnType |> Some
+            | "getGenericTypeDefinition" ->
+                CoreLibCall("Util", Some "getDefinition", false, [info.callee.Value])
+                |> makeCall com info.range info.returnType |> Some
+            | _ -> None
     let unchecked com (info: Fable.ApplyInfo) =
         match info.methodName with
         | "defaultOf" ->

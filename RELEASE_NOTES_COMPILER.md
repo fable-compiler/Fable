@@ -1,3 +1,7 @@
+### 0.7.5-alpha
+
+* Add `typedefof<>`, `.IsGenericType`, `.GetGenericTypeDefinition`
+
 ### 0.7.4-alpha
 
 * Resolve import relative paths so they can be reached from `outDir`

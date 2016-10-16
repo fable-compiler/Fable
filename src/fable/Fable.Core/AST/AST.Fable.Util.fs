@@ -117,13 +117,13 @@ let makeJsObject range (props: (string * Expr) list) =
     ObjExpr(decls, [], None, Some range)
 
 let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) curFile generics typ =
-    let str s = Value(StringConst s)
+    let str s = Wrapped(Value(StringConst s), Entity.MetaType)
     let makeInfo (kind: TypeKind) arg =
         let kind = Value(NumberConst(U2.Case1(int kind), Int32))
         match arg with
         | None -> [kind]
         | Some arg -> [kind; arg]
-        |> makeArray Any
+        |> fun vals -> Wrapped(makeArray Any vals, Entity.MetaType)
     let makeGenInfo (kind: TypeKind) genArgs =
         match genArgs with
         | [genArg] -> makeTypeRef com range curFile generics genArg
@@ -158,7 +158,7 @@ let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) curFile gene
                 |> List.zip ent.GenericParameters
                 |> makeJsObject SourceLocation.Empty
             CoreLibCall("Util", Some "makeGeneric", false, [Value (TypeRef ent); genArgs])
-            |> makeCall com range Any
+            |> makeCall com range Entity.MetaType
 
 and makeCall com range typ kind =
     let getCallee meth args returnType owner =

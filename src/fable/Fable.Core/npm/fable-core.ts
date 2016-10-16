@@ -138,10 +138,21 @@ export class Util {
     return class extends typeDef { [FSymbol.generics]() { return genArgs; } };
   }
 
-  /** Returns the parent if this is a generic type or the argument otherwise */
-  static getDefinition(cons: FunctionConstructor): any {
-      return (cons.prototype as any)[FSymbol.generics]
-          ? Object.getPrototypeOf(cons.prototype).constructor : cons;
+  /**
+   * Checks if this a function constructor extending another with generic info.
+   * Attention: Doesn't work for non-declared types like option, tuples, arrays or interfaces.
+   */
+  static isGeneric(typ: any): boolean {
+    return typeof typ === "function" && !!typ.prototype[FSymbol.generics];
+  }
+
+  /**
+   * Returns the parent if this is a declared generic type or the argument otherwise.
+   * Attention: Unlike .NET this doesn't throw an exception if type is not generic.
+  */
+  static getDefinition(typ: any): any {
+    return typeof typ === "function" && (typ.prototype as any)[FSymbol.generics]
+          ? Object.getPrototypeOf(typ.prototype).constructor : typ;
   }
 
   static extendInfo(cons: FunctionConstructor, symbolName: string, info: any) {
@@ -180,6 +191,9 @@ export class Util {
       return y == null;
     else if (y == null)
       return false;
+    else if (Util.isGeneric(x) && Util.isGeneric(y))
+      return Util.getDefinition(x) === Util.getDefinition(y)
+              && Util.equalsRecords(x.prototype[FSymbol.generics](), y.prototype[FSymbol.generics]());
     else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
       return false;
     else if (Array.isArray(x)) {
