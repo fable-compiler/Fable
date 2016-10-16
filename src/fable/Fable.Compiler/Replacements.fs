@@ -437,6 +437,9 @@ module private AstPass =
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryEqual |> Some
             | _ -> equals true com info args
         | "isNull" -> makeEqOp r [args.Head; Fable.Value Fable.Null] BinaryEqual |> Some
+        | "hash" ->
+            CoreLibCall("Util", Some "hash", false, args)
+            |> makeCall com r typ |> Some
         // Comparison
         | "compare" -> compare com info.range args None |> Some
         | "op_LessThan" | "lt" -> compare com info.range args (Some BinaryLess) |> Some
@@ -707,6 +710,17 @@ module private AstPass =
     let languagePrimitives com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
         | "enumOfValue", OneArg (arg) -> arg |> Some
+        | "genericHash", _ ->
+            CoreLibCall("Util", Some "hash", false, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "genericComparison", _ ->
+            CoreLibCall("Util", Some "compare", false, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "genericEquality", _ ->
+            CoreLibCall("Util", Some "equals", false, i.args)
+            |> makeCall com i.range i.returnType |> Some
+        | "physicalEquality", _ ->
+            makeEqOp i.range i.args BinaryEqualStrict |> Some
         | _ -> None
 
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
@@ -1362,6 +1376,12 @@ module private AstPass =
         match info.methodName with
         | "defaultOf" ->
             defaultof info.methodTypeArgs.Head |> Some
+        | "hash" ->
+            CoreLibCall("Util", Some "hash", false, info.args)
+            |> makeCall com info.range info.returnType |> Some
+        | "equals" ->
+            CoreLibCall("Util", Some "equals", false, info.args)
+            |> makeCall com info.range info.returnType |> Some
         | "compare" ->
             CoreLibCall("Util", Some "compare", false, info.args)
             |> makeCall com info.range info.returnType |> Some

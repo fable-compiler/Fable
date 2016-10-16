@@ -333,7 +333,7 @@ let ``isNull works with primitives``() =
     isNull "" |> equal false
     isNull "0" |> equal false
     isNull "hello" |> equal false
-      
+
 [<Test>]
 let ``isNull works with objects``() =
     let s1: String = null
@@ -342,4 +342,78 @@ let ``isNull works with objects``() =
     let s2: String = "hello";
     isNull s2 |> equal false
 
-    
+[<Test>]
+let ``hash works`` () =
+    (hash 111) = (hash 111) |> equal true
+    (hash 222) = (hash 333) |> equal false
+    (hash "1") = (hash "1") |> equal true
+    (hash "2") = (hash "3") |> equal false
+    (hash [1]) = (hash [1]) |> equal true
+    (hash [2]) = (hash [3]) |> equal false
+
+[<Test>]
+let ``Unchecked.hash works`` () =
+    (Unchecked.hash 111) = (Unchecked.hash 111) |> equal true
+    (Unchecked.hash 222) = (Unchecked.hash 333) |> equal false
+    (Unchecked.hash "1") = (Unchecked.hash "1") |> equal true
+    (Unchecked.hash "2") = (Unchecked.hash "3") |> equal false
+    (Unchecked.hash [1]) = (Unchecked.hash [1]) |> equal true
+    (Unchecked.hash [2]) = (Unchecked.hash [3]) |> equal false
+
+[<Test>]
+let ``Unchecked.equals works`` () =
+    Unchecked.equals 111 111 |> equal true
+    Unchecked.equals 222 333 |> equal false
+    Unchecked.equals "1" "1" |> equal true
+    Unchecked.equals "2" "3" |> equal false
+    Unchecked.equals [1] [1] |> equal true
+    Unchecked.equals [2] [3] |> equal false
+
+[<Test>]
+let ``Unchecked.compare works`` () =
+    Unchecked.compare 111 111 |> equal 0
+    Unchecked.compare 222 333 |> equal -1
+    Unchecked.compare 333 222 |> equal 1
+    Unchecked.compare "1" "1" |> equal 0
+    Unchecked.compare "2" "3" |> equal -1
+    Unchecked.compare "3" "2" |> equal 1
+    Unchecked.compare [1] [1] |> equal 0
+    Unchecked.compare [2] [3] |> equal -1
+    Unchecked.compare [3] [2] |> equal 1
+
+[<Test>]
+let ``LanguagePrimitives.GenericHash works``() =
+    (LanguagePrimitives.GenericHash 111) = (LanguagePrimitives.GenericHash 111) |> equal true
+    (LanguagePrimitives.GenericHash 222) = (LanguagePrimitives.GenericHash 333) |> equal false
+    (LanguagePrimitives.GenericHash "1") = (LanguagePrimitives.GenericHash "1") |> equal true
+    (LanguagePrimitives.GenericHash "2") = (LanguagePrimitives.GenericHash "3") |> equal false
+    (LanguagePrimitives.GenericHash [1]) = (LanguagePrimitives.GenericHash [1]) |> equal true
+    (LanguagePrimitives.GenericHash [2]) = (LanguagePrimitives.GenericHash [3]) |> equal false
+
+[<Test>]
+let ``LanguagePrimitives.GenericComparison works``() =
+    LanguagePrimitives.GenericComparison 111 111 |> equal 0
+    LanguagePrimitives.GenericComparison 222 333 |> equal -1
+    LanguagePrimitives.GenericComparison 333 222 |> equal 1
+    LanguagePrimitives.GenericComparison "1" "1" |> equal 0
+    LanguagePrimitives.GenericComparison "2" "3" |> equal -1
+    LanguagePrimitives.GenericComparison "3" "2" |> equal 1
+    LanguagePrimitives.GenericComparison [1] [1] |> equal 0
+    LanguagePrimitives.GenericComparison [2] [3] |> equal -1
+    LanguagePrimitives.GenericComparison [3] [2] |> equal 1
+
+[<Test>]
+let ``LanguagePrimitives.GenericEquality works``() =
+    LanguagePrimitives.GenericEquality 111 111 |> equal true
+    LanguagePrimitives.GenericEquality 222 333 |> equal false
+    LanguagePrimitives.GenericEquality "1" "1" |> equal true
+    LanguagePrimitives.GenericEquality "2" "3" |> equal false
+    LanguagePrimitives.GenericEquality [1] [1] |> equal true
+    LanguagePrimitives.GenericEquality [2] [3] |> equal false
+
+[<Test>]
+let ``LanguagePrimitives.PhysicalEquality works``() =
+    LanguagePrimitives.PhysicalEquality "1" "1" |> equal true
+    LanguagePrimitives.PhysicalEquality "2" "3" |> equal false
+    LanguagePrimitives.PhysicalEquality [1] [1] |> equal false
+    LanguagePrimitives.PhysicalEquality [2] [3] |> equal false

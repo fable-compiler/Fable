@@ -100,6 +100,13 @@ export class Util {
     return o != null && typeof o.ToString == "function" ? o.ToString() : String(o);
   }
 
+  static hash(x: any): number {
+    let s = JSON.stringify(x);
+    let h = 5381, i = 0, len = s.length;
+    while (i < len) { h = (h * 33) ^ s.charCodeAt(i++); }
+    return h;
+  }
+
   static equals(x: any, y: any): boolean {
     if (x == null) // Return true if both are null or undefined
       return y == null;
