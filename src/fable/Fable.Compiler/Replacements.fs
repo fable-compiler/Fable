@@ -12,15 +12,15 @@ module Util =
 
     let (|CoreMeth|_|) (com: ICompiler) coreMod meth expr =
         match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef(coreMod', importPath)),
-                      [Fable.Value(Fable.StringConst meth')], Fable.ApplyGet,_,_)
-            when importPath = com.Options.coreLib && coreMod = coreMod' && meth = meth' -> Some expr
+        | Fable.Value(Fable.ImportRef(meth', coreMod', Fable.CoreLib))
+            when meth' = meth && coreMod'.Substring(coreMod'.LastIndexOf('/') + 1) = coreMod ->
+            Some expr
         | _ -> None
 
     let (|CoreCons|_|) (com: ICompiler) coreMod expr =
         match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef(coreMod', importPath)),[], Fable.ApplyCons,_,_)
-            when importPath = com.Options.coreLib && coreMod = coreMod' -> Some expr
+        | Fable.Apply(Fable.Value(Fable.ImportRef("default", coreMod', Fable.CoreLib)),[], Fable.ApplyCons,_,_)
+            when coreMod'.Substring(coreMod'.LastIndexOf('/') + 1) = coreMod -> Some expr
         | _ -> None
 
     let (|Null|_|) = function
@@ -333,7 +333,7 @@ module private AstPass =
                 | [Fable.Value(Fable.StringConst path)] -> path
                 | _ -> failwithf "%s.%s only accepts literal strings %O"
                                 i.ownerFullName i.methodName i.range
-            Fable.ImportRef(selector, path) |> Fable.Value |> Some
+            Fable.ImportRef(selector, path, Fable.CustomImport) |> Fable.Value |> Some
         | "op_Dynamic" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
         | "op_DynamicAssignment" ->
@@ -387,9 +387,9 @@ module private AstPass =
         | "toPlainJsObj" ->
             CoreLibCall("Util", Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
-        | "toJson" | "ofJson" | "inflate" ->
-            match i.args with
-            | [_; Fable.Value(Fable.ArrayConst(Fable.ArrayValues[Fable.Value(Fable.NumberConst(U2.Case1 kind, _));_], Fable.Any))]
+        | Naming.StartsWith "toJson" _ | Naming.StartsWith "ofJson" _ | "inflate" ->
+            match i.methodName, i.args with
+            | ("ofJson" | "inflate"), [_; Fable.Value(Fable.ArrayConst(Fable.ArrayValues[Fable.Value(Fable.NumberConst(U2.Case1 kind, _));_], Fable.Any))]
                 when kind = (int Fable.TypeKind.GenericParam) ->
                 sprintf "%s %s"
                     "An unresolved generic parameter is being passed to Serialize.ofJson/inflate,"
@@ -397,9 +397,6 @@ module private AstPass =
                 |> addWarning com i 
             | _ -> ()
             CoreLibCall("Serialize", Some i.methodName, false, i.args)
-            |> makeCall com i.range i.returnType |> Some
-        | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" ->
-            CoreLibCall("SerializeWithTypeInfo", i.methodName.Replace("WithTypeInfo", "") |> Some, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | "jsNative" ->
             // TODO: Fail at compile time?
@@ -1269,11 +1266,14 @@ module private AstPass =
             |> Some
         match kind with
         | List ->
-            match i.methodName with
-            | "getSlice" -> icall "slice" (i.callee.Value, i.args)
-            | Patterns.SetContains implementedListFunctions meth ->
-                CoreLibCall ("List", Some meth, false, deleg com i i.args)
+            let listMeth meth args =
+                CoreLibCall ("List", Some meth, false, deleg com i args)
                 |> makeCall com i.range i.returnType |> Some
+            match i.methodName with
+            | "getSlice" ->
+                listMeth "slice" (i.args@[i.callee.Value])
+            | Patterns.SetContains implementedListFunctions meth ->
+                listMeth meth i.args
             | _ -> None
         | Array ->
             match i.methodName with
@@ -1506,11 +1506,20 @@ module private AstPass =
             |> makeCall com info.range info.returnType)
 
     let asyncs com (info: Fable.ApplyInfo) =
+        let asyncMeth meth args =
+            CoreLibCall("Async", Some meth, false, args)
+            |> makeCall com info.range info.returnType |> Some
         match info.methodName with
         | "start" ->
             // Just add warning, the replacement will actually happen in coreLibPass
             addWarning com info "Async.Start will behave as StartImmediate"
             None
+        | "cancellationToken" ->
+            // Make sure cancellationToken is called as a function and not a getter
+            asyncMeth "cancellationToken" []
+        | "catch" ->
+            // `catch` cannot be used as a function name in JS
+            asyncMeth "catchAsync" info.args
         | _ -> None
 
     let tryReplace com (info: Fable.ApplyInfo) =
@@ -1660,9 +1669,7 @@ let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
                 info.ownerFullName info.methodName ex.Message
 
 let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) =
-    let coreLibType name =
-        Fable.ImportRef(name, com.Options.coreLib)
-        |> Fable.Value |> Some
+    let coreLibType name = makeCoreRef com name None |> Some
     match ent.FullName with
     | "System.TimeSpan" -> Fable.StringConst "number" |> Fable.Value |> Some
     | "System.DateTime" -> makeIdentExpr "Date" |> Some

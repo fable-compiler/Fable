@@ -47,10 +47,10 @@ let readOptions argv =
     let un f = function U2.Case1 v -> f v | U2.Case2 _ -> failwith "Unexpected multiple argument"
     let li f = function U2.Case1 v -> [f v] | U2.Case2 v -> List.map f v
     let opts = readOpts Map.empty<_,_> (List.ofArray argv)
-    {
+    let opts = {
         projFile = def opts "projFile" null (un Path.GetFullPath)
         outDir = def opts "outDir" null (un Path.GetFullPath)
-        coreLib = def opts "coreLib" "fable-core" (un id)
+        coreLib = def opts "coreLib" "fable-core" (un (fun x -> x.TrimEnd('/')))
         watch = def opts "watch" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
         copyExt = def opts "copyExt" false (un bool.Parse)
@@ -66,6 +66,12 @@ let readOptions argv =
             then let xs = x.Split('=') in xs.[0], xs.[1]
             else x, "")))
     }
+    if opts.coreLib.StartsWith "."
+    then { opts with coreLib =
+                        Path.GetFullPath opts.coreLib
+                        |> Fable.Path.getRelativePath opts.outDir
+                        |> fun x -> x.TrimEnd('/') }
+    else opts
 
 let loadPlugins (pluginPaths: string list) =
     pluginPaths

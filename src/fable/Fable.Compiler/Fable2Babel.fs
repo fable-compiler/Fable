@@ -27,7 +27,8 @@ type IBabelCompiler =
     inherit ICompiler
     abstract DeclarePlugins: (string*IDeclarePlugin) list
     abstract GetProjectAndNamespace: string -> Fable.Project * string
-    abstract GetImportExpr: Context -> internalFile: string option -> selector: string -> path: string -> Babel.Expression
+    abstract GetImportExpr: Context -> selector: string -> path: string ->
+        Fable.ImportKind -> Babel.Expression
     abstract GetAllImports: unit -> seq<Import>
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
@@ -97,15 +98,13 @@ module Util =
             Babel.Identifier (name) :> Babel.Expression, false
         | TransformExpr com ctx property -> property, true
 
-    let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule =
-        com.Options.coreLib
-        |> Path.getExternalImportPath com ctx.fixedFileName
-        |> com.GetImportExpr ctx None coreModule
+    let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule memb =
+        let importPath = com.Options.coreLib + "/" + coreModule
+        com.GetImportExpr ctx memb importPath Fable.CoreLib
 
     let getSymbol com ctx name =
-        Babel.MemberExpression(
-                getCoreLibImport com ctx "Symbol",
-                Babel.Identifier name) :> Babel.Expression
+        (getCoreLibImport com ctx "Symbol" "default", Babel.Identifier name)
+        |> Babel.MemberExpression :> Babel.Expression
 
     let get left propName =
         let expr, computed = sanitizeName propName
@@ -161,12 +160,12 @@ module Util =
                 | None ->   // Current project
                     Path.fixExternalPath com file
                     |> Path.getRelativePath ctx.fixedFileName
-                    |> fun x -> "./" + System.IO.Path.ChangeExtension(x, null)
+                    |> fun x -> System.IO.Path.ChangeExtension(x, null)
             getParts ns ent.FullName memb
             |> function
-            | [] -> com.GetImportExpr ctx (Some file) "*" importPath
+            | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
             | memb::parts ->
-                com.GetImportExpr ctx (Some file) memb importPath
+                com.GetImportExpr ctx memb importPath (Fable.Internal file)
                 |> Some |> accessExpr parts
         | _ ->
             match getParts ctx.moduleFullName ent.FullName memb with
@@ -326,11 +325,11 @@ module Util =
         args, body, returnType, typeParams
 
     let transformValue (com: IBabelCompiler) ctx r = function
-        | Fable.ImportRef (memb, path) ->
+        | Fable.ImportRef (memb, path, kind) ->
             let memb, parts =
                 let parts = Array.toList(memb.Split('.'))
                 parts.Head, parts.Tail
-            com.GetImportExpr ctx None memb path
+            com.GetImportExpr ctx memb path kind
             |> Some |> accessExpr parts
         | Fable.This -> upcast Babel.ThisExpression ()
         | Fable.Super -> upcast Babel.Super ()
@@ -510,8 +509,8 @@ module Util =
                 | Some property -> Assign(getExpr com ctx callee property, range)
             com.TransformExprAndResolve ctx ret value
 
-        | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path)), isMutable) ->
-            let value = com.GetImportExpr ctx None var.Name path
+        | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path, kind)), isMutable) ->
+            let value = com.GetImportExpr ctx var.Name path kind
             varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement
 
         | Fable.VarDeclaration (var, TransformExpr com ctx value, isMutable) ->
@@ -770,7 +769,7 @@ module Util =
 
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         Babel.CallExpression(
-                get (getCoreLibImport com ctx "Util") "declare",
+                getCoreLibImport com ctx "Util" "declare",
                 [typeRef com ctx ent None |> U2.Case1])
         |> Babel.ExpressionStatement :> Babel.Statement
 
@@ -826,8 +825,8 @@ module Util =
             match m.Kind with
             | Fable.Getter | Fable.Field ->
                 match body with 
-                | Fable.Value(Fable.ImportRef(Naming.placeholder, path)) ->
-                    com.GetImportExpr ctx None m.Name path
+                | Fable.Value(Fable.ImportRef(Naming.placeholder, path, kind)) ->
+                    com.GetImportExpr ctx m.Name path kind
                 | _ -> transformExpr com ctx body
             | Fable.Method ->
                 let bodyRange = body.Range
@@ -958,7 +957,7 @@ module Util =
                 | Some res -> res
                 | None -> failwithf "Cannot find file: %s" fileName
             // TODO: Create a cache to optimize imports
-            member bcom.GetImportExpr ctx internalFile selector path =
+            member bcom.GetImportExpr ctx selector path kind =
                 let sanitizeSelector selector =
                     if selector = "*"
                     then selector
@@ -982,23 +981,26 @@ module Util =
                     // Attention, here we use ctx.fixedFileName to take files in `fable_external` into account
                     let relPathToProj = Path.getRelativeFileOrDirPath false bcom.Options.projFile false ctx.fixedFileName
                     let pathFromOutDir = IO.Path.GetFullPath(IO.Path.Combine(bcom.Options.outDir, relPathToProj))
-                    match Path.getRelativePath pathFromOutDir importPath with
-                    | path when path.StartsWith "." -> path
-                    | path -> "./" + path
+                    Path.getRelativePath pathFromOutDir importPath
                 match imports.TryGetValue((selector, path)) with
                 | true, i -> upcast Babel.Identifier(i.localIdent)
                 | false, _ ->
                     let localId = getLocalIdent ctx selector
                     let i = {
                         selector = sanitizeSelector selector
-                        internalFile = internalFile
                         localIdent = localId
+                        internalFile =
+                            match kind with
+                            | Fable.Internal file -> Some file
+                            | _ -> None
                         path =
                             // Resolve relative paths with `outDir` if
                             // they don't point to an internal file: see #472
-                            match internalFile with
-                            | Some _ -> path
-                            | None -> resolvePath ctx path
+                            match kind with
+                            | Fable.CustomImport -> resolvePath ctx path
+                            | Fable.Internal _ -> path
+                            | Fable.CoreLib ->
+                                Path.getExternalImportPath com ctx.fixedFileName path
                     }
                     imports.Add((selector,path), i)
                     upcast Babel.Identifier (localId)

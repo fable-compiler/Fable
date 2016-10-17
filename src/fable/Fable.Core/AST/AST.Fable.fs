@@ -212,6 +212,11 @@ and Ident(name: string, ?typ: Type) =
     member x.Consume() = consumed <- true
     static member getType (i: Ident) = i.Type
 
+and ImportKind =
+    | CoreLib
+    | Internal of file: string
+    | CustomImport
+
 and ValueKind =
     | Null
     | This
@@ -219,7 +224,7 @@ and ValueKind =
     | Spread of Expr
     | TypeRef of Entity
     | IdentValue of Ident
-    | ImportRef of memb: string * path: string
+    | ImportRef of memb: string * path: string * ImportKind
     | NumberConst of U2<int,float> * NumberKind
     | StringConst of string
     | BoolConst of bool

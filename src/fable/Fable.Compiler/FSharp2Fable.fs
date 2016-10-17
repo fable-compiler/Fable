@@ -1075,9 +1075,7 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
         if not(path.StartsWith ".") then path else
         let projDir = Path.GetDirectoryName projFile
         let path = Path.GetFullPath(Path.Combine(projDir, path))
-        match Fable.Path.getRelativePath com.Options.outDir path with
-        | path when path.StartsWith "." -> path
-        | path -> "./" + path
+        Fable.Path.getRelativePath com.Options.outDir path
     let curProj =
         let projName = Path.GetFileNameWithoutExtension com.Options.projFile
         let fileMap = makeFileMap parsedProj.AssemblySignature.Entities

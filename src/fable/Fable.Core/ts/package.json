@@ -1,13 +1,12 @@
 {
   "name": "fable-core",
-  "version": "0.7.5-alpha.1",
+  "version": "0.0.0",
   "description": "Fable core lib & bindings for native JS objects, browser and node APIs",
-  "main": "fable-core.js",
-  "typings": "fable-core.d.ts",
+  "main": "Main.js",
   "scripts": {
     "tsc": "tsc",
     "babel": "babel",
-    "uglifyjs": "uglifyjs"
+    "webpack": "webpack"
   },
   "repository": {
     "type": "git",
@@ -24,12 +23,8 @@
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "devDependencies": {
     "babel-cli": "^6.10.1",
-    "babel-plugin-transform-es2015-classes": "^6.9.0",
-    "babel-plugin-transform-es2015-modules-commonjs": "^6.10.3",
-    "babel-plugin-transform-es2015-modules-umd": "^6.8.0",
     "babel-preset-es2015": "^6.9.0",
-    "babel-preset-es2015-no-commonjs": "0.0.2",
     "typescript": "^1.8.10",
-    "uglify-js": "^2.7.0"
+    "webpack": "^1.13.2"
   }
 }

@@ -33,7 +33,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Fable.Core">
-      <HintPath>../fable/Fable.Core/npm/Fable.Core.dll</HintPath>
+      <HintPath>../../build/fable-core/Fable.Core.dll</HintPath>
     </Reference>
     <!--<Reference Include="Fable.JsonConverter">
       <HintPath>../nuget/Fable.JsonConverter/bin/Release/Fable.JsonConverter.dll</HintPath>
