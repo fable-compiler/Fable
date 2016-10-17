@@ -421,7 +421,7 @@ Target "PublishCompiler" (fun _ ->
 Target "PublishCore" (fun _ ->
     // Check if version is prerelease or not
     if releaseCore.Value.NugetVersion.IndexOf("-") > 0 then ["--tag next"] else []
-    |> Npm.command "src/fable/Fable.Core/npm" "publish" 
+    |> Npm.command "build/fable-core" "publish" 
 )
 
 Target "PublishCompilerNetcore" (fun _ ->

@@ -45,9 +45,24 @@ exports.finish = finish;
 
 function isFSharpProject(filePath) {
     return typeof filePath === "string"
-        && constants.FSHARP_PROJECT_EXTENSIONS.indexOf(path.extname(filePath.toLowerCase())) > 0; 
+        && constants.FSHARP_PROJECT_EXTENSIONS.indexOf(path.extname(filePath.toLowerCase())) >= 0; 
 }
 exports.isFSharpProject = isFSharpProject;
+
+/**
+ * Apparently path.isAbsolute is not very reliable
+ * so this uses `path.resolve(x) === x`
+*/
+function isFullPath(filePath) {
+    return path.resolve(filePath) === filePath;
+}
+exports.isFullPath = isFullPath;
+
+/** If path2 is absolute, returns it instead of joining */
+function pathJoin(path1, path2) {
+    return isFullPath(path2) ? path2 : path.join(path1, path2);
+}
+exports.pathJoin = pathJoin;
 
 /**
  * Converts a Babel AST to JS code. `fsCode` is optional,
@@ -56,11 +71,11 @@ exports.isFSharpProject = isFSharpProject;
 function babelify(babelAst, fsCode, babelOpts, opts) {
     var babel = require("babel-core");
 
-    var outDir = path.join(opts.workingDir, opts.outDir),
-        projDir = path.dirname(path.join(opts.workingDir, opts.projFile));
+    var outDir = pathJoin(opts.workingDir, opts.outDir),
+        projDir = path.dirname(pathJoin(opts.workingDir, opts.projFile));
 
     var targetFile =
-        path.join(outDir, path.relative(projDir, babelAst.fileName))
+        pathJoin(outDir, path.relative(projDir, babelAst.fileName))
             .replace(/\\/g, '/')
             .replace(path.extname(babelAst.fileName), ".js");
 

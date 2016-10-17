@@ -98,7 +98,7 @@ function watch(opts, fableProc, parallelProc, resolve) {
     fableProc.stdin.setEncoding('utf-8');
 
     // Watch only the project directory for performance
-    var projDir = path.dirname(path.join(opts.workingDir, opts.projFile));
+    var projDir = path.dirname(fableLib.pathJoin(opts.workingDir, opts.projFile));
     fableLib.stdoutLog("Watching " + projDir);
     fableLib.stdoutLog("Press Enter to terminate process.");
     opts.watching = true;
@@ -200,16 +200,15 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
 
     var rollupOpts = {};
     if (typeof opts.bundle === "string" && opts.bundle.endsWith("config.js")) {
-        var cfgPath = path.join(opts.workingDir, opts.bundle);
+        var cfgPath = fableLib.pathJoin(opts.workingDir, opts.bundle);
         rollupOpts = require(cfgPath);
-        // If "dest" is set, check if it's relative
-        if (rollupOpts.dest && path.resolve(rollupOpts.dest) !== rollupOpts.dest) {
-            rollupOpts.dest = path.join(path.dirname(cfgPath), rollupOpts.dest);
+        if (rollupOpts.dest) {
+            rollupOpts.dest = fableLib.pathJoin(path.dirname(cfgPath), rollupOpts.dest);
         }
     }
 
-    rollupOpts.dest = rollupOpts.dest || path.join(
-        path.join(opts.workingDir, opts.outDir),
+    rollupOpts.dest = rollupOpts.dest || fableLib.pathJoin(
+        fableLib.pathJoin(opts.workingDir, opts.outDir),
         typeof opts.bundle === "string" ? opts.bundle : "bundle.js"
     ).replace(/\\/g, '/');
     
@@ -327,12 +326,11 @@ function build(opts, resolve, reject) {
 
     // Call Fable.exe
     if (opts.verbose) {
-        fableLib.stdoutLog("\nPROJECT FILE: " + path.join(opts.workingDir, opts.projFile));
-        fableLib.stdoutLog("OUTPUT DIR: " + path.join(opts.workingDir, opts.outDir));
+        fableLib.stdoutLog("\nPROJECT FILE: " + fableLib.pathJoin(opts.workingDir, opts.projFile));
+        fableLib.stdoutLog("OUTPUT DIR: " + fableLib.pathJoin(opts.workingDir, opts.outDir));
         fableLib.stdoutLog("WORKING DIR: " + opts.workingDir) + "\n";
         fableLib.stdoutLog("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
-    fableLib.stdoutLog(constants.PKG_NAME + " " + constants.PKG_VERSION + ": Start compilation...");
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: opts.workingDir, windowsVerbatimArguments: true });
 
     fableProc.on('exit', function(code) {
@@ -384,7 +382,7 @@ function build(opts, resolve, reject) {
 
 function resolvePath(optName, value, workingDir) {
     function resolve(x) {
-        return path.resolve(x) === x ? x : path.join(workingDir, x)
+        return fableLib.pathJoin(workingDir, x)
     }
     function resolveArray(arr, f) {
         (Array.isArray(arr) ? arr : [arr]).map(f);
@@ -436,16 +434,14 @@ function readOptionsFromFableConfig(opts) {
     try {
         opts.workingDir = path.resolve(opts.workingDir || process.cwd());
 
-        var cfgFile = path.join(opts.workingDir, constants.FABLE_CONFIG_FILE);
+        var cfgFile = fableLib.pathJoin(opts.workingDir, constants.FABLE_CONFIG_FILE);
 
         if (opts.projFile) {
-            var projFile = path.resolve(opts.projFile) === opts.projFile
-                            ? opts.projFile
-                            : path.join(opts.workingDir, opts.projFile);
+            var projFile = fableLib.pathJoin(opts.workingDir, opts.projFile);
             var projDir = fs && fs.statSync(projFile).isDirectory()
                             ? projFile
                             : path.dirname(projFile);
-            cfgFile = path.join(projDir, constants.FABLE_CONFIG_FILE);
+            cfgFile = fableLib.pathJoin(projDir, constants.FABLE_CONFIG_FILE);
 
             // Delete projFile from opts if it isn't a true F# project
             if (!fableLib.isFSharpProject(opts.projFile)) {
@@ -502,7 +498,7 @@ function readBabelOptions(opts) {
             ? [[require("babel-dts-generator"),
                 {
                     "packageName": "",
-                    "typings": path.join(opts.workingDir, opts.outDir),
+                    "typings": fableLib.pathJoin(opts.workingDir, opts.outDir),
                     "suppressAmbientDeclaration": true,
                     "ignoreEmptyInterfaces": false
                 }],
@@ -541,12 +537,12 @@ function readBabelOptions(opts) {
         
         // Extra Babel plugins
         function resolveBabelPlugin(id) {
-            var nodeModulesDir = path.join(opts.workingDir, "node_modules");
-            if (fs && fs.existsSync(path.join(nodeModulesDir, id))) {
-                return path.join(nodeModulesDir, id);
+            var nodeModulesDir = fableLib.pathJoin(opts.workingDir, "node_modules");
+            if (fs && fs.existsSync(fableLib.pathJoin(nodeModulesDir, id))) {
+                return fableLib.pathJoin(nodeModulesDir, id);
             }
             else {
-                return path.join(nodeModulesDir, "babel-plugin-" + id);
+                return fableLib.pathJoin(nodeModulesDir, "babel-plugin-" + id);
             }
         }
 
@@ -600,16 +596,16 @@ function prepareOptions(opts) {
         opts.refs = refs;
     }
 
-    if (fableLib.isFSharpProject(opts.projFile)) {
+    if (!fableLib.isFSharpProject(opts.projFile)) {
         throw "Please provide an F# project (.fsproj) or script (.fsx) file";
     }
 
-    if (fs && !fs.existsSync(path.join(opts.workingDir, opts.projFile))) {
+    if (fs && !fs.existsSync(fableLib.pathJoin(opts.workingDir, opts.projFile))) {
         throw "Cannot find project file: " + opts.projFile;
     }
 
     // Check version
-    var curNpmCfg = path.join(opts.workingDir, "package.json");
+    var curNpmCfg = fableLib.pathJoin(opts.workingDir, "package.json");
     if (fs && fs.existsSync(curNpmCfg)) {
         curNpmCfg = JSON.parse(fs.readFileSync(curNpmCfg).toString());
         if (curNpmCfg.engines && (curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"])) {
@@ -628,6 +624,8 @@ function prepareOptions(opts) {
 
 function main(opts, resolve, reject) {
     try {
+        fableLib.stdoutLog(constants.PKG_NAME + " " + constants.PKG_VERSION + ": Start compilation...");
+
         opts = prepareOptions(opts, resolve, reject);
         if (opts.scripts && opts.scripts.prebuild) {
             runCommand(opts.scripts.prebuild, opts, function (exitCode) {

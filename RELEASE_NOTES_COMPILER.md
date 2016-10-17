@@ -1,3 +1,7 @@
+### 0.7.5-alpha.4
+
+* Minor fixes
+
 ### 0.7.5-alpha.2
 
 * Resolve relative paths of referenced projects/dlls as
