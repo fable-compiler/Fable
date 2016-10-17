@@ -181,9 +181,11 @@ module Path =
         | path -> "./" + path
 
     let getRelativePath fromPath toPath =
-        getRelativeFileOrDirPath 
-          (IO.Directory.Exists fromPath) fromPath 
-          (IO.Directory.Exists toPath) toPath
+        // This is not 100% reliable, but IO.Directory.Exists doesn't
+        // work either if the directory doesn't exist (e.g. `outDir`)
+        let isDir = Path.GetExtension >> String.IsNullOrWhiteSpace
+        // let isDir = IO.Directory.Exists
+        getRelativeFileOrDirPath (isDir fromPath) fromPath (isDir toPath) toPath 
 
     let getExternalImportPath (com: ICompiler) (filePath: string) (importPath: string) =
         if not(importPath.StartsWith ".")
