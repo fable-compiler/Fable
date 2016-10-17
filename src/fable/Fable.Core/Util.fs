@@ -176,8 +176,9 @@ module Path =
             else path
         let fromPath = addDummyFile fromIsDir fromPath
         let toPath = addDummyFile toIsDir toPath
-        (pathDifference fromPath toPath).Replace(Naming.dummyFile, "")
-        
+        match (pathDifference fromPath toPath).Replace(Naming.dummyFile, "") with
+        | path when path.StartsWith "." -> path
+        | path -> "./" + path
 
     let getRelativePath fromPath toPath =
         getRelativeFileOrDirPath 
@@ -195,11 +196,7 @@ module Path =
             else
                 getRelativePath filePath projFile
                 |> Path.GetDirectoryName
-                |> fun relPath ->
-                    match Path.Combine(relPath, importPath) with
-                    | path when path.StartsWith "." -> path
-                    | path -> "./" + path 
-                    |> normalizePath
+                |> fun relPath -> Path.Combine(relPath, importPath) |> normalizePath
 
     let getCommonPrefix (xs: string[] list)=
         let rec getCommonPrefix (prefix: string[]) = function

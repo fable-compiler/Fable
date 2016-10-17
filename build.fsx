@@ -360,8 +360,6 @@ let compileAndRunMochaTests es2015 =
     Node.run "." "build/fable" ("src/tests/"::testCompileArgs)
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []
-    // Copy the development version of fable-core.js
-    FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
     Npm.script testsBuildDir "test" []    
 
 Target "MochaTest" (fun _ ->
@@ -377,10 +375,7 @@ Target "ES6MochaTest" (fun _ ->
 )
 
 let quickTest _ =
-    FileUtils.mkdir "src/tools/temp/node_modules/fable-core/"
-    FileUtils.cp "src/fable/Fable.Core/npm/package.json" "src/tools/temp/node_modules/fable-core/"
-    FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "src/tools/temp/node_modules/fable-core/"
-    Node.run "." "build/Fable" ["src/tools/QuickTest.fsx -o temp -m commonjs --verbose"]
+    Node.run "." "build/Fable" ["src/tools/QuickTest.fsx -o temp --coreLib ../../build/fable-core --verbose"]
     Node.run "." "src/tools/temp/QuickTest.js" []
 
 Target "QuickTest" quickTest
@@ -462,44 +457,61 @@ Target "PublishJsonConverter" (fun _ ->
 )
 
 Target "FableCoreRelease" (fun _ ->
-    let fableCoreNpmDir = "src/fable/Fable.Core/npm"
-
-    // Update fable-core npm version
-    (fableCoreNpmDir, ["version"])
-    ||> Npm.updatePackageKeyValue (fun (_,v) ->
-        if v <> releaseCore.Value.NugetVersion
-        then Some("version", releaseCore.Value.NugetVersion)
-        else None)
+    let fableCoreNpmDir = "build/fable-core"
+    let fableCoreSrcDir = "src/fable/Fable.Core"
+    
+    // Don't delete node_moduels for faster builds
+    !! (fableCoreNpmDir </> "**/*.*")
+        -- (fableCoreNpmDir </> "node_modules/**/*.*")
+    |> Seq.iter FileUtils.rm    
 
     // Update Fable.Core version
-    Util.assemblyInfo "src/fable/Fable.Core/" releaseCore.Value.NugetVersion []
-    !! "src/fable/Fable.Core/Fable.Core.fsproj"
+    Util.assemblyInfo fableCoreSrcDir releaseCore.Value.NugetVersion []
+    !! (fableCoreSrcDir </> "Fable.Core.fsproj")
     |> MSBuild fableCoreNpmDir "Build" [
         "Configuration","Release"
+        "DebugSymbols", "False"
+        "DebugType", "None"
         "DefineConstants","IMPORT"
-        "DocumentationFile","npm/Fable.Core.xml"]
+        "DocumentationFile","../../../build/fable-core/Fable.Core.xml"]
     |> ignore // Log outputs all files in node_modules
 
+    // Remove unneeded files
+    !! (fableCoreNpmDir </> "*.*")
+    |> Seq.iter (fun file ->
+        let fileName = Path.GetFileName file
+        if fileName <> "Fable.Core.dll" && fileName <> "Fable.Core.xml" then
+            FileUtils.rm file
+    )
+
+    // Copy README and package.json
+    FileUtils.cp (fableCoreSrcDir </> "ts/README.md") fableCoreNpmDir
+    FileUtils.cp (fableCoreSrcDir </> "ts/package.json") fableCoreNpmDir    
+    FileUtils.cp (fableCoreSrcDir </> "ts/.babelrc") fableCoreNpmDir
+
     Npm.install fableCoreNpmDir []
+    Npm.command fableCoreNpmDir "version" [releaseCore.Value.NugetVersion]
+
     // Compile TypeScript
-    Npm.script fableCoreNpmDir "tsc" ["fable-core.ts --target ES2015 --declaration"]
+    Npm.script fableCoreNpmDir "tsc" [sprintf "--project ../../%s/ts" fableCoreSrcDir]
 
     // Compile Es2015 syntax to ES5 with different module targets 
-    setEnvironVar "BABEL_ENV" "target-commonjs"
-    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o commonjs.js --compact=false"]
     setEnvironVar "BABEL_ENV" "target-es2015"
-    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o es2015.js --compact=false"] 
-    setEnvironVar "BABEL_ENV" "target-umd"
-    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
-    // Minimize 
-    Npm.script fableCoreNpmDir "uglifyjs" ["fable-core.js -c -m -o fable-core.min.js"] 
+    Npm.script fableCoreNpmDir "babel" [". --out-dir es2015 --compact=false"] 
+    setEnvironVar "BABEL_ENV" "target-commonjs"
+    Npm.script fableCoreNpmDir "babel" [". --out-dir . --compact=false"]
+
+    // Bundle & Minimize 
+    // Npm.script fableCoreNpmDir "webpack" ["./Main.js ./dist/fable-core.js --libraryTarget umd"] 
+    Npm.script fableCoreNpmDir "webpack" ["./Main.js ./dist/fable-core.min.js --libraryTarget umd -p"] 
 )
 
 Target "FableCoreDebug" (fun _ ->
     let fableCoreNpmDir = "src/fable/Fable.Core/npm"
-    Npm.script fableCoreNpmDir "tsc" ["fable-core.ts --target ES2015 --declaration"]
-    setEnvironVar "BABEL_ENV" "target-umd"
-    Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
+    let fableCoreSrcDir = "src/fable/Fable.Core"    
+    Npm.script fableCoreNpmDir "tsc" [sprintf "--project ../../%s/ts" fableCoreSrcDir]
+    setEnvironVar "BABEL_ENV" "target-commonjs"
+    Npm.script fableCoreNpmDir "babel" [". --out-dir . --compact=false"]
 )
 
 Target "UpdateSampleRequirements" (fun _ ->

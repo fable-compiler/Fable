@@ -1,3 +1,7 @@
+### 0.7.5-alpha.2
+
+* Structure fable-core in modules
+
 ### 0.7.5-alpha.1
 
 * Fix prerelease semver. See: https://docs.npmjs.com/misc/semver#prerelease-tags

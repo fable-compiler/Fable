@@ -1,6 +1,6 @@
 {
   "name": "fable-compiler",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "F# to JavaScript compiler",
   "main": "index.js",
   "bin": {

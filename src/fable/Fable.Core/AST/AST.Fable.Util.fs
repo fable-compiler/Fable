@@ -18,10 +18,6 @@ type CallKind =
     | CoreLibCall of modName: string * meth: string option * isCons: bool * args: Expr list
     | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
-let getSymbol (com: ICompiler) name =
-    let import = Value(ImportRef("Symbol", com.Options.coreLib))
-    Apply (import, [Value(StringConst name)], ApplyGet, Any, None)
-
 let makeLoop range loopKind = Loop (loopKind, range)
 let makeIdent name = Ident(name)
 let makeTypedIdent name typ = Ident(name, typ)
@@ -29,10 +25,10 @@ let makeIdentExpr name = makeIdent name |> IdentValue |> Value
 let makeLambdaExpr args body = Value(Lambda(args, body))
 
 let makeCoreRef (com: ICompiler) modname prop =
-    let import = Value(ImportRef(modname, com.Options.coreLib))
-    match prop with
-    | None -> import
-    | Some prop -> Apply (import, [Value(StringConst prop)], ApplyGet, Any, None)
+    let prop = defaultArg prop "default"
+    Value(ImportRef(prop, com.Options.coreLib + "/" + modname, CoreLib))
+let getSymbol (com: ICompiler) name =
+    Apply(makeCoreRef com "Symbol" None, [Value(StringConst name)], ApplyGet, Any, None)
 
 let makeBinOp, makeUnOp, makeLogOp, makeEqOp =
     let makeOp range typ args op =
@@ -105,9 +101,9 @@ let tryImported com name srcFile curFile (decs: #seq<Decorator>) =
                 System.IO.Path.Combine(System.IO.Path.GetDirectoryName(srcFile), path)
                 |> System.IO.Path.GetFullPath
                 |> Path.getRelativePath curFile
-                |> fun path -> Some(Value(ImportRef(memb, "./" + path)))
+                |> fun path -> Some(Value(ImportRef(memb, path, CustomImport)))
             | [(:? string as memb);(:? string as path)] ->
-                Some(Value(ImportRef(memb, path)))
+                Some(Value(ImportRef(memb, path, CustomImport)))
             | _ -> failwith "Import attributes must contain two string arguments"
         | _ -> None)
 
@@ -177,12 +173,11 @@ and makeCall com range typ kind =
         Apply (callee, [makeConst meth], ApplyGet, fnTyp, None)
         |> apply ApplyMeth args
     | ImportCall (importPath, modName, meth, isCons, args) ->
-        Value (ImportRef (modName, importPath))
+        Value (ImportRef (modName, importPath, CustomImport))
         |> getCallee meth args typ
         |> apply (getKind isCons) args
     | CoreLibCall (modName, meth, isCons, args) ->
-        makeCoreRef com modName None
-        |> getCallee meth args typ
+        makeCoreRef com modName meth
         |> apply (getKind isCons) args
     | GlobalCall (modName, meth, isCons, args) ->
         makeIdentExpr modName
