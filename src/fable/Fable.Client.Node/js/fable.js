@@ -380,6 +380,21 @@ function build(opts, resolve, reject) {
     });
 }
 
+function getExtraOpt(key, opts) {
+    if (typeof opts.extra === "string") {
+        return opts.extra === key;
+    }
+    else if (typeof opts.extra === "object") {
+        if (Array.isArray(opts.extra)) {
+            return opts.extra.indexOf(key) >= 0;
+        }
+        else {
+            return opts.extra[key];
+        }
+    }
+    return null;
+}
+
 function resolvePath(optName, value, workingDir) {
     function resolve(x) {
         return fableLib.pathJoin(workingDir, x)
@@ -606,7 +621,7 @@ function prepareOptions(opts) {
 
     // Check version
     var curNpmCfg = fableLib.pathJoin(opts.workingDir, "package.json");
-    if (fs && fs.existsSync(curNpmCfg)) {
+    if (!getExtraOpt("noVersionCheck", opts) && fs && fs.existsSync(curNpmCfg)) {
         curNpmCfg = JSON.parse(fs.readFileSync(curNpmCfg).toString());
         if (curNpmCfg.engines && (curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"])) {
             var semver = require("semver");

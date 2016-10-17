@@ -500,10 +500,6 @@ Target "FableCoreRelease" (fun _ ->
     Npm.script fableCoreNpmDir "babel" [". --out-dir es2015 --compact=false"] 
     setEnvironVar "BABEL_ENV" "target-commonjs"
     Npm.script fableCoreNpmDir "babel" [". --out-dir . --compact=false"]
-
-    // Bundle & Minimize 
-    // Npm.script fableCoreNpmDir "webpack" ["./Main.js ./dist/fable-core.js --libraryTarget umd"] 
-    Npm.script fableCoreNpmDir "webpack" ["./Main.js ./dist/fable-core.min.js --libraryTarget umd -p"] 
 )
 
 Target "FableCoreDebug" (fun _ ->
