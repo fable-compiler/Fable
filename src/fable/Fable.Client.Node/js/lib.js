@@ -1,4 +1,5 @@
 var path = require("path") || require("./path");
+var constants = require("./constants");
 
 /** Prints a new line with the message on process.stderr */
 function stderrLog(s) {
@@ -42,6 +43,12 @@ function finish(code, opts, resolve, reject) {
 }
 exports.finish = finish;
 
+function isFSharpProject(filePath) {
+    return typeof filePath === "string"
+        && constants.FSHARP_PROJECT_EXTENSIONS.indexOf(path.extname(filePath.toLowerCase())) > 0; 
+}
+exports.isFSharpProject = isFSharpProject;
+
 /**
  * Converts a Babel AST to JS code. `fsCode` is optional,
  * if `path` is null, Node's "path" module will be used.
@@ -49,11 +56,11 @@ exports.finish = finish;
 function babelify(babelAst, fsCode, babelOpts, opts) {
     var babel = require("babel-core");
 
-    var outDir = path.resolve(path.join(opts.workingDir, opts.outDir)),
-        projDir = path.dirname(path.resolve(path.join(opts.workingDir, opts.projFile)));
+    var outDir = path.join(opts.workingDir, opts.outDir),
+        projDir = path.dirname(path.join(opts.workingDir, opts.projFile));
 
     var targetFile =
-        path.join(outDir, path.relative(projDir, path.resolve(babelAst.fileName)))
+        path.join(outDir, path.relative(projDir, babelAst.fileName))
             .replace(/\\/g, '/')
             .replace(path.extname(babelAst.fileName), ".js");
 

@@ -2,7 +2,10 @@
 
 * Resolve relative paths of referenced projects/dlls as
   if they were pointing to generated JS code from the fsproj/dll file
+  (`EntryModuleAttribute`) or from working directory (`--refs`)
   and make them reachable from `outDir` (see #472)
+* Always resolve relative paths in command line options with
+  the directory from where fable is called
 
 ### 0.7.5-alpha.1
 

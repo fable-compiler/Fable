@@ -10,6 +10,9 @@ exports.PKG_NAME = "fable-compiler";
 /** "fableconfig.json" */
 exports.FABLE_CONFIG_FILE = "fableconfig.json";
 
+/** [".fsproj", ".fsx"] */
+exports.FSHARP_PROJECT_EXTENSIONS = [".fsproj", ".fsx"];
+
 /** Set of options compatible with Fable's .NET process */
 exports.FABLE_BIN_OPTIONS = new Set([
     "projFile", "outDir", "coreLib", "symbols", "plugins", "msbuild",

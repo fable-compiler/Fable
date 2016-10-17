@@ -5,7 +5,7 @@
     "module": "commonjs",
     "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
     "refs": {
-        "Fable.Tests.Clamp": "../../../build/tests/Another Project"
+        "Fable.Tests.Clamp": "../../build/tests/Another Project"
     },
     "targets": {
         "netcore": {

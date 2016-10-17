@@ -1054,28 +1054,33 @@ type FSProjectInfo(projectOpts: FSharpProjectOptions,
 
 /// Get current project (Head), referenced projects and assemblies
 let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
+    // Resolve relative paths and then make them relative to outDir: see #472
+    let resolveRelativePath (projFile: string option) (path: string) =
+        if not(path.StartsWith ".") then path else
+        let path =
+            match projFile with
+            | Some projFile ->
+                let projDir = Path.GetDirectoryName projFile
+                Path.GetFullPath(Path.Combine(projDir, path))
+            // `--refs` from options are resolved with the workingDir
+            | None -> Path.GetFullPath path
+        Fable.Path.getRelativePath com.Options.outDir path
     // TODO: If jsRef is an npm package, check if it's installed?
-    let tryGetJsRef (asm: FSharpAssembly) asmName =
-        match Map.tryFind asmName com.Options.refs with
-        | Some jsRef -> Some(asmName, None, jsRef)
-        | None when asmName <> "mscorlib" && asmName.StartsWith("System") |> not ->
+    let tryGetJsRef (asm: FSharpAssembly) projFile projName =
+        match Map.tryFind projName com.Options.refs with
+        | Some jsRef ->
+            Some(projName, None, resolveRelativePath None jsRef)
+        | None when projName <> "mscorlib" && projName.StartsWith("System") |> not ->
             try // Some attributes throw exceptions when accessing them
                 asm.Contents.Entities
                 |> Seq.tryPick (fun ent ->
                     match ent.Attributes with
                     | ContainsAtt "EntryModule" [:? string as jsRef] ->
                         let baseDir = (getEntityLocation ent).FileName |> Path.GetDirectoryName
-                        Some(asmName, Some baseDir, jsRef)
+                        Some(projName, Some baseDir, resolveRelativePath (Some projFile) jsRef)
                     | _ -> None)
             with _ -> None
         | None -> None
-    // Resolve relative paths with the referenced project or assembly full path
-    // and then make it relative to outDir: see #472
-    let resolveRelativePath projFile (path: string) =
-        if not(path.StartsWith ".") then path else
-        let projDir = Path.GetDirectoryName projFile
-        let path = Path.GetFullPath(Path.Combine(projDir, path))
-        Fable.Path.getRelativePath com.Options.outDir path
     let curProj =
         let projName = Path.GetFileNameWithoutExtension com.Options.projFile
         let fileMap = makeFileMap parsedProj.AssemblySignature.Entities
@@ -1090,15 +1095,14 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
             parsedProj.ProjectContext.GetReferencedAssemblies()
             |> Seq.tryFind (fun a -> a.FileName = Some assemblyPath)
             |> Option.map (fun assembly ->
-                match tryGetJsRef assembly projName with
+                match tryGetJsRef assembly opts.ProjectFileName projName with
                 | Some (projName, baseDir, importPath) ->
                     let fileMap = makeFileMap assembly.Contents.Entities
                     let baseDir =
                         match baseDir with
                         | Some baseDir -> baseDir
                         | None -> Path.GetDirectoryName opts.ProjectFileName |> Path.GetFullPath
-                    Fable.Project(projName, baseDir, fileMap, assemblyFile=assemblyPath,
-                            importPath=resolveRelativePath opts.ProjectFileName importPath)
+                    Fable.Project(projName, baseDir, fileMap, assemblyFile=assemblyPath, importPath=importPath)
                 | None ->
                     failwithf "Cannot find import path for referenced project %s. %s"
                                 projName "Have you forgotten --refs argument?"))
@@ -1109,7 +1113,7 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
             assembly.FileName
             |> Option.bind (fun asmFullName ->
                 let asmName = Path.GetFileNameWithoutExtension asmFullName
-                tryGetJsRef assembly asmName)
+                tryGetJsRef assembly asmFullName asmName)
             |> Option.map (fun (projName, baseDir, importPath) ->
                 let fileMap = makeFileMap assembly.Contents.Entities
                 let baseDir =
@@ -1120,8 +1124,7 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
                             // TODO: This is a small hack to partially fix #382
                             if kv.Key.Contains("node_modules") then None else Some kv.Key)
                         |> Path.getCommonBaseDir
-                Fable.Project(projName, baseDir, fileMap, assemblyFile=assembly.FileName.Value,
-                        importPath=resolveRelativePath assembly.FileName.Value importPath)))
+                Fable.Project(projName, baseDir, fileMap, assemblyFile=assembly.FileName.Value, importPath=importPath)))
     curProj::(refProjs @ refAssemblies)
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =

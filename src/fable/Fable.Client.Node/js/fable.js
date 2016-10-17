@@ -26,7 +26,7 @@ var optionDefinitions = [
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'copyExt', type: Boolean, description: "Copy external files into `fable_external` folder (true by default)." },
   { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
-  { name: 'verbose', description: "Print more information about the compilation process." },
+  { name: 'verbose', type: Boolean, description: "Print more information about the compilation process." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
   { name: 'production', alias: 'p', description: "Shortcut for `--target production`." },
@@ -98,7 +98,7 @@ function watch(opts, fableProc, parallelProc, resolve) {
     fableProc.stdin.setEncoding('utf-8');
 
     // Watch only the project directory for performance
-    var projDir = path.dirname(path.resolve(path.join(opts.workingDir, opts.projFile)));
+    var projDir = path.dirname(path.join(opts.workingDir, opts.projFile));
     fableLib.stdoutLog("Watching " + projDir);
     fableLib.stdoutLog("Press Enter to terminate process.");
     opts.watching = true;
@@ -200,7 +200,7 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
 
     var rollupOpts = {};
     if (typeof opts.bundle === "string" && opts.bundle.endsWith("config.js")) {
-        var cfgPath = path.resolve(path.join(opts.workingDir, opts.bundle));
+        var cfgPath = path.join(opts.workingDir, opts.bundle);
         rollupOpts = require(cfgPath);
         // If "dest" is set, check if it's relative
         if (rollupOpts.dest && path.resolve(rollupOpts.dest) !== rollupOpts.dest) {
@@ -209,7 +209,7 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
     }
 
     rollupOpts.dest = rollupOpts.dest || path.join(
-        path.resolve(path.join(opts.workingDir, opts.outDir)),
+        path.join(opts.workingDir, opts.outDir),
         typeof opts.bundle === "string" ? opts.bundle : "bundle.js"
     ).replace(/\\/g, '/');
     
@@ -327,9 +327,9 @@ function build(opts, resolve, reject) {
 
     // Call Fable.exe
     if (opts.verbose) {
-        fableLib.stdoutLog("\nPROJECT FILE: " + path.resolve(path.join(opts.workingDir, opts.projFile)));
-        fableLib.stdoutLog("OUTPUT DIR: " + path.resolve(path.join(opts.workingDir, opts.outDir)));
-        fableLib.stdoutLog("WORKING DIR: " + path.resolve(opts.workingDir) + "\n");
+        fableLib.stdoutLog("\nPROJECT FILE: " + path.join(opts.workingDir, opts.projFile));
+        fableLib.stdoutLog("OUTPUT DIR: " + path.join(opts.workingDir, opts.outDir));
+        fableLib.stdoutLog("WORKING DIR: " + opts.workingDir) + "\n";
         fableLib.stdoutLog("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
     fableLib.stdoutLog(constants.PKG_NAME + " " + constants.PKG_VERSION + ": Start compilation...");
@@ -382,6 +382,38 @@ function build(opts, resolve, reject) {
     });
 }
 
+function resolvePath(optName, value, workingDir) {
+    function resolve(x) {
+        return path.resolve(x) === x ? x : path.join(workingDir, x)
+    }
+    function resolveArray(arr, f) {
+        (Array.isArray(arr) ? arr : [arr]).map(f);
+    }
+    function resolveKeyValuePairs(kvs) {
+        resolveArray(kvs, function (kv) {
+            kv = kv.split("=");
+            return kv[0] + "=" + resolve(kv[1]);
+        })
+    }
+    // Discard null values or empty strings
+    if (value) {
+        switch (optName) {
+            case "projFile":
+            case "outDir":
+                return resolve(value);
+            // Only resolve coreLib if starts with '.'
+            case "coreLib":
+                return value.startsWith('.') ? resolve(value) : value;
+            case "plugins":
+            case "babelPlugins":
+                return resolveArray(value, resolve);
+            case "refs":
+                return resolveKeyValuePairs(value);
+        }
+    }
+    return value;
+}
+
 /** Reads options from command line, requires command-line-args */
 function readOptionsFromCommandLine() {
     try {
@@ -391,10 +423,7 @@ function readOptionsFromCommandLine() {
             fableLib.stdoutLog(require('command-line-usage')(getAppDescription()));
             fableLib.finish(0, opts);
         }
-        else {
-            opts.workingDir = process.cwd();
-            return opts;
-        }
+        return opts;
     }
     catch (err) {
         throw "Cannot read command line arguments: " + err + "\n" +
@@ -405,23 +434,34 @@ function readOptionsFromCommandLine() {
 /** Reads options from fableconfig.json, requires json5 */
 function readOptionsFromFableConfig(opts) {
     try {
+        opts.workingDir = path.resolve(opts.workingDir || process.cwd());
+
+        var cfgFile = path.join(opts.workingDir, constants.FABLE_CONFIG_FILE);
+
         if (opts.projFile) {
-            if (fs && fs.statSync(opts.projFile).isDirectory()) {
-                opts.workingDir = opts.projFile;
+            var projFile = path.resolve(opts.projFile) === opts.projFile
+                            ? opts.projFile
+                            : path.join(opts.workingDir, opts.projFile);
+            var projDir = fs && fs.statSync(projFile).isDirectory()
+                            ? projFile
+                            : path.dirname(projFile);
+            cfgFile = path.join(projDir, constants.FABLE_CONFIG_FILE);
+
+            // Delete projFile from opts if it isn't a true F# project
+            if (!fableLib.isFSharpProject(opts.projFile)) {
                 delete opts.projFile;
-            }
-            else {
-                opts.workingDir = path.dirname(opts.projFile);
-                opts.projFile = path.basename(opts.projFile);
             }
         }
 
-        var cfgFile = opts.workingDir
-            ? path.join(opts.workingDir, constants.FABLE_CONFIG_FILE)
-            : constants.FABLE_CONFIG_FILE;
-
-        // Parse fableconfig.json if present
         if (fs && fs.existsSync(cfgFile)) {
+            // Change workingDir to where fableconfig.json is if necessary
+            if (opts.workingDir !== path.dirname(cfgFile)) {
+                for (var key in opts) {
+                    opts[key] = resolvePath(key, opts[key], opts.workingDir);
+                }
+                opts.workingDir = path.dirname(cfgFile);
+            }
+
             var cfg = require('json5').parse(fs.readFileSync(cfgFile).toString());
             for (var key in cfg) {
                 if (key in opts === false)
@@ -462,7 +502,7 @@ function readBabelOptions(opts) {
             ? [[require("babel-dts-generator"),
                 {
                     "packageName": "",
-                    "typings": path.resolve(path.join(opts.workingDir, opts.outDir)),
+                    "typings": path.join(opts.workingDir, opts.outDir),
                     "suppressAmbientDeclaration": true,
                     "ignoreEmptyInterfaces": false
                 }],
@@ -501,7 +541,7 @@ function readBabelOptions(opts) {
         
         // Extra Babel plugins
         function resolveBabelPlugin(id) {
-            var nodeModulesDir = path.join(path.resolve(opts.workingDir), "node_modules");
+            var nodeModulesDir = path.join(opts.workingDir, "node_modules");
             if (fs && fs.existsSync(path.join(nodeModulesDir, id))) {
                 return path.join(nodeModulesDir, id);
             }
@@ -560,11 +600,11 @@ function prepareOptions(opts) {
         opts.refs = refs;
     }
 
-    if ([".fsproj", ".fsx"].indexOf(path.extname(opts.projFile)) == -1 ) {
+    if (fableLib.isFSharpProject(opts.projFile)) {
         throw "Please provide an F# project (.fsproj) or script (.fsx) file";
     }
 
-    if (fs && !fs.existsSync(path.resolve(path.join(opts.workingDir, opts.projFile)))) {
+    if (fs && !fs.existsSync(path.join(opts.workingDir, opts.projFile))) {
         throw "Cannot find project file: " + opts.projFile;
     }
 
