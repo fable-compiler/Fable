@@ -82,6 +82,48 @@ let ``Union cases called Tag still work (bug due to Tag field)``() =
     | _ -> failwith "unexpected"
     |> equal "abc"
 
+let (|Functional|NonFunctional|) (s: string) =
+    match s with
+    | "fsharp" | "haskell" | "ocaml" -> Functional
+    | _ -> NonFunctional
+
+[<Test>]
+let ``Comprehensive active patterns work``() =
+    let isFunctional = function
+        | Functional -> true
+        | NonFunctional -> false
+    isFunctional "fsharp" |> equal true
+    isFunctional "csharp" |> equal false
+    isFunctional "haskell" |> equal true
+
+let (|Small|Medium|Large|) i =
+    if i < 3 then Small 5
+    elif i >= 3 && i < 6 then Medium "foo"
+    else Large
+
+[<Test>]
+let ``Comprehensive active patterns can return values``() =
+    let measure = function
+        | Small i -> string i
+        | Medium s -> s
+        | Large -> "bar"
+    measure 0 |> equal "5"
+    measure 10 |> equal "bar"
+    measure 5 |> equal "foo"
+
+let (|FSharp|_|) (document : string) =
+    if document = "fsharp" then Some FSharp else None
+
+[<Test>]
+let ``Partial active patterns which don't return values work``() = // See #478
+    let isFunctional = function
+        | FSharp -> "yes"
+        | "scala" -> "fifty-fifty"
+        | _ -> "dunno"
+    isFunctional "scala" |> equal "fifty-fifty"
+    isFunctional "smalltalk" |> equal "dunno"
+    isFunctional "fsharp" |> equal "yes"
+
 let (|A|) n = n
 
 [<Test>]

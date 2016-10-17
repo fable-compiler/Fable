@@ -107,12 +107,18 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
 and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
     let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
     match unionType with
-    | ErasedUnion | OptionUnion ->
+    | OptionUnion ->
+        match argExprs: Fable.Expr list with
+        // Represent `Some ()` with an empty object, see #478
+        | expr::_ when expr.Type = Fable.Unit ->
+            Fable.Wrapped(Fable.ObjExpr([], [], None, Some range), unionType)
+        | expr::_ -> Fable.Wrapped(expr, unionType)
+        | _ -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
+    | ErasedUnion ->
         match argExprs with
-        | [] -> Fable.Value Fable.Null 
-        | [expr] -> expr
+        | [] -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
+        | [expr] -> Fable.Wrapped(expr, unionType)
         | _ -> failwithf "Erased Union Cases must have one single field: %s" unionType.FullName
-        |> fun v -> Fable.Wrapped(v, unionType)
     | KeyValueUnion ->
         let key, value =
             match argExprs with
