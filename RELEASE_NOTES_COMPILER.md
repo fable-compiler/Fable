@@ -1,3 +1,7 @@
+### 0.7.5-alpha.6
+
+* Fix path resolution when referencing assemblies
+
 ### 0.7.5-alpha.5
 
 * Fix partial patterns not returning any value (see #478)

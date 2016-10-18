@@ -56,12 +56,12 @@
     <ProjectReference Include="..\Fable.Compiler\Fable.Compiler.fsproj">
       <Name>Fable.Compiler</Name>
       <Project>{d341ff6b-f526-4370-8318-0f5a654ba70c}</Project>
-      <Private>False</Private>
+      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj">
       <Name>Fable.Core</Name>
       <Project>{6bab7fdb-c31e-4ef2-9c6e-ca2603a8e1a7}</Project>
-      <Private>False</Private>
+      <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

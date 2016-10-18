@@ -213,7 +213,7 @@ module Path =
     let getCommonBaseDir (filePaths: seq<string>) =
         filePaths
         |> Seq.map (fun filePath ->
-            Path.GetFullPath filePath
+            filePath
             |> Path.GetDirectoryName
             |> normalizePath
             |> fun path -> path.Split('/'))

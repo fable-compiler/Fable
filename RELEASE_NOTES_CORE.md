@@ -1,3 +1,7 @@
+### 0.7.5-alpha.3
+
+* Accept any object as exception
+
 ### 0.7.5-alpha.2
 
 * Structure fable-core in modules
