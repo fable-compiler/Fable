@@ -503,7 +503,7 @@ Target "FableCoreRelease" (fun _ ->
 )
 
 Target "FableCoreDebug" (fun _ ->
-    let fableCoreNpmDir = "src/fable/Fable.Core/npm"
+    let fableCoreNpmDir = "build/fable-core"
     let fableCoreSrcDir = "src/fable/Fable.Core"    
     Npm.script fableCoreNpmDir "tsc" [sprintf "--project ../../%s/ts" fableCoreSrcDir]
     setEnvironVar "BABEL_ENV" "target-commonjs"

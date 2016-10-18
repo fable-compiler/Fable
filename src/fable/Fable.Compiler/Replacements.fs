@@ -1340,7 +1340,9 @@ module private AstPass =
             | [arg] -> arg
             | args -> makeArray Fable.Any args
             |> Some
-        | "message" -> i.callee
+        | "message" ->
+            CoreLibCall("String", Some "fsFormat", false, [makeConst "%A"; i.callee.Value])
+            |> makeCall com i.range i.returnType |> Some
         | _ -> None
 
     let cancels com (i: Fable.ApplyInfo) =

@@ -12,7 +12,8 @@ import { year } from "./Date"
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
 
-export function fsFormat(str: string) {
+export function fsFormat(str: string, ...args: any[]): Function | string {
+  let _cont: any;
   function isObject(x: any) {
     return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
   }
@@ -55,11 +56,18 @@ export function fsFormat(str: string) {
         ? makeFn(str2) : _cont(str2.replace(/%%/g, "%"));
     };
   }
-  let _cont: any;
-  return (cont: any) => {
-    _cont = cont;
-    return fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
-  };
+  if (args.length === 0) {
+    return (cont: any) => {
+      _cont = cont;
+      return fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
+    };
+  }
+  else {
+    for (let i = 0; i < args.length; i++) {
+      str = formatOnce(str, args[i]);
+    }
+    return str.replace(/%%/g, "%");
+  }
 }
 
 export function format(str: string, ...args: any[]) {

@@ -98,10 +98,10 @@ let tryImported com name srcFile curFile (decs: #seq<Decorator>) =
                 when path.StartsWith(".") && not(System.String.IsNullOrWhiteSpace(srcFile)) ->
                 // 1. Join(dirname(srcFile), path)
                 // 2. GetRelativePath(curFile, 1)
-                System.IO.Path.Combine(System.IO.Path.GetDirectoryName(srcFile), path)
+                System.IO.Path.Combine(System.IO.Path.GetDirectoryName(srcFile), path.Trim())
                 |> System.IO.Path.GetFullPath
                 |> Path.getRelativePath curFile
-                |> fun path -> Some(Value(ImportRef(memb, path, CustomImport)))
+                |> fun path -> Some(Value(ImportRef(memb.Trim(), path, CustomImport)))
             | [(:? string as memb);(:? string as path)] ->
                 Some(Value(ImportRef(memb, path, CustomImport)))
             | _ -> failwith "Import attributes must contain two string arguments"

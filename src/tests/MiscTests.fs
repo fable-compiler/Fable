@@ -782,4 +782,13 @@ let ``Import with relative paths from referenced dll works``() =
     DllRef.Lib.モジュール.three |> equal 3
     DllRef.Util.two |> equal 2
     DllRef.Util.four |> equal 4
+
+[<Test>]
+let ``JS accepts any object as exception``() =
+    try
+        let o = createObj [ "foo" ==> 3 ]
+        raise(unbox o)
+    with ex -> ex.Message
+    |> equal """{"foo":3}"""
 #endif // FABLE_COMPILER
+
