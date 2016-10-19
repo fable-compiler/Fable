@@ -292,32 +292,40 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.iter Console.Out.WriteLine
 
 let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions) =
-    let projOut =
-        let name = Path.GetFileNameWithoutExtension(comOpts.projFile)
-        Path.Combine(comOpts.outDir, name)
-    let args =
-        Array.append [|
+    if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
+    then
+        [Warning "Fable can only compile .fsx files to .dll at the moment"]
+        |> List.map (string >> Log) |> printMessages
+    else
+        if Directory.Exists(comOpts.outDir) |> not then
+            Directory.CreateDirectory(comOpts.outDir) |> ignore
+        let projOut =
+            let projName = Path.GetFileNameWithoutExtension(comOpts.projFile)
+            Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
+        let args = [|
+            comOpts.projFile
+            "--out:" + projOut + ".dll"
+            "--target:library"
             "--doc:" + projOut + ".xml"
-            "-o"; projOut + ".dll"; "-a"
-        |] projOpts.OtherOptions
-    let errors, warnings =
-        if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
-        then args
-        // Project Options from a script don't contain file names
-        else Array.append args projOpts.ProjectFileNames
-        |> checker.Compile
-        |> fun (errors, _exitCode) -> parseErrors errors
-    if errors.Length > 0 then
-        errors
-        |> Seq.append ["Errors wen generating dll assembly:"]
-        |> String.concat "\n"
-        |> failwith
-    if warnings.Length > 0 then
-        warnings
-        |> Seq.append ["Warnings wen generating dll assembly:"]
-        |> String.concat "\n"
-        |> Warning |> string |> Log
-        |> List.singleton |> printMessages
+        |]
+        let errors, warnings =
+            if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
+            then args
+            // Project Options from a script don't contain file names
+            else Array.append args projOpts.ProjectFileNames
+            |> checker.Compile
+            |> fun (errors, _exitCode) -> parseErrors errors
+        if errors.Length > 0 then
+            errors
+            |> Seq.append ["Errors when generating dll assembly:"]
+            |> String.concat "\n"
+            |> failwith
+        if warnings.Length > 0 then
+            warnings
+            |> Seq.append ["Warnings when generating dll assembly:"]
+            |> String.concat "\n"
+            |> Warning |> string |> Log
+            |> List.singleton |> printMessages
 
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
     try

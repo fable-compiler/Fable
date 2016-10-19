@@ -1,3 +1,7 @@
+### 0.7.5-alpha.8
+
+* Fix problems with `dll` generation
+
 ### 0.7.5-alpha.7
 
 * Add experimental `--dll` compiler option to generate assemblies
