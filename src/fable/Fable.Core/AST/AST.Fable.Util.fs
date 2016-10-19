@@ -112,41 +112,42 @@ let makeJsObject range (props: (string * Expr) list) =
         MemberDeclaration(Member(name, Field, [], body.Type), None, [], body, range))
     ObjExpr(decls, [], None, Some range)
 
+let makeNonDeclaredTypeRef (kind: TypeKind) arg =
+    let kind = Value(NumberConst(U2.Case1(int kind), Int32))
+    match arg with
+    | None -> [kind]
+    | Some arg -> [kind; arg]
+    |> fun vals -> Wrapped(makeArray Any vals, Entity.MetaType)
+
 let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) curFile generics typ =
     let str s = Wrapped(Value(StringConst s), Entity.MetaType)
-    let makeInfo (kind: TypeKind) arg =
-        let kind = Value(NumberConst(U2.Case1(int kind), Int32))
-        match arg with
-        | None -> [kind]
-        | Some arg -> [kind; arg]
-        |> fun vals -> Wrapped(makeArray Any vals, Entity.MetaType)
     let makeGenInfo (kind: TypeKind) genArgs =
         match genArgs with
         | [genArg] -> makeTypeRef com range curFile generics genArg
         | genArgs ->
             let genArgs = List.map (makeTypeRef com range curFile generics) genArgs
             ArrayConst(ArrayValues genArgs, Any) |> Value
-        |> Some |> makeInfo kind
+        |> Some |> makeNonDeclaredTypeRef kind
     match typ with
     | Boolean -> str "boolean"
     | String -> str "string"
     | Number _ | Enum _ -> str "number"
     | Function _ -> str "function"
-    | Any -> makeInfo TypeKind.Any None
-    | Unit -> makeInfo TypeKind.Unit None
+    | Any -> makeNonDeclaredTypeRef TypeKind.Any None
+    | Unit -> makeNonDeclaredTypeRef TypeKind.Unit None
     | Array genArg -> makeGenInfo TypeKind.Array [genArg]
     | Option genArg -> makeGenInfo TypeKind.Option [genArg]
     | Tuple genArgs -> makeGenInfo TypeKind.Tuple genArgs
     | GenericParam name ->
-        str name |> Some |> makeInfo TypeKind.GenericParam
+        str name |> Some |> makeNonDeclaredTypeRef TypeKind.GenericParam
     | DeclaredType(ent, _) when ent.Kind = Interface ->
-        str ent.FullName |> Some |> makeInfo TypeKind.Interface
+        str ent.FullName |> Some |> makeNonDeclaredTypeRef TypeKind.Interface
     | DeclaredType(ent, genArgs) ->
         let srcFile = defaultArg ent.File ""
         // Imported types come from JS so they don't need to be made generic
         match tryImported com ent.Name srcFile curFile ent.Decorators with
         | Some expr -> expr
-        | None when ent.IsErased -> makeInfo TypeKind.Any None
+        | None when ent.IsErased -> makeNonDeclaredTypeRef TypeKind.Any None
         | None when not generics || genArgs.IsEmpty -> Value (TypeRef ent)
         | None ->
             let genArgs =

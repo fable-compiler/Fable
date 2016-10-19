@@ -1,3 +1,7 @@
+### 0.7.5-alpha.9
+
+* Fix issues with bundling and `System.Exception`
+
 ### 0.7.5-alpha.8
 
 * Fix problems with `dll` generation

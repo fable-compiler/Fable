@@ -1604,10 +1604,10 @@ module private CoreLibPass =
     /// Module methods in the core lib can be bound Static or Both (instance and static).
     /// If they're bound only statically all methods will be called statically: if there's an
     /// instance, it'll be passed as the first argument and constructors will change to `create`.
-    /// ATTENTION: currently there are no checks for instance methods. Make sure
-    /// the core library polyfills all instance methods when using MapKind.Both.
     type MapKind = Static | Both
 
+    // Attention! If a type is added here, it will likely need
+    // to be added to `tryReplaceEntity` below too.
     let mappings =
         dict [
             system + "DateTime" => ("Date", Static)
@@ -1670,9 +1670,12 @@ let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
     | ex -> failwithf "Cannot replace %s.%s: %s"
                 info.ownerFullName info.methodName ex.Message
 
+// TODO: We'll probably have to merge this with CoreLibPass.mappings
+// Especially if we start making more types from the BCL compatible
 let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) =
     let coreLibType name = makeCoreRef com name None |> Some
     match ent.FullName with
+    | Naming.EndsWith "Exception" _ -> makeNonDeclaredTypeRef Fable.TypeKind.Any None |> Some
     | "System.TimeSpan" -> Fable.StringConst "number" |> Fable.Value |> Some
     | "System.DateTime" -> makeIdentExpr "Date" |> Some
     | "System.Collections.Generic.Dictionary" -> makeIdentExpr "Map" |> Some
