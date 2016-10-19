@@ -10,7 +10,7 @@ var path = require("path") || require("./path");
 var optionDefinitions = [
   { name: 'projFile', defaultOption: true, description: "The F# project (.fsproj) or script (.fsx) to compile." },
   { name: 'outDir', alias: 'o', description: "Where to put compiled JS files. Defaults to project directory." },
-  { name: 'module', alias: 'm', description: "Specify module code generation: `umd` (default), `commonjs`, `amd` or `es2015`." },
+  { name: 'module', alias: 'm', description: "Specify module code generation: `commonjs` (default), `umd`, `amd` or `es2015`." },
   { name: 'sourceMaps', alias: 's', description: "Generate source maps: `false` (default), `true` or `inline`." },
   { name: 'watch', alias: 'w', type: Boolean, description: "Recompile project much faster on file modifications." },
   { name: 'ecma', description: "Specify ECMAScript target version: `es5` (default) or `es2015`." },
