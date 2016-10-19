@@ -1,4 +1,4 @@
-[<NUnit.Framework.TestFixture>] 
+[<NUnit.Framework.TestFixture>]
 module Fable.Tests.Misc
 
 open System
@@ -62,7 +62,7 @@ let ``Class members from partial functions work``() = // See #115
 let ``Local values from partial functions work``() = // See #115
     let logItem1 = log "item1"
     let logItem2 = log "item2"
-    logItem1 "item1" |> equal "a = item1, b = item1" 
+    logItem1 "item1" |> equal "a = item1, b = item1"
 
 #if FABLE_COMPILER
 open Fable.Core
@@ -77,7 +77,7 @@ let ``Dynamic application works``() =
                 createObj [
                     "subtract" ==> Func<_,_,_>(fun x y -> x - y)
                 ]
-            "child" ==> 
+            "child" ==>
                 createObj [
                     "multiply" ==> Func<_,_,_>(fun x y -> x * y)
                 ]
@@ -97,8 +97,8 @@ let ``Dynamic application works``() =
     dynObj?foo |> unbox |> equal "foo"
     // Delegates are not modified when applied dynamically
     let del = Func<_,_,_>(fun x y -> y - x)
-    dynObj?apply(del) |> unbox |> equal 1    
-    dynObj?apply(Func<_,_,_>(fun x y -> x - y)) |> unbox |> equal -1    
+    dynObj?apply(del) |> unbox |> equal 1
+    dynObj?apply(Func<_,_,_>(fun x y -> x - y)) |> unbox |> equal -1
 
 let myMeth (x: int) (y: int) = x - y
 
@@ -117,7 +117,7 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
 
     let f = unbox<obj> o?apply2and5
     f $ (fun x y -> x * y) |> unbox<int> |> equal 10
-    
+
     o?foo <- fun x y -> x / y
     o?foo(25, 5) |> unbox<int> |> equal 5
 
@@ -148,7 +148,7 @@ let ``KeyValueList attribute works at compile time``() =
 let ``KeyValueList attribute works at runtime``() =
     let buildAtRuntime = function
         | null | "" -> Flag1
-        | name -> Name name 
+        | name -> Name name
     let opts = [
         buildAtRuntime "Fable"
         QTY 5
@@ -157,16 +157,16 @@ let ``KeyValueList attribute works at runtime``() =
     opts?name |> unbox |> equal "Fable"
     opts?QTY |> unbox |> equal 5
     opts?flag1 |> unbox |> equal true
-    
+
 [<StringEnum>]
 type MyStrings =
     | Vertical
     | [<CompiledName("Horizontal")>] Horizontal
-    
+
 [<Test>]
 let ``StringEnum attribute works``() =
-    Vertical |> unbox |> equal "vertical"  
-    Horizontal |> unbox |> equal "Horizontal"  
+    Vertical |> unbox |> equal "vertical"
+    Horizontal |> unbox |> equal "Horizontal"
 
 [<StringEnum>]
 #endif
@@ -199,7 +199,7 @@ let execMaybe a = maybe {
 
 [<Test>]
 let ``Custom computation expressions work``() =
-    execMaybe 5 |> equal (Some 23) 
+    execMaybe 5 |> equal (Some 23)
     execMaybe 99 |> equal None
 
 
@@ -216,12 +216,12 @@ type Vector3D<[<Measure>] 'u> =
 [<Test>]
 let ``Units of measure work``() =
     3<km/h> + 2<km/h> |> equal 5<km/h>
-    
+
     let v1 = { x = 4.3<mi>; y = 5.<mi>; z = 2.8<mi> }
     let v2 = { x = 5.6<mi>; y = 3.8<mi>; z = 0.<mi> }
     let v3 = v1 + v2
     equal 8.8<mi> v3.y
-    
+
 
 type PointWithCounter(a: int, b: int) =
     // A variable i.
@@ -274,13 +274,13 @@ let f'' x = x + x
 [<Test>]
 let ``Conversion to delegate works``() =
     (System.Func<_,_,_,_> f').Invoke(1,2,3) |> equal 6
-    
+
     let f = f'
     (System.Func<_,_,_,_> f).Invoke(1,2,3) |> equal 6
-    
+
     let del = System.Func<_,_,_,_>(fun x y z -> x + y + z)
     del.Invoke(1,2,3) |> equal 6
-    
+
     (System.Func<_,_> f'').Invoke(2) |> equal 4
 
 let (|NonEmpty|_|) (s: string) =
@@ -292,7 +292,7 @@ let ``Multiple active pattern calls work``() =
     | NonEmpty "Hello", NonEmpty "Bye" -> true
     | _ -> false
     |> equal true
-    
+
 open System
 type IFoo =
    abstract Bar: s: string * [<ParamArray>] rest: obj[] -> string
@@ -364,7 +364,7 @@ let ``References to enclosing type from object expression work``() = // See #438
 
 type IFoo3 =
    abstract Bar: int with get, set
-   
+
 [<Test>]
 let ``Properties in object expression work``() =
     let mutable backend = 0
@@ -380,7 +380,7 @@ type SomeClass(name: string) =
 
 type AnotherClass(value: int) =
     member x.Value = value
-    
+
 [<Test>]
 let ``Object expression from class works``() =
     let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
@@ -392,14 +392,14 @@ let ``Object expression from class works``() =
 type RecursiveType(subscribe) as this =
     let getNumber() = 3
     do subscribe (getNumber >> this.Add2)
-    member this.Add2(i) = i + 2 
+    member this.Add2(i) = i + 2
 
 [<Test>]
 let ``Composition with recursive this works``() =
     let mutable x = 0
     RecursiveType(fun f -> x <- f()) |> ignore
     equal 5 x
-        
+
 module Extensions =
     type IDisposable with
         static member Create(f) =
@@ -456,14 +456,14 @@ module StyleBuilderHelper =
         | { StyleBuilderHelper = { BottomOffset = 2 } },
           { StyleBuilderHelper = { TopOffset = 1; BottomOffset = 3 } } -> true
         | _ -> false
-    
+
 [<Test>]
 let ``Module, members and properties with same name don't clash``() =
     StyleBuilderHelper.test() |> equal true
 
 module Mutable =
     let mutable prop = 10
-    
+
 [<Test>]
 let ``Module mutable properties work``() =
     equal 10 Mutable.prop
@@ -477,7 +477,7 @@ module Same =
             let a = 10
         let shouldEqual5 = a
         let shouldEqual10 = Same.a
-        
+
         let private Same = 20
         let shouldEqual20 = Same
         let shouldEqual30 = let Same = 25 in Same + 5
@@ -493,7 +493,7 @@ let ``Accessing members of child module with same name works``() =
 [<Test>]
 let ``Accessing members with same name as module works``() =
     equal 20 Same.Same.shouldEqual20
-    
+
 [<Test>]
 let ``Naming values with same name as module works``() =
     equal 30 Same.Same.shouldEqual30
@@ -509,14 +509,14 @@ let ``Modules don't conflict with JS names``() =
 let f2 a b = a + b
 let mutable a = 10
 
-module B = 
+module B =
   let c = a
   a <- a + 5
   let mutable a = 20
   let d = f2 2 2
   let f2 a b = a - b
-  
-  module D = 
+
+  module D =
     let d = a
     a <- a + 5
     let e = f2 2 2
@@ -537,7 +537,7 @@ let ``Binding doesn't shadow top-level values (TestFixture)``() = // See #130
 let ``Binding doesn't shadow top-level functions``() = // See #130
     equal 4 Util.B.d
     equal 0 Util.B.D.e
-    
+
 [<Test>]
 let ``Binding doesn't shadow top-level functions (TestFixture)``() = // See #130
     equal 4 B.d
@@ -552,13 +552,13 @@ let ``Setting a top-level value doesn't alter values at same level``() = // See 
 let ``Setting a top-level value doesn't alter values at same level (TestFixture)``() = // See #130
     equal 15 a
     equal 25 B.a
-    
+
 module Internal =
     let internal add x y = x + y
 
     type internal MyType =
         static member Subtract x y = x - y
-    
+
 [<Test>]
 let ``Internal members can be accessed from other modules``() = // See #163
     Internal.add 3 2 |> equal 5
@@ -614,7 +614,7 @@ let ``defaultArg works``() =
 // In F# both branches of if-then-else has the same type,
 // but this is not always true in Fable AST. For example when
 // one branch is a Throw expression, it has always type Unit.
-// So we should test that the type of the whole expression is not determined 
+// So we should test that the type of the whole expression is not determined
 // by the throw expression in one of its branches.
 //
 // The same applies to try-with expression.
@@ -648,7 +648,7 @@ let ``Type of try-with expression is correctly determined when exception handler
     f () |> equal 7
 
 type DisposableFoo() =
-    member __.Foo() = 5  
+    member __.Foo() = 5
     interface IDisposable with
         member __.Dispose () = ()
 
@@ -667,9 +667,9 @@ type DisposableBar(v) =
 [<Test>]
 let ``use calls Dispose at the end of the scope`` () =
     let cell = ref 0
-    let res = 
+    let res =
         use c = new DisposableBar(cell)
-        !cell 
+        !cell
     res |> equal 10
     !cell |> equal 20
 
@@ -790,5 +790,20 @@ let ``JS accepts any object as exception``() =
         raise(unbox o)
     with ex -> ex.Message
     |> equal """{"foo":3}"""
-#endif // FABLE_COMPILER
 
+
+[<Test>]
+let ``Identifiers are encoded correctly``() = // See #482
+    equal "bar1" Lib.``$5EAfoo``
+    equal "bar2" Lib.``$5E$Afoo``
+    equal "bar3" Lib.``$5EA$foo``
+    equal "bar4" Lib.``^Afoo``
+    equal "bar5" Lib.``תfoo``
+    equal "bar6" Lib.``foo$5EA``
+    equal "bar7" Lib.``foo$5E$A``
+    equal "bar8" Lib.``foo$5EA$``
+    equal "bar9" Lib.``foo^A``
+    equal "bar10" Lib.``fooת``
+
+
+#endif // FABLE_COMPILER

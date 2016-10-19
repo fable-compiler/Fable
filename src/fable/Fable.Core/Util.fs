@@ -2,26 +2,26 @@ namespace Fable
 
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
-    
+
     let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k,'v>) key =
         let success, value = dic.TryGetValue key
         if success then Some value else None
 
     let (|SetContains|_|) set item =
         if Set.contains item set then Some item else None
-    
+
 module Naming =
     open System
     open System.IO
     open System.Text.RegularExpressions
     open Patterns
-    
+
     let (|StartsWith|_|) pattern (txt: string) =
         if txt.StartsWith pattern then Some pattern else None
 
     let (|EndsWith|_|) pattern (txt: string) =
         if txt.EndsWith pattern then Some pattern else None
-    
+
     let [<Literal>] placeholder = "PLACE-HOLDER"
     let [<Literal>] dummyFile = "ThiS-is-A-duMMy.FilE"
     let [<Literal>] fableExternalDir = "fable_external"
@@ -53,12 +53,12 @@ module Naming =
         set ["Erase"; "Emit"; "KeyValueList"; "StringEnum"]
 
     let identForbiddenCharsRegex =
-        Regex @"^[^a-zA-Z_$]|[^0-9a-zA-Z_$]"
+        Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
 
     let replaceIdentForbiddenChars (ident: string) =
         identForbiddenCharsRegex.Replace(ident, fun (m: Match) ->
-            "$" + (int m.Value.[0]).ToString("X"))
-    
+            "$" + (int m.Value.[0]).ToString("X") + "$")
+
     let removeParens, removeGetSetPrefix, sanitizeActivePattern =
         let reg1 = Regex(@"^\( (.*) \)$")
         let reg2 = Regex(@"^[gs]et_")
@@ -66,7 +66,7 @@ module Naming =
         (fun s -> reg1.Replace(s, "$1")),
         (fun s -> reg2.Replace(s, "")),
         (fun (s: string) -> if reg3.IsMatch(s) then s.Replace("|", "$") else s)
-        
+
     let lowerFirst (s: string) =
         s.Substring(0,1).ToLowerInvariant() + s.Substring(1)
 
@@ -86,10 +86,10 @@ module Naming =
             // DOM interfaces (https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model)
             "Attr"; "CharacterData"; "Comment"; "CustomEvent"; "Document"; "DocumentFragment"; "DocumentType"; "DOMError"; "DOMException"; "DOMImplementation";
             "DOMString"; "DOMTimeStamp"; "DOMSettableTokenList"; "DOMStringList"; "DOMTokenList"; "Element"; "Event"; "EventTarget"; "HTMLCollection"; "MutationObserver";
-            "MutationRecord"; "Node"; "NodeFilter"; "NodeIterator"; "NodeList"; "ProcessingInstruction"; "Range"; "Text"; "TreeWalker"; "URL"; "Window"; "Worker"; "XMLDocument"; 
+            "MutationRecord"; "Node"; "NodeFilter"; "NodeIterator"; "NodeList"; "ProcessingInstruction"; "Range"; "Text"; "TreeWalker"; "URL"; "Window"; "Worker"; "XMLDocument";
             // See #258
             "arguments"
-        ] 
+        ]
 
     let sanitizeIdent conflicts name =
         let preventConflicts conflicts name =
@@ -118,7 +118,7 @@ module Path =
         Path.GetFullPath(path).Replace("\\", "/")
 
     /// If flag --copyExt is activated, copy files outside project folder into
-    /// an internal `fable_external` folder (adding a hash to prevent naming conflicts) 
+    /// an internal `fable_external` folder (adding a hash to prevent naming conflicts)
     let fixExternalPath =
         let cache = System.Collections.Generic.Dictionary<string, string>()
         let addToCache (cache: System.Collections.Generic.Dictionary<'k, 'v>) k v =
@@ -148,7 +148,7 @@ module Path =
 
     /// Creates a relative path from one file or folder to another.
     let getRelativeFileOrDirPath fromIsDir fromPath toIsDir toPath =
-        // Algorithm adapted from http://stackoverflow.com/a/6244188 
+        // Algorithm adapted from http://stackoverflow.com/a/6244188
         let pathDifference (path1: string) (path2: string) =
             let path1 = normalizePath path1
             let path2 = normalizePath path2
@@ -185,7 +185,7 @@ module Path =
         // work either if the directory doesn't exist (e.g. `outDir`)
         let isDir = Path.GetExtension >> String.IsNullOrWhiteSpace
         // let isDir = IO.Directory.Exists
-        getRelativeFileOrDirPath (isDir fromPath) fromPath (isDir toPath) toPath 
+        getRelativeFileOrDirPath (isDir fromPath) fromPath (isDir toPath) toPath
 
     let getExternalImportPath (com: ICompiler) (filePath: string) (importPath: string) =
         if not(importPath.StartsWith ".")
@@ -208,8 +208,8 @@ module Path =
                 while i < prefix.Length && i < x.Length && x.[i] = prefix.[i] do
                     i <- i + 1
                 getCommonPrefix prefix.[0..i-1] xs
-        match xs with [] -> [||] | x::xs -> getCommonPrefix x xs 
-        
+        match xs with [] -> [||] | x::xs -> getCommonPrefix x xs
+
     let getCommonBaseDir (filePaths: seq<string>) =
         filePaths
         |> Seq.map (fun filePath ->
