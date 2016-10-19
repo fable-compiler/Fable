@@ -4,6 +4,7 @@
         "module": "es6",
         "noImplicitAny": true,
         "noImplicitReturns": true,
+        "declaration": true,
         "outDir": "../../../../build/fable-core"
     }
 }

@@ -1,4 +1,4 @@
-type MatchEvaluator = (match: any) => string;
+export type MatchEvaluator = (match: any) => string;
 
 export function create(pattern: string, options: number) {
   let flags = "g";

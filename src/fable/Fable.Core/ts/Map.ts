@@ -1,11 +1,11 @@
 import List from "./List"
-import { ofArray as listOfArray } from "./List" 
-import { IComparer } from "./Util" 
-import { IEquatable } from "./Util" 
-import { IComparable } from "./Util" 
-import { toString } from "./Util" 
-import { equals } from "./Util" 
-import { compare } from "./Util" 
+import { ofArray as listOfArray } from "./List"
+import { IComparer } from "./Util"
+import { IEquatable } from "./Util"
+import { IComparable } from "./Util"
+import { toString } from "./Util"
+import { equals } from "./Util"
+import { compare } from "./Util"
 import GenericComparer from "./GenericComparer"
 import FSymbol from "./Symbol"
 import { map as seqMap } from "./Seq"
@@ -22,7 +22,7 @@ interface MapIterator {
   started: boolean;
 }
 
-class MapTree {
+export class MapTree {
   public Case: string;
   public Fields: any[];
 
@@ -32,7 +32,7 @@ class MapTree {
   }
 }
 
-export function tree_sizeAux(acc: number, m: MapTree): number {
+function tree_sizeAux(acc: number, m: MapTree): number {
     return m.Case === "MapOne"
         ? acc + 1
         : m.Case === "MapNode"
@@ -40,23 +40,23 @@ export function tree_sizeAux(acc: number, m: MapTree): number {
             : acc;
 }
 
-export function tree_size(x: MapTree) {
+function tree_size(x: MapTree) {
     return tree_sizeAux(0, x);
 }
 
-export function tree_empty() {
+function tree_empty() {
     return new MapTree("MapEmpty", []);
 }
 
-export function tree_height(_arg1: MapTree) {
+function tree_height(_arg1: MapTree) {
     return _arg1.Case === "MapOne" ? 1 : _arg1.Case === "MapNode" ? _arg1.Fields[4] : 0;
 }
 
-export function tree_isEmpty(m: MapTree) {
+function tree_isEmpty(m: MapTree) {
     return m.Case === "MapEmpty" ? true : false;
 }
 
-export function tree_mk(l: MapTree, k: any, v: any, r: MapTree) {
+function tree_mk(l: MapTree, k: any, v: any, r: MapTree) {
     var matchValue = [l, r];
     var $target1 = () => {
         var hl = tree_height(l);
@@ -75,7 +75,7 @@ export function tree_mk(l: MapTree, k: any, v: any, r: MapTree) {
     }
 };
 
-export function tree_rebalance(t1: MapTree, k: any, v: any, t2: MapTree) {
+function tree_rebalance(t1: MapTree, k: any, v: any, t2: MapTree) {
     var t1h = tree_height(t1);
     var t2h = tree_height(t2);
     if (t2h > t1h + 2) {
@@ -113,7 +113,7 @@ export function tree_rebalance(t1: MapTree, k: any, v: any, t2: MapTree) {
     }
 }
 
-export function tree_add(comparer: IComparer<any>, k: any, v: any, m: MapTree): MapTree {
+function tree_add(comparer: IComparer<any>, k: any, v: any, m: MapTree): MapTree {
     if (m.Case === "MapOne") {
         var c = comparer.Compare(k, m.Fields[0]);
         if (c < 0) {
@@ -137,14 +137,14 @@ export function tree_add(comparer: IComparer<any>, k: any, v: any, m: MapTree): 
     return new MapTree("MapOne", [k, v]);
 }
 
-export function tree_find(comparer: IComparer<any>, k: any, m: MapTree): any {
+function tree_find(comparer: IComparer<any>, k: any, m: MapTree): any {
     const res = tree_tryFind(comparer, k, m);
     if (res != null)
         return res;
     throw "key not found";
 }
 
-export function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
+function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
     if (m.Case === "MapOne") {
         var c = comparer.Compare(k, m.Fields[0]);
         return c === 0 ? m.Fields[1] : null;
@@ -164,11 +164,11 @@ export function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any 
     return null;
 }
 
-export function tree_partition1(comparer: IComparer<any>, f: (k: any, v: any) => boolean, k: any, v: any, acc1: MapTree, acc2: MapTree): [MapTree, MapTree] {
+function tree_partition1(comparer: IComparer<any>, f: (k: any, v: any) => boolean, k: any, v: any, acc1: MapTree, acc2: MapTree): [MapTree, MapTree] {
     return f(k, v) ? [tree_add(comparer, k, v, acc1), acc2] : [acc1, tree_add(comparer, k, v, acc2)];
 }
 
-export function tree_partitionAux(comparer: IComparer<any>, f: (k: any, v: any) => boolean, s: MapTree, acc_0: MapTree, acc_1: MapTree): [MapTree, MapTree] {
+function tree_partitionAux(comparer: IComparer<any>, f: (k: any, v: any) => boolean, s: MapTree, acc_0: MapTree, acc_1: MapTree): [MapTree, MapTree] {
     const acc: [MapTree, MapTree] = [acc_0, acc_1];
     if (s.Case === "MapOne") {
         return tree_partition1(comparer, f, s.Fields[0], s.Fields[1], acc[0], acc[1]);
@@ -181,15 +181,15 @@ export function tree_partitionAux(comparer: IComparer<any>, f: (k: any, v: any) 
     return acc;
 }
 
-export function tree_partition(comparer: IComparer<any>, f: (k: any, v: any) => boolean, s: MapTree) {
+function tree_partition(comparer: IComparer<any>, f: (k: any, v: any) => boolean, s: MapTree) {
     return tree_partitionAux(comparer, f, s, tree_empty(), tree_empty());
 }
 
-export function tree_filter1(comparer: IComparer<any>, f: (k: any, v: any) => boolean, k: any, v: any, acc: MapTree) {
+function tree_filter1(comparer: IComparer<any>, f: (k: any, v: any) => boolean, k: any, v: any, acc: MapTree) {
     return f(k, v) ? tree_add(comparer, k, v, acc) : acc;
 }
 
-export function tree_filterAux(comparer: IComparer<any>, f: (k: any, v: any) => boolean, s: MapTree, acc: MapTree): MapTree {
+function tree_filterAux(comparer: IComparer<any>, f: (k: any, v: any) => boolean, s: MapTree, acc: MapTree): MapTree {
     return s.Case === "MapOne" ? tree_filter1(comparer, f, s.Fields[0], s.Fields[1], acc) : s.Case === "MapNode" ? (() => {
         var acc_1 = tree_filterAux(comparer, f, s.Fields[2], acc);
         var acc_2 = tree_filter1(comparer, f, s.Fields[0], s.Fields[1], acc_1);
@@ -197,11 +197,11 @@ export function tree_filterAux(comparer: IComparer<any>, f: (k: any, v: any) => 
     })() : acc;
 }
 
-export function tree_filter(comparer: IComparer<any>, f: (k: any, v: any) => boolean, s: MapTree) {
+function tree_filter(comparer: IComparer<any>, f: (k: any, v: any) => boolean, s: MapTree) {
     return tree_filterAux(comparer, f, s, tree_empty());
 }
 
-export function tree_spliceOutSuccessor(m: MapTree): [any, any, MapTree] {
+function tree_spliceOutSuccessor(m: MapTree): [any, any, MapTree] {
     if (m.Case === "MapOne") {
         return [m.Fields[0], m.Fields[1], new MapTree("MapEmpty", [])];
     }
@@ -217,7 +217,7 @@ export function tree_spliceOutSuccessor(m: MapTree): [any, any, MapTree] {
     throw "internal error: Map.spliceOutSuccessor";
 }
 
-export function tree_remove(comparer: IComparer<any>, k: any, m: MapTree): MapTree {
+function tree_remove(comparer: IComparer<any>, k: any, m: MapTree): MapTree {
     if (m.Case === "MapOne") {
         var c = comparer.Compare(k, m.Fields[0]);
         if (c === 0) {
@@ -256,7 +256,7 @@ export function tree_remove(comparer: IComparer<any>, k: any, m: MapTree): MapTr
     }
 }
 
-export function tree_mem(comparer: IComparer<any>, k: any, m: MapTree): boolean {
+function tree_mem(comparer: IComparer<any>, k: any, m: MapTree): boolean {
     return m.Case === "MapOne" ? comparer.Compare(k, m.Fields[0]) === 0 : m.Case === "MapNode" ? (() => {
         var c = comparer.Compare(k, m.Fields[0]);
         if (c < 0) {
@@ -271,7 +271,7 @@ export function tree_mem(comparer: IComparer<any>, k: any, m: MapTree): boolean 
     })() : false;
 }
 
-export function tree_iter(f: (k: any, v: any) => void, m: MapTree): void {
+function tree_iter(f: (k: any, v: any) => void, m: MapTree): void {
     if (m.Case === "MapOne") {
         f(m.Fields[0], m.Fields[1]);
     }
@@ -282,7 +282,7 @@ export function tree_iter(f: (k: any, v: any) => void, m: MapTree): void {
     }
 }
 
-export function tree_tryPick(f: (k: any, v: any) => any, m: MapTree): any {
+function tree_tryPick(f: (k: any, v: any) => any, m: MapTree): any {
     return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (() => {
         var matchValue = tree_tryPick(f, m.Fields[2]);
         if (matchValue == null) {
@@ -300,15 +300,15 @@ export function tree_tryPick(f: (k: any, v: any) => any, m: MapTree): any {
     })() : null;
 }
 
-export function tree_exists(f: (k: any, v: any) => boolean, m: MapTree): boolean {
+function tree_exists(f: (k: any, v: any) => boolean, m: MapTree): boolean {
     return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (tree_exists(f, m.Fields[2]) ? true : f(m.Fields[0], m.Fields[1])) ? true : tree_exists(f, m.Fields[3]) : false;
 }
 
-export function tree_forall(f: (k: any, v: any) => boolean, m: MapTree): boolean {
+function tree_forall(f: (k: any, v: any) => boolean, m: MapTree): boolean {
     return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (tree_forall(f, m.Fields[2]) ? f(m.Fields[0], m.Fields[1]) : false) ? tree_forall(f, m.Fields[3]) : false : true;
 }
 
-// export function tree_map(f: (v:any) => any, m: MapTree): MapTree {
+// function tree_map(f: (v:any) => any, m: MapTree): MapTree {
 //   return m.Case === "MapOne" ? new MapTree("MapOne", [m.Fields[0], f(m.Fields[1])]) : m.Case === "MapNode" ? (() => {
 //     var l2 = tree_map(f, m.Fields[2]);
 //     var v2 = f(m.Fields[1]);
@@ -317,7 +317,7 @@ export function tree_forall(f: (k: any, v: any) => boolean, m: MapTree): boolean
 //   })() : tree_empty();
 // }
 
-export function tree_mapi(f: (k: any, v: any) => any, m: MapTree): MapTree {
+function tree_mapi(f: (k: any, v: any) => any, m: MapTree): MapTree {
     return m.Case === "MapOne" ? new MapTree("MapOne", [m.Fields[0], f(m.Fields[0], m.Fields[1])]) : m.Case === "MapNode" ? (() => {
         var l2 = tree_mapi(f, m.Fields[2]);
         var v2 = f(m.Fields[0], m.Fields[1]);
@@ -326,7 +326,7 @@ export function tree_mapi(f: (k: any, v: any) => any, m: MapTree): MapTree {
     })() : tree_empty();
 }
 
-export function tree_foldBack(f: (k: any, v: any, acc: any) => any, m: MapTree, x: any): any {
+function tree_foldBack(f: (k: any, v: any, acc: any) => any, m: MapTree, x: any): any {
     return m.Case === "MapOne" ? f(m.Fields[0], m.Fields[1], x) : m.Case === "MapNode" ? (() => {
         var x_1 = tree_foldBack(f, m.Fields[3], x);
         var x_2 = f(m.Fields[0], m.Fields[1], x_1);
@@ -334,7 +334,7 @@ export function tree_foldBack(f: (k: any, v: any, acc: any) => any, m: MapTree, 
     })() : x;
 }
 
-export function tree_fold(f: (acc: any, k: any, v: any) => any, x: any, m: MapTree): any {
+function tree_fold(f: (acc: any, k: any, v: any) => any, x: any, m: MapTree): any {
     return m.Case === "MapOne" ? f(x, m.Fields[0], m.Fields[1]) : m.Case === "MapNode" ? (() => {
         var x_1 = tree_fold(f, x, m.Fields[2]);
         var x_2 = f(x_1, m.Fields[0], m.Fields[1]);
@@ -342,7 +342,7 @@ export function tree_fold(f: (acc: any, k: any, v: any) => any, x: any, m: MapTr
     })() : x;
 }
 
-// export function tree_foldFromTo(comparer: IComparer<any>, lo: any, hi: any, f: (k:any, v:any, acc: any) => any, m: MapTree, x: any): any {
+// function tree_foldFromTo(comparer: IComparer<any>, lo: any, hi: any, f: (k:any, v:any, acc: any) => any, m: MapTree, x: any): any {
 //   if (m.Case === "MapOne") {
 //     var cLoKey = comparer.Compare(lo, m.Fields[0]);
 //     var cKeyHi = comparer.Compare(m.Fields[0], hi);
@@ -360,11 +360,11 @@ export function tree_fold(f: (acc: any, k: any, v: any) => any, x: any, m: MapTr
 //   return x;
 // }
 
-// export function tree_foldSection(comparer: IComparer<any>, lo: any, hi: any, f: (k:any, v:any, acc: any) => any, m: MapTree, x: any) {
+// function tree_foldSection(comparer: IComparer<any>, lo: any, hi: any, f: (k:any, v:any, acc: any) => any, m: MapTree, x: any) {
 //   return comparer.Compare(lo, hi) === 1 ? x : tree_foldFromTo(comparer, lo, hi, f, m, x);
 // }
 
-// export function tree_loop(m: MapTree, acc: any): List<[any,any]> {
+// function tree_loop(m: MapTree, acc: any): List<[any,any]> {
 //   return m.Case === "MapOne"
 //     ? new List([m.Fields[0], m.Fields[1]], acc)
 //     : m.Case === "MapNode"
@@ -372,21 +372,21 @@ export function tree_fold(f: (acc: any, k: any, v: any) => any, x: any, m: MapTr
 //       : acc;
 // }
 
-// export function tree_toList(m: MapTree) {
+// function tree_toList(m: MapTree) {
 //   return tree_loop(m, new List());
 // }
 
-// export function tree_toArray(m: MapTree) {
+// function tree_toArray(m: MapTree) {
 //   return Array.from(tree_toList(m));
 // }
 
-// export function tree_ofList(comparer: IComparer<any>, l: List<[any,any]>) {
+// function tree_ofList(comparer: IComparer<any>, l: List<[any,any]>) {
 //   return Seq.fold((acc: MapTree, tupledArg: [any, any]) => {
 //     return tree_add(comparer, tupledArg[0], tupledArg[1], acc);
 //   }, tree_empty(), l);
 // }
 
-export function tree_mkFromEnumerator(comparer: IComparer<any>, acc: MapTree, e: Iterator<any>): MapTree {
+function tree_mkFromEnumerator(comparer: IComparer<any>, acc: MapTree, e: Iterator<any>): MapTree {
     let cur = e.next();
     while (!cur.done) {
         acc = tree_add(comparer, cur.value[0], cur.value[1], acc);
@@ -395,7 +395,7 @@ export function tree_mkFromEnumerator(comparer: IComparer<any>, acc: MapTree, e:
     return acc;
 }
 
-// export function tree_ofArray(comparer: IComparer<any>, arr: ArrayLike<[any,any]>) {
+// function tree_ofArray(comparer: IComparer<any>, arr: ArrayLike<[any,any]>) {
 //   var res = tree_empty();
 //   for (var i = 0; i <= arr.length - 1; i++) {
 //     res = tree_add(comparer, arr[i][0], arr[i][1], res);
@@ -403,16 +403,16 @@ export function tree_mkFromEnumerator(comparer: IComparer<any>, acc: MapTree, e:
 //   return res;
 // }
 
-export function tree_ofSeq(comparer: IComparer<any>, c: Iterable<any>): MapTree {
+function tree_ofSeq(comparer: IComparer<any>, c: Iterable<any>): MapTree {
     var ie = c[Symbol.iterator]();
     return tree_mkFromEnumerator(comparer, tree_empty(), ie);
 }
 
-// export function tree_copyToArray(s: MapTree, arr: ArrayLike<any>, i: number) {
+// function tree_copyToArray(s: MapTree, arr: ArrayLike<any>, i: number) {
 //   tree_iter((x, y) => { arr[i++] = [x, y]; }, s);
 // }
 
-export function tree_collapseLHS(stack: List<MapTree>): List<MapTree> {
+function tree_collapseLHS(stack: List<MapTree>): List<MapTree> {
     if (stack.tail != null) {
         if (stack.head.Case === "MapOne") {
             return stack;
@@ -433,11 +433,11 @@ export function tree_collapseLHS(stack: List<MapTree>): List<MapTree> {
     }
 }
 
-export function tree_mkIterator(s: MapTree): MapIterator {
+function tree_mkIterator(s: MapTree): MapIterator {
     return { stack: tree_collapseLHS(new List<MapTree>(s, new List<MapTree>())), started: false };
 }
 
-export function tree_moveNext(i: MapIterator): IteratorResult<[any, any]> {
+function tree_moveNext(i: MapIterator): IteratorResult<[any, any]> {
     function current(i: MapIterator): [any, any] {
         if (i.stack.tail == null) {
             return null;
@@ -472,6 +472,7 @@ export function tree_moveNext(i: MapIterator): IteratorResult<[any, any]> {
 }
 
 export default class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterable<[K,V]> {
+  // TODO: These should be made internal, once TypeScript accepts that modifier
   tree: MapTree;
   comparer: IComparer<K>;
 

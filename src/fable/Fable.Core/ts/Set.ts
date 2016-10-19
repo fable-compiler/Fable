@@ -1,22 +1,22 @@
 import List from "./List"
-import { ofArray as listOfArray } from "./List" 
-import { IComparer } from "./Util" 
-import { IEquatable } from "./Util" 
-import { IComparable } from "./Util" 
-import { toString } from "./Util" 
+import { ofArray as listOfArray } from "./List"
+import { IComparer } from "./Util"
+import { IEquatable } from "./Util"
+import { IComparable } from "./Util"
+import { toString } from "./Util"
 import GenericComparer from "./GenericComparer"
 import FSymbol from "./Symbol"
-import { fold as seqFold } from "./Seq" 
-import { reduce as seqReduce } from "./Seq" 
-import { forAll as seqForAll } from "./Seq" 
-import { exists as seqExists } from "./Seq"  
+import { fold as seqFold } from "./Seq"
+import { reduce as seqReduce } from "./Seq"
+import { forAll as seqForAll } from "./Seq"
+import { exists as seqExists } from "./Seq"
 
 interface SetIterator {
   stack: List<SetTree>;
   started: boolean;
 }
 
-class SetTree {
+export class SetTree {
   public Case: string;
   public Fields: any[];
 
@@ -661,6 +661,7 @@ function tree_ofSeq(comparer: IComparer<any>, c: Iterable<any>) {
 }
 
 export default class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> {
+  // TODO: These should be made internal, once TypeScript accepts that modifier
   public tree: SetTree;
   public comparer: IComparer<T>;
 
@@ -744,7 +745,7 @@ export function add<T>(item: T, s: FSet<T>) {
 
 export function addInPlace<T>(item: T, s: Set<T>) {
   return s.has(item) ? false : (s.add(item), true);
-}  
+}
 
 export function remove<T>(item: T, s: FSet<T>) {
   return from(s.comparer, tree_remove(s.comparer, item, s.tree));
@@ -768,7 +769,7 @@ export function unionInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
 
 export function unionMany<T>(sets: Iterable<FSet<T>>) {
   // Pass args as union(s, acc) instead of union(acc, s)
-  // to discard the comparer of the first empty set 
+  // to discard the comparer of the first empty set
   return seqFold((acc, s) => <FSet<T>>union(s, acc), create<T>(), sets);
 }
 
@@ -831,7 +832,7 @@ export function isSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
 
 export function isSubset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
   return isSubsetOf(set1, set2);
-}  
+}
 
 export function isProperSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
   if (set1 instanceof FSet && set2 instanceof FSet) {
@@ -931,4 +932,4 @@ export function maximumElement<T>(s: FSet<T>): T {
 
 export function maxElement<T>(s: FSet<T>): T {
   return tree_maximumElement(s.tree);
-}  
+}

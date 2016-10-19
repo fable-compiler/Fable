@@ -1,4 +1,5 @@
 import { IAsync } from "./AsyncBuilder"
+import { IAsyncContext } from "./AsyncBuilder"
 import { Continuation } from "./AsyncBuilder"
 import { CancellationToken } from "./AsyncBuilder"
 import { defaultCancellationToken } from "./Async"

@@ -1,3 +1,7 @@
+### 0.7.5-alpha.5
+
+* Add .d.ts declaration files
+
 ### 0.7.5-alpha.4
 
 * Add String.Insert method
