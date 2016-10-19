@@ -1,3 +1,7 @@
+### 0.7.5-alpha.11
+
+* Add a block scope to switch cases (see #483)
+
 ### 0.7.5-alpha.10
 
 * Fix invalid identifiers in top level members (see #482)

@@ -546,12 +546,14 @@ module Util =
 
         | Fable.Switch(TransformExpr com ctx matchValue, cases, defaultBranch, _, range) ->
             let transformBranch test branch =
-                let block = transformBlock com ctx None branch
+                let b = transformBlock com ctx None branch
                 match test with
-                | Some(TransformExpr com ctx test) ->
-                    Babel.SwitchCase(block.body@[Babel.BreakStatement()], test, ?loc=block.loc)
-                // Default branch
-                | None -> Babel.SwitchCase(block.body, ?loc=block.loc)
+                | Some(TransformExpr com ctx test) -> b.body@[Babel.BreakStatement()], Some test
+                | None -> b.body, None // Default branch
+                |> fun (statements, test) ->
+                    // Put the body of the case in a block to prevent scope problems (see #483)
+                    let body = [block b.loc statements :> Babel.Statement]
+                    Babel.SwitchCase(body, ?test=test, ?loc=b.loc)
             let cases =
                 cases |> List.collect(fun (tests, branch) ->
                     let prev =
