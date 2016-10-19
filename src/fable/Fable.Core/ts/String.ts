@@ -175,6 +175,13 @@ export function initialize(n: number, f: (i: number) => string) {
   return xs.join("");
 }
 
+export function insert(str: string, startIndex: number, value: string) {
+  if (startIndex < 0 || startIndex > str.length) {
+    throw "startIndex is negative or greater than the length of this instance.";
+  }
+  return str.substring(0, startIndex) + value + str.substring(startIndex);
+}
+
 export function isNullOrEmpty(str: string | any) {
   return typeof str !== "string" || str.length == 0;
 }

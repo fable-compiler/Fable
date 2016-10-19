@@ -377,6 +377,11 @@ let ``String.Remove works``() =
       "abcd".Remove(0,0)
       |> equal "abcd"
 
+[<Test>]
+let ``String.Insert work``() =
+      "foobar".Insert(3, " is ")
+      |> equal "foo is bar"
+
 // String - F# module functions
 
 [<Test>]
