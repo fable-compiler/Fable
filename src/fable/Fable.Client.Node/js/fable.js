@@ -14,13 +14,14 @@ var optionDefinitions = [
   { name: 'sourceMaps', alias: 's', description: "Generate source maps: `false` (default), `true` or `inline`." },
   { name: 'watch', alias: 'w', type: Boolean, description: "Recompile project much faster on file modifications." },
   { name: 'ecma', description: "Specify ECMAScript target version: `es5` (default) or `es2015`." },
-  { name: 'bundle', description: "Bundle files and dependencies and put it in `outDir`, if used as a flag defaults to `bundle.js`." },
+  { name: 'bundle', description: "[EXPERIMENTAL] Bundle files and dependencies and put it in `outDir`, if used as a flag defaults to `bundle.js`." },
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
   { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins (true by default)." },
   { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
   { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
+  { name: 'dll', type: Boolean, description: "[EXPERIMENTAL] Generate a `dll` assembly." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
   { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },  
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
@@ -30,7 +31,7 @@ var optionDefinitions = [
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
   { name: 'production', alias: 'p', description: "Shortcut for `--target production`." },
-  { name: 'declaration', type: Boolean, description: "[Experimental] Generates corresponding ‘.d.ts’ file." },
+  { name: 'declaration', type: Boolean, description: "[EXPERIMENTAL] Generates corresponding ‘.d.ts’ file." },
   { name: 'extra', multiple: true, description: "Custom options for plugins in `Key=Value` format." },
   { name: 'help', alias: 'h', description: "Display usage guide." }
 ];
@@ -590,13 +591,21 @@ function prepareOptions(opts) {
     opts = opts || readOptionsFromCommandLine();
     opts = readOptionsFromFableConfig(opts);
 
+    if (!fableLib.isFSharpProject(opts.projFile)) {
+        throw "Please provide an F# project (.fsproj) or script (.fsx) file";
+    }
+
+    var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile);
+    if (fs && !fs.existsSync(fullProjFile)) {
+        throw "Cannot find project file: " + fullProjFile;
+    }
+
     // Default values
     opts.ecma = opts.ecma || "es5";
     opts.loose = opts.loose != null ? opts.loose : true;
     opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
-    opts.workingDir = opts.workingDir != null ? opts.workingDir : "";
     opts.coreLib = opts.coreLib || (opts.bundle ? "fable-core/es2015" : "fable-core");
-    opts.outDir = opts.outDir ? opts.outDir : ".";
+    opts.outDir = opts.outDir ? opts.outDir : path.dirname(opts.projFile);
     if (opts.module == null) {
         opts.module = opts.bundle
             ? "iife"
@@ -609,14 +618,6 @@ function prepareOptions(opts) {
         for (var k in opts.refs)
             refs.push(k + "=" + opts.refs[k]);
         opts.refs = refs;
-    }
-
-    if (!fableLib.isFSharpProject(opts.projFile)) {
-        throw "Please provide an F# project (.fsproj) or script (.fsx) file";
-    }
-
-    if (fs && !fs.existsSync(fableLib.pathJoin(opts.workingDir, opts.projFile))) {
-        throw "Cannot find project file: " + opts.projFile;
     }
 
     // Check version

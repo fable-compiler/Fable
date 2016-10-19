@@ -1,3 +1,7 @@
+### 0.7.5-alpha.7
+
+* Add experimental `--dll` compiler option to generate assemblies
+
 ### 0.7.5-alpha.6
 
 * Fix path resolution when referencing assemblies

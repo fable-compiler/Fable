@@ -9,6 +9,7 @@ type CompilerOptions = {
         msbuild: string list
         refs: Map<string, string>
         watch: bool
+        dll: bool
         noTypedArrays: bool
         clamp: bool
         copyExt: bool

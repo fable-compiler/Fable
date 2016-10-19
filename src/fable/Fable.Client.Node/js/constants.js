@@ -16,7 +16,7 @@ exports.FSHARP_PROJECT_EXTENSIONS = [".fsproj", ".fsx"];
 /** Set of options compatible with Fable's .NET process */
 exports.FABLE_BIN_OPTIONS = new Set([
     "projFile", "outDir", "coreLib", "symbols", "plugins", "msbuild",
-    "refs", "watch", "clamp", "copyExt", "extra", "declaration", "noTypedArrays"
+    "refs", "watch", "dll", "clamp", "copyExt", "extra", "declaration", "noTypedArrays"
 ]);
 
 /** Accepted JS modules an the alias for Rollup */

@@ -52,6 +52,7 @@ let readOptions argv =
         outDir = def opts "outDir" null (un Path.GetFullPath)
         coreLib = def opts "coreLib" "fable-core" (un (fun x -> x.TrimEnd('/')))
         watch = def opts "watch" false (un bool.Parse)
+        dll = def opts "dll" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
         copyExt = def opts "copyExt" false (un bool.Parse)
         noTypedArrays = def opts "noTypedArrays" false (un bool.Parse)
@@ -213,8 +214,8 @@ let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
         | ex -> failwithf "Cannot read project options: %s" ex.Message
     retry() 
 
-let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
-                        (projOptions: FSharpProjectOptions) =
+/// Returns an (errors, warnings) tuple
+let parseErrors errors =
     let parseError (er: FSharpErrorInfo) =
         let loc = sprintf " (L%i,%i-L%i,%i) (%s)"
                     er.StartLineAlternate er.StartColumn
@@ -224,18 +225,22 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
         | _, 40 -> true, "Recursive value definitions are not supported" + loc // See #237
         | FSharpErrorSeverity.Warning, _ -> false, er.Message + loc
         | FSharpErrorSeverity.Error, _ -> true, er.Message + loc
+    errors
+    |> Array.map parseError
+    |> Array.partition fst
+    |> fun (ers, wns) -> Array.map snd ers, Array.map snd wns
+
+let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
+                        (projOptions: FSharpProjectOptions) =
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
         |> Async.RunSynchronously
     let errors, warnings =
-        checkProjectResults.Errors
-        |> Array.map parseError
-        |> Array.partition fst
+        parseErrors checkProjectResults.Errors
     if errors.Length = 0
-    then warnings |> Array.map (snd >> Warning), checkProjectResults
+    then warnings |> Array.map Warning, checkProjectResults
     else errors
-        |> Seq.map (snd >> (+) "> ")
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> failwith
@@ -286,6 +291,34 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
     |> Seq.iter Console.Out.WriteLine
 
+let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions) =
+    let projOut =
+        let name = Path.GetFileNameWithoutExtension(comOpts.projFile)
+        Path.Combine(comOpts.outDir, name)
+    let args =
+        Array.append [|
+            "--doc:" + projOut + ".xml"
+            "-o"; projOut + ".dll"; "-a"
+        |] projOpts.OtherOptions
+    let errors, warnings =
+        if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
+        then args
+        // Project Options from a script don't contain file names
+        else Array.append args projOpts.ProjectFileNames
+        |> checker.Compile
+        |> fun (errors, _exitCode) -> parseErrors errors
+    if errors.Length > 0 then
+        errors
+        |> Seq.append ["Errors wen generating dll assembly:"]
+        |> String.concat "\n"
+        |> failwith
+    if warnings.Length > 0 then
+        warnings
+        |> Seq.append ["Warnings wen generating dll assembly:"]
+        |> String.concat "\n"
+        |> Warning |> string |> Log
+        |> List.singleton |> printMessages
+
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
     try
         // Reload project options if necessary
@@ -297,15 +330,15 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
                 FSProjInfo(projOpts, ?fileMask=projInfo.FileMask, extra=projInfo.Extra)
             | _ -> projInfo
 
-        // TODO: Find a way to check if the project is empty
-        // (Unfortunately it seems `ProjectFileNames` is not reliable)
-
         // Print F# compiler options (verbose mode) on first compilation
         // (when projInfo.fileMask is None)
         if Option.isNone projInfo.FileMask then
             projInfo.ProjectOpts.OtherOptions
             |> String.concat "\n" |> sprintf "\nF# COMPILER OPTIONS:\n%s\n"
             |> Log |> List.singleton |> printMessages
+
+        if com.Options.dll then
+            compileDll checker com.Options projInfo.ProjectOpts
 
         // Parse project (F# Compiler Services) and print diagnostic info
         // --------------------------------------------------------------
