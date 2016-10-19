@@ -3,11 +3,11 @@
 var fableMain = require("./fable");
 
 if (require.main === module) {
-    fableMain.run();
+    fableMain.compile();
 } else {
-    module.exports = function(opts) {
-        if (typeof opts !== "object")
-            throw "You must pass an object with Fable options";
-        return fableMain.run(opts);
+    var fableLib = require("./lib");
+    fableLib.compile = function(opts) {
+        return fableMain.compile(opts || {});
     }
+    module.exports = fableLib;
 }

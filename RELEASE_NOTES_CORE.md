@@ -1,3 +1,7 @@
+### 0.7.5-alpha.4
+
+* Add String.Insert method
+
 ### 0.7.5-alpha.3
 
 * Accept any object as exception

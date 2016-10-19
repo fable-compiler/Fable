@@ -23,7 +23,7 @@ var optionDefinitions = [
   { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'dll', type: Boolean, description: "[EXPERIMENTAL] Generate a `dll` assembly." },
   { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
-  { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },  
+  { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'copyExt', type: Boolean, description: "Copy external files into `fable_external` folder (true by default)." },
   { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
@@ -138,54 +138,6 @@ function watch(opts, fableProc, parallelProc, resolve) {
     });
 }
 
-/** Runs a command, requires child_process */
-function runCommand(command, opts, continuation) {
-    var child_process = require('child_process');
-    function splitByWhitespace(str) {
-        function stripQuotes(str, start, end) {
-            return str[start] === '"' && str[end - 1] === '"'
-                    ? str.substring(start + 1, end - 1)
-                    : str.substring(start, end);
-        }
-        var reg = /\s+(?=([^"]*"[^"]*")*[^"]*$)/g;
-        reg.lastIndex = 0;
-        var tmp, tmp2, results = [], lastIndex = 0;
-        while ((tmp = reg.exec(str)) !== null) {
-            results.push(stripQuotes(str, lastIndex, tmp.index));
-            lastIndex = tmp.index + tmp[0].length;
-        }
-        results.push(stripQuotes(str, lastIndex, str.length));
-        return results;
-    }
-    var cmd, args;
-    fableLib.stdoutLog(command);
-    // If there's no continuation, it means the process will run in parallel (postbuild-once).    
-    // If we use `cmd /C` on Windows we won't be able to kill the cmd child process later. 
-    // See http://stackoverflow.com/a/32814686 (unfortutanely the solutions didn't seem to apply here)
-    if (process.platform === "win32" && continuation) {
-        cmd = "cmd";
-        args = splitByWhitespace(command);
-        args.splice(0,0,"/C");
-    }
-    else {
-        args = splitByWhitespace(command);
-        cmd = args[0];
-        args = args.slice(1);
-    }
-    var proc = child_process.spawn(cmd, args, { cwd: opts.workingDir });
-    proc.on('exit', function(code) {
-        if (typeof continuation === "function")
-            continuation(code);
-    });
-    proc.stderr.on('data', function(data) {
-        process.stderr.write(data.toString());
-    });
-    proc.stdout.on("data", function(data) {
-        process.stdout.write(data.toString());
-    });
-    return proc;
-}
-
 function normalizeProjectName(opts) {
     var projName = path.basename(opts.projFile);
     return projName.substr(0, projName.indexOf(".")).replace(/[^A-Z_]/ig, "_");
@@ -218,7 +170,7 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
         fableLib.pathJoin(opts.workingDir, opts.outDir),
         typeof opts.bundle === "string" ? opts.bundle : "bundle.js"
     ).replace(/\\/g, '/');
-    
+
     rollupOpts.cache = bundleCache;
     rollupOpts.format = rollupOpts.format == null ? constants.JS_MODULES[opts.module] : rollupOpts.format;
     rollupOpts.sourceMap = rollupOpts.sourceMap == null ? opts.sourceMaps : rollupOpts.sourceMap
@@ -262,20 +214,22 @@ function postbuild(opts, buildSuccess, fableProc, resolve, reject) {
     if (buildSuccess && opts.scripts && opts.scripts["postbuild-once"]) {
         var postbuildScript = opts.scripts["postbuild-once"];
         delete opts.scripts["postbuild-once"];
-        parallelProc = runCommand(postbuildScript, opts);
+        parallelProc = fableLib.runCommandInParallel(opts.workingDir, postbuildScript);
     }
 
     // If present, run "postbuild" script after every build and wait till it's finished
     // to exit the process or start watch mode
     if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
-        runCommand(opts.scripts.postbuild, opts, function (exitCode) {
+        var continuation = function (exitCode) {
             if (!opts.watch) {
                 fableLib.finish(exitCode, opts, resolve, reject);
             }
             else if (!opts.watching) {
                 watch(opts, fableProc, parallelProc, resolve);
             }
-        });
+        };
+        fableLib.runCommand(opts.workingDir, opts.scripts.postbuild)
+            .then(continuation, continuation);
     }
     else if (!opts.watch) {
         fableLib.finish(0, opts, resolve, reject);
@@ -287,7 +241,7 @@ function postbuild(opts, buildSuccess, fableProc, resolve, reject) {
 
 /** Builds the project, requires child_process */
 function build(opts, resolve, reject) {
-    var child_process = require('child_process');    
+    var child_process = require('child_process');
     var babelOpts = readBabelOptions(opts, resolve, reject);
 
     function wrapInQuotes(arg) {
@@ -304,7 +258,7 @@ function build(opts, resolve, reject) {
     if (constants.PKG_NAME === "fable-compiler-netcore") {
         fableBin = fableBin.replace(".exe", ".dll");
     }
-    
+
     var fableCmd, fableCmdArgs = [wrapInQuotes(fableBin)]
     if (constants.PKG_NAME === "fable-compiler-netcore") {
         fableCmd = "dotnet";
@@ -445,7 +399,7 @@ function readOptionsFromCommandLine() {
     catch (err) {
         throw "Cannot read command line arguments: " + err + "\n" +
                 "Use 'fable --help' to see available options";
-    }    
+    }
 }
 
 /** Reads options from fableconfig.json, requires json5 */
@@ -524,7 +478,7 @@ function readBabelOptions(opts) {
                 require("babel-plugin-transform-flow-strip-types"),
                 require("babel-plugin-transform-class-properties")]
             : [];
-        
+
         // Add custom plugins
         babelPlugins = babelPlugins.concat(
             customPlugins.transformMacroExpressions,
@@ -553,7 +507,7 @@ function readBabelOptions(opts) {
         else if (!opts.bundle && opts.module in constants.JS_MODULES) {
             babelPlugins.push(require("babel-plugin-transform-es2015-modules-" + opts.module));
         }
-        
+
         // Extra Babel plugins
         function resolveBabelPlugin(id) {
             var nodeModulesDir = fableLib.pathJoin(opts.workingDir, "node_modules");
@@ -647,14 +601,16 @@ function main(opts, resolve, reject) {
 
         opts = prepareOptions(opts, resolve, reject);
         if (opts.scripts && opts.scripts.prebuild) {
-            runCommand(opts.scripts.prebuild, opts, function (exitCode) {
+            var continuation = function (exitCode) {
                 if (exitCode == 0) {
                     build(opts, resolve, reject);
                 }
                 else {
                     fableLib.finish(exitCode, opts, resolve, reject);
                 }
-            })
+            };
+            fableLib.runCommand(opts.workingDir, opts.scripts.prebuild)
+                .then(continuation, continuation);
         }
         else {
             build(opts, resolve, reject);
@@ -670,7 +626,7 @@ function main(opts, resolve, reject) {
  * Starts compilation, if opts is not empty assumes it's
  * running from API and returns a Promise.
 */
-exports.run = function(opts) {
+exports.compile = function(opts) {
     if (opts) {
         return new Promise(function (resolve, reject) {
             main(opts, resolve, reject);

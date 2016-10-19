@@ -2,9 +2,10 @@ var path = require("path") || require("./path");
 var constants = require("./constants");
 
 /** Prints a new line with the message on process.stderr */
-function stderrLog(s) {
+function stderrLog(s, newLine) {
+    newLine = newLine == null ? true : false;
     if (typeof process === "object") {
-        process.stderr.write(s + "\n");
+        process.stderr.write(s + (newLine ? "\n" : ""));
     }
     else {
         console.log(s);
@@ -13,9 +14,10 @@ function stderrLog(s) {
 exports.stderrLog = stderrLog;
 
 /** Prints a new line with the message on process.stdout */
-function stdoutLog(s) {
+function stdoutLog(s, newLine) {
+    newLine = newLine == null ? true : false;
     if (typeof process === "object") {
-        process.stdout.write(s + "\n")
+        process.stdout.write(s + (newLine ? "\n" : ""));
     }
     else {
         console.log(s);
@@ -43,9 +45,75 @@ function finish(code, opts, resolve, reject) {
 }
 exports.finish = finish;
 
+function splitByWhitespace(str) {
+    function stripQuotes(str, start, end) {
+        return str[start] === '"' && str[end - 1] === '"'
+                ? str.substring(start + 1, end - 1)
+                : str.substring(start, end);
+    }
+    var reg = /\s+(?=([^"]*"[^"]*")*[^"]*$)/g;
+    reg.lastIndex = 0;
+    var tmp, tmp2, results = [], lastIndex = 0;
+    while ((tmp = reg.exec(str)) !== null) {
+        results.push(stripQuotes(str, lastIndex, tmp.index));
+        lastIndex = tmp.index + tmp[0].length;
+    }
+    results.push(stripQuotes(str, lastIndex, str.length));
+    return results;
+}
+exports.splitByWhitespace = splitByWhitespace;
+
+function runCommandPrivate(workingDir, command, resolve, reject) {
+    var child_process = require('child_process');
+    var cmd, args;
+    process.stdout.write(workingDir + "> " + command + "\n");
+    // If there's no continuation, it means the process will run in parallel (postbuild-once).
+    // If we use `cmd /C` on Windows we won't be able to kill the cmd child process later.
+    // See http://stackoverflow.com/a/32814686 (unfortutanely the solutions didn't seem to apply here)
+    if (process.platform === "win32" && resolve) {
+        cmd = "cmd";
+        args = splitByWhitespace(command);
+        args.splice(0,0,"/C");
+    }
+    else {
+        args = splitByWhitespace(command);
+        cmd = args[0];
+        args = args.slice(1);
+    }
+    var proc = child_process.spawn(cmd, args, { cwd: workingDir });
+    proc.on('exit', function(code) {
+        if (code === 0 && typeof resolve === "function")
+            resolve(code);
+        else if (code !== 0 && typeof reject === "function")
+            reject(code);
+    });
+    proc.stderr.on('data', function(data) {
+        stderrLog(data.toString(), false);
+    });
+    proc.stdout.on("data", function(data) {
+        stdoutLog(data.toString(), false);
+    });
+    return proc;
+}
+
+/** Runs a command and returns a Promise, requires child_process */
+function runCommand(workingDir, command) {
+    return new Promise(function (resolve, reject) {
+        runCommandPrivate(workingDir, command, resolve, reject)
+    });
+}
+exports.runCommand = runCommand;
+
+/** Starts a process to run the command and returns it, requires child_process */
+function runCommandInParallel(workingDir, command) {
+    return runCommandPrivate(workingDir, command);
+}
+exports.runCommandInParallel = runCommandInParallel;
+
+
 function isFSharpProject(filePath) {
     return typeof filePath === "string"
-        && constants.FSHARP_PROJECT_EXTENSIONS.indexOf(path.extname(filePath.toLowerCase())) >= 0; 
+        && constants.FSHARP_PROJECT_EXTENSIONS.indexOf(path.extname(filePath.toLowerCase())) >= 0;
 }
 exports.isFSharpProject = isFSharpProject;
 
@@ -100,7 +168,7 @@ function babelify(babelAst, fsCode, babelOpts, opts) {
         fileName: targetFile,
         code: parsed.code,
         map: parsed.map
-    };    
+    };
 }
 exports.babelify = babelify;
 
@@ -133,7 +201,7 @@ exports.writeFile = writeFile;
 /** Converts a Babel AST to JS code and writes to disc, requires 'fs' module */
 function babelifyToFile(babelAst, babelOpts, opts) {
     var fs = require("fs");
-    
+
     // The F# code is only necessary when generating source maps
     var fsCode = opts.sourceMaps && babelAst.originalFileName
         ? fs.readFileSync(babelAst.originalFileName)

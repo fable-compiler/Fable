@@ -2,6 +2,7 @@
 
 * Fix invalid identifiers in top level members (see #482)
 * Generate `dll` also for `fsproj` files
+* Expose Fable library to JS API
 
 ### 0.7.5-alpha.9
 
