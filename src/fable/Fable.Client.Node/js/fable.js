@@ -199,6 +199,12 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
         nodeResolve = require('rollup-plugin-node-resolve'),
         hypothetical = require('rollup-plugin-hypothetical');
 
+    var defaultRollupPlugins = [
+        hypothetical({ files: jsFiles, allowRealFiles: true, allowExternalModules: true }),
+        nodeResolve({ jsnext: true, main: true, browser: true }),
+        commonjs({ ignoreGlobal: true })
+    ];
+
     var rollupOpts = {};
     if (typeof opts.bundle === "string" && opts.bundle.endsWith("config.js")) {
         var cfgPath = fableLib.pathJoin(opts.workingDir, opts.bundle);
@@ -218,12 +224,9 @@ function bundle(jsFiles, opts, fableProc, resolve, reject) {
     rollupOpts.sourceMap = rollupOpts.sourceMap == null ? opts.sourceMaps : rollupOpts.sourceMap
     rollupOpts.entry = Object.getOwnPropertyNames(jsFiles).find(file => jsFiles[file].isEntry);
     rollupOpts.moduleName = rollupOpts.moduleName || normalizeProjectName(opts);
-    rollupOpts.plugins = Array.isArray(rollupOpts.plugins) ? rollupOpts.plugins : [];
-    rollupOpts.plugins.push(
-        nodeResolve({ jsnext: true, main: true, browser: true }),
-        commonjs({ ignoreGlobal: true }),
-        hypothetical({ files: jsFiles, allowRealFiles: true, allowExternalModules: true })
-    );
+    rollupOpts.plugins = Array.isArray(rollupOpts.plugins)
+        ? defaultRollupPlugins.concat(rollupOpts.plugins)
+        : defaultRollupPlugins;
 
     rollup.rollup(rollupOpts)
         .then(function(bundle) {
