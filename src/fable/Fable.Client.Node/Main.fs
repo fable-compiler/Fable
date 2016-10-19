@@ -128,7 +128,7 @@ let forgeGetProjectOptions projFile =
         yield "--flaterrors"
         yield "--target:library"
         //yield "--targetprofile:netcore"
-        
+
         let coreReferences = [
             "FSharp.Core", Some fsCoreLib
             "CoreLib", Some sysCoreLib
@@ -180,11 +180,10 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
       let defines = [|for symbol in opts.symbols do yield "--define:" + symbol|]
       checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = defines)
       |> Async.RunSynchronously
+    | ".fsproj" ->
     #if DOTNETCORE
-    | ".fsproj" -> forgeGetProjectOptions projFile
-    | _ as s -> failwith (sprintf "Unsupported project type: %s" s)
-    #else            
-    | _ -> // .fsproj
+      forgeGetProjectOptions projFile
+    #else
       let props = opts.msbuild |> List.choose (fun x ->
           match x.Split('=') with
           | [|key;value|] -> Some(key,value)
@@ -193,26 +192,27 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
       // see https://github.com/Microsoft/msbuild/issues/709, 711, 713
       ProjectCracker.GetProjectOptionsFromProjectFile(projFile, props)
     #endif
+    | _ as s -> failwith (sprintf "Unsupported project type: %s" s)
     |> addSymbols opts.symbols
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
-// get a read error. If that happens the lock is usually brief so we can reasonably wait 
+// get a read error. If that happens the lock is usually brief so we can reasonably wait
 // for it to be released.
 let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
-    let retryUntil = (DateTime.UtcNow + TimeSpan.FromSeconds 5.) 
+    let retryUntil = (DateTime.UtcNow + TimeSpan.FromSeconds 5.)
     let rec retry () =
         try
             getProjectOpts checker opts
-        with 
-        | :? IOException as ioex -> 
+        with
+        | :? IOException as ioex ->
             if retryUntil > DateTime.UtcNow then
                 System.Threading.Thread.Sleep 100
                 retry()
             else
                 failwithf "IO Error trying read project options: %s " ioex.Message
         | ex -> failwithf "Cannot read project options: %s" ex.Message
-    retry() 
+    retry()
 
 /// Returns an (errors, warnings) tuple
 let parseErrors errors =
@@ -247,7 +247,7 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
 
 let makeCompiler opts plugins =
     let id = ref 0
-    let monitor = obj()    
+    let monitor = obj()
     let logs = ResizeArray()
     { new ICompiler with
         member __.Options = opts
@@ -263,7 +263,7 @@ let makeCompiler opts plugins =
                 "$var" + string !id) }
 
 let getMinimumFableCoreVersion() =
-#if NETSTANDARD1_6 || NETCOREAPP1_0    
+#if NETSTANDARD1_6 || NETCOREAPP1_0
     let assembly = typeof<CompilerOptions>.GetTypeInfo().Assembly
     assembly.GetName().Version |> Some
 #else
@@ -292,40 +292,44 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.iter Console.Out.WriteLine
 
 let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions) =
-    if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
-    then
-        [Warning "Fable can only compile .fsx files to .dll at the moment"]
-        |> List.map (string >> Log) |> printMessages
-    else
-        if Directory.Exists(comOpts.outDir) |> not then
-            Directory.CreateDirectory(comOpts.outDir) |> ignore
-        let projOut =
-            let projName = Path.GetFileNameWithoutExtension(comOpts.projFile)
-            Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
-        let args = [|
-            comOpts.projFile
-            "--out:" + projOut + ".dll"
-            "--target:library"
-            "--doc:" + projOut + ".xml"
-        |]
-        let errors, warnings =
-            if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
-            then args
-            // Project Options from a script don't contain file names
-            else Array.append args projOpts.ProjectFileNames
-            |> checker.Compile
-            |> fun (errors, _exitCode) -> parseErrors errors
-        if errors.Length > 0 then
-            errors
-            |> Seq.append ["Errors when generating dll assembly:"]
-            |> String.concat "\n"
-            |> failwith
-        if warnings.Length > 0 then
-            warnings
-            |> Seq.append ["Warnings when generating dll assembly:"]
-            |> String.concat "\n"
-            |> Warning |> string |> Log
-            |> List.singleton |> printMessages
+    if Directory.Exists(comOpts.outDir) |> not then
+        Directory.CreateDirectory(comOpts.outDir) |> ignore
+    let args =
+        if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
+        then
+            // Resolve relative references
+            let projDir = Path.GetFullPath(Path.GetDirectoryName(comOpts.projFile))
+            projOpts.OtherOptions
+            |> Array.map (fun x ->
+                if x.StartsWith("-r:.")
+                then "-r:" + Path.Combine(projDir, x.Substring(3))
+                else x)
+        else
+            let projOut =
+                let projName = Path.GetFileNameWithoutExtension(comOpts.projFile)
+                Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
+            [| comOpts.projFile
+               "--out:" + projOut + ".dll"
+               "--target:library"
+               "--doc:" + projOut + ".xml" |]
+    let errors, warnings =
+        if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
+        then args
+        // Project Options from a script don't contain file names
+        else Array.append args projOpts.ProjectFileNames
+        |> checker.Compile
+        |> fun (errors, _exitCode) -> parseErrors errors
+    if errors.Length > 0 then
+        errors
+        |> Seq.append ["Errors when generating dll assembly:"]
+        |> String.concat "\n"
+        |> failwith
+    if warnings.Length > 0 then
+        warnings
+        |> Seq.append ["Warnings when generating dll assembly:"]
+        |> String.concat "\n"
+        |> Warning |> string |> Log
+        |> List.singleton |> printMessages
 
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
     try
@@ -353,6 +357,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         //let timer = PerfTimer("Warmup") |> Some
         let warnings, parsedProj =
             parseFSharpProject com checker projInfo.ProjectOpts
+
         //let warnings = match timer with Some timer -> (timer.Finish())::warnings | None -> warnings
         warnings |> Seq.map (string >> Log) |> printMessages
 
@@ -378,11 +383,11 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
 
         // Compile project files, print them and get extra info
         // ----------------------------------------------------
-        let rewrites = 
+        let rewrites =
             com.Plugins |> Seq.choose (function _, (:? IRewritePlugin as r) -> Some r | _ -> None)
         let applyRewrites (extra, input) =
             extra, rewrites |> Seq.fold (fun input rewrite -> rewrite.Rewrite input) input
-        
+
         let extraInfo, files =
             FSharp2Fable.Compiler.transformFiles com parsedProj projInfo
             |> applyRewrites

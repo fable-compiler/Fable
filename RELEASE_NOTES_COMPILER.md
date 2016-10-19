@@ -1,3 +1,8 @@
+### 0.7.5-alpha.10
+
+* Fix invalid identifiers in top level members (see #482)
+* Generate `dll` also for `fsproj` files
+
 ### 0.7.5-alpha.9
 
 * Fix issues with bundling and `System.Exception`

@@ -1527,6 +1527,7 @@ module private AstPass =
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | Naming.StartsWith "Fable.Core" _ -> fableCore com info
+        // TODO: Check this is not a custom exception
         | Naming.EndsWith "Exception" _ -> exceptions com info
         | "System.Object" -> objects com info
         | "System.Timers.ElapsedEventArgs" -> info.callee // only signalTime is available here
@@ -1675,6 +1676,7 @@ let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
 let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) =
     let coreLibType name = makeCoreRef com name None |> Some
     match ent.FullName with
+    // TODO: Check this is not a custom exception
     | Naming.EndsWith "Exception" _ -> makeNonDeclaredTypeRef Fable.TypeKind.Any None |> Some
     | "System.TimeSpan" -> Fable.StringConst "number" |> Fable.Value |> Some
     | "System.DateTime" -> makeIdentExpr "Date" |> Some

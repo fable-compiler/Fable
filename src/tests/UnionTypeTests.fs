@@ -365,6 +365,16 @@ let ``Custom exceptions work``() =
     | MyEx(_, msg) -> msg + "??"
     |> equal "ERROR!!"
 
+type MyExUnion = MyExUnionCase of exn
+
+[<Test>]
+let ``Types can have Exception fields``() =
+    let (MyExUnionCase ex) =
+        try
+            exn "foo" |> raise
+        with ex -> MyExUnionCase ex
+    ex.Message.Trim('"') |> equal "foo"
+
 #if FABLE_COMPILER
 open Fable.Core
 
