@@ -42,11 +42,11 @@ function finish(code, continuation) {
     var err = code === 0 ? null : "FABLE EXIT CODE: " + code;
     if (typeof continuation === "object") {
         if (err && typeof continuation.reject === "function") {
-            reject(err);
+            continuation.reject(err);
             return;
         }
         else if (typeof continuation.resolve === "function") {
-            resolve();
+            continuation.resolve();
             return;
         }
     }

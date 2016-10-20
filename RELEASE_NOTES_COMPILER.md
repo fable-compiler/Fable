@@ -1,3 +1,7 @@
+### 0.7.5-alpha.14
+
+* Fix errors in Fable JS API
+
 ### 0.7.5-alpha.12
 
 * Change `--bundle` option to `--rollup`

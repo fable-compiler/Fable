@@ -194,7 +194,7 @@ function postbuild(opts, buildSuccess, fableProc, continuation) {
     // If present, run "postbuild" script after every build and wait till it's finished
     // to exit the process or start watch mode
     if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
-        var continuation = function (exitCode) {
+        var continuation2 = function (exitCode) {
             if (!opts.watch) {
                 fableLib.finish(exitCode, continuation);
             }
@@ -203,7 +203,7 @@ function postbuild(opts, buildSuccess, fableProc, continuation) {
             }
         };
         fableLib.runCommand(opts.workingDir, opts.scripts.postbuild)
-            .then(continuation, continuation);
+            .then(continuation2, continuation2);
     }
     else if (!opts.watch) {
         fableLib.finish(0, continuation);
