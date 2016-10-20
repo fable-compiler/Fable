@@ -1,3 +1,9 @@
+### 0.7.5-alpha.12
+
+* Change `--bundle` option to `--rollup`
+* `--rollup` can accept an object (in fableconfig.json) with Rollup config
+* Improve plugin resolution for Babel and Rollup
+
 ### 0.7.5-alpha.11
 
 * Add a block scope to switch cases (see #483)

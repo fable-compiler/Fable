@@ -2,22 +2,34 @@ var path = require("path") || require("./path");
 var constants = require("./constants");
 
 /** Prints a new line with the message on process.stderr */
-function stderrLog(s, newLine) {
-    newLine = newLine == null ? true : false;
-    if (typeof process === "object") {
-        process.stderr.write(s + (newLine ? "\n" : ""));
+function stderrLog(tag, err) {
+    var prefix = null;
+    if (err) {
+        prefix = "[" + tag + " ERROR] ";
     }
     else {
-        console.log(s);
+        prefix = "[ERROR] ";
+        err = tag;
+    }
+
+    if (typeof err === "object" && err.message) {
+        err = err.message + (err.stack ? "\n" + err.stack : "")
+    }
+    err = String(err);
+
+    if (typeof process === "object") {
+        process.stderr.write(prefix + err + "\n");
+    }
+    else {
+        console.log(err);
     }
 }
 exports.stderrLog = stderrLog;
 
 /** Prints a new line with the message on process.stdout */
-function stdoutLog(s, newLine) {
-    newLine = newLine == null ? true : false;
+function stdoutLog(s) {
     if (typeof process === "object") {
-        process.stdout.write(s + (newLine ? "\n" : ""));
+        process.stdout.write(s + "\n");
     }
     else {
         console.log(s);
@@ -26,21 +38,23 @@ function stdoutLog(s, newLine) {
 exports.stdoutLog = stdoutLog;
 
 /** Finish the process according to the environment */
-function finish(code, opts, resolve, reject) {
+function finish(code, continuation) {
     var err = code === 0 ? null : "FABLE EXIT CODE: " + code;
-    if (typeof resolve === "function") {
-        if (err && typeof reject === "function")
+    if (typeof continuation === "object") {
+        if (err && typeof continuation.reject === "function") {
             reject(err);
-        else
+            return;
+        }
+        else if (typeof continuation.resolve === "function") {
             resolve();
+            return;
+        }
     }
-    else {
-        if (typeof process === "object") {
-            process.exit(code);
-        }
-        else if (err) {
-            throw err;
-        }
+    if (typeof process === "object") {
+        process.exit(code);
+    }
+    else if (err) {
+        throw err;
     }
 }
 exports.finish = finish;
@@ -88,10 +102,10 @@ function runCommandPrivate(workingDir, command, resolve, reject) {
             reject(code);
     });
     proc.stderr.on('data', function(data) {
-        stderrLog(data.toString(), false);
+        stderrLog(data.toString());
     });
     proc.stdout.on("data", function(data) {
-        stdoutLog(data.toString(), false);
+        stdoutLog(data.toString());
     });
     return proc;
 }
@@ -110,6 +124,37 @@ function runCommandInParallel(workingDir, command) {
 }
 exports.runCommandInParallel = runCommandInParallel;
 
+/**
+ * Returns an array with tuples of plugin paths and config objects (requires 'resolve' package)
+ * @param plugins Can be a string, array of tuples (id + config) or an object (key-value pairs)
+ * @param basedir Directory from where to resolve the plugins
+ * @param prefix Will be attached to plugin names if missing (e.g. 'babel-plugin-')
+*/
+function resolvePlugins(plugins, basedir, prefix) {
+    if (plugins == null) {
+        return [];
+    }
+    else if (typeof plugins === "object") {
+        if (!Array.isArray(plugins)) {
+            plugins = Object.getOwnPropertyNames(plugins).map(function (k) { return [k, plugins[k]] });
+        }
+    }
+    else {
+        plugins = [plugins];
+    }
+
+    var resolve = require("resolve");
+    return plugins.map(function (plugin) {
+        var config = {};
+        if (Array.isArray(plugin)) {
+            config = plugin[1];
+            plugin = plugin[0];
+        }
+        plugin = prefix && !plugin.startsWith(prefix) ? prefix + plugin : plugin;
+        return [resolve.sync(plugin, { basedir: basedir }), config];
+    });
+}
+exports.resolvePlugins = resolvePlugins;
 
 function isFSharpProject(filePath) {
     return typeof filePath === "string"
@@ -136,7 +181,7 @@ exports.pathJoin = pathJoin;
  * Converts a Babel AST to JS code. `fsCode` is optional,
  * if `path` is null, Node's "path" module will be used.
  */
-function babelify(babelAst, fsCode, babelOpts, opts) {
+function babelify(babelAst, fsCode, opts) {
     var babel = require("babel-core");
 
     var outDir = pathJoin(opts.workingDir, opts.outDir),
@@ -147,12 +192,12 @@ function babelify(babelAst, fsCode, babelOpts, opts) {
             .replace(/\\/g, '/')
             .replace(path.extname(babelAst.fileName), ".js");
 
-    babelOpts = {
+    var babelOpts = {
         babelrc: opts.babelrc || false,
         filename: targetFile,
         sourceRoot: outDir,
-        presets: babelOpts.babelPresets,
-        plugins: babelOpts.babelPlugins,
+        presets: opts.babel.presets,
+        plugins: opts.babel.plugins,
     };
 
     if (opts.sourceMaps && babelAst.originalFileName) {
@@ -199,7 +244,7 @@ function writeFile(fileName, code, map) {
 exports.writeFile = writeFile;
 
 /** Converts a Babel AST to JS code and writes to disc, requires 'fs' module */
-function babelifyToFile(babelAst, babelOpts, opts) {
+function babelifyToFile(babelAst, opts) {
     var fs = require("fs");
 
     // The F# code is only necessary when generating source maps
@@ -207,7 +252,7 @@ function babelifyToFile(babelAst, babelOpts, opts) {
         ? fs.readFileSync(babelAst.originalFileName)
         : null;
 
-    var parsed = babelify(babelAst, fsCode, babelOpts, opts);
+    var parsed = babelify(babelAst, fsCode, opts);
     // Use strict equality so it evals to false when opts.sourceMaps === "inline"
     writeFile(parsed.fileName, parsed.code,
         opts.sourceMaps === true ? parsed.map : null);
