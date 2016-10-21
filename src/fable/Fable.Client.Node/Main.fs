@@ -294,20 +294,25 @@ let printMessages (msgs: #seq<CompilerMessage>) =
 let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions) =
     if Directory.Exists(comOpts.outDir) |> not then
         Directory.CreateDirectory(comOpts.outDir) |> ignore
+    let projOut =
+        let projName = Path.GetFileNameWithoutExtension(comOpts.projFile)
+        Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
     let args =
         if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
         then
-            // Resolve relative references
             let projDir = Path.GetFullPath(Path.GetDirectoryName(comOpts.projFile))
-            projOpts.OtherOptions
-            |> Array.map (fun x ->
-                if x.StartsWith("-r:.")
-                then "-r:" + Path.Combine(projDir, x.Substring(3))
-                else x)
+            let projOpts =
+                projOpts.OtherOptions
+                |> Array.collect (function
+                    | Naming.StartsWith "--doc:" _ -> [||]
+                    | Naming.StartsWith "--out:" _ ->
+                        [| "--out:" + projOut + ".dll"; "--doc:" + projOut + ".xml" |]
+                    // Resolve relative references
+                    | Naming.StartsWith "-r:." _ as x ->
+                        [|"-r:" + Path.Combine(projDir, x.Substring(3))|]
+                    | x -> [|x|])
+            projOpts
         else
-            let projOut =
-                let projName = Path.GetFileNameWithoutExtension(comOpts.projFile)
-                Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
             [| comOpts.projFile
                "--out:" + projOut + ".dll"
                "--target:library"

@@ -1,3 +1,7 @@
+### 0.7.5-alpha.15
+
+* Use outDir to place the generated dll with .fsproj projects
+
 ### 0.7.5-alpha.14
 
 * Fix errors in Fable JS API
