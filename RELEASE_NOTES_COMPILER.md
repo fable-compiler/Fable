@@ -1,6 +1,8 @@
 ### 0.7.5-alpha.15
 
 * Use outDir to place the generated dll with .fsproj projects
+* Only emit warnings when generating dlls in verbose mode
+* Fix error when reading Rollup options
 
 ### 0.7.5-alpha.14
 

@@ -333,7 +333,7 @@ let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FS
         warnings
         |> Seq.append ["Warnings when generating dll assembly:"]
         |> String.concat "\n"
-        |> Warning |> string |> Log
+        |> Info |> string |> Log
         |> List.singleton |> printMessages
 
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =

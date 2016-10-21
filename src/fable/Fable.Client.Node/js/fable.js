@@ -520,6 +520,7 @@ function readRollupOptions(opts) {
     rollupOpts.sourceMap = rollupOpts.sourceMap == null ? opts.sourceMaps : rollupOpts.sourceMap
     rollupOpts.moduleName = rollupOpts.moduleName || normalizeProjectName(opts);
 
+    opts.rollup = rollupOpts;
     return opts;
 }
 
