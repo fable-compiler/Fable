@@ -1,3 +1,7 @@
+### 0.7.5-alpha.6
+
+* Add DateTime.TryParse
+
 ### 0.7.5-alpha.5
 
 * Add .d.ts declaration files

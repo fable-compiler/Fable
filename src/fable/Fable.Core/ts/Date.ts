@@ -28,8 +28,17 @@ export function parse(v?: any, kind?: DateKind): any {
   if (isNaN(date.getTime()))
     throw "The string is not a valid Date.";
   (<any>date).kind = kind ||
-    (typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local); 
+    (typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local);
   return date;
+}
+
+export function tryParse(v: any): [boolean, Date] {
+  try {
+    return [true, parse(v)];
+  }
+  catch (_err) {
+    return [false, minValue()];
+  }
 }
 
 export function create(year: number, month: number, day: number, h: number = 0, m: number = 0, s: number = 0, ms: number = 0, kind: DateKind = DateKind.Local) {

@@ -1,4 +1,4 @@
-[<NUnit.Framework.TestFixture>] 
+[<NUnit.Framework.TestFixture>]
 module Fable.Tests.DateTime
 open System
 open NUnit.Framework
@@ -18,7 +18,7 @@ let toSigFigs nSigFigs x =
     let digitsToAdjustNumberBy = int digitsToStartOfNumber - nSigFigs
     let scale = pown 10. digitsToAdjustNumberBy
     round(x / scale) * scale
-    
+
 let thatYearSeconds (dt: DateTime) =
     (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds
 
@@ -90,21 +90,21 @@ let ``DateTime.ToShortDateString works``() =
     let s = dt.ToShortDateString()
     s.Length > 0
     |> equal true
-    
+
 [<Test>]
 let ``DateTime.ToLongTimeString works``() =
     let dt = DateTime(2014, 9, 11, 16, 37, 0)
     let s = dt.ToLongTimeString()
     s.Length > 0
     |> equal true
-    
+
 [<Test>]
 let ``DateTime.ToShortTimeString works``() =
     let dt = DateTime(2014, 9, 11, 16, 37, 0)
     let s = dt.ToShortTimeString()
     s.Length > 0
     |> equal true
-    
+
 // TODO: Unfortunately, JS will happily create invalid dates like DateTime(2014,2,29)
 //       But this problem also happens when parsing, so I haven't tried to fix it
 [<Test>]
@@ -144,6 +144,16 @@ let ``DateTime.Parse works``() =
     let d = DateTime.Parse("9/10/2014 1:50:34 PM")
     d.Year + d.Month + d.Day + d.Hour + d.Minute
     |> equal 2096
+
+
+[<Test>]
+let ``DateTime.TryParse works``() =
+    let f d =
+        match DateTime.TryParse(d) with
+        | true, _ -> true
+        | false, _ -> false
+    f "foo" |> equal false
+    f "9/10/2014 1:50:34 PM" |> equal true
 
 [<Test>]
 let ``DateTime.Today works``() =
@@ -186,7 +196,7 @@ let ``DateTime.Millisecond works``() =
 [<Test>]
 let ``DateTime.Ticks works``() =
     let d = DateTime(2014, 10, 9, 13, 23, 30, 999)
-    // TODO: Worrying that we need to round to 5 sig. figs. here. 
+    // TODO: Worrying that we need to round to 5 sig. figs. here.
     //       Perhaps the number type in JS isn't precise enough for this implementation.
     toSigFigs 5 (float d.Ticks)
     |> equal 6.3548e+17
@@ -256,7 +266,7 @@ let ``DateTime.AddDays works``() =
     test 100. 30585600.0
     test -100. 13305600.0
     test 0. 21945600.0
-    
+
 [<Test>]
 let ``DateTime.AddHours works``() =
     let test v expected =
@@ -266,7 +276,7 @@ let ``DateTime.AddHours works``() =
     test 100. 22305600.0
     test -100. 21585600.0
     test 0. 21945600.0
-    
+
 [<Test>]
 let ``DateTime.AddMinutes works``() =
     let test v expected =
@@ -276,7 +286,7 @@ let ``DateTime.AddMinutes works``() =
     test 100. 21951600.0
     test -100. 21939600.0
     test 0. 21945600.0
-    
+
 [<Test>]
 let ``DateTime.AddSeconds works``() =
     let test v expected =
@@ -286,7 +296,7 @@ let ``DateTime.AddSeconds works``() =
     test 100. 21945700.0
     test -100. 21945500.0
     test 0. 21945600.0
-    
+
 [<Test>]
 let ``DateTime.AddMilliseconds works``() =
     let test v expected =
@@ -302,7 +312,7 @@ let ``DateTime.AddMilliseconds works``() =
 let ``DateTime.AddTicks works``() =
     let test v expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddTicks(v)
-        // TODO: Worrying that we need to round to 5 sig. figs. here. 
+        // TODO: Worrying that we need to round to 5 sig. figs. here.
         //       Perhaps the number type in JS isn't precise enough for this implementation.
         toSigFigs 5 (float dt.Ticks)
         |> equal expected
@@ -318,7 +328,7 @@ let ``DateTime Addition works``() =
         let res1 = dt.Add(ts) |> thatYearSeconds
         let res2 = (dt + ts) |> thatYearSeconds
         equal true (res1 = res2)
-        equal expected res1 
+        equal expected res1
     test 1000. 21945601.0
     test -1000. 21945599.0
     test 0. 21945600.0
@@ -335,7 +345,7 @@ let ``DateTime Subtraction with TimeSpan works``() =
     test 1000. 21945599.0
     test -1000. 21945601.0
     test 0. 21945600.0
-        
+
 [<Test>]
 let ``DateTime Subtraction with DateTime works``() =
     let test ms expected =
@@ -372,7 +382,7 @@ let ``DateTime GreaterThan works``() =
     test 1000. false
     test -1000. true
     test 0. false
-    
+
 [<Test>]
 let ``DateTime LessThan works``() =
     let test ms expected =
@@ -392,7 +402,7 @@ let ``DateTime Equality works``() =
     test 1000. false
     test -1000. false
     test 0. true
-    
+
 [<Test>]
 let ``DateTime Inequality works``() =
     let test ms expected =
@@ -572,11 +582,11 @@ let ``TimeSpan Inequality works``() =
     test 1000. 2000. true
     test 2000. 1000. true
     test -2000. -2000. false
-    
+
 // Disable System.Timers.Timer tests for .NET Core until it's implemented.
 #if !DOTNETCORE
 
-// TODO: Disable this test temporarily for NUnit as it's failing in AppVeyor 
+// TODO: Disable this test temporarily for NUnit as it's failing in AppVeyor
 #if FABLE_COMPILER
 [<Test>]
 let ``Timer with AutoReset = true works``() =

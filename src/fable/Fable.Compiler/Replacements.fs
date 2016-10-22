@@ -123,7 +123,7 @@ module Util =
         | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
             GlobalCall ("String", None, false, [arg])
             |> makeCall com i.range i.returnType
-        | Fable.Any | Fable.GenericParam _ | Fable.DeclaredType _ | Fable.Option _ -> 
+        | Fable.Any | Fable.GenericParam _ | Fable.DeclaredType _ | Fable.Option _ ->
             CoreLibCall ("Util", Some "toString", false, [arg])
             |> makeCall com i.range i.returnType
 
@@ -394,7 +394,7 @@ module private AstPass =
                 sprintf "%s %s"
                     "An unresolved generic parameter is being passed to Serialize.ofJson/inflate,"
                     "this will fail at runtime. Please check."
-                |> addWarning com i 
+                |> addWarning com i
             | _ -> ()
             CoreLibCall("Serialize", Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
@@ -760,7 +760,7 @@ module private AstPass =
                 match upper with
                 | Null _ -> makeGet None t ar (makeConst "length")
                 | _ -> Fable.Apply(Fable.Value(Fable.BinaryOp BinaryPlus),
-                                [upper; makeConst 1], Fable.ApplyMeth, t, None) 
+                                [upper; makeConst 1], Fable.ApplyMeth, t, None)
             InstanceCall (ar, "slice", [lower; upper])
             |> makeCall com i.range i.returnType |> Some
         | "setArraySlice", (None, args) ->
@@ -915,9 +915,9 @@ module private AstPass =
         | "remove" -> icall com i "delete" |> Some
         | "tryGetValue" ->
             match i.callee, i.args with
-            | Some callee, [key; defVal] ->
-                emit i "$0.has($1) ? [true, $0.get($1)] : [false, $2]" [callee; key; defVal]
-                |> Some
+            | Some dic, [key; defVal] ->
+                CoreLibCall ("Map", Some "tryGetValue", false, [dic; key; defVal])
+                |> makeCall com i.range i.returnType |> Some
             | _ -> None
         | _ -> None
 
@@ -1026,7 +1026,7 @@ module private AstPass =
               "isEmpty"; "last"; "tryLast"; "length";
               "mapFold"; "mapFoldBack"; "max"; "maxBy"; "min"; "minBy";
               "reduce"; "reduceBack"; "sum"; "sumBy"; "tail"; "toList";
-              "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick"; 
+              "tryFind"; "find"; "tryFindIndex"; "findIndex"; "tryPick"; "pick";
               "tryFindBack"; "findBack"; "tryFindIndexBack"; "findIndexBack" ]
 
     // Functions that must return a collection of the same type
@@ -1162,12 +1162,12 @@ module private AstPass =
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, _)) -> makeJsArray arVals
                 | _ -> emit i "Array.from($0)" i.args |> Some
         | "find" when Option.isSome c ->
-            let defaultValue = defaultof i.calleeTypeArgs.Head 
+            let defaultValue = defaultof i.calleeTypeArgs.Head
             ccall "Seq" "tryFind" [args.Head;c.Value;defaultValue] |> Some
         | "findAll" when Option.isSome c ->
             ccall "Seq" "filter" [args.Head;c.Value] |> toArray com i |> Some
         | "findLast" when Option.isSome c ->
-            let defaultValue = defaultof i.calleeTypeArgs.Head 
+            let defaultValue = defaultof i.calleeTypeArgs.Head
             ccall "Seq" "tryFindBack" [args.Head;c.Value;defaultValue] |> Some
         | "add" ->
             icall "push" (c.Value, args) |> Some
@@ -1552,7 +1552,7 @@ module private AstPass =
         | "Microsoft.FSharp.Core.Operators"
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
         | "Microsoft.FSharp.Core.FSharpRef" -> references com info
-        | "System.Activator" -> activator com info        
+        | "System.Activator" -> activator com info
         | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info

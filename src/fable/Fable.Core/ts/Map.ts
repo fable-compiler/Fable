@@ -573,6 +573,10 @@ export function containsValue<K, V>(v: V, map: Map<K, V> | FMap<K, V>) {
     return seqFold((acc, k) => acc || equals(map.get(k), v), false, map.keys());
 }
 
+export function tryGetValue<K,V>(map: Map<K,V>, key: K, defaultValue: V): [boolean, V] {
+    return map.has(key) ? [true, map.get(key)] : [false, defaultValue];
+}
+
 export function exists<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
     return tree_exists(f, map.tree);
 }
