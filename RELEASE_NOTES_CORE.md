@@ -1,3 +1,7 @@
+### 0.7.5-alpha.7
+
+* Add JsFunc and JsCons to Fable.Core.JsInterop
+
 ### 0.7.5-alpha.6
 
 * Add DateTime.TryParse

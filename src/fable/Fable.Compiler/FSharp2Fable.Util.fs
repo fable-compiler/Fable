@@ -50,7 +50,7 @@ type IFableCompiler =
     abstract AddInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) -> unit
     abstract AddUsedVarName: string -> unit
     abstract ReplacePlugins: (string*IReplacePlugin) list
-    
+
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
         if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
@@ -67,7 +67,7 @@ module Helpers =
                 fullName.Substring(fullName.LastIndexOf "." + 1).Replace("Attribute", "")
                 |> f |> function true -> Some att | false -> None
             | None -> None)
-        
+
     let isInline (meth: FSharpMemberOrFunctionOrValue) =
         match meth.InlineAnnotation with
         | FSharpInlineAnnotation.NeverInline
@@ -83,7 +83,7 @@ module Helpers =
 
     let hasEraseAtt (atts: #seq<FSharpAttribute>) =
         atts |> tryFindAtt ((=) "Erase") |> Option.isSome
-        
+
     let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
         not(isImported ent) && Option.isNone(com.GetInternalFile ent)
 
@@ -115,9 +115,9 @@ module Helpers =
         ``end``= { line = r.EndLine; column = r.EndColumn }
     }
 
-    let makeRangeFrom (fsExpr: FSharpExpr) = 
+    let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
-        
+
     let rec countFuncArgs (fn: FSharpType) =
         if fn.IsFunctionType
         then countFuncArgs (Seq.last fn.GenericArguments) + 1
@@ -126,12 +126,12 @@ module Helpers =
     let getEntityLocation (ent: FSharpEntity) =
         match ent.ImplementationLocation with
         | Some loc -> loc
-        | None -> ent.DeclarationLocation        
+        | None -> ent.DeclarationLocation
 
     let getRefLocation (ent: FSharpMemberOrFunctionOrValue) =
         match ent.ImplementationLocation with
         | Some loc -> loc
-        | None -> ent.DeclarationLocation   
+        | None -> ent.DeclarationLocation
 
     /// Lower first letter if there's no explicit compiled name
     let lowerCaseName (unionCase: FSharpUnionCase) =
@@ -184,7 +184,7 @@ module Patterns =
     let (|FieldName|) (fi: FSharpField) = fi.Name
     let (|ExprType|) (expr: Fable.Expr) = expr.Type
     let (|EntityKind|) (ent: Fable.Entity) = ent.Kind
-    
+
     let (|TypeDefinition|_|) (t: FSharpType) =
         if t.HasTypeDefinition then Some t.TypeDefinition else None
 
@@ -222,7 +222,7 @@ module Patterns =
         | NewUnionCase(fsType,_,args) ->
             // Lists are usually flattened so they're not easily composable
             match fsType with ListType _ -> None | _ -> Some (e, args)
-        | _ -> None 
+        | _ -> None
 
     // These are closures created by F# compiler, e.g. given `let add x y z = x+y+z`
     // `3 |> add 1 2` will become `let x=1 in let y=2 in fun z -> add(x,y,z)`
@@ -231,7 +231,7 @@ module Patterns =
             if identAndRepls.Length <> (List.length args) then false else
             (args, identAndRepls)
             ||> List.forall2 (fun arg (ident, _) ->
-                if ident.IsMutable then false else 
+                if ident.IsMutable then false else
                 match arg with
                 | Coerce(_, Value arg) | Value arg -> ident = arg
                 | _ -> false)
@@ -240,7 +240,7 @@ module Patterns =
             ||> List.forall2 (fun larg marg ->
                 match marg with
                 | Coerce(_, Value marg) | Value marg -> marg = larg
-                | _ -> false)                
+                | _ -> false)
         let rec visit identAndRepls = function
             | Let((letArg, letValue), letBody) ->
                 let identAndRepls = identAndRepls@[(letArg, letValue)]
@@ -308,8 +308,8 @@ module Patterns =
                 Some (arg1, [arg2; arg3; arg4])
             | _ -> None
         | _ -> None
-        
-    // TODO: Make it recursive 
+
+    // TODO: Make it recursive
     let (|Composition|_|) = function
         | Call(None, comp, _, _, [Closure(1, e1, args1); Closure(1, e2, args2)]) ->
             match comp.FullName with
@@ -338,11 +338,18 @@ module Patterns =
             else None
         | _ -> None
 
+    let (|JsFunc|_|) = function
+        | NewObject(meth, _typArgs, [Lambda(thisVar, body)]) ->
+            match meth.EnclosingEntity.TryFullName with
+            | Some name when name.StartsWith("Fable.Core.JsInterop.JsFunc") -> Some(thisVar, body)
+            | _ -> None
+        | _ -> None
+
     let (|ImmutableBinding|_|) = function
         | Let((var, (Value v as value)), body)
             when not var.IsMutable && not v.IsMutable && not v.IsMemberThisValue -> Some((var, value), body)
         | Let((var, (UnionCaseGet(Value v,_,_,_) as value)), body)
-            when not var.IsMutable && not v.IsMutable -> Some((var, value), body)            
+            when not var.IsMutable && not v.IsMutable -> Some((var, value), body)
         | Let((var, (TupleGet(_,_,Value v) as value)), body)
             when not var.IsMutable && not v.IsMutable -> Some((var, value), body)
         | Let((var, (FSharpFieldGet(Some(Value v),_,fi) as value)), body)
@@ -480,7 +487,7 @@ module Patterns =
 
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
-            att.ConstructorArguments |> Seq.map snd |> Seq.toList) 
+            att.ConstructorArguments |> Seq.map snd |> Seq.toList)
 
     let (|OptionUnion|ListUnion|ErasedUnion|KeyValueUnion|StringEnum|OtherType|) (typ: Fable.Type) =
         let (|FullName|) (ent: Fable.Entity) = ent.FullName
@@ -525,7 +532,7 @@ module Types =
                 makeType com Context.Empty t
                 |> makeTypeRef com None ctx.fileName false
             Some (sanitizeEntityFullName t.TypeDefinition, typeRef)
-            
+
     // Some attributes (like ComDefaultInterface) will throw an exception
     // when trying to access ConstructorArguments
     and makeDecorator (com: IFableCompiler) (att: FSharpAttribute) =
@@ -558,9 +565,9 @@ module Types =
         | [] -> []
         | [[singleArg]] when isUnit singleArg.Type -> []
         // The F# compiler "untuples" the args in methods
-        | args -> List.concat args |> List.map (fun x -> makeType com Context.Empty x.Type)            
+        | args -> List.concat args |> List.map (fun x -> makeType com Context.Empty x.Type)
 
-    and makeOriginalCurriedType com (args: IList<IList<FSharpParameter>>) returnType = 
+    and makeOriginalCurriedType com (args: IList<IList<FSharpParameter>>) returnType =
         let tys = args |> Seq.map (fun tuple ->
             let tuple = tuple |> Seq.map (fun t -> makeType com Context.Empty t.Type)
             match List.ofSeq tuple with
@@ -731,7 +738,7 @@ module Identifiers =
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
         bindIdent com ctx (makeType com ctx fsRef.FullType) (Some fsRef) fsRef.CompiledName
-    
+
     let (|BindIdent|) = bindIdentFrom
 
     let tryGetBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
@@ -829,7 +836,7 @@ module Util =
             args = args
             returnType = typ
             decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
-            calleeTypeArgs = typArgs |> List.map (makeType com ctx) 
+            calleeTypeArgs = typArgs |> List.map (makeType com ctx)
             methodTypeArgs = methTypArgs |> List.map (makeType com ctx)
             lambdaArgArity = lambdaArgArity
         }
@@ -864,7 +871,7 @@ module Util =
                 applyInfo.ownerFullName applyInfo.methodName
             |> attachRange r |> failwith
 
-    let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) = 
+    let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
         let genArgs =
             ([], meth.EnclosingEntity.GenericParameters, List.map (makeType com ctx) typArgs)
             |||> Seq.fold2 (fun acc genPar typArg ->
@@ -942,10 +949,10 @@ module Util =
                     emitMeth.Invoke(emitInstance, [|com; applyInfo|]) |> unbox |> Some
                 with
                 | _ -> sprintf "Cannot build instance of type %s or it doesn't contain an appropriate %s method"
-                        emitFsType.TypeDefinition.DisplayName emitMethName |> attachRange r |> failwith 
+                        emitFsType.TypeDefinition.DisplayName emitMethName |> attachRange r |> failwith
             | _ -> "EmitAttribute must receive a string or Type argument" |> attachRange r |> failwith
         | _ -> None
-        
+
     let (|Imported|_|) com ctx r typ (args: Fable.Expr list) (meth: FSharpMemberOrFunctionOrValue) =
         let srcFile = (getEntityLocation meth.EnclosingEntity).FileName
         meth.Attributes
@@ -980,7 +987,7 @@ module Util =
     let makeCallFrom (com: IFableCompiler) ctx r typ
                      (meth: FSharpMemberOrFunctionOrValue)
                      (typArgs, methTypArgs) callee args =
-        let argTypes = getArgTypes com meth.CurriedParameterGroups                     
+        let argTypes = getArgTypes com meth.CurriedParameterGroups
         let args =
             if hasRestParams meth then
                 let args = List.rev args
@@ -1093,7 +1100,7 @@ module Util =
             match v with
             | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
             | Imported com ctx r typ [] imported -> imported
-            | Try (tryGetBoundExpr ctx r) e -> e 
+            | Try (tryGetBoundExpr ctx r) e -> e
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []

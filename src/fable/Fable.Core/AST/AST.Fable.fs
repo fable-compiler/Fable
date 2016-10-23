@@ -109,7 +109,7 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
 
     static member MetaType =
         DeclaredType(Entity(lazy Class(None, []), None, "System.Type", lazy []), [])
-        
+
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
@@ -193,7 +193,7 @@ and ApplyInfo = {
         decorators: Decorator list
         calleeTypeArgs: Type list
         methodTypeArgs: Type list
-        /// If the method accepts a lambda as first argument, indicates its arity 
+        /// If the method accepts a lambda as first argument, indicates its arity
         lambdaArgArity: int
     }
 
@@ -211,6 +211,7 @@ and Ident(name: string, ?typ: Type) =
     member x.IsConsumed = consumed
     member x.Consume() = consumed <- true
     static member getType (i: Ident) = i.Type
+    override __.ToString() = name
 
 and ImportKind =
     | CoreLib
@@ -234,7 +235,8 @@ and ValueKind =
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
-    | Lambda of args: Ident list * body: Expr
+    /// isArrow: Arrow functions capture the enclosing `this` in JS
+    | Lambda of args: Ident list * body: Expr * isArrow: bool
     | Emit of string
     member x.Type =
         match x with
@@ -247,16 +249,16 @@ and ValueKind =
         | TypeRef _ -> Entity.MetaType
         | RegexConst _ ->
             let fullName = "System.Text.RegularExpressions.Regex"
-            DeclaredType(Entity(lazy Class(None, []), None, fullName, lazy []), [])        
+            DeclaredType(Entity(lazy Class(None, []), None, fullName, lazy []), [])
         | BoolConst _ -> Boolean
         | ArrayConst (_, typ) -> Array typ
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
         | UnaryOp _ -> Function([Any], Any)
         | BinaryOp _ | LogicalOp _ -> Function([Any; Any], Any)
-        | Lambda (args, body) -> Function(List.map Ident.getType args, body.Type)
+        | Lambda (args, body, _) -> Function(List.map Ident.getType args, body.Type)
     member x.Range: SourceLocation option =
         match x with
-        | Lambda (_, body) -> body.Range
+        | Lambda (_, body, _) -> body.Range
         | _ -> None
 
 and LoopKind =
@@ -332,5 +334,5 @@ and Expr =
         | Switch (_,_,_,_,range)
         | Label (_, _, range)
         | Break (_, range)
-        | Continue (_, range) 
+        | Continue (_, range)
         | Return (_, range) -> range

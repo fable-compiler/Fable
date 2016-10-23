@@ -22,7 +22,7 @@ let makeLoop range loopKind = Loop (loopKind, range)
 let makeIdent name = Ident(name)
 let makeTypedIdent name typ = Ident(name, typ)
 let makeIdentExpr name = makeIdent name |> IdentValue |> Value
-let makeLambdaExpr args body = Value(Lambda(args, body))
+let makeLambdaExpr args body = Value(Lambda(args, body, true))
 
 let makeCoreRef (com: ICompiler) modname prop =
     let prop = defaultArg prop "default"
@@ -189,7 +189,7 @@ let makeTypeRefFrom com curFile ent =
     DeclaredType(ent, []) |> makeTypeRef com None curFile false
 
 let makeEmit r t args macro =
-    Apply(Value(Emit macro), args, ApplyMeth, t, r) 
+    Apply(Value(Emit macro), args, ApplyMeth, t, r)
 
 let rec makeTypeTest com range curFile (typ: Type) expr =
     let jsTypeof (primitiveType: string) expr =
@@ -205,7 +205,7 @@ let rec makeTypeTest com range curFile (typ: Type) expr =
     | Function _ -> jsTypeof "function" expr
     | Array _ | Tuple _ ->
         "Array.isArray($0) || ArrayBuffer.isView($0)"
-        |> makeEmit range Boolean [expr] 
+        |> makeEmit range Boolean [expr]
     | Any -> makeConst true
     | Option typ -> makeTypeTest com range curFile typ expr
     | DeclaredType(typEnt, _) ->
@@ -298,14 +298,14 @@ let makeCasesMethod com curFile (cases: Map<string, Type list>) =
     MemberDeclaration(Member("cases", Method, [], Any, isSymbol=true), None, [], body, SourceLocation.Empty)
 
 let makeDelegate (com: ICompiler) arity (expr: Expr) =
-    let rec flattenLambda (arity: int option) accArgs = function
-        | Value (Lambda (args, body)) when arity.IsNone || List.length accArgs < arity.Value ->
-            flattenLambda arity (accArgs@args) body
+    let rec flattenLambda (arity: int option) isArrow accArgs = function
+        | Value (Lambda (args, body, isArrow')) when arity.IsNone || List.length accArgs < arity.Value ->
+            flattenLambda arity (isArrow && isArrow') (accArgs@args) body
         | _ when arity.IsSome && List.length accArgs < arity.Value ->
             None
         | body ->
-            Value (Lambda (accArgs, body)) |> Some
-    let wrap arity expr =
+            Value (Lambda (accArgs, body, isArrow)) |> Some
+    let wrap arity isArrow expr =
         match arity with
         | Some arity when arity > 1 ->
             let lambdaArgs =
@@ -315,15 +315,15 @@ let makeDelegate (com: ICompiler) arity (expr: Expr) =
                 ||> List.fold (fun callee arg ->
                     Apply (callee, [Value (IdentValue arg)],
                         ApplyMeth, Any, expr.Range))
-            Lambda (lambdaArgs, lambdaBody) |> Value
+            Lambda (lambdaArgs, lambdaBody, isArrow) |> Value
         | _ -> expr // Do nothing
     match expr, expr.Type, arity with
-    | Value (Lambda (args, body)), _, _ ->
-        match flattenLambda arity args body with
+    | Value (Lambda (args, body, isArrow)), _, _ ->
+        match flattenLambda arity isArrow args body with
         | Some expr -> expr
-        | None -> wrap arity expr
+        | None -> wrap arity isArrow expr
     | _, Function(args,_), Some arity ->
-        wrap (Some arity) expr
+        wrap (Some arity) false expr
     | _ -> expr
 
 // Check if we're applying against a F# let binding
@@ -332,13 +332,13 @@ let makeApply range typ callee exprs =
         match callee with
         // If we're applying against a F# let binding, wrap it with a lambda
         | Sequential _ ->
-            Apply(Value(Lambda([],callee)), [], ApplyMeth, callee.Type, callee.Range)
-        | _ -> callee        
+            Apply(Value(Lambda([],callee,true)), [], ApplyMeth, callee.Type, callee.Range)
+        | _ -> callee
     let lasti = (List.length exprs) - 1
     ((0, callee), exprs) ||> List.fold (fun (i, callee) expr ->
         let typ' = if i = lasti then typ else makeUnknownFnType (i+1)
         i + 1, Apply (callee, [expr], ApplyMeth, typ', range))
-    |> snd    
+    |> snd
 
 let getTypedArrayName (com: ICompiler) numberKind =
     match numberKind with

@@ -429,6 +429,7 @@ Target "FableCoreRelease" (fun _ ->
 
     // Update Fable.Core version
     Util.assemblyInfo fableCoreSrcDir releaseCore.Value.NugetVersion []
+
     !! (fableCoreSrcDir </> "Fable.Core.fsproj")
     |> MSBuild fableCoreNpmDir "Build" [
         "Configuration","Release"
@@ -467,6 +468,13 @@ Target "FableCoreRelease" (fun _ ->
 Target "FableCoreDebug" (fun _ ->
     let fableCoreNpmDir = "build/fable-core"
     let fableCoreSrcDir = "src/fable/Fable.Core"
+
+    !! (fableCoreSrcDir </> "Fable.Core.fsproj")
+    |> MSBuild fableCoreNpmDir "Build" [
+        "Configuration","Debug"
+        "DefineConstants","IMPORT"]
+    |> ignore // Log outputs all files in node_modules
+
     Npm.script fableCoreNpmDir "tsc" [sprintf "--project ../../%s/ts" fableCoreSrcDir]
     setEnvironVar "BABEL_ENV" "target-commonjs"
     Npm.script fableCoreNpmDir "babel" [". --out-dir . --compact=false"]

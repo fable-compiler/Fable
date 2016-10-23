@@ -1,3 +1,7 @@
+### 0.7.5-alpha.16
+
+* Add JsFunc and JsCons to Fable.Core.JsInterop
+
 ### 0.7.5-alpha.15
 
 * Use outDir to place the generated dll with .fsproj projects

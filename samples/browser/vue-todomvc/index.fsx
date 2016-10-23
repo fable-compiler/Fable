@@ -116,9 +116,6 @@ module Main =
         member __.removeCompleted() =
             todos <- filters.["active"] todos
 
-    type Directives =
-        abstract ``todo-focus``: obj option -> unit
-
     let extraOpts =
         createObj [
             "el" ==> ".todoapp"
@@ -130,9 +127,9 @@ module Main =
                             "handler" ==> Storage.save
                         ]
                 ]
-            "directives" ==> {
-                new Directives with
-                    member this.``todo-focus`` x =
+            "directives" ==>
+                createObj[
+                    "todo-focus" ==> JsFunc1(fun this x ->
                         match x with
                         | None -> ()
                         | Some _ ->
@@ -140,7 +137,8 @@ module Main =
                             Lib.Vue?nextTick(fun () ->
                                 el?focus() |> ignore)
                             |> ignore
-            }
+                    )
+                ]
         ]
 
     // Now instantiate the type and create a Vue view model
