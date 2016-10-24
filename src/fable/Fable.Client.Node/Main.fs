@@ -7,6 +7,7 @@ open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
 open Newtonsoft.Json
 open Fable
 open Fable.AST
@@ -48,7 +49,7 @@ let readOptions argv =
     let li f = function U2.Case1 v -> [f v] | U2.Case2 v -> List.map f v
     let opts = readOpts Map.empty<_,_> (List.ofArray argv)
     let opts = {
-        projFile = def opts "projFile" null (un Path.GetFullPath)
+        projFile = def opts "projFile" [] (li Path.GetFullPath)
         outDir = def opts "outDir" null (un Path.GetFullPath)
         coreLib = def opts "coreLib" "fable-core" (un (fun x -> x.TrimEnd('/')))
         watch = def opts "watch" false (un bool.Parse)
@@ -59,7 +60,6 @@ let readOptions argv =
         declaration = def opts "declaration" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id) |> List.append ["FABLE_COMPILER"] |> List.distinct
         plugins = def opts "plugins" [] (li id)
-        msbuild = def opts "msbuild" [] (li id)
         refs = Map(def opts "refs" [] (li (fun (x: string) ->
             let xs = x.Split('=') in xs.[0], xs.[1])))
         extra = Map(def opts "extra" [] (li (fun (x: string) ->
@@ -94,7 +94,6 @@ let loadPlugins (pluginPaths: string list) =
         | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.toList
 
-#if DOTNETCORE
 type private TypeInThisAssembly = class end
 
 let forgeGetProjectOptions projFile =
@@ -160,50 +159,42 @@ let forgeGetProjectOptions projFile =
         LoadTime = DateTime.Now
         UnresolvedReferences = None
     }
-    //printfn "projOptions ===> %A" projOptions
+    //printfn "Forge projOptions ===> %A" projOptions
     projOptions
-#endif
 
-let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
-    let rec addSymbols (symbols: string list) (opts: FSharpProjectOptions) =
-        let addSymbols' (otherOpts: string[]) =
-            otherOpts
-            // |> Array.filter (fun s -> s.StartsWith "--define:" = false)
-            |> Array.append (List.map (sprintf "--define:%s") symbols |> List.toArray)
-        { opts with
-            OtherOptions = addSymbols' opts.OtherOptions
-            ReferencedProjects = opts.ReferencedProjects
-                |> Array.map (fun (k,v) -> k, addSymbols symbols v) }
-    let projFile = Path.GetFullPath opts.projFile
+let mergeProjectOpts (opts1: FSharpProjectOptions) (opts2: FSharpProjectOptions) =
+    let projOptions: FSharpProjectOptions = {
+        ProjectFileName = opts2.ProjectFileName
+        ProjectFileNames = Array.append opts1.ProjectFileNames opts2.ProjectFileNames
+        OtherOptions = Array.append opts1.OtherOptions opts2.OtherOptions |> Array.distinct
+        ReferencedProjects = [| |]
+        IsIncompleteTypeCheckEnvironment = false
+        UseScriptResolutionRules = true
+        LoadTime = DateTime.Now
+        UnresolvedReferences = None
+    }
+    //printfn "Merged projOptions ===> %A" projOptions
+    projOptions
+
+let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
       let defines = [|for symbol in opts.symbols do yield "--define:" + symbol|]
       checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = defines)
       |> Async.RunSynchronously
     | ".fsproj" ->
-    #if DOTNETCORE
       forgeGetProjectOptions projFile
-    #else
-      let props = opts.msbuild |> List.choose (fun x ->
-          match x.Split('=') with
-          | [|key;value|] -> Some(key,value)
-          | _ -> None)
-      // NOTE: .NET Core MSBuild can't successfully build .fsproj (yet)
-      // see https://github.com/Microsoft/msbuild/issues/709, 711, 713
-      ProjectCracker.GetProjectOptionsFromProjectFile(projFile, props)
-    #endif
     | _ as s -> failwith (sprintf "Unsupported project type: %s" s)
-    |> addSymbols opts.symbols
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
 // get a read error. If that happens the lock is usually brief so we can reasonably wait
 // for it to be released.
-let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
+let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
     let retryUntil = (DateTime.UtcNow + TimeSpan.FromSeconds 5.)
     let rec retry () =
         try
-            getProjectOpts checker opts
+            getProjectOpts checker opts projFile
         with
         | :? IOException as ioex ->
             if retryUntil > DateTime.UtcNow then
@@ -213,6 +204,16 @@ let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
                 failwithf "IO Error trying read project options: %s " ioex.Message
         | ex -> failwithf "Cannot read project options: %s" ex.Message
     retry()
+
+let getFullProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
+    opts.projFile
+    |> Seq.map (retryGetProjectOpts checker opts)
+    |> Seq.reduce mergeProjectOpts
+    |> fun fullProjOpts ->
+        let otherOpts =
+            fullProjOpts.OtherOptions
+            |> Array.append (List.map (sprintf "--define:%s") opts.symbols |> List.toArray)
+        { fullProjOpts with OtherOptions = otherOpts }
 
 /// Returns an (errors, warnings) tuple
 let parseErrors errors =
@@ -249,8 +250,10 @@ let makeCompiler opts plugins =
     let id = ref 0
     let monitor = obj()
     let logs = ResizeArray()
+    let projDir = Fable.Path.getCommonBaseDir opts.projFile
     { new ICompiler with
         member __.Options = opts
+        member __.ProjDir = projDir
         member __.Plugins = plugins
         member __.AddLog msg = logs.Add msg
         member __.GetLogs() =
@@ -291,7 +294,8 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
     |> Seq.iter Console.Out.WriteLine
 
-let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions) =
+let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions): unit =
+    failwith "TODO" (*
     if Directory.Exists(comOpts.outDir) |> not then
         Directory.CreateDirectory(comOpts.outDir) |> ignore
     let projOut =
@@ -318,11 +322,12 @@ let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FS
                "--target:library"
                "--doc:" + projOut + ".xml" |]
     let errors, warnings =
+        let scs = SimpleSourceCodeServices()
         if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
         then args
         // Project Options from a script don't contain file names
         else Array.append args projOpts.ProjectFileNames
-        |> checker.Compile
+        |> scs.Compile
         |> fun (errors, _exitCode) -> parseErrors errors
     if errors.Length > 0 then
         errors
@@ -335,6 +340,7 @@ let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FS
         |> String.concat "\n"
         |> Info |> string |> Log
         |> List.singleton |> printMessages
+    *)
 
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
     try
@@ -342,8 +348,8 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         // -----------------------------------
         let projInfo =
             match projInfo.FileMask with
-            | Some file when com.Options.projFile = file ->
-                let projOpts = retryGetProjectOpts checker com.Options
+            | Some file when com.Options.projFile |> List.exists ((=) file) ->
+                let projOpts = getFullProjectOpts checker com.Options
                 FSProjInfo(projOpts, ?fileMask=projInfo.FileMask, extra=projInfo.Extra)
             | _ -> projInfo
 
@@ -423,7 +429,7 @@ let rec awaitInput (com: ICompiler) checker fullCompileSuccess (projInfo: FSProj
         let projInfo =
             if fullCompileSuccess
             then FSProjInfo(projInfo.ProjectOpts, fileMask=fileMask, extra=projInfo.Extra)
-            else FSProjInfo(retryGetProjectOpts checker com.Options)
+            else FSProjInfo(getFullProjectOpts checker com.Options)
         let success, projInfo = compile com checker projInfo
         awaitInput com checker (fullCompileSuccess || success) projInfo
 
@@ -432,7 +438,7 @@ let main argv =
     try
         let opts = readOptions argv
         let checker = FSharpChecker.Create(keepAssemblyContents=true)
-        let projectOpts = retryGetProjectOpts checker opts
+        let projectOpts = getFullProjectOpts checker opts
         let com = loadPlugins opts.plugins |> makeCompiler opts
         // Full compilation
         let success, projInfo =
