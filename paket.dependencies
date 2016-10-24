@@ -1,7 +1,7 @@
 source https://www.nuget.org/api/v2
 
 nuget FAKE
-nuget FSharp.Compiler.Service
+nuget FSharp.Compiler.Service 8.0.0
 nuget FSharp.Core
 nuget Newtonsoft.Json
 nuget Fable.JsonConverter
