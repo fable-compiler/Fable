@@ -1,6 +1,6 @@
-[<NUnit.Framework.TestFixture>]
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Seqs
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 let sumFirstTwo (zs: seq<float>) =
@@ -132,14 +132,14 @@ let ``Seq.tryFindBack works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> Seq.tryFind ((>) 4.) |> equal (Some 1.)
     xs |> Seq.tryFindBack ((>) 4.) |> equal (Some 3.)
-    xs |> Seq.tryFindBack ((=) 5.) |> equal None    
+    xs |> Seq.tryFindBack ((=) 5.) |> equal None
 
 [<Test>]
 let ``Seq.tryFindIndexBack works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> Seq.tryFindIndex ((>) 4.) |> equal (Some 0)
     xs |> Seq.tryFindIndexBack ((>) 4.) |> equal (Some 2)
-    xs |> Seq.tryFindIndexBack ((=) 5.) |> equal None    
+    xs |> Seq.tryFindIndexBack ((=) 5.) |> equal None
 
 [<Test>]
 let ``Seq.fold works``() =
@@ -496,7 +496,7 @@ let ``Seq.tryFind works``() =
     |> Seq.tryFind ((=) 1.)
     |> Option.isSome
     |> equal true
-    [1.; 2.] |> Seq.tryFind ((=) 5.) |> equal None    
+    [1.; 2.] |> Seq.tryFind ((=) 5.) |> equal None
 
 [<Test>]
 let ``Seq.tryFindIndex works``() =
@@ -504,7 +504,7 @@ let ``Seq.tryFindIndex works``() =
     |> Seq.tryFindIndex ((=) 2.)
     |> Option.get
     |> equal 1
-    [1.; 2.] |> Seq.tryFindIndex ((=) 5.) |> equal None    
+    [1.; 2.] |> Seq.tryFindIndex ((=) 5.) |> equal None
 
 [<Test>]
 let ``Seq.tryPick works``() =
@@ -704,7 +704,7 @@ let ``Seq.except works``() =
     Seq.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> Seq.isEmpty |> equal true
     Seq.except [|49|] [|7; 49|] |> Seq.last|> equal 7
     Seq.except [{ Bar= "test" }] [{ Bar = "test" }] |> Seq.isEmpty |> equal true
-    
+
 [<Test>]
 let ``Seq.item throws exception when index is out of range`` () =
     let xs = [0]

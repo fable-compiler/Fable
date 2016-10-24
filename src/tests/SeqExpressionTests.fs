@@ -1,7 +1,7 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.``Seq Expressions``
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
@@ -22,36 +22,36 @@ let ``yield from in seq expressions works``() =
 
 [<Test>]
 let ``infinite seq expressions work``() =
-    let rec green () = seq { 
+    let rec green () = seq {
         yield "green"
         yield! yellow() }
-    and yellow () = seq { 
+    and yellow () = seq {
         yield "yellow"
         yield! red() }
-    and red () = seq { 
-        yield "red" 
+    and red () = seq {
+        yield "red"
         yield! green() }
     green() |> Seq.item 12 |> equal "green"
-    
+
 [<Test>]
 let ``combine in seq expressions works``() =
     seq { yield 1; yield 2 }
-    |> Seq.length |> equal 2 
+    |> Seq.length |> equal 2
 
 [<Test>]
 let ``multiple yields in seq expressions work``() =
     let upTo n = seq {
         for i = 1 to n do yield n
     }
-    let numbers () = seq { 
+    let numbers () = seq {
         yield 8
-        yield! upTo 5 
+        yield! upTo 5
         yield 4
         yield! upTo 3
         yield 2
     }
     numbers() |> Seq.sum |> equal 48
-    
+
 [<Test>]
 let ``for in seq expressions works``() =
     seq { for x in 1 .. 10 do yield x }
@@ -72,7 +72,7 @@ type 'a Tree =
 
 [<Test>]
 let ``recursive seq expressions work``() =
-    let rec traverse t = seq { 
+    let rec traverse t = seq {
         match t with
         | Leaf -> ()
         | Node(xs, y, zs) ->
@@ -86,10 +86,10 @@ let ``recursive seq expressions work``() =
 [<Test>]
 let ``try...finally in seq expressions works``() =
     let mutable n = 0
-    try seq { 
-        try 
+    try seq {
+        try
             raise (exn "My message")
-        finally 
+        finally
             n <- n + 1
         } |> Seq.iter ignore
     with _ -> ()
@@ -103,7 +103,7 @@ type DisposableAction(f) =
 [<Test>]
 let ``use in seq expressions works``() =
     let mutable n = 0
-    seq { 
+    seq {
         use x = new DisposableAction(fun () ->
             n <- n + 1)
         ignore x

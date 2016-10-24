@@ -1,8 +1,8 @@
-﻿namespace Fable.Tests.Clamp
+﻿namespace Fable.Tests.Other
 
 // Check that project references to folders work
 type [<Sealed>] Helper =
-    static member CreateClampedArray() = [|5uy|]
+    static member CreateArray() = [|5uy|]
     #if FABLE_COMPILER
     static member ConditionalExternalValue = "Fable Rocks!"
     #endif

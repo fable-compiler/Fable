@@ -1,10 +1,10 @@
-[<NUnit.Framework.TestFixture>]
-#if !DOTNETCORE
+[<Util.Testing.TestFixture>]
+#if !DOTNETCORE && !FABLE_COMPILER
 [<NUnit.Framework.SetCulture("en-US")>]
 #endif
 module Fable.Tests.Strings
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 // Format
@@ -17,7 +17,7 @@ let ``sprintf works``() =
       // Curried
       let printer = sprintf "Hi %s, good %s!"
       let printer = printer "Alfonso"
-      printer "morning" |> equal "Hi Alfonso, good morning!" 
+      printer "morning" |> equal "Hi Alfonso, good morning!"
       printer "evening" |> equal "Hi Alfonso, good evening!"
 
 [<Test>]
@@ -78,7 +78,7 @@ let ``String.Format with extra formatting works``() =
       let dt = DateTime(2014, 9, 26).AddMinutes(19.)
       String.Format("{0:F2} {0:P2} {1:yyyy-MM-dd HH:mm}", i, dt)
       |> equal "0.55 54.67 % 2014-09-26 00:19"
-          
+
 [<Test>]
 let ``Padding works``() =
     "3.14".PadLeft(10)      |> equal "      3.14"
@@ -86,7 +86,7 @@ let ``Padding works``() =
     "22".PadLeft(10, '0')   |> equal "0000000022"
     "-22".PadRight(10, 'X') |> equal "-22XXXXXXX"
     "333".PadLeft(1) |> equal "333"
-    
+
 [<Test>]
 let ``Padding with sprintf works``() =
     sprintf "%10.1f" 3.14  |> equal "       3.1"
@@ -256,7 +256,7 @@ let ``String.IndexOf works``() =
       "abcd".IndexOf("bc") * 100 + "abcd".IndexOf("bd")
       |> equal 99
 
-[<Test>] 
+[<Test>]
 let ``String.IndexOf works with offset``() =
       "abcdbc".IndexOf("bc", 3)
       |> equal 4
@@ -266,7 +266,7 @@ let ``String.LastIndexOf works``() =
       "abcdbc".LastIndexOf("bc") * 100 + "abcd".LastIndexOf("bd")
       |> equal 399
 
-[<Test>] 
+[<Test>]
 let ``String.LastIndexOf works with offset``() =
       "abcdbcebc".LastIndexOf("bc", 3)
       |> equal 1
@@ -343,7 +343,7 @@ let ``String.Length works``() =
 let ``String item works``() =
       "AbC".[1] |> equal 'b'
 
-[<Test>]    
+[<Test>]
 let ``String.ToCharArray works``() =
       let arr = "abcd".ToCharArray()
       equal "c" (string arr.[2])
@@ -392,33 +392,33 @@ let ``String.concat works``() =
 
 [<Test>]
 let ``String.forall and exists work``() =
-      "!!!" |> String.forall (fun c -> c = '!') |> equal true 
-      "a!a" |> String.forall (fun c -> c = '!') |> equal false 
-      "aaa" |> String.forall (fun c -> c = '!') |> equal false 
+      "!!!" |> String.forall (fun c -> c = '!') |> equal true
+      "a!a" |> String.forall (fun c -> c = '!') |> equal false
+      "aaa" |> String.forall (fun c -> c = '!') |> equal false
 
 [<Test>]
 let ``String.init works``() =
       String.init 3 (fun i -> "a")
-      |> equal "aaa" 
+      |> equal "aaa"
 
 [<Test>]
 let ``String.collect works``() =
       "abc" |> String.collect (fun c -> "bcd")
-      |> equal "bcdbcdbcd" 
+      |> equal "bcdbcdbcd"
 
 [<Test>]
 let ``String.iter works``() =
       let res = ref ""
       "Hello world!"
       |> String.iter (fun c -> res := !res + c.ToString())
-      equal "Hello world!" !res 
+      equal "Hello world!" !res
 
 [<Test>]
 let ``String.iteri works``() =
       let mutable res = ""
       "Hello world!"
       |> String.iteri (fun c i -> res <- res + i.ToString() + c.ToString())
-      equal "H0e1l2l3o4 5w6o7r8l9d10!11" res 
+      equal "H0e1l2l3o4 5w6o7r8l9d10!11" res
 
 [<Test>]
 let ``String.length (function) works``() =
@@ -428,17 +428,17 @@ let ``String.length (function) works``() =
 [<Test>]
 let ``String.map works``() =
       "Hello world!" |> String.map (fun c -> if c = 'H' then '_' else c)
-      |> equal "_ello world!" 
+      |> equal "_ello world!"
 
 [<Test>]
 let ``String.mapi works``() =
       "Hello world!" |> String.mapi (fun i c -> if i = 1 || c = 'H' then '_' else c)
-      |> equal "__llo world!" 
+      |> equal "__llo world!"
 
 [<Test>]
 let ``String.replicate works``() =
       String.replicate 3 "hi there"
-      |> equal "hi therehi therehi there" 
+      |> equal "hi therehi therehi there"
 
 // String to number convertion
 

@@ -1,7 +1,7 @@
-[<NUnit.Framework.TestFixture>]
+[<Util.Testing.TestFixture>]
 module Fable.Tests.DateTime
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 #if DOTNETCORE

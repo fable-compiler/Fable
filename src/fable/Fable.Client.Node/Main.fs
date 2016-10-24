@@ -49,7 +49,7 @@ let readOptions argv =
     let li f = function U2.Case1 v -> [f v] | U2.Case2 v -> List.map f v
     let opts = readOpts Map.empty<_,_> (List.ofArray argv)
     let opts = {
-        projFile = def opts "projFile" [] (li Path.GetFullPath)
+        projFile = def opts "projFile" [] (li Path.GetFullPath) |> List.rev
         outDir = def opts "outDir" null (un Path.GetFullPath)
         coreLib = def opts "coreLib" "fable-core" (un (fun x -> x.TrimEnd('/')))
         watch = def opts "watch" false (un bool.Parse)
@@ -96,25 +96,42 @@ let loadPlugins (pluginPaths: string list) =
 
 type private TypeInThisAssembly = class end
 
-let forgeGetProjectOptions projFile =
-    let projPath = Path.GetDirectoryName(projFile)
+let forgeGetProjectOptions (opts: CompilerOptions) projFile =
+    let projDir = Path.GetDirectoryName(projFile)
     let projParsed = Forge.ProjectSystem.FsProject.load projFile
     let sourceFiles =
         projParsed.SourceFiles.AllFiles()
         |> Seq.filter (fun fileName -> fileName.EndsWith(".fs") || fileName.EndsWith(".fsx"))
-        |> Seq.map (fun fileName -> Path.Combine(projPath, fileName))
+        |> Seq.map (fun fileName -> Path.Combine(projDir, fileName))
         |> Seq.toArray
     let beforeComma (str: string) = match str.IndexOf(',', 0) with | -1 -> str | i -> str.Substring(0, i)
     let projReferences = projParsed.References |> Seq.map (fun x ->
-        (beforeComma x.Include),
-        (match x.HintPath with | Some path -> Path.Combine(projPath, path) |> Some | _ -> None))
-    //NOTE: proper reference resolution ahead of time is necessary to avoid default FCS resolution
-    let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
-    let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
-    let sysPath = Path.GetDirectoryName(sysCoreLib)
-    let sysLib name = Path.Combine(sysPath, name + ".dll")
-    let localPath = Path.GetDirectoryName(typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location)
-    let localLib name = Path.Combine(localPath, name + ".dll")
+        let include' = beforeComma x.Include
+        if include'.StartsWith "."
+        then include', Path.Combine(projDir, include') |> Some
+        else include', x.HintPath |> Option.map (fun x -> Path.Combine(projDir, x)))
+    let fscoreDir =
+        if System.Environment.OSVersion.Platform = System.PlatformID.Win32NT then // file references only valid on Windows
+            let PF =
+                match Environment.GetEnvironmentVariable("ProgramFiles(x86)") with
+                | null -> Environment.GetEnvironmentVariable("ProgramFiles")  // if PFx86 is null, then we are 32-bit and just get PF
+                | s -> s
+            PF + @"\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0"
+        else
+            System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory()
+    let resolve refs =
+        SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.Resolve(
+            ReferenceResolver.ResolutionEnvironment.CompileTimeLike,
+            [| for a in refs -> (a, "") |],
+            defaultArg projParsed.Settings.TargetFrameworkVersion.Data "v4.5.1",
+            [SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.DotNetFrameworkReferenceAssembliesRootDirectory + @"\v4.5.1" ],
+            "",
+            fscoreDir,
+            [],
+            projDir,
+            ignore,
+            (fun _ _ _ -> ())
+        )
     let allFlags = [|
         yield "--simpleresolution"
         yield "--noframework"
@@ -128,26 +145,27 @@ let forgeGetProjectOptions projFile =
         yield "--target:library"
         //yield "--targetprofile:netcore"
 
+        for symbol in opts.symbols do
+            yield "--define:" + symbol
+
         let coreReferences = [
-            "FSharp.Core", Some fsCoreLib
-            "CoreLib", Some sysCoreLib
+            "FSharp.Core", None
             "mscorlib", None
-            "System.IO", None
+            "System", None
+            // "System.IO", None
             "System.Runtime", None
         ]
-
         // add distinct project references
-        let references = Seq.append coreReferences projReferences |> Seq.distinctBy fst
-        for r in references do
-            match r with
-                | _, Some path -> // absolute paths
-                    yield "-r:" + path
-                | name, None -> // try to resolve path
-                    if File.Exists (sysLib name) then
-                        yield "-r:" + (sysLib name)
-                    elif File.Exists (localLib name) then
-                        yield "-r:" + (localLib name)
-                    //TODO: check more paths?
+        let resolvedRefs, unresolvedRefs =
+            Seq.append coreReferences projReferences
+            |> Seq.distinctBy fst |> Seq.toArray
+            |> Array.partition (snd >> Option.isSome)
+        let resolvedFiles =
+            unresolvedRefs |> Array.map fst |> resolve
+        for r in resolvedFiles do
+            yield "-r:" + r.itemSpec
+        for (_,r) in resolvedRefs do
+            yield "-r:" + r.Value
     |]
     let projOptions: FSharpProjectOptions = {
         ProjectFileName = projFile
@@ -179,11 +197,14 @@ let mergeProjectOpts (opts1: FSharpProjectOptions) (opts2: FSharpProjectOptions)
 let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
-      let defines = [|for symbol in opts.symbols do yield "--define:" + symbol|]
-      checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = defines)
-      |> Async.RunSynchronously
+        let otherFlags = [|
+            yield "--target:library"
+            for symbol in opts.symbols do yield "--define:" + symbol
+        |]
+        checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = otherFlags)
+        |> Async.RunSynchronously
     | ".fsproj" ->
-      forgeGetProjectOptions projFile
+        forgeGetProjectOptions opts projFile
     | _ as s -> failwith (sprintf "Unsupported project type: %s" s)
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
@@ -209,11 +230,6 @@ let getFullProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
     opts.projFile
     |> Seq.map (retryGetProjectOpts checker opts)
     |> Seq.reduce mergeProjectOpts
-    |> fun fullProjOpts ->
-        let otherOpts =
-            fullProjOpts.OtherOptions
-            |> Array.append (List.map (sprintf "--define:%s") opts.symbols |> List.toArray)
-        { fullProjOpts with OtherOptions = otherOpts }
 
 /// Returns an (errors, warnings) tuple
 let parseErrors errors =
@@ -295,40 +311,22 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.iter Console.Out.WriteLine
 
 let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions): unit =
-    failwith "TODO" (*
     if Directory.Exists(comOpts.outDir) |> not then
         Directory.CreateDirectory(comOpts.outDir) |> ignore
     let projOut =
-        let projName = Path.GetFileNameWithoutExtension(comOpts.projFile)
+        let projName = Path.GetFileNameWithoutExtension(Seq.last comOpts.projFile)
         Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
-    let args =
-        if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
-        then
-            let projDir = Path.GetFullPath(Path.GetDirectoryName(comOpts.projFile))
-            let projOpts =
-                projOpts.OtherOptions
-                |> Array.collect (function
-                    | Naming.StartsWith "--doc:" _ -> [||]
-                    | Naming.StartsWith "--out:" _ ->
-                        [| "--out:" + projOut + ".dll"; "--doc:" + projOut + ".xml" |]
-                    // Resolve relative references
-                    | Naming.StartsWith "-r:." _ as x ->
-                        [|"-r:" + Path.Combine(projDir, x.Substring(3))|]
-                    | x -> [|x|])
-            projOpts
-        else
-            [| comOpts.projFile
-               "--out:" + projOut + ".dll"
-               "--target:library"
-               "--doc:" + projOut + ".xml" |]
+    let args = [|
+        yield! projOpts.OtherOptions
+        // Seems `--out` cannot come at the beginning
+        // or the compiler will ignore it
+        yield "--out:" + projOut + ".dll"
+        yield "--doc:" + projOut + ".xml"
+        yield! projOpts.ProjectFileNames
+    |]
     let errors, warnings =
-        let scs = SimpleSourceCodeServices()
-        if Path.GetExtension(comOpts.projFile).ToLower() = ".fsproj"
-        then args
-        // Project Options from a script don't contain file names
-        else Array.append args projOpts.ProjectFileNames
-        |> scs.Compile
-        |> fun (errors, _exitCode) -> parseErrors errors
+        let errors, _exitCode = checker.Compile(args)
+        parseErrors errors
     if errors.Length > 0 then
         errors
         |> Seq.append ["Errors when generating dll assembly:"]
@@ -340,7 +338,6 @@ let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FS
         |> String.concat "\n"
         |> Info |> string |> Log
         |> List.singleton |> printMessages
-    *)
 
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
     try
@@ -437,7 +434,7 @@ let rec awaitInput (com: ICompiler) checker fullCompileSuccess (projInfo: FSProj
 let main argv =
     try
         let opts = readOptions argv
-        let checker = FSharpChecker.Create(keepAssemblyContents=true)
+        let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
         let projectOpts = getFullProjectOpts checker opts
         let com = loadPlugins opts.plugins |> makeCompiler opts
         // Full compilation

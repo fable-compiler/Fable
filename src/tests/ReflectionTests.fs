@@ -1,8 +1,8 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Reflection
 
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 type TestType =

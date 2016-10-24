@@ -1,8 +1,8 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Dictionaries
 open System
 open System.Collections.Generic
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
@@ -21,7 +21,7 @@ let ``Dictionary creation from IDictionary works``() =
     let dic = Dictionary<_,_>(idic)
     dic.Add("100", 100)
     equal 10 idic.Count
-    equal 11 dic.Count 
+    equal 11 dic.Count
 
 [<Test>]
 let ``Interface IDictionary iteration works``() =
@@ -93,7 +93,7 @@ let ``Dictionary.Keys works``() =
     dic.Add("B", 2)
     dic.Keys |> Seq.fold (fun acc k -> acc + dic.[k]) 0
     |> equal 3
-    
+
 [<Test>]
 let ``Dictionary.Keys.Count works``() =
     let dic = Dictionary<_,_>()
@@ -101,7 +101,7 @@ let ``Dictionary.Keys.Count works``() =
     dic.Add("B", 2)
     dic.Keys.Count
     |> equal 2
-        
+
 [<Test>]
 let ``Dictionary.Values works``() =
     let dic = Dictionary<_,_>()
@@ -197,12 +197,12 @@ type R = { i: int; s: string }
 let ``Dictionaries can be JSON serialized forth and back``() =
     let x = Dictionary<_,_>()
     x.Add("a", { i=1; s="1" })
-    x.Add("b", { i=2; s="2" })    
+    x.Add("b", { i=2; s="2" })
     #if FABLE_COMPILER
     let json = Fable.Core.Serialize.toJson x
     let x2 = Fable.Core.Serialize.ofJson<Dictionary<string, R>> json
     (0, x2) ||> Seq.fold (fun acc kv -> acc + kv.Value.i)
-    |> equal 3    
+    |> equal 3
     let json = Fable.Core.Serialize.toJsonWithTypeInfo x
     let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Dictionary<string, R>> json
     #else
@@ -216,7 +216,7 @@ let ``Dictionaries can be JSON serialized forth and back``() =
 let ``Dictionaries serialized with Json.NET can be deserialized``() =
     // let x = Dictionary<_,_>()
     // x.Add("a", { i=1; s="1" })
-    // x.Add("b", { i=2; s="2" })    
+    // x.Add("b", { i=2; s="2" })
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[Fable.Tests.Maps+R, Fable.Tests]], FSharp.Core","a":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":1,"s":"1"},"b":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":2,"s":"2"}}"""
     #if FABLE_COMPILER

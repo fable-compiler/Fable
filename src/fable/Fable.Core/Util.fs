@@ -123,7 +123,7 @@ module Path =
         let cache = System.Collections.Generic.Dictionary<string, string>()
         let addToCache (cache: System.Collections.Generic.Dictionary<'k, 'v>) k v =
             cache.Add(k, v); v
-        let isExternal projPath path =
+        let isExternal projDir path =
             let rec parentContains rootPath path' =
                 match Directory.GetParent path' with
                 | null -> Some (rootPath, path)
@@ -131,12 +131,12 @@ module Path =
                 | parent when parent.FullName.Contains("node_modules") -> Some(rootPath, path)
                 | parent when rootPath = parent.FullName -> None
                 | parent -> parentContains rootPath parent.FullName
-            parentContains (Path.GetDirectoryName projPath) path
+            parentContains projDir path
         fun (com: ICompiler) filePath ->
             if not com.Options.copyExt then filePath else
             match Path.GetFullPath filePath with
             | DicContains cache filePath -> filePath
-            | Try (isExternal com.Options.projFile) (rootPath, filePath) ->
+            | Try (isExternal com.ProjDir) (rootPath, filePath) ->
                 Path.Combine(rootPath, Naming.fableExternalDir,
                     sprintf "%s-%i%s"
                         (Path.GetFileNameWithoutExtension filePath)
@@ -192,11 +192,10 @@ module Path =
         then importPath
         else
             let filePath = Path.GetFullPath filePath
-            let projFile = Path.GetFullPath com.Options.projFile
-            if Path.GetDirectoryName filePath = Path.GetDirectoryName projFile
+            if Path.GetDirectoryName filePath = com.ProjDir
             then importPath
             else
-                getRelativePath filePath projFile
+                getRelativePath filePath com.ProjDir
                 |> Path.GetDirectoryName
                 |> fun relPath -> Path.Combine(relPath, importPath) |> normalizePath
 

@@ -1,7 +1,7 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Convert
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]

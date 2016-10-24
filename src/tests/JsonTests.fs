@@ -1,15 +1,16 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Json
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
-open Newtonsoft.Json
 
-type S =
 #if FABLE_COMPILER
+type S =
     static member toJson(x) = Fable.Core.Serialize.toJson(x)
     static member ofJson<'T>(x, [<Fable.Core.GenericParam("T")>]?t) =
         Fable.Core.Serialize.ofJson<'T>(x, ?t=t)
 #else
+open Newtonsoft.Json
+type S =
     static member toJson x = JsonConvert.SerializeObject(x, Fable.JsonConverter())
     static member ofJson<'T> x = JsonConvert.DeserializeObject<'T>(x, Fable.JsonConverter())
 #endif
@@ -43,7 +44,7 @@ let ``Nested generics``() =
 
 [<Test>]
 let ``Records``() =
-    let json = 
+    let json =
         """
         {
             "Name": "foo",
@@ -57,20 +58,20 @@ let ``Records``() =
     result.Name |> equal "foo"
     // Use the built in compare to ensure the fields are being hooked up.
     // Should compile to something like: result.Child.Equals(new Child("Hi", 10))
-    result.Child = {a="Hi"; b=10} |> equal true  
+    result.Child = {a="Hi"; b=10} |> equal true
 
-[<Test>] 
+[<Test>]
 let ``Date``() =
     let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
     let json = d |> S.toJson
     let result : System.DateTime = S.ofJson json
     result.Year |> equal 2016
 
-type JsonDate = {  
+type JsonDate = {
     Date : System.DateTime
 }
-        
-[<Test>] 
+
+[<Test>]
 let ``Child Date``() =
     let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
     let json = { Date = d } |> S.toJson
@@ -81,39 +82,39 @@ type JsonArray = {
     Name : string
 }
 
-[<Test>] 
+[<Test>]
 let ``Arrays``() =
     let json = """[{ "Name": "a" }, { "Name": "b" }]"""
     let result : JsonArray[] = S.ofJson json
     result |> Array.length |> equal 2
-    result.[1] = { Name="b" } |> equal true  
+    result.[1] = { Name="b" } |> equal true
 
 type ChildArray = {
     Children : JsonArray[]
 }
 
-[<Test>] 
+[<Test>]
 let ``Child Array``() =
     let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
     let result : ChildArray = S.ofJson json
     result.Children |> Array.length |> equal 2
     result.Children.[1] = { Name="b" } |> equal true
 
-[<Test>] 
+[<Test>]
 let ``String Generic List``() =
     let json = """["a","b"]"""
     let result : System.Collections.Generic.List<string> = S.ofJson json
     result.Count |> equal 2
     result.[1] |> equal "b"
 
-[<Test>] 
+[<Test>]
 let ``Child Generic List``() =
     let json = """[{ "Name": "a" }, { "Name": "b" }]"""
     let result : System.Collections.Generic.List<JsonArray> = S.ofJson json
     result.Count |> equal 2
-    result.[1] = { Name="b" } |> equal true  
+    result.[1] = { Name="b" } |> equal true
 
-[<Test>] 
+[<Test>]
 let ``Lists``() =
     let json = """["a","b"]"""
     let result : string list = S.ofJson json
@@ -127,7 +128,7 @@ type ChildList = {
     Children : JsonArray list
 }
 
-[<Test>] 
+[<Test>]
 let ``Child List``() =
     let json = """{ "Children": [{ "Name": "a" }, { "Name": "b" }] }"""
     let result : ChildList = S.ofJson json
@@ -149,7 +150,7 @@ let ``generic`` () =
     result3 = {a = "a"; b = 1} |> equal true
     // let result4 : Child = parseAndUnwrap """ {"$type":"Fable.Tests.Json+Wrapper`1[[Fable.Tests.Json+Child, Fable.Tests]], Fable.Tests","thing":{"$type":"Fable.Tests.Json+Child, Fable.Tests","a":"a","b":1}} """
     // if result4 <> {a = "a"; b = 1} then
-    //     invalidOp "things not equal" 
+    //     invalidOp "things not equal"
 
 type OptionJson =
     { a: int option }
@@ -213,7 +214,7 @@ let ``Maps`` () =
     let result : MapJson = S.ofJson json
     result.a.Count |> equal 2
     result.a.["b"] = { a="bb"; b=2 } |> equal true
-    
+
 type DictionaryJson =
     { a: System.Collections.Generic.Dictionary<string, Child> }
 
@@ -262,7 +263,7 @@ let ``Union of record`` () =
     match result.a with
     | Type2 t -> t = { a="a"; b=1 }
     | Type1 _ -> false
-    |> equal true 
+    |> equal true
 
 type MultiUnion =
     | EmptyCase

@@ -7,12 +7,12 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>1e44403b-7834-4842-91b1-53a5fa731c58</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>Fable.Tests.Clamped</RootNamespace>
-    <AssemblyName>Fable.Tests.Clamped</AssemblyName>
+    <RootNamespace>Fable.Tests.Other</RootNamespace>
+    <AssemblyName>Fable.Tests.Other</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <Name>Fable.Tests.Clamp</Name>
+    <Name>Fable.Tests.Other</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

@@ -349,6 +349,9 @@ GITHUB
       Octokit (>= 0.20)
   remote: fsprojects/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (c50ace31d335b7bcb83b102d2cfd0ce2007ed681)
+  remote: fsharp/FSharp.Compiler.Service
+    src/fsharp/ReferenceResolver.fs (81eb5b7fe7530ef9f014285548c5aec7d02b48e6)
+    src/fsharp/SimulatedMSBuildReferenceResolver.fs (81eb5b7fe7530ef9f014285548c5aec7d02b48e6)
 GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2

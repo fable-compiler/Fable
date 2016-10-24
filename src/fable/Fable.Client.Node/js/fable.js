@@ -256,13 +256,14 @@ function build(opts, continuation) {
 
     // Call Fable.exe
     if (opts.verbose) {
-        fableLib.stdoutLog("\nPROJECT FILE: " + opts.projFile.map(function(f) {return fableLib.pathJoin(opts.workingDir, f)}).join());
-        fableLib.stdoutLog("OUTPUT DIR: " + fableLib.pathJoin(opts.workingDir, opts.outDir));
-        fableLib.stdoutLog("WORKING DIR: " + opts.workingDir) + "\n";
-        fableLib.stdoutLog("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
+        fableLib.stdoutLog("\nWORKING DIR: " + opts.workingDir) + "\n";
+        fableLib.stdoutLog("PROJECT FILE" + (opts.projFile.length > 1 ? "S" : "")  + ": " + opts.projFile.join("; "));
+        fableLib.stdoutLog("OUTPUT DIR: " + opts.outDir);
+        fableLib.stdoutLog("\nFABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: opts.workingDir, windowsVerbatimArguments: true });
 
+    // Check if dotnet runtime is installed
     // !!child_process.spawnSync("which", ["dotnet"]).stdout.toString()
     // child_process.spawnSync("dotnet", ["--info"]).error != null
 
@@ -375,7 +376,11 @@ function readCommandLineOptions() {
 /** Reads options from fableconfig.json, requires json5 */
 function readFableConfigOptions(opts) {
     opts.workingDir = path.resolve(opts.workingDir || process.cwd());
-    opts.projFile = typeof opts.projFile === "string" ? [opts.projFile] : opts.projFile;
+    if (typeof opts.projFile === "string") {
+        opts.projFile = [opts.projFile];
+    }
+    // Don't do this, as it may confuse `key in opts` below
+    // opts.projFile = typeof opts.projFile === "string" ? [opts.projFile] : opts.projFile;
 
     var cfgFile = fableLib.pathJoin(opts.workingDir, constants.FABLE_CONFIG_FILE);
 

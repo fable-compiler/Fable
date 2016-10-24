@@ -1,6 +1,6 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.TupleTypes
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
