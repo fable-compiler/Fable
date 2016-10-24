@@ -11,6 +11,7 @@
                 "Util/Util.fs",
                 "Util/Util2.fs",
                 "../tests_external/Util3.fs",
+                "../tests_external/Util4.fs",
                 "ArithmeticTests.fs",
                 "ArrayTests.fs",
                 "AsyncTests.fs",
@@ -18,14 +19,17 @@
                 "ConvertTests.fs",
                 "DateTimeTests.fs",
                 "DictionaryTests.fs",
+                "EnumerableTests.fs",
                 "EnumTests.fs",
                 "EventTests.fs",
                 "HashSetTests.fs",
+                "JsonTests.fs",
                 "ListTests.fs",
                 "MapTests.fs",
                 "MiscTests.fs",
                 "ObservableTests.fs",
                 "RecordTypeTests.fs",
+                "ReflectionTests.fs",
                 "RegexTests.fs",
                 "ResizeArrayTests.fs",
                 "SeqExpressionTests.fs",
@@ -35,7 +39,7 @@
                 "SudokuTest.fs",
                 "TupleTypeTests.fs",
                 "TypeTests.fs",
-                "UnionTypeTests.fs",
+                "UnionTypeTests.fs"
             ]
         },
         "define": [
@@ -55,11 +59,11 @@
     },
     "dependencies": {
         "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*",
+        "Newtonsoft.Json": "9.0.1",
         "NUnit": "3.4.1",
         "dotnet-test-nunit": "3.4.0-beta-2",
-        "Fable.Core": {
-            "target": "project"
-        }
+        "Fable.Core": { "target": "project" },
+        "Fable.JsonConverter": { "target": "project" }
     },
     "testRunner": "nunit",
     "frameworks": {

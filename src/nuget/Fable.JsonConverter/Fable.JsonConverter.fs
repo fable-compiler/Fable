@@ -1,5 +1,12 @@
 namespace Fable
 
+#if DOTNETCORE
+open System.Reflection
+module System =
+    type System.Type with
+        member this.IsValueType = this.GetTypeInfo().IsValueType
+#endif
+
 open System
 open FSharp.Reflection
 open Newtonsoft.Json

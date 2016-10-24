@@ -256,14 +256,14 @@ Target "FableCompilerDebug" (fun _ ->
 
 Target "FableCompilerNetcore" (fun _ ->
     try
-        let srcDir, buildDir = "src/netcore/Fable.Client.Node", "build/fable"
+        let buildDir = "build/fable"
         buildFableCompilerJs buildDir true
 
         // Restore packages
-        [ "src/netcore/Forge.Core"; "src/netcore/Fable.Core"; "src/netcore/Fable.Compiler"; srcDir ]
-        |> Seq.iter (fun dir -> Util.run dir "dotnet" "restore")
+        Util.run "." "dotnet" "restore"
 
         // Publish Fable NetCore
+        let srcDir = "src/netcore/Fable.Client.Node"
         Util.run srcDir "dotnet" "publish -c Release"
         FileUtils.cp_r (srcDir + "/bin/Release/netcoreapp1.0/publish") (buildDir + "/bin")
 
@@ -273,8 +273,11 @@ Target "FableCompilerNetcore" (fun _ ->
 
         // Compile NUnit plugin
         let pluginDir = "src/plugins/nunit"
-        Util.run pluginDir "dotnet" "restore"
         Util.run pluginDir "dotnet" "build -c Release"
+
+        // Run dotnet tests
+        let testDir = "src/tests"
+        Util.run testDir "dotnet" "test -c Release"
 
         // Compile tests
         Node.run "." buildDir ["src/tests --target netcore"]
@@ -282,15 +285,26 @@ Target "FableCompilerNetcore" (fun _ ->
         FileUtils.cp "src/tests/package.json" testsBuildDir
         Npm.install testsBuildDir []
 
-        // Copy the development version of fable-core.js
-        let fableCoreNpmDir = "src/fable/Fable.Core/npm"
-        Npm.install fableCoreNpmDir []
-        Npm.script fableCoreNpmDir "tsc" ["fable-core.ts --target ES2015 --declaration"]
-        setEnvironVar "BABEL_ENV" "target-umd"
-        Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
-        FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
+        // // Copy the development version of fable-core.js
+        // let fableCoreNpmDir = "src/fable/Fable.Core/npm"
+        // Npm.install fableCoreNpmDir []
+        // Npm.script fableCoreNpmDir "tsc" ["fable-core.ts --target ES2015 --declaration"]
+        // setEnvironVar "BABEL_ENV" "target-umd"
+        // Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
+        // FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
 
-        // Run tests
+        // Copy README and package.json
+        let fableCoreNpmDir = "build/fable-core"
+        let fableCoreSrcDir = "src/fable/Fable.Core"
+        FileUtils.cp (fableCoreSrcDir </> "ts/README.md") fableCoreNpmDir
+        FileUtils.cp (fableCoreSrcDir </> "ts/package.json") fableCoreNpmDir
+        FileUtils.cp (fableCoreSrcDir </> "ts/.babelrc") fableCoreNpmDir
+
+        // Compile TypeScript
+        Npm.install fableCoreNpmDir []
+        Npm.script fableCoreNpmDir "tsc" [sprintf "--project ../../%s/ts -m commonjs" fableCoreSrcDir]
+
+        // Run javascript tests
         Npm.script testsBuildDir "test" []
     with
     | ex ->

@@ -10,6 +10,7 @@
     "targets": {
         "netcore": {
             "projFile": "tests.fsx",
+            "ecma": "es2015",
             "symbols": ["DOTNETCORE"],
             "plugins": ["../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
         }

@@ -324,6 +324,76 @@ module Util =
             | U2.Case2 e -> Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
         args, body, returnType, typeParams
 
+    let makeIterator =
+        let noargs = []
+        let name = Babel.MemberExpression(
+                        Babel.Identifier("Symbol"),
+                        Babel.Identifier("iterator"),
+                        computed=false) :> Babel.Expression
+        let body =
+            Babel.BlockStatement(
+              [ Babel.VariableDeclaration(
+                    Babel.Identifier("en"),
+                    Babel.CallExpression(
+                        Babel.MemberExpression(
+                            Babel.ThisExpression(),
+                            Babel.Identifier("GetEnumerator")),
+                        noargs) :> Babel.Expression,
+                    Babel.Let)
+                Babel.IfStatement(
+                    Babel.MemberExpression(
+                        Babel.Identifier("en"),
+                        Babel.Identifier("next")),
+                    Babel.ReturnStatement(
+                        Babel.Identifier("en")))
+                Babel.ReturnStatement(
+                    Babel.ObjectExpression(
+                      [ Babel.ObjectProperty(
+                            Babel.Identifier("next"),
+                            Babel.ArrowFunctionExpression(
+                                noargs,
+                                Babel.BlockStatement(
+                                  [ Babel.ReturnStatement(
+                                        Babel.ObjectExpression(
+                                          [ Babel.ObjectProperty(
+                                                Babel.Identifier("done"),
+                                                Babel.UnaryExpression(
+                                                    UnaryNot,
+                                                    Babel.CallExpression(
+                                                        Babel.MemberExpression(
+                                                            Babel.Identifier("en"),
+                                                            Babel.Identifier("MoveNext")),
+                                                        noargs) :> Babel.Expression
+                                                ) :> Babel.Expression) |> U3.Case1
+                                            Babel.ObjectProperty(
+                                                Babel.Identifier("value"),
+                                                Babel.MemberExpression(
+                                                    Babel.Identifier("en"),
+                                                    Babel.Identifier("Current"))) |> U3.Case1
+                                            ]))
+                                    ]) |> U2.Case1)) |> U3.Case1
+                        ]))
+                ])
+        name, noargs, body
+
+    let isEnumerable interfaces =
+        let hasInterface x = interfaces |> List.contains x
+        hasInterface "System.Collections.Generic.IEnumerable"
+
+    let appendClassIterator interfaces members =
+        if isEnumerable interfaces then
+            let name, args, body = makeIterator
+            let m = Babel.ClassMethod(Babel.ClassFunction, name, args, body, computed=true, ``static``=false)
+            members @ [m |> U2.Case1]
+        else members
+
+    let appendObjectIterator interfaces members =
+        if isEnumerable interfaces then
+            let name, args, body = makeIterator
+            let m = Babel.ObjectMethod(Babel.ObjectMeth, name, args, body, computed=true)
+            members @ [m |> U3.Case2]
+        else members
+
     let transformValue (com: IBabelCompiler) ctx r = function
         | Fable.ImportRef (memb, path, kind) ->
             let memb, parts =
@@ -366,7 +436,8 @@ module Util =
             |> com.TransformClass ctx range baseClass
             |> fun c -> upcast Babel.NewExpression(c, [], ?loc=range)
         | None ->
-            members |> List.choose (function
+            members
+            |> List.choose (function
                 | Fable.EntityDeclaration _ | Fable.ActionDeclaration _ -> None // Shouldn't happen
                 | Fable.MemberDeclaration(m, _, args, body, r) ->
                     let makeMethod kind name =
@@ -387,6 +458,7 @@ module Util =
                         let key, _ = sanitizeName m.Name
                         Babel.ObjectProperty(key, com.TransformExpr ctx body, ?loc=Some r) |> U3.Case1
                     |> Some)
+            |> appendObjectIterator interfaces
             |> fun props ->
                 match interfaces with
                 | [] -> props
@@ -735,6 +807,7 @@ module Util =
                 ?returnType=returnType, ?typeParams=typeParams, loc=range)
             |> U2<_,Babel.ClassProperty>.Case1
         let baseClass = baseClass |> Option.map (transformExpr com ctx)
+        let interfaces = match ent with | Some e -> e.Interfaces | None -> []
         decls
         |> List.map (function
             | Fable.MemberDeclaration(m, _, args, body, range) ->
@@ -753,6 +826,7 @@ module Util =
             | Fable.ActionDeclaration _
             | Fable.EntityDeclaration _ as decl ->
                 failwithf "Unexpected declaration in class: %A" decl)
+        |> appendClassIterator interfaces
         |> fun members ->
             let id = ent |> Option.map (fun x -> identFromName x.Name)
             let typeParams, members =

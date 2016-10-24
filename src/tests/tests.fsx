@@ -4,7 +4,9 @@
 #r "System.Threading.dll"
 #r "System.Text.RegularExpressions.dll"
 #r "../../packages/NUnit/lib/dotnet/nunit.framework.dll"
+#r "../../packages/Newtonsoft.Json/lib/netstandard1.0/Newtonsoft.Json.dll"
 #r "../../build/fable/bin/Fable.Core.dll"
+//#r "./bin/Release/netcoreapp1.0/Fable.Core.dll"
 
 #load
     "DllRef/Util/Util.fs"
@@ -21,6 +23,7 @@
     "ConvertTests.fs"
     "DateTimeTests.fs"
     "DictionaryTests.fs"
+    "EnumerableTests.fs"
     "EnumTests.fs"
     "EventTests.fs"
     "HashSetTests.fs"
