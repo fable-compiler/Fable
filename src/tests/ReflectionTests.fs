@@ -1,4 +1,4 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Reflection
 
 #if DOTNETCORE && !FABLE_COMPILER
@@ -9,7 +9,7 @@ module System =
 #endif
 
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 type TestType =

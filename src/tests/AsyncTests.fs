@@ -1,7 +1,7 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Async
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
@@ -12,7 +12,7 @@ let ``Simple async translates without exception``() =
 [<Test>]
 let ``Async while binding works correctly``() =
     let mutable result = 0
-    async { 
+    async {
         while result < 10 do
             result <- result + 1
     } |> Async.StartImmediate
@@ -22,7 +22,7 @@ let ``Async while binding works correctly``() =
 let ``Async for binding works correctly``() =
     let inputs = [|1; 2; 3|]
     let result = ref 0
-    async { 
+    async {
         for inp in inputs do
             result := !result + inp
     } |> Async.StartImmediate
@@ -32,7 +32,7 @@ let ``Async for binding works correctly``() =
 let ``Async exceptions are handled correctly``() =
     let result = ref 0
     let f shouldThrow =
-        async { 
+        async {
             try
                 if shouldThrow then failwith "boom!"
                 else result := 12
@@ -45,13 +45,13 @@ let ``Async exceptions are handled correctly``() =
 let ``Simple async is executed correctly``() =
     let result = ref false
     let x = async { return 99 }
-    async { 
+    async {
         let! x = x
         let y = 99
         result := x = y
     }
     //TODO: RunSynchronously would make more sense here but in JS I think this will be ok.
-    |> Async.StartImmediate 
+    |> Async.StartImmediate
     equal !result true
 
 type DisposableAction(f) =
@@ -66,12 +66,12 @@ let ``async use statements should dispose of resources when they go out of scope
     let resource = async {
         return new DisposableAction(fun () -> isDisposed := true)
     }
-    async { 
+    async {
         use! r = resource
         step1ok := not !isDisposed
     }
     //TODO: RunSynchronously would make more sense here but in JS I think this will be ok.
-    |> Async.StartImmediate 
+    |> Async.StartImmediate
     step2ok := !isDisposed
     (!step1ok && !step2ok) |> equal true
 
@@ -80,7 +80,7 @@ let ``Try ... with ... expressions inside async expressions work the same``() =
     let result = ref ""
     let throw() : unit =
         raise(exn "Boo!")
-    let append(x) = 
+    let append(x) =
         result := !result + x
     let innerAsync() =
         async {
@@ -91,7 +91,7 @@ let ``Try ... with ... expressions inside async expressions work the same``() =
             with _ -> append "d"
             append "e"
         }
-    async { 
+    async {
         append "a"
         try do! innerAsync()
         with _ -> append "2"
@@ -209,7 +209,7 @@ let ``Interaction between Async and Promise works``() =
     } |> Async.RunSynchronously
 
 [<Test>]
-let ``Promises can be cancelled``() =    
+let ``Promises can be cancelled``() =
     async {
         let res = ref 0
         let tcs = new System.Threading.CancellationTokenSource(50)
@@ -262,7 +262,7 @@ let ``MailboxProcessor.postAndAsyncReply works``() =
     async {
         let formatString = "Msg: {0} - {1}"
         let agent = MailboxProcessor<Message>.Start(fun inbox ->
-            let rec loop n = async {            
+            let rec loop n = async {
                 let! (message, replyChannel) = inbox.Receive()
                 do! Async.Sleep(100) // Delay a bit
                 replyChannel.Reply(String.Format(formatString, n, message))
@@ -277,8 +277,8 @@ let ``MailboxProcessor.postAndAsyncReply works``() =
 
 [<Test>]
 let ``Async try .. with returns correctly from 'with' branch``() =
-    let work = async { 
-        try 
+    let work = async {
+        try
           failwith "testing"
           return -1
         with e ->
@@ -305,29 +305,29 @@ let ``Deep recursion with async doesn't cause stack overflow``() =
 let ``Nested failure propagates in async expressions``() =
     async {
         let data = ref ""
-        let f1 x = 
+        let f1 x =
             async {
                 try
                     failwith "1"
                     return x
                 with
-                | e -> return! failwith ("2 " + e.Message.Trim('"')) 
+                | e -> return! failwith ("2 " + e.Message.Trim('"'))
             }
-        let f2 x = 
+        let f2 x =
             async {
                 try
                     return! f1 x
                 with
-                | e -> return! failwith ("3 " + e.Message.Trim('"')) 
+                | e -> return! failwith ("3 " + e.Message.Trim('"'))
             }
         let f() =
-            async { 
+            async {
                 try
                     let! y = f2 4
                     return ()
                 with
                 | e -> data := e.Message.Trim('"')
-            } 
+            }
             |> Async.StartImmediate
         f()
         do! Async.Sleep 100
@@ -360,13 +360,13 @@ let ``Final statement inside async expressions can throw``() =
             try data := !data + "1 "
             finally failwith "boom!"
         }
-        async { 
+        async {
             try
                 do! f()
                 return ()
             with
             | e -> data := !data + e.Message.Trim('"')
-        } 
+        }
         |> Async.StartImmediate
         do! Async.Sleep 100
         equal "1 boom!" !data

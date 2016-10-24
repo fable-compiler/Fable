@@ -1,6 +1,6 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.UnionTypes
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 type Gender = Male | Female
@@ -31,10 +31,10 @@ let ``Union cases matches with one argument can be generated``() =
 
 [<Test>]
 let ``Union methods can be generated``() =
-    let x = Left 5 
+    let x = Left 5
     x.ToString()
     |> equal "5"
-    
+
 [<Test>]
 let ``Nested pattern matching works``() =
     let x = Right(Left 5)
@@ -195,7 +195,7 @@ type Tree =
     member this.Sum() =
         match this with
         | Leaf i -> i
-        | Branch trees -> trees |> Seq.map (fun x -> x.Sum()) |> Seq.sum 
+        | Branch trees -> trees |> Seq.map (fun x -> x.Sum()) |> Seq.sum
 
 [<Test>]
 let ``Unions can be JSON serialized forth and back``() =
@@ -249,7 +249,7 @@ type UnionTypeInfoConverter() =
 #endif
 
 [<Test>]
-let ``Unions serialized with Json.NET can be deserialized``() =    
+let ``Unions serialized with Json.NET can be deserialized``() =
     #if FABLE_COMPILER
     let json = """{"$type":"Fable.Tests.UnionTypes+Tree","Case":"Leaf","Fields":[5]}"""
     let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Tree> json
@@ -309,7 +309,7 @@ let ``Option.bind works``() =
 
 [<Test>]
 let ``Option.filter works``() = // See #390
-    let optionToString opt = 
+    let optionToString opt =
         match opt with
         | None -> "None"
         | Some value -> sprintf "Some %s" value
@@ -323,7 +323,7 @@ type OptTest = OptTest of int option
 [<Test>]
 let ``Different ways of providing None to a union case should be equal``() = // See #231
     let value = None
-    equal true ((OptTest None) = (value |> OptTest))    
+    equal true ((OptTest None) = (value |> OptTest))
 
 [<Test>]
 let ``Different ways of providing None to a function should be equal``() = // See #231
@@ -346,7 +346,7 @@ let ``Accessing an option value gives correct expression type``() = // See #285
 [<Test>]
 let ``Mixing refs and options works``() = // See #238
     let res = ref 0
-    let setter, getter = 
+    let setter, getter =
         let slot = ref None
         (fun f -> slot.Value <- Some f),
         (fun v -> slot.Value.Value v)
@@ -386,7 +386,7 @@ let ``Erased union type testing works``() =
     let toString (arg: U3<string, int, Wrapper>) =
         match arg with
         | U3.Case1 s -> s
-        | U3.Case2 i -> i * 2 |> string 
+        | U3.Case2 i -> i * 2 |> string
         | U3.Case3 t -> t.Value
     U3.Case1 "HELLO" |> toString |> equal "HELLO"
     U3.Case2 3 |> toString |> equal "6"

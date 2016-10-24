@@ -10,6 +10,8 @@ nuget NUnit.Runners
 nuget Suave
 github fsharp-editing/Forge
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
+github fsharp/FSharp.Compiler.Service src/fsharp/ReferenceResolver.fs
+github fsharp/FSharp.Compiler.Service src/fsharp/SimulatedMSBuildReferenceResolver.fs
 
 group Docs
   source https://www.nuget.org/api/v2

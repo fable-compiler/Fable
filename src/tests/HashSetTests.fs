@@ -1,6 +1,6 @@
-﻿[<NUnit.Framework.TestFixture>] 
+﻿[<Util.Testing.TestFixture>]
 module Fable.Tests.HashSets
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 open System.Collections.Generic
 
@@ -30,19 +30,19 @@ let ``HashSet.Add returns false if already present``() =
 
 [<Test>]
 let ``HashSet.Remove works when item is present``() =
-    let xs = set [1] 
+    let xs = set [1]
     xs.Remove 1 |> equal true
     xs.Count |> equal 0
 
 [<Test>]
 let ``HashSet.Remove works when item is not present``() =
-    let xs = set [1; 2] 
+    let xs = set [1; 2]
     xs.Remove 3 |> equal false
     xs.Count |> equal 2
 
 [<Test>]
 let ``HashSet.UnionWith works``() =
-    let xs = set [1; 2] 
+    let xs = set [1; 2]
     let ys = set [2; 4]
     xs.UnionWith ys
     (xs.Contains 1 && xs.Contains 2 && xs.Contains 4)
@@ -50,7 +50,7 @@ let ``HashSet.UnionWith works``() =
 
 [<Test>]
 let ``HashSet.IntersectWith works``() =
-    let xs = set [1; 2] 
+    let xs = set [1; 2]
     let ys = set [2; 4]
     xs.IntersectWith ys
     xs.Contains 1 |> equal false
@@ -58,7 +58,7 @@ let ``HashSet.IntersectWith works``() =
 
 [<Test>]
 let ``HashSet.ExceptWith works``() =
-    let xs = set [1; 2] 
+    let xs = set [1; 2]
     let ys = set [2; 4]
     xs.ExceptWith ys
     xs.Contains 1 |> equal true
@@ -99,7 +99,7 @@ let ``HashSet.Count works``() =
     let zs = set [1; 1]
     zs.Count |> equal 1
     let zs' = set [1; 2]
-    zs'.Count |> equal 2    
+    zs'.Count |> equal 2
 
 [<Test>]
 let ``HashSet.Add works``() =
@@ -122,7 +122,7 @@ let ``HashSet.Contains works``() =
     hs.Add("Hello") |> equal true
     hs.Add("World!") |> equal true
     hs.Contains("Hello") |> equal true
-    hs.Contains("Everybody!") |> equal false        
+    hs.Contains("Everybody!") |> equal false
 
 [<Test>]
 let ``HashSet.CopyTo works``() =

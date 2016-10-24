@@ -1,6 +1,0 @@
-{
-    "projFile": "Fable.Tests.Clamp.fsproj",
-    "outDir": "../../../build/tests/Another Project",
-    "coreLib": "../../../build/fable-core",
-    "clamp": true
-}

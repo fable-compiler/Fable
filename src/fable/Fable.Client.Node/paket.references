@@ -1,2 +1,4 @@
 FSharp.Compiler.Service
 Newtonsoft.Json
+File: ReferenceResolver.fs
+File: SimulatedMSBuildReferenceResolver.fs

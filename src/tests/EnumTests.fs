@@ -1,9 +1,9 @@
-[<NUnit.Framework.TestFixture>]
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Enum
 
 open System
 open FSharp.Core.LanguagePrimitives
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 type Fruits =

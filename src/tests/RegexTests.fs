@@ -1,6 +1,6 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Regex
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 open System.Text.RegularExpressions
 
@@ -10,7 +10,7 @@ let ``Regex.Options works``() =
     let option2 = int RegexOptions.ECMAScript
     let options = option1 ||| option2
     let r = Regex("[a-z]", unbox options)
-    int r.Options |> equal 257 
+    int r.Options |> equal 257
 
 [<Test>]
 let ``Regex.IsMatch with IgnoreCase and Multiline works``() =

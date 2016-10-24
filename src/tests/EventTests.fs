@@ -1,7 +1,7 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Event
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
@@ -22,16 +22,16 @@ let ``Event.choose works``() =
     |> Event.add (fun n -> result <- n)
     source.Trigger (Choice1Of2 2)
     source.Trigger (Choice2Of2 3)
-    
+
     equal 3 result
 
 [<Test>]
 let ``Event.filter works``() =
-    let mutable result = 0 
-    
+    let mutable result = 0
+
     let source = Event<_>()
     source.Publish
-    |> Event.filter ((>) 5) 
+    |> Event.filter ((>) 5)
     |> Event.add (fun n -> result <- n )
     source.Trigger 3
     equal 3 result
@@ -40,14 +40,14 @@ let ``Event.filter works``() =
 
 [<Test>]
 let ``Event.map works``() =
-    let mutable result = 0 
+    let mutable result = 0
 
     let source = Event<_>()
-    source.Publish 
+    source.Publish
     |> Event.map ((+) 3)
     |> Event.add (fun n -> result <- n)
     source.Trigger 10
-    
+
     equal 13 result
 
 [<Test>]
@@ -77,10 +77,10 @@ let ``Event.pairwise works``() =
         result2 <- y)
     source.Trigger 1
     source.Trigger 2
-    
+
     equal 1 result1
     equal 2 result2
-    
+
 
 [<Test>]
 let ``Event.partition works``() =
@@ -94,7 +94,7 @@ let ``Event.partition works``() =
     Event.add (fun n -> result2 <- n) source2
     source.Trigger 8
     source.Trigger 3
-    
+
     equal 3 result1
     equal 8 result2
 
@@ -109,7 +109,7 @@ let ``Event.scan works``() =
         )
     source.Trigger 1
     source.Trigger 1
-    
+
     equal state 7
 
 [<Test>]
@@ -127,50 +127,50 @@ let ``Event.split works``() =
     Event.add (fun n -> result2 <- n) source2
     source.Trigger 6
     source.Trigger 2
-    
+
     equal 6 result1
-    equal 12 result2 
-    
+    equal 12 result2
+
 [<Test>]
 let ``IEvent.add works``() =
-    let mutable result = 0    
-    
+    let mutable result = 0
+
     let source = Event<_> ()
     source.Publish.Add(fun n -> result <- n)
-    
+
     source.Trigger 6
     equal 6 result
-    
+
 [<Test>]
 let ``IEvent.Subscribe works``() =
-    let mutable result = 0      
-    
-    let source = Event<_> ()    
+    let mutable result = 0
+
+    let source = Event<_> ()
     source.Publish.Subscribe(fun n -> result <- n) |> ignore
-     
+
     source.Trigger 6
     equal 6 result
 
 [<Test>]
 let ``IEvent.AddHandler works``() =
-    let mutable result = 0      
-    
-    let source = Event<_> ()    
+    let mutable result = 0
+
+    let source = Event<_> ()
     source.Publish.AddHandler(new Handler<_>(fun sender n -> result <- n)) |> ignore
-     
+
     source.Trigger 6
     equal 6 result
-    
+
 [<Test>]
 let ``IEvent.RemoveHandler works``() =
-    let mutable result = 0      
-    
+    let mutable result = 0
+
     let handler = new Handler<_>(fun sender n -> result <- n)
-    
-    let source = Event<_> ()    
+
+    let source = Event<_> ()
     source.Publish.AddHandler(handler) |> ignore
     source.Publish.RemoveHandler(handler)
-     
+
     source.Trigger 6
     equal 0 result
 
@@ -202,5 +202,5 @@ let ``Classes can trigger non-CLI events``() =
     let disp = classWithEvent.Event.Subscribe(fun (sender, arg) -> result <- arg)
     classWithEvent.TestEvent("Hello")
     disp.Dispose()
-    classWithEvent.TestEvent("Bye")    
+    classWithEvent.TestEvent("Bye")
     equal "Hello" result

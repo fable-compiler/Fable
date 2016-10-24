@@ -1,6 +1,6 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Sets
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
@@ -34,7 +34,7 @@ let ``Set.add works``() =
     let xs = Set.empty |> Set.add 1
     Set.count xs
     |> equal 1
-    
+
 [<Test>]
 let ``Set.Add works``() =
     let xs = Set.empty.Add 1
@@ -106,7 +106,7 @@ let ``Set.intersectMany works``() =
     let xs = set [1; 2]
     let ys = Set.singleton 2
     let zs = set [2; 3]
-    let ks = Set.intersectMany [xs; ys; zs] 
+    let ks = Set.intersectMany [xs; ys; zs]
     (ks.Contains 2 && not(ks.Contains 1 || ks.Contains 3))
     |> equal true
 
@@ -277,7 +277,7 @@ let ``Set.toList works``() =
     let zs = Set.toList ys
     xs.[2] = zs.[2]
     |> equal true
-    
+
 [<Test>]
 let ``Set.toArray works``() =
     let xs = [|1.; 2.; 3.; 4.|]
@@ -316,7 +316,7 @@ let ``Sets can be JSON serialized forth and back``() =
 
 [<Test>]
 let ``Sets serialized with Json.NET can be deserialized``() =
-    // let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map    
+    // let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"Microsoft.FSharp.Collections.FSharpSet`1[[Fable.Tests.Sets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Sets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.Sets+R, Fable.Tests","i":2,"s":"2"}]}"""
     #if FABLE_COMPILER
@@ -326,4 +326,3 @@ let ``Sets serialized with Json.NET can be deserialized``() =
     #endif
     (0, x2) ||> Set.fold (fun acc v -> acc + v.i)
     |> equal 3
-    

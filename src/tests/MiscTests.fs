@@ -1,8 +1,8 @@
-[<NUnit.Framework.TestFixture>]
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Misc
 
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
@@ -124,7 +124,7 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
 #if !DOTNETCORE
 [<Test>]
 let ``Symbols in external projects work``() =
-    equal "Fable Rocks!" Clamp.Helper.ConditionalExternalValue
+    equal "Fable Rocks!" Other.Helper.ConditionalExternalValue
 #endif
 
 [<KeyValueList>]

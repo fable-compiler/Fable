@@ -49,6 +49,14 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\..\paket-files\fsharp\FSharp.Compiler.Service\src\fsharp\ReferenceResolver.fs">
+      <Paket>True</Paket>
+      <Link>paket-files/ReferenceResolver.fs</Link>
+    </Compile>
+    <Compile Include="..\..\..\paket-files\fsharp\FSharp.Compiler.Service\src\fsharp\SimulatedMSBuildReferenceResolver.fs">
+      <Paket>True</Paket>
+      <Link>paket-files/SimulatedMSBuildReferenceResolver.fs</Link>
+    </Compile>
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Compile Include="Main.fs" />

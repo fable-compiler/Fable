@@ -1,21 +1,21 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.RecordTypes
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
-type RecursiveRecord = 
+type RecursiveRecord =
     { things : RecursiveRecord list }
-    
+
 type Person =
     { name: string; mutable luckyNumber: int }
     member x.LuckyDay = x.luckyNumber % 30
     member x.SignDoc str = str + " by " + x.name
 
 [<Test>]
-let ``Recursive record does not cause issues``() = 
+let ``Recursive record does not cause issues``() =
     let r = { things = [ { things = [] } ] }
     equal r.things.Length 1
-    
+
 [<Test>]
 let ``Record property access can be generated``() =
     let x = { name = "Alfonso"; luckyNumber = 7 }
@@ -66,7 +66,7 @@ type Parent =
 [<Test>]
 let ``Records can be JSON serialized forth and back``() =
     let parent = { children=[|{a="3";b=5}; {b=7;a="1"} |] }
-    let sum1 = parent.Sum() 
+    let sum1 = parent.Sum()
     #if FABLE_COMPILER
     let json = Fable.Core.Serialize.toJson parent
     let parent2 = Fable.Core.Serialize.ofJson<Parent> json
@@ -77,7 +77,7 @@ let ``Records can be JSON serialized forth and back``() =
     let parent2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Parent> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject parent
-    let parent2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Parent> json    
+    let parent2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Parent> json
     #endif
     let sum2 = parent.Sum()
     equal true (box parent2 :? Parent) // Type is kept
@@ -117,7 +117,7 @@ let ``POJOS can be inflated``() =
     let x = Fable.Import.JS.JSON.parse """{"a":"Hi","b":10}"""
     let x2: Child = Serialize.inflate x
     x2.a |> equal "Hi"
-    x2.b |> equal 10    
+    x2.b |> equal 10
 
 [<Fable.Core.MutatingUpdate>]
 #endif

@@ -1,12 +1,9 @@
 {
-    "projFile": "Fable.Tests.fsproj",
+    "projFile": ["Another Project/Fable.Tests.Other.fsproj", "Fable.Tests.fsproj"],
     "outDir": "../../build/tests",
     "coreLib": "../../build/fable-core",
     "module": "commonjs",
     "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
-    "refs": {
-        "Fable.Tests.Clamp": "../../build/tests/Another Project"
-    },
     "targets": {
         "netcore": {
             "projFile": "tests.fsx",

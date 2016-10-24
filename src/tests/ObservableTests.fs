@@ -1,7 +1,7 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Observable
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 type MyObserver<'T>(f) =
@@ -9,7 +9,7 @@ type MyObserver<'T>(f) =
         member x.OnNext v = f v
         member x.OnError e = ()
         member x.OnCompleted() = ()
-        
+
 type MyObservable<'T>() =
     let listeners = ResizeArray<IObserver<'T>>()
     member x.Trigger v =
@@ -18,7 +18,7 @@ type MyObservable<'T>() =
     interface IObservable<'T> with
         member x.Subscribe w =
             listeners.Add(w)
-            { new IDisposable with 
+            { new IDisposable with
                 member x.Dispose() = listeners.Remove(w) |> ignore }
 
 [<Test>]
@@ -43,7 +43,7 @@ let ``Disposing IObservable works``() =
     disp.Dispose()
     source.Trigger 5
     equal 5 !res
-            
+
 [<Test>]
 let ``Observable.add works``() =
     let source = MyObservable()
