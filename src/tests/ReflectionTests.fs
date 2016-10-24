@@ -1,6 +1,13 @@
 [<NUnit.Framework.TestFixture>] 
 module Fable.Tests.Reflection
 
+#if DOTNETCORE && !FABLE_COMPILER
+open System.Reflection
+module System =
+    type System.Type with
+        member this.IsGenericType = this.GetTypeInfo().IsGenericType
+#endif
+
 open System
 open NUnit.Framework
 open Fable.Tests.Util
