@@ -1,6 +1,6 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Maps
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
@@ -75,7 +75,7 @@ let ``Map.forAll works``() =
     let xs = Map [1.,1.; 2.,4.; 3.,9.; 4.,16.]
     xs |> Map.forall (fun x y -> x < 5.)
     |> equal true
-    
+
 [<Test>]
 let ``Map.exists works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
@@ -93,9 +93,9 @@ let ``Map.filter works``() =
 let ``Map.partition works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
     let ys, zs = xs |> Map.partition (fun x y -> x % 2 = 0)
-    ys.Count + zs.Count 
+    ys.Count + zs.Count
     |> equal 4
-    
+
 [<Test>]
 let ``Map.fold works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
@@ -144,7 +144,7 @@ let ``Map.tryFindKey works``() =
 [<Test>]
 let ``Map.pick works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-    let y = xs |> Map.pick (fun k v -> 
+    let y = xs |> Map.pick (fun k v ->
        match k with
        | 3 -> Some 10
        | _ -> None)
@@ -153,7 +153,7 @@ let ``Map.pick works``() =
 [<Test>]
 let ``Map.tryPick works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-    let y = xs |> Map.tryPick (fun k v -> 
+    let y = xs |> Map.tryPick (fun k v ->
        match k with
        | 3 -> Some 11
        | _ -> None)
@@ -204,8 +204,11 @@ type R = { i: int; s: string }
 let ``Maps can be JSON serialized forth and back``() =
     let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map
     #if FABLE_COMPILER
-    let json = Fable.Core.JsInterop.toJson x
-    let x2 = Fable.Core.JsInterop.ofJson<Map<string, R>> json
+    let json = Fable.Core.Serialize.toJson x
+    let x2 = Fable.Core.Serialize.ofJson<Map<string, R>> json
+    (0, x2) ||> Map.fold (fun acc k v -> acc + v.i) |> equal 3
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo x
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Map<string, R>> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Map<string, R>> json
@@ -215,11 +218,11 @@ let ``Maps can be JSON serialized forth and back``() =
 
 [<Test>]
 let ``Maps serialized with Json.NET can be deserialized``() =
-    // let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map    
+    // let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"Microsoft.FSharp.Collections.FSharpMap`2[[System.String, mscorlib],[Fable.Tests.Maps+R, Fable.Tests]], FSharp.Core","a":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":1,"s":"1"},"b":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":2,"s":"2"}}"""
     #if FABLE_COMPILER
-    let x2 = Fable.Core.JsInterop.ofJson<Map<string, R>> json
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Map<string, R>> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Map<string, R>> json
     #endif

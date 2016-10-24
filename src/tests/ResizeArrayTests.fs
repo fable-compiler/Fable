@@ -1,6 +1,6 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.ResizeArrays
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
@@ -34,7 +34,7 @@ let ``ResizeArray casting to seq works``() =
 [<Test>]
 let ``ResizeArray iteration works``() =
     let li = ResizeArray<_>()
-    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     let acc = ref 0.
     for i in li do
        acc := !acc + i
@@ -53,14 +53,14 @@ let ``ResizeArray iteration with index works``() =
 [<Test>]
 let ``ResizeArray folding works``() =
     let li = ResizeArray<_>()
-    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li |> Seq.fold (fun acc item -> acc + item) 0.
     |> equal 15.
 
 [<Test>]
 let ``ResizeArray.Count works``() =
     let li = ResizeArray<_>()
-    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     equal 5 li.Count
 
 [<Test>]
@@ -85,27 +85,27 @@ let ``ResizeArray.FindLast works``() =
 [<Test>]
 let ``ResizeArray indexer getter works``() =
     let li = ResizeArray<_>()
-    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     equal 2. li.[1]
 
 [<Test>]
 let ``ResizeArray indexer setter works``() =
     let li = ResizeArray<_>()
-    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.[3] <- 10.
     equal 10. li.[3]
 
 [<Test>]
 let ``ResizeArray.Clear works``() =
     let li = ResizeArray<_>()
-    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.Clear()
     equal 0 li.Count
 
 [<Test>]
 let ``ResizeArray.Add works``() =
     let li = ResizeArray<_>()
-    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.Add(6.)
     equal 6 li.Count
 
@@ -142,7 +142,7 @@ let ``ResizeArray.Remove works``() =
 [<Test>]
 let ``ResizeArray.RemoveAt works``() =
     let li = ResizeArray<_>()
-    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.RemoveAt(2)
     equal 4. li.[2]
 
@@ -156,7 +156,7 @@ let ``ResizeArray.Insert works``() =
 [<Test>]
 let ``ResizeArray.ReverseInPlace works``() =
     let li = ResizeArray<_>()
-    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.) 
+    li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
     li.Reverse()
     equal 2. li.[3]
 

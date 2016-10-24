@@ -1,8 +1,8 @@
-﻿[<NUnit.Framework.TestFixture>]
+﻿[<Util.Testing.TestFixture>]
 module Fable.Tests.TypeTests
 
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 type ITest = interface end
@@ -15,18 +15,21 @@ type TestType =
 type TestType2 =
     | Union2 of string
     interface ITest
-    
+
 type TestType3() =
     member __.Value = "Hi"
+    interface ITest
 
 type TestType4() =
-    member __.Value = "Bye"
+    inherit TestType3()
+    member __.Value2 = "Bye"
+    interface ITest2
 
 type TestType5(greeting: string) =
     member __.Value = greeting
     member __.Overload(x) = x + x
     member __.Overload(x, y) = x + y
-    
+
 let normalize (x: string) =
     #if FABLE_COMPILER
     x
@@ -35,13 +38,18 @@ let normalize (x: string) =
     #endif
 
 [<Test>]
+let ``Children inherits parent interfaces``() =
+    let t4 = TestType4() |> box
+    t4 :? ITest |> equal true
+
+[<Test>]
 let ``Type Namespace``() =
     let x = typeof<TestType>.Namespace
     #if FABLE_COMPILER
     equal "Fable.Tests.TypeTests" x
     #else
     equal "Fable.Tests" x
-    #endif    
+    #endif
 
 [<Test>]
 let ``Type FullName``() =
@@ -70,7 +78,7 @@ let ``Interface testing``() =
     x :? ITest2 |> equal false
     y :? ITest |> equal true
     y :? ITest2 |> equal false
-    
+
 [<Test>]
 let ``Type testing in pattern matching``() =
     let x = Union1 "test" :> obj
@@ -120,23 +128,23 @@ let ``Get fullname of generic types with inline function``() =
     fullname<TestType4>() |> equal "Fable.Tests.TypeTests.TestType4"
 
 let inline create<'T when 'T:(new : unit -> 'T)> () = new 'T()
-    
+
 [<Test>]
 let ``Create new generic objects with inline function``() =
     create<TestType3>().Value |> equal "Hi"
-    create<TestType4>().Value |> equal "Bye"
-    // create<TestType5>() // Doesn't compile    
+    create<TestType4>().Value2 |> equal "Bye"
+    // create<TestType5>() // Doesn't compile
 
 let inline create2<'T> (args: obj[]) =
     System.Activator.CreateInstance(typeof<'T>, args) :?> 'T
-    
+
 [<Test>]
 let ``Create new generic objects with System.Activator``() =
     (create2<TestType3> [||]).Value |> equal "Hi"
-    (create2<TestType4> [||]).Value |> equal "Bye"
+    (create2<TestType4> [||]).Value2 |> equal "Bye"
     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
-        
-type RenderState = 
+
+type RenderState =
     { Now : int
       Players : Map<int, string>
       Map : string }
@@ -146,8 +154,8 @@ let ``Property names don't clash with built-in JS objects``() = // See #168
     let gameState = {
         Now = 1
         Map = "dungeon"
-        Players = Map.empty 
-    } 
+        Players = Map.empty
+    }
     gameState.Players.ContainsKey(1) |> equal false
 
 [<Test>]
@@ -155,13 +163,13 @@ let ``Overloads work``() =
     let t = TestType5("")
     t.Overload(2) |> equal 4
     t.Overload(2, 3) |> equal 5
-    
+
 type T4 = TestType4
 
 [<Test>]
 let ``Type abbreviation works``() =
     let t = T4()
-    t.Value |> equal "Bye"
+    t.Value2 |> equal "Bye"
 
 type TestType6(x: int) =
     let mutable i = x
@@ -186,7 +194,7 @@ let ``Getter and Setter work``() =
 
 type TestType7(a1, a2, a3) =
     let arr = [|a1; a2; a3|]
-    member __.Value with get(i) = arr.[i] and set(i) (v) = arr.[i] <- v 
+    member __.Value with get(i) = arr.[i] and set(i) (v) = arr.[i] <- v
 
 [<Test>]
 let ``Getter and Setter with indexer work``() =
@@ -245,7 +253,7 @@ let ``Guid.Empty works``() =
 
 [<Test>]
 let ``lazy works``() =
-    let mutable snitch = 0 
+    let mutable snitch = 0
     let lazyVal =
         lazy
             snitch <- snitch + 1
@@ -258,7 +266,7 @@ let ``lazy works``() =
 
 [<Test>]
 let ``Lazy.CreateFromValue works``() =
-    let mutable snitch = 0 
+    let mutable snitch = 0
     let lazyVal =
         Lazy<_>.CreateFromValue(
             snitch <- snitch + 1
@@ -269,7 +277,7 @@ let ``Lazy.CreateFromValue works``() =
 
 [<Test>]
 let ``lazy.IsValueCreated works``() =
-    let mutable snitch = 0 
+    let mutable snitch = 0
     let lazyVal =
         Lazy<_>.Create(fun () ->
             snitch <- snitch + 1
@@ -297,8 +305,12 @@ type Serializable(?i: int) =
 let ``Classes can be JSON serialized forth and back``() =
     let x = Serializable(5)
     #if FABLE_COMPILER
-    let json = Fable.Core.JsInterop.toJson x
-    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    let json = Fable.Core.Serialize.toJson x
+    let x2 = Fable.Core.Serialize.ofJson<Serializable> json
+    string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
+    string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo x
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Serializable> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
@@ -310,8 +322,11 @@ let ``Classes can be JSON serialized forth and back``() =
 let ``Null values can be JSON serialized forth and back``() =
     let x: Serializable = null
     #if FABLE_COMPILER
-    let json = Fable.Core.JsInterop.toJson x
-    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    let json = Fable.Core.Serialize.toJson x
+    let x2 = Fable.Core.Serialize.ofJson<Serializable> json
+    equal x2 null
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo x
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Serializable> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
@@ -324,7 +339,9 @@ let ``Classes serialized with Json.NET can be deserialized``() =
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"Fable.Tests.TypeTests+Serializable","PublicValue":1}"""
     #if FABLE_COMPILER
-    let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
+    let x2 = Fable.Core.Serialize.ofJson<Serializable> json
+    string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Serializable> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
     #endif

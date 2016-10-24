@@ -40,7 +40,6 @@ Option                  | Short     | Description
 `--loose`               |           | Enable “loose” transformations for babel-preset-es2015 plugins (true by default).
 `--babelrc`             |           | Use a `.babelrc` file for Babel configuration (invalidates other Babel related options).
 `--refs`                |           | Specify dll or project references in `Reference=js/import/path` format (see below).
-`--msbuild`             |           | Pass MSBuild arguments like `Configuration=Release`.
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
 `--copyExt`             |           | Copy external files into `fable_external` folder (true by default).
 `--coreLib`             |           | In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`.
@@ -87,6 +86,8 @@ fable src/main/MyProject.fsproj --refs MyLib=my-lib/js
 ```
 
 > See [fable-helpers-sample](https://www.npmjs.com/package/fable-helpers-sample) to know how to publish a Fable package.
+
+TODO: Explain how to use the EntryModule attribute
 
 ## fableconfig.json
 

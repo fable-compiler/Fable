@@ -5,13 +5,13 @@
   - "Test" attribute changed to "TestMethod"
   - "NUnit.Framework.Assert" changed to "Microsoft.VisualStudio.TestTools.UnitTesting.Assert"
   - Names of methodDecorators changed to Visual Studio counterparts
-  - In transformTestMethod, generate testBody without arguments. Also, doesn't check for 
+  - In transformTestMethod, generate testBody without arguments. Also, doesn't check for
     method signature (since it does not have support for test parameters, anyway)
 
-  Both frameworks are very similar, the exception being VisualStudio doesn't 
+  Both frameworks are very similar, the exception being VisualStudio doesn't
   (currently?) supports static class members as test methods.
-  
-  This notice is to remember that future improvements to that code should be 
+
+  This notice is to remember that future improvements to that code should be
   ported to this one.
 *)
 
@@ -46,7 +46,7 @@ module Util =
             | Fable.Method, Some decorator -> Some (m, decorator, args, body, range)
             | _ -> None
         | _ -> None
-        
+
     let [<Literal>] runSyncWarning = "Async.RunSynchronously must wrap the whole test"
 
     // Compile tests using Mocha.js BDD interface
@@ -68,7 +68,7 @@ module Util =
                     when warning = runSyncWarning -> Some arg
                 | _ -> None
             match body with
-            | Fable.Apply(Fable.Value(Fable.Lambda(_,RunSync _)),[asyncBuilder],Fable.ApplyMeth,_,_)
+            | Fable.Apply(Fable.Value(Fable.Lambda(_,RunSync _, _)),[asyncBuilder],Fable.ApplyMeth,_,_)
             | RunSync asyncBuilder -> buildAsyncTestBody body.Range asyncBuilder
             | _ -> [], body
         let testBody =
@@ -104,12 +104,12 @@ module Util =
             Fable.Util.ImportCall("assert", "*", Some "equal", false, i.args)
             |> Fable.Util.makeCall com i.range i.returnType |> Some
         | _ -> None
-        
+
     let declareModMember range publicName privateName _isPublic isMutable _modIdent expr =
         let privateName = defaultArg privateName publicName
         Util.varDeclaration (Some range) (Util.identFromName privateName) isMutable expr
         :> Babel.Statement |> U2.Case1 |> List.singleton
-        
+
     let castStatements (decls: U2<Babel.Statement, Babel.ModuleDeclaration> list) =
         decls |> List.map (function
             | U2.Case1 statement -> statement
@@ -133,7 +133,7 @@ type VisualStudioUnitTestsPlugin() =
                 transformTestMethod com ctx (test, decorator, args, body, range)
                 |> List.singleton |> Some
             | TestClass (testClass, testDecls, testRange) ->
-                let ctx = { ctx with moduleFullName = testClass.FullName } 
+                let ctx = { ctx with moduleFullName = testClass.FullName }
                 Util.transformModDecls com ctx declareModMember None testDecls
                 |> castStatements
                 |> transformTestClass testClass testRange
@@ -148,6 +148,6 @@ type VisualStudioUnitTestsPlugin() =
                 match info.returnType with
                 | Fable.Unit ->
                     let warning = Fable.Throw(Fable.Value(Fable.StringConst Util.runSyncWarning), Fable.Unit, None)
-                    AST.Fable.Util.makeSequential info.range [warning; info.args.Head] |> Some 
+                    AST.Fable.Util.makeSequential info.range [warning; info.args.Head] |> Some
                 | _ -> failwithf "Async.RunSynchronously in tests is only allowed with Async<unit> %O" info.range
             | _ -> None

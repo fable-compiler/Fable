@@ -1,0 +1,18 @@
+{
+  "ignore": [
+    "node_modules/**/*.*",
+    "es2015/*.*"
+  ],
+  "env": {
+    "target-commonjs": {
+      "presets": [
+        [ "es2015", { "loose": true, "modules": "commonjs" } ]
+      ]
+    },
+    "target-es2015": {
+      "presets": [
+        [ "es2015", { "loose": true, "modules": false } ]
+      ]
+    }
+  }
+}

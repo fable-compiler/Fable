@@ -1,21 +1,21 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.RecordTypes
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
-type RecursiveRecord = 
+type RecursiveRecord =
     { things : RecursiveRecord list }
-    
+
 type Person =
     { name: string; mutable luckyNumber: int }
     member x.LuckyDay = x.luckyNumber % 30
     member x.SignDoc str = str + " by " + x.name
 
 [<Test>]
-let ``Recursive record does not cause issues``() = 
+let ``Recursive record does not cause issues``() =
     let r = { things = [ { things = [] } ] }
     equal r.things.Length 1
-    
+
 [<Test>]
 let ``Record property access can be generated``() =
     let x = { name = "Alfonso"; luckyNumber = 7 }
@@ -63,21 +63,21 @@ type Parent =
     { children: Child[] }
     member x.Sum() = x.children |> Seq.sumBy (fun c -> c.Sum())
 
-#if FABLE_COMPILER
-open Fable.Core
-open Fable.Core.JsInterop
-#endif
-
 [<Test>]
 let ``Records can be JSON serialized forth and back``() =
     let parent = { children=[|{a="3";b=5}; {b=7;a="1"} |] }
-    let sum1 = parent.Sum() 
+    let sum1 = parent.Sum()
     #if FABLE_COMPILER
-    let json = toJson parent
-    let parent2 = ofJson<Parent> json
+    let json = Fable.Core.Serialize.toJson parent
+    let parent2 = Fable.Core.Serialize.ofJson<Parent> json
+    let sum2 = parent.Sum()
+    equal true (box parent2 :? Parent) // Type is kept
+    equal true (sum1 = sum2) // Prototype methods can be accessed
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo parent
+    let parent2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Parent> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject parent
-    let parent2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Parent> json    
+    let parent2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Parent> json
     #endif
     let sum2 = parent.Sum()
     equal true (box parent2 :? Parent) // Type is kept
@@ -89,7 +89,7 @@ let ``Records serialized with Json.NET can be deserialized``() =
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"Fable.Tests.RecordTypes+Child","a":"Hi","b":10}"""
     #if FABLE_COMPILER
-    let x2 = Fable.Core.JsInterop.ofJson<Child> json
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Child> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Child> json
     #endif
@@ -97,15 +97,43 @@ let ``Records serialized with Json.NET can be deserialized``() =
     x2.b |> equal 10
 
 #if FABLE_COMPILER
+open Fable.Core
 [<Test>]
-let ``Trying to deserialize a JSON of different type throws an exception``() =
+let ``Trying to deserialize a JSON with unexpected $type info throws an exception``() =
+    let success (f:unit->'T) =
+        try f() |> ignore; true
+        with _ -> false
     let child = {a="3";b=5}
-    let json = toJson child
-    let success =
-        try
-            ofJson<Parent> json |> ignore
-            true
-        with
-        | _ -> false
-    equal false success
+    let json = Serialize.toJsonWithTypeInfo child
+    success (fun () -> Serialize.ofJsonWithTypeInfo<Parent> json)
+    |> equal false
+    success (fun () -> Serialize.ofJsonWithTypeInfo<Child> json)
+    |> equal true
+    success (fun () -> Serialize.ofJsonWithTypeInfo<obj> json)
+    |> equal true
+
+[<Test>]
+let ``POJOS can be inflated``() =
+    let x = Fable.Import.JS.JSON.parse """{"a":"Hi","b":10}"""
+    let x2: Child = Serialize.inflate x
+    x2.a |> equal "Hi"
+    x2.b |> equal 10
+
+[<Fable.Core.MutatingUpdate>]
 #endif
+type MutatingRecord =
+    { uniqueA: int; uniqueB: int }
+
+[<Test>]
+let ``Mutating records work``() =
+    let x = { uniqueA = 10; uniqueB = 20 }
+    equal 10 x.uniqueA
+    equal 20 x.uniqueB
+    let uniqueB' = -x.uniqueB
+    let x' = { x with uniqueB = uniqueB' }
+    // equal 10 x.uniqueA // This would make Fable compilation fail
+    equal 10 x'.uniqueA
+    equal -20 x'.uniqueB
+    let x'' = { x' with uniqueA = -10 }
+    equal -10 x''.uniqueA
+    equal -20 x''.uniqueB

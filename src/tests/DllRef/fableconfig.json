@@ -1,5 +1,6 @@
 {
     "projFile": "Fable.Tests.DllRef.fsproj",
     "outDir": "../../../build/tests/DllRef",
-    "module": "commonjs"
+    "coreLib": "../../../build/fable-core",
+    "clamp": true
 }

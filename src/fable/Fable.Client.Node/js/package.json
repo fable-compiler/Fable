@@ -1,6 +1,6 @@
 {
   "name": "fable-compiler",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "F# to JavaScript compiler",
   "main": "index.js",
   "bin": {
@@ -17,6 +17,11 @@
     "command-line-args": "^3.0.1",
     "command-line-usage": "^3.0.3",
     "json5": "^0.5.0",
+    "resolve": "^1.1.7",
+    "rollup": "^0.36.3",
+    "rollup-plugin-commonjs": "^5.0.5",
+    "rollup-plugin-hypothetical": "^1.2.1",
+    "rollup-plugin-node-resolve": "^2.0.0",
     "semver": "^5.3.0"
   },
   "author": "Alfonso Garcia-Caro",
@@ -37,5 +42,9 @@
   "engineStrict": true,
   "engines": {
     "node": ">=4.4.0"
+  },
+  "devDependencies": {
+    "@types/babel-core": "^6.7.14",
+    "@types/node": "^6.0.45"
   }
 }

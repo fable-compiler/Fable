@@ -1,6 +1,6 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.UnionTypes
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 type Gender = Male | Female
@@ -31,10 +31,10 @@ let ``Union cases matches with one argument can be generated``() =
 
 [<Test>]
 let ``Union methods can be generated``() =
-    let x = Left 5 
+    let x = Left 5
     x.ToString()
     |> equal "5"
-    
+
 [<Test>]
 let ``Nested pattern matching works``() =
     let x = Right(Left 5)
@@ -82,6 +82,48 @@ let ``Union cases called Tag still work (bug due to Tag field)``() =
     | _ -> failwith "unexpected"
     |> equal "abc"
 
+let (|Functional|NonFunctional|) (s: string) =
+    match s with
+    | "fsharp" | "haskell" | "ocaml" -> Functional
+    | _ -> NonFunctional
+
+[<Test>]
+let ``Comprehensive active patterns work``() =
+    let isFunctional = function
+        | Functional -> true
+        | NonFunctional -> false
+    isFunctional "fsharp" |> equal true
+    isFunctional "csharp" |> equal false
+    isFunctional "haskell" |> equal true
+
+let (|Small|Medium|Large|) i =
+    if i < 3 then Small 5
+    elif i >= 3 && i < 6 then Medium "foo"
+    else Large
+
+[<Test>]
+let ``Comprehensive active patterns can return values``() =
+    let measure = function
+        | Small i -> string i
+        | Medium s -> s
+        | Large -> "bar"
+    measure 0 |> equal "5"
+    measure 10 |> equal "bar"
+    measure 5 |> equal "foo"
+
+let (|FSharp|_|) (document : string) =
+    if document = "fsharp" then Some FSharp else None
+
+[<Test>]
+let ``Partial active patterns which don't return values work``() = // See #478
+    let isFunctional = function
+        | FSharp -> "yes"
+        | "scala" -> "fifty-fifty"
+        | _ -> "dunno"
+    isFunctional "scala" |> equal "fifty-fifty"
+    isFunctional "smalltalk" |> equal "dunno"
+    isFunctional "fsharp" |> equal "yes"
+
 let (|A|) n = n
 
 [<Test>]
@@ -95,7 +137,6 @@ let ``Active patterns can be combined with union case matching``() = // See #306
 
 #if FABLE_COMPILER
 open Fable.Core
-open Fable.Core.JsInterop
 
 type JsonTypeInner = {
     Prop1: string
@@ -154,15 +195,20 @@ type Tree =
     member this.Sum() =
         match this with
         | Leaf i -> i
-        | Branch trees -> trees |> Seq.map (fun x -> x.Sum()) |> Seq.sum 
+        | Branch trees -> trees |> Seq.map (fun x -> x.Sum()) |> Seq.sum
 
 [<Test>]
 let ``Unions can be JSON serialized forth and back``() =
     let tree = Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
     let sum1 = tree.Sum()
     #if FABLE_COMPILER
-    let json = toJson tree
-    let tree2 = ofJson<Tree> json
+    let json = Fable.Core.Serialize.toJson tree
+    let tree2 = Fable.Core.Serialize.ofJson<Tree> json
+    let sum2 = tree2.Sum()
+    equal true (box tree2 :? Tree) // Type is kept
+    equal true (sum1 = sum2) // Prototype methods can be accessed
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo tree
+    let tree2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Tree> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject tree
     let tree2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Tree> json
@@ -203,10 +249,10 @@ type UnionTypeInfoConverter() =
 #endif
 
 [<Test>]
-let ``Unions serialized with Json.NET can be deserialized``() =    
+let ``Unions serialized with Json.NET can be deserialized``() =
     #if FABLE_COMPILER
     let json = """{"$type":"Fable.Tests.UnionTypes+Tree","Case":"Leaf","Fields":[5]}"""
-    let x2 = Fable.Core.JsInterop.ofJson<Tree> json
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Tree> json
     #else
     let x = Leaf 5
     let settings =
@@ -263,7 +309,7 @@ let ``Option.bind works``() =
 
 [<Test>]
 let ``Option.filter works``() = // See #390
-    let optionToString opt = 
+    let optionToString opt =
         match opt with
         | None -> "None"
         | Some value -> sprintf "Some %s" value
@@ -277,7 +323,7 @@ type OptTest = OptTest of int option
 [<Test>]
 let ``Different ways of providing None to a union case should be equal``() = // See #231
     let value = None
-    equal true ((OptTest None) = (value |> OptTest))    
+    equal true ((OptTest None) = (value |> OptTest))
 
 [<Test>]
 let ``Different ways of providing None to a function should be equal``() = // See #231
@@ -300,7 +346,7 @@ let ``Accessing an option value gives correct expression type``() = // See #285
 [<Test>]
 let ``Mixing refs and options works``() = // See #238
     let res = ref 0
-    let setter, getter = 
+    let setter, getter =
         let slot = ref None
         (fun f -> slot.Value <- Some f),
         (fun v -> slot.Value.Value v)
@@ -319,6 +365,16 @@ let ``Custom exceptions work``() =
     | MyEx(_, msg) -> msg + "??"
     |> equal "ERROR!!"
 
+type MyExUnion = MyExUnionCase of exn
+
+[<Test>]
+let ``Types can have Exception fields``() =
+    let (MyExUnionCase ex) =
+        try
+            exn "foo" |> raise
+        with ex -> MyExUnionCase ex
+    ex.Message.Trim('"') |> equal "foo"
+
 #if FABLE_COMPILER
 open Fable.Core
 
@@ -330,7 +386,7 @@ let ``Erased union type testing works``() =
     let toString (arg: U3<string, int, Wrapper>) =
         match arg with
         | U3.Case1 s -> s
-        | U3.Case2 i -> i * 2 |> string 
+        | U3.Case2 i -> i * 2 |> string
         | U3.Case3 t -> t.Value
     U3.Case1 "HELLO" |> toString |> equal "HELLO"
     U3.Case2 3 |> toString |> equal "6"

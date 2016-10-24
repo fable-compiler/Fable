@@ -49,11 +49,13 @@ the `dll` reference with references to the JS files. This is the purpose
 of the [`--refs` compiler parameter](http://fable-compiler.github.io/docs/compiling.html#Project-references).
 This parameter correlates the name of the referenced project (usually the name
 of the `dll` without the extension) and the path where the compiled JS files are.
-This way, we could compile our consumer script file like this: 
+This way, we could compile our consumer script file like this:
 
 ```bash
 fable MyScript.fsx --refs Fable.Helpers.Sample=fable-helpers-sample/js
 ```
+
+TODO: Explain how to use the EntryModule attribute
 
 When using [fableconfig.json](http://fable-compiler.github.io/docs/compiling.html#fableconfig-json), add this to the JSON config instead:
 

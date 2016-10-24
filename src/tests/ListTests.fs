@@ -1,6 +1,6 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Lists
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
@@ -47,7 +47,7 @@ let ``List slice works``() =
       xs.[..2] |> List.sum |> equal 6
       xs.[2..] |> List.sum |> equal 7
       xs.[1..2] |> List.sum |> equal 5
-      
+
 [<Test>]
 let ``List cons works``() =
       let xs = [1; 2; 3; 4]
@@ -86,7 +86,7 @@ let ``List.choose works``() =
       let xs = [1; 2; 3; 4]
       let result = xs |> List.choose (fun x ->
             if x > 2 then Some x
-            else None) 
+            else None)
       result.Head + result.Tail.Head
       |> equal 7
 
@@ -193,7 +193,7 @@ let ``List.tryFindIndexBack works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> List.tryFindIndex ((>) 4.) |> equal (Some 0)
     xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)
-    xs |> List.tryFindIndexBack ((=) 5.) |> equal None    
+    xs |> List.tryFindIndexBack ((=) 5.) |> equal None
 
 [<Test>]
 let ``List.fold works``() =
@@ -212,7 +212,7 @@ let ``List.fold2 works``() =
 let ``List.foldBack works``() =
       [1; 2; 3; 4]
       |> List.foldBack (fun x acc -> acc - x) <| 100
-      |> equal 90 
+      |> equal 90
 
 [<Test>]
 let ``List.foldBack with composition works``() =
@@ -294,7 +294,7 @@ let ``List.iteri2 works``() =
 [<Test>]
 let ``List.length works``() =
       let xs = [1; 2; 3; 4]
-      List.length xs 
+      List.length xs
       |> equal 4
 
 [<Test>]
@@ -308,7 +308,7 @@ let ``List.mapi works``() =
       let xs = [1]
       let ys = xs |> List.mapi (fun i x -> i * x)
       equal 0 ys.Head
-      
+
 [<Test>]
 let ``List.map2 works``() =
       let xs = [1;2]
@@ -333,14 +333,14 @@ let ``List.mapi2 works``() =
       List.sum zs |> equal 16
 
 [<Test>]
-let ``List.mapFold works`` () =   
+let ``List.mapFold works`` () =
     let xs = [1y; 2y; 3y; 4y]
     let result = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
     fst result |> List.sum |> equal 20y
     snd result |> equal 10y
 
 [<Test>]
-let ``List.mapFoldBack works`` () =   
+let ``List.mapFoldBack works`` () =
     let xs = [1.; 2.; 3.; 4.]
     let result = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
     fst result |> List.sum |> equal -20.
@@ -397,7 +397,7 @@ let ``List.partition works``() =
       List.sum zs |> equal 9
       equal 2 ys.[0]
       equal 5 zs.[2]
-      
+
 [<Test>]
 let ``List.permute works``() =
       let xs = [1; 2; 3; 4; 5; 6]
@@ -412,7 +412,7 @@ let ``List.pick works``() =
             match x with
             | 2 -> Some x
             | _ -> None)
-      |> equal 2 
+      |> equal 2
 
 [<Test>]
 let ``List.range works``() =
@@ -433,7 +433,7 @@ let ``List.reduce works``() =
 let ``List.reduceBack works``() =
       let xs = [1; 2]
       xs |> List.reduceBack (+)
-      |> equal 3 
+      |> equal 3
 
 [<Test>]
 let ``List.replicate works``() =
@@ -452,7 +452,7 @@ let ``List.scan works``() =
       let ys = (0, xs) ||> List.scan (fun acc x -> acc - x)
       ys.[3] + ys.[4]
       |> equal -16
-      
+
 
 [<Test>]
 let ``List.scanBack works``() =
@@ -466,14 +466,14 @@ let ``List.sort works``() =
     let xs = [3; 4; 1; -3; 2; 10]
     xs |> List.sort |> List.take 3 |> List.sum |> equal 0
     let ys = ["a"; "c"; "B"; "d"]
-    ys |> List.sort |> List.item 1 |> equal "a" 
+    ys |> List.sort |> List.item 1 |> equal "a"
 
 [<Test>]
 let ``List.sortDescending works``() =
     let xs = [3; 4; 1; -3; 2; 10]
     xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
     let ys = ["a"; "c"; "B"; "d"]
-    ys |> List.sortDescending |> List.item 1 |> equal "c"      
+    ys |> List.sortDescending |> List.item 1 |> equal "c"
 
 [<Test>]
 let ``List.sortBy works``() =
@@ -518,7 +518,7 @@ let ``List.toSeq works``() =
       |> List.toSeq
       |> Seq.tail |> Seq.head
       |> equal 2
-      
+
 [<Test>]
 let ``List.tryPick works``() =
       [1; 2]
@@ -541,7 +541,7 @@ let ``List.tryFindIndex works``() =
       let xs = [1; 2]
       let ys = xs |> List.tryFindIndex ((=) 2)
       ys.Value |> equal 1
-      xs |> List.tryFindIndex ((=) 5) |> equal None    
+      xs |> List.tryFindIndex ((=) 5) |> equal None
 
 
 [<Test>]
@@ -604,7 +604,7 @@ let ``List.last works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> List.last
     |> equal 4.
-    
+
 [<Test>]
 let ``List.tryLast works``() =
     let xs = [1.; 2.; 3.; 4.]
@@ -614,7 +614,7 @@ let ``List.tryLast works``() =
 [<Test>]
 let ``List.groupBy returns valid list``() =
     let xs = [1; 2]
-    let worked = 
+    let worked =
       match List.groupBy (fun _ -> true) xs with
       | [true, [1; 2]] -> true
       | _ -> false
@@ -623,20 +623,24 @@ let ``List.groupBy returns valid list``() =
 [<Test>]
 let ``List.unfold works``() =
     let xs = 0. |> List.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
-    let sum = 
-      match xs with 
+    let sum =
+      match xs with
       | n1::n2::n3::[] -> n1 + n2 + n3
       | _ -> 0.0
     sum |> equal 6.0
-    
+
 type R = { i: int; s: string }
 
 [<Test>]
 let ``Lists can be JSON serialized forth and back``() =
     let x = [{ i=1; s="1" }; { i=2; s="2" }]
     #if FABLE_COMPILER
-    let json = Fable.Core.JsInterop.toJson x
-    let x2 = Fable.Core.JsInterop.ofJson<R list> json
+    let json = Fable.Core.Serialize.toJson x
+    let x2 = Fable.Core.Serialize.ofJson<R list> json
+    match x2 with _::[{ i=2; s="2" }] -> true | _ -> false
+    |> equal true
+    let json = Fable.Core.Serialize.toJsonWithTypeInfo x
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<R list> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<R list> json
@@ -648,11 +652,11 @@ let ``Lists can be JSON serialized forth and back``() =
 
 [<Test>]
 let ``Lists serialized with Json.NET can be deserialized``() =
-    // let x = [{ i=1; s="1" }; { i=2; s="2" }]    
+    // let x = [{ i=1; s="1" }; { i=2; s="2" }]
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"Microsoft.FSharp.Collections.FSharpList`1[[Fable.Tests.Lists+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":2,"s":"2"}]}"""
     #if FABLE_COMPILER
-    let x2 = Fable.Core.JsInterop.ofJson<R list> json
+    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<R list> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<R list> json
     #endif
@@ -667,7 +671,7 @@ type List(x: int) =
 [<Test>]
 let ``Types with same name as imports work``() =
       let li = [List 5]
-      equal 5 li.Head.Value 
+      equal 5 li.Head.Value
 
 type ExceptFoo = { Bar:string }
 [<Test>]

@@ -7,6 +7,7 @@ open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
 open Newtonsoft.Json
 open Fable
 open Fable.AST
@@ -47,17 +48,18 @@ let readOptions argv =
     let un f = function U2.Case1 v -> f v | U2.Case2 _ -> failwith "Unexpected multiple argument"
     let li f = function U2.Case1 v -> [f v] | U2.Case2 v -> List.map f v
     let opts = readOpts Map.empty<_,_> (List.ofArray argv)
-    {
-        projFile = def opts "projFile" null (un Path.GetFullPath)
-        coreLib = def opts "coreLib" "fable-core" (un id)
+    let opts = {
+        projFile = def opts "projFile" [] (li Path.GetFullPath) |> List.rev
+        outDir = def opts "outDir" null (un Path.GetFullPath)
+        coreLib = def opts "coreLib" "fable-core" (un (fun x -> x.TrimEnd('/')))
         watch = def opts "watch" false (un bool.Parse)
+        dll = def opts "dll" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
         copyExt = def opts "copyExt" false (un bool.Parse)
         noTypedArrays = def opts "noTypedArrays" false (un bool.Parse)
         declaration = def opts "declaration" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id) |> List.append ["FABLE_COMPILER"] |> List.distinct
         plugins = def opts "plugins" [] (li id)
-        msbuild = def opts "msbuild" [] (li id)
         refs = Map(def opts "refs" [] (li (fun (x: string) ->
             let xs = x.Split('=') in xs.[0], xs.[1])))
         extra = Map(def opts "extra" [] (li (fun (x: string) ->
@@ -65,6 +67,12 @@ let readOptions argv =
             then let xs = x.Split('=') in xs.[0], xs.[1]
             else x, "")))
     }
+    if opts.coreLib.StartsWith "."
+    then { opts with coreLib =
+                        Path.GetFullPath opts.coreLib
+                        |> Fable.Path.getRelativePath opts.outDir
+                        |> fun x -> x.TrimEnd('/') }
+    else opts
 
 let loadPlugins (pluginPaths: string list) =
     pluginPaths
@@ -86,28 +94,44 @@ let loadPlugins (pluginPaths: string list) =
         | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.toList
 
-#if DOTNETCORE
 type private TypeInThisAssembly = class end
 
-let forgeGetProjectOptions projFile =
-    let projPath = Path.GetDirectoryName(projFile)
+let forgeGetProjectOptions (opts: CompilerOptions) projFile =
+    let projDir = Path.GetDirectoryName(projFile)
     let projParsed = Forge.ProjectSystem.FsProject.load projFile
     let sourceFiles =
         projParsed.SourceFiles.AllFiles()
         |> Seq.filter (fun fileName -> fileName.EndsWith(".fs") || fileName.EndsWith(".fsx"))
-        |> Seq.map (fun fileName -> Path.Combine(projPath, fileName))
+        |> Seq.map (fun fileName -> Path.Combine(projDir, fileName))
         |> Seq.toArray
     let beforeComma (str: string) = match str.IndexOf(',', 0) with | -1 -> str | i -> str.Substring(0, i)
     let projReferences = projParsed.References |> Seq.map (fun x ->
-        (beforeComma x.Include),
-        (match x.HintPath with | Some path -> Path.Combine(projPath, path) |> Some | _ -> None))
-    //NOTE: proper reference resolution ahead of time is necessary to avoid default FCS resolution
-    let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
-    let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
-    let sysPath = Path.GetDirectoryName(sysCoreLib)
-    let sysLib name = Path.Combine(sysPath, name + ".dll")
-    let localPath = Path.GetDirectoryName(typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location)
-    let localLib name = Path.Combine(localPath, name + ".dll")
+        let include' = beforeComma x.Include
+        if include'.StartsWith "."
+        then include', Path.Combine(projDir, include') |> Some
+        else include', x.HintPath |> Option.map (fun x -> Path.Combine(projDir, x)))
+    let fscoreDir =
+        if System.Environment.OSVersion.Platform = System.PlatformID.Win32NT then // file references only valid on Windows
+            let PF =
+                match Environment.GetEnvironmentVariable("ProgramFiles(x86)") with
+                | null -> Environment.GetEnvironmentVariable("ProgramFiles")  // if PFx86 is null, then we are 32-bit and just get PF
+                | s -> s
+            PF + @"\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0"
+        else
+            System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory()
+    let resolve refs =
+        SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.Resolve(
+            ReferenceResolver.ResolutionEnvironment.CompileTimeLike,
+            [| for a in refs -> (a, "") |],
+            defaultArg projParsed.Settings.TargetFrameworkVersion.Data "v4.5.1",
+            [SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.DotNetFrameworkReferenceAssembliesRootDirectory + @"\v4.5.1" ],
+            "",
+            fscoreDir,
+            [],
+            projDir,
+            ignore,
+            (fun _ _ _ -> ())
+        )
     let allFlags = [|
         yield "--simpleresolution"
         yield "--noframework"
@@ -120,27 +144,28 @@ let forgeGetProjectOptions projFile =
         yield "--flaterrors"
         yield "--target:library"
         //yield "--targetprofile:netcore"
-        
+
+        for symbol in opts.symbols do
+            yield "--define:" + symbol
+
         let coreReferences = [
-            "FSharp.Core", Some fsCoreLib
-            "CoreLib", Some sysCoreLib
+            "FSharp.Core", None
             "mscorlib", None
-            "System.IO", None
+            "System", None
+            // "System.IO", None
             "System.Runtime", None
         ]
-
         // add distinct project references
-        let references = Seq.append coreReferences projReferences |> Seq.distinctBy fst
-        for r in references do
-            match r with
-                | _, Some path -> // absolute paths
-                    yield "-r:" + path
-                | name, None -> // try to resolve path
-                    if File.Exists (sysLib name) then
-                        yield "-r:" + (sysLib name)
-                    elif File.Exists (localLib name) then
-                        yield "-r:" + (localLib name)
-                    //TODO: check more paths?
+        let resolvedRefs, unresolvedRefs =
+            Seq.append coreReferences projReferences
+            |> Seq.distinctBy fst |> Seq.toArray
+            |> Array.partition (snd >> Option.isSome)
+        let resolvedFiles =
+            unresolvedRefs |> Array.map fst |> resolve
+        for r in resolvedFiles do
+            yield "-r:" + r.itemSpec
+        for (_,r) in resolvedRefs do
+            yield "-r:" + r.Value
     |]
     let projOptions: FSharpProjectOptions = {
         ProjectFileName = projFile
@@ -152,62 +177,62 @@ let forgeGetProjectOptions projFile =
         LoadTime = DateTime.Now
         UnresolvedReferences = None
     }
-    //printfn "projOptions ===> %A" projOptions
+    //printfn "Forge projOptions ===> %A" projOptions
     projOptions
-#endif
 
-let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
-    let rec addSymbols (symbols: string list) (opts: FSharpProjectOptions) =
-        let addSymbols' (otherOpts: string[]) =
-            otherOpts
-            // |> Array.filter (fun s -> s.StartsWith "--define:" = false)
-            |> Array.append (List.map (sprintf "--define:%s") symbols |> List.toArray)
-        { opts with
-            OtherOptions = addSymbols' opts.OtherOptions
-            ReferencedProjects = opts.ReferencedProjects
-                |> Array.map (fun (k,v) -> k, addSymbols symbols v) }
-    let projFile = Path.GetFullPath opts.projFile
+let mergeProjectOpts (opts1: FSharpProjectOptions) (opts2: FSharpProjectOptions) =
+    let projOptions: FSharpProjectOptions = {
+        ProjectFileName = opts2.ProjectFileName
+        ProjectFileNames = Array.append opts1.ProjectFileNames opts2.ProjectFileNames
+        OtherOptions = Array.append opts1.OtherOptions opts2.OtherOptions |> Array.distinct
+        ReferencedProjects = [| |]
+        IsIncompleteTypeCheckEnvironment = false
+        UseScriptResolutionRules = true
+        LoadTime = DateTime.Now
+        UnresolvedReferences = None
+    }
+    //printfn "Merged projOptions ===> %A" projOptions
+    projOptions
+
+let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
-      let defines = [|for symbol in opts.symbols do yield "--define:" + symbol|]
-      checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = defines)
-      |> Async.RunSynchronously
-    #if DOTNETCORE
-    | ".fsproj" -> forgeGetProjectOptions projFile
+        let otherFlags = [|
+            yield "--target:library"
+            for symbol in opts.symbols do yield "--define:" + symbol
+        |]
+        checker.GetProjectOptionsFromScript(projFile, File.ReadAllText projFile, otherFlags = otherFlags)
+        |> Async.RunSynchronously
+    | ".fsproj" ->
+        forgeGetProjectOptions opts projFile
     | _ as s -> failwith (sprintf "Unsupported project type: %s" s)
-    #else            
-    | _ -> // .fsproj
-      let props = opts.msbuild |> List.choose (fun x ->
-          match x.Split('=') with
-          | [|key;value|] -> Some(key,value)
-          | _ -> None)
-      // NOTE: .NET Core MSBuild can't successfully build .fsproj (yet)
-      // see https://github.com/Microsoft/msbuild/issues/709, 711, 713
-      ProjectCracker.GetProjectOptionsFromProjectFile(projFile, props)
-    #endif
-    |> addSymbols opts.symbols
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
-// get a read error. If that happens the lock is usually brief so we can reasonably wait 
+// get a read error. If that happens the lock is usually brief so we can reasonably wait
 // for it to be released.
-let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
-    let retryUntil = (DateTime.UtcNow + TimeSpan.FromSeconds 5.) 
+let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
+    let retryUntil = (DateTime.UtcNow + TimeSpan.FromSeconds 5.)
     let rec retry () =
         try
-            getProjectOpts checker opts
-        with 
-        | :? IOException as ioex -> 
+            getProjectOpts checker opts projFile
+        with
+        | :? IOException as ioex ->
             if retryUntil > DateTime.UtcNow then
                 System.Threading.Thread.Sleep 100
                 retry()
             else
                 failwithf "IO Error trying read project options: %s " ioex.Message
         | ex -> failwithf "Cannot read project options: %s" ex.Message
-    retry() 
+    retry()
 
-let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
-                        (projOptions: FSharpProjectOptions) =
+let getFullProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
+    opts.projFile
+    |> Seq.map (retryGetProjectOpts checker opts)
+    |> Seq.reduce mergeProjectOpts
+
+/// Returns an (errors, warnings) tuple
+let parseErrors errors =
     let parseError (er: FSharpErrorInfo) =
         let loc = sprintf " (L%i,%i-L%i,%i) (%s)"
                     er.StartLineAlternate er.StartColumn
@@ -217,28 +242,34 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
         | _, 40 -> true, "Recursive value definitions are not supported" + loc // See #237
         | FSharpErrorSeverity.Warning, _ -> false, er.Message + loc
         | FSharpErrorSeverity.Error, _ -> true, er.Message + loc
+    errors
+    |> Array.map parseError
+    |> Array.partition fst
+    |> fun (ers, wns) -> Array.map snd ers, Array.map snd wns
+
+let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
+                        (projOptions: FSharpProjectOptions) =
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
         |> Async.RunSynchronously
     let errors, warnings =
-        checkProjectResults.Errors
-        |> Array.map parseError
-        |> Array.partition fst
+        parseErrors checkProjectResults.Errors
     if errors.Length = 0
-    then warnings |> Array.map (snd >> Warning), checkProjectResults
+    then warnings |> Array.map Warning, checkProjectResults
     else errors
-        |> Seq.map (snd >> (+) "> ")
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> failwith
 
 let makeCompiler opts plugins =
     let id = ref 0
-    let monitor = obj()    
+    let monitor = obj()
     let logs = ResizeArray()
+    let projDir = Fable.Path.getCommonBaseDir opts.projFile
     { new ICompiler with
         member __.Options = opts
+        member __.ProjDir = projDir
         member __.Plugins = plugins
         member __.AddLog msg = logs.Add msg
         member __.GetLogs() =
@@ -251,7 +282,7 @@ let makeCompiler opts plugins =
                 "$var" + string !id) }
 
 let getMinimumFableCoreVersion() =
-#if NETSTANDARD1_6 || NETCOREAPP1_0    
+#if NETSTANDARD1_6 || NETCOREAPP1_0
     let assembly = typeof<CompilerOptions>.GetTypeInfo().Assembly
     assembly.GetName().Version |> Some
 #else
@@ -279,19 +310,45 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
     |> Seq.iter Console.Out.WriteLine
 
+let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions): unit =
+    if Directory.Exists(comOpts.outDir) |> not then
+        Directory.CreateDirectory(comOpts.outDir) |> ignore
+    let projOut =
+        let projName = Path.GetFileNameWithoutExtension(Seq.last comOpts.projFile)
+        Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
+    let args = [|
+        yield! projOpts.OtherOptions
+        // Seems `--out` cannot come at the beginning
+        // or the compiler will ignore it
+        yield "--out:" + projOut + ".dll"
+        yield "--doc:" + projOut + ".xml"
+        yield! projOpts.ProjectFileNames
+    |]
+    let errors, warnings =
+        let errors, _exitCode = checker.Compile(args)
+        parseErrors errors
+    if errors.Length > 0 then
+        errors
+        |> Seq.append ["Errors when generating dll assembly:"]
+        |> String.concat "\n"
+        |> failwith
+    if warnings.Length > 0 then
+        warnings
+        |> Seq.append ["Warnings when generating dll assembly:"]
+        |> String.concat "\n"
+        |> Info |> string |> Log
+        |> List.singleton |> printMessages
+
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
     try
         // Reload project options if necessary
         // -----------------------------------
         let projInfo =
             match projInfo.FileMask with
-            | Some file when com.Options.projFile = file ->
-                let projOpts = retryGetProjectOpts checker com.Options
+            | Some file when com.Options.projFile |> List.exists ((=) file) ->
+                let projOpts = getFullProjectOpts checker com.Options
                 FSProjInfo(projOpts, ?fileMask=projInfo.FileMask, extra=projInfo.Extra)
             | _ -> projInfo
-
-        // TODO: Find a way to check if the project is empty
-        // (Unfortunately it seems `ProjectFileNames` is not reliable)
 
         // Print F# compiler options (verbose mode) on first compilation
         // (when projInfo.fileMask is None)
@@ -300,11 +357,15 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             |> String.concat "\n" |> sprintf "\nF# COMPILER OPTIONS:\n%s\n"
             |> Log |> List.singleton |> printMessages
 
+        if com.Options.dll then
+            compileDll checker com.Options projInfo.ProjectOpts
+
         // Parse project (F# Compiler Services) and print diagnostic info
         // --------------------------------------------------------------
         //let timer = PerfTimer("Warmup") |> Some
         let warnings, parsedProj =
             parseFSharpProject com checker projInfo.ProjectOpts
+
         //let warnings = match timer with Some timer -> (timer.Finish())::warnings | None -> warnings
         warnings |> Seq.map (string >> Log) |> printMessages
 
@@ -330,11 +391,11 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
 
         // Compile project files, print them and get extra info
         // ----------------------------------------------------
-        let rewrites = 
+        let rewrites =
             com.Plugins |> Seq.choose (function _, (:? IRewritePlugin as r) -> Some r | _ -> None)
         let applyRewrites (extra, input) =
             extra, rewrites |> Seq.fold (fun input rewrite -> rewrite.Rewrite input) input
-        
+
         let extraInfo, files =
             FSharp2Fable.Compiler.transformFiles com parsedProj projInfo
             |> applyRewrites
@@ -365,7 +426,7 @@ let rec awaitInput (com: ICompiler) checker fullCompileSuccess (projInfo: FSProj
         let projInfo =
             if fullCompileSuccess
             then FSProjInfo(projInfo.ProjectOpts, fileMask=fileMask, extra=projInfo.Extra)
-            else FSProjInfo(retryGetProjectOpts checker com.Options)
+            else FSProjInfo(getFullProjectOpts checker com.Options)
         let success, projInfo = compile com checker projInfo
         awaitInput com checker (fullCompileSuccess || success) projInfo
 
@@ -373,8 +434,8 @@ let rec awaitInput (com: ICompiler) checker fullCompileSuccess (projInfo: FSProj
 let main argv =
     try
         let opts = readOptions argv
-        let checker = FSharpChecker.Create(keepAssemblyContents=true)
-        let projectOpts = retryGetProjectOpts checker opts
+        let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
+        let projectOpts = getFullProjectOpts checker opts
         let com = loadPlugins opts.plugins |> makeCompiler opts
         // Full compilation
         let success, projInfo =

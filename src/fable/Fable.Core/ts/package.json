@@ -1,0 +1,28 @@
+{
+  "name": "fable-core",
+  "version": "0.0.0",
+  "description": "Fable core lib & bindings for native JS objects, browser and node APIs",
+  "main": "Main.js",
+  "scripts": {
+    "tsc": "tsc",
+    "babel": "babel"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fable-compiler/Fable/import/core"
+  },
+  "license": "Apache-2.0",
+  "author": "Alfonso Garcia-Caro",
+  "keywords": [
+    "fable",
+    "fable-compiler",
+    "fsharp",
+    "F#"
+  ],
+  "homepage": "https://github.com/fable-compiler/Fable#readme",
+  "devDependencies": {
+    "babel-cli": "^6.10.1",
+    "babel-preset-es2015": "^6.9.0",
+    "typescript": "^1.8.10"
+  }
+}

@@ -1,3 +1,57 @@
+### 0.7.5-alpha.7
+
+* Add JsFunc and JsCons to Fable.Core.JsInterop
+
+### 0.7.5-alpha.6
+
+* Add DateTime.TryParse
+
+### 0.7.5-alpha.5
+
+* Add .d.ts declaration files
+
+### 0.7.5-alpha.4
+
+* Add String.Insert method
+
+### 0.7.5-alpha.3
+
+* Accept any object as exception
+
+### 0.7.5-alpha.2
+
+* Structure fable-core in modules
+
+### 0.7.5-alpha.1
+
+* Fix prerelease semver. See: https://docs.npmjs.com/misc/semver#prerelease-tags
+
+### 0.7.5-alpha
+
+* Add `typedefof<>`, `.IsGenericType`, `.GetGenericTypeDefinition`
+
+### 0.7.4-alpha
+
+* Add `outDir` to Fable.CompilerOptions (see #472)
+* Make `GetType` return "boolean", "number", "string" or "function"
+  for primitive values (see https://goo.gl/J6GeKY)
+
+### 0.7.3-alpha
+
+* Optimize JSON serialization of union types (as in FSharpLu.Json)
+
+### 0.7.2-alpha
+
+* Improve tree shaking
+
+### 0.7.1-alpha
+
+* Bring back JSON serialization with `$type` info
+
+### 0.7.0-alpha
+
+* Serialize.ofJson doesn't need JSON to contain `$type` info any more
+
 ### 0.6.10
 
 * Add `String.Remove`

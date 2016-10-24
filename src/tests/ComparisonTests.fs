@@ -1,22 +1,36 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Comparison
 open System
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 open System.Collections.Generic
 
 [<Test>]
-let ``Array equality works``() =  
+let ``Typed array equality works``() =
     let xs1 = [| 1; 2; 3 |]
     let xs2 = [| 1; 2; 3 |]
     let xs3 = [| 1; 2; 4 |]
+    let xs4 = [| 1; 2 |]
     equal true (xs1 = xs2)
     equal false (xs1 = xs3)
     equal true (xs1 <> xs3)
     equal false (xs1 <> xs2)
+    equal true (xs1 <> xs4)
 
 [<Test>]
-let ``Tuple equality works``() =  
+let ``Array equality works``() =
+    let xs1 = [| "1"; "2"; "3" |]
+    let xs2 = [| "1"; "2"; "3" |]
+    let xs3 = [| "1"; "2"; "4" |]
+    let xs4 = [| "1"; "2" |]
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal true (xs1 <> xs4)
+
+[<Test>]
+let ``Tuple equality works``() =
     let xs1 = ( 1, 2, 3 )
     let xs2 = ( 1, 2, 3 )
     let xs3 = ( 1, 2, 4 )
@@ -26,7 +40,7 @@ let ``Tuple equality works``() =
     equal false (xs1 <> xs2)
 
 [<Test>]
-let ``List equality works``() =  
+let ``List equality works``() =
     let xs1 = [ 1; 2; 3 ]
     let xs2 = [ 1; 2; 3 ]
     let xs3 = [ 1; 2; 4 ]
@@ -36,7 +50,7 @@ let ``List equality works``() =
     equal false (xs1 <> xs2)
 
 [<Test>]
-let ``Set equality works``() =  
+let ``Set equality works``() =
     let xs1 = Set [ 1; 2; 3 ]
     let xs2 = Set [ 1; 2; 3 ]
     let xs3 = Set [ 1; 2; 4 ]
@@ -48,9 +62,9 @@ let ``Set equality works``() =
     equal false (xs1 <> xs2)
     equal true (xs1 = xs4)
     equal false (xs1 <> xs5)
-    
+
 [<Test>]
-let ``Map equality works``() =  
+let ``Map equality works``() =
     let xs1 = Map [ ("a", 1); ("b", 2); ("c", 3) ]
     let xs2 = Map [ ("a", 1); ("b", 2); ("c", 3) ]
     let xs3 = Map [ ("a", 1); ("b", 2); ("c", 4) ]
@@ -60,11 +74,11 @@ let ``Map equality works``() =
     equal true (xs1 <> xs3)
     equal false (xs1 <> xs2)
     equal true (xs1 = xs4)
-    
+
 type UTest = A of int | B of int
 
 [<Test>]
-let ``Union equality works``() =  
+let ``Union equality works``() =
     let u1 = A 2
     let u2 = A 2
     let u3 = A 4
@@ -106,7 +120,7 @@ type UTest2 =
 #endif
 
 [<Test>]
-let ``Union custom equality works``() =  
+let ``Union custom equality works``() =
     let u1 = String "A"
     let u2 = String "A"
     let u3 = String "AA"
@@ -116,7 +130,7 @@ let ``Union custom equality works``() =
 type RTest = { a: int; b: int }
 
 [<Test>]
-let ``Record equality works``() =  
+let ``Record equality works``() =
     let r1 = { a = 1; b = 2 }
     let r2 = { a = 1; b = 2 }
     let r3 = { a = 1; b = 4 }
@@ -131,7 +145,7 @@ let ``Record equality works``() =
 type RTest2 = { a2: int; b2: int }
 
 [<Test>]
-let ``Record reference equality works``() =  
+let ``Record reference equality works``() =
     let r1 = { a2 = 1; b2 = 2 }
     let r2 = { a2 = 1; b2 = 2 }
     equal false (r1 = r2)
@@ -142,7 +156,7 @@ type Test(i: int) =
     override x.Equals(yobj) =
        match yobj with
          | :? Test as y -> y.Value + 1 = x.Value
-         | _ -> false    
+         | _ -> false
     interface System.IComparable with
         member x.CompareTo(yobj) =
             match yobj with
@@ -156,9 +170,9 @@ type Test(i: int) =
     interface System.IEquatable<Test> with
         member x.Equals(y) =
             y.Value + 1 = x.Value
-            
+
 [<Test>]
-let ``Equality with objects implementing IEquatable works``() =  
+let ``Equality with objects implementing IEquatable works``() =
     let c1 = Test(5)
     let c2 = Test(4)
     let c3 = Test(5)
@@ -170,7 +184,7 @@ let ``Equality with objects implementing IEquatable works``() =
     Object.ReferenceEquals(c1, c2) |> equal false
 
 [<Test>]
-let ``Array comparison works``() =  
+let ``Typed array comparison works``() =
     let xs1 = [| 1; 2; 3 |]
     let xs2 = [| 1; 2; 3 |]
     let xs3 = [| 1; 2; 4 |]
@@ -188,7 +202,25 @@ let ``Array comparison works``() =
     equal false (xs1 > xs6)
 
 [<Test>]
-let ``Tuple comparison works``() =  
+let ``Array comparison works``() =
+    let xs1 = [| "1"; "2"; "3" |]
+    let xs2 = [| "1"; "2"; "3" |]
+    let xs3 = [| "1"; "2"; "4" |]
+    let xs4 = [| "1"; "2"; "2" |]
+    let xs5 = [| "1"; "2" |]
+    let xs6 = [| "1"; "2"; "3"; "1" |]
+    equal 0 (compare xs1 xs2)
+    equal -1 (compare xs1 xs3)
+    equal true (xs1 < xs3)
+    equal 1 (compare xs1 xs4)
+    equal false (xs1 < xs4)
+    equal 1 (compare xs1 xs5)
+    equal true (xs1 > xs5)
+    equal -1 (compare xs1 xs6)
+    equal false (xs1 > xs6)
+
+[<Test>]
+let ``Tuple comparison works``() =
     let xs1 = ( 1, 2, 3 )
     let xs2 = ( 1, 2, 3 )
     let xs3 = ( 1, 2, 4 )
@@ -200,7 +232,7 @@ let ``Tuple comparison works``() =
     equal false (xs1 < xs4)
 
 [<Test>]
-let ``List comparison works``() =  
+let ``List comparison works``() =
     let xs1 = [ 1; 2; 3 ]
     let xs2 = [ 1; 2; 3 ]
     let xs3 = [ 1; 2; 4 ]
@@ -218,7 +250,7 @@ let ``List comparison works``() =
     equal false (xs1 > xs6)
 
 [<Test>]
-let ``Set comparison works``() =  
+let ``Set comparison works``() =
     let xs1 = Set [ 1; 2; 3 ]
     let xs2 = Set [ 1; 2; 3 ]
     let xs3 = Set [ 1; 2; 4 ]
@@ -233,9 +265,9 @@ let ``Set comparison works``() =
     equal 1 (compare xs1 xs5)
     equal true (xs1 > xs5)
     equal 0 (compare xs1 xs6)
-    
+
 [<Test>]
-let ``Map comparison works``() =  
+let ``Map comparison works``() =
     let xs1 = Map [ ("a", 1); ("b", 2); ("c", 3) ]
     let xs2 = Map [ ("a", 1); ("b", 2); ("c", 3) ]
     let xs3 = Map [ ("a", 1); ("b", 2); ("c", 4) ]
@@ -253,7 +285,7 @@ let ``Map comparison works``() =
     equal false (xs1 > xs6)
 
 [<Test>]
-let ``Union comparison works``() =  
+let ``Union comparison works``() =
     let u1 = A 2
     let u2 = A 2
     let u3 = A 4
@@ -267,36 +299,36 @@ let ``Union comparison works``() =
     (compare u1 u5) = 0 |> equal false
 
 [<Test>]
-let ``Union custom comparison works``() =  
+let ``Union custom comparison works``() =
     let u1 = String "A"
     let u2 = String "A"
     let u3 = String "AA"
     equal 0 (compare u1 u3)
     equal true (compare u1 u2 > 0)
-    
+
 [<Test>]
-let ``Record comparison works``() =  
+let ``Record comparison works``() =
     let r1 = { a = 1; b = 2 }
     let r2 = { a = 1; b = 2 }
     let r3 = { a = 1; b = 4 }
     equal 0 (compare r1 r2)
     (compare r1 r3) = 0 |> equal false
-    
+
 [<Test>]
-let ``Comparison with objects implementing IComparable works``() =  
+let ``Comparison with objects implementing IComparable works``() =
     let c1 = Test(5)
     let c2 = Test(4)
     let c3 = Test(5)
     equal 0 (compare c1 c2)
     equal 1 (compare c1 c3)
-    equal true (c1 > c3)    
+    equal true (c1 > c3)
 
 [<Test>]
-let ``max works with primitives``() =  
+let ``max works with primitives``() =
     max 1 2 |> equal 2
     Math.Max(1, 2) |> equal 2
     max "a" "b" |> equal "b"
-        
+
 [<Test>]
 let ``max works with records``() =
     let r1 = {a=1; b=1}
@@ -304,31 +336,31 @@ let ``max works with records``() =
     max r1 r2 |> equal r2
 
 [<Test>]
-let ``max with objects implementing IComparable works``() =  
+let ``max with objects implementing IComparable works``() =
     let c1 = Test(5)
     let c2 = Test(5)
     max c1 c2 |> equal c1
-    
+
 [<Test>]
-let ``min works with primitives``() =  
+let ``min works with primitives``() =
     min 1 2 |> equal 1
     Math.Min(1, 2) |> equal 1
     min "a" "b" |> equal "a"
-        
+
 [<Test>]
 let ``min works with records``() =
     let r1 = {a=1; b=1}
     let r2 = {a=1; b=2}
     min r1 r2 |> equal r1
-    
+
 [<Test>]
-let ``min with objects implementing IComparable works``() =  
+let ``min with objects implementing IComparable works``() =
     let c1 = Test(5)
     let c2 = Test(5)
     min c1 c2 |> equal c2
 
 [<Test>]
-let ``isNull works with primitives``() =  
+let ``isNull works with primitives``() =
     isNull null |> equal true
     isNull "" |> equal false
     isNull "0" |> equal false

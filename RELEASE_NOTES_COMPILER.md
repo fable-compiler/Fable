@@ -1,3 +1,101 @@
+### 0.7.5-alpha.16
+
+* Add JsFunc and JsCons to Fable.Core.JsInterop
+
+### 0.7.5-alpha.15
+
+* Use outDir to place the generated dll with .fsproj projects
+* Only emit warnings when generating dlls in verbose mode
+* Fix error when reading Rollup options
+
+### 0.7.5-alpha.14
+
+* Fix errors in Fable JS API
+
+### 0.7.5-alpha.12
+
+* Change `--bundle` option to `--rollup`
+* `--rollup` can accept an object (in fableconfig.json) with Rollup config
+* Improve plugin resolution for Babel and Rollup
+
+### 0.7.5-alpha.11
+
+* Add a block scope to switch cases (see #483)
+
+### 0.7.5-alpha.10
+
+* Fix invalid identifiers in top level members (see #482)
+* Generate `dll` also for `fsproj` files
+* Expose Fable library to JS API
+
+### 0.7.5-alpha.9
+
+* Fix issues with bundling and `System.Exception`
+
+### 0.7.5-alpha.8
+
+* Fix problems with `dll` generation
+
+### 0.7.5-alpha.7
+
+* Add experimental `--dll` compiler option to generate assemblies
+
+### 0.7.5-alpha.6
+
+* Fix path resolution when referencing assemblies
+
+### 0.7.5-alpha.5
+
+* Fix partial patterns not returning any value (see #478)
+
+### 0.7.5-alpha.4
+
+* Minor fixes
+
+### 0.7.5-alpha.2
+
+* Resolve relative paths of referenced projects/dlls as
+  if they were pointing to generated JS code from the fsproj/dll file
+  (`EntryModuleAttribute`) or from working directory (`--refs`)
+  and make them reachable from `outDir` (see #472)
+* Always resolve relative paths in command line options with
+  the directory from where fable is called
+
+### 0.7.5-alpha.1
+
+* Fix prerelease semver. See: https://docs.npmjs.com/misc/semver#prerelease-tags
+
+### 0.7.5-alpha
+
+* Add `typedefof<>`, `.IsGenericType`, `.GetGenericTypeDefinition`
+
+### 0.7.4-alpha
+
+* Resolve import relative paths so they can be reached from `outDir`
+  if they don't point to an internal file (see #472)
+
+### 0.7.3-alpha
+
+* Add warning when creating references of types unknown at compile time
+
+### 0.7.2-alpha
+
+* Convert functions to delegates when passed as arguments to EmitAttribute
+* Add warning when passing generic param to Serialize.ofJson/inflate
+
+### 0.7.1-alpha
+
+* Add `--bundle` compiler option
+* Bring back JSON serialization with `$type` info
+
+### 0.7.0-alpha
+
+* Add type info to JS constructors: cases (unions) and properties (records and classes)
+* Extend type references with generic info when calling `typeof`
+* Add `GenericParamAttribute` to implicitly pass type info of generic parameters
+* Add `MutatingUpdateAttribute` to compile record updates as mutations
+* Add `EntryModuleAttribute` to mark assemblies as Fable libraries
+
 ### 0.6.15
 
 * Revert change from 0.6.14: ES6 modules automatically enable

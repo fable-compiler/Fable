@@ -1,7 +1,7 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Applicative
 open System
-open NUnit.Framework
+open Util.Testing
 
 type Result<'s, 'f> =
     | Ok of 's

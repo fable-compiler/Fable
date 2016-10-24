@@ -15,8 +15,8 @@ type Type =
     | Unit
     | Boolean
     | String
-    | Regex
     | Number of NumberKind
+    | Option of genericArg: Type
     | Array of genericArg: Type
     | Tuple of genericArgs: Type list
     | Function of argTypes: Type list * returnType: Type
@@ -40,17 +40,34 @@ type Type =
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
 
+and TypeKind =
+    // | Boolean | String | Number _ | Enum _
+    // | Function _ | DeclaredType _
+    | Any = 1
+    | Unit = 2
+    | Option = 3
+    | Array = 4
+    | Tuple = 5
+    | GenericParam = 6
+    | Interface = 7
+
 (** ##Entities *)
 and EntityKind =
     | Module
-    | Union
+    | Union of cases: Map<string, Type list>
     | Record of fields: (string*Type) list
     | Exception of fields: (string*Type) list
-    | Class of baseClass: (string*Expr) option
+    | Class of baseClass: (string*Expr) option * properties: (string*Type) list
     | Interface
 
 and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
-           genParams, interfaces, decorators, isPublic) =
+           ?genParams, ?interfaces, ?decorators, ?isPublic) =
+    static let metaType =
+        DeclaredType(Entity(lazy Class(None, []), None, "System.Type", lazy []), [])
+    let genParams = defaultArg genParams []
+    let decorators = defaultArg decorators []
+    let interfaces = defaultArg interfaces []
+    let isPublic = defaultArg isPublic true
     member x.Kind: EntityKind = kind.Value
     member x.File: string option = file
     member x.FullName: string = fullName
@@ -59,6 +76,12 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
+    member x.IsErased =
+        match kind.Value with
+        | Interface -> true
+        | Class(Some("System.Attribute", _), _) -> true
+        | _ -> decorators |> Seq.exists (fun dec ->
+            Naming.eraseAtts.Contains dec.Name)
     member x.Name =
         x.FullName.Substring(x.FullName.LastIndexOf('.') + 1)
     member x.Namespace =
@@ -83,6 +106,10 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
             else argsEqual m.ArgumentTypes argTypes)
     static member CreateRootModule fileName modFullName =
         Entity (lazy Module, Some fileName, modFullName, lazy [], [], [], [], true)
+
+    static member MetaType =
+        DeclaredType(Entity(lazy Class(None, []), None, "System.Type", lazy []), [])
+
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
@@ -105,7 +132,7 @@ and MemberKind =
     | Field
 
 and Member(name, kind, argTypes, returnType, ?originalType, ?genParams, ?decorators,
-           ?isPublic, ?isMutable, ?isStatic, ?hasRestParams, ?overloadIndex) =
+           ?isPublic, ?isMutable, ?isStatic, ?isSymbol, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.ArgumentTypes: Type list = argTypes
@@ -116,6 +143,7 @@ and Member(name, kind, argTypes, returnType, ?originalType, ?genParams, ?decorat
     member x.IsPublic: bool = defaultArg isPublic true
     member x.IsMutable: bool = defaultArg isMutable false
     member x.IsStatic: bool = defaultArg isStatic false
+    member x.IsSymbol: bool = defaultArg isSymbol false
     member x.HasRestParams: bool = defaultArg hasRestParams false
     member x.OverloadIndex: int option = overloadIndex
     member x.OverloadName: string =
@@ -143,12 +171,12 @@ and File(fileName, root, decls, ?usedVarNames) =
         | [] -> SourceLocation.Empty
         | decls -> SourceLocation.Empty + (List.last decls).Range
 
-and Project(name, baseDir, fileMap, ?assemblyFile, ?importPath) =
-    member __.Name: string = name
+and Project(baseDir, fileMap, ?assemblyFile, ?importPath, ?entryFile) =
     member __.BaseDir: string = baseDir
     member __.FileMap: Map<string, string> = fileMap
     member __.AssemblyFileName: string option = assemblyFile
     member __.ImportPath: string option = importPath
+    member __.EntryFile: string option = entryFile
 
 (** ##Expressions *)
 and ApplyInfo = {
@@ -164,7 +192,7 @@ and ApplyInfo = {
         decorators: Decorator list
         calleeTypeArgs: Type list
         methodTypeArgs: Type list
-        /// If the method accepts a lambda as first argument, indicates its arity 
+        /// If the method accepts a lambda as first argument, indicates its arity
         lambdaArgArity: int
     }
 
@@ -175,9 +203,19 @@ and ArrayConsKind =
     | ArrayValues of Expr list
     | ArrayAlloc of Expr
 
-and Ident =
-    { name: string; typ: Type }
-    static member getType (i: Ident) = i.typ
+and Ident(name: string, ?typ: Type) =
+    let mutable consumed = false
+    member x.Name = name
+    member x.Type = defaultArg typ Any
+    member x.IsConsumed = consumed
+    member x.Consume() = consumed <- true
+    static member getType (i: Ident) = i.Type
+    override __.ToString() = name
+
+and ImportKind =
+    | CoreLib
+    | Internal of file: string
+    | CustomImport
 
 and ValueKind =
     | Null
@@ -186,7 +224,7 @@ and ValueKind =
     | Spread of Expr
     | TypeRef of Entity
     | IdentValue of Ident
-    | ImportRef of memb: string * path: string
+    | ImportRef of memb: string * path: string * ImportKind
     | NumberConst of U2<int,float> * NumberKind
     | StringConst of string
     | BoolConst of bool
@@ -196,26 +234,30 @@ and ValueKind =
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
-    | Lambda of args: Ident list * body: Expr
+    /// isArrow: Arrow functions capture the enclosing `this` in JS
+    | Lambda of args: Ident list * body: Expr * isArrow: bool
     | Emit of string
     member x.Type =
         match x with
         | Null -> Any
         | Spread x -> x.Type
-        | IdentValue {typ=typ} -> typ
-        | This | Super | ImportRef _ | TypeRef _ | Emit _ -> Any
+        | IdentValue i -> i.Type
+        | This | Super | ImportRef _ | Emit _ -> Any
         | NumberConst (_,kind) -> Number kind
         | StringConst _ -> String
-        | RegexConst _ -> Regex
+        | TypeRef _ -> Entity.MetaType
+        | RegexConst _ ->
+            let fullName = "System.Text.RegularExpressions.Regex"
+            DeclaredType(Entity(lazy Class(None, []), None, fullName, lazy []), [])
         | BoolConst _ -> Boolean
         | ArrayConst (_, typ) -> Array typ
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
         | UnaryOp _ -> Function([Any], Any)
         | BinaryOp _ | LogicalOp _ -> Function([Any; Any], Any)
-        | Lambda (args, body) -> Function(List.map Ident.getType args, body.Type)
+        | Lambda (args, body, _) -> Function(List.map Ident.getType args, body.Type)
     member x.Range: SourceLocation option =
         match x with
-        | Lambda (_, body) -> body.Range
+        | Lambda (_, body, _) -> body.Range
         | _ -> None
 
 and LoopKind =
@@ -291,5 +333,5 @@ and Expr =
         | Switch (_,_,_,_,range)
         | Label (_, _, range)
         | Break (_, range)
-        | Continue (_, range) 
+        | Continue (_, range)
         | Return (_, range) -> range
