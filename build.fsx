@@ -279,7 +279,7 @@ Target "FableCompilerNetcore" (fun _ ->
         let testDir = "src/tests"
         Util.run testDir "dotnet" "test -c Release"
 
-        // Compile tests
+        // Compile JavaScript tests
         Node.run "." buildDir ["src/tests --target netcore"]
         let testsBuildDir = "build/tests"
         FileUtils.cp "src/tests/package.json" testsBuildDir
@@ -293,18 +293,12 @@ Target "FableCompilerNetcore" (fun _ ->
         // Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
         // FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
 
-        // Copy README and package.json
-        let fableCoreNpmDir = "build/fable-core"
-        let fableCoreSrcDir = "src/fable/Fable.Core"
-        FileUtils.cp (fableCoreSrcDir </> "ts/README.md") fableCoreNpmDir
-        FileUtils.cp (fableCoreSrcDir </> "ts/package.json") fableCoreNpmDir
-        FileUtils.cp (fableCoreSrcDir </> "ts/.babelrc") fableCoreNpmDir
+        // Compile Fable.Core TypeScript
+        let fableCoreSrcDir = "src/fable/Fable.Core/ts"
+        Npm.install fableCoreSrcDir []
+        Npm.script fableCoreSrcDir "tsc" ["--module commonjs"]
 
-        // Compile TypeScript
-        Npm.install fableCoreNpmDir []
-        Npm.script fableCoreNpmDir "tsc" [sprintf "--project ../../%s/ts -m commonjs" fableCoreSrcDir]
-
-        // Run javascript tests
+        // Run JavaScript tests
         Npm.script testsBuildDir "test" []
     with
     | ex ->
