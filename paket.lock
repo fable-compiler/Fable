@@ -331,8 +331,8 @@ NUGET
       System.Threading (>= 4.0.11) - framework: dnxcore50, >= netstandard13
       System.Xml.ReaderWriter (>= 4.0.11) - framework: dnxcore50, netstandard10, >= netstandard13
 GITHUB
-  remote: fsharp-editing/Forge
-    FULLPROJECT (d921492142d47a82ed8258ab4e25dcad6e69f467)
+  remote: fable-compiler/Forge
+    FULLPROJECT (7677a368304f0337047ed8ad925991aa7187a8bf)
       Argu
       FAKE
       FParsec

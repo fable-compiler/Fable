@@ -8,7 +8,7 @@ nuget Fable.JsonConverter
 nuget NUnit
 nuget NUnit.Runners
 nuget Suave
-github fsharp-editing/Forge
+github fable-compiler/Forge
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
 github fsharp/FSharp.Compiler.Service src/fsharp/ReferenceResolver.fs
 github fsharp/FSharp.Compiler.Service src/fsharp/SimulatedMSBuildReferenceResolver.fs
