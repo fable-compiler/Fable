@@ -8,21 +8,20 @@ var path = require("path") || require("./path");
 
 // Don't use default values as they would block options from fableconfig.json
 var optionDefinitions = [
-  { name: 'projFile', defaultOption: true, description: "The F# project (.fsproj) or script (.fsx) to compile." },
+  { name: 'projFile', defaultOption: true, multiple: true, description: "The F# project (.fsproj) or script (.fsx) to compile." },
   { name: 'outDir', alias: 'o', description: "Where to put compiled JS files. Defaults to project directory." },
   { name: 'module', alias: 'm', description: "Specify module code generation: `commonjs` (default), `umd`, `amd` or `es2015`." },
   { name: 'sourceMaps', alias: 's', description: "Generate source maps: `false` (default), `true` or `inline`." },
   { name: 'watch', alias: 'w', type: Boolean, description: "Recompile project much faster on file modifications." },
   { name: 'ecma', description: "Specify ECMAScript target version: `es5` (default) or `es2015`." },
-  { name: 'rollup', description: "[EXPERIMENTAL] Bundle files and dependencies with Rollup." },
+  { name: 'rollup', description: "Bundle files and dependencies with Rollup." },
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
   { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins (true by default)." },
   { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
   { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
-  { name: 'dll', type: Boolean, description: "[EXPERIMENTAL] Generate a `dll` assembly." },
-  { name: 'msbuild', mutiple: true, description: "Pass MSBuild arguments like `Configuration=Release`." },
+  { name: 'dll', type: Boolean, description: "Generate a `dll` assembly." },
   { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'copyExt', type: Boolean, description: "Copy external files into `fable_external` folder (true by default)." },
@@ -96,7 +95,7 @@ function watch(opts, fableProc, parallelProc, continuation) {
     fableProc.stdin.setEncoding('utf-8');
 
     // Watch only the project directory for performance
-    var projDir = path.dirname(fableLib.pathJoin(opts.workingDir, opts.projFile));
+    var projDir = path.dirname(opts.projDir);
     fableLib.stdoutLog("Watching " + projDir);
     fableLib.stdoutLog("Press Enter to terminate process.");
     opts.watching = true;
@@ -136,7 +135,7 @@ function watch(opts, fableProc, parallelProc, continuation) {
 }
 
 function normalizeProjectName(opts) {
-    var projName = path.basename(opts.projFile);
+    var projName = path.basename(opts.projFile[opts.projFile.length - 1]);
     return projName.substr(0, projName.indexOf(".")).replace(/[^A-Z_]/ig, "_");
 }
 
@@ -257,12 +256,15 @@ function build(opts, continuation) {
 
     // Call Fable.exe
     if (opts.verbose) {
-        fableLib.stdoutLog("\nPROJECT FILE: " + fableLib.pathJoin(opts.workingDir, opts.projFile));
+        fableLib.stdoutLog("\nPROJECT FILE: " + opts.projFile.map(function(f) {return fableLib.pathJoin(opts.workingDir, f)}).join());
         fableLib.stdoutLog("OUTPUT DIR: " + fableLib.pathJoin(opts.workingDir, opts.outDir));
         fableLib.stdoutLog("WORKING DIR: " + opts.workingDir) + "\n";
         fableLib.stdoutLog("FABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }
     var fableProc = child_process.spawn(fableCmd, fableCmdArgs, { cwd: opts.workingDir, windowsVerbatimArguments: true });
+
+    // !!child_process.spawnSync("which", ["dotnet"]).stdout.toString()
+    // child_process.spawnSync("dotnet", ["--info"]).error != null
 
     fableProc.on('exit', function(code) {
         // There may be pending messages, do nothing here
@@ -343,6 +345,7 @@ function resolvePath(optName, value, workingDir) {
     if (value) {
         switch (optName) {
             case "projFile":
+                return Array.isArray(value) ? value.map(resolve) : resolve(value);
             case "outDir":
                 return resolve(value);
             // Only resolve coreLib if starts with '.'
@@ -372,18 +375,19 @@ function readCommandLineOptions() {
 /** Reads options from fableconfig.json, requires json5 */
 function readFableConfigOptions(opts) {
     opts.workingDir = path.resolve(opts.workingDir || process.cwd());
+    opts.projFile = typeof opts.projFile === "string" ? [opts.projFile] : opts.projFile;
 
     var cfgFile = fableLib.pathJoin(opts.workingDir, constants.FABLE_CONFIG_FILE);
 
-    if (opts.projFile) {
-        var projFile = fableLib.pathJoin(opts.workingDir, opts.projFile);
-        var projDir = fs && fs.statSync(projFile).isDirectory()
-                        ? projFile
-                        : path.dirname(projFile);
+    if (Array.isArray(opts.projFile) && opts.projFile.length === 1) {
+        var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile[0]);
+        var projDir = fs && fs.statSync(fullProjFile).isDirectory()
+                        ? fullProjFile
+                        : path.dirname(fullProjFile);
         cfgFile = fableLib.pathJoin(projDir, constants.FABLE_CONFIG_FILE);
 
         // Delete projFile from opts if it isn't a true F# project
-        if (!fableLib.isFSharpProject(opts.projFile)) {
+        if (!fableLib.isFSharpProject(fullProjFile)) {
             delete opts.projFile;
         }
     }
@@ -529,21 +533,25 @@ function readOptions(opts) {
     opts = opts || readCommandLineOptions();
     opts = readFableConfigOptions(opts);
 
-    if (!fableLib.isFSharpProject(opts.projFile)) {
-        throw "Please provide an F# project (.fsproj) or script (.fsx) file";
+    opts.projFile = Array.isArray(opts.projFile) ? opts.projFile : [opts.projFile];
+    for (var i = 0; i < opts.projFile.length; i++) {
+        var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile[i] || '');
+        if (!fableLib.isFSharpProject(fullProjFile)) {
+            throw "Not an F# project (.fsproj) or script (.fsx): " + fullProjFile;
+        }
+        if (fs && !fs.existsSync(fullProjFile)) {
+            throw "Cannot find file: " + fullProjFile;
+        }
     }
-
-    var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile);
-    if (fs && !fs.existsSync(fullProjFile)) {
-        throw "Cannot find project file: " + fullProjFile;
-    }
+    opts.projDir = fableLib.getCommonBaseDir(opts.projFile.map(function(f) {
+        return fableLib.pathJoin(opts.workingDir, f) }));
 
     // Default values
     opts.ecma = opts.ecma || "es5";
     opts.loose = opts.loose != null ? opts.loose : true;
     opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
     opts.coreLib = opts.coreLib || (opts.rollup ? "fable-core/es2015" : "fable-core");
-    opts.outDir = opts.outDir ? opts.outDir : path.dirname(opts.projFile);
+    opts.outDir = opts.outDir ? opts.outDir : opts.projDir;
     if (opts.module == null) {
         opts.module = opts.rollup
             ? "iife"

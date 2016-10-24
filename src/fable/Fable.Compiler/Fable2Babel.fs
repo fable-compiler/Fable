@@ -987,7 +987,7 @@ module Util =
                     let fileDir = IO.Path.GetDirectoryName(ctx.file.FileName)
                     let importPath = IO.Path.GetFullPath(IO.Path.Combine(fileDir, importPath))
                     // Attention, here we use ctx.fixedFileName to take files in `fable_external` into account
-                    let relPathToProj = Path.getRelativeFileOrDirPath false bcom.Options.projFile false ctx.fixedFileName
+                    let relPathToProj = Path.getRelativeFileOrDirPath true bcom.ProjDir false ctx.fixedFileName
                     let pathFromOutDir = IO.Path.GetFullPath(IO.Path.Combine(bcom.Options.outDir, relPathToProj))
                     Path.getRelativePath pathFromOutDir importPath
                 match imports.TryGetValue((selector, path)) with
@@ -1021,6 +1021,7 @@ module Util =
                 transformClass bcom ctx r None baseClass members
         interface ICompiler with
             member __.Options = com.Options
+            member __.ProjDir = com.ProjDir
             member __.Plugins = com.Plugins
             member __.AddLog msg = com.AddLog msg
             member __.GetLogs() = com.GetLogs()

@@ -45,6 +45,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
@@ -53,6 +54,11 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\paket-files\fsharp-editing\Forge\src\Forge.ProjectSystem\Forge.ProjectSystem.fsproj">
+      <Name>Forge.ProjectSystem</Name>
+      <Project>{9029be0f-a72c-4281-9fd1-aa15f5722306}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\Fable.Compiler\Fable.Compiler.fsproj">
       <Name>Fable.Compiler</Name>
       <Project>{d341ff6b-f526-4370-8318-0f5a654ba70c}</Project>
@@ -80,7 +86,7 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" Condition="Exists('$(FSharpTargetsPath)')" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>

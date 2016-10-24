@@ -156,6 +156,10 @@ function resolvePlugins(plugins, basedir, prefix) {
 }
 exports.resolvePlugins = resolvePlugins;
 
+/**
+ * Checks if the file is an F# project (.fsproj) or script (.fsx)
+ * @param {string} filePath The F# project file
+ */
 function isFSharpProject(filePath) {
     return typeof filePath === "string"
         && constants.FSHARP_PROJECT_EXTENSIONS.indexOf(path.extname(filePath.toLowerCase())) >= 0;
@@ -165,17 +169,49 @@ exports.isFSharpProject = isFSharpProject;
 /**
  * Apparently path.isAbsolute is not very reliable
  * so this uses `path.resolve(x) === x`
+ * @param {string} filePath
 */
 function isFullPath(filePath) {
     return path.resolve(filePath) === filePath;
 }
 exports.isFullPath = isFullPath;
 
-/** If path2 is absolute, returns it instead of joining */
+/**
+ * If path2 is absolute, returns it instead of joining
+ * @param {string} path1
+ * @param {string} path2
+*/
 function pathJoin(path1, path2) {
     return isFullPath(path2) ? path2 : path.join(path1, path2);
 }
 exports.pathJoin = pathJoin;
+
+/**
+ * Calculates the common parent directory of an array of file paths
+ * @param {string[]} filePaths Array of resolved file paths.
+*/
+function getCommonBaseDir(filePaths) {
+    function getCommonPrefix(xs) {
+        function f(prefix, xs) {
+            if (xs.length === 0) {
+                return prefix;
+            }
+            else {
+                var x = xs[0], i = 0;
+                while (i < prefix.length && i < x.length && x[i] === prefix[i]) {
+                    i = i + 1;
+                }
+                return f(prefix.slice(0, i), xs.slice(1));
+            }
+        }
+        return xs.length === 0 ? [] : f(xs[0], xs.slice(1));
+    }
+    var normalized = filePaths.map(function (filePath) {
+        return path.dirname(filePath).replace(/\\/g, '/').split('/');
+    });
+    return getCommonPrefix(normalized).join('/');
+}
+exports.getCommonBaseDir = getCommonBaseDir;
 
 /**
  * Converts a Babel AST to JS code. `fsCode` is optional,
@@ -184,11 +220,10 @@ exports.pathJoin = pathJoin;
 function babelify(babelAst, fsCode, opts) {
     var babel = require("babel-core");
 
-    var outDir = pathJoin(opts.workingDir, opts.outDir),
-        projDir = path.dirname(pathJoin(opts.workingDir, opts.projFile));
+    var outDir = pathJoin(opts.workingDir, opts.outDir);
 
     var targetFile =
-        pathJoin(outDir, path.relative(projDir, babelAst.fileName))
+        pathJoin(outDir, path.relative(opts.projDir, babelAst.fileName))
             .replace(/\\/g, '/')
             .replace(path.extname(babelAst.fileName), ".js");
 

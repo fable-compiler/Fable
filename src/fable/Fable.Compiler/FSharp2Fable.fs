@@ -1019,6 +1019,7 @@ type FableCompiler(com: ICompiler, projs: Fable.Project list,
             replacePlugins
     interface ICompiler with
         member __.Options = com.Options
+        member __.ProjDir = com.ProjDir
         member __.Plugins = com.Plugins
         member __.AddLog msg = com.AddLog msg
         member __.GetLogs() = com.GetLogs()
@@ -1085,7 +1086,6 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
             // `--refs` from options are resolved with the workingDir
             | None -> Path.GetFullPath path
         Fable.Path.getRelativePath com.Options.outDir path
-    // TODO: If jsRef is an npm package, check if it's installed?
     let tryGetJsRef (asm: FSharpAssembly) projFile projName =
         match Map.tryFind projName com.Options.refs with
         | Some jsRef ->
@@ -1104,29 +1104,9 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
     let curProj =
         let projName = Path.GetFileNameWithoutExtension com.Options.projFile
         let fileMap = makeFileMap parsedProj.AssemblySignature.Entities
-        let baseDir = Path.GetDirectoryName com.Options.projFile
         let entryFile = parsedProj.AssemblyContents.ImplementationFiles
                         |> Seq.last |> fun file -> file.FileName
-        Fable.Project(projName, baseDir, fileMap, entryFile=entryFile)
-    let refProjs =
-        projInfo.ProjectOpts.ReferencedProjects
-        |> Seq.choose (fun (assemblyPath, opts) ->
-            let projName = Path.GetFileNameWithoutExtension opts.ProjectFileName
-            parsedProj.ProjectContext.GetReferencedAssemblies()
-            |> Seq.tryFind (fun a -> a.FileName = Some assemblyPath)
-            |> Option.map (fun assembly ->
-                match tryGetJsRef assembly opts.ProjectFileName projName with
-                | Some (projName, baseDir, importPath) ->
-                    let fileMap = makeFileMap assembly.Contents.Entities
-                    let baseDir =
-                        match baseDir with
-                        | Some baseDir -> baseDir
-                        | None -> Path.GetDirectoryName opts.ProjectFileName |> Path.GetFullPath
-                    Fable.Project(projName, baseDir, fileMap, assemblyFile=assemblyPath, importPath=importPath)
-                | None ->
-                    failwithf "Cannot find import path for referenced project %s. %s"
-                                projName "Have you forgotten --refs argument?"))
-        |> Seq.toList
+        Fable.Project(projName, com.ProjDir, fileMap, entryFile=entryFile)
     let refAssemblies =
         parsedProj.ProjectContext.GetReferencedAssemblies()
         |> List.choose (fun assembly ->
@@ -1145,7 +1125,7 @@ let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults)
                             if kv.Key.Contains("node_modules") then None else Some kv.Key)
                         |> Path.getCommonBaseDir
                 Fable.Project(projName, baseDir, fileMap, assemblyFile=assembly.FileName.Value, importPath=importPath)))
-    curProj::(refProjs @ refAssemblies)
+    curProj::refAssemblies
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
     let rec getRootDecls rootNs ent decls =
