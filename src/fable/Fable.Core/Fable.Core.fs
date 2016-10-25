@@ -53,14 +53,6 @@ type GenericParamAttribute(name: string) =
 type MutatingUpdateAttribute() =
     inherit Attribute()
 
-/// Replace references to types in this assembly with JS imports.
-/// The attribute must decorate a non-nested module (or type) in a file
-/// located in the root directory for all other files in the project.
-/// More info: http://fable-compiler.github.io/docs/compiling.html#Project-references
-[<AttributeUsage(AttributeTargets.Class)>]
-type EntryModuleAttribute(jsImportPath: string) =
-    inherit Attribute()
-
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U2<'a, 'b> = Case1 of 'a | Case2 of 'b

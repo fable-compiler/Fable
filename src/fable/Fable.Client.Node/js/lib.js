@@ -182,6 +182,7 @@ exports.isFullPath = isFullPath;
  * @param {string} path2
 */
 function pathJoin(path1, path2) {
+    if (!path2) { return path1 };
     return isFullPath(path2) ? path2 : path.join(path1, path2);
 }
 exports.pathJoin = pathJoin;
@@ -219,33 +220,27 @@ exports.getCommonBaseDir = getCommonBaseDir;
  */
 function babelify(babelAst, fsCode, opts) {
     var babel = require("babel-core");
-
-    var outDir = pathJoin(opts.workingDir, opts.outDir);
-
-    var targetFile =
-        pathJoin(outDir, path.relative(opts.projDir, babelAst.fileName))
-            .replace(/\\/g, '/')
-            .replace(path.extname(babelAst.fileName), ".js");
+    // var outDir = pathJoin(opts.workingDir, opts.outDir);
 
     var babelOpts = {
         babelrc: opts.babelrc || false,
-        filename: targetFile,
-        sourceRoot: outDir,
+        filename: babelAst.fileName,
+        // sourceRoot: outDir,
         presets: opts.babel.presets,
         plugins: opts.babel.plugins,
     };
 
     if (opts.sourceMaps && babelAst.originalFileName) {
         babelOpts.sourceMaps = opts.sourceMaps,
-        babelOpts.sourceMapTarget = path.basename(targetFile),
-        babelOpts.sourceFileName = path.relative(path.dirname(targetFile),
-            babelAst.originalFileName).replace(/\\/g, '/')
+        babelOpts.sourceMapTarget = path.basename(babelAst.fileName),
+        babelOpts.sourceFileName = path.relative(path.dirname(babelAst.fileName),
+            babelAst.originalFileName.replace(/\\/g, '/'));
     }
 
     var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
     return {
         isEntry: babelAst.isEntry,
-        fileName: targetFile,
+        fileName: babelAst.fileName,
         code: parsed.code,
         map: parsed.map
     };

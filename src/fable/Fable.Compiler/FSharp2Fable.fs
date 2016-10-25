@@ -931,11 +931,11 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
         ) (DeclInfo init, ctx)
     declInfo.GetDeclarations()
 
-let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
+let private makeFileMap (rootEntities: #seq<FSharpEntity>) (filePairs: Map<string, string>) =
     rootEntities
     |> Seq.groupBy (fun ent -> (getEntityLocation ent).FileName)
     |> Seq.map (fun (file, ents) ->
-        let ent =
+        let ns =
             match List.ofSeq ents with
             | [] -> ""
             | [ent] ->
@@ -954,33 +954,12 @@ let private makeFileMap (rootEntities: #seq<FSharpEntity>) =
                 if rootNs.EndsWith(".")
                 then rootNs.Substring(0, rootNs.Length - 1)
                 else rootNs
-        file, ent)
+        file, Fable.FileInfo(filePairs.[file], ns))
     |> Map
 
-// To be used to find inline expressions if file compilation is parallelized
-// Note: tests didn't reveal performance improvements by parallelization
-// let private tryFindExpr (implFiles: Map<string,FSharpImplementationFileContents>) meth =
-//     let rec tryFindExpr (meth: FSharpMemberOrFunctionOrValue) decls =
-//         (None, decls) ||> List.fold (fun expr decl ->
-//             match expr, decl with
-//             | Some _, _ -> expr
-//             | _, FSharpImplementationFileDeclaration.Entity (_, decls) ->
-//                 tryFindExpr meth decls
-//             | _, FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth2, args, body) ->
-//                 if meth.FullName = meth2.FullName
-//                 then Some(List.collect id args, body)
-//                 else None
-//             | _, FSharpImplementationFileDeclaration.InitAction _ ->
-//                 None)
-//     let loc = getRefLocation meth
-//     Map.tryFind (Path.normalizeFullPath loc.FileName) implFiles
-//     |> function None -> None | Some f -> tryFindExpr meth f.Declarations
-
-type FableCompiler(com: ICompiler, projs: Fable.Project list,
+type FableCompiler(com: ICompiler, project: Fable.Project,
                    entitiesCache: Dictionary<string, Fable.Entity>,
                    inlineExprsCache: Dictionary<string, FSharpMemberOrFunctionOrValue list * FSharpExpr>) =
-    let refAssemblies =
-        projs |> Seq.choose (fun p -> p.AssemblyFileName) |> Set
     let replacePlugins =
         com.Plugins |> List.choose (function
             | path, (:? IReplacePlugin as plugin) -> Some (path, plugin)
@@ -991,23 +970,16 @@ type FableCompiler(com: ICompiler, projs: Fable.Project list,
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
         member fcom.GetInternalFile tdef =
-            // In F# scripts the location of referenced libraries
-            // becomes the .fsx file, so check first if the entity belongs
-            // to an assembly already compiled (external to the project)
-            match tdef.Assembly.FileName with
-            | Some assembly when not(refAssemblies.Contains assembly) -> None
-            | _ ->
-                let file = (getEntityLocation tdef).FileName
-                if projs |> Seq.exists (fun p -> p.FileMap.ContainsKey file)
-                then Some file
-                else None
+            let file = (getEntityLocation tdef).FileName
+            if project.FileMap.ContainsKey file
+            then Some file
+            else None
         member fcom.GetEntity ctx tdef =
             entitiesCache.GetOrAdd(
                 defaultArg tdef.TryFullName tdef.CompiledName,
                 fun _ -> makeEntity fcom ctx tdef)
         member fcom.TryGetInlineExpr meth =
             let success, expr = inlineExprsCache.TryGetValue meth.FullName
-            // If compilation is parallelized and the expr is not found, use tryFindExpr
             if success then Some expr else None
         member fcom.AddInlineExpr fullName inlineExpr =
             inlineExprsCache.AddOrUpdate(fullName,
@@ -1025,35 +997,8 @@ type FableCompiler(com: ICompiler, projs: Fable.Project list,
         member __.GetLogs() = com.GetLogs()
         member __.GetUniqueVar() = com.GetUniqueVar()
 
-let private addInjections (com: ICompiler) (curProj: Fable.Project) =
-    let createDeclaration (injection: IInjection) =
-        let args =
-            match injection.ArgumentsLength with
-            | 0 -> []
-            | l -> [1..l] |> List.map (fun i -> "$arg" + (string i) |> makeIdent)
-        let body =
-            args |> List.map (Fable.IdentValue >> Fable.Value)
-            |> injection.GetBody
-        let memb = Fable.Member(injection.Name, Fable.Method,
-                    List.replicate args.Length Fable.Any, body.Type)
-        Fable.MemberDeclaration(memb, None, args, body, SourceLocation.Empty)
-    com.Plugins
-    |> List.choose (function
-        | path, (:? IInjectPlugin as plugin) -> Some (path, plugin)
-        | _ -> None)
-    |> List.collect (fun (path, plugin) ->
-        try plugin.Inject com |> List.map createDeclaration
-        with ex -> failwithf "Error in plugin %s: %s" path ex.Message)
-    |> function
-        | [] -> []
-        | rootDecls ->
-            let fileName = Path.Combine(curProj.BaseDir, Naming.fableInjectFile)
-            let rootEnt = Fable.Entity.CreateRootModule fileName ""
-            [Fable.File(fileName, rootEnt, rootDecls)]
-
-type FSProjectInfo(projectOpts: FSharpProjectOptions,
-                    ?fileMask: string,
-                    ?extra: Map<string, obj>) =
+type FSProjectInfo(projectOpts: FSharpProjectOptions, filePairs: Map<string, string>,
+                    ?fileMask: string, ?extra: Map<string, obj>) =
     let extra = defaultArg extra Map.empty
     let dependencies: IDictionary<string, string list> =
         ("dependencies", extra)
@@ -1061,6 +1006,7 @@ type FSProjectInfo(projectOpts: FSharpProjectOptions,
     let arePathsEqual p1 p2 =
         (Path.normalizeFullPath p1) = (Path.normalizeFullPath p2)
     member __.ProjectOpts = projectOpts
+    member __.FilePairs = filePairs
     member __.FileMask = fileMask
     member __.Extra = extra
     member __.IsMasked(fileName) =
@@ -1073,58 +1019,12 @@ type FSProjectInfo(projectOpts: FSharpProjectOptions,
                 success && List.exists (arePathsEqual mask) deps
         | None -> true
 
-/// Get current project (Head), referenced projects and assemblies
-let private getProjects (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
-    // Resolve relative paths and then make them relative to outDir: see #472
-    let resolveRelativePath (projFile: string option) (path: string) =
-        if not(path.StartsWith ".") then path else
-        let path =
-            match projFile with
-            | Some projFile ->
-                let projDir = Path.GetDirectoryName projFile
-                Path.GetFullPath(Path.Combine(projDir, path))
-            // `--refs` from options are resolved with the workingDir
-            | None -> Path.GetFullPath path
-        Fable.Path.getRelativePath com.Options.outDir path
-    let tryGetJsRef (asm: FSharpAssembly) projFile projName =
-        match Map.tryFind projName com.Options.refs with
-        | Some jsRef ->
-            Some(None, resolveRelativePath None jsRef)
-        | None when projName <> "mscorlib" && (not <| projName.StartsWith("System")) ->
-            try // Some attributes throw exceptions when accessing them
-                asm.Contents.Entities
-                |> Seq.tryPick (fun ent ->
-                    match ent.Attributes with
-                    | ContainsAtt "EntryModule" [:? string as jsRef] ->
-                        let baseDir = (getEntityLocation ent).FileName |> Path.GetDirectoryName
-                        Some(Some baseDir, resolveRelativePath (Some projFile) jsRef)
-                    | _ -> None)
-            with _ -> None
-        | None -> None
-    let curProj =
-        let fileMap = makeFileMap parsedProj.AssemblySignature.Entities
-        let entryFile = parsedProj.AssemblyContents.ImplementationFiles
-                        |> Seq.last |> fun file -> file.FileName
-        Fable.Project(com.ProjDir, fileMap, entryFile=entryFile)
-    let refAssemblies =
-        parsedProj.ProjectContext.GetReferencedAssemblies()
-        |> List.choose (fun assembly ->
-            assembly.FileName
-            |> Option.bind (fun asmFullName ->
-                let asmName = Path.GetFileNameWithoutExtension asmFullName
-                tryGetJsRef assembly asmFullName asmName)
-            |> Option.map (fun (baseDir, importPath) ->
-                let fileMap = makeFileMap assembly.Contents.Entities
-                let baseDir =
-                    match baseDir with
-                    | Some baseDir -> baseDir
-                    | None ->
-                        fileMap |> Seq.choose (fun kv ->
-                            // TODO: This is a small hack to partially fix #382
-                            if kv.Key.Contains("node_modules") then None else Some kv.Key)
-                        |> Path.getCommonBaseDir
-                Fable.Project(baseDir, fileMap, assemblyFile=assembly.FileName.Value, importPath=importPath)))
-    curProj::refAssemblies
+/// Get current project
+let private getCurrentProject (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
+    let fileMap = makeFileMap parsedProj.AssemblySignature.Entities projInfo.FilePairs
+    let entryFile = parsedProj.AssemblyContents.ImplementationFiles
+                    |> Seq.last |> fun file -> file.FileName
+    Fable.Project(com.ProjDir, fileMap, entryFile)
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
     let rec getRootDecls rootNs ent decls =
@@ -1143,9 +1043,9 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
             then Some ent, decls
             else getRootDecls rootNs (Some ent) decls
         | _ -> failwith "Multiple namespaces in same file is not supported"
-    let projs =
-        ("projects", projInfo.Extra)
-        ||> Map.findOrRun (fun () -> getProjects com parsedProj projInfo)
+    let project =
+        ("project", projInfo.Extra)
+        ||> Map.findOrRun (fun () -> getCurrentProject com parsedProj projInfo)
     // Cache for entities and inline expressions
     let entitiesCache = Dictionary<string, Fable.Entity>()
     let inlineExprsCache: Dictionary<string, FSharpMemberOrFunctionOrValue list * FSharpExpr> =
@@ -1153,14 +1053,14 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
     // Start transforming files
     parsedProj.AssemblyContents.ImplementationFiles
     |> Seq.where (fun file ->
-        projs.Head.FileMap.ContainsKey file.FileName
+        project.FileMap.ContainsKey file.FileName
         && projInfo.IsMasked file.FileName)
     |> Seq.choose (fun file ->
         try
-            let fcom = FableCompiler(com, projs, entitiesCache, inlineExprsCache)
+            let fcom = FableCompiler(com, project, entitiesCache, inlineExprsCache)
             let rootEnt, rootDecls =
                 let ctx = { Context.Empty with fileName = file.FileName }
-                let rootNs = projs.Head.FileMap.[file.FileName]
+                let rootNs = project.FileMap.[file.FileName].Namespace
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
                 let rootDecls = transformDeclarations fcom ctx [] rootDecls
                 match rootEnt with
@@ -1169,15 +1069,14 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
             match rootDecls with
             | [] -> None
-            | rootDecls -> Fable.File(file.FileName, rootEnt, rootDecls, fcom.UsedVarNames) |> Some
+            | rootDecls -> Fable.File(file.FileName, projInfo.FilePairs.[file.FileName],
+                                        rootEnt, rootDecls, fcom.UsedVarNames) |> Some
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
     )
-    // In first compilation (FileMask is None) add injections
-    |> Seq.append (if projInfo.FileMask.IsNone then addInjections com projs.Head else [])
     |> fun seq ->
         let extra =
             projInfo.Extra
-            |> Map.add "projects" (box projs)
+            |> Map.add "project" (box project)
             |> Map.add "inline" (box inlineExprsCache)
         extra, seq

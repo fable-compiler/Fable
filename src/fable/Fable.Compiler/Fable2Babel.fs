@@ -18,7 +18,6 @@ type Import = {
 
 type Context = {
     file: Fable.File
-    fixedFileName: string
     moduleFullName: string
     rootEntitiesPrivateNames: Map<string, string>
 }
@@ -26,7 +25,7 @@ type Context = {
 type IBabelCompiler =
     inherit ICompiler
     abstract DeclarePlugins: (string*IDeclarePlugin) list
-    abstract GetProjectAndNamespace: string -> Fable.Project * string
+    abstract GetFileInfo: string -> Fable.FileInfo
     abstract GetImportExpr: Context -> selector: string -> path: string ->
         Fable.ImportKind -> Babel.Expression
     abstract GetAllImports: unit -> seq<Import>
@@ -147,21 +146,12 @@ module Util =
             match Replacements.tryReplaceEntity com ent with
             | Some expr -> com.TransformExpr ctx expr
             | None -> failwithf "Cannot access type: %s" ent.FullName
-        | Some file when ctx.file.FileName <> file ->
-            let proj, ns = com.GetProjectAndNamespace file
+        | Some file when ctx.file.SourceFile <> file ->
+            let fileInfo = com.GetFileInfo file
             let importPath =
-                match proj.ImportPath with
-                | Some importPath ->
-                    let ext = Path.getExternalImportPath com ctx.fixedFileName importPath
-                    let rel = Path.getRelativeFileOrDirPath true proj.BaseDir false file
-                    System.IO.Path.Combine(ext, rel)
-                    |> Path.normalizePath
-                    |> fun x -> System.IO.Path.ChangeExtension(x, null)
-                | None ->   // Current project
-                    Path.fixExternalPath com file
-                    |> Path.getRelativePath ctx.fixedFileName
-                    |> fun x -> System.IO.Path.ChangeExtension(x, null)
-            getParts ns ent.FullName memb
+                Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.TargetFile
+                |> fun x -> System.IO.Path.ChangeExtension(x, null)
+            getParts fileInfo.Namespace ent.FullName memb
             |> function
             | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
             | memb::parts ->
@@ -1020,7 +1010,7 @@ module Util =
                 |> consBack decls
             |> List.rev
 
-    let makeCompiler (com: ICompiler) (projs: Fable.Project list) =
+    let makeCompiler (com: ICompiler) (project: Fable.Project) =
         let imports = Dictionary<string*string,Import>()
         let declarePlugins =
             com.Plugins |> List.choose (function
@@ -1029,14 +1019,9 @@ module Util =
         { new IBabelCompiler with
             member bcom.DeclarePlugins =
                 declarePlugins
-            member bcom.GetProjectAndNamespace fileName =
-                projs
-                |> Seq.tryPick (fun p ->
-                    match Map.tryFind fileName p.FileMap with
-                    | None -> None
-                    | Some ns -> Some(p, ns))
-                |> function
-                | Some res -> res
+            member bcom.GetFileInfo fileName =
+                match Map.tryFind fileName project.FileMap with
+                | Some info -> info
                 | None -> failwithf "Cannot find file: %s" fileName
             // TODO: Create a cache to optimize imports
             member bcom.GetImportExpr ctx selector path kind =
@@ -1058,10 +1043,9 @@ module Util =
                             || (imports.Values |> Seq.exists (fun i -> i.localIdent = s)))
                 let resolvePath (ctx: Context) (importPath: string) =
                     if not(importPath.StartsWith ".") then importPath else
-                    let fileDir = IO.Path.GetDirectoryName(ctx.file.FileName)
+                    let fileDir = IO.Path.GetDirectoryName(ctx.file.SourceFile)
                     let importPath = IO.Path.GetFullPath(IO.Path.Combine(fileDir, importPath))
-                    // Attention, here we use ctx.fixedFileName to take files in `fable_external` into account
-                    let relPathToProj = Path.getRelativeFileOrDirPath true bcom.ProjDir false ctx.fixedFileName
+                    let relPathToProj = Path.getRelativeFileOrDirPath true bcom.ProjDir false ctx.file.TargetFile
                     let pathFromOutDir = IO.Path.GetFullPath(IO.Path.Combine(bcom.Options.outDir, relPathToProj))
                     Path.getRelativePath pathFromOutDir importPath
                 match imports.TryGetValue((selector, path)) with
@@ -1082,7 +1066,7 @@ module Util =
                             | Fable.CustomImport -> resolvePath ctx path
                             | Fable.Internal _ -> path
                             | Fable.CoreLib ->
-                                Path.getExternalImportPath com ctx.fixedFileName path
+                                Path.getExternalImportPath com ctx.file.TargetFile path
                     }
                     imports.Add((selector,path), i)
                     upcast Babel.Identifier (localId)
@@ -1106,19 +1090,18 @@ module Compiler =
     open System.IO
 
     let transformFiles (com: ICompiler) (extra: Map<string, obj>, files) =
-        let projs: Fable.Project list =
-            ("projects", extra)
-            ||> Map.findOrRun (fun () -> failwith "Expected project list")
+        let project: Fable.Project =
+            ("project", extra)
+            ||> Map.findOrRun (fun () -> failwith "Expected project")
         let dependenciesDic: Dictionary<string, string list> =
             Map.findOrNew "dependencies" extra
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 // let t = PerfTimer("Fable > Babel")
-                let com = makeCompiler com projs
+                let com = makeCompiler com project
                 let ctx = {
                     file = file
-                    fixedFileName = Path.fixExternalPath com file.FileName
-                    moduleFullName = defaultArg (Map.tryFind file.FileName projs.Head.FileMap) ""
+                    moduleFullName = project.FileMap.[file.SourceFile].Namespace
                     rootEntitiesPrivateNames =
                         file.Declarations
                         |> Seq.choose (function
@@ -1157,21 +1140,15 @@ module Compiler =
                     |> Seq.toList |> List.unzip
                     |> fun (importDecls, dependencies) ->
                         (importDecls@rootDecls), (List.choose id dependencies |> List.distinct)
-                // Files not present in the FileMap are injected, no need for source maps or dependencies
-                let originalFileName =
-                    if Map.containsKey file.FileName projs.Head.FileMap
-                    then
-                        dependenciesDic.AddOrUpdate(
-                            Path.normalizeFullPath file.FileName,
-                            (fun _ -> dependencies), (fun _ _ -> dependencies))
-                        |> ignore
-                        Some file.FileName
-                    else None
+                dependenciesDic.AddOrUpdate(
+                    Path.normalizeFullPath file.SourceFile,
+                    (fun _ -> dependencies), (fun _ _ -> dependencies))
+                |> ignore
                 // Return the Babel file
-                Babel.Program(ctx.fixedFileName, originalFileName, file.Range, rootDecls,
-                            isEntry = (originalFileName = projs.Head.EntryFile))
+                Babel.Program(file.TargetFile, file.SourceFile, file.Range, rootDecls,
+                            isEntry = (file.SourceFile = project.EntryFile))
             with
-            | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
+            | ex -> exn (sprintf "%s (%s)" ex.Message file.SourceFile, ex) |> raise
         )
         |> fun seq ->
             let extra = Map.add "dependencies" (box dependenciesDic) extra

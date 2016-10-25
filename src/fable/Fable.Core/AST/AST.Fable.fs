@@ -161,8 +161,9 @@ and ExternalEntity =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
 
-and File(fileName, root, decls, ?usedVarNames) =
-    member x.FileName: string = fileName
+and File(sourceFile, targetFile, root, decls, ?usedVarNames) =
+    member x.SourceFile: string = sourceFile
+    member x.TargetFile: string = targetFile
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
     member x.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
@@ -171,12 +172,14 @@ and File(fileName, root, decls, ?usedVarNames) =
         | [] -> SourceLocation.Empty
         | decls -> SourceLocation.Empty + (List.last decls).Range
 
-and Project(baseDir, fileMap, ?assemblyFile, ?importPath, ?entryFile) =
+and FileInfo(targetFile, ns) =
+    member __.TargetFile: string = targetFile
+    member __.Namespace: string = ns
+
+and Project(baseDir, fileMap, entryFile) =
     member __.BaseDir: string = baseDir
-    member __.FileMap: Map<string, string> = fileMap
-    member __.AssemblyFileName: string option = assemblyFile
-    member __.ImportPath: string option = importPath
-    member __.EntryFile: string option = entryFile
+    member __.FileMap: Map<string, FileInfo> = fileMap
+    member __.EntryFile: string = entryFile
 
 (** ##Expressions *)
 and ApplyInfo = {

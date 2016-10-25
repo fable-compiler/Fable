@@ -94,16 +94,15 @@ function watch(opts, fableProc, parallelProc, continuation) {
     var next = null, prev = null;
     fableProc.stdin.setEncoding('utf-8');
 
-    // Watch only the project directory for performance
-    var projDir = path.dirname(opts.projDir);
-    fableLib.stdoutLog("Watching " + projDir);
+    // Watch only the working directory for performance
+    fableLib.stdoutLog("Watching " + opts.workingDir);
     fableLib.stdoutLog("Press Enter to terminate process.");
     opts.watching = true;
 
     var fsExtensions = [".fs", ".fsx", ".fsproj"];
     var ready = false;
     var watcher = chokidar
-        .watch(projDir, { ignored: /node_modules/, persistent: true })
+        .watch(opts.workingDir, { ignored: /node_modules/, persistent: true })
         .on("ready", function() { ready = true; })
         .on("all", function(ev, filePath) {
             if (ready) {
@@ -548,15 +547,14 @@ function readOptions(opts) {
             throw "Cannot find file: " + fullProjFile;
         }
     }
-    opts.projDir = fableLib.getCommonBaseDir(opts.projFile.map(function(f) {
-        return fableLib.pathJoin(opts.workingDir, f) }));
 
     // Default values
     opts.ecma = opts.ecma || "es5";
     opts.loose = opts.loose != null ? opts.loose : true;
     opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
     opts.coreLib = opts.coreLib || (opts.rollup ? "fable-core/es2015" : "fable-core");
-    opts.outDir = opts.outDir ? opts.outDir : opts.projDir;
+    opts.outDir = opts.outDir ? opts.outDir : (opts.projFile.length === 1 ? path.dirname(opts.projFile[0]) : ".");
+
     if (opts.module == null) {
         opts.module = opts.rollup
             ? "iife"

@@ -22,14 +22,11 @@ module Naming =
     let (|EndsWith|_|) pattern (txt: string) =
         if txt.EndsWith pattern then Some pattern else None
 
-    let [<Literal>] placeholder = "PLACE-HOLDER"
-    let [<Literal>] dummyFile = "ThiS-is-A-duMMy.FilE"
-    let [<Literal>] fableExternalDir = "fable_external"
-    let [<Literal>] fableInjectFile = "./fable_inject.js"
-    let [<Literal>] exportsIdent = "$exports"
+    let [<Literal>] placeholder = "__PLACE-HOLDER__"
+    let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
+    let [<Literal>] exportsIdent = "__exports"
 
     /// Calls to methods of these interfaces will be replaced
-    /// so they cannot be customly implemented.
     let replacedInterfaces =
         set [ "System.Collections.IEnumerable"; "System.Collections.Generic.IEnumerable";
               "System.Collections.IEnumerator"; "System.Collections.Generic.IEnumerator";
@@ -65,7 +62,7 @@ module Naming =
         let reg3 = Regex(@"^\|[^\|]+?(?:\|[^\|]+)*(?:\|_)?\|$")
         (fun s -> reg1.Replace(s, "$1")),
         (fun s -> reg2.Replace(s, "")),
-        (fun (s: string) -> if reg3.IsMatch(s) then s.Replace("|", "$") else s)
+        (fun (s: string) -> if reg3.IsMatch(s) then "_" + (s.Replace("|", "I")) + "_" else s)
 
     let lowerFirst (s: string) =
         s.Substring(0,1).ToLowerInvariant() + s.Substring(1)
@@ -91,12 +88,13 @@ module Naming =
             "arguments"
         ]
 
+    let preventConflicts conflicts name =
+        let rec check n =
+            let name = if n > 0 then sprintf "%s_%i" name n else name
+            if not (conflicts name) then name else check (n+1)
+        check 0
+
     let sanitizeIdent conflicts name =
-        let preventConflicts conflicts name =
-            let rec check n =
-                let name = if n > 0 then sprintf "%s_%i" name n else name
-                if not (conflicts name) then name else check (n+1)
-            check 0
         // Replace Forbidden Chars
         let sanitizedName =
             identForbiddenCharsRegex.Replace(name, "_")
@@ -116,35 +114,6 @@ module Path =
 
     let normalizeFullPath (path: string) =
         Path.GetFullPath(path).Replace("\\", "/")
-
-    /// If flag --copyExt is activated, copy files outside project folder into
-    /// an internal `fable_external` folder (adding a hash to prevent naming conflicts)
-    let fixExternalPath =
-        let cache = System.Collections.Generic.Dictionary<string, string>()
-        let addToCache (cache: System.Collections.Generic.Dictionary<'k, 'v>) k v =
-            cache.Add(k, v); v
-        let isExternal projDir path =
-            let rec parentContains rootPath path' =
-                match Directory.GetParent path' with
-                | null -> Some (rootPath, path)
-                // Files in node_modules are always considered external, see #188
-                | parent when parent.FullName.Contains("node_modules") -> Some(rootPath, path)
-                | parent when rootPath = parent.FullName -> None
-                | parent -> parentContains rootPath parent.FullName
-            parentContains projDir path
-        fun (com: ICompiler) filePath ->
-            if not com.Options.copyExt then filePath else
-            match Path.GetFullPath filePath with
-            | DicContains cache filePath -> filePath
-            | Try (isExternal com.ProjDir) (rootPath, filePath) ->
-                Path.Combine(rootPath, Naming.fableExternalDir,
-                    sprintf "%s-%i%s"
-                        (Path.GetFileNameWithoutExtension filePath)
-                        (filePath.GetHashCode() |> abs)
-                        (Path.GetExtension filePath))
-                |> addToCache cache filePath
-            | filePath ->
-                addToCache cache filePath filePath
 
     /// Creates a relative path from one file or folder to another.
     let getRelativeFileOrDirPath fromIsDir fromPath toIsDir toPath =

@@ -53,15 +53,11 @@ let readOptions argv =
         outDir = def opts "outDir" null (un Path.GetFullPath)
         coreLib = def opts "coreLib" "fable-core" (un (fun x -> x.TrimEnd('/')))
         watch = def opts "watch" false (un bool.Parse)
-        dll = def opts "dll" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
-        copyExt = def opts "copyExt" false (un bool.Parse)
         noTypedArrays = def opts "noTypedArrays" false (un bool.Parse)
         declaration = def opts "declaration" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id) |> List.append ["FABLE_COMPILER"] |> List.distinct
         plugins = def opts "plugins" [] (li id)
-        refs = Map(def opts "refs" [] (li (fun (x: string) ->
-            let xs = x.Split('=') in xs.[0], xs.[1])))
         extra = Map(def opts "extra" [] (li (fun (x: string) ->
             if x.Contains("=")
             then let xs = x.Split('=') in xs.[0], xs.[1]
@@ -180,19 +176,70 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
     //printfn "Forge projOptions ===> %A" projOptions
     projOptions
 
-let mergeProjectOpts (opts1: FSharpProjectOptions) (opts2: FSharpProjectOptions) =
-    let projOptions: FSharpProjectOptions = {
-        ProjectFileName = opts2.ProjectFileName
-        ProjectFileNames = Array.append opts1.ProjectFileNames opts2.ProjectFileNames
-        OtherOptions = Array.append opts1.OtherOptions opts2.OtherOptions |> Array.distinct
-        ReferencedProjects = [| |]
-        IsIncompleteTypeCheckEnvironment = false
-        UseScriptResolutionRules = true
-        LoadTime = DateTime.Now
-        UnresolvedReferences = None
-    }
+type FileResolver() =
+    let cache = System.Collections.Generic.Dictionary<string,string>()
+    let mutable projDirs = Map.empty<string*string, (string*string) list>
+    member __.GetNonFSharpDir(filePath) =
+        let rec getNonFSharpDir dir =
+            if Directory.EnumerateFiles(dir, "*.fs*") |> Seq.isEmpty
+            then dir
+            else Path.GetDirectoryName dir |> getNonFSharpDir
+        let dir = Path.GetDirectoryName filePath
+        match cache.TryGetValue dir with
+        | true, value -> value
+        | false, _ ->
+            let value = getNonFSharpDir dir
+            cache.Add(dir, value)
+            value
+    member __.AddFile(projDir, srcFile) =
+      projDirs <-
+        let trgFile = Fable.Path.getRelativeFileOrDirPath true projDir false srcFile
+        projDirs |> Map.tryPick (fun (name, fullName) files ->
+            if fullName = projDir
+            then Some((name, fullName), files)
+            else None)
+        |> function
+            | Some(k, files) -> Map.add k ((srcFile, trgFile)::files) projDirs
+            | None ->
+                let dirname =
+                    Path.GetFileName projDir
+                    |> Naming.preventConflicts (fun x ->
+                        projDirs |> Map.exists (fun (name, _) _ -> name = x))
+                Map.add (dirname, projDir) [srcFile, trgFile] projDirs
+    member __.GetFinalFiles(outDir) =
+        let ignoreProjDir =
+            projDirs |> Seq.distinctBy (fun kv -> fst kv.Key) |> Seq.length |> (=) 1
+        projDirs |> Seq.collect (fun kv ->
+            let projDir = if ignoreProjDir then "" else fst kv.Key
+            kv.Value |> Seq.map (fun (srcFile, trgFile) ->
+            // Use GetFullPath to prevent things like "parentDir/./childDir"
+            // which can cause problems when calculating relative paths
+            srcFile, Path.GetFullPath <| Path.Combine(outDir, projDir, Path.ChangeExtension(trgFile, ".js"))))
+        |> Map
+
+let mergeProjectOpts (opts1: FSharpProjectOptions option, resolver: FileResolver)
+                     (opts2: FSharpProjectOptions) =
+    let projDir = Path.GetDirectoryName opts2.ProjectFileName
+    for file in opts2.ProjectFileNames do
+        let projDir =
+            if file.Contains "node_modules" || not(file.StartsWith projDir)
+            then resolver.GetNonFSharpDir(file)
+            else projDir
+        resolver.AddFile(projDir, file)
+    let projOptions: FSharpProjectOptions =
+        match opts1 with
+        | Some opts1 ->
+          { ProjectFileName = opts2.ProjectFileName
+            ProjectFileNames = Array.append opts1.ProjectFileNames opts2.ProjectFileNames
+            OtherOptions = Array.append opts1.OtherOptions opts2.OtherOptions |> Array.distinct
+            ReferencedProjects = [| |]
+            IsIncompleteTypeCheckEnvironment = false
+            UseScriptResolutionRules = true
+            LoadTime = DateTime.Now
+            UnresolvedReferences = None }
+        | None -> opts2
     //printfn "Merged projOptions ===> %A" projOptions
-    projOptions
+    (Some projOptions, resolver)
 
 let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
@@ -229,7 +276,8 @@ let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFi
 let getFullProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
     opts.projFile
     |> Seq.map (retryGetProjectOpts checker opts)
-    |> Seq.reduce mergeProjectOpts
+    |> Seq.fold mergeProjectOpts (None, FileResolver())
+    |> fun (projOpts, resolver) -> projOpts.Value, resolver.GetFinalFiles opts.outDir
 
 /// Returns an (errors, warnings) tuple
 let parseErrors errors =
@@ -310,35 +358,6 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
     |> Seq.iter Console.Out.WriteLine
 
-let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions): unit =
-    if Directory.Exists(comOpts.outDir) |> not then
-        Directory.CreateDirectory(comOpts.outDir) |> ignore
-    let projOut =
-        let projName = Path.GetFileNameWithoutExtension(Seq.last comOpts.projFile)
-        Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
-    let args = [|
-        yield! projOpts.OtherOptions
-        // Seems `--out` cannot come at the beginning
-        // or the compiler will ignore it
-        yield "--out:" + projOut + ".dll"
-        yield "--doc:" + projOut + ".xml"
-        yield! projOpts.ProjectFileNames
-    |]
-    let errors, warnings =
-        let errors, _exitCode = checker.Compile(args)
-        parseErrors errors
-    if errors.Length > 0 then
-        errors
-        |> Seq.append ["Errors when generating dll assembly:"]
-        |> String.concat "\n"
-        |> failwith
-    if warnings.Length > 0 then
-        warnings
-        |> Seq.append ["Warnings when generating dll assembly:"]
-        |> String.concat "\n"
-        |> Info |> string |> Log
-        |> List.singleton |> printMessages
-
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
     try
         // Reload project options if necessary
@@ -346,8 +365,8 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         let projInfo =
             match projInfo.FileMask with
             | Some file when com.Options.projFile |> List.exists ((=) file) ->
-                let projOpts = getFullProjectOpts checker com.Options
-                FSProjInfo(projOpts, ?fileMask=projInfo.FileMask, extra=projInfo.Extra)
+                let projOpts, filePairs = getFullProjectOpts checker com.Options
+                FSProjInfo(projOpts, filePairs, ?fileMask=projInfo.FileMask, extra=projInfo.Extra)
             | _ -> projInfo
 
         // Print F# compiler options (verbose mode) on first compilation
@@ -356,9 +375,6 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             projInfo.ProjectOpts.OtherOptions
             |> String.concat "\n" |> sprintf "\nF# COMPILER OPTIONS:\n%s\n"
             |> Log |> List.singleton |> printMessages
-
-        if com.Options.dll then
-            compileDll checker com.Options projInfo.ProjectOpts
 
         // Parse project (F# Compiler Services) and print diagnostic info
         // --------------------------------------------------------------
@@ -409,7 +425,8 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         com.GetLogs() |> Seq.map (string >> Log) |> printMessages
 
         Console.Out.WriteLine "[SIGSUCCESS]"
-        true, FSProjInfo(projInfo.ProjectOpts, ?fileMask=projInfo.FileMask, extra=extraInfo)
+        true, FSProjInfo(projInfo.ProjectOpts, projInfo.FilePairs,
+                            ?fileMask=projInfo.FileMask, extra=extraInfo)
     with ex ->
         let stackTrace =
             match ex.InnerException with
@@ -425,8 +442,11 @@ let rec awaitInput (com: ICompiler) checker fullCompileSuccess (projInfo: FSProj
     | fileMask ->
         let projInfo =
             if fullCompileSuccess
-            then FSProjInfo(projInfo.ProjectOpts, fileMask=fileMask, extra=projInfo.Extra)
-            else FSProjInfo(getFullProjectOpts checker com.Options)
+            then FSProjInfo(projInfo.ProjectOpts, projInfo.FilePairs,
+                            fileMask=fileMask, extra=projInfo.Extra)
+            else
+                let projectOpts, filePairs = getFullProjectOpts checker com.Options
+                FSProjInfo(projInfo.ProjectOpts, projInfo.FilePairs)
         let success, projInfo = compile com checker projInfo
         awaitInput com checker (fullCompileSuccess || success) projInfo
 
@@ -435,11 +455,11 @@ let main argv =
     try
         let opts = readOptions argv
         let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
-        let projectOpts = getFullProjectOpts checker opts
+        let projectOpts, filePairs = getFullProjectOpts checker opts
         let com = loadPlugins opts.plugins |> makeCompiler opts
         // Full compilation
         let success, projInfo =
-            FSProjInfo(projectOpts)
+            FSProjInfo(projectOpts, filePairs)
             |> compile com checker
         // Keep on watching if necessary
         if opts.watch then
