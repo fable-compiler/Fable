@@ -4,8 +4,8 @@ open Util.Testing
 open Fable.Tests.Util
 
 #if FABLE_COMPILER
-let inline toJson(x) = Fable.Core.JsInterop.toJson(x)
-let inline ofJson<'T>(x) = Fable.Core.JsInterop.ofJson<'T>(x)
+let toJson(x) = Fable.Core.JsInterop.toJson(x)
+let [<Fable.Core.PassGenerics>] ofJson<'T>(x) = Fable.Core.JsInterop.ofJson<'T>(x)
 #else
 open Newtonsoft.Json
 let toJson x = JsonConvert.SerializeObject(x, Fable.JsonConverter())

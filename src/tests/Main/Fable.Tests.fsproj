@@ -58,7 +58,7 @@
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
-    <!--<Compile Include="AsyncTests.fs" />
+    <Compile Include="AsyncTests.fs" />
     <Compile Include="ComparisonTests.fs" />
     <Compile Include="DateTimeTests.fs" />
     <Compile Include="DictionaryTests.fs" />
@@ -68,9 +68,9 @@
     <Compile Include="HashSetTests.fs" />
     <Compile Include="JsonTests.fs" />
     <Compile Include="ListTests.fs" />
-    <Compile Include="MapTests.fs" />-->
+    <Compile Include="MapTests.fs" />
     <Compile Include="MiscTests.fs" />
-    <!--<Compile Include="ObservableTests.fs" />
+    <Compile Include="ObservableTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="ReflectionTests.fs" />
     <Compile Include="RegexTests.fs" />
@@ -82,7 +82,7 @@
     <Compile Include="SudokuTest.fs" />
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
-    <Compile Include="UnionTypeTests.fs" />-->
+    <Compile Include="UnionTypeTests.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>
