@@ -298,7 +298,7 @@ let ``Union case name case sensitivity: camel case (string enum)``() =
 [<Test>]
 let ``Union case name case sensitivity: mixed case``() =
     let tryParse (): MultiUnion = S.ofJson """ "EMptyCasE" """
-    (try tryParse () |> ignore; false with | _ -> true) |> equal true
+    (try not (tryParse () = EmptyCase) with | _ -> true) |> equal true // fail or return null
 
 
 #if FABLE_COMPILER
