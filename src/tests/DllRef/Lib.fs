@@ -1,4 +1,4 @@
-module Fable.Tests.Sibling.Lib
+module Fable.Tests.DllRef.Lib
 
 let createClampedArray() = [|5uy|]
 

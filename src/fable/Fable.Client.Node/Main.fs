@@ -368,19 +368,41 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
     |> Seq.iter Console.Out.WriteLine
 
-let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions): unit =
+let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (coreVer: Version option)
+               (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjInfo): unit =
+    let makeRelative (path: string) =
+        let path = path.Replace(comOpts.outDir, "")
+        "./" + ((Fable.Path.normalizePath path).TrimStart('/'))
     if Directory.Exists(comOpts.outDir) |> not then
         Directory.CreateDirectory(comOpts.outDir) |> ignore
     let projOut =
         let projName = Path.GetFileNameWithoutExtension(Seq.last comOpts.projFile)
         Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
+    // Generate fablemap
+    let compilerVer =
+        #if !NETSTANDARD1_6 && !NETCOREAPP1_0 // Skip this check in netcore for now
+        Assembly.GetExecutingAssembly().GetName().Version |> Some
+        #else
+        None
+        #endif
+    let fableMap: Fable.FableMap = {
+        compilerVersion = compilerVer |> Option.map string |> defaultArg <| "0.0.0"
+        coreVersion = coreVer |> Option.map string |> defaultArg <| "0.0.0"
+        files =
+            FSharp2Fable.Compiler.makeFileMap parsedProj.AssemblySignature.Entities projInfo.FilePairs
+            |> Seq.map (fun kv -> kv.Key, { kv.Value with targetFile = makeRelative kv.Value.targetFile })
+            |> Map
+    }
+    (projOut + Naming.fablemapExt, JsonConvert.SerializeObject fableMap)
+    |> File.WriteAllText
+    // Generate dll
     let args = [|
-        yield! projOpts.OtherOptions
+        yield! projInfo.ProjectOpts.OtherOptions
         // Seems `--out` cannot come at the beginning
         // or the compiler will ignore it
         yield "--out:" + projOut + ".dll"
         yield "--doc:" + projOut + ".xml"
-        yield! projOpts.ProjectFileNames
+        yield! projInfo.ProjectOpts.ProjectFileNames
     |]
     let errors, warnings =
         let errors, _exitCode = checker.Compile(args)
@@ -426,23 +448,27 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
 
         // Check Fable.Core version on first compilation (whe projInfo.fileMask is None)
         // -----------------------------------------------------------------------------
-        #if NETSTANDARD1_6 || NETCOREAPP1_0
-        // Skip this check in netcore for now
-        #else
-        if Option.isNone projInfo.FileMask
-            && com.Options.extra |> Map.containsKey "noVersionCheck" |> not
-        then
-            parsedProj.ProjectContext.GetReferencedAssemblies()
-            |> Seq.tryPick (fun asm ->
-                if asm.SimpleName <> "Fable.Core"
-                then None
-                else Regex.Match(asm.QualifiedName, "Version=(.*?),").Groups.[1].Value |> Version |> Some)
-            |> Option.iter (fun fableCoreVersion ->
-                match getMinimumFableCoreVersion() with
-                | Some minVersion when fableCoreVersion < minVersion ->
-                    failwithf "Fable.Core %O required, please upgrade the project reference" minVersion
-                | _ -> ())
-        #endif
+        let fableCoreVersion =
+            #if !NETSTANDARD1_6 && !NETCOREAPP1_0 // Skip this check in netcore for now
+            if Option.isNone projInfo.FileMask
+                && com.Options.extra |> Map.containsKey "noVersionCheck" |> not
+            then
+                parsedProj.ProjectContext.GetReferencedAssemblies()
+                |> Seq.tryPick (fun asm ->
+                    if asm.SimpleName <> "Fable.Core"
+                    then None
+                    else Regex.Match(asm.QualifiedName, "Version=(.*?),").Groups.[1].Value |> Version |> Some)
+                |> Option.map (fun fableCoreVersion ->
+                    match getMinimumFableCoreVersion() with
+                    | Some minVersion when fableCoreVersion < minVersion ->
+                        failwithf "Fable.Core %O required, please upgrade the project reference" minVersion
+                    | _ -> fableCoreVersion)
+            else
+            #endif
+                None
+
+        if com.Options.dll then
+            compileDll checker com.Options fableCoreVersion parsedProj projInfo
 
         // Compile project files, print them and get extra info
         // ----------------------------------------------------

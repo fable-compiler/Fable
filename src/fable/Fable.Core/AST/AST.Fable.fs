@@ -161,43 +161,46 @@ and ExternalEntity =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
 
-and File(sourceFile, targetFile, root, decls, ?usedVarNames) =
+and File(sourceFile, targetFile, root, decls, ?isEntry, ?usedVarNames) =
     member x.SourceFile: string = sourceFile
     member x.TargetFile: string = targetFile
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
+    member x.IsEntry: bool = defaultArg isEntry false
     member x.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
     member x.Range =
         match decls with
         | [] -> SourceLocation.Empty
         | decls -> SourceLocation.Empty + (List.last decls).Range
 
-and FileInfo(targetFile, ns) =
-    member __.TargetFile: string = targetFile
-    member __.Namespace: string = ns
+and FileInfo = {
+    targetFile: string
+    rootModule: string
+}
 
-and Project(baseDir, fileMap, entryFile) =
-    member __.BaseDir: string = baseDir
-    member __.FileMap: Map<string, FileInfo> = fileMap
-    member __.EntryFile: string = entryFile
+and FableMap = {
+    coreVersion: string
+    compilerVersion: string
+    files: Map<string, FileInfo>
+}
 
 (** ##Expressions *)
 and ApplyInfo = {
-        ownerType: Type
-        ownerFullName: string
-        methodName: string
-        methodKind: MemberKind
-        callee: Expr option
-        args: Expr list
-        returnType: Type
-        range: SourceLocation option
-        fileName: string
-        decorators: Decorator list
-        calleeTypeArgs: Type list
-        methodTypeArgs: Type list
-        /// If the method accepts a lambda as first argument, indicates its arity
-        lambdaArgArity: int
-    }
+    ownerType: Type
+    ownerFullName: string
+    methodName: string
+    methodKind: MemberKind
+    callee: Expr option
+    args: Expr list
+    returnType: Type
+    range: SourceLocation option
+    fileName: string
+    decorators: Decorator list
+    calleeTypeArgs: Type list
+    methodTypeArgs: Type list
+    /// If the method accepts a lambda as first argument, indicates its arity
+    lambdaArgArity: int
+}
 
 and ApplyKind =
     | ApplyMeth | ApplyGet | ApplyCons

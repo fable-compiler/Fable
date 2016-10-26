@@ -25,6 +25,7 @@ module Naming =
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
     let [<Literal>] exportsIdent = "__exports"
+    let [<Literal>] fablemapExt = ".fablemap"
 
     /// Calls to methods of these interfaces will be replaced
     let replacedInterfaces =

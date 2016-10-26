@@ -149,9 +149,9 @@ module Util =
         | Some file when ctx.file.SourceFile <> file ->
             let fileInfo = com.GetFileInfo file
             let importPath =
-                Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.TargetFile
+                Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.targetFile
                 |> fun x -> System.IO.Path.ChangeExtension(x, null)
-            getParts fileInfo.Namespace ent.FullName memb
+            getParts fileInfo.rootModule ent.FullName memb
             |> function
             | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
             | memb::parts ->
@@ -1010,7 +1010,7 @@ module Util =
                 |> consBack decls
             |> List.rev
 
-    let makeCompiler (com: ICompiler) (project: Fable.Project) =
+    let makeCompiler (com: ICompiler) (projectMaps: Map<string, Fable.FileInfo> list) =
         let imports = Dictionary<string*string,Import>()
         let declarePlugins =
             com.Plugins |> List.choose (function
@@ -1020,9 +1020,9 @@ module Util =
             member bcom.DeclarePlugins =
                 declarePlugins
             member bcom.GetFileInfo fileName =
-                match Map.tryFind fileName project.FileMap with
+                match List.tryPick (Map.tryFind fileName) projectMaps with
                 | Some info -> info
-                | None -> failwithf "Cannot find file: %s" fileName
+                | None -> failwithf "Cannot find info for file: %s" fileName
             // TODO: Create a cache to optimize imports
             member bcom.GetImportExpr ctx selector path kind =
                 let sanitizeSelector selector =
@@ -1091,18 +1091,18 @@ module Compiler =
     open System.IO
 
     let transformFiles (com: ICompiler) (extra: Map<string, obj>, files) =
-        let project: Fable.Project =
-            ("project", extra)
-            ||> Map.findOrRun (fun () -> failwith "Expected project")
+        let projectMaps: Map<string, Fable.FileInfo> list =
+            ("projectMaps", extra)
+            ||> Map.findOrRun (fun () -> failwith "Expected project maps")
         let dependenciesDic: Dictionary<string, string list> =
             Map.findOrNew "dependencies" extra
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 // let t = PerfTimer("Fable > Babel")
-                let com = makeCompiler com project
+                let com = makeCompiler com projectMaps
                 let ctx = {
                     file = file
-                    moduleFullName = project.FileMap.[file.SourceFile].Namespace
+                    moduleFullName = projectMaps.Head.[file.SourceFile].rootModule
                     rootEntitiesPrivateNames =
                         file.Declarations
                         |> Seq.choose (function
@@ -1146,8 +1146,7 @@ module Compiler =
                     (fun _ -> dependencies), (fun _ _ -> dependencies))
                 |> ignore
                 // Return the Babel file
-                Babel.Program(file.TargetFile, file.SourceFile, file.Range, rootDecls,
-                            isEntry = (file.SourceFile = project.EntryFile))
+                Babel.Program(file.TargetFile, file.SourceFile, file.Range, rootDecls, isEntry=file.IsEntry)
             with
             | ex -> exn (sprintf "%s (%s)" ex.Message file.SourceFile, ex) |> raise
         )

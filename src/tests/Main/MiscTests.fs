@@ -675,10 +675,11 @@ let ``use calls Dispose at the end of the scope`` () =
 
 [<Test>]
 let ``Referencing a Fable project through a dll works``() =
-    Fable.Tests.Sibling.Util.add2 5 |> equal 7
+    Fable.Tests.DllRef.Util.add2 5 |> equal 7
 
-open Fable.Tests.Sibling
+open Fable.Tests.DllRef
 
+#if FABLE_COMPILER
 [<Test>]
 let ``Root members with JS non-valid chars work``() = // See #207
     Lib.足す 3 2 |> equal 5
@@ -697,6 +698,7 @@ let ``Identifiers are encoded correctly``() = // See #482
     equal "bar8" Lib.``foo$5EA$``
     equal "bar9" Lib.``foo^A``
     equal "bar10" Lib.``fooת``
+#endif
 
 [<Test>]
 let ``Unchecked.defaultof works`` () =

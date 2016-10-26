@@ -1,6 +1,5 @@
 {
     "projFile": [
-        "SiblingProject/Fable.Tests.Sibling.fsproj",
         "Project With Spaces/Fable.Tests.Spaces.fsproj",
         "../tests_external/Fable.Tests.External.fsproj",
         "Main/Fable.Tests.fsproj"

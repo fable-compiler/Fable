@@ -1,6 +1,7 @@
 {
     "projFile": "Fable.Tests.DllRef.fsproj",
-    "outDir": "../../../build/tests/DllRef",
+    "outDir": "../../../build/tests_dll",
     "coreLib": "../../../build/fable-core",
-    "clamp": true
+    "clamp": true,
+    "dll": true
 }
