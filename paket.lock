@@ -1,14 +1,26 @@
 NUGET
   remote: https://www.nuget.org/api/v2
+    Argu (3.2)
     Fable.JsonConverter (0.0.3)
       FSharp.Core
       Newtonsoft.Json
-    FAKE (4.41.6)
+    FAKE (4.42)
+    FParsec (1.0.2)
     FSharp.Compiler.Service (8.0)
       System.Collections.Immutable (>= 1.2)
       System.Reflection.Metadata (>= 1.4.1-beta-24227-04)
-    FSharp.Compiler.Service.ProjectCracker (8.0)
     FSharp.Core (4.0.0.1)
+    FSharp.Formatting (2.10)
+      FSharp.Compiler.Service (>= 0.0.87)
+      FSharpVSPowerTools.Core (1.8)
+    FSharpVSPowerTools.Core (1.8)
+      FSharp.Compiler.Service (>= 0.0.87)
+    FsUnit (2.3.2)
+      FSharp.Core (>= 3.1.2.5)
+      NUnit (3.5)
+    Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40-full
+      Microsoft.Bcl.Build (>= 1.0.14)
+    Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40-full
     Microsoft.CSharp (4.0.1) - framework: >= netstandard10
       System.Collections (>= 4.0.11) - framework: dnxcore50, >= netstandard13
       System.Diagnostics.Debug (>= 4.0.11) - framework: dnxcore50, >= netstandard13
@@ -26,8 +38,12 @@ NUGET
       System.Runtime.Extensions (>= 4.1) - framework: dnxcore50, >= netstandard13
       System.Runtime.InteropServices (>= 4.1) - framework: dnxcore50, >= netstandard13
       System.Threading (>= 4.0.11) - framework: dnxcore50, >= netstandard13
+    Microsoft.Net.Http (2.2.29) - framework: net10, net11, net20, net30, net35, net40, net40-full
+      Microsoft.Bcl (>= 1.1.10)
+      Microsoft.Bcl.Build (>= 1.0.14)
     Microsoft.NETCore.Platforms (1.0.1) - framework: >= netstandard10
     Microsoft.NETCore.Targets (1.0.1) - framework: >= netstandard10
+    Mono.Posix (4.0)
     Newtonsoft.Json (9.0.1)
       Microsoft.CSharp (>= 4.0.1) - framework: >= netstandard10
       System.Collections (>= 4.0.11) - framework: >= netstandard10
@@ -65,12 +81,16 @@ NUGET
       NUnit.Extension.NUnitV2ResultWriter (>= 3.5)
       NUnit.Extension.TeamCityEventListener (>= 1.0.2)
       NUnit.Extension.VSProjectLoader (>= 3.5)
+    Octokit (0.23)
+      Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40-full
     runtime.native.System (4.0) - framework: >= netstandard13
       Microsoft.NETCore.Platforms (>= 1.0.1)
       Microsoft.NETCore.Targets (>= 1.0.1)
     runtime.native.System.IO.Compression (4.1) - framework: >= netstandard13
       Microsoft.NETCore.Platforms (>= 1.0.1)
       Microsoft.NETCore.Targets (>= 1.0.1)
+    SharpZipLib (0.86)
+    SourceLink.Fake (1.1)
     Suave (1.1.3)
       FSharp.Core (>= 3.1.2.5)
     System.Collections (4.0.11) - framework: >= netstandard10
@@ -311,19 +331,32 @@ NUGET
       System.Threading (>= 4.0.11) - framework: dnxcore50, >= netstandard13
       System.Xml.ReaderWriter (>= 4.0.11) - framework: dnxcore50, netstandard10, >= netstandard13
 GITHUB
+  remote: fable-compiler/Forge
+    FULLPROJECT (7677a368304f0337047ed8ad925991aa7187a8bf)
+      Argu
+      FAKE
+      FParsec
+      FSharp.Core
+      FSharp.Formatting
+      FsUnit
+      Mono.Posix
+      NUnit
+      NUnit.Runners
+      SharpZipLib
+      SourceLink.Fake
+  remote: fsharp/FAKE
+    modules/Octokit/Octokit.fsx (f3f230ffde29fa370daf7d7be53e872e929dd487)
+      Octokit (>= 0.20)
   remote: fsprojects/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (c50ace31d335b7bcb83b102d2cfd0ce2007ed681)
-  remote: fsprojects/Forge
-    src/Forge.ProjectSystem/Constants.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
-    src/Forge.ProjectSystem/Prelude.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
-    src/Forge.ProjectSystem/ProjectSystem.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
-    src/Forge.ProjectSystem/ResizeArray.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
-    src/Forge.ProjectSystem/XLinq.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
+  remote: fsharp/FSharp.Compiler.Service
+    src/fsharp/ReferenceResolver.fs (174875dde3dcc5288616adca7b5b1468fda3bdb2)
+    src/fsharp/SimulatedMSBuildReferenceResolver.fs (174875dde3dcc5288616adca7b5b1468fda3bdb2)
 GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2
     DotLiquid (2.0.55)
-    FAKE (4.41.6)
+    FAKE (4.42)
     FSharp.Compiler.Service (2.0.0.6)
     FSharp.Core (4.0.0.1)
     FSharp.Formatting (2.14.2)

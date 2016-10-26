@@ -880,26 +880,6 @@ module Util =
         |||> Seq.fold2 (fun acc genPar typArg ->
             (genPar.Name, typArg)::acc)
 
-    let fillImplicitGenericParams
-            com ctx r (meth: FSharpMemberOrFunctionOrValue)
-            (typArgs, methTypArgs) (args: Fable.Expr list) =
-        if meth.CurriedParameterGroups.Count <> 1
-            || meth.CurriedParameterGroups.[0].Count <> args.Length
-        then args
-        else
-            let genParams = lazy(Map <| matchGenericParams com ctx meth (typArgs, methTypArgs))
-            (Seq.zip meth.CurriedParameterGroups.[0] args, ([], false))
-            ||> Seq.foldBack (fun (p, e) (acc, finish) ->
-                match finish, p.IsOptionalArg, e, p.Attributes with
-                | false, true, FableNull _, ContainsAtt "GenericParam" [:?string as genName] ->
-                    match Map.tryFind genName genParams.Value with
-                    | Some typArg -> (makeTypeRef com r ctx.fileName true typArg)::acc, false
-                    | None ->
-                        sprintf "Cannot find generic parameter %s" genName
-                        |> attachRange r |> failwith
-                | _ -> e::acc, true)
-            |> fst
-
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ
                     (typArgs, methTypArgs) (callee, args)
                     (meth: FSharpMemberOrFunctionOrValue) =
@@ -996,7 +976,7 @@ module Util =
                     (List.rev args.Tail)@items
                 | _ ->
                     (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
-            else fillImplicitGenericParams com ctx r meth (typArgs, methTypArgs) args
+            else args
         match meth with
         (** -Check for replacements, emits... *)
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted

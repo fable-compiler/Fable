@@ -161,41 +161,46 @@ and ExternalEntity =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
 
-and File(fileName, root, decls, ?usedVarNames) =
-    member x.FileName: string = fileName
+and File(sourceFile, targetFile, root, decls, ?isEntry, ?usedVarNames) =
+    member x.SourceFile: string = sourceFile
+    member x.TargetFile: string = targetFile
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
+    member x.IsEntry: bool = defaultArg isEntry false
     member x.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
     member x.Range =
         match decls with
         | [] -> SourceLocation.Empty
         | decls -> SourceLocation.Empty + (List.last decls).Range
 
-and Project(name, baseDir, fileMap, ?assemblyFile, ?importPath, ?entryFile) =
-    member __.Name: string = name
-    member __.BaseDir: string = baseDir
-    member __.FileMap: Map<string, string> = fileMap
-    member __.AssemblyFileName: string option = assemblyFile
-    member __.ImportPath: string option = importPath
-    member __.EntryFile: string option = entryFile
+and FileInfo = {
+    targetFile: string
+    rootModule: string
+}
+
+and FableMap = {
+    coreVersion: string
+    compilerVersion: string
+    files: Map<string, FileInfo>
+}
 
 (** ##Expressions *)
 and ApplyInfo = {
-        ownerType: Type
-        ownerFullName: string
-        methodName: string
-        methodKind: MemberKind
-        callee: Expr option
-        args: Expr list
-        returnType: Type
-        range: SourceLocation option
-        fileName: string
-        decorators: Decorator list
-        calleeTypeArgs: Type list
-        methodTypeArgs: Type list
-        /// If the method accepts a lambda as first argument, indicates its arity
-        lambdaArgArity: int
-    }
+    ownerType: Type
+    ownerFullName: string
+    methodName: string
+    methodKind: MemberKind
+    callee: Expr option
+    args: Expr list
+    returnType: Type
+    range: SourceLocation option
+    fileName: string
+    decorators: Decorator list
+    calleeTypeArgs: Type list
+    methodTypeArgs: Type list
+    /// If the method accepts a lambda as first argument, indicates its arity
+    lambdaArgArity: int
+}
 
 and ApplyKind =
     | ApplyMeth | ApplyGet | ApplyCons

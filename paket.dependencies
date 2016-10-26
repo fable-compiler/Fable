@@ -1,22 +1,17 @@
 source https://www.nuget.org/api/v2
 
 nuget FAKE
-nuget FSharp.Compiler.Service
-nuget FSharp.Compiler.Service.ProjectCracker
+nuget FSharp.Compiler.Service 8.0.0
 nuget FSharp.Core
 nuget Newtonsoft.Json
 nuget Fable.JsonConverter
 nuget NUnit
 nuget NUnit.Runners
-github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
-
-github fsprojects/Forge/1.0.1 src/Forge.ProjectSystem/Prelude.fs
-github fsprojects/Forge/1.0.1 src/Forge.ProjectSystem/XLinq.fs
-github fsprojects/Forge/1.0.1 src/Forge.ProjectSystem/ResizeArray.fs
-github fsprojects/Forge/1.0.1 src/Forge.ProjectSystem/Constants.fs
-github fsprojects/Forge/1.0.1 src/Forge.ProjectSystem/ProjectSystem.fs
-
 nuget Suave
+github fable-compiler/Forge
+github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
+github fsharp/FSharp.Compiler.Service src/fsharp/ReferenceResolver.fs
+github fsharp/FSharp.Compiler.Service src/fsharp/SimulatedMSBuildReferenceResolver.fs
 
 group Docs
   source https://www.nuget.org/api/v2

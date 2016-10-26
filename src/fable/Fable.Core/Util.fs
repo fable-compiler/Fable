@@ -22,14 +22,12 @@ module Naming =
     let (|EndsWith|_|) pattern (txt: string) =
         if txt.EndsWith pattern then Some pattern else None
 
-    let [<Literal>] placeholder = "PLACE-HOLDER"
-    let [<Literal>] dummyFile = "ThiS-is-A-duMMy.FilE"
-    let [<Literal>] fableExternalDir = "fable_external"
-    let [<Literal>] fableInjectFile = "./fable_inject.js"
-    let [<Literal>] exportsIdent = "$exports"
+    let [<Literal>] placeholder = "__PLACE-HOLDER__"
+    let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
+    let [<Literal>] exportsIdent = "__exports"
+    let [<Literal>] fablemapExt = ".fablemap"
 
     /// Calls to methods of these interfaces will be replaced
-    /// so they cannot be customly implemented.
     let replacedInterfaces =
         set [ "System.Collections.IEnumerable"; "System.Collections.Generic.IEnumerable";
               "System.Collections.IEnumerator"; "System.Collections.Generic.IEnumerator";
@@ -65,7 +63,7 @@ module Naming =
         let reg3 = Regex(@"^\|[^\|]+?(?:\|[^\|]+)*(?:\|_)?\|$")
         (fun s -> reg1.Replace(s, "$1")),
         (fun s -> reg2.Replace(s, "")),
-        (fun (s: string) -> if reg3.IsMatch(s) then s.Replace("|", "$") else s)
+        (fun (s: string) -> if reg3.IsMatch(s) then "_" + (s.Replace("|", "I")) + "_" else s)
 
     let lowerFirst (s: string) =
         s.Substring(0,1).ToLowerInvariant() + s.Substring(1)
@@ -75,6 +73,8 @@ module Naming =
 
     let jsKeywords =
         set [
+            // Fable reserved keywords
+            exportsIdent
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
             "abstract"; "await"; "boolean"; "break"; "byte"; "case"; "catch"; "char"; "class"; "const"; "continue"; "debugger"; "default"; "delete"; "do"; "double";
             "else"; "enum"; "export"; "extends"; "false"; "final"; "finally"; "float"; "for"; "function"; "goto"; "if"; "implements"; "import"; "in"; "instanceof"; "int"; "interface";
@@ -91,12 +91,13 @@ module Naming =
             "arguments"
         ]
 
+    let preventConflicts conflicts name =
+        let rec check n =
+            let name = if n > 0 then sprintf "%s_%i" name n else name
+            if not (conflicts name) then name else check (n+1)
+        check 0
+
     let sanitizeIdent conflicts name =
-        let preventConflicts conflicts name =
-            let rec check n =
-                let name = if n > 0 then sprintf "%s_%i" name n else name
-                if not (conflicts name) then name else check (n+1)
-            check 0
         // Replace Forbidden Chars
         let sanitizedName =
             identForbiddenCharsRegex.Replace(name, "_")
@@ -116,35 +117,6 @@ module Path =
 
     let normalizeFullPath (path: string) =
         Path.GetFullPath(path).Replace("\\", "/")
-
-    /// If flag --copyExt is activated, copy files outside project folder into
-    /// an internal `fable_external` folder (adding a hash to prevent naming conflicts)
-    let fixExternalPath =
-        let cache = System.Collections.Generic.Dictionary<string, string>()
-        let addToCache (cache: System.Collections.Generic.Dictionary<'k, 'v>) k v =
-            cache.Add(k, v); v
-        let isExternal projPath path =
-            let rec parentContains rootPath path' =
-                match Directory.GetParent path' with
-                | null -> Some (rootPath, path)
-                // Files in node_modules are always considered external, see #188
-                | parent when parent.FullName.Contains("node_modules") -> Some(rootPath, path)
-                | parent when rootPath = parent.FullName -> None
-                | parent -> parentContains rootPath parent.FullName
-            parentContains (Path.GetDirectoryName projPath) path
-        fun (com: ICompiler) filePath ->
-            if not com.Options.copyExt then filePath else
-            match Path.GetFullPath filePath with
-            | DicContains cache filePath -> filePath
-            | Try (isExternal com.Options.projFile) (rootPath, filePath) ->
-                Path.Combine(rootPath, Naming.fableExternalDir,
-                    sprintf "%s-%i%s"
-                        (Path.GetFileNameWithoutExtension filePath)
-                        (filePath.GetHashCode() |> abs)
-                        (Path.GetExtension filePath))
-                |> addToCache cache filePath
-            | filePath ->
-                addToCache cache filePath filePath
 
     /// Creates a relative path from one file or folder to another.
     let getRelativeFileOrDirPath fromIsDir fromPath toIsDir toPath =
@@ -187,19 +159,6 @@ module Path =
         // let isDir = IO.Directory.Exists
         getRelativeFileOrDirPath (isDir fromPath) fromPath (isDir toPath) toPath
 
-    let getExternalImportPath (com: ICompiler) (filePath: string) (importPath: string) =
-        if not(importPath.StartsWith ".")
-        then importPath
-        else
-            let filePath = Path.GetFullPath filePath
-            let projFile = Path.GetFullPath com.Options.projFile
-            if Path.GetDirectoryName filePath = Path.GetDirectoryName projFile
-            then importPath
-            else
-                getRelativePath filePath projFile
-                |> Path.GetDirectoryName
-                |> fun relPath -> Path.Combine(relPath, importPath) |> normalizePath
-
     let getCommonPrefix (xs: string[] list)=
         let rec getCommonPrefix (prefix: string[]) = function
             | [] -> prefix
@@ -210,12 +169,22 @@ module Path =
                 getCommonPrefix prefix.[0..i-1] xs
         match xs with [] -> [||] | x::xs -> getCommonPrefix x xs
 
+    let isChildPath (parent: string) (child: string) =
+        let split x =
+            (normalizeFullPath x).Split('/')
+            |> Array.filter (String.IsNullOrWhiteSpace >> not)
+        let parent = split parent
+        let child = split child
+        let commonPrefix = getCommonPrefix [parent; child]
+        commonPrefix.Length >= parent.Length
+
     let getCommonBaseDir (filePaths: seq<string>) =
         filePaths
         |> Seq.map (fun filePath ->
             filePath
             |> Path.GetDirectoryName
             |> normalizePath
-            |> fun path -> path.Split('/'))
+            |> fun path ->
+                path.Split('/') |> Array.filter (String.IsNullOrWhiteSpace >> not))
         |> Seq.toList |> getCommonPrefix
         |> String.concat "/"

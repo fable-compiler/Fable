@@ -40,25 +40,11 @@ type KeyValueListAttribute() =
 type StringEnumAttribute() =
     inherit Attribute()
 
-/// When set on a optional System.Type parameter, Fable will pass the type
-/// of the generic parameter of that name if omitted by the user.
-[<AttributeUsage(AttributeTargets.Parameter)>]
-type GenericParamAttribute(name: string) =
-    inherit Attribute()
-
 /// [EXPERIMENTAL] Record updates will be compiled as mutations: { x with a = 5 }
 /// Fable will fail if the original value is used after being updated or passed to a function.
 /// More info: http://fable.io/docs/interacting.html#MutatingUpdate-attribute
 [<AttributeUsage(AttributeTargets.Class)>]
 type MutatingUpdateAttribute() =
-    inherit Attribute()
-
-/// Replace references to types in this assembly with JS imports.
-/// The attribute must decorate a non-nested module (or type) in a file
-/// located in the root directory for all other files in the project.
-/// More info: http://fable-compiler.github.io/docs/compiling.html#Project-references
-[<AttributeUsage(AttributeTargets.Class)>]
-type EntryModuleAttribute(jsImportPath: string) =
     inherit Attribute()
 
 /// Erased union type to represent one of two possible values.
@@ -83,21 +69,6 @@ type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> = Case1 of 'a | Case2 of 'b | Case3 of
 
 /// DO NOT USE: Internal type for Fable dynamic operations
 type Applicable = obj->obj
-
-type Serialize =
-    /// Serialize F# objects to JSON
-    static member toJson(o: 'T): string = jsNative
-
-    /// Instantiate F# objects from JSON
-    static member ofJson<'T>(json: string, [<GenericParam("T")>]?t: Type): 'T = jsNative
-    /// Serialize F# objects to JSON adding $type info
-    static member toJsonWithTypeInfo(o: 'T): string = jsNative
-
-    /// Instantiate F# objects from JSON containing $type info
-    static member ofJsonWithTypeInfo<'T>(json: string, [<GenericParam("T")>]?t: Type): 'T = jsNative
-
-    /// Converts a plain JS object (POJO) to an instance of the specified type
-    static member inflate<'T>(pojo: obj, [<GenericParam("T")>]?t: Type): 'T = jsNative
 
 module JsInterop =
     /// Dynamically access a property of an arbitrary object.
@@ -146,16 +117,31 @@ module JsInterop =
     /// Convert F# unions, records and classes into plain JS objects
     let toPlainJsObj (o: 'T): obj = jsNative
 
+    /// Serialize F# objects to JSON
+    let toJson(o: 'T): string = jsNative
+
+    /// Instantiate F# objects from JSON
+    let ofJson<'T>(json: string): 'T = jsNative
+
+    /// Serialize F# objects to JSON adding $type info
+    let toJsonWithTypeInfo(o: 'T): string = jsNative
+
+    /// Instantiate F# objects from JSON containing $type info
+    let ofJsonWithTypeInfo<'T>(json: string): 'T = jsNative
+
+    /// Converts a plain JS object (POJO) to an instance of the specified type
+    let inflate<'T>(pojo: obj): 'T = jsNative
+
     /// Use it when importing a constructor from a JS library.
     ///
     /// ## Sample
     ///     type IFoo =
     ///         abstract foo: unit -> unit
     ///
-    ///     let Foo: JsCons<IFoo> = importMember "../js/lib.js"
+    ///     let Foo: JsConstructor<IFoo> = importMember "../js/lib.js"
     ///     let x = Foo.Create("foo", "bar")
     ///     x.foo()
-    type JsCons<'T> =
+    type JsConstructor<'T> =
         [<Emit("new $0($1...)")>]
         abstract Create: [<ParamArray>] args: obj[] -> 'T
 

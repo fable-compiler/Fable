@@ -312,7 +312,7 @@ Target "FableCompilerNetcore" (fun _ ->
 Target "NUnitTest" (fun _ ->
     let testsBuildDir = "build/tests"
 
-    !! "src/tests/Fable.Tests.fsproj"
+    !! "src/tests/Main/Fable.Tests.fsproj"
     |> MSBuildRelease testsBuildDir "Build"
     |> ignore
 
@@ -322,11 +322,10 @@ Target "NUnitTest" (fun _ ->
 
 let compileAndRunMochaTests es2015 =
     let testsBuildDir = "build/tests"
-    let testCompileArgs = if es2015 then ["--ecma es2015"] else []
+    let testCompileArgs =
+        ["--verbose" + if es2015 then " --ecma es2015" else ""]
 
-    MSBuildDebug "src/tests/DllRef/bin" "Build" ["src/tests/DllRef/Fable.Tests.DllRef.fsproj"] |> ignore
     Node.run "." "build/fable" ["src/tests/DllRef"]
-    Node.run "." "build/fable" ["src/tests/Other"]
     Node.run "." "build/fable" ("src/tests/"::testCompileArgs)
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []

@@ -388,15 +388,15 @@ module private AstPass =
             CoreLibCall("Util", Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | Naming.StartsWith "toJson" _ | Naming.StartsWith "ofJson" _ | "inflate" ->
-            match i.methodName, i.args with
-            | ("ofJson" | "inflate"), [_; Fable.Value(Fable.ArrayConst(Fable.ArrayValues[Fable.Value(Fable.NumberConst(U2.Case1 kind, _));_], Fable.Any))]
-                when kind = (int Fable.TypeKind.GenericParam) ->
+            match i.methodName, i.methodTypeArgs.[0] with
+            | ("ofJson" | "inflate"), Fable.GenericParam _ ->
                 sprintf "%s %s"
-                    "An unresolved generic parameter is being passed to Serialize.ofJson/inflate,"
+                    "An unresolved generic parameter is being passed to ofJson/inflate,"
                     "this will fail at runtime. Please check."
                 |> addWarning com i
             | _ -> ()
-            CoreLibCall("Serialize", Some i.methodName, false, i.args)
+            let typ = makeTypeRef com i.range i.fileName true i.methodTypeArgs.[0]
+            CoreLibCall("Serialize", Some i.methodName, false, [i.args.Head; typ])
             |> makeCall com i.range i.returnType |> Some
         | "jsNative" ->
             // TODO: Fail at compile time?
