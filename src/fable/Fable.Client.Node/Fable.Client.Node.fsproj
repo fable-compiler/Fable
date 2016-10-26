@@ -62,7 +62,7 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\paket-files\fsharp-editing\Forge\src\Forge.ProjectSystem\Forge.ProjectSystem.fsproj">
+    <ProjectReference Include="..\..\..\paket-files\fable-compiler\Forge\src\Forge.ProjectSystem\Forge.ProjectSystem.fsproj">
       <Name>Forge.ProjectSystem</Name>
       <Project>{9029be0f-a72c-4281-9fd1-aa15f5722306}</Project>
       <Private>True</Private>
