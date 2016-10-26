@@ -285,6 +285,22 @@ let ``Union case with multiple fields``() =
     let u2 = MultiCase("foo", {a="John"; b=14})
     u = u2 |> equal true
 
+[<Test>]
+let ``Union case name case sensitivity: pascal case (normal)``() =
+    let u: MultiUnion = S.ofJson """ "EmptyCase" """
+    u = EmptyCase |> equal true
+
+[<Test>]
+let ``Union case name case sensitivity: camel case (string enum)``() =
+    let u: MultiUnion = S.ofJson """ "emptyCase" """
+    u = EmptyCase |> equal true
+
+[<Test>]
+let ``Union case name case sensitivity: mixed case``() =
+    let tryParse (): MultiUnion = S.ofJson """ "EMptyCasE" """
+    (try not (tryParse () = EmptyCase) with | _ -> true) |> equal true // fail or return null
+
+
 #if FABLE_COMPILER
 type IData = interface end
 

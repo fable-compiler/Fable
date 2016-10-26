@@ -74,6 +74,9 @@ export function inflate(val: any, typ: any): any {
             ? arr.map((x: any) => inflate(x, enclosing))
             : arr;
   }
+  function firstCharUpper(str: string) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
   function inflateMap(obj: any, keyEnclosing: List<any>, valEnclosing: List<any>): [any, any][] {
     const inflateKey = keyEnclosing.head !== "string";
     const inflateVal = needsInflate(valEnclosing);
@@ -135,7 +138,7 @@ export function inflate(val: any, typ: any): any {
     if (typ.prototype[FSymbol.cases]) {
       let u: any = { Fields: [] };
       if (typeof val === "string") {
-        u.Case = val;
+        u.Case = firstCharUpper(val);
       }
       else {
         const caseName = Object.getOwnPropertyNames(val)[0];
