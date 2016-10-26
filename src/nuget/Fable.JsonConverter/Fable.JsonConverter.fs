@@ -31,6 +31,9 @@ type JsonConverter() =
                 read (index + 1) (acc @ [value])
         advance reader
         read 0 List.empty
+
+    let firstCharToUpper (str: string) = str.[0].ToString().ToUpper() + str.Substring(1)
+
     override x.CanConvert(t) =
         t.Name = "FSharpOption`1"
         || t.FullName.StartsWith("System.Tuple")
@@ -79,8 +82,9 @@ type JsonConverter() =
             | _ -> failwith "invalid token"
         | t -> // Unions
             let getUci name =
+                let normalizedCaseName = firstCharToUpper name
                 FSharpType.GetUnionCases(t)
-                |> Array.find (fun uci -> uci.Name = name)
+                |> Array.find (fun uci -> uci.Name = normalizedCaseName)
             match reader.TokenType with
             | JsonToken.String ->
                 let name = serializer.Deserialize(reader, typeof<string>) |> unbox<string>
