@@ -980,12 +980,22 @@ module Util =
             failwithf "%s is inlined but is not reachable. %s"
                 meth.FullName "If it belongs to an external project try removing inline modifier."
 
-    let passGenerics com ctx meth (typArgs, methTypArgs) =
+    let passGenerics com ctx r (typArgs, methTypArgs) meth =
         // TODO: Add warning if one of the types is a generic param
         // and generic info is not available
         let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
         matchGenericParams com ctx meth (typArgs, methTypArgs)
-        |> List.map (fun (genName, typ) -> genName, makeTypeRef com None ctx.fileName genInfo typ)
+        |> List.map (fun (genName, typ) ->
+            match typ with
+            | Fable.GenericParam name when not ctx.genericAvailability ->
+                ("An unresolved generic argument ('" + name + ") is being passed " +
+                 "to a function with `PassGenericsAttribute`. This will likely fail " +
+                 "at runtime. Try adding `PassGenericsAttribute` to the calling method " +
+                 "or using concrete types")
+                |> attachRangeAndFile r ctx.fileName
+                |> Warning |> com.AddLog
+            | _ -> ()
+            genName, makeTypeRef com None ctx.fileName genInfo typ)
         |> makeJsObject SourceLocation.Empty
 
     let makeCallFrom (com: IFableCompiler) ctx r typ
@@ -1003,7 +1013,7 @@ module Util =
             else
                 if hasAtt Atts.passGenerics meth.Attributes
                 then
-                    let genArgs = [passGenerics com ctx meth (typArgs, methTypArgs)]
+                    let genArgs = [passGenerics com ctx r (typArgs, methTypArgs) meth]
                     match args with
                     | [arg] when arg.Type = Fable.Unit -> genArgs
                     | args -> args@genArgs
