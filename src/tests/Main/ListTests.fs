@@ -635,12 +635,12 @@ type R = { i: int; s: string }
 let ``Lists can be JSON serialized forth and back``() =
     let x = [{ i=1; s="1" }; { i=2; s="2" }]
     #if FABLE_COMPILER
-    let json = Fable.Core.Serialize.toJson x
-    let x2 = Fable.Core.Serialize.ofJson<R list> json
+    let json = Fable.Core.JsInterop.toJson x
+    let x2 = Fable.Core.JsInterop.ofJson<R list> json
     match x2 with _::[{ i=2; s="2" }] -> true | _ -> false
     |> equal true
-    let json = Fable.Core.Serialize.toJsonWithTypeInfo x
-    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<R list> json
+    let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
+    let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<R list> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<R list> json
@@ -656,7 +656,7 @@ let ``Lists serialized with Json.NET can be deserialized``() =
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"Microsoft.FSharp.Collections.FSharpList`1[[Fable.Tests.Lists+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":2,"s":"2"}]}"""
     #if FABLE_COMPILER
-    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<R list> json
+    let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<R list> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<R list> json
     #endif

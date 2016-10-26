@@ -202,13 +202,13 @@ let ``Unions can be JSON serialized forth and back``() =
     let tree = Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
     let sum1 = tree.Sum()
     #if FABLE_COMPILER
-    let json = Fable.Core.Serialize.toJson tree
-    let tree2 = Fable.Core.Serialize.ofJson<Tree> json
+    let json = Fable.Core.JsInterop.toJson tree
+    let tree2 = Fable.Core.JsInterop.ofJson<Tree> json
     let sum2 = tree2.Sum()
     equal true (box tree2 :? Tree) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed
-    let json = Fable.Core.Serialize.toJsonWithTypeInfo tree
-    let tree2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Tree> json
+    let json = Fable.Core.JsInterop.toJsonWithTypeInfo tree
+    let tree2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Tree> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject tree
     let tree2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Tree> json
@@ -252,7 +252,7 @@ type UnionTypeInfoConverter() =
 let ``Unions serialized with Json.NET can be deserialized``() =
     #if FABLE_COMPILER
     let json = """{"$type":"Fable.Tests.UnionTypes+Tree","Case":"Leaf","Fields":[5]}"""
-    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Tree> json
+    let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Tree> json
     #else
     let x = Leaf 5
     let settings =

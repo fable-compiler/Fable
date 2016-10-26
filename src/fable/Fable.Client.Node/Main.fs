@@ -53,22 +53,20 @@ let readOptions argv =
         outDir = def opts "outDir" null (un Path.GetFullPath)
         coreLib = def opts "coreLib" "fable-core" (un (fun x -> x.TrimEnd('/')))
         watch = def opts "watch" false (un bool.Parse)
+        dll = def opts "dll" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
         noTypedArrays = def opts "noTypedArrays" false (un bool.Parse)
         declaration = def opts "declaration" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id) |> List.append ["FABLE_COMPILER"] |> List.distinct
         plugins = def opts "plugins" [] (li id)
+        refs = Map(def opts "refs" [] (li (fun (x: string) ->
+            let xs = x.Split('=') in xs.[0], xs.[1])))
         extra = Map(def opts "extra" [] (li (fun (x: string) ->
             if x.Contains("=")
             then let xs = x.Split('=') in xs.[0], xs.[1]
             else x, "")))
     }
-    if opts.coreLib.StartsWith "."
-    then { opts with coreLib =
-                        Path.GetFullPath opts.coreLib
-                        |> Fable.Path.getRelativePath opts.outDir
-                        |> fun x -> x.TrimEnd('/') }
-    else opts
+    opts
 
 let loadPlugins (pluginPaths: string list) =
     pluginPaths
@@ -179,19 +177,35 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
 type FileResolver() =
     let cache = System.Collections.Generic.Dictionary<string,string>()
     let mutable projDirs = Map.empty<string*string, (string*string) list>
-    member __.GetNonFSharpDir(filePath) =
-        let rec getNonFSharpDir dir =
-            if Directory.EnumerateFiles(dir, "*.fs*") |> Seq.isEmpty
+    let getNonFSharpDir(filePath) =
+        let rec getNonFSharpDir' dir =
+            let parent = Path.GetDirectoryName dir
+            if Directory.EnumerateFiles(parent, "*.fs*") |> Seq.isEmpty
             then dir
-            else Path.GetDirectoryName dir |> getNonFSharpDir
-        let dir = Path.GetDirectoryName filePath
+            else getNonFSharpDir' parent
+        let dir = Path.GetDirectoryName filePath |> Path.GetFullPath
         match cache.TryGetValue dir with
         | true, value -> value
         | false, _ ->
-            let value = getNonFSharpDir dir
+            let value = getNonFSharpDir' dir
             cache.Add(dir, value)
             value
-    member __.AddFile(projDir, srcFile) =
+    // The strategy is as follows:
+    // * Get the project directory:
+    //    - If the file is in `node_modules` or not within the given projDir
+    //      find the first parent directory that doesn't contain an *.fs file.
+    //    - Otherwise, get the given projDir (which is the project file dir).
+    // * Look for `projDir` in the stored map of `projDirs`:
+    //    - If it is, add the file to the corresponding list of files.
+    //    - If not, get the name of `projDir`, check it doesn't conflict with any
+    //      other and add it to the key value pairs.
+    // * When the final list of files is requested, put each file in the selected folder
+    //   within `outDir`.
+    member __.AddFile(projDir, srcFile: string) =
+      let projDir =
+        if srcFile.Contains "node_modules" || not(Fable.Path.isChildPath projDir srcFile)
+        then getNonFSharpDir(srcFile)
+        else projDir
       projDirs <-
         let trgFile = Fable.Path.getRelativeFileOrDirPath true projDir false srcFile
         projDirs |> Map.tryPick (fun (name, fullName) files ->
@@ -221,10 +235,6 @@ let mergeProjectOpts (opts1: FSharpProjectOptions option, resolver: FileResolver
                      (opts2: FSharpProjectOptions) =
     let projDir = Path.GetDirectoryName opts2.ProjectFileName
     for file in opts2.ProjectFileNames do
-        let projDir =
-            if file.Contains "node_modules" || not(file.StartsWith projDir)
-            then resolver.GetNonFSharpDir(file)
-            else projDir
         resolver.AddFile(projDir, file)
     let projOptions: FSharpProjectOptions =
         match opts1 with
@@ -358,6 +368,35 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
     |> Seq.iter Console.Out.WriteLine
 
+let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (projOpts: FSharpProjectOptions): unit =
+    if Directory.Exists(comOpts.outDir) |> not then
+        Directory.CreateDirectory(comOpts.outDir) |> ignore
+    let projOut =
+        let projName = Path.GetFileNameWithoutExtension(Seq.last comOpts.projFile)
+        Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
+    let args = [|
+        yield! projOpts.OtherOptions
+        // Seems `--out` cannot come at the beginning
+        // or the compiler will ignore it
+        yield "--out:" + projOut + ".dll"
+        yield "--doc:" + projOut + ".xml"
+        yield! projOpts.ProjectFileNames
+    |]
+    let errors, warnings =
+        let errors, _exitCode = checker.Compile(args)
+        parseErrors errors
+    if errors.Length > 0 then
+        errors
+        |> Seq.append ["Errors when generating dll assembly:"]
+        |> String.concat "\n"
+        |> failwith
+    if warnings.Length > 0 then
+        warnings
+        |> Seq.append ["Warnings when generating dll assembly:"]
+        |> String.concat "\n"
+        |> Info |> string |> Log
+        |> List.singleton |> printMessages
+
 let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
     try
         // Reload project options if necessary
@@ -417,6 +456,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             |> applyRewrites
             |> Fable2Babel.Compiler.transformFiles com
 
+        let files = Array.ofSeq files
         files
         |> Seq.iter printFile
 

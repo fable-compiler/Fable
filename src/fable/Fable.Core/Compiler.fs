@@ -6,7 +6,9 @@ type CompilerOptions = {
         coreLib: string
         symbols: string list
         plugins: string list
+        refs: Map<string, string>
         watch: bool
+        dll: bool
         noTypedArrays: bool
         clamp: bool
         declaration: bool

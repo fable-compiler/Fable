@@ -11,7 +11,7 @@ type Helper =
 type Helper2 =
     // Check that project references from folders work
     static member CreateArray() =
-        Fable.Tests.Other.Helper.CreateArray()
+        Fable.Tests.Spaces.Helper.CreateArray()
 #endif
 
 type Helper3(i: int) =

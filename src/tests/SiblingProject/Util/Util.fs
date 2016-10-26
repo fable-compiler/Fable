@@ -1,4 +1,4 @@
-module Fable.Tests.DllRef.Util
+module Fable.Tests.Sibling.Util
 
 /// Check that referencing a subfolder works with dlls
 let add2 x = x + 2

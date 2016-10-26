@@ -1057,6 +1057,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         && projInfo.IsMasked file.FileName)
     |> Seq.choose (fun file ->
         try
+            // let fileName
             let fcom = FableCompiler(com, project, entitiesCache, inlineExprsCache)
             let rootEnt, rootDecls =
                 let ctx = { Context.Empty with fileName = file.FileName }

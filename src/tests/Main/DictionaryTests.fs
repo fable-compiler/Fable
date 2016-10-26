@@ -199,12 +199,12 @@ let ``Dictionaries can be JSON serialized forth and back``() =
     x.Add("a", { i=1; s="1" })
     x.Add("b", { i=2; s="2" })
     #if FABLE_COMPILER
-    let json = Fable.Core.Serialize.toJson x
-    let x2 = Fable.Core.Serialize.ofJson<Dictionary<string, R>> json
+    let json = Fable.Core.JsInterop.toJson x
+    let x2 = Fable.Core.JsInterop.ofJson<Dictionary<string, R>> json
     (0, x2) ||> Seq.fold (fun acc kv -> acc + kv.Value.i)
     |> equal 3
-    let json = Fable.Core.Serialize.toJsonWithTypeInfo x
-    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Dictionary<string, R>> json
+    let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
+    let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Dictionary<string, R>> json
     #else
     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, R>> json
@@ -220,7 +220,7 @@ let ``Dictionaries serialized with Json.NET can be deserialized``() =
     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
     let json = """{"$type":"System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[Fable.Tests.Maps+R, Fable.Tests]], FSharp.Core","a":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":1,"s":"1"},"b":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":2,"s":"2"}}"""
     #if FABLE_COMPILER
-    let x2 = Fable.Core.Serialize.ofJsonWithTypeInfo<Dictionary<string, R>> json
+    let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Dictionary<string, R>> json
     #else
     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, R>> json
     #endif

@@ -1,6 +1,4 @@
-// This points to the generated JS code from the dll file (in `bin`folder)
-[<Fable.Core.EntryModule("../../../../build/tests/DllRef")>]
-module Fable.Tests.DllRef.Lib
+module Fable.Tests.Sibling.Lib
 
 let createClampedArray() = [|5uy|]
 

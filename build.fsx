@@ -324,8 +324,8 @@ let compileAndRunMochaTests es2015 =
     let testsBuildDir = "build/tests"
     let testCompileArgs = if es2015 then ["--ecma es2015"] else ["--verbose"]
 
-    MSBuildDebug "src/tests/DllRef/bin" "Build" ["src/tests/DllRef/Fable.Tests.DllRef.fsproj"] |> ignore
-    Node.run "." "build/fable" ["src/tests/DllRef"]
+    // MSBuildDebug "src/tests/DllRef/bin" "Build" ["src/tests/DllRef/Fable.Tests.DllRef.fsproj"] |> ignore
+    // Node.run "." "build/fable" ["src/tests/DllRef"]
     // Node.run "." "build/fable" ["src/tests/Other"]
     Node.run "." "build/fable" ("src/tests/"::testCompileArgs)
     FileUtils.cp "src/tests/package.json" testsBuildDir

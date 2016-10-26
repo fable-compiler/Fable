@@ -1,4 +1,4 @@
-﻿namespace Fable.Tests.Other
+﻿namespace Fable.Tests.Spaces
 
 // Check that project references to folders work
 type [<Sealed>] Helper =

@@ -72,6 +72,8 @@ module Naming =
 
     let jsKeywords =
         set [
+            // Fable reserved keywords
+            exportsIdent
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
             "abstract"; "await"; "boolean"; "break"; "byte"; "case"; "catch"; "char"; "class"; "const"; "continue"; "debugger"; "default"; "delete"; "do"; "double";
             "else"; "enum"; "export"; "extends"; "false"; "final"; "finally"; "float"; "for"; "function"; "goto"; "if"; "implements"; "import"; "in"; "instanceof"; "int"; "interface";
@@ -156,18 +158,6 @@ module Path =
         // let isDir = IO.Directory.Exists
         getRelativeFileOrDirPath (isDir fromPath) fromPath (isDir toPath) toPath
 
-    let getExternalImportPath (com: ICompiler) (filePath: string) (importPath: string) =
-        if not(importPath.StartsWith ".")
-        then importPath
-        else
-            let filePath = Path.GetFullPath filePath
-            if Path.GetDirectoryName filePath = com.ProjDir
-            then importPath
-            else
-                getRelativePath filePath com.ProjDir
-                |> Path.GetDirectoryName
-                |> fun relPath -> Path.Combine(relPath, importPath) |> normalizePath
-
     let getCommonPrefix (xs: string[] list)=
         let rec getCommonPrefix (prefix: string[]) = function
             | [] -> prefix
@@ -178,12 +168,22 @@ module Path =
                 getCommonPrefix prefix.[0..i-1] xs
         match xs with [] -> [||] | x::xs -> getCommonPrefix x xs
 
+    let isChildPath (parent: string) (child: string) =
+        let split x =
+            (normalizeFullPath x).Split('/')
+            |> Array.filter (String.IsNullOrWhiteSpace >> not)
+        let parent = split parent
+        let child = split child
+        let commonPrefix = getCommonPrefix [parent; child]
+        commonPrefix.Length >= parent.Length
+
     let getCommonBaseDir (filePaths: seq<string>) =
         filePaths
         |> Seq.map (fun filePath ->
             filePath
             |> Path.GetDirectoryName
             |> normalizePath
-            |> fun path -> path.Split('/'))
+            |> fun path ->
+                path.Split('/') |> Array.filter (String.IsNullOrWhiteSpace >> not))
         |> Seq.toList |> getCommonPrefix
         |> String.concat "/"

@@ -1,15 +1,15 @@
-[<NUnit.Framework.TestFixture>] 
+[<Util.Testing.TestFixture>]
 module Fable.Tests.Enumerable
 open System
 open System.Collections
 open System.Collections.Generic
-open NUnit.Framework
+open Util.Testing
 open Fable.Tests.Util
 
 type Enumerator<'T>(gen) =
-    interface IEnumerable<'T> with 
+    interface IEnumerable<'T> with
         member x.GetEnumerator() = gen()
-    interface IEnumerable with 
+    interface IEnumerable with
         member x.GetEnumerator() = (gen() :> IEnumerator)
 
 type Fibonacci() =
@@ -20,7 +20,7 @@ type Fibonacci() =
         member x.Current = box (fst state)
         member x.MoveNext() = state <- (snd state, fst state + snd state); (fst state) < 1000
         member x.Reset() = state <- (1,1)
-    interface System.IDisposable with 
+    interface System.IDisposable with
         member x.Dispose() = ()
 
 let fibGen() =
@@ -31,13 +31,13 @@ let fibGen() =
         member x.Current = box (fst state)
         member x.MoveNext() = state <- (snd state, fst state + snd state); (fst state) < 1000
         member x.Reset() = state <- (1,1)
-    interface System.IDisposable with 
+    interface System.IDisposable with
         member x.Dispose() = () }
 
-let toSeq gen = 
-    { new IEnumerable<'T> with 
-        member x.GetEnumerator() = gen() 
-    interface IEnumerable with 
+let toSeq gen =
+    { new IEnumerable<'T> with
+        member x.GetEnumerator() = gen()
+    interface IEnumerable with
         member x.GetEnumerator() = (gen() :> IEnumerator) }
 
 let fib() = Seq.unfold (fun state ->

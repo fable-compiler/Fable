@@ -1045,9 +1045,7 @@ module Util =
                     if not(importPath.StartsWith ".") then importPath else
                     let fileDir = IO.Path.GetDirectoryName(ctx.file.SourceFile)
                     let importPath = IO.Path.GetFullPath(IO.Path.Combine(fileDir, importPath))
-                    let relPathToProj = Path.getRelativeFileOrDirPath true bcom.ProjDir false ctx.file.TargetFile
-                    let pathFromOutDir = IO.Path.GetFullPath(IO.Path.Combine(bcom.Options.outDir, relPathToProj))
-                    Path.getRelativePath pathFromOutDir importPath
+                    Path.getRelativePath ctx.file.TargetFile importPath
                 match imports.TryGetValue((selector, path)) with
                 | true, i -> upcast Babel.Identifier(i.localIdent)
                 | false, _ ->
@@ -1066,7 +1064,10 @@ module Util =
                             | Fable.CustomImport -> resolvePath ctx path
                             | Fable.Internal _ -> path
                             | Fable.CoreLib ->
-                                Path.getExternalImportPath com ctx.file.TargetFile path
+                                if not(path.StartsWith ".") then path else
+                                IO.Path.GetFullPath path
+                                |> Path.getRelativePath ctx.file.TargetFile
+                                |> fun path -> path.TrimEnd('/')
                     }
                     imports.Add((selector,path), i)
                     upcast Babel.Identifier (localId)

@@ -124,7 +124,7 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
 #if !DOTNETCORE
 [<Test>]
 let ``Symbols in external projects work``() =
-    equal "Fable Rocks!" Other.Helper.ConditionalExternalValue
+    equal "Fable Rocks!" Spaces.Helper.ConditionalExternalValue
 #endif
 
 [<KeyValueList>]
@@ -673,18 +673,30 @@ let ``use calls Dispose at the end of the scope`` () =
     res |> equal 10
     !cell |> equal 20
 
-#if FABLE_COMPILER
 [<Test>]
 let ``Referencing a Fable project through a dll works``() =
-    Fable.Tests.DllRef.Util.add2 5 |> equal 7
+    Fable.Tests.Sibling.Util.add2 5 |> equal 7
 
-open Fable.Tests.DllRef
+open Fable.Tests.Sibling
 
 [<Test>]
 let ``Root members with JS non-valid chars work``() = // See #207
     Lib.足す 3 2 |> equal 5
     Lib.引く 3 2 |> equal 1
     Lib.モジュール.ファンクション 0 |> equal false
+
+[<Test>]
+let ``Identifiers are encoded correctly``() = // See #482
+    equal "bar1" Lib.``$5EAfoo``
+    equal "bar2" Lib.``$5E$Afoo``
+    equal "bar3" Lib.``$5EA$foo``
+    equal "bar4" Lib.``^Afoo``
+    equal "bar5" Lib.``תfoo``
+    equal "bar6" Lib.``foo$5EA``
+    equal "bar7" Lib.``foo$5E$A``
+    equal "bar8" Lib.``foo$5EA$``
+    equal "bar9" Lib.``foo^A``
+    equal "bar10" Lib.``fooת``
 
 [<Test>]
 let ``Unchecked.defaultof works`` () =
@@ -749,6 +761,7 @@ let ``Pattern matching optimization works (switch expression)``() =
     | _ -> failwith "never"
     |> equal "One"
 
+#if FABLE_COMPILER
 type IFooImported =
     abstract foo: string
 
@@ -778,10 +791,10 @@ let ``Import with relative paths from external files works``() =
 
 [<Test>]
 let ``Import with relative paths from referenced dll works``() =
-    DllRef.Lib.モジュール.one |> equal 1
-    DllRef.Lib.モジュール.three |> equal 3
-    DllRef.Util.two |> equal 2
-    DllRef.Util.four |> equal 4
+    Lib.モジュール.one |> equal 1
+    Lib.モジュール.three |> equal 3
+    Util.two |> equal 2
+    Util.four |> equal 4
 
 [<Test>]
 let ``JS accepts any object as exception``() =
@@ -790,20 +803,5 @@ let ``JS accepts any object as exception``() =
         raise(unbox o)
     with ex -> ex.Message
     |> equal """{"foo":3}"""
-
-
-[<Test>]
-let ``Identifiers are encoded correctly``() = // See #482
-    equal "bar1" Lib.``$5EAfoo``
-    equal "bar2" Lib.``$5E$Afoo``
-    equal "bar3" Lib.``$5EA$foo``
-    equal "bar4" Lib.``^Afoo``
-    equal "bar5" Lib.``תfoo``
-    equal "bar6" Lib.``foo$5EA``
-    equal "bar7" Lib.``foo$5E$A``
-    equal "bar8" Lib.``foo$5EA$``
-    equal "bar9" Lib.``foo^A``
-    equal "bar10" Lib.``fooת``
-
 
 #endif // FABLE_COMPILER

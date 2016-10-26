@@ -100,7 +100,7 @@ let tryImported com name srcFile curFile (decs: #seq<Decorator>) =
                 // 2. GetRelativePath(curFile, 1)
                 System.IO.Path.Combine(System.IO.Path.GetDirectoryName(srcFile), path.Trim())
                 |> System.IO.Path.GetFullPath
-                |> Path.getRelativePath curFile
+                |> Path.getRelativePath (System.IO.Path.GetFullPath curFile)
                 |> fun path -> Some(Value(ImportRef(memb.Trim(), path, CustomImport)))
             | [(:? string as memb);(:? string as path)] ->
                 Some(Value(ImportRef(memb, path, CustomImport)))

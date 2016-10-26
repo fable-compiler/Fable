@@ -1,4 +1,4 @@
-﻿namespace Fable.Tests.Other
+﻿namespace Fable.Tests.Spaces
 
 // Check that projects with signature files compile correctly (see #143)
 type [<Sealed>] Helper =
