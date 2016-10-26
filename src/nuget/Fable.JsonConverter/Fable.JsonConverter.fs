@@ -100,4 +100,5 @@ type JsonConverter() =
                     let value = serializer.Deserialize(reader, itemTypes.[0])
                     advance reader
                     FSharpValue.MakeUnion(uci, [|value|])
+            | JsonToken.Null -> null // for { "union": null }
             | _ -> failwith "invalid token"
