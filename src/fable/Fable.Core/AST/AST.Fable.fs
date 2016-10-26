@@ -198,6 +198,7 @@ and ApplyInfo = {
     decorators: Decorator list
     calleeTypeArgs: Type list
     methodTypeArgs: Type list
+    genericAvailability: bool
     /// If the method accepts a lambda as first argument, indicates its arity
     lambdaArgArity: int
 }

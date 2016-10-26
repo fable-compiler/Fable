@@ -58,9 +58,7 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
     let isKeyValueList (fsType: FSharpType) =
         match Seq.toList fsType.GenericArguments with
         | [arg] when arg.HasTypeDefinition ->
-            arg.TypeDefinition.Attributes
-            |> tryFindAtt ((=) "KeyValueList")
-            |> Option.isSome
+            arg.TypeDefinition.Attributes |> hasAtt Atts.keyValueList
         | _ -> false
     let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
     if isKeyValueList fsType then
@@ -124,7 +122,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             match argExprs with
             | [] -> lowerCaseName unionCase, makeConst true
             | [expr] -> lowerCaseName unionCase, expr
-            | [key; expr] when hasEraseAtt unionCase.Attributes -> key, expr
+            | [key; expr] when hasAtt Atts.erase unionCase.Attributes -> key, expr
             | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s" unionType.FullName
         Fable.TupleConst [key; value] |> Fable.Value
     | StringEnum ->
@@ -143,7 +141,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             buildApplyInfo com ctx r typ unionType (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
-            Fable.Apply(makeTypeRef com (Some range) ctx.fileName false unionType,
+            Fable.Apply(makeNonGenTypeRef com (Some range) ctx.fileName unionType,
                     argExprs, Fable.ApplyCons, makeType com ctx fsExpr.Type, Some range)
 
 and private transformComposableExpr com ctx fsExpr argExprs =
@@ -372,7 +370,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             if flags.IsInstance
             then transformExpr com ctx argExprs.Head,
                  List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail
-            else makeTypeRef com range ctx.fileName false sourceType,
+            else makeNonGenTypeRef com range ctx.fileName sourceType,
                  List.map (transformExprWithRole AppliedArgument com ctx) argExprs
         let argTypes = List.map (makeType com ctx) argTypes
         let methName =
@@ -431,7 +429,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx calleeType
-                      |> makeTypeRef com (makeRangeFrom fsExpr) ctx.fileName false
+                      |> makeNonGenTypeRef com (makeRangeFrom fsExpr) ctx.fileName
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeGetFrom com ctx r typ callee (makeConst fieldName)
 
@@ -459,7 +457,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeTypeRef com (makeRangeFrom fsExpr) ctx.fileName false calleeType
+            | None -> makeNonGenTypeRef com (makeRangeFrom fsExpr) ctx.fileName calleeType
         Fable.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -498,7 +496,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
                 let baseClass =
                     makeTypeFromDef com ctx meth.EnclosingEntity []
-                    |> makeTypeRef com (Some SourceLocation.Empty) ctx.fileName false
+                    |> makeNonGenTypeRef com (Some SourceLocation.Empty) ctx.fileName
                     |> Some
                 let baseCons =
                     let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
@@ -511,8 +509,9 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             (objType, overrides)::otherOverrides
             |> List.collect (fun (typ, overrides) ->
                 overrides |> List.map (fun over ->
+                    let info = { isInstance = true; passGenerics = false }
                     let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
-                    let ctx, thisArg, args' = bindMemberArgs com ctx true args
+                    let ctx, thisArg, args' = bindMemberArgs com ctx info args
                     let ctx =
                         match capturedThis, thisArg with
                         | None, _ -> ctx
@@ -575,7 +574,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             buildApplyInfo com ctx r typ recordType (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
-            Fable.Apply(makeTypeRef com (Some range) ctx.fileName false recordType,
+            Fable.Apply(makeNonGenTypeRef com (Some range) ctx.fileName recordType,
                     argExprs, Fable.ApplyCons, makeType com ctx fsExpr.Type, Some range)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
@@ -829,7 +828,10 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 ctx, Some (privateName.Name)
             else ctx, None
         let args, body =
-            bindMemberArgs com ctx meth.IsInstanceMember args
+            let info =
+                { isInstance = meth.IsInstanceMember
+                  passGenerics = hasAtt Atts.passGenerics meth.Attributes }
+            bindMemberArgs com ctx info args
             |> fun (ctx, _, args) ->
                 if meth.IsInstanceMember || meth.IsImplicitConstructor
                 then { ctx with thisAvailability = ThisAvailable }, args
@@ -881,7 +883,7 @@ let rec private transformEntityDecl
         let compareMeths =
             let needsImpl ifc =
                 let attr = if ifc = "System.IEquatable" then "CustomEquality" else "CustomComparison"
-                fableEnt.HasInterface ifc && tryFindAtt ((=) attr) ent.Attributes |> Option.isNone
+                fableEnt.HasInterface ifc && not(hasAtt attr ent.Attributes)
             // If F# union or records implement System.IComparable && System.Equatable
             // generate the corresponding methods
             // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
@@ -908,7 +910,7 @@ let rec private transformEntityDecl
         let childDecls = transformDeclarations com ctx (cons@compareMeths) subDecls
         // Even if a module is marked with Erase, transform its members
         // in case they contain inline methods
-        if hasEraseAtt ent.Attributes
+        if hasAtt Atts.erase ent.Attributes
         then declInfo, ctx
         else
             // Bind entity name to context to prevent name
@@ -1095,7 +1097,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
                 let rootDecls = transformDeclarations fcom ctx [] rootDecls
                 match rootEnt with
-                | Some e when hasEraseAtt e.Attributes -> makeEntity fcom ctx e, []
+                | Some e when hasAtt Atts.erase e.Attributes -> makeEntity fcom ctx e, []
                 | Some e -> makeEntity fcom ctx e, rootDecls
                 | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
             match rootDecls with

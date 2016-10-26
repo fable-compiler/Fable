@@ -3,7 +3,7 @@ open System
 
 [<AutoOpen>]
 module Exceptions =
-    ///This is used to indicate that the implementation is only implemented in native Javascript
+    /// Used to indicate that a member is only implemented in native Javascript
     let jsNative<'T> : 'T = failwith "JS only"
 
 /// Used for erased union types and to ignore modules in JS compilation.
@@ -27,6 +27,13 @@ type EmitAttribute private () =
     inherit Attribute()
     new (macro: string) = EmitAttribute()
     new (emitterType: Type, methodName: string) = EmitAttribute()
+
+/// When this is attached to a method, Fable will add the generic info
+/// as an extra argument to every call, making it possible to access
+/// a type 'T with `typeof<'T>` within the method body
+[<AttributeUsage(AttributeTargets.Method)>]
+type PassGenericsAttribute() =
+    inherit Attribute()
 
 /// Compile union case lists as JS object literals.
 /// More info: http://fable.io/docs/interacting.html#KeyValueList-attribute
@@ -121,16 +128,16 @@ module JsInterop =
     let toJson(o: 'T): string = jsNative
 
     /// Instantiate F# objects from JSON
-    let ofJson<'T>(json: string): 'T = jsNative
+    let [<PassGenerics>] ofJson<'T>(json: string): 'T = jsNative
 
     /// Serialize F# objects to JSON adding $type info
     let toJsonWithTypeInfo(o: 'T): string = jsNative
 
     /// Instantiate F# objects from JSON containing $type info
-    let ofJsonWithTypeInfo<'T>(json: string): 'T = jsNative
+    let [<PassGenerics>] ofJsonWithTypeInfo<'T>(json: string): 'T = jsNative
 
     /// Converts a plain JS object (POJO) to an instance of the specified type
-    let inflate<'T>(pojo: obj): 'T = jsNative
+    let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
 
     /// Use it when importing a constructor from a JS library.
     ///

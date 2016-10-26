@@ -384,19 +384,10 @@ module private AstPass =
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
-        | "toPlainJsObj" ->
-            CoreLibCall("Util", Some i.methodName, false, i.args)
-            |> makeCall com i.range i.returnType |> Some
-        | Naming.StartsWith "toJson" _ | Naming.StartsWith "ofJson" _ | "inflate" ->
-            match i.methodName, i.methodTypeArgs.[0] with
-            | ("ofJson" | "inflate"), Fable.GenericParam _ ->
-                sprintf "%s %s"
-                    "An unresolved generic parameter is being passed to ofJson/inflate,"
-                    "this will fail at runtime. Please check."
-                |> addWarning com i
-            | _ -> ()
-            let typ = makeTypeRef com i.range i.fileName true i.methodTypeArgs.[0]
-            CoreLibCall("Serialize", Some i.methodName, false, [i.args.Head; typ])
+        | "toJson" | "ofJson" | "inflate" | "toPlainJsObj"
+        | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" ->
+            let modName = if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
+            CoreLibCall(modName, Some i.methodName, false, i.args)
             |> makeCall com i.range i.returnType |> Some
         | "jsNative" ->
             // TODO: Fail at compile time?
@@ -544,16 +535,12 @@ module private AstPass =
             Fable.Throw (args.Head, typ, r) |> Some
         // Type ref
         | "typeOf" | "typeDefOf" ->
-            let t = info.methodTypeArgs.Head
-            let generics = info.methodName = "typeOf"
-            match t with
-            | Fable.Any | Fable.GenericParam _ ->
-                sprintf "%s %s"
-                    "Cannot resolve typeof<> at compile time."
-                    "This will likely cause unexpected behavior at runtime."
-                |> addWarning com info
-            | _ -> ()
-            makeTypeRef com info.range info.fileName generics t |> Some
+            let genInfo = {
+                makeGeneric = info.methodName = "typeOf"
+                genericAvailability = info.genericAvailability
+            }
+            info.methodTypeArgs.Head
+            |> makeTypeRef com info.range info.fileName genInfo |> Some
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -769,7 +756,7 @@ module private AstPass =
         | "typeTestGeneric", (None, [expr]) ->
             makeTypeTest com i.range i.fileName i.methodTypeArgs.Head expr |> Some
         | "createInstance", (None, _) ->
-            let typRef, args = makeTypeRef com i.range i.fileName false i.methodTypeArgs.Head, []
+            let typRef, args = makeNonGenTypeRef com i.range i.fileName i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
@@ -1380,7 +1367,9 @@ module private AstPass =
                 |> addWarning com i
                 CoreLibCall("Reflection", Some "getType", false, [i.callee.Value])
                 |> makeCall com i.range i.returnType |> Some
-            | t -> makeTypeRef com i.range i.fileName true t |> Some
+            | t ->
+                let genInfo = {makeGeneric=true; genericAvailability=false}
+                makeTypeRef com i.range i.fileName genInfo t |> Some
         | _ -> None
 
     let types com (info: Fable.ApplyInfo) =
@@ -1393,8 +1382,7 @@ module private AstPass =
             | "name" -> str ent.Name |> Some
             | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeConst |> Some
             | "getGenericTypeDefinition" ->
-                Fable.DeclaredType(ent, [])
-                |> makeTypeRef com info.range info.fileName false |> Some
+                makeTypeRefFrom com info.fileName ent |> Some
             | _ -> None
         | _ ->
             let getTypeFullName args =

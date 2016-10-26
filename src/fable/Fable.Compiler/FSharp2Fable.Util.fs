@@ -1,5 +1,6 @@
 namespace Fable.FSharp2Fable
 
+open System
 open System.Collections.Generic
 open System.Reflection
 open System.Text.RegularExpressions
@@ -23,6 +24,11 @@ type ThisAvailability =
         of currentThis: FSharpMemberOrFunctionOrValue
         * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Ident) list
 
+type MemberInfo = {
+    isInstance: bool
+    passGenerics: bool
+}
+
 type Context =
     {
     fileName: string
@@ -31,10 +37,12 @@ type Context =
     decisionTargets: Map<int, DecisionTarget>
     baseClass: string option
     thisAvailability: ThisAvailability
+    genericAvailability: bool
     }
     static member Empty =
-        { fileName="unknown"; scope=[]; typeArgs=[]; baseClass=None;
-          decisionTargets=Map.empty<_,_>; thisAvailability=ThisUnavailable }
+        { fileName="unknown"; scope=[]; typeArgs=[];
+          baseClass=None; decisionTargets=Map.empty<_,_>;
+          thisAvailability=ThisUnavailable; genericAvailability=false }
 
 type Role =
     | AppliedArgument
@@ -50,6 +58,13 @@ type IFableCompiler =
     abstract AddInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) -> unit
     abstract AddUsedVarName: string -> unit
     abstract ReplacePlugins: (string*IReplacePlugin) list
+
+module Atts =
+    let erase = typeof<Fable.Core.EraseAttribute>.Name.Replace("Attribute","")
+    let stringEnum = typeof<Fable.Core.StringEnumAttribute>.Name.Replace("Attribute","")
+    let keyValueList = typeof<Fable.Core.KeyValueListAttribute>.Name.Replace("Attribute","")
+    let passGenerics = typeof<Fable.Core.PassGenericsAttribute>.Name.Replace("Attribute","")
+    let mutatingUpdate = typeof<Fable.Core.MutatingUpdateAttribute>.Name.Replace("Attribute","")
 
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
@@ -68,6 +83,9 @@ module Helpers =
                 |> f |> function true -> Some att | false -> None
             | None -> None)
 
+    let hasAtt name atts =
+        atts |> tryFindAtt ((=) name) |> Option.isSome
+
     let isInline (meth: FSharpMemberOrFunctionOrValue) =
         match meth.InlineAnnotation with
         | FSharpInlineAnnotation.NeverInline
@@ -76,13 +94,8 @@ module Helpers =
         | FSharpInlineAnnotation.AlwaysInline -> true
 
     let isImported (ent: FSharpEntity) =
-        let isImportedAtt att =
-            att = "Global" || att = "Import"
         ent.FullName.StartsWith "Fable.Import"
-        || Option.isSome(tryFindAtt isImportedAtt ent.Attributes)
-
-    let hasEraseAtt (atts: #seq<FSharpAttribute>) =
-        atts |> tryFindAtt ((=) "Erase") |> Option.isSome
+        || Option.isSome(tryFindAtt Naming.importAtts.Contains ent.Attributes)
 
     let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
         not(isImported ent) && Option.isNone(com.GetInternalFile ent)
@@ -94,20 +107,16 @@ module Helpers =
 
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
-        let fullName =
-            if typ.HasTypeDefinition
-            then typ.TypeDefinition.TryFullName
-            else None
-        fullName = Some "Microsoft.FSharp.Core.Unit"
+        if typ.HasTypeDefinition
+        then typ.TypeDefinition.TryFullName = Some "Microsoft.FSharp.Core.Unit"
+        else false
 
     // TODO: Check that all record fields are immutable?
     let isMutatingUpdate (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition
         then typ.TypeDefinition.IsFSharpRecord
-                && typ.TypeDefinition.Attributes
-                   |> tryFindAtt ((=) "MutatingUpdate")
-                   |> Option.isSome
+                && hasAtt Atts.mutatingUpdate typ.TypeDefinition.Attributes
         else false
 
     let makeRange (r: Range.range) = {
@@ -497,9 +506,9 @@ module Patterns =
         | Fable.DeclaredType(ent,_) ->
             match ent with
             | FullName "Microsoft.FSharp.Collections.FSharpList" -> ListUnion
-            | TryDecorator "Erase" _ -> ErasedUnion
-            | TryDecorator "KeyValueList" _ -> KeyValueUnion
-            | TryDecorator "StringEnum" _ -> StringEnum
+            | TryDecorator Atts.erase _ -> ErasedUnion
+            | TryDecorator Atts.keyValueList _ -> KeyValueUnion
+            | TryDecorator Atts.stringEnum _ -> StringEnum
             | _ -> OtherType
         | _ -> failwithf "Unexpected union type: %s" typ.FullName
 
@@ -530,7 +539,7 @@ module Types =
             if isIgnored t then None else
             let typeRef =
                 makeType com Context.Empty t
-                |> makeTypeRef com None ctx.fileName false
+                |> makeNonGenTypeRef com None ctx.fileName
             Some (sanitizeEntityFullName t.TypeDefinition, typeRef)
 
     // Some attributes (like ComDefaultInterface) will throw an exception
@@ -783,10 +792,10 @@ module Util =
                     newContext, arg::accArgs)
             ctx, List.rev args
 
-    let bindMemberArgs com ctx isInstance (args: FSharpMemberOrFunctionOrValue list list) =
+    let bindMemberArgs com ctx (info: MemberInfo) (args: FSharpMemberOrFunctionOrValue list list) =
         let thisArg, args =
             match args with
-            | [thisArg]::args when isInstance ->
+            | [thisArg]::args when info.isInstance ->
                 Some thisArg, args
             | _ -> None, args
         match args with
@@ -798,6 +807,12 @@ module Util =
                 let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
                 ctx, thisArg, untupledArg@accArgs
             ) args (ctx, thisArg, [])
+        |> fun (ctx, thisArg, args) ->
+            if info.passGenerics
+            then
+                let args = args@[makeIdent Naming.genArgsIdent]
+                { ctx with genericAvailability=true }, thisArg, args
+            else ctx, thisArg, args
 
     let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
         let catchClause =
@@ -838,6 +853,7 @@ module Util =
             decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
             calleeTypeArgs = typArgs |> List.map (makeType com ctx)
             methodTypeArgs = methTypArgs |> List.map (makeType com ctx)
+            genericAvailability = ctx.genericAvailability
             lambdaArgArity = lambdaArgArity
         }
 
@@ -964,6 +980,14 @@ module Util =
             failwithf "%s is inlined but is not reachable. %s"
                 meth.FullName "If it belongs to an external project try removing inline modifier."
 
+    let passGenerics com ctx meth (typArgs, methTypArgs) =
+        // TODO: Add warning if one of the types is a generic param
+        // and generic info is not available
+        let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
+        matchGenericParams com ctx meth (typArgs, methTypArgs)
+        |> List.map (fun (genName, typ) -> genName, makeTypeRef com None ctx.fileName genInfo typ)
+        |> makeJsObject SourceLocation.Empty
+
     let makeCallFrom (com: IFableCompiler) ctx r typ
                      (meth: FSharpMemberOrFunctionOrValue)
                      (typArgs, methTypArgs) callee args =
@@ -976,7 +1000,14 @@ module Util =
                     (List.rev args.Tail)@items
                 | _ ->
                     (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
-            else args
+            else
+                if hasAtt Atts.passGenerics meth.Attributes
+                then
+                    let genArgs = [passGenerics com ctx meth (typArgs, methTypArgs)]
+                    match args with
+                    | [arg] when arg.Type = Fable.Unit -> genArgs
+                    | args -> args@genArgs
+                else args
         match meth with
         (** -Check for replacements, emits... *)
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
@@ -990,7 +1021,7 @@ module Util =
             match meth.IsExtensionMember, callee with
             | true, Some callee ->
                 let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
-                             |> makeTypeRef com r ctx.fileName false
+                             |> makeNonGenTypeRef com r ctx.fileName
                 let methName =
                     let ent = makeEntity com ctx meth.EnclosingEntity
                     ent.TryGetMember(methName, methKind, not meth.IsInstanceMember, argTypes)
@@ -1003,7 +1034,7 @@ module Util =
                     match callee with
                     | Some callee -> callee, false
                     | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
-                              |> makeTypeRef com r ctx.fileName false, true
+                              |> makeNonGenTypeRef com r ctx.fileName, true
         (**     *Check if this a getter or setter  *)
                 match methKind with
                 | Fable.Getter | Fable.Field ->
@@ -1084,5 +1115,5 @@ module Util =
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []
-                    |> makeTypeRef com r ctx.fileName false
+                    |> makeNonGenTypeRef com r ctx.fileName
                 Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)

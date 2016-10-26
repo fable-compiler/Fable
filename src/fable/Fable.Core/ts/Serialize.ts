@@ -48,7 +48,7 @@ export function toJson(o: any): string {
   });
 }
 
-export function inflate(val: any, typ: any): any {
+function inflate(val: any, typ: any): any {
   function needsInflate(enclosing: List<any>): boolean {
     const typ = enclosing.head;
     if (typeof typ === "string") {
@@ -140,7 +140,7 @@ export function inflate(val: any, typ: any): any {
       else {
         const caseName = Object.getOwnPropertyNames(val)[0];
         const fieldTypes: any[] = typ.prototype[FSymbol.cases]()[caseName];
-        const fields = fieldTypes.length > 1 ? val[caseName] : [val[caseName]]; 
+        const fields = fieldTypes.length > 1 ? val[caseName] : [val[caseName]];
         u.Case = caseName;
         for (let i = 0; i < fieldTypes.length; i++) {
           u.Fields.push(inflate(fields[i], new List(fieldTypes[i], enclosing)));
@@ -160,8 +160,13 @@ export function inflate(val: any, typ: any): any {
   throw "Unexpected type when deserializing JSON: " + typ;
 }
 
-export function ofJson(json: any, typ: any): any {
-  return inflate(JSON.parse(json), typ);
+function inflatePublic(val: any, genArgs: any): any {
+  return inflate(val, genArgs ? genArgs.T : null);
+}
+export { inflatePublic as inflate }
+
+export function ofJson(json: any, genArgs: any): any {
+  return inflate(JSON.parse(json), genArgs ? genArgs.T : null);
 }
 
 export function toJsonWithTypeInfo(o: any): string {
@@ -177,7 +182,7 @@ export function toJsonWithTypeInfo(o: any): string {
       }
       else if (v instanceof FMap || v instanceof Map) {
         return fold(
-          (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, 
+          (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; },
           { $type: (v as any)[FSymbol.typeName] ? (v as any)[FSymbol.typeName]() : "System.Collections.Generic.Dictionary" }, v);
       }
       else if (v[FSymbol.typeName]) {
@@ -201,7 +206,7 @@ export function toJsonWithTypeInfo(o: any): string {
   });
 }
 
-export function ofJsonWithTypeInfo(json: any, expected?: Function): any {
+export function ofJsonWithTypeInfo(json: any, genArgs: any): any {
   const parsed = JSON.parse(json, (k, v) => {
     if (v == null)
       return v;
@@ -250,6 +255,7 @@ export function ofJsonWithTypeInfo(json: any, expected?: Function): any {
     else
       return v;
   });
+  const expected = genArgs ? genArgs.T : null;
   if (parsed != null && typeof expected === "function"
     && !(parsed instanceof getDefinition(expected as FunctionConstructor))) {
     throw "JSON is not of type " + expected.name + ": " + json;

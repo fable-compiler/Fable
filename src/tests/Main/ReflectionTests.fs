@@ -20,41 +20,42 @@ type TestType2 =
 
 type GenericRecord<'A,'B> = { a: 'A; b: 'B }
 
-// #if FABLE_COMPILER
-// open Fable.Core
-// type GenericParamTest =
-//     static member Foo<'T>(x: int, [<GenericParam("T")>] ?t: Type) = t.Value
-//     static member Bar<'T,'U>([<GenericParam("U")>] ?t1: Type, [<GenericParam("T")>] ?t2: Type) = t1.Value, t2.Value
+open Fable.Core
+type PassingGenericsTest =
+    [<PassGenerics>]
+    static member Foo<'T>(x: int) = typeof<'T>
+    [<PassGenerics>]
+    static member Bar<'T,'U>() = typeof<'U>, typeof<'T>
 
-// [<Test>]
-// let ``GenericParamAttribute works``() =
-//     let t = GenericParamTest.Foo<string>(5)
-//     let t1, t2 = GenericParamTest.Bar<TestType, bool>()
-//     box t |> equal (box "string")
-//     box t1 |> equal (box "boolean")
-//     box t2 |> equal (box typeof<TestType>)
-// #endif
+[<Test>]
+let ``PassGenericsAttribute works``() =
+    let t = PassingGenericsTest.Foo<string>(5)
+    let t1, t2 = PassingGenericsTest.Bar<TestType, bool>()
+    #if FABLE_COMPILER
+    box t |> equal (box "string")
+    box t1 |> equal (box "boolean")
+    #endif
+    t |> equal typeof<string>
+    t1 |> equal typeof<bool>
+    t2 |> equal typeof<TestType>
 
-// type GenericParamTest2 =
-//     static member OnlyAccept<'T>(msg: obj, [<Fable.Core.GenericParam("T")>] ?t: Type) =
-//         #if FABLE_COMPILER
-//         let t = t.Value
-//         #else
-//         let t = typeof<'T>
-//         #endif
-//         t = typeof<obj> || msg.GetType() = t
+type PassingGenericsTest2 =
+    [<PassGenerics>]
+    static member OnlyAccept<'T>(msg: obj) =
+        let t = typeof<'T>
+        t = typeof<obj> || msg.GetType() = t
 
-// [<Test>]
-// let ``Comparing types works with primitives``() =
-//     GenericParamTest2.OnlyAccept<int>(43) |> equal true
-//     GenericParamTest2.OnlyAccept<string>("hi") |> equal true
-//     GenericParamTest2.OnlyAccept<string>(43) |> equal false
+[<Test>]
+let ``Comparing types works with primitives``() =
+    PassingGenericsTest2.OnlyAccept<int>(43) |> equal true
+    PassingGenericsTest2.OnlyAccept<string>("hi") |> equal true
+    PassingGenericsTest2.OnlyAccept<string>(43) |> equal false
 
-// [<Test>]
-// let ``Comparing types works with custom types``() =
-//     GenericParamTest2.OnlyAccept<TestType>(Union1 "bye") |> equal true
-//     GenericParamTest2.OnlyAccept<TestType>(Union2 "bye") |> equal false
-//     GenericParamTest2.OnlyAccept<obj>("I'll accept anything") |> equal true
+[<Test>]
+let ``Comparing types works with custom types``() =
+    PassingGenericsTest2.OnlyAccept<TestType>(Union1 "bye") |> equal true
+    PassingGenericsTest2.OnlyAccept<TestType>(Union2 "bye") |> equal false
+    PassingGenericsTest2.OnlyAccept<obj>("I'll accept anything") |> equal true
 
 [<Test>]
 let ``typedefof works``() =
