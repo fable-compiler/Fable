@@ -149,8 +149,12 @@ function bundle(jsFiles, opts, fableProc, continuation) {
     rollupOpts.plugins.splice(0, 0, hypothetical({
         files: jsFiles, allowRealFiles: true, allowExternalModules: true
     }));
-    rollupOpts.entry = Object.getOwnPropertyNames(jsFiles)
+
+    if (rollupOpts.entry == null) {
+        rollupOpts.entry = Object.getOwnPropertyNames(jsFiles)
                         .find(function(f) { return jsFiles[f].isEntry });
+    }
+
 
     rollup.rollup(rollupOpts)
         .then(function(bundle) {
