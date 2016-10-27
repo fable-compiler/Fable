@@ -85,7 +85,10 @@ export function hash(x: any): number {
 }
 
 export function equals(x: any, y: any): boolean {
-  if (x == null) // Return true if both are null or undefined
+  // Optimization if they are referencially equal
+  if (x === y)
+    return true;
+  else if (x == null) // Return true if both are null or undefined
     return y == null;
   else if (y == null)
     return false;
@@ -112,10 +115,13 @@ export function equals(x: any, y: any): boolean {
   else if (hasInterface(x, "System.IEquatable"))
     return x.Equals(y);
   else
-    return x === y;
+    return false;
 }
 
 export function compare(x: any, y: any): number {
+  // Optimization if they are referencially equal
+  if (x === y)
+    return 0;
   if (x == null) // Return 0 if both are null or undefined
     return y == null ? 0 : -1;
   else if (y == null)
@@ -142,48 +148,73 @@ export function compare(x: any, y: any): number {
   else if (hasInterface(x, "System.IComparable"))
     return x.CompareTo(y);
   else
-    return x < y ? -1 : x > y ? 1 : 0;
+    return x < y ? -1 : 1;
 }
 
 export function equalsRecords(x: any, y: any): boolean {
-  const keys = Object.getOwnPropertyNames(x);
-  for (let i=0; i<keys.length; i++) {
-    if (!equals(x[keys[i]], y[keys[i]]))
-      return false;
+  // Optimization if they are referencially equal
+  if (x === y) {
+    return true;
+
+  } else {
+    const keys = Object.getOwnPropertyNames(x);
+    for (let i=0; i<keys.length; i++) {
+      if (!equals(x[keys[i]], y[keys[i]]))
+        return false;
+    }
+    return true;
   }
-  return true;
 }
 
 export function compareRecords(x: any, y: any): number {
-  const keys = Object.getOwnPropertyNames(x);
-  for (let i=0; i<keys.length; i++) {
-    let res = compare(x[keys[i]], y[keys[i]]);
-    if (res !== 0)
-      return res;
+  // Optimization if they are referencially equal
+  if (x === y) {
+    return 0;
+
+  } else {
+    const keys = Object.getOwnPropertyNames(x);
+    for (let i=0; i<keys.length; i++) {
+      let res = compare(x[keys[i]], y[keys[i]]);
+      if (res !== 0)
+        return res;
+    }
+    return 0;
   }
-  return 0;
 }
 
 export function equalsUnions(x: any, y: any): boolean {
-  if (x.Case !== y.Case)
+  // Optimization if they are referencially equal
+  if (x === y) {
+    return true;
+
+  } else if (x.Case !== y.Case) {
     return false;
-  for (let i=0; i<x.Fields.length; i++) {
-    if (!equals(x.Fields[i], y.Fields[i]))
-      return false;
+
+  } else {
+    for (let i=0; i<x.Fields.length; i++) {
+      if (!equals(x.Fields[i], y.Fields[i]))
+        return false;
+    }
+    return true;
   }
-  return true;
 }
 
 export function compareUnions(x: any, y: any): number {
-  let res = compare(x.Case, y.Case)
-  if (res !== 0)
-    return res;
-  for (let i=0; i<x.Fields.length; i++) {
-    res = compare(x.Fields[i], y.Fields[i]);
+  // Optimization if they are referencially equal
+  if (x === y) {
+    return 0;
+
+  } else {
+    let res = compare(x.Case, y.Case)
     if (res !== 0)
       return res;
+    for (let i=0; i<x.Fields.length; i++) {
+      res = compare(x.Fields[i], y.Fields[i]);
+      if (res !== 0)
+        return res;
+    }
+    return 0;
   }
-  return 0;
 }
 
 export function createDisposable(f: () => void): IDisposable {
