@@ -7,7 +7,8 @@ export const fableGlobal: {
     typeName: symbol,
     properties: symbol,
     generics: symbol,
-    cases: symbol
+    cases: symbol,
+    this: symbol
   }
 } = function () {
   const globalObj =
@@ -22,7 +23,8 @@ export const fableGlobal: {
         typeName: Symbol("typeName"),
         properties: Symbol("properties"),
         generics: Symbol("generics"),
-        cases: Symbol("cases")
+        cases: Symbol("cases"),
+        this: Symbol("this")
       }
     };
   }

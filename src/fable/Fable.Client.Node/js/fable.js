@@ -20,7 +20,6 @@ var optionDefinitions = [
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
   { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins (true by default)." },
   { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
-  { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'dll', type: Boolean, description: "Generate a `dll` assembly." },
   { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
@@ -354,8 +353,6 @@ function resolvePath(optName, value, workingDir) {
             case "plugins":
             case "babelPlugins":
                 return resolveArray(value, resolve);
-            case "refs":
-                return resolveKeyValuePairs(value);
         }
     }
     return value;
@@ -559,14 +556,6 @@ function readOptions(opts) {
         opts.module = opts.rollup
             ? "iife"
             : (opts.ecma != "es2015" && opts.ecma != "es6" ? "commonjs" : "es2015");
-    }
-
-    // If refs is set in fableconfig.json, convert them to an array
-    if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {
-        var refs = [];
-        for (var k in opts.refs)
-            refs.push(k + "=" + opts.refs[k]);
-        opts.refs = refs;
     }
 
     // Check version

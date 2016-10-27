@@ -238,10 +238,7 @@ let ``Properties`` () =
 [<Test>]
 let ``Union of list``() =
     let u = CaseB [{Name="Sarah";Child={a="John";b=14}}]
-    // Providing type parameters when treating method as a first class value
-    // isn't supported in AppVeyor, see http://stackoverflow.com/a/2743479
-    let json = toJson u
-    let u2: U = ofJson json
+    let u2: U = toJson u |> ofJson
     u = u2 |> equal true
     let u3: U = ofJson """{"CaseB":[{"Name":"Sarah","Child":{"a":"John","b":14}}]}"""
     u = u3 |> equal true

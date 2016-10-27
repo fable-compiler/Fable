@@ -1,4 +1,5 @@
 import { IDisposable } from "./Util"
+import { upcast } from "./Util"
 
 export type Continuation<T> = (x: T) => void;
 
@@ -143,7 +144,8 @@ export class AsyncBuilder {
   }
 
   Using<T extends IDisposable, U>(resource: T, binder: (x: T) => IAsync<U>) {
-    return this.TryFinally(binder(resource), () => resource.Dispose());
+    return this.TryFinally(binder(resource),
+      () => upcast(resource, "System.IDisposable").Dispose());
   }
 
   While(guard: () => boolean, computation: IAsync<void>): IAsync<void> {

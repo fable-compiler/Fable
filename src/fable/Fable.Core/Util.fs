@@ -24,8 +24,10 @@ module Naming =
 
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
-    let [<Literal>] exportsIdent = "__exports"
+    let [<Literal>] exportsIdent = "_exports"
     let [<Literal>] genArgsIdent = "_genArgs"
+    let [<Literal>] capturedThisIdent = "_this"
+
     let [<Literal>] fablemapExt = ".fablemap"
 
     /// Calls to methods of these interfaces will be replaced
@@ -75,7 +77,7 @@ module Naming =
     let jsKeywords =
         set [
             // Fable reserved keywords
-            exportsIdent; genArgsIdent
+            exportsIdent; genArgsIdent; capturedThisIdent
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
             "abstract"; "await"; "boolean"; "break"; "byte"; "case"; "catch"; "char"; "class"; "const"; "continue"; "debugger"; "default"; "delete"; "do"; "double";
             "else"; "enum"; "export"; "extends"; "false"; "final"; "finally"; "float"; "for"; "function"; "goto"; "if"; "implements"; "import"; "in"; "instanceof"; "int"; "interface";

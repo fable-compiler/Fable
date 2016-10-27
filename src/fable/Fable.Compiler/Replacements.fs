@@ -99,6 +99,23 @@ module Util =
         List.map (Fable.IdentValue >> Fable.Value) args
         |> f |> makeLambdaExpr args
 
+    let unbox com r typ (expr: Fable.Expr) =
+        match typ with
+        | Fable.DeclaredType(target, _) ->
+            if target.Kind = Fable.Interface
+            then makeUpcast com r typ expr
+            else
+                match expr.Type with
+                | Fable.DeclaredType(ent, _) when ent.Kind = Fable.Interface ->
+                    CoreLibCall("Util", Some "downcast", false, [expr])
+                    |> makeCall com r typ
+                | _ -> wrap typ expr
+        | _ -> wrap typ expr
+
+    let coerce com interfaceName (expr: Fable.Expr) =
+        CoreLibCall("Util", Some "upcast", false, [expr; Fable.Value(Fable.StringConst interfaceName)])
+        |> makeCall com expr.Range expr.Type // TODO: Use the interface type?
+
     let genArg (t: Fable.Type) =
         match t.GenericArgs with
         | [genArg] -> genArg
@@ -200,7 +217,7 @@ module Util =
             set [ "System.TimeSpan"; "System.DateTime"; "Microsoft.FSharp.Collections.FSharpSet" ]
         let (|CustomOp|_|) meth argTypes (ent: Fable.Entity) =
             if replacedEntities.Contains ent.FullName then None else
-            ent.TryGetMember(meth, Fable.Method, true, argTypes)
+            ent.TryGetMember(meth, Fable.Method, Fable.StaticLoc, argTypes)
             |> function None -> None | Some m -> Some(ent, m)
         let apply op args =
             Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range)
@@ -261,7 +278,7 @@ module Util =
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpSet" ->
-            InstanceCall(args.Head, "Equals", args.Tail)
+            InstanceCall(coerce com "System.IEquatable" args.Head, "Equals", args.Tail)
             |> makeCall com i.range i.returnType |> is equal |> Some
         | Fable.Array _ | Fable.Tuple _
         | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
@@ -283,7 +300,7 @@ module Util =
             when ent.HasInterface "System.IComparable"
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
-            InstanceCall(args.Head, "CompareTo", args.Tail)
+            InstanceCall(coerce com "System.IComparable" args.Head, "CompareTo", args.Tail)
             |> makeCall com r (Fable.Number Int32) |> wrapWith op
         | _ ->
             CoreLibCall("Util", Some "compare", false, args)
@@ -483,7 +500,8 @@ module private AstPass =
             |> sprintf "void($0.contents%s)"
             |> emit info <| args |> Some
         // Conversions
-        | "createSequence" | "identity" | "box" | "unbox" -> wrap typ args.Head |> Some
+        | "unbox" -> unbox com r typ args.Head |> Some
+        | "createSequence" | "identity" | "box" -> wrap typ args.Head |> Some
         | "toSByte" | "toByte"
         | "toInt8" | "toUInt8"
         | "toInt16" | "toUInt16"
@@ -729,7 +747,9 @@ module private AstPass =
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
         | "checkThis", (None, [arg]) -> Some arg
-        | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
+        // TODO: What's the difference between this and the unbox operator?
+        | "unboxGeneric", OneArg (arg) ->
+            unbox com i.range i.returnType arg |> Some
         | "makeDecimal", (_, (Fable.Value (Fable.NumberConst (U2.Case1 low, Int32)))::
                              (Fable.Value (Fable.NumberConst (U2.Case1 medium, Int32)))::
                              (Fable.Value (Fable.NumberConst (U2.Case1 high, Int32)))::
