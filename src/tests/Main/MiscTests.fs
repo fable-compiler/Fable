@@ -121,11 +121,9 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
     o?foo <- fun x y -> x / y
     o?foo(25, 5) |> unbox<int> |> equal 5
 
-#if !DOTNETCORE
 [<Test>]
 let ``Symbols in external projects work``() =
     equal "Fable Rocks!" Spaces.Helper.ConditionalExternalValue
-#endif
 
 [<KeyValueList>]
 type MyOptions =
@@ -679,7 +677,6 @@ let ``Referencing a Fable project through a dll works``() =
 
 open Fable.Tests.DllRef
 
-#if FABLE_COMPILER
 [<Test>]
 let ``Root members with JS non-valid chars work``() = // See #207
     Lib.足す 3 2 |> equal 5
@@ -698,13 +695,14 @@ let ``Identifiers are encoded correctly``() = // See #482
     equal "bar8" Lib.``foo$5EA$``
     equal "bar9" Lib.``foo^A``
     equal "bar10" Lib.``fooת``
-#endif
 
 [<Test>]
 let ``Unchecked.defaultof works`` () =
     Unchecked.defaultof<int> |> equal 0
     Unchecked.defaultof<bool> |> equal false
     Unchecked.defaultof<string> |> equal null
+
+#if FABLE_COMPILER
 
 type MyEnum =
     | One = 1
@@ -763,7 +761,6 @@ let ``Pattern matching optimization works (switch expression)``() =
     | _ -> failwith "never"
     |> equal "One"
 
-#if FABLE_COMPILER
 type IFooImported =
     abstract foo: string
 

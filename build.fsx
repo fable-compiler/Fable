@@ -276,7 +276,7 @@ Target "FableCompilerNetcore" (fun _ ->
         Util.run pluginDir "dotnet" "build -c Release"
 
         // Run dotnet tests
-        let testDir = "src/tests"
+        let testDir = "src/tests/Main"
         Util.run testDir "dotnet" "test -c Release"
 
         // Compile JavaScript tests

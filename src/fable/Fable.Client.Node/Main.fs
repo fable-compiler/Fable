@@ -104,6 +104,22 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
         if include'.StartsWith "."
         then include', Path.Combine(projDir, include') |> Some
         else include', x.HintPath |> Option.map (fun x -> Path.Combine(projDir, x)))
+#if DOTNETCORE
+    let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
+    let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
+    let resolve refs =
+        let sysPath = Path.GetDirectoryName(sysCoreLib)
+        let sysLib name = Path.Combine(sysPath, name + ".dll")
+        let localPath = Path.GetDirectoryName(typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location)
+        let localLib name = Path.Combine(localPath, name + ".dll")
+
+        [ for name in refs do
+            if File.Exists (sysLib name) then
+                yield (sysLib name)
+            elif File.Exists (localLib name) then
+                yield (localLib name)
+        ]
+#else
     let fscoreDir =
         if System.Environment.OSVersion.Platform = System.PlatformID.Win32NT then // file references only valid on Windows
             let PF =
@@ -114,7 +130,7 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
         else
             System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory()
     let resolve refs =
-        SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.Resolve(
+        let resolvedFiles = SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.Resolve(
             ReferenceResolver.ResolutionEnvironment.CompileTimeLike,
             [| for a in refs -> (a, "") |],
             defaultArg projParsed.Settings.TargetFrameworkVersion.Data "v4.5.1",
@@ -126,6 +142,8 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
             ignore,
             (fun _ _ _ -> ())
         )
+        resolvedFiles |> Array.map (fun r -> r.itemSpec)
+#endif
     let allFlags = [|
         yield "--simpleresolution"
         yield "--noframework"
@@ -143,10 +161,14 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
             yield "--define:" + symbol
 
         let coreReferences = [
+#if DOTNETCORE
+            "FSharp.Core", Some fsCoreLib
+            "CoreLib", Some sysCoreLib
+#else
             "FSharp.Core", None
-            "mscorlib", None
             "System", None
-            // "System.IO", None
+#endif
+            "mscorlib", None
             "System.Runtime", None
         ]
         // add distinct project references
@@ -157,7 +179,7 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
         let resolvedFiles =
             unresolvedRefs |> Array.map fst |> resolve
         for r in resolvedFiles do
-            yield "-r:" + r.itemSpec
+            yield "-r:" + r
         for (_,r) in resolvedRefs do
             yield "-r:" + r.Value
     |]

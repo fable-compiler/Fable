@@ -651,8 +651,8 @@ module Types =
             tdef.Attributes
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
-        Fable.Entity (Lazy(fun () -> getKind()), com.GetInternalFile tdef,
-            sanitizeEntityFullName tdef, Lazy(fun () -> getMembers com tdef),
+        Fable.Entity (Lazy<_>(fun () -> getKind()), com.GetInternalFile tdef,
+            sanitizeEntityFullName tdef, Lazy<_>(fun () -> getMembers com tdef),
             genParams, infcs, decs, tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
     and makeTypeFromDef (com: IFableCompiler) ctx (tdef: FSharpEntity)
