@@ -94,10 +94,10 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
         List.exists ((=) fullName) interfaces
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
-    member x.TryGetMember(name, kind, isStatic, argTypes, ?argsEqual) =
+    member x.TryGetMember(name, kind, loc, argTypes, ?argsEqual) =
         let argsEqual = defaultArg argsEqual (=)
         members.Value |> List.tryFind (fun m ->
-            if m.IsStatic <> isStatic
+            if m.Location <> loc
                 || m.Name <> name
                 || m.Kind <> kind
             then false
@@ -131,10 +131,16 @@ and MemberKind =
     | Setter
     | Field
 
-and Member(name, kind, argTypes, returnType, ?originalType, ?genParams, ?decorators,
-           ?isPublic, ?isMutable, ?isStatic, ?isSymbol, ?hasRestParams, ?overloadIndex) =
+and MemberLoc =
+    | InstanceLoc
+    | StaticLoc
+    | InterfaceLoc of string
+
+and Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?decorators,
+           ?isPublic, ?isMutable, ?isSymbol, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
+    member x.Location: MemberLoc = loc
     member x.ArgumentTypes: Type list = argTypes
     member x.ReturnType: Type = returnType
     member x.OriginalCurriedType: Type = defaultArg originalType (Function(argTypes, returnType))
@@ -142,7 +148,6 @@ and Member(name, kind, argTypes, returnType, ?originalType, ?genParams, ?decorat
     member x.Decorators: Decorator list = defaultArg decorators []
     member x.IsPublic: bool = defaultArg isPublic true
     member x.IsMutable: bool = defaultArg isMutable false
-    member x.IsStatic: bool = defaultArg isStatic false
     member x.IsSymbol: bool = defaultArg isSymbol false
     member x.HasRestParams: bool = defaultArg hasRestParams false
     member x.OverloadIndex: int option = overloadIndex

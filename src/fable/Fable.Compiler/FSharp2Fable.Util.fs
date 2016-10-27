@@ -21,7 +21,7 @@ type ThisAvailability =
     // Object expressions must capture the `this` reference and
     // they can also be nested (see makeThisRef and the ObjectExpr pattern)
     | ThisCaptured
-        of currentThis: FSharpMemberOrFunctionOrValue
+        of currentThis: FSharpMemberOrFunctionOrValue option
         * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Ident) list
 
 type MemberInfo = {
@@ -158,6 +158,16 @@ module Helpers =
             if isUnit args.[0].[0].Type then 0 else 1
         else args |> Seq.map (fun li -> li.Count) |> Seq.sum
 
+    let getMemberLoc (meth: FSharpMemberOrFunctionOrValue) =
+        if not meth.IsInstanceMember && not meth.IsImplicitConstructor
+        then Fable.StaticLoc
+        elif not meth.IsExplicitInterfaceImplementation
+        then Fable.InstanceLoc
+        else try
+                meth.ImplementedAbstractSignatures.[0].DeclaringType.TypeDefinition
+                |> sanitizeEntityFullName |> Fable.InterfaceLoc
+             with _ -> Fable.InstanceLoc // TODO: Throw error?
+
     let getMemberKind (meth: FSharpMemberOrFunctionOrValue) =
         let argCount = getArgCount meth
         if meth.EnclosingEntity.IsFSharpModule then
@@ -242,13 +252,15 @@ module Patterns =
             ||> List.forall2 (fun arg (ident, _) ->
                 if ident.IsMutable then false else
                 match arg with
-                | Coerce(_, Value arg) | Value arg -> ident = arg
+                // | Coerce(_, Value arg)
+                | Value arg -> ident = arg
                 | _ -> false)
         let checkArgs2 lambdaArgs methArgs =
             (lambdaArgs, methArgs)
             ||> List.forall2 (fun larg marg ->
                 match marg with
-                | Coerce(_, Value marg) | Value marg -> marg = larg
+                // | Coerce(_, Value marg)
+                | Value marg -> marg = larg
                 | _ -> false)
         let rec visit identAndRepls = function
             | Let((letArg, letValue), letBody) ->
@@ -556,15 +568,14 @@ module Types =
         with _ ->
             None
 
-    and makeMethodFrom com name kind argTypes returnType originalTyp overloadIndex
+    and makeMethodFrom com name kind loc argTypes returnType originalTyp overloadIndex
                        (meth: FSharpMemberOrFunctionOrValue) =
-        Fable.Member(name, kind, argTypes, returnType,
+        Fable.Member(name, kind, loc, argTypes, returnType,
             originalType = originalTyp,
             genParams = (meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList),
             decorators = (meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList),
             isPublic = (not meth.Accessibility.IsPrivate && not meth.IsCompilerGenerated),
             isMutable = meth.IsMutable,
-            isStatic = not meth.IsInstanceMember,
             ?overloadIndex = overloadIndex,
             hasRestParams = hasRestParams meth)
 
@@ -586,32 +597,41 @@ module Types =
 
     and getMembers com (tdef: FSharpEntity) =
         let isOverloadable =
-            // TODO: Use overload index for interfaces too? (See overloadIndex below too)
+            // TODO: Use overload index for interfaces too? (See isOverloaded below too)
             not(tdef.IsInterface || isImported tdef || isReplaceCandidate com tdef)
-        let getMembers' isInstance (tdef: FSharpEntity) =
+        let getMembers' loc (tdef: FSharpEntity) =
             tdef.MembersFunctionsAndValues
             |> Seq.filter (fun x ->
-                isInstance = x.IsInstanceMember
                 // Property members that are no getter nor setter don't actually get implemented
-                && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod)))
+                not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod))
+                && (match loc with
+                    | Fable.StaticLoc -> not(x.IsInstanceMember || x.IsImplicitConstructor)
+                    | Fable.InstanceLoc -> (x.IsInstanceMember || x.IsImplicitConstructor) && x.IsExplicitInterfaceImplementation
+                    | Fable.InterfaceLoc _ -> x.IsExplicitInterfaceImplementation)
+            )
             |> Seq.map (fun x -> sanitizeMethodName x, x)
             |> Seq.groupBy fst
             |> Seq.collect (fun ((name, kind), members) ->
-                let members = List.ofSeq members
-                let isOverloaded = isOverloadable && members.Length > 1
-                members |> List.mapi (fun i (_, meth) ->
+                let members = Array.ofSeq members
+                let membersLength = members.Length
+                members |> Array.mapi (fun i (_, meth) ->
+                    let isOverloaded, loc =
+                        match loc with
+                        | Fable.InterfaceLoc _ -> false, getMemberLoc meth
+                        | _ -> isOverloadable && membersLength > 1, loc
                     let argTypes = getArgTypes com meth.CurriedParameterGroups
                     let returnType = makeType com Context.Empty meth.ReturnParameter.Type
                     let originalTyp = makeOriginalCurriedType com meth.CurriedParameterGroups returnType
                     let overloadIndex =
                         if isOverloaded && (not meth.IsExplicitInterfaceImplementation)
                         then Some i else None
-                    makeMethodFrom com name kind argTypes returnType originalTyp overloadIndex meth
+                    makeMethodFrom com name kind loc argTypes returnType originalTyp overloadIndex meth
             ))
             |> Seq.toList
-        let instanceMembers = getMembers' true tdef
-        let staticMembers = getMembers' false tdef
-        instanceMembers@staticMembers
+        let instanceMembers = getMembers' Fable.InstanceLoc tdef
+        let staticMembers = getMembers' Fable.StaticLoc tdef
+        let interfaceMembers = getMembers' (Fable.InterfaceLoc "") tdef
+        instanceMembers@interfaceMembers@staticMembers
 
     and makeEntity (com: IFableCompiler) ctx (tdef: FSharpEntity): Fable.Entity =
         let makeFields (tdef: FSharpEntity) =
@@ -651,8 +671,8 @@ module Types =
             tdef.Attributes
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
-        Fable.Entity (Lazy(fun () -> getKind()), com.GetInternalFile tdef,
-            sanitizeEntityFullName tdef, Lazy(fun () -> getMembers com tdef),
+        Fable.Entity (Lazy<_>(fun () -> getKind()), com.GetInternalFile tdef,
+            sanitizeEntityFullName tdef, Lazy<_>(fun () -> getMembers com tdef),
             genParams, infcs, decs, tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
     and makeTypeFromDef (com: IFableCompiler) ctx (tdef: FSharpEntity)
@@ -981,8 +1001,6 @@ module Util =
                 meth.FullName "If it belongs to an external project try removing inline modifier."
 
     let passGenerics com ctx r (typArgs, methTypArgs) meth =
-        // TODO: Add warning if one of the types is a generic param
-        // and generic info is not available
         let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
         matchGenericParams com ctx meth (typArgs, methTypArgs)
         |> List.map (fun (genName, typ) ->
@@ -991,7 +1009,7 @@ module Util =
                 ("An unresolved generic argument ('" + name + ") is being passed " +
                  "to a function with `PassGenericsAttribute`. This will likely fail " +
                  "at runtime. Try adding `PassGenericsAttribute` to the calling method " +
-                 "or using concrete types")
+                 "or using concrete types.")
                 |> attachRangeAndFile r ctx.fileName
                 |> Warning |> com.AddLog
             | _ -> ()
@@ -1034,17 +1052,17 @@ module Util =
                              |> makeNonGenTypeRef com r ctx.fileName
                 let methName =
                     let ent = makeEntity com ctx meth.EnclosingEntity
-                    ent.TryGetMember(methName, methKind, not meth.IsInstanceMember, argTypes)
+                    ent.TryGetMember(methName, methKind, Fable.StaticLoc, argTypes)
                     |> function Some m -> m.OverloadName | None -> methName
                 let ext = makeGet r Fable.Any typRef (makeConst methName)
                 let bind = Fable.Emit("$0.bind($1)($2...)") |> Fable.Value
                 Fable.Apply (bind, ext::callee::args, Fable.ApplyMeth, typ, r)
             | _ ->
-                let callee, isStatic =
+                let callee =
                     match callee with
-                    | Some callee -> callee, false
+                    | Some callee -> callee
                     | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
-                              |> makeNonGenTypeRef com r ctx.fileName, true
+                              |> makeNonGenTypeRef com r ctx.fileName
         (**     *Check if this a getter or setter  *)
                 match methKind with
                 | Fable.Getter | Fable.Field ->
@@ -1065,7 +1083,7 @@ module Util =
                     | _ ->
                         let methName =
                             let ent = makeEntity com ctx meth.EnclosingEntity
-                            ent.TryGetMember(methName, methKind, isStatic, argTypes)
+                            ent.TryGetMember(methName, methKind, getMemberLoc meth, argTypes)
                             |> function Some m -> m.OverloadName | None -> methName
                         let calleeType = Fable.Function(argTypes, typ)
                         makeGet r calleeType callee (makeConst methName)
@@ -1087,10 +1105,10 @@ module Util =
         match ctx.thisAvailability with
         | ThisAvailable -> Fable.Value Fable.This
         | ThisCaptured(currentThis, capturedThis) ->
-            match v with
-            | Some v when currentThis = v ->
+            match currentThis, v with
+            | Some currentThis, Some v when currentThis = v ->
                 Fable.Value Fable.This
-            | Some v ->
+            | _, Some v ->
                 capturedThis |> List.pick (function
                     | Some fsRef, ident when v = fsRef -> Some ident
                     | Some _, _ -> None
@@ -1099,10 +1117,10 @@ module Util =
                     // so this means we've reached the end of the list.
                     | None, ident -> Some ident)
                 |> Fable.IdentValue |> Fable.Value
-            | None ->
+            | _ ->
                 capturedThis |> List.last |> snd
                 |> Fable.IdentValue |> Fable.Value
-         // TODO: This shouldn't happen, throw exception?
+        // TODO: This shouldn't happen, throw exception?
         | ThisUnavailable -> Fable.Value Fable.This
 
     let makeValueFrom com ctx r typ role (v: FSharpMemberOrFunctionOrValue) =

@@ -247,13 +247,16 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 Fable.Value(Fable.Lambda(args,body,false))
             | e -> e // TODO: failwith "unexpected"?
 
-    (** ## Erased *)
-    | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
     // TODO: We may need to resolve the genArgs, probably adding them to the context
     // and matching them with typeArgs in BasicPatterns.Application(callee, typeArgs, args)
     | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
+
+    | BasicPatterns.Coerce(targetType, fsExpr) ->
+        let typ, range = makeType com ctx targetType, makeRangeFrom fsExpr
+        transformExpr com ctx fsExpr
+        |> makeUpcast com range typ
 
     (** ## Flow control *)
     | BasicPatterns.FastIntegerForLoop(Transform com ctx start, Transform com ctx limit, body, isUp) ->
@@ -376,7 +379,8 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let methName =
             match sourceType with
             | Fable.DeclaredType(ent,_) ->
-                ent.TryGetMember(traitName, Fable.Method, not flags.IsInstance, argTypes, argsEqual)
+                let loc = if flags.IsInstance then Fable.InstanceLoc else Fable.StaticLoc
+                ent.TryGetMember(traitName, Fable.Method, loc, argTypes, argsEqual)
                 |> function Some m -> m.OverloadName | None -> traitName
             | _ -> traitName
         makeGet range (Fable.Function(argTypes, typ)) callee (makeConst methName)
@@ -487,7 +491,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             | ThisUnavailable -> None
             | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdent]
             | ThisCaptured(prevThis, prevVars) ->
-                (Some prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
+                (prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
         let baseClass, baseCons =
             match baseCallExpr with
             | BasicPatterns.Call(None, meth, _, _, args)
@@ -500,7 +504,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                     |> Some
                 let baseCons =
                     let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
-                    let m = Fable.Member(".ctor", Fable.Constructor, [], Fable.Any)
+                    let m = Fable.Member(".ctor", Fable.Constructor, Fable.InstanceLoc, [], Fable.Any)
                     Fable.MemberDeclaration(m, None, [], c, range)
                     |> Some
                 baseClass, baseCons
@@ -516,7 +520,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                         match capturedThis, thisArg with
                         | None, _ -> ctx
                         | Some(capturedThis), Some thisArg ->
-                            { ctx with thisAvailability=ThisCaptured(thisArg, capturedThis) }
+                            { ctx with thisAvailability=ThisCaptured(Some thisArg, capturedThis) }
                         | Some _, None -> failwithf "Unexpected Object Expression method withouth this argument %O" range
                     // Don't use the typ argument as the override may come
                     // from another type, like ToString()
@@ -542,7 +546,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                             |> function Some m -> hasRestParams m | None -> false
                     let body = transformExpr com ctx over.Body
                     let args = List.map Fable.Ident.getType args'
-                    let m = Fable.Member(name, kind, args, body.Type, Fable.Function(args, body.Type),
+                    let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type, Fable.Function(args, body.Type),
                                 over.GenericParameters |> List.map (fun x -> x.Name),
                                 hasRestParams = hasRestParams)
                     Fable.MemberDeclaration(m, None, args', body, range)))
@@ -732,6 +736,70 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
     | _ -> failwithf "Cannot compile expression in %O: %A"
                      (makeRange fsExpr.Range) fsExpr
 
+let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity) (childDecls: #seq<Fable.Declaration>) =
+    let ifcs = fableEnt.Interfaces |> List.map (fun ifc -> ifc, []) |> Map
+    let childDecls, ifcs =
+        (childDecls, ([], ifcs))
+        ||> Seq.foldBack (fun decl (decls, ifcs) ->
+            match decl with
+            | Fable.MemberDeclaration(memb, _, _, _, _) as ifcImpl ->
+                match memb.Location with
+                | Fable.InterfaceLoc ifcName ->
+                    match Map.tryFind ifcName ifcs with
+                    | Some prev -> decls, Map.add ifcName (ifcImpl::prev) ifcs
+                    | None -> decls, Map.add ifcName [ifcImpl] ifcs
+                | _ -> decl::decls, ifcs
+            | _ -> decl::decls, ifcs)
+    // Unions, records and F# exceptions don't have a constructor
+    let autoMeths =
+        match fableEnt.Kind with
+        | Fable.Union cases ->
+            [makeUnionCons()
+             makeTypeNameMeth com fableEnt.FullName
+             makeCasesMethod com ctx.fileName cases]
+        // TODO: Use specific interface for FSharpException?
+        | Fable.Record fields
+        | Fable.Exception fields ->
+            [makeRecordCons fields
+             makeTypeNameMeth com fableEnt.FullName
+             makePropertiesMethod com ctx.fileName fableEnt false fields]
+        | Fable.Class(baseClass, properties) ->
+            [makeTypeNameMeth com fableEnt.FullName
+             makePropertiesMethod com ctx.fileName fableEnt baseClass.IsSome properties]
+        | _ -> []
+    // If F# union or records implement System.IComparable && System.Equatable generate the corresponding methods
+    // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
+    let needsEqImpl =
+        fableEnt.HasInterface "System.IEquatable"
+        && fableEnt.TryGetDecorator("Microsoft.FSharp.Core.CustomEquality").IsNone
+    let needsCompImpl =
+        fableEnt.HasInterface "System.IComparable"
+        && fableEnt.TryGetDecorator("Microsoft.FSharp.Core.CustomComparison").IsNone
+    let fableType =
+        Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.GenericParam)
+    let addIf cond k v map =
+        if cond then Map.add k v map else map
+    let ifcMeth =
+        match fableEnt.Kind with
+        | Fable.Union cases ->
+            ifcs |> addIf needsEqImpl "System.IEquatable" [makeUnionEqualMethod com fableType]
+            |> addIf needsCompImpl "System.IComparable" [makeUnionCompareMethod com fableType]
+            |> Map.add "FSharpUnion" []
+            |> makeInterfacesMethod com ctx.fileName fableEnt false
+            |> List.singleton
+        | Fable.Record fields | Fable.Exception fields ->
+            ifcs |> addIf needsEqImpl "System.IEquatable" [makeRecordEqualMethod com fableType]
+            |> addIf needsCompImpl "System.IComparable" [makeRecordCompareMethod com fableType]
+            |> Map.add "FSharpRecord" []
+            |> makeInterfacesMethod com ctx.fileName fableEnt false
+            |> List.singleton
+        | Fable.Class(baseClass, properties) ->
+            if baseClass.IsNone && ifcs.Count = 0
+            then []
+            else [makeInterfacesMethod com ctx.fileName fableEnt baseClass.IsSome ifcs]
+        | _ -> []
+    autoMeths @ ifcMeth @ childDecls
+
 // The F# compiler considers class methods as children of the enclosing module.
 // We use this type to correct that, see type DeclInfo below.
 type private TmpDecl =
@@ -739,7 +807,7 @@ type private TmpDecl =
     | Ent of Fable.Entity * string * ResizeArray<Fable.Declaration> * SourceLocation
     | IgnoredEnt
 
-type private DeclInfo(init: Fable.Declaration list) =
+type private DeclInfo() =
     let publicNames = ResizeArray<string>()
     // Check there're no conflicting entity or function names (see #166)
     let checkPublicNameConflicts name =
@@ -748,7 +816,7 @@ type private DeclInfo(init: Fable.Declaration list) =
                 "Public types, modules or functions with same name"
                 "at same level are not supported" name
         publicNames.Add name
-    let decls = ResizeArray<_>(Seq.map Decl init)
+    let decls = ResizeArray<_>()
     let children = Dictionary<string, TmpDecl>()
     let tryFindChild (ent: FSharpEntity) =
         if children.ContainsKey ent.FullName
@@ -803,7 +871,7 @@ type private DeclInfo(init: Fable.Declaration list) =
         match tryFindChild meth.EnclosingEntity with
         | Some (Ent (ent,_,_,_)) -> Some ent
         | _ -> None
-    member self.GetDeclarations (): Fable.Declaration list =
+    member self.GetDeclarations (com, ctx): Fable.Declaration list =
         decls |> Seq.map (function
             | IgnoredEnt -> failwith "Unexpected ignored entity"
             | Decl decl -> decl
@@ -812,13 +880,14 @@ type private DeclInfo(init: Fable.Declaration list) =
                     match decls.Count with
                     | 0 -> range
                     | _ -> range + (Seq.last decls).Range
-                Fable.EntityDeclaration(ent, privateName, List.ofSeq decls, range))
+                Fable.EntityDeclaration(ent, privateName, processMemberDecls com ctx ent decls, range))
         |> Seq.toList
 
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let addMethod() =
         let memberName, memberKind = sanitizeMethodName meth
+        let memberLoc = getMemberLoc meth
         let ctx, privateName =
             // Bind module member names to context to prevent
             // name clashes (they will become variables in JS)
@@ -833,9 +902,11 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                   passGenerics = hasAtt Atts.passGenerics meth.Attributes }
             bindMemberArgs com ctx info args
             |> fun (ctx, _, args) ->
-                if meth.IsInstanceMember || meth.IsImplicitConstructor
-                then { ctx with thisAvailability = ThisAvailable }, args
-                else ctx, args
+                match memberLoc with
+                | Fable.InterfaceLoc _ ->
+                    { ctx with thisAvailability=ThisCaptured(None, [None, makeIdent Naming.capturedThisIdent]) }, args
+                | Fable.InstanceLoc -> { ctx with thisAvailability = ThisAvailable }, args
+                | Fable.StaticLoc -> ctx, args
             |> fun (ctx, args) ->
                 match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
                 | true, Some(EntityKind(Fable.Class(Some(fullName, _), _))) ->
@@ -847,9 +918,9 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             let fableEnt = makeEntity com ctx meth.EnclosingEntity
             let argTypes = List.map Fable.Ident.getType args
             let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
-            match fableEnt.TryGetMember(memberName, memberKind, not meth.IsInstanceMember, argTypes) with
+            match fableEnt.TryGetMember(memberName, memberKind, memberLoc, argTypes) with
             | Some m -> m
-            | None -> makeMethodFrom com memberName memberKind argTypes body.Type fullTyp None meth
+            | None -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
             |> fun m -> Fable.MemberDeclaration(m, privateName, args, body, SourceLocation.Empty)
         declInfo.AddMethod (meth, entMember)
         ctx
@@ -866,60 +937,24 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     else addMethod()
     |> fun ctx -> declInfo, ctx
 
-let rec private transformEntityDecl
-    (com: IFableCompiler) ctx (declInfo: DeclInfo) (ent: FSharpEntity) subDecls =
+let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
+                                    (ent: FSharpEntity) subDecls =
     if declInfo.IsIgnoredEntity ent then
         declInfo.AddIgnoredChild ent
         declInfo, ctx
     else
-        let fableEnt = com.GetEntity ctx ent
-        // Unions, records and F# exceptions don't have a constructor
-        let cons =
-            match fableEnt.Kind with
-            | Fable.Union _ -> [makeUnionCons()]
-            | Fable.Record fields
-            | Fable.Exception fields -> [makeRecordCons fields]
-            | _ -> []
-        let compareMeths =
-            let needsImpl ifc =
-                let attr = if ifc = "System.IEquatable" then "CustomEquality" else "CustomComparison"
-                fableEnt.HasInterface ifc && not(hasAtt attr ent.Attributes)
-            // If F# union or records implement System.IComparable && System.Equatable
-            // generate the corresponding methods
-            // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
-            let fableType = Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.GenericParam)
-            match fableEnt.Kind with
-            | Fable.Union cases ->
-                (if needsImpl "System.IEquatable" then [makeUnionEqualMethod com fableType] else [])
-                @ (if needsImpl "System.IComparable" then [makeUnionCompareMethod com fableType] else [])
-                @ [makeCasesMethod com ctx.fileName cases]
-                @ [makeTypeNameMeth com fableEnt.FullName]
-                @ [makeInterfacesMethod com ctx.fileName fableEnt false ("FSharpUnion"::fableEnt.Interfaces)]
-            | Fable.Record fields | Fable.Exception fields ->
-                (if needsImpl "System.IEquatable" then [makeRecordEqualMethod com fableType] else [])
-                @ (if needsImpl "System.IComparable" then [makeRecordCompareMethod com fableType] else [])
-                // TODO: Use specific interface for FSharpException?
-                @ [makePropertiesMethod com ctx.fileName fableEnt false fields]
-                @ [makeTypeNameMeth com fableEnt.FullName]
-                @ [makeInterfacesMethod com ctx.fileName fableEnt false ("FSharpRecord"::fableEnt.Interfaces)]
-            | Fable.Class(baseClass, properties) ->
-                [makePropertiesMethod com ctx.fileName fableEnt baseClass.IsSome properties]
-                @ [makeTypeNameMeth com fableEnt.FullName]
-                @ [makeInterfacesMethod com ctx.fileName fableEnt baseClass.IsSome fableEnt.Interfaces]
-            | _ -> []
-        let childDecls = transformDeclarations com ctx (cons@compareMeths) subDecls
+        let childDecls = transformDeclarations com ctx subDecls
         // Even if a module is marked with Erase, transform its members
         // in case they contain inline methods
         if hasAtt Atts.erase ent.Attributes
         then declInfo, ctx
         else
-            // Bind entity name to context to prevent name
-            // clashes (it will become a variable in JS)
+            // Bind entity name to context to prevent name clashes (it will become a variable in JS)
             let ctx, ident = sanitizeEntityName ent |> bindIdent com ctx Fable.Any None
             declInfo.AddChild(com, ctx, ent, ident.Name, childDecls)
             declInfo, ctx
 
-and private transformDeclarations (com: IFableCompiler) ctx init decls =
+and private transformDeclarations (com: IFableCompiler) ctx decls =
     let declInfo, _ =
         decls |> List.fold (fun (declInfo: DeclInfo, ctx) decl ->
             match decl with
@@ -930,8 +965,8 @@ and private transformDeclarations (com: IFableCompiler) ctx init decls =
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx e as fe) ->
                 declInfo.AddInitAction (Fable.ActionDeclaration (e, makeRange fe.Range))
                 declInfo, ctx
-        ) (DeclInfo init, ctx)
-    declInfo.GetDeclarations()
+        ) (DeclInfo(), ctx)
+    declInfo.GetDeclarations(com, ctx)
 
 let makeFileMap (rootEntities: #seq<FSharpEntity>) (filePairs: Map<string, string>) =
     rootEntities
@@ -1095,7 +1130,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                 let ctx = { Context.Empty with fileName = file.FileName }
                 let rootNs = projectMaps.Head.[file.FileName].rootModule
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
-                let rootDecls = transformDeclarations fcom ctx [] rootDecls
+                let rootDecls = transformDeclarations fcom ctx rootDecls
                 match rootEnt with
                 | Some e when hasAtt Atts.erase e.Attributes -> makeEntity fcom ctx e, []
                 | Some e -> makeEntity fcom ctx e, rootDecls

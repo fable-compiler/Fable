@@ -1,6 +1,7 @@
 import { IDisposable } from "./Util"
 import { equals } from "./Util"
 import { compare } from "./Util"
+import { upcast } from "./Util"
 import { permute as arrayPermute } from "./Array"
 import List from "./List"
 import FSet from "./Set"
@@ -182,7 +183,7 @@ export function enumerateUsing<T extends IDisposable, U>(disp: T, work: (x: T) =
   const disposeOnce = () => {
     if (!isDisposed) {
       isDisposed = true;
-      disp.Dispose();
+      upcast(disp, "System.IDisposable").Dispose();
     }
   };
   try {

@@ -62,9 +62,33 @@ export function extendInfo(cons: FunctionConstructor, symbolName: string, info: 
     : Object.assign(info, parentObj);
 }
 
-export function hasInterface(obj: any, ...interfaceNames: string[]) {
-  return obj[FSymbol.interfaces]
-    && obj[FSymbol.interfaces]().some((x: string) => interfaceNames.indexOf(x) >= 0);
+export function upcast(obj: any, interfaceName: string) {
+  if (typeof obj[FSymbol.interfaces] === "function") {
+    const ifcs = obj[FSymbol.interfaces]();
+    if (typeof ifcs[interfaceName] === "function")
+      return ifcs[interfaceName](obj);
+  }
+  return obj;
+}
+
+export function downcast(obj: any) {
+  // Check if this is just an interface façade
+  return obj[FSymbol.this] ? obj[FSymbol.this] : obj;
+}
+
+export function hasInterface(obj: any, interfaceName: string) {
+  obj = obj[FSymbol.this] ? obj[FSymbol.this] : obj;
+  if (obj[FSymbol.interfaces] == null) {
+    return false;
+  }
+  if (typeof obj[FSymbol.interfaces] === "string") {
+    return interfaceName === obj[FSymbol.interfaces];
+  }
+  const interfaces = typeof obj[FSymbol.interfaces] === "function"
+    ? obj[FSymbol.interfaces]() : obj[FSymbol.interfaces];
+  return Array.isArray(interfaces)
+    ? interfaces.indexOf(interfaceName) > -1
+    : interfaces[interfaceName] != null;
 }
 
 export function getRestParams(args: ArrayLike<any>, idx: number) {
@@ -110,6 +134,8 @@ export function equals(x: any, y: any): boolean {
   else if (x instanceof Date)
     return x.getTime() == y.getTime();
   else if (hasInterface(x, "System.IEquatable"))
+    return upcast(x, "System.IEquatable").Equals(y);
+  else if (typeof x.Equals === "function")  // Equals override
     return x.Equals(y);
   else
     return x === y;
@@ -140,7 +166,7 @@ export function compare(x: any, y: any): number {
     return 0;
   }
   else if (hasInterface(x, "System.IComparable"))
-    return x.CompareTo(y);
+    return upcast(x, "System.IComparable").CompareTo(y);
   else
     return x < y ? -1 : x > y ? 1 : 0;
 }
