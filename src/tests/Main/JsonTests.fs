@@ -280,6 +280,38 @@ let ``Union case with multiple fields``() =
     let u2 = MultiCase("foo", {a="John"; b=14})
     u = u2 |> equal true
 
+
+type OptionalUnionHolder =
+    { a : UnionJson option }
+
+[<Test>]
+let ``Optional union of record: with a value`` () =
+    let json = """ {"a":{"Type2": {"a":"a","b":1} }} """
+    let result : OptionalUnionHolder = S.ofJson json
+    match result.a with
+    | Some (Type2 t) -> t = { a= "a"; b=1 }
+    | _ -> false
+    |> equal true
+
+[<Test>]
+let ``Optional union of record: for undefined`` () =
+    let json = """ {} """
+    let result : OptionalUnionHolder = S.ofJson json
+    match result.a with
+    | None -> true
+    | _ -> false
+    |> equal true
+
+[<Test>]
+let ``Optional union of record: for null`` () =
+    let json = """ {"a":null} """
+    let result : OptionalUnionHolder = S.ofJson json
+    match result.a with
+    | None -> true
+    | _ -> false
+    |> equal true
+
+
 #if FABLE_COMPILER
 type IData = interface end
 
