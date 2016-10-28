@@ -71,6 +71,7 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     member x.Kind: EntityKind = kind.Value
     member x.File: string option = file
     member x.FullName: string = fullName
+    member x.Members: Member list = members.Value
     member x.GenericParameters: string list = genParams
     // member x.Members: Member list = members
     member x.Interfaces: string list = interfaces

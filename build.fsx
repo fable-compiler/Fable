@@ -344,7 +344,7 @@ Target "ES6MochaTest" (fun _ ->
 )
 
 let quickTest _ =
-    Node.run "." "build/Fable" ["src/tools/QuickTest.fsx -o src/tools/temp --coreLib ./build/fable-core --verbose"]
+    Node.run "." "build/Fable" ["src/tools/QuickTest.fsx -o src/tools/temp -m commonjs --coreLib ./build/fable-core --verbose"]
     Node.run "." "src/tools/temp/QuickTest.js" []
 
 Target "QuickTest" quickTest

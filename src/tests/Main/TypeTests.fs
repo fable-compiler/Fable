@@ -371,3 +371,24 @@ let ``Multiple constructors work``() =
     equal 5 m1.Value
     equal 9 m2.Value
     equal 14 m3.Value
+
+[<AbstractClass>]
+type AbstractClassWithDefaults () =
+    abstract MethodWithDefault : unit -> string
+    default x.MethodWithDefault () = "Hello "
+
+    abstract MustImplement: unit -> string
+
+    member x.CallMethodWithDefault () =
+        x.MethodWithDefault() + x.MustImplement()
+
+type ConcreteClass () =
+    inherit AbstractClassWithDefaults()
+    override x.MustImplement () = "World!!"
+
+[<Test>]
+let ``Abstract methods with default work``() = // See #505
+    let x = ConcreteClass()
+    x.MethodWithDefault() |> equal "Hello "
+    x.MustImplement() |> equal "World!!"
+    x.CallMethodWithDefault() |> equal "Hello World!!"

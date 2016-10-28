@@ -331,43 +331,41 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         |> makeSequential (makeRangeFrom fsExpr)
 
     (** ## Applications *)
-    | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, argTypes2, argExprs) ->
+    | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
+        let memLoc = if flags.IsInstance then Fable.InstanceLoc else Fable.StaticLoc
         let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-        let sourceType, candidates =
-            (None, sourceTypes)
-            ||> List.fold (fun candidates (NonAbbreviatedType t) ->
-                if candidates.IsSome then candidates else
-                if not t.HasTypeDefinition then None else
-                t.TypeDefinition.MembersFunctionsAndValues
-                |> Seq.filter (fun m ->
-                    m.IsInstanceMember = flags.IsInstance
-                    && m.CompiledName = traitName)
-                |> Seq.toList |> function
-                    | [] -> None
-                    | candidates -> Some(t, candidates))
-            |> function
-                | Some (t, candidates) -> t, candidates
-                | None -> "Cannot resolve trait call " + traitName
-                          |> attachRange range |> failwith
-        let fableSourceType = makeType com ctx sourceType
+        let sourceTypes = List.map (makeType com ctx) sourceTypes
         let argTypes = List.map (makeType com ctx) argTypes
-        let overloadIndex =
-            if candidates.Length = 1 then None else
-            candidates |> List.tryFindIndex (fun meth ->
-                getArgTypes com meth.CurriedParameterGroups
-                |> compareConcreteAndGenericTypes argTypes)
+        let candidates =
+            (None, sourceTypes)
+            ||> List.fold (fun candidates t ->
+                match candidates, t with
+                | Some _, _ -> candidates
+                | _, Fable.DeclaredType(ent,_) ->
+                    ent.Members |> List.filter (fun m ->
+                        m.Location = memLoc && m.Name = traitName)
+                    |> function [] -> None | candidates -> Some(t, candidates)
+                | _ -> None)
         let callee, args =
-            if flags.IsInstance
-            then transformExpr com ctx argExprs.Head,
-                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail
-            else makeNonGenTypeRef com range ctx.fileName fableSourceType,
-                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs
+            match flags.IsInstance, candidates with
+            | true, _ ->
+                transformExpr com ctx argExprs.Head,
+                List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail
+            | false, Some(sourceType, _) ->
+                makeNonGenTypeRef com range ctx.fileName sourceType,
+                List.map (transformExprWithRole AppliedArgument com ctx) argExprs
+            | _ ->
+                ("Cannot resolve trait call " + traitName) |> attachRange range |> failwith
         let methName =
-            match overloadIndex with
-            | Some i -> sprintf "%s_%i" traitName i
-            | None -> traitName
-        makeGet range (Fable.Function(argTypes, typ)) callee (makeConst methName)
-        |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, range)
+            match candidates with
+            | Some(_, candidates) when candidates.Length > 1 ->
+                candidates |> List.tryPick (fun meth ->
+                    if compareConcreteAndGenericTypes argTypes meth.ArgumentTypes
+                    then Some meth.OverloadName else None)
+                |> defaultArg <| traitName
+            | _ -> traitName
+        let m = makeGet range (Fable.Function(argTypes, typ)) callee (makeConst methName)
+        Fable.Apply (m, args, Fable.ApplyMeth, typ, range)
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
         let callee = Option.map (com.Transform ctx) callee
