@@ -392,3 +392,25 @@ let ``Abstract methods with default work``() = // See #505
     x.MethodWithDefault() |> equal "Hello "
     x.MustImplement() |> equal "World!!"
     x.CallMethodWithDefault() |> equal "Hello World!!"
+
+type ISomeInterface =
+    abstract OnlyGetProp: int with get
+    abstract OnlyProp: int
+    abstract Sender : int with get, set
+
+type XISomeInterface () =
+    let mutable i = 0
+    interface ISomeInterface with
+        member x.OnlyGetProp
+            with get () = 0
+        member x.OnlyProp = 3
+        member x.Sender
+            with get () = i
+            and set i' = i <- i'
+
+[<Test>]
+let ``Interface setters don't conflict``() = // See #505
+    let x = XISomeInterface () :> ISomeInterface
+    x.Sender |> equal 0
+    x.Sender <- 5
+    x.Sender |> equal 5

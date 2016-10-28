@@ -1,3 +1,7 @@
+### 0.7.5-alpha.18
+
+* Don't deem interface setters as overloads (see #505)
+
 ### 0.7.5-alpha.17
 
 * Update FCS and use Forge to read .fsproj files (removes MSBuild dependency)
