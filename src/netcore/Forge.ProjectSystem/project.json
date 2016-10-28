@@ -6,11 +6,11 @@
     "emitEntryPoint": false,
     "compile": {
       "includeFiles": [
-        "../../../paket-files/fsharp-editing/Forge/src/Forge.ProjectSystem/Prelude.fs",
-        "../../../paket-files/fsharp-editing/Forge/src/Forge.ProjectSystem/ResizeArray.fs",
-        "../../../paket-files/fsharp-editing/Forge/src/Forge.ProjectSystem/XLinq.fs",
-        "../../../paket-files/fsharp-editing/Forge/src/Forge.ProjectSystem/Constants.fs",
-        "../../../paket-files/fsharp-editing/Forge/src/Forge.ProjectSystem/ProjectSystem.fs"
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/Prelude.fs",
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/ResizeArray.fs",
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/XLinq.fs",
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/Constants.fs",
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/ProjectSystem.fs"
       ]
     },
     "define": [

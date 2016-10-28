@@ -10,8 +10,9 @@
     "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
     "targets": {
         "netcore": {
-            "projFile": "tests.fsx",
             "ecma": "es2015",
+            "module": "commonjs",
+            "projFile": ["Main/project.fsx"],
             "symbols": ["DOTNETCORE"],
             "plugins": ["../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
         }
