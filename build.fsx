@@ -311,7 +311,6 @@ Target "FableCompilerNetcore" (fun _ ->
 
 Target "NUnitTest" (fun _ ->
     let testsBuildDir = "build/tests"
-
     !! "src/tests/Main/Fable.Tests.fsproj"
     |> MSBuildRelease testsBuildDir "Build"
     |> ignore
@@ -356,6 +355,12 @@ Target "QuickFableCoreTest" quickTest
 Target "Plugins" (fun _ ->
     !! "src/plugins/**/*.fsx"
     |> Seq.iter (fun fsx -> Util.compileScript [] (Path.GetDirectoryName fsx) fsx)
+)
+
+Target "JsonConverter" (fun _ ->
+    !! "src/nuget/Fable.JsonConverter/Fable.JsonConverter.fsproj"
+    |> MSBuildRelease ("build/json-converter") "Build"
+    |> ignore
 )
 
 Target "Providers" (fun _ ->
@@ -529,6 +534,7 @@ Target "All" ignore
   ==> "FableCoreRelease"
   ==> "FableCompilerRelease"
   ==> "Plugins"
+  ==> "JsonConverter"
   ==> "MochaTest"
   =?> ("NUnitTest", environVar "APPVEYOR" = "True")
   =?> ("NUnitTest", environVar "TRAVIS" = "true")

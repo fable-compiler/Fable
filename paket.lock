@@ -1,9 +1,6 @@
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.2)
-    Fable.JsonConverter (0.0.3)
-      FSharp.Core
-      Newtonsoft.Json
     FAKE (4.42)
     FParsec (1.0.2)
     FSharp.Compiler.Service (8.0)
@@ -350,8 +347,8 @@ GITHUB
   remote: fsprojects/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (c50ace31d335b7bcb83b102d2cfd0ce2007ed681)
   remote: fsharp/FSharp.Compiler.Service
-    src/fsharp/ReferenceResolver.fs (174875dde3dcc5288616adca7b5b1468fda3bdb2)
-    src/fsharp/SimulatedMSBuildReferenceResolver.fs (174875dde3dcc5288616adca7b5b1468fda3bdb2)
+    src/fsharp/ReferenceResolver.fs (0eb84766f347bc68f5650f45a9f2bd91f464d260)
+    src/fsharp/SimulatedMSBuildReferenceResolver.fs (0eb84766f347bc68f5650f45a9f2bd91f464d260)
 GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2

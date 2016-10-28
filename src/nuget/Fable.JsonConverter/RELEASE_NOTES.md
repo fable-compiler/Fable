@@ -1,3 +1,7 @@
+### 0.0.4
+
+* Fix optional union of record (see #506)
+
 ### 0.0.3
 
 * Ignore F# lists and fix errors
