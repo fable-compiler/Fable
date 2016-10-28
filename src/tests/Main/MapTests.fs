@@ -228,3 +228,13 @@ let ``Maps serialized with Json.NET can be deserialized``() =
     #endif
     (0, x2) ||> Map.fold (fun acc k v -> acc + v.i)
     |> equal 3
+
+open System.Collections.Generic
+
+type R2 = { kv: KeyValuePair<string,int> }
+
+[<Test>]
+let ``KeyValuePair can be referenced``() = // See #503
+    let r2 = { kv = new KeyValuePair<_,_>("bar",25) }
+    r2.kv.Key |> equal "bar"
+    r2.kv.Value |> equal 25

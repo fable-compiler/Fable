@@ -145,6 +145,8 @@ let rec makeTypeRef (com: ICompiler) (range: SourceLocation option) curFile
     | Array genArg -> makeGenNonDeclaredTypeRef TypeKind.Array [genArg]
     | Option genArg -> makeGenNonDeclaredTypeRef TypeKind.Option [genArg]
     | Tuple genArgs -> makeGenNonDeclaredTypeRef TypeKind.Tuple genArgs
+    | DeclaredType(ent, genArgs) when ent.FullName = "System.Collections.Generic.KeyValuePair" ->
+        makeGenNonDeclaredTypeRef TypeKind.Tuple genArgs
     | GenericParam name ->
         if genInfo.genericAvailability
         then
