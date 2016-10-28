@@ -736,10 +736,14 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity) (childDecls: #seq<Fable.Declaration>) =
     if fableEnt.Kind = Fable.Module then Seq.toList childDecls else
     // Check there're no instance methods conflicting with interface methods
+    // TODO: The whole inheritance chain should actually be checked
     let memberByLoc loc = function
         | Fable.MemberDeclaration(m,_,_,_,_) as decl
             when sameMemberLoc m.Location loc -> Some m
         | _ -> None
+    // Allow interface overloads of these methods,
+    // as sometimes the compiler forces you to do so
+    let overloadExceptions = Set ["Equals"; "GetEnumerator"; "Current"]
     let instanceMeths =
         childDecls |> Seq.choose (memberByLoc Fable.InstanceLoc)
         |> Seq.map (fun m -> m.Name) |> Set
@@ -747,18 +751,18 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     |> Seq.choose (memberByLoc (Fable.InterfaceLoc ""))
     |> Seq.groupBy (fun m -> m.Name)
     |> Seq.iter (fun (name, Array ms) ->
-        if ms.Length > 1 then
+        if ms.Length > 1 && not(overloadExceptions.Contains name) then
             match ms.[0].Location, ms.[1].Location with
             | Fable.InterfaceLoc ifc1, Fable.InterfaceLoc ifc2 ->
                 if ifc1 = ifc2
                 then failwithf "Interface overloads cannot be implemented: %s.%s" ifc1 name
                 else failwithf "Implementing two interfaces with same method name is not allowed. Both %s and %s contain %s" ifc1 ifc2 name
             | _ -> ()
-        elif instanceMeths.Contains name then
+        elif instanceMeths.Contains name && not(overloadExceptions.Contains name) then
             match ms.[0].Location with
-            | Fable.InterfaceLoc ifc -> ifc, name
-            | _ -> "unknown", name
-            ||> failwithf "Interface %s conflicts with type method %s"
+            | Fable.InterfaceLoc ifc -> ifc, fableEnt.FullName, name
+            | _ -> "unknown", fableEnt.FullName, name
+            |||> failwithf "Interface %s conflicts with type %s method %s"
     )
     // If F# union or records implement System.IComparable/System.Equatable generate the methods
     // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
@@ -792,8 +796,8 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
         if needsCompImpl then yield makeRecordCompareMethod com fableType ]
     | Fable.Class(baseClass, properties) ->
       [ yield makeTypeNameMeth com fableEnt.FullName
-        yield makeInterfacesMethod com ctx.fileName fableEnt
-                baseClass.IsSome fableEnt.Interfaces
+        if baseClass.IsSome || fableEnt.Interfaces.Length > 0 then
+            yield makeInterfacesMethod com ctx.fileName fableEnt baseClass.IsSome fableEnt.Interfaces
         yield makePropertiesMethod com ctx.fileName fableEnt baseClass.IsSome properties ]
     | _ -> []
     |> fun autoMeths -> [yield! autoMeths; yield! childDecls]

@@ -67,7 +67,7 @@ export function hasInterface(obj: any, interfaceName: string) {
     ? obj[FSymbol.interfaces]() : obj[FSymbol.interfaces];
   return Array.isArray(interfaces)
     ? interfaces.indexOf(interfaceName) > -1
-    : interfaces == interfaceName;
+    : interfaces === interfaceName;
 }
 
 export function getRestParams(args: ArrayLike<any>, idx: number) {

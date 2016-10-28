@@ -605,8 +605,10 @@ module Types =
         let members =
             tdef.MembersFunctionsAndValues
             |> Seq.filter (fun x ->
+                // Discard overrides to prevent confusing them with overloads (see #505)
+                not(x.IsOverrideOrExplicitInterfaceImplementation && not x.IsExplicitInterfaceImplementation)
                 // Property members that are no getter nor setter don't actually get implemented
-                not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod)))
+                && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod)))
             |> Seq.map (fun meth -> sanitizeMethodName meth, getMemberLoc meth, meth)
             |> Seq.toArray
         let isOverloadable =
