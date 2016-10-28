@@ -205,7 +205,9 @@ type FileResolver() =
         then getNonFSharpDir(srcFile)
         else projDir
       projDirs <-
-        let trgFile = Fable.Path.getRelativeFileOrDirPath true projDir false srcFile
+        let trgFile =
+            Path.GetFullPath srcFile
+            |> Fable.Path.getRelativeFileOrDirPath true projDir false
         projDirs |> Map.tryPick (fun (name, fullName) files ->
             if fullName = projDir
             then Some((name, fullName), files)
@@ -231,7 +233,7 @@ type FileResolver() =
 
 let mergeProjectOpts (opts1: FSharpProjectOptions option, resolver: FileResolver)
                      (opts2: FSharpProjectOptions) =
-    let projDir = Path.GetDirectoryName opts2.ProjectFileName
+    let projDir = Path.GetDirectoryName opts2.ProjectFileName |> Path.GetFullPath
     for file in opts2.ProjectFileNames do
         resolver.AddFile(projDir, file)
     let projOptions: FSharpProjectOptions =

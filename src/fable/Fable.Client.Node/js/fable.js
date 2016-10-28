@@ -153,7 +153,6 @@ function bundle(jsFiles, opts, fableProc, continuation) {
                         .find(function(f) { return jsFiles[f].isEntry });
     }
 
-
     rollup.rollup(rollupOpts)
         .then(function(bundle) {
             var parsed = bundle.generate(rollupOpts);
@@ -523,10 +522,12 @@ function readRollupOptions(opts) {
     rollupOpts.plugins = plugins;
 
     // Other options
-    rollupOpts.dest = rollupOpts.dest || fableLib.pathJoin(outDir, "bundle.js");
     rollupOpts.format = rollupOpts.format == null ? constants.JS_MODULES[opts.module] : rollupOpts.format;
     rollupOpts.sourceMap = rollupOpts.sourceMap == null ? opts.sourceMaps : rollupOpts.sourceMap
     rollupOpts.moduleName = rollupOpts.moduleName || normalizeProjectName(opts);
+    rollupOpts.dest = rollupOpts.dest == null
+        ? fableLib.pathJoin(outDir, "bundle.js")
+        : fableLib.pathJoin(opts.workingDir, rollupOpts.dest);
 
     opts.rollup = rollupOpts;
     return opts;
