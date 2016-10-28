@@ -1,3 +1,8 @@
+### 0.7.5-alpha.17
+
+* Update FCS and use Forge to read .fsproj files (removes MSBuild dependency)
+* Bug fixes and optimizations
+
 ### 0.7.5-alpha.16
 
 * Add JsFunc and JsCons to Fable.Core.JsInterop
