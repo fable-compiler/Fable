@@ -488,7 +488,7 @@ export default class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMa
   }
 
   CompareTo(m2: FMap<K,V>) {
-    return seqCompareWith((kvp1, kvp2) => {
+    return this === m2 ? 0 : seqCompareWith((kvp1, kvp2) => {
       var c = this.comparer.Compare(kvp1[0], kvp2[0]);
       return c !== 0 ? c : compare(kvp1[1], kvp2[1]);
     }, this, m2);

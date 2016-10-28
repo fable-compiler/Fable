@@ -151,6 +151,8 @@ export function compare(x: any, y: any): number {
     }
     return 0;
   }
+  else if (x instanceof Date)
+    return compare(x.getTime(), y.getTime());
   else
     return x < y ? -1 : 1;
 }
@@ -159,8 +161,8 @@ export function equalsRecords(x: any, y: any): boolean {
   // Optimization if they are referencially equal
   if (x === y) {
     return true;
-
-  } else {
+  }
+  else {
     const keys = Object.getOwnPropertyNames(x);
     for (let i=0; i<keys.length; i++) {
       if (!equals(x[keys[i]], y[keys[i]]))
@@ -174,8 +176,8 @@ export function compareRecords(x: any, y: any): number {
   // Optimization if they are referencially equal
   if (x === y) {
     return 0;
-
-  } else {
+  }
+  else {
     const keys = Object.getOwnPropertyNames(x);
     for (let i=0; i<keys.length; i++) {
       let res = compare(x[keys[i]], y[keys[i]]);
@@ -190,11 +192,11 @@ export function equalsUnions(x: any, y: any): boolean {
   // Optimization if they are referencially equal
   if (x === y) {
     return true;
-
-  } else if (x.Case !== y.Case) {
+  }
+  else if (x.Case !== y.Case) {
     return false;
-
-  } else {
+  }
+  else {
     for (let i=0; i<x.Fields.length; i++) {
       if (!equals(x.Fields[i], y.Fields[i]))
         return false;
@@ -207,8 +209,8 @@ export function compareUnions(x: any, y: any): number {
   // Optimization if they are referencially equal
   if (x === y) {
     return 0;
-
-  } else {
+  }
+  else {
     let res = compare(x.Case, y.Case)
     if (res !== 0)
       return res;

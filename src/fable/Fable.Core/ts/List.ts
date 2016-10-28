@@ -124,8 +124,8 @@ export default class List<T> implements IEquatable<List<T>>, IComparable<List<T>
     // Optimization if they are referencially equal
     if (this === x) {
       return true;
-
-    } else {
+    }
+    else {
       const iter1 = this[Symbol.iterator](), iter2 = x[Symbol.iterator]();
       for (;;) {
         let cur1 = iter1.next(), cur2 = iter2.next();
@@ -143,8 +143,8 @@ export default class List<T> implements IEquatable<List<T>>, IComparable<List<T>
     // Optimization if they are referencially equal
     if (this === x) {
       return 0;
-
-    } else {
+    }
+    else {
       let acc = 0;
       const iter1 = this[Symbol.iterator](), iter2 = x[Symbol.iterator]();
       for (;;) {

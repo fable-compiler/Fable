@@ -287,7 +287,7 @@ type OptionalUnionHolder =
 [<Test>]
 let ``Optional union of record: with a value`` () =
     let json = """ {"a":{"Type2": {"a":"a","b":1} }} """
-    let result : OptionalUnionHolder = S.ofJson json
+    let result : OptionalUnionHolder = ofJson json
     match result.a with
     | Some (Type2 t) -> t = { a= "a"; b=1 }
     | _ -> false
@@ -296,7 +296,7 @@ let ``Optional union of record: with a value`` () =
 [<Test>]
 let ``Optional union of record: for undefined`` () =
     let json = """ {} """
-    let result : OptionalUnionHolder = S.ofJson json
+    let result : OptionalUnionHolder = ofJson json
     match result.a with
     | None -> true
     | _ -> false
@@ -305,7 +305,7 @@ let ``Optional union of record: for undefined`` () =
 [<Test>]
 let ``Optional union of record: for null`` () =
     let json = """ {"a":null} """
-    let result : OptionalUnionHolder = S.ofJson json
+    let result : OptionalUnionHolder = ofJson json
     match result.a with
     | None -> true
     | _ -> false

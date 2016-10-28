@@ -677,7 +677,7 @@ export default class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>
   }
 
   CompareTo(s2: FSet<T>) {
-    return tree_compare(this.comparer, this.tree, s2.tree);
+    return this === s2 ? 0 : tree_compare(this.comparer, this.tree, s2.tree);
   }
 
   [Symbol.iterator](): Iterator<T> {
