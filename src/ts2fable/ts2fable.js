@@ -268,7 +268,7 @@ function printParents(prefix, node, template) {
         child.properties = child.properties.filter(x => !isDuplicate(x, parent.properties));
         child.methods = child.methods.filter(x => !isDuplicate(x, parent.methods));
     }
-    
+
     var lines = [];
     node.parents.forEach(function(parentName) {
         var nameNoArgs = parentName.replace(genReg, "");
@@ -296,7 +296,7 @@ function printParents(prefix, node, template) {
             }
         }
     });
-    
+
     return template + (lines.length ? lines.join("\n") + "\n" : "");
 }
 
@@ -351,7 +351,7 @@ function printImport(path, name) {
         var fullPath = joinPath(path, name.replace(genReg, ""));
         var period = fullPath.indexOf('.');
         var importPath = period >= 0
-            ? fullPath.substr(period + 1) + '","' + fullPath.substr(0, period) 
+            ? fullPath.substr(period + 1) + '","' + fullPath.substr(0, period)
             : '*","' + fullPath;
         return `[<Import("${importPath}")>] `;
     }
@@ -366,7 +366,7 @@ function printInterface(prefix) {
                 return "[<StringEnum>] ";
             default:
                 return "";
-        }    
+        }
     }
     return function (ifc, i) {
         var template = prefix + templates.interface
@@ -375,7 +375,7 @@ function printInterface(prefix) {
             .replace("[DECORATOR]", printDecorator(ifc))
             .replace("[CONSTRUCTOR]", ifc.kind === "class"
                 ? "(" + printParameters(ifc.constructorParameters) + ")" : "");
-                
+
         var tmp = printParents(prefix + "    ", ifc, template);
         var hasParents = tmp != template;
         template = tmp;
@@ -404,7 +404,7 @@ function printInterface(prefix) {
                 return template += (members.length == 0 && !hasParents
                     ? prefix + "    interface end"
                     : members);
-            
+
         }
     }
 }
@@ -413,7 +413,7 @@ function printGlobals(prefix, ent) {
     var members = printClassMembers(prefix + "    " + (ent.name ? "" : "[<Global>] " ), ent);
     if (members.length > 0) {
         return prefix + templates.moduleProxy.replace(
-            "[IMPORT]", printImport(ent.path, ent.name)) + members; 
+            "[IMPORT]", printImport(ent.path, ent.name)) + members;
     }
     return "";
 }
@@ -522,7 +522,7 @@ function getType(type) {
             if (name in mappedTypes) {
                 name = mappedTypes[name];
             }
-            
+
             var result = name + printTypeArguments(type.typeArguments);
             return (typeParameters.indexOf(result) > -1 ? "'" : "") + result;
     }
@@ -591,7 +591,7 @@ function getVariables(node) {
             if (declarations[j].type.kind == ts.SyntaxKind.TypeLiteral) {
                 type = visitInterface(declarations[j].type, { name: name + "Type", anonymous: true });
                 anonymousTypes.push(type);
-                type = type.name;                
+                type = type.name;
             }
             else {
                 type = getType(declarations[j].type);
@@ -632,14 +632,14 @@ function getMethod(node, opts) {
         parameters: node.parameters.map(getParameter)
     };
     var firstParam = node.parameters[0], secondParam = node.parameters[1];
-    if (secondParam && secondParam.type.kind == ts.SyntaxKind.StringLiteralType) {
+    if (secondParam && secondParam.type && secondParam.type.kind == ts.SyntaxKind.StringLiteralType) {
         // The only case I've seen following this pattern is
         // createElementNS(namespaceURI: "http://www.w3.org/2000/svg", qualifiedName: "a"): SVGAElement
         meth.parameters = meth.parameters.slice(2);
         meth.emit = `$0.${meth.name}('${firstParam.type.text}', '${secondParam.type.text}'${meth.parameters.length?',$1...':''})`;
         meth.name += '_' + secondParam.type.text;
     }
-    else if (firstParam && firstParam.type.kind == ts.SyntaxKind.StringLiteralType) {
+    else if (firstParam && firstParam.type && firstParam.type.kind == ts.SyntaxKind.StringLiteralType) {
         meth.parameters = meth.parameters.slice(1);
         meth.emit = `$0.${meth.name}('${firstParam.type.text}'${meth.parameters.length?',$1...':''})`;
         meth.name += '_' + firstParam.type.text;
@@ -783,7 +783,7 @@ function visitFile(node) {
             case ts.SyntaxKind.ModuleDeclaration:
                 var mod = visitModule(node);
                 var isEmpty = Object.keys(mod).reduce(function(acc, k) {
-                    return acc && !(Array.isArray(mod[k]) && mod[k].length > 0); 
+                    return acc && !(Array.isArray(mod[k]) && mod[k].length > 0);
                 }, true);
                 if (!isEmpty)
                     modules.push(mod);
@@ -819,7 +819,7 @@ try {
     var filePath = process.argv[2];
     if (filePath == null)
         throw "Please provide the path to a TypeScript definition file";
-    
+
     // fileName = (fileName = path.basename(filePath).replace(".d.ts",""), fileName[0].toUpperCase() + fileName.substr(1));
     // `readonly` keyword is causing problems, remove it
     var code = fs.readFileSync(filePath).toString().replace(/readonly/g, "");
