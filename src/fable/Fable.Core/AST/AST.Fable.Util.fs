@@ -110,7 +110,7 @@ let tryImported com name srcFile curFile (decs: #seq<Decorator>) =
 
 let makeJsObject range (props: (string * Expr) list) =
     let decls = props |> List.map (fun (name, body) ->
-        MemberDeclaration(Member(name, Field, [], body.Type), None, [], body, range))
+        MemberDeclaration(Member(name, Field, InstanceLoc, [], body.Type), None, [], body, range))
     ObjExpr(decls, [], None, Some range)
 
 let makeNonDeclaredTypeRef (kind: TypeKind) arg =
@@ -239,7 +239,7 @@ let makeUnionCons () =
     let argTypes = List.map Ident.getType args
     let emit = Emit "this.Case=caseName; this.Fields = fields;" |> Value
     let body = Apply (emit, [], ApplyMeth, Unit, None)
-    MemberDeclaration(Member(".ctor", Constructor, argTypes, Any), None, args, body, SourceLocation.Empty)
+    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), None, args, body, SourceLocation.Empty)
 
 let makeRecordCons (props: (string*Type) list) =
     let args =
@@ -259,14 +259,14 @@ let makeRecordCons (props: (string*Type) list) =
             "this" + propName + "=" + arg.Name)
         |> String.concat ";"
         |> fun body -> makeEmit None Unit [] body
-    MemberDeclaration(Member(".ctor", Constructor, List.map Ident.getType args, Any), None, args, body, SourceLocation.Empty)
+    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, SourceLocation.Empty)
 
 let private makeMeth com argType returnType name coreMeth =
     let arg = Ident("other", argType)
     let body =
         CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
         |> makeCall com None returnType
-    MemberDeclaration(Member(name, Method, [arg.Type], returnType), None, [arg], body, SourceLocation.Empty)
+    MemberDeclaration(Member(name, Method, InstanceLoc,[arg.Type], returnType), None, [arg], body, SourceLocation.Empty)
 
 let makeUnionEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsUnions"
 let makeRecordEqualMethod com argType = makeMeth com argType Boolean "Equals" "equalsRecords"
@@ -275,7 +275,7 @@ let makeRecordCompareMethod com argType = makeMeth com argType (Number Int32) "C
 
 let makeTypeNameMeth com typeFullName =
     let typeFullName = Value(StringConst typeFullName)
-    MemberDeclaration(Member("typeName", Method, [], String, isSymbol=true),
+    MemberDeclaration(Member("typeName", Method, InstanceLoc, [], String, isSymbol=true),
                         None, [], typeFullName, SourceLocation.Empty)
 
 let makeInterfacesMethod com curFile (ent: Fable.Entity) extend interfaces =
@@ -287,7 +287,7 @@ let makeInterfacesMethod com curFile (ent: Fable.Entity) extend interfaces =
         CoreLibCall("Util", Some "extendInfo", false,
             [makeTypeRefFrom com curFile ent; makeConst "interfaces"; interfaces])
         |> makeCall com None Any
-    MemberDeclaration(Member("interfaces", Method, [], Array String, isSymbol=true),
+    MemberDeclaration(Member("interfaces", Method, InstanceLoc, [], Array String, isSymbol=true),
                         None, [], interfaces, SourceLocation.Empty)
 
 let makePropertiesMethod com curFile ent extend properties =
@@ -295,14 +295,14 @@ let makePropertiesMethod com curFile ent extend properties =
         let genInfo = { makeGeneric=true; genericAvailability=false }
         properties |> List.map (fun (name, typ) ->
             let body = makeTypeRef com None curFile genInfo typ
-            MemberDeclaration(Member(name, Field, [], Any), None, [], body, SourceLocation.Empty))
+            MemberDeclaration(Member(name, Field, InstanceLoc, [], Any), None, [], body, SourceLocation.Empty))
         |> fun decls -> ObjExpr(decls, [], None, None)
     let body =
         if not extend then body else
         CoreLibCall("Util", Some "extendInfo", false,
             [makeTypeRefFrom com curFile ent; makeConst "properties"; body])
         |> makeCall com None Any
-    MemberDeclaration(Member("properties", Method, [], Any, isSymbol=true),
+    MemberDeclaration(Member("properties", Method, InstanceLoc, [], Any, isSymbol=true),
                         None, [], body, SourceLocation.Empty)
 
 let makeCasesMethod com curFile (cases: Map<string, Type list>) =
@@ -311,9 +311,9 @@ let makeCasesMethod com curFile (cases: Map<string, Type list>) =
         cases |> Seq.map (fun kv ->
             let typs = kv.Value |> List.map (makeTypeRef com None curFile genInfo)
             let typs = Fable.ArrayConst(Fable.ArrayValues typs, Any) |> Fable.Value
-            MemberDeclaration(Member(kv.Key, Field, [], Any), None, [], typs, SourceLocation.Empty))
+            MemberDeclaration(Member(kv.Key, Field, InstanceLoc, [], Any), None, [], typs, SourceLocation.Empty))
         |> fun decls -> ObjExpr(Seq.toList decls, [], None, None)
-    MemberDeclaration(Member("cases", Method, [], Any, isSymbol=true), None, [], body, SourceLocation.Empty)
+    MemberDeclaration(Member("cases", Method, InstanceLoc, [], Any, isSymbol=true), None, [], body, SourceLocation.Empty)
 
 let makeDelegate (com: ICompiler) arity (expr: Expr) =
     let rec flattenLambda (arity: int option) isArrow accArgs = function

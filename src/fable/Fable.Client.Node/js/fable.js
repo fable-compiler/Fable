@@ -20,11 +20,9 @@ var optionDefinitions = [
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
   { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins (true by default)." },
   { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
-  { name: 'refs', multiple: true, description: "Specify dll or project references in `Reference=js/import/path` format (e.g. `MyLib=../lib`)." },
   { name: 'dll', type: Boolean, description: "Generate a `dll` assembly." },
   { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
-  { name: 'copyExt', type: Boolean, description: "Copy external files into `fable_external` folder (true by default)." },
   { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
   { name: 'verbose', type: Boolean, description: "Print more information about the compilation process." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
@@ -358,8 +356,6 @@ function resolvePath(optName, value, workingDir) {
             case "plugins":
             case "babelPlugins":
                 return resolveArray(value, resolve);
-            case "refs":
-                return resolveKeyValuePairs(value);
         }
     }
     return value;
@@ -558,19 +554,8 @@ function readOptions(opts) {
     opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
     opts.coreLib = opts.coreLib || (opts.rollup ? "fable-core/es2015" : "fable-core");
     opts.outDir = opts.outDir ? opts.outDir : (opts.projFile.length === 1 ? path.dirname(opts.projFile[0]) : ".");
-
     if (opts.module == null) {
-        opts.module = opts.rollup
-            ? "iife"
-            : (opts.ecma != "es2015" && opts.ecma != "es6" ? "commonjs" : "es2015");
-    }
-
-    // If refs is set in fableconfig.json, convert them to an array
-    if (typeof opts.refs == "object" && !Array.isArray(opts.refs)) {
-        var refs = [];
-        for (var k in opts.refs)
-            refs.push(k + "=" + opts.refs[k]);
-        opts.refs = refs;
+        opts.module = opts.rollup ? "iife" : "es2015";
     }
 
     // Check version

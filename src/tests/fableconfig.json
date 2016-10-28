@@ -4,6 +4,7 @@
         "../tests_external/Fable.Tests.External.fsproj",
         "Main/Fable.Tests.fsproj"
     ],
+    "module": "commonjs",
     "outDir": "../../build/tests",
     "coreLib": "../../build/fable-core",
     "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],

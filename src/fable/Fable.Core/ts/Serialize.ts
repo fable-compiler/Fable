@@ -186,7 +186,7 @@ export function toJsonWithTypeInfo(o: any): string {
           { $type: (v as any)[FSymbol.typeName] ? (v as any)[FSymbol.typeName]() : "System.Collections.Generic.Dictionary" }, v);
       }
       else if (v[FSymbol.typeName]) {
-        if (hasInterface(v, "FSharpUnion", "FSharpRecord")) {
+        if (hasInterface(v, "FSharpUnion") || hasInterface(v, "FSharpRecord")) {
           return Object.assign({ $type: v[FSymbol.typeName]() }, v);
         }
         else {

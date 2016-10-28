@@ -62,9 +62,12 @@ export function extendInfo(cons: FunctionConstructor, symbolName: string, info: 
     : Object.assign(info, parentObj);
 }
 
-export function hasInterface(obj: any, ...interfaceNames: string[]) {
-  return obj[FSymbol.interfaces]
-    && obj[FSymbol.interfaces]().some((x: string) => interfaceNames.indexOf(x) >= 0);
+export function hasInterface(obj: any, interfaceName: string) {
+  const interfaces = typeof obj[FSymbol.interfaces] === "function"
+    ? obj[FSymbol.interfaces]() : obj[FSymbol.interfaces];
+  return Array.isArray(interfaces)
+    ? interfaces.indexOf(interfaceName) > -1
+    : interfaces == interfaceName;
 }
 
 export function getRestParams(args: ArrayLike<any>, idx: number) {
@@ -94,6 +97,9 @@ export function equals(x: any, y: any): boolean {
             && equalsRecords(x.prototype[FSymbol.generics](), y.prototype[FSymbol.generics]());
   else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
     return false;
+  // Equals override or IEquatable implementation
+  else if (typeof x.Equals === "function")
+    return x.Equals(y);
   else if (Array.isArray(x)) {
     if (x.length != y.length) return false;
     for (let i = 0; i < x.length; i++)
@@ -109,8 +115,6 @@ export function equals(x: any, y: any): boolean {
   }
   else if (x instanceof Date)
     return x.getTime() == y.getTime();
-  else if (hasInterface(x, "System.IEquatable"))
-    return x.Equals(y);
   else
     return x === y;
 }
@@ -122,6 +126,8 @@ export function compare(x: any, y: any): number {
     return -1;
   else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
     return -1;
+  else if (hasInterface(x, "System.IComparable"))
+    return x.CompareTo(y);
   else if (Array.isArray(x)) {
     if (x.length != y.length) return x.length < y.length ? -1 : 1;
     for (let i = 0, j = 0; i < x.length; i++)
@@ -139,8 +145,6 @@ export function compare(x: any, y: any): number {
     }
     return 0;
   }
-  else if (hasInterface(x, "System.IComparable"))
-    return x.CompareTo(y);
   else
     return x < y ? -1 : x > y ? 1 : 0;
 }
@@ -189,7 +193,7 @@ export function compareUnions(x: any, y: any): number {
 export function createDisposable(f: () => void): IDisposable {
   return {
     Dispose: f,
-    [FSymbol.interfaces]() { return ["System.IDisposable"] }
+    [FSymbol.interfaces]: "System.IDisposable"
   };
 }
 

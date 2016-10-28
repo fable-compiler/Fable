@@ -430,23 +430,27 @@ module Util =
             |> List.choose (function
                 | Fable.EntityDeclaration _ | Fable.ActionDeclaration _ -> None // Shouldn't happen
                 | Fable.MemberDeclaration(m, _, args, body, r) ->
-                    let makeMethod kind name =
-                        let name, computed = sanitizeName name
+                    let key, computed =
+                        if m.IsSymbol
+                        then getSymbol com ctx m.Name, true
+                        else sanitizeName m.Name
+                    let makeMethod kind =
                         let args, body, returnType, typeParams =
                             getMemberArgs com ctx args body m.GenericParameters m.HasRestParams
-                        Babel.ObjectMethod(kind, name, args, body, ?returnType=returnType,
+                        Babel.ObjectMethod(kind, key, args, body, ?returnType=returnType,
                             ?typeParams=typeParams, computed=computed, ?loc=Some r)
                         |> U3.Case2
                     match m.Kind with
                     | Fable.Constructor ->
                         "Unexpected constructor in Object Expression"
                         |> Fable.Util.attachRange range |> failwith
-                    | Fable.Method -> makeMethod Babel.ObjectMeth m.Name
-                    | Fable.Setter -> makeMethod Babel.ObjectSetter m.Name
-                    | Fable.Getter -> makeMethod Babel.ObjectGetter m.Name
+                    | Fable.Method -> makeMethod Babel.ObjectMeth
+                    | Fable.Setter -> makeMethod Babel.ObjectSetter
+                    | Fable.Getter -> makeMethod Babel.ObjectGetter
                     | Fable.Field ->
-                        let key, _ = sanitizeName m.Name
-                        Babel.ObjectProperty(key, com.TransformExpr ctx body, ?loc=Some r) |> U3.Case1
+                        Babel.ObjectProperty(key, com.TransformExpr ctx body,
+                                computed=computed, ?loc=Some r)
+                        |> U3.Case1
                     |> Some)
             |> appendObjectIterator interfaces
             |> fun props ->
@@ -454,10 +458,11 @@ module Util =
                 | [] -> props
                 | interfaces ->
                     let body =
-                        [buildStringArray interfaces |> Babel.ExpressionStatement :> Babel.Statement]
-                        |> Babel.BlockStatement
-                    Babel.ObjectMethod(Babel.ObjectMeth, getSymbol com ctx "interfaces", [], body, computed=true)
-                    |> U3.Case2 |> consBack props
+                        match interfaces with
+                        | [ifc] -> Babel.StringLiteral ifc :> Babel.Expression
+                        | ifcs -> buildStringArray ifcs
+                    Babel.ObjectProperty(getSymbol com ctx "interfaces", body, computed=true)
+                    |> U3.Case1 |> consBack props
             |> fun props ->
                 upcast Babel.ObjectExpression(props, ?loc=range)
 
@@ -801,17 +806,18 @@ module Util =
         decls
         |> List.map (function
             | Fable.MemberDeclaration(m, _, args, body, range) ->
-                let kind, name, isStatic, isSymbol, body =
+                let kind, name, loc, isSymbol, body =
                     match m.Kind with
                     | Fable.Constructor ->
                         let body =
                             match ent with
                             | Some(EntKind(Fable.Class(Some _, _))) -> checkBaseCall body
                             | _ -> body
-                        Babel.ClassConstructor, "constructor", false, false, body
-                    | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.IsStatic, m.IsSymbol, body
-                    | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.IsStatic, m.IsSymbol, body
-                    | Fable.Setter -> Babel.ClassSetter, m.Name, m.IsStatic, m.IsSymbol, body
+                        Babel.ClassConstructor, "constructor", Fable.InstanceLoc, false, body
+                    | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.Location, m.IsSymbol, body
+                    | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.Location, m.IsSymbol, body
+                    | Fable.Setter -> Babel.ClassSetter, m.Name, m.Location, m.IsSymbol, body
+                let isStatic = loc = Fable.StaticLoc
                 declareMethod range kind name args body m.GenericParameters m.HasRestParams isStatic isSymbol
             | Fable.ActionDeclaration _
             | Fable.EntityDeclaration _ as decl ->
@@ -939,8 +945,8 @@ module Util =
         // Check if there's a static constructor
         entDecls |> Seq.exists (function
             | Fable.MemberDeclaration(m,_,_,_,_) ->
-                match m.Kind, m.Name with
-                | Fable.Method, ".cctor" when m.IsStatic -> true
+                match m.Name, m.Kind, m.Location with
+                | ".cctor", Fable.Method, Fable.StaticLoc -> true
                 | _ -> false
             | _ -> false)
         |> function

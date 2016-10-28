@@ -59,8 +59,6 @@ let readOptions argv =
         declaration = def opts "declaration" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id) |> List.append ["FABLE_COMPILER"] |> List.distinct
         plugins = def opts "plugins" [] (li id)
-        refs = Map(def opts "refs" [] (li (fun (x: string) ->
-            let xs = x.Split('=') in xs.[0], xs.[1])))
         extra = Map(def opts "extra" [] (li (fun (x: string) ->
             if x.Contains("=")
             then let xs = x.Split('=') in xs.[0], xs.[1]
