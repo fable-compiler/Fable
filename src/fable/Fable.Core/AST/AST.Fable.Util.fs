@@ -373,3 +373,32 @@ let getTypedArrayName (com: ICompiler) numberKind =
     | Float32 -> "Float32Array"
     | Float64 -> "Float64Array"
     | Decimal -> "Float64Array"
+
+/// Helper when we need to compare the types of the arguments applied to a method
+/// (concrete) with the declared argument types for that method (may be generic)
+/// (e.g. when resolving a TraitCall)
+let compareConcreteAndGenericTypes appliedArgs declaredArgs =
+    let listsEqual f li1 li2 =
+        if List.length li1 <> List.length li2
+        then false
+        else List.fold2 (fun b x y -> if b then f x y else false) true li1 li2
+    let genArgs = System.Collections.Generic.Dictionary<string, Type>()
+    let rec argEqual x y =
+        match x, y with
+        | Option genArg1, Option genArg2
+        | Array genArg1, Array genArg2 ->
+            argEqual genArg1 genArg2
+        | Tuple genArgs1, Tuple genArgs2 ->
+            listsEqual argEqual genArgs1 genArgs2
+        | Function (genArgs1, typ1), Function (genArgs2, typ2) ->
+            argEqual typ1 typ2 && listsEqual argEqual genArgs1 genArgs2
+        | DeclaredType(ent1, genArgs1), DeclaredType(ent2, genArgs2) ->
+            ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2
+        | GenericParam name1, GenericParam name2 ->
+            name1 = name2
+        | x, GenericParam name ->
+            if genArgs.ContainsKey name
+            then genArgs.[name] = x
+            else genArgs.Add(name, x); true
+        | x, y -> x = y
+    listsEqual argEqual appliedArgs declaredArgs

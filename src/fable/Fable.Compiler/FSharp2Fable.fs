@@ -331,55 +331,41 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         |> makeSequential (makeRangeFrom fsExpr)
 
     (** ## Applications *)
-    | BasicPatterns.TraitCall (sourceTypes, traitName, flags, argTypes, _, argExprs) ->
-        let listsEqual f li1 li2 =
-            if List.length li1 <> List.length li2
-            then false
-            else List.fold2 (fun b x y -> if b then f x y else false) true li1 li2
-        // TraitCalls don't know the generic definition of the method argument types,
-        // thus we need a bit more convoluted function to compare them.
-        let argsEqual (argTypes1: Fable.Type list) (argTypes2: Fable.Type list) =
-            let genArgs = Dictionary<string, Fable.Type>()
-            let rec argEqual x y =
-                match x, y with
-                | Fable.GenericParam name1, Fable.GenericParam name2 -> name1 = name2
-                | Fable.GenericParam name, y ->
-                    if genArgs.ContainsKey name
-                    then genArgs.[name] = y
-                    else genArgs.Add(name, y); true
-                | Fable.Array genArg1, Fable.Array genArg2 ->
-                    argEqual genArg1 genArg2
-                | Fable.Tuple genArgs1, Fable.Tuple genArgs2 ->
-                    listsEqual argEqual genArgs1 genArgs2
-                | Fable.Function (genArgs1, typ1), Fable.Function (genArgs2, typ2) ->
-                    argEqual typ1 typ2 && listsEqual argEqual genArgs1 genArgs2
-                | Fable.DeclaredType(ent1, genArgs1), Fable.DeclaredType(ent2, genArgs2) ->
-                    ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2
-                | x, y -> x = y
-            listsEqual argEqual argTypes1 argTypes2
-        let sourceType =
-            sourceTypes |> List.tryFind (fun (NonAbbreviatedType t) ->
-                if not t.HasTypeDefinition
-                then false
-                else t.TypeDefinition.MembersFunctionsAndValues
-                     |> Seq.exists (fun m -> m.CompiledName = traitName))
-            |> defaultArg <| sourceTypes.Head // TODO: Throw exception instead?
-            |> makeType com ctx
+    | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, argTypes2, argExprs) ->
         let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        let sourceType, candidates =
+            (None, sourceTypes)
+            ||> List.fold (fun candidates (NonAbbreviatedType t) ->
+                if candidates.IsSome then candidates else
+                if not t.HasTypeDefinition then None else
+                t.TypeDefinition.MembersFunctionsAndValues
+                |> Seq.filter (fun m ->
+                    m.IsInstanceMember = flags.IsInstance
+                    && m.CompiledName = traitName)
+                |> Seq.toList |> function
+                    | [] -> None
+                    | candidates -> Some(t, candidates))
+            |> function
+                | Some (t, candidates) -> t, candidates
+                | None -> "Cannot resolve trait call " + traitName
+                          |> attachRange range |> failwith
+        let fableSourceType = makeType com ctx sourceType
+        let argTypes = List.map (makeType com ctx) argTypes
+        let overloadIndex =
+            if candidates.Length = 1 then None else
+            candidates |> List.tryFindIndex (fun meth ->
+                getArgTypes com meth.CurriedParameterGroups
+                |> compareConcreteAndGenericTypes argTypes)
         let callee, args =
             if flags.IsInstance
             then transformExpr com ctx argExprs.Head,
                  List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail
-            else makeNonGenTypeRef com range ctx.fileName sourceType,
+            else makeNonGenTypeRef com range ctx.fileName fableSourceType,
                  List.map (transformExprWithRole AppliedArgument com ctx) argExprs
-        let argTypes = List.map (makeType com ctx) argTypes
         let methName =
-            match sourceType with
-            | Fable.DeclaredType(ent,_) ->
-                let loc = if flags.IsInstance then Fable.InstanceLoc else Fable.StaticLoc
-                ent.TryGetMember(traitName, Fable.Method, loc, argTypes, argsEqual)
-                |> function Some m -> m.OverloadName | None -> traitName
-            | _ -> traitName
+            match overloadIndex with
+            | Some i -> sprintf "%s_%i" traitName i
+            | None -> traitName
         makeGet range (Fable.Function(argTypes, typ)) callee (makeConst methName)
         |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, range)
 
