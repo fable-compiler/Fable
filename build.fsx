@@ -310,9 +310,13 @@ Target "FableCompilerNetcore" (fun _ ->
 )
 
 Target "NUnitTest" (fun _ ->
+    !! "src/tests/DllRef/Fable.Tests.DllRef.fsproj"
+    |> MSBuildDebug "build/tests_dll" "Build"
+    |> ignore
+
     let testsBuildDir = "build/tests"
     !! "src/tests/Main/Fable.Tests.fsproj"
-    |> MSBuildRelease testsBuildDir "Build"
+    |> MSBuildDebug testsBuildDir "Build"
     |> ignore
 
     [Path.Combine(testsBuildDir, "Fable.Tests.dll")]

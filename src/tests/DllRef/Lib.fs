@@ -25,7 +25,12 @@ module internal Foo' =
 module モジュール =
     let ファンクション x = Foo'.bar' x
 
+    #if FABLE_COMPILER
     [<Fable.Core.Import("one", "./numbers.js")>]
     let one: int = failwith "JS only"
-
     let three: int = Fable.Core.JsInterop.importMember "./numbers.js"
+    #else
+    let one: int = 1
+    let three: int = 3
+    #endif
+
