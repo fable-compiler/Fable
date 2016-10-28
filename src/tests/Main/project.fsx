@@ -1,21 +1,23 @@
-// This file is a replacemente for Fable.Tests.fsproj
-// as Fable NetCore version cannot read fsproj files
+// This file is a (temporary) replacement for Fable.Tests.fsproj when using Fable-compiler-netcore.
+// Fable NetCore version can read .fsproj files, but some of the references are slightly different.
 
+#if FABLE_COMPILER
 #r "System.Threading.dll"
 #r "System.Text.RegularExpressions.dll"
-#r "../../packages/NUnit/lib/dotnet/nunit.framework.dll"
-#r "../../packages/Newtonsoft.Json/lib/netstandard1.0/Newtonsoft.Json.dll"
-#r "../../build/fable/bin/Fable.Core.dll"
-//#r "./bin/Release/netcoreapp1.0/Fable.Core.dll"
+#r "../../../packages/NUnit/lib/dotnet/nunit.framework.dll"
+#r "../../../packages/Newtonsoft.Json/lib/netstandard1.0/Newtonsoft.Json.dll"
+#r "./bin/Release/netcoreapp1.0/Fable.Core.dll"
+#endif
 
 #load
-    "DllRef/Util/Util.fs"
-    "DllRef/Lib.fs"
-    "Other/Util/Util.fs"
+    "../DllRef/Util/Util.fs"
+    "../DllRef/Lib.fs"
+    "../Project With Spaces/Util/Util.fs"
     "Util/Util.fs"
     "Util/Util2.fs"
-    "../tests_external/Util3.fs"
-    "../tests_external/Util4.fs"
+    "../../tests_external/Util3.fs"
+    "../../tests_external/Util4.fs"
+    "ApplicativeTests.fs"
     "ArithmeticTests.fs"
     "ArrayTests.fs"
     "AsyncTests.fs"

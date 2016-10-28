@@ -1,0 +1,14 @@
+{
+    "projFile": ["Fable.Tests.fsproj"],
+    "outDir": "../../../build/tests",
+    "coreLib": "../../../build/fable-core",
+    "plugins": ["../../plugins/nunit/Fable.Plugins.NUnit.dll"],
+    "targets": {
+        "netcore": {
+            "ecma": "es2015",
+            "projFile": ["project.fsx"],
+            "symbols": ["DOTNETCORE"],
+            "plugins": ["../../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
+        }
+    }
+}

@@ -280,7 +280,7 @@ Target "FableCompilerNetcore" (fun _ ->
         Util.run testDir "dotnet" "test -c Release"
 
         // Compile JavaScript tests
-        Node.run "." buildDir ["src/tests --target netcore"]
+        Node.run "." buildDir ["src/tests/Main --target netcore"]
         let testsBuildDir = "build/tests"
         FileUtils.cp "src/tests/package.json" testsBuildDir
         Npm.install testsBuildDir []
