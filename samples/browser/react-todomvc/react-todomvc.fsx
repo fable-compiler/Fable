@@ -2,7 +2,6 @@
  - title: React TodoMVC with Fable
  - tagline: Unveil the power of React and functional programming!
  - app-style: width:800px; margin:20px auto 50px auto;
- - require-paths: `'classnames': 'lib/classnames/index', 'react': 'lib/react/react-with-addons', 'react-dom': 'lib/react/react-dom'`
  - intro: This is a port of [React TodoMVC](http://todomvc.com/examples/react/) to show how easy
    is to take advantage of the full power of [React](https://facebook.github.io/react/) in Fable apps.
    You can also compare the [F# source code](https://github.com/fable-compiler/Fable/blob/master/samples/browser/react-todomvc/react-todomvc.fsx)
@@ -16,15 +15,12 @@
 
 Fable includes [React bindings and helpers](https://www.npmjs.com/package/fable-import-react)
 to make interaction with the tool more idiomatic in F#. We will also load a couple more of
-JS libraries: [classnames](https://github.com/JedWatson/classnames) with require.js and
-[director](https://github.com/flatiron/director) directly with a `<script>` tag.
-We will make them accessible to our program with [Import and Global attributes](https://fable-compiler.github.io/docs/interacting.html#Import-attribute)
-respectively.
+JS libraries: [classnames](https://github.com/JedWatson/classnames) and
+[director](https://github.com/flatiron/director).
 *)
 
-#r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-react/Fable.Import.React.fs"
-#load "node_modules/fable-import-react/Fable.Helpers.React.fs"
+#r "../node_modules/fable-core/Fable.Core.dll"
+#r "../node_modules/fable-react/umd/Fable.React.dll"
 
 open System
 open Fable.Core
@@ -32,12 +28,11 @@ open Fable.Core.JsInterop
 open Fable.Import
 
 // JS utility for conditionally joining classNames together
-let [<Import("default","classnames")>] classNames(o: obj): string =
-    jsNative
+let classNames: obj->string = importDefault "classnames"
 
-// Director is a router. Routing is the process of determining what code to run when a URL is requested.
-let [<Global>] Router(o: obj): obj =
-    jsNative
+// Director is a router. Routing is the process of determining
+// what code to run when a URL is requested.
+let Router: obj->obj = importDefault "director"
 
 (**
 ## Utility module
@@ -48,7 +43,7 @@ and save data from the browser local storage as things like Guid generation
 (`System.Guid.NewGuid()`) or record immutable updates are built-in in F#/Fable.
 
 > Because our `Todo` type is really simple (see below), `JSON.parse` will meet our needs.
-For more complicated structures see [JSON serialization with Fable](https://fable-compiler.github.io/docs/interacting.html#JSON-serialization). 
+For more complicated structures see [JSON serialization with Fable](https://fable-compiler.github.io/docs/interacting.html#JSON-serialization).
 *)
 
 module Util =
@@ -124,7 +119,7 @@ We enter now in React's realm to define three views: TodoItem, TodoFooter and To
 We can use classes to define the views as explained in [React docs](https://facebook.github.io/react/docs/reusable-components.html#es6-classes),
 inheriting from `React.Component` and defining a `render` method, where we can use
 the DSL defined in Fable's React helper to build HTML elements in a similar fashion
-as we would do with JSX. 
+as we would do with JSX.
 
 > For convenience, we use a module alias (`R`) to shorten references to the React helper.
 
@@ -139,8 +134,8 @@ open R.Props
 
 type TodoItemState = { editText: string }
 type TodoItemProps =
-    abstract key: Guid 
-    abstract todo: Todo 
+    abstract key: Guid
+    abstract todo: Todo
     abstract editing: bool
     abstract onSave: obj->unit
     abstract onEdit: obj->unit
@@ -214,7 +209,7 @@ type TodoItem(props, ctx) as this =
                     ClassName "toggle"
                     Type "checkbox"
                     Checked this.props.todo.completed
-                    OnChange this.props.onToggle  
+                    OnChange this.props.onToggle
                 ] []
                 R.label [ OnDoubleClick this.handleEdit ]
                         [ unbox this.props.todo.title ]
@@ -240,7 +235,7 @@ Same as `TodoItem`, notice the component subscribes to some events (like `OnClic
 but instead of containing the logic to react to the event it just runs a callback
 received from its parent through the `props` object. Remember the state of React
 components cannot be directly updated, so this is a way to transmit the event to
-the parent and let it re-render the subtree if necessary. 
+the parent and let it re-render the subtree if necessary.
 *)
 
 type TodoFooterProps =
@@ -358,7 +353,7 @@ type TodoApp(props, ctx) as this =
 
     member this.render () =
         let todos = this.props.model.todos
-        let todoItems = 
+        let todoItems =
             todos
             |> Seq.filter (fun todo ->
                 match this.state.nowShowing with
@@ -430,7 +425,7 @@ type TodoApp(props, ctx) as this =
 
 There's nothing left to do but building our model, mount our `TodoApp` view
 in the DOM by using `ReactDom.render` and subscribe to the events. Happy coding!
-*)   
+*)
 
 let model = TodoModel("react-todos")
 let render() =

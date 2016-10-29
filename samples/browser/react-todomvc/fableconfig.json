@@ -1,9 +1,6 @@
 {
+    "projFile": "react-todomvc.fsx",
     "module": "amd",
     "sourceMaps": true,
-    "projFile": "react-todomvc.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
-    }
+    "outDir": "out"
 }

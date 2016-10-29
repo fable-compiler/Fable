@@ -13,13 +13,13 @@
 
 *)
 (*** hide ***)
-#r "node_modules/fable-core/Fable.Core.dll"
+#r "../node_modules/fable-core/Fable.Core.dll"
 
 open Fable.Core
+open Fable.Import
 open Fable.Import.Browser
 
-[<Emit("Math.random()")>]
-let random (): float = jsNative
+let random (): float = JS.Math.random()
 (**
 This is a full blown Pacman game. If you're looking for an introduction to Fable
 then visit other tutorials, in particular the [Mario game](../mario/index.html) which

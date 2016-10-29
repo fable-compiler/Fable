@@ -3,13 +3,11 @@
 	<head>
 		<meta charset="utf-8">
 		<title>React + Fable • TodoMVC</title>
-		<!--<link rel="stylesheet" href="node_modules/todomvc-common/base.css">-->
-		<link rel="stylesheet" href="node_modules/todomvc-app-css/index.css">
 	</head>
 	<body>
 		<!-- [body] -->
-		<link rel="stylesheet" href="lib/todomvc-app.css">
-		<script src="lib/director/director.js"></script>
+		<link rel="stylesheet" href="../lib/todomvc/base.css">
+		<link rel="stylesheet" href="../lib/todomvc/index.css">
 
 		<section class="todoapp"></section>
 		<footer class="info">
@@ -19,22 +17,21 @@
 		</footer>
   		<!-- [/body] -->
 
-		<script src="node_modules/core-js/client/core.min.js"></script>
-		<script src="node_modules/requirejs/require.js"></script>
+		<script src="../lib/core.min.js"></script>
+		<script src="../lib/system.js"></script>
+		<script src="../lib/todomvc/base.js"></script>
         <script>
-        requirejs.config({
-            // Set the baseUrl to the path of the compiled JS code
-            baseUrl: 'out',
-            paths: {
-                // Explicit path to core lib (relative to baseUrl, omit .js)
-                'fable-core': '../node_modules/fable-core/fable-core',
-				'classnames': '../lib/classnames/index',
-                'react': '../lib/react/react-with-addons',
-                'react-dom': '../lib/react/react-dom'
-            }
-        });
-        // Load the entry file of the app (use array, omit .js)
-        requirejs(["react-todomvc"]);
+		System.defaultJSExtensions = true;
+		System.config({
+			map: {
+                'fable-core': '../node_modules/fable-core/umd',
+				'director': '../lib/director/director.js',
+				'classnames': '../lib/classnames/index.js',
+                'react': '../lib/react/react-with-addons.js',
+                'react-dom': '../lib/react/react-dom.js'
+			}
+		});
+		SystemJS.import('out/react-todomvc.js');
         </script>
 	</body>
 </html>

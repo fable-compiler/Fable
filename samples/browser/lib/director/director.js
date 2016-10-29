@@ -5,7 +5,7 @@
 // Version 1.2.6
 //
 
-(function (exports) {
+(function () {
 
 /*
  * browser.js: Browser specific functionality for director.
@@ -159,7 +159,7 @@ var listener = {
   onHashChanged: function () {}
 };
 
-var Router = exports.Router = function (routes) {
+var Router = function (routes) {
   if (!(this instanceof Router)) return new Router(routes);
 
   this.params   = {};
@@ -720,6 +720,15 @@ Router.prototype.mount = function(routes, path) {
   }
 };
 
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Router;
+} else if (typeof define === 'function' && typeof define.amd === 'object' && define.amd) {
+  // register as 'director', consistent with npm package name
+  define('director', [], function () {
+    return Router;
+  });
+} else {
+  window.Router = Router;
+}
 
-
-}(typeof exports === "object" ? exports : window));
+}());
