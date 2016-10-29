@@ -373,7 +373,7 @@ let ``Types can have Exception fields``() =
         try
             exn "foo" |> raise
         with ex -> MyExUnionCase ex
-    ex.Message.Trim('"') |> equal "foo"
+    ex.Message |> equal "foo"
 
 #if FABLE_COMPILER
 open Fable.Core

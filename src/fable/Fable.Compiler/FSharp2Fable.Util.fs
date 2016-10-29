@@ -557,7 +557,7 @@ module Types =
             if isIgnored t then None else
             let typeRef =
                 makeType com Context.Empty t
-                |> makeNonGenTypeRef com None ctx.fileName
+                |> makeNonGenTypeRef None ctx.fileName
             Some (sanitizeEntityFullName t.TypeDefinition, typeRef)
 
     // Some attributes (like ComDefaultInterface) will throw an exception
@@ -976,7 +976,7 @@ module Util =
         let srcFile = (getEntityLocation meth.EnclosingEntity).FileName
         meth.Attributes
         |> Seq.choose (makeDecorator com)
-        |> tryImported com meth.CompiledName srcFile ctx.fileName
+        |> tryImported meth.CompiledName srcFile ctx.fileName
         |> function
             | Some expr ->
                 match getMemberKind meth with
@@ -1016,7 +1016,7 @@ module Util =
                 |> attachRangeAndFile r ctx.fileName
                 |> Warning |> com.AddLog
             | _ -> ()
-            genName, makeTypeRef com None ctx.fileName genInfo typ)
+            genName, makeTypeRef None ctx.fileName genInfo typ)
         |> makeJsObject SourceLocation.Empty
 
     let makeCallFrom (com: IFableCompiler) ctx r typ
@@ -1052,7 +1052,7 @@ module Util =
             match meth.IsExtensionMember, callee with
             | true, Some callee ->
                 let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
-                             |> makeNonGenTypeRef com r ctx.fileName
+                             |> makeNonGenTypeRef r ctx.fileName
                 let methName =
                     let ent = makeEntity com ctx meth.EnclosingEntity
                     let loc = if meth.IsInstanceMember then Fable.InstanceLoc else Fable.StaticLoc
@@ -1066,7 +1066,7 @@ module Util =
                     match callee with
                     | Some callee -> callee
                     | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
-                              |> makeNonGenTypeRef com r ctx.fileName
+                              |> makeNonGenTypeRef r ctx.fileName
         (**     *Check if this a getter or setter  *)
                 match methKind with
                 | Fable.Getter | Fable.Field ->
@@ -1147,5 +1147,5 @@ module Util =
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []
-                    |> makeNonGenTypeRef com r ctx.fileName
+                    |> makeNonGenTypeRef r ctx.fileName
                 Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)

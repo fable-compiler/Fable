@@ -4,9 +4,9 @@ var constants = require("./constants");
 /**
  * Makes a node-style asynchronous function return an promise.
  * Pass the function and then the rest of arguments.
- * Example: `promise(fs.remove, "build").then(() => ...)`
+ * Example: `promisify(fs.remove, "build").then(() => ...)`
 */
-function promise(f) {
+function promisify(f) {
     var args = Array.from(arguments).slice(1);
     return new Promise(function (resolve, reject) {
         args.push(function (err, data) {
@@ -15,7 +15,7 @@ function promise(f) {
         f.apply(this, args);
     });
 }
-exports.promise = promise;
+exports.promisify = promisify;
 
 /** Prints a new line with the message on process.stderr */
 function stderrLog(tag, err) {

@@ -98,8 +98,7 @@ module Util =
         | TransformExpr com ctx property -> property, true
 
     let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule memb =
-        let importPath = com.Options.coreLib + "/" + coreModule
-        com.GetImportExpr ctx memb importPath Fable.CoreLib
+        com.GetImportExpr ctx memb coreModule Fable.CoreLib
 
     let getSymbol com ctx name =
         (getCoreLibImport com ctx "Symbol" "default", Babel.Identifier name)
@@ -150,7 +149,7 @@ module Util =
             let fileInfo = com.GetFileInfo file
             let importPath =
                 Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.targetFile
-                |> fun x -> System.IO.Path.ChangeExtension(x, null)
+                |> fun x -> System.IO.Path.ChangeExtension(x, ".js")
             getParts fileInfo.rootModule ent.FullName memb
             |> function
             | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
@@ -1070,6 +1069,7 @@ module Util =
                             | Fable.CustomImport -> resolvePath ctx path
                             | Fable.Internal _ -> path
                             | Fable.CoreLib ->
+                                let path = com.Options.coreLib + "/" + path + ".js"
                                 if not(path.StartsWith ".") then path else
                                 IO.Path.GetFullPath path
                                 |> Path.getRelativePath ctx.file.TargetFile

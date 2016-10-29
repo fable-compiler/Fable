@@ -1,5 +1,5 @@
-import FSymbol from "./Symbol"
-import { fableGlobal } from "./Symbol"
+import FSymbol from "./Symbol.js"
+import { fableGlobal } from "./Symbol.js"
 
 export const enum TypeKind {
   Any = 1,

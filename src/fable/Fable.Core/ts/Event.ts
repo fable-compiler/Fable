@@ -1,11 +1,11 @@
-import { IObserver } from "./Observable"
-import { IObservable } from "./Observable"
-import { IDisposable } from "./Util"
-import { createDisposable } from "./Util"
-import { iterate as seqIterate } from "./Seq"
-import Choice from "./Choice"
-import { Observer } from "./Observable"
-import { protect } from "./Observable"
+import { IObserver } from "./Observable.js"
+import { IObservable } from "./Observable.js"
+import { IDisposable } from "./Util.js"
+import { createDisposable } from "./Util.js"
+import { iterate as seqIterate } from "./Seq.js"
+import Choice from "./Choice.js"
+import { Observer } from "./Observable.js"
+import { protect } from "./Observable.js"
 
 export type Delegate<T> = (x: T) => void;
 export type DotNetDelegate<T> = (sender: any, x: T) => void;

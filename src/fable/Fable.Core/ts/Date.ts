@@ -1,5 +1,5 @@
-import { create as timeSpanCreate } from "./TimeSpan"
-import { compare as utilCompare } from "./Util"
+import { create as timeSpanCreate } from "./TimeSpan.js"
+import { compare as utilCompare } from "./Util.js"
 
 export const enum DateKind {
   UTC = 1,

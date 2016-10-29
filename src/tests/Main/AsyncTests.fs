@@ -131,8 +131,8 @@ let cancelWork: Async<string> = Async.FromContinuations(fun (_,_,onCancel) ->
 let ``Async.StartWithContinuations works``() =
     let res1, res2, res3 = ref "", ref "", ref ""
     Async.StartWithContinuations(successWork, (fun x -> res1 := x), ignore, ignore)
-    Async.StartWithContinuations(errorWork, ignore, (fun x -> res2 := x.Message.Trim('"')), ignore)
-    Async.StartWithContinuations(cancelWork, ignore, ignore, (fun x -> res3 := x.Message.Trim('"')))
+    Async.StartWithContinuations(errorWork, ignore, (fun x -> res2 := x.Message), ignore)
+    Async.StartWithContinuations(cancelWork, ignore, ignore, (fun x -> res3 := x.Message))
     equal "success" !res1
     equal "error" !res2
     equal "cancelled" !res3
@@ -141,7 +141,7 @@ let ``Async.StartWithContinuations works``() =
 let ``Async.Catch works``() =
     let assign res = function
         | Choice1Of2 msg -> res := msg
-        | Choice2Of2 (ex: Exception) -> res := "ERROR: " + ex.Message.Trim('"')
+        | Choice2Of2 (ex: Exception) -> res := "ERROR: " + ex.Message
     let res1 = ref ""
     let res2 = ref ""
     async {
@@ -311,14 +311,14 @@ let ``Nested failure propagates in async expressions``() =
                     failwith "1"
                     return x
                 with
-                | e -> return! failwith ("2 " + e.Message.Trim('"'))
+                | e -> return! failwith ("2 " + e.Message)
             }
         let f2 x =
             async {
                 try
                     return! f1 x
                 with
-                | e -> return! failwith ("3 " + e.Message.Trim('"'))
+                | e -> return! failwith ("3 " + e.Message)
             }
         let f() =
             async {
@@ -326,7 +326,7 @@ let ``Nested failure propagates in async expressions``() =
                     let! y = f2 4
                     return ()
                 with
-                | e -> data := e.Message.Trim('"')
+                | e -> data := e.Message
             }
             |> Async.StartImmediate
         f()
@@ -365,7 +365,7 @@ let ``Final statement inside async expressions can throw``() =
                 do! f()
                 return ()
             with
-            | e -> data := !data + e.Message.Trim('"')
+            | e -> data := !data + e.Message
         }
         |> Async.StartImmediate
         do! Async.Sleep 100

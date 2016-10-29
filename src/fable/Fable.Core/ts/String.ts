@@ -1,13 +1,13 @@
-import { toString } from "./Util"
-import { getRestParams } from "./Util"
-import { escape } from "./RegExp"
-import { DateKind } from "./Date"
-import { second } from "./Date"
-import { minute } from "./Date"
-import { hour } from "./Date"
-import { day } from "./Date"
-import { month } from "./Date"
-import { year } from "./Date"
+import { toString } from "./Util.js"
+import { getRestParams } from "./Util.js"
+import { escape } from "./RegExp.js"
+import { DateKind } from "./Date.js"
+import { second } from "./Date.js"
+import { minute } from "./Date.js"
+import { hour } from "./Date.js"
+import { day } from "./Date.js"
+import { month } from "./Date.js"
+import { year } from "./Date.js"
 
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
@@ -159,6 +159,10 @@ export function format(str: string, ...args: any[]) {
     }
     return rep;
   });
+}
+
+export function formatError(err: any) {
+  return typeof err === "string" ? err : fsFormat("%A", err);
 }
 
 export function endsWith(str: string, search: string) {

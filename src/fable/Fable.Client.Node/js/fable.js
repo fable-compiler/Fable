@@ -51,7 +51,7 @@ function processJson(json, opts, continuation) {;
         }
         if (babelAst.type == "LOG") {
             if (babelAst.message.indexOf("[WARNING]") == 0) {
-                fableLib.stderrLog(babelAst.message);
+                fableLib.stdoutLog(babelAst.message);
             }
             else if (opts.verbose) {
                 fableLib.stdoutLog(babelAst.message);
@@ -71,9 +71,8 @@ function processJson(json, opts, continuation) {;
             fableLib.stdoutLog("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
         }
     }
-    catch (e) {
-        var err = e.message ? e : { message: e };
-        fableLib.stderrLog(err.message);
+    catch (err) {
+        fableLib.stderrLog("PARSE", err);
         if (!opts.watch) {
             fableLib.finish(1, continuation);
         }
@@ -597,7 +596,7 @@ function main(opts, continuation) {
         }
     }
     catch (err) {
-        fableLib.stderrLog(err);
+        fableLib.stderrLog("OPTIONS", err);
         fableLib.finish(1, continuation);
     }
 }

@@ -1,10 +1,10 @@
-import { IAsync } from "./AsyncBuilder"
-import { IAsyncContext } from "./AsyncBuilder"
-import { Continuation } from "./AsyncBuilder"
-import { CancellationToken } from "./AsyncBuilder"
-import { defaultCancellationToken } from "./Async"
-import { fromContinuations } from "./Async"
-import { startImmediate } from "./Async"
+import { IAsync } from "./AsyncBuilder.js"
+import { IAsyncContext } from "./AsyncBuilder.js"
+import { Continuation } from "./AsyncBuilder.js"
+import { CancellationToken } from "./AsyncBuilder.js"
+import { defaultCancellationToken } from "./Async.js"
+import { fromContinuations } from "./Async.js"
+import { startImmediate } from "./Async.js"
 
 class QueueCell<Msg> {
   value: Msg;

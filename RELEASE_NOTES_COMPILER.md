@@ -1,6 +1,8 @@
 ### 0.7.5-alpha.21
 
-* ???
+* Don't print warnings in process.stderr (see #516)
+* Add `String/formatError` (see #519)
+* Add `.js` extension to `fable-core` and internal imports
 
 ### 0.7.5-alpha.19
 

@@ -1,3 +1,8 @@
+### 0.7.5-alpha.10
+
+* Add `.js` extension to internal `fable-core` imports
+* Add `String/formatError` (see #519)
+
 ### 0.7.5-alpha.9
 
 * Distribute fable-core with ES2015 (default) and UMD module formats

@@ -58,7 +58,7 @@ module Util =
                 let doneFn = doneFn |> Fable.IdentValue |> Fable.Value
                 let args = [asyncBuilder; doneFn; doneFn; doneFn]
                 AST.Fable.Util.CoreLibCall("Async", Some "startWithContinuations", false, args)
-                |> AST.Fable.Util.makeCall com range Fable.Unit
+                |> AST.Fable.Util.makeCall range Fable.Unit
             [doneFn], testBody
         if List.length args > 0 then
             failwithf "Test parameters are not supported (testName = '%s')." testMeth.Name
@@ -102,7 +102,7 @@ module Util =
         match i.methodName with
         | "AreEqual" ->
             Fable.Util.ImportCall("assert", "*", Some "equal", false, i.args)
-            |> Fable.Util.makeCall com i.range i.returnType |> Some
+            |> Fable.Util.makeCall i.range i.returnType |> Some
         | _ -> None
 
     let declareModMember range publicName privateName _isPublic isMutable _modIdent expr =

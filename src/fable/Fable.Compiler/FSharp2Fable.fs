@@ -29,7 +29,7 @@ let private (|SpecialValue|_|) com ctx = function
         | Some "System.DateTime", "MaxValue"
         | Some "System.DateTime", "MinValue" ->
             CoreLibCall("Date", Some (Naming.lowerFirst fieldName), false, [])
-            |> makeCall com (makeRangeFrom fsExpr) (makeType com ctx fsExpr.Type) |> Some
+            |> makeCall (makeRangeFrom fsExpr) (makeType com ctx fsExpr.Type) |> Some
         | _ -> None
     | _ -> None
 
@@ -84,7 +84,7 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
                 let builder =
                     Fable.Emit("(o, kv) => { o[kv[0]] = kv[1]; return o; }") |> Fable.Value
                 CoreLibCall("Seq", Some "fold", false, [builder;Fable.ObjExpr([],[],None,None);args])
-                |> makeCall com (Some range) Fable.Any
+                |> makeCall (Some range) Fable.Any
     else
         let buildArgs (args, baseList) =
             let args = args |> List.rev |> (List.map (transformExpr com ctx))
@@ -100,7 +100,7 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             | args, baseList ->
                 let args = buildArgs(args, baseList)
                 CoreLibCall("List", Some "ofArray", false, args)
-        |> makeCall com (Some range) unionType
+        |> makeCall (Some range) unionType
 
 and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
     let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
@@ -141,7 +141,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             buildApplyInfo com ctx r typ unionType (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
-            Fable.Apply(makeNonGenTypeRef com (Some range) ctx.fileName unionType,
+            Fable.Apply(makeNonGenTypeRef (Some range) ctx.fileName unionType,
                     argExprs, Fable.ApplyCons, makeType com ctx fsExpr.Type, Some range)
 
 and private transformComposableExpr com ctx fsExpr argExprs =
@@ -352,7 +352,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 transformExpr com ctx argExprs.Head,
                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail
             | false, Some(sourceType, _) ->
-                makeNonGenTypeRef com range ctx.fileName sourceType,
+                makeNonGenTypeRef range ctx.fileName sourceType,
                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs
             | _ ->
                 ("Cannot resolve trait call " + traitName) |> attachRange range |> failwith
@@ -414,7 +414,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx calleeType
-                      |> makeNonGenTypeRef com (makeRangeFrom fsExpr) ctx.fileName
+                      |> makeNonGenTypeRef (makeRangeFrom fsExpr) ctx.fileName
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeGetFrom com ctx r typ callee (makeConst fieldName)
 
@@ -442,7 +442,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeNonGenTypeRef com (makeRangeFrom fsExpr) ctx.fileName calleeType
+            | None -> makeNonGenTypeRef (makeRangeFrom fsExpr) ctx.fileName calleeType
         Fable.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -481,7 +481,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
                 let baseClass =
                     makeTypeFromDef com ctx meth.EnclosingEntity []
-                    |> makeNonGenTypeRef com (Some SourceLocation.Empty) ctx.fileName
+                    |> makeNonGenTypeRef (Some SourceLocation.Empty) ctx.fileName
                     |> Some
                 let baseCons =
                     let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
@@ -559,7 +559,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             buildApplyInfo com ctx r typ recordType (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
-            Fable.Apply(makeNonGenTypeRef com (Some range) ctx.fileName recordType,
+            Fable.Apply(makeNonGenTypeRef (Some range) ctx.fileName recordType,
                     argExprs, Fable.ApplyCons, makeType com ctx fsExpr.Type, Some range)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
@@ -571,7 +571,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ as fsTyp, Transform com ctx expr) ->
-        makeTypeTest com (makeRangeFrom fsExpr) ctx.fileName typ expr
+        makeTypeTest (makeRangeFrom fsExpr) ctx.fileName typ expr
 
     | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr,
                                   (FableType com ctx unionType as fsType),
@@ -591,7 +591,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                         then makeType com ctx fsType.GenericArguments.[idx]
                         else unionType
                     else unionType
-                makeTypeTest com (makeRangeFrom fsExpr) ctx.fileName typ unionExpr
+                makeTypeTest (makeRangeFrom fsExpr) ctx.fileName typ unionExpr
         | OptionUnion ->
             let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.Value Fable.Null] opKind
@@ -764,27 +764,27 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     match fableEnt.Kind with
     | Fable.Union cases ->
       [ yield makeUnionCons()
-        yield makeTypeNameMeth com fableEnt.FullName
-        yield makeInterfacesMethod com ctx.fileName fableEnt
+        yield makeTypeNameMeth fableEnt.FullName
+        yield makeInterfacesMethod ctx.fileName fableEnt
                 false ("FSharpUnion"::fableEnt.Interfaces)
-        yield makeCasesMethod com ctx.fileName cases
-        if needsEqImpl then yield makeUnionEqualMethod com fableType
-        if needsCompImpl then yield makeUnionCompareMethod com fableType ]
+        yield makeCasesMethod ctx.fileName cases
+        if needsEqImpl then yield makeUnionEqualMethod fableType
+        if needsCompImpl then yield makeUnionCompareMethod fableType ]
     // TODO: Use specific interface for FSharpException?
     | Fable.Record fields
     | Fable.Exception fields ->
       [ yield makeRecordCons fields
-        yield makeTypeNameMeth com fableEnt.FullName
-        yield makeInterfacesMethod com ctx.fileName fableEnt
+        yield makeTypeNameMeth fableEnt.FullName
+        yield makeInterfacesMethod ctx.fileName fableEnt
                 false ("FSharpRecord"::fableEnt.Interfaces)
-        yield makePropertiesMethod com ctx.fileName fableEnt false fields
-        if needsEqImpl then yield makeRecordEqualMethod com fableType
-        if needsCompImpl then yield makeRecordCompareMethod com fableType ]
+        yield makePropertiesMethod ctx.fileName fableEnt false fields
+        if needsEqImpl then yield makeRecordEqualMethod fableType
+        if needsCompImpl then yield makeRecordCompareMethod fableType ]
     | Fable.Class(baseClass, properties) ->
-      [ yield makeTypeNameMeth com fableEnt.FullName
+      [ yield makeTypeNameMeth fableEnt.FullName
         if baseClass.IsSome || fableEnt.Interfaces.Length > 0 then
-            yield makeInterfacesMethod com ctx.fileName fableEnt baseClass.IsSome fableEnt.Interfaces
-        yield makePropertiesMethod com ctx.fileName fableEnt baseClass.IsSome properties ]
+            yield makeInterfacesMethod ctx.fileName fableEnt baseClass.IsSome fableEnt.Interfaces
+        yield makePropertiesMethod ctx.fileName fableEnt baseClass.IsSome properties ]
     | _ -> []
     |> fun autoMeths -> [yield! autoMeths; yield! childDecls]
 

@@ -1,11 +1,11 @@
-import { IDisposable } from "./Util"
-import Event from "./Event"
-import FSymbol from "./Symbol"
+import { IDisposable } from "./Util.js"
+import Event from "./Event.js"
+import FSymbol from "./Symbol.js"
 
 export default class Timer implements IDisposable {
   public Interval: number;
   public AutoReset: boolean;
-  
+
   private _elapsed: Event<Date>;
   private _enabled: boolean;
   private _isDisposed: boolean;

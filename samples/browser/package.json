@@ -15,10 +15,10 @@
   "author": "Alfonso Garcia-Caro et al",
   "license": "ISC",
   "dependencies": {
-    "fable-core": "^0.7.5-alpha.9",
-    "fable-react": "^0.7.0-alpha.2"
+    "fable-core": "^0.7.5-alpha.10",
+    "fable-react": "^0.7.0-alpha.3"
   },
   "devDependencies": {
-    "fable-compiler": "^0.7.5-alpha.20"
+    "fable-compiler": "^0.7.5-alpha.21"
   }
 }

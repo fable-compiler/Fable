@@ -128,7 +128,8 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
         else
             System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory()
     let resolve refs =
-        let resolvedFiles = SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.Resolve(
+        let resolvedFiles =
+          SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.Resolve(
             ReferenceResolver.ResolutionEnvironment.CompileTimeLike,
             [| for a in refs -> (a, "") |],
             defaultArg projParsed.Settings.TargetFrameworkVersion.Data "v4.5.1",

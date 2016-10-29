@@ -1,6 +1,6 @@
-import { TypeKind } from "./Util"
-import List from "./List"
-import FSymbol from "./Symbol"
+import { TypeKind } from "./Util.js"
+import List from "./List.js"
+import FSymbol from "./Symbol.js"
 
 export function resolveGeneric(idx: string | number, enclosing: List<any>): List<any> {
   let name: string = null;
@@ -72,4 +72,4 @@ export function getTypeFullName(typ: any, option?: string): string {
       ? trim(proto[FSymbol.typeName](), option)
       : typ.name || "unknown";
   }
-}    
+}
