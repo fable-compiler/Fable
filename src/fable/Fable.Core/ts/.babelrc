@@ -1,18 +1,16 @@
 {
   "ignore": [
     "node_modules/**/*.*",
-    "es2015/*.*"
+    "umd/*.*"
   ],
   "env": {
-    "target-commonjs": {
-      "presets": [
-        [ "es2015", { "loose": true, "modules": "commonjs" } ]
-      ]
-    },
     "target-es2015": {
       "presets": [
         [ "es2015", { "loose": true, "modules": false } ]
       ]
+    },
+    "target-umd": {
+      "plugins": ["transform-es2015-modules-umd"]
     }
   }
 }

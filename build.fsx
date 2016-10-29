@@ -280,18 +280,10 @@ Target "FableCompilerNetcore" (fun _ ->
         Util.run testDir "dotnet" "test -c Release"
 
         // Compile JavaScript tests
-        Node.run "." buildDir ["src/tests/Main --target netcore"]
+        Node.run "." buildDir ["src/tests --target netcore"]
         let testsBuildDir = "build/tests"
         FileUtils.cp "src/tests/package.json" testsBuildDir
         Npm.install testsBuildDir []
-
-        // // Copy the development version of fable-core.js
-        // let fableCoreNpmDir = "src/fable/Fable.Core/npm"
-        // Npm.install fableCoreNpmDir []
-        // Npm.script fableCoreNpmDir "tsc" ["fable-core.ts --target ES2015 --declaration"]
-        // setEnvironVar "BABEL_ENV" "target-umd"
-        // Npm.script fableCoreNpmDir "babel" ["fable-core.js -o fable-core.js --compact=false"]
-        // FileUtils.cp "src/fable/Fable.Core/npm/fable-core.js" "build/tests/node_modules/fable-core/"
 
         // Compile Fable.Core TypeScript
         let fableCoreSrcDir = "src/fable/Fable.Core/ts"
@@ -476,9 +468,9 @@ Target "FableCoreRelease" (fun _ ->
 
     // Compile Es2015 syntax to ES5 with different module targets
     setEnvironVar "BABEL_ENV" "target-es2015"
-    Npm.script fableCoreNpmDir "babel" [". --out-dir es2015 --compact=false"]
-    setEnvironVar "BABEL_ENV" "target-commonjs"
-    Npm.script fableCoreNpmDir "babel" [". --out-dir . --compact=false"]
+    Npm.script fableCoreNpmDir "babel" [". --out-dir ."]
+    setEnvironVar "BABEL_ENV" "target-umd"
+    Npm.script fableCoreNpmDir "babel" [". --out-dir umd"]
 )
 
 Target "FableCoreDebug" (fun _ ->
@@ -492,8 +484,10 @@ Target "FableCoreDebug" (fun _ ->
     |> ignore // Log outputs all files in node_modules
 
     Npm.script fableCoreNpmDir "tsc" [sprintf "--project ../../%s/ts" fableCoreSrcDir]
-    setEnvironVar "BABEL_ENV" "target-commonjs"
-    Npm.script fableCoreNpmDir "babel" [". --out-dir . --compact=false"]
+    setEnvironVar "BABEL_ENV" "target-es2015"
+    Npm.script fableCoreNpmDir "babel" [". --out-dir ."]
+    setEnvironVar "BABEL_ENV" "target-umd"
+    Npm.script fableCoreNpmDir "babel" [". --out-dir umd"]
 )
 
 Target "UpdateSampleRequirements" (fun _ ->

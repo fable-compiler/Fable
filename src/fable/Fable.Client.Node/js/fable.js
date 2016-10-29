@@ -553,7 +553,7 @@ function readOptions(opts) {
     opts.ecma = opts.ecma || "es5";
     opts.loose = opts.loose != null ? opts.loose : true;
     opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
-    opts.coreLib = opts.coreLib || (opts.rollup ? "fable-core/es2015" : "fable-core");
+    opts.coreLib = opts.coreLib || "fable-core";
     opts.outDir = opts.outDir ? opts.outDir : (opts.projFile.length === 1 ? path.dirname(opts.projFile[0]) : ".");
     if (opts.module == null) {
         opts.module = opts.rollup ? "iife" : "es2015";

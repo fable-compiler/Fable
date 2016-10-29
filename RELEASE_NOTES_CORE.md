@@ -1,3 +1,7 @@
+### 0.7.5-alpha.9
+
+* Distribute fable-core with ES2015 (default) and UMD module formats
+
 ### 0.7.5-alpha.8
 
 * Bug fixes and optimizations
