@@ -15,6 +15,7 @@ function promise(f) {
         f.apply(this, args);
     });
 }
+exports.promise = promise;
 
 /** Prints a new line with the message on process.stderr */
 function stderrLog(tag, err) {
