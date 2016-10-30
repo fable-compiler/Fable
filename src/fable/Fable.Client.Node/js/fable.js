@@ -386,9 +386,8 @@ function readFableConfigOptions(opts) {
         var projDir = fs && fs.statSync(fullProjFile).isDirectory()
                         ? fullProjFile
                         : path.dirname(fullProjFile);
-        if (fs && !fs.existsSync(cfgFile)) {
-            cfgFile = fableLib.pathJoin(projDir, constants.FABLE_CONFIG_FILE);
-        }
+        cfgFile = fableLib.pathJoin(projDir, constants.FABLE_CONFIG_FILE);
+
         // Delete projFile from opts if it isn't a true F# project
         if (!fableLib.isFSharpProject(fullProjFile)) {
             delete opts.projFile;
@@ -418,8 +417,8 @@ function readFableConfigOptions(opts) {
             }
             cfg = opts.targets[opts.target];
             for (key in cfg) {
-                if (!Array.isArray(cfg[key]) &&
-                    (typeof cfg[key] === "object") && (typeof opts[key] === "object")) {
+                if ((typeof cfg[key] === "object") && !Array.isArray(cfg[key]) &&
+                    (typeof opts[key] === "object") && !Array.isArray(opts[key])) {
                     for (var key2 in cfg[key])
                         opts[key][key2] = cfg[key][key2];
                 }
