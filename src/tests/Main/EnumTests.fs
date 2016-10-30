@@ -127,4 +127,5 @@ let ``Pattern matching can be nested within a switch statement``() = // See #483
         match veggie with
         | Lettuce kind -> kind
         | _ -> "bar"
+    | _ -> "invalid choice"
     |> equal "kuma"
