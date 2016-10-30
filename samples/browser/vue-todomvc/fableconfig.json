@@ -2,8 +2,5 @@
     "module": "amd",
     "sourceMaps": true,
     "projFile": "./index.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
-    }
+    "outDir": "out"
 }
