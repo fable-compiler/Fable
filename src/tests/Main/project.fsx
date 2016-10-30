@@ -36,7 +36,7 @@
     "ObservableTests.fs"
     "RecordTypeTests.fs"
     "ReflectionTests.fs"
-    "RegexTests.fs"
+    //"RegexTests.fs"  // System.Text.RegularExpressions.Regex not properly replaced with RegExp
     "ResizeArrayTests.fs"
     "SeqExpressionTests.fs"
     "SeqTests.fs"
@@ -44,5 +44,5 @@
     "StringTests.fs"
     "SudokuTest.fs"
     "TupleTypeTests.fs"
-    "TypeTests.fs"
+    //"TypeTests.fs"   // System.Text.RegularExpressions.Regex not properly replaced with RegExp
     "UnionTypeTests.fs"

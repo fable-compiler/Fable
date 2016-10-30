@@ -10,7 +10,7 @@
     "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
     "targets": {
         "netcore": {
-            "projFile": "project.fsx",
+            "projFile": ["Main/project.fsx"],
             "ecma": "es2015",
             "module": "commonjs",
             "coreLib": "../../build/fable-core",

@@ -417,7 +417,8 @@ function readFableConfigOptions(opts) {
             }
             cfg = opts.targets[opts.target];
             for (key in cfg) {
-                if (typeof opts[key] == "object") {
+                if ((typeof cfg[key] === "object") && !Array.isArray(cfg[key]) &&
+                    (typeof opts[key] === "object") && !Array.isArray(opts[key])) {
                     for (var key2 in cfg[key])
                         opts[key][key2] = cfg[key][key2];
                 }
