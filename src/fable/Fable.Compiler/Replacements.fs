@@ -123,7 +123,8 @@ module Util =
         | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
             GlobalCall ("String", None, false, [arg])
             |> makeCall i.range i.returnType
-        | Fable.Any | Fable.GenericParam _ | Fable.DeclaredType _ | Fable.Option _ ->
+        | Fable.MetaType | Fable.Any | Fable.GenericParam _
+        | Fable.DeclaredType _ | Fable.Option _ ->
             CoreLibCall ("Util", Some "toString", false, [arg])
             |> makeCall i.range i.returnType
 
@@ -208,7 +209,7 @@ module Util =
         match argTypes with
         | Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)::_
         | _::[Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)] ->
-            let typRef = Fable.Value (Fable.TypeRef ent)
+            let typRef = Fable.Value(Fable.TypeRef(ent,[]))
             InstanceCall(typRef, m.OverloadName, args)
             |> makeCall i.range i.returnType
         // Floor result of integer divisions (see #172)
@@ -264,7 +265,7 @@ module Util =
             InstanceCall(args.Head, "Equals", args.Tail)
             |> makeCall i.range i.returnType |> is equal |> Some
         | Fable.Array _ | Fable.Tuple _
-        | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
+        | Fable.MetaType | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
             CoreLibCall("Util", Some "equals", false, args)
             |> makeCall i.range i.returnType |> is equal |> Some
 
@@ -366,9 +367,9 @@ module private AstPass =
                 | _ -> None
             match i.args.Head with
             | CoreCons com "List" _ ->
-                makeJsObject (defaultArg i.range SourceLocation.Empty) [] |> Some
+                makeJsObject i.range [] |> Some
             | Fable.Apply(_, [Fields fields], _, _, _) ->
-                makeJsObject (defaultArg i.range SourceLocation.Empty) fields |> Some
+                makeJsObject i.range fields |> Some
             | _ ->
                 CoreLibCall("Util", Some "createObj", false, i.args)
                 |> makeCall i.range i.returnType |> Some
@@ -400,7 +401,7 @@ module private AstPass =
     let references com (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
-            makeJsObject i.range.Value [("contents", i.args.Head)] |> Some
+            makeJsObject i.range [("contents", i.args.Head)] |> Some
         | "contents" | "value" ->
             let prop = makeConst "contents"
             match i.methodKind with
@@ -477,7 +478,7 @@ module private AstPass =
         // Reference
         | "op_Dereference" -> makeGet r Fable.Any args.Head (makeConst "contents") |> Some
         | "op_ColonEquals" -> Fable.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
-        | "ref" -> makeJsObject r.Value [("contents", args.Head)] |> Some
+        | "ref" -> makeJsObject r [("contents", args.Head)] |> Some
         | "increment" | "decrement" ->
             if info.methodName = "increment" then "++" else "--"
             |> sprintf "void($0.contents%s)"
@@ -540,7 +541,7 @@ module private AstPass =
                 genericAvailability = info.genericAvailability
             }
             info.methodTypeArgs.Head
-            |> makeTypeRef info.range info.fileName genInfo |> Some
+            |> makeTypeRef info.fileName genInfo |> Some
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -756,7 +757,7 @@ module private AstPass =
         | "typeTestGeneric", (None, [expr]) ->
             makeTypeTest i.range i.fileName i.methodTypeArgs.Head expr |> Some
         | "createInstance", (None, _) ->
-            let typRef, args = makeNonGenTypeRef i.range i.fileName i.methodTypeArgs.Head, []
+            let typRef, args = makeNonGenTypeRef i.fileName i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
@@ -1210,7 +1211,7 @@ module private AstPass =
             match meth, i.methodTypeArgs with
             | "sum", [Fable.DeclaredType(ent, _) as t]
             | "sumBy", [_;Fable.DeclaredType(ent, _) as t] ->
-                let zero = Fable.Apply(Fable.Value(Fable.TypeRef ent), [makeConst "Zero"],
+                let zero = Fable.Apply(Fable.Value(Fable.TypeRef(ent,[])), [makeConst "Zero"],
                                         Fable.ApplyGet, i.returnType, None)
                 let fargs = [makeTypedIdent "x" t; makeTypedIdent "y" t]
                 let addFn = wrapInLambda fargs (fun args -> applyOp com i args "op_Addition")
@@ -1369,13 +1370,13 @@ module private AstPass =
                 |> makeCall i.range i.returnType |> Some
             | t ->
                 let genInfo = {makeGeneric=true; genericAvailability=false}
-                makeTypeRef i.range i.fileName genInfo t |> Some
+                makeTypeRef i.fileName genInfo t |> Some
         | _ -> None
 
     let types com (info: Fable.ApplyInfo) =
         let str x = Fable.Value(Fable.StringConst x)
         match info.callee with
-        | Some(Fable.Value(Fable.TypeRef ent)) ->
+        | Some(Fable.Value(Fable.TypeRef(ent,[]))) ->
             match info.methodName with
             | "namespace" -> str ent.Namespace |> Some
             | "fullName" -> str ent.FullName |> Some
@@ -1661,20 +1662,42 @@ let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
 
 // TODO: We'll probably have to merge this with CoreLibPass.mappings
 // Especially if we start making more types from the BCL compatible
-let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) =
-    let coreLibType name = makeCoreRef name None |> Some
+let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fable.Expr) list) =
+    let makeGeneric genArgs expr =
+        match genArgs with
+        | [] -> expr
+        | genArgs ->
+            let genArgs = makeJsObject None genArgs
+            CoreLibCall("Util", Some "makeGeneric", false, [expr; genArgs])
+            |> makeCall None Fable.Any
     match ent.FullName with
-    // TODO: Check this is not a custom exception
-    | Naming.EndsWith "Exception" _ -> makeNonDeclaredTypeRef Fable.TypeKind.Any None |> Some
     | "System.TimeSpan" -> Fable.StringConst "number" |> Fable.Value |> Some
     | "System.DateTime" -> makeIdentExpr "Date" |> Some
-    | "System.Collections.Generic.Dictionary" -> makeIdentExpr "Map" |> Some
-    | "System.Collections.Generic.HashSet" -> makeIdentExpr "Set" |> Some
+    | "System.Timers.Timer" -> makeCoreRef "Timer" None |> Some
     | "System.Text.RegularExpressions.Regex" -> makeIdentExpr "RegExp" |> Some
-    | "Microsoft.FSharp.Control.FSharpAsync" -> coreLibType "Async"
-    | "Microsoft.FSharp.Collections.FSharpSet" -> coreLibType "Set"
-    | "Microsoft.FSharp.Collections.FSharpMap" -> coreLibType "Map"
-    | "Microsoft.FSharp.Collections.FSharpList" -> coreLibType "List"
-    | "Microsoft.FSharp.Core.FSharpChoice" -> coreLibType "Choice"
-    | "System.Timers.Timer" -> coreLibType "Timer"
+    | "System.Collections.Generic.Dictionary" ->
+        makeIdentExpr "Map" |> makeGeneric genArgs |> Some
+    | "System.Collections.Generic.HashSet" ->
+        makeIdentExpr "Set" |> makeGeneric genArgs |> Some
+    | "System.Collections.Generic.KeyValuePair" ->
+        match genArgs with
+        | [] -> makeIdentExpr "Array" |> Some
+        | genArgs ->
+            genArgs |> List.map snd
+            |> Fable.NonDeclTuple
+            |> makeNonDeclaredTypeRef |> Some
+    | "Microsoft.FSharp.Core.FSharpChoice" -> makeCoreRef "Choice" None |> Some
+    | "Microsoft.FSharp.Control.FSharpAsync" -> makeCoreRef "Async" None |> Some
+    | "Microsoft.FSharp.Collections.FSharpSet" ->
+        makeCoreRef "Set" None |> makeGeneric genArgs |> Some
+    | "Microsoft.FSharp.Collections.FSharpMap" ->
+        makeCoreRef "Map" None |> makeGeneric genArgs |> Some
+    | "Microsoft.FSharp.Collections.FSharpList" ->
+        makeCoreRef "List" None |> makeGeneric genArgs |> Some
+    // TODO: Check this is not a custom exception
+    | Naming.EndsWith "Exception" _
+    // Catch-all for unknown references to System and FSharp.Core classes
+    | Naming.StartsWith "System." _
+    | Naming.StartsWith "Microsoft.FSharp." _ ->
+        makeNonDeclaredTypeRef Fable.NonDeclAny |> Some
     | _ -> None

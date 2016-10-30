@@ -1,6 +1,6 @@
-import { TypeKind } from "./Util.js"
-import List from "./List.js"
-import FSymbol from "./Symbol.js"
+import { TypeKind } from "./Util"
+import List from "./List"
+import FSymbol from "./Symbol"
 
 export function resolveGeneric(idx: string | number, enclosing: List<any>): List<any> {
   let name: string = null;

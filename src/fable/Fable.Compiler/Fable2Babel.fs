@@ -36,6 +36,8 @@ type IBabelCompiler =
         (Babel.Pattern list) * U2<Babel.BlockStatement, Babel.Expression>
     abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
         Fable.Declaration list -> Babel.ClassExpression
+    abstract TransformObjectExpr: Context -> Fable.ObjExprMember list ->
+        string list -> Fable.Expr option -> SourceLocation option -> Babel.Expression
 
 and IDeclarePlugin =
     inherit IPlugin
@@ -130,7 +132,22 @@ module Util =
             | [] -> upcast Babel.EmptyExpression()
             | m::ms -> identFromName m :> Babel.Expression |> Some |> accessExpr ms
 
-    let typeRef (com: IBabelCompiler) ctx (ent: Fable.Entity) (memb: string option): Babel.Expression =
+    let typeRef (com: IBabelCompiler) ctx (ent: Fable.Entity)
+                (genArgs: (string*Fable.Expr) list)
+                (memb: string option): Babel.Expression =
+        let makeGeneric expr =
+            match genArgs, memb with
+            | [], _ -> expr
+            | genArgs, None ->
+                genArgs |> List.map (fun (name, expr) ->
+                    let m = Fable.Member(name, Fable.Field, Fable.InstanceLoc, [], Fable.Any)
+                    m, [], expr)
+                |> fun ms -> com.TransformObjectExpr ctx ms [] None None
+                |> fun genArgs ->
+                    upcast Babel.CallExpression(
+                        getCoreLibImport com ctx "Util" "makeGeneric",
+                        [expr; genArgs] |> List.map U2.Case1)
+            | _ -> expr
         let getParts ns fullName memb =
             let split (s: string) =
                 s.Split('.') |> Array.toList
@@ -142,20 +159,21 @@ module Util =
                 (match memb with Some memb -> [memb] | None ->  [])
         match ent.File with
         | None ->
-            match Replacements.tryReplaceEntity com ent with
+            match Replacements.tryReplaceEntity com ent genArgs with
             | Some expr -> com.TransformExpr ctx expr
             | None -> failwithf "Cannot access type: %s" ent.FullName
         | Some file when ctx.file.SourceFile <> file ->
             let fileInfo = com.GetFileInfo file
             let importPath =
                 Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.targetFile
-                |> fun x -> System.IO.Path.ChangeExtension(x, ".js")
+                |> fun x -> System.IO.Path.ChangeExtension(x, Naming.targetFileExtension)
             getParts fileInfo.rootModule ent.FullName memb
             |> function
             | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
             | memb::parts ->
                 com.GetImportExpr ctx memb importPath (Fable.Internal file)
                 |> Some |> accessExpr parts
+            |> makeGeneric
         | _ ->
             match getParts ctx.moduleFullName ent.FullName memb with
             | rootMemb::parts when Naming.identForbiddenCharsRegex.IsMatch rootMemb ->
@@ -165,6 +183,7 @@ module Util =
                 else rootMemb
                 |> fun rootMemb -> accessExpr (rootMemb::parts) None
             | parts -> accessExpr parts None
+            |> makeGeneric
 
     let rec typeAnnotation com ctx typ: Babel.TypeAnnotationInfo =
         let (|FullName|) (ent: Fable.Entity) = ent.FullName
@@ -205,7 +224,7 @@ module Util =
                 Babel.TypeParameterInstantiation([typeAnnotation com ctx genArg]))
         | Fable.DeclaredType(ent, genArgs) ->
             try
-                match typeRef com ctx ent None with
+                match typeRef com ctx ent [] None with
                 | :? Babel.StringLiteral as str ->
                     match str.value with
                     | "number" -> upcast Babel.NumberTypeAnnotation()
@@ -411,7 +430,7 @@ module Util =
         | Fable.ArrayConst (cons, typ) -> buildArray com ctx cons typ
         | Fable.TupleConst vals -> buildArray com ctx (Fable.ArrayValues vals) Fable.Any
         | Fable.Emit emit -> macroExpression None emit []
-        | Fable.TypeRef typEnt -> typeRef com ctx typEnt None
+        | Fable.TypeRef(typEnt, genArgs) -> typeRef com ctx typEnt genArgs None
         | Fable.Spread _ ->
             failwithf "Unexpected array spread %O" r
         | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ ->
@@ -422,35 +441,34 @@ module Util =
         match baseClass with
         | Some _ as baseClass ->
             members
+            |> List.map (fun (m, args, body: Fable.Expr) ->
+                let r = defaultArg body.Range SourceLocation.Empty
+                Fable.MemberDeclaration(m, None, args, body, r))
             |> com.TransformClass ctx range baseClass
             |> fun c -> upcast Babel.NewExpression(c, [], ?loc=range)
         | None ->
-            members
-            |> List.choose (function
-                | Fable.EntityDeclaration _ | Fable.ActionDeclaration _ -> None // Shouldn't happen
-                | Fable.MemberDeclaration(m, _, args, body, r) ->
-                    let key, computed =
-                        if m.IsSymbol
-                        then getSymbol com ctx m.Name, true
-                        else sanitizeName m.Name
-                    let makeMethod kind =
-                        let args, body, returnType, typeParams =
-                            getMemberArgs com ctx args body m.GenericParameters m.HasRestParams
-                        Babel.ObjectMethod(kind, key, args, body, ?returnType=returnType,
-                            ?typeParams=typeParams, computed=computed, ?loc=Some r)
-                        |> U3.Case2
-                    match m.Kind with
-                    | Fable.Constructor ->
-                        "Unexpected constructor in Object Expression"
-                        |> Fable.Util.attachRange range |> failwith
-                    | Fable.Method -> makeMethod Babel.ObjectMeth
-                    | Fable.Setter -> makeMethod Babel.ObjectSetter
-                    | Fable.Getter -> makeMethod Babel.ObjectGetter
-                    | Fable.Field ->
-                        Babel.ObjectProperty(key, com.TransformExpr ctx body,
-                                computed=computed, ?loc=Some r)
-                        |> U3.Case1
-                    |> Some)
+            members |> List.map (fun (m: Fable.Member, args, body: Fable.Expr) ->
+                let key, computed =
+                    if m.IsSymbol
+                    then getSymbol com ctx m.Name, true
+                    else sanitizeName m.Name
+                let makeMethod kind =
+                    let args, body', returnType, typeParams =
+                        getMemberArgs com ctx args body m.GenericParameters m.HasRestParams
+                    Babel.ObjectMethod(kind, key, args, body', ?returnType=returnType,
+                        ?typeParams=typeParams, computed=computed, ?loc=body.Range)
+                    |> U3.Case2
+                match m.Kind with
+                | Fable.Constructor ->
+                    "Unexpected constructor in Object Expression"
+                    |> Fable.Util.attachRange range |> failwith
+                | Fable.Method -> makeMethod Babel.ObjectMeth
+                | Fable.Setter -> makeMethod Babel.ObjectSetter
+                | Fable.Getter -> makeMethod Babel.ObjectGetter
+                | Fable.Field ->
+                    Babel.ObjectProperty(key, com.TransformExpr ctx body,
+                            computed=computed, ?loc=body.Range)
+                    |> U3.Case1)
             |> appendObjectIterator interfaces
             |> fun props ->
                 match interfaces with
@@ -484,9 +502,9 @@ module Util =
                 | expr -> com.TransformExpr ctx expr :> Babel.Node)
             |> macroExpression range emit
         // Module or class static members
-        | Fable.Value (Fable.TypeRef typEnt), [Fable.Value (Fable.StringConst memb)]
+        | Fable.Value(Fable.TypeRef(typEnt, _)), [Fable.Value(Fable.StringConst memb)]
             when kind = Fable.ApplyGet ->
-            typeRef com ctx typEnt (Some memb)
+            typeRef com ctx typEnt [] (Some memb)
         | _ ->
             match kind with
             | Fable.ApplyMeth ->
@@ -847,7 +865,7 @@ module Util =
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         Babel.CallExpression(
                 getCoreLibImport com ctx "Util" "declare",
-                [typeRef com ctx ent None |> U2.Case1])
+                [typeRef com ctx ent [] None |> U2.Case1])
         |> Babel.ExpressionStatement :> Babel.Statement
 
     let declareEntryPoint com ctx (funcExpr: Babel.Expression) =
@@ -952,7 +970,7 @@ module Util =
         | false -> classDecl
         | true ->
             let cctor = Babel.MemberExpression(
-                            typeRef com ctx ent None, Babel.StringLiteral ".cctor", true)
+                            typeRef com ctx ent [] None, Babel.StringLiteral ".cctor", true)
             Babel.ExpressionStatement(Babel.CallExpression(cctor, [])) :> Babel.Statement
             |> U2.Case1 |> consBack classDecl
 
@@ -1069,7 +1087,7 @@ module Util =
                             | Fable.CustomImport -> resolvePath ctx path
                             | Fable.Internal _ -> path
                             | Fable.CoreLib ->
-                                let path = com.Options.coreLib + "/" + path + ".js"
+                                let path = com.Options.coreLib + "/" + path + Naming.targetFileExtension
                                 if not(path.StartsWith ".") then path else
                                 IO.Path.GetFullPath path
                                 |> Path.getRelativePath ctx.file.TargetFile
@@ -1084,6 +1102,8 @@ module Util =
             member bcom.TransformFunction ctx args body = transformFunction bcom ctx args body
             member bcom.TransformClass ctx r baseClass members =
                 transformClass bcom ctx r None baseClass members
+            member bcom.TransformObjectExpr ctx membs ifcs baseClass r =
+                transformObjectExpr bcom ctx (membs, ifcs, baseClass, r)
         interface ICompiler with
             member __.Options = com.Options
             member __.ProjDir = com.ProjDir

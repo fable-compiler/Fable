@@ -804,3 +804,13 @@ let ``JS accepts any object as exception``() =
     |> equal """{"foo":3}"""
 
 #endif // FABLE_COMPILER
+
+type TestRef = TestRef of bool ref
+
+[<Test>]
+let ``FSharpRef can be used in properties``() = // See #521
+    let r = ref false
+    let x = TestRef r
+    r := true
+    match x with TestRef r2 -> !r2
+    |> equal true

@@ -1,7 +1,7 @@
-import { IDisposable } from "./Util.js"
-import { createDisposable } from "./Util.js"
-import Choice from "./Choice.js"
-import FSymbol from "./Symbol.js"
+import { IDisposable } from "./Util"
+import { createDisposable } from "./Util"
+import Choice from "./Choice"
+import FSymbol from "./Symbol"
 
 export interface IObserver<T> {
   OnNext: (x: T) => void;

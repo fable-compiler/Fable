@@ -1,5 +1,5 @@
-import FSymbol from "./Symbol.js"
-import { fableGlobal } from "./Symbol.js"
+import FSymbol from "./Symbol"
+import { fableGlobal } from "./Symbol"
 
 export const enum TypeKind {
   Any = 1,
@@ -68,6 +68,10 @@ export function hasInterface(obj: any, interfaceName: string) {
   return Array.isArray(interfaces)
     ? interfaces.indexOf(interfaceName) > -1
     : interfaces === interfaceName;
+}
+
+export function isArray(obj: any) {
+  return Array.isArray(obj) || ArrayBuffer.isView(obj);
 }
 
 export function getRestParams(args: ArrayLike<any>, idx: number) {

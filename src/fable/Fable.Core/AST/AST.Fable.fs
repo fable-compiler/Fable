@@ -11,6 +11,7 @@ type Decorator =
 
 (** ##Types *)
 type Type =
+    | MetaType
     | Any
     | Unit
     | Boolean
@@ -40,16 +41,14 @@ type Type =
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
 
-and TypeKind =
-    // | Boolean | String | Number _ | Enum _
-    // | Function _ | DeclaredType _
-    | Any = 1
-    | Unit = 2
-    | Option = 3
-    | Array = 4
-    | Tuple = 5
-    | GenericParam = 6
-    | Interface = 7
+and NonDeclaredType =
+    | NonDeclAny
+    | NonDeclUnit
+    | NonDeclOption of genericArg: Expr
+    | NonDeclArray of genericArg: Expr
+    | NonDeclTuple of genericArgs: Expr list
+    | NonDeclGenericParam of name: string
+    | NonDeclInterface of name: string
 
 (** ##Entities *)
 and EntityKind =
@@ -108,9 +107,6 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
             else argsEqual m.ArgumentTypes argTypes)
     static member CreateRootModule fileName modFullName =
         Entity (lazy Module, Some fileName, modFullName, lazy [], [], [], [], true)
-
-    static member MetaType =
-        DeclaredType(Entity(lazy Class(None, []), None, "System.Type", lazy []), [])
 
     override x.ToString() = sprintf "%s %A" x.Name kind
 
@@ -236,7 +232,7 @@ and ValueKind =
     | This
     | Super
     | Spread of Expr
-    | TypeRef of Entity
+    | TypeRef of Entity * genArgs: (string * Expr) list
     | IdentValue of Ident
     | ImportRef of memb: string * path: string * ImportKind
     | NumberConst of U2<int,float> * NumberKind
@@ -259,7 +255,7 @@ and ValueKind =
         | This | Super | ImportRef _ | Emit _ -> Any
         | NumberConst (_,kind) -> Number kind
         | StringConst _ -> String
-        | TypeRef _ -> Entity.MetaType
+        | TypeRef _ -> MetaType
         | RegexConst _ ->
             let fullName = "System.Text.RegularExpressions.Regex"
             DeclaredType(Entity(lazy Class(None, []), None, fullName, lazy []), [])
@@ -279,10 +275,12 @@ and LoopKind =
     | For of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool
     | ForOf of ident: Ident * enumerable: Expr * body: Expr
 
+and ObjExprMember = Member * Ident list * Expr
+
 and Expr =
     // Pure Expressions
     | Value of value: ValueKind
-    | ObjExpr of decls: Declaration list * interfaces: string list * baseClass: Expr option * range: SourceLocation option
+    | ObjExpr of decls: ObjExprMember list * interfaces: string list * baseClass: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
     | Apply of callee: Expr * args: Expr list * kind: ApplyKind * typ: Type * range: SourceLocation option
     | Quote of Expr

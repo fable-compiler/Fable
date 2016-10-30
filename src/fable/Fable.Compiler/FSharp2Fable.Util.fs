@@ -557,7 +557,7 @@ module Types =
             if isIgnored t then None else
             let typeRef =
                 makeType com Context.Empty t
-                |> makeNonGenTypeRef None ctx.fileName
+                |> makeNonGenTypeRef ctx.fileName
             Some (sanitizeEntityFullName t.TypeDefinition, typeRef)
 
     // Some attributes (like ComDefaultInterface) will throw an exception
@@ -1016,8 +1016,8 @@ module Util =
                 |> attachRangeAndFile r ctx.fileName
                 |> Warning |> com.AddLog
             | _ -> ()
-            genName, makeTypeRef None ctx.fileName genInfo typ)
-        |> makeJsObject SourceLocation.Empty
+            genName, makeTypeRef ctx.fileName genInfo typ)
+        |> makeJsObject None
 
     let makeCallFrom (com: IFableCompiler) ctx r typ
                      (meth: FSharpMemberOrFunctionOrValue)
@@ -1052,7 +1052,7 @@ module Util =
             match meth.IsExtensionMember, callee with
             | true, Some callee ->
                 let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
-                             |> makeNonGenTypeRef r ctx.fileName
+                             |> makeNonGenTypeRef ctx.fileName
                 let methName =
                     let ent = makeEntity com ctx meth.EnclosingEntity
                     let loc = if meth.IsInstanceMember then Fable.InstanceLoc else Fable.StaticLoc
@@ -1066,7 +1066,7 @@ module Util =
                     match callee with
                     | Some callee -> callee
                     | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
-                              |> makeNonGenTypeRef r ctx.fileName
+                              |> makeNonGenTypeRef ctx.fileName
         (**     *Check if this a getter or setter  *)
                 match methKind with
                 | Fable.Getter | Fable.Field ->
@@ -1147,5 +1147,5 @@ module Util =
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []
-                    |> makeNonGenTypeRef r ctx.fileName
+                    |> makeNonGenTypeRef ctx.fileName
                 Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)

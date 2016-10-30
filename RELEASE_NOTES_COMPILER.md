@@ -1,3 +1,10 @@
+### 0.7.5-alpha.22
+
+* Add catch-all for missing replacements when referencing
+  types of the BCL or FSharp.Core
+* Omit `.js` extension again in imports to keep
+  compatibility with Require.js
+
 ### 0.7.5-alpha.21
 
 * Don't print warnings in process.stderr (see #516)

@@ -1,6 +1,6 @@
-import FSymbol from "./Symbol.js"
-import { equalsUnions } from "./Util.js"
-import { compareUnions } from "./Util.js"
+import FSymbol from "./Symbol"
+import { equalsUnions } from "./Util"
+import { compareUnions } from "./Util"
 
 export function choice1Of2<T1, T2>(v: T1) {
     return new Choice<T1, T2>("Choice1Of2", [v]);

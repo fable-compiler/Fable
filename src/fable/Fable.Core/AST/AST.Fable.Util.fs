@@ -105,66 +105,71 @@ let tryImported name srcFile curFile (decs: #seq<Decorator>) =
         | _ -> None)
 
 let makeJsObject range (props: (string * Expr) list) =
-    let decls = props |> List.map (fun (name, body) ->
-        MemberDeclaration(Member(name, Field, InstanceLoc, [], body.Type), None, [], body, range))
-    ObjExpr(decls, [], None, Some range)
+    let membs = props |> List.map (fun (name, body) ->
+        let m = Member(name, Field, InstanceLoc, [], body.Type)
+        m, [], body)
+    ObjExpr(membs, [], None, range)
 
-let makeNonDeclaredTypeRef (kind: TypeKind) arg =
-    let kind = Value(NumberConst(U2.Case1(int kind), Int32))
-    match arg with
-    | None -> [kind]
-    | Some arg -> [kind; arg]
-    |> fun vals -> Wrapped(makeArray Any vals, Entity.MetaType)
+let makeNonDeclaredTypeRef (nonDeclType: NonDeclaredType) =
+    let kind i = Value(NumberConst(U2.Case1(int i), Int32))
+    match nonDeclType with
+    | NonDeclAny -> [kind 1]
+    | NonDeclUnit -> [kind 2]
+    | NonDeclOption genArg -> [kind 3; genArg]
+    | NonDeclArray genArg -> [kind 4; genArg]
+    | NonDeclTuple genArgs ->
+        let genArgs = ArrayConst(ArrayValues genArgs, Any) |> Value
+        [kind 5; genArgs]
+    | NonDeclGenericParam name ->
+        [kind 6; Value(StringConst name)]
+    | NonDeclInterface name ->
+        [kind 7; Value(StringConst name)]
+    |> fun args -> Wrapped(makeArray Any args, MetaType)
 
 type GenericInfo = {
     makeGeneric: bool
     genericAvailability: bool
 }
 
-let rec makeTypeRef (range: SourceLocation option) curFile
-                    (genInfo: GenericInfo) typ =
-    let str s = Wrapped(Value(StringConst s), Entity.MetaType)
-    let makeGenNonDeclaredTypeRef (kind: TypeKind) genArgs =
-        match genArgs with
-        | [genArg] -> makeTypeRef range curFile genInfo genArg
-        | genArgs ->
-            let genArgs = List.map (makeTypeRef range curFile genInfo) genArgs
-            ArrayConst(ArrayValues genArgs, Any) |> Value
-        |> Some |> makeNonDeclaredTypeRef kind
+let rec makeTypeRef curFile (genInfo: GenericInfo) typ =
+    let str s = Wrapped(Value(StringConst s), MetaType)
     match typ with
     | Boolean -> str "boolean"
     | String -> str "string"
     | Number _ | Enum _ -> str "number"
     | Function _ -> str "function"
-    | Any -> makeNonDeclaredTypeRef TypeKind.Any None
-    | Unit -> makeNonDeclaredTypeRef TypeKind.Unit None
-    | Array genArg -> makeGenNonDeclaredTypeRef TypeKind.Array [genArg]
-    | Option genArg -> makeGenNonDeclaredTypeRef TypeKind.Option [genArg]
-    | Tuple genArgs -> makeGenNonDeclaredTypeRef TypeKind.Tuple genArgs
-    | DeclaredType(ent, genArgs) when ent.FullName = "System.Collections.Generic.KeyValuePair" ->
-        makeGenNonDeclaredTypeRef TypeKind.Tuple genArgs
+    | MetaType | Any -> makeNonDeclaredTypeRef NonDeclAny
+    | Unit -> makeNonDeclaredTypeRef NonDeclUnit
+    | Array genArg ->
+        makeTypeRef curFile genInfo genArg
+        |> NonDeclArray
+        |> makeNonDeclaredTypeRef
+    | Option genArg ->
+        makeTypeRef curFile genInfo genArg
+        |> NonDeclOption
+        |> makeNonDeclaredTypeRef
+    | Tuple genArgs ->
+        List.map (makeTypeRef curFile genInfo) genArgs
+        |> NonDeclTuple
+        |> makeNonDeclaredTypeRef
     | GenericParam name ->
         if genInfo.genericAvailability
-        then
-            (makeIdentExpr Naming.genArgsIdent, Value(StringConst name))
-            ||> makeGet range Entity.MetaType
-        else str name |> Some |> makeNonDeclaredTypeRef TypeKind.GenericParam
+        then (makeIdentExpr Naming.genArgsIdent, Value(StringConst name))
+             ||> makeGet None MetaType
+        else makeNonDeclaredTypeRef (NonDeclGenericParam name)
     | DeclaredType(ent, _) when ent.Kind = Interface ->
-        str ent.FullName |> Some |> makeNonDeclaredTypeRef TypeKind.Interface
+        makeNonDeclaredTypeRef (NonDeclInterface ent.FullName)
     | DeclaredType(ent, genArgs) ->
         let srcFile = defaultArg ent.File ""
         // Imported types come from JS so they don't need to be made generic
         match tryImported ent.Name srcFile curFile ent.Decorators with
         | Some expr -> expr
-        | None when ent.IsErased -> makeNonDeclaredTypeRef TypeKind.Any None
-        | None when not genInfo.makeGeneric || genArgs.IsEmpty -> Value (TypeRef ent)
+        | None when ent.IsErased -> makeNonDeclaredTypeRef NonDeclAny
+        | None when not genInfo.makeGeneric || genArgs.IsEmpty -> Value(TypeRef(ent,[]))
         | None ->
-            let genArgs =
-                List.map (makeTypeRef range curFile genInfo) genArgs
-                |> List.zip ent.GenericParameters
-                |> makeJsObject SourceLocation.Empty
-            CoreLibCall("Util", Some "makeGeneric", false, [Value (TypeRef ent); genArgs])
-            |> makeCall range Entity.MetaType
+            List.map (makeTypeRef curFile genInfo) genArgs
+            |> List.zip ent.GenericParameters
+            |> fun genArgs -> Value(TypeRef(ent, genArgs))
 
 and makeCall (range: SourceLocation option) typ kind =
     let getCallee meth args returnType owner =
@@ -194,12 +199,12 @@ and makeCall (range: SourceLocation option) typ kind =
         |> getCallee meth args typ
         |> apply (getKind isCons) args
 
-let makeNonGenTypeRef range curFile typ =
-    makeTypeRef range curFile { makeGeneric=false; genericAvailability=false } typ
+let makeNonGenTypeRef curFile typ =
+    makeTypeRef curFile { makeGeneric=false; genericAvailability=false } typ
 
 let makeTypeRefFrom curFile ent =
     let genInfo = { makeGeneric=false; genericAvailability=false }
-    DeclaredType(ent, []) |> makeTypeRef None curFile genInfo
+    DeclaredType(ent, []) |> makeTypeRef curFile genInfo
 
 let makeEmit r t args macro =
     Apply(Value(Emit macro), args, ApplyMeth, t, r)
@@ -211,14 +216,15 @@ let rec makeTypeTest range curFile (typ: Type) expr =
     let jsInstanceOf (typeRef: Expr) expr =
         makeBinOp None Boolean [expr; typeRef] BinaryInstanceOf
     match typ with
+    | MetaType -> Value(BoolConst false) // This shouldn't happen
     | String _ -> jsTypeof "string" expr
     | Number _ | Enum _ -> jsTypeof "number" expr
     | Boolean -> jsTypeof "boolean" expr
     | Unit -> makeBinOp range Boolean [expr; Value Null] BinaryEqual
     | Function _ -> jsTypeof "function" expr
     | Array _ | Tuple _ ->
-        "Array.isArray($0) || ArrayBuffer.isView($0)"
-        |> makeEmit range Boolean [expr]
+        CoreLibCall ("Util", Some "isArray", false, [expr])
+        |> makeCall range Boolean
     | Any -> makeConst true
     | Option typ -> makeTypeTest range curFile typ expr
     | DeclaredType(typEnt, _) ->
@@ -227,7 +233,7 @@ let rec makeTypeTest range curFile (typ: Type) expr =
             CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
             |> makeCall range Boolean
         | _ ->
-            makeBinOp range Boolean [expr; makeNonGenTypeRef range curFile typ] BinaryInstanceOf
+            makeBinOp range Boolean [expr; makeNonGenTypeRef curFile typ] BinaryInstanceOf
     | GenericParam name ->
         "Cannot type test generic parameter " + name
         |> attachRange range |> failwith
@@ -292,8 +298,8 @@ let makePropertiesMethod curFile ent extend properties =
     let body =
         let genInfo = { makeGeneric=true; genericAvailability=false }
         properties |> List.map (fun (name, typ) ->
-            let body = makeTypeRef None curFile genInfo typ
-            MemberDeclaration(Member(name, Field, InstanceLoc, [], Any), None, [], body, SourceLocation.Empty))
+            let body = makeTypeRef curFile genInfo typ
+            Member(name, Field, InstanceLoc, [], Any), [], body)
         |> fun decls -> ObjExpr(decls, [], None, None)
     let body =
         if not extend then body else
@@ -307,9 +313,9 @@ let makeCasesMethod curFile (cases: Map<string, Type list>) =
     let body =
         let genInfo = { makeGeneric=true; genericAvailability=false }
         cases |> Seq.map (fun kv ->
-            let typs = kv.Value |> List.map (makeTypeRef None curFile genInfo)
+            let typs = kv.Value |> List.map (makeTypeRef curFile genInfo)
             let typs = Fable.ArrayConst(Fable.ArrayValues typs, Any) |> Fable.Value
-            MemberDeclaration(Member(kv.Key, Field, InstanceLoc, [], Any), None, [], typs, SourceLocation.Empty))
+            Member(kv.Key, Field, InstanceLoc, [], Any), [], typs)
         |> fun decls -> ObjExpr(Seq.toList decls, [], None, None)
     MemberDeclaration(Member("cases", Method, InstanceLoc, [], Any, isSymbol=true), None, [], body, SourceLocation.Empty)
 

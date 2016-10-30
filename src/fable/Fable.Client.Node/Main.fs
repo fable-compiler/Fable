@@ -456,9 +456,12 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         // Print F# compiler options (verbose mode) on first compilation
         // (when projInfo.fileMask is None)
         if Option.isNone projInfo.FileMask then
-            projInfo.ProjectOpts.OtherOptions
-            |> String.concat "\n" |> sprintf "\nF# COMPILER OPTIONS:\n%s\n"
-            |> Log |> List.singleton |> printMessages
+            let print label msgs =
+                msgs |> String.concat "\n" |> sprintf "\n%s:\n%s\n" label
+                |> Log |> List.singleton |> printMessages
+            print "F# COMPILER OPTIONS" projInfo.ProjectOpts.OtherOptions
+            print "F# SOURCE FILES" projInfo.ProjectOpts.ProjectFileNames
+            projInfo.FilePairs |> Seq.map (fun kv -> kv.Value) |> print "JS TARGET FILES"
 
         // Parse project (F# Compiler Services) and print diagnostic info
         // --------------------------------------------------------------

@@ -1,3 +1,7 @@
+### 0.7.5-alpha.11
+
+* Omit `.js` extension again to keep compatibility with Require.js
+
 ### 0.7.5-alpha.10
 
 * Add `.js` extension to internal `fable-core` imports

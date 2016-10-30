@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Fable browser sample apps",
   "scripts": {
-    "build": "fable",
+    "build": "node ../../build/fable",
     "start": "node server",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,10 +15,10 @@
   "author": "Alfonso Garcia-Caro et al",
   "license": "ISC",
   "dependencies": {
-    "fable-core": "^0.7.5-alpha.10",
-    "fable-react": "^0.7.0-alpha.3"
+    "fable-core": "^0.7.5-alpha.11",
+    "fable-react": "^0.7.0-alpha.4"
   },
   "devDependencies": {
-    "fable-compiler": "^0.7.5-alpha.21"
+    "fable-compiler": "^0.7.5-alpha.22"
   }
 }

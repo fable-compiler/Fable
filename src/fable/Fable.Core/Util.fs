@@ -22,6 +22,11 @@ module Naming =
     let (|EndsWith|_|) pattern (txt: string) =
         if txt.EndsWith pattern then Some pattern else None
 
+    /// This is null to keep compatibility with Require.js
+    /// (which expects paths not to have extensions), in the
+    /// future this will probably be changed to ".js"
+    let targetFileExtension: string = null // ".js"
+
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
     let [<Literal>] exportsIdent = "__exports"

@@ -1,4 +1,4 @@
-import { compare as utilCompare } from "./Util.js"
+import { compare as utilCompare } from "./Util"
 
 export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
   switch (arguments.length) {

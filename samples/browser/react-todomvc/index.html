@@ -17,20 +17,21 @@
 		</footer>
   		<!-- [/body] -->
 
-		<script src="../lib/core.min.js"></script>
-		<script src="../lib/system.js"></script>
 		<script src="../lib/todomvc/base.js"></script>
+		<script src="../lib/core.min.js"></script>
+		<script src="../lib/require.js"></script>
         <script>
-		System.config({
-			map: {
+		// Paths in Require.js must always omit the .js extension
+		requirejs.config({
+			paths: {
                 'fable-core': '../node_modules/fable-core/umd',
-				'director': '../lib/director/director.js',
-				'classnames': '../lib/classnames/index.js',
-                'react': '../lib/react/react-with-addons.js',
-                'react-dom': '../lib/react/react-dom.js'
+				'director': '../lib/director/director',
+				'classnames': '../lib/classnames/index',
+                'react': '../lib/react/react-with-addons',
+                'react-dom': '../lib/react/react-dom'
 			}
 		});
-		SystemJS.import('out/react-todomvc.js');
+		requirejs(["out/react-todomvc"]);
         </script>
 	</body>
 </html>

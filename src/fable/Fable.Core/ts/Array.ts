@@ -1,4 +1,4 @@
-import { iterate } from "./Seq.js"
+import { iterate } from "./Seq"
 
 export function addRangeInPlace<T>(range: Iterable<T>, xs: Array<T>) {
   iterate(x => xs.push(x), range);

@@ -1,4 +1,4 @@
-import { IDisposable } from "./Util.js"
+import { IDisposable } from "./Util"
 
 export type Continuation<T> = (x: T) => void;
 

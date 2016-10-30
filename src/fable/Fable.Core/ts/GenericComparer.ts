@@ -1,6 +1,6 @@
-import { IComparer } from "./Util.js"
-import { compare } from "./Util.js"
-import FSymbol from "./Symbol.js"
+import { IComparer } from "./Util"
+import { compare } from "./Util"
+import FSymbol from "./Symbol"
 
 export default class GenericComparer<T> implements IComparer<T> {
   Compare: (x:T, y:T) => number;

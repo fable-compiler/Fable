@@ -76,7 +76,7 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
                 | None, _ -> None // If a case cannot be determined at compile time
                 | _ -> None       // the whole list must be converted at runtime
             ) |> function
-            | Some cases -> makeJsObject range cases
+            | Some cases -> makeJsObject (Some range) cases
             | None ->
                 let args =
                     let args = args |> List.map (transformExpr com ctx)
@@ -141,7 +141,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             buildApplyInfo com ctx r typ unionType (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
-            Fable.Apply(makeNonGenTypeRef (Some range) ctx.fileName unionType,
+            Fable.Apply(makeNonGenTypeRef ctx.fileName unionType,
                     argExprs, Fable.ApplyCons, makeType com ctx fsExpr.Type, Some range)
 
 and private transformComposableExpr com ctx fsExpr argExprs =
@@ -352,7 +352,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 transformExpr com ctx argExprs.Head,
                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail
             | false, Some(sourceType, _) ->
-                makeNonGenTypeRef range ctx.fileName sourceType,
+                makeNonGenTypeRef ctx.fileName sourceType,
                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs
             | _ ->
                 ("Cannot resolve trait call " + traitName) |> attachRange range |> failwith
@@ -414,7 +414,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx calleeType
-                      |> makeNonGenTypeRef (makeRangeFrom fsExpr) ctx.fileName
+                      |> makeNonGenTypeRef ctx.fileName
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeGetFrom com ctx r typ callee (makeConst fieldName)
 
@@ -442,7 +442,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeNonGenTypeRef (makeRangeFrom fsExpr) ctx.fileName calleeType
+            | None -> makeNonGenTypeRef ctx.fileName calleeType
         Fable.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -481,13 +481,11 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
                 let baseClass =
                     makeTypeFromDef com ctx meth.EnclosingEntity []
-                    |> makeNonGenTypeRef (Some SourceLocation.Empty) ctx.fileName
-                    |> Some
+                    |> makeNonGenTypeRef ctx.fileName |> Some
                 let baseCons =
                     let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
                     let m = Fable.Member(".ctor", Fable.Constructor, Fable.InstanceLoc, [], Fable.Any)
-                    Fable.MemberDeclaration(m, None, [], c, range)
-                    |> Some
+                    Some(m, [], c)
                 baseClass, baseCons
             | _ -> None, None
         let members =
@@ -530,7 +528,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                     let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type, Fable.Function(args, body.Type),
                                 over.GenericParameters |> List.map (fun x -> x.Name),
                                 hasRestParams = hasRestParams)
-                    Fable.MemberDeclaration(m, None, args', body, range)))
+                    m, args', body))
         let members =
             match baseCons with
             | Some baseCons -> baseCons::members
@@ -559,7 +557,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             buildApplyInfo com ctx r typ recordType (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
             |> replace com r
         else
-            Fable.Apply(makeNonGenTypeRef (Some range) ctx.fileName recordType,
+            Fable.Apply(makeNonGenTypeRef ctx.fileName recordType,
                     argExprs, Fable.ApplyCons, makeType com ctx fsExpr.Type, Some range)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
