@@ -12,6 +12,7 @@
         "netcore": {
             "projFile": ["Main/project.fsx"],
             "ecma": "es2015",
+            "module": "commonjs",
             "coreLib": "../../build/fable-core",
             "symbols": ["DOTNETCORE"],
             "plugins": ["../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
