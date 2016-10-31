@@ -188,7 +188,7 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
         OtherOptions = allFlags
         ReferencedProjects = [| |] // TODO: read from projParsed.ProjectReferences
         IsIncompleteTypeCheckEnvironment = false
-        UseScriptResolutionRules = true
+        UseScriptResolutionRules = false
         LoadTime = DateTime.Now
         UnresolvedReferences = None
     }
@@ -267,7 +267,7 @@ let mergeProjectOpts (opts1: FSharpProjectOptions option, resolver: FileResolver
             OtherOptions = Array.append opts1.OtherOptions opts2.OtherOptions |> Array.distinct
             ReferencedProjects = [| |]
             IsIncompleteTypeCheckEnvironment = false
-            UseScriptResolutionRules = true
+            UseScriptResolutionRules = false
             LoadTime = DateTime.Now
             UnresolvedReferences = None }
         | None -> opts2
