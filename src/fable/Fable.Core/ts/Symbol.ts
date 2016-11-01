@@ -29,4 +29,4 @@ export const fableGlobal: {
   return globalObj.__FABLE_CORE__;
 }();
 
-export default fableGlobal.symbols;
+export default (fableGlobal.symbols);
