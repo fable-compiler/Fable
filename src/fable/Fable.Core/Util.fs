@@ -87,7 +87,9 @@ module Naming =
             "DOMString"; "DOMTimeStamp"; "DOMSettableTokenList"; "DOMStringList"; "DOMTokenList"; "Element"; "Event"; "EventTarget"; "HTMLCollection"; "MutationObserver";
             "MutationRecord"; "Node"; "NodeFilter"; "NodeIterator"; "NodeList"; "ProcessingInstruction"; "Range"; "Text"; "TreeWalker"; "URL"; "Window"; "Worker"; "XMLDocument"; 
             // See #258
-            "arguments"
+            "arguments";
+            // See https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+            "fetch"
         ] 
 
     let sanitizeIdent conflicts name =
