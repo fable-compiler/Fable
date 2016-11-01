@@ -95,6 +95,8 @@ module Naming =
             "MutationRecord"; "Node"; "NodeFilter"; "NodeIterator"; "NodeList"; "ProcessingInstruction"; "Range"; "Text"; "TreeWalker"; "URL"; "Window"; "Worker"; "XMLDocument";
             // See #258
             "arguments"
+            // See https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+            "fetch"
         ]
 
     let preventConflicts conflicts name =
