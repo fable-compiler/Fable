@@ -952,6 +952,28 @@ module Util =
             | [:? string as macro] ->
                 let args = List.map (makeDelegate com None) args
                 let args = match callee with None -> args | Some c -> c::args
+                let macro, args =
+                    if Naming.genericPlaceholderRegex.IsMatch(macro)
+                    then
+                        let mutable extraArgs = []
+                        let genArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) |> Map
+                        let genInfo = { makeGeneric=false; genericAvailability=ctx.genericAvailability }
+                        let macro = Naming.genericPlaceholderRegex.Replace(macro, fun m ->
+                            match genArgs.TryFind m.Groups.[1].Value with
+                            | Some t ->
+                                let pos = args.Length + extraArgs.Length
+                                let tref = makeTypeRef ctx.fileName genInfo t
+                                extraArgs <- tref::extraArgs
+                                "$" + string pos
+                            | None ->
+                                sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
+                                    m.Groups.[1].Value macro
+                                |> attachRangeAndFile r ctx.fileName
+                                |> Warning |> com.AddLog
+                                m.Value
+                        )
+                        macro, (args@(List.rev extraArgs))
+                    else macro, args
                 Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r)
                 |> Some
             | :? FSharpType as emitFsType::restAttArgs when emitFsType.HasTypeDefinition ->
@@ -972,18 +994,23 @@ module Util =
             | _ -> "EmitAttribute must receive a string or Type argument" |> attachRange r |> failwith
         | _ -> None
 
-    let (|Imported|_|) com ctx r typ (args: Fable.Expr list) (meth: FSharpMemberOrFunctionOrValue) =
+    let (|Imported|_|) com ctx r typ (typArgs, methTypArgs) (args: Fable.Expr list)
+                        (meth: FSharpMemberOrFunctionOrValue) =
         let srcFile = (getEntityLocation meth.EnclosingEntity).FileName
         meth.Attributes
         |> Seq.choose (makeDecorator com)
         |> tryImported meth.CompiledName srcFile ctx.fileName
         |> function
             | Some expr ->
-                match getMemberKind meth with
-                | Fable.Getter | Fable.Field -> expr
-                | Fable.Setter -> Fable.Set (expr, None, args.Head, r)
-                | Fable.Constructor
-                | Fable.Method -> Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
+                match meth with
+                | Emitted com ctx r typ (typArgs, methTypArgs) (None, expr::args) emitted ->
+                    emitted
+                | _ ->
+                    match getMemberKind meth with
+                    | Fable.Getter | Fable.Field -> expr
+                    | Fable.Setter -> Fable.Set (expr, None, args.Head, r)
+                    | Fable.Constructor
+                    | Fable.Method -> Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
                 |> Some
             | None -> None
 
@@ -1041,9 +1068,9 @@ module Util =
                 else args
         match meth with
         (** -Check for replacements, emits... *)
+        | Imported com ctx r typ (typArgs, methTypArgs) args imported -> imported
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
         | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
-        | Imported com ctx r typ args imported -> imported
         | Inlined com ctx (typArgs, methTypArgs) (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
         | _ ->
@@ -1142,7 +1169,7 @@ module Util =
         else
             match v with
             | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
-            | Imported com ctx r typ [] imported -> imported
+            | Imported com ctx r typ ([], []) [] imported -> imported
             | Try (tryGetBoundExpr ctx r) e -> e
             | _ ->
                 let typeRef =

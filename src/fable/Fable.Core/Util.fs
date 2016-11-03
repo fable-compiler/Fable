@@ -59,6 +59,11 @@ module Naming =
     let identForbiddenCharsRegex =
         Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
 
+    /// Matches placeholders for generics in an Emit macro
+    /// like `React.createElement($'T, $0, $1)`
+    let genericPlaceholderRegex =
+        Regex @"\$'(\w+)"
+
     let replaceIdentForbiddenChars (ident: string) =
         identForbiddenCharsRegex.Replace(ident, fun (m: Match) ->
             "$" + (int m.Value.[0]).ToString("X") + "$")
