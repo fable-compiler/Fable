@@ -64,6 +64,14 @@ module Naming =
     let genericPlaceholderRegex =
         Regex @"\$'(\w+)"
 
+    /// Matches placeholders for generics in an Emit macro
+    /// like `React.createElement($'T, $0, $1)`
+    let fableCorePlaceholderRegex =
+        Regex @"\$fable-core\/(\w+)\.(\w+)"
+
+    let fsharpCorePlaceholderRegex =
+        Regex @"\$fsharp\/([\w.]+)\.(\w+)\((.*?)\)"
+
     let replaceIdentForbiddenChars (ident: string) =
         identForbiddenCharsRegex.Replace(ident, fun (m: Match) ->
             "$" + (int m.Value.[0]).ToString("X") + "$")

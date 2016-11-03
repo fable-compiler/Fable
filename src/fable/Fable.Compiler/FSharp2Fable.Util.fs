@@ -896,19 +896,19 @@ module Util =
             (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
             (callee, args)
 
-    let replace (com: IFableCompiler) r applyInfo =
+    let replace (com: IFableCompiler) (applyInfo: Fable.ApplyInfo) =
         let pluginReplace i =
             com.ReplacePlugins |> Seq.tryPick (fun (path, plugin) ->
                 try plugin.TryReplace com i
                 with ex -> failwithf "Error in plugin %s: %s (%O)"
-                            path ex.Message r)
+                            path ex.Message applyInfo.range)
         match applyInfo with
         | Try pluginReplace repl -> repl
         | Try (Replacements.tryReplace com) repl -> repl
         | _ ->
             sprintf "Cannot find replacement for %s.%s"
                 applyInfo.ownerFullName applyInfo.methodName
-            |> attachRange r |> failwith
+            |> attachRange applyInfo.range |> failwith
 
     let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
         let genArgs =
@@ -925,8 +925,7 @@ module Util =
         if isReplaceCandidate com meth.EnclosingEntity then
             buildApplyInfoFrom com ctx r typ
                 (typArgs, methTypArgs) (callee, args) meth
-            |> replace com r
-            |> Some
+            |> replace com |> Some
         else
             None
 
@@ -953,27 +952,49 @@ module Util =
                 let args = List.map (makeDelegate com None) args
                 let args = match callee with None -> args | Some c -> c::args
                 let macro, args =
+                    let mutable extraArgs = []
+                    let addExtraArg arg =
+                        let pos = args.Length + extraArgs.Length
+                        extraArgs <- arg::extraArgs
+                        "$" + string pos
+                    // Trick to replace reference to generic arguments: $'T
                     if Naming.genericPlaceholderRegex.IsMatch(macro)
                     then
-                        let mutable extraArgs = []
                         let genArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) |> Map
                         let genInfo = { makeGeneric=false; genericAvailability=ctx.genericAvailability }
-                        let macro = Naming.genericPlaceholderRegex.Replace(macro, fun m ->
+                        Naming.genericPlaceholderRegex.Replace(macro, fun m ->
                             match genArgs.TryFind m.Groups.[1].Value with
                             | Some t ->
-                                let pos = args.Length + extraArgs.Length
-                                let tref = makeTypeRef ctx.fileName genInfo t
-                                extraArgs <- tref::extraArgs
-                                "$" + string pos
+                                makeTypeRef ctx.fileName genInfo t |> addExtraArg
                             | None ->
                                 sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
                                     m.Groups.[1].Value macro
                                 |> attachRangeAndFile r ctx.fileName
                                 |> Warning |> com.AddLog
-                                m.Value
-                        )
-                        macro, (args@(List.rev extraArgs))
-                    else macro, args
+                                m.Value)
+                    else macro
+                    // Trick to replace calls to fable-core: $fable-core/Util.toPlainJsObj($1)
+                    |> fun macro -> Naming.fableCorePlaceholderRegex.Replace(macro, fun m ->
+                        makeCoreRef m.Groups.[1].Value (Some m.Groups.[2].Value)
+                        |> addExtraArg)
+                    // Trick to replace calls to FSharp.Core: $fsharp/Collections.ListModule.ToArray($2)
+                    |> fun macro -> Naming.fsharpCorePlaceholderRegex.Replace(macro, fun m ->
+                        try
+                            let args =
+                                m.Groups.[3].Value.Split(',')
+                                |> Seq.map (fun x -> x.Trim().Substring(1) |> int |> List.item <| args)
+                                |> Seq.toList
+                            buildApplyInfo com ctx r Fable.Any Fable.Any
+                                ("Microsoft.FSharp." + m.Groups.[1].Value) m.Groups.[2].Value
+                                Fable.Method ([],[],[],0) (None, args)
+                            |> replace com
+                            |> addExtraArg
+                        with ex ->
+                            "Couldn't replace FSharp.Core call in Emit expression: " + macro
+                            |> attachRangeAndFile r ctx.fileName
+                            |> Warning |> com.AddLog
+                            m.Value)
+                    |> fun macro -> macro, (args@(List.rev extraArgs))
                 Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r)
                 |> Some
             | :? FSharpType as emitFsType::restAttArgs when emitFsType.HasTypeDefinition ->
@@ -1003,6 +1024,7 @@ module Util =
         |> function
             | Some expr ->
                 match meth with
+                // Allo combination of Import and Emit attributes
                 | Emitted com ctx r typ (typArgs, methTypArgs) (None, expr::args) emitted ->
                     emitted
                 | _ ->
