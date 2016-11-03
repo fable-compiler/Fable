@@ -92,7 +92,8 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
     let projDir = Path.GetDirectoryName(projFile)
     let projParsed = Forge.ProjectSystem.FsProject.load projFile
     let sourceFiles =
-        projParsed.SourceFiles.AllFiles()
+        projParsed.OrderedSourceFiles
+        |> Seq.map (fun x -> defaultArg x.Link x.Include |> Path.normalizePath)
         |> Seq.filter (fun fileName -> fileName.EndsWith(".fs") || fileName.EndsWith(".fsx"))
         |> Seq.map (fun fileName -> Path.Combine(projDir, fileName))
         |> Seq.toArray

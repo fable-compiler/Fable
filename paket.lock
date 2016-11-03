@@ -1,7 +1,7 @@
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.2)
-    FAKE (4.42)
+    FAKE (4.44.1)
     FParsec (1.0.2)
     FSharp.Compiler.Service (8.0)
       System.Collections.Immutable (>= 1.2)
@@ -329,7 +329,7 @@ NUGET
       System.Xml.ReaderWriter (>= 4.0.11) - framework: dnxcore50, netstandard10, >= netstandard13
 GITHUB
   remote: fable-compiler/Forge
-    FULLPROJECT (7677a368304f0337047ed8ad925991aa7187a8bf)
+    FULLPROJECT (0d9115227345c1a7d9bfb238a9baf17b40363f20)
       Argu
       FAKE
       FParsec
@@ -342,7 +342,7 @@ GITHUB
       SharpZipLib
       SourceLink.Fake
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (f3f230ffde29fa370daf7d7be53e872e929dd487)
+    modules/Octokit/Octokit.fsx (9f9b64a796f8899dc3daf94b117caf3354d72890)
       Octokit (>= 0.20)
   remote: fsprojects/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (c50ace31d335b7bcb83b102d2cfd0ce2007ed681)
@@ -353,7 +353,7 @@ GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2
     DotLiquid (2.0.55)
-    FAKE (4.42)
+    FAKE (4.44.1)
     FSharp.Compiler.Service (2.0.0.6)
     FSharp.Core (4.0.0.1)
     FSharp.Formatting (2.14.2)
