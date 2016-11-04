@@ -935,6 +935,7 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
         // Even if a module is marked with Erase, transform its members
         // in case they contain inline methods
         if hasAtt Atts.erase ent.Attributes
+            || (List.isEmpty childDecls && ent.IsFSharpModule)
         then declInfo, ctx
         else
             // Bind entity name to context to prevent name
