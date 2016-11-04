@@ -1,3 +1,7 @@
+### 0.7.5-alpha.12
+
+* Add `MangleAttribute` to prevent conflicts with interfaces
+
 ### 0.7.5-alpha.11
 
 * Omit `.js` extension again to keep compatibility with Require.js

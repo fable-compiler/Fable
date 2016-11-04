@@ -1,3 +1,9 @@
+### 0.7.5-alpha.23
+
+* Add `MangleAttribute` to prevent conflicts with interfaces
+* Allow combination of `ImportAttribute` and `EmitAttribute`
+* Several fixes
+
 ### 0.7.5-alpha.22
 
 * Add catch-all for missing replacements when referencing

@@ -6,6 +6,12 @@ module Exceptions =
     /// Used to indicate that a member is only implemented in native Javascript
     let jsNative<'T> : 'T = failwith "JS only"
 
+/// Use it to mangle method names of interfaces so they don't conflict
+/// with methods of the implementing type.
+[<AttributeUsage(AttributeTargets.Interface)>]
+type MangleAttribute() =
+    inherit Attribute()
+
 /// Used for erased union types and to ignore modules in JS compilation.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type EraseAttribute() =

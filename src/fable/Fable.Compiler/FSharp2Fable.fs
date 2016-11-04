@@ -734,19 +734,22 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     // Don't consider setters as overloads (see #505)
     |> Seq.filter (fun m -> m.Kind = Fable.Setter)
     |> Seq.groupBy (fun m -> m.Name)
-    |> Seq.iter (fun (name, Array ms) ->
+    |> Seq.iter (fun (name, AsArray ms) ->
         if ms.Length > 1 && not(overloadExceptions.Contains name) then
             match ms.[0].Location, ms.[1].Location with
             | Fable.InterfaceLoc ifc1, Fable.InterfaceLoc ifc2 ->
                 if ifc1 = ifc2
                 then failwithf "Interface overloads cannot be implemented: %s.%s" ifc1 name
-                else failwithf "Implementing two interfaces with same method name is not allowed. Both %s and %s contain %s" ifc1 ifc2 name
+                else failwithf "Implementing two interfaces with same method name is not allowed. %s %s"
+                        (sprintf "Both %s and %s contain '%s.'" ifc1 ifc2 name)
+                        "Try using MangleAttribute on the interface."
             | _ -> ()
         elif instanceMeths.Contains name && not(overloadExceptions.Contains name) then
             match ms.[0].Location with
-            | Fable.InterfaceLoc ifc -> ifc, fableEnt.FullName, name
-            | _ -> "unknown", fableEnt.FullName, name
-            |||> failwithf "Interface %s conflicts with type %s method %s"
+            | Fable.InterfaceLoc ifc -> ifc, name, fableEnt.FullName
+            | _ -> "unknown", name, fableEnt.FullName
+            |||> failwithf "Interface %s conflicts with method '%s' of type %s. %s"
+                    <| "Try using MangleAttribute on the interface."
     )
     // If F# union or records implement System.IComparable/System.Equatable generate the methods
     // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
@@ -872,7 +875,7 @@ type private DeclInfo() =
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let addMethod() =
-        let memberName, memberKind = sanitizeMethodName meth
+        let memberName = sanitizeMethodName meth
         let memberLoc = getMemberLoc meth
         let ctx, privateName =
             // Bind module member names to context to prevent
@@ -899,6 +902,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             |> fun (ctx, args) ->
                 args, transformExpr com ctx body
         let entMember =
+            let memberKind = getMemberKind meth
             let fableEnt = makeEntity com ctx meth.EnclosingEntity
             let argTypes = List.map Fable.Ident.getType args
             let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type

@@ -76,13 +76,9 @@ module Naming =
         identForbiddenCharsRegex.Replace(ident, fun (m: Match) ->
             "$" + (int m.Value.[0]).ToString("X") + "$")
 
-    let removeParens, removeGetSetPrefix, sanitizeActivePattern =
-        let reg1 = Regex(@"^\( (.*) \)$")
+    let removeGetSetPrefix =
         let reg2 = Regex(@"^[gs]et_")
-        let reg3 = Regex(@"^\|[^\|]+?(?:\|[^\|]+)*(?:\|_)?\|$")
-        (fun s -> reg1.Replace(s, "$1")),
-        (fun s -> reg2.Replace(s, "")),
-        (fun (s: string) -> if reg3.IsMatch(s) then "_" + (s.Replace("|", "I")) + "_" else s)
+        (fun s -> reg2.Replace(s, ""))
 
     let lowerFirst (s: string) =
         s.Substring(0,1).ToLowerInvariant() + s.Substring(1)
