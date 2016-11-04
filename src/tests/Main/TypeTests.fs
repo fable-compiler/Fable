@@ -414,3 +414,40 @@ let ``Interface setters don't conflict``() = // See #505
     x.Sender |> equal 0
     x.Sender <- 5
     x.Sender |> equal 5
+
+[<Fable.Core.Mangle>]
+type IMangleFoo =
+    abstract Foo: unit -> string
+
+[<Fable.Core.Mangle>]
+type IMangleFoo2 =
+    abstract Foo: unit -> string
+
+let mangleFoo(x: IMangleFoo) = x.Foo()
+let mangleFoo2(x: IMangleFoo2) = x.Foo()
+
+type FooImplementor() =
+    member x.Foo() = "foo"
+    interface IMangleFoo with
+        member x.Foo() = "bar"
+
+type FooImplementor2() =
+    interface IMangleFoo with
+        member x.Foo() = "hello"
+    interface IMangleFoo2 with
+        member x.Foo() = "bye"
+
+[<Test>]
+let ``A type can implement a mangled interface``() =
+    let foo = FooImplementor()
+    foo.Foo() |> equal "foo"
+    (foo :> IMangleFoo).Foo() |> equal "bar"
+    mangleFoo foo |> equal "bar"
+
+[<Test>]
+let ``A type can implement two mangled interfaces``() =
+    let foo = FooImplementor2()
+    (foo :> IMangleFoo).Foo() |> equal "hello"
+    mangleFoo foo |> equal "hello"
+    (foo :> IMangleFoo2).Foo() |> equal "bye"
+    mangleFoo2 foo |> equal "bye"

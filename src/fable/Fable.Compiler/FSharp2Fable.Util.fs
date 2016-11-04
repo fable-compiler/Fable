@@ -167,17 +167,22 @@ module Helpers =
         else args |> Seq.map (fun li -> li.Count) |> Seq.sum
 
     let tryGetInterfaceFromMethod (meth: FSharpMemberOrFunctionOrValue) =
-        if meth.ImplementedAbstractSignatures.Count > 0
+        // Method implementations
+        if meth.IsExplicitInterfaceImplementation
         then
-            let x = meth.ImplementedAbstractSignatures.[0].DeclaringType
-            if x.HasTypeDefinition then Some x.TypeDefinition else None
+            if meth.ImplementedAbstractSignatures.Count > 0
+            then
+                let x = meth.ImplementedAbstractSignatures.[0].DeclaringType
+                if x.HasTypeDefinition then Some x.TypeDefinition else None
+            else None
+        // Method calls
+        elif meth.EnclosingEntity.IsInterface
+        then Some meth.EnclosingEntity
         else None
 
     let getMemberLoc (meth: FSharpMemberOrFunctionOrValue) =
         if not meth.IsInstanceMember && not meth.IsImplicitConstructor
         then Fable.StaticLoc
-        elif not meth.IsExplicitInterfaceImplementation
-        then Fable.InstanceLoc
         else tryGetInterfaceFromMethod meth
              |> Option.map (sanitizeEntityFullName >> Fable.InterfaceLoc)
              |> defaultArg <| Fable.InstanceLoc
@@ -195,15 +200,14 @@ module Helpers =
         else Fable.Method
 
     let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
-        if meth.IsExplicitInterfaceImplementation
-        then
-            match tryGetInterfaceFromMethod meth with
-            | Some ifc when hasAtt Atts.mangle ifc.Attributes -> meth.CompiledName
-            | _ -> meth.DisplayName
-        else
-            match getMemberKind meth with
-            | Fable.Getter | Fable.Setter -> meth.DisplayName
-            | _ -> meth.CompiledName
+        match tryGetInterfaceFromMethod meth, getMemberKind meth with
+        | Some ifc, _ when hasAtt Atts.mangle ifc.Attributes ->
+            // meth.CompiledName && meth.FullName are different for interface methods
+            // depending whether it's a method implementation or call
+            sanitizeEntityFullName ifc + "." + meth.DisplayName
+        | Some _, _ -> meth.DisplayName
+        | None, (Fable.Getter | Fable.Setter) -> meth.DisplayName
+        | _ -> meth.CompiledName
 
     let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
         if meth.CurriedParameterGroups.Count <> 1 then false else

@@ -1,3 +1,7 @@
+### 0.7.5-alpha.24
+
+* Fix mangled interfaces
+
 ### 0.7.5-alpha.23
 
 * Add `MangleAttribute` to prevent conflicts with interfaces

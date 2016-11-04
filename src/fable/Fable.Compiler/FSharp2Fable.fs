@@ -732,7 +732,7 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     childDecls
     |> Seq.choose (memberByLoc (Fable.InterfaceLoc ""))
     // Don't consider setters as overloads (see #505)
-    |> Seq.filter (fun m -> m.Kind = Fable.Setter)
+    |> Seq.filter (fun m -> m.Kind <> Fable.Setter)
     |> Seq.groupBy (fun m -> m.Name)
     |> Seq.iter (fun (name, AsArray ms) ->
         if ms.Length > 1 && not(overloadExceptions.Contains name) then
