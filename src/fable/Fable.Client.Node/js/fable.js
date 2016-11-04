@@ -1,4 +1,6 @@
-﻿var fableLib = require("./lib");
+﻿/// <reference path="node_modules/@types/node/index.d.ts" />
+
+var fableLib = require("./lib");
 var constants = require("./constants");
 var customPlugins = require("./babelPlugins");
 
@@ -91,15 +93,20 @@ function watch(opts, fableProc, parallelProc, continuation) {
     var next = null, prev = null;
     fableProc.stdin.setEncoding('utf-8');
 
-    // Watch only the working directory for performance
-    fableLib.stdoutLog("Watching " + opts.workingDir);
+    var dirs = [path.resolve(opts.workingDir)];
+    for (var i=0; i<opts.projFile.length; i++) {
+        var dir = path.resolve(path.dirname(opts.projFile[i]));
+        if (!dirs.some(x => dir.startsWith(x)))
+            dirs.push(dir)
+    }
+    fableLib.stdoutLog("Watching " + dirs.join('\n\t'));
     fableLib.stdoutLog("Press Enter to terminate process.");
     opts.watching = true;
 
     var fsExtensions = [".fs", ".fsx", ".fsproj"];
     var ready = false;
     var watcher = chokidar
-        .watch(opts.workingDir, { ignored: /node_modules/, persistent: true })
+        .watch(dirs, { ignored: /node_modules/, persistent: true })
         .on("ready", function() { ready = true; })
         .on("all", function(ev, filePath) {
             if (ready) {
