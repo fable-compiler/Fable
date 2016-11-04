@@ -2,5 +2,6 @@
     "projFile": "react-todomvc.fsx",
     "module": "amd",
     "sourceMaps": true,
-    "outDir": "out"
+    "outDir": "out",
+    "coreLib": "fable-core/umd"
 }

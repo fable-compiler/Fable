@@ -20,7 +20,7 @@ JS libraries: [classnames](https://github.com/JedWatson/classnames) and
 *)
 
 #r "../node_modules/fable-core/Fable.Core.dll"
-#r "../node_modules/fable-react/umd/Fable.React.dll"
+#r "../node_modules/fable-react/Fable.React.dll"
 
 open System
 open Fable.Core

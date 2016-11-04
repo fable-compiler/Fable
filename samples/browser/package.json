@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Fable browser sample apps",
   "scripts": {
-    "build": "node ../../build/fable",
+    "build": "fable",
     "start": "node server",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

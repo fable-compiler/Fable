@@ -981,24 +981,20 @@ module Util =
                                 |> Warning |> com.AddLog
                                 m.Value)
                     else macro
-                    // Trick to replace calls to fable-core: $fable-core/Util.toPlainJsObj($1)
-                    |> fun macro -> Naming.fableCorePlaceholderRegex.Replace(macro, fun m ->
-                        makeCoreRef m.Groups.[1].Value (Some m.Groups.[2].Value)
-                        |> addExtraArg)
-                    // Trick to replace calls to FSharp.Core: $fsharp/Collections.ListModule.ToArray($2)
-                    |> fun macro -> Naming.fsharpCorePlaceholderRegex.Replace(macro, fun m ->
+                    // Trick to replace calls: $replace:Fable.Core.JsInterop.toPlainJsObj($2)
+                    |> fun macro -> Naming.replacePlaceholderRegex.Replace(macro, fun m ->
                         try
                             let args =
                                 m.Groups.[3].Value.Split(',')
                                 |> Seq.map (fun x -> x.Trim().Substring(1) |> int |> List.item <| args)
                                 |> Seq.toList
                             buildApplyInfo com ctx r Fable.Any Fable.Any
-                                ("Microsoft.FSharp." + m.Groups.[1].Value) m.Groups.[2].Value
+                                m.Groups.[1].Value m.Groups.[2].Value
                                 Fable.Method ([],[],[],0) (None, args)
                             |> replace com
                             |> addExtraArg
                         with ex ->
-                            "Couldn't replace FSharp.Core call in Emit expression: " + macro
+                            "Couldn't replace call in Emit expression: " + macro
                             |> attachRangeAndFile r ctx.fileName
                             |> Warning |> com.AddLog
                             m.Value)

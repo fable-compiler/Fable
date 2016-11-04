@@ -318,6 +318,17 @@ module Util =
 module private AstPass =
     open Util
 
+    let hacks com (i: Fable.ApplyInfo) =
+        match i.methodName with
+        // Hack for `React.createElement` as some elements (like `input`)
+        // fail if passed an empty array to children arg
+        | "toArrayNonEmpty" ->
+            match i.args.Head with
+            | CoreCons com "List" _ -> Fable.Value Fable.Null
+            | expr -> toArray com i expr
+            |> Some
+        | _ -> None
+
     let fableCore com (i: Fable.ApplyInfo) =
         let destruct = function
             | Fable.Value(Fable.TupleConst exprs) -> exprs
@@ -1518,6 +1529,7 @@ module private AstPass =
         | Naming.StartsWith "Fable.Core" _ -> fableCore com info
         // TODO: Check this is not a custom exception
         | Naming.EndsWith "Exception" _ -> exceptions com info
+        | "Hack" -> hacks com info
         | "System.Object" -> objects com info
         | "System.Timers.ElapsedEventArgs" -> info.callee // only signalTime is available here
         | "System.String"
