@@ -515,13 +515,13 @@ in `moveGhosts` and `movePacman`:
   let movePacman () =
     // In which directions should pacman go?
     let inputs =
-       [| if Keyboard.isPressed 81 (*q*) then
+       [| if Keyboard.isPressed 38 (*up*) then
             yield canGoUp (!x,!y), (0,-1)
-          if Keyboard.isPressed 65 (*a*) then
+          if Keyboard.isPressed 40 (*down*) then
             yield canGoDown (!x,!y), (0,1)
-          if Keyboard.isPressed 90 (*z*) then
+          if Keyboard.isPressed 37 (*left*) then
             yield canGoLeft (!x,!y), (-1,0)
-          if Keyboard.isPressed 88 (*x*) then
+          if Keyboard.isPressed 39 (*right*) then
             yield canGoRight (!x,!y), (1,0) |]
     // Can we continue in the same direction?
     let canGoForward =
