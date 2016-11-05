@@ -343,8 +343,7 @@ module private AstPass =
             let path =
                 match i.args with
                 | [Fable.Value(Fable.StringConst path)] -> path
-                | _ -> failwithf "%s.%s only accepts literal strings %O"
-                                i.ownerFullName i.methodName i.range
+                | _ -> FableError(sprintf "%s.%s only accepts literal strings" i.ownerFullName i.methodName, ?range=i.range) |> raise 
             Fable.ImportRef(selector, path, Fable.CustomImport) |> Fable.Value |> Some
         | "op_Dynamic" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
@@ -594,7 +593,7 @@ module private AstPass =
             match i.args with
             | [Type Fable.String]
             | [Type Fable.String; Type(Fable.Number Int32)] -> icall com i i.methodName |> Some
-            | _ -> failwith "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
+            | _ -> FableError("The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex.", ?range=i.range) |> raise
         | "trim" | "trimStart" | "trimEnd" ->
             let side =
                 match i.methodName with
@@ -700,8 +699,7 @@ module private AstPass =
         | "index" ->
             if not isGroup
             then prop "index" i.callee.Value |> Some
-            else "Accessing index of Regex groups is not supported"
-                 |> attachRange i.range |> failwith
+            else FableError("Accessing index of Regex groups is not supported", ?range=i.range) |> raise
         | "value" ->
             if isGroup
             then i.callee.Value |> wrap i.returnType |> Some
@@ -1661,16 +1659,12 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
     | _ -> None
 
 let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
-    try
-        let info =
-            info.methodName |> Naming.removeGetSetPrefix |> Naming.lowerFirst
-            |> fun methName -> { info with methodName = methName }
-        match AstPass.tryReplace com info with
-        | Some res -> Some res
-        | None -> coreLibPass com info
-    with
-    | ex -> failwithf "Cannot replace %s.%s: %s"
-                info.ownerFullName info.methodName ex.Message
+    let info =
+        info.methodName |> Naming.removeGetSetPrefix |> Naming.lowerFirst
+        |> fun methName -> { info with methodName = methName }
+    match AstPass.tryReplace com info with
+    | Some res -> Some res
+    | None -> coreLibPass com info
 
 // TODO: We'll probably have to merge this with CoreLibPass.mappings
 // Especially if we start making more types from the BCL compatible

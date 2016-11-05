@@ -34,15 +34,15 @@ let private (|SpecialValue|_|) com ctx = function
     | _ -> None
 
 let private (|BaseCons|_|) com ctx = function
-    | BasicPatterns.Call(None, meth, _, _, args) ->
+    | BasicPatterns.Call(None, meth, _, _, args) as fsExpr ->
         let methOwnerName (meth: FSharpMemberOrFunctionOrValue) =
             sanitizeEntityFullName meth.EnclosingEntity
         match ctx.baseClass with
         | Some baseFullName when meth.CompiledName = ".ctor"
                             && (methOwnerName meth) = baseFullName ->
             if not meth.IsImplicitConstructor then
-                failwithf "Inheritance is only possible with base class implicit constructor: %s"
-                          baseFullName
+                FableError("Inheritance is only possible with base class implicit constructor: "
+                            + baseFullName, makeRange fsExpr.Range) |> raise
             Some (meth, args)
         | _ -> None
     | _ -> None
@@ -801,9 +801,9 @@ type private DeclInfo() =
     // Check there're no conflicting entity or function names (see #166)
     let checkPublicNameConflicts name =
         if publicNames.Contains name then
-            failwithf "%s %s: %s"
+            FableError(sprintf "%s %s: %s"
                 "Public types, modules or functions with same name"
-                "at same level are not supported" name
+                "at same level are not supported" name) |> raise
         publicNames.Add name
     let decls = ResizeArray<_>()
     let children = Dictionary<string, TmpDecl>()
@@ -1097,7 +1097,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
             if fullName = rootNs
             then Some ent, decls
             else getRootDecls rootNs (Some ent) decls
-        | _ -> failwith "Multiple namespaces in same file is not supported"
+        | _ -> FableError("Multiple namespaces in same file are not supported") |> raise
     let projectMaps =
         ("projectMaps", projInfo.Extra)
         ||> Map.findOrRun (fun () -> getProjectMaps com parsedProj projInfo)
@@ -1130,6 +1130,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
             | rootDecls -> Fable.File(file.FileName, projInfo.FilePairs.[file.FileName], rootEnt, rootDecls,
                             isEntry=(file.FileName = entryFile), usedVarNames=fcom.UsedVarNames) |> Some
         with
+        | :? FableError as err -> FableError(err, file.FileName) |> raise
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
     )
     |> fun seq ->

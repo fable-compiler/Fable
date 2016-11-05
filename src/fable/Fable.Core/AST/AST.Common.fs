@@ -22,6 +22,16 @@ type SourceLocation =
             x.start.line x.start.column
             x.``end``.line x.``end``.column
 
+type FableError(msg: string, ?range: SourceLocation, ?file: string) =
+    inherit System.Exception(msg)
+    new (err: FableError, file: string) = FableError(err.Message, ?range=err.Range, file=file)
+    member __.Range = range
+    member __.File = file
+    member __.FormattedMessage =
+        let range = match range with Some r -> " " + string r | None -> ""
+        let file = match file with Some f -> " (" + f + ")" | None -> ""
+        msg + range + file
+
 type NumberKind =
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 | Float32 | Float64 | Decimal
 

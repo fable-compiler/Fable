@@ -792,8 +792,7 @@ module Identifiers =
         |> function
             | Some(_, (Fable.Value(Fable.IdentValue i) as boundExpr)) ->
                 if i.IsConsumed && isMutatingUpdate fsRef.FullType then
-                    "Value marked as MutatingUpdate has already been consumed: " + i.Name
-                    |> attachRange r |> failwith
+                    FableError("Value marked as MutatingUpdate has already been consumed: " + i.Name, ?range=r) |> raise
                 Some boundExpr
             | Some(_, boundExpr) -> Some boundExpr
             | None -> None
@@ -910,17 +909,14 @@ module Util =
 
     let replace (com: IFableCompiler) (applyInfo: Fable.ApplyInfo) =
         let pluginReplace i =
-            com.ReplacePlugins |> Seq.tryPick (fun (path, plugin) ->
-                try plugin.TryReplace com i
-                with ex -> failwithf "Error in plugin %s: %s (%O)"
-                            path ex.Message applyInfo.range)
+            com.ReplacePlugins
+            |> Seq.tryPick (Plugins.tryPlugin applyInfo.range (fun p -> p.TryReplace com i))
         match applyInfo with
         | Try pluginReplace repl -> repl
         | Try (Replacements.tryReplace com) repl -> repl
         | _ ->
-            sprintf "Cannot find replacement for %s.%s"
-                applyInfo.ownerFullName applyInfo.methodName
-            |> attachRange applyInfo.range |> failwith
+            FableError("Cannot find replacement for " + applyInfo.ownerFullName + "." +
+                applyInfo.methodName, ?range=applyInfo.range) |> raise
 
     let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
         let genArgs =
@@ -1018,8 +1014,9 @@ module Util =
                             (typArgs, methTypArgs) (callee, args) meth
                     emitMeth.Invoke(emitInstance, [|com; applyInfo|]) |> unbox |> Some
                 with
-                | _ -> sprintf "Cannot build instance of type %s or it doesn't contain an appropriate %s method"
-                        emitFsType.TypeDefinition.DisplayName emitMethName |> attachRange r |> failwith
+                | ex -> let msg = sprintf "Cannot build instance of type %s or it doesn't contain an appropriate %s method"
+                                    emitFsType.TypeDefinition.DisplayName emitMethName |> attachRange r
+                        Exception(msg + ": " + ex.Message, ex) |> raise
             | _ -> "EmitAttribute must receive a string or Type argument" |> attachRange r |> failwith
         | _ -> None
 
@@ -1044,7 +1041,7 @@ module Util =
                 |> Some
             | None -> None
 
-    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) (typArgs, methTypArgs)
+    let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r (typArgs, methTypArgs)
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         if not(isInline meth) then None else
         match com.TryGetInlineExpr meth with
@@ -1057,8 +1054,8 @@ module Util =
                 { ctx with typeArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) }
             com.Transform ctx fsExpr |> Some
         | None ->
-            failwithf "%s is inlined but is not reachable. %s"
-                meth.FullName "If it belongs to an external project try removing inline modifier."
+            FableError(meth.FullName + " is inlined but is not reachable. " +
+                "If it belongs to an external project try removing inline modifier.", ?range=r) |> raise
 
     let passGenerics com ctx r (typArgs, methTypArgs) meth =
         let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
@@ -1101,7 +1098,7 @@ module Util =
         | Imported com ctx r typ (typArgs, methTypArgs) args imported -> imported
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
         | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
-        | Inlined com ctx (typArgs, methTypArgs) (callee, args) expr -> expr
+        | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
         | _ ->
             let methName = sanitizeMethodName meth

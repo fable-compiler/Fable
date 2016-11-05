@@ -13,11 +13,13 @@ open Fable
 open Fable.AST
 
 type CompilerMessage =
-    | Error of message: string * stack: string
+    | Error of message: string * stack: string option
     | Log of message: string
     static member toDic = function
-        | Error (msg, stack) ->
+        | Error (msg, Some stack) ->
             dict [ ("type", "ERROR"); ("message", msg); ("stack", stack) ]
+        | Error (msg, None) ->
+            dict [ ("type", "ERROR"); ("message", msg) ]
         | Log msg ->
             dict [ ("type", "LOG"); ("message", msg) ]
 
@@ -342,7 +344,7 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
     else errors
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
-        |> failwith
+        |> FableError |> raise
 
 let makeCompiler opts plugins =
     let id = ref 0
@@ -435,7 +437,7 @@ let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (coreVer: Ver
         errors
         |> Seq.append ["Errors when generating dll assembly:"]
         |> String.concat "\n"
-        |> failwith
+        |> FableError |> raise
     if warnings.Length > 0 then
         warnings
         |> Seq.append ["Warnings when generating dll assembly:"]
@@ -521,10 +523,13 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         true, FSProjInfo(projInfo.ProjectOpts, projInfo.FilePairs,
                             ?fileMask=projInfo.FileMask, extra=extraInfo)
     with ex ->
-        let stackTrace =
-            match ex.InnerException with
-            | null -> ex.StackTrace
-            | inner -> inner.StackTrace
+        let rec innerStack (ex: Exception) =
+            if ex.InnerException = null then ex.StackTrace else innerStack ex
+        let msg, stackTrace =
+            match ex with
+            // Don't print stack trace for known Fable errors
+            | :? FableError as err -> err.FormattedMessage, None
+            | ex -> ex.Message, Some(innerStack ex)
         printMessages [Error(ex.Message, stackTrace)]
         Console.Out.WriteLine "[SIGFAIL]"
         false, projInfo
@@ -558,5 +563,5 @@ let main argv =
         if opts.watch then
             awaitInput com checker success projInfo
     with
-    | ex -> printMessages [Error(ex.Message, ex.StackTrace)]
+    | ex -> printMessages [Error(ex.Message, Some ex.StackTrace)]
     0

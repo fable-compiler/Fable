@@ -1139,10 +1139,7 @@ module Compiler =
                 }
                 let rootDecls =
                     com.DeclarePlugins
-                    |> Seq.tryPick (fun (path, plugin) ->
-                        try plugin.TryDeclareRoot com ctx file
-                        with ex -> failwithf "Error in plugin %s: %s (%O)"
-                                    path ex.Message file.Range)
+                    |> Seq.tryPick (Plugins.tryPlugin (Some file.Range) (fun p -> p.TryDeclareRoot com ctx file))
                     |> function
                     | Some rootDecls -> rootDecls
                     | None -> transformModDecls com ctx declareRootModMember None file.Declarations
@@ -1174,6 +1171,7 @@ module Compiler =
                 // Return the Babel file
                 Babel.Program(file.TargetFile, file.SourceFile, file.Range, rootDecls, isEntry=file.IsEntry)
             with
+            | :? FableError as err -> FableError(err, file.SourceFile) |> raise
             | ex -> exn (sprintf "%s (%s)" ex.Message file.SourceFile, ex) |> raise
         )
         |> fun seq ->
