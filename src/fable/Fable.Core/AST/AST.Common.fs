@@ -24,7 +24,6 @@ type SourceLocation =
 
 type FableError(msg: string, ?range: SourceLocation, ?file: string) =
     inherit System.Exception(msg)
-    new (err: FableError, file: string) = FableError(err.Message, ?range=err.Range, file=file)
     member __.Range = range
     member __.File = file
     member __.FormattedMessage =
@@ -47,11 +46,11 @@ type UnaryOperator =
     | UnaryTypeof
     | UnaryVoid
     | UnaryDelete
-    
+
 type UpdateOperator =
     | UpdateMinus
     | UpdatePlus
-    
+
 type BinaryOperator =
     | BinaryEqual
     | BinaryUnequal
@@ -75,11 +74,11 @@ type BinaryOperator =
     | BinaryAndBitwise
     | BinaryIn
     | BinaryInstanceOf
-    
+
 type LogicalOperator =
     | LogicalOr
     | LogicalAnd
-    
+
 type AssignmentOperator =
     | AssignEqual
     | AssignMinus
@@ -92,4 +91,4 @@ type AssignmentOperator =
     | AssignShiftRightZeroFill
     | AssignOrBitwise
     | AssignXorBitwise
-    | AssignAndBitwise    
+    | AssignAndBitwise

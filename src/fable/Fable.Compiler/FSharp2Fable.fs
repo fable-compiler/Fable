@@ -41,7 +41,7 @@ let private (|BaseCons|_|) com ctx = function
         | Some baseFullName when meth.CompiledName = ".ctor"
                             && (methOwnerName meth) = baseFullName ->
             if not meth.IsImplicitConstructor then
-                FableError("Inheritance is only possible with base class implicit constructor: "
+                FableError("Inheritance is only possible with base class primary constructor: "
                             + baseFullName, makeRange fsExpr.Range) |> raise
             Some (meth, args)
         | _ -> None
@@ -67,7 +67,7 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             | _ -> None
         match flattenList range [] argExprs with
         | _, Some baseList ->
-            failwithf "KeyValue lists cannot be composed %O" range
+            FableError("KeyValue lists cannot be composed", range) |> raise
         | args, None ->
             (Some [], args) ||> List.fold (fun acc x ->
                 match acc, transformExpr com ctx x with
@@ -116,14 +116,14 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         match argExprs with
         | [] -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
         | [expr] -> Fable.Wrapped(expr, unionType)
-        | _ -> failwithf "Erased Union Cases must have one single field: %s" unionType.FullName
+        | _ -> FableError("Erased Union Cases must have one single field: " + unionType.FullName, range) |> raise
     | KeyValueUnion ->
         let key, value =
             match argExprs with
             | [] -> lowerCaseName unionCase, makeConst true
             | [expr] -> lowerCaseName unionCase, expr
             | [key; expr] when hasAtt Atts.erase unionCase.Attributes -> key, expr
-            | _ -> failwithf "KeyValue Union Cases must have one or zero fields: %s" unionType.FullName
+            | _ -> FableError("KeyValue Union Cases must have one or zero fields: " + unionType.FullName, range) |> raise
         Fable.TupleConst [key; value] |> Fable.Value
     | StringEnum ->
         // if argExprs.Length > 0 then
@@ -155,7 +155,7 @@ and private transformComposableExpr com ctx fsExpr argExprs =
         makeCallFrom com ctx r typ meth (typArgs, []) None argExprs
     | BasicPatterns.NewUnionCase(fsType, unionCase, _) ->
         transformNonListNewUnionCase com ctx fsExpr fsType unionCase argExprs
-    | _ -> failwith "ComposableExpr expected"
+    | _ -> failwithf "Expected ComposableExpr %O" (makeRange fsExpr.Range)
 
 and private transformExpr (com: IFableCompiler) ctx fsExpr =
     transformExprWithRole UnknownRole com ctx fsExpr
@@ -261,7 +261,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         | BasicPatterns.Lambda (BindIdent com ctx (newContext, ident), body) ->
             Fable.For (ident, start, limit, com.Transform newContext body, isUp)
             |> makeLoop (makeRangeFrom fsExpr)
-        | _ -> failwithf "Unexpected loop in %O: %A" (makeRange fsExpr.Range) fsExpr
+        | _ -> failwithf "Unexpected loop %O: %A" (makeRange fsExpr.Range) fsExpr
 
     | BasicPatterns.WhileLoop(Transform com ctx guardExpr, Transform com ctx bodyExpr) ->
         Fable.While (guardExpr, bodyExpr)
@@ -355,7 +355,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 makeNonGenTypeRef ctx.fileName sourceType,
                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs
             | _ ->
-                ("Cannot resolve trait call " + traitName) |> attachRange range |> failwith
+                FableError("Cannot resolve trait call " + traitName, ?range=range) |> raise
         let methName =
             match candidates with
             | Some(_, candidates) when candidates.Length > 1 ->
@@ -435,8 +435,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             makeGet range typ fields (i |> makeConst)
 
     | BasicPatterns.ILFieldSet (callee, typ, fieldName, value) ->
-        failwithf "Found unsupported ILField reference in %O: %A"
-                  (makeRange fsExpr.Range) fsExpr
+        failwithf "Unsupported ILField reference %O: %A" (makeRange fsExpr.Range) fsExpr
 
     | BasicPatterns.FSharpFieldSet (callee, FableType com ctx calleeType, FieldName fieldName, Transform com ctx value) ->
         let callee =
@@ -449,9 +448,8 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeGetFrom com ctx r typ unionExpr (makeConst "tag")
 
-    | BasicPatterns.UnionCaseSet (Transform com ctx unionExpr, _type, _case, FieldName caseField, Transform com ctx valueExpr) ->
-        makeRange fsExpr.Range
-        |> failwithf "Unexpected UnionCaseSet %O"
+    | BasicPatterns.UnionCaseSet (Transform com ctx unionExpr, _type, _case, _caseField, _valueExpr) ->
+        makeRange fsExpr.Range |> failwithf "Unexpected UnionCaseSet %O"
 
     | BasicPatterns.ValueSet (valToSet, Transform com ctx valueExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx valToSet.FullType
@@ -500,7 +498,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                         | None, _ -> ctx
                         | Some(capturedThis), Some thisArg ->
                             { ctx with thisAvailability=ThisCaptured(thisArg, capturedThis) }
-                        | Some _, None -> failwithf "Unexpected Object Expression method withouth this argument %O" range
+                        | Some _, None -> failwithf "Unexpected Object Expression method withouth `this` argument %O" range
                     // Don't use the typ argument as the override may come
                     // from another type, like ToString()
                     let typ =
@@ -577,8 +575,8 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         match unionType with
         | ErasedUnion ->
             if unionCase.UnionCaseFields.Count <> 1 then
-                failwithf "Erased Union Cases must have one single field: %s"
-                          unionType.FullName
+                FableError("Erased Union Cases must have one single field: "
+                            + unionType.FullName, makeRange fsExpr.Range) |> raise
             else
                 let typ =
                     let m = Regex.Match(unionCase.Name, @"^Case(\d+)$")
@@ -649,8 +647,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 | Some refCount -> Map.add idx (refCount + 1) map
                 | None -> Map.add idx 1 map
             | e ->
-                failwithf "Unexpected DecisionTree branch in %O: %A"
-                          (makeRange e.Range) e
+                failwithf "Unexpected DecisionTree branch %O: %A" (makeRange e.Range) e
         let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
         // Convert targets referred more than once into functions
         // and just pass the F# implementation for the others
@@ -686,7 +683,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     | BasicPatterns.DecisionTreeSuccess (decIndex, decBindings) ->
         match Map.tryFind decIndex ctx.decisionTargets with
-        | None -> failwith "Missing decision target"
+        | None -> failwithf "Missing decision target %O" (makeRange fsExpr.Range)
         // If we get a reference to a function, call it
         | Some (TargetRef targetRef) ->
             Fable.Apply (Fable.IdentValue targetRef |> Fable.Value,
@@ -735,21 +732,22 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     |> Seq.filter (fun m -> m.Kind <> Fable.Setter)
     |> Seq.groupBy (fun m -> m.Name)
     |> Seq.iter (fun (name, AsArray ms) ->
+        let mangleMsg = "Try using MangleAttribute on the interface."
         if ms.Length > 1 && not(overloadExceptions.Contains name) then
             match ms.[0].Location, ms.[1].Location with
             | Fable.InterfaceLoc ifc1, Fable.InterfaceLoc ifc2 ->
                 if ifc1 = ifc2
-                then failwithf "Interface overloads cannot be implemented: %s.%s" ifc1 name
-                else failwithf "Implementing two interfaces with same method name is not allowed. %s %s"
-                        (sprintf "Both %s and %s contain '%s.'" ifc1 ifc2 name)
-                        "Try using MangleAttribute on the interface."
-            | _ -> ()
+                then sprintf "Interface overloads cannot be implemented: %s.%s" ifc1 name |> Some
+                else sprintf "Implementing two interfaces with same method name is not allowed. %s %s"
+                        (sprintf "Both %s and %s contain '%s.'" ifc1 ifc2 name) mangleMsg |> Some
+            | _ -> None
         elif instanceMeths.Contains name && not(overloadExceptions.Contains name) then
             match ms.[0].Location with
             | Fable.InterfaceLoc ifc -> ifc, name, fableEnt.FullName
             | _ -> "unknown", name, fableEnt.FullName
-            |||> failwithf "Interface %s conflicts with method '%s' of type %s. %s"
-                    <| "Try using MangleAttribute on the interface."
+            |||> sprintf "Interface %s conflicts with method '%s' of type %s. %s" <| mangleMsg |> Some
+        else None
+        |> function None -> () | Some msg -> FableError(msg) |> raise
     )
     // If F# union or records implement System.IComparable/System.Equatable generate the methods
     // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
@@ -801,9 +799,8 @@ type private DeclInfo() =
     // Check there're no conflicting entity or function names (see #166)
     let checkPublicNameConflicts name =
         if publicNames.Contains name then
-            FableError(sprintf "%s %s: %s"
-                "Public types, modules or functions with same name"
-                "at same level are not supported" name) |> raise
+            FableError("Public types, modules or functions with same name "
+                        + "at same level are not supported: " + name) |> raise
         publicNames.Add name
     let decls = ResizeArray<_>()
     let children = Dictionary<string, TmpDecl>()
@@ -1130,7 +1127,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
             | rootDecls -> Fable.File(file.FileName, projInfo.FilePairs.[file.FileName], rootEnt, rootDecls,
                             isEntry=(file.FileName = entryFile), usedVarNames=fcom.UsedVarNames) |> Some
         with
-        | :? FableError as err -> FableError(err, file.FileName) |> raise
+        | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.FileName) |> raise
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
     )
     |> fun seq ->

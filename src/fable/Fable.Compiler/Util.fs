@@ -80,10 +80,11 @@ module Json =
             writer.WriteEndObject()
 
 module Plugins =
-    let tryPlugin r f (path, plugin) =
-        try f plugin
-        with
-        | :? AST.FableError as err when err.Range.IsNone -> AST.FableError(err.Message, ?range=r) |> raise
-        | :? AST.FableError as err -> raise err
-        | ex when Option.isSome r -> System.Exception(sprintf "Error in plugin %s: %s (%O)" path ex.Message r.Value, ex) |> raise
-        | ex -> System.Exception(sprintf "Error in plugin %s: %s" path ex.Message, ex) |> raise
+    let tryPlugin<'T,'V when 'T:>IPlugin> r (f: 'T->'V option) =
+        Seq.tryPick (fun (path: string, plugin: 'T) ->
+            try f plugin
+            with
+            | :? AST.FableError as err when err.Range.IsNone -> AST.FableError(err.Message, ?range=r) |> raise
+            | :? AST.FableError as err -> raise err
+            | ex when Option.isSome r -> System.Exception(sprintf "Error in plugin %s: %s %O" path ex.Message r.Value, ex) |> raise
+            | ex -> System.Exception(sprintf "Error in plugin %s: %s" path ex.Message, ex) |> raise)

@@ -432,9 +432,9 @@ module Util =
         | Fable.Emit emit -> macroExpression None emit []
         | Fable.TypeRef(typEnt, genArgs) -> typeRef com ctx typEnt genArgs None
         | Fable.Spread _ ->
-            failwithf "Unexpected array spread %O" r
+            "Unexpected array spread" |> Fable.Util.attachRange r |> failwith
         | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ ->
-            failwithf "Unexpected stand-alone operator detected %O" r
+            "Unexpected stand-alone operator detected" |> Fable.Util.attachRange r |> failwith
 
     let transformObjectExpr (com: IBabelCompiler) ctx
                             (members, interfaces, baseClass, range): Babel.Expression =
@@ -540,7 +540,7 @@ module Util =
 
     // TODO: Experimental support for Quotations
     let transformQuote com ctx r expr =
-        failwithf "Quotations are not supported %O" r
+        FableError("Quotations are not supported", ?range=r) |> raise
         // let rec toJson (expr: obj): Babel.Expression =
         //     match expr with
         //     | :? Babel.Node ->
@@ -989,11 +989,10 @@ module Util =
             entRange)
 
     and transformModDecls (com: IBabelCompiler) ctx declareMember modIdent decls =
-        let pluginDeclare decl =
-            com.DeclarePlugins |> Seq.tryPick (fun (path, plugin) ->
-                try plugin.TryDeclare com ctx decl
-                with ex -> failwithf "Error in plugin %s: %s (%O)"
-                            path ex.Message decl.Range)
+        let pluginDeclare (decl: Fable.Declaration) =
+            com.DeclarePlugins
+            |> Plugins.tryPlugin (Some decl.Range) (fun p ->
+                p.TryDeclare com ctx decl)
         decls |> List.fold (fun acc decl ->
             match decl with
             | Patterns.Try pluginDeclare statements ->
@@ -1052,7 +1051,7 @@ module Util =
                     if selector = "*"
                     then selector
                     elif selector = Naming.placeholder
-                    then failwith "importMember must be assigned to a variable"
+                    then FableError("`importMember` must be assigned to a variable") |> raise
                     // Replace ident forbidden chars of root members, see #207
                     else Naming.replaceIdentForbiddenChars selector
                 let getLocalIdent (ctx: Context) (selector: string) =
@@ -1139,7 +1138,8 @@ module Compiler =
                 }
                 let rootDecls =
                     com.DeclarePlugins
-                    |> Seq.tryPick (Plugins.tryPlugin (Some file.Range) (fun p -> p.TryDeclareRoot com ctx file))
+                    |> Plugins.tryPlugin (Some file.Range) (fun p ->
+                        p.TryDeclareRoot com ctx file)
                     |> function
                     | Some rootDecls -> rootDecls
                     | None -> transformModDecls com ctx declareRootModMember None file.Declarations
@@ -1171,7 +1171,7 @@ module Compiler =
                 // Return the Babel file
                 Babel.Program(file.TargetFile, file.SourceFile, file.Range, rootDecls, isEntry=file.IsEntry)
             with
-            | :? FableError as err -> FableError(err, file.SourceFile) |> raise
+            | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.SourceFile) |> raise
             | ex -> exn (sprintf "%s (%s)" ex.Message file.SourceFile, ex) |> raise
         )
         |> fun seq ->

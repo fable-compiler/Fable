@@ -74,7 +74,7 @@ function processJson(json, opts, continuation) {;
         }
     }
     catch (err) {
-        fableLib.stderrLog("PARSE", err);
+        fableLib.stderrLog(err);
         if (!opts.watch) {
             fableLib.finish(1, continuation);
         }

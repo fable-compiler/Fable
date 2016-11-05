@@ -908,9 +908,9 @@ module Util =
             (callee, args)
 
     let replace (com: IFableCompiler) (applyInfo: Fable.ApplyInfo) =
-        let pluginReplace i =
+        let pluginReplace (i: Fable.ApplyInfo) =
             com.ReplacePlugins
-            |> Seq.tryPick (Plugins.tryPlugin applyInfo.range (fun p -> p.TryReplace com i))
+            |> Plugins.tryPlugin i.range (fun p -> p.TryReplace com i)
         match applyInfo with
         | Try pluginReplace repl -> repl
         | Try (Replacements.tryReplace com) repl -> repl

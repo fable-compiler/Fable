@@ -85,7 +85,7 @@ let loadPlugins (pluginPaths: string list) =
                 Path.GetFileNameWithoutExtension path,
                 Activator.CreateInstance x |> unbox<IPlugin>)
         with
-        | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
+        | ex -> Exception(sprintf "Cannot load plugin %s: %s" path ex.Message, ex) |> raise)
     |> Seq.toList
 
 type private TypeInThisAssembly = class end
@@ -288,7 +288,7 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: s
         |> Async.RunSynchronously
     | ".fsproj" ->
         forgeGetProjectOptions opts projFile
-    | _ as s -> failwith (sprintf "Unsupported project type: %s" s)
+    | _ as s -> failwithf "Unsupported project type: %s" s
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
@@ -490,7 +490,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
                 |> Option.map (fun fableCoreVersion ->
                     match getMinimumFableCoreVersion() with
                     | Some minVersion when fableCoreVersion < minVersion ->
-                        failwithf "Fable.Core %O required, please upgrade the project reference" minVersion
+                        FableError(sprintf "Fable.Core %O required, please upgrade the project reference" minVersion) |> raise
                     | _ -> fableCoreVersion)
             else
             #endif
