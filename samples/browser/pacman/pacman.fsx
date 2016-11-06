@@ -8,8 +8,7 @@
    first. The [raw source code is on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/pacman/pacman.fsx)
    as usual!
 
-   To play the game, click anywhere to start it and then use the `Z` and `X` keys for moving left and right
-   and the `Q` and `A` keys for moving up and down. Make sure to turn on your volume too :-).
+   To play the game, click anywhere to start it and then use the arrow keys for moving pacman. Make sure to turn on your volume too :-).
 
 *)
 (*** hide ***)
