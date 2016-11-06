@@ -530,7 +530,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             // Don't print stack trace for known Fable errors
             | :? FableError as err -> err.FormattedMessage, None
             | ex -> ex.Message, Some(innerStack ex)
-        printMessages [Error(ex.Message, stackTrace)]
+        printMessages [Error(msg, stackTrace)]
         Console.Out.WriteLine "[SIGFAIL]"
         false, projInfo
 

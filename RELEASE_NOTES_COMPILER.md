@@ -1,6 +1,7 @@
 ### 0.7.5-alpha.24
 
 * Fix mangled interfaces
+* Improve error messages
 
 ### 0.7.5-alpha.23
 

@@ -739,7 +739,7 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
                 if ifc1 = ifc2
                 then sprintf "Interface overloads cannot be implemented: %s.%s" ifc1 name |> Some
                 else sprintf "Implementing two interfaces with same method name is not allowed. %s %s"
-                        (sprintf "Both %s and %s contain '%s.'" ifc1 ifc2 name) mangleMsg |> Some
+                        (sprintf "Both %s and %s contain '%s'." ifc1 ifc2 name) mangleMsg |> Some
             | _ -> None
         elif instanceMeths.Contains name && not(overloadExceptions.Contains name) then
             match ms.[0].Location with
