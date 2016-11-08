@@ -251,8 +251,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
-    // TODO: We may need to resolve the genArgs, probably adding them to the context
-    // and matching them with typeArgs in BasicPatterns.Application(callee, typeArgs, args)
+    // Sometimes these must be inlined, but that's resolved in BasicPatterns.Let (see below)
     | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
 
     (** ## Flow control *)
@@ -312,11 +311,16 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
     | ImmutableBinding((var, value), body) ->
         transformExpr com ctx value |> bindExpr ctx var |> transformExpr com <| body
 
-    | BasicPatterns.Let((var, Transform com ctx value), body) ->
-        let ctx, ident = bindIdent com ctx value.Type (Some var) var.CompiledName
-        let body = transformExpr com ctx body
-        let assignment = Fable.VarDeclaration (ident, value, var.IsMutable)
-        makeSequential (makeRangeFrom fsExpr) [assignment; body]
+    | BasicPatterns.Let((var, value), body) ->
+        if isInline var then
+            let ctx = { ctx with scopedInlines = (var, value)::ctx.scopedInlines }
+            transformExpr com ctx body
+        else
+            let value = transformExpr com ctx value
+            let ctx, ident = bindIdent com ctx value.Type (Some var) var.CompiledName
+            let body = transformExpr com ctx body
+            let assignment = Fable.VarDeclaration (ident, value, var.IsMutable)
+            makeSequential (makeRangeFrom fsExpr) [assignment; body]
 
     | BasicPatterns.LetRec(recBindings, body) ->
         let ctx, idents =
@@ -332,54 +336,45 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
-        let traitName, isGet, isSet =
-            let instanceArgsLength =
-                if flags.IsInstance then argExprs.Length - 1 else argExprs.Length
-            if traitName.StartsWith("get_") && instanceArgsLength = 0
-            then traitName.Substring(4), true, false
-            elif traitName.StartsWith("set_") && instanceArgsLength = 1
-            then traitName.Substring(4), false, true
-            else traitName, false, false
-        let memLoc = if flags.IsInstance then Fable.InstanceLoc else Fable.StaticLoc
-        let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-        let sourceTypes = List.map (makeType com ctx) sourceTypes
-        let argTypes = List.map (makeType com ctx) argTypes
-        let candidates =
-            (None, sourceTypes)
-            ||> List.fold (fun candidates t ->
-                match candidates, t with
-                | Some _, _ -> candidates
-                | _, Fable.DeclaredType(ent,_) ->
-                    ent.Members |> List.filter (fun m ->
-                        m.Location = memLoc && m.Name = traitName)
-                    |> function [] -> None | candidates -> Some(t, candidates)
-                | _ -> None)
-        let callee, args =
-            match flags.IsInstance, candidates with
-            | true, _ ->
-                transformExpr com ctx argExprs.Head,
-                List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail
-            | false, Some(sourceType, _) ->
-                makeNonGenTypeRef ctx.fileName sourceType,
-                List.map (transformExprWithRole AppliedArgument com ctx) argExprs
-            | _ ->
-                FableError("Cannot resolve trait call " + traitName, ?range=range) |> raise
-        let methExpr =
-            match candidates with
-            | Some(_, candidates) when candidates.Length > 1 ->
-                candidates |> List.tryPick (fun meth ->
-                    if compareConcreteAndGenericTypes argTypes meth.ArgumentTypes
-                    then Some meth.OverloadName else None)
-                |> defaultArg <| traitName
-            | _ -> traitName
-            |> Fable.StringConst |> Fable.Value
-        if isSet then
-            Fable.Set(callee, Some methExpr, args.Head, range)
-        elif isGet then
-            Fable.Apply(callee, [methExpr], Fable.ApplyGet, typ, range)
-        else
-            let m = makeGet range (Fable.Function(argTypes, typ)) callee methExpr
-            Fable.Apply(m, args, Fable.ApplyMeth, typ, range)
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        let giveUp() =
+            FableError("Cannot resolve trait call " + traitName, ?range=r) |> raise
+        let (|ResolveGeneric|_|) ctx (t: FSharpType) =
+            if not t.IsGenericParameter then Some t else
+            let genParam = t.GenericParameter
+            ctx.typeArgs |> List.tryPick (fun (name,t) ->
+                if name = genParam.Name then Some t else None)
+        let makeCall meth =
+            let callee, args =
+                if flags.IsInstance
+                then
+                    (transformExpr com ctx argExprs.Head |> Some),
+                    (List.map (transformExprWithRole AppliedArgument com ctx) argExprs.Tail)
+                else None, List.map (transformExprWithRole AppliedArgument com ctx) argExprs
+            makeCallFrom com ctx r typ meth ([],[]) callee args
+        sourceTypes
+        |> List.tryPick (function
+            | ResolveGeneric ctx (TypeDefinition tdef) ->
+                tdef.MembersFunctionsAndValues |> Seq.filter (fun m ->
+                    // Property members that are no getter nor setter don't actually get implemented
+                    not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
+                    && m.IsInstanceMember = flags.IsInstance
+                    && m.CompiledName = traitName)
+                |> Seq.toList |> function [] -> None | ms -> Some (tdef, ms)
+            | _ -> None)
+        |> function
+        | Some(_, [meth]) ->
+            makeCall meth
+        | Some(tdef, candidates) ->
+            let argTypes =
+                if not flags.IsInstance then argTypes else argTypes.Tail
+                |> List.map (makeType com ctx)
+            candidates |> List.tryPick (fun meth ->
+                let methTypes = getArgTypes com meth.CurriedParameterGroups
+                if compareConcreteAndGenericTypes argTypes methTypes
+                then Some meth else None)
+            |> function Some m -> makeCall m | None -> giveUp()
+        | None -> giveUp()
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
         let callee = Option.map (com.Transform ctx) callee
@@ -387,17 +382,28 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
+    | BasicPatterns.Application(BasicPatterns.Value var, typeArgs, args) when isInline var ->
+        let range = makeRange fsExpr.Range
+        match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
+        | Some (_,fsExpr) ->
+            let typ = makeType com ctx fsExpr.Type
+            let args = List.map (transformExprWithRole AppliedArgument com ctx) args
+            let resolvedCtx = { ctx with typeArgs = matchGenericParams com ctx var ([], typeArgs) }
+            let callee = com.Transform resolvedCtx fsExpr
+            makeApply (Some range) typ callee args
+        | None ->
+            FableError("Cannot resolve locally inlined value: " + var.DisplayName, range) |> raise
+
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
         let args = List.map (transformExprWithRole AppliedArgument com ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        match callee.Type.FullName, args with
-        | "Fable.Core.Applicable", args ->
+        if callee.Type.FullName = "Fable.Core.Applicable" then
             match args with
             | [Fable.Value(Fable.TupleConst args)] -> args
             | args -> args
             |> List.map (makeDelegate com None)
             |> fun args -> Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
-        | _ -> makeApply range typ callee args
+        else makeApply range typ callee args
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)

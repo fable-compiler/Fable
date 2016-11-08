@@ -33,16 +33,17 @@ type Context =
     {
     fileName: string
     scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
-    typeArgs: (string * Fable.Type) list
+    scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
+    typeArgs: (string * FSharpType) list
     decisionTargets: Map<int, DecisionTarget>
     baseClass: string option
     thisAvailability: ThisAvailability
     genericAvailability: bool
     }
     static member Empty =
-        { fileName="unknown"; scope=[]; typeArgs=[];
-          baseClass=None; decisionTargets=Map.empty<_,_>;
-          thisAvailability=ThisUnavailable; genericAvailability=false }
+        { fileName="unknown"; scope=[]; scopedInlines=[]
+        ; typeArgs=[]; baseClass=None; decisionTargets=Map.empty<_,_>
+        ; thisAvailability=ThisUnavailable; genericAvailability=false }
 
 type Role =
     | AppliedArgument
@@ -225,11 +226,11 @@ module Patterns =
     let (|ExprType|) (expr: Fable.Expr) = expr.Type
     let (|EntityKind|) (ent: Fable.Entity) = ent.Kind
 
-    let (|TypeDefinition|_|) (t: FSharpType) =
-        if t.HasTypeDefinition then Some t.TypeDefinition else None
-
     let (|NonAbbreviatedType|) (t: FSharpType) =
         nonAbbreviatedType t
+
+    let (|TypeDefinition|_|) (NonAbbreviatedType t) =
+        if t.HasTypeDefinition then Some t.TypeDefinition else None
 
     let (|RefType|_|) = function
         | NonAbbreviatedType(TypeDefinition tdef) as t
@@ -741,7 +742,7 @@ module Types =
         let resolveGenParam (genParam: FSharpGenericParameter) =
             ctx.typeArgs
             |> List.tryFind (fun (name,_) -> name = genParam.Name)
-            |> function Some (_,typ) -> typ | None -> Fable.GenericParam genParam.Name
+            |> function Some (_,typ) -> makeType com ctx typ | None -> Fable.GenericParam genParam.Name
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam t.GenericParameter
@@ -919,13 +920,18 @@ module Util =
                 applyInfo.methodName, ?range=applyInfo.range) |> raise
 
     let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
+        let (|ResolveGeneric|) ctx (t: FSharpType) =
+            if not t.IsGenericParameter then t else
+            let genParam = t.GenericParameter
+            ctx.typeArgs |> List.tryFind (fun (name,_) -> name = genParam.Name)
+            |> function Some (_,t) -> t | None -> t
         let genArgs =
-            ([], meth.EnclosingEntity.GenericParameters, List.map (makeType com ctx) typArgs)
-            |||> Seq.fold2 (fun acc genPar typArg ->
-                (genPar.Name, typArg)::acc)
-        (genArgs, meth.GenericParameters, List.map (makeType com ctx) methTypArgs)
-        |||> Seq.fold2 (fun acc genPar typArg ->
-            (genPar.Name, typArg)::acc)
+            if meth.IsModuleValueOrMember then
+                ([], meth.EnclosingEntity.GenericParameters, typArgs)
+                |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
+            else []
+        (genArgs, meth.GenericParameters, methTypArgs)
+        |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ
                     (typArgs, methTypArgs) (callee, args)
@@ -973,7 +979,7 @@ module Util =
                         Naming.genericPlaceholderRegex.Replace(macro, fun m ->
                             match genArgs.TryFind m.Groups.[1].Value with
                             | Some t ->
-                                makeTypeRef ctx.fileName genInfo t |> addExtraArg
+                                makeType com ctx t |> makeTypeRef ctx.fileName genInfo |> addExtraArg
                             | None ->
                                 sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
                                     m.Groups.[1].Value macro
@@ -1050,9 +1056,9 @@ module Util =
             let ctx =
                 (ctx, vars, args) |||> Seq.fold2 (fun ctx var arg ->
                     { ctx with scope = (Some var, arg)::ctx.scope })
-            let ctx =
+            let resolvedCtx =
                 { ctx with typeArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) }
-            com.Transform ctx fsExpr |> Some
+            com.Transform resolvedCtx fsExpr |> Some
         | None ->
             FableError(meth.FullName + " is inlined but is not reachable. " +
                 "If it belongs to an external project try removing inline modifier.", ?range=r) |> raise
@@ -1060,7 +1066,7 @@ module Util =
     let passGenerics com ctx r (typArgs, methTypArgs) meth =
         let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
         matchGenericParams com ctx meth (typArgs, methTypArgs)
-        |> List.map (fun (genName, typ) ->
+        |> List.map (fun (genName, FableType com ctx typ) ->
             match typ with
             | Fable.GenericParam name when not ctx.genericAvailability ->
                 ("An unresolved generic argument ('" + name + ") is being passed " +

@@ -1,6 +1,6 @@
-### 0.7.5-alpha.25
+### 0.7.5-alpha.26
 
-* Resolve getter/setter trait calls
+* Resolve trait calls as normal method calls (check EmitAttribute, etc)
 
 ### 0.7.5-alpha.24
 

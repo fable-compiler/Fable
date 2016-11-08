@@ -26,3 +26,21 @@ let ``Infix applicative can be generated``() =
              | Ok x -> x
              | _ -> failwith "expected Ok"
     Assert.AreEqual ("1", r' )
+
+type Foo1(i) =
+    member x.Foo() = i
+    member x.Foo(j) = i + j
+
+type Foo2(i) =
+    member x.Foo(j) = (i + j) * 2
+
+let inline foo< ^t when ^t : (member Foo : int -> int)> x i =
+    (^t : (member Foo : int -> int) (x, i))
+
+[<Test>]
+let ``Local inline typed lambdas work``() =
+    let inline localFoo (x:^t) = foo x 5
+    let x1 = Foo1(2)
+    let x2 = Foo2(2)
+    Assert.AreEqual(7, localFoo x1)
+    Assert.AreEqual(14, localFoo x2)
