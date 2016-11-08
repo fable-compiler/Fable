@@ -13,7 +13,7 @@
             "projFile": ["Main/project.fsx"],
             "ecma": "es2015",
             "module": "commonjs",
-            "coreLib": "../../build/fable-core",
+            "coreLib": "../../build/fable-core/umd",
             "symbols": ["DOTNETCORE"],
             "plugins": ["../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
         }

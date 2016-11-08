@@ -1,6 +1,4 @@
-﻿/// <reference path="node_modules/@types/node/index.d.ts" />
-
-var fableLib = require("./lib");
+﻿var fableLib = require("./lib");
 var constants = require("./constants");
 var customPlugins = require("./babelPlugins");
 
@@ -317,9 +315,9 @@ function build(opts, continuation) {
                     }
                 }
                 else {
-                    var jsFile = processJson(json, opts, continuation);
-                    if (jsFile != null)
-                        jsFiles[jsFile.fileName] = jsFile;
+                    var res = processJson(json, opts, continuation);
+                    if (Array.isArray(res))
+                        res.forEach(file => jsFiles[file.fileName] = file);
                 }
             }
         }

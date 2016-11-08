@@ -235,9 +235,8 @@ Target "FableCompilerRelease" (fun _ ->
     |> MSBuildRelease (buildDir + "/bin") "Build"
     |> Log "Fable-Compiler-Release-Output: "
 
-    // For some reason, ProjectCracker targets are not working after updating the package
-    !! "packages/FSharp.Compiler.Service.ProjectCracker/utilities/net45/FSharp.Compiler.Service.ProjectCrackerTool.exe*"
-    |> Seq.iter (fun x -> FileUtils.cp x "build/fable/bin")
+    FileUtils.cp "packages/FSharp.Core/lib/net40/FSharp.Core.optdata" (buildDir + "/bin")
+    FileUtils.cp "packages/FSharp.Core/lib/net40/FSharp.Core.sigdata" (buildDir + "/bin")
 
     buildFableCompilerJs buildDir false
 )
@@ -250,6 +249,9 @@ Target "FableCompilerDebug" (fun _ ->
       "src/fable/Fable.Client.Node/Fable.Client.Node.fsproj" ]
     |> MSBuildDebug (buildDir + "/bin") "Build"
     |> Log "Fable-Compiler-Debug-Output: "
+
+    FileUtils.cp "packages/FSharp.Core/lib/net40/FSharp.Core.optdata" (buildDir + "/bin")
+    FileUtils.cp "packages/FSharp.Core/lib/net40/FSharp.Core.sigdata" (buildDir + "/bin")
 
     buildFableCompilerJs buildDir false
 )
@@ -276,7 +278,7 @@ Target "FableCompilerNetcore" (fun _ ->
         Util.run pluginDir "dotnet" "build -c Release"
 
         // Run dotnet tests
-        let testDir = "src/tests/Main"
+        let testDir = "src/netcore/tests"
         Util.run testDir "dotnet" "test -c Release"
 
         // Compile JavaScript tests
@@ -302,7 +304,7 @@ Target "FableCompilerNetcore" (fun _ ->
 )
 
 Target "NUnitTest" (fun _ ->
-    !! "src/tests/DllRef/Fable.Tests.DllRef.fsproj"
+    !! "src/tests/DllRef*/*.fsproj"
     |> MSBuildDebug "build/tests_dll" "Build"
     |> ignore
 
@@ -320,7 +322,8 @@ let compileAndRunMochaTests es2015 =
     let testCompileArgs =
         ["--verbose" + if es2015 then " --ecma es2015" else ""]
 
-    Node.run "." "build/fable" ["src/tests/DllRef"]
+    // Node.run "." "build/fable" ["src/tests/DllRef --verbose"]
+    // Node.run "." "build/fable" ["src/tests/DllRef2 --verbose"]
     Node.run "." "build/fable" ("src/tests/"::testCompileArgs)
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []
@@ -339,7 +342,13 @@ Target "ES6MochaTest" (fun _ ->
 )
 
 let quickTest _ =
-    Node.run "." "build/Fable" ["src/tools/QuickTest.fsx -o src/tools/temp -m commonjs --coreLib ./build/fable-core/umd --verbose"]
+    Node.run "." "build/Fable" [
+        "src/tools/QuickTest.fsx"
+        "-o src/tools/temp"
+        "-m commonjs"
+        "--coreLib ./build/fable-core/umd"
+        "--includeJs --verbose"
+    ]
     Node.run "." "src/tools/temp/QuickTest.js" []
 
 Target "QuickTest" quickTest

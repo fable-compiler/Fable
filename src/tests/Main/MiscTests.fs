@@ -795,6 +795,18 @@ let ``Import with relative paths from referenced dll works``() =
     Util.two |> equal 2
     Util.four |> equal 4
 
+[<Test>]
+let ``Including JS files in compilation works``() =
+    Fable.Tests.DllRef2.Lib.foo |> equal "foo"
+
+[<Test>]
+let ``Including JS files with same name works``() =
+    Fable.Tests.DllRef2.Lib.fooGenerator 3 |> equal "foofoofoo"
+
+[<Test>]
+let ``Including same JS file from different F# sources works``() =
+    Fable.Tests.DllRef2.Lib2.foo |> equal "foo"
+
 [<Fable.Core.Import("foo", "./js/foo.js")>]
 [<Fable.Core.Emit("$0 + 'bar'")>]
 let foobar: string = failwith "JS only"

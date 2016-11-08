@@ -61,6 +61,8 @@ type IFableCompiler =
     abstract ReplacePlugins: (string*IReplacePlugin) list
 
 module Atts =
+    let emit = typeof<Fable.Core.EmitAttribute>.Name.Replace("Attribute","")
+    let import = typeof<Fable.Core.ImportAttribute>.Name.Replace("Attribute","")
     let mangle = typeof<Fable.Core.MangleAttribute>.Name.Replace("Attribute","")
     let erase = typeof<Fable.Core.EraseAttribute>.Name.Replace("Attribute","")
     let stringEnum = typeof<Fable.Core.StringEnumAttribute>.Name.Replace("Attribute","")
@@ -569,9 +571,7 @@ module Types =
         | None -> None
         | Some (NonAbbreviatedType t) ->
             if isIgnored t then None else
-            let typeRef =
-                makeType com Context.Empty t
-                |> makeNonGenTypeRef ctx.fileName
+            let typeRef = makeType com Context.Empty t |> makeNonGenTypeRef
             Some (sanitizeEntityFullName t.TypeDefinition, typeRef)
 
     // Some attributes (like ComDefaultInterface) will throw an exception
@@ -995,7 +995,7 @@ module Util =
                         Naming.genericPlaceholderRegex.Replace(macro, fun m ->
                             match genArgs.TryFind m.Groups.[1].Value with
                             | Some t ->
-                                makeType com ctx t |> makeTypeRef ctx.fileName genInfo |> addExtraArg
+                                makeType com ctx t |> makeTypeRef genInfo |> addExtraArg
                             | None ->
                                 sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
                                     m.Groups.[1].Value macro
@@ -1044,10 +1044,9 @@ module Util =
 
     let (|Imported|_|) com ctx r typ (typArgs, methTypArgs) (args: Fable.Expr list)
                         (meth: FSharpMemberOrFunctionOrValue) =
-        let srcFile = (getEntityLocation meth.EnclosingEntity).FileName
         meth.Attributes
         |> Seq.choose (makeDecorator com)
-        |> tryImported meth.CompiledName srcFile ctx.fileName
+        |> tryImported meth.CompiledName
         |> function
             | Some expr ->
                 match meth with
@@ -1104,7 +1103,7 @@ module Util =
                 |> attachRangeAndFile r ctx.fileName
                 |> Warning |> com.AddLog
             | _ -> ()
-            genName, makeTypeRef ctx.fileName genInfo typ)
+            genName, makeTypeRef genInfo typ)
         |> makeJsObject None
 
     let makeCallFrom (com: IFableCompiler) ctx r typ
@@ -1140,7 +1139,7 @@ module Util =
             match meth.IsExtensionMember, callee with
             | true, Some callee ->
                 let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
-                             |> makeNonGenTypeRef ctx.fileName
+                             |> makeNonGenTypeRef
                 let methName =
                     let ent = makeEntity com ctx meth.EnclosingEntity
                     let loc = if meth.IsInstanceMember then Fable.InstanceLoc else Fable.StaticLoc
@@ -1154,7 +1153,7 @@ module Util =
                     match callee with
                     | Some callee -> callee
                     | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
-                              |> makeNonGenTypeRef ctx.fileName
+                              |> makeNonGenTypeRef
         (**     *Check if this a getter or setter  *)
                 match getMemberKind meth with
                 | Fable.Getter | Fable.Field ->
@@ -1235,5 +1234,5 @@ module Util =
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []
-                    |> makeNonGenTypeRef ctx.fileName
+                    |> makeNonGenTypeRef
                 Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)

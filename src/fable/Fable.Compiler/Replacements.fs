@@ -551,7 +551,7 @@ module private AstPass =
                 genericAvailability = info.genericAvailability
             }
             info.methodTypeArgs.Head
-            |> makeTypeRef info.fileName genInfo |> Some
+            |> makeTypeRef genInfo |> Some
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -764,9 +764,9 @@ module private AstPass =
             CoreLibCall("Array", Some "setSlice", false, args)
             |> makeCall i.range i.returnType |> Some
         | "typeTestGeneric", (None, [expr]) ->
-            makeTypeTest i.range i.fileName i.methodTypeArgs.Head expr |> Some
+            makeTypeTest i.range i.methodTypeArgs.Head expr |> Some
         | "createInstance", (None, _) ->
-            let typRef, args = makeNonGenTypeRef i.fileName i.methodTypeArgs.Head, []
+            let typRef, args = makeNonGenTypeRef i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
@@ -1385,7 +1385,7 @@ module private AstPass =
                 |> makeCall i.range i.returnType |> Some
             | t ->
                 let genInfo = {makeGeneric=true; genericAvailability=false}
-                makeTypeRef i.fileName genInfo t |> Some
+                makeTypeRef genInfo t |> Some
         | _ -> None
 
     let types com (info: Fable.ApplyInfo) =
@@ -1397,8 +1397,7 @@ module private AstPass =
             | "fullName" -> str ent.FullName |> Some
             | "name" -> str ent.Name |> Some
             | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeConst |> Some
-            | "getGenericTypeDefinition" ->
-                makeTypeRefFrom info.fileName ent |> Some
+            | "getGenericTypeDefinition" -> makeTypeRefFrom ent |> Some
             | _ -> None
         | _ ->
             let getTypeFullName args =
