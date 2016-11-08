@@ -332,6 +332,14 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
+        let traitName, isGet, isSet =
+            let instanceArgsLength =
+                if flags.IsInstance then argExprs.Length - 1 else argExprs.Length
+            if traitName.StartsWith("get_") && instanceArgsLength = 0
+            then traitName.Substring(4), true, false
+            elif traitName.StartsWith("set_") && instanceArgsLength = 1
+            then traitName.Substring(4), false, true
+            else traitName, false, false
         let memLoc = if flags.IsInstance then Fable.InstanceLoc else Fable.StaticLoc
         let range, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         let sourceTypes = List.map (makeType com ctx) sourceTypes
@@ -356,7 +364,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 List.map (transformExprWithRole AppliedArgument com ctx) argExprs
             | _ ->
                 FableError("Cannot resolve trait call " + traitName, ?range=range) |> raise
-        let methName =
+        let methExpr =
             match candidates with
             | Some(_, candidates) when candidates.Length > 1 ->
                 candidates |> List.tryPick (fun meth ->
@@ -364,8 +372,14 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                     then Some meth.OverloadName else None)
                 |> defaultArg <| traitName
             | _ -> traitName
-        let m = makeGet range (Fable.Function(argTypes, typ)) callee (makeConst methName)
-        Fable.Apply (m, args, Fable.ApplyMeth, typ, range)
+            |> Fable.StringConst |> Fable.Value
+        if isSet then
+            Fable.Set(callee, Some methExpr, args.Head, range)
+        elif isGet then
+            Fable.Apply(callee, [methExpr], Fable.ApplyGet, typ, range)
+        else
+            let m = makeGet range (Fable.Function(argTypes, typ)) callee methExpr
+            Fable.Apply(m, args, Fable.ApplyMeth, typ, range)
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
         let callee = Option.map (com.Transform ctx) callee

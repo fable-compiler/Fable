@@ -1,3 +1,7 @@
+### 0.7.5-alpha.25
+
+* Resolve getter/setter trait calls
+
 ### 0.7.5-alpha.24
 
 * Fix mangled interfaces
