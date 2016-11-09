@@ -1,3 +1,7 @@
+### 0.7.5-alpha.28
+
+* More meaningful runtime representation of non-declared types
+
 ### 0.7.5-alpha.27
 
 * When inlining, assign arguments referenced more than once to a temp var

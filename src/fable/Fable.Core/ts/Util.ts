@@ -1,16 +1,6 @@
 import FSymbol from "./Symbol"
 import { fableGlobal } from "./Symbol"
 
-export const enum TypeKind {
-  Any = 1,
-  Unit = 2,
-  Option = 3,
-  Array = 4,
-  Tuple = 5,
-  GenericParam = 6,
-  Interface = 7,
-}
-
 export interface IComparer<T> {
   Compare(x: T, y: T): number;
 }
@@ -25,6 +15,51 @@ export interface IEquatable<T> {
 
 export interface IDisposable {
   Dispose(): void;
+}
+
+export type NonDeclaredTypeKind = "Any" | "Unit" | "Option" | "Array" | "Tuple" | "GenericParam" | "Interface"
+
+export class NonDeclaredType implements IEquatable<NonDeclaredType> {
+  public Case: NonDeclaredTypeKind;
+  public Fields: Array<any>;
+
+  constructor(t: NonDeclaredTypeKind, d: any[]) {
+    this.Case = t;
+    this.Fields = d;
+  }
+
+  Equals(other: NonDeclaredType) {
+    return equalsUnions(this, other);
+  }
+}
+
+export function Any() {
+  return new NonDeclaredType("Any", []);
+}
+
+export function Unit() {
+  return new NonDeclaredType("Unit", []);
+}
+
+export function Option(t: any) {
+  return new NonDeclaredType("Option", [t]);
+}
+
+function FArray(t: any) {
+  return new NonDeclaredType("Array", [t]);
+}
+export { FArray as Array }
+
+export function Tuple(ts: any[]) {
+  return new NonDeclaredType("Tuple", ts);
+}
+
+export function GenericParam(name: string) {
+  return new NonDeclaredType("GenericParam", [name]);
+}
+
+export function Interface(name: string) {
+  return new NonDeclaredType("Interface", [name]);
 }
 
 export function declare(cons: FunctionConstructor) {

@@ -8,7 +8,7 @@ import { create as mapCreate } from "./Map"
 import { create as setCreate } from "./Set"
 import { hasInterface } from "./Util"
 import { getDefinition } from "./Util"
-import { TypeKind } from "./Util"
+import { NonDeclaredType } from "./Util"
 import { fold } from "./Seq"
 import { resolveGeneric } from "./Reflection"
 import { parse as dateParse } from "./Date"
@@ -54,15 +54,15 @@ function inflate(val: any, typ: any): any {
     if (typeof typ === "string") {
       return false;
     }
-    if (Array.isArray(typ)) {
-      switch (typ[0] as TypeKind) {
-        case TypeKind.Option:
-        case TypeKind.Array:
-          return needsInflate(new List(typ[1], enclosing));
-        case TypeKind.Tuple:
-          return Array.isArray(typ[1]) && typ[1].some((x: any) => needsInflate(new List(x, enclosing)));
-        case TypeKind.GenericParam:
-          return needsInflate(resolveGeneric(typ[1], enclosing.tail));
+    if (typ instanceof NonDeclaredType) {
+      switch (typ.Case) {
+        case "Option":
+        case "Array":
+          return needsInflate(new List(typ.Fields[0], enclosing));
+        case "Tuple":
+          return typ.Fields.some((x: any) => needsInflate(new List(x, enclosing)));
+        case "GenericParam":
+          return needsInflate(resolveGeneric(typ.Fields[0], enclosing.tail));
         default:
           return false;
       }
@@ -96,19 +96,19 @@ function inflate(val: any, typ: any): any {
   if (val == null || typeof typ === "string") {
     return val;
   }
-  else if (Array.isArray(typ)) {
-    switch (typ[0] as TypeKind) {
-      case TypeKind.Unit:
+  else if (typ instanceof NonDeclaredType) {
+    switch (typ.Case) {
+      case "Unit":
         return null;
-      case TypeKind.Option:
-        return inflate(val, new List(typ[1], enclosing));
-      case TypeKind.Array:
-        return inflateArray(val, new List(typ[1], enclosing));
-      case TypeKind.Tuple:
-        return (typ[1] as any[]).map((x, i) => inflate(val[i], new List(x, enclosing)));
-      case TypeKind.GenericParam:
-        return inflate(val, resolveGeneric(typ[1], enclosing.tail));
-      // case TypeKind.Interface: // case TypeKind.Any:
+      case "Option":
+        return inflate(val, new List(typ.Fields[0], enclosing));
+      case "Array":
+        return inflateArray(val, new List(typ.Fields[0], enclosing));
+      case "Tuple":
+        return typ.Fields.map((x, i) => inflate(val[i], new List(x, enclosing)));
+      case "GenericParam":
+        return inflate(val, resolveGeneric(typ.Fields[0], enclosing.tail));
+      // case "Interface": // case "Any":
       default: return val;
     }
   }

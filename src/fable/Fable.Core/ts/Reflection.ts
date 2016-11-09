@@ -1,4 +1,4 @@
-import { TypeKind } from "./Util"
+import { NonDeclaredType } from "./Util"
 import List from "./List"
 import FSymbol from "./Symbol"
 
@@ -10,8 +10,8 @@ export function resolveGeneric(idx: string | number, enclosing: List<any>): List
     name = typeof idx === "string"
       ? idx : Object.getOwnPropertyNames(generics)[idx];
     const resolved = generics[name];
-    return resolved[0] === TypeKind.GenericParam
-      ? resolveGeneric(resolved[1], enclosing.tail)
+    return resolved instanceof NonDeclaredType && resolved.Case === "GenericParam"
+      ? resolveGeneric(resolved.Fields[0], enclosing.tail)
       : new List(resolved, enclosing);
   }
   catch (err) {
@@ -48,20 +48,20 @@ export function getTypeFullName(typ: any, option?: string): string {
   if (typeof typ === "string") {
     return typ;
   }
-  else if (Array.isArray(typ)) {
-      switch (typ[0] as TypeKind) {
-        case TypeKind.Unit:
+  else if (typ instanceof NonDeclaredType) {
+      switch (typ.Case) {
+        case "Unit":
           return "unit";
-        case TypeKind.Option:
-          return getTypeFullName(typ[1], option) + " option";
-        case TypeKind.Array:
-          return getTypeFullName(typ[1], option) + "[]";
-        case TypeKind.Tuple:
-          return (typ[1] as any[]).map(x => getTypeFullName(x, option)).join(" * ");
-        case TypeKind.GenericParam:
-        case TypeKind.Interface:
-          return typ[1];
-        case TypeKind.Any:
+        case "Option":
+          return getTypeFullName(typ.Fields[0], option) + " option";
+        case "Array":
+          return getTypeFullName(typ.Fields[0], option) + "[]";
+        case "Tuple":
+          return typ.Fields.map(x => getTypeFullName(x, option)).join(" * ");
+        case "GenericParam":
+        case "Interface":
+          return typ.Fields[0];
+        case "Any":
         default:
           return "unknown";
       }

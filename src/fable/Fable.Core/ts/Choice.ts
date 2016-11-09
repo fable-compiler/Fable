@@ -1,4 +1,6 @@
 import FSymbol from "./Symbol"
+import { IEquatable } from "./Util"
+import { IComparable } from "./Util"
 import { equalsUnions } from "./Util"
 import { compareUnions } from "./Util"
 
@@ -10,7 +12,7 @@ export function choice2Of2<T1, T2>(v: T2) {
     return new Choice<T1, T2>("Choice2Of2", [v]);
 }
 
-export default class Choice<T1, T2> {
+export default class Choice<T1, T2> implements IEquatable<Choice<T1, T2>>, IComparable<Choice<T1, T2>> {
   public Case: "Choice1Of2" | "Choice2Of2";
   public Fields: Array<T1 | T2>;
 
@@ -36,7 +38,7 @@ export default class Choice<T1, T2> {
   }
 
   [FSymbol.interfaces]() {
-    return ["FSharpUnion","System.IEquatable", "System.IComparable"];
+    return ["FSharpUnion", "System.IEquatable", "System.IComparable"];
   }
 
   [FSymbol.typeName]() {

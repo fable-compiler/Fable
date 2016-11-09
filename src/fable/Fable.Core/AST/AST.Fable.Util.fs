@@ -111,20 +111,20 @@ let makeJsObject range (props: (string * Expr) list) =
     ObjExpr(membs, [], None, range)
 
 let makeNonDeclaredTypeRef (nonDeclType: NonDeclaredType) =
-    let kind i = Value(NumberConst(U2.Case1(int i), Int32))
+    let make t args =
+        Apply(makeCoreRef "Util" (Some t), args, ApplyMeth, MetaType, None)
     match nonDeclType with
-    | NonDeclAny -> [kind 1]
-    | NonDeclUnit -> [kind 2]
-    | NonDeclOption genArg -> [kind 3; genArg]
-    | NonDeclArray genArg -> [kind 4; genArg]
+    | NonDeclAny -> make "Any" []
+    | NonDeclUnit -> make "Unit" []
+    | NonDeclOption genArg -> make "Option" [genArg]
+    | NonDeclArray genArg -> make "Array" [genArg]
     | NonDeclTuple genArgs ->
-        let genArgs = ArrayConst(ArrayValues genArgs, Any) |> Value
-        [kind 5; genArgs]
+        ArrayConst(ArrayValues genArgs, Any) |> Value
+        |> List.singleton |> make "Tuple"
     | NonDeclGenericParam name ->
-        [kind 6; Value(StringConst name)]
+        make "GenericParam" [Value(StringConst name)]
     | NonDeclInterface name ->
-        [kind 7; Value(StringConst name)]
-    |> fun args -> Wrapped(makeArray Any args, MetaType)
+        make "Interface" [Value(StringConst name)]
 
 type GenericInfo = {
     makeGeneric: bool
