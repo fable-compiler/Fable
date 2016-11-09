@@ -1,3 +1,7 @@
+### 0.7.5-alpha.30
+
+* Allow configuration of watching dirs
+
 ### 0.7.5-alpha.29
 
 * Fix infinite recursion when resolving generic parameters

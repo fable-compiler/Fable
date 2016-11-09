@@ -14,7 +14,7 @@ var optionDefinitions = [
   { name: 'outDir', alias: 'o', description: "Where to put compiled JS files. Defaults to project directory." },
   { name: 'module', alias: 'm', description: "Specify module code generation: `commonjs` (default), `umd`, `amd` or `es2015`." },
   { name: 'sourceMaps', alias: 's', description: "Generate source maps: `false` (default), `true` or `inline`." },
-  { name: 'watch', alias: 'w', type: Boolean, description: "Recompile project much faster on file modifications." },
+  { name: 'watch', alias: 'w', multiple: 'true', description: "Recompile project much faster on file modifications." },
   { name: 'ecma', description: "Specify ECMAScript target version: `es5` (default) or `es2015`." },
   { name: 'rollup', description: "Bundle files and dependencies with Rollup." },
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
@@ -93,11 +93,15 @@ function watch(opts, fableProc, parallelProc, continuation) {
     var next = null, prev = null;
     fableProc.stdin.setEncoding('utf-8');
 
-    var dirs = [path.resolve(opts.workingDir)];
-    for (var i=0; i<opts.projFile.length; i++) {
-        var dir = path.resolve(path.dirname(opts.projFile[i]));
-        if (!dirs.some(x => dir.startsWith(x)))
-            dirs.push(dir)
+    var dirs = null;
+    if (typeof opts.watch === "string") {
+        dirs = [fableLib.pathJoin(opts.workingDir, opts.watch)];
+    }
+    else if (Array.isArray(opts.watch) && opts.watch.length > 0) {
+        dirs = opts.watch.map(dir => fableLib.pathJoin(opts.workingDir, dir));
+    }
+    else {
+        dirs = opts.projFile.map(dir => fableLib.pathJoin(opts.workingDir, dir));
     }
     fableLib.stdoutLog("Watching " + dirs.join('\n\t'));
     fableLib.stdoutLog("Press Enter to terminate process.");
@@ -247,7 +251,9 @@ function build(opts, continuation) {
 
     for (var k in opts) {
         if (constants.FABLE_BIN_OPTIONS.has(k)) {
-            if (Array.isArray(opts[k]))
+            if (k === "watch")
+                fableCmdArgs.push("--" + k, String(!!opts[k])); // Cast to boolean
+            else if (Array.isArray(opts[k]))
                 opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, wrapInQuotes(v)) })
             else if (typeof opts[k] !== "object")
                 fableCmdArgs.push("--" + k, wrapInQuotes(opts[k]));

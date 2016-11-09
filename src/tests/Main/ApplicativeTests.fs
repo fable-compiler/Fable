@@ -15,6 +15,9 @@ type Result<'s, 'f> =
     static member (<^>) (f: 't -> 'u, r: Result<'t, 'e>) : Result<'u, 'e> =
         r >>= (f >> Ok)
 
+    static member (<*>) (f: 't -> 'u, r: Result<'t, 'e>) : Result<'u, 'e> =
+        failwith "This shouldn't be called"
+
     static member (<*>) (f: Result<('t -> 'u), 'e>, r: Result<'t, 'e>) : Result<'u, 'e> =
         f >>= fun f -> f <^> r
 
@@ -23,6 +26,18 @@ let ``Infix applicative can be generated``() =
     let r = Ok 1
     let a = Ok string
     let r' = match a <*> r with
+             | Ok x -> x
+             | _ -> failwith "expected Ok"
+    Assert.AreEqual ("1", r' )
+
+let inline apply (a:'a) (b:'b) =
+    a <*> b
+
+[<Test>]
+let ``Infix applicative with inline functions can be generated``() =
+    let r = Ok 1
+    let a = Ok string
+    let r' = match apply a r with
              | Ok x -> x
              | _ -> failwith "expected Ok"
     Assert.AreEqual ("1", r' )
