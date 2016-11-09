@@ -742,7 +742,11 @@ module Types =
         let resolveGenParam (genParam: FSharpGenericParameter) =
             ctx.typeArgs
             |> List.tryFind (fun (name,_) -> name = genParam.Name)
-            |> function Some (_,typ) -> makeType com ctx typ | None -> Fable.GenericParam genParam.Name
+            |> function
+            | Some (_,typ) ->
+                // Clear typeArgs to prevent infinite recursion
+                makeType com {ctx with typeArgs=[]} typ
+            | None -> Fable.GenericParam genParam.Name
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam t.GenericParameter

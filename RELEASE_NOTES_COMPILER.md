@@ -1,3 +1,7 @@
+### 0.7.5-alpha.29
+
+* Fix infinite recursion when resolving generic parameters
+
 ### 0.7.5-alpha.28
 
 * More meaningful runtime representation of non-declared types
