@@ -55,8 +55,8 @@ type IFableCompiler =
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
     abstract GetInternalFile: FSharpEntity -> string option
     abstract GetEntity: Context -> FSharpEntity -> Fable.Entity
-    abstract TryGetInlineExpr: FSharpMemberOrFunctionOrValue -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) option
-    abstract AddInlineExpr: string -> (FSharpMemberOrFunctionOrValue list * FSharpExpr) -> unit
+    abstract TryGetInlineExpr: FSharpMemberOrFunctionOrValue -> (Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) option
+    abstract AddInlineExpr: string -> (Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) -> unit
     abstract AddUsedVarName: string -> unit
     abstract ReplacePlugins: (string*IReplacePlugin) list
 
@@ -817,6 +817,18 @@ module Util =
     open Types
     open Identifiers
 
+    let countRefs fsExpr (vars: #seq<FSharpMemberOrFunctionOrValue>) =
+        let varsDic = Dictionary()
+        for var in vars do varsDic.Add(var, 0)
+        let rec countRefs = function
+            | BasicPatterns.Value v when not v.IsModuleValueOrMember ->
+                match varsDic.TryGetValue(v) with
+                | true, count -> varsDic.[v] <- count + 1
+                | false, _ -> ()
+            | expr -> expr.ImmediateSubExpressions |> Seq.iter countRefs
+        countRefs fsExpr
+        varsDic
+
     let makeLambdaArgs com ctx (vars: FSharpMemberOrFunctionOrValue list) =
         match vars with
         | [var] when isUnit var.FullType -> ctx, []
@@ -1053,12 +1065,24 @@ module Util =
         match com.TryGetInlineExpr meth with
         | Some (vars, fsExpr) ->
             let args = match callee with Some x -> x::args | None -> args
-            let ctx =
-                (ctx, vars, args) |||> Seq.fold2 (fun ctx var arg ->
-                    { ctx with scope = (Some var, arg)::ctx.scope })
-            let resolvedCtx =
-                { ctx with typeArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) }
-            com.Transform resolvedCtx fsExpr |> Some
+            let ctx, assignments =
+                ((ctx, []), vars, args)
+                |||> Seq.fold2 (fun (ctx, assignments) var arg ->
+                    // If an expression is referenced more than once, assign it
+                    // to a temp var to prevent multiple evaluations
+                    if var.Value > 1 then
+                        let tmpVar = com.GetUniqueVar() |> makeIdent
+                        let assign = Fable.VarDeclaration(tmpVar, arg, false)
+                        let scope = (Some var.Key, Fable.Value(Fable.IdentValue tmpVar))::ctx.scope
+                        { ctx with scope = scope }, (assign::assignments)
+                    else
+                        { ctx with scope = (Some var.Key, arg)::ctx.scope }, assignments
+                )
+            let typeArgs = matchGenericParams com ctx meth (typArgs, methTypArgs)
+            let expr = com.Transform {ctx with typeArgs=typeArgs} fsExpr
+            if List.isEmpty assignments
+            then Some expr
+            else makeSequential r (assignments@[expr]) |> Some
         | None ->
             FableError(meth.FullName + " is inlined but is not reachable. " +
                 "If it belongs to an external project try removing inline modifier.", ?range=r) |> raise

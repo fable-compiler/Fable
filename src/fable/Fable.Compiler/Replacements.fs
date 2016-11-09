@@ -107,7 +107,7 @@ module Util =
     let defaultof (t: Fable.Type) =
         match t with
         | Fable.Number _ -> makeConst 0
-        | Fable.Boolean _ -> makeConst false
+        | Fable.Boolean -> makeConst false
         | _ -> Fable.Null |> Fable.Value
 
     let toChar com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
@@ -343,7 +343,7 @@ module private AstPass =
             let path =
                 match i.args with
                 | [Fable.Value(Fable.StringConst path)] -> path
-                | _ -> FableError(sprintf "%s.%s only accepts literal strings" i.ownerFullName i.methodName, ?range=i.range) |> raise 
+                | _ -> FableError(sprintf "%s.%s only accepts literal strings" i.ownerFullName i.methodName, ?range=i.range) |> raise
             Fable.ImportRef(selector, path, Fable.CustomImport) |> Fable.Value |> Some
         | "op_Dynamic" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
@@ -1140,8 +1140,14 @@ module private AstPass =
                       |> makeCall i.range i.returnType
             |> Some
         | "zeroCreate" ->
-            Fable.ArrayConst(Fable.ArrayAlloc i.args.Head, genArg i.returnType)
-            |> Fable.Value |> Some
+            match genArg i.returnType with
+            | Fable.Number _ as t ->
+                Fable.ArrayConst(Fable.ArrayAlloc i.args.Head, t)
+                |> Fable.Value |> Some
+            | Fable.Boolean -> emit i "new Array($0).fill(false)" i.args |> Some
+            // If we don't fill the array with null values some operations
+            // may behave unexpectedly, like Array.prototype.reduce
+            | t -> emit i "new Array($0).fill(null)" i.args |> Some
         | "create" ->
             ccall "Seq" "replicate" args
             |> toArray com i |> Some

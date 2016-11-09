@@ -1,3 +1,8 @@
+### 0.7.5-alpha.27
+
+* When inlining, assign arguments referenced more than once to a temp var
+* `Array.zeroCreate` fills non-numeric arrays with null
+
 ### 0.7.5-alpha.26
 
 * Resolve trait calls as normal method calls (check EmitAttribute, etc)

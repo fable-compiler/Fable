@@ -307,9 +307,10 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         Fable.Value valueKind
 
     (** ## Assignments *)
-    // Optimization
-    | ImmutableBinding((var, value), body) ->
-        transformExpr com ctx value |> bindExpr ctx var |> transformExpr com <| body
+    // Disable this optimization from now, as it may result in multiple
+    // evaluations of the same expression
+    // | ImmutableBinding((var, value), body) ->
+    //     transformExpr com ctx value |> bindExpr ctx var |> transformExpr com <| body
 
     | BasicPatterns.Let((var, value), body) ->
         if isInline var then
@@ -382,6 +383,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
 
+    // Application of locally inlined lambdas
     | BasicPatterns.Application(BasicPatterns.Value var, typeArgs, args) when isInline var ->
         let range = makeRange fsExpr.Range
         match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
@@ -937,7 +939,8 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             |> Warning |> com.AddLog
             addMethod()
         else
-            com.AddInlineExpr meth.FullName (List.collect id args, body)
+            let vars = Seq.collect id args |> countRefs body
+            com.AddInlineExpr meth.FullName (vars, body)
             ctx
     else addMethod()
     |> fun ctx -> declInfo, ctx
@@ -1005,7 +1008,7 @@ let makeFileMap (rootEntities: #seq<FSharpEntity>) (filePairs: Map<string, strin
 
 type FableCompiler(com: ICompiler, projectMaps: Map<string, Fable.FileInfo> list,
                    entitiesCache: Dictionary<string, Fable.Entity>,
-                   inlineExprsCache: Dictionary<string, FSharpMemberOrFunctionOrValue list * FSharpExpr>) =
+                   inlineExprsCache: Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr>) =
     let replacePlugins =
         com.Plugins |> List.choose (function
             | path, (:? IReplacePlugin as plugin) -> Some (path, plugin)
@@ -1120,7 +1123,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         ||> Map.findOrRun (fun () -> getProjectMaps com parsedProj projInfo)
     // Cache for entities and inline expressions
     let entitiesCache = Dictionary<string, Fable.Entity>()
-    let inlineExprsCache: Dictionary<string, FSharpMemberOrFunctionOrValue list * FSharpExpr> =
+    let inlineExprsCache: Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr> =
         Map.findOrNew "inline" projInfo.Extra
     // Start transforming files
     let entryFile =
