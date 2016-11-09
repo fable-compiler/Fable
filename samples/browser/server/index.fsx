@@ -7,17 +7,19 @@ open Fable.Import.Node
 
 let finalhandler = importDefault<obj> "finalhandler"
 let serveStatic = importDefault<obj> "serve-static"
-let opener = importDefault<obj> "open"
+let opener = importDefault<string->unit> "open"
 
 let port = 8080
+let servingDir = "."
 
 let server =
-    let serve = serveStatic$(".")
     let server =
+        let serve = serveStatic$(servingDir)
         http.createServer(Func<_,_,_>(fun req res ->
             let isDone = finalhandler$(req, res)
-            serve$(req, res, isDone)
-            |> ignore))
+            serve$(req, res, isDone) |> ignore))
     server.listen(port)
 
-opener$(sprintf "http://localhost:%i/%s" port ``process``.argv.[2])
+match ``process``.argv.[2] with null -> "" | s -> s
+|> sprintf "http://localhost:%i/%s" port
+|> opener

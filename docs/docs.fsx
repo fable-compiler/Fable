@@ -5,7 +5,7 @@
 #load "../packages/docs/FSharp.Formatting/FSharp.Formatting.fsx"
 #I "../packages/docs/FAKE/tools/"
 #I "../packages/docs/Suave/lib/net40"
-#I "../packages/docs/DotLiquid/lib/NET45"
+#I "../packages/docs/DotLiquid/lib/NET451"
 #r "FakeLib.dll"
 #r "Suave.dll"
 #r "DotLiquid.dll"
@@ -351,9 +351,9 @@ Target "CleanDocs" (fun _ ->
 )
 
 Target "GenerateDocs" (fun _ ->
-    copySharedScripts ()
+    // copySharedScripts ()
     generateStaticPages publishSite true ()
-    generateSamplePages publishSite true ()
+    // generateSamplePages publishSite true ()
 )
 
 Target "BrowseDocs" (fun _ ->

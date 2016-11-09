@@ -2767,7 +2767,7 @@ function fresh$2(req, res) {
   if (!modifiedSince && !noneMatch) return false;
 
   // check for no-cache cache request directive
-  if (cc && cc.indexOf('no-cache') !== -1) return false;
+  if (cc && cc.indexOf('no-cache') !== -1) return false;  
 
   // parse if-none-match
   if (noneMatch) noneMatch = noneMatch.split(/ *, */);
@@ -5079,6 +5079,7 @@ function hasInterface(obj, interfaceName) {
     var interfaces = typeof obj[FSymbol.interfaces] === "function" ? obj[FSymbol.interfaces]() : obj[FSymbol.interfaces];
     return Array.isArray(interfaces) ? interfaces.indexOf(interfaceName) > -1 : interfaces === interfaceName;
 }
+
 function getRestParams(args, idx) {
     for (var _len = args.length, restArgs = Array(_len > idx ? _len - idx : 0), _key = idx; _key < _len; _key++) {
         restArgs[_key - idx] = args[_key];
@@ -5351,6 +5352,7 @@ function fsFormat(str) {
 }
 
 
+
 function initialize(n, f) {
     if (n < 0) throw "String length must be non-negative";
     var xs = new Array(n);
@@ -5376,20 +5378,33 @@ var finalhandler = index$1;
 var serveStatic = index$14;
 var opener = open_1$1;
 var port = 8080;
+var servingDir = ".";
 var server = function () {
-  var serve = serveStatic(".");
-  var server_1 = http.createServer(function (req, res) {
-    var isDone = finalhandler(req, res);
-    serve(req, res, isDone);
-  });
+  var server_1 = function () {
+    var serve = serveStatic(servingDir);
+    return http.createServer(function (req, res) {
+      var isDone = finalhandler(req, res);
+      serve(req, res, isDone);
+    });
+  }();
+
   return server_1.listen(port);
 }();
 opener(fsFormat("http://localhost:%i/%s")(function (x) {
   return x;
-})(port)(process.argv[2]));
+})(port)(function () {
+  var matchValue = process.argv[2];
+
+  if (matchValue == null) {
+    return "";
+  } else {
+    return matchValue;
+  }
+}()));
 
 exports.finalhandler = finalhandler;
 exports.serveStatic = serveStatic;
 exports.opener = opener;
 exports.port = port;
+exports.servingDir = servingDir;
 exports.server = server;

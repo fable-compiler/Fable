@@ -1,5 +1,7 @@
  - tagline: Using Fable as part of your node applications
 
+**Attention**: This document corresponds to Fable 0.6.x and needs to be updated to the latest version. Please check the [migration guide](../blog/Introducing-0-7.html).
+
 # Compiling to JavaScript
 
 

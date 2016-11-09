@@ -1,5 +1,7 @@
 - tagline: Fable features for easy interoperability
 
+**Attention**: This document corresponds to Fable 0.6.x and needs to be updated to the latest version. Please check the [migration guide](../blog/Introducing-0-7.html).
+
 # Interacting with JavaScript
 
 There are several ways to interact with the JavaScript world:
