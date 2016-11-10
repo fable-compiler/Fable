@@ -912,7 +912,7 @@ let private tryGetRelativeImport (atts: #seq<FSharpAttribute>) =
 
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    let addMethod (import: (string*string) option) =
+    let addMethod relativeImport =
         let memberName = sanitizeMethodName meth
         let memberLoc = getMemberLoc meth
         let ctx, privateName =
@@ -924,7 +924,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 ctx, Some (privateName.Name)
             else ctx, None
         let memberKind, args, body =
-            match import with
+            match relativeImport with
             | Some(selector, path) ->
                 Fable.Field, [], makeImport selector path
             | None ->
@@ -952,61 +952,59 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             | None -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
             |> fun m -> Fable.MemberDeclaration(m, privateName, args, body, SourceLocation.Empty)
         declInfo.AddMethod(Some meth, entMember)
-        ctx
-    let resolvedContext =
-        match tryGetRelativeImport meth.Attributes with
-        | None -> None
-        | import -> addMethod import |> Some
-    if Option.isSome resolvedContext then
-        resolvedContext.Value
-    elif declInfo.IsIgnoredMethod meth then
-        ctx
-    elif isInline meth then
+        declInfo, ctx
+    let relativeImport = tryGetRelativeImport meth.Attributes
+    if Option.isSome relativeImport
+    then
+        addMethod relativeImport
+    elif declInfo.IsIgnoredMethod meth
+    then
+        declInfo, ctx
+    elif isInline meth
+    then
         // Inlining custom type operators is problematic, see #230
-        if not meth.EnclosingEntity.IsFSharpModule && meth.CompiledName.StartsWith "op_" then
+        if not meth.EnclosingEntity.IsFSharpModule && meth.CompiledName.StartsWith "op_"
+        then
             sprintf "Custom type operators cannot be inlined: %s" meth.FullName
+            |> attachRange (getRefLocation meth |> makeRange |> Some)
             |> Warning |> com.AddLog
             addMethod None
         else
             let vars = Seq.collect id args |> countRefs body
             com.AddInlineExpr meth.FullName (vars, body)
-            ctx
+            declInfo, ctx
     else addMethod None
-    |> fun ctx -> declInfo, ctx
 
 let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                                     (ent: FSharpEntity) subDecls =
-    let resolvedContext =
-        match tryGetRelativeImport ent.Attributes with
-        | Some(selector, path) ->
-            let r = getEntityLocation ent |> makeRange
-            let entName, body = sanitizeEntityName ent, makeImport selector path
-            // Bind entity name to context to prevent name clashes
-            let ctx, ident = bindIdent com ctx Fable.Any None entName
-            let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type,
-                                isPublic = not ent.Accessibility.IsPrivate)
-            let m = Fable.MemberDeclaration(m, Some ident.Name, [], body, r)
-            declInfo.AddMethod(None, m)
-            Some ctx
-        | None -> None
-    if Option.isSome resolvedContext then
-        declInfo, resolvedContext.Value
-    elif declInfo.IsIgnoredEntity ent then
+    let relativeImport = tryGetRelativeImport ent.Attributes
+    if Option.isSome relativeImport
+    then
+        let selector, path = relativeImport.Value
+        let r = getEntityLocation ent |> makeRange
+        let entName, body = sanitizeEntityName ent, makeImport selector path
+        // Bind entity name to context to prevent name clashes
+        let ctx, ident = bindIdent com ctx Fable.Any None entName
+        let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type,
+                            isPublic = not ent.Accessibility.IsPrivate)
+        let m = Fable.MemberDeclaration(m, Some ident.Name, [], body, r)
+        declInfo.AddMethod(None, m)
+        declInfo, ctx
+    elif declInfo.IsIgnoredEntity ent
+    then
         declInfo.AddIgnoredChild ent
         declInfo, ctx
     else
-        let childDecls = transformDeclarations com ctx subDecls
-        // Even if a module is marked with Erase, transform its members
-        // in case they contain inline methods
-        if hasAtt Atts.erase ent.Attributes
-            || (List.isEmpty childDecls && ent.IsFSharpModule)
-        then declInfo, ctx
-        else
-            // Bind entity name to context to prevent name
-            // clashes (it will become a variable in JS)
-            let ctx, ident = sanitizeEntityName ent |> bindIdent com ctx Fable.Any None
-            declInfo.AddChild(com, ctx, ent, ident.Name, childDecls)
-            declInfo, ctx
+    let childDecls = transformDeclarations com ctx subDecls
+    if List.isEmpty childDecls && ent.IsFSharpModule
+    then
+        declInfo, ctx
+    else
+        // Bind entity name to context to prevent name
+        // clashes (it will become a variable in JS)
+        let ctx, ident = sanitizeEntityName ent |> bindIdent com ctx Fable.Any None
+        declInfo.AddChild(com, ctx, ent, ident.Name, childDecls)
+        declInfo, ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx decls =
     let declInfo, _ =
@@ -1184,11 +1182,11 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                 let ctx = { Context.Empty with fileName = file.FileName }
                 let rootNs = projectMaps.Head.[file.FileName].rootModule
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
-                let rootDecls = transformDeclarations fcom ctx rootDecls
                 match rootEnt with
                 | Some e when hasAtt Atts.erase e.Attributes -> makeEntity fcom ctx e, []
-                | Some e -> makeEntity fcom ctx e, rootDecls
-                | None -> Fable.Entity.CreateRootModule file.FileName rootNs, rootDecls
+                | Some e -> makeEntity fcom ctx e, transformDeclarations fcom ctx rootDecls
+                | None -> Fable.Entity.CreateRootModule file.FileName rootNs,
+                            transformDeclarations fcom ctx rootDecls
             match rootDecls with
             | [] -> None
             | rootDecls -> Fable.File(file.FileName, projInfo.FilePairs.[file.FileName], rootEnt, rootDecls,
