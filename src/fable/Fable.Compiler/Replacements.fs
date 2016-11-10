@@ -10,17 +10,17 @@ module Util =
 
     let inline (=>) first second = first, second
 
-    let (|CoreMeth|_|) (com: ICompiler) coreMod meth expr =
+    let (|CoreMeth|_|) coreMod meth expr =
         match expr with
         | Fable.Value(Fable.ImportRef(meth', coreMod', Fable.CoreLib))
-            when meth' = meth && coreMod'.Substring(coreMod'.LastIndexOf('/') + 1) = coreMod ->
-            Some expr
+            when meth' = meth && coreMod' = coreMod ->
+            Some CoreMeth
         | _ -> None
 
-    let (|CoreCons|_|) (com: ICompiler) coreMod expr =
+    let (|CoreCons|_|) coreMod expr =
         match expr with
         | Fable.Apply(Fable.Value(Fable.ImportRef("default", coreMod', Fable.CoreLib)),[], Fable.ApplyCons,_,_)
-            when coreMod'.Substring(coreMod'.LastIndexOf('/') + 1) = coreMod -> Some expr
+            when coreMod' = coreMod -> Some CoreCons
         | _ -> None
 
     let (|Null|_|) = function
@@ -182,14 +182,14 @@ module Util =
         CoreLibCall ("Seq", Some "toList", false, [expr])
         |> makeCall i.range i.returnType
 
-    let toArray com (i: Fable.ApplyInfo) expr =
+    let toArray (com: Fable.ICompiler) (i: Fable.ApplyInfo) expr =
         let arrayFrom arrayCons expr =
             GlobalCall (arrayCons, Some "from", false, [expr])
             |> makeCall i.range i.returnType
         match expr, i.returnType with
         // Optimization
-        | Fable.Apply(CoreMeth com "List" "ofArray" _, [arr], Fable.ApplyMeth,_,_), _ -> arr
-        | CoreCons com "List" _, _ ->
+        | Fable.Apply(CoreMeth "List" "ofArray" _, [arr], Fable.ApplyMeth,_,_), _ -> arr
+        | CoreCons "List", _ ->
             Fable.ArrayConst(Fable.ArrayValues [], genArg i.returnType) |> Fable.Value
         // Typed arrays
         | _, Fable.Array(Fable.Number numberKind) when not com.Options.noTypedArrays ->
@@ -318,17 +318,6 @@ module Util =
 module private AstPass =
     open Util
 
-    let hacks com (i: Fable.ApplyInfo) =
-        match i.methodName with
-        // Hack for `React.createElement` as some elements (like `input`)
-        // fail if passed an empty array to children arg
-        | "toArrayNonEmpty" ->
-            match i.args.Head with
-            | CoreCons com "List" _ -> Fable.Value Fable.Null
-            | expr -> toArray com i expr
-            |> Some
-        | _ -> None
-
     let fableCore com (i: Fable.ApplyInfo) =
         let destruct = function
             | Fable.Value(Fable.TupleConst exprs) -> exprs
@@ -376,7 +365,7 @@ module private AstPass =
                         | _ -> None
                 | _ -> None
             match i.args.Head with
-            | CoreCons com "List" _ ->
+            | CoreCons "List" ->
                 makeJsObject i.range [] |> Some
             | Fable.Apply(_, [Fields fields], _, _, _) ->
                 makeJsObject i.range fields |> Some
@@ -1532,7 +1521,6 @@ module private AstPass =
         | Naming.StartsWith "Fable.Core" _ -> fableCore com info
         // TODO: Check this is not a custom exception
         | Naming.EndsWith "Exception" _ -> exceptions com info
-        | "Hack" -> hacks com info
         | "System.Object" -> objects com info
         | "System.Timers.ElapsedEventArgs" -> info.callee // only signalTime is available here
         | "System.String"

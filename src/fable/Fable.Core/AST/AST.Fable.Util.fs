@@ -342,7 +342,8 @@ let makeDelegate (com: ICompiler) arity (expr: Expr) =
         wrap (Some arity) false expr
     | _ -> expr
 
-// Check if we're applying against a F# let binding
+/// Checks if an F# let binding is being applied and
+/// applies arguments as for a curried function
 let makeApply range typ callee exprs =
     let callee =
         match callee with

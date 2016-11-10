@@ -974,71 +974,60 @@ module Util =
                     x.AssemblyQualifiedName = tdef.QualifiedName)
                 System.Activator.CreateInstance(typ))
 
+    let emittedGenericArguments com (ctx: Context) r meth (typArgs, methTypArgs)
+                                macro (args: Fable.Expr list) =
+        let mutable extraArgs = []
+        let addExtraArg arg =
+            let pos = args.Length + extraArgs.Length
+            extraArgs <- arg::extraArgs
+            "$" + string pos
+        // Trick to replace reference to generic arguments: $'T
+        if Naming.genericPlaceholderRegex.IsMatch(macro)
+        then
+            let genArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) |> Map
+            let genInfo = { makeGeneric=false; genericAvailability=ctx.genericAvailability }
+            Naming.genericPlaceholderRegex.Replace(macro, fun m ->
+                match genArgs.TryFind m.Groups.[1].Value with
+                | Some t ->
+                    makeType com ctx t |> makeTypeRef genInfo |> addExtraArg
+                | None ->
+                    sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
+                        m.Groups.[1].Value macro
+                    |> attachRangeAndFile r ctx.fileName
+                    |> Warning |> com.AddLog
+                    m.Value)
+        else macro
+        |> fun macro -> macro, args@(List.rev extraArgs)
+
     let (|Emitted|_|) com ctx r typ (typArgs, methTypArgs) (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match meth.Attributes with
         | ContainsAtt "Emit" attArgs ->
             match attArgs with
             | [:? string as macro] ->
-                let args = List.map (makeDelegate com None) args
-                let args = match callee with None -> args | Some c -> c::args
+                let args =
+                    let args = List.map (makeDelegate com None) args
+                    match callee with None -> args | Some c -> c::args
                 let macro, args =
-                    let mutable extraArgs = []
-                    let addExtraArg arg =
-                        let pos = args.Length + extraArgs.Length
-                        extraArgs <- arg::extraArgs
-                        "$" + string pos
-                    // Trick to replace reference to generic arguments: $'T
-                    if Naming.genericPlaceholderRegex.IsMatch(macro)
-                    then
-                        let genArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) |> Map
-                        let genInfo = { makeGeneric=false; genericAvailability=ctx.genericAvailability }
-                        Naming.genericPlaceholderRegex.Replace(macro, fun m ->
-                            match genArgs.TryFind m.Groups.[1].Value with
-                            | Some t ->
-                                makeType com ctx t |> makeTypeRef genInfo |> addExtraArg
-                            | None ->
-                                sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
-                                    m.Groups.[1].Value macro
-                                |> attachRangeAndFile r ctx.fileName
-                                |> Warning |> com.AddLog
-                                m.Value)
-                    else macro
-                    // Trick to replace calls: $replace:Fable.Core.JsInterop.toPlainJsObj($2)
-                    |> fun macro -> Naming.replacePlaceholderRegex.Replace(macro, fun m ->
-                        try
-                            let args =
-                                m.Groups.[3].Value.Split(',')
-                                |> Seq.map (fun x -> x.Trim().Substring(1) |> int |> List.item <| args)
-                                |> Seq.toList
-                            buildApplyInfo com ctx r Fable.Any Fable.Any
-                                m.Groups.[1].Value m.Groups.[2].Value
-                                Fable.Method ([],[],[],0) (None, args)
-                            |> replace com
-                            |> addExtraArg
-                        with ex ->
-                            "Couldn't replace call in Emit expression: " + macro
-                            |> attachRangeAndFile r ctx.fileName
-                            |> Warning |> com.AddLog
-                            m.Value)
-                    |> fun macro -> macro, (args@(List.rev extraArgs))
-                Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r)
-                |> Some
-            | :? FSharpType as emitFsType::restAttArgs when emitFsType.HasTypeDefinition ->
-                let emitMethName =
-                    match restAttArgs with
-                    | [:? string as emitMethName] -> emitMethName
-                    | _ -> "Emit" // Default
+                    emittedGenericArguments com ctx r meth (typArgs, methTypArgs) macro args
+                Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r) |> Some
+            | (:? FSharpType as emitFsType)::(:? string as emitMethName)::extraArg
+                when emitFsType.HasTypeDefinition ->
                 try
                     let emitInstance = getEmitter emitFsType.TypeDefinition
                     let emitMeth = emitInstance.GetType().GetMethod(emitMethName)
                     let applyInfo =
                         buildApplyInfoFrom com ctx r typ
                             (typArgs, methTypArgs) (callee, args) meth
-                    emitMeth.Invoke(emitInstance, [|com; applyInfo|]) |> unbox |> Some
+                    let args: obj[] =
+                        match extraArg with
+                        | [extraArg] -> [|com; applyInfo; extraArg|]
+                        | _ -> [|com; applyInfo|]
+                    emitMeth.Invoke(emitInstance, args) |> unbox |> Some
                 with
-                | ex -> let msg = sprintf "Cannot build instance of type %s or it doesn't contain an appropriate %s method"
-                                    emitFsType.TypeDefinition.DisplayName emitMethName |> attachRange r
-                        Exception(msg + ": " + ex.Message, ex) |> raise
+                | :? AST.FableError as err -> raise err
+                | ex -> sprintf "Error when invoking %s.%s"
+                            emitFsType.TypeDefinition.DisplayName emitMethName
+                        |> attachRange r |> fun msg -> Exception(msg + ": " + ex.Message, ex) |> raise
             | _ -> "EmitAttribute must receive a string or Type argument" |> attachRange r |> failwith
         | _ -> None
 
@@ -1049,16 +1038,11 @@ module Util =
         |> tryImported meth.CompiledName
         |> function
             | Some expr ->
-                match meth with
-                // Allo combination of Import and Emit attributes
-                | Emitted com ctx r typ (typArgs, methTypArgs) (None, expr::args) emitted ->
-                    emitted
-                | _ ->
-                    match getMemberKind meth with
-                    | Fable.Getter | Fable.Field -> expr
-                    | Fable.Setter -> Fable.Set (expr, None, args.Head, r)
-                    | Fable.Constructor
-                    | Fable.Method -> Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
+                match getMemberKind meth with
+                | Fable.Getter | Fable.Field -> expr
+                | Fable.Setter -> Fable.Set (expr, None, args.Head, r)
+                | Fable.Constructor
+                | Fable.Method -> Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
                 |> Some
             | None -> None
 
@@ -1128,8 +1112,8 @@ module Util =
                 else args
         match meth with
         (** -Check for replacements, emits... *)
-        | Imported com ctx r typ (typArgs, methTypArgs) args imported -> imported
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
+        | Imported com ctx r typ (typArgs, methTypArgs) args imported -> imported
         | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
