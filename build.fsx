@@ -322,8 +322,8 @@ let compileAndRunMochaTests es2015 =
     let testCompileArgs =
         ["--verbose" + if es2015 then " --ecma es2015" else ""]
 
-    // Node.run "." "build/fable" ["src/tests/DllRef --verbose"]
-    // Node.run "." "build/fable" ["src/tests/DllRef2 --verbose"]
+    Node.run "." "build/fable" ["src/tests/DllRef --verbose"]
+    Node.run "." "build/fable" ["src/tests/DllRef2 --verbose"]
     Node.run "." "build/fable" ("src/tests/"::testCompileArgs)
     FileUtils.cp "src/tests/package.json" testsBuildDir
     Npm.install testsBuildDir []

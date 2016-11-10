@@ -527,7 +527,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
                             ?fileMask=projInfo.FileMask, extra=extraInfo)
     with ex ->
         let rec innerStack (ex: Exception) =
-            if isNull ex.InnerException then ex.StackTrace else innerStack ex
+            if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
         let msg, stackTrace =
             match ex with
             // Don't print stack trace for known Fable errors

@@ -96,7 +96,7 @@ let tryImported name (decs: #seq<Decorator>) =
             | [(:? string as memb); (:? string as path)]
                 when not(path.StartsWith ".") ->
                 Some(Value(ImportRef(memb.Trim(), path.Trim(), CustomImport)))
-            | _ -> failwith "Import attributes must contain two string arguments"
+            | _ -> None
         | _ -> None)
 
 let makeJsObject range (props: (string * Expr) list) =
@@ -127,12 +127,15 @@ type GenericInfo = {
 }
 
 let rec makeTypeRef (genInfo: GenericInfo) typ =
+    let (|TryDecorator|_|) dec (ent: Fable.Entity) = ent.TryGetDecorator dec
     let str s = Wrapped(Value(StringConst s), MetaType)
     match typ with
     | Boolean -> str "boolean"
+    | DeclaredType(TryDecorator "StringEnum" _, _)
     | String -> str "string"
     | Number _ | Enum _ -> str "number"
     | Function _ -> str "function"
+    | DeclaredType(TryDecorator "KeyValueList" _, _)
     | MetaType | Any -> makeNonDeclaredTypeRef NonDeclAny
     | Unit -> makeNonDeclaredTypeRef NonDeclUnit
     | Array genArg ->
@@ -152,6 +155,8 @@ let rec makeTypeRef (genInfo: GenericInfo) typ =
         then (makeIdentExpr Naming.genArgsIdent, Value(StringConst name))
              ||> makeGet None MetaType
         else makeNonDeclaredTypeRef (NonDeclGenericParam name)
+    | DeclaredType(TryDecorator "KeyValueList" _, _) ->
+        failwith "TODO"
     | DeclaredType(ent, _) when ent.Kind = Interface ->
         makeNonDeclaredTypeRef (NonDeclInterface ent.FullName)
     | DeclaredType(ent, genArgs) ->

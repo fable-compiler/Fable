@@ -1112,8 +1112,8 @@ module Util =
                 else args
         match meth with
         (** -Check for replacements, emits... *)
-        | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
         | Imported com ctx r typ (typArgs, methTypArgs) args imported -> imported
+        | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
         | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)

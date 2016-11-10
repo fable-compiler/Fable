@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Name>Fable.Tests</Name>
@@ -64,7 +64,7 @@
     <Compile Include="Util/Util.fs" />
     <Compile Include="Util/Util2.fs" />
     <Compile Include="../../tests_external/Util3.fs" />
-    <!--<Compile Include="ApplicativeTests.fs" />
+    <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="AsyncTests.fs" />
@@ -78,9 +78,9 @@
     <Compile Include="HashSetTests.fs" />
     <Compile Include="JsonTests.fs" />
     <Compile Include="ListTests.fs" />
-    <Compile Include="MapTests.fs" />-->
+    <Compile Include="MapTests.fs" />
     <Compile Include="MiscTests.fs" />
-    <!--<Compile Include="ObservableTests.fs" />
+    <Compile Include="ObservableTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="ReflectionTests.fs" />
     <Compile Include="RegexTests.fs" />
@@ -92,7 +92,7 @@
     <Compile Include="SudokuTest.fs" />
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
-    <Compile Include="UnionTypeTests.fs" />-->
+    <Compile Include="UnionTypeTests.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>

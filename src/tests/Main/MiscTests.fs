@@ -807,22 +807,6 @@ let ``Including JS files with same name works``() =
 let ``Including same JS file from different F# sources works``() =
     Fable.Tests.DllRef2.Lib2.foo |> equal "foo"
 
-[<Fable.Core.Import("foo", "./js/foo.js")>]
-[<Fable.Core.Emit("$0 + 'bar'")>]
-let foobar: string = failwith "JS only"
-
-[<Test>]
-let ``Import and Emit can be combined``() =
-    foobar |> equal "foobar"
-
-[<Fable.Core.Emit("$replace:Fable.Core.JsInterop.toJson($1) + $0")>]
-
-let toJson(x: obj, y: obj): string = failwith "JS only"
-
-[<Test>]
-let ``Emit replace macros work``() =
-    toJson("Garcia", "Caro") |> equal "\"Caro\"Garcia"
-
 [<Test>]
 let ``JS accepts any object as exception``() =
     try
