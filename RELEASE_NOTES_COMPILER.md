@@ -1,3 +1,7 @@
+### 0.7.5-alpha.31
+
+* Fix #535: Script referenced entity replacements
+
 ### 0.7.5-alpha.30
 
 * Allow configuration of watching dirs

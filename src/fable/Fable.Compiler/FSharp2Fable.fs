@@ -1018,9 +1018,15 @@ type FableCompiler(com: ICompiler, projectMaps: Map<string, Fable.FileInfo> list
     interface IFableCompiler with
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
-        member fcom.GetInternalFile tdef =
+        member fcom.TryGetInternalFile tdef =
             let file = (getEntityLocation tdef).FileName
-            if List.exists (Map.containsKey file) projectMaps
+            // For an unknown reason in .fsx scripts, types in some referenced assemblies
+            // (C# assemblies?) get the location of the .fsx script, so in that case
+            // check if the type actually belongs to a compiled assembly.
+            if file.EndsWith(".fsx", System.StringComparison.OrdinalIgnoreCase)
+                && not <| System.String.IsNullOrEmpty(tdef.Assembly.QualifiedName)
+            then None
+            elif List.exists (Map.containsKey file) projectMaps
             then Some file
             else None
         member fcom.GetEntity ctx tdef =
@@ -1099,7 +1105,6 @@ let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResul
                 with _ -> None // TODO: Raise error or warning?
             ))
     curProj::refAssemblies
-
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
     let rec getRootDecls rootNs ent decls =

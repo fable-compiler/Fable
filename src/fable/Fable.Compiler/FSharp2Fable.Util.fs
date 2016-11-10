@@ -53,7 +53,7 @@ type Role =
 type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
-    abstract GetInternalFile: FSharpEntity -> string option
+    abstract TryGetInternalFile: FSharpEntity -> string option
     abstract GetEntity: Context -> FSharpEntity -> Fable.Entity
     abstract TryGetInlineExpr: FSharpMemberOrFunctionOrValue -> (Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) option
     abstract AddInlineExpr: string -> (Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) -> unit
@@ -100,7 +100,7 @@ module Helpers =
         || Option.isSome(tryFindAtt Naming.importAtts.Contains ent.Attributes)
 
     let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
-        not(isImported ent) && Option.isNone(com.GetInternalFile ent)
+        not(isImported ent) && Option.isNone(com.TryGetInternalFile ent)
 
     let isReplaceCandidate (com: IFableCompiler) (ent: FSharpEntity) =
         if ent.IsInterface
@@ -688,7 +688,7 @@ module Types =
             tdef.Attributes
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
-        Fable.Entity (Lazy<_>(fun () -> getKind()), com.GetInternalFile tdef,
+        Fable.Entity (Lazy<_>(fun () -> getKind()), com.TryGetInternalFile tdef,
             sanitizeEntityFullName tdef, Lazy<_>(fun () -> getMembers com tdef),
             genParams, infcs, decs, tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
