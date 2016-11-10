@@ -33,7 +33,7 @@ type JsonConverter() =
         read 0 List.empty
     override x.CanConvert(t) =
         t.Name = "FSharpOption`1"
-        || t.FullName.StartsWith("System.Tuple")
+        || FSharpType.IsTuple t
         || (FSharpType.IsUnion t && t.Name <> "FSharpList`1")
 
     override x.WriteJson(writer, value, serializer) =
