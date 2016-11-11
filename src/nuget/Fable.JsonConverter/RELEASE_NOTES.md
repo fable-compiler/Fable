@@ -1,3 +1,7 @@
+### 0.0.5
+
+* Don't convert arrays of tuples (see #538)
+
 ### 0.0.4
 
 * Fix optional union of record (see #506)
