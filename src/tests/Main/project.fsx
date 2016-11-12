@@ -12,6 +12,7 @@
 #load
     "../DllRef/Util/Util.fs"
     "../DllRef/Lib.fs"
+    "../DllRef/Lib2.fs"
     "../Project With Spaces/Util/Util.fs"
     "Util/Util.fs"
     "Util/Util2.fs"
@@ -36,7 +37,7 @@
     "ObservableTests.fs"
     "RecordTypeTests.fs"
     "ReflectionTests.fs"
-    //"RegexTests.fs"  // System.Text.RegularExpressions.Regex not properly replaced with RegExp
+    "RegexTests.fs"
     "ResizeArrayTests.fs"
     "SeqExpressionTests.fs"
     "SeqTests.fs"
@@ -44,5 +45,5 @@
     "StringTests.fs"
     "SudokuTest.fs"
     "TupleTypeTests.fs"
-    //"TypeTests.fs"   // System.Text.RegularExpressions.Regex not properly replaced with RegExp
+    "TypeTests.fs"
     "UnionTypeTests.fs"

@@ -95,7 +95,12 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
     let projParsed = Forge.ProjectSystem.FsProject.load projFile
     let sourceFiles =
         projParsed.OrderedSourceFiles
-        |> Seq.map (fun x -> defaultArg x.Link x.Include |> Path.normalizePath)
+        |> Seq.map (fun x ->
+            match x.Link with
+            // Sometimes Link includes the relative path, sometimes not
+            | Some link when link.StartsWith(".") -> link
+            | _ -> x.Include
+            |> Path.normalizePath)
         |> Seq.filter (fun fileName -> fileName.EndsWith(".fs") || fileName.EndsWith(".fsx"))
         |> Seq.map (fun fileName -> Path.Combine(projDir, fileName))
         |> Seq.toArray
@@ -288,7 +293,7 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: s
         |> Async.RunSynchronously
     | ".fsproj" ->
         forgeGetProjectOptions opts projFile
-    | _ as s -> failwithf "Unsupported project type: %s" s
+    | s -> failwithf "Unsupported project type: %s" s
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
@@ -456,6 +461,9 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
                 FSProjInfo(projOpts, filePairs, ?fileMask=projInfo.FileMask, extra=projInfo.Extra)
             | _ -> projInfo
 
+        if Array.isEmpty projInfo.ProjectOpts.ProjectFileNames then
+            FableError("Couldn't find any F# source file") |> raise
+
         // Print F# compiler options (verbose mode) on first compilation
         // (when projInfo.fileMask is None)
         if Option.isNone projInfo.FileMask then
@@ -524,7 +532,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
                             ?fileMask=projInfo.FileMask, extra=extraInfo)
     with ex ->
         let rec innerStack (ex: Exception) =
-            if ex.InnerException = null then ex.StackTrace else innerStack ex
+            if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
         let msg, stackTrace =
             match ex with
             // Don't print stack trace for known Fable errors

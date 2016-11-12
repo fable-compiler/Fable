@@ -61,6 +61,8 @@ type IFableCompiler =
     abstract ReplacePlugins: (string*IReplacePlugin) list
 
 module Atts =
+    let emit = typeof<Fable.Core.EmitAttribute>.Name.Replace("Attribute","")
+    let import = typeof<Fable.Core.ImportAttribute>.Name.Replace("Attribute","")
     let mangle = typeof<Fable.Core.MangleAttribute>.Name.Replace("Attribute","")
     let erase = typeof<Fable.Core.EraseAttribute>.Name.Replace("Attribute","")
     let stringEnum = typeof<Fable.Core.StringEnumAttribute>.Name.Replace("Attribute","")
@@ -569,9 +571,7 @@ module Types =
         | None -> None
         | Some (NonAbbreviatedType t) ->
             if isIgnored t then None else
-            let typeRef =
-                makeType com Context.Empty t
-                |> makeNonGenTypeRef ctx.fileName
+            let typeRef = makeType com Context.Empty t |> makeNonGenTypeRef
             Some (sanitizeEntityFullName t.TypeDefinition, typeRef)
 
     // Some attributes (like ComDefaultInterface) will throw an exception
@@ -960,6 +960,17 @@ module Util =
             None
 
     let getEmitter =
+        // Prevent ReflectionTypeLoadException
+        // From http://stackoverflow.com/a/7889272
+        let getTypes (asm: System.Reflection.Assembly) =
+            let mutable types: Option<Type[]> = None
+            try
+                types <- Some(asm.GetTypes())
+            with
+            | :? ReflectionTypeLoadException as e -> types <- Some e.Types
+            match types with
+            | Some types -> types |> Seq.filter ((<>) null)
+            | None -> Seq.empty
         let cache = Dictionary<string, obj>()
         fun (tdef: FSharpEntity) ->
             cache.GetOrAdd(tdef.QualifiedName, fun _ ->
@@ -968,98 +979,84 @@ module Util =
                 let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
                 let assembly = globalLoadContext.LoadFromAssemblyPath(filePath)
 #else
+                // The assembly is already loaded because it's being referenced
+                // by the parsed code, so use `LoadFrom` which takes the copy in memory
+                // Unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
                 let assembly = System.Reflection.Assembly.LoadFrom(filePath)
 #endif
-                let typ = assembly.GetTypes() |> Seq.find (fun x ->
+                let typ = getTypes assembly |> Seq.find (fun x ->
                     x.AssemblyQualifiedName = tdef.QualifiedName)
                 System.Activator.CreateInstance(typ))
+
+    let emittedGenericArguments com (ctx: Context) r meth (typArgs, methTypArgs)
+                                macro (args: Fable.Expr list) =
+        let mutable extraArgs = []
+        let addExtraArg arg =
+            let pos = args.Length + extraArgs.Length
+            extraArgs <- arg::extraArgs
+            "$" + string pos
+        // Trick to replace reference to generic arguments: $'T
+        if Naming.genericPlaceholderRegex.IsMatch(macro)
+        then
+            let genArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) |> Map
+            let genInfo = { makeGeneric=false; genericAvailability=ctx.genericAvailability }
+            Naming.genericPlaceholderRegex.Replace(macro, fun m ->
+                match genArgs.TryFind m.Groups.[1].Value with
+                | Some t ->
+                    makeType com ctx t |> makeTypeRef genInfo |> addExtraArg
+                | None ->
+                    sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
+                        m.Groups.[1].Value macro
+                    |> attachRangeAndFile r ctx.fileName
+                    |> Warning |> com.AddLog
+                    m.Value)
+        else macro
+        |> fun macro -> macro, args@(List.rev extraArgs)
 
     let (|Emitted|_|) com ctx r typ (typArgs, methTypArgs) (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match meth.Attributes with
         | ContainsAtt "Emit" attArgs ->
             match attArgs with
             | [:? string as macro] ->
-                let args = List.map (makeDelegate com None) args
-                let args = match callee with None -> args | Some c -> c::args
+                let args =
+                    let args = List.map (makeDelegate com None) args
+                    match callee with None -> args | Some c -> c::args
                 let macro, args =
-                    let mutable extraArgs = []
-                    let addExtraArg arg =
-                        let pos = args.Length + extraArgs.Length
-                        extraArgs <- arg::extraArgs
-                        "$" + string pos
-                    // Trick to replace reference to generic arguments: $'T
-                    if Naming.genericPlaceholderRegex.IsMatch(macro)
-                    then
-                        let genArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) |> Map
-                        let genInfo = { makeGeneric=false; genericAvailability=ctx.genericAvailability }
-                        Naming.genericPlaceholderRegex.Replace(macro, fun m ->
-                            match genArgs.TryFind m.Groups.[1].Value with
-                            | Some t ->
-                                makeType com ctx t |> makeTypeRef ctx.fileName genInfo |> addExtraArg
-                            | None ->
-                                sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
-                                    m.Groups.[1].Value macro
-                                |> attachRangeAndFile r ctx.fileName
-                                |> Warning |> com.AddLog
-                                m.Value)
-                    else macro
-                    // Trick to replace calls: $replace:Fable.Core.JsInterop.toPlainJsObj($2)
-                    |> fun macro -> Naming.replacePlaceholderRegex.Replace(macro, fun m ->
-                        try
-                            let args =
-                                m.Groups.[3].Value.Split(',')
-                                |> Seq.map (fun x -> x.Trim().Substring(1) |> int |> List.item <| args)
-                                |> Seq.toList
-                            buildApplyInfo com ctx r Fable.Any Fable.Any
-                                m.Groups.[1].Value m.Groups.[2].Value
-                                Fable.Method ([],[],[],0) (None, args)
-                            |> replace com
-                            |> addExtraArg
-                        with ex ->
-                            "Couldn't replace call in Emit expression: " + macro
-                            |> attachRangeAndFile r ctx.fileName
-                            |> Warning |> com.AddLog
-                            m.Value)
-                    |> fun macro -> macro, (args@(List.rev extraArgs))
-                Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r)
-                |> Some
-            | :? FSharpType as emitFsType::restAttArgs when emitFsType.HasTypeDefinition ->
-                let emitMethName =
-                    match restAttArgs with
-                    | [:? string as emitMethName] -> emitMethName
-                    | _ -> "Emit" // Default
+                    emittedGenericArguments com ctx r meth (typArgs, methTypArgs) macro args
+                Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r) |> Some
+            | (:? FSharpType as emitFsType)::(:? string as emitMethName)::extraArg
+                when emitFsType.HasTypeDefinition ->
                 try
                     let emitInstance = getEmitter emitFsType.TypeDefinition
                     let emitMeth = emitInstance.GetType().GetMethod(emitMethName)
                     let applyInfo =
                         buildApplyInfoFrom com ctx r typ
                             (typArgs, methTypArgs) (callee, args) meth
-                    emitMeth.Invoke(emitInstance, [|com; applyInfo|]) |> unbox |> Some
+                    let args: obj[] =
+                        match extraArg with
+                        | [extraArg] -> [|com; applyInfo; extraArg|]
+                        | _ -> [|com; applyInfo|]
+                    emitMeth.Invoke(emitInstance, args) |> unbox |> Some
                 with
-                | ex -> let msg = sprintf "Cannot build instance of type %s or it doesn't contain an appropriate %s method"
-                                    emitFsType.TypeDefinition.DisplayName emitMethName |> attachRange r
-                        Exception(msg + ": " + ex.Message, ex) |> raise
+                | :? AST.FableError as err -> raise err
+                | ex -> sprintf "Error when invoking %s.%s"
+                            emitFsType.TypeDefinition.DisplayName emitMethName
+                        |> attachRange r |> fun msg -> Exception(msg + ": " + ex.Message, ex) |> raise
             | _ -> "EmitAttribute must receive a string or Type argument" |> attachRange r |> failwith
         | _ -> None
 
     let (|Imported|_|) com ctx r typ (typArgs, methTypArgs) (args: Fable.Expr list)
                         (meth: FSharpMemberOrFunctionOrValue) =
-        let srcFile = (getEntityLocation meth.EnclosingEntity).FileName
         meth.Attributes
         |> Seq.choose (makeDecorator com)
-        |> tryImported meth.CompiledName srcFile ctx.fileName
+        |> tryImported meth.CompiledName
         |> function
             | Some expr ->
-                match meth with
-                // Allo combination of Import and Emit attributes
-                | Emitted com ctx r typ (typArgs, methTypArgs) (None, expr::args) emitted ->
-                    emitted
-                | _ ->
-                    match getMemberKind meth with
-                    | Fable.Getter | Fable.Field -> expr
-                    | Fable.Setter -> Fable.Set (expr, None, args.Head, r)
-                    | Fable.Constructor
-                    | Fable.Method -> Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
+                match getMemberKind meth with
+                | Fable.Getter | Fable.Field -> expr
+                | Fable.Setter -> Fable.Set (expr, None, args.Head, r)
+                | Fable.Constructor
+                | Fable.Method -> Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
                 |> Some
             | None -> None
 
@@ -1104,7 +1101,7 @@ module Util =
                 |> attachRangeAndFile r ctx.fileName
                 |> Warning |> com.AddLog
             | _ -> ()
-            genName, makeTypeRef ctx.fileName genInfo typ)
+            genName, makeTypeRef genInfo typ)
         |> makeJsObject None
 
     let makeCallFrom (com: IFableCompiler) ctx r typ
@@ -1140,7 +1137,7 @@ module Util =
             match meth.IsExtensionMember, callee with
             | true, Some callee ->
                 let typRef = makeTypeFromDef com ctx meth.EnclosingEntity []
-                             |> makeNonGenTypeRef ctx.fileName
+                             |> makeNonGenTypeRef
                 let methName =
                     let ent = makeEntity com ctx meth.EnclosingEntity
                     let loc = if meth.IsInstanceMember then Fable.InstanceLoc else Fable.StaticLoc
@@ -1154,7 +1151,7 @@ module Util =
                     match callee with
                     | Some callee -> callee
                     | None -> makeTypeFromDef com ctx meth.EnclosingEntity []
-                              |> makeNonGenTypeRef ctx.fileName
+                              |> makeNonGenTypeRef
         (**     *Check if this a getter or setter  *)
                 match getMemberKind meth with
                 | Fable.Getter | Fable.Field ->
@@ -1235,5 +1232,5 @@ module Util =
             | _ ->
                 let typeRef =
                     makeTypeFromDef com ctx v.EnclosingEntity []
-                    |> makeNonGenTypeRef ctx.fileName
+                    |> makeNonGenTypeRef
                 Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)

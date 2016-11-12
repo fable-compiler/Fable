@@ -12,11 +12,6 @@ module Internal =
     open System
     open Fable.AST
 
-    type EmitAttribute private () =
-        inherit Attribute()
-        new (macro: string) = EmitAttribute()
-        new (emitterType: Type, methodName: string) = EmitAttribute()
-
     type Emitter() =
         member __.CreateRegex(_com: Fable.ICompiler, info: Fable.ApplyInfo) =
             let isTrue = function Fable.Value(Fable.BoolConst true) -> true | _ -> false
@@ -29,12 +24,12 @@ module Internal =
 
     type Helper =
         // [<Emit("new RegExp($0,'g{{$1?i:}}{{$2?m:}}')")>]
-        [<Emit(typeof<Emitter>, "CreateRegex")>]
+        [<Fable.Core.Emit(typeof<Emitter>, "CreateRegex")>]
         static member CreateRegex(pattern, ignoreCase, multiline) =
             let flags = if ignoreCase then RegexOptions.IgnoreCase else RegexOptions.None
             let flags = if multiline then flags ||| RegexOptions.Multiline else flags
             Regex(pattern, flags)
-            
+
 open Internal
 
 [<TypeProvider>]
@@ -51,7 +46,7 @@ type RegexProvider (_config : TypeProviderConfig) as this =
             ProvidedStaticParameter("ignoreCase", typeof<bool>, parameterDefaultValue=false)
             ProvidedStaticParameter("multiline", typeof<bool>, parameterDefaultValue=false)
         ]
-        let methWithStaticParams =  
+        let methWithStaticParams =
             let m = ProvidedMethod("Create", [], typeof<Regex>, IsStaticMethod = true)
             m.DefineStaticParameters(staticParams, (fun nm args ->
                 let pattern = args.[0] :?> string

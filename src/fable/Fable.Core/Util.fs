@@ -64,9 +64,6 @@ module Naming =
     let genericPlaceholderRegex =
         Regex @"\$'(\w+)"
 
-    let replacePlaceholderRegex =
-        Regex @"\$replace\:([\w.]+)\.(\w+)\((.*?)\)"
-
     let replaceIdentForbiddenChars (ident: string) =
         identForbiddenCharsRegex.Replace(ident, fun (m: Match) ->
             "$" + (int m.Value.[0]).ToString("X") + "$")
