@@ -99,7 +99,7 @@ function watch(opts, fableProc, parallelProc, continuation) {
         dirs = opts.watch.map(dir => fableLib.pathJoin(opts.workingDir, dir));
     }
     else {
-        dirs = opts.projFile.map(dir => fableLib.pathJoin(opts.workingDir, dir));
+        dirs = opts.projFile.map(dir => path.dirname(fableLib.pathJoin(opts.workingDir, dir)));
     }
     fableLib.stdoutLog("Watching " + dirs.join('\n\t'));
     fableLib.stdoutLog("Press Enter to terminate process.");

@@ -1,5 +1,6 @@
 ### 0.7.5-alpha.33
 
+* Fix default watch directories
 * Ignore interfaces
 
 ### 0.7.5-alpha.32
