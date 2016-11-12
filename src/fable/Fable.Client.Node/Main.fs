@@ -68,11 +68,46 @@ let readOptions argv =
     }
     opts
 
-let loadPlugins (pluginPaths: string list) =
+/// Returns an (errors, warnings) tuple
+let parseErrors errors =
+    let parseError (er: FSharpErrorInfo) =
+        let loc = sprintf " (L%i,%i-L%i,%i) (%s)"
+                    er.StartLineAlternate er.StartColumn
+                    er.EndLineAlternate er.EndColumn
+                    (Path.GetFileName er.FileName)
+        match er.Severity, er.ErrorNumber with
+        | _, 40 -> true, "Recursive value definitions are not supported" + loc // See #237
+        | FSharpErrorSeverity.Warning, _ -> false, er.Message + loc
+        | FSharpErrorSeverity.Error, _ -> true, er.Message + loc
+    errors
+    |> Array.map parseError
+    |> Array.partition fst
+    |> fun (ers, wns) -> Array.map snd ers, Array.map snd wns
+
+let loadPlugins (checker: FSharpChecker) (pluginPaths: string list) =
+    let compileScript (path: string) =
+        if Path.GetExtension(path) = ".fsx"
+        then
+            let dllPath = Path.ChangeExtension(path, ".dll")
+            if not(File.Exists dllPath) || File.GetLastWriteTime path > File.GetLastWriteTime dllPath then
+                let errors, _ =
+                    let errors, _ =
+                        [| "--optimize+"
+                        ; "--target:library"
+                        ; "--out:" + dllPath
+                        ; path |] |> checker.Compile
+                    parseErrors errors
+                if errors.Length > 0 then
+                    errors
+                    |> Seq.append ["Errors when compiling plugin " + path + ":"]
+                    |> String.concat "\n"
+                    |> FableError |> raise
+            dllPath
+        else path
     pluginPaths
     |> Seq.collect (fun path ->
         try
-            let filePath = Path.GetFullPath path
+            let filePath = Path.GetFullPath path |> compileScript
 #if NETSTANDARD1_6 || NETCOREAPP1_0
             let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
             let assembly = globalLoadContext.LoadFromAssemblyPath(filePath)
@@ -85,7 +120,8 @@ let loadPlugins (pluginPaths: string list) =
                 Path.GetFileNameWithoutExtension path,
                 Activator.CreateInstance x |> unbox<IPlugin>)
         with
-        | ex -> Exception(sprintf "Cannot load plugin %s: %s" path ex.Message, ex) |> raise)
+        | :? FableError as er -> raise er
+        | ex -> FableError("Cannot load plugin "+path+": "+ex.Message) |> raise)
     |> Seq.toList
 
 type private TypeInThisAssembly = class end
@@ -320,22 +356,6 @@ let getFullProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
     |> Seq.fold mergeProjectOpts (None, FileResolver())
     |> fun (projOpts, resolver) -> projOpts.Value, resolver.GetFinalFiles opts.outDir
 
-/// Returns an (errors, warnings) tuple
-let parseErrors errors =
-    let parseError (er: FSharpErrorInfo) =
-        let loc = sprintf " (L%i,%i-L%i,%i) (%s)"
-                    er.StartLineAlternate er.StartColumn
-                    er.EndLineAlternate er.EndColumn
-                    (Path.GetFileName er.FileName)
-        match er.Severity, er.ErrorNumber with
-        | _, 40 -> true, "Recursive value definitions are not supported" + loc // See #237
-        | FSharpErrorSeverity.Warning, _ -> false, er.Message + loc
-        | FSharpErrorSeverity.Error, _ -> true, er.Message + loc
-    errors
-    |> Array.map parseError
-    |> Array.partition fst
-    |> fun (ers, wns) -> Array.map snd ers, Array.map snd wns
-
 let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
                         (projOptions: FSharpProjectOptions) =
     let checkProjectResults =
@@ -398,6 +418,16 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     msgs
     |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
     |> Seq.iter Console.Out.WriteLine
+
+let printException (ex: Exception) =
+    let rec innerStack (ex: Exception) =
+        if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
+    let msg, stackTrace =
+        match ex with
+        // Don't print stack trace for known Fable errors
+        | :? FableError as err -> err.FormattedMessage, None
+        | ex -> ex.Message, Some(innerStack ex)
+    printMessages [Error(msg, stackTrace)]
 
 let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (coreVer: Version option)
                (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjInfo): unit =
@@ -531,14 +561,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         true, FSProjInfo(projInfo.ProjectOpts, projInfo.FilePairs,
                             ?fileMask=projInfo.FileMask, extra=extraInfo)
     with ex ->
-        let rec innerStack (ex: Exception) =
-            if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
-        let msg, stackTrace =
-            match ex with
-            // Don't print stack trace for known Fable errors
-            | :? FableError as err -> err.FormattedMessage, None
-            | ex -> ex.Message, Some(innerStack ex)
-        printMessages [Error(msg, stackTrace)]
+        printException ex
         Console.Out.WriteLine "[SIGFAIL]"
         false, projInfo
 
@@ -562,7 +585,7 @@ let main argv =
         let opts = readOptions argv
         let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
         let projectOpts, filePairs = getFullProjectOpts checker opts
-        let com = loadPlugins opts.plugins |> makeCompiler opts
+        let com = loadPlugins checker opts.plugins |> makeCompiler opts
         // Full compilation
         let success, projInfo =
             FSProjInfo(projectOpts, filePairs)
@@ -570,6 +593,5 @@ let main argv =
         // Keep on watching if necessary
         if opts.watch then
             awaitInput com checker success projInfo
-    with
-    | ex -> printMessages [Error(ex.Message, Some ex.StackTrace)]
+    with ex -> printException ex
     0
