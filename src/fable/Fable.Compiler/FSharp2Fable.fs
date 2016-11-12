@@ -837,9 +837,9 @@ type private DeclInfo() =
         atts |> tryFindAtt (fun name ->
             Naming.importAtts.Contains name || Naming.eraseAtts.Contains name)
         |> Option.isSome
-    // Interfaces don't appear in the AST so we don't need to check them
     member self.IsIgnoredEntity (ent: FSharpEntity) =
         ent.IsEnum
+        || ent.IsInterface
         || ent.IsFSharpAbbreviation
         || isAttributeEntity ent
         || (hasIgnoredAtt ent.Attributes)

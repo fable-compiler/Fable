@@ -1,3 +1,7 @@
+### 0.7.5-alpha.33
+
+* Ignore interfaces
+
 ### 0.7.5-alpha.32
 
 * Compile scripts referenced as plugins

@@ -515,7 +515,9 @@ module Util =
                 Babel.NewExpression (com.TransformExpr ctx callee, prepareArgs com ctx args, ?loc=range)
                 :> Babel.Expression
             | Fable.ApplyGet ->
-                getExpr com ctx callee args.Head
+                if List.length args = 1
+                then getExpr com ctx callee args.Head
+                else FableError("Getter with none or multiple arguments detected", ?range=range) |> raise
 
     let block r statements =
         Babel.BlockStatement(statements, ?loc=r)
