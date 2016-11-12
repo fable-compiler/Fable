@@ -34,12 +34,16 @@ let private (|SpecialValue|_|) com ctx = function
     | _ -> None
 
 let private (|BaseCons|_|) com ctx = function
+    | BasicPatterns.NewObject(meth, _, args) ->
+        match ctx.baseClass with
+        | Some baseFullName
+            when sanitizeEntityFullName meth.EnclosingEntity = baseFullName ->
+            Some (meth, args)
+        | _ -> None
     | BasicPatterns.Call(None, meth, _, _, args) as fsExpr ->
-        let methOwnerName (meth: FSharpMemberOrFunctionOrValue) =
-            sanitizeEntityFullName meth.EnclosingEntity
         match ctx.baseClass with
         | Some baseFullName when meth.CompiledName = ".ctor"
-                            && (methOwnerName meth) = baseFullName ->
+                            && (sanitizeEntityFullName meth.EnclosingEntity) = baseFullName ->
             if not meth.IsImplicitConstructor then
                 FableError("Inheritance is only possible with base class primary constructor: "
                             + baseFullName, makeRange fsExpr.Range) |> raise
@@ -136,13 +140,11 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             makeConst unionCase.Name    // Include Tag name in args
             Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))
         ]
-        if isReplaceCandidate com fsType.TypeDefinition then
-            let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            buildApplyInfo com ctx r typ unionType (unionType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
-            |> replace com
-        else
-            Fable.Apply(makeNonGenTypeRef unionType, argExprs, Fable.ApplyCons,
-                        makeType com ctx fsExpr.Type, Some range)
+        buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
+            ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
+        |> tryReplace com |> function
+        | Some repl -> repl
+        | None -> Fable.Apply(makeNonGenTypeRef unionType, argExprs, Fable.ApplyCons, unionType, Some range)
 
 and private transformComposableExpr com ctx fsExpr argExprs =
     // See (|ComposableExpr|_|) active pattern to check which expressions are valid here
@@ -193,9 +195,12 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         makeLambdaExpr [lambdaArg] expr2
 
     | BaseCons com ctx (meth, args) ->
-        let args = List.map (transformExprWithRole AppliedArgument com ctx) args
-        let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
+        if Naming.ignoredBaseClasses |> Seq.exists meth.FullName.StartsWith
+        then Fable.Value Fable.Null
+        else
+            let args = List.map (transformExprWithRole AppliedArgument com ctx) args
+            let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
+            Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
 
     | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) methArgs
@@ -289,10 +294,10 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         Fable.Super |> Fable.Value
 
     | BasicPatterns.ThisValue _typ ->
-        makeThisRef com ctx None
+        makeThisRef ctx None
 
     | BasicPatterns.Value v when v.IsMemberThisValue ->
-        Some v |> makeThisRef com ctx
+        Some v |> makeThisRef ctx
 
     | BasicPatterns.Value v ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
@@ -496,7 +501,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let baseClass, baseCons =
             match baseCallExpr with
             | BasicPatterns.Call(None, meth, _, _, args)
-                when not(isExternalEntity com meth.EnclosingEntity) ->
+                    when Naming.ignoredBaseClasses |> Seq.exists meth.FullName.StartsWith |> not ->
                 let args = List.map (com.Transform ctx) args
                 let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
                 let baseClass =
@@ -572,12 +577,11 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
     | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
         let recordType, range = makeType com ctx fsType, makeRange fsExpr.Range
         let argExprs = argExprs |> List.map (transformExpr com ctx)
-        if isReplaceCandidate com fsType.TypeDefinition then
-            let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-            buildApplyInfo com ctx r typ recordType (recordType.FullName) ".ctor" Fable.Constructor ([],[],[],0) (None,argExprs)
-            |> replace com
-        else
-            Fable.Apply(makeNonGenTypeRef recordType, argExprs, Fable.ApplyCons,
+        buildApplyInfo com ctx (Some range) recordType recordType (recordType.FullName)
+            ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
+        |> tryReplace com |> function
+        | Some repl -> repl
+        | None -> Fable.Apply(makeNonGenTypeRef recordType, argExprs, Fable.ApplyCons,
                         makeType com ctx fsExpr.Type, Some range)
 
     | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->

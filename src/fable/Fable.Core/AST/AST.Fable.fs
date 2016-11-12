@@ -190,6 +190,8 @@ and FableMap = {
 (** ##Expressions *)
 and ApplyInfo = {
     ownerType: Type
+    /// Sometimes Fable.Type may differ from original F# name (e.g. System.Object -> Fable.Any).
+    /// This field keeps the original name.
     ownerFullName: string
     methodName: string
     methodKind: MemberKind

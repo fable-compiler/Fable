@@ -101,14 +101,6 @@ module Helpers =
         ent.FullName.StartsWith "Fable.Import"
         || Option.isSome(tryFindAtt Naming.importAtts.Contains ent.Attributes)
 
-    let isExternalEntity (com: IFableCompiler) (ent: FSharpEntity) =
-        not(isImported ent) && Option.isNone(com.TryGetInternalFile ent)
-
-    let isReplaceCandidate (com: IFableCompiler) (ent: FSharpEntity) =
-        if ent.IsInterface
-        then sanitizeEntityFullName ent |> Naming.replacedInterfaces.Contains
-        else ent.FullName.StartsWith "Fable.Core" || isExternalEntity com ent
-
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition
@@ -221,14 +213,14 @@ module Patterns =
     open BasicPatterns
     open Helpers
 
-    let (|Rev|) = List.rev
-    let (|AsArray|) = Array.ofSeq
-    let (|Transform|) (com: IFableCompiler) = com.Transform
-    let (|FieldName|) (fi: FSharpField) = fi.Name
-    let (|ExprType|) (expr: Fable.Expr) = expr.Type
-    let (|EntityKind|) (ent: Fable.Entity) = ent.Kind
+    let inline (|Rev|) x = List.rev x
+    let inline (|AsArray|) x = Array.ofSeq x
+    let inline (|Transform|) (com: IFableCompiler) = com.Transform
+    let inline (|FieldName|) (fi: FSharpField) = fi.Name
+    let inline (|ExprType|) (expr: Fable.Expr) = expr.Type
+    let inline (|EntityKind|) (ent: Fable.Entity) = ent.Kind
 
-    let (|NonAbbreviatedType|) (t: FSharpType) =
+    let inline (|NonAbbreviatedType|) (t: FSharpType) =
         nonAbbreviatedType t
 
     let (|TypeDefinition|_|) (NonAbbreviatedType t) =
@@ -565,14 +557,11 @@ module Types =
         | _ -> false
 
     let rec getBaseClass (com: IFableCompiler) (ctx: Context) (tdef: FSharpEntity) =
-        let isIgnored (t: FSharpType) =
-            not t.HasTypeDefinition || isExternalEntity com t.TypeDefinition
         match tdef.BaseType with
-        | None -> None
-        | Some (NonAbbreviatedType t) ->
-            if isIgnored t then None else
-            let typeRef = makeType com Context.Empty t |> makeNonGenTypeRef
-            Some (sanitizeEntityFullName t.TypeDefinition, typeRef)
+        | Some(TypeDefinition tdef) ->
+            let typeRef = makeTypeFromDef com Context.Empty tdef [] |> makeNonGenTypeRef
+            Some (sanitizeEntityFullName tdef, typeRef)
+        | _ -> None
 
     // Some attributes (like ComDefaultInterface) will throw an exception
     // when trying to access ConstructorArguments
@@ -627,7 +616,7 @@ module Types =
             |> Seq.toArray
         let isOverloadable =
             // TODO: Use overload index for interfaces too? (See isOverloaded below too)
-            not(tdef.IsInterface || isImported tdef || isReplaceCandidate com tdef)
+            not(tdef.IsInterface || isImported tdef)
         let getMembers' loc (tdef: FSharpEntity) =
             members
             |> Seq.filter (fun (_, _, mloc, _) -> sameMemberLoc loc mloc)
@@ -693,7 +682,7 @@ module Types =
             genParams, infcs, decs, tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
     and makeTypeFromDef (com: IFableCompiler) ctx (tdef: FSharpEntity)
-                        (genArgs: #seq<FSharpType>) =
+                        (genArgs: seq<FSharpType>) =
         let fullName = defaultArg tdef.TryFullName tdef.CompiledName
         // Guard: F# abbreviations shouldn't be passed as argument
         if tdef.IsFSharpAbbreviation
@@ -890,8 +879,7 @@ module Util =
 //        | _ -> false
 
     let buildApplyInfo com (ctx: Context) r typ ownerType ownerFullName methName methKind
-                       (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args)
-                       : Fable.ApplyInfo =
+            (atts, typArgs, methTypArgs, lambdaArgArity) (callee, args): Fable.ApplyInfo =
         {
             ownerType = ownerType
             ownerFullName = ownerFullName
@@ -919,21 +907,17 @@ module Util =
             else 0
         let ownerType = makeTypeFromDef com ctx meth.EnclosingEntity []
         let ownerFullName = sanitizeEntityFullName meth.EnclosingEntity
-        buildApplyInfo com ctx r typ
-            ownerType ownerFullName (sanitizeMethodName meth) (getMemberKind meth)
-            (meth.Attributes, typArgs, methTypArgs, lambdaArgArity)
-            (callee, args)
+        buildApplyInfo com ctx r typ ownerType ownerFullName (sanitizeMethodName meth) (getMemberKind meth)
+            (meth.Attributes, typArgs, methTypArgs, lambdaArgArity) (callee, args)
 
-    let replace (com: IFableCompiler) (applyInfo: Fable.ApplyInfo) =
+    let tryReplace (com: IFableCompiler) (applyInfo: Fable.ApplyInfo) =
         let pluginReplace (i: Fable.ApplyInfo) =
             com.ReplacePlugins
             |> Plugins.tryPlugin i.range (fun p -> p.TryReplace com i)
         match applyInfo with
-        | Try pluginReplace repl -> repl
-        | Try (Replacements.tryReplace com) repl -> repl
-        | _ ->
-            FableError("Cannot find replacement for " + applyInfo.ownerFullName + "." +
-                applyInfo.methodName, ?range=applyInfo.range) |> raise
+        | Try pluginReplace repl -> Some repl
+        | Try (Replacements.tryReplace com) repl -> Some repl
+        | _ -> None
 
     let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
         let (|ResolveGeneric|) ctx (t: FSharpType) =
@@ -949,15 +933,10 @@ module Util =
         (genArgs, meth.GenericParameters, methTypArgs)
         |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
 
-    let (|Replaced|_|) (com: IFableCompiler) ctx r typ
-                    (typArgs, methTypArgs) (callee, args)
-                    (meth: FSharpMemberOrFunctionOrValue) =
-        if isReplaceCandidate com meth.EnclosingEntity then
-            buildApplyInfoFrom com ctx r typ
-                (typArgs, methTypArgs) (callee, args) meth
-            |> replace com |> Some
-        else
-            None
+    let (|Replaced|_|) (com: IFableCompiler) ctx r typ (typArgs, methTypArgs)
+            (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+        buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs) (callee, args) meth
+        |> tryReplace com
 
     let getEmitter =
         // Prevent ReflectionTypeLoadException
@@ -1126,9 +1105,9 @@ module Util =
                 else args
         match meth with
         (** -Check for replacements, emits... *)
+        | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Imported com ctx r typ (typArgs, methTypArgs) args imported -> imported
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
-        | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
         | _ ->
@@ -1178,19 +1157,7 @@ module Util =
                         makeGet r calleeType callee (makeConst methName)
                     |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
 
-    let wrapInLambda (com: IFableCompiler) ctx r typ (meth: FSharpMemberOrFunctionOrValue) =
-        let arity =
-            match typ with
-            | Fable.Function(args,_) -> args.Length
-            | _ -> failwithf "Expecting a function value but got %s" meth.FullName
-        let lambdaArgs =
-            [for i=1 to arity do yield com.GetUniqueVar() |> makeIdent]
-        lambdaArgs
-        |> List.map (Fable.IdentValue >> Fable.Value)
-        |> makeCallFrom com ctx r typ meth ([],[]) None
-        |> makeLambdaExpr lambdaArgs
-
-    let makeThisRef _com (ctx: Context) (v: FSharpMemberOrFunctionOrValue option) =
+    let makeThisRef (ctx: Context) (v: FSharpMemberOrFunctionOrValue option) =
         match ctx.thisAvailability with
         | ThisAvailable -> Fable.Value Fable.This
         | ThisCaptured(currentThis, capturedThis) ->
@@ -1220,17 +1187,14 @@ module Util =
             else match role with
                  | AppliedArgument -> consumeBoundExpr ctx r v
                  | _ -> getBoundExpr ctx r v
-        // External entities contain functions that will be replaced,
-        // when they appear as a stand alone values, they must be wrapped in a lambda
-        elif isReplaceCandidate com v.EnclosingEntity
-        then wrapInLambda com ctx r typ v
         else
-            match v with
-            | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
-            | Imported com ctx r typ ([], []) [] imported -> imported
-            | Try (tryGetBoundExpr ctx r) e -> e
-            | _ ->
-                let typeRef =
-                    makeTypeFromDef com ctx v.EnclosingEntity []
-                    |> makeNonGenTypeRef
-                Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
+        match v with
+        | Replaced com ctx r typ ([], []) (None, []) replaced -> replaced
+        | Imported com ctx r typ ([], []) [] imported -> imported
+        | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
+        | Try (tryGetBoundExpr ctx r) e -> e
+        | _ ->
+            let typeRef =
+                makeTypeFromDef com ctx v.EnclosingEntity []
+                |> makeNonGenTypeRef
+            Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)

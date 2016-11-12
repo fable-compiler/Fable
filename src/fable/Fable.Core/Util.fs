@@ -40,6 +40,9 @@ module Naming =
               "System.Collections.Generic.ICollection"; "System.Collections.Generic.IList"
               "System.Collections.Generic.IDictionary"; "System.Collections.Generic.ISet" ]
 
+    let ignoredBaseClasses =
+        set [ "System.Object"; "System.Exception" ]
+
     /// Interfaces automatically assigned by the F# compiler
     /// to unions and records. Ignored by Fable.
     let ignoredInterfaces =

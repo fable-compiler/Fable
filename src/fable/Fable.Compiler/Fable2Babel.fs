@@ -50,10 +50,10 @@ and IDeclarePlugin =
         -> (U2<Babel.Statement, Babel.ModuleDeclaration> list) option
 
 module Util =
-    let (|EntKind|) (ent: Fable.Entity) = ent.Kind
-    let (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
-    let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
-    let (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
+    let inline (|EntKind|) (ent: Fable.Entity) = ent.Kind
+    let inline (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
+    let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
+    let inline (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
 
     /// Matches a sequence of assignments and a return value: a.b = 1, a.c = 2, a
     let (|Assignments|_|) e =
@@ -1011,7 +1011,10 @@ module Util =
                 | Fable.Interface ->
                     (declareInterfaceEntity com ent)@acc
                 | Fable.Class(baseClass, _) ->
-                    let baseClass = Option.map snd baseClass
+                    let baseClass = baseClass |> Option.bind (fun (name, baseClass) ->
+                        if Naming.ignoredBaseClasses.Contains name
+                        then None
+                        else Some baseClass)
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange baseClass true
                     |> List.append <| acc

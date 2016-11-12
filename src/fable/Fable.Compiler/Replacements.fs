@@ -6,6 +6,7 @@ open Fable.AST.Fable.Util
 module Util =
     let [<Literal>] system = "System."
     let [<Literal>] fsharp = "Microsoft.FSharp."
+    let [<Literal>] fableCore = "Fable.Core."
     let [<Literal>] genericCollections = "System.Collections.Generic."
 
     let inline (=>) first second = first, second
@@ -318,7 +319,7 @@ module Util =
 module private AstPass =
     open Util
 
-    let fableCore com (i: Fable.ApplyInfo) =
+    let fableCoreLib com (i: Fable.ApplyInfo) =
         let destruct = function
             | Fable.Value(Fable.TupleConst exprs) -> exprs
             | expr -> [expr]
@@ -332,7 +333,8 @@ module private AstPass =
             let path =
                 match i.args with
                 | [Fable.Value(Fable.StringConst path)] -> path
-                | _ -> FableError(sprintf "%s.%s only accepts literal strings" i.ownerFullName i.methodName, ?range=i.range) |> raise
+                | _ -> FableError(sprintf "%s.%s only accepts literal strings"
+                        i.ownerFullName i.methodName, ?range=i.range) |> raise
             Fable.ImportRef(selector, path, Fable.CustomImport) |> Fable.Value |> Some
         | "op_Dynamic" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
@@ -1518,7 +1520,7 @@ module private AstPass =
 
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
-        | Naming.StartsWith "Fable.Core" _ -> fableCore com info
+        | Naming.StartsWith fableCore _ -> fableCoreLib com info
         // TODO: Check this is not a custom exception
         | Naming.EndsWith "Exception" _ -> exceptions com info
         | "System.Object" -> objects com info
@@ -1652,12 +1654,27 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
     | _ -> None
 
 let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
-    let info =
-        info.methodName |> Naming.removeGetSetPrefix |> Naming.lowerFirst
-        |> fun methName -> { info with methodName = methName }
-    match AstPass.tryReplace com info with
-    | Some res -> Some res
-    | None -> coreLibPass com info
+    let isInterface = function
+        | Fable.DeclaredType(ent, _) when ent.Kind = Fable.Interface -> true
+        | _ -> false
+    let ownerName = info.ownerFullName
+    if ownerName.StartsWith Util.system
+        || ownerName.StartsWith Util.fsharp
+        || ownerName.StartsWith Util.fableCore
+    then
+        let info =
+            info.methodName |> Naming.removeGetSetPrefix |> Naming.lowerFirst
+            |> fun methName -> { info with methodName = methName }
+        match AstPass.tryReplace com info with
+        | Some _ as res -> res
+        | None -> coreLibPass com info
+        |> function
+        | Some _ as res -> res
+        | None when isInterface info.ownerType -> None
+        | None ->
+            FableError("Cannot find replacement for " + info.ownerFullName + "." +
+                info.methodName, ?range=info.range) |> raise
+    else None
 
 // TODO: We'll probably have to merge this with CoreLibPass.mappings
 // Especially if we start making more types from the BCL compatible
