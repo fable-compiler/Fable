@@ -5,7 +5,7 @@
         "compilerName": "fsc",
         "compile": {
             "includeFiles": [
-                "project.fsx"
+                "../../tests/Main/project.fsx"
             ]
         },
         "define": [

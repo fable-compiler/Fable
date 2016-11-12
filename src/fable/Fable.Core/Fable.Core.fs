@@ -33,6 +33,7 @@ type EmitAttribute private () =
     inherit Attribute()
     new (macro: string) = EmitAttribute()
     new (emitterType: Type, methodName: string) = EmitAttribute()
+    new (emitterType: Type, methodName: string, extraArg: string) = EmitAttribute()
 
 /// When this is attached to a method, Fable will add the generic info
 /// as an extra argument to every call, making it possible to access

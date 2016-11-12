@@ -29,6 +29,7 @@ type IBabelCompiler =
     abstract GetImportExpr: Context -> selector: string -> path: string ->
         Fable.ImportKind -> Babel.Expression
     abstract GetAllImports: unit -> seq<Import>
+    abstract GetAllJsIncludes: unit -> seq<Babel.JsInclude>
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
     abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Babel.Statement
@@ -1032,7 +1033,10 @@ module Util =
                 |> consBack decls
             |> List.rev
 
-    let makeCompiler (com: ICompiler) (projectMaps: Map<string, Fable.FileInfo> list) =
+    let makeCompiler (com: ICompiler) (prevJsIncludes: Babel.JsInclude seq)
+                     (projectMaps: Map<string, Fable.FileInfo> list) =
+        let prevJsIncludes = prevJsIncludes |> Seq.toList
+        let jsIncludes = ResizeArray<Babel.JsInclude>()
         let imports = Dictionary<string*string,Import>()
         let declarePlugins =
             com.Plugins |> List.choose (function
@@ -1063,11 +1067,27 @@ module Util =
                     |> Naming.sanitizeIdent (fun s ->
                         ctx.file.UsedVarNames.Contains s
                             || (imports.Values |> Seq.exists (fun i -> i.localIdent = s)))
+                let includeJs (sourcePath: string) =
+                    let getRelativePath name =
+                        IO.Path.Combine(bcom.Options.outDir, "js_includes", name + ".js")
+                        |> Path.getRelativeFileOrDirPath false ctx.file.TargetFile false
+                    Seq.append prevJsIncludes jsIncludes
+                    |> Seq.tryFind (fun x -> x.sourcePath = sourcePath)
+                    |> function
+                    | Some jsInclude -> getRelativePath jsInclude.name
+                    | None ->
+                        let name =
+                            IO.Path.GetFileNameWithoutExtension(sourcePath)
+                            |> Naming.preventConflicts (fun name ->
+                                Seq.append prevJsIncludes jsIncludes
+                                |> Seq.exists (fun x -> x.name = name))
+                        jsIncludes.Add({ sourcePath=sourcePath; name=name })
+                        getRelativePath name
                 let resolvePath (ctx: Context) (importPath: string) =
                     if not(importPath.StartsWith ".") then importPath else
                     let fileDir = IO.Path.GetDirectoryName(ctx.file.SourceFile)
                     let importPath = IO.Path.GetFullPath(IO.Path.Combine(fileDir, importPath))
-                    Path.getRelativePath ctx.file.TargetFile importPath
+                    includeJs importPath
                 match imports.TryGetValue((selector, path)) with
                 | true, i -> upcast Babel.Identifier(i.localIdent)
                 | false, _ ->
@@ -1095,6 +1115,7 @@ module Util =
                     imports.Add((selector,path), i)
                     upcast Babel.Identifier (localId)
             member bcom.GetAllImports () = upcast imports.Values
+            member bcom.GetAllJsIncludes () = upcast jsIncludes
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
@@ -1119,12 +1140,13 @@ module Compiler =
         let projectMaps: Map<string, Fable.FileInfo> list =
             ("projectMaps", extra)
             ||> Map.findOrRun (fun () -> failwith "Expected project maps")
+        let prevJsIncludes = ResizeArray<Babel.JsInclude>()
         let dependenciesDic: Dictionary<string, string list> =
             Map.findOrNew "dependencies" extra
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 // let t = PerfTimer("Fable > Babel")
-                let com = makeCompiler com projectMaps
+                let com = makeCompiler com prevJsIncludes projectMaps
                 let ctx = {
                     file = file
                     moduleFullName = projectMaps.Head.[file.SourceFile].rootModule
@@ -1168,8 +1190,11 @@ module Compiler =
                     Path.normalizeFullPath file.SourceFile,
                     (fun _ -> dependencies), (fun _ _ -> dependencies))
                 |> ignore
+                let jsIncludes = com.GetAllJsIncludes() |> Seq.toList
+                prevJsIncludes.AddRange(jsIncludes)
                 // Return the Babel file
-                Babel.Program(file.TargetFile, file.SourceFile, file.Range, rootDecls, isEntry=file.IsEntry)
+                Babel.Program(file.TargetFile, file.SourceFile, jsIncludes,
+                                file.Range, rootDecls, isEntry=file.IsEntry)
             with
             | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.SourceFile) |> raise
             | ex -> exn (sprintf "%s (%s)" ex.Message file.SourceFile, ex) |> raise

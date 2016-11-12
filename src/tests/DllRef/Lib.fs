@@ -1,5 +1,18 @@
 module Fable.Tests.DllRef.Lib
 
+#if FABLE_COMPILER
+/// Including JS files in compilation works
+let foo: string = Fable.Core.JsInterop.importMember "./js1/lib.js"
+
+/// Including JS files with same name works
+[<Fable.Core.Import("fooGenerator","./js2/lib.js")>]
+let fooGenerator(i: int): string = failwith "JS only"
+#else
+let foo = "foo"
+let fooGenerator(i: int): string =
+    String.replicate i "foo"
+#endif
+
 let createClampedArray() = [|5uy|]
 
 // These must be in a separate file from the unit tests (see issue #482)

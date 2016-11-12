@@ -254,12 +254,25 @@ function babelify(babelAst, fsCode, opts) {
     }
 
     var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
-    return {
+    var res = [{
         isEntry: babelAst.isEntry,
         fileName: babelAst.fileName,
         code: parsed.code,
         map: parsed.map
-    };
+    }];
+
+    // Compile JS includes
+    if (Array.isArray(babelAst.jsIncludes))
+        babelAst.jsIncludes.forEach(js => {
+            parsed = babel.transformFileSync(js.sourcePath, babelOpts);
+            res.push({
+                fileName: path.join(pathJoin(opts.workingDir, opts.outDir), "js_includes", js.name) + ".js",
+                code: parsed.code,
+                map: parsed.map
+            });
+        });
+
+    return res;
 }
 exports.babelify = babelify;
 
@@ -298,9 +311,9 @@ function babelifyToFile(babelAst, opts) {
         ? fs.readFileSync(babelAst.originalFileName)
         : null;
 
-    var parsed = babelify(babelAst, fsCode, opts);
     // Use strict equality so it evals to false when opts.sourceMaps === "inline"
-    writeFile(parsed.fileName, parsed.code,
-        opts.sourceMaps === true ? parsed.map : null);
+    babelify(babelAst, fsCode, opts).forEach(parsed =>
+        writeFile(parsed.fileName, parsed.code,
+            opts.sourceMaps === true ? parsed.map : null));
 }
 exports.babelifyToFile = babelifyToFile;

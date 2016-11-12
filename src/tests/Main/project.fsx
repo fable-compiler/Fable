@@ -12,6 +12,7 @@
 #load
     "../DllRef/Util/Util.fs"
     "../DllRef/Lib.fs"
+    "../DllRef/Lib2.fs"
     "../Project With Spaces/Util/Util.fs"
     "Util/Util.fs"
     "Util/Util2.fs"

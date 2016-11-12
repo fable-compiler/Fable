@@ -6,7 +6,7 @@
     "compilerName": "fsc",
     "compile": {
       "includeFiles": [
-        "Fable.JsonConverter.fs"
+        "../../nuget/Fable.JsonConverter/Fable.JsonConverter.fs"
       ]
     },
     "define": [

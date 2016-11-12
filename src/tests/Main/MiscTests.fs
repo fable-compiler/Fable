@@ -795,21 +795,22 @@ let ``Import with relative paths from referenced dll works``() =
     Util.two |> equal 2
     Util.four |> equal 4
 
-[<Fable.Core.Import("foo", "./js/foo.js")>]
-[<Fable.Core.Emit("$0 + 'bar'")>]
-let foobar: string = failwith "JS only"
+[<Test>]
+let ``Including JS files in compilation works``() =
+    Fable.Tests.DllRef.Lib.foo |> equal "foo"
 
 [<Test>]
-let ``Import and Emit can be combined``() =
-    foobar |> equal "foobar"
-
-[<Fable.Core.Emit("$replace:Fable.Core.JsInterop.toJson($1) + $0")>]
-
-let toJson(x: obj, y: obj): string = failwith "JS only"
+let ``Including JS files with same name works``() =
+    Fable.Tests.DllRef.Lib.fooGenerator 3 |> equal "foofoofoo"
 
 [<Test>]
-let ``Emit replace macros work``() =
-    toJson("Garcia", "Caro") |> equal "\"Caro\"Garcia"
+let ``Including same JS file from different F# sources works``() =
+    Fable.Tests.DllRef.Lib2.foo |> equal "foo"
+
+[<Test>]
+let ``Classes from included JS files work``() =
+    let x = Fable.Tests.DllRef.Lib2.Bar(2)
+    x.generator() |> equal "barbar"
 
 [<Test>]
 let ``JS accepts any object as exception``() =
