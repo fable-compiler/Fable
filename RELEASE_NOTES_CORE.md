@@ -1,3 +1,7 @@
+### 0.7.5-alpha.15
+
+* Add extra argument to `EmitAttribute`
+
 ### 0.7.5-alpha.14
 
 * More meaningful runtime representation of non-declared types

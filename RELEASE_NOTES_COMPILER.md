@@ -1,3 +1,9 @@
+### 0.7.5-alpha.32
+
+* Compile scripts referenced as plugins
+* Apply Replace plugins to any call
+* Include in compilation JS files with relative paths
+
 ### 0.7.5-alpha.31
 
 * Fix #535: Script referenced entity replacements
