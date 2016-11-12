@@ -1,3 +1,8 @@
+### 0.7.5-alpha.16
+
+* Add `import: selector->path->'T`  to import expressions
+* Make arguments of JsConstructor statically typed
+
 ### 0.7.5-alpha.15
 
 * Add extra argument to `EmitAttribute`

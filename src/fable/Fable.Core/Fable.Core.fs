@@ -24,7 +24,7 @@ type GlobalAttribute() =
 
 /// References to the module, type, function... will be replaced by import statements.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
-type ImportAttribute(get: string, from: string) =
+type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
 /// Function calls will be replaced by inlined JS code.
@@ -115,6 +115,10 @@ module JsInterop =
     /// Create an empty JS object: {}
     let createEmpty<'T> : 'T = jsNative
 
+    /// Works like `ImportAttribute` (same semantics as ES6 imports).
+    /// You can use "*" or "default" selectors.
+    let import<'T> (selector: string) (path: string):'T = jsNative
+
     /// F#: let myMember = importMember<string> "myModule"
     /// JS: import { myMember } from "myModule"
     /// Note the import must be immediately assigned to a value in a let binding
@@ -147,17 +151,17 @@ module JsInterop =
     let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
 
     /// Use it when importing a constructor from a JS library.
+    /// 'Args can be a tuple to represent multiple arguments in JS.
     ///
     /// ## Sample
     ///     type IFoo =
     ///         abstract foo: unit -> unit
     ///
-    ///     let Foo: JsConstructor<IFoo> = importMember "../js/lib.js"
-    ///     let x = Foo.Create("foo", "bar")
+    ///     let Foo: JsConstructor<string * int, IFoo> = importMember "../js/lib.js"
+    ///     let x = Foo.Create("bar", 5)
     ///     x.foo()
-    type JsConstructor<'T> =
-        [<Emit("new $0($1...)")>]
-        abstract Create: [<ParamArray>] args: obj[] -> 'T
+    type JsConstructor<'Args,'T> =
+        abstract Create: args: 'Args -> 'T
 
     /// Use it when you need an plain old JS function that doesn't capture
     /// the enclosing `this`. The first argument of the lambda becomes `this` in JS.

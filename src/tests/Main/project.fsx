@@ -30,6 +30,8 @@
     "EnumTests.fs"
     "EventTests.fs"
     "HashSetTests.fs"
+    "ImportTests.fs"
+    "JsInteropTests.fs"
     "JsonTests.fs"
     "ListTests.fs"
     "MapTests.fs"

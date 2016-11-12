@@ -61,14 +61,10 @@ function processJson(json, opts, continuation) {;
             throw babelAst;
         }
         else if (opts.inMemory || opts.rollup) {
-            var fsCode = fs && opts.sourceMaps && babelAst.originalFileName
-                ? fs.readFileSync(babelAst.originalFileName)
-                : null;
-            return fableLib.babelify(babelAst, fsCode, opts);
+            return fableLib.babelify(babelAst, opts);
         }
         else {
             fableLib.babelifyToFile(babelAst, opts);
-            fableLib.stdoutLog("Compiled " + path.basename(babelAst.fileName) + " at " + (new Date()).toLocaleTimeString());
         }
     }
     catch (err) {
@@ -161,6 +157,7 @@ function bundle(jsFiles, opts, fableProc, continuation) {
                         .find(function(f) { return jsFiles[f].isEntry });
     }
 
+    fableLib.stdoutLog("Bundling...");
     rollup.rollup(rollupOpts)
         .then(function(bundle) {
             var parsed = bundle.generate(rollupOpts);
@@ -176,7 +173,7 @@ function bundle(jsFiles, opts, fableProc, continuation) {
                 // bundle.write({ dest: rollupOpts.dest, format: rollupOpts.format, sourceMap: rollupOpts.sourceMap });
                 fableLib.writeFile(rollupOpts.dest, parsed.code,
                     rollupOpts.sourceMap === true ? parsed.map : null);
-                fableLib.stdoutLog("Compiled " + path.basename(rollupOpts.dest) + " at " + (new Date()).toLocaleTimeString());
+                fableLib.stdoutLog("Bundled " + path.basename(rollupOpts.dest) + " at " + (new Date()).toLocaleTimeString());
                 postbuild(opts, true, fableProc, continuation);
             }
         })

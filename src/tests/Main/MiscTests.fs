@@ -64,122 +64,6 @@ let ``Local values from partial functions work``() = // See #115
     let logItem2 = log "item2"
     logItem1 "item1" |> equal "a = item1, b = item1"
 
-#if FABLE_COMPILER
-open Fable.Core
-open Fable.Core.JsInterop
-
-[<Test>]
-let ``Dynamic application works``() =
-    let dynObj =
-        createObj [
-            "add" ==> Func<_,_,_>(fun x y -> x + y)
-            "fn" ==> fun () ->
-                createObj [
-                    "subtract" ==> Func<_,_,_>(fun x y -> x - y)
-                ]
-            "child" ==>
-                createObj [
-                    "multiply" ==> Func<_,_,_>(fun x y -> x * y)
-                ]
-            "foo" ==> "foo"
-            "apply" ==> fun (del: Func<int,int,int>) -> del.Invoke(2,3)
-        ]
-    dynObj?add(2,2) |> equal (box 4)
-    // Assigning dynamic access result to a value
-    let add = dynObj?add
-    add(3,4) |> equal (box 7)
-    // Accessing 2-level deep property
-    dynObj?child?multiply(3,2) |> equal (box 6)
-    // Dynamic application chaining
-    dynObj?fn()?subtract(3,2) |> equal (box 1)
-    // Using $ operator
-    dynObj?add $ (2,2) |> equal (box 4)
-    dynObj?foo |> unbox |> equal "foo"
-    // Delegates are not modified when applied dynamically
-    let del = Func<_,_,_>(fun x y -> y - x)
-    dynObj?apply(del) |> unbox |> equal 1
-    dynObj?apply(Func<_,_,_>(fun x y -> x - y)) |> unbox |> equal -1
-
-let myMeth (x: int) (y: int) = x - y
-
-[<Test>]
-let ``Lambdas are converted to delegates with dynamic operators``() =
-    let o =
-        createObj [
-            "bar" ==> fun x y z -> x * y * z
-            "bar2" ==> myMeth
-            "apply2and5" ==> fun (f: Func<int,int,int>) -> f.Invoke(2,5)
-        ]
-    o?bar(1,2,3) |> unbox<int> |> equal 6
-    o?bar2(5,2) |> unbox<int> |> equal 3
-
-    o?apply2and5(fun x y -> x + y) |> unbox<int> |> equal 7
-
-    let f = unbox<obj> o?apply2and5
-    f $ (fun x y -> x * y) |> unbox<int> |> equal 10
-
-    o?foo <- fun x y -> x / y
-    o?foo(25, 5) |> unbox<int> |> equal 5
-
-[<Test>]
-let ``Symbols in external projects work``() =
-    equal "Fable Rocks!" Spaces.Helper.ConditionalExternalValue
-
-[<KeyValueList>]
-type MyOptions =
-    | Flag1
-    | Name of string
-    | [<CompiledName("QTY")>] QTY of int
-
-[<Test>]
-let ``KeyValueList attribute works at compile time``() =
-    let opts = [
-        Name "Fable"
-        QTY 5
-        Flag1
-    ]
-    opts?name |> unbox |> equal "Fable"
-    opts?QTY |> unbox |> equal 5
-    opts?flag1 |> unbox |> equal true
-
-[<Test>]
-let ``KeyValueList attribute works at runtime``() =
-    let buildAtRuntime = function
-        | null | "" -> Flag1
-        | name -> Name name
-    let opts = [
-        buildAtRuntime "Fable"
-        QTY 5
-        buildAtRuntime ""
-    ]
-    opts?name |> unbox |> equal "Fable"
-    opts?QTY |> unbox |> equal 5
-    opts?flag1 |> unbox |> equal true
-
-[<StringEnum>]
-type MyStrings =
-    | Vertical
-    | [<CompiledName("Horizontal")>] Horizontal
-
-[<Test>]
-let ``StringEnum attribute works``() =
-    Vertical |> unbox |> equal "vertical"
-    Horizontal |> unbox |> equal "Horizontal"
-
-[<StringEnum>]
-#endif
-type Field = OldPassword | NewPassword | ConfirmPassword
-
-let validatePassword = function
-    | OldPassword -> "op"
-    | NewPassword -> "np"
-    | ConfirmPassword -> "cp"
-
-[<Test>]
-let ``Pattern matching with StringEnum works``() =
-    validatePassword NewPassword
-    |> equal "np"
-
 type MaybeBuilder() =
   member __.Bind(x,f) = Option.bind f x
   member __.Return v = Some v
@@ -200,7 +84,6 @@ let ``Custom computation expressions work``() =
     execMaybe 5 |> equal (Some 23)
     execMaybe 99 |> equal None
 
-
 [<Measure>] type km           // Define the measure units
 [<Measure>] type mi           // as simple types decorated
 [<Measure>] type h            // with Measure attribute
@@ -219,7 +102,6 @@ let ``Units of measure work``() =
     let v2 = { x = 5.6<mi>; y = 3.8<mi>; z = 0.<mi> }
     let v3 = v1 + v2
     equal 8.8<mi> v3.y
-
 
 type PointWithCounter(a: int, b: int) =
     // A variable i.
@@ -393,7 +275,7 @@ type RecursiveType(subscribe) as this =
     member this.Add2(i) = i + 2
 
 [<Test>]
-let ``Composition with recursive this works``() =
+let ``Composition with recursive `this` works``() =
     let mutable x = 0
     RecursiveType(fun f -> x <- f()) |> ignore
     equal 5 x
@@ -672,37 +554,10 @@ let ``use calls Dispose at the end of the scope`` () =
     !cell |> equal 20
 
 [<Test>]
-let ``Referencing a Fable project through a dll works``() =
-    Fable.Tests.DllRef.Util.add2 5 |> equal 7
-
-open Fable.Tests.DllRef
-
-[<Test>]
-let ``Root members with JS non-valid chars work``() = // See #207
-    Lib.足す 3 2 |> equal 5
-    Lib.引く 3 2 |> equal 1
-    Lib.モジュール.ファンクション 0 |> equal false
-
-[<Test>]
-let ``Identifiers are encoded correctly``() = // See #482
-    equal "bar1" Lib.``$5EAfoo``
-    equal "bar2" Lib.``$5E$Afoo``
-    equal "bar3" Lib.``$5EA$foo``
-    equal "bar4" Lib.``^Afoo``
-    equal "bar5" Lib.``תfoo``
-    equal "bar6" Lib.``foo$5EA``
-    equal "bar7" Lib.``foo$5E$A``
-    equal "bar8" Lib.``foo$5EA$``
-    equal "bar9" Lib.``foo^A``
-    equal "bar10" Lib.``fooת``
-
-[<Test>]
 let ``Unchecked.defaultof works`` () =
     Unchecked.defaultof<int> |> equal 0
     Unchecked.defaultof<bool> |> equal false
     Unchecked.defaultof<string> |> equal null
-
-#if FABLE_COMPILER
 
 type MyEnum =
     | One = 1
@@ -760,67 +615,6 @@ let ``Pattern matching optimization works (switch expression)``() =
     | MyEnum.Two -> "Two"
     | _ -> failwith "never"
     |> equal "One"
-
-type IFooImported =
-    abstract foo: string
-
-[<Import("*", "./js/foo.js")>]
-let fooAll: IFooImported = failwith "JS only"
-
-[<Test>]
-let ``Import with relative paths works``() =
-    fooAll.foo |> equal "foo"
-    let fooAll2: IFooImported = importAll "./js/foo.js"
-    fooAll2.foo |> equal "foo"
-
-[<Test>]
-let ``Import with relative paths from project subdirectory works``() =
-    // Import expression
-    Fable.Tests.Util.foo |> equal "foo"
-    // Import attribute
-    Fable.Tests.Util.foo2 |> equal "foo"
-
-[<Test>]
-let ``Import with relative paths from external files works``() =
-    // Import expressions
-    Fable.Tests.Util4.foo |> equal "foo"
-    Fable.Tests.Util4.bar |> equal 5
-    // Import attribute
-    Fable.Tests.Util4.bar2 |> equal 5
-
-[<Test>]
-let ``Import with relative paths from referenced dll works``() =
-    Lib.モジュール.one |> equal 1
-    Lib.モジュール.three |> equal 3
-    Util.two |> equal 2
-    Util.four |> equal 4
-
-[<Test>]
-let ``Including JS files in compilation works``() =
-    Fable.Tests.DllRef.Lib.foo |> equal "foo"
-
-[<Test>]
-let ``Including JS files with same name works``() =
-    Fable.Tests.DllRef.Lib.fooGenerator 3 |> equal "foofoofoo"
-
-[<Test>]
-let ``Including same JS file from different F# sources works``() =
-    Fable.Tests.DllRef.Lib2.foo |> equal "foo"
-
-[<Test>]
-let ``Classes from included JS files work``() =
-    let x = Fable.Tests.DllRef.Lib2.Bar(2)
-    x.generator() |> equal "barbar"
-
-[<Test>]
-let ``JS accepts any object as exception``() =
-    try
-        let o = createObj [ "foo" ==> 3 ]
-        raise(unbox o)
-    with ex -> ex.Message
-    |> equal """{"foo":3}"""
-
-#endif // FABLE_COMPILER
 
 type TestRef = TestRef of bool ref
 

@@ -1,3 +1,9 @@
+### 0.7.5-alpha.34
+
+* Add `import: selector->path->'T`  to import expressions
+* Make arguments of JsConstructor statically typed
+* Add logs when compiling files for bundling
+
 ### 0.7.5-alpha.33
 
 * Fix default watch directories

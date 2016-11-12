@@ -231,10 +231,9 @@ function getCommonBaseDir(filePaths) {
 exports.getCommonBaseDir = getCommonBaseDir;
 
 /**
- * Converts a Babel AST to JS code. `fsCode` is optional,
- * if `path` is null, Node's "path" module will be used.
+ * Converts a Babel AST to JS code.
  */
-function babelify(babelAst, fsCode, opts) {
+function babelify(babelAst, opts) {
     var babel = require("babel-core");
     // var outDir = pathJoin(opts.workingDir, opts.outDir);
 
@@ -246,11 +245,20 @@ function babelify(babelAst, fsCode, opts) {
         plugins: opts.babel.plugins,
     };
 
+    var fsCode = null;
+    // The F# code is only necessary when generating source maps
     if (opts.sourceMaps && babelAst.originalFileName) {
-        babelOpts.sourceMaps = opts.sourceMaps,
-        babelOpts.sourceMapTarget = path.basename(babelAst.fileName),
-        babelOpts.sourceFileName = path.relative(path.dirname(babelAst.fileName),
+        try {
+            var fs = require("fs");
+            fsCode = fs.readFileSync(babelAst.originalFileName);
+            babelOpts.sourceMaps = opts.sourceMaps,
+            babelOpts.sourceMapTarget = path.basename(babelAst.fileName),
+            babelOpts.sourceFileName = path.relative(path.dirname(babelAst.fileName),
             babelAst.originalFileName.replace(/\\/g, '/'));
+        }
+        catch (err) {
+            // Do nothing
+        }
     }
 
     var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
@@ -271,6 +279,11 @@ function babelify(babelAst, fsCode, opts) {
                 map: parsed.map
             });
         });
+
+    var timestamp = " at " + (new Date()).toLocaleTimeString();
+    for (var i=0; i<res.length; i++) {
+        stdoutLog("Compiled " + path.basename(res[i].fileName) + timestamp);
+    }
 
     return res;
 }
@@ -302,17 +315,10 @@ function writeFile(fileName, code, map) {
 }
 exports.writeFile = writeFile;
 
-/** Converts a Babel AST to JS code and writes to disc, requires 'fs' module */
+/** Converts Babel AST to JS code and writes to disc */
 function babelifyToFile(babelAst, opts) {
-    var fs = require("fs");
-
-    // The F# code is only necessary when generating source maps
-    var fsCode = opts.sourceMaps && babelAst.originalFileName
-        ? fs.readFileSync(babelAst.originalFileName)
-        : null;
-
     // Use strict equality so it evals to false when opts.sourceMaps === "inline"
-    babelify(babelAst, fsCode, opts).forEach(parsed =>
+    babelify(babelAst, opts).forEach(parsed =>
         writeFile(parsed.fileName, parsed.code,
             opts.sourceMaps === true ? parsed.map : null));
 }

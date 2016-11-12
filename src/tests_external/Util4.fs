@@ -9,4 +9,8 @@ let bar: int = JsInterop.importMember "./bar.js"
 
 [<Import("bar", "./bar.js")>]
 let bar2: int = jsNative
+#else
+let foo = "foo"
+let bar = 5
+let bar2 = 5
 #endif

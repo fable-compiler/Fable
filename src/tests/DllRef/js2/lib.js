@@ -7,13 +7,16 @@ export function fooGenerator(i) {
 }
 
 export class Bar {
-    constructor(i) {
-        this.i = i;
+    constructor(count, text) {
+        this.count = count;
+        this.text = text;
     }
     generator() {
         let s = "";
-        for (var j=0; j<this.i; j++)
-            s += "bar";
+        for (var j=0; j<this.count; j++)
+            s += this.text;
         return s;
     }
 }
+
+export default "bar"

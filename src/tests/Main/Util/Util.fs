@@ -20,6 +20,9 @@ let foo: string = Fable.Core.JsInterop.importMember "../js/foo.js"
 
 [<Fable.Core.Import("foo", "../js/foo.js")>]
 let foo2: string = failwith "JS only"
+#else
+let foo = "foo"
+let foo2 = "foo"
 #endif
 
 let equal (expected: 'T) (actual: 'T) =

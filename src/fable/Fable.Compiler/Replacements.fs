@@ -325,16 +325,22 @@ module private AstPass =
             | expr -> [expr]
         match i.methodName with
         | Naming.StartsWith "import" _ ->
-            let selector =
+            let fail() =
+                FableError(sprintf "%s.%s only accepts literal strings"
+                            i.ownerFullName i.methodName, ?range=i.range) |> raise
+            let selector, args =
                 match i.methodName with
-                | "importMember" -> Naming.placeholder
-                | "importDefault" -> "default"
-                | _ -> "*" // importAllFrom
+                | "import" ->
+                    match i.args with
+                    | Fable.Value(Fable.StringConst selector)::args -> selector, args
+                    | _ -> fail()
+                | "importMember" -> Naming.placeholder, i.args
+                | "importDefault" -> "default", i.args
+                | _ -> "*", i.args // importAllFrom
             let path =
-                match i.args with
+                match args with
                 | [Fable.Value(Fable.StringConst path)] -> path
-                | _ -> FableError(sprintf "%s.%s only accepts literal strings"
-                        i.ownerFullName i.methodName, ?range=i.range) |> raise
+                | _ -> fail()
             Fable.ImportRef(selector, path, Fable.CustomImport) |> Fable.Value |> Some
         | "op_Dynamic" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
@@ -397,6 +403,13 @@ module private AstPass =
             "A function supposed to be replaced by JS native code has been called, please check."
             |> Fable.StringConst |> Fable.Value
             |> fun msg -> Fable.Throw(msg, i.returnType, i.range) |> Some
+        | "create" when i.ownerFullName.EndsWith "JsConstructor" ->
+            match i.callee, i.args with
+            | Some callee, [Fable.Value(Fable.TupleConst args)] ->
+                Fable.Apply(callee, args, Fable.ApplyCons, i.returnType, i.range) |> Some
+            | Some callee, args ->
+                Fable.Apply(callee, args, Fable.ApplyCons, i.returnType, i.range) |> Some
+            | _ -> None
         | _ -> None
 
     let references com (i: Fable.ApplyInfo) =

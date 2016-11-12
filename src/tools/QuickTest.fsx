@@ -22,11 +22,7 @@ let equal expected actual =
 
 // Write here the code you want to test,
 // you can later put the code in a unit test.
-type Foo() =
-    member __.Foo = "foo"
 
-let x = Foo()
-x.Foo |> printfn "%s"
 
 // Example:
 // Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3

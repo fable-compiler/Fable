@@ -59,6 +59,9 @@ module Util =
         stream.CopyTo(writer.BaseStream)
         FileUtils.mkdir path
         CleanDir path
+        // Seems there can some problems if the writing hasn't finished
+        // so wait a bit before unzipping
+        System.Threading.Thread.Sleep(500)
         run path "unzip" (sprintf "-q %s" tempFile)
         File.Delete tempFile
 
@@ -346,7 +349,6 @@ let quickTest _ =
         "-o src/tools/temp"
         "-m commonjs"
         "--coreLib ./build/fable-core/umd"
-        "--includeJs --verbose"
     ]
     Node.run "." "src/tools/temp/QuickTest.js" []
 
