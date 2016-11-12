@@ -1,8 +1,0 @@
-{
-    "projFile": "Fable.Tests.DllRef2.fsproj",
-    "outDir": "../../../build/tests_dll2",
-    "coreLib": "../../../build/fable-core/umd",
-    "module": "commonjs",
-    "includeJs": true,
-    "dll": true
-}

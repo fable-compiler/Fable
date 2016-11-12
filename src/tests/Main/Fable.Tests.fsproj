@@ -46,9 +46,6 @@
     <Reference Include="Fable.Tests.DllRef">
       <HintPath>../../../build/tests_dll/Fable.Tests.DllRef.dll</HintPath>
     </Reference>
-    <Reference Include="Fable.Tests.DllRef2">
-      <HintPath>../../../build/tests_dll2/Fable.Tests.DllRef2.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Project With Spaces/Fable.Tests.Spaces.fsproj">

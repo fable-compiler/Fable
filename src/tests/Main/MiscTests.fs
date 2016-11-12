@@ -797,15 +797,20 @@ let ``Import with relative paths from referenced dll works``() =
 
 [<Test>]
 let ``Including JS files in compilation works``() =
-    Fable.Tests.DllRef2.Lib.foo |> equal "foo"
+    Fable.Tests.DllRef.Lib.foo |> equal "foo"
 
 [<Test>]
 let ``Including JS files with same name works``() =
-    Fable.Tests.DllRef2.Lib.fooGenerator 3 |> equal "foofoofoo"
+    Fable.Tests.DllRef.Lib.fooGenerator 3 |> equal "foofoofoo"
 
 [<Test>]
 let ``Including same JS file from different F# sources works``() =
-    Fable.Tests.DllRef2.Lib2.foo |> equal "foo"
+    Fable.Tests.DllRef.Lib2.foo |> equal "foo"
+
+[<Test>]
+let ``Classes from included JS files work``() =
+    let x = Fable.Tests.DllRef.Lib2.Bar(2)
+    x.generator() |> equal "barbar"
 
 [<Test>]
 let ``JS accepts any object as exception``() =
