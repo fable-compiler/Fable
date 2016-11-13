@@ -513,6 +513,8 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         //let warnings = match timer with Some timer -> (timer.Finish())::warnings | None -> warnings
         warnings |> Seq.map (string >> Log) |> printMessages
 
+        [Log "F# compilation complete. Starting Fable..."] |> printMessages
+
         // Check Fable.Core version on first compilation (whe projInfo.fileMask is None)
         // -----------------------------------------------------------------------------
         let fableCoreVersion =

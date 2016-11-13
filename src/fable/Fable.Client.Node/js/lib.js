@@ -235,7 +235,7 @@ exports.getCommonBaseDir = getCommonBaseDir;
  */
 function babelify(babelAst, opts) {
     var babel = require("babel-core");
-    // var outDir = pathJoin(opts.workingDir, opts.outDir);
+    var outDir = pathJoin(opts.workingDir, opts.outDir);
 
     var babelOpts = {
         babelrc: opts.babelrc || false,
@@ -274,7 +274,7 @@ function babelify(babelAst, opts) {
         babelAst.jsIncludes.forEach(js => {
             parsed = babel.transformFileSync(js.sourcePath, babelOpts);
             res.push({
-                fileName: path.join(pathJoin(opts.workingDir, opts.outDir), "js_includes", js.name) + ".js",
+                fileName: pathJoin(outDir, "js_includes/" + js.name) + ".js",
                 code: parsed.code,
                 map: parsed.map
             });
@@ -282,7 +282,7 @@ function babelify(babelAst, opts) {
 
     var timestamp = " at " + (new Date()).toLocaleTimeString();
     for (var i=0; i<res.length; i++) {
-        stdoutLog("Compiled " + path.basename(res[i].fileName) + timestamp);
+        stdoutLog("Compiled " + path.relative(outDir, res[i].fileName) + timestamp);
     }
 
     return res;
