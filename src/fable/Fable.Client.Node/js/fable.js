@@ -101,7 +101,6 @@ function watch(opts, fableProc, parallelProc, continuation) {
     fableLib.stdoutLog("Press Enter to terminate process.");
     opts.watching = true;
 
-    var fsExtensions = [".fs", ".fsx", ".fsproj"];
     var ready = false;
     var watcher = chokidar
         .watch(dirs, { ignored: /node_modules/, persistent: true })
@@ -109,13 +108,11 @@ function watch(opts, fableProc, parallelProc, continuation) {
         .on("all", function(ev, filePath) {
             if (ready) {
                 var ext = path.extname(filePath).toLowerCase();
-                if (fsExtensions.indexOf(ext) >= 0) {
-                    prev = next;
-                    next = [filePath, new Date()];
-                    if (!tooClose(filePath, prev)) {
-                        fableLib.stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
-                        fableProc.stdin.write(filePath + "\n");
-                    }
+                prev = next;
+                next = [filePath, new Date()];
+                if (!tooClose(filePath, prev)) {
+                    fableLib.stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
+                    fableProc.stdin.write(filePath + "\n");
                 }
             }
         });

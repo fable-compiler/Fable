@@ -1,3 +1,7 @@
+### 0.7.5-alpha.35
+
+* Watch also JS includes (relative path imports)
+
 ### 0.7.5-alpha.34
 
 * Add `import: selector->path->'T`  to import expressions

@@ -1191,11 +1191,15 @@ module Compiler =
                     |> Seq.toList |> List.unzip
                     |> fun (importDecls, dependencies) ->
                         (importDecls@rootDecls), (List.choose id dependencies |> List.distinct)
+                let jsIncludes = com.GetAllJsIncludes() |> Seq.toList
+                let dependencies =
+                    jsIncludes
+                    |> List.map (fun x -> x.sourcePath)
+                    |> List.append dependencies
                 dependenciesDic.AddOrUpdate(
                     Path.normalizeFullPath file.SourceFile,
                     (fun _ -> dependencies), (fun _ _ -> dependencies))
                 |> ignore
-                let jsIncludes = com.GetAllJsIncludes() |> Seq.toList
                 prevJsIncludes.AddRange(jsIncludes)
                 // Return the Babel file
                 Babel.Program(file.TargetFile, file.SourceFile, jsIncludes,
