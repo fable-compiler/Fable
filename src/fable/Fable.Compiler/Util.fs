@@ -1,5 +1,15 @@
 namespace Fable
 
+#if DOTNETCORE
+[<AutoOpen>]
+module ReflectionAdapters =
+    open System.Reflection
+
+    type System.Type with
+        member this.GetCustomAttributes(inherits : bool) : obj[] =
+            downcast box(CustomAttributeExtensions.GetCustomAttributes(this.GetTypeInfo(), inherits) |> Seq.toArray)
+#endif
+
 [<AutoOpen>]
 module Extensions =
     type System.Collections.Generic.Dictionary<'TKey,'TValue> with
@@ -43,11 +53,7 @@ module Json =
     let isErasedUnion (t: System.Type) =
         t.Name = "FSharpOption`1" ||
         FSharpType.IsUnion t &&
-#if NETSTANDARD1_6
-            t.GetTypeInfo().GetCustomAttributes(true)
-#else        
             t.GetCustomAttributes true
-#endif
             |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
             
     let getErasedUnionValue (v: obj) =

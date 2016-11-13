@@ -30,6 +30,7 @@
     ]
   },
   "dependencies": {
+    "NETStandard.Library": "1.6.0",
     "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*"
   },
   "tools": {
@@ -40,7 +41,6 @@
   },
   "frameworks": {
     "netstandard1.6": {
-      "NETStandard.Library": "1.6.0"
     }
   }
 }

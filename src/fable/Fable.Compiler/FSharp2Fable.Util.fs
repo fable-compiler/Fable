@@ -11,6 +11,15 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
 
+#if DOTNETCORE
+[<AutoOpen>]
+module ReflectionAdapters =
+    type System.Reflection.Assembly with
+        static member LoadFrom(filePath: string) =
+            let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
+            globalLoadContext.LoadFromAssemblyPath(filePath)
+#endif
+
 type DecisionTarget =
     | TargetRef of Fable.Ident
     | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
@@ -954,15 +963,10 @@ module Util =
         fun (tdef: FSharpEntity) ->
             cache.GetOrAdd(tdef.QualifiedName, fun _ ->
                 let filePath = tdef.Assembly.FileName.Value
-#if NETSTANDARD1_6
-                let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
-                let assembly = globalLoadContext.LoadFromAssemblyPath(filePath)
-#else
                 // The assembly is already loaded because it's being referenced
                 // by the parsed code, so use `LoadFrom` which takes the copy in memory
                 // Unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
                 let assembly = System.Reflection.Assembly.LoadFrom(filePath)
-#endif
                 let typ = getTypes assembly |> Seq.find (fun x ->
                     x.AssemblyQualifiedName = tdef.QualifiedName)
                 System.Activator.CreateInstance(typ))
