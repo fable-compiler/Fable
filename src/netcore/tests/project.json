@@ -16,7 +16,7 @@
         ],
         "xmlDoc": true,
         "delaySign": true,
-        "warningsAsErrors": true,
+        "warningsAsErrors": false,
         "additionalArguments": [
             "--fullpaths",
             "--flaterrors"

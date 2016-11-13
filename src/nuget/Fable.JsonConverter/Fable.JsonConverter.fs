@@ -1,10 +1,13 @@
 namespace Fable
 
 #if DOTNETCORE
-open System.Reflection
-module System =
+[<AutoOpen>]
+module ReflectionAdapters =
+    open System.Reflection
+
     type System.Type with
         member this.IsValueType = this.GetTypeInfo().IsValueType
+        member this.GetGenericArguments() = this.GetTypeInfo().GenericTypeArguments
 #endif
 
 open System

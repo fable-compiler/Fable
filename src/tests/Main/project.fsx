@@ -6,7 +6,7 @@
 #r "System.Text.RegularExpressions.dll"
 #r "../../../packages/NUnit/lib/dotnet/nunit.framework.dll"
 #r "../../../packages/Newtonsoft.Json/lib/netstandard1.0/Newtonsoft.Json.dll"
-#r "./bin/Release/netcoreapp1.0/Fable.Core.dll"
+#r "../../netcore/tests/bin/Release/netcoreapp1.0/Fable.Core.dll"
 #endif
 
 #load
