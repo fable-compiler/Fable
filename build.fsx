@@ -52,18 +52,15 @@ module Util =
         |> fun p -> p.Messages |> String.concat "\n"
 
     let downloadArtifact path (url: string) =
-        let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
-        use client = new WebClient()
-        use stream = client.OpenRead(url)
-        use writer = new StreamWriter(tempFile)
-        stream.CopyTo(writer.BaseStream)
-        FileUtils.mkdir path
-        CleanDir path
-        // Seems there can some problems if the writing hasn't finished
-        // so wait a bit before unzipping
-        System.Threading.Thread.Sleep(500)
-        run path "unzip" (sprintf "-q %s" tempFile)
-        File.Delete tempFile
+        async {
+            let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
+            use client = new WebClient()
+            do! client.AsyncDownloadFile(Uri url, tempFile)
+            FileUtils.mkdir path
+            CleanDir path
+            run path "unzip" (sprintf "-q %s" tempFile)
+            File.Delete tempFile
+        } |> Async.RunSynchronously
 
     let rmdir dir =
         if EnvironmentHelper.isUnix
