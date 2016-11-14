@@ -1,3 +1,7 @@
+### 0.7.5-alpha.36
+
+* Bump version
+
 ### 0.7.5-alpha.35
 
 * Fix #545: Using `Microsoft.FSharp` namespace
