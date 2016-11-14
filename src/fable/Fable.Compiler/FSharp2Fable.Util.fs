@@ -62,6 +62,7 @@ type Role =
 type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
+    abstract IsReplaceCandidate: FSharpEntity -> bool
     abstract TryGetInternalFile: FSharpEntity -> string option
     abstract GetEntity: Context -> FSharpEntity -> Fable.Entity
     abstract TryGetInlineExpr: FSharpMemberOrFunctionOrValue -> (Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) option
@@ -98,6 +99,10 @@ module Helpers =
 
     let hasAtt name atts =
         atts |> tryFindAtt ((=) name) |> Option.isSome
+
+    let tryDefinition (typ: FSharpType) =
+        let typ = nonAbbreviatedType typ
+        if typ.HasTypeDefinition then Some typ.TypeDefinition else None
 
     let isInline (meth: FSharpMemberOrFunctionOrValue) =
         match meth.InlineAnnotation with
@@ -919,13 +924,21 @@ module Util =
         buildApplyInfo com ctx r typ ownerType ownerFullName (sanitizeMethodName meth) (getMemberKind meth)
             (meth.Attributes, typArgs, methTypArgs, lambdaArgArity) (callee, args)
 
-    let tryReplace (com: IFableCompiler) (applyInfo: Fable.ApplyInfo) =
+    let tryReplace (com: IFableCompiler) (ent: FSharpEntity option) (info: Fable.ApplyInfo) =
+        let isInterface = function
+            | Fable.DeclaredType(ent, _) when ent.Kind = Fable.Interface -> true
+            | _ -> false
         let pluginReplace (i: Fable.ApplyInfo) =
             com.ReplacePlugins
             |> Plugins.tryPlugin i.range (fun p -> p.TryReplace com i)
-        match applyInfo with
-        | Try pluginReplace repl -> Some repl
-        | Try (Replacements.tryReplace com) repl -> Some repl
+        match pluginReplace info, ent with
+        | Some _ as repl, _ -> repl
+        | None, Some ent when com.IsReplaceCandidate ent ->
+            match Replacements.tryReplace com info with
+            | Some _ as repl -> repl
+            | None when isInterface info.ownerType -> None
+            | None -> FableError("Cannot find replacement for " +
+                        info.ownerFullName + "." + info.methodName, ?range=info.range) |> raise
         | _ -> None
 
     let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
@@ -945,7 +958,7 @@ module Util =
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ (typArgs, methTypArgs)
             (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs) (callee, args) meth
-        |> tryReplace com
+        |> tryReplace com (Some meth.EnclosingEntity)
 
     let getEmitter =
         // Prevent ReflectionTypeLoadException
@@ -1109,9 +1122,9 @@ module Util =
                 else args
         match meth with
         (** -Check for replacements, emits... *)
-        | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
-        | Imported com ctx r typ (typArgs, methTypArgs) args imported -> imported
         | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
+        | Imported com ctx r typ (typArgs, methTypArgs) args imported -> imported
+        | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
         | _ ->
@@ -1193,9 +1206,9 @@ module Util =
                  | _ -> getBoundExpr ctx r v
         else
         match v with
-        | Replaced com ctx r typ ([], []) (None, []) replaced -> replaced
-        | Imported com ctx r typ ([], []) [] imported -> imported
         | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
+        | Imported com ctx r typ ([], []) [] imported -> imported
+        | Replaced com ctx r typ ([], []) (None, []) replaced -> replaced
         | Try (tryGetBoundExpr ctx r) e -> e
         | _ ->
             let typeRef =

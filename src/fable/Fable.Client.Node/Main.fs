@@ -457,14 +457,15 @@ let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (coreVer: Ver
     (projOut + Naming.fablemapExt, JsonConvert.SerializeObject fableMap)
     |> File.WriteAllText
     // Generate dll
-    let args = [|
-        yield! projInfo.ProjectOpts.OtherOptions
+    let args =
+        [| yield! projInfo.ProjectOpts.OtherOptions
+        ;  yield "--noframework"
         // Seems `--out` cannot come at the beginning
         // or the compiler will ignore it
-        yield "--out:" + projOut + ".dll"
-        yield "--doc:" + projOut + ".xml"
-        yield! projInfo.ProjectOpts.ProjectFileNames
-    |]
+        ;  yield "--out:" + projOut + ".dll"
+        ;  yield "--doc:" + projOut + ".xml"
+        ;  yield! projInfo.ProjectOpts.ProjectFileNames |]
+        // |> Array.distinct
     let errors, warnings =
         let errors, _exitCode = checker.Compile(args)
         parseErrors errors
@@ -513,8 +514,6 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         //let warnings = match timer with Some timer -> (timer.Finish())::warnings | None -> warnings
         warnings |> Seq.map (string >> Log) |> printMessages
 
-        [Log "F# compilation complete. Starting Fable..."] |> printMessages
-
         // Check Fable.Core version on first compilation (whe projInfo.fileMask is None)
         // -----------------------------------------------------------------------------
         let fableCoreVersion =
@@ -538,6 +537,8 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
 
         if com.Options.dll then
             compileDll checker com.Options fableCoreVersion parsedProj projInfo
+
+        [Log "F# compilation complete. Starting Fable..."] |> printMessages
 
         // Compile project files, print them and get extra info
         // ----------------------------------------------------

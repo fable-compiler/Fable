@@ -1667,27 +1667,12 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
     | _ -> None
 
 let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
-    let isInterface = function
-        | Fable.DeclaredType(ent, _) when ent.Kind = Fable.Interface -> true
-        | _ -> false
-    let ownerName = info.ownerFullName
-    if ownerName.StartsWith Util.system
-        || ownerName.StartsWith Util.fsharp
-        || ownerName.StartsWith Util.fableCore
-    then
-        let info =
-            info.methodName |> Naming.removeGetSetPrefix |> Naming.lowerFirst
-            |> fun methName -> { info with methodName = methName }
-        match AstPass.tryReplace com info with
-        | Some _ as res -> res
-        | None -> coreLibPass com info
-        |> function
-        | Some _ as res -> res
-        | None when isInterface info.ownerType -> None
-        | None ->
-            FableError("Cannot find replacement for " + info.ownerFullName + "." +
-                info.methodName, ?range=info.range) |> raise
-    else None
+    let info =
+        info.methodName |> Naming.removeGetSetPrefix |> Naming.lowerFirst
+        |> fun methName -> { info with methodName = methName }
+    match AstPass.tryReplace com info with
+    | Some _ as res -> res
+    | None -> coreLibPass com info
 
 // TODO: We'll probably have to merge this with CoreLibPass.mappings
 // Especially if we start making more types from the BCL compatible

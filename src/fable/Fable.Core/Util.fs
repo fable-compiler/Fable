@@ -27,6 +27,7 @@ module Naming =
     /// future this will probably be changed to ".js"
     let targetFileExtension: string = null // ".js"
 
+    let [<Literal>] current = "CURRENT"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
     let [<Literal>] exportsIdent = "__exports"

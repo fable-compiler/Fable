@@ -82,7 +82,7 @@ function watch(opts, fableProc, parallelProc, continuation) {
     function tooClose(filename, prev) {
         return prev != null &&
             filename == prev[0] &&
-            (new Date() - prev[1]) < 1000;
+            (new Date() - prev[1]) < 3000;
     }
     var next = null, prev = null;
     fableProc.stdin.setEncoding('utf-8');

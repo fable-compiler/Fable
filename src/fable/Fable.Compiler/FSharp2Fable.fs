@@ -142,7 +142,8 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         ]
         buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
             ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
-        |> tryReplace com |> function
+        |> tryReplace com (tryDefinition fsType)
+        |> function
         | Some repl -> repl
         | None -> Fable.Apply(makeNonGenTypeRef unionType, argExprs, Fable.ApplyCons, unionType, Some range)
 
@@ -579,7 +580,8 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         buildApplyInfo com ctx (Some range) recordType recordType (recordType.FullName)
             ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
-        |> tryReplace com |> function
+        |> tryReplace com (tryDefinition fsType)
+        |> function
         | Some repl -> repl
         | None -> Fable.Apply(makeNonGenTypeRef recordType, argExprs, Fable.ApplyCons,
                         makeType com ctx fsExpr.Type, Some range)
@@ -1051,7 +1053,7 @@ let makeFileMap (rootEntities: #seq<FSharpEntity>) (filePairs: Map<string, strin
         file, fileInfo)
     |> Map
 
-type FableCompiler(com: ICompiler, projectMaps: Map<string, Fable.FileInfo> list,
+type FableCompiler(com: ICompiler, projectMaps: Map<string,Map<string, Fable.FileInfo>>,
                    entitiesCache: Dictionary<string, Fable.Entity>,
                    inlineExprsCache: Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr>) =
     let replacePlugins =
@@ -1063,15 +1065,19 @@ type FableCompiler(com: ICompiler, projectMaps: Map<string, Fable.FileInfo> list
     interface IFableCompiler with
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
+        member fcom.IsReplaceCandidate ent =
+            match ent.Assembly.FileName with
+            | Some asmPath -> projectMaps.ContainsKey asmPath |> not
+            | None -> false
         member fcom.TryGetInternalFile tdef =
             let file = (getEntityLocation tdef).FileName
             // For an unknown reason in .fsx scripts, types in some referenced assemblies
             // (C# assemblies?) get the location of the .fsx script, so in that case
             // check if the type actually belongs to a compiled assembly.
             if file.EndsWith(".fsx", System.StringComparison.OrdinalIgnoreCase)
-                && not <| System.String.IsNullOrEmpty(tdef.Assembly.QualifiedName)
+                && Option.isSome tdef.Assembly.FileName
             then None
-            elif List.exists (Map.containsKey file) projectMaps
+            elif Map.exists (fun _ v -> Map.containsKey file v) projectMaps
             then Some file
             else None
         member fcom.GetEntity ctx tdef =
@@ -1133,23 +1139,23 @@ let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResul
         Fable.Path.getRelativePath com.Options.outDir path
     let curProj =
         makeFileMap parsedProj.AssemblySignature.Entities projInfo.FilePairs
-    let refAssemblies =
-        parsedProj.ProjectContext.GetReferencedAssemblies()
-        |> List.choose (fun assembly ->
-            assembly.FileName
-            |> Option.bind (fun asmPath ->
-                try
-                    let asmDir = Path.GetDirectoryName(asmPath)
-                    let makeAbsolute (path: string) =
-                        Path.GetFullPath(Path.Combine(asmDir, path))
-                    let json = File.ReadAllText(Path.ChangeExtension(asmPath, Naming.fablemapExt))
-                    let fableMap = Newtonsoft.Json.JsonConvert.DeserializeObject<Fable.FableMap>(json)
-                    fableMap.files |> Seq.map (fun kv ->
-                        kv.Key, { kv.Value with targetFile = makeAbsolute kv.Value.targetFile })
-                    |> Map |> Some
-                with _ -> None // TODO: Raise error or warning?
-            ))
-    curProj::refAssemblies
+    parsedProj.ProjectContext.GetReferencedAssemblies()
+    |> List.choose (fun assembly ->
+        assembly.FileName
+        |> Option.bind (fun asmPath ->
+            try
+                let asmDir = Path.GetDirectoryName(asmPath)
+                let makeAbsolute (path: string) =
+                    Path.GetFullPath(Path.Combine(asmDir, path))
+                let json = File.ReadAllText(Path.ChangeExtension(asmPath, Naming.fablemapExt))
+                let fableMap = Newtonsoft.Json.JsonConvert.DeserializeObject<Fable.FableMap>(json)
+                fableMap.files |> Seq.map (fun kv ->
+                    kv.Key, { kv.Value with targetFile = makeAbsolute kv.Value.targetFile })
+                |> Map |> fun m -> Some(asmPath, m)
+            with _ -> None // TODO: Raise error or warning?
+        ))
+    |> fun refAssemblies ->
+        (Naming.current, curProj)::refAssemblies |> Map
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
     let rec getRootDecls rootNs ent decls =
@@ -1182,13 +1188,14 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
     parsedProj.AssemblyContents.ImplementationFiles
     |> Seq.choose (fun file ->
         try
-        if not(projectMaps.Head.ContainsKey file.FileName && projInfo.IsMasked file.FileName)
+        let curProjMap = projectMaps.[Naming.current]
+        if not(curProjMap.ContainsKey file.FileName && projInfo.IsMasked file.FileName)
         then None
         else
             let fcom = FableCompiler(com, projectMaps, entitiesCache, inlineExprsCache)
             let rootEnt, rootDecls =
                 let ctx = { Context.Empty with fileName = file.FileName }
-                let rootNs = projectMaps.Head.[file.FileName].rootModule
+                let rootNs = curProjMap.[file.FileName].rootModule
                 let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
                 match rootEnt with
                 | Some e when hasAtt Atts.erase e.Attributes -> makeEntity fcom ctx e, []

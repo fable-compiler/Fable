@@ -1039,7 +1039,7 @@ module Util =
             |> List.rev
 
     let makeCompiler (com: ICompiler) (prevJsIncludes: Babel.JsInclude seq)
-                     (projectMaps: Map<string, Fable.FileInfo> list) =
+                     (projectMaps: Map<string,Map<string, Fable.FileInfo>>) =
         let prevJsIncludes = prevJsIncludes |> Seq.toList
         let jsIncludes = ResizeArray<Babel.JsInclude>()
         let imports = Dictionary<string*string,Import>()
@@ -1051,7 +1051,7 @@ module Util =
             member bcom.DeclarePlugins =
                 declarePlugins
             member bcom.GetFileInfo fileName =
-                match List.tryPick (Map.tryFind fileName) projectMaps with
+                match Map.tryPick (fun _ v -> Map.tryFind fileName v) projectMaps with
                 | Some info -> info
                 | None -> failwithf "Cannot find info for file: %s" fileName
             // TODO: Create a cache to optimize imports
@@ -1142,7 +1142,7 @@ module Compiler =
     open System.IO
 
     let transformFiles (com: ICompiler) (extra: Map<string, obj>, files) =
-        let projectMaps: Map<string, Fable.FileInfo> list =
+        let projectMaps: Map<string, Map<string, Fable.FileInfo>> =
             ("projectMaps", extra)
             ||> Map.findOrRun (fun () -> failwith "Expected project maps")
         let prevJsIncludes = ResizeArray<Babel.JsInclude>()
@@ -1151,10 +1151,11 @@ module Compiler =
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 // let t = PerfTimer("Fable > Babel")
+                let curProjMap = projectMaps.[Naming.current]
                 let com = makeCompiler com prevJsIncludes projectMaps
                 let ctx = {
                     file = file
-                    moduleFullName = projectMaps.Head.[file.SourceFile].rootModule
+                    moduleFullName = curProjMap.[file.SourceFile].rootModule
                     rootEntitiesPrivateNames =
                         file.Declarations
                         |> Seq.choose (function

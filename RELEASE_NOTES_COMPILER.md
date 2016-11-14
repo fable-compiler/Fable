@@ -1,5 +1,6 @@
 ### 0.7.5-alpha.35
 
+* Fix #545: Using `Microsoft.FSharp` namespace
 * Watch also JS includes (relative path imports)
 
 ### 0.7.5-alpha.34
