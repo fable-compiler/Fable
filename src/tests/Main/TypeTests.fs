@@ -386,12 +386,19 @@ type ConcreteClass () =
     inherit AbstractClassWithDefaults()
     override x.MustImplement () = "World!!"
 
+type ConcreteClass2 () =
+    inherit AbstractClassWithDefaults()
+    override x.MethodWithDefault () = "Hi "
+    override x.MustImplement () = "World!!"
+
 [<Test>]
 let ``Abstract methods with default work``() = // See #505
     let x = ConcreteClass()
     x.MethodWithDefault() |> equal "Hello "
     x.MustImplement() |> equal "World!!"
     x.CallMethodWithDefault() |> equal "Hello World!!"
+    let x = ConcreteClass2()
+    x.CallMethodWithDefault() |> equal "Hi World!!"
 
 type ISomeInterface =
     abstract OnlyGetProp: int with get
@@ -415,39 +422,37 @@ let ``Interface setters don't conflict``() = // See #505
     x.Sender <- 5
     x.Sender |> equal 5
 
-[<Fable.Core.Mangle>]
-type IMangleFoo =
+type IFoo =
     abstract Foo: unit -> string
 
-[<Fable.Core.Mangle>]
-type IMangleFoo2 =
-    abstract Foo: unit -> string
-
-let mangleFoo(x: IMangleFoo) = x.Foo()
-let mangleFoo2(x: IMangleFoo2) = x.Foo()
+let mangleFoo(x: IFoo) = x.Foo()
 
 type FooImplementor() =
     member x.Foo() = "foo"
-    interface IMangleFoo with
-        member x.Foo() = "bar"
+    interface IFoo with
+        member x.Foo() = x.Foo() + "bar"
 
-type FooImplementor2() =
-    interface IMangleFoo with
-        member x.Foo() = "hello"
-    interface IMangleFoo2 with
-        member x.Foo() = "bye"
+[<AbstractClass>]
+type AbstractFoo() =
+    abstract member Foo: unit -> string
+    interface IFoo with
+        member this.Foo() =
+            this.Foo() + "FOO"
+
+type ChildFoo() =
+    inherit AbstractFoo()
+    override this.Foo() = "BAR"
 
 [<Test>]
-let ``A type can implement a mangled interface``() =
+let ``A type can overload an interface method``() =
     let foo = FooImplementor()
     foo.Foo() |> equal "foo"
-    (foo :> IMangleFoo).Foo() |> equal "bar"
-    mangleFoo foo |> equal "bar"
+    (foo :> IFoo).Foo() |> equal "foobar"
+    mangleFoo foo |> equal "foobar"
 
 [<Test>]
-let ``A type can implement two mangled interfaces``() =
-    let foo = FooImplementor2()
-    (foo :> IMangleFoo).Foo() |> equal "hello"
-    mangleFoo foo |> equal "hello"
-    (foo :> IMangleFoo2).Foo() |> equal "bye"
-    mangleFoo2 foo |> equal "bye"
+let ``A type overloading an interface method can be inherited``() =
+    let foo = ChildFoo() :> AbstractFoo
+    foo.Foo() |> equal "BAR"
+    (foo :> IFoo).Foo() |> equal "BARFOO"
+    mangleFoo foo |> equal "BARFOO"

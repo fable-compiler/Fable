@@ -1,3 +1,7 @@
+### 0.7.5-alpha.17
+
+* Remove `NoMangle` attribute
+
 ### 0.7.5-alpha.16
 
 * Add `import: selector->path->'T`  to import expressions

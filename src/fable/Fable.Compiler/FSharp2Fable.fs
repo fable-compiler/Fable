@@ -742,41 +742,6 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
 let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity) (childDecls: #seq<Fable.Declaration>) =
     if fableEnt.Kind = Fable.Module then Seq.toList childDecls else
-    // Check there're no instance methods conflicting with interface methods
-    // TODO: The whole inheritance chain should actually be checked
-    let memberByLoc loc = function
-        | Fable.MemberDeclaration(m,_,_,_,_) as decl
-            when sameMemberLoc m.Location loc -> Some m
-        | _ -> None
-    // Allow interface overloads of these methods,
-    // as sometimes the compiler forces you to do so
-    let overloadExceptions = Set ["Equals"; "GetEnumerator"; "Current"]
-    let instanceMeths =
-        childDecls |> Seq.choose (memberByLoc Fable.InstanceLoc)
-        |> Seq.map (fun m -> m.Name) |> Set
-    childDecls
-    |> Seq.choose (memberByLoc (Fable.InterfaceLoc ""))
-    // Don't consider setters as overloads (see #505)
-    |> Seq.filter (fun m -> m.Kind <> Fable.Setter)
-    |> Seq.groupBy (fun m -> m.Name)
-    |> Seq.iter (fun (name, AsArray ms) ->
-        let mangleMsg = "Try using MangleAttribute on the interface."
-        if ms.Length > 1 && not(overloadExceptions.Contains name) then
-            match ms.[0].Location, ms.[1].Location with
-            | Fable.InterfaceLoc ifc1, Fable.InterfaceLoc ifc2 ->
-                if ifc1 = ifc2
-                then sprintf "Interface overloads cannot be implemented: %s.%s" ifc1 name |> Some
-                else sprintf "Implementing two interfaces with same method name is not allowed. %s %s"
-                        (sprintf "Both %s and %s contain '%s'." ifc1 ifc2 name) mangleMsg |> Some
-            | _ -> None
-        elif instanceMeths.Contains name && not(overloadExceptions.Contains name) then
-            match ms.[0].Location with
-            | Fable.InterfaceLoc ifc -> ifc, name, fableEnt.FullName
-            | _ -> "unknown", name, fableEnt.FullName
-            |||> sprintf "Interface %s conflicts with method '%s' of type %s. %s" <| mangleMsg |> Some
-        else None
-        |> function None -> () | Some msg -> FableError(msg) |> raise
-    )
     // If F# union or records implement System.IComparable/System.Equatable generate the methods
     // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
     let needsEqImpl =
@@ -1177,6 +1142,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
     let projectMaps =
         ("projectMaps", projInfo.Extra)
         ||> Map.findOrRun (fun () -> getProjectMaps com parsedProj projInfo)
+    let curProjMap = projectMaps.[Naming.current]
     // Cache for entities and inline expressions
     let entitiesCache = Dictionary<string, Fable.Entity>()
     let inlineExprsCache: Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr> =
@@ -1188,7 +1154,6 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
     parsedProj.AssemblyContents.ImplementationFiles
     |> Seq.choose (fun file ->
         try
-        let curProjMap = projectMaps.[Naming.current]
         if not(curProjMap.ContainsKey file.FileName && projInfo.IsMasked file.FileName)
         then None
         else

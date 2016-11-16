@@ -73,7 +73,6 @@ type IFableCompiler =
 module Atts =
     let emit = typeof<Fable.Core.EmitAttribute>.Name.Replace("Attribute","")
     let import = typeof<Fable.Core.ImportAttribute>.Name.Replace("Attribute","")
-    let mangle = typeof<Fable.Core.MangleAttribute>.Name.Replace("Attribute","")
     let erase = typeof<Fable.Core.EraseAttribute>.Name.Replace("Attribute","")
     let stringEnum = typeof<Fable.Core.StringEnumAttribute>.Name.Replace("Attribute","")
     let keyValueList = typeof<Fable.Core.KeyValueListAttribute>.Name.Replace("Attribute","")
@@ -110,10 +109,6 @@ module Helpers =
         | FSharpInlineAnnotation.OptionalInline -> false
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline -> true
-
-    let isImported (ent: FSharpEntity) =
-        ent.FullName.StartsWith "Fable.Import"
-        || Option.isSome(tryFindAtt Naming.importAtts.Contains ent.Attributes)
 
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
@@ -209,13 +204,12 @@ module Helpers =
         else Fable.Method
 
     let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
-        match tryGetInterfaceFromMethod meth, getMemberKind meth with
-        | Some ifc, _ when hasAtt Atts.mangle ifc.Attributes ->
-            // meth.CompiledName && meth.FullName are different for interface methods
-            // depending whether it's a method implementation or call
-            sanitizeEntityFullName ifc + "." + meth.DisplayName
-        | Some _, _ -> meth.DisplayName
-        | None, (Fable.Getter | Fable.Setter) -> meth.DisplayName
+        let isInterface =
+            meth.IsExplicitInterfaceImplementation
+            || meth.EnclosingEntity.IsInterface
+        if isInterface then meth.DisplayName else
+        match getMemberKind meth with
+        | Fable.Getter | Fable.Setter -> meth.DisplayName
         | _ -> meth.CompiledName
 
     let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
@@ -619,27 +613,37 @@ module Types =
         Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function([a], b))
 
     and getMembers com (tdef: FSharpEntity) =
+        let isAbstract =
+            hasAtt "AbstractClass" tdef.Attributes
+        let isDefaultImplementation (x: FSharpMemberOrFunctionOrValue) =
+            isAbstract && x.IsOverrideOrExplicitInterfaceImplementation && not x.IsExplicitInterfaceImplementation
+        let existsInterfaceMember name =
+            tdef.AllInterfaces
+            |> Seq.exists (fun ifc ->
+                if not ifc.HasTypeDefinition then false else
+                ifc.TypeDefinition.MembersFunctionsAndValues
+                |> Seq.exists (fun m -> m.DisplayName = name))
         let members =
             tdef.MembersFunctionsAndValues
             |> Seq.filter (fun x ->
-                // Discard overrides to prevent confusing them with overloads (see #505)
-                not(x.IsOverrideOrExplicitInterfaceImplementation && not x.IsExplicitInterfaceImplementation)
+                // Discard overrides in abstract classes (that is, default implementations)
+                // to prevent confusing them with overloads (see #505)
+                not(isDefaultImplementation x)
                 // Property members that are no getter nor setter don't actually get implemented
                 && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod)))
             |> Seq.map (fun meth -> sanitizeMethodName meth, getMemberKind meth, getMemberLoc meth, meth)
             |> Seq.toArray
-        let isOverloadable =
-            // TODO: Use overload index for interfaces too? (See isOverloaded below too)
-            not(tdef.IsInterface || isImported tdef)
         let getMembers' loc (tdef: FSharpEntity) =
             members
             |> Seq.filter (fun (_, _, mloc, _) -> sameMemberLoc loc mloc)
             |> Seq.groupBy (fun (name, kind, _, _) -> name, kind)
             |> Seq.collect (fun ((name, kind), AsArray members) ->
                 let isOverloaded =
+                    if tdef.IsInterface then false else
                     match loc with
                     | Fable.InterfaceLoc _ -> false
-                    | _ -> isOverloadable && members.Length > 1
+                    | Fable.InstanceLoc -> members.Length > 1 || existsInterfaceMember name
+                    | Fable.StaticLoc -> members.Length > 1
                 members |> Array.mapi (fun i (_, _, loc, meth) ->
                     let argTypes = getArgTypes com meth.CurriedParameterGroups
                     let returnType = makeType com Context.Empty meth.ReturnParameter.Type

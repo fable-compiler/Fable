@@ -1,15 +1,14 @@
-### 0.7.5-alpha.36
+### 0.7.5-alpha.37
 
-* Bump version
+* Mangle class methods when they conflict with an implemented interface
 
 ### 0.7.5-alpha.35
 
 * Fix #545: Using `Microsoft.FSharp` namespace
-* Watch also JS includes (relative path imports)
 
 ### 0.7.5-alpha.34
 
-* Add `import: selector->path->'T`  to import expressions
+* Add `import: selector->path->'T` to import expressions
 * Make arguments of JsConstructor statically typed
 * Add logs when compiling files for bundling
 
