@@ -99,6 +99,11 @@ module Helpers =
     let hasAtt name atts =
         atts |> tryFindAtt ((=) name) |> Option.isSome
 
+    let hasIgnoredAtt atts =
+        atts |> tryFindAtt (fun name ->
+            Naming.importAtts.Contains name || Naming.eraseAtts.Contains name)
+        |> Option.isSome
+
     let tryDefinition (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition then Some typ.TypeDefinition else None

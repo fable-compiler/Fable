@@ -313,10 +313,8 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         Fable.Value valueKind
 
     (** ## Assignments *)
-    // Disable this optimization from now, as it may result in multiple
-    // evaluations of the same expression
-    // | ImmutableBinding((var, value), body) ->
-    //     transformExpr com ctx value |> bindExpr ctx var |> transformExpr com <| body
+    | ImmutableBinding((var, value), body) ->
+        transformExpr com ctx value |> bindExpr ctx var |> transformExpr com <| body
 
     | BasicPatterns.Let((var, value), body) ->
         if isInline var then
@@ -800,11 +798,7 @@ type private DeclInfo() =
     let tryFindChild (ent: FSharpEntity) =
         if children.ContainsKey ent.FullName
         then Some children.[ent.FullName] else None
-    let hasIgnoredAtt atts =
-        atts |> tryFindAtt (fun name ->
-            Naming.importAtts.Contains name || Naming.eraseAtts.Contains name)
-        |> Option.isSome
-    member self.IsIgnoredEntity (ent: FSharpEntity) =
+    static member IsIgnoredEntity (ent: FSharpEntity) =
         ent.IsEnum
         || ent.IsInterface
         || ent.IsFSharpAbbreviation
@@ -960,7 +954,7 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
         declInfo.AddIgnoredChild ent
         declInfo.AddDeclaration(decl, ?publicName=publicName)
         declInfo, ctx
-    elif declInfo.IsIgnoredEntity ent
+    elif DeclInfo.IsIgnoredEntity ent
     then
         declInfo.AddIgnoredChild ent
         declInfo, ctx
@@ -994,8 +988,8 @@ let makeFileMap (rootEntities: #seq<FSharpEntity>) (filePairs: Map<string, strin
     rootEntities
     |> Seq.groupBy (fun ent -> (getEntityLocation ent).FileName)
     |> Seq.map (fun (file, ents) ->
-        let ns =
-            match List.ofSeq ents with
+        Seq.filter (DeclInfo.IsIgnoredEntity >> not) ents
+        |> List.ofSeq |> function
             | [] -> ""
             | [ent] ->
                 if ent.IsFSharpModule
@@ -1013,9 +1007,10 @@ let makeFileMap (rootEntities: #seq<FSharpEntity>) (filePairs: Map<string, strin
                 if rootNs.EndsWith(".")
                 then rootNs.Substring(0, rootNs.Length - 1)
                 else rootNs
-        let fileInfo: Fable.FileInfo =
-            {targetFile=filePairs.[file]; rootModule=ns}
-        file, fileInfo)
+        |> fun ns ->
+            let fileInfo: Fable.FileInfo =
+                {targetFile=filePairs.[file]; rootModule=ns}
+            file, fileInfo)
     |> Map
 
 type FableCompiler(com: ICompiler, projectMaps: Map<string,Map<string, Fable.FileInfo>>,
@@ -1125,6 +1120,10 @@ let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResul
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
     let rec getRootDecls rootNs ent decls =
         if rootNs = "" then ent, decls else
+        let decls = decls |> List.filter (function
+            | FSharpImplementationFileDeclaration.Entity(e,_) ->
+                not(DeclInfo.IsIgnoredEntity e)
+            | _ -> true)
         match decls with
         | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
             when ent.IsNamespace || ent.IsFSharpModule ->

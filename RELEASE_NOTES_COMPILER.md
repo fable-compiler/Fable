@@ -1,3 +1,7 @@
+### 0.7.5-alpha.38
+
+* Fix #547: Ignored entities conflicting when calculating root namespace
+
 ### 0.7.5-alpha.37
 
 * Mangle class methods when they conflict with an implemented interface
