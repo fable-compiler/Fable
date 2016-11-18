@@ -158,7 +158,11 @@ module Util =
         let patternFor = function
             | Int8 -> "($0 + 0x80 & 0xFF) - 0x80"
             | Int16 -> "($0 + 0x8000 & 0xFFFF) - 0x8000"
-            | Int32 when i.ownerFullName = "System.Convert" -> "Math.round($0)"
+            | Int32 when i.ownerFullName = "System.Convert" -> 
+                // TODO: When the fable round matches .net replace the following:
+                let x = (com : ICompiler).GetUniqueVar()
+                let r = com.GetUniqueVar()
+                "(("+x+") => { var "+r+" = Math.round("+x+"); return (((("+x+">0)?"+x+":(-"+x+"))%1)===0.5)?((0===("+r+"%2))?"+r+":("+r+"-1)):"+r+"; } )($0)"
             | Int32 -> "~~$0"
             | Int64 -> "Math.trunc($0)" // only 53-bit (still better than nothing)
             | UInt8 -> "$0 & 0xFF"
