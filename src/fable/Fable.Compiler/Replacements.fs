@@ -158,7 +158,8 @@ module Util =
         let patternFor = function
             | Int8 -> "($0 + 0x80 & 0xFF) - 0x80"
             | Int16 -> "($0 + 0x8000 & 0xFFFF) - 0x8000"
-            | Int32 -> "($0 + 0x80000000 >>> 0) - 0x80000000"
+            | Int32 when i.ownerFullName = "System.Convert" -> "Math.round($0)"
+            | Int32 -> "~~$0"
             | Int64 -> "Math.trunc($0)" // only 53-bit (still better than nothing)
             | UInt8 -> "$0 & 0xFF"
             | UInt16 -> "$0 & 0xFFFF"
