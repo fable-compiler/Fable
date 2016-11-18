@@ -83,10 +83,23 @@ module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
         if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
 
-    let sanitizeEntityName, sanitizeEntityFullName =
+    let private sanitizeEntityNamePrivate =
         let reg = Regex("`\d+")
-        (fun (ent: FSharpEntity) -> reg.Replace(ent.CompiledName, "")),
-        (fun (ent: FSharpEntity) -> reg.Replace(defaultArg ent.TryFullName ent.CompiledName, ""))
+        fun (full: bool) (ent: FSharpEntity) ->
+            if not full
+            then reg.Replace(ent.CompiledName, "")
+            else
+            let fullName = reg.Replace(defaultArg ent.TryFullName ent.CompiledName, "")
+            if not ent.IsNamespace
+            then fullName
+            else
+                // TODO: When ent.IsNamespace, FullName doesn't work. Report bug.
+                [|defaultArg ent.Namespace ""; fullName|]
+                |> Array.filter (System.String.IsNullOrEmpty >> not)
+                |> String.concat "."
+
+    let sanitizeEntityName ent = sanitizeEntityNamePrivate false ent
+    let sanitizeEntityFullName ent = sanitizeEntityNamePrivate true ent
 
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->

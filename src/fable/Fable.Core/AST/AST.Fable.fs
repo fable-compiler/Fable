@@ -105,8 +105,8 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
             elif m.OverloadIndex.IsNone
             then true
             else argsEqual m.ArgumentTypes argTypes)
-    static member CreateRootModule fileName modFullName =
-        Entity (lazy Module, Some fileName, modFullName, lazy [], [], [], [], true)
+    static member CreateRootModule fileName =
+        Entity (lazy Module, Some fileName, "", lazy [], [], [], [], true)
 
     override x.ToString() = sprintf "%s %A" x.Name kind
 

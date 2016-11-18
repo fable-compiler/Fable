@@ -450,7 +450,7 @@ let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (coreVer: Ver
         compilerVersion = compilerVer |> Option.map string |> defaultArg <| "0.0.0"
         coreVersion = coreVer |> Option.map string |> defaultArg <| "0.0.0"
         files =
-            FSharp2Fable.Compiler.makeFileMap parsedProj.AssemblySignature.Entities projInfo.FilePairs
+            FSharp2Fable.Compiler.makeFileMap parsedProj.AssemblyContents.ImplementationFiles projInfo.FilePairs
             |> Seq.map (fun kv -> kv.Key, { kv.Value with targetFile = makeRelative kv.Value.targetFile })
             |> Map
     }

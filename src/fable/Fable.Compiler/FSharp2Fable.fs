@@ -798,7 +798,7 @@ type private DeclInfo() =
     let tryFindChild (ent: FSharpEntity) =
         if children.ContainsKey ent.FullName
         then Some children.[ent.FullName] else None
-    static member IsIgnoredEntity (ent: FSharpEntity) =
+    member self.IsIgnoredEntity (ent: FSharpEntity) =
         ent.IsEnum
         || ent.IsInterface
         || ent.IsFSharpAbbreviation
@@ -954,7 +954,7 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
         declInfo.AddIgnoredChild ent
         declInfo.AddDeclaration(decl, ?publicName=publicName)
         declInfo, ctx
-    elif DeclInfo.IsIgnoredEntity ent
+    elif declInfo.IsIgnoredEntity ent
     then
         declInfo.AddIgnoredChild ent
         declInfo, ctx
@@ -984,36 +984,51 @@ and private transformDeclarations (com: IFableCompiler) ctx decls =
         ) (DeclInfo(), ctx)
     declInfo.GetDeclarations(com, ctx)
 
-let makeFileMap (rootEntities: #seq<FSharpEntity>) (filePairs: Map<string, string>) =
-    rootEntities
-    |> Seq.groupBy (fun ent -> (getEntityLocation ent).FileName)
-    |> Seq.map (fun (file, ents) ->
-        Seq.filter (DeclInfo.IsIgnoredEntity >> not) ents
-        |> List.ofSeq |> function
-            | [] -> ""
-            | [ent] ->
-                if ent.IsFSharpModule
-                then defaultArg ent.TryFullName ""
-                else defaultArg ent.Namespace ""
-            | ents ->
-                let rootNs =
-                    ents
-                    |> List.choose (fun ent ->
-                        match ent.TryFullName with
-                        | Some fullName -> fullName.Split('.') |> Some
-                        | None -> None)
-                    |> Path.getCommonPrefix
-                    |> String.concat "."
-                if rootNs.EndsWith(".")
-                then rootNs.Substring(0, rootNs.Length - 1)
-                else rootNs
-        |> fun ns ->
-            let fileInfo: Fable.FileInfo =
-                {targetFile=filePairs.[file]; rootModule=ns}
-            file, fileInfo)
+let private getRootModuleAndDecls decls =
+    let nameConflicts (decls: FSharpImplementationFileDeclaration list) =
+        false // TODO
+    let (|ModuleAndTypes|_|) (decls: FSharpImplementationFileDeclaration list) =
+        (([], [], []), decls) ||> List.fold (fun (mods, typDecls, other) decl ->
+            match decl with
+            | FSharpImplementationFileDeclaration.Entity(e,subDecls) ->
+                if e.IsFSharpModule
+                then (e,subDecls)::mods, typDecls, other
+                elif not e.IsNamespace && List.isEmpty subDecls // Type
+                then mods, decl::typDecls, other
+                else mods, typDecls, decl::other
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(m,_,_)
+                when not m.EnclosingEntity.IsFSharpModule ->
+                mods, decl::typDecls, other // Type members
+            | _ ->
+                mods, typDecls, decl::other)
+        |> function
+        | [mod'], typDecls, [] -> Some(mod', List.rev typDecls)
+        | _ -> None
+    let rec getRootModuleAndDecls outerEnt decls =
+        match decls with
+        | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
+                when ent.IsFSharpModule || ent.IsNamespace ->
+            getRootModuleAndDecls (Some ent) decls
+        | ModuleAndTypes((rootMod, modDecls), decls)
+                 when nameConflicts (decls@modDecls) |> not ->
+            (Some rootMod), decls@modDecls
+        | decls -> outerEnt, decls
+    getRootModuleAndDecls None decls
+
+let makeFileMap (fileImpls: FSharpImplementationFileContents list)
+                (filePairs: Map<string, string>) =
+    fileImpls
+    |> Seq.map (fun fileImpl ->
+        let fileInfo: Fable.FileInfo =
+            match getRootModuleAndDecls fileImpl.Declarations with
+            | Some rootModule, _ ->
+                sanitizeEntityFullName rootModule
+            | None, _ -> ""
+            |> fun ns -> {targetFile=filePairs.[fileImpl.FileName]; rootModule=ns}
+        fileImpl.FileName, fileInfo)
     |> Map
 
-type FableCompiler(com: ICompiler, projectMaps: Map<string,Map<string, Fable.FileInfo>>,
+type FableCompiler(com: ICompiler, projectMaps: Dictionary<string,Map<string, Fable.FileInfo>>,
                    entitiesCache: Dictionary<string, Fable.Entity>,
                    inlineExprsCache: Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr>) =
     let replacePlugins =
@@ -1030,16 +1045,9 @@ type FableCompiler(com: ICompiler, projectMaps: Map<string,Map<string, Fable.Fil
             | Some asmPath -> projectMaps.ContainsKey asmPath |> not
             | None -> false
         member fcom.TryGetInternalFile tdef =
-            let file = (getEntityLocation tdef).FileName
-            // For an unknown reason in .fsx scripts, types in some referenced assemblies
-            // (C# assemblies?) get the location of the .fsx script, so in that case
-            // check if the type actually belongs to a compiled assembly.
-            if file.EndsWith(".fsx", System.StringComparison.OrdinalIgnoreCase)
-                && Option.isSome tdef.Assembly.FileName
+            if (fcom :> IFableCompiler).IsReplaceCandidate tdef
             then None
-            elif Map.exists (fun _ v -> Map.containsKey file v) projectMaps
-            then Some file
-            else None
+            else Some (getEntityLocation tdef).FileName
         member fcom.GetEntity ctx tdef =
             entitiesCache.GetOrAdd(
                 defaultArg tdef.TryFullName tdef.CompiledName,
@@ -1086,19 +1094,6 @@ type FSProjectInfo(projectOpts: FSharpProjectOptions, filePairs: Map<string, str
         | None -> true
 
 let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
-    // Resolve relative paths and then make them relative to outDir: see #472
-    let resolveRelativePath (projFile: string option) (path: string) =
-        if not(path.StartsWith ".") then path else
-        let path =
-            match projFile with
-            | Some projFile ->
-                let projDir = Path.GetDirectoryName projFile
-                Path.GetFullPath(Path.Combine(projDir, path))
-            // `--refs` from options are resolved with the workingDir
-            | None -> Path.GetFullPath path
-        Fable.Path.getRelativePath com.Options.outDir path
-    let curProj =
-        makeFileMap parsedProj.AssemblySignature.Entities projInfo.FilePairs
     parsedProj.ProjectContext.GetReferencedAssemblies()
     |> List.choose (fun assembly ->
         assembly.FileName
@@ -1115,33 +1110,16 @@ let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResul
             with _ -> None // TODO: Raise error or warning?
         ))
     |> fun refAssemblies ->
-        (Naming.current, curProj)::refAssemblies |> Map
+        let dic = Dictionary()
+        for (asm, map) in refAssemblies do
+            dic.Add(asm, map)
+        dic.Add(Naming.current, Map.empty)
+        dic
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
-    let rec getRootDecls rootNs ent decls =
-        if rootNs = "" then ent, decls else
-        let decls = decls |> List.filter (function
-            | FSharpImplementationFileDeclaration.Entity(e,_) ->
-                not(DeclInfo.IsIgnoredEntity e)
-            | _ -> true)
-        match decls with
-        | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
-            when ent.IsNamespace || ent.IsFSharpModule ->
-            // TODO: Report Bug when ent.IsNamespace, FullName doesn't work
-            let fullName =
-                let fullName = defaultArg ent.TryFullName ""
-                if ent.IsFSharpModule then fullName else
-                [|defaultArg ent.Namespace ""; fullName|]
-                |> Array.filter (System.String.IsNullOrEmpty >> not)
-                |> String.concat "."
-            if fullName = rootNs
-            then Some ent, decls
-            else getRootDecls rootNs (Some ent) decls
-        | _ -> FableError("Multiple namespaces in same file are not supported") |> raise
     let projectMaps =
         ("projectMaps", projInfo.Extra)
         ||> Map.findOrRun (fun () -> getProjectMaps com parsedProj projInfo)
-    let curProjMap = projectMaps.[Naming.current]
     // Cache for entities and inline expressions
     let entitiesCache = Dictionary<string, Fable.Entity>()
     let inlineExprsCache: Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr> =
@@ -1153,23 +1131,26 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
     parsedProj.AssemblyContents.ImplementationFiles
     |> Seq.choose (fun file ->
         try
-        if not(curProjMap.ContainsKey file.FileName && projInfo.IsMasked file.FileName)
+        if not(projInfo.IsMasked file.FileName)
         then None
         else
             let fcom = FableCompiler(com, projectMaps, entitiesCache, inlineExprsCache)
             let rootEnt, rootDecls =
                 let ctx = { Context.Empty with fileName = file.FileName }
-                let rootNs = curProjMap.[file.FileName].rootModule
-                let rootEnt, rootDecls = getRootDecls rootNs None file.Declarations
+                let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
                 match rootEnt with
                 | Some e when hasAtt Atts.erase e.Attributes -> makeEntity fcom ctx e, []
                 | Some e -> makeEntity fcom ctx e, transformDeclarations fcom ctx rootDecls
-                | None -> Fable.Entity.CreateRootModule file.FileName rootNs,
+                | None -> Fable.Entity.CreateRootModule file.FileName,
                             transformDeclarations fcom ctx rootDecls
             match rootDecls with
             | [] -> None
-            | rootDecls -> Fable.File(file.FileName, projInfo.FilePairs.[file.FileName], rootEnt, rootDecls,
-                            isEntry=(file.FileName = entryFile), usedVarNames=fcom.UsedVarNames) |> Some
+            | rootDecls ->
+                let curProj = projectMaps.[Naming.current]
+                let fileInfo: Fable.FileInfo = {targetFile=projInfo.FilePairs.[file.FileName]; rootModule=rootEnt.FullName}
+                projectMaps.[Naming.current] <- Map.add file.FileName fileInfo curProj
+                Fable.File(file.FileName, projInfo.FilePairs.[file.FileName], rootEnt, rootDecls,
+                    isEntry=(file.FileName = entryFile), usedVarNames=fcom.UsedVarNames) |> Some
         with
         | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.FileName) |> raise
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise

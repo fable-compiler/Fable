@@ -1039,7 +1039,7 @@ module Util =
             |> List.rev
 
     let makeCompiler (com: ICompiler) (prevJsIncludes: Babel.JsInclude seq)
-                     (projectMaps: Map<string,Map<string, Fable.FileInfo>>) =
+                     (projectMaps: Dictionary<string,Map<string, Fable.FileInfo>>) =
         let prevJsIncludes = prevJsIncludes |> Seq.toList
         let jsIncludes = ResizeArray<Babel.JsInclude>()
         let imports = Dictionary<string*string,Import>()
@@ -1051,7 +1051,9 @@ module Util =
             member bcom.DeclarePlugins =
                 declarePlugins
             member bcom.GetFileInfo fileName =
-                match Map.tryPick (fun _ v -> Map.tryFind fileName v) projectMaps with
+                projectMaps |> Seq.tryPick (fun kv ->
+                    Map.tryFind fileName kv.Value)
+                |> function
                 | Some info -> info
                 | None -> failwithf "Cannot find info for file: %s" fileName
             // TODO: Create a cache to optimize imports
@@ -1142,7 +1144,7 @@ module Compiler =
     open System.IO
 
     let transformFiles (com: ICompiler) (extra: Map<string, obj>, files) =
-        let projectMaps: Map<string, Map<string, Fable.FileInfo>> =
+        let projectMaps: Dictionary<string, Map<string, Fable.FileInfo>> =
             ("projectMaps", extra)
             ||> Map.findOrRun (fun () -> failwith "Expected project maps")
         let prevJsIncludes = ResizeArray<Babel.JsInclude>()
@@ -1173,25 +1175,24 @@ module Compiler =
                     | None -> transformModDecls com ctx declareRootModMember None file.Declarations
                 // Add imports
                 let rootDecls, dependencies =
+                    let dependencies = HashSet()
                     com.GetAllImports()
                     |> Seq.mapi (fun ident import ->
+                        import.internalFile |> Option.iter (dependencies.Add >> ignore)
                         let localId = Babel.Identifier(import.localIdent)
                         let specifier =
                             match import.selector with
-                            | "default" | "" ->
-                                Babel.ImportDefaultSpecifier(localId)
-                                |> U3.Case2
-                            | "*" ->
-                                Babel.ImportNamespaceSpecifier(localId)
-                                |> U3.Case3
-                            | memb ->
-                                Babel.ImportSpecifier(localId, Babel.Identifier memb)
-                                |> U3.Case1
-                        Babel.ImportDeclaration([specifier], Babel.StringLiteral import.path)
-                        :> Babel.ModuleDeclaration |> U2.Case2, import.internalFile)
-                    |> Seq.toList |> List.unzip
-                    |> fun (importDecls, dependencies) ->
-                        (importDecls@rootDecls), (List.choose id dependencies |> List.distinct)
+                            | "default" | "" -> Babel.ImportDefaultSpecifier(localId) |> U3.Case2
+                            | "*" -> Babel.ImportNamespaceSpecifier(localId) |> U3.Case3
+                            | memb -> Babel.ImportSpecifier(localId, Babel.Identifier memb) |> U3.Case1
+                        import.path, specifier)
+                    |> Seq.groupBy (fun (path, _) -> path)
+                    |> Seq.map (fun (path, specifiers) ->
+                        let specifiers = Seq.map snd specifiers |> Seq.toList
+                        Babel.ImportDeclaration(specifiers, Babel.StringLiteral path)
+                        :> Babel.ModuleDeclaration |> U2.Case2)
+                    |> Seq.toList |> fun importDecls ->
+                        (importDecls@rootDecls), Seq.toList dependencies
                 dependenciesDic.AddOrUpdate(
                     Path.normalizeFullPath file.SourceFile,
                     (fun _ -> dependencies), (fun _ _ -> dependencies))
