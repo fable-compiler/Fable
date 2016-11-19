@@ -76,12 +76,6 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
-    member x.IsErased =
-        match kind.Value with
-        | Interface -> true
-        | Class(Some("System.Attribute", _), _) -> true
-        | _ -> decorators |> Seq.exists (fun dec ->
-            Naming.eraseAtts.Contains dec.Name)
     member x.Name =
         x.FullName.Substring(x.FullName.LastIndexOf('.') + 1)
     member x.Namespace =
@@ -89,7 +83,7 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
         match fullName.LastIndexOf "." with
         | -1 -> ""
         | 0 -> failwithf "Unexpected entity full name: %s" fullName
-        | _ as i -> fullName.Substring(0, i)
+        | i -> fullName.Substring(0, i)
     member x.HasInterface (fullName: string) =
         List.exists ((=) fullName) interfaces
     member x.TryGetDecorator decorator =

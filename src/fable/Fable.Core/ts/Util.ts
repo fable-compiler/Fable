@@ -33,13 +33,9 @@ export class NonDeclaredType implements IEquatable<NonDeclaredType> {
   }
 }
 
-export function Any() {
-  return new NonDeclaredType("Any", []);
-}
+export const Any = new NonDeclaredType("Any", []);
 
-export function Unit() {
-  return new NonDeclaredType("Unit", []);
-}
+export const Unit = new NonDeclaredType("Unit", []);
 
 export function Option(t: any) {
   return new NonDeclaredType("Option", [t]);

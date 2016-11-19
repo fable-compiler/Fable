@@ -74,7 +74,7 @@ let parseErrors errors =
         let loc = sprintf " (L%i,%i-L%i,%i) (%s)"
                     er.StartLineAlternate er.StartColumn
                     er.EndLineAlternate er.EndColumn
-                    (Path.GetFileName er.FileName)
+                    er.FileName
         match er.Severity, er.ErrorNumber with
         | _, 40 -> true, "Recursive value definitions are not supported" + loc // See #237
         | FSharpErrorSeverity.Warning, _ -> false, er.Message + loc

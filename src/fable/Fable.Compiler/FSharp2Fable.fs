@@ -108,7 +108,7 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
 
 and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
     let unionType, range = makeType com ctx fsType, makeRange fsExpr.Range
-    match unionType with
+    match fsType with
     | OptionUnion ->
         match argExprs: Fable.Expr list with
         // Represent `Some ()` with an empty object, see #478
@@ -448,9 +448,9 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         makeGetFrom com ctx r typ tupleExpr (makeConst tupleElemIndex)
 
-    | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, FableType com ctx unionType, unionCase, FieldName fieldName) ->
+    | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, fsType, unionCase, FieldName fieldName) ->
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        match unionType with
+        match fsType with
         | ErasedUnion | OptionUnion ->
             Fable.Wrapped(unionExpr, typ)
         | ListUnion ->
@@ -571,35 +571,44 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-        makeCallFrom com ctx r typ meth (typArgs, []) None (List.map (com.Transform ctx) args)
+        tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
+            validateGenArgs ctx r tdef.GenericParameters typArgs)
+        let typ = makeType com ctx fsExpr.Type
+        List.map (com.Transform ctx) args
+        |> makeCallFrom com ctx r typ meth (typArgs, []) None
 
-    | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
-        let recordType, range = makeType com ctx fsType, makeRange fsExpr.Range
+    | BasicPatterns.NewRecord(fsType, argExprs) ->
+        let range = makeRangeFrom fsExpr
         let argExprs = argExprs |> List.map (transformExpr com ctx)
-        buildApplyInfo com ctx (Some range) recordType recordType (recordType.FullName)
-            ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
-        |> tryReplace com (tryDefinition fsType)
-        |> function
-        | Some repl -> repl
-        | None -> Fable.Apply(makeNonGenTypeRef recordType, argExprs, Fable.ApplyCons,
-                        makeType com ctx fsExpr.Type, Some range)
+        match tryDefinition fsType with
+        | Some tdef when tdef.Attributes |> hasAtt Atts.pojo ->
+            List.zip (Seq.toList tdef.FSharpFields) argExprs
+            |> List.map (fun (fi, e) -> fi.Name, e)
+            |> makeJsObject range
+        | _ ->
+            let recordType = makeType com ctx fsType
+            buildApplyInfo com ctx range recordType recordType (recordType.FullName)
+                ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
+            |> tryReplace com (tryDefinition fsType)
+            |> function
+            | Some repl -> repl
+            | None -> Fable.Apply(makeNonGenTypeRef recordType, argExprs, Fable.ApplyCons,
+                            makeType com ctx fsExpr.Type, range)
 
-    | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
+    | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
         match fsType with
         | ListType _ -> transformNewList com ctx fsExpr fsType argExprs
-        | _ ->
-            List.map (com.Transform ctx) argExprs
-            |> transformNonListNewUnionCase com ctx fsExpr fsType unionCase
+        | _ -> List.map (com.Transform ctx) argExprs
+                |> transformNonListNewUnionCase com ctx fsExpr fsType unionCase
 
     (** ## Type test *)
-    | BasicPatterns.TypeTest (FableType com ctx typ as fsTyp, Transform com ctx expr) ->
+    | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
         makeTypeTest (makeRangeFrom fsExpr) typ expr
 
-    | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr,
-                                  (FableType com ctx unionType as fsType),
-                                  unionCase) ->
-        match unionType with
+    | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr, fsType, unionCase) ->
+        match fsType with
         | ErasedUnion ->
+            let unionType = makeType com ctx fsType
             if unionCase.UnionCaseFields.Count <> 1 then
                 FableError("Erased Union Cases must have one single field: "
                             + unionType.FullName, makeRange fsExpr.Range) |> raise
@@ -793,6 +802,25 @@ type private DeclInfo() =
             FableError("Public types, modules or functions with same name "
                         + "at same level are not supported: " + name) |> raise
         publicNames.Add name
+    let isErasedEntity (ent: FSharpEntity) =
+        ent.Attributes |> tryFindAtt (fun name ->
+            if name = Atts.import
+                || name = Atts.global_
+                || name = Atts.erase
+            then true
+            elif name = Atts.keyValueList
+                || name = Atts.stringEnum
+                || name = Atts.pojo
+            then
+                if ent.MembersFunctionsAndValues
+                    |> Seq.exists (fun m -> not m.IsCompilerGenerated)
+                then
+                    let loc = getEntityLocation ent
+                    FableError(sprintf "%s types cannot contain members" name,
+                        makeRange loc, loc.FileName) |> raise
+                true
+            else false)
+        |> Option.isSome
     let decls = ResizeArray<_>()
     let children = Dictionary<string, TmpDecl>()
     let tryFindChild (ent: FSharpEntity) =
@@ -803,12 +831,13 @@ type private DeclInfo() =
         || ent.IsInterface
         || ent.IsFSharpAbbreviation
         || isAttributeEntity ent
-        || (hasIgnoredAtt ent.Attributes)
+        || isErasedEntity ent
     /// Is compiler generated (CompareTo...) or belongs to ignored entity?
     /// (remember F# compiler puts class methods in enclosing modules)
     member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
         if (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.CompiledName)
-            || (hasIgnoredAtt meth.Attributes)
+            || Option.isSome(meth.Attributes |> tryFindAtt (fun name ->
+                name = Atts.import || name = Atts.global_ || name = Atts.emit))
         then true
         else match tryFindChild meth.EnclosingEntity with
              | Some IgnoredEnt -> true

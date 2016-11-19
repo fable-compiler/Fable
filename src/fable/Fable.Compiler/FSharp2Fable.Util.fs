@@ -71,13 +71,17 @@ type IFableCompiler =
     abstract ReplacePlugins: (string*IReplacePlugin) list
 
 module Atts =
-    let emit = typeof<Fable.Core.EmitAttribute>.Name.Replace("Attribute","")
-    let import = typeof<Fable.Core.ImportAttribute>.Name.Replace("Attribute","")
-    let erase = typeof<Fable.Core.EraseAttribute>.Name.Replace("Attribute","")
-    let stringEnum = typeof<Fable.Core.StringEnumAttribute>.Name.Replace("Attribute","")
-    let keyValueList = typeof<Fable.Core.KeyValueListAttribute>.Name.Replace("Attribute","")
-    let passGenerics = typeof<Fable.Core.PassGenericsAttribute>.Name.Replace("Attribute","")
-    let mutatingUpdate = typeof<Fable.Core.MutatingUpdateAttribute>.Name.Replace("Attribute","")
+    let abstractClass = typeof<AbstractClassAttribute>.FullName
+    let compiledName = typeof<CompiledNameAttribute>.FullName
+    let emit = typeof<Fable.Core.EmitAttribute>.FullName
+    let import = typeof<Fable.Core.ImportAttribute>.FullName
+    let global_ = typeof<Fable.Core.GlobalAttribute>.FullName
+    let erase = typeof<Fable.Core.EraseAttribute>.FullName
+    let pojo = typeof<Fable.Core.PojoAttribute>.FullName
+    let stringEnum = typeof<Fable.Core.StringEnumAttribute>.FullName
+    let keyValueList = typeof<Fable.Core.KeyValueListAttribute>.FullName
+    let passGenerics = typeof<Fable.Core.PassGenericsAttribute>.FullName
+    let mutatingUpdate = typeof<Fable.Core.MutatingUpdateAttribute>.FullName
 
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
@@ -105,17 +109,11 @@ module Helpers =
         atts |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
             | Some fullName ->
-                fullName.Substring(fullName.LastIndexOf "." + 1).Replace("Attribute", "")
-                |> f |> function true -> Some att | false -> None
+                if f fullName then Some att else None
             | None -> None)
 
     let hasAtt name atts =
         atts |> tryFindAtt ((=) name) |> Option.isSome
-
-    let hasIgnoredAtt atts =
-        atts |> tryFindAtt (fun name ->
-            Naming.importAtts.Contains name || Naming.eraseAtts.Contains name)
-        |> Option.isSome
 
     let tryDefinition (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
@@ -175,7 +173,7 @@ module Helpers =
     /// Lower first letter if there's no explicit compiled name
     let lowerCaseName (unionCase: FSharpUnionCase) =
         unionCase.Attributes
-        |> tryFindAtt ((=) "CompiledName")
+        |> tryFindAtt ((=) Atts.compiledName)
         |> function
             | Some name -> name.ConstructorArguments.[0] |> snd |> string
             | None -> Naming.lowerFirst unionCase.DisplayName
@@ -550,19 +548,22 @@ module Patterns =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList)
 
-    let (|OptionUnion|ListUnion|ErasedUnion|KeyValueUnion|StringEnum|OtherType|) (typ: Fable.Type) =
-        let (|FullName|) (ent: Fable.Entity) = ent.FullName
-        let (|TryDecorator|_|) dec (ent: Fable.Entity) = ent.TryGetDecorator dec
-        match typ with
-        | Fable.Option _ -> OptionUnion
-        | Fable.DeclaredType(ent,_) ->
-            match ent with
-            | FullName "Microsoft.FSharp.Collections.FSharpList" -> ListUnion
-            | TryDecorator Atts.erase _ -> ErasedUnion
-            | TryDecorator Atts.keyValueList _ -> KeyValueUnion
-            | TryDecorator Atts.stringEnum _ -> StringEnum
-            | _ -> OtherType
-        | _ -> failwithf "Unexpected union type: %s" typ.FullName
+    let (|OptionUnion|ListUnion|ErasedUnion|KeyValueUnion|StringEnum|OtherType|) (typ: FSharpType) =
+        match tryDefinition typ with
+        | None -> OtherType
+        | Some tdef ->
+            match defaultArg tdef.TryFullName tdef.CompiledName with
+            | "Microsoft.FSharp.Core.FSharpOption`1" -> OptionUnion
+            | "Microsoft.FSharp.Collections.FSharpList`1" -> ListUnion
+            | _ ->
+                tdef.Attributes
+                |> Seq.choose (fun att -> att.AttributeType.TryFullName)
+                |> Seq.tryPick (fun name ->
+                    if name = Atts.erase then Some ErasedUnion
+                    elif name = Atts.stringEnum then Some StringEnum
+                    elif name = Atts.keyValueList then Some KeyValueUnion
+                    else None)
+                |> defaultArg <| OtherType
 
     let (|FableNull|_|) = function
         | Fable.Wrapped(Fable.Value Fable.Null, _)
@@ -632,7 +633,7 @@ module Types =
 
     and getMembers com (tdef: FSharpEntity) =
         let isAbstract =
-            hasAtt "AbstractClass" tdef.Attributes
+            hasAtt Atts.abstractClass tdef.Attributes
         let isDefaultImplementation (x: FSharpMemberOrFunctionOrValue) =
             isAbstract && x.IsOverrideOrExplicitInterfaceImplementation && not x.IsExplicitInterfaceImplementation
         let existsInterfaceMember name =
@@ -753,9 +754,22 @@ module Types =
             let t = Seq.tryHead genArgs |> Option.map (makeType com ctx)
             Fable.Array(defaultArg t Fable.Any)
         | NumberKind kind -> Fable.Number kind
-        // Declared Type
-        | _ -> Fable.DeclaredType(com.GetEntity ctx tdef,
-                genArgs |> Seq.map (makeType com ctx) |> Seq.toList)
+        | _ ->
+            // Check erased types
+            tdef.Attributes
+            |> Seq.choose (fun att -> att.AttributeType.TryFullName)
+            |> Seq.tryPick (fun name ->
+                if name = Atts.stringEnum
+                then Some Fable.String
+                elif name = Atts.erase
+                    || name = Atts.keyValueList
+                    || name = Atts.pojo
+                then Some Fable.Any
+                else None)
+            |> defaultArg <|
+                // Declared Type
+                Fable.DeclaredType(com.GetEntity ctx tdef,
+                    genArgs |> Seq.map (makeType com ctx) |> Seq.toList)
 
     and makeType (com: IFableCompiler) (ctx: Context) (NonAbbreviatedType t) =
         let rec getFnGenArgs (acc: FSharpType list) (fn: FSharpType) =
@@ -845,6 +859,16 @@ module Util =
     open Patterns
     open Types
     open Identifiers
+
+    let validateGenArgs (ctx: Context) r (genParams: FSharpGenericParameter seq) (typArgs: FSharpType seq) =
+        if Seq.length genParams = Seq.length typArgs then
+            Seq.zip genParams typArgs
+            |> Seq.iter (fun (par, arg) ->
+                if hasAtt Atts.pojo par.Attributes then
+                    match tryDefinition arg with
+                    | Some argDef when hasAtt Atts.pojo argDef.Attributes -> ()
+                    | _ -> FableError(sprintf "Type argument %s must be a POJO record" par.Name,
+                            ?range=r, file=ctx.fileName) |> raise)
 
     let countRefs fsExpr (vars: #seq<FSharpMemberOrFunctionOrValue>) =
         let varsDic = Dictionary()
@@ -1033,7 +1057,7 @@ module Util =
 
     let (|Emitted|_|) com ctx r typ (typArgs, methTypArgs) (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match meth.Attributes with
-        | ContainsAtt "Emit" attArgs ->
+        | ContainsAtt Atts.emit attArgs ->
             match attArgs with
             | [:? string as macro] ->
                 let args =
@@ -1125,6 +1149,7 @@ module Util =
     let makeCallFrom (com: IFableCompiler) ctx r typ
                      (meth: FSharpMemberOrFunctionOrValue)
                      (typArgs, methTypArgs) callee args =
+        validateGenArgs ctx r meth.GenericParameters methTypArgs
         let argTypes = getArgTypes com meth.CurriedParameterGroups
         let args =
             if hasRestParams meth then

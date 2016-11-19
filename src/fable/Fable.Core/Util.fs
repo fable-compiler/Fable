@@ -53,13 +53,6 @@ module Naming =
     /// for unions and records. Ignored by Fable.
     let ignoredCompilerGenerated =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
-
-    let importAtts =
-        set ["Import"; "Global"]
-
-    let eraseAtts =
-        set ["Erase"; "Emit"; "KeyValueList"; "StringEnum"]
-
     let identForbiddenCharsRegex =
         Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
 

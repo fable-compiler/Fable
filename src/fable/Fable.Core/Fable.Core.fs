@@ -36,6 +36,11 @@ type EmitAttribute private () =
 type PassGenericsAttribute() =
     inherit Attribute()
 
+/// Compile a record as a JS object literals.
+/// More info: http://fable.io/docs/interacting.html
+type PojoAttribute() =
+    inherit Attribute()
+
 /// Compile union case lists as JS object literals.
 /// More info: http://fable.io/docs/interacting.html#KeyValueList-attribute
 [<AttributeUsage(AttributeTargets.Class)>]
@@ -127,7 +132,8 @@ module JsInterop =
     let importAll<'T> (path: string):'T = jsNative
 
     /// Convert F# unions, records and classes into plain JS objects
-    let toPlainJsObj (o: 'T): obj = jsNative
+    /// DEPRECATED: Use a Pojo record
+    let [<Obsolete>] toPlainJsObj (o: 'T): obj = jsNative
 
     /// Serialize F# objects to JSON
     let toJson(o: 'T): string = jsNative

@@ -106,20 +106,22 @@ let makeJsObject range (props: (string * Expr) list) =
     ObjExpr(membs, [], None, range)
 
 let makeNonDeclaredTypeRef (nonDeclType: NonDeclaredType) =
-    let make t args =
+    let get t =
+        Wrapped(makeCoreRef "Util" (Some t), MetaType)
+    let call t args =
         Apply(makeCoreRef "Util" (Some t), args, ApplyMeth, MetaType, None)
     match nonDeclType with
-    | NonDeclAny -> make "Any" []
-    | NonDeclUnit -> make "Unit" []
-    | NonDeclOption genArg -> make "Option" [genArg]
-    | NonDeclArray genArg -> make "Array" [genArg]
+    | NonDeclAny -> get "Any"
+    | NonDeclUnit -> get "Unit"
+    | NonDeclOption genArg -> call "Option" [genArg]
+    | NonDeclArray genArg -> call "Array" [genArg]
     | NonDeclTuple genArgs ->
         ArrayConst(ArrayValues genArgs, Any) |> Value
-        |> List.singleton |> make "Tuple"
+        |> List.singleton |> call "Tuple"
     | NonDeclGenericParam name ->
-        make "GenericParam" [Value(StringConst name)]
+        call "GenericParam" [Value(StringConst name)]
     | NonDeclInterface name ->
-        make "Interface" [Value(StringConst name)]
+        call "Interface" [Value(StringConst name)]
 
 type GenericInfo = {
     makeGeneric: bool
@@ -131,11 +133,9 @@ let rec makeTypeRef (genInfo: GenericInfo) typ =
     let str s = Wrapped(Value(StringConst s), MetaType)
     match typ with
     | Boolean -> str "boolean"
-    | DeclaredType(TryDecorator "StringEnum" _, _)
     | String -> str "string"
     | Number _ | Enum _ -> str "number"
     | Function _ -> str "function"
-    | DeclaredType(TryDecorator "KeyValueList" _, _)
     | MetaType | Any -> makeNonDeclaredTypeRef NonDeclAny
     | Unit -> makeNonDeclaredTypeRef NonDeclUnit
     | Array genArg ->
@@ -155,15 +155,12 @@ let rec makeTypeRef (genInfo: GenericInfo) typ =
         then (makeIdentExpr Naming.genArgsIdent, Value(StringConst name))
              ||> makeGet None MetaType
         else makeNonDeclaredTypeRef (NonDeclGenericParam name)
-    | DeclaredType(TryDecorator "KeyValueList" _, _) ->
-        failwith "TODO"
     | DeclaredType(ent, _) when ent.Kind = Interface ->
         makeNonDeclaredTypeRef (NonDeclInterface ent.FullName)
     | DeclaredType(ent, genArgs) ->
         // Imported types come from JS so they don't need to be made generic
         match tryImported ent.Name ent.Decorators with
         | Some expr -> expr
-        | None when ent.IsErased -> makeNonDeclaredTypeRef NonDeclAny
         | None when not genInfo.makeGeneric || genArgs.IsEmpty -> Value(TypeRef(ent,[]))
         | None ->
             List.map (makeTypeRef genInfo) genArgs
