@@ -19,6 +19,7 @@ export function toJson(o: any): string {
       return Array.from(v as any);
     }
     else if (v != null && typeof v === "object") {
+      const properties = typeof v[FSymbol.reflection] === "function" ? v[FSymbol.reflection]().properties : null;
       if (v instanceof List || v instanceof FSet || v instanceof Set) {
         return Array.from(v);
       }
@@ -27,10 +28,10 @@ export function toJson(o: any): string {
           return o[toJson(kv[0])] = kv[1], o;
         }, {}, v);
       }
-      else if (!hasInterface(v, "FSharpRecord") && v[FSymbol.properties]) {
+      else if (!hasInterface(v, "FSharpRecord") && properties) {
         return fold((o: any, prop: string) => {
           return o[prop] = v[prop], o;
-        }, {}, Object.getOwnPropertyNames(v[FSymbol.properties]()));
+        }, {}, Object.getOwnPropertyNames(properties));
       }
       else if (hasInterface(v, "FSharpUnion")) {
         if (!v.Fields || !v.Fields.length) {
@@ -55,14 +56,14 @@ function inflate(val: any, typ: any): any {
       return false;
     }
     if (typ instanceof NonDeclaredType) {
-      switch (typ.Case) {
+      switch (typ.kind) {
         case "Option":
         case "Array":
-          return needsInflate(new List(typ.Fields[0], enclosing));
+          return needsInflate(new List(typ.generics[0], enclosing));
         case "Tuple":
-          return typ.Fields.some((x: any) => needsInflate(new List(x, enclosing)));
+          return typ.generics.some((x: any) => needsInflate(new List(x, enclosing)));
         case "GenericParam":
-          return needsInflate(resolveGeneric(typ.Fields[0], enclosing.tail));
+          return needsInflate(resolveGeneric(typ.name, enclosing.tail));
         default:
           return false;
       }
@@ -97,49 +98,51 @@ function inflate(val: any, typ: any): any {
     return val;
   }
   else if (typ instanceof NonDeclaredType) {
-    switch (typ.Case) {
+    switch (typ.kind) {
       case "Unit":
         return null;
       case "Option":
-        return inflate(val, new List(typ.Fields[0], enclosing));
+        return inflate(val, new List(typ.generics[0], enclosing));
       case "Array":
-        return inflateArray(val, new List(typ.Fields[0], enclosing));
+        return inflateArray(val, new List(typ.generics[0], enclosing));
       case "Tuple":
-        return typ.Fields.map((x, i) => inflate(val[i], new List(x, enclosing)));
+        return typ.generics.map((x, i) => inflate(val[i], new List(x, enclosing)));
       case "GenericParam":
-        return inflate(val, resolveGeneric(typ.Fields[0], enclosing.tail));
+        return inflate(val, resolveGeneric(typ.name, enclosing.tail));
       // case "Interface": // case "Any":
       default: return val;
     }
   }
   else if (typeof typ === "function") {
+    const proto = typ.prototype;
     if (typ === Date) {
       return dateParse(val);
     }
-    if (typ.prototype instanceof List) {
+    if (proto instanceof List) {
       return listOfArray(inflateArray(val, resolveGeneric(0, enclosing)));
     }
-    if (typ.prototype instanceof FSet) {
+    if (proto instanceof FSet) {
       return setCreate(inflateArray(val, resolveGeneric(0, enclosing)));
     }
-    if (typ.prototype instanceof Set) {
+    if (proto instanceof Set) {
       return new Set(inflateArray(val, resolveGeneric(0, enclosing)));
     }
-    if (typ.prototype instanceof FMap) {
+    if (proto instanceof FMap) {
       return mapCreate(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing)));
     }
-    if (typ.prototype instanceof Map) {
+    if (proto instanceof Map) {
       return new Map(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing)));
     }
-    // Union types (note this condition is not returning)
-    if (typ.prototype[FSymbol.cases]) {
+    // Union types
+    const info = typeof proto[FSymbol.reflection] === "function" ? proto[FSymbol.reflection]() : {};
+    if (info.cases) {
       let u: any = { Fields: [] };
       if (typeof val === "string") {
         u.Case = val;
       }
       else {
         const caseName = Object.getOwnPropertyNames(val)[0];
-        const fieldTypes: any[] = typ.prototype[FSymbol.cases]()[caseName];
+        const fieldTypes: any[] = info.cases[caseName];
         const fields = fieldTypes.length > 1 ? val[caseName] : [val[caseName]];
         u.Case = caseName;
         for (let i = 0; i < fieldTypes.length; i++) {
@@ -148,8 +151,8 @@ function inflate(val: any, typ: any): any {
       }
       return Object.assign(new typ(), u);
     }
-    if (typ.prototype[FSymbol.properties]) {
-      const properties: {[k:string]:any} = typ.prototype[FSymbol.properties]();
+    if (info.properties) {
+      const properties: {[k:string]:any} = info.properties;
       for (let k of Object.getOwnPropertyNames(properties)) {
         val[k] = inflate(val[k], new List(properties[k], enclosing));
       }
@@ -175,24 +178,25 @@ export function toJsonWithTypeInfo(o: any): string {
       return Array.from(v as any);
     }
     else if (v != null && typeof v === "object") {
+      const typeName = typeof v[FSymbol.reflection] === "function" ? v[FSymbol.reflection]().type : null;
       if (v instanceof List || v instanceof FSet || v instanceof Set) {
         return {
-          $type: (v as any)[FSymbol.typeName] ? (v as any)[FSymbol.typeName]() : "System.Collections.Generic.HashSet",
+          $type: typeName || "System.Collections.Generic.HashSet",
           $values: Array.from(v) };
       }
       else if (v instanceof FMap || v instanceof Map) {
         return fold(
           (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; },
-          { $type: (v as any)[FSymbol.typeName] ? (v as any)[FSymbol.typeName]() : "System.Collections.Generic.Dictionary" }, v);
+          { $type: typeName || "System.Collections.Generic.Dictionary" }, v);
       }
-      else if (v[FSymbol.typeName]) {
+      else if (typeName) {
         if (hasInterface(v, "FSharpUnion") || hasInterface(v, "FSharpRecord")) {
-          return Object.assign({ $type: v[FSymbol.typeName]() }, v);
+          return Object.assign({ $type: typeName }, v);
         }
         else {
           const proto = Object.getPrototypeOf(v),
                 props = Object.getOwnPropertyNames(proto),
-                o = { $type: v[FSymbol.typeName]() } as {[k:string]:any};
+                o = { $type: typeName } as {[k:string]:any};
           for (let i = 0; i < props.length; i++) {
             const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
             if (prop.get)

@@ -9,7 +9,7 @@ export default class GenericComparer<T> implements IComparer<T> {
     this.Compare = f || compare;
   }
 
-  [FSymbol.interfaces]() {
-    return ["System.IComparer"];
+  [FSymbol.reflection]() {
+    return { interfaces: ["System.IComparer"] }
   }
 }

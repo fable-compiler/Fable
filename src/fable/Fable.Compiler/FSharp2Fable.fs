@@ -770,27 +770,21 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     match fableEnt.Kind with
     | Fable.Union cases ->
       [ yield makeUnionCons()
-        yield makeTypeNameMeth fableEnt.FullName
-        yield makeInterfacesMethod fableEnt
-                false ("FSharpUnion"::fableEnt.Interfaces)
-        yield makeCasesMethod cases
+        yield makeReflectionMeth fableEnt false fableEnt.FullName
+                ("FSharpUnion"::fableEnt.Interfaces) (Some cases) None
         if needsEqImpl then yield makeUnionEqualMethod fableType
         if needsCompImpl then yield makeUnionCompareMethod fableType ]
     // TODO: Use specific interface for FSharpException?
     | Fable.Record fields
     | Fable.Exception fields ->
       [ yield makeRecordCons fields
-        yield makeTypeNameMeth fableEnt.FullName
-        yield makeInterfacesMethod fableEnt
-                false ("FSharpRecord"::fableEnt.Interfaces)
-        yield makePropertiesMethod fableEnt false fields
+        yield makeReflectionMeth fableEnt false fableEnt.FullName
+                ("FSharpRecord"::fableEnt.Interfaces) None (Some fields)
         if needsEqImpl then yield makeRecordEqualMethod fableType
         if needsCompImpl then yield makeRecordCompareMethod fableType ]
     | Fable.Class(baseClass, properties) ->
-      [ yield makeTypeNameMeth fableEnt.FullName
-        if baseClass.IsSome || fableEnt.Interfaces.Length > 0 then
-            yield makeInterfacesMethod fableEnt baseClass.IsSome fableEnt.Interfaces
-        yield makePropertiesMethod fableEnt baseClass.IsSome properties ]
+      [makeReflectionMeth fableEnt baseClass.IsSome fableEnt.FullName
+            fableEnt.Interfaces None (Some properties)]
     | _ -> []
     |> fun autoMeths -> [yield! autoMeths; yield! childDecls]
 
@@ -798,7 +792,7 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
 // We use this type to correct that, see type DeclInfo below.
 type private TmpDecl =
     | Decl of Fable.Declaration
-    | Ent of Fable.Entity * string * ResizeArray<Fable.Declaration> * SourceLocation
+    | Ent of Fable.Entity * string * ResizeArray<Fable.Declaration> * SourceLocation option
     | IgnoredEnt
 
 type private DeclInfo() =
@@ -868,7 +862,7 @@ type private DeclInfo() =
             sanitizeEntityName newChild |> checkPublicNameConflicts
         let ent = Ent (com.GetEntity ctx newChild, privateName,
                     ResizeArray<_> newChildDecls,
-                    getEntityLocation newChild |> makeRange)
+                    getEntityLocation newChild |> makeRange |> Some)
         children.Add(newChild.FullName, ent)
         decls.Add(ent)
     member self.AddIgnoredChild (ent: FSharpEntity) =
@@ -887,9 +881,9 @@ type private DeclInfo() =
             | Decl decl -> decl
             | Ent (ent, privateName, decls, range) ->
                 let range =
-                    match decls.Count with
-                    | 0 -> range
-                    | _ -> range + (Seq.last decls).Range
+                    match decls.Count, range with
+                    | 0, _ | _, None -> range
+                    | _, Some r1 -> (Seq.last decls).Range |> function Some r2 -> Some(r1+r2) | None -> range
                 Fable.EntityDeclaration(ent, privateName, processMemberDecls com ctx ent decls, range))
         |> Seq.toList
 
@@ -947,7 +941,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             match fableEnt.TryGetMember(memberName, memberKind, memberLoc, argTypes) with
             | Some m -> m
             | None -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-            |> fun m -> Fable.MemberDeclaration(m, privateName, args, body, SourceLocation.Empty)
+            |> fun m -> Fable.MemberDeclaration(m, privateName, args, body, None)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
     let relativeImport = tryGetRelativeImport meth.Attributes
@@ -984,7 +978,7 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
         let ctx, ident = bindIdent com ctx Fable.Any None entName
         let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type,
                             isPublic = not ent.Accessibility.IsPrivate)
-        let decl = Fable.MemberDeclaration(m, Some ident.Name, [], body, r)
+        let decl = Fable.MemberDeclaration(m, Some ident.Name, [], body, Some r)
         let publicName =
             if ent.Accessibility.IsPrivate then None else Some entName
         declInfo.AddIgnoredChild ent
@@ -1015,7 +1009,7 @@ and private transformDeclarations (com: IFableCompiler) ctx decls =
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                 transformMemberDecl com ctx declInfo meth args body
             | FSharpImplementationFileDeclaration.InitAction (Transform com ctx e as fe) ->
-                declInfo.AddDeclaration(Fable.ActionDeclaration (e, makeRange fe.Range))
+                declInfo.AddDeclaration(Fable.ActionDeclaration (e, makeRangeFrom fe))
                 declInfo, ctx
         ) (DeclInfo(), ctx)
     declInfo.GetDeclarations(com, ctx)

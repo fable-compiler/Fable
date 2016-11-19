@@ -540,12 +540,11 @@ export default class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMa
     return tree_size(this.tree);
   }
 
-  [FSymbol.interfaces]() {
-    return ["System.IEquatable", "System.IComparable"];
-  }
-
-  [FSymbol.typeName]() {
-    return "Microsoft.FSharp.Collections.FSharpMap";
+  [FSymbol.reflection]() {
+    return {
+      type: "Microsoft.FSharp.Collections.FSharpMap",
+      interfaces: ["System.IEquatable", "System.IComparable"]
+    }
   }
 }
 

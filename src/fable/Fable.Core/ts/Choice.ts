@@ -37,11 +37,10 @@ export default class Choice<T1, T2> implements IEquatable<Choice<T1, T2>>, IComp
     return compareUnions(this, other);
   }
 
-  [FSymbol.interfaces]() {
-    return ["FSharpUnion", "System.IEquatable", "System.IComparable"];
-  }
-
-  [FSymbol.typeName]() {
-    return "Microsoft.FSharp.Core.FSharpChoice";
+  [FSymbol.reflection]() {
+    return {
+      type: "Microsoft.FSharp.Core.FSharpChoice",
+      interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"]
+    }
   }
 }

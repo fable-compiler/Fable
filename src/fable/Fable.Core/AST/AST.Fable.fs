@@ -105,11 +105,11 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     override x.ToString() = sprintf "%s %A" x.Name kind
 
 and Declaration =
-    | ActionDeclaration of Expr * SourceLocation
+    | ActionDeclaration of Expr * SourceLocation option
     /// Module members are also declared as variables, so they need
     /// a private name that doesn't conflict with enclosing scope (see #130)
-    | EntityDeclaration of Entity * privateName: string * Declaration list * SourceLocation
-    | MemberDeclaration of Member * privateName: string option * args: Ident list * body: Expr * SourceLocation
+    | EntityDeclaration of Entity * privateName: string * Declaration list * SourceLocation option
+    | MemberDeclaration of Member * privateName: string option * args: Ident list * body: Expr * SourceLocation option
     member x.Range =
         match x with
         | ActionDeclaration (_,r) -> r
@@ -168,7 +168,9 @@ and File(sourceFile, targetFile, root, decls, ?isEntry, ?usedVarNames) =
     member x.Range =
         match decls with
         | [] -> SourceLocation.Empty
-        | decls -> SourceLocation.Empty + (List.last decls).Range
+        | decls ->
+            decls |> Seq.choose (fun d -> d.Range) |> Seq.tryLast
+            |> function Some r -> SourceLocation.Empty + r | None -> SourceLocation.Empty
 
 and FileInfo = {
     targetFile: string

@@ -20,47 +20,62 @@ export interface IDisposable {
 export type NonDeclaredTypeKind = "Any" | "Unit" | "Option" | "Array" | "Tuple" | "GenericParam" | "Interface"
 
 export class NonDeclaredType implements IEquatable<NonDeclaredType> {
-  public Case: NonDeclaredTypeKind;
-  public Fields: Array<any>;
+  public kind: NonDeclaredTypeKind;
+  public name: string;
+  public generics: any[];
 
-  constructor(t: NonDeclaredTypeKind, d: any[]) {
-    this.Case = t;
-    this.Fields = d;
+  constructor(kind: NonDeclaredTypeKind, name?: string, generics?: any[]) {
+    this.kind = kind;
+    this.name = name;
+    this.generics = generics || [];
   }
 
   Equals(other: NonDeclaredType) {
-    return equalsUnions(this, other);
+    return this.kind === other.kind
+      && this.name === other.name
+      && equals(this.generics, other.generics);
   }
 }
 
-export const Any = new NonDeclaredType("Any", []);
+class GenericNonDeclaredType extends NonDeclaredType {
+  constructor(kind: NonDeclaredTypeKind, generics: any[]) {
+    super(kind, null, generics);
+  }
+  [FSymbol.generics]() { return this.generics; }
+}
 
-export const Unit = new NonDeclaredType("Unit", []);
+export const Any = new NonDeclaredType("Any");
+
+export const Unit = new NonDeclaredType("Unit");
 
 export function Option(t: any) {
-  return new NonDeclaredType("Option", [t]);
+  return new GenericNonDeclaredType("Option", [t]) as NonDeclaredType;
 }
 
 function FArray(t: any) {
-  return new NonDeclaredType("Array", [t]);
+  return new GenericNonDeclaredType("Array", [t]) as NonDeclaredType;
 }
 export { FArray as Array }
 
 export function Tuple(ts: any[]) {
-  return new NonDeclaredType("Tuple", ts);
+  return new GenericNonDeclaredType("Tuple", ts) as NonDeclaredType;
 }
 
 export function GenericParam(name: string) {
-  return new NonDeclaredType("GenericParam", [name]);
+  return new NonDeclaredType("GenericParam", name);
 }
 
 export function Interface(name: string) {
-  return new NonDeclaredType("Interface", [name]);
+  return new NonDeclaredType("Interface", name);
 }
 
 export function declare(cons: FunctionConstructor) {
-  if ((cons.prototype as any)[FSymbol.typeName])
-      fableGlobal.types.set((cons.prototype as any)[FSymbol.typeName](), cons);
+  const info = (cons.prototype as any)[FSymbol.reflection];
+  if (typeof info === "function") {
+    const type = info().type;
+    if (typeof type === "string")
+      fableGlobal.types.set(type, cons);
+  }
 }
 
 export function makeGeneric(typeDef: FunctionConstructor, genArgs: any): any {
@@ -69,7 +84,6 @@ export function makeGeneric(typeDef: FunctionConstructor, genArgs: any): any {
 
 /**
  * Checks if this a function constructor extending another with generic info.
- * Attention: Doesn't work for non-declared types like option, tuples, arrays or interfaces.
  */
 export function isGeneric(typ: any): boolean {
   return typeof typ === "function" && !!typ.prototype[FSymbol.generics];
@@ -84,21 +98,32 @@ export function getDefinition(typ: any): any {
         ? Object.getPrototypeOf(typ.prototype).constructor : typ;
 }
 
-export function extendInfo(cons: FunctionConstructor, symbolName: string, info: any) {
-  const sym: symbol = (<any>FSymbol)[symbolName];
+export function extendInfo(cons: FunctionConstructor, info: any) {
   const parent: any = Object.getPrototypeOf(cons.prototype);
-  const parentObj = parent[sym] ? parent[sym]() : null;
-  return Array.isArray(info)
-    ? info.concat(parentObj || [])
-    : Object.assign(info, parentObj);
+  if (typeof parent[FSymbol.reflection] === "function") {
+    const newInfo: any = {}, parentInfo = parent[FSymbol.reflection]();
+    Object.getOwnPropertyNames(info).forEach(k => {
+      const i = info[k];
+      if (typeof i === "object") {
+        newInfo[k] = Array.isArray(i)
+          ? (parentInfo[k] || []).concat(i)
+          : Object.assign(parentInfo[k] || {}, i);
+      }
+      else {
+        newInfo[k] = i;
+      }
+    });
+    return newInfo;
+  }
+  return info;
 }
 
 export function hasInterface(obj: any, interfaceName: string) {
-  const interfaces = typeof obj[FSymbol.interfaces] === "function"
-    ? obj[FSymbol.interfaces]() : obj[FSymbol.interfaces];
-  return Array.isArray(interfaces)
-    ? interfaces.indexOf(interfaceName) > -1
-    : interfaces === interfaceName;
+  if (typeof obj[FSymbol.reflection] === "function") {
+    const interfaces = obj[FSymbol.reflection]().interfaces;
+    return interfaces.indexOf(interfaceName) > -1;
+  }
+  return false;
 }
 
 export function isArray(obj: any) {
@@ -261,8 +286,8 @@ export function compareUnions(x: any, y: any): number {
 export function createDisposable(f: () => void): IDisposable {
   return {
     Dispose: f,
-    [FSymbol.interfaces]: "System.IDisposable"
-  };
+    [FSymbol.reflection]() { return { interfaces: ["System.IDisposable"] } }
+  }
 }
 
 export function createObj(fields: Iterable<[string, any]>) {

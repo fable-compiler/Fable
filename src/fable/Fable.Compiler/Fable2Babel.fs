@@ -443,8 +443,7 @@ module Util =
         | Some _ as baseClass ->
             members
             |> List.map (fun (m, args, body: Fable.Expr) ->
-                let r = defaultArg body.Range SourceLocation.Empty
-                Fable.MemberDeclaration(m, None, args, body, r))
+                Fable.MemberDeclaration(m, None, args, body, body.Range))
             |> com.TransformClass ctx range baseClass
             |> fun c -> upcast Babel.NewExpression(c, [], ?loc=range)
         | None ->
@@ -475,11 +474,11 @@ module Util =
                 match interfaces with
                 | [] -> props
                 | interfaces ->
+                    let ifcs = buildStringArray interfaces
                     let body =
-                        match interfaces with
-                        | [ifc] -> Babel.StringLiteral ifc :> Babel.Expression
-                        | ifcs -> buildStringArray ifcs
-                    Babel.ObjectProperty(getSymbol com ctx "interfaces", body, computed=true)
+                        Babel.ObjectProperty(Babel.StringLiteral "interfaces", ifcs)
+                        |> U3.Case1 |> List.singleton |> Babel.ObjectExpression
+                    Babel.ObjectProperty(getSymbol com ctx "reflection", body, computed=true)
                     |> U3.Case1 |> consBack props
             |> fun props ->
                 upcast Babel.ObjectExpression(props, ?loc=range)
@@ -819,7 +818,7 @@ module Util =
             let args, body, returnType, typeParams =
                 getMemberArgs com ctx args body typeParams hasRestParams
             Babel.ClassMethod(kind, name, args, body, computed, isStatic,
-                ?returnType=returnType, ?typeParams=typeParams, loc=range)
+                ?returnType=returnType, ?typeParams=typeParams, ?loc=range)
             |> U2<_,Babel.ClassProperty>.Case1
         let baseClass = baseClass |> Option.map (transformExpr com ctx)
         let interfaces = match ent with | Some e -> e.Interfaces | None -> []
@@ -885,11 +884,11 @@ module Util =
             // TODO: Define also get-only properties for non-mutable values?
             if isMutable then
                 let macro = sprintf "Object.defineProperty($0,'%s',{get:()=>$1,set:x=>$1=x}),$2" publicName
-                macroExpression (Some range) macro [modIdent; identFromName privateName; expr]
+                macroExpression range macro [modIdent; identFromName privateName; expr]
             else
-                assign (Some range) (get modIdent publicName) expr
+                assign range (get modIdent publicName) expr
         | _ -> expr
-        |> varDeclaration (Some range) (identFromName privateName) isMutable :> Babel.Statement
+        |> varDeclaration range (identFromName privateName) isMutable :> Babel.Statement
         |> U2.Case1 |> List.singleton
 
     let declareRootModMember range publicName privateName isPublic isMutable _
@@ -904,11 +903,11 @@ module Util =
             | :? Babel.FunctionExpression as e when e.id.IsSome ->
                 upcast Babel.FunctionDeclaration(e.id.Value, e.``params``, e.body,
                     ?returnType=e.returnType, ?typeParams=e.typeParameters, ?loc=e.loc)
-            | _ -> upcast varDeclaration (Some range) privateIdent isMutable expr
+            | _ -> upcast varDeclaration range privateIdent isMutable expr
         match isPublic with
         | false -> U2.Case1 (decl :> Babel.Statement) |> List.singleton
         | true when publicName = privateName ->
-            Babel.ExportNamedDeclaration(decl, loc=range)
+            Babel.ExportNamedDeclaration(decl, ?loc=range)
             :> Babel.ModuleDeclaration |> U2.Case2 |> List.singleton
         | true ->
             // Replace ident forbidden chars of root members, see #207
@@ -938,7 +937,7 @@ module Util =
             | Fable.Constructor | Fable.Setter ->
                 failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
-            match expr.loc with Some loc -> range + loc | None -> range
+            match range, expr.loc with Some r1, Some r2 -> Some(r1 + r2) | _ -> None
         if m.TryGetDecorator("EntryPoint").IsSome
         then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
         else declareMember memberRange m.OverloadName privName m.IsPublic m.IsMutable modIdent expr
@@ -958,7 +957,7 @@ module Util =
                      entDecls entRange baseClass isClass =
         let classDecl =
             // Don't create a new context for class declarations
-            transformClass com ctx (Some entRange) (Some ent) baseClass entDecls
+            transformClass com ctx entRange (Some ent) baseClass entDecls
             |> declareMember entRange ent.Name (Some privateName) ent.IsPublic false modIdent
         let classDecl =
             (declareType com ctx ent |> U2.Case1)::classDecl
@@ -987,15 +986,14 @@ module Util =
                 | U2.Case2 _ -> failwith "Unexpected export in nested module")
         Babel.CallExpression(
             Babel.FunctionExpression([modIdent],
-                block (Some entRange) modDecls, ?loc=Some entRange),
+                block entRange modDecls, ?loc=entRange),
             [U2.Case1 (upcast Babel.ObjectExpression [])],
-            entRange)
+            ?loc=entRange)
 
     and transformModDecls (com: IBabelCompiler) ctx declareMember modIdent decls =
         let pluginDeclare (decl: Fable.Declaration) =
             com.DeclarePlugins
-            |> Plugins.tryPlugin (Some decl.Range) (fun p ->
-                p.TryDeclare com ctx decl)
+            |> Plugins.tryPlugin decl.Range (fun p -> p.TryDeclare com ctx decl)
         decls |> List.fold (fun acc decl ->
             match decl with
             | Patterns.Try pluginDeclare statements ->

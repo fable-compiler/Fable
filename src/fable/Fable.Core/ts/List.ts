@@ -216,11 +216,10 @@ export default class List<T> implements IEquatable<List<T>>, IComparable<List<T>
 //     return slice(lower, upper, this);
 //   }
 
-  [FSymbol.interfaces]() {
-    return ["System.IEquatable", "System.IComparable"];
-  }
-
-  [FSymbol.typeName]() {
-    return "Microsoft.FSharp.Collections.FSharpList";
+  [FSymbol.reflection]() {
+    return {
+      type: "Microsoft.FSharp.Collections.FSharpList",
+      interfaces: ["System.IEquatable", "System.IComparable"]
+    }
   }
 }

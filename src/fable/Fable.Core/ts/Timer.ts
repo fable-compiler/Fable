@@ -74,11 +74,10 @@ export default class Timer implements IDisposable {
     this.Enabled = false;
   }
 
-  [FSymbol.interfaces]() {
-    return ["System.IDisposable"];
-  }
-
-  [FSymbol.typeName]() {
-    return "System.Timers.Timer";
+  [FSymbol.reflection]() {
+    return {
+      type: "System.Timers.Timer",
+      interfaces: ["System.IDisposable"]
+    }
   }
 }

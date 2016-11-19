@@ -20,8 +20,8 @@ export class Observer<T> implements IObserver<T> {
     this.OnCompleted = onCompleted || function () { };
   }
 
-  [FSymbol.interfaces]() {
-    return ["System.IObserver"];
+  [FSymbol.reflection]() {
+    return { interfaces: ["System.IObserver"] }
   }
 }
 
@@ -36,8 +36,8 @@ class Observable<T> implements IObservable<T> {
     this.Subscribe = subscribe;
   }
 
-  [FSymbol.interfaces]() {
-    return ["System.IObservable"];
+  [FSymbol.reflection]() {
+    return { interfaces: ["System.IObservable"] }
   }
 }
 

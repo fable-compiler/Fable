@@ -714,12 +714,11 @@ export default class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>
     return tree_count(this.tree);
   }
 
-  [FSymbol.interfaces]() {
-    return ["System.IEquatable", "System.IComparable"];
-  }
-
-  [FSymbol.typeName]() {
-    return "Microsoft.FSharp.Collections.FSharpSet";
+  [FSymbol.reflection]() {
+    return {
+      type: "Microsoft.FSharp.Collections.FSharpSet",
+      interfaces: ["System.IEquatable", "System.IComparable"]
+    }
   }
 }
 

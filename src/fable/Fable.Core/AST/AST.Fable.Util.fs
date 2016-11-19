@@ -239,7 +239,7 @@ let makeUnionCons () =
     let argTypes = List.map Ident.getType args
     let emit = Emit "this.Case=caseName; this.Fields = fields;" |> Value
     let body = Apply (emit, [], ApplyMeth, Unit, None)
-    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), None, args, body, SourceLocation.Empty)
+    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), None, args, body, None)
 
 let makeRecordCons (props: (string*Type) list) =
     let args =
@@ -259,61 +259,51 @@ let makeRecordCons (props: (string*Type) list) =
             "this" + propName + "=" + arg.Name)
         |> String.concat ";"
         |> fun body -> makeEmit None Unit [] body
-    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, SourceLocation.Empty)
+    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, None)
 
 let private makeMeth argType returnType name coreMeth =
     let arg = Ident("other", argType)
     let body =
         CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
         |> makeCall None returnType
-    MemberDeclaration(Member(name, Method, InstanceLoc, [arg.Type], returnType), None, [arg], body, SourceLocation.Empty)
+    MemberDeclaration(Member(name, Method, InstanceLoc, [arg.Type], returnType), None, [arg], body, None)
 
 let makeUnionEqualMethod argType = makeMeth argType Boolean "Equals" "equalsUnions"
 let makeRecordEqualMethod argType = makeMeth argType Boolean "Equals" "equalsRecords"
 let makeUnionCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareRecords"
 
-let makeTypeNameMeth typeFullName =
-    let typeFullName = Value(StringConst typeFullName)
-    MemberDeclaration(Member("typeName", Method, InstanceLoc, [], String, isSymbol=true),
-                        None, [], typeFullName, SourceLocation.Empty)
-
-let makeInterfacesMethod (ent: Fable.Entity) extend interfaces =
-    let interfaces: Expr =
-        let interfaces = List.map (StringConst >> Value) interfaces
-        ArrayConst(ArrayValues interfaces, String) |> Value
-    let interfaces =
-        if not extend then interfaces else
-        CoreLibCall("Util", Some "extendInfo", false,
-            [makeTypeRefFrom ent; makeConst "interfaces"; interfaces])
-        |> makeCall None Any
-    MemberDeclaration(Member("interfaces", Method, InstanceLoc, [], Array String, isSymbol=true),
-                        None, [], interfaces, SourceLocation.Empty)
-
-let makePropertiesMethod ent extend properties =
-    let body =
-        let genInfo = { makeGeneric=true; genericAvailability=false }
-        properties |> List.map (fun (name, typ) ->
-            let body = makeTypeRef genInfo typ
-            Member(name, Field, InstanceLoc, [], Any), [], body)
-        |> fun decls -> ObjExpr(decls, [], None, None)
-    let body =
-        if not extend then body else
-        CoreLibCall("Util", Some "extendInfo", false,
-            [makeTypeRefFrom ent; makeConst "properties"; body])
-        |> makeCall None Any
-    MemberDeclaration(Member("properties", Method, InstanceLoc, [], Any, isSymbol=true),
-                        None, [], body, SourceLocation.Empty)
-
-let makeCasesMethod (cases: Map<string, Type list>) =
-    let body =
-        let genInfo = { makeGeneric=true; genericAvailability=false }
-        cases |> Seq.map (fun kv ->
-            let typs = kv.Value |> List.map (makeTypeRef genInfo)
-            let typs = Fable.ArrayConst(Fable.ArrayValues typs, Any) |> Fable.Value
-            Member(kv.Key, Field, InstanceLoc, [], Any), [], typs)
-        |> fun decls -> ObjExpr(Seq.toList decls, [], None, None)
-    MemberDeclaration(Member("cases", Method, InstanceLoc, [], Any, isSymbol=true), None, [], body, SourceLocation.Empty)
+let makeReflectionMeth (ent: Fable.Entity) extend typeFullName interfaces cases properties =
+    let members = [
+        yield "type", Value(StringConst typeFullName)
+        if extend || not(List.isEmpty interfaces)
+        then
+            let interfaces = List.map (StringConst >> Value) interfaces
+            yield "interfaces", Value(ArrayConst(ArrayValues interfaces, String))
+        yield! properties |> function
+        | Some properties ->
+            let genInfo = { makeGeneric=true; genericAvailability=false }
+            properties |> List.map (fun (name, typ) ->
+                let body = makeTypeRef genInfo typ
+                Member(name, Field, InstanceLoc, [], Any), [], body)
+            |> fun decls -> ["properties", ObjExpr(decls, [], None, None)]
+        | None -> []
+        yield! cases |> function
+        | Some cases ->
+            let genInfo = { makeGeneric=true; genericAvailability=false }
+            cases |> Seq.map (fun (kv: System.Collections.Generic.KeyValuePair<_,_>) ->
+                let typs = kv.Value |> List.map (makeTypeRef genInfo)
+                let typs = Fable.ArrayConst(Fable.ArrayValues typs, Any) |> Fable.Value
+                Member(kv.Key, Field, InstanceLoc, [], Any), [], typs)
+            |> fun decls -> ["cases", ObjExpr(Seq.toList decls, [], None, None)]
+        | None -> []
+    ]
+    let info =
+        if not extend
+        then makeJsObject None members
+        else CoreLibCall("Util", Some "extendInfo", false,
+                [makeTypeRefFrom ent; makeJsObject None members]) |> makeCall None Any
+    MemberDeclaration(Member("reflection", Method, InstanceLoc, [], Any, isSymbol=true), None, [], info, None)
 
 let makeDelegate (com: ICompiler) arity (expr: Expr) =
     let rec flattenLambda (arity: int option) isArrow accArgs = function

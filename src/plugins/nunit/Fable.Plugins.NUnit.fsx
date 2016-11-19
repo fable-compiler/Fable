@@ -62,13 +62,13 @@ module Util =
         let testName =
             Babel.StringLiteral test.Name :> Babel.Expression
         let testRange =
-            match testBody.loc with
-            | Some loc -> range + loc | None -> range
+            match range, testBody.loc with
+            | Some r1, Some r2 -> Some(r1 + r2) | _ -> None
         let newMethodName = methodDecorators.Item((decorator: Fable.Decorator).Name)
         // it('Test name', function() { /* Tests */ });
         Babel.ExpressionStatement(
             Babel.CallExpression(Babel.Identifier newMethodName,
-                [U2.Case1 testName; U2.Case1 testBody], testRange), testRange)
+                [U2.Case1 testName; U2.Case1 testBody], ?loc=testRange), ?loc=testRange)
         :> Babel.Statement
 
     let transformTestFixture (fixture: Fable.Entity) testRange testDecls =
@@ -76,12 +76,12 @@ module Util =
             Babel.StringLiteral fixture.Name :> Babel.Expression
         let testBody =
             Babel.FunctionExpression([],
-                Babel.BlockStatement (testDecls, ?loc=Some testRange), ?loc=Some testRange)
+                Babel.BlockStatement (testDecls, ?loc=testRange), ?loc=testRange)
             :> Babel.Expression
         Babel.ExpressionStatement(
             Babel.CallExpression(Babel.Identifier "describe",
                 [U2.Case1 testDesc; U2.Case1 testBody],
-                testRange)) :> Babel.Statement
+                ?loc=testRange)) :> Babel.Statement
 
     let asserts com (i: Fable.ApplyInfo) =
         match i.methodName with
@@ -92,7 +92,7 @@ module Util =
 
     let declareModMember range publicName privateName _isPublic isMutable _modIdent expr =
         let privateName = defaultArg privateName publicName
-        Util.varDeclaration (Some range) (Util.identFromName privateName) isMutable expr
+        Util.varDeclaration range (Util.identFromName privateName) isMutable expr
         :> Babel.Statement |> U2.Case1 |> List.singleton
 
     let castStatements (decls: U2<Babel.Statement, Babel.ModuleDeclaration> list) =
@@ -108,7 +108,7 @@ type NUnitPlugin() =
             if file.Root.TryGetDecorator "TestFixture" |> Option.isNone then None else
             Util.transformModDecls com ctx declareModMember None file.Declarations
             |> castStatements
-            |> transformTestFixture file.Root file.Range
+            |> transformTestFixture file.Root (Some file.Range)
             |> U2.Case1
             |> List.singleton
             |> Some

@@ -10,8 +10,8 @@ export function resolveGeneric(idx: string | number, enclosing: List<any>): List
     name = typeof idx === "string"
       ? idx : Object.getOwnPropertyNames(generics)[idx];
     const resolved = generics[name];
-    return resolved instanceof NonDeclaredType && resolved.Case === "GenericParam"
-      ? resolveGeneric(resolved.Fields[0], enclosing.tail)
+    return resolved instanceof NonDeclaredType && resolved.kind === "GenericParam"
+      ? resolveGeneric(resolved.name, enclosing.tail)
       : new List(resolved, enclosing);
   }
   catch (err) {
@@ -35,6 +35,9 @@ export function getType(obj: any): any {
 // TODO: This needs improvement, check namespace for non-custom types?
 export function getTypeFullName(typ: any, option?: string): string {
   function trim(fullName: string, option?: string) {
+    if (typeof fullName !== "string") {
+      return "unknown";
+    }
     if (option === "name") {
       const i = fullName.lastIndexOf('.');
       return fullName.substr(i + 1);
@@ -49,18 +52,18 @@ export function getTypeFullName(typ: any, option?: string): string {
     return typ;
   }
   else if (typ instanceof NonDeclaredType) {
-      switch (typ.Case) {
+      switch (typ.kind) {
         case "Unit":
           return "unit";
         case "Option":
-          return getTypeFullName(typ.Fields[0], option) + " option";
+          return getTypeFullName(typ.generics[0], option) + " option";
         case "Array":
-          return getTypeFullName(typ.Fields[0], option) + "[]";
+          return getTypeFullName(typ.generics[0], option) + "[]";
         case "Tuple":
-          return typ.Fields.map(x => getTypeFullName(x, option)).join(" * ");
+          return typ.generics.map(x => getTypeFullName(x, option)).join(" * ");
         case "GenericParam":
         case "Interface":
-          return typ.Fields[0];
+          return typ.name;
         case "Any":
         default:
           return "unknown";
@@ -68,8 +71,7 @@ export function getTypeFullName(typ: any, option?: string): string {
   }
   else {
     const proto = Object.getPrototypeOf(typ);
-    return proto[FSymbol.typeName]
-      ? trim(proto[FSymbol.typeName](), option)
-      : typ.name || "unknown";
+    return trim(typeof proto[FSymbol.reflection] === "function"
+      ? proto[FSymbol.reflection]().type : null, option);
   }
 }

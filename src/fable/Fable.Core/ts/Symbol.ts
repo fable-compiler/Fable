@@ -3,11 +3,8 @@ declare var global: any;
 export const fableGlobal: {
   types: Map<string, FunctionConstructor>,
   symbols: {
-    interfaces: symbol,
-    typeName: symbol,
-    properties: symbol,
+    reflection: symbol,
     generics: symbol,
-    cases: symbol
   }
 } = function () {
   const globalObj =
@@ -18,11 +15,8 @@ export const fableGlobal: {
     globalObj.__FABLE_CORE__ = {
       types: new Map<string, FunctionConstructor>(),
       symbols: {
-        interfaces: Symbol("interfaces"),
-        typeName: Symbol("typeName"),
-        properties: Symbol("properties"),
-        generics: Symbol("generics"),
-        cases: Symbol("cases")
+        reflection: Symbol("reflection"),
+        generics: Symbol("generics")
       }
     };
   }
