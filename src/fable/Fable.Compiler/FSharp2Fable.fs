@@ -33,20 +33,26 @@ let private (|SpecialValue|_|) com ctx = function
         | _ -> None
     | _ -> None
 
-let private (|BaseCons|_|) com ctx = function
-    | BasicPatterns.NewObject(meth, _, args) ->
+let private (|BaseCons|_|) com ctx (fsExpr: FSharpExpr) =
+    let validateGenArgs' typArgs =
+        tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
+            validateGenArgs ctx (makeRangeFrom fsExpr) tdef.GenericParameters typArgs)
+    match fsExpr with
+    | BasicPatterns.NewObject(meth, typArgs, args) ->
         match ctx.baseClass with
         | Some baseFullName
             when sanitizeEntityFullName meth.EnclosingEntity = baseFullName ->
+            validateGenArgs' typArgs
             Some (meth, args)
         | _ -> None
-    | BasicPatterns.Call(None, meth, _, _, args) as fsExpr ->
+    | BasicPatterns.Call(None, meth, typArgs, _, args) ->
         match ctx.baseClass with
         | Some baseFullName when meth.CompiledName = ".ctor"
                             && (sanitizeEntityFullName meth.EnclosingEntity) = baseFullName ->
             if not meth.IsImplicitConstructor then
                 FableError("Inheritance is only possible with base class primary constructor: "
                             + baseFullName, makeRange fsExpr.Range) |> raise
+            validateGenArgs' typArgs
             Some (meth, args)
         | _ -> None
     | _ -> None
@@ -155,6 +161,8 @@ and private transformComposableExpr com ctx fsExpr argExprs =
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) None argExprs
     | BasicPatterns.NewObject(meth, typArgs, _) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+        tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
+            validateGenArgs ctx r tdef.GenericParameters typArgs)
         makeCallFrom com ctx r typ meth (typArgs, []) None argExprs
     | BasicPatterns.NewUnionCase(fsType, unionCase, _) ->
         transformNonListNewUnionCase com ctx fsExpr fsType unionCase argExprs
@@ -573,7 +581,6 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
             validateGenArgs ctx r tdef.GenericParameters typArgs)
-        let typ = makeType com ctx fsExpr.Type
         List.map (com.Transform ctx) args
         |> makeCallFrom com ctx r typ meth (typArgs, []) None
 
