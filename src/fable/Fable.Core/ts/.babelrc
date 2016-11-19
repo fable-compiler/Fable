@@ -6,11 +6,13 @@
   "env": {
     "target-es2015": {
       "presets": [
-        [ "es2015", { "loose": true, "modules": false } ]
+        [ "es2015", { "modules": false } ]
       ]
     },
     "target-umd": {
-      "plugins": ["transform-es2015-modules-umd"]
+      "presets": [
+        [ "es2015", { "modules": "umd" } ]
+      ]
     }
   }
 }

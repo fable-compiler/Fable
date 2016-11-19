@@ -18,7 +18,7 @@ var optionDefinitions = [
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
-  { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins (true by default)." },
+  { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins." },
   { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
   { name: 'dll', type: Boolean, description: "Generate a `dll` assembly." },
   { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },
@@ -556,7 +556,6 @@ function readOptions(opts) {
 
     // Default values
     opts.ecma = opts.ecma || "es5";
-    opts.loose = opts.loose != null ? opts.loose : true;
     opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
     opts.coreLib = opts.coreLib || "fable-core";
     opts.outDir = opts.outDir ? opts.outDir : (opts.projFile.length === 1 ? path.dirname(opts.projFile[0]) : ".");
