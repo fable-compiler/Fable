@@ -1,3 +1,7 @@
+### 0.7.5-alpha.40
+
+* Minor fix
+
 ### 0.7.5-alpha.39
 
 * Simplify Reflection system

@@ -380,9 +380,9 @@ function readCommandLineOptions() {
 /** Reads options from fableconfig.json, requires json5 */
 function readFableConfigOptions(opts) {
     opts.workingDir = path.resolve(opts.workingDir || process.cwd());
-    // Don't do this, as it may confuse `key in opts` below
-    // opts.projFile = typeof opts.projFile === "string" ? [opts.projFile] : opts.projFile;
-
+    if (typeof opts.projFile === "string") {
+        opts.projFile = [opts.projFile];
+    }
     var cfgFile = fableLib.pathJoin(opts.workingDir, constants.FABLE_CONFIG_FILE);
 
     if (Array.isArray(opts.projFile) && opts.projFile.length === 1) {
