@@ -3,5 +3,8 @@
     "module": "amd",
     "sourceMaps": true,
     "outDir": "out",
-    "coreLib": "fable-core/umd"
+    "refs": {
+        "Fable.Core": "fable-core/umd",
+        "Fable.React": "fable-react/umd"
+    }
 }

@@ -16,9 +16,9 @@
   "license": "ISC",
   "dependencies": {
     "fable-core": "^0.7.5-alpha.11",
-    "fable-react": "^0.7.0-alpha.4"
+    "fable-react": "^0.7.0-alpha.9"
   },
   "devDependencies": {
-    "fable-compiler": "^0.7.5-alpha.22"
+    "fable-compiler": "next"
   }
 }
