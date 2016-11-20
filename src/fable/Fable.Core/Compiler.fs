@@ -11,6 +11,7 @@ type CompilerOptions = {
         noTypedArrays: bool
         clamp: bool
         declaration: bool
+        refs: Map<string, string>
         extra: Map<string, string>
     }
 

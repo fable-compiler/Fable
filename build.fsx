@@ -345,7 +345,7 @@ let quickTest _ =
         "src/tools/QuickTest.fsx"
         "-o src/tools/temp"
         "-m commonjs"
-        "--coreLib ./build/fable-core/umd"
+        "--refs Fable.Core=./build/fable-core/umd"
     ]
     Node.run "." "src/tools/temp/QuickTest.js" []
 

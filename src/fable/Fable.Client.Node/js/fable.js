@@ -15,15 +15,15 @@ var optionDefinitions = [
   { name: 'watch', alias: 'w', multiple: 'true', description: "Recompile project much faster on file modifications." },
   { name: 'ecma', description: "Specify ECMAScript target version: `es5` (default) or `es2015`." },
   { name: 'rollup', description: "Bundle files and dependencies with Rollup." },
+  { name: 'refs', multiple: true, description: "Alternative location for compiled JS files of referenced libraries (e.g. `Fable.Core=fable-core/umd`)." },
   { name: 'symbols', multiple: true, description: "F# symbols for conditional compilation, like `DEBUG`." },
   { name: 'plugins', multiple: true, description: "Paths to Fable plugins." },
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
-  { name: 'loose', type: Boolean, description: "Enable “loose” transformations for babel-preset-es2015 plugins." },
+  { name: 'loose', type: Boolean, description: "Enable loose transformations for babel-preset-es2015 plugins." },
   { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
   { name: 'dll', type: Boolean, description: "Generate a `dll` assembly." },
   { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
-  { name: 'coreLib', description: "In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`." },
   { name: 'verbose', type: Boolean, description: "Print more information about the compilation process." },
   { name: 'target', alias: 't', description: "Use options from a specific target in `fableconfig.json`." },
   { name: 'debug', alias: 'd', description: "Shortcut for `--target debug`." },
@@ -246,8 +246,11 @@ function build(opts, continuation) {
             if (k === "watch")
                 fableCmdArgs.push("--" + k, String(!!opts[k])); // Cast to boolean
             else if (Array.isArray(opts[k]))
-                opts[k].forEach(function (v) { fableCmdArgs.push("--" + k, wrapInQuotes(v)) })
-            else if (typeof opts[k] !== "object")
+                opts[k].forEach(v => fableCmdArgs.push("--" + k, wrapInQuotes(v)))
+            else if (typeof opts[k] === "object")
+                Object.getOwnPropertyNames(opts[k]).forEach(k2 =>
+                    fableCmdArgs.push("--" + k, wrapInQuotes(k2 + "=" + opts[k][k2])))
+            else
                 fableCmdArgs.push("--" + k, wrapInQuotes(opts[k]));
         }
     }
@@ -318,47 +321,27 @@ function build(opts, continuation) {
     });
 }
 
-function getExtraOpt(key, opts) {
-    if (typeof opts.extra === "string") {
-        return opts.extra === key;
-    }
-    else if (typeof opts.extra === "object") {
-        if (Array.isArray(opts.extra)) {
-            return opts.extra.indexOf(key) >= 0;
-        }
-        else {
-            return opts.extra[key];
-        }
-    }
-    return null;
-}
-
 function resolvePath(optName, value, workingDir) {
     function resolve(x) {
         return fableLib.pathJoin(workingDir, x)
     }
-    function resolveArray(arr, f) {
-        (Array.isArray(arr) ? arr : [arr]).map(f);
-    }
-    function resolveKeyValuePairs(kvs) {
-        resolveArray(kvs, function (kv) {
-            kv = kv.split("=");
-            return kv[0] + "=" + resolve(kv[1]);
-        })
-    }
     // Discard null values or empty strings
     if (value) {
         switch (optName) {
-            case "projFile":
-                return Array.isArray(value) ? value.map(resolve) : resolve(value);
             case "outDir":
                 return resolve(value);
-            // Only resolve coreLib if starts with '.'
-            case "coreLib":
-                return value.startsWith('.') ? resolve(value) : value;
+            // Multiple values
+            case "projFile":
             case "plugins":
             case "babelPlugins":
-                return resolveArray(value, resolve);
+                return value.map(resolve);
+            // Only resolve refs if they starts with '.'
+            case "refs":
+                var o = {};
+                for (var k in value) {
+                    o[k] = value[k].startsWith('.') ? resolve(value[k]) : value[k];
+                }
+                return o;
         }
     }
     return value;
@@ -366,11 +349,25 @@ function resolvePath(optName, value, workingDir) {
 
 /** Reads options from command line, requires command-line-args */
 function readCommandLineOptions() {
+    function resolveKeyValuePairs(kvs) {
+        var o = {};
+        for (var i=0; i<kvs.length; i++) {
+            var kv = kvs[i].split("=");
+            o[kv[0]] = kv[1] || true;
+        }
+        return o;
+    }
     var commandLineArgs = require('command-line-args');
     var opts = commandLineArgs(optionDefinitions);
     if (opts.help) {
         fableLib.stdoutLog(require('command-line-usage')(getAppDescription()));
         fableLib.finish(0);
+    }
+    if (opts.refs) {
+        opts.refs = resolveKeyValuePairs(opts.refs);
+    }
+    if (opts.extra) {
+        opts.extra = resolveKeyValuePairs(opts.extra);
     }
     return opts;
 }
@@ -378,9 +375,6 @@ function readCommandLineOptions() {
 /** Reads options from fableconfig.json, requires json5 */
 function readFableConfigOptions(opts) {
     opts.workingDir = path.resolve(opts.workingDir || process.cwd());
-    if (typeof opts.projFile === "string") {
-        opts.projFile = [opts.projFile];
-    }
     // Don't do this, as it may confuse `key in opts` below
     // opts.projFile = typeof opts.projFile === "string" ? [opts.projFile] : opts.projFile;
 
@@ -556,8 +550,6 @@ function readOptions(opts) {
 
     // Default values
     opts.ecma = opts.ecma || "es5";
-    opts.copyExt = opts.copyExt != null ? opts.copyExt : true;
-    opts.coreLib = opts.coreLib || "fable-core";
     opts.outDir = opts.outDir ? opts.outDir : (opts.projFile.length === 1 ? path.dirname(opts.projFile[0]) : ".");
     if (opts.module == null) {
         opts.module = opts.rollup ? "iife" : "es2015";
@@ -565,7 +557,7 @@ function readOptions(opts) {
 
     // Check version
     var curNpmCfg = fableLib.pathJoin(opts.workingDir, "package.json");
-    if (!getExtraOpt("noVersionCheck", opts) && fs && fs.existsSync(curNpmCfg)) {
+    if (!(opts.extra && opts.extra.noVersionCheck) && fs && fs.existsSync(curNpmCfg)) {
         curNpmCfg = JSON.parse(fs.readFileSync(curNpmCfg).toString());
         if (curNpmCfg.engines && (curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"])) {
             var semver = require("semver");

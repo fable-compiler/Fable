@@ -1124,27 +1124,39 @@ type FSProjectInfo(projectOpts: FSharpProjectOptions, filePairs: Map<string, str
         | None -> true
 
 let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
+    // This dictionary must be mutable so `dict` cannot be used
+    let dic = Dictionary()
+    dic.Add(Naming.current, Map.empty)
     parsedProj.ProjectContext.GetReferencedAssemblies()
-    |> List.choose (fun assembly ->
-        assembly.FileName
-        |> Option.bind (fun asmPath ->
-            try
-                let asmDir = Path.GetDirectoryName(asmPath)
-                let makeAbsolute (path: string) =
-                    Path.GetFullPath(Path.Combine(asmDir, path))
-                let json = File.ReadAllText(Path.ChangeExtension(asmPath, Naming.fablemapExt))
-                let fableMap = Newtonsoft.Json.JsonConvert.DeserializeObject<Fable.FableMap>(json)
-                fableMap.files |> Seq.map (fun kv ->
-                    kv.Key, { kv.Value with targetFile = makeAbsolute kv.Value.targetFile })
-                |> Map |> fun m -> Some(asmPath, m)
-            with _ -> None // TODO: Raise error or warning?
-        ))
-    |> fun refAssemblies ->
-        let dic = Dictionary()
-        for (asm, map) in refAssemblies do
-            dic.Add(asm, map)
-        dic.Add(Naming.current, Map.empty)
-        dic
+    |> Seq.choose (fun assembly ->
+        assembly.FileName |> Option.bind (fun asmPath ->
+            let mapPath = Path.ChangeExtension(asmPath, Naming.fablemapExt)
+            if File.Exists mapPath then Some(asmPath, mapPath) else None))
+    |> Seq.iter (fun (asmPath, mapPath) ->
+        try
+            let asmName = Path.GetFileNameWithoutExtension(asmPath)
+            let resolve =
+                match Map.tryFind asmName com.Options.refs with
+                | Some baseDir when baseDir.StartsWith(".") ->
+                    let baseDir = Path.GetFullPath(baseDir)
+                    fun path -> Path.GetFullPath(Path.Combine(baseDir, path))
+                | Some baseDir ->
+                    // The triple slash is just a mark to indicate
+                    // the import must NOT be resolved with a relative path
+                    fun path -> "///" + Path.Combine(baseDir, path)
+                | None ->
+                    let asmDir = Path.GetDirectoryName(asmPath)
+                    fun path -> Path.GetFullPath(Path.Combine(asmDir, path))
+            let fableMap =
+                let json = File.ReadAllText(mapPath)
+                Newtonsoft.Json.JsonConvert.DeserializeObject<Fable.FableMap>(json).files
+                |> Seq.map (fun kv ->
+                    kv.Key, { kv.Value with targetFile = resolve kv.Value.targetFile })
+                |> Map
+            dic.Add(asmPath, fableMap)
+        with _ -> ()
+    )
+    dic
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
     let projectMaps =

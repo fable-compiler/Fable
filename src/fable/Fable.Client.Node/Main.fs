@@ -36,6 +36,9 @@ type PerfTimer(label) =
 type FSProjInfo = FSharp2Fable.Compiler.FSProjectInfo
 
 let readOptions argv =
+    let splitKeyValue (x: string) =
+        let xs = x.Split('=')
+        xs.[0], xs.[1]
     let def opts key defArg f =
         defaultArg (Map.tryFind key opts |> Option.map f) defArg
     let rec readOpts opts = function
@@ -53,7 +56,7 @@ let readOptions argv =
     let opts = {
         projFile = def opts "projFile" [] (li Path.GetFullPath) |> List.rev
         outDir = def opts "outDir" "." (un Path.GetFullPath)
-        coreLib = def opts "coreLib" "fable-core" (un (fun x -> x.TrimEnd('/')))
+        coreLib = "fable-core"
         watch = def opts "watch" false (un bool.Parse)
         dll = def opts "dll" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
@@ -61,12 +64,12 @@ let readOptions argv =
         declaration = def opts "declaration" false (un bool.Parse)
         symbols = def opts "symbols" [] (li id) |> List.append ["FABLE_COMPILER"] |> List.distinct
         plugins = def opts "plugins" [] (li id)
-        extra = Map(def opts "extra" [] (li (fun (x: string) ->
-            if x.Contains("=")
-            then let xs = x.Split('=') in xs.[0], xs.[1]
-            else x, "")))
+        refs = Map(def opts "refs" [] (li splitKeyValue))
+        extra = Map(def opts "extra" [] (li splitKeyValue))
     }
-    opts
+    match Map.tryFind "Fable.Core" opts.refs with
+    | Some coreLib -> { opts with coreLib = coreLib }
+    | None -> opts
 
 /// Returns an (errors, warnings) tuple
 let parseErrors errors =
@@ -481,9 +484,9 @@ let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (coreVer: Ver
         |> Info |> string |> Log
         |> List.singleton |> printMessages
 
-let attribsOfSymbol (s:FSharpSymbol) = 
-    [ match s with 
-        | :? FSharpField as v -> 
+let attribsOfSymbol (s:FSharpSymbol) =
+    [ match s with
+        | :? FSharpField as v ->
             yield "field"
             if v.IsCompilerGenerated then yield "compgen"
             if v.IsDefaultValue then yield "default"
@@ -492,7 +495,7 @@ let attribsOfSymbol (s:FSharpSymbol) =
             if v.IsStatic then yield "static"
             if v.IsLiteral then yield sprintf "%A" v.LiteralValue.Value
 
-        | :? FSharpEntity as v -> 
+        | :? FSharpEntity as v ->
             v.TryFullName |> ignore // check there is no failure here
             if v.IsNamespace then yield "namespace"
             if v.IsFSharpModule then yield "module"
@@ -513,7 +516,7 @@ let attribsOfSymbol (s:FSharpSymbol) =
             if v.IsUnresolved then yield "unresolved"
             if v.IsValueType then yield "valuetype"
 
-        | :? FSharpMemberOrFunctionOrValue as v -> 
+        | :? FSharpMemberOrFunctionOrValue as v ->
             if v.IsActivePattern then yield "active_pattern"
             if v.IsDispatchSlot then yield "dispatch_slot"
             if v.IsModuleValueOrMember && not v.IsMember then yield "val"
@@ -529,7 +532,7 @@ let attribsOfSymbol (s:FSharpSymbol) =
             if v.IsTypeFunction then yield "type_func"
             if v.IsCompilerGenerated then yield "compiler_gen"
             if v.IsImplicitConstructor then yield "implicit_ctor"
-            if v.IsMutable then yield "mutable" 
+            if v.IsMutable then yield "mutable"
             if v.IsOverrideOrExplicitInterfaceImplementation then yield "override_impl"
             if not v.IsInstanceMember then yield "static"
             if v.IsInstanceMember && not v.IsInstanceMemberInCompiledCode && not v.IsExtensionMember then yield "funky"
@@ -606,13 +609,13 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             let filePath = projInfo.FilePairs.Item(sourceFile)
             Directory.CreateDirectory(Path.GetDirectoryName(filePath)) |> ignore
             File.WriteAllLines(Path.ChangeExtension(filePath, ext), decls |> Seq.toArray)
-        
+
         // save FSharp AST declarations
         if com.Options.extra |> Map.containsKey "saveFSharpAst" then
             parsedProj.AssemblyContents.ImplementationFiles
             |> Seq.iter (fun file ->
                 printFSharpDecls "" file.Declarations |> saveAstFile file.FileName ".fs.ast" )
-        
+
         // save Fable AST declarations
         let saveFableAst (extra, files) =
             if com.Options.extra |> Map.containsKey "saveFableAst" then

@@ -166,7 +166,9 @@ module Util =
         | Some file when ctx.file.SourceFile <> file ->
             let fileInfo = com.GetFileInfo file
             let importPath =
-                Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.targetFile
+                if fileInfo.targetFile.StartsWith("///")
+                then fileInfo.targetFile.Substring(3)
+                else Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.targetFile
                 |> fun x -> System.IO.Path.ChangeExtension(x, Naming.targetFileExtension)
             getParts fileInfo.rootModule ent.FullName memb
             |> function
