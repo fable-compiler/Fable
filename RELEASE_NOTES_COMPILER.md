@@ -1,3 +1,9 @@
+### 0.7.5-alpha.39
+
+* Simplify Reflection system
+* Add `PojoAttribute`
+* Replace baseDir of references with --refs argument
+
 ### 0.7.5-alpha.38
 
 * Fix #547: Ignored entities conflicting when calculating root namespace

@@ -1,3 +1,7 @@
+### 0.7.5-alpha.18
+
+* Simplify Reflection system
+
 ### 0.7.5-alpha.17
 
 * Remove `NoMangle` attribute
