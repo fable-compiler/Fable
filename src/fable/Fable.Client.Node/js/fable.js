@@ -30,6 +30,7 @@ var optionDefinitions = [
   { name: 'production', alias: 'p', description: "Shortcut for `--target production`." },
   { name: 'declaration', type: Boolean, description: "[EXPERIMENTAL] Generates corresponding ‘.d.ts’ file." },
   { name: 'extra', multiple: true, description: "Custom options for plugins in `Key=Value` format." },
+  { name: 'coreLib', description: "[DEPRECATED] Use `--refs Fable.Core=fable-core/umd` instead." },
   { name: 'help', alias: 'h', description: "Display usage guide." }
 ];
 
@@ -366,6 +367,10 @@ function readCommandLineOptions() {
     if (opts.refs) {
         opts.refs = resolveKeyValuePairs(opts.refs);
     }
+    if (opts.coreLib) {
+        opts.refs = Object.assign(opts.refs || {}, { "Fable.Core": opts.coreLib })
+        delete opts.coreLib;
+    }
     if (opts.extra) {
         opts.extra = resolveKeyValuePairs(opts.extra);
     }
@@ -548,11 +553,24 @@ function readOptions(opts) {
         }
     }
 
-    // Default values
+    // Default values & option processing
     opts.ecma = opts.ecma || "es5";
     opts.outDir = opts.outDir ? opts.outDir : (opts.projFile.length === 1 ? path.dirname(opts.projFile[0]) : ".");
     if (opts.module == null) {
         opts.module = opts.rollup ? "iife" : "es2015";
+    }
+    if (opts.coreLib) {
+        opts.refs = Object.assign(opts.refs || {}, { "Fable.Core": opts.coreLib })
+        delete opts.coreLib;
+    }
+    if (opts.refs) {
+        for (var k in opts.refs) {
+            var k2 = k.replace(/\.dll$/, "");
+            if (k !== k2) {
+                opts.refs[k2] = opts.refs[k];
+                delete opts.refs[k];
+            }
+        }
     }
 
     // Check version

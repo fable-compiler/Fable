@@ -867,8 +867,8 @@ module Util =
                 if hasAtt Atts.pojo par.Attributes then
                     match tryDefinition arg with
                     | Some argDef when hasAtt Atts.pojo argDef.Attributes -> ()
-                    | _ -> FableError(sprintf "Type argument %s must be a POJO record" par.Name,
-                            ?range=r, file=ctx.fileName) |> raise)
+                    | _ -> let msg = sprintf "Generic type '%s must be a record with %s" par.Name Atts.pojo
+                           FableError(msg, ?range=r, file=ctx.fileName) |> raise)
 
     let countRefs fsExpr (vars: #seq<FSharpMemberOrFunctionOrValue>) =
         let varsDic = Dictionary()
