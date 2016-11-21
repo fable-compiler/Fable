@@ -57,6 +57,10 @@ let ``abs works``() =
 [<Test>]
 let ``round works``() =
     Assert.AreEqual (round -12.5, -12.)
+    Assert.AreEqual (round 1.5, 2.)
+    Assert.AreEqual (round 1.535, 2.)
+    Assert.AreEqual (round 1.525, 2.)
+    Assert.AreEqual (System.Math.Round(1.55, 1), 1.6)
 
 [<Test>]
 let ``ceil works``() =
