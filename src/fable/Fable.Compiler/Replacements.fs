@@ -155,32 +155,32 @@ module Util =
             let v = kindIndex kindFrom // argument type
             let h = kindIndex kindTo   // return type
             ((v > h) || (v < 4 && h > 3)) && (h < 8)
-        let patternFor = function
-            | Int8 -> "($0 + 0x80 & 0xFF) - 0x80"
-            | Int16 -> "($0 + 0x8000 & 0xFFFF) - 0x8000"
-            | Int32 when i.ownerFullName = "System.Convert" -> 
-                // TODO: When the fable round matches .net replace the following:
-                let x = (com : ICompiler).GetUniqueVar()
-                let r = com.GetUniqueVar()
-                "(("+x+") => { var "+r+" = Math.round("+x+"); return (((("+x+">0)?"+x+":(-"+x+"))%1)===0.5)?((0===("+r+"%2))?"+r+":("+r+"-1)):"+r+"; } )($0)"
-            | Int32 -> "~~$0"
-            | Int64 -> "Math.trunc($0)" // only 53-bit (still better than nothing)
-            | UInt8 -> "$0 & 0xFF"
-            | UInt16 -> "$0 & 0xFFFF"
-            | UInt32 -> "$0 >>> 0"
-            | UInt64 -> "(x => (x > 0) ? Math.trunc(x) : (x >>> 0))($0)" // 53-bit positive, 32-bit negative
-            | Float32 -> "$0"
-            | Float64 -> "$0"
-            | Decimal -> "$0"
         match args.Head.Type with
         | Fable.String ->
             GlobalCall ("Number", Some "parseInt", false, args)
             |> makeCall i.range i.returnType
         | Fable.Number kindFrom ->
             match i.returnType with
-            | Fable.Number kindTo ->
-                let pattern = if needToCast kindFrom kindTo then patternFor kindTo else "$0"
-                emit i pattern [args.Head]
+            | Fable.Number kindTo when needToCast kindFrom kindTo ->
+                match i.ownerFullName, kindTo with
+                | "System.Convert", Int32 -> 
+                    CoreLibCall("Util", Some "round", false, i.args)
+                    |> makeCall i.range i.returnType
+                | _ ->
+                    match kindTo with
+                    | Int8 -> "($0 + 0x80 & 0xFF) - 0x80"
+                    | Int16 -> "($0 + 0x8000 & 0xFFFF) - 0x8000"
+                    | Int32 -> "~~$0"
+                    | Int64 -> "Math.trunc($0)" // only 53-bit (still better than nothing)
+                    | UInt8 -> "$0 & 0xFF"
+                    | UInt16  -> "$0 & 0xFFFF"
+                    | UInt32-> "$0 >>> 0"
+                    | UInt64 -> "(x => (x > 0) ? Math.trunc(x) : (x >>> 0))($0)" // 53-bit positive, 32-bit negative
+                    | Float32 -> "$0"
+                    | Float64 -> "$0"
+                    | Decimal -> "$0"
+                    |> fun pattern -> emit i (pattern) [args.Head]
+            | Fable.Number _ -> emit i "$0" [args.Head]
             | _ -> wrap i.returnType args.Head
         | _ -> wrap i.returnType args.Head
 
@@ -480,8 +480,11 @@ module private AstPass =
         | "ceil" | "ceiling" -> math r typ args "ceil"
         | "abs" | "acos" | "asin" | "atan" | "atan2"
         | "cos"  | "exp" | "floor" | "log" | "log10"
-        | "round" | "sin" | "sqrt" | "tan" ->
+        | "sin" | "sqrt" | "tan" ->
             math r typ args info.methodName
+        | "round" ->
+            CoreLibCall("Util", Some "round", false, args)
+            |> makeCall r typ |> Some
         // Function composition
         | "op_ComposeRight" | "op_ComposeLeft" ->
             // If expression is a let binding we have to wrap it in a function
