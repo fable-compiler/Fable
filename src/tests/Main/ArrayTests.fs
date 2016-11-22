@@ -811,3 +811,11 @@ let ``Array iterators from range do rewind`` () =
     let xs = [|1..5|] |> Array.toSeq
     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+[<Test>]
+let ``Array indexed works`` () =
+    let xs = [|"a"; "b"; "c"|] |> Array.indexed
+
+    xs.Length |> equal 3
+    fst xs.[2] |> equal 2
+    snd xs.[2] |> equal "c"
