@@ -1055,7 +1055,7 @@ module private AstPass =
     let nativeArrayFunctions =
         dict [ "exists" => "some"; "filter" => "filter";
                "find" => "find"; "findIndex" => "findIndex"; "forAll" => "every";
-               "indexed" => "entries"; "iterate" => "forEach";
+               "iterate" => "forEach";
                "reduce" => "reduce"; "reduceBack" => "reduceRight";
                "sortInPlace" => "sort"; "sortInPlaceWith" => "sort" ]
 
@@ -1331,6 +1331,8 @@ module private AstPass =
                 match i.methodTypeArgs with
                 | [Fable.Any] | [NumberType(Some _)] -> None
                 | _ -> icall "concat" (i.args.Head, i.args.Tail)
+            | "indexed" -> 
+                emit i "$0.map((x, y) => [y, x])" i.args |> Some
             | Patterns.SetContains implementedArrayFunctions meth ->
                 CoreLibCall ("Array", Some meth, false, deleg com i i.args)
                 |> makeCall i.range i.returnType |> Some
