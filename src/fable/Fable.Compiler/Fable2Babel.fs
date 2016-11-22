@@ -1187,10 +1187,20 @@ module Compiler =
                             | memb -> Babel.ImportSpecifier(localId, Babel.Identifier memb) |> U3.Case1
                         import.path, specifier)
                     |> Seq.groupBy (fun (path, _) -> path)
-                    |> Seq.map (fun (path, specifiers) ->
-                        let specifiers = Seq.map snd specifiers |> Seq.toList
-                        Babel.ImportDeclaration(specifiers, Babel.StringLiteral path)
-                        :> Babel.ModuleDeclaration |> U2.Case2)
+                    |> Seq.collect (fun (path, specifiers) ->
+                        let mems, defs, alls =
+                            (([], [], []), Seq.map snd specifiers)
+                            ||> Seq.fold (fun (mems, defs, alls) x ->
+                                match x with
+                                | U3.Case1 _ -> x::mems, defs, alls
+                                | U3.Case2 _ -> mems, x::defs, alls
+                                | U3.Case3 _ -> mems, defs, x::alls)
+                        [mems; defs; alls]
+                        |> Seq.choose (function
+                            | [] -> None
+                            | specifiers ->
+                                Babel.ImportDeclaration(specifiers, Babel.StringLiteral path)
+                                :> Babel.ModuleDeclaration |> U2.Case2 |> Some))
                     |> Seq.toList |> fun importDecls ->
                         (importDecls@rootDecls), Seq.toList dependencies
                 dependenciesDic.AddOrUpdate(
