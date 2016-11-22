@@ -1,3 +1,7 @@
+### 0.7.0
+
+* Too many changes to be listed, check the [migration guide](http://fable.io/blog/Introducing-0-7.html)
+
 ### 0.7.5-alpha.41
 
 * Fix cyclic dependencies in fable-core
