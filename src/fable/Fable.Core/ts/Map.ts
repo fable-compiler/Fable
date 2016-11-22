@@ -1,5 +1,5 @@
-import List from "./List"
-import { ofArray as listOfArray } from "./List"
+import List from "./ListClass"
+import { ofArray as listOfArray } from "./ListClass"
 import { IComparer } from "./Util"
 import { IEquatable } from "./Util"
 import { IComparable } from "./Util"
@@ -16,6 +16,32 @@ import { exists as seqExists } from "./Seq"
 import { pick as seqPick } from "./Seq"
 import { tryPick as seqTryPick } from "./Seq"
 import { compareWith as seqCompareWith } from "./Seq"
+
+// ----------------------------------------------
+// These functions belong to Seq.ts but are
+// implemented here to prevent cyclic dependencies
+
+export function groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
+  const keys: K[] = [], iter = xs[Symbol.iterator]();
+  let acc = create<K, T[]>(), cur = iter.next();
+  while (!cur.done) {
+    const k = f(cur.value), vs = tryFind(k, acc);
+    if (vs == null) {
+      keys.push(k);
+      acc = add<K, T[]>(k, [cur.value], acc);
+    }
+    else {
+      vs.push(cur.value);
+    }
+    cur = iter.next();
+  }
+  return keys.map(k => [k, acc.get(k)] as [K, T[]]);
+}
+
+export function countBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
+  return groupBy(f, xs).map(kv => [kv[0], kv[1].length] as [K, number]);
+}
+// ----------------------------------------------
 
 interface MapIterator {
   stack: List<MapTree>;

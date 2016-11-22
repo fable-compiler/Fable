@@ -1,5 +1,9 @@
 ### 0.7.5-alpha.18
 
+* Fix cyclic dependencies
+
+### 0.7.5-alpha.18
+
 * Simplify Reflection system
 
 ### 0.7.5-alpha.17

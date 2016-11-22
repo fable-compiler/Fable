@@ -1,7 +1,10 @@
-import { iterate } from "./Seq"
-
 export function addRangeInPlace<T>(range: Iterable<T>, xs: Array<T>) {
-  iterate(x => xs.push(x), range);
+  const iter = range[Symbol.iterator]();
+  let cur = iter.next();
+  while (!cur.done) {
+    xs.push(cur.value);
+    cur = iter.next();
+  }
 }
 
 export function copyTo<T>(source: ArrayLike<T>, sourceIndex: number, target: ArrayLike<T>, targetIndex: number, count: number) {

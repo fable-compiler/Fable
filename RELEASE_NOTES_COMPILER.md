@@ -1,3 +1,7 @@
+### 0.7.5-alpha.41
+
+* Fix cyclic dependencies in fable-core
+
 ### 0.7.5-alpha.40
 
 * Minor fix

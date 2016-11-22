@@ -2,14 +2,7 @@ import { IDisposable } from "./Util"
 import { equals } from "./Util"
 import { compare } from "./Util"
 import { permute as arrayPermute } from "./Array"
-import List from "./List"
-import FSet from "./Set"
-import { add as setAdd } from "./Set"
-import { create as setCreate } from "./Set"
-import FMap from "./Map"
-import { add as mapAdd } from "./Map"
-import { create as mapCreate } from "./Map"
-import { tryFind as mapTryFind } from "./Map"
+import List from "./ListClass"
 
 function __failIfNone<T>(res: T) {
   if (res == null)
@@ -70,10 +63,6 @@ export function averageBy(f: (a: number) => number, xs: Iterable<number>) {
   return sum / count;
 }
 
-export function countBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
-  return map(kv => [kv[0], count(kv[1])], groupBy(f, xs));
-}
-
 export function concat<T>(xs: Iterable<Iterable<T>>) {
   return delay(() => {
     let iter = xs[Symbol.iterator]();
@@ -130,20 +119,6 @@ export function delay<T>(f: () => Iterable<T>) {
   return <Iterable<T>>{
     [Symbol.iterator]: () => f()[Symbol.iterator]()
   };
-}
-
-export function distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
-  return choose(
-    (tup: [T, FSet<K>]) => tup[0],
-    scan((tup: [T, FSet<K>], x: T) => {
-      const acc = tup[1];
-      const k = f(x);
-      return acc.has(k) ? [<T>null, acc] : [x, setAdd(k, acc)];
-    }, [<T>null, setCreate<K>()] as [T, FSet<K>], xs));
-}
-
-export function distinct<T>(xs: Iterable<T>) {
-  return distinctBy(x => x, xs);
 }
 
 export function empty<T>() {
@@ -295,24 +270,6 @@ export function forAll<T>(f: (x: T) => boolean, xs: Iterable<T>) {
 
 export function forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
   return fold2((acc, x, y) => acc && f(x, y), true, xs, ys);
-}
-// TODO: Should return a Iterable<[K, Iterable<T]>> instead of a Map<K, Iterable<T>>
-// groupBy : ('T -> 'Key) -> seq<'T> -> seq<'Key * seq<'T>>
-
-export function groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>): Iterable<[K, Iterable<T>]> {
-  const keys: K[] = [];
-  const map = fold((acc: FMap<K,T[]>, x: T) => {
-    const k = f(x), vs = mapTryFind(k, acc);
-    if (vs == null) {
-      keys.push(k);
-      return mapAdd<K, T[]>(k, [x], acc);
-    }
-    else {
-      vs.push(x);
-      return acc;
-    }
-  }, mapCreate<K, T[]>(), xs);
-  return keys.map(k => [k, map.get(k)] as [K, Iterable<T>]);
 }
 
 export function tryHead<T>(xs: Iterable<T>) {

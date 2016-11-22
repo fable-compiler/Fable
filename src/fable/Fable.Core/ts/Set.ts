@@ -11,6 +11,24 @@ import { reduce as seqReduce } from "./Seq"
 import { forAll as seqForAll } from "./Seq"
 import { exists as seqExists } from "./Seq"
 
+// ----------------------------------------------
+// These functions belong to Seq.ts but are
+// implemented here to prevent cyclic dependencies
+
+export function distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
+  const iter = xs[Symbol.iterator]();
+  let acc = create<K>(), cur = iter.next();
+  while (!cur.done) {
+    const k = f(cur.value);
+    acc = add(k, acc);
+    cur = iter.next();
+  }
+  return acc;
+}
+
+export { create as distinct }
+// ----------------------------------------------
+
 interface SetIterator {
   stack: List<SetTree>;
   started: boolean;

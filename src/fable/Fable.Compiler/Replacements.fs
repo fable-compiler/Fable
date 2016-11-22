@@ -1020,7 +1020,7 @@ module private AstPass =
 
     // Functions which don't return a new collection of the same type
     let implementedSeqNonBuildFunctions =
-        set [ "average"; "averageBy"; "countBy"; "compareWith"; "empty";
+        set [ "average"; "averageBy"; "compareWith"; "empty";
               "exactlyOne"; "exists"; "exists2"; "fold"; "fold2"; "foldBack"; "foldBack2";
               "forAll"; "forAll2"; "head"; "tryHead"; "item"; "tryItem";
               "iterate"; "iterateIndexed"; "iterate2"; "iterateIndexed2";
@@ -1032,12 +1032,17 @@ module private AstPass =
 
     // Functions that must return a collection of the same type
     let implementedSeqBuildFunctions =
-        set [ "append"; "choose"; "collect"; "concat"; "distinct"; "distinctBy";
+        set [ "append"; "choose"; "collect"; "concat"; "countBy"; "distinct"; "distinctBy";
               "except"; "filter"; "where"; "groupBy"; "initialize";
               "map"; "mapIndexed"; "map2"; "mapIndexed2"; "map3";
               "ofArray"; "pairwise"; "permute"; "replicate"; "reverse";
               "scan"; "scanBack"; "singleton"; "skip"; "skipWhile";
               "take"; "takeWhile"; "sortWith"; "unfold"; "zip"; "zip3" ]
+
+    /// Seq functions implemented in other modules to prevent cyclic dependencies
+    let seqFunctionsImplementedOutside =
+        [ "Map", [ "groupBy"; "countBy" ]
+        ; "Set", [ "distinct"; "distinctBy" ] ] |> Map
 
     let implementedListFunctions =
         set [ "append"; "choose"; "collect"; "concat"; "filter"; "groupBy"; "where";
@@ -1259,10 +1264,14 @@ module private AstPass =
         | Patterns.SetContains implementedSeqNonBuildFunctions meth ->
             ccall "Seq" meth (deleg com i args) |> Some
         | Patterns.SetContains implementedSeqBuildFunctions meth ->
+            let mod_ =
+                seqFunctionsImplementedOutside
+                |> Map.tryFindKey (fun _ v -> List.contains meth v)
+                |> defaultArg <| "Seq"
             match kind with
-            | Seq -> ccall "Seq" meth (deleg com i args)
-            | List -> ccall "Seq" meth (deleg com i args) |> toList com i
-            | Array -> ccall "Seq" meth (deleg com i args) |> toArray com i
+            | Seq -> ccall mod_ meth (deleg com i args)
+            | List -> ccall mod_ meth (deleg com i args) |> toList com i
+            | Array -> ccall mod_ meth (deleg com i args) |> toArray com i
             |> Some
         | _ -> None
 

@@ -1,22 +1,13 @@
-import FSymbol from "./Symbol"
-import { IEquatable } from "./Util"
-import { IComparable } from "./Util"
-import { toString } from "./Util"
-import { equals } from "./Util"
-import { compare } from "./Util"
+import List from "./ListClass"
 import { map as seqMap } from "./Seq"
 import { fold as seqFold } from "./Seq"
 import { foldBack as seqFoldBack } from "./Seq"
 import { toList as seqToList } from "./Seq"
-import { groupBy as seqGroupBy } from "./Seq"
+import { groupBy as mapGroupBy } from "./Map"
 
-export function ofArray<T>(args: Array<T>, base?: List<T>) {
-  let acc = base || new List<T>();
-  for (let i = args.length - 1; i >= 0; i--) {
-    acc = new List<T>(args[i], acc);
-  }
-  return acc;
-}
+
+export default List
+export { ofArray } from "./ListClass"
 
 export function append<T>(xs: List<T>, ys: List<T>) {
   return seqFold((acc, x) => new List<T>(x, acc), ys, reverse(xs));
@@ -104,122 +95,5 @@ export function unzip3<T1, T2, T3>(xs: List<[T1, T2, T3]>) {
 }
 
 export function groupBy<T, K>(f: (x: T) => K, xs: List<T>): List<[K, List<T>]> {
-  return seqToList(seqMap(k => [k[0], seqToList(k[1])], seqGroupBy(f, xs))) as List<[K, List<T>]>;
-}
-
-export default class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
-  head: T;
-  tail: List<T>;
-
-  constructor(head?: T, tail?: List<T>) {
-    this.head = head;
-    this.tail = tail;
-  }
-
-  ToString() {
-    return "[" + Array.from(this).map(toString).join("; ") + "]";
-  }
-
-  Equals(x: List<T>) {
-    // Optimization if they are referencially equal
-    if (this === x) {
-      return true;
-    }
-    else {
-      const iter1 = this[Symbol.iterator](), iter2 = x[Symbol.iterator]();
-      for (;;) {
-        let cur1 = iter1.next(), cur2 = iter2.next();
-        if (cur1.done)
-          return cur2.done ? true : false;
-        else if (cur2.done)
-          return false;
-        else if (!equals(cur1.value, cur2.value))
-          return false
-      }
-    }
-  }
-
-  CompareTo(x: List<T>) {
-    // Optimization if they are referencially equal
-    if (this === x) {
-      return 0;
-    }
-    else {
-      let acc = 0;
-      const iter1 = this[Symbol.iterator](), iter2 = x[Symbol.iterator]();
-      for (;;) {
-        let cur1 = iter1.next(), cur2 = iter2.next();
-        if (cur1.done)
-          return cur2.done ? acc : -1;
-        else if (cur2.done)
-          return 1;
-        else {
-          acc = compare(cur1.value, cur2.value);
-          if (acc != 0) return acc;
-        }
-      }
-    }
-  }
-
-  get length() {
-    return seqFold((acc, x) => acc + 1, 0, this);
-  }
-
-  [Symbol.iterator]() {
-    let cur: List<T> = this;
-    return <Iterator<T>>{
-      next: () => {
-        const tmp = cur;
-        cur = cur.tail;
-        return { done: tmp.tail == null, value: tmp.head };
-      }
-    };
-  }
-
-//   append(ys: List<T>): List<T> {
-//     return append(this, ys);
-//   }
-
-//   choose<U>(f: (x: T) => U, xs: List<T>): List<U> {
-//     return choose(f, this);
-//   }
-
-//   collect<U>(f: (x: T) => List<U>): List<U> {
-//     return collect(f, this);
-//   }
-
-//   filter(f: (x: T) => boolean): List<T> {
-//     return filter(f, this);
-//   }
-
-//   where(f: (x: T) => boolean): List<T> {
-//     return filter(f, this);
-//   }
-
-//   map<U>(f: (x: T) => U): List<U> {
-//     return map(f, this);
-//   }
-
-//   mapIndexed<U>(f: (i: number, x: T) => U): List<U> {
-//     return mapIndexed(f, this);
-//   }
-
-//   partition(f: (x: T) => boolean): [List<T>, List<T>] {
-//     return partition(f, this) as [List<T>, List<T>];
-//   }
-
-//   reverse(): List<T> {
-//     return reverse(this);
-//   }
-
-//   slice(lower: number, upper: number): List<T> {
-//     return slice(lower, upper, this);
-//   }
-
-  [FSymbol.reflection]() {
-    return {
-      type: "Microsoft.FSharp.Collections.FSharpList",
-      interfaces: ["System.IEquatable", "System.IComparable"]
-    }
-  }
+  return seqToList(seqMap(k => [k[0], seqToList(k[1])], mapGroupBy(f, xs))) as List<[K, List<T>]>;
 }
