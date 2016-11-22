@@ -517,11 +517,12 @@ let attribsOfSymbol (s:FSharpSymbol) =
             if v.IsValueType then yield "valuetype"
 
         | :? FSharpMemberOrFunctionOrValue as v ->
+            yield "owner: " + v.EnclosingEntity.CompiledName
             if v.IsActivePattern then yield "active_pattern"
             if v.IsDispatchSlot then yield "dispatch_slot"
             if v.IsModuleValueOrMember && not v.IsMember then yield "val"
             if v.IsMember then yield "member"
-            if v.IsProperty then yield "propery"
+            if v.IsProperty then yield "property"
             if v.IsExtensionMember then yield "extension_member"
             if v.IsPropertyGetterMethod then yield "property_getter"
             if v.IsPropertySetterMethod then yield "property_setter"
@@ -537,6 +538,7 @@ let attribsOfSymbol (s:FSharpSymbol) =
             if not v.IsInstanceMember then yield "static"
             if v.IsInstanceMember && not v.IsInstanceMemberInCompiledCode && not v.IsExtensionMember then yield "funky"
             if v.IsExplicitInterfaceImplementation then yield "interface_impl"
+            yield sprintf "%A" v.InlineAnnotation
             // if v.IsConstructorThisValue then yield "ctorthis"
             // if v.IsMemberThisValue then yield "this"
             // if v.LiteralValue.IsSome then yield "literal"
@@ -548,7 +550,7 @@ let rec printFSharpDecls prefix decls = seq {
         i <- i + 1
         match decl with
         | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-            yield sprintf "%s%i) ENTITY: %s %A" prefix i e.DisplayName (attribsOfSymbol e)
+            yield sprintf "%s%i) ENTITY: %s %A" prefix i e.CompiledName (attribsOfSymbol e)
             if not (Seq.isEmpty e.Attributes) then
                 yield sprintf "%sattributes: %A" prefix (Seq.toList e.Attributes)
             if not (Seq.isEmpty e.DeclaredInterfaces) then
@@ -556,11 +558,11 @@ let rec printFSharpDecls prefix decls = seq {
             yield ""
             yield! printFSharpDecls (prefix + "\t") sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
-            if meth.IsCompilerGenerated |> not then
-                yield sprintf "%s%i) METHOD: %s %A" prefix i meth.DisplayName (attribsOfSymbol meth)
-                yield sprintf "%sargs: %A" prefix args
-                yield sprintf "%sbody: %A" prefix body
-                yield ""
+            yield sprintf "%s%i) METHOD: %s %A" prefix i meth.CompiledName (attribsOfSymbol meth)
+            yield sprintf "%sargs: %A" prefix args
+            if not meth.IsCompilerGenerated
+            then yield sprintf "%sbody: %A" prefix body
+            yield ""
         | FSharpImplementationFileDeclaration.InitAction (expr) ->
             yield sprintf "%s%i) ACTION" prefix i
             yield sprintf "%s%A" prefix expr

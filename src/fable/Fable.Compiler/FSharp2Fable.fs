@@ -1039,9 +1039,14 @@ let private getRootModuleAndDecls decls =
         | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
                 when ent.IsFSharpModule || ent.IsNamespace ->
             getRootModuleAndDecls (Some ent) decls
-        | ModuleAndTypes((rootMod, modDecls), decls)
-                 when nameConflicts (decls@modDecls) |> not ->
-            (Some rootMod), decls@modDecls
+        // TODO: This optimization tries to conflate in a single root module
+        // the common F# pattern of having a type and a module with the same name.
+        // However is not playing well at the moment with inline functions (see #556).
+        // A first pass is needed to cache inline functions (this is going to be
+        // necessary anyways with recursive modules).
+        // | ModuleAndTypes((rootMod, modDecls), decls)
+        //          when nameConflicts (decls@modDecls) |> not ->
+        //     (Some rootMod), decls@modDecls
         | decls -> outerEnt, decls
     getRootModuleAndDecls None decls
 

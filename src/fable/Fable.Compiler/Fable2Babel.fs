@@ -1013,10 +1013,7 @@ module Util =
                 | Fable.Interface ->
                     (declareInterfaceEntity com ent)@acc
                 | Fable.Class(baseClass, _) ->
-                    let baseClass = baseClass |> Option.bind (fun (name, baseClass) ->
-                        if Naming.ignoredBaseClasses.Contains name
-                        then None
-                        else Some baseClass)
+                    let baseClass = baseClass |> Option.map snd
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange baseClass true
                     |> List.append <| acc

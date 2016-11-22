@@ -585,7 +585,7 @@ module Types =
 
     let rec getBaseClass (com: IFableCompiler) (ctx: Context) (tdef: FSharpEntity) =
         match tdef.BaseType with
-        | Some(TypeDefinition tdef) ->
+        | Some(TypeDefinition tdef) when tdef.FullName <> "System.Object" ->
             let typeRef = makeTypeFromDef com Context.Empty tdef [] |> makeNonGenTypeRef
             Some (sanitizeEntityFullName tdef, typeRef)
         | _ -> None
