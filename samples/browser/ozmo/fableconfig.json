@@ -1,5 +1,5 @@
 {
-    "module": "amd",
+    "bundle": "true",
     "sourceMaps": true,
     "projFile": "./ozmo.fsx",
     "outDir": "out",

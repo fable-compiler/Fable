@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "module": "es6",
+        "noEmitOnError": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "noImplicitThis": true,
+        //"noUnusedLocals": true,
+        //"noUnusedParameters": true,
+        //"strictNullChecks": true,
+        "declaration": true,
+        "outDir": "../../../../build/fable-core"
+    }
+}

@@ -29,7 +29,7 @@ type LogAsyncErrorsPlugin() =
                 match info.methodName with
                 | "Start" | "StartImmediate" ->
                     let import =
-                        Fable.ImportRef ("Async", com.Options.coreLib)
+                        Fable.ImportRef("default", "Async", Fable.CoreLib)
                         |> Fable.Value
                     emit info macro (import::info.args)
                     |> Some

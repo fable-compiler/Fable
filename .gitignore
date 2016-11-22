@@ -1,6 +1,7 @@
-# Personal
 .vscode/
+jsconfig.json
 
+/nuget/
 src/fable/Fable.Core/npm/*.dll*
 src/fable/Fable.Core/npm/*.pdb
 src/fable/Fable.Core/npm/*.xml
@@ -12,6 +13,7 @@ src/fable/Fable.Core/npm/es2015.js
 
 src/tools/temp/
 
+samples/browser/fable-core
 samples/**/out/
 samples/**/bundle.js*
 samples/other/fable-helpers-sample/js/*.*
@@ -215,7 +217,6 @@ release.sh
 localpackages/
 paket-files
 *.orig
-.paket/paket.exe
 docs/content/license.md
 docs/content/release-notes.md
 .fake

@@ -2,29 +2,36 @@
 // It doesn't use the F# functional capabilities
 // but takes advantage of static type checking
 
-// Load Fable.Core and bindings to JS global objects
-#r "node_modules/fable-core/Fable.Core.dll"
+// Load Fable.Core
+#r "../node_modules/fable-core/Fable.Core.dll"
 
 open Fable.Core
 open Fable.Import
 open Fable.Core.JsInterop
 
-// Use this dummy module to hold references to Vue and Router objects
-// exposed globally by loading the corresponding libraries with HTML script tags
-[<Erase>]
-module Lib =
-    let [<Global>] Vue: obj = jsNative
-    let [<Global>] Router: obj = jsNative
+// Import Vue and director objects
+let Vue: obj = importDefault "vue"
+let Router: obj->obj = importDefault "director"
 
-type Todo = {
-    mutable title: string
-    mutable completed: bool
-}
+// To make dynamic programing less verbose
+// we can define a couple of helpers and
+// disable warning 0058
+#nowarn "0058"
+
+let inline private (~%) x = createObj x
+
+let inline private (=>) x y = x ==> y
 
 // This helper uses JS reflection to convert a class instance
 // to the options' format required by Vue
 module VueHelper =
-    let createFromObj(data: obj, extraOpts: obj) =
+    let private toPojo (o: obj) =
+        let o2 = obj()
+        for k in JS.Object.getOwnPropertyNames o do
+            o2?(k) <- o?(k)
+        o2
+
+    let mount(data: obj, extraOpts: obj, el: string) =
         let methods = obj()
         let computed = obj()
         let proto = JS.Object.getPrototypeOf data
@@ -38,18 +45,30 @@ module VueHelper =
                     "get" ==> prop?get
                     "set" ==> prop?set
                 ]
-        extraOpts?data <- data
+        extraOpts?data <- toPojo data
         extraOpts?computed <- computed
         extraOpts?methods <- methods
-        createNew Lib.Vue extraOpts
+        let app = createNew Vue extraOpts
+        app?``$mount``(el) |> ignore
+        app
+
+type Todo = {
+    id: int
+    mutable title: string
+    mutable completed: bool
+}
 
 module Storage =
     let private STORAGE_KEY = "todos-vuejs"
+    let mutable uid = 0
 
     let fetch (): Todo[] =
-        Browser.localStorage.getItem(STORAGE_KEY)
-        |> function null -> "[]" | x -> unbox x
-        |> JS.JSON.parse |> unbox
+        let todos: Todo[] =
+            Browser.localStorage.getItem(STORAGE_KEY)
+            |> function null -> "[]" | x -> unbox x
+            |> JS.JSON.parse |> unbox
+        uid <- todos.Length
+        todos |> Array.mapi (fun i x -> { x with id = i })
 
     let save (todos: Todo[]) =
         Browser.localStorage.setItem(STORAGE_KEY, JS.JSON.stringify todos)
@@ -90,13 +109,15 @@ module Main =
         // Note the self references will be interpreted correctly
         member __.addTodo() =
             match newTodo with
-            | None -> ()
-            | Some v ->
+            | Some v when v.Trim().Length > 0 ->
+                let todo = {
+                    id = Storage.uid + 1
+                    title = v.Trim()
+                    completed = false
+                }
                 newTodo <- None
-                todos <- [|
-                    yield! todos
-                    yield { title = v.Trim(); completed = false }
-                |]
+                todos <- Array.append todos [|todo|]
+            | _ -> ()
         member __.removeTodo todo =
             todos <- Array.filter ((<>) todo) todos
         member __.editTodo todo =
@@ -116,50 +137,41 @@ module Main =
         member __.removeCompleted() =
             todos <- filters.["active"] todos
 
-    type Directives =
-        abstract ``todo-focus``: obj option -> unit
+    let x = 4 % 5
 
-    let extraOpts =
-        createObj [
-            "el" ==> ".todoapp"
-            "watch" ==>
-                createObj [
-                    "todos" ==>
-                        createObj [
-                            "deep" ==> true
-                            "handler" ==> Storage.save
-                        ]
-                ]
-            "directives" ==> {
-                new Directives with
-                    member this.``todo-focus`` x =
-                        match x with
-                        | None -> ()
-                        | Some _ ->
-                            let el = this?el
-                            Lib.Vue?nextTick(fun () ->
-                                el?focus() |> ignore)
-                            |> ignore
-            }
+    let extraOpts = %[
+        "watch" => %[
+            "todos" => %[
+                "deep" => true
+                "handler" => Storage.save
+            ]
         ]
+        "filters" => %[
+            "pluralize" => fun n ->
+                if n = 1 then "item" else "items"
+        ]
+        "directives" => %[
+            "todo-focus" => fun (el: Browser.HTMLElement) value ->
+                if value then el.focus()
+        ]
+    ]
 
     // Now instantiate the type and create a Vue view model
     // using the helper method
-    let app = VueHelper.createFromObj(TodoViewModel(), extraOpts)
+    let app = VueHelper.mount(TodoViewModel(), extraOpts, ".todoapp")
 
 module Routes =
-    let router = createNew Lib.Router ()
+    let router = createNew Router ()
 
     ["all"; "active"; "completed"] |> Seq.iter (fun visibility ->
         router?on(visibility, fun () ->
             Main.app?visibility <- visibility)
         |> ignore)
 
-    router?configure(
-        createObj [
-            "notfound" ==> fun () ->
-                Browser.location.hash <- ""
-                Main.app?visibility <- "all"
-        ]
-    )
+    router?configure(%[
+        "notfound" ==> fun () ->
+            Browser.location.hash <- ""
+            Main.app?visibility <- "all"
+    ])
+
     router?init()

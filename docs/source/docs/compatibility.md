@@ -1,5 +1,7 @@
  - tagline: Supported F# language features and libraries
 
+**Attention**: This document corresponds to Fable 0.6.x and needs to be updated to the latest version. Please check the [migration guide](../blog/Introducing-0-7.html).
+
 # Compatibility
 
 Fable provides support for some classes of .NET BCL (Base Class Library) and most of

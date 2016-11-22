@@ -1,3 +1,107 @@
+### 0.7.0
+
+* Too many changes to be listed, check the [migration guide](http://fable.io/blog/Introducing-0-7.html)
+
+### 0.7.5-alpha.18
+
+* Fix cyclic dependencies
+
+### 0.7.5-alpha.18
+
+* Simplify Reflection system
+
+### 0.7.5-alpha.17
+
+* Remove `NoMangle` attribute
+
+### 0.7.5-alpha.16
+
+* Add `import: selector->path->'T`  to import expressions
+* Make arguments of JsConstructor statically typed
+
+### 0.7.5-alpha.15
+
+* Add extra argument to `EmitAttribute`
+
+### 0.7.5-alpha.14
+
+* More meaningful runtime representation of non-declared types
+
+### 0.7.5-alpha.12
+
+* Add `MangleAttribute` to prevent conflicts with interfaces
+
+### 0.7.5-alpha.11
+
+* Omit `.js` extension again to keep compatibility with Require.js
+
+### 0.7.5-alpha.10
+
+* Add `.js` extension to internal `fable-core` imports
+* Add `String/formatError` (see #519)
+
+### 0.7.5-alpha.9
+
+* Distribute fable-core with ES2015 (default) and UMD module formats
+
+### 0.7.5-alpha.8
+
+* Bug fixes and optimizations
+
+### 0.7.5-alpha.7
+
+* Add JsFunc and JsCons to Fable.Core.JsInterop
+
+### 0.7.5-alpha.6
+
+* Add DateTime.TryParse
+
+### 0.7.5-alpha.5
+
+* Add .d.ts declaration files
+
+### 0.7.5-alpha.4
+
+* Add String.Insert method
+
+### 0.7.5-alpha.3
+
+* Accept any object as exception
+
+### 0.7.5-alpha.2
+
+* Structure fable-core in modules
+
+### 0.7.5-alpha.1
+
+* Fix prerelease semver. See: https://docs.npmjs.com/misc/semver#prerelease-tags
+
+### 0.7.5-alpha
+
+* Add `typedefof<>`, `.IsGenericType`, `.GetGenericTypeDefinition`
+
+### 0.7.4-alpha
+
+* Add `outDir` to Fable.CompilerOptions (see #472)
+* Make `GetType` return "boolean", "number", "string" or "function"
+  for primitive values (see https://goo.gl/J6GeKY)
+
+### 0.7.3-alpha
+
+* Optimize JSON serialization of union types (as in FSharpLu.Json)
+
+### 0.7.2-alpha
+
+* Improve tree shaking
+
+### 0.7.1-alpha
+
+* Bring back JSON serialization with `$type` info
+
+### 0.7.0-alpha
+
+* Serialize.ofJson doesn't need JSON to contain `$type` info any more
+
 ### 0.6.10
 
 * Add `String.Remove`

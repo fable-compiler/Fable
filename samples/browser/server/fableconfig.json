@@ -1,0 +1,8 @@
+{
+    "projFile": "index.fsx",
+    "module": "commonjs",
+    "rollup": {
+        "dest": "./index.js",
+        "plugins": ["json"]
+    }
+}

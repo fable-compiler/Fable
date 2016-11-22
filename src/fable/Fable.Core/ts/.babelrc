@@ -1,0 +1,18 @@
+{
+  "ignore": [
+    "node_modules/**/*.*",
+    "umd/*.*"
+  ],
+  "env": {
+    "target-es2015": {
+      "presets": [
+        [ "es2015", { "modules": false } ]
+      ]
+    },
+    "target-umd": {
+      "presets": [
+        [ "es2015", { "modules": "umd" } ]
+      ]
+    }
+  }
+}
