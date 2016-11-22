@@ -75,6 +75,10 @@ let ``System.Convert.ToInt32 works``() =
     int(1.f) |> equal x
     int(1.) |> equal x
     int(1.m) |> equal x
+    int(1.4999999) |> equal x
+    int(1.5) |> equal x
+    int(1.9999999) |> equal x
+
     Convert.ToInt32(1y) |> equal x
     Convert.ToInt32(1uy) |> equal x
     Convert.ToInt32(1s) |> equal x
@@ -87,6 +91,14 @@ let ``System.Convert.ToInt32 works``() =
     Convert.ToInt32(1.f) |> equal x
     Convert.ToInt32(1.) |> equal x
     Convert.ToInt32(1.m) |> equal x
+    Convert.ToInt32(1.4999999) |> equal (1)
+    Convert.ToInt32(1.5) |> equal (2)
+    Convert.ToInt32(1.9999999) |> equal (2)
+    Convert.ToInt32(2.5) |> equal (2)
+    Convert.ToInt32(2.6) |> equal (3)
+    Convert.ToInt32(3.5) |> equal (4)
+
+
 
 [<Test>]
 let ``System.Convert.ToInt64 works``() =
