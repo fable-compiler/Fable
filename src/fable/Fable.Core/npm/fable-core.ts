@@ -8,6 +8,7 @@ const fableGlobal = function () {
   if (typeof globalObj.__FABLE_CORE__ == "undefined") {
     globalObj.__FABLE_CORE__ = {
       types: new Map<string, any>(),
+      typeFields: new Map<string, Map<string, string>>(),
       symbols: {
         interfaces: Symbol("interfaces"),
         typeName: Symbol("typeName")
@@ -47,7 +48,7 @@ export class Util {
   // For legacy reasons the name is kept, but this method also adds
   // the type name to a cache. Use it after declaration:
   // Util.setInterfaces(Foo.prototype, ["IFoo", "IBar"], "MyModule.Foo");
-  public static setInterfaces(proto: any, interfaces: string[], typeName?: string) {
+  public static setInterfaces(proto: any, interfaces: string[], typeName?: string, typeFields?: string[][]) {
     if (Array.isArray(interfaces) && interfaces.length > 0) {
       const currentInterfaces = proto[FSymbol.interfaces];
       if (Array.isArray(currentInterfaces)) {
@@ -61,6 +62,10 @@ export class Util {
     if (typeName) {
       proto[FSymbol.typeName] = typeName;
       fableGlobal.types.set(typeName, proto.constructor);
+    }
+
+    if (Array.isArray(typeFields) && typeFields.length > 0) {
+      fableGlobal.typeFields.set(typeName, new Map<string, string>(typeFields));
     }
   }
 
@@ -231,23 +236,21 @@ export class Serialize {
       }
       else if (v != null && typeof v === "object") {
         if (v instanceof List || v instanceof FSet || v instanceof Set) {
-          return {
-            $type: v[FSymbol.typeName] || "System.Collections.Generic.HashSet",
-            $values: Array.from(v) };
+          return Array.from(v);
         }
         else if (v instanceof FMap || v instanceof Map) {
           return Seq.fold(
             (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; }, 
-            { $type: v[FSymbol.typeName] || "System.Collections.Generic.Dictionary" }, v);
+            {}, v);
         }
         else if (v[FSymbol.typeName]) {
           if (Util.hasInterface(v, "FSharpUnion", "FSharpRecord", "FSharpException")) {
-            return Object.assign({ $type: v[FSymbol.typeName] }, v);
+            return Object.assign({}, v);
           }
           else {
             const proto = Object.getPrototypeOf(v),
                   props = Object.getOwnPropertyNames(proto),
-                  o = { $type: v[FSymbol.typeName] } as {[k:string]:any};
+                  o = { } as {[k:string]:any};
             for (let i = 0; i < props.length; i++) {
               const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
               if (prop.get)
@@ -261,60 +264,101 @@ export class Serialize {
     });
   }
 
-  static ofJson(json: any, expected?: Function): any {
-    const parsed = JSON.parse(json, (k, v) => {
-      if (v == null)
-        return v;
-      else if (typeof v === "object" && typeof v.$type === "string") {
-        // Remove generic args and assembly info added by Newtonsoft.Json
-        let type = v.$type.replace('+', '.'), i = type.indexOf('`');
-        if (i > -1) {
-          type = type.substr(0,i);
+    private static updateObject(obj: any, type: string): any {
+        if (obj == null) {
+            return obj;
         }
-        else {
-          i = type.indexOf(',');
-          type = i > -1 ? type.substr(0,i) : type;
+
+        if (obj.$type) {
+            type = obj.$type.replace(/\+/g, '.').replace(/`[0-9]+/g, '').replace(/, [^\]]+/g, '');
+            delete obj.$type;
         }
-        if (type === "System.Collections.Generic.List" || (type.indexOf("[]") === type.length - 2)) {
-            return v.$values;
+
+        if (obj.$values) {
+            obj = obj.$values;
         }
-        if (type === "Microsoft.FSharp.Collections.FSharpList") {
-            return List.ofArray(v.$values);
+
+        if (type === "System.DateTime" && typeof obj === "string") {
+            return FDate.parse(obj);
         }
-        else if (type == "Microsoft.FSharp.Collections.FSharpSet") {
-          return FSet.create(v.$values);
+
+        if (type.endsWith("[]") && Array.isArray(obj)) {
+            const t = type.substring(0, type.length - 2);
+            return obj.map((c:any) => Serialize.updateObject(c, t))
         }
-        else if (type == "System.Collections.Generic.HashSet") {
-          return new Set(v.$values);
+
+        if (type.startsWith("Microsoft.FSharp.Collections.FSharpList[[") && Array.isArray(obj)) {
+            const t = type.substring(41, type.length - 2);
+            return List.ofArray(obj.map((c: any) => Serialize.updateObject(c, t)));
         }
-        else if (type == "Microsoft.FSharp.Collections.FSharpMap") {
-          delete v.$type;
-          return FMap.create(Object.getOwnPropertyNames(v)
-                                    .map(k => [k, v[k]] as [any,any]));
+
+        if (type.startsWith("Microsoft.FSharp.Collections.FSharpSet[[") && Array.isArray(obj)) {
+            const t = type.substring(40, type.length - 2);
+            return FSet.create(obj.map((c: any) => Serialize.updateObject(c, t)));
         }
-        else if (type == "System.Collections.Generic.Dictionary") {
-          delete v.$type;
-          return new Map(Object.getOwnPropertyNames(v)
-                                .map(k => [k, v[k]] as [any,any]));
+
+        if (type.startsWith("Microsoft.FSharp.Collections.FSharpMap[[")) {
+            // Should we handle none string keys?
+            const [kt, kv] = type.substring(40, type.length - 2).split("],[");
+            return FMap.create(Object.getOwnPropertyNames(obj).map(k => [k, Serialize.updateObject(obj[k], kv)] as [any, any]));
         }
-        else {
-          const T = fableGlobal.types.get(type);
-          if (T) {
-            delete v.$type;
-            return Object.assign(new T(), v);
-          }
+
+        if (type.startsWith("System.Collections.Generic.Dictionary[[")) {
+            // Should we handle none string keys?
+            const [kt, kv] = type.substring(39, type.length - 2).split("],[");
+            return new Map(Object.getOwnPropertyNames(obj).map(k => [k, Serialize.updateObject(obj[k], kv)] as [any, any]));
         }
-      }
-      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)$/.test(v))
-        return FDate.parse(v);
-      else
-        return v;
-    });
-    if (parsed != null && typeof expected == "function" && !(parsed instanceof expected)) {
-      throw "JSON is not of type " + expected.name + ": " + json;
+
+        if (type.startsWith("Microsoft.FSharp.Core.FSharpOption[[") && obj.Case && Array.isArray(obj.Fields) && obj.Fields.length === 1) {
+            if (obj.Case === "Some") {
+                const t = type.substring(36, type.length - 2);
+                return Serialize.updateObject(obj.Fields[0], t);
+            }
+
+            return null;
+        }
+
+        if (type.startsWith("Tuple [")) {
+            const arrayMode = Array.isArray(obj)
+            return type.substring(type.indexOf('][') + 2, type.length - 1).split(",").map((t, i) => {
+                t = t.substr(1, t.length - 2);
+                const v = arrayMode ? obj[i] : obj["Item" + (i + 1)]
+                return Serialize.updateObject(v, t)
+            });
+        }
+
+        const T = fableGlobal.types.get(type);
+        if (obj.Case && Array.isArray(obj.Fields)) {
+            const fields = fableGlobal.typeFields.get(type);
+            if (fields) {
+                const caseType = fields.get("UnionCase " + obj.Case);
+                obj.Fields = Serialize.updateObject(obj.Fields, caseType);
+            }
+        }
+
+        if (type.endsWith("]]")) {
+            type = type.substr(0, type.indexOf("[["));
+        }
+
+        const fields = fableGlobal.typeFields.get(type);
+        if (fields) {
+            for (let prop in obj) {
+                if (!obj.hasOwnProperty(prop)) {
+                    continue;
+                }
+
+                const field = fields.get(prop);
+                if (field) {
+                    obj[prop] = Serialize.updateObject(obj[prop], field);
+                }
+            }
+        }
+        return T ? Object.assign(new T(), obj) : obj;
     }
-    return parsed;
-  }
+
+    static ofJson(json: any, type: string): any {
+        return Serialize.updateObject(JSON.parse(json), type);
+    }
 }
 
 export class GenericComparer<T> implements IComparer<T> {

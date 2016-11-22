@@ -387,11 +387,22 @@ module private AstPass =
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, deleg com i i.args)
             |> makeCall com i.range i.returnType |> Some
-        | "toJson" | "ofJson" | "toPlainJsObj" ->
+        | "toJson" | "ofJson" | "toPlainJsObj" | "ofJsonSimple" ->
             let args =
                 match i.methodName, i.methodTypeArgs with
-                | "ofJson", [Fable.DeclaredType(ent,_) as t] when Option.isSome ent.File ->
-                    [i.args.Head; makeTypeRef com None t]
+                | "ofJson", _  ->
+                    let rec convertType (tp: Fable.Type) = 
+                        if tp.FullName.EndsWith("[]") || List.length tp.GenericArgs = 0 then tp.FullName
+                        else tp.FullName + "[" + (tp.GenericArgs |> List.map(fun a -> "[" + convertType a + "]") |> String.concat "," )  + "]"
+ 
+                    let setupArgs t =
+                        [i.args.Head; makeConst (convertType t)(*; makeTypeRef com None t*)]
+
+                    match i.methodTypeArgs with
+                    | [Fable.DeclaredType(ent,_) as t] -> setupArgs t
+                    | [Fable.Array(_) as t] -> setupArgs t
+                    | _ -> i.args
+
                 | _ -> i.args
             let modName =
                 if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
@@ -871,7 +882,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for Dictionary keys, please use F# Map"
                 |> addWarning com i
             | _ -> ()
@@ -909,7 +920,7 @@ module private AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union) ->
+            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for HashSet, please use F# Set"
                 |> addWarning com i
             | _ -> ()

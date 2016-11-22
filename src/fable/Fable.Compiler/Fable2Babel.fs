@@ -243,6 +243,27 @@ module Util =
         |> List.map (fun x -> Babel.StringLiteral x :> Babel.Expression |> U2.Case1 |> Some)
         |> Babel.ArrayExpression :> Babel.Expression
 
+    let buildFields com ctx (ent: Fable.Entity)  =
+        match ent.Kind with
+        | Fable.Record fields ->
+           fields |> List.map(fun (n,t) -> n, t)
+        | Fable.Union (cases) ->
+           cases |> List.map(fun (n,fs) -> "UnionCase " + n, Fable.Tuple fs)
+        | _ -> []
+        
+        |> List.append (ent.GetProperties() |> List.map(fun (n,t) -> n, t))
+        |> List.map(fun (n,t) -> 
+            let rec convertType (tp: Fable.Type) = 
+                if tp.FullName.EndsWith("[]") || List.length tp.GenericArgs = 0 then tp.FullName
+                else tp.FullName + "[" + (tp.GenericArgs |> List.map(fun a -> "[" + convertType a + "]") |> String.concat "," )  + "]"
+
+            [ Babel.StringLiteral n :> Babel.Expression |> U2.Case1 |> Some
+              Babel.StringLiteral (convertType t) :> Babel.Expression |> U2.Case1 |> Some ]
+            |> Babel.ArrayExpression :> Babel.Expression
+            |> U2.Case1 |> Some
+        )
+        |> Babel.ArrayExpression :> Babel.Expression
+
     let assign range left right =
         Babel.AssignmentExpression(AssignEqual, left, right, ?loc=range)
         :> Babel.Expression
@@ -729,7 +750,7 @@ module Util =
                         |> Babel.TypeParameterDeclaration |> Some
                     let props =
                         match ent.Kind with
-                        | Fable.Union ->
+                        | Fable.Union _ ->
                             ["Case", Fable.String; "Fields", Fable.Array Fable.Any]
                             |> List.map (fun (name, typ) -> declareProperty com ctx name typ)
                         | Fable.Record fields | Fable.Exception fields ->
@@ -747,19 +768,20 @@ module Util =
             failwithf "Fable doesn't support custom implementations of %s (%s)" i ent.FullName)
         let interfaces =
             match ent.Kind with
-            | Fable.Union -> "FSharpUnion"::ent.Interfaces
+            | Fable.Union _ -> "FSharpUnion"::ent.Interfaces
             | Fable.Record _ -> "FSharpRecord"::ent.Interfaces
             | Fable.Exception _ -> "FSharpException"::ent.Interfaces
             | _ -> ent.Interfaces
         [ getCoreLibImport com ctx "Util"
           typeRef com ctx ent None
           buildStringArray interfaces
-          upcast Babel.StringLiteral ent.FullName ]
+          upcast Babel.StringLiteral ent.FullName
+          buildFields com ctx ent ]
         |> fun args ->
             // "$0.setInterfaces($1.prototype, $2, $3)"
             Babel.CallExpression(
                 get args.[0] "setInterfaces",
-                [get args.[1] "prototype"; args.[2]; args.[3]] |> List.map U2.Case1)
+                [get args.[1] "prototype"; args.[2]; args.[3]; args.[4]] |> List.map U2.Case1)
         |> Babel.ExpressionStatement :> Babel.Statement
 
     let declareEntryPoint com ctx (funcExpr: Babel.Expression) =
@@ -910,7 +932,7 @@ module Util =
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange baseClass true
                     |> List.append <| acc
-                | Fable.Union | Fable.Record _ | Fable.Exception _ ->                
+                | Fable.Union _ | Fable.Record _ | Fable.Exception _ ->                
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange None false
                     |> List.append <| acc

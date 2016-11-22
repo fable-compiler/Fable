@@ -649,8 +649,8 @@ let ``Lists can be JSON serialized forth and back``() =
 [<Test>]
 let ``Lists serialized with Json.NET can be deserialized``() =
     // let x = [{ i=1; s="1" }; { i=2; s="2" }]    
-    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-    let json = """{"$type":"Microsoft.FSharp.Collections.FSharpList`1[[Fable.Tests.Lists+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":2,"s":"2"}]}"""
+    // let json = JsonConvert.SerializeObject(x)
+    let json = """[{"i":1,"s":"1"},{"i":2,"s":"2"}]"""
     #if FABLE_COMPILER
     let x2 = Fable.Core.JsInterop.ofJson<R list> json
     #else

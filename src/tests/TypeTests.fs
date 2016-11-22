@@ -321,8 +321,8 @@ let ``Null values can be JSON serialized forth and back``() =
 [<Test>]
 let ``Classes serialized with Json.NET can be deserialized``() =
     // let x = Serializable(5)
-    // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-    let json = """{"$type":"Fable.Tests.TypeTests+Serializable","PublicValue":1}"""
+    // let json = JsonConvert.SerializeObject(x)
+    let json = """{"PublicValue":1}"""
     #if FABLE_COMPILER
     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
     #else

@@ -827,7 +827,7 @@ let rec private transformEntityDecl
         // Unions, records and F# exceptions don't have a constructor
         let cons =
             match fableEnt.Kind with
-            | Fable.Union -> [makeUnionCons()]
+            | Fable.Union _ -> [makeUnionCons()]
             | Fable.Record fields
             | Fable.Exception fields -> [makeRecordCons fields]
             | _ -> []
