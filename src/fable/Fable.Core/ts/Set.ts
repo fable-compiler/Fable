@@ -94,13 +94,13 @@ function tree_rebalance(t1: SetTree, k: any, t2: SetTree) {
         if (t2.Fields[1].Case === "SetNode") {
           return tree_mk(tree_mk(t1, k, t2.Fields[1].Fields[1]), t2.Fields[1].Fields[0], tree_mk(t2.Fields[1].Fields[2], t2.Fields[0], t2.Fields[2]));
         } else {
-          throw "rebalance";
+          throw new Error("rebalance");
         }
       } else {
         return tree_mk(tree_mk(t1, k, t2.Fields[1]), t2.Fields[0], t2.Fields[2]);
       }
     } else {
-      throw "rebalance";
+      throw new Error("rebalance");
     }
   } else {
     if (t1h > t2h + tree_tolerance) {
@@ -109,13 +109,13 @@ function tree_rebalance(t1: SetTree, k: any, t2: SetTree) {
           if (t1.Fields[2].Case === "SetNode") {
             return tree_mk(tree_mk(t1.Fields[1], t1.Fields[0], t1.Fields[2].Fields[1]), t1.Fields[2].Fields[0], tree_mk(t1.Fields[2].Fields[2], k, t2));
           } else {
-            throw "rebalance";
+            throw new Error("rebalance");
           }
         } else {
           return tree_mk(t1.Fields[1], t1.Fields[0], tree_mk(t1.Fields[2], k, t2));
         }
       } else {
-        throw "rebalance";
+        throw new Error("rebalance");
       }
     } else {
       return tree_mk(t1, k, t2);
@@ -240,7 +240,7 @@ function tree_spliceOutSuccessor(t: SetTree): any { // [any,SetTree] {
     var k3 = patternInput[0];
     return [k3, tree_mk(l_, t.Fields[0], t.Fields[2])];
   })() : (() => {
-    throw "internal error: Map.spliceOutSuccessor";
+    throw new Error("internal error: Map.spliceOutSuccessor");
   })();
 }
 
@@ -481,7 +481,7 @@ function tree_maximumElementOpt(s: SetTree): any {
 function tree_minimumElement(s: SetTree): any {
   var matchValue = tree_minimumElementOpt(s);
   if (matchValue == null) {
-    throw "Set contains no elements";
+    throw new Error("Set contains no elements");
   } else {
     return matchValue;
   }
@@ -490,7 +490,7 @@ function tree_minimumElement(s: SetTree): any {
 function tree_maximumElement(s: SetTree) {
   var matchValue = tree_maximumElementOpt(s);
   if (matchValue == null) {
-    throw "Set contains no elements";
+    throw new Error("Set contains no elements");
   } else {
     return matchValue;
   }
@@ -515,11 +515,11 @@ function tree_mkIterator(s: SetTree): SetIterator {
 };
 
 // function tree_notStarted() {
-//   throw "Enumeration not started";
+//   throw new Error("Enumeration not started");
 // };
 
 // var alreadyFinished = $exports.alreadyFinished = function () {
-//   throw "Enumeration already started";
+//   throw new Error("Enumeration already started");
 // };
 
 function tree_moveNext(i: SetIterator): IteratorResult<any> {
@@ -530,7 +530,7 @@ function tree_moveNext(i: SetIterator): IteratorResult<any> {
     else if (i.stack.head.Case === "SetOne") {
       return i.stack.head.Fields[0];
     }
-    throw "Please report error: Set iterator, unexpected stack for current";
+    throw new Error("Please report error: Set iterator, unexpected stack for current");
   }
   if (i.started) {
     if (i.stack.tail == null) {
@@ -543,7 +543,7 @@ function tree_moveNext(i: SetIterator): IteratorResult<any> {
           value: current(i)
         };
       } else {
-        throw "Please report error: Set iterator, unexpected stack for moveNext";
+        throw new Error("Please report error: Set iterator, unexpected stack for moveNext");
       }
     }
   }
@@ -715,17 +715,17 @@ export default class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>
 
   /** Not supported */
   add(v: T): FSet<T> {
-    throw "not supported";
+    throw new Error("not supported");
   }
 
   /** Not supported */
   delete(v: T): boolean {
-    throw "not supported";
+    throw new Error("not supported");
   }
 
   /** Not supported */
   clear(): void {
-    throw "not supported";
+    throw new Error("not supported");
   }
 
   get size() {
@@ -879,7 +879,7 @@ export function isSuperset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
 
 export function copyTo<T>(xs: FSet<T> | Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
   if (!Array.isArray(arr) && !ArrayBuffer.isView(arr))
-    throw "Array is invalid";
+    throw new Error("Array is invalid");
 
 count = count || arr.length;
   let i = arrayIndex || 0;

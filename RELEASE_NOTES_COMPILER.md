@@ -1,3 +1,8 @@
+### 0.7.8
+
+* `System.Exception` translates to JS `Error`
+* Fix #556: inline methods placed after calls
+
 ### 0.7.7
 
 * Fix ES2015 imports

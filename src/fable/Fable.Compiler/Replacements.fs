@@ -111,6 +111,12 @@ module Util =
         | Fable.Boolean -> makeConst false
         | _ -> Fable.Null |> Fable.Value
 
+    let getProp r t callee (prop: string) =
+        Fable.Apply(callee, [Fable.Value(Fable.StringConst prop)], Fable.ApplyGet, t, r)
+
+    let newError r t args =
+        Fable.Apply(makeIdentExpr "Error", args, Fable.ApplyCons, t, r)
+
     let toChar com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
         match arg.Type with
         | Fable.String -> arg
@@ -163,7 +169,7 @@ module Util =
             match i.returnType with
             | Fable.Number kindTo when needToCast kindFrom kindTo ->
                 match i.ownerFullName, kindTo with
-                | "System.Convert", Int32 -> 
+                | "System.Convert", Int32 ->
                     CoreLibCall("Util", Some "round", false, i.args)
                     |> makeCall i.range i.returnType
                 | _ ->
@@ -548,14 +554,19 @@ module private AstPass =
                     addWarning com info "printf will behave as printfn"
                     "x=>{console.log(x)}"
                 | "printFormatLine" -> "x=>{console.log(x)}"
-                | "printFormatToStringThenFail" | _ -> "x=>{throw x}"
+                | "printFormatToStringThenFail" | _ -> "x=>{throw new Error(x)}"
                 |> Fable.Emit |> Fable.Value
             Fable.Apply(args.Head, [emit], Fable.ApplyMeth, typ, r)
             |> Some
         // Exceptions
-        | "failWith" | "raise" | "reraise" | "invalidOp" | "invalidArg" ->
-            // TODO: InvalidArg has two arguments
+        | "raise" ->
             Fable.Throw (args.Head, typ, r) |> Some
+        | "failWith"  | "reraise" | "invalidOp" | "invalidArg" ->
+            let args =
+                match info.methodName with
+                | "invalidArg" -> [makeEmit None Fable.String args "$1 + '\\nParameter name: ' + $0"]
+                | _ -> args
+            Fable.Throw (newError None Fable.Any args, typ, r) |> Some
         // Type ref
         | "typeOf" | "typeDefOf" ->
             let genInfo = {
@@ -1339,7 +1350,7 @@ module private AstPass =
                 match i.methodTypeArgs with
                 | [Fable.Any] | [NumberType(Some _)] -> None
                 | _ -> icall "concat" (i.args.Head, i.args.Tail)
-            | "indexed" -> 
+            | "indexed" ->
                 emit i "$0.map((x, y) => [y, x])" i.args |> Some
             | Patterns.SetContains implementedArrayFunctions meth ->
                 CoreLibCall ("Array", Some meth, false, deleg com i i.args)
@@ -1359,16 +1370,12 @@ module private AstPass =
         | _ -> None
 
     let exceptions com (i: Fable.ApplyInfo) =
-        match i.methodName with
-        | ".ctor" ->
-            match i.args with
-            | [] -> makeConst "error"
-            | [arg] -> arg
-            | args -> makeArray Fable.Any args
-            |> Some
-        | "message" ->
-            CoreLibCall("String", Some "formatError", false, [i.callee.Value])
-            |> makeCall i.range i.returnType |> Some
+        match i.methodName, i.callee with
+        // TODO: Check argument number and types?
+        | ".ctor", _ ->
+            Fable.Apply(makeIdentExpr "Error", i.args, Fable.ApplyCons, i.returnType, i.range) |> Some
+        | "message", Some e -> getProp i.range i.returnType e "message" |> Some
+        | "stackTrace", Some e -> getProp i.range i.returnType e "stack" |> Some
         | _ -> None
 
     let cancels com (i: Fable.ApplyInfo) =
@@ -1511,8 +1518,6 @@ module private AstPass =
         let coreCall meth isCons args =
             CoreLibCall("Lazy", meth, isCons, args)
             |> makeCall info.range info.returnType
-        let getProp callee prop =
-            Fable.Apply(callee, [makeConst prop], Fable.ApplyGet, info.returnType, info.range)
         match info.methodName with
         | ".ctor" | "create" -> coreCall None true info.args |> Some
         | "createFromValue" -> coreCall (Some info.methodName) false info.args |> Some
@@ -1520,7 +1525,7 @@ module private AstPass =
             let callee, _ = instanceArgs info.callee info.args
             match info.methodName with
             | "force" -> "value" | another -> another
-            |> getProp callee |> Some
+            |> getProp info.range info.returnType callee |> Some
         | _ -> None
 
     let controlExtensions com (info: Fable.ApplyInfo) =
@@ -1553,7 +1558,6 @@ module private AstPass =
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | Naming.StartsWith fableCore _ -> fableCoreLib com info
-        // TODO: Check this is not a custom exception
         | Naming.EndsWith "Exception" _ -> exceptions com info
         | "System.Object" -> objects com info
         | "System.Timers.ElapsedEventArgs" -> info.callee // only signalTime is available here
@@ -1727,8 +1731,8 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
         makeCoreRef "Map" None |> makeGeneric genArgs |> Some
     | "Microsoft.FSharp.Collections.FSharpList" ->
         makeCoreRef "List" None |> makeGeneric genArgs |> Some
-    // TODO: Check this is not a custom exception
-    | Naming.EndsWith "Exception" _
+    | Naming.EndsWith "Exception" _ ->
+        makeIdentExpr "Error" |> Some
     // Catch-all for unknown references to System and FSharp.Core classes
     | Naming.StartsWith "System." _
     | Naming.StartsWith "Microsoft.FSharp." _ ->

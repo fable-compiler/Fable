@@ -160,7 +160,7 @@ function inflate(val: any, typ: any): any {
     }
     return val;
   }
-  throw "Unexpected type when deserializing JSON: " + typ;
+  throw new Error("Unexpected type when deserializing JSON: " + typ);
 }
 
 function inflatePublic(val: any, genArgs: any): any {
@@ -262,7 +262,7 @@ export function ofJsonWithTypeInfo(json: any, genArgs: any): any {
   const expected = genArgs ? genArgs.T : null;
   if (parsed != null && typeof expected === "function"
     && !(parsed instanceof getDefinition(expected as FunctionConstructor))) {
-    throw "JSON is not of type " + expected.name + ": " + json;
+    throw new Error("JSON is not of type " + expected.name + ": " + json);
   }
   return parsed;
 }

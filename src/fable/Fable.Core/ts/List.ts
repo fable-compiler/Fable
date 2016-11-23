@@ -40,7 +40,7 @@ export function where<T>(f: (x: T) => boolean, xs: List<T>) {
 
 export function initialize<T>(n: number, f: (i: number) => T) {
   if (n < 0) {
-    throw "List length must be non-negative";
+    throw new Error("List length must be non-negative");
   }
   let xs = new List<T>();
   for (let i = 1; i <= n; i++) {

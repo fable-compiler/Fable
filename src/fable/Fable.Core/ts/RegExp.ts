@@ -35,7 +35,7 @@ export function matches(str: string | RegExp, pattern: string, options: number =
     ? (reg = <RegExp>str, str = pattern, reg.lastIndex = options, reg)
     : reg = create(pattern, options);
   if (!reg.global)
-    throw "Non-global RegExp"; // Prevent infinite loop
+    throw new Error("Non-global RegExp"); // Prevent infinite loop
   let m: RegExpExecArray;
   const matches: RegExpExecArray[] = [];
   while ((m = reg.exec(<string>str)) !== null)

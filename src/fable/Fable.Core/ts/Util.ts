@@ -121,7 +121,7 @@ export function extendInfo(cons: FunctionConstructor, info: any) {
 export function hasInterface(obj: any, interfaceName: string) {
   if (typeof obj[FSymbol.reflection] === "function") {
     const interfaces = obj[FSymbol.reflection]().interfaces;
-    return interfaces.indexOf(interfaceName) > -1;
+    return Array.isArray(interfaces) && interfaces.indexOf(interfaceName) > -1;
   }
   return false;
 }

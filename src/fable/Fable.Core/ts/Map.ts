@@ -110,13 +110,13 @@ function tree_rebalance(t1: MapTree, k: any, v: any, t2: MapTree) {
                 if (t2.Fields[2].Case === "MapNode") {
                     return tree_mk(tree_mk(t1, k, v, t2.Fields[2].Fields[2]), t2.Fields[2].Fields[0], t2.Fields[2].Fields[1], tree_mk(t2.Fields[2].Fields[3], t2.Fields[0], t2.Fields[1], t2.Fields[3]));
                 } else {
-                    throw "rebalance";
+                    throw new Error("rebalance");
                 }
             } else {
                 return tree_mk(tree_mk(t1, k, v, t2.Fields[2]), t2.Fields[0], t2.Fields[1], t2.Fields[3]);
             }
         } else {
-            throw "rebalance";
+            throw new Error("rebalance");
         }
     } else {
         if (t1h > t2h + 2) {
@@ -125,13 +125,13 @@ function tree_rebalance(t1: MapTree, k: any, v: any, t2: MapTree) {
                     if (t1.Fields[3].Case === "MapNode") {
                         return tree_mk(tree_mk(t1.Fields[2], t1.Fields[0], t1.Fields[1], t1.Fields[3].Fields[2]), t1.Fields[3].Fields[0], t1.Fields[3].Fields[1], tree_mk(t1.Fields[3].Fields[3], k, v, t2));
                     } else {
-                        throw "rebalance";
+                        throw new Error("rebalance");
                     }
                 } else {
                     return tree_mk(t1.Fields[2], t1.Fields[0], t1.Fields[1], tree_mk(t1.Fields[3], k, v, t2));
                 }
             } else {
-                throw "rebalance";
+                throw new Error("rebalance");
             }
         } else {
             return tree_mk(t1, k, v, t2);
@@ -167,7 +167,7 @@ function tree_find(comparer: IComparer<any>, k: any, m: MapTree): any {
     const res = tree_tryFind(comparer, k, m);
     if (res != null)
         return res;
-    throw "key not found";
+    throw new Error("key not found");
 }
 
 function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
@@ -240,7 +240,7 @@ function tree_spliceOutSuccessor(m: MapTree): [any, any, MapTree] {
             return [kvl[0], kvl[1], tree_mk(kvl[2], m.Fields[0], m.Fields[1], m.Fields[3])];
         }
     }
-    throw "internal error: Map.spliceOutSuccessor";
+    throw new Error("internal error: Map.spliceOutSuccessor");
 }
 
 function tree_remove(comparer: IComparer<any>, k: any, m: MapTree): MapTree {
@@ -471,7 +471,7 @@ function tree_moveNext(i: MapIterator): IteratorResult<[any, any]> {
         else if (i.stack.head.Case === "MapOne") {
             return [i.stack.head.Fields[0], i.stack.head.Fields[1]];
         }
-        throw "Please report error: Map iterator, unexpected stack for current";
+        throw new Error("Please report error: Map iterator, unexpected stack for current");
     }
     if (i.started) {
         if (i.stack.tail == null) {
@@ -484,7 +484,7 @@ function tree_moveNext(i: MapIterator): IteratorResult<[any, any]> {
                     value: current(i)
                 };
             } else {
-                throw "Please report error: Map iterator, unexpected stack for moveNext";
+                throw new Error("Please report error: Map iterator, unexpected stack for moveNext");
             }
         }
     }
@@ -549,17 +549,17 @@ export default class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMa
 
   /** Not supported */
   set(k: K, v: V): FMap<K,V> {
-    throw "not supported";
+    throw new Error("not supported");
   }
 
   /** Not supported */
   delete(k: K): boolean {
-    throw "not supported";
+    throw new Error("not supported");
   }
 
   /** Not supported */
   clear(): void {
-    throw "not supported";
+    throw new Error("not supported");
   }
 
   get size() {
@@ -659,7 +659,7 @@ export function pick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
     const res = tryPick(f, map) as U;
     if (res != null)
         return res;
-    throw "key not found";
+    throw new Error("key not found");
 }
 
 export function tryPick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {

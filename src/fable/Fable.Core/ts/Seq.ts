@@ -6,7 +6,7 @@ import List from "./ListClass"
 
 function __failIfNone<T>(res: T) {
   if (res == null)
-    throw "Seq did not contain any matching element";
+    throw new Error("Seq did not contain any matching element");
   return res;
 }
 
@@ -173,10 +173,10 @@ export function exactlyOne<T>(xs: Iterable<T>) {
   const iter = xs[Symbol.iterator]();
   const fst = iter.next();
   if (fst.done)
-    throw "Seq was empty";
+    throw new Error("Seq was empty");
   const snd = iter.next();
   if (!snd.done)
-    throw "Seq had multiple items";
+    throw new Error("Seq had multiple items");
   return fst.value;
 }
 
@@ -455,7 +455,7 @@ export function permute<T>(f: (i: number) => number, xs: Iterable<T>) {
 
 export function rangeStep(first: number, step: number, last: number) {
   if (step === 0)
-    throw "Step cannot be 0";
+    throw new Error("Step cannot be 0");
   return delay(() => unfold(x => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first));
 }
 
@@ -477,7 +477,7 @@ export function reduce<T>(f: (acc: T, x: T) => T, xs: Iterable<T>) {
   const iter = xs[Symbol.iterator]();
   let cur = iter.next();
   if (cur.done)
-    throw "Seq was empty";
+    throw new Error("Seq was empty");
   let acc = cur.value;
   for (; ;) {
     cur = iter.next();
@@ -491,7 +491,7 @@ export function reduce<T>(f: (acc: T, x: T) => T, xs: Iterable<T>) {
 export function reduceBack<T>(f: (acc: T, x: T, i?: number) => T, xs: Iterable<T>) {
   const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? <Array<T>>xs : Array.from(xs);
   if (ar.length === 0)
-    throw "Seq was empty";
+    throw new Error("Seq was empty");
   let acc = ar[ar.length - 1];
   for (let i = ar.length - 2; i >= 0; i--)
     acc = f(ar[i], acc, i);
@@ -537,7 +537,7 @@ export function skip<T>(n: number, xs: Iterable<T>) {
       const iter = xs[Symbol.iterator]();
       for (let i = 1; i <= n; i++)
         if (iter.next().done)
-          throw "Seq has not enough elements";
+          throw new Error("Seq has not enough elements");
       return iter;
     }
   };
@@ -567,7 +567,7 @@ export function tail<T>(xs: Iterable<T>) {
   const iter = xs[Symbol.iterator]();
   const cur = iter.next();
   if (cur.done)
-    throw "Seq was empty";
+    throw new Error("Seq was empty");
   return <Iterable<T>>{
     [Symbol.iterator]: () => iter
   };
@@ -582,7 +582,7 @@ export function take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
         if (!cur.done)
           return [cur.value, i + 1];
         if (!truncate)
-          throw "Seq has not enough elements";
+          throw new Error("Seq has not enough elements");
       }
       return void 0;
     }, 0);

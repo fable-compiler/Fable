@@ -26,7 +26,7 @@ export function maxValue() {
 export function parse(v?: any, kind?: DateKind): any {
   const date = (v == null) ? new Date() : new Date(v);
   if (isNaN(date.getTime()))
-    throw "The string is not a valid Date.";
+    throw new Error("The string is not a valid Date.");
   (<any>date).kind = kind ||
     (typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local);
   return date;
@@ -46,7 +46,7 @@ export function create(year: number, month: number, day: number, h: number = 0, 
     ? new Date(Date.UTC(year, month - 1, day, h, m, s, ms))
     : new Date(year, month - 1, day, h, m, s, ms);
   if (isNaN(date.getTime()))
-    throw "The parameters describe an unrepresentable Date.";
+    throw new Error("The parameters describe an unrepresentable Date.");
   (<any>date).kind = kind;
   return date;
 }

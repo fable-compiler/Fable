@@ -15,7 +15,7 @@ export function resolveGeneric(idx: string | number, enclosing: List<any>): List
       : new List(resolved, enclosing);
   }
   catch (err) {
-    throw `Cannot resolve generic argument ${name}: ${err}`;
+    throw new Error(`Cannot resolve generic argument ${name}: ${err}`);
   }
 }
 

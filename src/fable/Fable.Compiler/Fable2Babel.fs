@@ -1011,21 +1011,23 @@ module Util =
             | Fable.EntityDeclaration (ent, privateName, entDecls, entRange) ->
                 match ent.Kind with
                 | Fable.Interface ->
-                    (declareInterfaceEntity com ent)@acc
+                    declareInterfaceEntity com ent
                 | Fable.Class(baseClass, _) ->
                     let baseClass = baseClass |> Option.map snd
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange baseClass true
-                    |> List.append <| acc
-                | Fable.Union _ | Fable.Record _ | Fable.Exception _ ->
+                | Fable.Exception _ ->
+                    let baseClass = Some(Fable.Value(Fable.IdentValue(Fable.Ident("Error"))))
+                    declareClass com ctx declareMember modIdent
+                        ent privateName entDecls entRange baseClass true
+                | Fable.Union _ | Fable.Record _ ->
                     declareClass com ctx declareMember modIdent
                         ent privateName entDecls entRange None false
-                    |> List.append <| acc
                 | Fable.Module ->
                     transformNestedModule com ctx ent entDecls entRange
                     |> declareMember entRange ent.Name (Some privateName)
                         ent.IsPublic false modIdent
-                    |> List.append <| acc) []
+                |> List.append <| acc) []
         |> fun decls ->
             match modIdent with
             | None -> decls

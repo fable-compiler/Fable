@@ -62,13 +62,13 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
     o?foo <- fun x y -> x / y
     o?foo(25, 5) |> unbox<int> |> equal 5
 
-[<Test>]
-let ``JS accepts any object as exception``() =
-    try
-        let o = createObj [ "foo" ==> 3 ]
-        raise(unbox o)
-    with ex -> ex.Message
-    |> equal """{"foo":3}"""
+// [<Test>]
+// let ``JS accepts any object as exception``() =
+//     try
+//         let o = createObj [ "foo" ==> 3 ]
+//         raise(unbox o)
+//     with ex -> ex.Message
+//     |> equal """{"foo":3}"""
 
 [<KeyValueList>]
 type MyOptions =

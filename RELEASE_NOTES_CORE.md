@@ -1,3 +1,7 @@
+### 0.7.7
+
+* `System.Exception` translates to JS `Error`
+
 ### 0.7.6
 
 * Too many changes to be listed, check the [migration guide](http://fable.io/blog/Introducing-0-7.html)

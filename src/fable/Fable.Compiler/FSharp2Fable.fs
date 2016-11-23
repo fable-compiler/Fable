@@ -204,12 +204,9 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         makeLambdaExpr [lambdaArg] expr2
 
     | BaseCons com ctx (meth, args) ->
-        if Naming.ignoredBaseClasses |> Seq.exists meth.FullName.StartsWith
-        then Fable.Value Fable.Null
-        else
-            let args = List.map (transformExprWithRole AppliedArgument com ctx) args
-            let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-            Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
+        let args = List.map (transformExprWithRole AppliedArgument com ctx) args
+        let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
+        Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
 
     | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) methArgs
@@ -507,8 +504,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 (Some prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
         let baseClass, baseCons =
             match baseCallExpr with
-            | BasicPatterns.Call(None, meth, _, _, args)
-                    when Naming.ignoredBaseClasses |> Seq.exists meth.FullName.StartsWith |> not ->
+            | BasicPatterns.Call(None, meth, _, _, args) ->
                 let args = List.map (com.Transform ctx) args
                 let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
                 let baseClass =
@@ -777,7 +773,8 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     // TODO: Use specific interface for FSharpException?
     | Fable.Record fields
     | Fable.Exception fields ->
-      [ yield makeRecordCons fields
+      let isEx = match fableEnt.Kind with Fable.Exception _ -> true | _ -> false
+      [ yield makeRecordCons isEx fields
         yield makeReflectionMeth fableEnt false fableEnt.FullName
                 ("FSharpRecord"::fableEnt.Interfaces) None (Some fields)
         if needsEqImpl then yield makeRecordEqualMethod fableType

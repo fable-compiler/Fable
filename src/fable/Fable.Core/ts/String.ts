@@ -161,10 +161,6 @@ export function format(str: string, ...args: any[]) {
   });
 }
 
-export function formatError(err: any) {
-  return typeof err === "string" ? err : fsFormat("%A", err);
-}
-
 export function endsWith(str: string, search: string) {
   const idx = str.lastIndexOf(search);
   return idx >= 0 && idx == str.length - search.length;
@@ -172,7 +168,7 @@ export function endsWith(str: string, search: string) {
 
 export function initialize(n: number, f: (i: number) => string) {
   if (n < 0)
-    throw "String length must be non-negative";
+    throw new Error("String length must be non-negative");
   const xs = new Array(n);
   for (let i = 0; i < n; i++)
     xs[i] = f(i);
@@ -181,7 +177,7 @@ export function initialize(n: number, f: (i: number) => string) {
 
 export function insert(str: string, startIndex: number, value: string) {
   if (startIndex < 0 || startIndex > str.length) {
-    throw "startIndex is negative or greater than the length of this instance.";
+    throw new Error("startIndex is negative or greater than the length of this instance.");
   }
   return str.substring(0, startIndex) + value + str.substring(startIndex);
 }
@@ -225,10 +221,10 @@ export function padRight(str: any, len: number, ch?: string) {
 
 export function remove(str: string, startIndex: number, count?: number) {
   if (startIndex >= str.length) {
-    throw "startIndex must be less than length of string";
+    throw new Error("startIndex must be less than length of string");
   }
   if (typeof count === "number" && (startIndex + count) > str.length) {
-    throw "Index and count must refer to a location within the string."
+    throw new Error("Index and count must refer to a location within the string.")
   }
   return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
 }
@@ -246,7 +242,7 @@ export function split(str: string, splitters: string[], count?: number, removeEm
   count = typeof count == "number" ? count : null;
   removeEmpty = typeof removeEmpty == "number" ? removeEmpty : null;
   if (count < 0)
-    throw "Count cannot be less than zero";
+    throw new Error("Count cannot be less than zero");
   if (count === 0)
     return [];
   splitters = Array.isArray(splitters) ? splitters : getRestParams(arguments, 1);

@@ -78,7 +78,7 @@ export default class MailboxProcessor<Msg> {
   receive() {
     return fromContinuations((conts: Array<Continuation<Msg>>) => {
       if (this.continuation)
-        throw "Receive can only be called once!";
+        throw new Error("Receive can only be called once!");
 
       this.continuation = conts[0];
       this.__processEvents();

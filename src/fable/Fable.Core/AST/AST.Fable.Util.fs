@@ -69,7 +69,7 @@ let makeConst (value: obj) =
     | :? float32 as x -> NumberConst (U2.Case2 (float x), Float32)
     | :? decimal as x -> NumberConst (U2.Case2 (float x), Float64)
     // TODO: Regex
-    | :? unit | _ when value = null -> Null
+    | :? unit | _ when isNull value -> Null
     | _ -> failwithf "Unexpected literal %O" value
     |> Value
 
@@ -241,7 +241,7 @@ let makeUnionCons () =
     let body = Apply (emit, [], ApplyMeth, Unit, None)
     MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), None, args, body, None)
 
-let makeRecordCons (props: (string*Type) list) =
+let makeRecordCons (isException: bool) (props: (string*Type) list) =
     let args =
         ([], props) ||> List.fold (fun args (name, typ) ->
             let name =
@@ -258,7 +258,11 @@ let makeRecordCons (props: (string*Type) list) =
                 else "." + propName
             "this" + propName + "=" + arg.Name)
         |> String.concat ";"
-        |> fun body -> makeEmit None Unit [] body
+        |> fun body ->
+            let body = makeEmit None Unit [] body
+            if isException
+            then makeSequential None [Apply(Value Super, [], ApplyMeth, Any, None); body]
+            else body
     MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, None)
 
 let private makeMeth argType returnType name coreMeth =

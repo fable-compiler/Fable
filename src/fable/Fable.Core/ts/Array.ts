@@ -29,13 +29,13 @@ export function permute<T>(f: (i: number) => number, xs: Array<T>) {
   for (let i = 0; i < xs.length; i++) {
     const j = f(i);
     if (j < 0 || j >= xs.length)
-      throw "Not a valid permutation";
+      throw new Error("Not a valid permutation");
     ys[j] = xs[i];
     checkFlags[j] = 1;
   }
   for (let i = 0; i < xs.length; i++)
     if (checkFlags[i] != 1)
-      throw "Not a valid permutation";
+      throw new Error("Not a valid permutation");
   return ys;
 }
 
