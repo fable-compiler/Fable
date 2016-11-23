@@ -1,3 +1,7 @@
+### 0.7.8
+
+* Fix #557: `Array.distinctBy`
+
 ### 0.7.7
 
 * `System.Exception` translates to JS `Error`

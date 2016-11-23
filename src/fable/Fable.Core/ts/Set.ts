@@ -10,23 +10,26 @@ import { fold as seqFold } from "./Seq"
 import { reduce as seqReduce } from "./Seq"
 import { forAll as seqForAll } from "./Seq"
 import { exists as seqExists } from "./Seq"
+import { choose as seqChoose } from "./Seq"
+import { scan as seqScan } from "./Seq"
 
 // ----------------------------------------------
 // These functions belong to Seq.ts but are
 // implemented here to prevent cyclic dependencies
 
 export function distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
-  const iter = xs[Symbol.iterator]();
-  let acc = create<K>(), cur = iter.next();
-  while (!cur.done) {
-    const k = f(cur.value);
-    acc = add(k, acc);
-    cur = iter.next();
-  }
-  return acc;
+  return seqChoose(
+    (tup: [T, FSet<K>]) => tup[0],
+    seqScan((tup: [T, FSet<K>], x: T) => {
+      const acc = tup[1];
+      const k = f(x);
+      return acc.has(k) ? [<T>null, acc] : [x, add(k, acc)];
+    }, [<T>null, create<K>()] as [T, FSet<K>], xs));
 }
 
-export { create as distinct }
+export function distinct<T>(xs: Iterable<T>) {
+  return distinctBy(x => x, xs);
+}
 // ----------------------------------------------
 
 interface SetIterator {

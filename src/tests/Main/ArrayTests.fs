@@ -199,6 +199,39 @@ let ``Array.copy works``() =
     ys |> Array.sum |> equal 10
 
 [<Test>]
+let ``Array distinct works`` () =
+    let xs =
+        [| "b"
+           "a"
+           "b" |] 
+        |> Array.distinct
+    xs.Length |> equal 2
+    xs.[0] |> equal "b"
+    xs.[1] |> equal "a"
+
+[<Test>]
+let ``Array distinctBy works`` () =
+    let xs =
+        [| "a"
+           "b"
+           "a" |] 
+        |> Array.distinctBy(fun x -> x + "_")
+    xs.Length |> equal 2
+    xs.[0] |> equal "a"
+    xs.[1] |> equal "b"
+
+[<Test>]
+let ``Array distinctBy with tuples works`` () =
+    let xs =
+        [| (0,0),"a"
+           (1,1),"b"
+           (0,0),"c" |] 
+        |> Array.distinctBy(fun (x, _) -> x)
+    xs.Length |> equal 2
+    xs.[0] |> snd |> equal "a"
+    xs.[1] |> snd |> equal "b"
+
+[<Test>]
 let ``Array.sub works``() =
     let xs = [|0..99|]
     let ys = Array.sub xs 5 10    // [|5; 6; 7; 8; 9; 10; 11; 12; 13; 14|]

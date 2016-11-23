@@ -866,6 +866,7 @@ module Util =
             |> Seq.iter (fun (par, arg) ->
                 if hasAtt Atts.pojo par.Attributes then
                     match tryDefinition arg with
+                    | Some argDef when argDef.TryFullName = Some "System.Object" -> ()
                     | Some argDef when hasAtt Atts.pojo argDef.Attributes -> ()
                     | _ -> let msg = sprintf "Generic type '%s must be a record with %s" par.Name Atts.pojo
                            FableError(msg, ?range=r, file=ctx.fileName) |> raise)
