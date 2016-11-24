@@ -617,7 +617,6 @@ let ``Array.sortDescending works``() =
 
     let ys = [|"a"; "c"; "B"; "d"|]
     ys |> Array.sortDescending |> Array.item 1 |> equal "c"
-    ys.[1] |> equal "c"  // Make sure there is no side effects
 
 
 [<Test>]
