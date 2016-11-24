@@ -1,3 +1,8 @@
+### 0.7.9
+
+* Fix `Array.rev` (see #559)
+* Added UnboxFast intrinsic / List.truncate (see #561)
+
 ### 0.7.8
 
 * `System.Exception` translates to JS `Error`

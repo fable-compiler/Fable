@@ -90,3 +90,53 @@ let ``Comparing generic types works``() =
     let t3 = typeof<GenericRecord<string, int>>
     t1 = t2 |> equal true
     t1 = t3 |> equal false
+
+let [<PassGenerics>] getName<'t> = function
+    | "namespace" -> typedefof<'t>.Namespace
+    | "name" -> typedefof<'t>.Name
+    | _ -> typedefof<'t>.FullName
+
+let [<PassGenerics>] getName2 (d:'t) = function
+    | "namespace" -> typeof<'t>.Namespace
+    | "name" -> typeof<'t>.Name
+    | _ -> typeof<'t>.FullName
+
+let getName3 (t:System.Type) = function
+    | "namespace" -> t.Namespace
+    | "name" -> t.Name
+    | _ -> t.FullName
+
+let getName4 (o:obj) = function
+    | "namespace" -> o.GetType().Namespace
+    | "name" -> o.GetType().Name
+    | _ -> o.GetType().FullName
+
+type Firm = { name: string }
+
+[<Test>]
+let ``Type name is accessible``() =
+    let x = { name = "" }
+    getName<Firm> "name" |> equal "Firm"
+    getName2 x "name" |> equal "Firm"
+    getName3 typedefof<Firm> "name" |> equal "Firm"
+    getName4 x "name" |> equal "Firm"
+
+[<Test>]
+let ``Type namespace is accessible``() =
+    let test (x: string) =
+        x.StartsWith("Fable.Tests") |> equal true
+    let x = { name = "" }
+    getName<Firm> "namespace" |> test
+    getName2 x "namespace" |> test
+    getName3 typedefof<Firm> "namespace" |> test
+    getName4 x "namespace" |> test
+
+[<Test>]
+let ``Type full name is accessible``() =
+    let test (x: string) =
+        x.Replace("+", ".") |> equal "Fable.Tests.Reflection.Firm"
+    let x = { name = "" }
+    getName<Firm> "fullname" |> test
+    getName2 x "fullname" |> test
+    getName3 typedefof<Firm> "fullname" |> test
+    getName4 x "fullname" |> test

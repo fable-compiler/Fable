@@ -1,3 +1,7 @@
+### 0.7.9
+
+* Fix #560: `typeof<'T>.FullName`
+
 ### 0.7.8
 
 * Fix #557: `Array.distinctBy`

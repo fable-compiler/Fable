@@ -70,7 +70,8 @@ export function getTypeFullName(typ: any, option?: string): string {
       }
   }
   else {
-    const proto = Object.getPrototypeOf(typ);
+    // Attention: this doesn't work with Object.getPrototypeOf
+    const proto = typ.prototype;
     return trim(typeof proto[FSymbol.reflection] === "function"
       ? proto[FSymbol.reflection]().type : null, option);
   }
