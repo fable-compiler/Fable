@@ -1226,7 +1226,13 @@ module private AstPass =
         | "removeAt" ->
             icall "splice" (c.Value, [args.Head; makeConst 1]) |> Some
         | "reverse" when kind = Array ->
-            icall "reverse" (instanceArgs c i.args) |> Some
+            match i.returnType with
+            | Fable.Array _ ->
+                // Arrays need to be copied before sorted in place.
+                emit i "$0.slice().reverse()" i.args |> Some
+            | _ ->
+                // ResizeArray should be sorted in place without copying.
+                icall "reverse" (instanceArgs c i.args) |> Some
         // Conversions
         | "toSeq" | "ofSeq" ->
             match kind with

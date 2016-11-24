@@ -572,6 +572,7 @@ let ``Array.reduceBack works``() =
 let ``Array.rev works``() =
     let xs = [|1.; 2.|]
     let ys = xs |> Array.rev
+    xs.[0] |> equal 1. // Make sure there is no side effects
     ys.[0] |> equal 2.
 
 [<Test>]
@@ -601,6 +602,9 @@ let ``Array.truncate works``() =
     xs |> Array.truncate 2
     |> Array.last
     |> equal 2.
+
+    xs.Length |> equal 5 // Make sure there is no side effects
+
     // Array.truncate shouldn't throw an exception if there're not enough elements
     try xs |> Array.truncate 20 |> Array.length with _ -> -1
     |> equal 5
@@ -608,8 +612,10 @@ let ``Array.truncate works``() =
 [<Test>]
 let ``Array.sortDescending works``() =
     let xs = [|3; 4; 1; -3; 2; 10|]
-    let ys = [|"a"; "c"; "B"; "d"|]
     xs |> Array.sortDescending |> Array.take 3 |> Array.sum |> equal 17
+    xs.[0] |> equal 3  // Make sure there is no side effects
+
+    let ys = [|"a"; "c"; "B"; "d"|]
     ys |> Array.sortDescending |> Array.item 1 |> equal "c"
 
 [<Test>]
