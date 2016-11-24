@@ -618,7 +618,6 @@ let ``Array.sortDescending works``() =
     let ys = [|"a"; "c"; "B"; "d"|]
     ys |> Array.sortDescending |> Array.item 1 |> equal "c"
 
-
 [<Test>]
 let ``Array.sortBy works``() =
     let xs = [|3.; 4.; 1.; 2.|]
