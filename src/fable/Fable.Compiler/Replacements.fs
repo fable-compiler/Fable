@@ -1308,6 +1308,8 @@ module private AstPass =
             match i.methodName with
             | "getSlice" ->
                 listMeth "slice" (i.args@[i.callee.Value])
+            | "truncate" ->
+                listMeth "slice" ([makeConst 0]@i.args)
             | Patterns.SetContains implementedListFunctions meth ->
                 listMeth meth i.args
             | _ -> None
