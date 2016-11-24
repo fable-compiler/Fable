@@ -762,6 +762,7 @@ module private AstPass =
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
         | "checkThis", (None, [arg]) -> Some arg
+        | "unboxFast", OneArg (arg) -> wrap i.returnType arg |> Some
         | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
         | "makeDecimal", (_, (Fable.Value (Fable.NumberConst (U2.Case1 low, Int32)))::
                              (Fable.Value (Fable.NumberConst (U2.Case1 medium, Int32)))::
@@ -1313,6 +1314,8 @@ module private AstPass =
             match i.methodName with
             | "getSlice" ->
                 listMeth "slice" (i.args@[i.callee.Value])
+            | "truncate" ->
+                listMeth "slice" ([makeConst 0]@i.args)
             | Patterns.SetContains implementedListFunctions meth ->
                 listMeth meth i.args
             | _ -> None
