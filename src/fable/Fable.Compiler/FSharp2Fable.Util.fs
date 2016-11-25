@@ -911,10 +911,8 @@ module Util =
             ) args (ctx, thisArg, [])
         |> fun (ctx, thisArg, args) ->
             if info.passGenerics
-            then
-                let args = args@[makeIdent Naming.genArgsIdent]
-                { ctx with genericAvailability=true }, thisArg, args
-            else ctx, thisArg, args
+            then { ctx with genericAvailability=true }, thisArg, args, [makeIdent Naming.genArgsIdent]
+            else ctx, thisArg, args, []
 
     let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
         let catchClause =

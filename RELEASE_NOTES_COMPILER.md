@@ -1,3 +1,7 @@
+### 0.7.10
+
+* Fix #563: Overloads with `PassGenericsAttribute`
+
 ### 0.7.9
 
 * Fix `Array.rev` (see #559)

@@ -522,7 +522,8 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 overrides |> List.map (fun over ->
                     let info = { isInstance = true; passGenerics = false }
                     let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
-                    let ctx, thisArg, args' = bindMemberArgs com ctx info args
+                    let ctx, thisArg, args', extraArgs' = bindMemberArgs com ctx info args
+                    let args' = args'@extraArgs'
                     let ctx =
                         match capturedThis, thisArg with
                         | None, _ -> ctx
@@ -911,26 +912,26 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
                 ctx, Some (privateName.Name)
             else ctx, None
-        let memberKind, args, body =
+        let memberKind, args, extraArgs, body =
             match relativeImport with
             | Some(selector, path) ->
-                Fable.Field, [], makeImport selector path
+                Fable.Field, [], [], makeImport selector path
             | None ->
                 let info =
                     { isInstance = meth.IsInstanceMember
                     ; passGenerics = hasAtt Atts.passGenerics meth.Attributes }
                 bindMemberArgs com ctx info args
-                |> fun (ctx, _, args) ->
+                |> fun (ctx, _, args, extraArgs) ->
                     if memberLoc <> Fable.StaticLoc
-                    then { ctx with thisAvailability = ThisAvailable }, args
-                    else ctx, args
-                |> fun (ctx, args) ->
+                    then { ctx with thisAvailability = ThisAvailable }, args, extraArgs
+                    else ctx, args, extraArgs
+                |> fun (ctx, args, extraArgs) ->
                     match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
                     | true, Some(EntityKind(Fable.Class(Some(fullName, _), _))) ->
-                        { ctx with baseClass = Some fullName }, args
-                    | _ -> ctx, args
-                |> fun (ctx, args) ->
-                    getMemberKind meth, args, transformExpr com ctx body
+                        { ctx with baseClass = Some fullName }, args, extraArgs
+                    | _ -> ctx, args, extraArgs
+                |> fun (ctx, args, extraArgs) ->
+                    getMemberKind meth, args, extraArgs, transformExpr com ctx body
         let entMember =
             let fableEnt = makeEntity com ctx meth.EnclosingEntity
             let argTypes = List.map Fable.Ident.getType args
@@ -938,7 +939,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             match fableEnt.TryGetMember(memberName, memberKind, memberLoc, argTypes) with
             | Some m -> m
             | None -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-            |> fun m -> Fable.MemberDeclaration(m, privateName, args, body, None)
+            |> fun m -> Fable.MemberDeclaration(m, privateName, args@extraArgs, body, None)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
     let relativeImport = tryGetRelativeImport meth.Attributes

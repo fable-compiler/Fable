@@ -140,3 +140,17 @@ let ``Type full name is accessible``() =
     getName2 x "fullname" |> test
     getName3 typedefof<Firm> "fullname" |> test
     getName4 x "fullname" |> test
+
+type MessageBus () =
+  let _create topic value = ()
+  [<PassGenerics>]
+  member this.create (value:'t) = "topic1: " + (typeof<'t>.Name)
+  [<PassGenerics>]
+  member this.create (topic, value:'t) = topic + ": " + (typeof<'t>.Name)
+
+[<Test>]
+let ``Overloads with PassGenericsAttribute work``() =
+    let x = { name = "" }
+    let bus = MessageBus()
+    bus.create x |> equal "topic1: Firm"
+    bus.create ("global", x) |> equal "global: Firm"
