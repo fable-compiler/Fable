@@ -178,9 +178,19 @@ exports.resolvePlugins = resolvePlugins;
  */
 function isFSharpProject(filePath) {
     return typeof filePath === "string"
-        && constants.FSHARP_PROJECT_EXTENSIONS.indexOf(path.extname(filePath.toLowerCase())) >= 0;
+        && constants.FSHARP_PROJECT_EXTENSIONS.indexOf(path.extname(filePath).toLowerCase()) >= 0;
 }
 exports.isFSharpProject = isFSharpProject;
+
+/**
+ * Checks if the file is an F# module (.fs), script (.fsx) or project (.fsproj)
+ * @param {string} filePath The F# file
+ */
+function isFSharpFile(filePath) {
+    return typeof filePath === "string"
+        && constants.FSHARP_FILE_EXTENSIONS.indexOf(path.extname(filePath).toLowerCase()) >= 0;
+}
+exports.isFSharpFile = isFSharpFile;
 
 /**
  * Apparently path.isAbsolute is not very reliable

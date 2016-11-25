@@ -13,6 +13,9 @@ exports.FABLE_CONFIG_FILE = "fableconfig.json";
 /** [".fsproj", ".fsx"] */
 exports.FSHARP_PROJECT_EXTENSIONS = [".fsproj", ".fsx"];
 
+/** [".fsproj", ".fsx", ".fs"] */
+exports.FSHARP_FILE_EXTENSIONS = [".fsproj", ".fsx", ".fs"];
+
 /** Set of options compatible with Fable's .NET process */
 exports.FABLE_BIN_OPTIONS = new Set([
     "projFile", "outDir", "refs", "symbols", "plugins",

@@ -108,12 +108,13 @@ function watch(opts, fableProc, parallelProc, continuation) {
         .on("ready", function() { ready = true; })
         .on("all", function(ev, filePath) {
             if (ready) {
-                var ext = path.extname(filePath).toLowerCase();
-                prev = next;
-                next = [filePath, new Date()];
-                if (!tooClose(filePath, prev)) {
-                    fableLib.stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
-                    fableProc.stdin.write(filePath + "\n");
+                if (fableLib.isFSharpFile(filePath)) {
+                    prev = next;
+                    next = [filePath, new Date()];
+                    if (!tooClose(filePath, prev)) {
+                        fableLib.stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
+                        fableProc.stdin.write(filePath + "\n");
+                    }
                 }
             }
         });
