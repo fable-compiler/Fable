@@ -1,5 +1,7 @@
 ### 0.7.10
 
+* Fix #565, #566: Only watch F# files
+* Fix #564: Don't overload methods from imported classes
 * Fix #563: Overloads with `PassGenericsAttribute`
 
 ### 0.7.9

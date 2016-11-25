@@ -140,6 +140,15 @@ module Helpers =
                 && hasAtt Atts.mutatingUpdate typ.TypeDefinition.Attributes
         else false
 
+    let isInterfaceOrImportedMember (meth: FSharpMemberOrFunctionOrValue) =
+        // Interface
+        meth.IsExplicitInterfaceImplementation
+        || meth.EnclosingEntity.IsInterface
+        || (meth.EnclosingEntity.Attributes
+            |> tryFindAtt (fun name ->
+                name = Atts.import || name = Atts.global_)
+            |> Option.isSome)
+
     let sameMemberLoc memberLoc1 memberLoc2 =
         match memberLoc1, memberLoc2 with
         | Fable.StaticLoc, Fable.StaticLoc -> true
@@ -1213,9 +1222,12 @@ module Util =
                     | Some e -> e
                     | _ ->
                         let methName =
-                            let ent = makeEntity com ctx meth.EnclosingEntity
-                            ent.TryGetMember(methName, kind, getMemberLoc meth, argTypes)
-                            |> function Some m -> m.OverloadName | None -> methName
+                            if isInterfaceOrImportedMember meth
+                            then methName
+                            else
+                                let ent = makeEntity com ctx meth.EnclosingEntity
+                                ent.TryGetMember(methName, kind, getMemberLoc meth, argTypes)
+                                |> function Some m -> m.OverloadName | None -> methName
                         let calleeType = Fable.Function(argTypes, typ)
                         makeGet r calleeType callee (makeConst methName)
                     |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)

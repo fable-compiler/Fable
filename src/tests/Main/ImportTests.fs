@@ -91,3 +91,22 @@ let ``Identifiers are encoded correctly``() = // See #482
     equal "bar8" Lib.``foo$5EA$``
     equal "bar9" Lib.``foo^A``
     equal "bar10" Lib.``fooת``
+
+#if FABLE_COMPILER
+open Fable.Core
+
+[<Import("MyClass", "./js/foo.js")>]
+type MyClass() =
+    member x.bar(): string = jsNative
+    member x.bar(s: string): string = jsNative
+    static member foo(): string = jsNative
+    static member foo(i: int): int = jsNative
+
+[<Test>]
+let ``Overloads of an imported class are not mangled``() = // See #564
+    MyClass.foo() |> equal "foo"
+    MyClass.foo(5) |> equal 25
+    let c = MyClass()
+    c.bar() |> equal "bar"
+    c.bar("caracola") |> equal "CARACOLA"
+#endif
