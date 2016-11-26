@@ -14,7 +14,7 @@ open System
 open FSharp.Reflection
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
-open System.Collections.Generic
+open System.Collections.Concurrent
 
 /// Converts F# options, tuples and unions to a format understandable
 /// by Fable. Code adapted from Lev Gorodinski's original.
@@ -36,7 +36,7 @@ type JsonConverter() =
         advance reader
         read 0 List.empty
 
-    let typeCache = Dictionary<Type, bool>()
+    let typeCache = ConcurrentDictionary<_, _>()
     override x.CanConvert(t) =
             match typeCache.TryGetValue(t) with
             | false, _ ->
@@ -44,7 +44,7 @@ type JsonConverter() =
                     t.Name = "FSharpOption`1"
                     || FSharpType.IsTuple t
                     || (FSharpType.IsUnion t && t.Name <> "FSharpList`1")
-                typeCache.Add(t, result)
+                typeCache.TryAdd(t, result) |> ignore
                 result
             | _, result -> result
 
