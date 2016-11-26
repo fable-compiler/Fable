@@ -1,6 +1,7 @@
 {
-    "module": "amd",
-    "sourceMaps": true,
     "projFile": "./pacman.fsx",
-    "outDir": "out"
+    "sourceMaps": true,
+    "rollup": {
+        "dest": "./out/bundle.js"
+    }
 }

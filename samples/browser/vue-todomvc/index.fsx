@@ -3,7 +3,7 @@
 // but takes advantage of static type checking
 
 // Load Fable.Core
-#r "../node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
 
 open Fable.Core
 open Fable.Import
@@ -11,7 +11,7 @@ open Fable.Core.JsInterop
 
 // Import Vue and director objects
 let Vue: obj = importDefault "vue"
-let Router: obj->obj = importDefault "director"
+let Router: obj->obj = importDefault "./lib/director.js"
 
 // To make dynamic programing less verbose
 // we can define a couple of helpers and

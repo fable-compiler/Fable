@@ -1,10 +1,11 @@
 {
-    "projFile": "react-todomvc.fsx",
-    "module": "amd",
-    "sourceMaps": true,
-    "outDir": "out",
-    "refs": {
-        "Fable.Core": "fable-core/umd",
-        "Fable.React": "fable-react/umd"
+    "projFile": "./react-todomvc.fsx",
+    "rollup": {
+        "dest": "./out/bundle.js",
+        "external": ["react", "react-dom"],
+        "globals": {
+            "react": "React",
+            "react-dom": "ReactDOM"
+        }
     }
 }

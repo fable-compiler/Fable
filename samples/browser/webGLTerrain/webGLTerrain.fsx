@@ -12,8 +12,8 @@
    global objects and other useful functions.
 *)
 (*** hide ***)
-#r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-three/Fable.Import.Three.fs"
+#r "../../node_modules/fable-core/Fable.Core.dll"
+#load "../../node_modules/fable-import-three/Fable.Import.Three.fs"
 (**
 JavaScript helpers and imports
 ------------------------------
@@ -40,23 +40,9 @@ type IFirstPersonControls =
     abstract handleResize: unit -> unit
     abstract update: float -> unit
 
-(**
-The `Global` attribute on ImprovedNoise specifies that the function is globally available.
-
-FirstPersonControls is a bit more complicated because we need to use the `new` keyword.
-Fable won't do this automatically so we make sure the proper JS is emitted with `Emit` attribute.
-The dots after the placeholder `$0...` indicate any additional argument must also be applied in JS.
-This is very useful when we have a method with `ParamArray` args.
-*)
-
-// Globally imported JS libs (loaded with <script> tag)    
-[<Global>]
-let ImprovedNoise(): IPerlin = jsNative
-
-[<Emit("new THREE.FirstPersonControls($0...)")>]
-let FirstPersonControls(camera: Three.Camera,
-                        domElement: Browser.HTMLElement):
-                        IFirstPersonControls = jsNative
+let ImprovedNoise: unit->IPerlin = importDefault "./js/ImprovedNoise.js"
+let FirstPersonControls: JsConstructor<Three.Camera * Browser.HTMLElement, IFirstPersonControls> =
+    importDefault "./js/FirstPersonControls.js"
 
 (**
 Initial settings and helper functions
@@ -105,7 +91,7 @@ To generate the textures for the terrain, we'll be using a canvas element
 to draw the image and later pass it directly to THREE.Texture class.
 *)
 
-let generateTexture (data:float[]) (width:int) (height:int) = 
+let generateTexture (data:float[]) (width:int) (height:int) =
     let vector3 = Three.Vector3(0.0, 0.0, 0.0)
     let sun = (Three.Vector3(1.0, 1.0, 1.0) :> Three.Vector).normalize()
 
@@ -200,7 +186,7 @@ let init() =
     let camera = Three.PerspectiveCamera(
                     60.0, getWidth() / getHeight(), 1.0, 20000.0)
     let scene = Three.Scene()
-    
+
     let renderer = Three.WebGLRenderer()
     renderer.setClearColor("#bfd1e5")
     (renderer :> Three.Renderer).setSize(getWidth(), getHeight())
@@ -208,7 +194,7 @@ let init() =
     container.innerHTML <- ""
     container.appendChild(domElement) |> ignore
 
-    let controls = FirstPersonControls(camera :> Three.Camera, domElement)
+    let controls = FirstPersonControls.Create(upcast camera, upcast domElement)
     controls.movementSpeed <- 1000.0
     controls.lookSpeed <- 0.1
 
@@ -256,7 +242,7 @@ let init() =
         camera.aspect <- getWidth() / getHeight()
         camera.updateProjectionMatrix()
         (renderer :> Three.Renderer).setSize(getWidth(), getHeight())
-        controls.handleResize() 
+        controls.handleResize()
         null
 
     Browser.window.addEventListener_resize(

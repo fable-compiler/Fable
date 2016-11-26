@@ -1,9 +1,0 @@
-{
-    "module": "amd",
-    "sourceMaps": true,
-    "projFile": "redux-todomvc.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
-    }
-}

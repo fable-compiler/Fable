@@ -12,25 +12,22 @@
 
 *)
 (*** hide ***)
-#r "node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
 open Fable.Core
-open Fable.Import.Browser
-
-[<Emit("Math.random()")>]
-let rand (): float = jsNative
+open Fable.Import
 
 module Keyboard =
   let mutable keysPressed = Set.empty
   let code x = if keysPressed.Contains(x) then 1 else 0
   let arrows () = (code 39 - code 37, code 38 - code 40)
-  let update (e : KeyboardEvent, pressed) =
+  let update (e : Browser.KeyboardEvent, pressed) =
     let keyCode = int e.keyCode
     let op =  if pressed then Set.add else Set.remove
     keysPressed <- op keyCode keysPressed
     null
   let init () =
-    window.addEventListener_keydown(fun e -> update(e, true))
-    window.addEventListener_keyup(fun e -> update(e, false))
+    Browser.window.addEventListener_keydown(fun e -> update(e, true))
+    Browser.window.addEventListener_keyup(fun e -> update(e, false))
 
 /// The width of the canvas
 let width = 900.
@@ -43,7 +40,7 @@ let atmosHeight = 300.
 
 Keyboard.init()
 
-let canvas = document.getElementsByTagName_canvas().[0]
+let canvas = Browser.document.getElementsByTagName_canvas().[0]
 let ctx = canvas.getContext_2d()
 canvas.width <- width
 canvas.height <- height
@@ -68,8 +65,8 @@ renders the world. We also need `drawText` for printing text when the game finis
 
 *)
 /// Draw gradient between two Y offsets and two colours
-let drawGrd (ctx:CanvasRenderingContext2D)
-    (canvas:HTMLCanvasElement) (y0,y1) (c0,c1) =
+let drawGrd (ctx:Browser.CanvasRenderingContext2D)
+    (canvas:Browser.HTMLCanvasElement) (y0,y1) (c0,c1) =
   let grd = ctx.createLinearGradient(0.,y0,0.,y1)
   grd.addColorStop(0.,c0)
   grd.addColorStop(1.,c1)
@@ -108,8 +105,8 @@ type Blob =
 Drawing blob on the canvas is quite easy - the following function does that using
 the `arc` function of the 2D rendering context of the canvas:
 *)
-let drawBlob (ctx:CanvasRenderingContext2D)
-    (canvas:HTMLCanvasElement) (blob:Blob) =
+let drawBlob (ctx:Browser.CanvasRenderingContext2D)
+    (canvas:Browser.HTMLCanvasElement) (blob:Blob) =
   ctx.beginPath()
   ctx.arc
     ( blob.X, canvas.height - (blob.Y + floorHeight + blob.Radius),
@@ -182,7 +179,7 @@ let grow = "black"
 let shrink = "white"
 
 let newDrop color =
-  { X = rand()*width*0.8 + (width*0.1)
+  { X = JS.Math.random()*width*0.8 + (width*0.1)
     Y=600.; Radius=10.; vx=0.; vy = 0.0
     color=color }
 
@@ -204,9 +201,9 @@ a new countdown. It implements simple logic:
 let updateDrops drops countdown =
   if countdown > 0 then
     drops, countdown - 1
-  elif floor(rand()*8.) = 0. then
+  elif floor(JS.Math.random()*8.) = 0. then
     let drop =
-      if floor(rand()*3.) = 0. then newGrow()
+      if floor(JS.Math.random()*3.) = 0. then newGrow()
       else newShrink()
     drop::drops, 8
   else drops, countdown

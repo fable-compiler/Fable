@@ -1,9 +1,7 @@
 {
-    "bundle": "true",
-    "sourceMaps": true,
     "projFile": "./ozmo.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
+    "sourceMaps": true,
+    "rollup": {
+        "dest": "./out/bundle.js"
     }
 }

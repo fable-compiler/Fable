@@ -12,14 +12,6 @@
         <canvas style="margin-left:auto;margin-right:auto; width:300px;height:300px;" id="canvas" width="300" height="300"></canvas>
     </div>
   <!-- [/body] -->
-  <script src="../lib/core.min.js"></script>
-  <script src="../lib/system.js"></script>
-  <script>
-    System.defaultJSExtensions = true;
-		System.config({
-			map: { 'fable-core': '../node_modules/fable-core/umd' }
-		});
-		SystemJS.import('out/pacman.js');
-  </script>
+  <script src="out/bundle.js"></script>
 </body>
 </html>

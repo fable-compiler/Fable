@@ -19,10 +19,8 @@ JS libraries: [classnames](https://github.com/JedWatson/classnames) and
 [director](https://github.com/flatiron/director).
 *)
 
-#r "../node_modules/fable-core/Fable.Core.dll"
-#r "../node_modules/fable-react/Fable.React.dll"
-// #r "../../../build/fable-core/Fable.Core.dll"
-// #r "../../../../fable-react/npm/Fable.React.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-react/Fable.React.dll"
 
 open System
 open Fable.Core
@@ -30,11 +28,11 @@ open Fable.Core.JsInterop
 open Fable.Import
 
 // JS utility for conditionally joining classNames together
-let classNames: obj->string = importDefault "classnames"
+let classNames: obj->string = importDefault "./lib/classnames.js"
 
 // Director is a router. Routing is the process of determining
 // what code to run when a URL is requested.
-let Router: obj->obj = importDefault "director"
+let Router: obj->obj = importDefault "./lib/director.js"
 
 (**
 ## Utility module

@@ -1,10 +1,9 @@
 
-#r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-pixi/Fable.Import.Pixi.fs"
+#r "../../node_modules/fable-core/Fable.Core.dll"
+#load "../../node_modules/fable-import-pixi/Fable.Import.Pixi.fs"
 
 open Fable.Core
 open Fable.Import
-open Fable.Import.Browser
 open Fable.Core.JsInterop
 
 // You can use either `new PIXI.WebGLRenderer`, `new PIXI.CanvasRenderer`, or `PIXI.autoDetectRenderer`
@@ -12,7 +11,7 @@ open Fable.Core.JsInterop
 let renderer = PIXI.WebGLRenderer(800., 600.)
 
 // The renderer will create a canvas element for you that you can then insert into the DOM.
-document.body.appendChild(renderer.view)
+Browser.document.body.appendChild(renderer.view)
 
 // You need to create a root container that will hold the scene you want to draw.
 let stage = PIXI.Container()
@@ -22,7 +21,7 @@ let mutable bunny = Unchecked.defaultof<PIXI.Sprite>
 
 let rec animate _ =
     // start the timer for the next animation loop
-    window.requestAnimationFrame(FrameRequestCallback animate) |> ignore
+    Browser.window.requestAnimationFrame(Browser.FrameRequestCallback animate) |> ignore
 
     // each frame we spin the bunny around a bit
     bunny.rotation <- bunny.rotation + 0.01

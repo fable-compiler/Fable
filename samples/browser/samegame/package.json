@@ -1,22 +1,7 @@
 {
   "private": true,
-  "name": "samegame",
-  "version": "0.1.0",
-  "description": "",
-  "main": "index.js",
   "scripts": {
-  	"build": "fable",
-    "watch": "fable -w",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Leif Battermann",
-  "license": "ISC",
-  "dependencies": {
-    "core-js": "^2.4.0",
-    "requirejs": "^2.2.0",
-    "fable-core": "^0.6.1"
-  },
-  "engines": {
-    "fable": "^0.6.4"
+    "build": "node ../../node_modules/fable-compiler",
+    "start": "node ../server"
   }
 }

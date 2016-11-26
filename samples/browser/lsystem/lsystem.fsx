@@ -12,7 +12,7 @@
    brackets, e.g. `[[-X]+X]`, for undoing state changes.
 *)
 (*** hide ***)
-#r "node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
 #load "html.fs"
 open Fable.Import.Browser
 open Fable.Html

@@ -6,8 +6,11 @@
 	</head>
 	<body>
 		<!-- [body] -->
-		<link rel="stylesheet" href="../lib/todomvc/base.css">
-		<link rel="stylesheet" href="../lib/todomvc/index.css">
+		<link rel="stylesheet" href="lib/todomvc/base.css">
+		<link rel="stylesheet" href="lib/todomvc/index.css">
+		<script src="lib/todomvc/base.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.4.0/react.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.4.0/react-dom.min.js"></script>
 
 		<section class="todoapp"></section>
 		<footer class="info">
@@ -16,22 +19,6 @@
 			<p>Part of <a href="http://todomvc.com">TodoMVC</a></p>
 		</footer>
   		<!-- [/body] -->
-
-		<script src="../lib/todomvc/base.js"></script>
-		<script src="../lib/core.min.js"></script>
-		<script src="../lib/require.js"></script>
-        <script>
-		// Paths in Require.js must always omit the .js extension
-		requirejs.config({
-			paths: {
-                'fable-core/umd': '../node_modules/fable-core/umd',
-				'director': '../lib/director/director',
-				'classnames': '../lib/classnames/index',
-                'react': '../lib/react/react-with-addons',
-                'react-dom': '../lib/react/react-dom'
-			}
-		});
-		requirejs(["out/react-todomvc"]);
-        </script>
+		<script src="out/bundle.js"></script>
 	</body>
 </html>

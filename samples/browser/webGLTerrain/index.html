@@ -24,6 +24,9 @@
 	  </style>
 </head>
 <body>
+  <!-- [head] -->
+  <script src="//cdnjs.cloudflare.com/ajax/libs/three.js/r77/three.js"></script>
+  <!-- [/head] -->
   <!-- [body] -->
   <div id="container"><br /><br /><br /><br /><br />Generating world...
   <br>
@@ -34,25 +37,6 @@
   <a href="http://threejs.org" target="_blank">three.js</a> - webgl terrain demo<br />(left click: forward, right click: backward; or WASD to move)
   </div>
   <!-- [/body] -->
-  <script src="node_modules/core-js/client/core.min.js"></script>
-  <script src="node_modules/requirejs/require.js"></script>
-  <!-- [head] -->
-  <script src="//cdnjs.cloudflare.com/ajax/libs/three.js/r77/three.js"></script>
-  <script src="js/FirstPersonControls.js"></script>
-  <script src="js/ImprovedNoise.js"></script>
-  <script>define("three", [], THREE);</script>
-  <!-- [/head] -->
-  <script>
-    requirejs.config({
-        // Set the baseUrl to the path of the compiled JS code
-        baseUrl: 'out',
-        paths: {
-            // Explicit path to core lib (relative to baseUrl, omit .js)
-            'fable-core': '../node_modules/fable-core/fable-core.min'
-        }
-    });
-    // Load the entry file of the app (use array, omit .js)
-    requirejs(["webGLTerrain"]);
-  </script>
+  <script src="out/bundle.js"></script>
 </body>
 </html>
