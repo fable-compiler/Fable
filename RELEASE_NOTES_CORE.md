@@ -1,3 +1,7 @@
+### 0.7.10
+
+* Fix reflection with nested options
+
 ### 0.7.9
 
 * Fix #560: `typeof<'T>.FullName`

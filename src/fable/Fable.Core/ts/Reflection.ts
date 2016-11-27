@@ -3,19 +3,23 @@ import List from "./List"
 import FSymbol from "./Symbol"
 
 export function resolveGeneric(idx: string | number, enclosing: List<any>): List<any> {
-  let name: string = null;
   try {
-    const t = enclosing.head as FunctionConstructor;
-    const generics = (<any>t.prototype)[FSymbol.generics]();
-    name = typeof idx === "string"
-      ? idx : Object.getOwnPropertyNames(generics)[idx];
-    const resolved = generics[name];
-    return resolved instanceof NonDeclaredType && resolved.kind === "GenericParam"
-      ? resolveGeneric(resolved.name, enclosing.tail)
-      : new List(resolved, enclosing);
+    const t = enclosing.head;
+    if (t instanceof NonDeclaredType) {
+      return resolveGeneric(idx, enclosing.tail)
+    }
+    else {
+      const generics = (<any>t.prototype)[FSymbol.generics]();
+      const name = typeof idx === "string"
+        ? idx : Object.getOwnPropertyNames(generics)[idx];
+      const resolved = generics[name];
+      return resolved instanceof NonDeclaredType && resolved.kind === "GenericParam"
+        ? resolveGeneric(resolved.name, enclosing.tail)
+        : new List(resolved, enclosing);
+    }
   }
   catch (err) {
-    throw new Error(`Cannot resolve generic argument ${name}: ${err}`);
+    throw new Error(`Cannot resolve generic argument ${idx}: ${err}`);
   }
 }
 

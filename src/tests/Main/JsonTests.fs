@@ -39,6 +39,38 @@ let ``Nested generics``() =
     let x2 = ofJson<C<R>> json
     x2.c.b.a.Foo() |> equal "foo"
 
+type D<'Q> = {d: A<'Q> option }
+
+[<Test>]
+let ``Nested options``() =
+    let x = { d = Some { a=R() } }
+    let json = toJson x
+    let x2 = ofJson<D<R>> json
+    x2.d.Value.a.Foo() |> equal "foo"
+
+type E<'Q> = { e: A<'Q>[] }
+
+[<Test>]
+let ``Nested arrays``() =
+    let x = { e = [|{ a=R() }|] }
+    let json = toJson x
+    let x2 = ofJson<E<R>> json
+    x2.e.[0].a.Foo() |> equal "foo"
+
+type R2() =
+    member __.Foo() = "bar"
+
+type F<'Q,'V> = { f: A<'Q>*B<'V> }
+
+[<Test>]
+let ``Nested tuples``() =
+    let x = { f = { a=R() }, { b={a=R2()} } }
+    let json = toJson x
+    let x2 = ofJson<F<R,R2>> json
+    let (i, j) = x2.f
+    i.a.Foo() |> equal "foo"
+    j.b.a.Foo() |> equal "bar"
+
 [<Test>]
 let ``Records``() =
     let json =
