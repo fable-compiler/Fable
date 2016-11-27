@@ -1009,10 +1009,8 @@ module Util =
         (genArgs, meth.GenericParameters, methTypArgs)
         |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
 
-    let (|Replaced|_|) (com: IFableCompiler) ctx r typ (typArgs, methTypArgs)
-            (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
-        buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs) (callee, args) meth
-        |> tryReplace com (Some meth.EnclosingEntity)
+    let (|Replaced|_|) (com: IFableCompiler) i (meth: FSharpMemberOrFunctionOrValue) =
+        tryReplace com (Some meth.EnclosingEntity) i
 
     let getEmitter =
         // Prevent ReflectionTypeLoadException
@@ -1063,7 +1061,8 @@ module Util =
         else macro
         |> fun macro -> macro, args@(List.rev extraArgs)
 
-    let (|Emitted|_|) com ctx r typ (typArgs, methTypArgs) (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+    let (|Emitted|_|) com ctx r typ i (typArgs, methTypArgs) (callee, args)
+                        (meth: FSharpMemberOrFunctionOrValue) =
         match meth.Attributes with
         | ContainsAtt Atts.emit attArgs ->
             match attArgs with
@@ -1079,13 +1078,10 @@ module Util =
                 try
                     let emitInstance = getEmitter emitFsType.TypeDefinition
                     let emitMeth = emitInstance.GetType().GetMethod(emitMethName)
-                    let applyInfo =
-                        buildApplyInfoFrom com ctx r typ
-                            (typArgs, methTypArgs) (callee, args) meth
                     let args: obj[] =
                         match extraArg with
-                        | [extraArg] -> [|com; applyInfo; extraArg|]
-                        | _ -> [|com; applyInfo|]
+                        | [extraArg] -> [|com; i; extraArg|]
+                        | _ -> [|com; i|]
                     emitMeth.Invoke(emitInstance, args) |> unbox |> Some
                 with
                 | :? AST.FableError as err -> raise err
@@ -1095,18 +1091,23 @@ module Util =
             | _ -> "EmitAttribute must receive a string or Type argument" |> attachRange r |> failwith
         | _ -> None
 
-    let (|Imported|_|) com ctx r typ (typArgs, methTypArgs) (args: Fable.Expr list)
+    let (|Imported|_|) com ctx r typ i (typArgs, methTypArgs) (args: Fable.Expr list)
                         (meth: FSharpMemberOrFunctionOrValue) =
         meth.Attributes
         |> Seq.choose (makeDecorator com)
         |> tryImported meth.CompiledName
         |> function
             | Some expr ->
-                match getMemberKind meth with
-                | Fable.Getter | Fable.Field -> expr
-                | Fable.Setter -> Fable.Set (expr, None, args.Head, r)
-                | Fable.Constructor
-                | Fable.Method -> Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
+                match meth with
+                // Allow combination of Import and Emit attributes
+                | Emitted com ctx r typ i (typArgs, methTypArgs) (None, expr::args) emitted ->
+                    emitted
+                | _ ->
+                    match getMemberKind meth with
+                    | Fable.Getter | Fable.Field -> expr
+                    | Fable.Setter -> Fable.Set (expr, None, args.Head, r)
+                    | Fable.Constructor
+                    | Fable.Method -> Fable.Apply(expr, args, Fable.ApplyMeth, typ, r)
                 |> Some
             | None -> None
 
@@ -1175,11 +1176,12 @@ module Util =
                     | [arg] when arg.Type = Fable.Unit -> genArgs
                     | args -> args@genArgs
                 else args
+        let i = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs) (callee, args) meth
         match meth with
         (** -Check for replacements, emits... *)
-        | Emitted com ctx r typ (typArgs, methTypArgs) (callee, args) emitted -> emitted
-        | Imported com ctx r typ (typArgs, methTypArgs) args imported -> imported
-        | Replaced com ctx r typ (typArgs, methTypArgs) (callee, args) replaced -> replaced
+        | Imported com ctx r typ i (typArgs, methTypArgs) args imported -> imported
+        | Replaced com i replaced -> replaced
+        | Emitted com ctx r typ i (typArgs, methTypArgs) (callee, args) emitted -> emitted
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         (** -If the call is not resolved, then: *)
         | _ ->
@@ -1263,10 +1265,11 @@ module Util =
                  | AppliedArgument -> consumeBoundExpr ctx r v
                  | _ -> getBoundExpr ctx r v
         else
+        let i = buildApplyInfoFrom com ctx r typ ([], []) (None, []) v
         match v with
-        | Emitted com ctx r typ ([], []) (None, []) emitted -> emitted
-        | Imported com ctx r typ ([], []) [] imported -> imported
-        | Replaced com ctx r typ ([], []) (None, []) replaced -> replaced
+        | Imported com ctx r typ i ([], []) [] imported -> imported
+        | Replaced com i replaced -> replaced
+        | Emitted com ctx r typ i ([], []) (None, []) emitted -> emitted
         | Try (tryGetBoundExpr ctx r) e -> e
         | _ ->
             let typeRef =

@@ -886,10 +886,8 @@ type private DeclInfo() =
         |> Seq.toList
 
 let private tryGetRelativeImport (atts: #seq<FSharpAttribute>) =
-    let emitAtt = atts |> tryFindAtt ((=) Atts.emit)
-    let importAtt = atts |> tryFindAtt ((=) Atts.import)
-    match emitAtt, importAtt with
-    | None, Some att ->
+    match tryFindAtt ((=) Atts.import) atts with
+    | Some att ->
         try
             match att.ConstructorArguments.[0], att.ConstructorArguments.[1] with
             | (_, (:? string as selector)), (_, (:? string as path))
@@ -939,10 +937,13 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             match fableEnt.TryGetMember(memberName, memberKind, memberLoc, argTypes) with
             | Some m -> m
             | None -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-            |> fun m -> Fable.MemberDeclaration(m, privateName, args@extraArgs, body, None)
+            |> fun m -> Fable.MemberDeclaration(m, privateName, args@extraArgs, body, getRefLocation meth |> makeRange |> Some)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
     let relativeImport = tryGetRelativeImport meth.Attributes
+    if Option.isSome relativeImport && hasAtt Atts.emit meth.Attributes then
+        let msg = sprintf "%s cannot be combined with %s for relative paths" Atts.emit Atts.import
+        FableError(msg, getRefLocation meth |> makeRange) |> raise
     if Option.isSome relativeImport
     then
         addMethod relativeImport

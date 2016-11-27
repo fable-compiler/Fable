@@ -1,3 +1,7 @@
+### 0.7.11
+
+* Some adjustments in attribute resolution
+
 ### 0.7.10
 
 * Fix #565, #566: Only watch F# files
