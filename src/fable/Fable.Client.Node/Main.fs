@@ -497,6 +497,10 @@ let attribsOfSymbol (s:FSharpSymbol) =
 
         | :? FSharpEntity as v ->
             v.TryFullName |> ignore // check there is no failure here
+            match v.BaseType with
+            | Some t when t.HasTypeDefinition && t.TypeDefinition.TryFullName.IsSome ->
+                yield sprintf "inherits %s" t.TypeDefinition.FullName
+            | _ -> ()
             if v.IsNamespace then yield "namespace"
             if v.IsFSharpModule then yield "module"
             if v.IsByRef then yield "byref"

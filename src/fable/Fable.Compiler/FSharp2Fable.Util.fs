@@ -707,7 +707,7 @@ module Types =
         let getKind () =
             if tdef.IsInterface then Fable.Interface
             elif tdef.IsFSharpUnion then makeCases tdef |> Fable.Union
-            elif tdef.IsFSharpRecord then makeFields tdef |> Fable.Record
+            elif tdef.IsFSharpRecord || tdef.IsValueType then makeFields tdef |> Fable.Record
             elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
             else Fable.Class(getBaseClass com ctx tdef, makeProperties tdef)
@@ -744,7 +744,7 @@ module Types =
         then
             match Seq.length genArgs with
             | 0 -> [Fable.Unit], Fable.Unit
-            | 1 -> [Seq.head genArgs |> makeType com ctx], Fable.Unit
+            | 1 -> [Fable.Unit], Seq.head genArgs |> makeType com ctx
             | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList,
                     Seq.last genArgs |> makeType com ctx
             |> Fable.Function

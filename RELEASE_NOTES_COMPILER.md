@@ -1,3 +1,7 @@
+### 0.7.12
+
+* Fix #568: Types with `StructAttribute`
+
 ### 0.7.11
 
 * Some adjustments in attribute resolution

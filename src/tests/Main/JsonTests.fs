@@ -118,6 +118,13 @@ let ``Arrays``() =
     result |> Array.length |> equal 2
     result.[1] = { Name="b" } |> equal true
 
+[<Test>]
+let ``Arrays 2``() =
+    let x = [|R2()|]
+    let json = toJson x
+    let x2 = ofJson<R2[]> json
+    x2.[0].Foo() |> equal "bar"
+
 type ChildArray = {
     Children : JsonArray[]
 }

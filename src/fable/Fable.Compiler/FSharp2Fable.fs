@@ -437,7 +437,12 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         Fable.Lambda (args, transformExpr com ctx body, true) |> Fable.Value
 
     | BasicPatterns.NewDelegate(_delegateType, Transform com ctx delegateBodyExpr) ->
-        makeDelegate com None delegateBodyExpr
+        // When the delegate has one single argument and the lambda is a reference (e.g. `System.Func<int>(f)`)
+        // the F# compiler translates this as an application, so it must be wrapped in a lambda
+        match delegateBodyExpr with
+        | Fable.Apply _ ->
+            Fable.Lambda([], delegateBodyExpr, true) |> Fable.Value
+        | _ -> makeDelegate com None delegateBodyExpr
 
     (** ## Getters and Setters *)
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
