@@ -1140,18 +1140,27 @@ module Util =
                 "If it belongs to an external project try removing inline modifier.", ?range=r) |> raise
 
     let passGenerics com ctx r (typArgs, methTypArgs) meth =
+        let rec hasUnresolvedGenerics = function
+            | Fable.GenericParam name -> Some name
+            | Fable.Option genericArg -> hasUnresolvedGenerics genericArg
+            | Fable.Array genericArg -> hasUnresolvedGenerics genericArg
+            | Fable.Tuple genericArgs -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
+            | Fable.Function (argTypes, returnType ) -> returnType::argTypes |> Seq.tryPick hasUnresolvedGenerics
+            | Fable.DeclaredType (_, genericArgs) -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
+            | _ -> None
         let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
         matchGenericParams com ctx meth (typArgs, methTypArgs)
         |> List.map (fun (genName, FableType com ctx typ) ->
-            match typ with
-            | Fable.GenericParam name when not ctx.genericAvailability ->
-                ("An unresolved generic argument ('" + name + ") is being passed " +
-                 "to a function with `PassGenericsAttribute`. This will likely fail " +
-                 "at runtime. Try adding `PassGenericsAttribute` to the calling method " +
-                 "or using concrete types.")
-                |> attachRangeAndFile r ctx.fileName
-                |> Warning |> com.AddLog
-            | _ -> ()
+            if not ctx.genericAvailability then
+                match hasUnresolvedGenerics typ with
+                | Some name ->
+                    ("An unresolved generic argument ('" + name + ") is being passed " +
+                     "to a function with `PassGenericsAttribute`. This will likely fail " +
+                     "at runtime. Try adding `PassGenericsAttribute` to the calling method " +
+                     "or using concrete types.")
+                    |> attachRangeAndFile r ctx.fileName
+                    |> Warning |> com.AddLog
+                | None -> ()
             genName, makeTypeRef genInfo typ)
         |> makeJsObject None
 

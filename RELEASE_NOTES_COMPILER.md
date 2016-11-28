@@ -1,6 +1,7 @@
 ### 0.7.12
 
 * Fix #568: Types with `StructAttribute`
+* Better checking when calling functions with `PassGenericsAttribute`
 
 ### 0.7.11
 
