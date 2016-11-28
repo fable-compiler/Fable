@@ -4,6 +4,7 @@ type CompilerOptions = {
         projFile: string list
         outDir: string
         coreLib: string
+        moduleSystem: string
         symbols: string list
         plugins: string list
         watch: bool

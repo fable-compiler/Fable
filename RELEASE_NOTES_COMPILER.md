@@ -1,5 +1,6 @@
 ### 0.7.14
 
+* Use "umd" distribution of fable-core and other libs when compiling for umd modules
 * Fix #569: Types with circular dependencies
 
 ### 0.7.12

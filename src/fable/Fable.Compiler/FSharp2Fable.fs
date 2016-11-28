@@ -1133,6 +1133,10 @@ type FSProjectInfo(projectOpts: FSharpProjectOptions, filePairs: Map<string, str
         | None -> true
 
 let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
+    // Path.Combine is giving problems in Windows
+    let combine (path1: string) (path2: string) =
+        let path2 = if path2.StartsWith(".") then path2.Substring(1) else path2
+        path1.TrimEnd('/') + "/" + path2.TrimStart('/')
     // This dictionary must be mutable so `dict` cannot be used
     let dic = Dictionary()
     dic.Add(Naming.current, Map.empty)
@@ -1148,14 +1152,22 @@ let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResul
                 match Map.tryFind asmName com.Options.refs with
                 | Some baseDir when baseDir.StartsWith(".") ->
                     let baseDir = Path.GetFullPath(baseDir)
-                    fun path -> Path.GetFullPath(Path.Combine(baseDir, path))
+                    fun path -> Path.GetFullPath(combine baseDir path)
                 | Some baseDir ->
                     // The triple slash is just a mark to indicate
                     // the import must NOT be resolved with a relative path
-                    fun path -> "///" + Path.Combine(baseDir, path)
+                    fun path -> "///" + combine baseDir path
                 | None ->
-                    let asmDir = Path.GetDirectoryName(asmPath)
-                    fun path -> Path.GetFullPath(Path.Combine(asmDir, path))
+                    let baseDir =
+                        let asmDir = Path.GetDirectoryName(asmPath)
+                        // If we're compiling to a non-ES2015 module check if the referenced
+                        // library includes a UMD distribution
+                        if Naming.umdModules.Contains com.Options.moduleSystem
+                        then
+                            let umdDir = Path.GetFullPath(Path.Combine(asmDir, "umd"))
+                            if Directory.Exists(umdDir) then umdDir else asmDir
+                        else asmDir
+                    fun path -> Path.GetFullPath(combine baseDir path)
             let fableMap =
                 let json = File.ReadAllText(mapPath)
                 Newtonsoft.Json.JsonConvert.DeserializeObject<Fable.FableMap>(json).files

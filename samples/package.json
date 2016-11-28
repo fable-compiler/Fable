@@ -3,9 +3,10 @@
   "dependencies": {
     "fable-compiler": "^0.7.10",
     "fable-core": "^0.7.9",
-    "fable-import-d3": "0.0.4",
-    "fable-import-pixi": "0.0.10",
-    "fable-import-three": "0.0.4",
-    "fable-react": "^0.7.0"
+    "fable-import-d3": "^0.0.4",
+    "fable-import-pixi": "^0.0.10",
+    "fable-import-three": "^0.0.4",
+    "fable-powerpack": "^0.0.15",
+    "fable-react": "^0.7.4"
   }
 }

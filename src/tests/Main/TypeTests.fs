@@ -466,3 +466,30 @@ let ``Circular dependencies work``() = // See #569
     let alice = { name="Alice"; age=20.0; location=location  }
     location.name |> equal "NY"
     alice.age |> equal 20.
+
+[<Struct>]
+type ValueType<'T> =
+    new (f) = { foo = f }
+    val foo : 'T
+    member x.Value = foo
+
+[<Struct>]
+type ValueType2<'T>(i: int, j: int) =
+    member x.Value = i + j
+
+type Point2D =
+   struct
+      val X: float
+      val Y: float
+      new(xy: float) = { X = xy; Y = xy }
+   end
+
+[<Test>]
+let ``Value Types work``() = // See #568
+    let test = ValueType<_>("foo")
+    test.Value |> equal "foo"
+    test.foo |> equal "foo"
+    let test2 = ValueType2(3, 4)
+    test2.Value |> equal 7
+    let p = Point2D(2.)
+    p.Y |> equal 2.

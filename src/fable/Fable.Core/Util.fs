@@ -50,6 +50,10 @@ module Naming =
     /// for unions and records. Ignored by Fable.
     let ignoredCompilerGenerated =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
+
+    let umdModules =
+        set ["commonjs"; "amd"; "umd"]
+
     let identForbiddenCharsRegex =
         Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
 
