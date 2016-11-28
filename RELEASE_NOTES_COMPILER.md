@@ -1,3 +1,7 @@
+### 0.7.14
+
+* Fix #569: Types with circular dependencies
+
 ### 0.7.12
 
 * Fix #568: Types with `StructAttribute`

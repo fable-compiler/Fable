@@ -1,5 +1,4 @@
 import FSymbol from "./Symbol"
-import { fableGlobal } from "./Symbol"
 
 export interface IComparer<T> {
   Compare(x: T, y: T): number;
@@ -67,15 +66,6 @@ export function GenericParam(name: string) {
 
 export function Interface(name: string) {
   return new NonDeclaredType("Interface", name);
-}
-
-export function declare(cons: FunctionConstructor) {
-  const info = (cons.prototype as any)[FSymbol.reflection];
-  if (typeof info === "function") {
-    const type = info().type;
-    if (typeof type === "string")
-      fableGlobal.types.set(type, cons);
-  }
 }
 
 export function makeGeneric(typeDef: FunctionConstructor, genArgs: any): any {

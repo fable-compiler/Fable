@@ -1,5 +1,5 @@
 import FSymbol from "./Symbol"
-import { fableGlobal } from "./Symbol"
+import { getType } from "./Symbol"
 import List from "./List"
 import { ofArray as listOfArray } from "./List"
 import FSet from "./Set"
@@ -247,7 +247,7 @@ export function ofJsonWithTypeInfo(json: any, genArgs: any): any {
                               .map(k => [k, v[k]] as [any,any]));
       }
       else {
-        const T = fableGlobal.types.get(type);
+        const T = getType(type);
         if (T) {
           delete v.$type;
           return Object.assign(new T(), v);

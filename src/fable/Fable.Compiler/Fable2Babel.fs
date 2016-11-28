@@ -868,8 +868,9 @@ module Util =
 
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         Babel.CallExpression(
-                getCoreLibImport com ctx "Util" "declare",
-                [typeRef com ctx ent [] None |> U2.Case1])
+            getCoreLibImport com ctx "Symbol" "setType",
+            [Babel.StringLiteral ent.FullName :> Babel.Expression |> U2.Case1
+            ; typeRef com ctx ent [] None |> U2.Case1])
         |> Babel.ExpressionStatement :> Babel.Statement
 
     let declareEntryPoint com ctx (funcExpr: Babel.Expression) =

@@ -1,6 +1,6 @@
 declare var global: any;
 
-export const fableGlobal: {
+const fableGlobal: {
   types: Map<string, FunctionConstructor>,
   symbols: {
     reflection: symbol,
@@ -22,5 +22,13 @@ export const fableGlobal: {
   }
   return globalObj.__FABLE_CORE__;
 }();
+
+export function setType(fullName: string, cons: FunctionConstructor) {
+  fableGlobal.types.set(fullName, cons);
+}
+
+export function getType(fullName: string) {
+  return fableGlobal.types.get(fullName);
+}
 
 export default (fableGlobal.symbols);

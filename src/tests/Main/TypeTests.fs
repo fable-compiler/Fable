@@ -456,3 +456,13 @@ let ``A type overloading an interface method can be inherited``() =
     foo.Foo() |> equal "BAR"
     (foo :> IFoo).Foo() |> equal "BARFOO"
     mangleFoo foo |> equal "BARFOO"
+
+type Employee = { name: string; age: float; location: Location }
+and Location = { name: string; mutable employees: Employee list }
+
+[<Test>]
+let ``Circular dependencies work``() = // See #569
+    let location = { name="NY"; employees=[] }
+    let alice = { name="Alice"; age=20.0; location=location  }
+    location.name |> equal "NY"
+    alice.age |> equal 20.

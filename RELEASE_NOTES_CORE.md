@@ -1,3 +1,7 @@
+### 0.7.11
+
+* Fix #569: Types with circular dependencies
+
 ### 0.7.10
 
 * Fix reflection with nested options

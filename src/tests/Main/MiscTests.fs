@@ -148,20 +148,59 @@ let ``Calls to core lib from a subfolder work``() =
     Util2.Helper.Format("{0} + {0} = {1}", 2, 4)
     |> equal "2 + 2 = 4"
 
-let f' x y z = x + y + z
-let f'' x = x + x
+let f1 x y z = x + y + z
+let f2 x = x + x
+
+let f3 () = 5
 
 [<Test>]
 let ``Conversion to delegate works``() =
-    (System.Func<_,_,_,_> f').Invoke(1,2,3) |> equal 6
+    (System.Func<_,_,_,_> f1).Invoke(1,2,3) |> equal 6
 
-    let f = f'
+    let f = f1
     (System.Func<_,_,_,_> f).Invoke(1,2,3) |> equal 6
 
     let del = System.Func<_,_,_,_>(fun x y z -> x + y + z)
     del.Invoke(1,2,3) |> equal 6
 
-    (System.Func<_,_> f'').Invoke(2) |> equal 4
+    (System.Func<_,_> f2).Invoke(2) |> equal 4
+
+[<Test>]
+let ``Conversion to Func<_> works``() =
+    (System.Func<_> f3).Invoke() |> equal 5
+    let f = Func<_>(fun () -> 6)
+    f.Invoke() |> equal 6
+
+let mutable myMutableField = 0
+
+let f4 i = myMutableField <- i
+let f5 () = myMutableField <- 5
+let f6 i j = myMutableField <- i * j
+let f7 i () = myMutableField <- i * 3
+
+[<Test>]
+let ``Conversion to Action<_> works``() =
+    let f1' = Action<int>(fun i -> myMutableField <- i * 2)
+    let f2' = Action<int>(f4)
+    let f3' = Action<_>(f6 4)
+    f1'.Invoke(1)
+    equal 2 myMutableField
+    f2'.Invoke(8)
+    equal 8 myMutableField
+    f3'.Invoke(10)
+    equal 40 myMutableField
+
+[<Test>]
+let ``Conversion to Action works``() =
+    let f4' = Action(fun () -> myMutableField <- 7)
+    let f5' = Action(f5)
+    let f6' = Action(f7 3)
+    f4'.Invoke()
+    equal 7 myMutableField
+    f5'.Invoke()
+    equal 5 myMutableField
+    f6'.Invoke()
+    equal 9 myMutableField
 
 let (|NonEmpty|_|) (s: string) =
     match s.Trim() with "" -> None | s -> Some s
@@ -386,20 +425,20 @@ let ``Module members don't conflict with JS names``() =
 let ``Modules don't conflict with JS names``() =
     Util.Float64Array.Float64Array |> Array.sum |> equal 7.
 
-let f2 a b = a + b
+let f8 a b = a + b
 let mutable a = 10
 
 module B =
   let c = a
   a <- a + 5
   let mutable a = 20
-  let d = f2 2 2
-  let f2 a b = a - b
+  let d = f8 2 2
+  let f8 a b = a - b
 
   module D =
     let d = a
     a <- a + 5
-    let e = f2 2 2
+    let e = f8 2 2
 
 // Modules and TestFixtures bind values in a slightly different way
 // Test both cases
