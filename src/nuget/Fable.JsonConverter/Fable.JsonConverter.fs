@@ -21,11 +21,11 @@ open System.Collections.Concurrent
 /// See https://goo.gl/F6YiQk
 type JsonConverter() =
     inherit Newtonsoft.Json.JsonConverter()
-    
+
     let advance(reader: JsonReader) =
         reader.Read() |> ignore
-    
-    let readElements(reader: JsonReader, itemTypes: Type[], serializer: JsonSerializer) =           
+
+    let readElements(reader: JsonReader, itemTypes: Type[], serializer: JsonSerializer) =
         let rec read index acc =
             match reader.TokenType with
             | JsonToken.EndArray -> acc
@@ -36,20 +36,15 @@ type JsonConverter() =
         advance reader
         read 0 List.empty
 
-    let typeCache = ConcurrentDictionary<_, _>()
+    let typeCache = ConcurrentDictionary<Type,bool>()
     override x.CanConvert(t) =
-            match typeCache.TryGetValue(t) with
-            | false, _ ->
-                let result = 
-                    t.Name = "FSharpOption`1"
-                    || FSharpType.IsTuple t
-                    || (FSharpType.IsUnion t && t.Name <> "FSharpList`1")
-                typeCache.TryAdd(t, result) |> ignore
-                result
-            | _, result -> result
+        typeCache.GetOrAdd(t, fun t ->
+            t.Name = "FSharpOption`1"
+            || FSharpType.IsTuple t
+            || (FSharpType.IsUnion t && t.Name <> "FSharpList`1"))
 
     override x.WriteJson(writer, value, serializer) =
-        if value = null
+        if isNull value
         then serializer.Serialize(writer, value)
         else
             match value.GetType() with
@@ -74,13 +69,13 @@ type JsonConverter() =
         match t with
         | t when t.Name = "FSharpOption`1" ->
             let innerType = t.GetGenericArguments().[0]
-            let innerType = 
+            let innerType =
                 if innerType.IsValueType
                 then (typedefof<Nullable<_>>).MakeGenericType([|innerType|])
-                else innerType        
+                else innerType
             let value = serializer.Deserialize(reader, innerType)
             let cases = FSharpType.GetUnionCases(t)
-            if value = null
+            if isNull value
             then FSharpValue.MakeUnion(cases.[0], [||])
             else FSharpValue.MakeUnion(cases.[1], [|value|])
         | t when FSharpType.IsTuple t ->

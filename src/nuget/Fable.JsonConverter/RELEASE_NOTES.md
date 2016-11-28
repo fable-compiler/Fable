@@ -1,3 +1,7 @@
+### 0.0.6
+
+* Add cache for `CanConvert` (see #567)
+
 ### 0.0.5
 
 * Don't convert arrays of tuples (see #538)
