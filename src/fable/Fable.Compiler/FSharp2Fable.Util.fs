@@ -1001,13 +1001,17 @@ module Util =
             let genParam = t.GenericParameter
             ctx.typeArgs |> List.tryFind (fun (name,_) -> name = genParam.Name)
             |> function Some (_,t) -> t | None -> t
-        let genArgs =
-            if meth.IsModuleValueOrMember then
-                ([], meth.EnclosingEntity.GenericParameters, typArgs)
-                |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
-            else []
-        (genArgs, meth.GenericParameters, methTypArgs)
-        |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
+        // Seems that, contrary to what I believed, `meth.GenericParameters`
+        // contains both the type and meth generic arguments, so this first
+        // folding is not necessary
+        // let genArgs =
+        //     if meth.IsModuleValueOrMember then
+        //         ([], meth.EnclosingEntity.GenericParameters, typArgs)
+        //         |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
+        //     else []
+        ([], meth.GenericParameters, typArgs@methTypArgs)
+        |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> (genPar.Name, t)::acc)
+        |> List.rev
 
     let (|Replaced|_|) (com: IFableCompiler) i (meth: FSharpMemberOrFunctionOrValue) =
         tryReplace com (Some meth.EnclosingEntity) i

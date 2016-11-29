@@ -72,6 +72,19 @@ module Util =
             if i=0 then (makeDelegate com (Some info.lambdaArgArity) x) else x) args
         else args
 
+    let resolveTypeRef com (info: Fable.ApplyInfo) generic t =
+        let genInfo =
+            { makeGeneric = generic
+            ; genericAvailability = info.genericAvailability }
+        match t with
+        | Fable.GenericParam _ when not info.genericAvailability ->
+            "`typeof` is being called on a generic parameter, "
+            + "consider inlining the method (for `internal` members) "
+            + "or using `PassGenericsAttribute`."
+            |> addWarning com info
+            makeTypeRef genInfo t
+        | t -> makeTypeRef genInfo t
+
     let instanceArgs (callee: Fable.Expr option) (args: Fable.Expr list) =
         match callee with
         | Some callee -> (callee, args)
@@ -569,18 +582,9 @@ module private AstPass =
             Fable.Throw (newError None Fable.Any args, typ, r) |> Some
         // Type ref
         | "typeOf" | "typeDefOf" ->
-            let genInfo =
-                { makeGeneric = info.methodName = "typeOf"
-                ; genericAvailability = info.genericAvailability }
-            match info.methodTypeArgs with
-            | [Fable.GenericParam _ as t] when not info.genericAvailability ->
-                "`typeof` is being called on a generic parameter, "
-                + "consider inlining the method (for `internal` members) "
-                + "or using `PassGenericsAttribute`."
-                |> addWarning com info
-                makeTypeRef genInfo t |> Some
-            | [t] -> makeTypeRef genInfo t |> Some
-            | _ -> None
+            info.methodTypeArgs.Head
+            |> resolveTypeRef com info (info.methodName = "typeOf")
+            |> Some
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -796,7 +800,7 @@ module private AstPass =
         | "typeTestGeneric", (None, [expr]) ->
             makeTypeTest i.range i.methodTypeArgs.Head expr |> Some
         | "createInstance", (None, _) ->
-            let typRef, args = makeNonGenTypeRef i.methodTypeArgs.Head, []
+            let typRef, args = resolveTypeRef com i false i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 

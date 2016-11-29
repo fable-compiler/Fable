@@ -1,3 +1,7 @@
+### 0.7.16
+
+* Fix issues in generic resolution
+
 ### 0.7.15
 
 * Issue warning when calling `typeof` on a generic parameter
