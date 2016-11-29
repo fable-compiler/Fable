@@ -569,12 +569,18 @@ module private AstPass =
             Fable.Throw (newError None Fable.Any args, typ, r) |> Some
         // Type ref
         | "typeOf" | "typeDefOf" ->
-            let genInfo = {
-                makeGeneric = info.methodName = "typeOf"
-                genericAvailability = info.genericAvailability
-            }
-            info.methodTypeArgs.Head
-            |> makeTypeRef genInfo |> Some
+            let genInfo =
+                { makeGeneric = info.methodName = "typeOf"
+                ; genericAvailability = info.genericAvailability }
+            match info.methodTypeArgs with
+            | [Fable.GenericParam _ as t] when not info.genericAvailability ->
+                "`typeof` is being called on a generic parameter, "
+                + "consider inlining the method (for `internal` members) "
+                + "or using `PassGenericsAttribute`."
+                |> addWarning com info
+                makeTypeRef genInfo t |> Some
+            | [t] -> makeTypeRef genInfo t |> Some
+            | _ -> None
         // Concatenates two lists
         | "op_Append" ->
           CoreLibCall("List", Some "append", false, args)
@@ -1430,7 +1436,7 @@ module private AstPass =
     let types com (info: Fable.ApplyInfo) =
         let str x = Fable.Value(Fable.StringConst x)
         match info.callee with
-        | Some(Fable.Value(Fable.TypeRef(ent,[]))) ->
+        | Some(Fable.Value(Fable.TypeRef(ent,_))) ->
             match info.methodName with
             | "namespace" -> str ent.Namespace |> Some
             | "fullName" -> str ent.FullName |> Some

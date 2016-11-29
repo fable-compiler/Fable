@@ -129,7 +129,6 @@ type GenericInfo = {
 }
 
 let rec makeTypeRef (genInfo: GenericInfo) typ =
-    let (|TryDecorator|_|) dec (ent: Fable.Entity) = ent.TryGetDecorator dec
     let str s = Wrapped(Value(StringConst s), MetaType)
     match typ with
     | Boolean -> str "boolean"

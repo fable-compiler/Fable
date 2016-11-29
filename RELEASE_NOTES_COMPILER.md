@@ -1,3 +1,8 @@
+### 0.7.15
+
+* Issue warning when calling `typeof` on a generic parameter
+* Use absolute paths for assembly references in `node_modules`
+
 ### 0.7.14
 
 * Use "umd" distribution of fable-core and other libs when compiling for umd modules
@@ -5,7 +10,7 @@
 
 ### 0.7.12
 
-* Fix #568: Types with `StructAttribute`
+* Fix #568: Types with `StructAttribute` (compiled as records)
 * Better checking when calling functions with `PassGenericsAttribute`
 
 ### 0.7.11

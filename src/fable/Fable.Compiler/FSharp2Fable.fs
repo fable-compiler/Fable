@@ -776,11 +776,13 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
                 ("FSharpUnion"::fableEnt.Interfaces) (Some cases) None
         if needsEqImpl then yield makeUnionEqualMethod fableType
         if needsCompImpl then yield makeUnionCompareMethod fableType ]
-    // TODO: Use specific interface for FSharpException?
     | Fable.Record fields
     | Fable.Exception fields ->
       let isEx = match fableEnt.Kind with Fable.Exception _ -> true | _ -> false
-      [ yield makeRecordCons isEx fields
+      // Structs are considered equivalent to records but
+      // some already include a constructor (see #569)
+      [ if fableEnt.Members |> Seq.exists (fun m -> m.Kind = Fable.Constructor) |> not
+        then yield makeRecordCons isEx fields
         yield makeReflectionMeth fableEnt false fableEnt.FullName
                 ("FSharpRecord"::fableEnt.Interfaces) None (Some fields)
         if needsEqImpl then yield makeRecordEqualMethod fableType
@@ -1149,25 +1151,29 @@ let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResul
         try
             let asmName = Path.GetFileNameWithoutExtension(asmPath)
             let resolve =
+                // TODO: Use a case insensitive search?
                 match Map.tryFind asmName com.Options.refs with
                 | Some baseDir when baseDir.StartsWith(".") ->
-                    let baseDir = Path.GetFullPath(baseDir)
-                    fun path -> Path.GetFullPath(combine baseDir path)
+                    Path.GetFullPath(baseDir)
                 | Some baseDir ->
                     // The triple slash is just a mark to indicate
                     // the import must NOT be resolved with a relative path
-                    fun path -> "///" + combine baseDir path
+                    "///" + baseDir
                 | None ->
                     let baseDir =
-                        let asmDir = Path.GetDirectoryName(asmPath)
+                        let asmDir = Path.GetDirectoryName(Path.GetFullPath(asmPath))
                         // If we're compiling to a non-ES2015 module check if the referenced
                         // library includes a UMD distribution
                         if Naming.umdModules.Contains com.Options.moduleSystem
                         then
-                            let umdDir = Path.GetFullPath(Path.Combine(asmDir, "umd"))
+                            let umdDir = Path.Combine(asmDir, "umd")
                             if Directory.Exists(umdDir) then umdDir else asmDir
                         else asmDir
-                    fun path -> Path.GetFullPath(combine baseDir path)
+                    // If the assembly is an npm package, use an absolute reference
+                    let i = baseDir.IndexOf("node_modules/")
+                    if i > -1 then "///" + baseDir.Substring(i + 13) else baseDir
+                |> fun baseDir ->
+                    fun path -> combine baseDir path
             let fableMap =
                 let json = File.ReadAllText(mapPath)
                 Newtonsoft.Json.JsonConvert.DeserializeObject<Fable.FableMap>(json).files

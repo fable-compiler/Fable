@@ -474,7 +474,7 @@ type ValueType<'T> =
     member x.Value = foo
 
 [<Struct>]
-type ValueType2<'T>(i: int, j: int) =
+type ValueType2(i: int, j: int) =
     member x.Value = i + j
 
 type Point2D =
