@@ -136,9 +136,14 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             | _ -> FableError("KeyValue Union Cases must have one or zero fields: " + unionType.FullName, range) |> raise
         Fable.TupleConst [key; value] |> Fable.Value
     | StringEnum ->
-        // if argExprs.Length > 0 then
-        //     failwithf "StringEnum must not have fields: %s" unionType.FullName
+        if argExprs.Length > 0 then
+            FableError("StringEnum types cannot have fields", range) |> raise
         lowerCaseName unionCase
+    | PojoUnion ->
+        List.zip (Seq.toList unionCase.UnionCaseFields) argExprs
+        |> List.map (fun (fi, e) -> fi.Name, e)
+        |> List.append ["type", makeConst unionCase.Name]
+        |> makeJsObject (Some range)
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
@@ -465,7 +470,13 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             Fable.Wrapped(unionExpr, typ)
         | ListUnion ->
             makeGet range typ unionExpr (Naming.lowerFirst fieldName |> makeConst)
-        | _ ->
+        | PojoUnion ->
+            makeConst fieldName |> makeGet range typ unionExpr
+        | KeyValueUnion ->
+            FableError("KeyValueUnion types cannot be used in pattern matching", ?range=range) |> raise
+        | StringEnum ->
+            FableError("StringEnum types cannot have fields", ?range=range) |> raise
+        | OtherType ->
             let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
             let fields = makeGet range typ unionExpr ("Fields" |> makeConst)
             makeGet range typ fields (i |> makeConst)
@@ -615,6 +626,10 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         makeTypeTest (makeRangeFrom fsExpr) typ expr
 
     | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr, fsType, unionCase) ->
+        let checkCase name =
+            let left = makeGet None Fable.String unionExpr (makeConst name)
+            let right = makeConst unionCase.Name
+            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
         match fsType with
         | ErasedUnion ->
             let unionType = makeType com ctx fsType
@@ -641,10 +656,12 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [expr; Fable.Value Fable.Null] opKind
         | StringEnum ->
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict
-        | _ ->
-            let left = makeGet None Fable.String unionExpr (makeConst "Case")
-            let right = makeConst unionCase.Name
-            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
+        | KeyValueUnion ->
+            FableError("KeyValueUnion types cannot be used in pattern matching", makeRange fsExpr.Range) |> raise
+        | PojoUnion ->
+            checkCase "type"
+        | OtherType ->
+            checkCase "Case"
 
     (** Pattern Matching *)
     | Switch(matchValue, cases, defaultCase, decisionTargets) ->
@@ -809,23 +826,26 @@ type private DeclInfo() =
                         + "at same level are not supported: " + name) |> raise
         publicNames.Add name
     let isErasedEntity (ent: FSharpEntity) =
+        let fail (ent: FSharpEntity) msg =
+            let loc = getEntityLocation ent
+            FableError(msg, makeRange loc, loc.FileName) |> raise
+        let check (ent: FSharpEntity) name att expected =
+            if name <> att
+            then false
+            elif (List.contains "union" expected && not ent.IsFSharpUnion)
+                && (List.contains "record" expected && not ent.IsFSharpRecord)
+            then fail ent (sprintf "%s can only decorate %s types" att (String.concat "/" expected))
+            elif ent.MembersFunctionsAndValues
+                |> Seq.exists (fun m -> not m.IsCompilerGenerated)
+            then fail ent "Erased types cannot contain members"
+            else true
         ent.Attributes |> tryFindAtt (fun name ->
-            if name = Atts.import
-                || name = Atts.global_
-                || name = Atts.erase
-            then true
-            elif name = Atts.keyValueList
-                || name = Atts.stringEnum
-                || name = Atts.pojo
-            then
-                if ent.MembersFunctionsAndValues
-                    |> Seq.exists (fun m -> not m.IsCompilerGenerated)
-                then
-                    let loc = getEntityLocation ent
-                    FableError(sprintf "%s types cannot contain members" name,
-                        makeRange loc, loc.FileName) |> raise
-                true
-            else false)
+            name = Atts.import
+            || name = Atts.global_
+            || name = Atts.erase
+            || check ent name Atts.keyValueList ["union"]
+            || check ent name Atts.stringEnum ["union"]
+            || check ent name Atts.pojo ["union"; "record"])
         |> Option.isSome
     let decls = ResizeArray<_>()
     let children = Dictionary<string, TmpDecl>()

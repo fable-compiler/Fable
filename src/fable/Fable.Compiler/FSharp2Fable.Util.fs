@@ -557,7 +557,7 @@ module Patterns =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList)
 
-    let (|OptionUnion|ListUnion|ErasedUnion|KeyValueUnion|StringEnum|OtherType|) (typ: FSharpType) =
+    let (|OptionUnion|ListUnion|ErasedUnion|KeyValueUnion|StringEnum|PojoUnion|OtherType|) (typ: FSharpType) =
         match tryDefinition typ with
         | None -> OtherType
         | Some tdef ->
@@ -571,6 +571,7 @@ module Patterns =
                     if name = Atts.erase then Some ErasedUnion
                     elif name = Atts.stringEnum then Some StringEnum
                     elif name = Atts.keyValueList then Some KeyValueUnion
+                    elif name = Atts.pojo then Some PojoUnion
                     else None)
                 |> defaultArg <| OtherType
 
