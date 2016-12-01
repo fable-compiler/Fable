@@ -471,7 +471,7 @@ let ``Circular dependencies work``() = // See #569
 type ValueType<'T> =
     new (f) = { foo = f }
     val foo : 'T
-    member x.Value = foo
+    member x.Value = x.foo
 
 [<Struct>]
 type ValueType2(i: int, j: int) =

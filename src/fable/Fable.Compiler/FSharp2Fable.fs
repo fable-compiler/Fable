@@ -1082,6 +1082,8 @@ type FableCompiler(com: ICompiler, projectMaps: Dictionary<string,Map<string, Fa
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
         member fcom.IsReplaceCandidate ent =
+            // TODO: Temporary HACK to fix #577
+            if ent.FullName.StartsWith("Fable.Import.Node") then false else
             match ent.Assembly.FileName with
             | Some asmPath -> projectMaps.ContainsKey asmPath |> not
             | None -> false
