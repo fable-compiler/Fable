@@ -1,4 +1,8 @@
+#if INTERACTIVE
+#r "../../../packages/Newtonsoft.Json/lib/net45/Newtonsoft.Json.dll"
+#else
 namespace Fable
+#endif
 
 #if DOTNETCORE
 [<AutoOpen>]
@@ -15,6 +19,8 @@ open FSharp.Reflection
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
 open System.Collections.Concurrent
+
+type Info = { serializable: bool; pojo: bool }
 
 /// Converts F# options, tuples and unions to a format understandable
 /// by Fable. Code adapted from Lev Gorodinski's original.
@@ -36,12 +42,22 @@ type JsonConverter() =
         advance reader
         read 0 List.empty
 
-    let typeCache = ConcurrentDictionary<Type,bool>()
+    let hasPojoAttribute (t: Type) =
+        t.GetCustomAttributes(false)
+        |> Seq.exists (fun o ->
+            o.GetType().FullName = "Fable.Core.PojoAttribute")
+
+
+    let typeCache = ConcurrentDictionary<Type,Info>()
     override x.CanConvert(t) =
-        typeCache.GetOrAdd(t, fun t ->
-            t.Name = "FSharpOption`1"
-            || FSharpType.IsTuple t
-            || (FSharpType.IsUnion t && t.Name <> "FSharpList`1"))
+        let info =
+            typeCache.GetOrAdd(t, fun t ->
+                if t.Name = "FSharpOption`1" ||FSharpType.IsTuple t
+                then { serializable = true; pojo = false }
+                elif (FSharpType.IsUnion t && t.Name <> "FSharpList`1")
+                then { serializable = true; pojo = hasPojoAttribute t }
+                else { serializable = false; pojo = false })
+        info.serializable
 
     override x.WriteJson(writer, value, serializer) =
         if isNull value
@@ -56,15 +72,26 @@ type JsonConverter() =
                 serializer.Serialize(writer, values)
             | t -> // Unions
                 let uci, fields = FSharpValue.GetUnionFields(value, t)
-                if fields.Length = 0
-                then serializer.Serialize(writer, uci.Name)
-                else
+                match typeCache.TryGetValue(t) with
+                | success, info when info.pojo ->
                     writer.WriteStartObject()
-                    writer.WritePropertyName(uci.Name)
-                    if fields.Length = 1
-                    then serializer.Serialize(writer, fields.[0])
-                    else serializer.Serialize(writer, fields)
+                    writer.WritePropertyName("type")
+                    writer.WriteValue(uci.Name)
+                    Seq.zip (uci.GetFields()) fields
+                    |> Seq.iter (fun (fi, v) ->
+                        writer.WritePropertyName(fi.Name)
+                        serializer.Serialize(writer, v))
                     writer.WriteEndObject()
+                | _ ->
+                    if fields.Length = 0
+                    then serializer.Serialize(writer, uci.Name)
+                    else
+                        writer.WriteStartObject()
+                        writer.WritePropertyName(uci.Name)
+                        if fields.Length = 1
+                        then serializer.Serialize(writer, fields.[0])
+                        else serializer.Serialize(writer, fields)
+                        writer.WriteEndObject()
     override x.ReadJson(reader, t, existingValue, serializer) =
         match t with
         | t when t.Name = "FSharpOption`1" ->
@@ -109,3 +136,15 @@ type JsonConverter() =
                     FSharpValue.MakeUnion(uci, [|value|])
             | JsonToken.Null -> null // for { "union": null }
             | _ -> failwith "invalid token"
+
+#if INTERACTIVE
+#r "../../../build/fable-core/Fable.Core.dll"
+
+[<Fable.Core.Pojo>]
+type U =
+    | MyCase of ja:int * jo:string
+
+module Test =
+    JsonConvert.SerializeObject(MyCase(5,"4"), JsonConverter())
+    |> printfn "%s"
+#endif
