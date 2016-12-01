@@ -427,8 +427,9 @@ module private AstPass =
             // TODO: Fail at compile time?
             addWarning com i "jsNative is being compiled without replacement, this will fail at runtime."
             "A function supposed to be replaced by JS native code has been called, please check."
-            |> Fable.StringConst |> Fable.Value
-            |> fun msg -> Fable.Throw(msg, i.returnType, i.range) |> Some
+            |> Fable.StringConst |> Fable.Value |> List.singleton
+            |> newError i.range i.returnType
+            |> fun err -> Fable.Throw(err, i.returnType, i.range) |> Some
         | "create" when i.ownerFullName.EndsWith "JsConstructor" ->
             match i.callee, i.args with
             | Some callee, [Fable.Value(Fable.TupleConst args)] ->
@@ -450,6 +451,26 @@ module private AstPass =
             | Fable.Setter _ ->
                 Fable.Set(i.callee.Value, Some prop, i.args.Head, i.range) |> Some
             | _ -> None
+        | _ -> None
+
+    let fsFormat com (i: Fable.ApplyInfo) =
+        let emit macro =
+            let emit = Fable.Emit macro |> Fable.Value
+            Fable.Apply(i.args.Head, [emit], Fable.ApplyMeth, i.returnType, i.range)
+            |> Some
+        match i.methodName with
+        | "printFormatToString" ->
+            emit "x=>x"
+        | "printFormat" ->
+            addWarning com i "printf will behave as printfn"
+            emit "x=>{console.log(x)}"
+        | "printFormatLine" ->
+            emit "x=>{console.log(x)}"
+        | "printFormatToStringThenFail" ->
+            emit "x=>{throw new Error(x)}"
+        | ".ctor" ->
+            CoreLibCall("String", Some "fsFormat", false, i.args)
+            |> makeCall i.range i.returnType |> Some
         | _ -> None
 
     let operators (com: ICompiler) (info: Fable.ApplyInfo) =
@@ -562,17 +583,7 @@ module private AstPass =
         | "printFormatToStringThen"         // sprintf (.NET Core)
         | "printFormat" | "printFormatLine" // printf/printfn
         | "printFormatToStringThenFail" ->  // failwithf
-            let emit =
-                match info.methodName with
-                | "printFormatToString" -> "x=>x"
-                | "printFormat" ->
-                    addWarning com info "printf will behave as printfn"
-                    "x=>{console.log(x)}"
-                | "printFormatLine" -> "x=>{console.log(x)}"
-                | "printFormatToStringThenFail" | _ -> "x=>{throw new Error(x)}"
-                |> Fable.Emit |> Fable.Value
-            Fable.Apply(args.Head, [emit], Fable.ApplyMeth, typ, r)
-            |> Some
+            fsFormat com info
         // Exceptions
         | "raise" ->
             Fable.Throw (args.Head, typ, r) |> Some
@@ -592,10 +603,6 @@ module private AstPass =
           CoreLibCall("List", Some "append", false, args)
           |> makeCall r typ |> Some
         | _ -> None
-
-    let fsFormat com (i: Fable.ApplyInfo) =
-        CoreLibCall("String", Some "fsFormat", false, i.args)
-        |> makeCall i.range i.returnType |> Some
 
     let strings com (i: Fable.ApplyInfo) =
         match i.methodName with
