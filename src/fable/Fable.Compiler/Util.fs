@@ -49,7 +49,9 @@ module Json =
     open System.Reflection
     open FSharp.Reflection
     open Newtonsoft.Json
-    
+    open System.Collections.Concurrent
+    open System
+
     let isErasedUnion (t: System.Type) =
         t.Name = "FSharpOption`1" ||
         FSharpType.IsUnion t &&
@@ -63,7 +65,9 @@ module Json =
             
     type ErasedUnionConverter() =
         inherit JsonConverter()
-        override x.CanConvert t = isErasedUnion t
+        let typeCache = ConcurrentDictionary<Type,bool>()
+        override x.CanConvert t =
+            typeCache.GetOrAdd(t, isErasedUnion)
         override x.ReadJson(reader, t, v, serializer) =
             failwith "Not implemented"
         override x.WriteJson(writer, v, serializer) =
@@ -73,7 +77,9 @@ module Json =
 
     type LocationEraser() =
         inherit JsonConverter()
-        override x.CanConvert t = typeof<AST.Babel.Node>.IsAssignableFrom(t)
+        let typeCache = ConcurrentDictionary<Type,bool>()
+        override x.CanConvert t =
+            typeCache.GetOrAdd(t, typeof<AST.Babel.Node>.IsAssignableFrom)
         override x.ReadJson(reader, t, v, serializer) =
             failwith "Not implemented"
         override x.WriteJson(writer, v, serializer) =
