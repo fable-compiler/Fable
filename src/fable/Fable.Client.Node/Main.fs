@@ -671,7 +671,6 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             |> saveFableAst
             |> Fable2Babel.Compiler.transformFiles com
 
-        let files = Array.ofSeq files
         files
         |> Seq.iter printFile
 
