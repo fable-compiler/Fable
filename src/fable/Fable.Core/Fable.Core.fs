@@ -84,6 +84,10 @@ type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> = Case1 of 'a | Case2 of 'b | Case3 of
 type Applicable = obj->obj
 
 module JsInterop =
+    /// Has same effect as `unbox` (dynamic casting erased in compiled JS code).
+    /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
+    let (!!) x: 'T = jsNative
+
     /// Dynamically access a property of an arbitrary object.
     /// `myObj?propA` in JS becomes `myObj.propA`
     /// `myObj?(propA)` in JS becomes `myObj[propA]`
@@ -162,6 +166,17 @@ module JsInterop =
     ///     x.foo()
     type JsConstructor<'Args,'T> =
         abstract Create: args: 'Args -> 'T
+
+    /// Use it to cast dynamic functions coming from JS. If you know the argument
+    /// and return types, use `System.Func<>` instead. If you need a constructor
+    /// (must be applied with `new` keyword), use `JsConstructor`.
+    ///
+    /// ## Sample
+    ///     let f: JsFunc = import "myFunction" "./myLib"
+    ///     f.Invoke(5, "bar")
+    type [<AllowNullLiteral>] JsFunc =
+        [<Emit("$0($1...)")>]
+        abstract Invoke: [<ParamArray>]args:obj[]->obj
 
     /// Use it when you need an plain old JS function that doesn't capture
     /// the enclosing `this`. The first argument of the lambda becomes `this` in JS.

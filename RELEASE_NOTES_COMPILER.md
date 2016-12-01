@@ -1,3 +1,7 @@
+### 0.7.17
+
+* Add `Pojo` union types
+
 ### 0.7.16
 
 * Fix issues in generic resolution

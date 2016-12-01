@@ -1,3 +1,7 @@
+### 0.7.12
+
+* Add helpers for dynamic programming
+
 ### 0.7.11
 
 * Fix #569: Types with circular dependencies

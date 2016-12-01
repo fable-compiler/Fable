@@ -31,13 +31,7 @@ and be sure to add Redux as a JS dependency.
 
 open System
 open Fable.Core
-
-let inline (!!) x = unbox x
-
-[<AllowNullLiteral>]
-type JsFunc =
-    [<Emit("$0($1...)")>]
-    abstract Invoke: [<ParamArray>]args:obj[]->obj
+open Fable.Core.JsInterop
 
 module Redux =
     open System

@@ -366,6 +366,8 @@ module private AstPass =
                 | [Fable.Value(Fable.StringConst path)] -> path
                 | _ -> fail()
             Fable.ImportRef(selector, path, Fable.CustomImport) |> Fable.Value |> Some
+        | "op_BangBang" ->
+            Fable.Wrapped (i.args.Head, i.methodTypeArgs.Head) |> Some
         | "op_Dynamic" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
         | "op_DynamicAssignment" ->

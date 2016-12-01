@@ -1,3 +1,7 @@
+### 0.0.7
+
+* Convert `Pojo` unions
+
 ### 0.0.6
 
 * Add cache for `CanConvert` (see #567)
