@@ -34,6 +34,18 @@ exports.removeUnneededNulls = {
 };
 
 /**
+ * When Babel compiles class methods to ES5 it keeps the function named
+ * even if it's a function expression, this is causing problems with Rollup.
+ */
+exports.removeFunctionExpressionNames = {
+  visitor: {
+    FunctionExpression: function(path) {
+      path.node.id = null;
+    }
+  }
+};
+
+/**
  * Custom plugin to simulate macro expressions.
  */
 exports.transformMacroExpressions = {

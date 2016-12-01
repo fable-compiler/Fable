@@ -456,7 +456,8 @@ function readBabelOptions(opts) {
     babelPlugins = babelPlugins.concat(
         customPlugins.transformMacroExpressions,
         // removeUnneededNulls must come after transformMacroExpressions (see #377)
-        customPlugins.removeUnneededNulls
+        customPlugins.removeUnneededNulls,
+        cusomPlugins.removeFunctionExpressionNames
     );
 
     // if opts.babelrc is true, read Babel plugins and presets from .babelrc
