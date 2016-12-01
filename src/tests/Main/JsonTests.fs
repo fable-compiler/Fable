@@ -351,6 +351,36 @@ let ``Optional union of record: for null`` () =
     |> equal true
 
 
+
+[<RequireQualifiedAccess>]
+type ReadingStatus =
+| ToRead
+| ToSync
+| Finished
+| Manual
+| Synchronized
+
+type MeterReadingRequest = {
+    ReadingStatus : ReadingStatus
+}
+
+
+[<Test>]
+let ``should parse union in array`` () =
+    let data = """[
+{
+    "ReadingStatus": {
+    "$type": "Fable.Tests.Json.ReadingStatus",
+    "Case": "ToRead",
+    "Fields": []
+    }
+}
+]"""
+
+    let result = Fable.Core.JsInterop.ofJson<MeterReadingRequest[]> data
+    result.[0].ReadingStatus |> equal ReadingStatus.ToRead
+
+
 #if FABLE_COMPILER
 type IData = interface end
 
