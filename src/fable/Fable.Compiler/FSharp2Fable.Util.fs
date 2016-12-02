@@ -700,7 +700,7 @@ module Types =
             |> Seq.choose (fun x ->
                 if not x.IsPropertyGetterMethod then None else
                 match makeType com Context.Empty x.FullType with
-                | Fable.Function(Some [Fable.Unit], returnType) ->
+                | Fable.Function(_, returnType) ->
                     Some(x.DisplayName, returnType)
                 | _ -> None)
             |> Seq.toList
@@ -750,13 +750,13 @@ module Types =
             then
                 if Seq.length genArgs = 1
                 then [Seq.head genArgs |> makeType com ctx] |> Some, Fable.Unit
-                else Some [Fable.Unit], Fable.Unit
+                else Some [], Fable.Unit
                 |> Fable.Function
             elif fullName.StartsWith("System.Func")
             then
                 match Seq.length genArgs with
-                | 0 -> Some [Fable.Unit], Fable.Unit
-                | 1 -> Some [Fable.Unit], Seq.head genArgs |> makeType com ctx
+                | 0 -> Some [], Fable.Unit
+                | 1 -> Some [], Seq.head genArgs |> makeType com ctx
                 | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList |> Some,
                         Seq.last genArgs |> makeType com ctx
                 |> Fable.Function
@@ -795,10 +795,6 @@ module Types =
                     genArgs |> Seq.map (makeType com ctx) |> Seq.toList)
 
     and makeType (com: IFableCompiler) (ctx: Context) (NonAbbreviatedType t) =
-        let rec getFnGenArgs (acc: FSharpType list) (fn: FSharpType) =
-            if fn.IsFunctionType
-            then getFnGenArgs (fn.GenericArguments.[0]::acc) fn.GenericArguments.[1]
-            else fn::acc
         let makeGenArgs (genArgs: #seq<FSharpType>) =
             Seq.map (makeType com ctx) genArgs |> Seq.toList
         let resolveGenParam (genParam: FSharpGenericParameter) =
@@ -818,9 +814,9 @@ module Types =
         // Funtion
         elif t.IsFunctionType
         then
-            let gs = getFnGenArgs [] t
-            (List.rev gs.Tail |> List.map (makeType com ctx) |> Some, makeType com ctx gs.Head)
-            |> Fable.Function
+            let argType = makeType com ctx t.GenericArguments.[0]
+            let returnType = makeType com ctx t.GenericArguments.[1]
+            Fable.Function(Some[argType], returnType)
         elif t.HasTypeDefinition
         then makeTypeFromDef com ctx t.TypeDefinition t.GenericArguments
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
@@ -1262,8 +1258,8 @@ module Util =
                                 let ent = makeEntity com ctx meth.EnclosingEntity
                                 ent.TryGetMember(methName, kind, getMemberLoc meth, argTypes)
                                 |> function Some m -> m.OverloadName | None -> methName
-                        let calleeType = Fable.Function(Some argTypes, typ)
-                        makeGet r calleeType callee (makeConst methName)
+                        // let calleeType = Fable.Function(Some argTypes, typ)
+                        makeGet r Fable.Any callee (makeConst methName)
                     |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
 
     let makeThisRef (ctx: Context) (v: FSharpMemberOrFunctionOrValue option) =

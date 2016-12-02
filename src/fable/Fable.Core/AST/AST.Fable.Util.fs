@@ -171,16 +171,16 @@ and makeCall (range: SourceLocation option) typ kind =
         match meth with
         | None -> owner
         | Some meth ->
-            let fnTyp = Function(List.map Expr.getType args |> Some, returnType)
-            Apply (owner, [makeConst meth], ApplyGet, fnTyp, None)
+            // let fnTyp = Function(List.map Expr.getType args |> Some, returnType)
+            Apply (owner, [makeConst meth], ApplyGet, Any, None)
     let apply kind args callee =
         Apply(callee, args, kind, typ, range)
     let getKind isCons =
         if isCons then ApplyCons else ApplyMeth
     match kind with
     | InstanceCall (callee, meth, args) ->
-        let fnTyp = Function(List.map Expr.getType args |> Some, typ)
-        Apply (callee, [makeConst meth], ApplyGet, fnTyp, None)
+        // let fnTyp = Function(List.map Expr.getType args |> Some, typ)
+        Apply (callee, [makeConst meth], ApplyGet, Any, None)
         |> apply ApplyMeth args
     | ImportCall (importPath, modName, meth, isCons, args) ->
         Value (ImportRef (modName, importPath, CustomImport))
@@ -333,7 +333,7 @@ let makeDelegate (com: ICompiler) arity (expr: Expr) =
         match flattenLambda arity isArrow args body with
         | Some expr -> expr
         | None -> wrap arity isArrow expr
-    | _, Function(args,_), Some arity ->
+    | _, Function _, Some arity ->
         wrap (Some arity) false expr
     | _ -> expr
 
@@ -348,7 +348,7 @@ let makeApply range typ callee exprs =
         | _ -> callee
     let lasti = (List.length exprs) - 1
     ((0, callee), exprs) ||> List.fold (fun (i, callee) expr ->
-        let typ' = if i = lasti then typ else makeUnknownFnType (i+1)
+        let typ' = if i = lasti then typ else Any // makeUnknownFnType (i+1)
         i + 1, Apply (callee, [expr], ApplyMeth, typ', range))
     |> snd
 
