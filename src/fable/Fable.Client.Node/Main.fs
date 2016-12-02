@@ -566,6 +566,7 @@ let rec printFSharpDecls prefix decls = seq {
             yield! printFSharpDecls (prefix + "\t") sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
             yield sprintf "%s%i) METHOD: %s %A" prefix i meth.CompiledName (attribsOfSymbol meth)
+            yield sprintf "%stype: %A" prefix meth.FullType
             yield sprintf "%sargs: %A" prefix args
             if not meth.IsCompilerGenerated
             then yield sprintf "%sbody: %A" prefix body

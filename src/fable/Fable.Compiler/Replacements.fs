@@ -459,13 +459,15 @@ module private AstPass =
             Fable.Apply(i.args.Head, [emit], Fable.ApplyMeth, i.returnType, i.range)
             |> Some
         match i.methodName with
-        | "printFormatToString" ->
+        | "printFormatToString"
+        | "printFormatToStringThen" ->
             emit "x=>x"
         | "printFormat" ->
             addWarning com i "printf will behave as printfn"
             emit "x=>{console.log(x)}"
         | "printFormatLine" ->
             emit "x=>{console.log(x)}"
+        // | "printFormatThen" -> //TODO: needs closure composition work
         | "printFormatToStringThenFail" ->
             emit "x=>{throw new Error(x)}"
         | ".ctor" ->
@@ -580,9 +582,10 @@ module private AstPass =
             |> makeGet r typ args.Head |> Some
         // Strings
         | "printFormatToString"             // sprintf
-        | "printFormatToStringThen"         // sprintf (.NET Core)
-        | "printFormat" | "printFormatLine" // printf/printfn
-        | "printFormatToStringThenFail" ->  // failwithf
+        | "printFormatToStringThen"         // Printf.sprintf
+        | "printFormat" | "printFormatLine" // printf / printfn
+        | "printFormatThen"                 // Printf.kprintf
+        | "printFormatToStringThenFail" ->  // Printf.failwithf
             fsFormat com info
         // Exceptions
         | "raise" ->
