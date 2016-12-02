@@ -12,6 +12,8 @@ module ReflectionAdapters =
     type System.Type with
         member this.IsValueType = this.GetTypeInfo().IsValueType
         member this.GetGenericArguments() = this.GetTypeInfo().GenericTypeArguments
+        member this.GetCustomAttributes(inherits : bool) : obj[] =
+            downcast box(CustomAttributeExtensions.GetCustomAttributes(this.GetTypeInfo(), inherits) |> Seq.toArray)
 #endif
 
 open System
