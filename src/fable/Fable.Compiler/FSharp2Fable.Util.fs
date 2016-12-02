@@ -30,7 +30,7 @@ type ThisAvailability =
     // Object expressions must capture the `this` reference and
     // they can also be nested (see makeThisRef and the ObjectExpr pattern)
     | ThisCaptured
-        of currentThis: FSharpMemberOrFunctionOrValue
+        of currentThis: FSharpMemberOrFunctionOrValue option
         * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Ident) list
 
 type MemberInfo = {
@@ -407,9 +407,12 @@ module Patterns =
         | _ -> None
 
     let (|JsFunc|_|) = function
-        | NewObject(meth, _typArgs, [Lambda(thisVar, body)]) ->
+        | NewObject(meth, _typArgs, [expr]) ->
             match meth.EnclosingEntity.TryFullName with
-            | Some name when name.StartsWith("Fable.Core.JsInterop.JsFunc") -> Some(thisVar, body)
+            | Some name when name.StartsWith("Fable.Core.JsInterop.JsFunc") ->
+                match System.Int32.TryParse(name.Substring(27, 1)) with
+                | true, arity -> Some(expr, arity)
+                | false, _ -> None
             | _ -> None
         | _ -> None
 
@@ -745,7 +748,10 @@ module Types =
         then
             match Seq.length genArgs with
             | 0 -> [Fable.Unit], Fable.Unit
-            | 1 -> [Fable.Unit], Seq.head genArgs |> makeType com ctx
+            | 1 ->
+                if fullName.StartsWith("System.Action")
+                then [Seq.head genArgs |> makeType com ctx], Fable.Unit
+                else [Fable.Unit], Seq.head genArgs |> makeType com ctx
             | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList,
                     Seq.last genArgs |> makeType com ctx
             |> Fable.Function
@@ -878,8 +884,12 @@ module Util =
                     match tryDefinition arg with
                     | Some argDef when argDef.TryFullName = Some "System.Object" -> ()
                     | Some argDef when hasAtt Atts.pojo argDef.Attributes -> ()
-                    | _ -> let msg = sprintf "Generic type '%s must be a record with %s" par.Name Atts.pojo
-                           FableError(msg, ?range=r, file=ctx.fileName) |> raise)
+                    | None when arg.IsGenericParameter
+                        && hasAtt Atts.pojo arg.GenericParameter.Attributes -> ()
+                    | _ ->
+                        let msg = sprintf "Generic type '%s must be decorated with %s" par.Name Atts.pojo
+                        FableError(msg, ?range=r, file=ctx.fileName) |> raise
+                )
 
     let countRefs fsExpr (vars: #seq<FSharpMemberOrFunctionOrValue>) =
         let varsDic = Dictionary()
@@ -1252,10 +1262,10 @@ module Util =
         match ctx.thisAvailability with
         | ThisAvailable -> Fable.Value Fable.This
         | ThisCaptured(currentThis, capturedThis) ->
-            match v with
-            | Some v when currentThis = v ->
+            match v, currentThis with
+            | Some v, Some currentThis when currentThis = v ->
                 Fable.Value Fable.This
-            | Some v ->
+            | Some v, _ ->
                 capturedThis |> List.pick (function
                     | Some fsRef, ident when v = fsRef -> Some ident
                     | Some _, _ -> None
@@ -1264,7 +1274,7 @@ module Util =
                     // so this means we've reached the end of the list.
                     | None, ident -> Some ident)
                 |> Fable.IdentValue |> Fable.Value
-            | None ->
+            | None, _ ->
                 capturedThis |> List.last |> snd
                 |> Fable.IdentValue |> Fable.Value
         // TODO: This shouldn't happen, throw exception?

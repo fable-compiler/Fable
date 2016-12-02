@@ -1761,8 +1761,12 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
         makeCoreRef "List" None |> makeGeneric genArgs |> Some
     | Naming.EndsWith "Exception" _ ->
         makeIdentExpr "Error" |> Some
+    | "Fable.Core.JsInterop.JsConstructor"
+    | Naming.StartsWith "Fable.Core.JsInterop.JsFunc" _ ->
+        Fable.StringConst "function" |> Fable.Value |> Some
     // Catch-all for unknown references to System and FSharp.Core classes
     | Naming.StartsWith "System." _
+    | Naming.StartsWith "Fable.Core." _
     | Naming.StartsWith "Microsoft.FSharp." _ ->
         makeNonDeclaredTypeRef Fable.NonDeclAny |> Some
     | _ -> None
