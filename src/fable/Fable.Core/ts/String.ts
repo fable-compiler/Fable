@@ -46,7 +46,7 @@ export function fsFormat(str: string, ...args: any[]): Function | string {
           }
           break;
         case "x":
-		  rep = toHex(Number(rep)); break;
+          rep = toHex(Number(rep)); break;
         case "X":
           rep = toHex(Number(rep)).toUpperCase(); break;
       }
@@ -98,7 +98,7 @@ export function format(str: string, ...args: any[]) {
           rep = (format.length > 1 ? (rep * 100).toFixed(format.substring(1)) : (rep * 100).toFixed(2)) + " %";
           break;
         case "x":
-          rep = toHex(Number(rep)); break;
+         rep = toHex(Number(rep)); break;
         case "X":
           rep = toHex(Number(rep)).toUpperCase(); break;
         default:
