@@ -12,6 +12,12 @@ import { year } from "./Date"
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
 
+function toHex(value : number) {
+  return value < 0
+    ? "ff" + (16777215 - (Math.abs(value) - 1)).toString(16)
+    : value.toString(16);
+}
+
 export function fsFormat(str: string, ...args: any[]): Function | string {
   let _cont: any;
   function isObject(x: any) {
@@ -39,6 +45,10 @@ export function fsFormat(str: string, ...args: any[]): Function | string {
             rep = "{" + Object.getOwnPropertyNames(rep).map(k => k + ": " + String(rep[k])).join(", ") + "}";
           }
           break;
+        case "x":
+          rep = toHex(Number(rep)); break;
+        case "X":
+          rep = toHex(Number(rep)).toUpperCase(); break;
       }
       const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;
       if (!isNaN(pad = parseInt(pad))) {
@@ -87,6 +97,10 @@ export function format(str: string, ...args: any[]) {
         case "p": case "P":
           rep = (format.length > 1 ? (rep * 100).toFixed(format.substring(1)) : (rep * 100).toFixed(2)) + " %";
           break;
+        case "x":
+         rep = toHex(Number(rep)); break;
+        case "X":
+          rep = toHex(Number(rep)).toUpperCase(); break;
         default:
           const m = /^(0+)(\.0+)?$/.exec(format);
           if (m != null) {

@@ -60,6 +60,15 @@ let ``sprintf "%A" with circular references doesn't crash``() = // See #338
 #endif
 
 [<Test>]
+let ``sprintf "%X" works``() =
+      sprintf "%X" 255 |> equal "FF"
+      sprintf "%x" 255 |> equal "ff"
+      sprintf "%X" -255 |> equal "FFFFFF01"
+      String.Format("{0:X}", 255) |> equal "FF"
+      String.Format("{0:x}", 255) |> equal "ff"
+      String.Format("{0:X}", -255) |> equal "FFFFFF01"
+
+[<Test>]
 let ``String slicing works``() =
       let s = "cat and dog"
       sprintf "%s" s.[2..8] |> equal "t and d"
