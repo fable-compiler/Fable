@@ -74,10 +74,10 @@ let makeConst (value: obj) =
     |> Value
 
 let makeFnType args (body: Expr) =
-    Function(List.map Ident.getType args, body.Type)
+    Function(List.map Ident.getType args |> Some, body.Type)
 
 let makeUnknownFnType (arity: int) =
-    Function(List.init arity (fun _ -> Any), Any)
+    Function(List.init arity (fun _ -> Any) |> Some, Any)
 
 let makeGet range typ callee propExpr =
     Apply (callee, [propExpr], ApplyGet, typ, range)
@@ -171,7 +171,7 @@ and makeCall (range: SourceLocation option) typ kind =
         match meth with
         | None -> owner
         | Some meth ->
-            let fnTyp = Function(List.map Expr.getType args, returnType)
+            let fnTyp = Function(List.map Expr.getType args |> Some, returnType)
             Apply (owner, [makeConst meth], ApplyGet, fnTyp, None)
     let apply kind args callee =
         Apply(callee, args, kind, typ, range)
@@ -179,7 +179,7 @@ and makeCall (range: SourceLocation option) typ kind =
         if isCons then ApplyCons else ApplyMeth
     match kind with
     | InstanceCall (callee, meth, args) ->
-        let fnTyp = Function(List.map Expr.getType args, typ)
+        let fnTyp = Function(List.map Expr.getType args |> Some, typ)
         Apply (callee, [makeConst meth], ApplyGet, fnTyp, None)
         |> apply ApplyMeth args
     | ImportCall (importPath, modName, meth, isCons, args) ->
@@ -382,7 +382,7 @@ let compareConcreteAndGenericTypes appliedArgs declaredArgs =
             argEqual genArg1 genArg2
         | Tuple genArgs1, Tuple genArgs2 ->
             listsEqual argEqual genArgs1 genArgs2
-        | Function (genArgs1, typ1), Function (genArgs2, typ2) ->
+        | Function (Some genArgs1, typ1), Function (Some genArgs2, typ2) ->
             argEqual typ1 typ2 && listsEqual argEqual genArgs1 genArgs2
         | DeclaredType(ent1, genArgs1), DeclaredType(ent2, genArgs2) ->
             ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2

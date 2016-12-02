@@ -20,7 +20,7 @@ type Type =
     | Option of genericArg: Type
     | Array of genericArg: Type
     | Tuple of genericArgs: Type list
-    | Function of argTypes: Type list * returnType: Type
+    | Function of argTypes: (Type list) option * returnType: Type
     | GenericParam of name: string
     | Enum of fullName: string
     | DeclaredType of Entity * genericArgs: Type list
@@ -30,14 +30,18 @@ type Type =
         | Enum fullName -> fullName
         | Array typ -> typ.FullName + "[]"
         | Function (argTypes, returnType) ->
-            "(" + (argTypes |> Seq.map (fun x -> x.FullName) |> String.concat ", ") + ")=>" + returnType.FullName
+            let args =
+                argTypes
+                |> Option.map (Seq.map (fun x -> x.FullName) >> String.concat ", ")
+                |> defaultArg <| "arguments"
+            "(" + args + ")=>" + returnType.FullName
         | DeclaredType(ent,_) -> ent.FullName
         | _ -> sprintf "%A" x
     member x.GenericArgs =
         match x with
         | Array genArg -> [genArg]
         | Tuple genArgs -> genArgs
-        | Function(argTypes, returnType) -> argTypes@[returnType]
+        | Function(argTypes, returnType) -> (defaultArg argTypes [])@[returnType]
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
 
@@ -135,7 +139,7 @@ and Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?de
     member x.Location: MemberLoc = loc
     member x.ArgumentTypes: Type list = argTypes
     member x.ReturnType: Type = returnType
-    member x.OriginalCurriedType: Type = defaultArg originalType (Function(argTypes, returnType))
+    member x.OriginalCurriedType: Type = defaultArg originalType (Function(Some argTypes, returnType))
     member x.GenericParameters: string list = defaultArg genParams []
     member x.Decorators: Decorator list = defaultArg decorators []
     member x.IsPublic: bool = defaultArg isPublic true
@@ -260,9 +264,9 @@ and ValueKind =
         | BoolConst _ -> Boolean
         | ArrayConst (_, typ) -> Array typ
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
-        | UnaryOp _ -> Function([Any], Any)
-        | BinaryOp _ | LogicalOp _ -> Function([Any; Any], Any)
-        | Lambda (args, body, _) -> Function(List.map Ident.getType args, body.Type)
+        | UnaryOp _ -> Function(Some [Any], Any)
+        | BinaryOp _ | LogicalOp _ -> Function(Some [Any; Any], Any)
+        | Lambda (args, body, _) -> Function(List.map Ident.getType args |> Some, body.Type)
     member x.Range: SourceLocation option =
         match x with
         | Lambda (_, body, _) -> body.Range

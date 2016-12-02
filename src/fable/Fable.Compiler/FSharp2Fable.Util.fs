@@ -642,7 +642,7 @@ module Types =
             match List.ofSeq tuple with
             | [singleArg] -> singleArg
             | args -> Fable.Tuple(args) )
-        Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function([a], b))
+        Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function(Some [a], b))
 
     and getMembers com (tdef: FSharpEntity) =
         let isAbstract =
@@ -700,7 +700,7 @@ module Types =
             |> Seq.choose (fun x ->
                 if not x.IsPropertyGetterMethod then None else
                 match makeType com Context.Empty x.FullType with
-                | Fable.Function([Fable.Unit], returnType) ->
+                | Fable.Function(Some [Fable.Unit], returnType) ->
                     Some(x.DisplayName, returnType)
                 | _ -> None)
             |> Seq.toList
@@ -746,15 +746,22 @@ module Types =
         // Delegate
         elif tdef.IsDelegate
         then
-            match Seq.length genArgs with
-            | 0 -> [Fable.Unit], Fable.Unit
-            | 1 ->
-                if fullName.StartsWith("System.Action")
-                then [Seq.head genArgs |> makeType com ctx], Fable.Unit
-                else [Fable.Unit], Seq.head genArgs |> makeType com ctx
-            | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList,
-                    Seq.last genArgs |> makeType com ctx
-            |> Fable.Function
+            if fullName.StartsWith("System.Action")
+            then
+                if Seq.length genArgs = 1
+                then [Seq.head genArgs |> makeType com ctx] |> Some, Fable.Unit
+                else Some [Fable.Unit], Fable.Unit
+                |> Fable.Function
+            elif fullName.StartsWith("System.Func")
+            then
+                match Seq.length genArgs with
+                | 0 -> Some [Fable.Unit], Fable.Unit
+                | 1 -> Some [Fable.Unit], Seq.head genArgs |> makeType com ctx
+                | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList |> Some,
+                        Seq.last genArgs |> makeType com ctx
+                |> Fable.Function
+            // TODO: Is there a way to find the signature of other delegate types?
+            else Fable.Function(None, Fable.Any)
         // Object
         elif fullName = "System.Object"
         then Fable.Any
@@ -812,7 +819,7 @@ module Types =
         elif t.IsFunctionType
         then
             let gs = getFnGenArgs [] t
-            (List.rev gs.Tail |> List.map (makeType com ctx), makeType com ctx gs.Head)
+            (List.rev gs.Tail |> List.map (makeType com ctx) |> Some, makeType com ctx gs.Head)
             |> Fable.Function
         elif t.HasTypeDefinition
         then makeTypeFromDef com ctx t.TypeDefinition t.GenericArguments
@@ -1160,7 +1167,8 @@ module Util =
             | Fable.Option genericArg -> hasUnresolvedGenerics genericArg
             | Fable.Array genericArg -> hasUnresolvedGenerics genericArg
             | Fable.Tuple genericArgs -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
-            | Fable.Function (argTypes, returnType ) -> returnType::argTypes |> Seq.tryPick hasUnresolvedGenerics
+            | Fable.Function (Some argTypes, returnType ) -> returnType::argTypes |> Seq.tryPick hasUnresolvedGenerics
+            | Fable.Function (None, returnType ) -> hasUnresolvedGenerics returnType
             | Fable.DeclaredType (_, genericArgs) -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
             | _ -> None
         let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
@@ -1254,7 +1262,7 @@ module Util =
                                 let ent = makeEntity com ctx meth.EnclosingEntity
                                 ent.TryGetMember(methName, kind, getMemberLoc meth, argTypes)
                                 |> function Some m -> m.OverloadName | None -> methName
-                        let calleeType = Fable.Function(argTypes, typ)
+                        let calleeType = Fable.Function(Some argTypes, typ)
                         makeGet r calleeType callee (makeConst methName)
                     |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
 

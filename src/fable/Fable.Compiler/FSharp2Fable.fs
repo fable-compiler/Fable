@@ -459,22 +459,17 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let ctx, args = makeLambdaArgs com ctx [var]
         Fable.Lambda (args, transformExpr com ctx body, true) |> Fable.Value
 
-    | BasicPatterns.NewDelegate(NonAbbreviatedType delegateType, Transform com ctx delegateBodyExpr) ->
+    | BasicPatterns.NewDelegate(delegateType, Transform com ctx delegateBodyExpr) ->
         let arity =
-            if delegateType.HasTypeDefinition
-            then Some delegateType.TypeDefinition
-            else None
-            |> Option.bind (fun x -> x.TryFullName)
-            |> Option.map (fun x -> x.StartsWith("System.Action"))
-            |> function
-                | Some true -> 0
-                | _ -> (max delegateType.GenericArguments.Count 2) - 1
+            makeType com ctx delegateType |> function
+                | Fable.Function(Some args,_) -> Some args.Length
+                | _ -> None
         // When the delegate has one single argument and the lambda is a reference (e.g. `System.Func<int>(f)`)
         // the F# compiler translates this as an application, so it must be wrapped in a lambda
         match delegateBodyExpr with
         | Fable.Apply _ ->
             Fable.Lambda([], delegateBodyExpr, true) |> Fable.Value
-        | _ -> makeDelegate com (Some arity) delegateBodyExpr
+        | _ -> makeDelegate com arity delegateBodyExpr
 
     (** ## Getters and Setters *)
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
@@ -597,7 +592,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                             |> function Some m -> hasRestParams m | None -> false
                     let body = transformExpr com ctx over.Body
                     let args = List.map Fable.Ident.getType args'
-                    let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type, Fable.Function(args, body.Type),
+                    let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type, Fable.Function(Some args, body.Type),
                                 over.GenericParameters |> List.map (fun x -> x.Name),
                                 hasRestParams = hasRestParams)
                     m, args', body))
