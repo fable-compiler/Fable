@@ -25,7 +25,7 @@ Bundlers are nice but the obvious gotcha is we need to be careful not to convert
 The killer feature of ES2015 modules is they allow to make **individual exports and imports**. This means you can reference a library without importing the whole package, only the functions you need. And most importantly, library authors are encouraged to structure their code having this in mind. Then, bundlers (and browsers soon) can easily eliminate anything that's not being imported. Consider this simplistic JS project and the generated bundle.
 
 maths.js
-```js
+```[lang=js]
 export function square ( x ) {
   return x * x;
 }
@@ -36,13 +36,13 @@ export function cube ( x ) {
 ```
 
 main.js (entry module)
-```js
+```[lang=js]
 import { cube } from './maths.js';
 console.log( cube( 5 ) ); // 125
 ```
 
 bundle.js (`square` is excluded)
-```js
+```[lang=js]
 function cube ( x ) {
   return x * x * x;
 }
@@ -69,7 +69,7 @@ let bar y =
   y * y
 ```
 
-```JS
+```[lang=js]
 export function foo(x) {
   return x + x;
 }
@@ -93,7 +93,7 @@ let private test() =
 test()
 ```
 
-```JS
+```[lang=js]
 import { fsFormat } from "fable-core/String";
 import { bar } from "./MyLib"
 

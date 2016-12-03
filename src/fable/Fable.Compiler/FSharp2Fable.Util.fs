@@ -415,12 +415,6 @@ module Patterns =
             else None
         | _ -> None
 
-    let (|JsFunc|_|) = function
-        | Call(None, jsFunc, _, _, [lambda]) as e
-            when jsFunc.FullName.StartsWith("Fable.Core.JsInterop.JsFunc") ->
-            Some(e.Type, lambda)
-        | _ -> None
-
     let (|JsThis|_|) = function
         | Call(None, jsThis, _, _, [])
             when jsThis.FullName.StartsWith("Fable.Core.JsInterop.jsThis") ->

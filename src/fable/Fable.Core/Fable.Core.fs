@@ -162,17 +162,39 @@ module JsInterop =
     let [<Emit("this")>] jsThis<'T> : 'T = jsNative
 
     /// Use it when importing a constructor from a JS library.
-    /// 'Args can be a tuple to represent multiple arguments in JS.
-    ///
-    /// ## Sample
-    ///     type IFoo =
-    ///         abstract foo: unit -> unit
-    ///
-    ///     let Foo: JsConstructor<string * int, IFoo> = importMember "../js/lib.js"
-    ///     let x = Foo.Create("bar", 5)
-    ///     x.foo()
-    type JsConstructor<'Args,'T> =
-        abstract Create: args: 'Args -> 'T
+    type [<AllowNullLiteral>] JsConstructor =
+        [<Emit("new $0($1...)")>]
+        abstract Create: [<ParamArray>]args: obj[] -> obj
+
+    /// Use it when importing a constructor from a JS library.
+    type [<AllowNullLiteral>] JsConstructor<'Arg1,'Out> =
+        [<Emit("new $0($1...)")>]
+        abstract Create: 'Arg1-> obj
+
+    /// Use it when importing a constructor from a JS library.
+    type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Out> =
+        [<Emit("new $0($1...)")>]
+        abstract Create: 'Arg1*'Arg2-> obj
+
+    /// Use it when importing a constructor from a JS library.
+    type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Out> =
+        [<Emit("new $0($1...)")>]
+        abstract Create: 'Arg1*'Arg2*'Arg3-> obj
+
+    /// Use it when importing a constructor from a JS library.
+    type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Out> =
+        [<Emit("new $0($1...)")>]
+        abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4-> obj
+
+    /// Use it when importing a constructor from a JS library.
+    type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out> =
+        [<Emit("new $0($1...)")>]
+        abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4*'Arg5-> obj
+
+    /// Use it when importing a constructor from a JS library.
+    type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out> =
+        [<Emit("new $0($1...)")>]
+        abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4*'Arg5*'Arg6-> obj
 
     /// Use it to cast dynamic functions coming from JS. If you know the argument
     /// and return types, use `System.Func<>` instead. If you need a constructor

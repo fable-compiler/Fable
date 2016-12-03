@@ -6,7 +6,10 @@
     "fable-import-d3": "^0.0.4",
     "fable-import-pixi": "^0.0.10",
     "fable-import-three": "^0.0.4",
+    "fable-plugins-nunit": "^0.7.1",
     "fable-powerpack": "^0.0.15",
-    "fable-react": "^0.7.4"
+    "fable-react": "^0.7.4",
+    "finalhandler": "^0.5.1",
+    "serve-static": "^1.11.1"
   }
 }

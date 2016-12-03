@@ -255,9 +255,6 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         else FableError("`jsThis` can only be called within a delegate",
                         makeRange fsExpr.Range) |> raise
 
-    | JsFunc(delegateType, expr) ->
-        makeDelegateFrom com ctx delegateType expr
-
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
     // TypeLambda is a local generic lambda

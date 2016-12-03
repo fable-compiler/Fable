@@ -430,13 +430,6 @@ module private AstPass =
             |> Fable.StringConst |> Fable.Value |> List.singleton
             |> newError i.range i.returnType
             |> fun err -> Fable.Throw(err, i.returnType, i.range) |> Some
-        | "create" when i.ownerFullName.EndsWith "JsConstructor" ->
-            match i.callee, i.args with
-            | Some callee, [Fable.Value(Fable.TupleConst args)] ->
-                Fable.Apply(callee, args, Fable.ApplyCons, i.returnType, i.range) |> Some
-            | Some callee, args ->
-                Fable.Apply(callee, args, Fable.ApplyCons, i.returnType, i.range) |> Some
-            | _ -> None
         | _ -> None
 
     let references com (i: Fable.ApplyInfo) =
