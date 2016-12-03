@@ -250,44 +250,13 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         Fable.Sequential(assignments, r)
 
     | JsThis ->
-        if ctx.isJsFunc
+        if ctx.isDelegate
         then Fable.Value Fable.This
-        else FableError("`jsThis` can only be called within JsFunc0, JsFunc1... " +
-                        "not within an F# lambda", makeRange fsExpr.Range) |> raise
+        else FableError("`jsThis` can only be called within a delegate",
+                        makeRange fsExpr.Range) |> raise
 
-    | JsFunc(lambda, arity) ->
-        // If `this` is available, capture it to avoid conflicts (see #158)
-        let capturedThis =
-            match ctx.thisAvailability with
-            | ThisUnavailable -> None
-            | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdent]
-            | ThisCaptured(prevThis, prevVars) ->
-                (prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
-        let ctx =
-            match capturedThis with
-            | None -> ctx
-            | Some(capturedThis) ->
-                { ctx with thisAvailability=ThisCaptured(None, capturedThis) }
-        match lambda with
-        | CurriedLambda(args, body) when args.Length = arity ->
-            let ctx, args = makeLambdaArgs com ctx args
-            let ctx = { ctx with isJsFunc = true}
-            let body = transformExpr com ctx body
-            Fable.Lambda(args, body, false) |> Fable.Value
-        | Transform com ctx expr ->
-            let lambdaArgs = [for i=1 to arity do yield Fable.Ident(com.GetUniqueVar(), Fable.Any)]
-            let body =
-                (expr, lambdaArgs)
-                ||> List.fold (fun callee arg ->
-                    Fable.Apply (callee, [Fable.Value (Fable.IdentValue arg)],
-                        Fable.ApplyMeth, Fable.Any, expr.Range))
-            Fable.Lambda(lambdaArgs, body, false) |> Fable.Value
-        |> fun lambda ->
-            match capturedThis with
-            | Some((_,capturedThis)::_) ->
-                let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
-                Fable.Sequential([varDecl; lambda], lambda.Range)
-            | _ -> lambda
+    | JsFunc(delegateType, expr) ->
+        makeDelegateFrom com ctx delegateType expr
 
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -465,20 +434,11 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
     (** ## Lambdas *)
     | BasicPatterns.Lambda (var, body) ->
         let ctx, args = makeLambdaArgs com ctx [var]
-        let ctx = { ctx with isJsFunc = false }
         Fable.Lambda (args, transformExpr com ctx body, true) |> Fable.Value
 
-    | BasicPatterns.NewDelegate(delegateType, Transform com ctx delegateBodyExpr) ->
-        let arity =
-            match makeType com ctx delegateType with
-            | Fable.Function(args,_) -> Some args.Length
-            | _ -> None
-        // When the delegate has one single argument and the lambda is a reference (e.g. `System.Func<int>(f)`)
-        // the F# compiler translates this as an application, so it must be wrapped in a lambda
-        match delegateBodyExpr with
-        | Fable.Apply _ ->
-            Fable.Lambda([], delegateBodyExpr, true) |> Fable.Value
-        | _ -> makeDelegate com arity delegateBodyExpr
+    | BasicPatterns.NewDelegate(delegateType, expr) ->
+        makeDelegateFrom com ctx delegateType expr
+
 
     (** ## Getters and Setters *)
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
@@ -1014,7 +974,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         if not meth.EnclosingEntity.IsFSharpModule && meth.CompiledName.StartsWith "op_"
         then
             sprintf "Custom type operators cannot be inlined: %s" meth.FullName
-            |> attachRange (getRefLocation meth |> makeRange |> Some)
+            |> attachRangeAndFile (getRefLocation meth |> makeRange |> Some) ctx.fileName
             |> Warning |> com.AddLog
             addMethod None
         else

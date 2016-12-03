@@ -103,7 +103,7 @@ module JsInterop =
     let ($) (callee: obj) (args: obj): obj = jsNative
 
     /// Upcast the right operand to obj and create a key-value tuple.
-    /// Mostly convenient when used with createObj.
+    /// Mostly convenient when used with `createObj`.
     /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
     let (==>) (key: string) (v: obj): string*obj = jsNative
 
@@ -155,7 +155,7 @@ module JsInterop =
     let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
 
 
-    /// Compiles to JS `this` keyword. Can only be used in the body of JsFunc0, JsFunc1...
+    /// Compiles to JS `this` keyword. Can only be used within a delegate.
     ///
     /// ## Sample
     ///     let fn = JsFunc2(fun x y -> jsThis?add(x, y))
@@ -185,47 +185,26 @@ module JsInterop =
         [<Emit("$0($1...)")>]
         abstract Invoke: [<ParamArray>]args:obj[]->obj
 
-    /// Equivalent to `System.Func` but includes the number of arguments in the name
-    /// for better type inference. I also allows the use of `jsThis` within its body.
-    type JsFunc0<'Out>(f: unit->'Out) =
-        [<Emit("$0()")>]
-        member __.Invoke(): 'Out = jsNative
+    /// Same as `System.Func<unit,'Out>`
+    type JsFunc0<'Out> = Func<unit,'Out>
 
-    /// Equivalent to `System.Func` but includes the number of arguments in the name
-    /// for better type inference. I also allows the use of `jsThis` within its body.
-    type JsFunc1<'Arg1,'Out>(f: 'Arg1->'Out) =
-        [<Emit("$0($1)")>]
-        member __.Invoke(arg1:'Arg1): 'Out = jsNative
+    /// Same as `System.Func<'Arg1,'Out>`
+    type JsFunc1<'Arg1,'Out> = Func<'Arg1,'Out>
 
-    /// Equivalent to `System.Func` but includes the number of arguments in the name
-    /// for better type inference. I also allows the use of `jsThis` within its body.
-    type JsFunc2<'Arg1,'Arg2,'Out>(f: 'Arg1->'Arg2->'Out) =
-        [<Emit("$0($1,$2)")>]
-        member __.Invoke(arg1:'Arg1, arg2:'Arg2): 'Out = jsNative
+    /// Same as `System.Func<'Arg1,'Arg2,'Out>`
+    type JsFunc2<'Arg1,'Arg2,'Out> = Func<'Arg1,'Arg2,'Out>
 
-    /// Equivalent to `System.Func` but includes the number of arguments in the name
-    /// for better type inference. I also allows the use of `jsThis` within its body.
-    type JsFunc3<'Arg1,'Arg2,'Arg3,'Out>(f: 'Arg1->'Arg2->'Arg3->'Out) =
-        [<Emit("$0($1,$2,$3)")>]
-        member __.Invoke(arg1:'Arg1, arg2:'Arg2, arg3:'Arg3): 'Out = jsNative
+    /// Same as `System.Func<'Arg1,'Arg2,'Arg3,'Out>`
+    type JsFunc3<'Arg1,'Arg2,'Arg3,'Out> = Func<'Arg1,'Arg2,'Arg3,'Out>
 
-    /// Equivalent to `System.Func` but includes the number of arguments in the name
-    /// for better type inference. I also allows the use of `jsThis` within its body.
-    type JsFunc4<'Arg1,'Arg2,'Arg3,'Arg4,'Out>(f: 'Arg1->'Arg2->'Arg3->'Arg4->'Out) =
-        [<Emit("$0($1,$2,$3,$4)")>]
-        member __.Invoke(arg1:'Arg1, arg2:'Arg2, arg3:'Arg3, arg4:'Arg4): 'Out = jsNative
+    /// Same as `System.Func<'Arg1,'Arg2,'Arg3,'Arg4,'Out>`
+    type JsFunc4<'Arg1,'Arg2,'Arg3,'Arg4,'Out> = Func<'Arg1,'Arg2,'Arg3,'Arg4,'Out>
 
-    /// Equivalent to `System.Func` but includes the number of arguments in the name
-    /// for better type inference. I also allows the use of `jsThis` within its body.
-    type JsFunc5<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out>(f: 'Arg1->'Arg2->'Arg3->'Arg4->'Arg5->'Out) =
-        [<Emit("$0($1,$2,$3,$4,$5)")>]
-        member __.Invoke(arg1:'Arg1, arg2:'Arg2, arg3:'Arg3, arg4:'Arg4, arg5:'Arg5): 'Out = jsNative
+    /// Same as `System.Func<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out>`
+    type JsFunc5<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out> = Func<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out>
 
-    /// Equivalent to `System.Func` but includes the number of arguments in the name
-    /// for better type inference. I also allows the use of `jsThis` within its body.
-    type JsFunc6<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out>(f: 'Arg1->'Arg2->'Arg3->'Arg4->'Arg5->'Arg6->'Out) =
-        [<Emit("$0($1,$2,$3,$4,$5,$6)")>]
-        member __.Invoke(arg1:'Arg1, arg2:'Arg2, arg3:'Arg3, arg4:'Arg4, arg5:'Arg5, arg6:'Arg6): 'Out = jsNative
+    /// Same as `System.Func<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out>`
+    type JsFunc6<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out> = Func<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out>
 
 module Testing =
     type TestAttribute() =

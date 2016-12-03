@@ -46,7 +46,7 @@ type Context =
     ; baseClass: string option
     ; thisAvailability: ThisAvailability
     ; genericAvailability: bool
-    ; isJsFunc: bool }
+    ; isDelegate: bool }
     static member Empty =
         { fileName = "unknown"
         ; scope = []
@@ -56,7 +56,7 @@ type Context =
         ; baseClass = None
         ; thisAvailability = ThisUnavailable
         ; genericAvailability = false
-        ; isJsFunc = false }
+        ; isDelegate = false }
 
 type Role =
     | AppliedArgument
@@ -246,6 +246,11 @@ module Helpers =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
+    let rec deepExists f (expr: FSharpExpr) =
+        if f expr
+        then true
+        else List.exists (deepExists f) expr.ImmediateSubExpressions
+
 module Patterns =
     open BasicPatterns
     open Helpers
@@ -411,13 +416,9 @@ module Patterns =
         | _ -> None
 
     let (|JsFunc|_|) = function
-        | NewObject(meth, _typArgs, [expr]) ->
-            match meth.EnclosingEntity.TryFullName with
-            | Some name when name.StartsWith("Fable.Core.JsInterop.JsFunc") ->
-                match System.Int32.TryParse(name.Substring(27, 1)) with
-                | true, arity -> Some(expr, arity)
-                | false, _ -> None
-            | _ -> None
+        | Call(None, jsFunc, _, _, [lambda]) as e
+            when jsFunc.FullName.StartsWith("Fable.Core.JsInterop.JsFunc") ->
+            Some(e.Type, lambda)
         | _ -> None
 
     let (|JsThis|_|) = function
@@ -1331,3 +1332,63 @@ module Util =
                 makeTypeFromDef com ctx v.EnclosingEntity []
                 |> makeNonGenTypeRef
             Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
+
+    let makeDelegateFrom (com: IFableCompiler) ctx delegateType fsExpr =
+        let fsExpr =
+            let fullName t =
+                tryDefinition t
+                |> Option.bind (fun tdef -> tdef.TryFullName)
+                |> defaultArg <| ""
+            match fsExpr with
+            // When System.Func has one single generic parameter and the argument
+            // is a local reference (e.g. `System.Func<int>(f)`) the F# compiler
+            // translates it as an application
+            | BasicPatterns.Application(BasicPatterns.Value _ as e,_,[])
+                when fullName delegateType = "System.Func`1" -> e
+            | _ -> fsExpr
+        let arity =
+            match makeType com ctx delegateType with
+            | Fable.Function(args,_) -> args.Length
+            | _ ->
+                "Cannot calculate arity of delegate, please report."
+                |> attachRangeAndFile (makeRangeFrom fsExpr) ctx.fileName
+                |> Warning |> com.AddLog
+                1
+        let containsJsThis =
+            fsExpr |> deepExists (function JsThis -> true | _ -> false)
+        // If `this` is available, capture it to avoid conflicts (see #158)
+        let capturedThis =
+            match containsJsThis, ctx.thisAvailability with
+            | false, _ -> None
+            | true, ThisUnavailable -> None
+            | true, ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdent]
+            | true, ThisCaptured(prevThis, prevVars) ->
+                (prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
+        let ctx =
+            match capturedThis with
+            | None -> ctx
+            | Some(capturedThis) ->
+                { ctx with thisAvailability=ThisCaptured(None, capturedThis) }
+        let getArgsLength = function
+            | [arg: FSharpMemberOrFunctionOrValue] when isUnit arg.FullType -> 0
+            | args -> args.Length
+        match fsExpr with
+        | CurriedLambda(args, body) when(getArgsLength args) = arity ->
+            let ctx, args = makeLambdaArgs com ctx args
+            let ctx = { ctx with isDelegate = true}
+            let body = com.Transform ctx body
+            Fable.Lambda(args, body, not containsJsThis) |> Fable.Value
+        | Transform com ctx expr ->
+            let lambdaArgs = [for i=1 to arity do yield Fable.Ident(com.GetUniqueVar(), Fable.Any)]
+            let body =
+                (expr, lambdaArgs)
+                ||> List.fold (fun callee arg ->
+                    Fable.Apply (callee, [Fable.Value (Fable.IdentValue arg)],
+                        Fable.ApplyMeth, Fable.Any, expr.Range))
+            Fable.Lambda(lambdaArgs, body, not containsJsThis) |> Fable.Value
+        |> fun lambda ->
+            match capturedThis with
+            | Some((_,capturedThis)::_) ->
+                let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
+                Fable.Sequential([varDecl; lambda], lambda.Range)
+            | _ -> lambda
