@@ -205,7 +205,7 @@ module Util =
             |> Babel.TupleTypeAnnotation
             :> Babel.TypeAnnotationInfo
         | Fable.Function(argTypes, returnType) ->
-            defaultArg argTypes [Fable.Any]
+            argTypes
             |> List.mapi (fun i argType ->
                 Babel.FunctionTypeParam(
                     Babel.Identifier("arg" + (string i)),

@@ -154,6 +154,13 @@ module JsInterop =
     /// Converts a plain JS object (POJO) to an instance of the specified type
     let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
 
+
+    /// Compiles to JS `this` keyword. Can only be used in the body of JsFunc0, JsFunc1...
+    ///
+    /// ## Sample
+    ///     let fn = JsFunc2(fun x y -> jsThis?add(x, y))
+    let [<Emit("this")>] jsThis<'T> : 'T = jsNative
+
     /// Use it when importing a constructor from a JS library.
     /// 'Args can be a tuple to represent multiple arguments in JS.
     ///
@@ -178,45 +185,47 @@ module JsInterop =
         [<Emit("$0($1...)")>]
         abstract Invoke: [<ParamArray>]args:obj[]->obj
 
-    /// Use it when you need an plain old JS function that doesn't capture
-    /// the enclosing `this`. The first argument of the lambda becomes `this` in JS.
-    ///
-    /// ## Sample
-    ///     let f = JsFunc2(fun (this: obj) (x: int) (y: int) -> this?add(x, y))
-    ///
-    ///     // JS
-    ///     // var f = function(x, y) { return this.add(x, y) }
-    type JsFunc0<'This,'Out>(f: 'This->'Out) =
+    /// Equivalent to `System.Func` but includes the number of arguments in the name
+    /// for better type inference. I also allows the use of `jsThis` within its body.
+    type JsFunc0<'Out>(f: unit->'Out) =
         [<Emit("$0()")>]
         member __.Invoke(): 'Out = jsNative
 
-    /// Use it when you need an plain old JS function that doesn't capture
-    /// the enclosing `this`. The first argument of the lambda becomes `this` in JS.
-    /// (See `JsFunc0` comments for an example.)
-    type JsFunc1<'This,'Arg1,'Out>(f: 'This->'Arg1->'Out) =
+    /// Equivalent to `System.Func` but includes the number of arguments in the name
+    /// for better type inference. I also allows the use of `jsThis` within its body.
+    type JsFunc1<'Arg1,'Out>(f: 'Arg1->'Out) =
         [<Emit("$0($1)")>]
         member __.Invoke(arg1:'Arg1): 'Out = jsNative
 
-    /// Use it when you need an plain old JS function that doesn't capture
-    /// the enclosing `this`. The first argument of the lambda becomes `this` in JS.
-    /// (See `JsFunc0` comments for an example.)
-    type JsFunc2<'This,'Arg1,'Arg2,'Out>(f: 'This->'Arg1->'Arg2->'Out) =
+    /// Equivalent to `System.Func` but includes the number of arguments in the name
+    /// for better type inference. I also allows the use of `jsThis` within its body.
+    type JsFunc2<'Arg1,'Arg2,'Out>(f: 'Arg1->'Arg2->'Out) =
         [<Emit("$0($1,$2)")>]
         member __.Invoke(arg1:'Arg1, arg2:'Arg2): 'Out = jsNative
 
-    /// Use it when you need an plain old JS function that doesn't capture
-    /// the enclosing `this`. The first argument of the lambda becomes `this` in JS.
-    /// (See `JsFunc0` comments for an example.)
-    type JsFunc3<'This,'Arg1,'Arg2,'Arg3,'Out>(f: 'This->'Arg1->'Arg2->'Arg3->'Out) =
+    /// Equivalent to `System.Func` but includes the number of arguments in the name
+    /// for better type inference. I also allows the use of `jsThis` within its body.
+    type JsFunc3<'Arg1,'Arg2,'Arg3,'Out>(f: 'Arg1->'Arg2->'Arg3->'Out) =
         [<Emit("$0($1,$2,$3)")>]
         member __.Invoke(arg1:'Arg1, arg2:'Arg2, arg3:'Arg3): 'Out = jsNative
 
-    /// Use it when you need an plain old JS function that doesn't capture
-    /// the enclosing `this`. The first argument of the lambda becomes `this` in JS.
-    /// (See `JsFunc0` comments for an example.)
-    type JsFunc4<'This,'Arg1,'Arg2,'Arg3,'Arg4,'Out>(f: 'This->'Arg1->'Arg2->'Arg3->'Arg4->'Out) =
+    /// Equivalent to `System.Func` but includes the number of arguments in the name
+    /// for better type inference. I also allows the use of `jsThis` within its body.
+    type JsFunc4<'Arg1,'Arg2,'Arg3,'Arg4,'Out>(f: 'Arg1->'Arg2->'Arg3->'Arg4->'Out) =
         [<Emit("$0($1,$2,$3,$4)")>]
         member __.Invoke(arg1:'Arg1, arg2:'Arg2, arg3:'Arg3, arg4:'Arg4): 'Out = jsNative
+
+    /// Equivalent to `System.Func` but includes the number of arguments in the name
+    /// for better type inference. I also allows the use of `jsThis` within its body.
+    type JsFunc5<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out>(f: 'Arg1->'Arg2->'Arg3->'Arg4->'Arg5->'Out) =
+        [<Emit("$0($1,$2,$3,$4,$5)")>]
+        member __.Invoke(arg1:'Arg1, arg2:'Arg2, arg3:'Arg3, arg4:'Arg4, arg5:'Arg5): 'Out = jsNative
+
+    /// Equivalent to `System.Func` but includes the number of arguments in the name
+    /// for better type inference. I also allows the use of `jsThis` within its body.
+    type JsFunc6<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out>(f: 'Arg1->'Arg2->'Arg3->'Arg4->'Arg5->'Arg6->'Out) =
+        [<Emit("$0($1,$2,$3,$4,$5,$6)")>]
+        member __.Invoke(arg1:'Arg1, arg2:'Arg2, arg3:'Arg3, arg4:'Arg4, arg5:'Arg5, arg6:'Arg6): 'Out = jsNative
 
 module Testing =
     type TestAttribute() =

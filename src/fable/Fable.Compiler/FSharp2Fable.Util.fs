@@ -33,26 +33,30 @@ type ThisAvailability =
         of currentThis: FSharpMemberOrFunctionOrValue option
         * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Ident) list
 
-type MemberInfo = {
-    isInstance: bool
-    passGenerics: bool
-}
+type MemberInfo =
+    { isInstance: bool
+    ; passGenerics: bool }
 
 type Context =
-    {
-    fileName: string
-    scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
-    scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
-    typeArgs: (string * FSharpType) list
-    decisionTargets: Map<int, DecisionTarget>
-    baseClass: string option
-    thisAvailability: ThisAvailability
-    genericAvailability: bool
-    }
+    { fileName: string
+    ; scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
+    ; scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
+    ; typeArgs: (string * FSharpType) list
+    ; decisionTargets: Map<int, DecisionTarget>
+    ; baseClass: string option
+    ; thisAvailability: ThisAvailability
+    ; genericAvailability: bool
+    ; isJsFunc: bool }
     static member Empty =
-        { fileName="unknown"; scope=[]; scopedInlines=[]
-        ; typeArgs=[]; baseClass=None; decisionTargets=Map.empty<_,_>
-        ; thisAvailability=ThisUnavailable; genericAvailability=false }
+        { fileName = "unknown"
+        ; scope = []
+        ; scopedInlines = []
+        ; typeArgs = []
+        ; decisionTargets = Map.empty<_,_>
+        ; baseClass = None
+        ; thisAvailability = ThisUnavailable
+        ; genericAvailability = false
+        ; isJsFunc = false }
 
 type Role =
     | AppliedArgument
@@ -416,6 +420,20 @@ module Patterns =
             | _ -> None
         | _ -> None
 
+    let (|JsThis|_|) = function
+        | Call(None, jsThis, _, _, [])
+            when jsThis.FullName.StartsWith("Fable.Core.JsInterop.jsThis") ->
+            Some JsThis
+        | _ -> None
+
+    let (|CurriedLambda|_|) fsExpr =
+        let rec curriedLambda acc = function
+            | Lambda(arg, body) -> curriedLambda (arg::acc) body
+            | e -> acc, e
+        match curriedLambda [] fsExpr with
+        | [], _ -> None
+        | args, expr -> Some(List.rev args, expr)
+
     let (|ImmutableBinding|_|) = function
         | Let((var, (Value v as value)), body)
             when not var.IsMutable && not v.IsMutable && not v.IsMemberThisValue -> Some((var, value), body)
@@ -642,7 +660,7 @@ module Types =
             match List.ofSeq tuple with
             | [singleArg] -> singleArg
             | args -> Fable.Tuple(args) )
-        Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function(Some [a], b))
+        Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function([a], b))
 
     and getMembers com (tdef: FSharpEntity) =
         let isAbstract =
@@ -749,19 +767,26 @@ module Types =
             if fullName.StartsWith("System.Action")
             then
                 if Seq.length genArgs = 1
-                then [Seq.head genArgs |> makeType com ctx] |> Some, Fable.Unit
-                else Some [], Fable.Unit
+                then [Seq.head genArgs |> makeType com ctx], Fable.Unit
+                else [], Fable.Unit
                 |> Fable.Function
             elif fullName.StartsWith("System.Func")
             then
                 match Seq.length genArgs with
-                | 0 -> Some [], Fable.Unit
-                | 1 -> Some [], Seq.head genArgs |> makeType com ctx
-                | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList |> Some,
+                | 0 -> [], Fable.Unit
+                | 1 -> [], Seq.head genArgs |> makeType com ctx
+                | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList,
                         Seq.last genArgs |> makeType com ctx
                 |> Fable.Function
-            // TODO: Is there a way to find the signature of other delegate types?
-            else Fable.Function(None, Fable.Any)
+            else
+            try
+                let argTypes =
+                    tdef.FSharpDelegateSignature.DelegateArguments
+                    |> Seq.map (snd >> makeType com ctx) |> Seq.toList
+                let retType =
+                    makeType com ctx tdef.FSharpDelegateSignature.DelegateReturnType
+                Fable.Function(argTypes, retType)
+            with _ -> Fable.Function([Fable.Any], Fable.Any)
         // Object
         elif fullName = "System.Object"
         then Fable.Any
@@ -816,7 +841,7 @@ module Types =
         then
             let argType = makeType com ctx t.GenericArguments.[0]
             let returnType = makeType com ctx t.GenericArguments.[1]
-            Fable.Function(Some[argType], returnType)
+            Fable.Function([argType], returnType)
         elif t.HasTypeDefinition
         then makeTypeFromDef com ctx t.TypeDefinition t.GenericArguments
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
@@ -1163,8 +1188,7 @@ module Util =
             | Fable.Option genericArg -> hasUnresolvedGenerics genericArg
             | Fable.Array genericArg -> hasUnresolvedGenerics genericArg
             | Fable.Tuple genericArgs -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
-            | Fable.Function (Some argTypes, returnType ) -> returnType::argTypes |> Seq.tryPick hasUnresolvedGenerics
-            | Fable.Function (None, returnType ) -> hasUnresolvedGenerics returnType
+            | Fable.Function (argTypes, returnType ) -> returnType::argTypes |> Seq.tryPick hasUnresolvedGenerics
             | Fable.DeclaredType (_, genericArgs) -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
             | _ -> None
         let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
@@ -1262,7 +1286,7 @@ module Util =
                         makeGet r Fable.Any callee (makeConst methName)
                     |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
 
-    let makeThisRef (ctx: Context) (v: FSharpMemberOrFunctionOrValue option) =
+    let makeThisRef (com: ICompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue option) =
         match ctx.thisAvailability with
         | ThisAvailable -> Fable.Value Fable.This
         | ThisCaptured(currentThis, capturedThis) ->
@@ -1281,8 +1305,11 @@ module Util =
             | None, _ ->
                 capturedThis |> List.last |> snd
                 |> Fable.IdentValue |> Fable.Value
-        // TODO: This shouldn't happen, throw exception?
-        | ThisUnavailable -> Fable.Value Fable.This
+        | ThisUnavailable ->
+            "`this` seems to be used in a context where it's not available, please check."
+            |> attachRangeAndFile r ctx.fileName
+            |> Warning |> com.AddLog
+            Fable.Value Fable.This
 
     let makeValueFrom com ctx r typ role (v: FSharpMemberOrFunctionOrValue) =
         if not v.IsModuleValueOrMember

@@ -74,10 +74,10 @@ let makeConst (value: obj) =
     |> Value
 
 let makeFnType args (body: Expr) =
-    Function(List.map Ident.getType args |> Some, body.Type)
+    Function(List.map Ident.getType args, body.Type)
 
 let makeUnknownFnType (arity: int) =
-    Function(List.init arity (fun _ -> Any) |> Some, Any)
+    Function(List.init arity (fun _ -> Any), Any)
 
 let makeGet range typ callee propExpr =
     Apply (callee, [propExpr], ApplyGet, typ, range)
@@ -382,7 +382,7 @@ let compareConcreteAndGenericTypes appliedArgs declaredArgs =
             argEqual genArg1 genArg2
         | Tuple genArgs1, Tuple genArgs2 ->
             listsEqual argEqual genArgs1 genArgs2
-        | Function (Some genArgs1, typ1), Function (Some genArgs2, typ2) ->
+        | Function (genArgs1, typ1), Function (genArgs2, typ2) ->
             argEqual typ1 typ2 && listsEqual argEqual genArgs1 genArgs2
         | DeclaredType(ent1, genArgs1), DeclaredType(ent2, genArgs2) ->
             ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2

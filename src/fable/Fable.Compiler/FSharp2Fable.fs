@@ -249,6 +249,12 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 e::acc)
         Fable.Sequential(assignments, r)
 
+    | JsThis ->
+        if ctx.isJsFunc
+        then Fable.Value Fable.This
+        else FableError("`jsThis` can only be called within JsFunc0, JsFunc1... " +
+                        "not within an F# lambda", makeRange fsExpr.Range) |> raise
+
     | JsFunc(lambda, arity) ->
         // If `this` is available, capture it to avoid conflicts (see #158)
         let capturedThis =
@@ -262,24 +268,26 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             | None -> ctx
             | Some(capturedThis) ->
                 { ctx with thisAvailability=ThisCaptured(None, capturedThis) }
-        let expr = com.Transform ctx lambda
-        let thisIdent = Fable.Ident(com.GetUniqueVar(), Fable.Any)
-        let assignment = Fable.VarDeclaration (thisIdent, Fable.Value Fable.This, false)
-        let lambdaArgs =
-            [for i=1 to arity do yield Fable.Ident(com.GetUniqueVar(), Fable.Any)]
-        let body =
-            (expr, thisIdent::lambdaArgs)
-            ||> List.fold (fun callee arg ->
-                Fable.Apply (callee, [Fable.Value (Fable.IdentValue arg)],
-                    Fable.ApplyMeth, Fable.Any, expr.Range))
-        let body = makeSequential body.Range [assignment; body]
-        let lambda = Fable.Value(Fable.Lambda(lambdaArgs, body, false))
-        match capturedThis with
-        | Some((_,capturedThis)::_) ->
-            let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
-            Fable.Sequential([varDecl; lambda], lambda.Range)
-        | _ -> lambda
-
+        match lambda with
+        | CurriedLambda(args, body) when args.Length = arity ->
+            let ctx, args = makeLambdaArgs com ctx args
+            let ctx = { ctx with isJsFunc = true}
+            let body = transformExpr com ctx body
+            Fable.Lambda(args, body, false) |> Fable.Value
+        | Transform com ctx expr ->
+            let lambdaArgs = [for i=1 to arity do yield Fable.Ident(com.GetUniqueVar(), Fable.Any)]
+            let body =
+                (expr, lambdaArgs)
+                ||> List.fold (fun callee arg ->
+                    Fable.Apply (callee, [Fable.Value (Fable.IdentValue arg)],
+                        Fable.ApplyMeth, Fable.Any, expr.Range))
+            Fable.Lambda(lambdaArgs, body, false) |> Fable.Value
+        |> fun lambda ->
+            match capturedThis with
+            | Some((_,capturedThis)::_) ->
+                let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
+                Fable.Sequential([varDecl; lambda], lambda.Range)
+            | _ -> lambda
 
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -323,10 +331,10 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         Fable.Super |> Fable.Value
 
     | BasicPatterns.ThisValue _typ ->
-        makeThisRef ctx None
+        makeThisRef com ctx (makeRangeFrom fsExpr) None
 
     | BasicPatterns.Value v when v.IsMemberThisValue ->
-        Some v |> makeThisRef ctx
+        Some v |> makeThisRef com ctx (makeRangeFrom fsExpr)
 
     | BasicPatterns.Value v ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
@@ -457,13 +465,14 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
     (** ## Lambdas *)
     | BasicPatterns.Lambda (var, body) ->
         let ctx, args = makeLambdaArgs com ctx [var]
+        let ctx = { ctx with isJsFunc = false }
         Fable.Lambda (args, transformExpr com ctx body, true) |> Fable.Value
 
     | BasicPatterns.NewDelegate(delegateType, Transform com ctx delegateBodyExpr) ->
         let arity =
-            makeType com ctx delegateType |> function
-                | Fable.Function(Some args,_) -> Some args.Length
-                | _ -> None
+            match makeType com ctx delegateType with
+            | Fable.Function(args,_) -> Some args.Length
+            | _ -> None
         // When the delegate has one single argument and the lambda is a reference (e.g. `System.Func<int>(f)`)
         // the F# compiler translates this as an application, so it must be wrapped in a lambda
         match delegateBodyExpr with
@@ -564,7 +573,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                     let args' = args'@extraArgs'
                     let ctx =
                         match capturedThis, thisArg with
-                        | None, _ -> ctx
+                        | None, _ -> { ctx with thisAvailability = ThisAvailable }
                         | Some(capturedThis), Some thisArg ->
                             { ctx with thisAvailability=ThisCaptured(Some thisArg, capturedThis) }
                         | Some _, None -> failwithf "Unexpected Object Expression method withouth `this` argument %O" range
@@ -592,7 +601,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                             |> function Some m -> hasRestParams m | None -> false
                     let body = transformExpr com ctx over.Body
                     let args = List.map Fable.Ident.getType args'
-                    let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type, Fable.Function(Some args, body.Type),
+                    let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type, Fable.Function(args, body.Type),
                                 over.GenericParameters |> List.map (fun x -> x.Name),
                                 hasRestParams = hasRestParams)
                     m, args', body))
