@@ -248,5 +248,5 @@ module Testing =
         inherit Attribute()
 
     type Assert =
-        static member AreEqual(x: 'T, y: 'T): unit = jsNative
+        static member AreEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
 

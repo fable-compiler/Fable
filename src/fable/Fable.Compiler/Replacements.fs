@@ -410,8 +410,13 @@ module private AstPass =
             Fable.ObjExpr ([], [], None, i.range)
             |> wrap i.returnType |> Some
         | "areEqual" ->
-            ImportCall("assert", "default", Some "equal", false, i.args)
-            |> makeCall i.range i.returnType |> Some
+            match i.args with
+            | [expected; actual] -> Some [actual; expected]
+            | [expected; actual; msg] -> Some [actual; expected; msg]
+            | _ -> None
+            |> Option.map (fun args ->
+                CoreLibCall ("Assert", Some "equal", false, args)
+                |> makeCall i.range i.returnType)
         | "async.AwaitPromise.Static" | "async.StartAsPromise.Static" ->
             let meth =
                 if i.methodName = "async.AwaitPromise.Static"
@@ -1387,13 +1392,6 @@ module private AstPass =
             | _ -> None
         | _ -> None
         |> function None -> collectionsSecondPass com i kind | someExpr -> someExpr
-
-    let asserts com (i: Fable.ApplyInfo) =
-        match i.methodName with
-        | "areEqual" ->
-            ImportCall("assert", "default", Some "equal", false, i.args)
-            |> makeCall i.range i.returnType |> Some
-        | _ -> None
 
     let exceptions com (i: Fable.ApplyInfo) =
         match i.methodName, i.callee with

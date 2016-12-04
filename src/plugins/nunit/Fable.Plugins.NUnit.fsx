@@ -86,8 +86,13 @@ module Util =
     let asserts com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "AreEqual" ->
-            Fable.Util.ImportCall("assert", "*", Some "equal", false, i.args)
-            |> Fable.Util.makeCall i.range i.returnType |> Some
+            match i.args with
+            | [expected; actual] -> Some [actual; expected]
+            | [expected; actual; msg] -> Some [actual; expected; msg]
+            | _ -> None
+            |> Option.map (fun args ->
+                Fable.Util.CoreLibCall ("Assert", Some "equal", false, args)
+                |> Fable.Util.makeCall i.range i.returnType)
         | _ -> None
 
     let declareModMember range publicName privateName _isPublic isMutable _modIdent expr =

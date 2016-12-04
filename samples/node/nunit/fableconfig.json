@@ -1,0 +1,10 @@
+{
+    "projFile": "./index.fsx",
+    "sourceMaps": true,
+    "module": "commonjs",
+    "outDir": "out",
+    "plugins": "../../node_modules/fable-plugins-nunit/Fable.Plugins.NUnit.dll",
+    "scripts": {
+        "postbuild": "npm test"
+    }
+}
