@@ -10,6 +10,13 @@ open Fable.Tests.Util
 // Format
 
 [<Test>]
+let ``kprintf works``() =
+      let f s = s
+      Printf.kprintf f "hello" |> equal "hello"
+      Printf.kprintf f "%X" 255 |> equal "FF"
+      Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5"
+
+[<Test>]
 let ``sprintf works``() =
       // Immediately applied
       sprintf "%.2f %g" 0.5468989 5.
