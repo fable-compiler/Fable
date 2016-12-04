@@ -117,7 +117,7 @@ module MyTests =
     let xs1 = [| 1; 2; 3 |]
     let xs2 = [| 1; 2; 3 |]
     let xs3 = [| 1; 2; 4 |]
-    equal true (xs1 = xs2)
+    equal xs1 xs2
     equal false (xs1 = xs3)
     equal true (xs1 <> xs3)
     equal false (xs1 <> xs2)
