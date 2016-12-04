@@ -467,7 +467,9 @@ module private AstPass =
             emit "x=>{console.log(x)}"
         | "printFormatLine" ->
             emit "x=>{console.log(x)}"
-        // | "printFormatThen" -> //TODO: needs closure composition work
+        | "printFormatThen" ->
+            Fable.Apply(i.args.Tail.Head, [i.args.Head], Fable.ApplyMeth, i.returnType, i.range)
+            |> Some
         | "printFormatToStringThenFail" ->
             emit "x=>{throw new Error(x)}"
         | ".ctor" ->
