@@ -10,8 +10,9 @@ import { hasInterface } from "./Util"
 import { getDefinition } from "./Util"
 import { NonDeclaredType } from "./Util"
 import { fold } from "./Seq"
-import { resolveGeneric } from "./Reflection"
+import { resolveGeneric, getTypeFullName } from "./Reflection"
 import { parse as dateParse } from "./Date"
+import { fsFormat } from "./String"
 
 export function toJson(o: any): string {
   return JSON.stringify(o, (k, v) => {
@@ -49,7 +50,31 @@ export function toJson(o: any): string {
   });
 }
 
-function inflate(val: any, typ: any): any {
+function combine(path1: string, path2: number | string): string {
+  return typeof path2 === "number"
+    ? path1 + "["+path2+"]"
+    : (path1 ? path1 + "." : "") + path2;
+}
+
+function isNullable(typ: any): boolean {
+  if (typeof typ === "string") {
+    return typ !== "boolean" && typ !== "number";
+  }
+  else if (typ instanceof NonDeclaredType) {
+    return typ.kind !== "Array" && typ.kind !== "Tuple";
+  }
+  else {
+    const info = typeof typ.prototype[FSymbol.reflection] === "function"
+      ? typ.prototype[FSymbol.reflection]() : null;
+    return info ? info.nullable : true;
+  }
+}
+
+function invalidate(val: any, typ: any, path: string) {
+  throw new Error(`${fsFormat("%A",val)} ${path ? "("+path+")" : ""} is not of type ${getTypeFullName(typ)}`) ;
+}
+
+function inflate(val: any, typ: any, path: string): any {
   function needsInflate(enclosing: List<any>): boolean {
     const typ = enclosing.head;
     if (typeof typ === "string") {
@@ -70,19 +95,23 @@ function inflate(val: any, typ: any): any {
     }
     return true;
   }
-  function inflateArray(arr: any[], enclosing: List<any>): any[] {
-    return Array.isArray(arr) && needsInflate(enclosing)
-            ? arr.map((x: any) => inflate(x, enclosing))
+  function inflateArray(arr: any[], enclosing: List<any>, path: string): any[] {
+    if (!Array.isArray) {
+      invalidate(arr, "array", path);
+    }
+    // TODO: Validate non-inflated elements
+    return needsInflate(enclosing)
+            ? arr.map((x: any, i: number) => inflate(x, enclosing, combine(path, i)))
             : arr;
   }
-  function inflateMap(obj: any, keyEnclosing: List<any>, valEnclosing: List<any>): [any, any][] {
+  function inflateMap(obj: any, keyEnclosing: List<any>, valEnclosing: List<any>, path: string): [any, any][] {
     const inflateKey = keyEnclosing.head !== "string";
     const inflateVal = needsInflate(valEnclosing);
     return Object
       .getOwnPropertyNames(obj)
       .map(k => {
-        const key = inflateKey ? inflate(JSON.parse(k), keyEnclosing): k;
-        const val = inflateVal ? inflate(obj[k], valEnclosing) : obj[k];
+        const key = inflateKey ? inflate(JSON.parse(k), keyEnclosing, combine(path, k)): k;
+        const val = inflateVal ? inflate(obj[k], valEnclosing, combine(path, k)) : obj[k];
         return [key, val] as [any, any];
       });
   }
@@ -94,7 +123,16 @@ function inflate(val: any, typ: any): any {
   else {
     enclosing = new List(typ, new List());
   }
-  if (val == null || typeof typ === "string") {
+  if (val == null) {
+    if (!isNullable(typ)) {
+      invalidate(val, typ, path);
+    }
+    return val;
+  }
+  else if (typeof typ === "string") {
+    if ((typ === "boolean" || typ === "number" || typ === "string") && (typeof val !== typ)) {
+      invalidate(val, typ, path);
+    }
     return val;
   }
   else if (typ instanceof NonDeclaredType) {
@@ -102,13 +140,13 @@ function inflate(val: any, typ: any): any {
       case "Unit":
         return null;
       case "Option":
-        return inflate(val, new List(typ.generics[0], enclosing));
+        return inflate(val, new List(typ.generics[0], enclosing), path);
       case "Array":
-        return inflateArray(val, new List(typ.generics[0], enclosing));
+        return inflateArray(val, new List(typ.generics[0], enclosing), path);
       case "Tuple":
-        return typ.generics.map((x, i) => inflate(val[i], new List(x, enclosing)));
+        return typ.generics.map((x, i) => inflate(val[i], new List(x, enclosing), combine(path, i)));
       case "GenericParam":
-        return inflate(val, resolveGeneric(typ.name, enclosing.tail));
+        return inflate(val, resolveGeneric(typ.name, enclosing.tail), path);
       // case "Interface": // case "Any":
       default: return val;
     }
@@ -119,22 +157,22 @@ function inflate(val: any, typ: any): any {
       return dateParse(val);
     }
     if (proto instanceof List) {
-      return listOfArray(inflateArray(val, resolveGeneric(0, enclosing)));
+      return listOfArray(inflateArray(val, resolveGeneric(0, enclosing), path));
     }
     if (proto instanceof FSet) {
-      return setCreate(inflateArray(val, resolveGeneric(0, enclosing)));
+      return setCreate(inflateArray(val, resolveGeneric(0, enclosing), path));
     }
     if (proto instanceof Set) {
-      return new Set(inflateArray(val, resolveGeneric(0, enclosing)));
+      return new Set(inflateArray(val, resolveGeneric(0, enclosing), path));
     }
     if (proto instanceof FMap) {
-      return mapCreate(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing)));
+      return mapCreate(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing), path));
     }
     if (proto instanceof Map) {
-      return new Map(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing)));
+      return new Map(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing), path));
     }
-    // Union types
     const info = typeof proto[FSymbol.reflection] === "function" ? proto[FSymbol.reflection]() : {};
+    // Union types
     if (info.cases) {
       let u: any = { Fields: [] };
       if (typeof val === "string") {
@@ -143,18 +181,24 @@ function inflate(val: any, typ: any): any {
       else {
         const caseName = Object.getOwnPropertyNames(val)[0];
         const fieldTypes: any[] = info.cases[caseName];
-        const fields = fieldTypes.length > 1 ? val[caseName] : [val[caseName]];
-        u.Case = caseName;
-        for (let i = 0; i < fieldTypes.length; i++) {
-          u.Fields.push(inflate(fields[i], new List(fieldTypes[i], enclosing)));
+        if (Array.isArray(fieldTypes)) {
+          const fields = fieldTypes.length > 1 ? val[caseName] : [val[caseName]];
+          u.Case = caseName;
+          path = combine(path, caseName);
+          for (let i = 0; i < fieldTypes.length; i++) {
+            u.Fields.push(inflate(fields[i], new List(fieldTypes[i], enclosing), combine(path, i)));
+          }
         }
+      }
+      if (u.Case in info.cases === false) {
+        invalidate(val, typ, path);
       }
       return Object.assign(new typ(), u);
     }
     if (info.properties) {
       const properties: {[k:string]:any} = info.properties;
       for (let k of Object.getOwnPropertyNames(properties)) {
-        val[k] = inflate(val[k], new List(properties[k], enclosing));
+        val[k] = inflate(val[k], new List(properties[k], enclosing), combine(path, k));
       }
       return Object.assign(new typ(), val);
     }
@@ -164,12 +208,12 @@ function inflate(val: any, typ: any): any {
 }
 
 function inflatePublic(val: any, genArgs: any): any {
-  return inflate(val, genArgs ? genArgs.T : null);
+  return inflate(val, genArgs ? genArgs.T : null, "");
 }
 export { inflatePublic as inflate }
 
 export function ofJson(json: any, genArgs: any): any {
-  return inflate(JSON.parse(json), genArgs ? genArgs.T : null);
+  return inflate(JSON.parse(json), genArgs ? genArgs.T : null, "");
 }
 
 export function toJsonWithTypeInfo(o: any): string {

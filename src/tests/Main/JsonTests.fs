@@ -90,6 +90,24 @@ let ``Records``() =
     result.Child = {a="Hi"; b=10} |> equal true
 
 [<Test>]
+let ``Validation works``() =
+    let mutable err = false
+    let json =
+        """
+        {
+            "Name": "foo",
+            "Child": {
+                "a": 5,
+                "b": 10
+            }
+        }
+        """
+    try
+        ofJson<Simple> json |> ignore
+    with _ -> err <- true
+    equal true err
+
+[<Test>]
 let ``Date``() =
     let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
     let json = d |> toJson

@@ -86,8 +86,12 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
         | i -> fullName.Substring(0, i)
     member x.HasInterface (fullName: string) =
         List.exists ((=) fullName) interfaces
+    /// Finds decorator by name
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
+    /// Finds decorator by full name
+    member x.TryGetFullDecorator decorator =
+        decorators |> List.tryFind (fun x -> x.FullName = decorator)
     // TODO: Parent classes should be checked if the method is not found
     member x.TryGetMember(name, kind, loc, argTypes, ?argsEqual) =
         let argsEqual = defaultArg argsEqual (=)

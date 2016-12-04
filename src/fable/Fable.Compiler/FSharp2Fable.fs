@@ -767,17 +767,19 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
     let needsEqImpl =
         fableEnt.HasInterface "System.IEquatable"
-        && fableEnt.TryGetDecorator("Microsoft.FSharp.Core.CustomEquality").IsNone
+        && fableEnt.TryGetFullDecorator("Microsoft.FSharp.Core.CustomEquality").IsNone
     let needsCompImpl =
         fableEnt.HasInterface "System.IComparable"
-        && fableEnt.TryGetDecorator("Microsoft.FSharp.Core.CustomComparison").IsNone
+        && fableEnt.TryGetFullDecorator("Microsoft.FSharp.Core.CustomComparison").IsNone
+    let nullable =
+        fableEnt.TryGetFullDecorator("Microsoft.FSharp.Core.AllowNullLiteral").IsSome
     let fableType =
         Fable.DeclaredType(fableEnt, fableEnt.GenericParameters |> List.map Fable.GenericParam)
     // Unions, records and F# exceptions don't have a constructor
     match fableEnt.Kind with
     | Fable.Union cases ->
       [ yield makeUnionCons()
-        yield makeReflectionMeth fableEnt false fableEnt.FullName
+        yield makeReflectionMeth fableEnt false nullable fableEnt.FullName
                 ("FSharpUnion"::fableEnt.Interfaces) (Some cases) None
         if needsEqImpl then yield makeUnionEqualMethod fableType
         if needsCompImpl then yield makeUnionCompareMethod fableType ]
@@ -788,12 +790,12 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
       // some already include a constructor (see #569)
       [ if fableEnt.Members |> Seq.exists (fun m -> m.Kind = Fable.Constructor) |> not
         then yield makeRecordCons isEx fields
-        yield makeReflectionMeth fableEnt false fableEnt.FullName
+        yield makeReflectionMeth fableEnt false nullable fableEnt.FullName
                 ("FSharpRecord"::fableEnt.Interfaces) None (Some fields)
         if needsEqImpl then yield makeRecordEqualMethod fableType
         if needsCompImpl then yield makeRecordCompareMethod fableType ]
     | Fable.Class(baseClass, properties) ->
-      [makeReflectionMeth fableEnt baseClass.IsSome fableEnt.FullName
+      [makeReflectionMeth fableEnt baseClass.IsSome nullable fableEnt.FullName
             fableEnt.Interfaces None (Some properties)]
     | _ -> []
     |> fun autoMeths -> [yield! autoMeths; yield! childDecls]

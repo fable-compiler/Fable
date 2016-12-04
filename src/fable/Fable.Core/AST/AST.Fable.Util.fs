@@ -276,9 +276,10 @@ let makeRecordEqualMethod argType = makeMeth argType Boolean "Equals" "equalsRec
 let makeUnionCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareRecords"
 
-let makeReflectionMeth (ent: Fable.Entity) extend typeFullName interfaces cases properties =
+let makeReflectionMeth (ent: Fable.Entity) extend nullable typeFullName interfaces cases properties =
     let members = [
         yield "type", Value(StringConst typeFullName)
+        if nullable then yield "nullable", Value(BoolConst true)
         if extend || not(List.isEmpty interfaces)
         then
             let interfaces = List.map (StringConst >> Value) interfaces
