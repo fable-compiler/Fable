@@ -89,6 +89,7 @@ let ``Records``() =
     // Should compile to something like: result.Child.Equals(new Child("Hi", 10))
     result.Child = {a="Hi"; b=10} |> equal true
 
+#if FABLE_COMPILER
 [<Test>]
 let ``Validation works``() =
     let mutable err = false
@@ -106,6 +107,7 @@ let ``Validation works``() =
         ofJson<Simple> json |> ignore
     with _ -> err <- true
     equal true err
+#endif
 
 [<Test>]
 let ``Date``() =
