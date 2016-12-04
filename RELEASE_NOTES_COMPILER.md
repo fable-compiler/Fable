@@ -1,3 +1,12 @@
+### 0.7.18
+
+* Add validation to `ofJson`
+* Make `Assert.AreEqual` work with F# equality
+* Improve dynamic programming (add `jsThis`)
+* Add `Printf.kprintf` (#583)
+* Fix sprintf "%X" (#580)
+* Fix #579: Printf.printfn
+
 ### 0.7.17
 
 * Add `Pojo` union types

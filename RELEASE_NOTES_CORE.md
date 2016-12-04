@@ -1,3 +1,12 @@
+### 0.7.14
+
+* Add validation to `ofJson`
+* Make `Assert.AreEqual` work with F# equality
+* Improve dynamic programming (add `jsThis`)
+* Add `Printf.kprintf` (#583)
+* Fix sprintf "%X" (#580)
+* Fix #579: Printf.printfn
+
 ### 0.7.12
 
 * Add helpers for dynamic programming
