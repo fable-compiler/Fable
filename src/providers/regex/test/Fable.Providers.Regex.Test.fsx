@@ -2,7 +2,8 @@
 module Fable.Providers.Regex.Test
 
 #r "../Fable.Providers.Regex.dll"
-#r "../../../../packages/NUnit/lib/nunit.framework.dll"
+#r "../../../../build/fable-core/Fable.Core.dll"
+#r "../../../../packages/NUnit/lib/net45/nunit.framework.dll"
 
 open NUnit.Framework
 open Fable.Providers.Regex

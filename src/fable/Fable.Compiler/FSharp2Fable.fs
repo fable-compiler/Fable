@@ -153,7 +153,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         ]
         buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
             ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
-        |> tryReplace com (tryDefinition fsType)
+        |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
         |> function
         | Some repl -> repl
         | None -> Fable.Apply(makeNonGenTypeRef unionType, argExprs, Fable.ApplyCons, unionType, Some range)
@@ -597,7 +597,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             let recordType = makeType com ctx fsType
             buildApplyInfo com ctx range recordType recordType (recordType.FullName)
                 ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
-            |> tryReplace com (tryDefinition fsType)
+            |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
             |> function
             | Some repl -> repl
             | None -> Fable.Apply(makeNonGenTypeRef recordType, argExprs, Fable.ApplyCons,
