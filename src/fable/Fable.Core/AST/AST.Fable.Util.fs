@@ -88,15 +88,14 @@ let makeArray elementType arrExprs =
 /// Ignores relative imports (e.g. `[<Import("foo","./lib.js")>]`)
 let tryImported name (decs: #seq<Decorator>) =
     decs |> Seq.tryPick (fun x ->
-        match x.Name with
-        | "Global" ->
+        match x.Name, x.Arguments with
+        | "Global", [:? string as name] ->
             makeIdent name |> IdentValue |> Value |> Some
-        | "Import" ->
-            match x.Arguments with
-            | [(:? string as memb); (:? string as path)]
-                when not(path.StartsWith ".") ->
-                Some(Value(ImportRef(memb.Trim(), path.Trim(), CustomImport)))
-            | _ -> None
+        | "Global", _ ->
+            makeIdent name |> IdentValue |> Value |> Some
+        | "Import", [(:? string as memb); (:? string as path)]
+            when not(path.StartsWith ".") ->
+            Some(Value(ImportRef(memb.Trim(), path.Trim(), CustomImport)))
         | _ -> None)
 
 let makeJsObject range (props: (string * Expr) list) =

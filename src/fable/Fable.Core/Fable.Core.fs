@@ -15,8 +15,11 @@ type EraseAttribute() =
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
 type GlobalAttribute() =
     inherit Attribute()
+    new (name: string) = GlobalAttribute()
 
 /// References to the module, type, function... will be replaced by import statements.
+/// Use `[<Import("default", "my-package")>] to import the default member.
+/// Use `[<Import("*", "my-package")>] to import the whole package.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
 type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
@@ -167,34 +170,39 @@ module JsInterop =
         abstract Create: [<ParamArray>]args: obj[] -> obj
 
     /// Use it when importing a constructor from a JS library.
+    type [<AllowNullLiteral>] JsConstructor<'Out> =
+        [<Emit("new $0()")>]
+        abstract Create: unit->'Out
+
+    /// Use it when importing a constructor from a JS library.
     type [<AllowNullLiteral>] JsConstructor<'Arg1,'Out> =
         [<Emit("new $0($1...)")>]
-        abstract Create: 'Arg1-> obj
+        abstract Create: 'Arg1->'Out
 
     /// Use it when importing a constructor from a JS library.
     type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Out> =
         [<Emit("new $0($1...)")>]
-        abstract Create: 'Arg1*'Arg2-> obj
+        abstract Create: 'Arg1*'Arg2->'Out
 
     /// Use it when importing a constructor from a JS library.
     type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Out> =
         [<Emit("new $0($1...)")>]
-        abstract Create: 'Arg1*'Arg2*'Arg3-> obj
+        abstract Create: 'Arg1*'Arg2*'Arg3->'Out
 
     /// Use it when importing a constructor from a JS library.
     type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Out> =
         [<Emit("new $0($1...)")>]
-        abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4-> obj
+        abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4->'Out
 
     /// Use it when importing a constructor from a JS library.
     type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out> =
         [<Emit("new $0($1...)")>]
-        abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4*'Arg5-> obj
+        abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4*'Arg5->'Out
 
     /// Use it when importing a constructor from a JS library.
     type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out> =
         [<Emit("new $0($1...)")>]
-        abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4*'Arg5*'Arg6-> obj
+        abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4*'Arg5*'Arg6->'Out
 
     /// Use it to cast dynamic functions coming from JS. If you know the argument
     /// and return types, use `System.Func<>` instead. If you need a constructor
