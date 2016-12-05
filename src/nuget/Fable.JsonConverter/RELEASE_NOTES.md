@@ -1,3 +1,7 @@
+### 0.0.8
+
+* Convert `StringEnum` unions
+
 ### 0.0.7
 
 * Convert `Pojo` unions
