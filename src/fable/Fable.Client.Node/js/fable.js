@@ -273,7 +273,7 @@ function build(opts, continuation) {
 
     for (var k in opts) {
         if (constants.FABLE_BIN_OPTIONS.has(k)) {
-            if (k === "watch")
+            if (k === "watch" || k === "rollup")
                 fableCmdArgs.push("--" + k, String(!!opts[k])); // Cast to boolean
             else if (Array.isArray(opts[k]))
                 opts[k].forEach(v => fableCmdArgs.push("--" + k, wrapInQuotes(v)))

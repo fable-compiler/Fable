@@ -18,7 +18,7 @@ exports.FSHARP_FILE_EXTENSIONS = [".fsproj", ".fsx", ".fs"];
 
 /** Set of options compatible with Fable's .NET process */
 exports.FABLE_BIN_OPTIONS = new Set([
-    "projFile", "outDir", "refs", "symbols", "plugins", "module",
+    "projFile", "outDir", "refs", "symbols", "plugins", "module", "rollup",
     "watch", "dll", "clamp", "extra", "declaration", "noTypedArrays"
 ]);
 

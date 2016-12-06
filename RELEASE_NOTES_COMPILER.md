@@ -1,4 +1,4 @@
-### 0.7.21
+### 0.7.22
 
 * Fix secondary constructors of imported classes
 * Improvements in option handling
