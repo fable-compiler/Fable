@@ -1,3 +1,10 @@
+### 0.7.19
+
+* Fix #509: Add KeyValuePattern
+* Fix #544 #585: Bundling in watch mode
+* Fix #589: Regex Provider with Fable 0.7
+* Add optional argument to GlobalAttribute
+
 ### 0.7.18
 
 * Add validation to `ofJson`

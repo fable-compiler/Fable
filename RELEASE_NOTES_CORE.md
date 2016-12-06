@@ -1,3 +1,7 @@
+### 0.7.15
+
+* Add optional argument to GlobalAttribute
+
 ### 0.7.14
 
 * Add validation to `ofJson`
