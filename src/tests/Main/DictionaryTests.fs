@@ -6,6 +6,15 @@ open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
+let ``Dictionary KeyValuePattern works``() = // See #509
+    let dic = Dictionary<_,_>()
+    for i in 1. .. 10. do dic.Add(i, i*i)
+    let i = ref 0.
+    for KeyValue(x,y) in dic do
+       i := y + !i
+    equal 385. !i
+
+[<Test>]
 let ``Dictionary creation works``() =
     let dic = Dictionary<_,_>()
     equal 0 dic.Count

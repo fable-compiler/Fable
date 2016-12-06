@@ -481,6 +481,8 @@ module private AstPass =
             |> makeCall range typ |> Some
         let r, typ, args = info.range, info.returnType, info.args
         match info.methodName with
+        | "keyValuePattern" ->
+            info.args.Head |> Some
         | "defaultArg" ->
             let cond = makeEqOp r [args.Head; Fable.Value Fable.Null] BinaryUnequal
             Fable.IfThenElse(cond, args.Head, args.Tail.Head, r) |> Some
