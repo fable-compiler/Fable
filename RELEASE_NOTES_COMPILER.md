@@ -1,3 +1,8 @@
+### 0.7.21
+
+* Fix secondary constructors of imported classes
+* Improvements in option handling
+
 ### 0.7.20
 
 * Prevent infinite loops for bundle errors in watch mode
