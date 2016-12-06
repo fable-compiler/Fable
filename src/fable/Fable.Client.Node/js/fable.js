@@ -188,7 +188,7 @@ var bundle = function(){
                     // bundle.write({ dest: rollupOpts.dest, format: rollupOpts.format, sourceMap: rollupOpts.sourceMap });
                     fableLib.writeFile(rollupOpts.dest, parsed.code,
                         rollupOpts.sourceMap === true ? parsed.map : null);
-                    fableLib.stdoutLog("Bundled " + path.basename(rollupOpts.dest) + " at " + (new Date()).toLocaleTimeString());
+                    fableLib.stdoutLog("Bundled " + path.relative(opts.workingDir, rollupOpts.dest) + " at " + (new Date()).toLocaleTimeString());
                     postbuild(opts, constants.RESULT.SUCCESS, fableProc, continuation);
                 }
             })
@@ -447,7 +447,7 @@ function readFableConfigOptions(opts) {
         if (opts.production) { opts.target = "production" }
         if (opts.target) {
             if (!opts.targets || !opts.targets[opts.target]) {
-                throw "Target " + opts.target + " is missing";
+                throw new Error("Target " + opts.target + " is missing");
             }
             cfg = opts.targets[opts.target];
             for (key in cfg) {
@@ -501,7 +501,7 @@ function readBabelOptions(opts) {
             opts.module = false;
         }
         else if (opts.module in constants.JS_MODULES === false) {
-            throw "Unknown module target: " + opts.module;
+            throw new Error("Unknown module target: " + opts.module);
         }
         babelPresets.push([require.resolve("babel-preset-es2015"), {
             "loose": opts.loose,
@@ -574,13 +574,16 @@ function readOptions(opts) {
     opts = readFableConfigOptions(opts);
 
     opts.projFile = Array.isArray(opts.projFile) ? opts.projFile : [opts.projFile];
+    if (!opts.projFile[0]) {
+        throw new Error("--projFile is empty");
+    }
     for (var i = 0; i < opts.projFile.length; i++) {
         var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile[i] || '');
         if (!fableLib.isFSharpProject(fullProjFile)) {
-            throw "Not an F# project (.fsproj) or script (.fsx): " + fullProjFile;
+            throw new Error("Not an F# project (.fsproj) or script (.fsx): " + fullProjFile);
         }
         if (fs && !fs.existsSync(fullProjFile)) {
-            throw "Cannot find file: " + fullProjFile;
+            throw new Error("Cannot find file: " + fullProjFile);
         }
     }
 
@@ -612,9 +615,11 @@ function readOptions(opts) {
             var semver = require("semver");
             var fableRequiredVersion = curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"];
             if (!semver.satisfies(constants.PKG_VERSION, fableRequiredVersion)) {
-                throw "Fable version: " + constants.PKG_VERSION + "\n" +
-                        "Required: " + fableRequiredVersion + "\n" +
-                        "Please upgrade fable-compiler package";
+                throw new Error(
+                    "Fable version: " + constants.PKG_VERSION + "\n" +
+                    "Required: " + fableRequiredVersion + "\n" +
+                    "Please upgrade fable-compiler package"
+                );
             }
         }
     }

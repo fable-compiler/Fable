@@ -58,6 +58,7 @@ let readOptions argv =
         outDir = def opts "outDir" "." (un Path.GetFullPath)
         coreLib = "fable-core"
         moduleSystem = def opts "module" "es2015" (un id)
+        rollup = def opts "rollup" false (un bool.Parse)
         watch = def opts "watch" false (un bool.Parse)
         dll = def opts "dll" false (un bool.Parse)
         clamp = def opts "clamp" false (un bool.Parse)
@@ -70,7 +71,7 @@ let readOptions argv =
     }
     match Map.tryFind "Fable.Core" opts.refs with
     | Some coreLib -> { opts with coreLib = coreLib }
-    | None when Naming.umdModules.Contains opts.moduleSystem ->
+    | None when not opts.rollup && Naming.umdModules.Contains opts.moduleSystem ->
         { opts with coreLib = "fable-core/umd" }
     | None -> opts
 

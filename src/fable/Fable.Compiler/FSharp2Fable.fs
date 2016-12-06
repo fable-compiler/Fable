@@ -1180,7 +1180,8 @@ let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResul
                         let asmDir = Path.GetDirectoryName(Path.GetFullPath(asmPath))
                         // If we're compiling to a non-ES2015 module check if the referenced
                         // library includes a UMD distribution
-                        if Naming.umdModules.Contains com.Options.moduleSystem
+                        if not com.Options.rollup
+                            && Naming.umdModules.Contains com.Options.moduleSystem
                         then
                             let umdDir = Path.Combine(asmDir, "umd")
                             if Directory.Exists(umdDir) then umdDir else asmDir

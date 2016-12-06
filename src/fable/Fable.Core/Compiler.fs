@@ -7,6 +7,7 @@ type CompilerOptions = {
         moduleSystem: string
         symbols: string list
         plugins: string list
+        rollup: bool
         watch: bool
         dll: bool
         noTypedArrays: bool
