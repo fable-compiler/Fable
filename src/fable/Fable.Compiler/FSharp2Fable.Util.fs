@@ -152,7 +152,7 @@ module Helpers =
                 && hasAtt Atts.mutatingUpdate typ.TypeDefinition.Attributes
         else false
 
-    let isInterfaceOrImportedMember (meth: FSharpMemberOrFunctionOrValue) =
+    let belongsToInterfaceOrImportedEnt (meth: FSharpMemberOrFunctionOrValue) =
         // Interface
         meth.IsExplicitInterfaceImplementation
         || meth.EnclosingEntity.IsInterface
@@ -1280,18 +1280,23 @@ module Util =
         (**     *If nothing of the above applies, call the method normally *)
                 | Fable.Method as kind ->
                     match tryGetBoundExpr ctx r meth with
-                    | Some e -> e
+                    | Some e ->
+                        Fable.Apply(e, args, Fable.ApplyMeth, typ, r)
                     | _ ->
-                        let methName =
-                            if isInterfaceOrImportedMember meth
-                            then methName
-                            else
-                                let ent = makeEntity com ctx meth.EnclosingEntity
-                                ent.TryGetMember(methName, kind, getMemberLoc meth, argTypes)
-                                |> function Some m -> m.OverloadName | None -> methName
-                        // let calleeType = Fable.Function(Some argTypes, typ)
-                        makeGet r Fable.Any callee (makeConst methName)
-                    |> fun m -> Fable.Apply (m, args, Fable.ApplyMeth, typ, r)
+                        let applyMeth methName =
+                            // let calleeType = Fable.Function(Some argTypes, typ)
+                            let m = makeGet r Fable.Any callee (makeConst methName)
+                            Fable.Apply(m, args, Fable.ApplyMeth, typ, r)
+                        if belongsToInterfaceOrImportedEnt meth
+                        then
+                            if methName = ".ctor"
+                            then Fable.Apply(callee, args, Fable.ApplyCons, typ, r)
+                            else applyMeth methName
+                        else
+                            let ent = makeEntity com ctx meth.EnclosingEntity
+                            ent.TryGetMember(methName, kind, getMemberLoc meth, argTypes)
+                            |> function Some m -> m.OverloadName | None -> methName
+                            |> applyMeth
 
     let makeThisRef (com: ICompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue option) =
         match ctx.thisAvailability with
