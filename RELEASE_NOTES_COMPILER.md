@@ -1,3 +1,7 @@
+### 0.7.20
+
+* Prevent infinite loops for bundle errors in watch mode
+
 ### 0.7.19
 
 * Fix #509: Add KeyValuePattern

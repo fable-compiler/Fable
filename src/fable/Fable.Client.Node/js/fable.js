@@ -153,49 +153,62 @@ function normalizeProjectName(opts) {
     return projName.substr(0, projName.indexOf(".")).replace(/[^A-Z_]/ig, "_");
 }
 
-var bundleCache = null;
 /** Bundles generated JS files and dependencies, requires rollup and plugins */
-function bundle(jsFiles, opts, fableProc, continuation) {
-    var rollup = require('rollup'),
-        hypothetical = require('rollup-plugin-hypothetical');
+var bundle = function(){
+    var bundleCache = null;
+    var fullRebuildTriggered = false;
+    return function (jsFiles, opts, fableProc, continuation) {
+        var rollup = require('rollup'),
+            hypothetical = require('rollup-plugin-hypothetical');
 
-    var rollupOpts = Object.assign({}, opts.rollup);
-    rollupOpts.cache = bundleCache;
-    rollupOpts.plugins.splice(0, 0, hypothetical({
-        files: jsFiles, allowRealFiles: true, allowExternalModules: true
-    }));
+        var rollupOpts = Object.assign({}, opts.rollup);
+        rollupOpts.cache = bundleCache;
+        rollupOpts.plugins.splice(0, 0, hypothetical({
+            files: jsFiles, allowRealFiles: true, allowExternalModules: true
+        }));
 
-    if (rollupOpts.entry == null) {
-        rollupOpts.entry = Object.getOwnPropertyNames(jsFiles)
-                        .find(function(f) { return jsFiles[f].isEntry });
-    }
+        if (rollupOpts.entry == null) {
+            rollupOpts.entry = Object.getOwnPropertyNames(jsFiles)
+                            .find(function(f) { return jsFiles[f].isEntry });
+        }
 
-    fableLib.stdoutLog("Bundling...");
-    rollup.rollup(rollupOpts)
-        .then(function(bundle) {
-            var parsed = bundle.generate(rollupOpts);
-            if (opts.inMemory) {
-                parsed.fileName = rollupOpts.dest;
-                continuation.resolve(parsed);
-            }
-            else {
-                if (opts.watch) {
-                    bundleCache = bundle;
+        fableLib.stdoutLog("Bundling...");
+        rollup.rollup(rollupOpts)
+            .then(function(bundle) {
+                var parsed = bundle.generate(rollupOpts);
+                if (opts.inMemory) {
+                    parsed.fileName = rollupOpts.dest;
+                    continuation.resolve(parsed);
                 }
-                // Write to disk, bundle.write doesn't seem to work
-                // bundle.write({ dest: rollupOpts.dest, format: rollupOpts.format, sourceMap: rollupOpts.sourceMap });
-                fableLib.writeFile(rollupOpts.dest, parsed.code,
-                    rollupOpts.sourceMap === true ? parsed.map : null);
-                fableLib.stdoutLog("Bundled " + path.basename(rollupOpts.dest) + " at " + (new Date()).toLocaleTimeString());
-                postbuild(opts, constants.RESULT.SUCCESS, fableProc, continuation);
-            }
-        })
-        .catch(function (err) {
-            // The stack here is a bit noisy just report the message
-            fableLib.stderrLog("BUNDLE", err.message);
-            postbuild(opts, constants.RESULT.NEEDS_FULL_REBUILD, fableProc, continuation);
-        });
-}
+                else {
+                    if (opts.watch) {
+                        bundleCache = bundle;
+                    }
+                    // Write to disk, bundle.write doesn't seem to work
+                    // bundle.write({ dest: rollupOpts.dest, format: rollupOpts.format, sourceMap: rollupOpts.sourceMap });
+                    fableLib.writeFile(rollupOpts.dest, parsed.code,
+                        rollupOpts.sourceMap === true ? parsed.map : null);
+                    fableLib.stdoutLog("Bundled " + path.basename(rollupOpts.dest) + " at " + (new Date()).toLocaleTimeString());
+                    postbuild(opts, constants.RESULT.SUCCESS, fableProc, continuation);
+                }
+            })
+            .catch(function (err) {
+                // The stack here is a bit noisy just report the message
+                fableLib.stderrLog("BUNDLE", err.message);
+                bundleCache = null;
+                var buildResult = null;
+                if (!fullRebuildTriggered) {
+                    fullRebuildTriggered = true;
+                    buildResult = constants.RESULT.NEEDS_FULL_REBUILD;
+                }
+                else {
+                    fullRebuildTriggered = false;   // Prevent infinite loop
+                    buildResult = constants.RESULT.FAIL;
+                }
+                postbuild(opts, buildResult, fableProc, continuation);
+            });
+    }
+}();
 
 /** Runs the postbuild script and starts watching if necessary */
 function postbuild(opts, buildResult, fableProc, continuation) {
