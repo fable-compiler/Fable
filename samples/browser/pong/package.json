@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "node ../../node_modules/fable-compiler",
+    "start": "node ../server"
+  }
+}
