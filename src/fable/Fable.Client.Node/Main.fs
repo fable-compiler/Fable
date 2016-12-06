@@ -691,6 +691,10 @@ let rec awaitInput (com: ICompiler) checker fullCompileSuccess (projInfo: FSProj
     match Console.In.ReadLine() with
     | "[SIGTERM]" -> ()
     | fileMask ->
+        let fullCompileSuccess =
+            if fileMask = "[SIGFAIL]"
+            then false
+            else fullCompileSuccess
         let projInfo =
             if fullCompileSuccess
             then FSProjInfo(projInfo.ProjectOpts, projInfo.FilePairs,

@@ -77,13 +77,26 @@ function processJson(json, opts, continuation) {;
 }
 
 /** Watches for file changes. Requires chokidar */
-function watch(opts, fableProc, parallelProc, continuation) {
+function watch(opts, buildResult, fableProc, parallelProc, continuation) {
+    if (opts.watching) {
+        if (buildResult === constants.RESULT.NEEDS_FULL_REBUILD) {
+            fableLib.stdoutLog("Triggering full rebuild...");
+            fableProc.stdin.write("[SIGFAIL]\n");
+        }
+        else {
+            // Reset opts.watching
+            opts.watching = constants.STATUS.WATCHING;
+        }
+        return;
+    }
+
     var chokidar = require("chokidar");
 
     function tooClose(filename, prev) {
-        return prev != null &&
+        return opts.watching !== constants.STATUS.BUILDING &&
+            prev != null &&
             filename == prev[0] &&
-            (new Date() - prev[1]) < 3000;
+            (new Date() - prev[1]) < 2000;
     }
     var next = null, prev = null;
     fableProc.stdin.setEncoding('utf-8');
@@ -100,7 +113,7 @@ function watch(opts, fableProc, parallelProc, continuation) {
     }
     fableLib.stdoutLog("Watching " + dirs.join('\n\t'));
     fableLib.stdoutLog("Press Enter to terminate process.");
-    opts.watching = true;
+    opts.watching = constants.STATUS.WATCHING;
 
     var ready = false;
     var watcher = chokidar
@@ -113,6 +126,7 @@ function watch(opts, fableProc, parallelProc, continuation) {
                     next = [filePath, new Date()];
                     if (!tooClose(filePath, prev)) {
                         fableLib.stdoutLog(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
+                        opts.watching = constants.STATUS.BUILDING;
                         fableProc.stdin.write(filePath + "\n");
                     }
                 }
@@ -173,22 +187,23 @@ function bundle(jsFiles, opts, fableProc, continuation) {
                 fableLib.writeFile(rollupOpts.dest, parsed.code,
                     rollupOpts.sourceMap === true ? parsed.map : null);
                 fableLib.stdoutLog("Bundled " + path.basename(rollupOpts.dest) + " at " + (new Date()).toLocaleTimeString());
-                postbuild(opts, true, fableProc, continuation);
+                postbuild(opts, constants.RESULT.SUCCESS, fableProc, continuation);
             }
         })
         .catch(function (err) {
-            fableLib.stderrLog("BUNDLE", err);
-            fableLib.finish(1, continuation);
+            // The stack here is a bit noisy just report the message
+            fableLib.stderrLog("BUNDLE", err.message);
+            postbuild(opts, constants.RESULT.NEEDS_FULL_REBUILD, fableProc, continuation);
         });
 }
 
 /** Runs the postbuild script and starts watching if necessary */
-function postbuild(opts, buildSuccess, fableProc, continuation) {
+function postbuild(opts, buildResult, fableProc, continuation) {
     var parallelProc = null;
     // The "postbuild-once" script must be run only once (well done, Captain Obvious)
     // and it musn't wait till the process is finished, as it's normally used
     // to fire up watch mode of bundlers (Webpack, Rollup...)
-    if (buildSuccess && opts.scripts && opts.scripts["postbuild-once"]) {
+    if (buildResult === constants.RESULT.SUCCESS && opts.scripts && opts.scripts["postbuild-once"]) {
         var postbuildScript = opts.scripts["postbuild-once"];
         delete opts.scripts["postbuild-once"];
         parallelProc = fableLib.runCommandInParallel(opts.workingDir, postbuildScript);
@@ -196,23 +211,23 @@ function postbuild(opts, buildSuccess, fableProc, continuation) {
 
     // If present, run "postbuild" script after every build and wait till it's finished
     // to exit the process or start watch mode
-    if (buildSuccess && opts.scripts && opts.scripts.postbuild) {
+    if (buildResult === constants.RESULT.SUCCESS && opts.scripts && opts.scripts.postbuild) {
         var continuation2 = function (exitCode) {
             if (!opts.watch) {
                 fableLib.finish(exitCode, continuation);
             }
-            else if (!opts.watching) {
-                watch(opts, fableProc, parallelProc, continuation);
+            else {
+                watch(opts, buildResult, fableProc, parallelProc, continuation);
             }
         };
         fableLib.runCommand(opts.workingDir, opts.scripts.postbuild)
             .then(continuation2, continuation2);
     }
     else if (!opts.watch) {
-        fableLib.finish(0, continuation);
+        fableLib.finish(buildResult === constants.RESULT.SUCCESS ? 0 : 1, continuation);
     }
-    else if (!opts.watching) {
-        watch(opts, fableProc, parallelProc, continuation);
+    else {
+        watch(opts, buildResult, fableProc, parallelProc, continuation);
     }
 }
 
@@ -310,7 +325,8 @@ function build(opts, continuation) {
                             continuation.reject("Build failed");
                     }
                     else {
-                        postbuild(opts, buildSuccess, fableProc, continuation);
+                        var buildResult = buildSuccess ? constants.RESULT.SUCCESS : constants.RESULT.FAIL;
+                        postbuild(opts, buildResult, fableProc, continuation);
                     }
                 }
                 else {

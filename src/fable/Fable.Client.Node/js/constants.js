@@ -32,3 +32,14 @@ exports.JS_MODULES = {
     "es6": "es",
     "iife": "iife" // Accepted by Rollup
 };
+
+exports.RESULT = {
+    SUCCESS: "SUCCESS",
+    FAIL: "FAIL",
+    NEEDS_FULL_REBUILD: "NEEDS_FULL_REBUILD",
+}
+
+exports.STATUS = {
+    WATCHING: "WATCHING",
+    BUILDING: "BUILDING",
+}
