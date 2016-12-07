@@ -447,7 +447,7 @@ function readFableConfigOptions(opts) {
         if (opts.production) { opts.target = "production" }
         if (opts.target) {
             if (!opts.targets || !opts.targets[opts.target]) {
-                throw new Error("Target " + opts.target + " is missing");
+                throw "Target " + opts.target + " is missing";
             }
             cfg = opts.targets[opts.target];
             for (key in cfg) {
@@ -501,7 +501,7 @@ function readBabelOptions(opts) {
             opts.module = false;
         }
         else if (opts.module in constants.JS_MODULES === false) {
-            throw new Error("Unknown module target: " + opts.module);
+            throw "Unknown module target: " + opts.module;
         }
         babelPresets.push([require.resolve("babel-preset-es2015"), {
             "loose": opts.loose,
@@ -575,15 +575,15 @@ function readOptions(opts) {
 
     opts.projFile = Array.isArray(opts.projFile) ? opts.projFile : [opts.projFile];
     if (!opts.projFile[0]) {
-        throw new Error("--projFile is empty");
+        throw "--projFile is empty";
     }
     for (var i = 0; i < opts.projFile.length; i++) {
         var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile[i] || '');
         if (!fableLib.isFSharpProject(fullProjFile)) {
-            throw new Error("Not an F# project (.fsproj) or script (.fsx): " + fullProjFile);
+            throw "Not an F# project (.fsproj) or script (.fsx): " + fullProjFile;
         }
         if (fs && !fs.existsSync(fullProjFile)) {
-            throw new Error("Cannot find file: " + fullProjFile);
+            throw "Cannot find file: " + fullProjFile;
         }
     }
 
@@ -615,11 +615,9 @@ function readOptions(opts) {
             var semver = require("semver");
             var fableRequiredVersion = curNpmCfg.engines.fable || curNpmCfg.engines["fable-compiler"];
             if (!semver.satisfies(constants.PKG_VERSION, fableRequiredVersion)) {
-                throw new Error(
-                    "Fable version: " + constants.PKG_VERSION + "\n" +
+                throw "Fable version: " + constants.PKG_VERSION + "\n" +
                     "Required: " + fableRequiredVersion + "\n" +
-                    "Please upgrade fable-compiler package"
-                );
+                    "Please upgrade fable-compiler package";
             }
         }
     }

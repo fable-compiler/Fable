@@ -1,4 +1,4 @@
-var template = require("babel-template");
+import template from "babel-template";
 
 // Remove null args at the end of method or constructor calls.
 // This may conflict in some situations when comparing null to undefined, see #231,
@@ -21,7 +21,7 @@ function removeNullTailArgs(path) {
  * arguments set to None by F# compiler and may conflict with some JS APIs.
  * This plugin must come after transformMacroExpressions (see #377).
  */
-exports.removeUnneededNulls = {
+export const removeUnneededNulls = {
   visitor: {
     // Remove `null;` statements (e.g. at the end of constructors)
     ExpressionStatement: function(path) {
@@ -37,7 +37,7 @@ exports.removeUnneededNulls = {
  * When Babel compiles class methods to ES5 it keeps the function named
  * even if it's a function expression, this is causing problems with Rollup.
  */
-exports.removeFunctionExpressionNames = {
+export const removeFunctionExpressionNames = {
   visitor: {
     FunctionExpression: function(path) {
       path.node.id = null;
@@ -48,7 +48,7 @@ exports.removeFunctionExpressionNames = {
 /**
  * Custom plugin to simulate macro expressions.
  */
-exports.transformMacroExpressions = {
+export const transformMacroExpressions = {
   visitor: {
     StringLiteral: function(path) {
       if (!path.node.macro || !path.node.value) {
