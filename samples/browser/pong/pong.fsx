@@ -52,16 +52,18 @@ module Win =
 let w, h = Win.dimensions()
 
 // Pong stuff
-type PongElement = 
-    { x : float; 
-      y : float; 
-      width : float; 
-      height : float; }
+type PongElement = { 
+    x : float; 
+    y : float; 
+    width : float; 
+    height : float; 
+}
 
-type BallElement = 
-    { element : PongElement; 
-      speed : float;
-      angle : float; }
+type BallElement = { 
+    element : PongElement; 
+    speed : float;
+    angle : float; 
+}
 
 let canMove direction pong =
     match direction with
@@ -78,35 +80,52 @@ let move direction pong =
     else
         pong
 
+type Collision = 
+    | None
+    | Top
+    | Bottom
+    | Left
+    | Right
+    | LeftPong
+    | RightPong
+
+let checkCollision pong1 pong2 ball =
+    let hitTop = ball.element.y <= 0.
+    let hitBottom = ball.element.y + ball.element.height >= h
+    let hitLeft = ball.element.x <= pong1.x && ((ball.element.y >= pong1.y && ball.element.y <= pong1.y + pong1.height) |> not)
+    let hitRight = ball.element.x + ball.element.width >= pong2.x + pong2.width && ((ball.element.y >= pong2.y && ball.element.y <= pong2.y + pong2.height) |> not)
+    let hitLeftPong = ball.element.x <= pong1.x + pong1.width && ball.element.y >= pong1.y && ball.element.y <= pong1.y + pong1.height
+    let hitRightPong = ball.element.x + ball.element.width >= pong2.x && ball.element.y >= pong2.y && ball.element.y <= pong2.y + pong2.height
+    match (hitTop, hitBottom, hitLeft, hitRight, hitLeftPong, hitRightPong) with
+    | (true, _, _, _, _, _) -> Top
+    | (_, true, _, _, _, _) -> Bottom
+    | (_, _, true, _, _, _) -> Left
+    | (_, _, _, true, _, _) -> Right
+    | (_, _, _, _, true, _) -> LeftPong
+    | (_, _, _, _, _, true) -> RightPong
+    | _ -> None
+
+let calculateAngle pong factor ball =
+    let relativeIntersectY = (pong.y + (pong.height / 2.)) - ball.element.y
+    let normalizedRelativeIntersectionY = (relativeIntersectY / (pong.height / 2.))
+    factor * normalizedRelativeIntersectionY * (5. * Math.PI / 12.) // Max. bounce = 75°    
+
 let collision pong1 pong2 ball =
-    let mutable relativeIntersectY = 0.
-    let mutable normalizedRelativeIntersectionY = 0.
-    let mutable angle = ball.angle
-    if ball.element.y <= 0. || ball.element.y + ball.element.height >= h then
-        angle <- -angle
+    match ball |> checkCollision pong1 pong2 with
+    | None -> ball.angle
+    | Top | Bottom -> -ball.angle
+    | Left | Right -> ball.angle // Implement points
+    | LeftPong -> ball |> calculateAngle pong1 1.
+    | RightPong -> ball |> calculateAngle pong2 Math.PI
 
-    if ball.element.x <= pong1.x + pong1.width then
-        if ball.element.y >= pong1.y && ball.element.y <= pong1.y + pong1.height then
-            relativeIntersectY <- (pong1.y + (pong1.height / 2.)) - ball.element.y
-            normalizedRelativeIntersectionY <- (relativeIntersectY / (pong1.height / 2.))
-            angle <- normalizedRelativeIntersectionY * (5. * Math.PI / 12.) // Max. bounce = 75°
-    elif ball.element.x + ball.element.width >= pong2.x then
-        if ball.element.y >= pong2.y && ball.element.y <= pong2.y + pong2.height then
-            relativeIntersectY <- (pong2.y + (pong2.height / 2.)) - ball.element.y
-            normalizedRelativeIntersectionY <- (relativeIntersectY / (pong2.height / 2.))
-            angle <- Math.PI * (normalizedRelativeIntersectionY * (5. * Math.PI / 12.)) 
-    angle
-
-let moveBall angle ball = 
-    { element = 
-        { x = ball.element.x + ball.speed * cos angle;
-          y = ball.element.y + ball.speed * -sin angle; 
-          width = ball.element.width; 
-          height = ball.element.height }; 
-      speed = ball.speed;
-      angle = angle; }
-
-
+let moveBall angle ball = { 
+    element = { x = ball.element.x + ball.speed * cos angle;
+        y = ball.element.y + ball.speed * -sin angle; 
+        width = ball.element.width; 
+        height = ball.element.height }; 
+    speed = ball.speed;
+    angle = angle; 
+}
 
 //---------------------------------------------------
 
@@ -128,7 +147,6 @@ let rec update pong1 pong2 ball () =
 
 let pong1 = { x = 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
 let pong2 = { x = w - 15. - 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
-
 let ball = 
     { element = { x = w / 2. - 10. / 2.; y = h / 2. - 10. / 2.; width = 10.; height = 10. }; 
     speed = 3.;
