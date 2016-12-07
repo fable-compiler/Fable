@@ -56,6 +56,11 @@ let ``sprintf "%O" with overloaded string works``() =
       let o = Test(5)
       sprintf "%O" o |> equal "10"
 
+[<Test>]
+let ``sprintf "%A" with overloaded string works``() =
+      let o = Test(5)
+      (sprintf "%A" o).Replace("\"", "") |> equal "10"
+
 #if FABLE_COMPILER
 open Fable.Core.JsInterop
 
@@ -128,6 +133,11 @@ let ``Conversion string to char works``() =
 let ``Conversion int to char works``() =
       let c2 = char 97
       equal "a" (string c2)
+
+[<Test>]
+let ``Conversion char to int works``() =
+      equal 97 (int 'a')
+      equal 'a' (char 97)
 
 [<Test>]
 let ``Conversion string to int works``() =
@@ -266,6 +276,26 @@ let ``String.Replace works``() =
       "abc abc abc".Replace("abc", "d") |> equal "d d d"
       // String.Replace does not get stuck in endless loop
       "...".Replace(".", "..") |> equal "......"
+
+[<Test>]
+let ``String.IndexOf char works``() =
+      "abcd".IndexOf('b') * 100 + "abcd".IndexOf('e')
+      |> equal 99
+
+[<Test>]
+let ``String.IndexOf char works with offset``() =
+      "abcdbc".IndexOf('b', 3)
+      |> equal 4
+
+[<Test>]
+let ``String.LastIndexOf char works``() =
+      "abcdbc".LastIndexOf('b') * 100 + "abcd".LastIndexOf('e')
+      |> equal 399
+
+[<Test>]
+let ``String.LastIndexOf char works with offset``() =
+      "abcdbcebc".LastIndexOf('b', 3)
+      |> equal 1
 
 [<Test>]
 let ``String.IndexOf works``() =

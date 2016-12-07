@@ -132,12 +132,14 @@ module Util =
 
     let toChar com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
         match arg.Type with
+        | Fable.Char
         | Fable.String -> arg
         | _ -> GlobalCall ("String", Some "fromCharCode", false, [arg])
                |> makeCall i.range i.returnType
 
     let toString com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
         match arg.Type with
+        | Fable.Char
         | Fable.String -> arg
         | Fable.Unit | Fable.Boolean | Fable.Number _
         | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
@@ -175,6 +177,9 @@ module Util =
             let h = kindIndex kindTo   // return type
             ((v > h) || (v < 4 && h > 3)) && (h < 8)
         match args.Head.Type with
+        | Fable.Char ->
+            InstanceCall(args.Head, "charCodeAt", [makeConst 0])
+            |> makeCall i.range i.returnType
         | Fable.String ->
             GlobalCall ("Number", Some "parseInt", false, args)
             |> makeCall i.range i.returnType
@@ -275,7 +280,7 @@ module Util =
             if equal then expr
             else makeUnOp i.range i.returnType [expr] UnaryNot
         match args.Head.Type with
-        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
+        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.Char | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
             Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | EntFullName "System.DateTime" ->
@@ -573,7 +578,7 @@ module private AstPass =
         | "op_Range" | "op_RangeStep" ->
             let meth =
                 match info.methodTypeArgs.Head with
-                | Fable.String -> "rangeChar"
+                | Fable.Char -> "rangeChar"
                 | _ -> if info.methodName = "op_Range" then "range" else "rangeStep"
             CoreLibCall("Seq", Some meth, false, args)
             |> makeCall r typ |> Some
@@ -638,7 +643,9 @@ module private AstPass =
         | "toLowerInvariant" -> icall com i "toLowerCase" |> Some
         | "indexOf" | "lastIndexOf" ->
             match i.args with
+            | [Type Fable.Char]
             | [Type Fable.String]
+            | [Type Fable.Char; Type(Fable.Number Int32)]
             | [Type Fable.String; Type(Fable.Number Int32)] -> icall com i i.methodName |> Some
             | _ -> FableError("The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex.", ?range=i.range) |> raise
         | "trim" | "trimStart" | "trimEnd" ->
