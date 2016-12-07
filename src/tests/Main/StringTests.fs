@@ -59,7 +59,7 @@ let ``sprintf "%O" with overloaded string works``() =
 [<Test>]
 let ``sprintf "%A" with overloaded string works``() =
       let o = Test(5)
-      sprintf "%A" o |> equal "\"10\""
+      (sprintf "%A" o).Replace("\"", "") |> equal "10"
 
 #if FABLE_COMPILER
 open Fable.Core.JsInterop
