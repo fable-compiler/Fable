@@ -56,6 +56,11 @@ let ``sprintf "%O" with overloaded string works``() =
       let o = Test(5)
       sprintf "%O" o |> equal "10"
 
+[<Test>]
+let ``sprintf "%A" with overloaded string works``() =
+      let o = Test(5)
+      sprintf "%A" o |> equal "\"10\""
+
 #if FABLE_COMPILER
 open Fable.Core.JsInterop
 

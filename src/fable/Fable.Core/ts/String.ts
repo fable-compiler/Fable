@@ -37,7 +37,8 @@ export function fsFormat(str: string, ...args: any[]): Function | string {
         case "A":
           try {
             rep = JSON.stringify(rep, function (k, v) {
-              return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v) : v;
+              return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v)
+                : v && typeof v.ToString === "function" ? toString(v) : v;
             });
           }
           catch (err) {
