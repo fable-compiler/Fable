@@ -130,6 +130,11 @@ let ``Conversion int to char works``() =
       equal "a" (string c2)
 
 [<Test>]
+let ``Conversion char to int works``() =
+      equal 97 (int 'a')
+      equal 'a' (char 97)
+
+[<Test>]
 let ``Conversion string to int works``() =
       equal 5 (int "5")
       equal "5" (string 5)
