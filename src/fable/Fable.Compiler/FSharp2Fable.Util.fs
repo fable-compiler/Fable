@@ -796,7 +796,8 @@ module Types =
         else
         match fullName with
         | "System.Boolean" -> Fable.Boolean
-        | "System.Char" | "System.String" | "System.Guid" -> Fable.String
+        | "System.Char" -> Fable.Char
+        | "System.String" | "System.Guid" -> Fable.String
         | "Microsoft.FSharp.Core.Unit" -> Fable.Unit
         | "Microsoft.FSharp.Core.FSharpOption`1" ->
             let t = Seq.tryHead genArgs |> Option.map (makeType com ctx)

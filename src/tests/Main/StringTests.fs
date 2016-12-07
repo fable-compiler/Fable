@@ -130,6 +130,11 @@ let ``Conversion int to char works``() =
       equal "a" (string c2)
 
 [<Test>]
+let ``Conversion char to int works``() =
+      equal 97 (int 'a')
+      equal 'a' (char 97)
+
+[<Test>]
 let ``Conversion string to int works``() =
       equal 5 (int "5")
       equal "5" (string 5)
@@ -266,6 +271,26 @@ let ``String.Replace works``() =
       "abc abc abc".Replace("abc", "d") |> equal "d d d"
       // String.Replace does not get stuck in endless loop
       "...".Replace(".", "..") |> equal "......"
+
+[<Test>]
+let ``String.IndexOf char works``() =
+      "abcd".IndexOf('b') * 100 + "abcd".IndexOf('e')
+      |> equal 99
+
+[<Test>]
+let ``String.IndexOf char works with offset``() =
+      "abcdbc".IndexOf('b', 3)
+      |> equal 4
+
+[<Test>]
+let ``String.LastIndexOf char works``() =
+      "abcdbc".LastIndexOf('b') * 100 + "abcd".LastIndexOf('e')
+      |> equal 399
+
+[<Test>]
+let ``String.LastIndexOf char works with offset``() =
+      "abcdbcebc".LastIndexOf('b', 3)
+      |> equal 1
 
 [<Test>]
 let ``String.IndexOf works``() =

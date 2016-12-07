@@ -131,6 +131,7 @@ let rec makeTypeRef (genInfo: GenericInfo) typ =
     let str s = Wrapped(Value(StringConst s), MetaType)
     match typ with
     | Boolean -> str "boolean"
+    | Char
     | String -> str "string"
     | Number _ | Enum _ -> str "number"
     | Function _ -> str "function"
@@ -211,6 +212,7 @@ let rec makeTypeTest range (typ: Type) expr =
         makeBinOp None Boolean [expr; typeRef] BinaryInstanceOf
     match typ with
     | MetaType -> Value(BoolConst false) // This shouldn't happen
+    | Char
     | String _ -> jsTypeof "string" expr
     | Number _ | Enum _ -> jsTypeof "number" expr
     | Boolean -> jsTypeof "boolean" expr

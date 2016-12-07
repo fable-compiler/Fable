@@ -15,6 +15,7 @@ type Type =
     | Any
     | Unit
     | Boolean
+    | Char
     | String
     | Number of NumberKind
     | Option of genericArg: Type
