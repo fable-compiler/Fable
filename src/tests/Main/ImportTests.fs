@@ -97,6 +97,8 @@ open Fable.Core
 
 [<Import("MyClass", "./js/foo.js")>]
 type MyClass() =
+    new (v: string) = MyClass()
+    member x.value: string = jsNative
     member x.bar(): string = jsNative
     member x.bar(s: string): string = jsNative
     static member foo(): string = jsNative
@@ -109,4 +111,11 @@ let ``Overloads of an imported class are not mangled``() = // See #564
     let c = MyClass()
     c.bar() |> equal "bar"
     c.bar("caracola") |> equal "CARACOLA"
+
+[<Test>]
+let ``Secondary constructors of an imported class work``() =
+    let c = MyClass()
+    let c2 = MyClass("hoho")
+    c.value |> equal "haha"
+    c2.value |> equal "hoho"
 #endif

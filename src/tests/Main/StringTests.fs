@@ -278,6 +278,12 @@ let ``String.Replace works``() =
       "...".Replace(".", "..") |> equal "......"
 
 [<Test>]
+let ``Access char by index works``() =
+      let c = "abcd".[2]
+      equal 'c' c
+      equal 'd' (char ((int c) + 1))
+
+[<Test>]
 let ``String.IndexOf char works``() =
       "abcd".IndexOf('b') * 100 + "abcd".IndexOf('e')
       |> equal 99
@@ -427,6 +433,13 @@ let ``String.Remove works``() =
 let ``String.Insert work``() =
       "foobar".Insert(3, " is ")
       |> equal "foo is bar"
+
+[<Test>]
+let ``Enumerating string works``() =
+      let mutable res = ""
+      for c in "HELLO" |> Seq.rev do
+            res <- res + (string c)
+      equal "OLLEH" res
 
 // String - F# module functions
 
