@@ -20,6 +20,9 @@ module Keyboard =
 
     /// code 38 = up, code 40 = down
     let rightControlsPressed() = (code 38, code 40)
+
+    let spacePressed() = code 32
+
     let init () =
       document.addEventListener_keydown(fun e -> update(e, true))
       document.addEventListener_keyup(fun e -> update(e, false))
