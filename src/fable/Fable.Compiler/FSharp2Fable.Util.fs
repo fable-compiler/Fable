@@ -909,6 +909,10 @@ module Util =
     open Identifiers
 
     let validateGenArgs (ctx: Context) r (genParams: FSharpGenericParameter seq) (typArgs: FSharpType seq) =
+        let fail typName genName =
+            let typName = defaultArg typName ""
+            sprintf "Type %s passed as generic param '%s must be decorated with %s or be `obj`" typName genName Atts.pojo
+            |> fun msg -> FableError(msg, ?range=r, file=ctx.fileName) |> raise
         if Seq.length genParams = Seq.length typArgs then
             Seq.zip genParams typArgs
             |> Seq.iter (fun (par, arg) ->
@@ -918,9 +922,8 @@ module Util =
                     | Some argDef when hasAtt Atts.pojo argDef.Attributes -> ()
                     | None when arg.IsGenericParameter
                         && hasAtt Atts.pojo arg.GenericParameter.Attributes -> ()
-                    | _ ->
-                        let msg = sprintf "Generic type '%s must be decorated with %s" par.Name Atts.pojo
-                        FableError(msg, ?range=r, file=ctx.fileName) |> raise
+                    | Some argDef -> fail (Some argDef.DisplayName) par.Name
+                    | None -> fail None par.Name
                 )
 
     let countRefs fsExpr (vars: #seq<FSharpMemberOrFunctionOrValue>) =
