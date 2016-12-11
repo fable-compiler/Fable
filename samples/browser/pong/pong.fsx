@@ -3,7 +3,6 @@
 #load "win.fsx"
 
 open Fable.Core
-open Fable.Import
 open Fable.Import.Browser
 open System
 
@@ -74,14 +73,17 @@ let checkCollision pong1 pong2 ball =
 let calculateAngle pong factor ball =
     let relativeIntersectY = (pong.y + (pong.height / 2.)) - ball.element.y
     let normalizedRelativeIntersectionY = (relativeIntersectY / (pong.height / 2.))
-    factor * normalizedRelativeIntersectionY * (5. * Math.PI / 12.) // Max. bounce = 75°    
+    if normalizedRelativeIntersectionY = 0. && factor <> 0. then
+        Math.PI
+    else
+        factor + (normalizedRelativeIntersectionY * (5. * Math.PI / 12.)) // Max. bounce = 75°    
 
 let collision pong1 pong2 ball =
     match ball |> checkCollision pong1 pong2 with
     | None -> ball.angle
     | Top | Bottom -> -ball.angle
     | Left | Right -> ball.angle
-    | LeftPong -> ball |> calculateAngle pong1 1.
+    | LeftPong -> ball |> calculateAngle pong1 0.
     | RightPong -> ball |> calculateAngle pong2 Math.PI
 
 let moveBall angle ball = { 
@@ -109,14 +111,12 @@ let render (w, h) pong1 pong2 ball gameStatus  =
     (w / 1.25 - 30., 40.) |> Win.drawText (string(gameStatus.scoreRight)) "white" "30px Arial"
     (ball.element.x, ball.element.y, ball.element.width, 0., 2. * Math.PI) |> Win.drawCircle("yellow")
 
-let random() : float = JS.Math.random()
-
 let initialPong1 = { x = 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
 let initialPong2 = { x = w - 15. - 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
 let initialBall = 
     { element = { x = w / 2.; y = h / 2.; width = 5.; height = 5. }; 
     speed = 3.;
-    angle = random(); }
+    angle = 0. }
 
 let initialGameStatus = { scoreLeft = 0; scoreRight = 0; active = false; }
 
@@ -126,7 +126,7 @@ let rec update pong1 pong2 ball gameStatus () =
     let pong1 = if gameStatus.active then pong1 |> move (Keyboard.leftControlsPressed()) else initialPong1
     let pong2 = if gameStatus.active then pong2 |> move (Keyboard.rightControlsPressed()) else initialPong2
     let angle = if gameStatus.active then collision pong1 pong2 ball else ball.angle
-    let ball = if gameStatus.active then ball |> moveBall angle else initialBall
+    let ball = if gameStatus.active then ball |> moveBall angle else { initialBall with angle = if angle = 0. then Math.PI else 0. }
     let gameStatus = if Keyboard.spacePressed() = 1 then {gameStatus with active = true} else gameStatus |> checkGameStatus pong1 pong2 ball
     render (w, h) pong1 pong2 ball gameStatus
     window.setTimeout(update pong1 pong2 ball gameStatus, 1000. / 60.) |> ignore
