@@ -120,7 +120,8 @@ export function year(d: Date) {
 
 export function ticks(d: Date) {
   return Long.fromNumber(d.getTime())
-             .add(62135596800000) // UTC 1970/1/1 in ms
+             .add(62135596800000) // UnixEpochMilliseconds
+             .sub((<any>d).kind == DateKind.Local ? d.getTimezoneOffset()*60*1000 : 0)
              .mul(10000);
 }
 
