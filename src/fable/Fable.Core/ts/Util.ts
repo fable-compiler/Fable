@@ -153,6 +153,8 @@ export function equals(x: any, y: any): boolean {
   // Equals override or IEquatable implementation
   else if (typeof x.Equals === "function")
     return x.Equals(y);
+  else if (typeof x.equals === "function")
+    return x.equals(y);
   else if (Array.isArray(x)) {
     if (x.length != y.length) return false;
     for (let i = 0; i < x.length; i++)
@@ -184,6 +186,8 @@ export function compare(x: any, y: any): number {
     return -1;
   else if (hasInterface(x, "System.IComparable"))
     return x.CompareTo(y);
+  else if (typeof x.compare === "function")
+    return x.compare(y);
   else if (Array.isArray(x)) {
     if (x.length != y.length) return x.length < y.length ? -1 : 1;
     for (let i = 0, j = 0; i < x.length; i++)

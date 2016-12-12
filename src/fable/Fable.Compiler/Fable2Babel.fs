@@ -246,9 +246,13 @@ module Util =
             | _ -> upcast Babel.AnyTypeAnnotation()
         | _ -> upcast Babel.AnyTypeAnnotation()
 
+    let (|NotALongInteger|) = function
+        | Int64 | UInt64 -> None
+        | _ as kind -> Some kind
+
     let buildArray (com: IBabelCompiler) ctx consKind typ =
         match typ with
-        | Fable.Number kind when not com.Options.noTypedArrays ->
+        | Fable.Number (NotALongInteger (Some kind)) when not com.Options.noTypedArrays ->
             let cons =
                 Fable.Util.getTypedArrayName com kind
                 |> Babel.Identifier

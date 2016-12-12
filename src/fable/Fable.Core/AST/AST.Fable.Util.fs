@@ -50,28 +50,38 @@ let rec makeSequential range statements =
         | ObjExpr ([],[],_,_), _ -> makeSequential range rest
         | _ -> Sequential (statements, range)
 
+let makeLongInt (x: uint64) unsigned =
+    let lowBits = NumberConst (U2.Case2 (float (uint32 x)), Float64)
+    let highBits = NumberConst (U2.Case2 (float (x >>> 32)), Float64)
+    let unsigned = BoolConst (unsigned)
+    let args = [Value lowBits; Value highBits; Value unsigned]
+    Apply (makeCoreRef "Long" (Some "fromBits"), args, ApplyMeth, Any, None)
+
 let makeConst (value: obj) =
     match value with
-    | :? bool as x -> BoolConst x
-    | :? string as x -> StringConst x
-    | :? char as x -> StringConst (string x)
-    // Integer types
-    | :? int as x -> NumberConst (U2.Case1 x, Int32)
-    | :? byte as x -> NumberConst (U2.Case1 (int x), UInt8)
-    | :? sbyte as x -> NumberConst (U2.Case1 (int x), Int8)
-    | :? int16 as x -> NumberConst (U2.Case1 (int x), Int16)
-    | :? uint16 as x -> NumberConst (U2.Case1 (int x), UInt16)
-    | :? uint32 as x -> NumberConst (U2.Case1 (int x), UInt32)
-    // Float types
-    | :? float as x -> NumberConst (U2.Case2 x, Float64)
-    | :? int64 as x -> NumberConst (U2.Case2 (float x), Float64)
-    | :? uint64 as x -> NumberConst (U2.Case2 (float x), Float64)
-    | :? float32 as x -> NumberConst (U2.Case2 (float x), Float32)
-    | :? decimal as x -> NumberConst (U2.Case2 (float x), Float64)
-    // TODO: Regex
-    | :? unit | _ when isNull value -> Null
-    | _ -> failwithf "Unexpected literal %O" value
-    |> Value
+    // Long Integer types
+    | :? int64 as x -> makeLongInt (uint64 x) false
+    | :? uint64 as x -> makeLongInt x true
+    | _ ->
+        match value with
+        | :? bool as x -> BoolConst x
+        | :? string as x -> StringConst x
+        | :? char as x -> StringConst (string x)
+        // Integer types
+        | :? int as x -> NumberConst (U2.Case1 x, Int32)
+        | :? byte as x -> NumberConst (U2.Case1 (int x), UInt8)
+        | :? sbyte as x -> NumberConst (U2.Case1 (int x), Int8)
+        | :? int16 as x -> NumberConst (U2.Case1 (int x), Int16)
+        | :? uint16 as x -> NumberConst (U2.Case1 (int x), UInt16)
+        | :? uint32 as x -> NumberConst (U2.Case1 (int x), UInt32)
+        // Float types
+        | :? float as x -> NumberConst (U2.Case2 x, Float64)
+        | :? float32 as x -> NumberConst (U2.Case2 (float x), Float32)
+        | :? decimal as x -> NumberConst (U2.Case2 (float x), Float64)
+        // TODO: Regex
+        | :? unit | _ when isNull value -> Null
+        | _ -> failwithf "Unexpected literal %O" value
+        |> Value
 
 let makeFnType args (body: Expr) =
     Function(List.map Ident.getType args, body.Type)
@@ -362,11 +372,10 @@ let getTypedArrayName (com: ICompiler) numberKind =
     | UInt16 -> "Uint16Array"
     | Int32 -> "Int32Array"
     | UInt32 -> "Uint32Array"
-    | Int64 -> "Float64Array"
-    | UInt64 -> "Float64Array"
     | Float32 -> "Float32Array"
     | Float64 -> "Float64Array"
     | Decimal -> "Float64Array"
+    | _ -> failwithf "Invalid typed array type: %A" numberKind
 
 /// Helper when we need to compare the types of the arguments applied to a method
 /// (concrete) with the declared argument types for that method (may be generic)

@@ -196,10 +196,8 @@ let ``DateTime.Millisecond works``() =
 [<Test>]
 let ``DateTime.Ticks works``() =
     let d = DateTime(2014, 10, 9, 13, 23, 30, 999)
-    // TODO: Worrying that we need to round to 5 sig. figs. here.
-    //       Perhaps the number type in JS isn't precise enough for this implementation.
-    toSigFigs 5 (float d.Ticks)
-    |> equal 6.3548e+17
+    d.Ticks
+    |> equal 635484578109990000L
 
 [<Test>]
 let ``DateTime.Minute works``() =
@@ -312,13 +310,12 @@ let ``DateTime.AddMilliseconds works``() =
 let ``DateTime.AddTicks works``() =
     let test v expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc).AddTicks(v)
-        // TODO: Worrying that we need to round to 5 sig. figs. here.
-        //       Perhaps the number type in JS isn't precise enough for this implementation.
-        toSigFigs 5 (float dt.Ticks)
+        dt.Ticks
         |> equal expected
-    test 100000L 6.3546e+17
-    test -100000L 6.3546e+17
-    test 0L 6.3546e+17
+    let ticks = 635460768000000000L
+    test 100000L (ticks + 100000L)
+    test -100000L (ticks - 100000L)
+    test 0L ticks
 
 [<Test>]
 let ``DateTime Addition works``() =
