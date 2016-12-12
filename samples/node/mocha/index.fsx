@@ -1,49 +1,52 @@
 (**
  - title: Writing Mocha tests with Fable
- - tagline: Use any JS testing library directly from Fable 
-
-> ATTENTION: This sample is currently broken at the moment. Fable compiles `unit->unit`
-lambdas with a `unitArg` argument, which confuses Mocha.
-
+ - tagline: Use any JS testing library directly from Fable
 *)
 
-#r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-mocha/Fable.Import.Mocha.fs"
+#r "../../node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-powerpack/Fable.PowerPack.dll"
 
 open System
 open Fable.Core
 open Fable.Import
-open Fable.Import.Node
-open Fable.Import.Mocha.Globals
+open Fable.PowerPack
+
+[<Emit("describe($0,$1)")>]
+let suite(msg: string) (f: unit->unit) = jsNative
+
+[<Emit("it($0,$1)")>]
+let test(msg: string) (f: unit->unit) = jsNative
+
+[<Emit("it($0,$1)")>]
+let testAsync(msg: string) (f: unit->JS.Promise<'T>) = jsNative
 
 (** Synchronous tests *)
 
-// describe.Invoke("Array", fun () ->
-//     describe.Invoke("#indexOf()", fun () ->
-//         it.Invoke("should return -1 when the value is not present", fun () ->
-//           let jsArray = [|1;2;3|] |> unbox<JS.Array<int>>
-//           ``assert``.equal(jsArray.indexOf(5), -1)
-//           ``assert``.equal(jsArray.indexOf(0), -1)
-//         ) |> ignore
-//     ) |> ignore
-// ) |> ignore
+let inline equals expected actual =
+    Fable.Core.Testing.Assert.AreEqual(expected, actual)
+
+type R = { a: int; b: int }
+
+suite "Structural equality" <| fun () ->
+    test "This test should pass" <| fun () ->
+        let r1 = { a=2; b=4 }
+        let r2 = { a=2; b=4 }
+        equals r1 r2
+
+    test "This test should fail" <| fun () ->
+        let r1 = { a=2; b=4 }
+        let r2 = { a=2; b=6 }
+        equals r1 r2
 
 (** Asynchronous tests *)
 
 type User(name) =
     member x.Name: string = name
-    member x.Save(f: JS.Error option->unit) =
-        try
-            // Saving code here
-            f(None)
-        with
-        | ex -> f(unbox ex |> Some)
+    member x.Save(): JS.Promise<unit> =
+        // Saving code here
+        Promise.sleep(500)
 
-describe.Invoke("User", fun () ->
-    describe.Invoke("#save()", fun () ->
-        it.Invoke("should save without error", fun doneFn ->
-            let user = User("Luna")
-            user.Save(doneFn)
-        ) |> ignore
-    ) |> ignore
-) |> ignore
+suite "User" <| fun () ->
+    testAsync "should save without error" <| fun () ->
+        let user = User("Luna")
+        user.Save()

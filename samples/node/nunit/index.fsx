@@ -13,52 +13,50 @@ GitHub. This page shows the full source code of the demo.
 ## Configuring Fable and packages
 
 Fable projects usually include a [package.json](https://docs.npmjs.com/files/package.json) and a [fableconfig.json](http://fable-compiler.github.io/docs/compiling.html#fableconfig-json) files.
-Let's have a look at the first one: 
+Let's have a look at the first one:
 
     [lang=js]
     {
       "private": true,
       "dependencies": {
-        "fable-core": "^0.1.6",
+        "fable-core": "^0.7.14",
+        "fable-powerpack": "^0.0.18",
         "isomorphic-fetch": "^2.2.1"
       },
       "devDependencies": {
-        "fable-import-fetch": "^0.0.2",
-        "fable-plugins-nunit": "^0.0.3",
+        "fable-plugins-nunit": "^0.7.2",
         "mocha": "^2.5.3"
       },
       "scripts": {
         "test": "mocha out"
-      },
-      "engines": {
-        "fable": ">=0.3.18"
       }
     }
 
 There're several interesting things going on here:
 
-- First we install our **npm dependencies**: `fable-core` which is necessary for all Fable projects
-  and `isomorphic-fetch` in order to use Fetch API on node (see below).
+- First we install our **npm dependencies**: `fable-core` which is necessary for all Fable projects,
+  `fable-powerpack` which contains utilities like a helper for Fetch API and `isomorphic-fetch` in order
+  to use Fetch API on node.
 - Then we install the **development dependencies**: If we were to distribute this package, these dependencies
   wouldn't be installed on the machine of the final consumers as they are only necessary for development.
-  `fable-import-fetch` is the F# type definition for Fetch API, `fable-plugins-nunit` will extend Fable's
-  capabilities to allow NUnit tests compilation and `mocha` is our test runner on JS.
+  `fable-plugins-nunit` will extend Fable's capabilities to allow NUnit tests compilation and `mocha` is
+  our test runner on JS.
 - We define a **npm script**: So tests will be run when calling `npm test` (or `npm run-script test`).
   The script is as simple as calling `mocha` and passing the directory where the tests compiled to JS are to be found.
-- Finally we force the user to compile the project using `fable-compiler@0.3.18` or higher.
 
 Let's check now `fableconfig.json`:
 
     [lang=js]
     {
-        "module": "commonjs",
-        "projFile": "index.fsx",
-        "outDir": "out",
-        "plugins": "node_modules/fable-plugins-nunit/Fable.Plugins.NUnit.dll",
-        "scripts": {
-            "prebuild": "npm install",
-            "postbuild": "npm test"
-        }
+      "projFile": "./index.fsx",
+      "sourceMaps": true,
+      "module": "commonjs",
+      "outDir": "out",
+      "plugins": "./node_modules/fable-plugins-nunit/Fable.Plugins.NUnit.dll",
+      "scripts": {
+          "prebuild": "npm install",
+          "postbuild": "npm test"
+      }
     }
 
 As in other samples, we specify the JS `module` system to target, the F# `projFile`
@@ -74,21 +72,18 @@ and open the appropriate namespaces.
 
 *)
 
-#r "System.Threading.dll"
-#r "node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-powerpack/Fable.PowerPack.dll"
 
 open System
 open Fable.Core
 open Fable.Import
+open Fable.PowerPack
 
 (**
 The demo uses the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) and,
 as we'll be running the tests on node, we have to polyfill it using the `isomorphic-fetch` package.
 *)
-
-#load "node_modules/fable-import-fetch/Fable.Import.Fetch.fs"
-
-open Fable.Import.Fetch
 
 JsInterop.importAll "isomorphic-fetch"
 
@@ -122,17 +117,17 @@ module MyTests =
     let xs1 = [| 1; 2; 3 |]
     let xs2 = [| 1; 2; 3 |]
     let xs3 = [| 1; 2; 4 |]
-    equal true (xs1 = xs2)
+    equal xs1 xs2
     equal false (xs1 = xs3)
     equal true (xs1 <> xs3)
     equal false (xs1 <> xs2)
-  
+
   [<Test>]
   let ``Set.intersectMany works``() =
       let xs = set [1; 2]
       let ys = Set.singleton 2
       let zs = set [2; 3]
-      let ks = Set.intersectMany [xs; ys; zs] 
+      let ks = Set.intersectMany [xs; ys; zs]
       (ks.Contains 2 && not(ks.Contains 1 || ks.Contains 3))
       |> equal true
 
@@ -145,16 +140,16 @@ you just need to **wrap the whole test** with `async { ... } |> Async.RunSynchro
   let ``Async.Parallel works``() =
     async {
         let getWebPageLength url =
-            async {
-                let! res = GlobalFetch.fetch(Url url) |> Async.AwaitPromise
-                let! txt = res.text() |> Async.AwaitPromise 
+            promise {
+                let! res = Fetch.fetch url []
+                let! txt = res.text()
                 return txt.Length
             }
         let! results =
           [ "http://fable-compiler.github.io"
             "http://babeljs.io"
             "http://fsharp.org" ]
-          |> List.map getWebPageLength
+          |> List.map (getWebPageLength >> Async.AwaitPromise)
           |> Async.Parallel
         // The sum of lenghts of all web pages is
         // expected to be bigger than 100 characters

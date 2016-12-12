@@ -13,8 +13,8 @@
    imported scripts, how to pass lambdas to JS code and the `?` operator.
 *)
 (*** hide ***)
-#r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-d3/Fable.Import.D3.fs"
+#r "../../node_modules/fable-core/Fable.Core.dll"
+#load "../../node_modules/fable-import-d3/Fable.Import.D3.fs"
 (**
 JavaScript helpers and imports
 ------------------------------

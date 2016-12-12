@@ -6,19 +6,23 @@
 
 // Please don't add this file to your commits
 
-// Uncomment these lines if you need access to Fable.Core helpers:
-// #r "../fable/Fable.Core/npm/Fable.Core.dll"
-// open Fable.Core
-// open Fable.Core.JsInterop
+#r "../../build/fable-core/Fable.Core.dll"
+open System
+open Fable.Core
+open Fable.Core.JsInterop
+
+type TestAttribute() =
+    inherit System.Attribute()
 
 let equal expected actual =
     let areEqual = expected = actual
     printfn "%A = %A > %b" expected actual areEqual
     if not areEqual then
-        failwithf "Expected %A but got %A" expected actual 
+        failwithf "Expected %A but got %A" expected actual
 
 // Write here the code you want to test,
 // you can later put the code in a unit test.
+
 
 // Example:
 // Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3

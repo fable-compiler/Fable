@@ -1,5 +1,7 @@
  - tagline: Using Fable as part of your node applications
 
+**Attention**: This document corresponds to Fable 0.6.x and needs to be updated to the latest version. Please check the [migration guide](../blog/Introducing-0-7.html).
+
 # Compiling to JavaScript
 
 
@@ -30,16 +32,16 @@ Besides the default argument (`--projFile`), the following options are available
 Option                  | Short     | Description
 ------------------------|-----------|----------------------------------------------------------------------
 `--outDir`              | `-o`      | Where to put compiled JS files. Defaults to project directory.
-`--module`              | `-m`      | Specify module code generation: `umd` (default), `commonjs`, `amd` or `es2015`.
+`--module`              | `-m`      | Specify module code generation: `commonjs` (default), `amd`, `umd` or `es2015`.
 `--sourceMaps`          | `-s`      | Generate source maps: `false` (default), `true` or `inline`.
 `--watch`               | `-w`      | Recompile project much faster on file modifications.
 `--ecma`                |           | Specify ECMAScript target version: `es5` (default) or `es2015`.
 `--symbols`             |           | F# symbols for conditional compilation, like `DEBUG`.
 `--plugins`             |           | Paths to Fable plugins.
 `--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
-`--loose`               |           | Enable “loose” transformations for babel-preset-es2015 plugins.
+`--loose`               |           | Enable “loose” transformations for babel-preset-es2015 plugins (true by default).
+`--babelrc`             |           | Use a `.babelrc` file for Babel configuration (invalidates other Babel related options).
 `--refs`                |           | Specify dll or project references in `Reference=js/import/path` format (see below).
-`--msbuild`             |           | Pass MSBuild arguments like `Configuration=Release`.
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
 `--copyExt`             |           | Copy external files into `fable_external` folder (true by default).
 `--coreLib`             |           | In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`.
@@ -87,6 +89,8 @@ fable src/main/MyProject.fsproj --refs MyLib=my-lib/js
 
 > See [fable-helpers-sample](https://www.npmjs.com/package/fable-helpers-sample) to know how to publish a Fable package.
 
+TODO: Explain how to use the EntryModule attribute
+
 ## fableconfig.json
 
 Rather than passing all the options to the CLI, it may be more convenient to put them
@@ -117,7 +121,7 @@ Project references can be passed using a plain object:
 There are some options exclusive to `fableconfig.json`.
 
 * **scripts**: Commands that should be executed during specific phases of compilation.
-  Currently `prebuild` and `postbuild` are accepted. For example, if you want
+  Currently `prebuild`, `postbuild` and `postbuild-once` are accepted. For example, if you want
   to run tests defined in the npm `package.json` file after the build you can write.
 
 ```json
@@ -127,6 +131,11 @@ There are some options exclusive to `fableconfig.json`.
     }
 }
 ```
+
+> `postbuild` will run for every compilation in watch mode. If you only want
+to run the script after the first full compilation, use `postbuild-once`.
+Attention: On Windows, `postbuild-once` can only be used with executable files (`.exe`),
+not with `.bat` or `.cmd` scripts.
 
 > The scripts will run as if you typed the command on a terminal window from
 the directory where `fableconfig.json` is. Fable scripts are not as powerful

@@ -52,7 +52,7 @@
           <li class="{% if model.Active == 'index' %}active{% endif %}"><a href="{{ model.Root }}">home</a></li>
           <li class="{% if model.Active == 'samples' %}active{% endif %}"><a href="{{ model.Root }}/samples.html">samples</a></li>
           <li class="{% if model.Active == 'docs' %}active{% endif %}"><a href="{{ model.Root }}/docs.html">docs</a></li>
-          <li><a href="https://github.com/fable-compiler/Fable">source</a></li>
+          <li class="{% if model.Active == 'blog' %}active{% endif %}"><a href="{{ model.Root }}/blog.html">blog</a></li>
         </ul>
       </div>
     </div>

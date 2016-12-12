@@ -22,6 +22,15 @@ type SourceLocation =
             x.start.line x.start.column
             x.``end``.line x.``end``.column
 
+type FableError(msg: string, ?range: SourceLocation, ?file: string) =
+    inherit System.Exception(msg)
+    member __.Range = range
+    member __.File = file
+    member __.FormattedMessage =
+        let range = match range with Some r -> " " + string r | None -> ""
+        let file = match file with Some f -> " (" + f + ")" | None -> ""
+        msg + range + file
+
 type NumberKind =
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 | Float32 | Float64 | Decimal
 
@@ -37,11 +46,11 @@ type UnaryOperator =
     | UnaryTypeof
     | UnaryVoid
     | UnaryDelete
-    
+
 type UpdateOperator =
     | UpdateMinus
     | UpdatePlus
-    
+
 type BinaryOperator =
     | BinaryEqual
     | BinaryUnequal
@@ -65,11 +74,11 @@ type BinaryOperator =
     | BinaryAndBitwise
     | BinaryIn
     | BinaryInstanceOf
-    
+
 type LogicalOperator =
     | LogicalOr
     | LogicalAnd
-    
+
 type AssignmentOperator =
     | AssignEqual
     | AssignMinus
@@ -82,4 +91,4 @@ type AssignmentOperator =
     | AssignShiftRightZeroFill
     | AssignOrBitwise
     | AssignXorBitwise
-    | AssignAndBitwise    
+    | AssignAndBitwise

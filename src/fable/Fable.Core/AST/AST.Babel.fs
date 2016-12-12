@@ -2,12 +2,12 @@ namespace Fable.AST.Babel
 open Fable
 open Fable.AST
 
-/// The type field is a string representing the AST variant type. 
-/// Each subtype of Node is documented below with the specific string of its type field. 
+/// The type field is a string representing the AST variant type.
+/// Each subtype of Node is documented below with the specific string of its type field.
 /// You can use this field to determine which interface a node implements.
-/// The loc field represents the source location information of the node. 
-/// If the node contains no information about the source location, the field is null; 
-/// otherwise it is an object consisting of a start position (the position of the first character of the parsed source region) 
+/// The loc field represents the source location information of the node.
+/// If the node contains no information about the source location, the field is null;
+/// otherwise it is an object consisting of a start position (the position of the first character of the parsed source region)
 /// and an end position (the position of the first character after the parsed source region):
 [<AbstractClass>]
 type Node(typ, ?loc) =
@@ -54,7 +54,7 @@ type Pattern = interface end
 type EmptyExpression() =
     inherit Expression("EmptyExpression")
 
-/// Not in Babel specs, disguised as StringLiteral    
+/// Not in Babel specs, disguised as StringLiteral
 type MacroExpression(value, args, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)
     member x.value: string = value
@@ -71,7 +71,7 @@ type TemplateLiteral(quasis, expressions, ?loc) =
     inherit Literal("TemplateLiteral", ?loc = loc)
     member x.quasis: TemplateElement list = quasis
     member x.expressions: Expression list = expressions
-    
+
 type TaggedTemplateExpression(tag, quasi, ?loc) =
     inherit Expression("TaggedTemplateExpression", ?loc = loc)
     member x.tag: Expression = tag
@@ -110,33 +110,39 @@ type BooleanLiteral(value, ?loc) =
 
 type NumericLiteral(value, ?loc) =
     inherit Literal("NumericLiteral", ?loc = loc)
-    member x.value: U2<int, float> = value    
+    member x.value: U2<int, float> = value
 
 (** ##Misc *)
 type Decorator(value, ?loc) =
     inherit Node("Decorator", ?loc = loc)
     member x.value = value
-    
-type DirectiveLiteral(?loc) =
-    inherit StringLiteral("DirectiveLiteral", ?loc = loc)
+
+type DirectiveLiteral(value, ?loc) =
+    inherit Literal("DirectiveLiteral", ?loc = loc)
+    member x.value: string = value
 
 /// e.g. "use strict";
 type Directive(value, ?loc) =
     inherit Node("Directive", ?loc = loc)
-    member x.value: DirectiveLiteral = value    
+    new (str, ?loc) = Directive(DirectiveLiteral str, ?loc = loc)
+    member x.value: DirectiveLiteral = value
 
 (** ##Program *)
+type JsInclude = { name: string; sourcePath: string }
+
 /// A complete program source tree.
-/// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module. 
+/// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
 /// Otherwise, sourceType must be "script".
-type Program(fileName, originalFileName, loc, body, ?directives) =
+type Program(fileName, originalFileName, jsIncludes, loc, body, ?isEntry, ?directives) =
     inherit Node("Program", loc)
     member x.sourceType = "module" // Don't use "script"
     member x.body: U2<Statement, ModuleDeclaration> list = body
     member x.directives: Directive list = defaultArg directives []
     // Properties below don't belong to babel specs
+    member x.isEntry: bool = defaultArg isEntry false
     member x.fileName: string = fileName
-    member x.originalFileName: string option = originalFileName
+    member x.originalFileName: string = originalFileName
+    member x.jsIncludes: JsInclude list = jsIncludes
 
 (** ##Statements *)
 /// An expression statement, i.e., a statement consisting of a single expression.
@@ -172,7 +178,7 @@ type BreakStatement(?label, ?loc) =
 type ContinueStatement(?label, ?loc) =
     inherit Statement("ContinueStatement", ?loc = loc)
     member x.label: Identifier option = label
-    
+
 // type WithStatement
 
 (** ##Control Flow *)
@@ -189,7 +195,7 @@ type IfStatement(test, consequent, ?alternate, ?loc) =
     inherit Statement("IfStatement", ?loc = loc)
     member x.test: Expression = test
     member x.consequent: Statement = consequent
-    member x.alternate: Statement option = alternate    
+    member x.alternate: Statement option = alternate
 
 /// A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
 type SwitchCase(consequent, ?test, ?loc) =
@@ -279,7 +285,7 @@ type FunctionDeclaration(id, arguments, body, ?generator, ?async,
     member x.body: BlockStatement = body
     member x.generator = defaultArg generator false
     member x.async = defaultArg async false
-    member x.typeParameters: TypeParameterDeclaration option = typeParams    
+    member x.typeParameters: TypeParameterDeclaration option = typeParams
     member x.returnType: TypeAnnotation option = returnType
 
 (** ##Expressions *)
@@ -299,7 +305,7 @@ type ArrowFunctionExpression(arguments, body, ?async, ?loc) =
     member x.``params``: Pattern list = arguments
     member x.body: U2<BlockStatement, Expression> = body
     member x.async: bool = defaultArg async false
-        
+
 type FunctionExpression(arguments, body, ?generator, ?async,
                         ?id, ?returnType, ?typeParams, ?loc) =
     inherit Expression("FunctionExpression", ?loc = loc)
@@ -310,19 +316,19 @@ type FunctionExpression(arguments, body, ?generator, ?async,
     member x.async: bool = defaultArg async false
     member x.typeParameters: TypeParameterDeclaration option = typeParams
     member x.returnType: TypeAnnotation option = returnType
-    
+
 /// e.g., x = do { var t = f(); t * t + 1 };
 /// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
 /// Doesn't seem to work well with block-scoped variables (let, const)
 type DoExpression(body, ?loc) =
     inherit Expression("DoExpression", ?loc = loc)
     member x.body: BlockStatement = body
-    
+
 type YieldExpression(argument, ``delegate``, ?loc) =
     inherit Expression("YieldExpression", ?loc = loc)
     member x.argument: Expression option = argument
     /// Delegates to another generator? (yield*)
-    member x.``delegate``: bool = ``delegate``    
+    member x.``delegate``: bool = ``delegate``
 
 type AwaitExpression(argument, ?loc) =
     inherit Expression("AwaitExpression", ?loc = loc)
@@ -332,7 +338,7 @@ type RestProperty(argument, ?loc) =
     inherit Node("RestProperty", ?loc = loc)
     member x.argument: Expression = argument
 
-/// e.g., var z = { x: 1, ...y } // Copy all properties from y 
+/// e.g., var z = { x: 1, ...y } // Copy all properties from y
 type SpreadProperty(argument, ?loc) =
     inherit Node("SpreadProperty", ?loc = loc)
     member x.argument: Expression = argument
@@ -340,7 +346,7 @@ type SpreadProperty(argument, ?loc) =
 type SpreadElement(argument, ?loc) =
     inherit Node("SpreadElement", ?loc = loc)
     member x.argument: Expression = argument
-    
+
 type ArrayExpression(elements, ?loc) =
     inherit Expression("ArrayExpression", ?loc = loc)
     member x.elements: U2<Expression, SpreadElement> option list = elements
@@ -352,7 +358,7 @@ type ObjectMember(typ, key, ?value, ?computed, ?loc) =
     member x.value: Expression option = value
     member x.computed: bool = defaultArg computed false
     // member x.decorators: Decorator list = defaultArg decorators []
-    
+
 type ObjectProperty(key, value, ?shorthand, ?computed, ?loc) =
     inherit ObjectMember("ObjectProperty", key, value, ?computed=computed, ?loc=loc)
     member x.shorthand: bool = defaultArg shorthand false
@@ -372,7 +378,7 @@ type ObjectMethod(kind, key, arguments, body, ?computed, ?generator,
     member x.returnType: TypeAnnotation option = returnType
     member x.typeParameters: TypeParameterDeclaration option = typeParams
 
-/// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression. 
+/// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
 type MemberExpression(``object``, property, ?computed, ?loc) =
     inherit Expression("MemberExpression", ?loc = loc)
@@ -392,7 +398,7 @@ type ConditionalExpression(test, consequent, alternate, ?loc) =
     member x.consequent: Expression = consequent
     member x.alternate: Expression = alternate
 
-/// A function or method call expression.  
+/// A function or method call expression.
 type CallExpression(callee, arguments, ?loc) =
     inherit Expression("CallExpression", ?loc = loc)
     member x.callee: Expression = callee
@@ -421,7 +427,7 @@ type UnaryExpression(operator, argument, ?prefix, ?loc) =
         | UnaryNotBitwise -> "~"
         | UnaryTypeof -> "typeof"
         | UnaryVoid -> "void"
-        | UnaryDelete -> "delete"           
+        | UnaryDelete -> "delete"
 
 type UpdateExpression(operator, prefix, argument, ?loc) =
     inherit Expression("UpdateExpression", ?loc = loc)
@@ -431,7 +437,7 @@ type UpdateExpression(operator, prefix, argument, ?loc) =
         match operator with
         | UpdateMinus -> "--"
         | UpdatePlus -> "++"
-    
+
 (** ##Binary Operations *)
 type BinaryExpression(operator, left, right, ?loc) =
     inherit Expression("BinaryExpression", ?loc = loc)
@@ -467,7 +473,7 @@ type AssignmentExpression(operator, left, right, ?loc) =
     member x.left: Expression = left
     member x.right: Expression = right
     member x.operator =
-        match operator with    
+        match operator with
         | AssignEqual -> "="
         | AssignMinus -> "-="
         | AssignPlus -> "+="
@@ -480,7 +486,7 @@ type AssignmentExpression(operator, left, right, ?loc) =
         | AssignOrBitwise -> "|="
         | AssignXorBitwise -> "^="
         | AssignAndBitwise -> "&="
-    
+
 type LogicalExpression(operator, left, right, ?loc) =
     inherit Expression("LogicalExpression", ?loc = loc)
     member x.left: Expression = left
@@ -489,7 +495,7 @@ type LogicalExpression(operator, left, right, ?loc) =
         match operator with
         | LogicalOr -> "||"
         | LogicalAnd-> "&&"
-        
+
 
 (** ##Patterns *)
 // type AssignmentProperty(key, value, ?loc) =
@@ -515,7 +521,7 @@ type AssignmentPattern(left, right, ?loc) =
 type RestElement(argument, ?loc) =
     inherit Node("RestElement", ?loc = loc)
     member x.argument: Pattern = argument
-    interface Pattern        
+    interface Pattern
 
 (** ##Classes *)
 type ClassMethodKind =
@@ -534,7 +540,7 @@ type ClassMethod(kind, key, args, body, computed, ``static``,
     member x.computed: bool = computed
     member x.``static``: bool = ``static``
     member x.returnType: TypeAnnotation option = returnType
-    member x.typeParameters: TypeParameterDeclaration option = typeParams    
+    member x.typeParameters: TypeParameterDeclaration option = typeParams
     // member x.decorators: Decorator list = defaultArg decorators []
     // This appears in astexplorer.net but it's not documented
     // member x.expression: bool = false
@@ -564,7 +570,7 @@ type ClassDeclaration(body, id, ?super, ?typeParams, ?loc) =
 type ClassExpression(body, ?id, ?super, ?typeParams, ?loc) =
     inherit Expression("ClassExpression", ?loc = loc)
     member x.body: ClassBody = body
-    member x.id: Identifier option = id    
+    member x.id: Identifier option = id
     member x.superClass: Expression option = super
     member x.typeParameters: TypeParameterDeclaration option = typeParams
     // member x.decorators: Decorator list = defaultArg decorators []
@@ -581,10 +587,10 @@ type ModuleSpecifier(typ, local, ?loc) =
     inherit Node(typ, ?loc = loc)
     member x.local: Identifier = local
 
-/// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod". 
-/// The imported field refers to the name of the export imported from the module. 
-/// The local field refers to the binding imported into the local module scope. 
-/// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo. 
+/// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod".
+/// The imported field refers to the name of the export imported from the module.
+/// The local field refers to the binding imported into the local module scope.
+/// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo.
 /// If it is an aliased import, such as in import {foo as bar} from "mod", the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ImportSpecifier(local, imported, ?loc) =
     inherit ModuleSpecifier("ImportSpecifier", local, ?loc = loc)
@@ -593,7 +599,7 @@ type ImportSpecifier(local, imported, ?loc) =
 /// A default import specifier, e.g., foo in import foo from "mod".
 type ImportDefaultSpecifier(local, ?loc) =
     inherit ModuleSpecifier("ImportDefaultSpecifier", local, ?loc = loc)
-    
+
 /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
 type ImportNamespaceSpecifier(local, ?loc) =
     inherit ModuleSpecifier("ImportNamespaceSpecifier", local, ?loc = loc)
@@ -604,16 +610,16 @@ type ImportDeclaration(specifiers, source, ?loc) =
     member x.specifiers: U3<ImportSpecifier, ImportDefaultSpecifier, ImportNamespaceSpecifier> list = specifiers
     member x.source: Literal = source
 
-/// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}. 
-/// The exported field refers to the name exported in the module. 
-/// The local field refers to the binding into the local module scope. 
-/// If it is a basic named export, such as in export {foo}, both exported and local are equivalent Identifier nodes; 
-/// in this case an Identifier node representing foo. If it is an aliased export, such as in export {bar as foo}, 
+/// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}.
+/// The exported field refers to the name exported in the module.
+/// The local field refers to the binding into the local module scope.
+/// If it is a basic named export, such as in export {foo}, both exported and local are equivalent Identifier nodes;
+/// in this case an Identifier node representing foo. If it is an aliased export, such as in export {bar as foo},
 /// the exported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ExportSpecifier(local, exported, ?loc) =
     inherit ModuleSpecifier("ExportSpecifier", local, ?loc = loc)
     member x.exported: Identifier = exported
-    
+
 /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
 /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
 type ExportNamedDeclaration(?declaration, ?specifiers, ?source, ?loc) =
@@ -622,7 +628,7 @@ type ExportNamedDeclaration(?declaration, ?specifiers, ?source, ?loc) =
     member x.specifiers: ExportSpecifier list = defaultArg specifiers []
     member x.source: Literal option = source
 
-/// An export default declaration, e.g., export default function () {}; or export default 1;. 
+/// An export default declaration, e.g., export default function () {}; or export default 1;.
 type ExportDefaultDeclaration(declaration, ?loc) =
     inherit ModuleDeclaration("ExportDefaultDeclaration", ?loc = loc)
     member x.declaration: U2<Declaration, Expression> = declaration

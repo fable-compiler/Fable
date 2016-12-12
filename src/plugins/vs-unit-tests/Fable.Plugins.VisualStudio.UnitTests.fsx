@@ -5,13 +5,13 @@
   - "Test" attribute changed to "TestMethod"
   - "NUnit.Framework.Assert" changed to "Microsoft.VisualStudio.TestTools.UnitTesting.Assert"
   - Names of methodDecorators changed to Visual Studio counterparts
-  - In transformTestMethod, generate testBody without arguments. Also, doesn't check for 
+  - In transformTestMethod, generate testBody without arguments. Also, doesn't check for
     method signature (since it does not have support for test parameters, anyway)
 
-  Both frameworks are very similar, the exception being VisualStudio doesn't 
+  Both frameworks are very similar, the exception being VisualStudio doesn't
   (currently?) supports static class members as test methods.
-  
-  This notice is to remember that future improvements to that code should be 
+
+  This notice is to remember that future improvements to that code should be
   ported to this one.
 *)
 
@@ -46,7 +46,7 @@ module Util =
             | Fable.Method, Some decorator -> Some (m, decorator, args, body, range)
             | _ -> None
         | _ -> None
-        
+
     let [<Literal>] runSyncWarning = "Async.RunSynchronously must wrap the whole test"
 
     // Compile tests using Mocha.js BDD interface
@@ -58,7 +58,7 @@ module Util =
                 let doneFn = doneFn |> Fable.IdentValue |> Fable.Value
                 let args = [asyncBuilder; doneFn; doneFn; doneFn]
                 AST.Fable.Util.CoreLibCall("Async", Some "startWithContinuations", false, args)
-                |> AST.Fable.Util.makeCall com range Fable.Unit
+                |> AST.Fable.Util.makeCall range Fable.Unit
             [doneFn], testBody
         if List.length args > 0 then
             failwithf "Test parameters are not supported (testName = '%s')." testMeth.Name
@@ -68,7 +68,7 @@ module Util =
                     when warning = runSyncWarning -> Some arg
                 | _ -> None
             match body with
-            | Fable.Apply(Fable.Value(Fable.Lambda(_,RunSync _)),[asyncBuilder],Fable.ApplyMeth,_,_)
+            | Fable.Apply(Fable.Value(Fable.Lambda(_,RunSync _, _)),[asyncBuilder],Fable.ApplyMeth,_,_)
             | RunSync asyncBuilder -> buildAsyncTestBody body.Range asyncBuilder
             | _ -> [], body
         let testBody =
@@ -77,13 +77,13 @@ module Util =
         let testName =
             Babel.StringLiteral testMeth.Name :> Babel.Expression
         let testRange =
-            match testBody.loc with
-            | Some loc -> range + loc | None -> range
+            match range, testBody.loc with
+            | Some r1, Some r2 -> Some(r1 + r2) | _ -> None
         let newMethodName = methodDecorators.Item((decorator: Fable.Decorator).Name)
         // it('Test name', function() { /* Tests */ });
         Babel.ExpressionStatement(
             Babel.CallExpression(Babel.Identifier newMethodName,
-                [U2.Case1 testName; U2.Case1 testBody], testRange), testRange)
+                [U2.Case1 testName; U2.Case1 testBody], ?loc=testRange), ?loc=testRange)
         :> Babel.Statement
 
     let transformTestClass (testClass: Fable.Entity) testRange testDecls =
@@ -91,25 +91,25 @@ module Util =
             Babel.StringLiteral testClass.Name :> Babel.Expression
         let testBody =
             Babel.FunctionExpression([],
-                Babel.BlockStatement (testDecls, ?loc=Some testRange), ?loc=Some testRange)
+                Babel.BlockStatement (testDecls, ?loc=testRange), ?loc=testRange)
             :> Babel.Expression
         Babel.ExpressionStatement(
             Babel.CallExpression(Babel.Identifier "describe",
                 [U2.Case1 testDesc; U2.Case1 testBody],
-                testRange)) :> Babel.Statement
+                ?loc=testRange)) :> Babel.Statement
 
     let asserts com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "AreEqual" ->
             Fable.Util.ImportCall("assert", "*", Some "equal", false, i.args)
-            |> Fable.Util.makeCall com i.range i.returnType |> Some
+            |> Fable.Util.makeCall i.range i.returnType |> Some
         | _ -> None
-        
+
     let declareModMember range publicName privateName _isPublic isMutable _modIdent expr =
         let privateName = defaultArg privateName publicName
-        Util.varDeclaration (Some range) (Util.identFromName privateName) isMutable expr
+        Util.varDeclaration range (Util.identFromName privateName) isMutable expr
         :> Babel.Statement |> U2.Case1 |> List.singleton
-        
+
     let castStatements (decls: U2<Babel.Statement, Babel.ModuleDeclaration> list) =
         decls |> List.map (function
             | U2.Case1 statement -> statement
@@ -123,7 +123,7 @@ type VisualStudioUnitTestsPlugin() =
             if file.Root.TryGetDecorator "TestClass" |> Option.isNone then None else
             Util.transformModDecls com ctx declareModMember None file.Declarations
             |> castStatements
-            |> transformTestClass file.Root file.Range
+            |> transformTestClass file.Root (Some file.Range)
             |> U2.Case1
             |> List.singleton
             |> Some
@@ -133,7 +133,7 @@ type VisualStudioUnitTestsPlugin() =
                 transformTestMethod com ctx (test, decorator, args, body, range)
                 |> List.singleton |> Some
             | TestClass (testClass, testDecls, testRange) ->
-                let ctx = { ctx with moduleFullName = testClass.FullName } 
+                let ctx = { ctx with moduleFullName = testClass.FullName }
                 Util.transformModDecls com ctx declareModMember None testDecls
                 |> castStatements
                 |> transformTestClass testClass testRange
@@ -148,6 +148,6 @@ type VisualStudioUnitTestsPlugin() =
                 match info.returnType with
                 | Fable.Unit ->
                     let warning = Fable.Throw(Fable.Value(Fable.StringConst Util.runSyncWarning), Fable.Unit, None)
-                    AST.Fable.Util.makeSequential info.range [warning; info.args.Head] |> Some 
+                    AST.Fable.Util.makeSequential info.range [warning; info.args.Head] |> Some
                 | _ -> failwithf "Async.RunSynchronously in tests is only allowed with Async<unit> %O" info.range
             | _ -> None

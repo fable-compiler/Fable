@@ -1,9 +1,7 @@
 {
-    "module": "amd",
-    "sourceMaps": true,
     "projFile": "./canvas.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
+    "sourceMaps": true,
+    "rollup": {
+        "dest": "./out/bundle.js"
     }
 }

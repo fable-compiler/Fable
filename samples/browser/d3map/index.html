@@ -19,23 +19,10 @@
   <!-- [body] -->
   <p style="position:absolute;top:290px;color:black;font-size:16px;font-weight:700;width:500px;text-align:center;" class="country-name">Using D3 and TopoJSON</p>
   <canvas align="center" id="canvas" width="500" height="500"></canvas>
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="https://d3js.org/queue.v1.min.js"></script>
+  <script src="https://d3js.org/topojson.v1.min.js"></script>
   <!-- [/body] -->
-  <script src="node_modules/core-js/client/core.min.js"></script>
-  <script src="node_modules/requirejs/require.js"></script>
-  <script>
-    requirejs.config({
-        // Set the baseUrl to the path of the compiled JS code
-        baseUrl: 'out',
-        paths: {
-            // Explicit path to core lib (relative to baseUrl, omit .js)
-            'fable-core': '../node_modules/fable-core/fable-core.min',
-            'd3': 'https://d3js.org/d3.v3.min',
-            'queue': 'https://d3js.org/queue.v1.min',
-            'topojson': 'https://d3js.org/topojson.v1.min'
-        }
-    });
-    // Load the entry file of the app (use array, omit .js)
-    requirejs(["d3map"]);
-  </script>
+  <script src="out/bundle.js"></script>
 </body>
 </html>

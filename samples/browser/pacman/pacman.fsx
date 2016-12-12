@@ -8,18 +8,15 @@
    first. The [raw source code is on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/pacman/pacman.fsx)
    as usual!
 
-   To play the game, click anywhere to start it and then use the `Z` and `X` keys for moving left and right
-   and the `Q` and `A` keys for moving up and down. Make sure to turn on your volume too :-).
-
+   To play the game, click anywhere to start it and then use the arrow keys for moving pacman. Make sure to turn on your volume too :-).
 *)
 (*** hide ***)
-#r "node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
 
 open Fable.Core
-open Fable.Import.Browser
+open Fable.Import
 
-[<Emit("Math.random()")>]
-let random (): float = failwith "JS only"
+let random (): float = JS.Math.random()
 (**
 This is a full blown Pacman game. If you're looking for an introduction to Fable
 then visit other tutorials, in particular the [Mario game](../mario/index.html) which
@@ -59,7 +56,7 @@ module Images =
 
 // Create image using the specified data
 let createImage data =
-  let img = document.createElement_img()
+  let img = Browser.document.createElement_img()
   img.src <- data
   img
 (**
@@ -184,7 +181,7 @@ let draw f (lines:int[]) =
       if pattern <> 0 then f (x,y) )
 
 /// Creates a brush for rendering the given RGBA color
-let createBrush (context:CanvasRenderingContext2D) (r,g,b,a) =
+let createBrush (context:Browser.CanvasRenderingContext2D) (r,g,b,a) =
   let id = context.createImageData(U2.Case1 1.0, 1.0)
   let d = id.data
   d.[0] <- float r; d.[1] <- float g
@@ -197,7 +194,7 @@ then iterates over the maze tiles and renders individual walls:
 
 let createBackground () =
   // Fill background with black
-  let background = document.createElement_canvas()
+  let background = Browser.document.createElement_canvas()
   background.width <- 256.
   background.height <- 256.
   let context = background.getContext_2d()
@@ -221,7 +218,7 @@ let createBackground () =
   background
 
 /// Clear whatever is rendered in the specified Maze cell
-let clearCell (background : HTMLCanvasElement) (x,y) =
+let clearCell (background : Browser.HTMLCanvasElement) (x,y) =
   let context = background.getContext_2d()
   context.fillStyle <- U3.Case1 "rgb(0,0,0)"
   context.fillRect (float (x*8), float (y*8), 8., 8.);
@@ -245,7 +242,7 @@ let wrap (x,y) (dx,dy) =
   x + dx, y + dy
 
 /// Mutable representation of a ghost
-type Ghost(image:HTMLImageElement,x,y,v) =
+type Ghost(image:Browser.HTMLImageElement,x,y,v) =
   let mutable x' = x
   let mutable y' = y
   let mutable v' = v
@@ -372,15 +369,15 @@ module Keyboard =
   let reset () = keysPressed <- Set.empty
   let isPressed keyCode = Set.contains keyCode keysPressed
   /// Triggered when key is pressed/released
-  let update (e : KeyboardEvent, pressed) =
+  let update (e : Browser.KeyboardEvent, pressed) =
     let keyCode = int e.keyCode
     let op =  if pressed then Set.add else Set.remove
     keysPressed <- op keyCode keysPressed
     null
   /// Register DOM event handlers
   let init () =
-    window.addEventListener_keydown(fun e -> update(e, true))
-    window.addEventListener_keyup(fun e -> update(e, false))
+    Browser.window.addEventListener_keydown(fun e -> update(e, true))
+    Browser.window.addEventListener_keyup(fun e -> update(e, false))
 
 (**
 ### Choosing Pacman image
@@ -471,7 +468,7 @@ In the first part, the function finds the `<canvas>` element, paints it with bla
 creates other graphical elements - namely the game background, ghosts and eyes:
 *)
   // Fill the canvas element
-  let canvas = document.getElementsByTagName_canvas().[0]
+  let canvas = Browser.document.getElementsByTagName_canvas().[0]
   canvas.width <- 256.
   canvas.height <- 256.
   let context = canvas.getContext_2d()
@@ -515,13 +512,13 @@ in `moveGhosts` and `movePacman`:
   let movePacman () =
     // In which directions should pacman go?
     let inputs =
-       [| if Keyboard.isPressed 81 (*q*) then
+       [| if Keyboard.isPressed 38 (*up*) then
             yield canGoUp (!x,!y), (0,-1)
-          if Keyboard.isPressed 65 (*a*) then
+          if Keyboard.isPressed 40 (*down*) then
             yield canGoDown (!x,!y), (0,1)
-          if Keyboard.isPressed 90 (*z*) then
+          if Keyboard.isPressed 37 (*left*) then
             yield canGoLeft (!x,!y), (-1,0)
-          if Keyboard.isPressed 88 (*x*) then
+          if Keyboard.isPressed 39 (*right*) then
             yield canGoRight (!x,!y), (1,0) |]
     // Can we continue in the same direction?
     let canGoForward =
@@ -686,7 +683,7 @@ to be done in the right order so that we do not accidentally draw dots over a Pa
     render ()
     if !dotsLeft = 0 then onLevelCompleted()
     elif !energy <= 0 then onGameOver()
-    else window.setTimeout(update, 1000. / 60.) |> ignore
+    else Browser.window.setTimeout(update, 1000. / 60.) |> ignore
 
   update()
 
@@ -700,7 +697,7 @@ the starting state of the game (with "CLICK TO START" text) and start the game!
 let rec game () =
   // Initialize keyboard and canvas
   Keyboard.reset()
-  let canvas = document.getElementsByTagName_canvas().[0]
+  let canvas = Browser.document.getElementsByTagName_canvas().[0]
   let context = canvas.getContext_2d()
 
   // A helper function to draw text
@@ -712,11 +709,11 @@ let rec game () =
   // Called when level is completed
   let levelCompleted () =
     drawText("COMPLETED",96.,96.)
-    window.setTimeout((fun () -> game()),5000.) |> ignore
+    Browser.window.setTimeout((fun () -> game()),5000.) |> ignore
   // Called when the game ends
   let gameOver () =
     drawText("GAME OVER",96.,96.)
-    window.setTimeout((fun () -> game()),5000.) |> ignore
+    Browser.window.setTimeout((fun () -> game()),5000.) |> ignore
 
   // Start a new game after click!
   let start () =
@@ -731,7 +728,7 @@ let rec game () =
       box true )
 
   // Resize canvas and get ready for a game
-  let canvas = document.getElementsByTagName_canvas().[0]
+  let canvas = Browser.document.getElementsByTagName_canvas().[0]
   canvas.width <- 256.
   canvas.height <- 256.
   start()

@@ -30,9 +30,12 @@
     ]
   },
   "dependencies": {
+    "NETStandard.Library": "1.6.0",
+    "System.Reflection.TypeExtensions": "4.1.0",
+    "System.Runtime.Loader": "4.0.0",
     "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*",
     "FSharp.Compiler.Service": {
-      "version": "7.0.0",
+      "version": "8.0.0",
       "target": "project"
     },
     "Fable.Core": {
@@ -49,7 +52,6 @@
   },
   "frameworks": {
     "netstandard1.6": {
-      "NETStandard.Library": "1.6.0"
     }
   }
 }
