@@ -1,3 +1,8 @@
+(**
+ - title: Fable Pong
+ - tagline: Pong clone using HTML5 canvas
+*)
+
 #r "../../node_modules/fable-core/Fable.Core.dll"
 #load "keyboard.fsx"
 #load "win.fsx"
@@ -70,21 +75,21 @@ let checkCollision pong1 pong2 ball =
     | (_, _, _, _, _, true) -> RightPong
     | _ -> None
 
-let calculateAngle pong factor ball =
+let calculateAngle pong hitRightPong determineAngle ball =
     let relativeIntersectY = (pong.y + (pong.height / 2.)) - ball.element.y
     let normalizedRelativeIntersectionY = (relativeIntersectY / (pong.height / 2.))
-    if normalizedRelativeIntersectionY = 0. && factor <> 0. then
+    if normalizedRelativeIntersectionY = 0. && hitRightPong then
         Math.PI
     else
-        factor + (normalizedRelativeIntersectionY * (5. * Math.PI / 12.)) // Max. bounce = 75°    
+        normalizedRelativeIntersectionY |> determineAngle
 
 let collision pong1 pong2 ball =
     match ball |> checkCollision pong1 pong2 with
     | None -> ball.angle
     | Top | Bottom -> -ball.angle
     | Left | Right -> ball.angle
-    | LeftPong -> ball |> calculateAngle pong1 0.
-    | RightPong -> ball |> calculateAngle pong2 Math.PI
+    | LeftPong -> ball |> calculateAngle pong1 false (fun intersection -> intersection * (5. * Math.PI / 12.)) // Max. bounce = 75°
+    | RightPong -> ball |> calculateAngle pong2 true (fun intersection -> Math.PI - intersection * (5. * Math.PI / 12.))
 
 let moveBall angle ball = { 
     element = { x = ball.element.x + ball.speed * cos angle;
@@ -127,7 +132,7 @@ let rec update pong1 pong2 ball gameStatus () =
     let pong2 = if gameStatus.active then pong2 |> move (Keyboard.rightControlsPressed()) else initialPong2
     let angle = if gameStatus.active then collision pong1 pong2 ball else ball.angle
     let ball = if gameStatus.active then ball |> moveBall angle else { initialBall with angle = if angle = 0. then Math.PI else 0. }
-    let gameStatus = if Keyboard.spacePressed() = 1 then {gameStatus with active = true} else gameStatus |> checkGameStatus pong1 pong2 ball
+    let gameStatus = if Keyboard.spacePressed() = 1 then { gameStatus with active = true } else gameStatus |> checkGameStatus pong1 pong2 ball
     render (w, h) pong1 pong2 ball gameStatus
     window.setTimeout(update pong1 pong2 ball gameStatus, 1000. / 60.) |> ignore
 
