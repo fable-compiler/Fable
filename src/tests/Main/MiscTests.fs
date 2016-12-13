@@ -606,19 +606,6 @@ let ``use calls Dispose (of an object) at the end of the scope`` () =
     res |> equal 10
     !cell |> equal 20
 
-#if FABLE_COMPILER
-[<Test>]
-let ``Referencing a Fable project through a dll works``() =
-    Fable.Tests.DllRef.Util.add2 5 |> equal 7
-
-open Fable.Tests.DllRef
-
-[<Test>]
-let ``Root members with JS non-valid chars work``() = // See #207
-    Lib.足す 3 2 |> equal 5
-    Lib.引く 3 2 |> equal 1
-    Lib.モジュール.ファンクション 0 |> equal false
-
 [<Test>]
 let ``Unchecked.defaultof works`` () =
     Unchecked.defaultof<int> |> equal 0
