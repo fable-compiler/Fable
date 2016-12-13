@@ -12,7 +12,7 @@ var optionDefinitions = [
   { name: 'outDir', alias: 'o', description: "Where to put compiled JS files. Defaults to project directory." },
   { name: 'module', alias: 'm', description: "Specify module code generation: `commonjs` (default), `umd`, `amd` or `es2015`." },
   { name: 'sourceMaps', alias: 's', description: "Generate source maps: `false` (default), `true` or `inline`." },
-  { name: 'watch', alias: 'w', multiple: 'true', description: "Recompile project much faster on file modifications." },
+  { name: 'watch', type: Boolean, alias: 'w', multiple: true, description: "Recompile project much faster on file modifications." },
   { name: 'ecma', description: "Specify ECMAScript target version: `es5` (default) or `es2015`." },
   { name: 'rollup', description: "Bundle files and dependencies with Rollup." },
   { name: 'refs', multiple: true, description: "Alternative location for compiled JS files of referenced libraries (e.g. `Fable.Core=fable-core/umd`)." },
