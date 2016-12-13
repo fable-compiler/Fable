@@ -5,7 +5,7 @@
 #load "../packages/docs/FSharp.Formatting/FSharp.Formatting.fsx"
 #I "../packages/docs/FAKE/tools/"
 #I "../packages/docs/Suave/lib/net40"
-#I "../packages/docs/DotLiquid/lib/NET45"
+#I "../packages/docs/DotLiquid/lib/NET451"
 #r "FakeLib.dll"
 #r "Suave.dll"
 #r "DotLiquid.dll"
@@ -29,7 +29,7 @@ open Fake.Git
 // --------------------------------------------------------------------------------------
 
 // Where to push generated documentation
-let publishSite = "//fable-compiler.github.io"
+let publishSite = "//fable.io"
 let githubLink = "http://github.com/fable-compiler/fable-compiler.github.io"
 let publishBranch = "master"
 
@@ -116,10 +116,9 @@ type Page =
     Tagline : string
     Content : string }
 
-
 // Copy static files from the 'source' folder to 'output' folder (add more extensions!)
 let copyFiles force =
-    Helpers.processDirectory force source output [".css"; ".js"; ".png"; ".gif"; ".jpg"]
+    Helpers.processDirectory force source output [".css"; ".js"; ".png"; ".gif"; ".jpg"; ""]
       (fun source outdir ->
           let name = Path.GetFileName(source)
           File.Copy(source, outdir </> name, true) )
@@ -352,9 +351,9 @@ Target "CleanDocs" (fun _ ->
 )
 
 Target "GenerateDocs" (fun _ ->
-    copySharedScripts ()
+    // copySharedScripts ()
     generateStaticPages publishSite true ()
-    generateSamplePages publishSite true ()
+    // generateSamplePages publishSite true ()
 )
 
 Target "BrowseDocs" (fun _ ->

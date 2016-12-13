@@ -2,7 +2,6 @@
  - title: React TodoMVC with Fable
  - tagline: Unveil the power of React and functional programming!
  - app-style: width:800px; margin:20px auto 50px auto;
- - require-paths: `'classnames': 'lib/classnames/index', 'react': 'lib/react/react-with-addons', 'react-dom': 'lib/react/react-dom'`
  - intro: This is a port of [React TodoMVC](http://todomvc.com/examples/react/) to show how easy
    is to take advantage of the full power of [React](https://facebook.github.io/react/) in Fable apps.
    You can also compare the [F# source code](https://github.com/fable-compiler/Fable/blob/master/samples/browser/react-todomvc/react-todomvc.fsx)
@@ -16,15 +15,12 @@
 
 Fable includes [React bindings and helpers](https://www.npmjs.com/package/fable-import-react)
 to make interaction with the tool more idiomatic in F#. We will also load a couple more of
-JS libraries: [classnames](https://github.com/JedWatson/classnames) with require.js and
-[director](https://github.com/flatiron/director) directly with a `<script>` tag.
-We will make them accessible to our program with [Import and Global attributes](https://fable-compiler.github.io/docs/interacting.html#Import-attribute)
-respectively.
+JS libraries: [classnames](https://github.com/JedWatson/classnames) and
+[director](https://github.com/flatiron/director).
 *)
 
-#r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-react/Fable.Import.React.fs"
-#load "node_modules/fable-import-react/Fable.Helpers.React.fs"
+#r "../../node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-react/Fable.React.dll"
 
 open System
 open Fable.Core
@@ -32,12 +28,11 @@ open Fable.Core.JsInterop
 open Fable.Import
 
 // JS utility for conditionally joining classNames together
-let [<Import("default","classnames")>] classNames(o: obj): string =
-    failwith "JS only"
+let classNames: obj->string = importDefault "./lib/classnames.js"
 
-// Director is a router. Routing is the process of determining what code to run when a URL is requested.
-let [<Global>] Router(o: obj): obj =
-    failwith "JS only"
+// Director is a router. Routing is the process of determining
+// what code to run when a URL is requested.
+let Router: obj->obj = importDefault "./lib/director.js"
 
 (**
 ## Utility module
@@ -48,7 +43,7 @@ and save data from the browser local storage as things like Guid generation
 (`System.Guid.NewGuid()`) or record immutable updates are built-in in F#/Fable.
 
 > Because our `Todo` type is really simple (see below), `JSON.parse` will meet our needs.
-For more complicated structures see [JSON serialization with Fable](https://fable-compiler.github.io/docs/interacting.html#JSON-serialization). 
+For more complicated structures see [JSON serialization with Fable](https://fable-compiler.github.io/docs/interacting.html#JSON-serialization).
 *)
 
 module Util =
@@ -124,7 +119,7 @@ We enter now in React's realm to define three views: TodoItem, TodoFooter and To
 We can use classes to define the views as explained in [React docs](https://facebook.github.io/react/docs/reusable-components.html#es6-classes),
 inheriting from `React.Component` and defining a `render` method, where we can use
 the DSL defined in Fable's React helper to build HTML elements in a similar fashion
-as we would do with JSX. 
+as we would do with JSX.
 
 > For convenience, we use a module alias (`R`) to shorten references to the React helper.
 
@@ -137,16 +132,18 @@ and static checking, making our app much more robust than by using plain JS obje
 module R = Fable.Helpers.React
 open R.Props
 
-type TodoItemState = { editText: string }
-type TodoItemProps =
-    abstract key: Guid 
-    abstract todo: Todo 
-    abstract editing: bool
-    abstract onSave: obj->unit
-    abstract onEdit: obj->unit
-    abstract onDestroy: obj->unit
-    abstract onCancel: obj->unit
-    abstract onToggle: obj->unit
+type [<Pojo>] TodoItemProps =
+    { key: Guid
+    ; todo: Todo
+    ; editing: bool
+    ; onSave: string->unit
+    ; onEdit: React.SyntheticEvent->unit
+    ; onDestroy: React.SyntheticEvent->unit
+    ; onCancel: React.SyntheticEvent->unit
+    ; onToggle: React.SyntheticEvent->unit }
+
+type [<Pojo>] TodoItemState =
+    { editText: string }
 
 let [<Literal>] ESCAPE_KEY = 27.
 let [<Literal>] ENTER_KEY = 13.
@@ -154,11 +151,11 @@ let [<Literal>] ALL_TODOS = "all"
 let [<Literal>] ACTIVE_TODOS = "active"
 let [<Literal>] COMPLETED_TODOS = "completed"
 
-type TodoItem(props, ctx) as this =
-    inherit React.Component<TodoItemProps, TodoItemState>(props, ctx)
-    do this.state <- { editText = props.todo.title }
+type TodoItem(props) =
+    inherit React.Component<TodoItemProps, TodoItemState>(props)
+    do base.setInitState({ editText = props.todo.title })
 
-    let mutable editField: obj option = None
+    let mutable editField: Browser.HTMLInputElement option = None
 
     member this.handleSubmit (e: React.SyntheticEvent) =
         match this.state.editText.Trim() with
@@ -169,14 +166,14 @@ type TodoItem(props, ctx) as this =
             this.props.onDestroy(e)
 
     member this.handleEdit (ev: React.MouseEvent) =
-        this.props.onEdit(ev)
+        this.props.onEdit(upcast ev)
         this.setState { editText = this.props.todo.title }
 
     member this.handleKeyDown (e: React.KeyboardEvent) =
         match e.which with
         | ESCAPE_KEY ->
             this.setState { editText = this.props.todo.title }
-            this.props.onCancel(e)
+            this.props.onCancel(upcast e)
         | ENTER_KEY ->
             this.handleSubmit(e)
         | _ -> ()
@@ -192,11 +189,11 @@ type TodoItem(props, ctx) as this =
 
     member this.componentDidUpdate (prevProps: TodoItemProps) =
         if not prevProps.editing && this.props.editing then
-            let node =
-                ReactDom.findDOMNode(unbox editField.Value)
-                :?> Browser.HTMLInputElement
-            node.focus()
-            node.setSelectionRange(float node.value.Length, float node.value.Length)
+            match editField with
+            | None -> ()
+            | Some node ->
+                node.focus()
+                node.setSelectionRange(float node.value.Length, float node.value.Length)
 
     member this.render () =
         let className =
@@ -214,17 +211,17 @@ type TodoItem(props, ctx) as this =
                     ClassName "toggle"
                     Type "checkbox"
                     Checked this.props.todo.completed
-                    OnChange this.props.onToggle  
+                    OnChange (fun e -> this.props.onToggle(upcast e))
                 ] []
                 R.label [ OnDoubleClick this.handleEdit ]
-                        [ unbox this.props.todo.title ]
+                        [ R.str this.props.todo.title ]
                 R.button [
                     ClassName "destroy"
-                    OnClick this.props.onDestroy ] [ ]
+                    OnClick (fun e -> this.props.onDestroy(upcast e)) ] [ ]
             ]
             R.input [
                 ClassName "edit"
-                Ref (fun x -> editField <- Some x)
+                Ref (fun x -> editField <- Some(x:?>Browser.HTMLInputElement))
                 Value (U2.Case1 this.state.editText)
                 OnBlur this.handleSubmit
                 OnChange this.handleChange
@@ -240,56 +237,55 @@ Same as `TodoItem`, notice the component subscribes to some events (like `OnClic
 but instead of containing the logic to react to the event it just runs a callback
 received from its parent through the `props` object. Remember the state of React
 components cannot be directly updated, so this is a way to transmit the event to
-the parent and let it re-render the subtree if necessary. 
+the parent and let it re-render the subtree if necessary.
 *)
 
-type TodoFooterProps =
-    abstract count: int
-    abstract completedCount: int
-    abstract onClearCompleted: obj->unit
-    abstract nowShowing: string
+type [<Pojo>] TodoFooterProps =
+    { count: int
+    ; completedCount: int
+    ; onClearCompleted: React.MouseEvent->unit
+    ; nowShowing: string }
 
-type TodoFooter(props, ctx) =
-    inherit React.Component<TodoFooterProps,obj>(props, ctx)
-    member this.render () =
-        let activeTodoWord =
-            "item" + (if this.props.count = 1 then "" else "s")
-        let clearButton =
-            if this.props.completedCount > 0 then
-                R.button [
-                    ClassName "clear-completed"
-                    OnClick this.props.onClearCompleted
-                ] [ unbox "Clear completed" ] |> Some
-            else None
-        let className category =
-            classNames(
-                createObj ["selected" ==> (this.props.nowShowing = category)])
-        R.footer [ ClassName "footer" ] [
-            R.span [ ClassName "todo-count" ] [
-                R.strong [] [ unbox this.props.count ]
-                unbox (" " + activeTodoWord + " left")
-            ]
-            R.ul [ ClassName "filters" ] [
-                R.li [] [
-                    R.a [
-                        Href "#/"
-                        ClassName (className ALL_TODOS)
-                    ] [ unbox "All" ] ]
-                unbox " "
-                R.li [] [
-                    R.a [
-                        Href "#/active"
-                        ClassName (className ACTIVE_TODOS)
-                    ] [ unbox "Active" ] ]
-                unbox " "
-                R.li [] [
-                    R.a [
-                        Href "#/completed"
-                        ClassName (className COMPLETED_TODOS)
-                    ] [ unbox "Completed" ] ]
-                clearButton.Value
-            ]
+let TodoFooter(props: TodoFooterProps) =
+    let activeTodoWord =
+        "item" + (if props.count = 1 then "" else "s")
+    let clearButton =
+        if props.completedCount > 0
+        then
+            R.button [
+                ClassName "clear-completed"
+                OnClick props.onClearCompleted
+            ] [ R.str "Clear completed" ] |> Some
+        else None
+    let className category =
+        classNames(
+            createObj ["selected" ==> (props.nowShowing = category)])
+    R.footer [ ClassName "footer" ] [
+        R.span [ ClassName "todo-count" ] [
+            R.strong [] [ props.count |> string |> R.str ]
+            R.str (" " + activeTodoWord + " left")
         ]
+        R.ul [ ClassName "filters" ] [
+            R.li [] [
+                R.a [
+                    Href "#/"
+                    ClassName (className ALL_TODOS)
+                ] [ R.str "All" ] ]
+            R.str " "
+            R.li [] [
+                R.a [
+                    Href "#/active"
+                    ClassName (className ACTIVE_TODOS)
+                ] [ R.str "Active" ] ]
+            R.str " "
+            R.li [] [
+                R.a [
+                    Href "#/completed"
+                    ClassName (className COMPLETED_TODOS)
+                ] [ R.str "Completed" ] ]
+            R.opt clearButton
+        ]
+    ]
 
 (**
 We finish with the `TodoApp` view. This component is the parent of the two previously
@@ -305,12 +301,17 @@ Note also we haven't defined an interface for the object returned by `Router`,
 so we just access its `init` method with the dynamic `?` operator.
 *)
 
-type TodoAppProps = { model: TodoModel }
-type TodoAppState = { nowShowing: string; editing: Guid option; newTodo: string }
+type [<Pojo>] TodoAppProps =
+    { model: TodoModel }
 
-type TodoApp(props, ctx) as this =
-    inherit React.Component<TodoAppProps, TodoAppState>(props, ctx)
-    do this.state <- { nowShowing=ALL_TODOS; editing=None; newTodo="" }
+type [<Pojo>] TodoAppState =
+    { nowShowing: string
+    ; editing: Guid option
+    ; newTodo: string }
+
+type TodoApp(props) =
+    inherit React.Component<TodoAppProps, TodoAppState>(props)
+    do base.setInitState({ nowShowing=ALL_TODOS; editing=None; newTodo="" })
 
     member this.componentDidMount () =
         let nowShowing category =
@@ -324,7 +325,7 @@ type TodoApp(props, ctx) as this =
         router?init("/")
 
     member this.handleChange (ev: React.SyntheticEvent) =
-        this.setState({ this.state with newTodo = unbox ev.target?value })
+        this.setState({ this.state with newTodo = string ev.target?value })
 
     member this.handleNewTodoKeyDown (ev: React.KeyboardEvent) =
         if ev.keyCode = ENTER_KEY then
@@ -358,7 +359,7 @@ type TodoApp(props, ctx) as this =
 
     member this.render () =
         let todos = this.props.model.todos
-        let todoItems = 
+        let todoItems =
             todos
             |> Seq.filter (fun todo ->
                 match this.state.nowShowing with
@@ -366,20 +367,18 @@ type TodoApp(props, ctx) as this =
                 | COMPLETED_TODOS -> todo.completed
                 | _ -> true)
             |> Seq.map (fun todo ->
-                R.com<TodoItem,_,_>(
-                    { new TodoItemProps with
-                        member __.key = todo.id
-                        member __.todo = todo
-                        member __.onToggle _ = this.toggle(todo)
-                        member __.onDestroy _ = this.destroy(todo)
-                        member __.onEdit _ = this.edit(todo)
-                        member __.editing =
-                            match this.state.editing with
-                            | Some editing -> editing = todo.id
-                            | None -> false
-                        member __.onSave text = this.save(todo, string text)
-                        member __.onCancel _ = this.cancel()
-                    }) [])
+                R.com<TodoItem,_,_>
+                    { key = todo.id
+                    ; todo = todo
+                    ; onToggle = fun _ -> this.toggle(todo)
+                    ; onDestroy = fun _ -> this.destroy(todo)
+                    ; onEdit = fun _ -> this.edit(todo)
+                    ; editing =
+                        match this.state.editing with
+                        | Some editing -> editing = todo.id
+                        | None -> false
+                    ; onSave = fun text -> this.save(todo, string text)
+                    ; onCancel = fun _ -> this.cancel() } [])
                 |> Seq.toList
         let activeTodoCount =
             todos |> Array.fold (fun accum todo ->
@@ -388,17 +387,18 @@ type TodoApp(props, ctx) as this =
         let completedCount =
             todos.Length - activeTodoCount
         let footer =
-            if activeTodoCount > 0 || completedCount > 0 then
-                R.com<TodoFooter,_,_>(
-                    { new TodoFooterProps with
-                        member __.count = activeTodoCount
-                        member __.completedCount = completedCount
-                        member __.nowShowing = this.state.nowShowing
-                        member __.onClearCompleted _ = this.clearCompleted()
-                }) [] |> Some
+            if activeTodoCount > 0 || completedCount > 0
+            then
+                R.fn TodoFooter
+                    { count = activeTodoCount
+                    ; completedCount = completedCount
+                    ; nowShowing = this.state.nowShowing
+                    ; onClearCompleted = fun _ -> this.clearCompleted() } []
+                |> Some
             else None
         let main =
-            if todos.Length > 0 then
+            if todos.Length > 0
+            then
                 R.section [ ClassName "main" ] [
                     R.input [
                         ClassName "toggle-all"
@@ -411,7 +411,7 @@ type TodoApp(props, ctx) as this =
             else None
         R.div [] [
             R.header [ ClassName "header" ] [
-                R.h1 [] [ unbox "todos" ]
+                R.h1 [] [ R.str "todos" ]
                 R.input [
                     ClassName "new-todo"
                     Placeholder "What needs to be done?"
@@ -421,8 +421,8 @@ type TodoApp(props, ctx) as this =
                     AutoFocus true
                 ] []
             ]
-            main.Value
-            footer.Value
+            R.opt main
+            R.opt footer
         ]
 
 (**
@@ -430,13 +430,13 @@ type TodoApp(props, ctx) as this =
 
 There's nothing left to do but building our model, mount our `TodoApp` view
 in the DOM by using `ReactDom.render` and subscribe to the events. Happy coding!
-*)   
+*)
 
 let model = TodoModel("react-todos")
 let render() =
     ReactDom.render(
         R.com<TodoApp,_,_> { model = model } [],
         Browser.document.getElementsByClassName("todoapp").[0]
-    ) |> ignore
+    )
 model.subscribe(render)
 render()

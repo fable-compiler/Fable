@@ -1,11 +1,23 @@
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.40)
-    FSharp.Compiler.Service (6.0.2)
+    Argu (3.2)
+    FAKE (4.44.1)
+    FParsec (1.0.2)
+    FSharp.Compiler.Service (8.0)
       System.Collections.Immutable (>= 1.2)
       System.Reflection.Metadata (>= 1.4.1-beta-24227-04)
-    FSharp.Compiler.Service.ProjectCracker (6.0.2)
     FSharp.Core (4.0.0.1)
+    FSharp.Formatting (2.10)
+      FSharp.Compiler.Service (>= 0.0.87)
+      FSharpVSPowerTools.Core (1.8)
+    FSharpVSPowerTools.Core (1.8)
+      FSharp.Compiler.Service (>= 0.0.87)
+    FsUnit (2.3.2)
+      FSharp.Core (>= 3.1.2.5)
+      NUnit (3.5)
+    Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40-full
+      Microsoft.Bcl.Build (>= 1.0.14)
+    Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40-full
     Microsoft.CSharp (4.0.1) - framework: >= netstandard10
       System.Collections (>= 4.0.11) - framework: dnxcore50, >= netstandard13
       System.Diagnostics.Debug (>= 4.0.11) - framework: dnxcore50, >= netstandard13
@@ -23,8 +35,12 @@ NUGET
       System.Runtime.Extensions (>= 4.1) - framework: dnxcore50, >= netstandard13
       System.Runtime.InteropServices (>= 4.1) - framework: dnxcore50, >= netstandard13
       System.Threading (>= 4.0.11) - framework: dnxcore50, >= netstandard13
+    Microsoft.Net.Http (2.2.29) - framework: net10, net11, net20, net30, net35, net40, net40-full
+      Microsoft.Bcl (>= 1.1.10)
+      Microsoft.Bcl.Build (>= 1.0.14)
     Microsoft.NETCore.Platforms (1.0.1) - framework: >= netstandard10
     Microsoft.NETCore.Targets (1.0.1) - framework: >= netstandard10
+    Mono.Posix (4.0)
     Newtonsoft.Json (9.0.1)
       Microsoft.CSharp (>= 4.0.1) - framework: >= netstandard10
       System.Collections (>= 4.0.11) - framework: >= netstandard10
@@ -48,20 +64,30 @@ NUGET
       System.Threading.Tasks (>= 4.0.11) - framework: >= netstandard10
       System.Xml.ReaderWriter (>= 4.0.11) - framework: >= netstandard10
       System.Xml.XDocument (>= 4.0.11) - framework: >= netstandard10
-    NUnit (3.4.1)
-    NUnit.ConsoleRunner (3.4.1)
-    NUnit.Extension.NUnitProjectLoader (3.4.1)
-    NUnit.Extension.NUnitV2Driver (3.4.1)
-    NUnit.Extension.NUnitV2ResultWriter (3.4.1)
-    NUnit.Extension.TeamCityEventListener (1.0.1)
-    NUnit.Extension.VSProjectLoader (3.4.1)
-    NUnit.Runners (3.4.1)
-      NUnit.ConsoleRunner (>= 3.4.1)
-      NUnit.Extension.NUnitProjectLoader (>= 3.4.1)
-      NUnit.Extension.NUnitV2Driver (>= 3.4.1)
-      NUnit.Extension.NUnitV2ResultWriter (>= 3.4.1)
-      NUnit.Extension.TeamCityEventListener (>= 1.0.1)
-      NUnit.Extension.VSProjectLoader (>= 3.4.1)
+    NUnit (3.5)
+    NUnit.ConsoleRunner (3.5)
+    NUnit.Extension.NUnitProjectLoader (3.5)
+    NUnit.Extension.NUnitV2Driver (3.5)
+    NUnit.Extension.NUnitV2ResultWriter (3.5)
+    NUnit.Extension.TeamCityEventListener (1.0.2)
+    NUnit.Extension.VSProjectLoader (3.5)
+    NUnit.Runners (3.5)
+      NUnit.ConsoleRunner (>= 3.5)
+      NUnit.Extension.NUnitProjectLoader (>= 3.5)
+      NUnit.Extension.NUnitV2Driver (>= 3.5)
+      NUnit.Extension.NUnitV2ResultWriter (>= 3.5)
+      NUnit.Extension.TeamCityEventListener (>= 1.0.2)
+      NUnit.Extension.VSProjectLoader (>= 3.5)
+    Octokit (0.23)
+      Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40-full
+    runtime.native.System (4.0) - framework: >= netstandard13
+      Microsoft.NETCore.Platforms (>= 1.0.1)
+      Microsoft.NETCore.Targets (>= 1.0.1)
+    runtime.native.System.IO.Compression (4.1) - framework: >= netstandard13
+      Microsoft.NETCore.Platforms (>= 1.0.1)
+      Microsoft.NETCore.Targets (>= 1.0.1)
+    SharpZipLib (0.86)
+    SourceLink.Fake (1.1)
     Suave (1.1.3)
       FSharp.Core (>= 3.1.2.5)
     System.Collections (4.0.11) - framework: >= netstandard10
@@ -111,6 +137,21 @@ NUGET
       System.Runtime (>= 4.1) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
       System.Text.Encoding (>= 4.0.11) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
       System.Threading.Tasks (>= 4.0.11) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
+    System.IO.Compression (4.1) - framework: >= netstandard11
+      Microsoft.NETCore.Platforms (>= 1.0.1) - framework: >= netstandard13
+      runtime.native.System (>= 4.0) - framework: >= netstandard13
+      runtime.native.System.IO.Compression (>= 4.1) - framework: >= netstandard13
+      System.Collections (>= 4.0.11) - framework: >= netstandard13
+      System.Diagnostics.Debug (>= 4.0.11) - framework: >= netstandard13
+      System.IO (>= 4.1) - framework: dnxcore50, netstandard11, >= netstandard13
+      System.Resources.ResourceManager (>= 4.0.1) - framework: >= netstandard13
+      System.Runtime (>= 4.1) - framework: dnxcore50, netstandard11, >= netstandard13
+      System.Runtime.Extensions (>= 4.1) - framework: >= netstandard13
+      System.Runtime.Handles (>= 4.0.1) - framework: >= netstandard13
+      System.Runtime.InteropServices (>= 4.1) - framework: >= netstandard13
+      System.Text.Encoding (>= 4.0.11) - framework: dnxcore50, netstandard11, >= netstandard13
+      System.Threading (>= 4.0.11) - framework: >= netstandard13
+      System.Threading.Tasks (>= 4.0.11) - framework: dnxcore50, >= netstandard13
     System.IO.FileSystem (4.0.1) - framework: >= netstandard13
       Microsoft.NETCore.Platforms (>= 1.0.1) - framework: >= netstandard13
       Microsoft.NETCore.Targets (>= 1.0.1) - framework: >= netstandard13
@@ -178,12 +219,13 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.0.1) - framework: dnxcore50, >= netstandard10
       System.Reflection (>= 4.1) - framework: dnxcore50, >= netstandard10
       System.Runtime (>= 4.1) - framework: dnxcore50, >= netstandard10
-    System.Reflection.Metadata (1.4.1-beta-24227-04)
+    System.Reflection.Metadata (1.4.1-beta-24430-01)
       System.Collections (>= 4.0.11) - framework: >= netstandard11
       System.Collections.Immutable (>= 1.1.37) - framework: portable-net45+win8
       System.Collections.Immutable (>= 1.2) - framework: >= net45, >= netstandard11, monoandroid, monotouch, xamarinios, xamarinmac, winv4.5, wpav8.1
       System.Diagnostics.Debug (>= 4.0.11) - framework: >= netstandard11
       System.IO (>= 4.1) - framework: >= netstandard11
+      System.IO.Compression (>= 4.1) - framework: >= netstandard11
       System.Linq (>= 4.1) - framework: >= netstandard11
       System.Reflection (>= 4.1) - framework: >= netstandard11
       System.Reflection.Extensions (>= 4.0.1) - framework: >= netstandard11
@@ -286,19 +328,32 @@ NUGET
       System.Threading (>= 4.0.11) - framework: dnxcore50, >= netstandard13
       System.Xml.ReaderWriter (>= 4.0.11) - framework: dnxcore50, netstandard10, >= netstandard13
 GITHUB
+  remote: fable-compiler/Forge
+    FULLPROJECT (0d9115227345c1a7d9bfb238a9baf17b40363f20)
+      Argu
+      FAKE
+      FParsec
+      FSharp.Core
+      FSharp.Formatting
+      FsUnit
+      Mono.Posix
+      NUnit
+      NUnit.Runners
+      SharpZipLib
+      SourceLink.Fake
+  remote: fsharp/FAKE
+    modules/Octokit/Octokit.fsx (9f9b64a796f8899dc3daf94b117caf3354d72890)
+      Octokit (>= 0.20)
   remote: fsprojects/FSharp.TypeProviders.StarterPack
-    src/ProvidedTypes.fs (dbbfb58d1238bf21c84c455451501c7f31ae95e1)
-  remote: fsprojects/Forge
-    src/Forge.ProjectSystem/Constants.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
-    src/Forge.ProjectSystem/Prelude.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
-    src/Forge.ProjectSystem/ProjectSystem.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
-    src/Forge.ProjectSystem/ResizeArray.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
-    src/Forge.ProjectSystem/XLinq.fs (f75374896a2894e3187e3a2909e769fb920f3af4)
+    src/ProvidedTypes.fs (c50ace31d335b7bcb83b102d2cfd0ce2007ed681)
+  remote: fsharp/FSharp.Compiler.Service
+    src/fsharp/ReferenceResolver.fs (0eb84766f347bc68f5650f45a9f2bd91f464d260)
+    src/fsharp/SimulatedMSBuildReferenceResolver.fs (0eb84766f347bc68f5650f45a9f2bd91f464d260)
 GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2
-    DotLiquid (2.0.30)
-    FAKE (4.40)
+    DotLiquid (2.0.55)
+    FAKE (4.44.1)
     FSharp.Compiler.Service (2.0.0.6)
     FSharp.Core (4.0.0.1)
     FSharp.Formatting (2.14.2)

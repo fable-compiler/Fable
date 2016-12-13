@@ -1,5 +1,7 @@
 - tagline: Fable features for easy interoperability
 
+**Attention**: This document corresponds to Fable 0.6.x and needs to be updated to the latest version. Please check the [migration guide](../blog/Introducing-0-7.html).
+
 # Interacting with JavaScript
 
 There are several ways to interact with the JavaScript world:
@@ -103,7 +105,7 @@ module string_decoder =
         abstract write: buffer: Buffer -> strings
         abstract detectIncompleteChar: buffer: Buffer -> float
 
-    let StringDecoder: NodeStringDecoder = failwith "JS only"
+    let StringDecoder: NodeStringDecoder = jsNative
 ```
 
 > If a method accepts a lambda make sure to use `System.Func` in the signature to force
@@ -135,7 +137,7 @@ the following code will generate JavaScript as seen below.
 open Fable.Core
 
 [<Emit("$0 + $1")>]
-let add (x: int) (y: string): float = failwith "JS only"
+let add (x: int) (y: string): float = jsNative
 
 let result = add 1 "2"
 ```
@@ -149,7 +151,7 @@ When you don't know the exact number of arguments you can use the following synt
 ```fsharp
 type Test() =
     [<Emit("$0($1...)")>]
-    member __.Invoke([<ParamArray>] args: int[]): obj = failwith "JS only"
+    member __.Invoke([<ParamArray>] args: int[]): obj = jsNative
 ```
 
 It's also possible to pass syntax conditioned to optional parameters.
@@ -157,11 +159,11 @@ It's also possible to pass syntax conditioned to optional parameters.
 ```fsharp
 type Test() =
     [<Emit("$0[$1]{{=$2}}")>]
-    member __.Item with get(): float = failwith "JS only" and set(v: float): unit = failwith "JS only"
+    member __.Item with get(): float = jsNative and set(v: float): unit = jsNative
 
     // This syntax means: if second arg evals to true in JS print 'i' and nothing otherwise
     [<Emit("new RegExp($0,'g{{$1?i:}}')")>]
-    member __.ParseRegex(pattern: string, ?ignoreCase: bool): Regex = failwith "JS only"
+    member __.ParseRegex(pattern: string, ?ignoreCase: bool): Regex = jsNative
 ```
 
 The content of `Emit` will actually be parsed by Babel so it will still be
@@ -192,6 +194,9 @@ which can be later transformed to `commonjs`, `amd` or `umd` imports by Babel.
 > If the module or value is globally accessible in JavaScript,
 you can use the `Global` attribute without parameters instead.
 
+> When importing a relative path (starting with `.` as in `./js/myLib.js`),
+the path will be resolved so it can be reached from `outDir` in the compiled JS code.
+
 `Fable.Core.JsInterop` also contains import expressions. These are mostly
 useful when you need to import JS libraries without a foreign interface.
 
@@ -211,6 +216,12 @@ let getMuiTheme = importDefault<obj->obj> "material-ui/styles/getMuiTheme"
 > Note that Fable automatically uses the name of the let-bound variable
 in the second example, this means you must always immediately assign the
 result of `importMember` to a named value.
+
+> A difference between import attributes and expressions is the former are
+not resolved in the file where they're declared (as this can be erased
+bindings) but in the file where thery're used. While import expressions are
+always resolved where they're declared. But if you don't understand this,
+don't worry too much, this is usually transparent to the user :)
 
 ### Erase attribute
 
@@ -292,6 +303,9 @@ As with `StringEnum` the first letter of the key (the union case name)
 will be lowered. Again, you can modify this behaviour with the `CompiledName`
 attribute.
 
+You can also allow custom key value pairs by adding an extra
+union case with the `Erase` attribute.
+
 ```fsharp
 open Fable.Core
 
@@ -300,11 +314,13 @@ type MyOptions =
     | Flag1
     | Name of string
     | [<CompiledName("QTY")>] QTY of int
+    | [<Erase>] Extra of string * obj
 
 myLib.myMethod [
     Name "Fable"
     QTY 5
     Flag1
+    Extra ("newOption", 10.5)
 ]
 ```
 
@@ -312,18 +328,16 @@ myLib.myMethod [
 myLib.myMethod({
     name: "Fable",
     QTY: 5,
-    flag1: true
+    flag1: true,
+    newOption: 10.5
 })
 ```
 
-If necessary you can cheat the compiler using tuples:
+> Note: Using tuples directly will have the same effect as the `Erase` attribute:
 
 ```fsharp
 myLib.myMethod [Name "Fable"; unbox("level", 4)]
-```
-
-```js
-myLib.myMethod({ name: "Fable", level: 4 })
+// myLib.myMethod({ name: "Fable", level: 4 })
 ```
 
 As these lists will be compiled as JS objects, please note you
@@ -338,7 +352,7 @@ type CSSProp =
     | Display of string
 
 [<Emit("Object.assign({}, $0, $1)")>]
-let ( ++ ) (a:'a list) (b:'a list) : 'a list = failwith "JS Only"
+let ( ++ ) (a:'a list) (b:'a list) : 'a list = jsNative
 
 let niceBorder = [ Border "1px solid blue" ]
 let style = [ Display "inline-block" ] ++ niceBorder
@@ -372,6 +386,7 @@ System.Func<_,_,_>(fun x y -> x + y)
 
 - Fable will **automatically convert F# functions to delegates** in some situations:
     - When passing an F# lambda to a method accepting a delegate.
+    - When passing functions as arguments to `EmitAttribute`.
     - When using dynamic programming, with `?`, `$`, `createObj` or `createNew`.
 
 > Note: If you experience problems make the conversion explicit.

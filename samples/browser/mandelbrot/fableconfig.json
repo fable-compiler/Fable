@@ -1,9 +1,7 @@
 {
-    "module": "amd",
+    "projFile": "./mandelbrot.fsx",
     "sourceMaps": true,
-  "projFile": "./mandelbrot.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
+    "rollup": {
+        "dest": "./out/bundle.js"
     }
 }

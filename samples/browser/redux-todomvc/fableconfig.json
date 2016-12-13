@@ -1,9 +1,12 @@
 {
-    "module": "amd",
-    "sourceMaps": true,
-    "projFile": "redux-todomvc.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
+    "projFile": "./redux-todomvc.fsx",
+    "rollup": {
+        "dest": "./out/bundle.js",
+        "external": ["react", "react-dom", "redux"],
+        "globals": {
+            "react": "React",
+            "react-dom": "ReactDOM",
+            "redux": "Redux"
+        }
     }
 }

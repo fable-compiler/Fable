@@ -1,5 +1,15 @@
 namespace Fable
 
+#if DOTNETCORE
+[<AutoOpen>]
+module ReflectionAdapters =
+    open System.Reflection
+
+    type System.Type with
+        member this.GetCustomAttributes(inherits : bool) : obj[] =
+            downcast box(CustomAttributeExtensions.GetCustomAttributes(this.GetTypeInfo(), inherits) |> Seq.toArray)
+#endif
+
 [<AutoOpen>]
 module Extensions =
     type System.Collections.Generic.Dictionary<'TKey,'TValue> with
@@ -39,15 +49,13 @@ module Json =
     open System.Reflection
     open FSharp.Reflection
     open Newtonsoft.Json
-    
+    open System.Collections.Concurrent
+    open System
+
     let isErasedUnion (t: System.Type) =
         t.Name = "FSharpOption`1" ||
         FSharpType.IsUnion t &&
-#if NETSTANDARD1_6
-            t.GetTypeInfo().GetCustomAttributes(true)
-#else        
             t.GetCustomAttributes true
-#endif
             |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
             
     let getErasedUnionValue (v: obj) =
@@ -57,7 +65,9 @@ module Json =
             
     type ErasedUnionConverter() =
         inherit JsonConverter()
-        override x.CanConvert t = isErasedUnion t
+        let typeCache = ConcurrentDictionary<Type,bool>()
+        override x.CanConvert t =
+            typeCache.GetOrAdd(t, isErasedUnion)
         override x.ReadJson(reader, t, v, serializer) =
             failwith "Not implemented"
         override x.WriteJson(writer, v, serializer) =
@@ -67,7 +77,9 @@ module Json =
 
     type LocationEraser() =
         inherit JsonConverter()
-        override x.CanConvert t = typeof<AST.Babel.Node>.IsAssignableFrom(t)
+        let typeCache = ConcurrentDictionary<Type,bool>()
+        override x.CanConvert t =
+            typeCache.GetOrAdd(t, typeof<AST.Babel.Node>.IsAssignableFrom)
         override x.ReadJson(reader, t, v, serializer) =
             failwith "Not implemented"
         override x.WriteJson(writer, v, serializer) =
@@ -78,3 +90,13 @@ module Json =
                 writer.WritePropertyName(p.Name)
                 serializer.Serialize(writer, p.GetValue(v)))
             writer.WriteEndObject()
+
+module Plugins =
+    let tryPlugin<'T,'V when 'T:>IPlugin> r (f: 'T->'V option) =
+        Seq.tryPick (fun (path: string, plugin: 'T) ->
+            try f plugin
+            with
+            | :? AST.FableError as err when err.Range.IsNone -> AST.FableError(err.Message, ?range=r) |> raise
+            | :? AST.FableError as err -> raise err
+            | ex when Option.isSome r -> System.Exception(sprintf "Error in plugin %s: %s %O" path ex.Message r.Value, ex) |> raise
+            | ex -> System.Exception(sprintf "Error in plugin %s: %s" path ex.Message, ex) |> raise)

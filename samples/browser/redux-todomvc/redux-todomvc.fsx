@@ -18,9 +18,8 @@ Fable includes [React bindings and helpers](https://www.npmjs.com/package/fable-
 to make interaction with the tool more idiomatic in F#.
 *)
 
-#r "node_modules/fable-core/Fable.Core.dll"
-#load "node_modules/fable-import-react/Fable.Import.React.fs"
-#load "node_modules/fable-import-react/Fable.Helpers.React.fs"
+#r "../../node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-react/Fable.React.dll"
 
 (**
 ## Redux helper
@@ -30,37 +29,32 @@ In order to use Redux in you Fable apps, just copy the code of the module below
 and be sure to add Redux as a JS dependency.
 *)
 
+open System
+open Fable.Core
+open Fable.Core.JsInterop
+
 module Redux =
     open System
     open Fable.Import
     open Fable.Core
     open Fable.Core.JsInterop
 
-    type IStore<'TState, 'TAction> = interface end
+    type IStore<'TState, 'TAction> =
+        abstract dispatch: 'TAction->unit
+        abstract subscribe: (unit->unit)->unit
+        abstract getState: unit->'TState
 
-    let [<Import("createStore","redux")>] private createStore' = obj()
+    let private createStore_: JsFunc = import "createStore" "redux"
 
-    let createStore (reducer: 'TState->'TAction->'TState) (initState: 'TState) =
-        // Check if the action is a union type before applying the reducer
-        let reducer = fun state action ->
-            match box action?Case with
-            | :? string -> reducer state action
-            | _ -> state
-        match unbox Browser.window?devToolsExtension with
-        | Some ext -> createStore'$(Func<_,_,_> reducer, initState, ext$())
-        | None -> createStore'$(Func<_,_,_> reducer, initState)
-        |> unbox<IStore<'TState, 'TAction>>
-
-    let dispatch (store: IStore<'TState, 'TAction>) (x: 'TAction) =
-        let x = toPlainJsObj x
-        x?``type`` <- x?Case
-        store?dispatch(x) |> ignore
-
-    let inline subscribe (store: IStore<'TState, 'TAction>) (f: unit->unit) =
-        store?subscribe(f) |> ignore
-
-    let inline getState (store: IStore<'TState, 'TAction>) =
-        store?getState() |> unbox<'TState>
+    let createStore (reducer: 'TState->'TAction->'TState) (initState: 'TState): IStore<'TState, 'TAction> =
+        // Check if the action is a lifecycle event dispatched by Redux before applying the reducer
+        let jsReducer = JsFunc2(fun _this state action ->
+            match !!action?``type``: obj with
+            | :?string as s when s.StartsWith "@@" -> state
+            | _ -> reducer state action)
+        match !!Browser.window?devToolsExtension: JsFunc with
+        | null -> !!createStore_.Invoke(jsReducer, initState)
+        | ext -> !!createStore_.Invoke(jsReducer, initState, ext.Invoke())
 
 (**
 ## Domain models
@@ -77,8 +71,9 @@ open Fable.Import
 module R = Fable.Helpers.React
 open R.Props
 
-type Todo = { Text: string; Completed: bool; Id: int } 
+type Todo = { Text: string; Completed: bool; Id: int }
 
+[<Pojo>]
 type TodoAction =
     | AddTodo of text:string
     | DeleteTodo of id:int
@@ -108,18 +103,20 @@ Check the `render` method of each component and the [Fable React TodoMVC sample]
 or scroll down to see how to subscribe React components to the Redux store.
 *)
 
+[<Pojo>]
 type TodoTextInputProps =
-    abstract OnSave: string->unit
-    abstract Text: string option
-    abstract Placeholder: string
-    abstract Editing: bool
-    abstract NewTodo: bool
+    { OnSave: string->unit
+    ; Text: string option
+    ; Placeholder: string
+    ; Editing: bool
+    ; NewTodo: bool }
 
+[<Pojo>]
 type TodoTextInputState = { Text: string }
 
-type TodoTextInput(props, ctx) as this =
-    inherit React.Component<TodoTextInputProps, TodoTextInputState>(props, ctx)
-    do this.state <- { Text = defaultArg props.Text "" } 
+type TodoTextInput(props) =
+    inherit React.Component<TodoTextInputProps, TodoTextInputState>(props)
+    do base.setInitState({ Text = defaultArg props.Text "" })
 
     member this.HandleSubmit(e: React.KeyboardEvent) =
         if e.which = ENTER_KEY then
@@ -150,17 +147,19 @@ type TodoTextInput(props, ctx) as this =
             Placeholder this.props.Placeholder
         ] []
 
+[<Pojo>]
 type TodoItemProps =
-    abstract Todo: Todo
-    abstract EditTodo: int * string -> unit
-    abstract DeleteTodo: int -> unit
-    abstract CompleteTodo: int -> unit
+    { Todo: Todo
+    ; EditTodo: int * string -> unit
+    ; DeleteTodo: int -> unit
+    ; CompleteTodo: int -> unit }
 
+[<Pojo>]
 type TodoItemState = { Editing: bool }
 
-type TodoItem(props, ctx) as this =
-    inherit React.Component<TodoItemProps, TodoItemState>(props, ctx)
-    do this.state <- { Editing = false } 
+type TodoItem(props) =
+    inherit React.Component<TodoItemProps, TodoItemState>(props)
+    do base.setInitState({ Editing = false })
 
     member this.HandleDoubleClick(_) =
         this.setState({ Editing = true })
@@ -175,13 +174,12 @@ type TodoItem(props, ctx) as this =
         let element =
             if this.state.Editing
             then R.com<TodoTextInput,_,_>
-                    { new TodoTextInputProps with
-                        member __.OnSave(text: string) =
-                            this.HandleSave(this.props.Todo.Id, text)
-                        member __.Editing = this.state.Editing
-                        member __.Text = Some this.props.Todo.Text
-                        member __.Placeholder = ""
-                        member __.NewTodo = false } []
+                    { OnSave = fun (text: string) ->
+                        this.HandleSave(this.props.Todo.Id, text)
+                    ; Editing = this.state.Editing
+                    ; Text = Some this.props.Todo.Text
+                    ; Placeholder = ""
+                    ; NewTodo = false } []
             else R.div [ClassName "view"] [
                     R.input [
                         ClassName "toggle"
@@ -191,7 +189,7 @@ type TodoItem(props, ctx) as this =
                             this.props.CompleteTodo(this.props.Todo.Id))
                     ] []
                     R.label [OnDoubleClick this.HandleDoubleClick]
-                            [unbox this.props.Todo.Text]
+                            [R.str this.props.Todo.Text]
                     R.div [
                         ClassName "destroy"
                         OnClick (fun _ ->
@@ -204,28 +202,29 @@ type TodoItem(props, ctx) as this =
                     "editing", this.state.Editing])]
              [element]
 
+[<Pojo>]
 type HeaderProps = { AddTodo: string->unit }
 
 let Header (props: HeaderProps) =
     R.header [ClassName "header"] [
-        R.h1 [] [unbox "todos"]
+        R.h1 [] [R.str "todos"]
         R.com<TodoTextInput,_,_>
-            { new TodoTextInputProps with
-                member __.OnSave(text: string) =
-                    if text.Length <> 0 then
-                        props.AddTodo text
-                member __.Placeholder = "What needs to be done?"
-                member __.NewTodo = true
-                member __.Text = None
-                member __.Editing = false } []
+            { OnSave = fun (text: string) ->
+                if text.Length <> 0 then
+                    props.AddTodo text
+            ; Placeholder = "What needs to be done?"
+            ; NewTodo = true
+            ; Text = None
+            ; Editing = false } []
     ]
 
+[<Pojo>]
 type FooterProps =
-    abstract ActiveCount: int
-    abstract CompletedCount: int
-    abstract Filter: TodoFilter
-    abstract OnShow: TodoFilter->unit
-    abstract OnClearCompleted: React.SyntheticEvent->unit
+    { ActiveCount: int
+    ; CompletedCount: int
+    ; Filter: TodoFilter
+    ; OnShow: TodoFilter->unit
+    ; OnClearCompleted: React.MouseEvent->unit }
 
 let Footer =
     let filterTitles =
@@ -236,7 +235,7 @@ let Footer =
         ]
     let renderTodoCount activeCount =
         R.span [ClassName "todo-count"] [
-            unbox(sprintf "%s item%s left"
+            R.str(sprintf "%s item%s left"
                 (if activeCount > 0 then string activeCount else "No")
                 (if activeCount <> 1 then "s" else ""))
         ]
@@ -245,13 +244,13 @@ let Footer =
             ClassName (classNames ["selected", filter = selectedFilter])
             Style [unbox("cursor", "pointer")]
             OnClick (fun _ -> onShow filter)
-        ] [unbox filterTitles.[filter]]
+        ] [R.str filterTitles.[filter]]
     let renderClearButton completedCount onClearCompleted =
         if completedCount > 0
         then R.button [
                 ClassName "clear-completed"
                 OnClick onClearCompleted
-             ] [unbox "Clear completed"] |> Some
+             ] [R.str "Clear completed"] |> Some
         else None
     fun (props: FooterProps) ->
         let listItems =
@@ -264,23 +263,21 @@ let Footer =
         R.footer [ClassName "footer"] [
             renderTodoCount props.ActiveCount
             R.ul [ClassName "filters"] listItems
-            // We can pass option types as React children but we
-            // need to use `unbox` to appease the F# compiler
-            unbox(renderClearButton props.CompletedCount props.OnClearCompleted)
+            R.opt(renderClearButton props.CompletedCount props.OnClearCompleted)
         ]
 
-type MainSectionProps = { Todos: Todo[]; Dispatch: TodoAction->unit }
-type MainSectionState = { Filter: TodoFilter }
+type [<Pojo>] MainSectionProps = { Todos: Todo[]; Dispatch: TodoAction->unit }
+type [<Pojo>] MainSectionState = { Filter: TodoFilter }
 
-type MainSection(props, ctx) as this =
-    inherit React.Component<MainSectionProps, MainSectionState>(props, ctx)
+type MainSection(props) =
+    inherit React.Component<MainSectionProps, MainSectionState>(props)
     let todoFilters =
         dict [
             TodoFilter.ShowAll, fun _ -> true
             TodoFilter.ShowActive, fun (todo: Todo) -> not todo.Completed
             TodoFilter.ShowCompleted, fun todo -> todo.Completed
         ]
-    do this.state <- { Filter = TodoFilter.ShowAll } 
+    do base.setInitState({ Filter = TodoFilter.ShowAll })
 
     member this.HandleClearCompleted() =
         this.props.Dispatch(ClearCompleted)
@@ -301,14 +298,13 @@ type MainSection(props, ctx) as this =
     member this.renderFooter(completedCount) =
         if this.props.Todos.Length > 0
         then R.fn Footer
-                { new FooterProps with
-                    member __.ActiveCount =
-                        this.props.Todos.Length - completedCount
-                    member __.CompletedCount = completedCount
-                    member __.Filter = this.state.Filter
-                    member __.OnShow filter = this.HandleShow filter
-                    member __.OnClearCompleted _ =
-                        this.HandleClearCompleted() } [] |> Some
+                { ActiveCount = this.props.Todos.Length - completedCount
+                ; CompletedCount = completedCount
+                ; Filter = this.state.Filter
+                ; OnShow = fun filter ->
+                    this.HandleShow filter
+                ; OnClearCompleted = fun _ ->
+                    this.HandleClearCompleted() } [] |> Some
         else None
 
     member this.render() =
@@ -320,20 +316,19 @@ type MainSection(props, ctx) as this =
             (0, this.props.Todos) ||> Array.fold (fun count todo ->
                 if todo.Completed then count + 1 else count)
         R.section [ClassName "main"] [
-            unbox(this.renderToggleAll completedCount)
+            R.opt(this.renderToggleAll completedCount)
             R.ul [ClassName "todo-list"]
                 (filteredTodos
                 |> List.map (fun todo ->
                     R.com<TodoItem,_,_>
-                        { new TodoItemProps with
-                            member __.Todo = todo
-                            member __.EditTodo(id, text) =
-                                this.props.Dispatch(EditTodo(id, text))
-                            member __.DeleteTodo(id) =
-                                this.props.Dispatch(DeleteTodo id)
-                            member __.CompleteTodo(id) =
-                                this.props.Dispatch(CompleteTodo id) } []))
-            unbox(this.renderFooter completedCount)
+                        { Todo = todo
+                        ; EditTodo = fun (id, text) ->
+                            this.props.Dispatch(EditTodo(id, text))
+                        ; DeleteTodo = fun id ->
+                            this.props.Dispatch(DeleteTodo id)
+                        ; CompleteTodo = fun id ->
+                            this.props.Dispatch(CompleteTodo id) } []))
+            R.opt(this.renderFooter completedCount)
         ]
 
 (**
@@ -345,18 +340,18 @@ checks when DOM updates are actually necessary, so we don't need to worry
 about the performance hit of too frequent updates.
 *)
 
+[<Pojo>]
 type AppProps = { Store: Redux.IStore<Todo[], TodoAction> }
 
-type App(props, ctx) as this =
-    inherit React.Component<AppProps, MainSectionProps>(props, ctx)
-    let dispatch = Redux.dispatch props.Store
-    let getState() = { Todos=Redux.getState props.Store; Dispatch=dispatch }
-    do this.state <- getState()
-    do Redux.subscribe props.Store (getState >> this.setState)
+type App(p) as this =
+    inherit React.Component<AppProps, MainSectionProps>(p)
+    let getState() = { Todos=this.props.Store.getState(); Dispatch=this.props.Store.dispatch }
+    do base.setInitState(getState())
+    do this.props.Store.subscribe(getState >> this.setState)
 
     member this.render() =
         R.div [] [
-            R.fn Header { AddTodo = AddTodo >> dispatch } []
+            R.fn Header { AddTodo = AddTodo >> this.props.Store.dispatch } []
             R.com<MainSection,_,_> this.state []
         ]
 
@@ -381,7 +376,7 @@ let reducer (state: Todo[]) = function
         |> Array.append [|{Id=id; Completed=false; Text=text}|]
     | DeleteTodo id ->
         state
-        |> Array.filter(fun todo -> todo.Id <> id) 
+        |> Array.filter(fun todo -> todo.Id <> id)
     | EditTodo(id, text) ->
         state
         |> Array.map(fun todo ->
@@ -401,7 +396,7 @@ let reducer (state: Todo[]) = function
         |> Array.map(fun todo -> { todo with Completed=not areAllMarked})
     | ClearCompleted ->
         state
-        |> Array.filter(fun todo -> not todo.Completed) 
+        |> Array.filter(fun todo -> not todo.Completed)
 
 (**
 ## Firing up the app
@@ -409,14 +404,17 @@ let reducer (state: Todo[]) = function
 There's nothing left to do but create the Redux store with the reducer
 and the initial state, pass it to our `App` component, and mount it
 onto the DOM by using `ReactDom.render`. Happy coding!
-*)   
+*)
 
-let store =
-    { Text="Use Fable + React + Redux"; Completed=false; Id=0}
-    |> Array.singleton
-    |> Redux.createStore reducer
+let start() =
+    let store =
+        { Text="Use Fable + React + Redux"; Completed=false; Id=0}
+        |> Array.singleton
+        |> Redux.createStore reducer
 
-ReactDom.render(
-    R.com<App,_,_> { Store=store } [],
-    Browser.document.getElementsByClassName("todoapp").[0]
-) |> ignore
+    ReactDom.render(
+        R.com<App,_,_> { Store=store } [],
+        Browser.document.getElementsByClassName("todoapp").[0]
+    ) |> ignore
+
+start()

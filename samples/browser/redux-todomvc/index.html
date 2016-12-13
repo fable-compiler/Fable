@@ -4,11 +4,17 @@
 		<meta charset="utf-8">
 		<title>React + Fable • TodoMVC</title>
 		<!--<link rel="stylesheet" href="node_modules/todomvc-common/base.css">-->
-		<link rel="stylesheet" href="node_modules/todomvc-app-css/index.css">
+		<!--<link rel="stylesheet" href="node_modules/todomvc-app-css/index.css">-->
 	</head>
 	<body>
 		<!-- [body] -->
-		<link rel="stylesheet" href="lib/todomvc-app.css">
+		<link rel="stylesheet" href="lib/todomvc/base.css">
+		<link rel="stylesheet" href="lib/todomvc/index.css">
+		<script src="lib/todomvc/base.js"></script>
+
+		<script src="lib/react/react-with-addons.js"></script>
+		<script src="lib/react/react-dom.js"></script>
+		<script src="lib/redux/redux.js"></script>
 
 		<section class="todoapp"></section>
 		<footer class="info">
@@ -17,23 +23,6 @@
 			<p>Part of <a href="http://todomvc.com">TodoMVC</a></p>
 		</footer>
   		<!-- [/body] -->
-
-		<script src="node_modules/core-js/client/core.min.js"></script>
-		<script src="node_modules/requirejs/require.js"></script>
-        <script>
-        requirejs.config({
-            // Set the baseUrl to the path of the compiled JS code
-            baseUrl: 'out',
-            paths: {
-                // Explicit path to core lib (relative to baseUrl, omit .js)
-                'fable-core': '../node_modules/fable-core/fable-core',
-                'react': '../lib/react/react-with-addons',
-                'react-dom': '../lib/react/react-dom',
-				'redux': '../lib/redux/redux'
-            }
-        });
-        // Load the entry file of the app (use array, omit .js)
-        requirejs(["redux-todomvc"]);
-        </script>
+		<script src="out/bundle.js"></script>
 	</body>
 </html>

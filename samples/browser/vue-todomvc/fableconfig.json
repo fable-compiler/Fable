@@ -1,9 +1,11 @@
 {
-    "module": "amd",
-    "sourceMaps": true,
     "projFile": "./index.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
+    "rollup": {
+        "dest": "./out/bundle.js",
+        "external": "vue",
+        "globals": {
+            "vue": "Vue"
+        }
+
     }
 }

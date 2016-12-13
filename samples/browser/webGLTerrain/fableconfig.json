@@ -1,9 +1,10 @@
 {
-    "module": "amd",
-    "sourceMaps": true,
     "projFile": "./webGLTerrain.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
+    "rollup": {
+        "dest": "./out/bundle.js",
+        "external": ["three"],
+        "globals": {
+            "three": "THREE"
+        }
     }
 }

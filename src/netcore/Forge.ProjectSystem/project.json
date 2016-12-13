@@ -6,12 +6,11 @@
     "emitEntryPoint": false,
     "compile": {
       "includeFiles": [
-        "Stubs.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/Prelude.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/XLinq.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/ResizeArray.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/Constants.fs",
-        "../../../paket-files/fsprojects/Forge/src/Forge.ProjectSystem/ProjectSystem.fs"
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/Prelude.fs",
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/ResizeArray.fs",
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/XLinq.fs",
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/Constants.fs",
+        "../../../paket-files/fable-compiler/Forge/src/Forge.ProjectSystem/ProjectSystem.fs"
       ]
     },
     "define": [
@@ -31,6 +30,7 @@
     ]
   },
   "dependencies": {
+    "NETStandard.Library": "1.6.0",
     "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*"
   },
   "tools": {
@@ -41,7 +41,6 @@
   },
   "frameworks": {
     "netstandard1.6": {
-      "NETStandard.Library": "1.6.0"
     }
   }
 }

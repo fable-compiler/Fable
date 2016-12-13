@@ -1,5 +1,4 @@
 #r "../../packages/FSharp.Compiler.Service/lib/net45/FSharp.Compiler.Service.dll"
-#r "../../packages/FSharp.Compiler.Service.ProjectCracker/lib/net45/FSharp.Compiler.Service.ProjectCracker.dll"
 
 open System
 open System.IO
@@ -12,7 +11,7 @@ let (|NonAbbreviatedType|) (t: FSharpType) =
     let rec abbr (t: FSharpType) =
         if t.IsAbbreviation then abbr t.AbbreviatedType else t
     abbr t
-    
+
 let (|Typ|) (e: FSharpMemberOrFunctionOrValue) = e.FullType
 
 let checker = FSharpChecker.Create(keepAssemblyContents=true)
@@ -24,13 +23,11 @@ let parse projFile =
             let projCode = File.ReadAllText projFile
             checker.GetProjectOptionsFromScript(projFile, projCode)
             |> Async.RunSynchronously
-        | ".fsproj" ->
-            ProjectCracker.GetProjectOptionsFromProjectFile(Path.GetFullPath projFile)
         | ext -> failwithf "Unexpected extension: %s" ext
     options
     |> checker.ParseAndCheckProject
     |> Async.RunSynchronously
-    
+
 let rec printDecls prefix decls =
     decls |> Seq.iteri (fun i decl ->
         match decl with
@@ -45,12 +42,12 @@ let rec printDecls prefix decls =
             printfn "%s%i) ACTION" prefix i
             printfn "%A" expr
         )
-        
+
 and lookup f (expr: FSharpExpr) =
     f expr
     List.iter (lookup f) expr.ImmediateSubExpressions
 
-let proj = parse "temp2/Test2.fsx"
+let proj = parse "temp2/Test.fsx"
 proj.AssemblyContents.ImplementationFiles
 |> Seq.iteri (fun i file -> printfn "%i) %s" i file.FileName)
 proj.AssemblyContents.ImplementationFiles.[0].Declarations

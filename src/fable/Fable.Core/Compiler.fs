@@ -1,16 +1,19 @@
 namespace Fable
 
 type CompilerOptions = {
-        projFile: string
+        projFile: string list
+        outDir: string
         coreLib: string
+        moduleSystem: string
         symbols: string list
         plugins: string list
-        msbuild: string list
-        refs: Map<string, string>
+        rollup: bool
         watch: bool
+        dll: bool
+        noTypedArrays: bool
         clamp: bool
-        copyExt: bool
         declaration: bool
+        refs: Map<string, string>
         extra: Map<string, string>
     }
 
@@ -23,11 +26,12 @@ type LogMessage =
         | Warning s -> "[WARNING] " + s
         | Error s -> "[ERROR] " + s
         | Info s -> "[INFO] " + s
-    
+
 type IPlugin =
     interface end
 
 type ICompiler =
+    abstract ProjDir: string
     abstract Options: CompilerOptions
     abstract Plugins: (string*IPlugin) list
     abstract AddLog: LogMessage->unit

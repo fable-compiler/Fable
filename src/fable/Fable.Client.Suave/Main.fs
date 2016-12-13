@@ -242,8 +242,8 @@ let rec formatFSharpTypeSig = function
     | FableType.Unit -> "unit"
     | FableType.Boolean -> "bool"
     | FableType.String -> "string"
-    | FableType.Regex -> "System.Text.RegularExpressions.Regex"
     | FableType.Number n -> formatFSharpNumber n
+    | FableType.Option t -> formatFSharpTypeSig t + "option"
     | FableType.Array t -> formatFSharpTypeSig t + "[]"
     | FableType.Tuple ts ->  "(" + (List.map formatFSharpTypeSig ts |> String.concat " * ") + ")"
     | FableType.Function(ts, tr) -> 

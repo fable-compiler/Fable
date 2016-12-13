@@ -8,7 +8,7 @@
 *)
 
 (*** hide ***)
-#r "node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
 
 module PresetGames =
   let games = [
@@ -88,9 +88,9 @@ module SameGameTypes =
 
     type Group = {
         Color:Color
-        Positions: Position list } 
+        Positions: Position list }
 
-    type Game = 
+    type Game =
         | InProgress of GameState
         | Finished of GameState
 
@@ -153,20 +153,20 @@ module SameGameDomain =
         |> List.filter (fun cell -> fst cell = Stone col)
         |> List.map snd
 
-    let private hasValidMoves board = 
+    let private hasValidMoves board =
         board
-        |> Seq.mapi (fun i col -> 
-            col 
+        |> Seq.mapi (fun i col ->
+            col
             |> Seq.mapi (fun j cell ->
                 { Position = { Col = i; Row = j }; State = cell}))
-        |> Seq.exists (fun col -> 
-            col 
-            |> Seq.exists (fun cell -> 
-                match cell.State with 
+        |> Seq.exists (fun col ->
+            col
+            |> Seq.exists (fun cell ->
+                match cell.State with
                 | Stone c ->
                     cell.Position
                     |> findAdjacentWithSameColor board c
-                    |> (not << List.isEmpty) 
+                    |> (not << List.isEmpty)
                 | _ -> false))
 
     let private numberOfStones board =
@@ -179,7 +179,7 @@ module SameGameDomain =
 
     let private evaluateGameState gameState =
         if gameState.Board |> hasValidMoves
-        then InProgress gameState 
+        then InProgress gameState
         elif gameState.Board |> isEmpty
         then Finished { gameState with Score = gameState.Score + bonus }
         else
@@ -192,7 +192,7 @@ module SameGameDomain =
         let rec find (ps:Position list) col (group:Position list) =
             match ps with
             | [] -> group
-            | x::xs -> 
+            | x::xs ->
                 let cells =
                     x
                     |> findAdjacentWithSameColor board col
@@ -201,8 +201,8 @@ module SameGameDomain =
                 find (cells @ xs) col (x :: group)
 
         getCellState board position
-        |> function 
-            | Stone c -> 
+        |> function
+            | Stone c ->
                 let positions = find [position] c []
                 if positions |> List.length > 1
                 then Some { Color = c; Positions = positions }
@@ -211,10 +211,10 @@ module SameGameDomain =
 
     let private removeGroup group board =
         board
-        |> List.mapi (fun i col -> 
-            col 
+        |> List.mapi (fun i col ->
+            col
             |> List.mapi (fun j cell ->
-                { Position = { Col = i; Row = j }; State = cell}) 
+                { Position = { Col = i; Row = j }; State = cell})
             |> List.filter (fun cell ->
                 group.Positions
                 |> (not << List.exists ((=) cell.Position)))
@@ -226,10 +226,10 @@ module SameGameDomain =
                         (board.Length - cols.Length)
                         (List.replicate (board.[0].Length) Empty)
 
-    let private play gameState pos = 
+    let private play gameState pos =
         getGroup gameState.Board pos
-        |> function 
-            | Some g -> 
+        |> function
+            | Some g ->
                 let newBoard = gameState.Board |> removeGroup g
                 { Board = newBoard
                   Score = gameState.Score + calcScore g.Positions.Length }
@@ -248,7 +248,7 @@ module SameGameDomain =
         then false
         else true
 
-    let private newGame config = 
+    let private newGame config =
         let createBoard config =
             List.init config.NumberOfColumns (fun _ ->
                 List.init config.NumberOfRows (fun _ ->
@@ -273,8 +273,8 @@ This is the function that renders a board to an HTML string:
 
 *)
 
-open Fable.Core 
-open Fable.Import.Browser
+open Fable.Core
+open Fable.Import
 open SameGameTypes
 
 let api = SameGameDomain.api
@@ -283,11 +283,11 @@ let api = SameGameDomain.api
 let renderBoardToHtmlString (board:Board) =
     let renderCell x y col =
         "<td class='sg-td'>"
-        + sprintf "<a href='javaScript:void(0);' id='cell-%d-%d'>" x y 
+        + sprintf "<a href='javaScript:void(0);' id='cell-%d-%d'>" x y
         + sprintf "<div class='sg-cell sg-color%d'>" col
         + "</div></a></td>"
 
-    let makeBoard (board: int list list) = 
+    let makeBoard (board: int list list) =
         "<table class='sg-table horiz-centered'>"
         + String.concat "" [
             for y in [board.[0].Length - 1 .. -1 .. 0] do
@@ -302,7 +302,7 @@ let renderBoardToHtmlString (board:Board) =
     makeBoard (board |> List.map (fun col ->
         col |> List.map (function Stone (Color c) -> c | Empty -> 0)))
 
-(** 
+(**
 
 The function `updateUi` is responsible for displaying the game and integrating the user interactions. These are the steps for updating the UI:
 
@@ -312,13 +312,13 @@ The function `updateUi` is responsible for displaying the game and integrating t
 
 *)
 
-let getById<'T when 'T :> HTMLElement> id =
-    document.getElementById(id) :?> 'T
+let getById<'T when 'T :> Browser.HTMLElement> id =
+    Browser.document.getElementById(id) :?> 'T
 
 // val updateUi : game:Game option -> unit
 let rec updateUi game =
-    let boardElement = getById<HTMLDivElement>("sg-board")
-    let scoreElement = getById<HTMLDivElement> ("sg-score")
+    let boardElement = getById<Browser.HTMLDivElement>("sg-board")
+    let scoreElement = getById<Browser.HTMLDivElement> ("sg-score")
 
     let play game (x,y) =
         game
@@ -328,19 +328,19 @@ let rec updateUi game =
 
     let addListeners maxColIndex maxRowIndex  =
         [0..maxColIndex] |> List.iter (fun x ->
-            [0..maxRowIndex] |> List.iter (fun y -> 
+            [0..maxRowIndex] |> List.iter (fun y ->
                 let cellId = sprintf "cell-%d-%d" x y
-                let el = getById<HTMLButtonElement>(cellId)
+                let el = getById<Browser.HTMLButtonElement>(cellId)
                 el.addEventListener_click(fun _ ->
                     play game (x,y); null)))
-    
+
     match game with
-    | Some (InProgress gs) -> 
+    | Some (InProgress gs) ->
         let board = renderBoardToHtmlString gs.Board
         boardElement.innerHTML <- board
         addListeners (gs.Board.Length - 1) (gs.Board.[0].Length - 1)
         scoreElement.innerText <- sprintf "%i point(s)." gs.Score
-    | Some (Finished gs) -> 
+    | Some (Finished gs) ->
         let board = renderBoardToHtmlString gs.Board
         boardElement.innerHTML <- board
         scoreElement.innerText <- "No more moves. " +
@@ -354,13 +354,13 @@ The configuration of the board is obtained by parsing the `class` attribute of t
 
 *)
 
-let rndColorGtor i = 
+let rndColorGtor i =
     let rnd = new System.Random()
-    fun () -> rnd.Next(i) + 1 |> Color |> Stone 
+    fun () -> rnd.Next(i) + 1 |> Color |> Stone
 
-let defaultConfig =  
-    (getById<HTMLDivElement>("sg-board")).className
-    |> fun className -> className.Split('-') 
+let defaultConfig =
+    (getById<Browser.HTMLDivElement>("sg-board")).className
+    |> fun className -> className.Split('-')
     |> Array.map int
     |> fun arr ->
         { NumberOfColumns = arr.[0]
@@ -373,11 +373,11 @@ The handlers for starting a new game and for selecting a game from a list of pre
 
 *)
 
-let buttonNewGame = getById<HTMLButtonElement>("new-game") 
-let selectGame = getById<HTMLSelectElement>("sg-select-game") 
-let selectWidth = getById<HTMLSelectElement>("sg-select-w") 
-let selectHeight = getById<HTMLSelectElement>("sg-select-h") 
-let selectColors = getById<HTMLSelectElement>("sg-select-col") 
+let buttonNewGame = getById<Browser.HTMLButtonElement>("new-game")
+let selectGame = getById<Browser.HTMLSelectElement>("sg-select-game")
+let selectWidth = getById<Browser.HTMLSelectElement>("sg-select-w")
+let selectHeight = getById<Browser.HTMLSelectElement>("sg-select-h")
+let selectColors = getById<Browser.HTMLSelectElement>("sg-select-col")
 
 let config() =
     { NumberOfColumns = int selectWidth.value
@@ -386,9 +386,9 @@ let config() =
 
 let newGameOnClick() =
     let game = config() |> api.NewGame
-    selectGame.selectedIndex <- 0.0 
+    selectGame.selectedIndex <- 0.0
     updateUi game
-    
+
 let selectGameOnChange () =
     let presetGtor gameNum =
         let mutable index = 0;
@@ -412,4 +412,4 @@ Finally the game is initialized with:
 
 *)
 
-api.NewGame defaultConfig |> updateUi 
+api.NewGame defaultConfig |> updateUi
