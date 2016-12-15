@@ -754,6 +754,36 @@ module private AstPass =
         GlobalCall("console", Some "log", false, [v])
         |> makeCall i.range i.returnType
 
+    let toBytes com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
+        match args.Head.Type with
+        | Fable.String ->
+            GlobalCall ("Number", Some "parseFloat", false, args)
+            |> makeCall i.range i.returnType
+        | Fable.Number (LongInteger (Some _)) ->
+            InstanceCall (args.Head, "toNumber", args.Tail)
+            |> makeCall i.range (Fable.Number Float64)
+        | _ ->
+            wrap i.returnType args.Head
+
+    let bitConvert com (i: Fable.ApplyInfo) =
+        let methodName =
+            if i.methodName = "getBytes" then
+                match i.args.Head.Type with
+                | Fable.Boolean -> "toBooleanBytes"
+                | Fable.Char -> "toCharBytes"
+                | Fable.Number Int16 -> "toInt16Bytes"
+                | Fable.Number Int32 -> "toInt32Bytes"
+                | Fable.Number Int64 -> "toInt64Bytes"
+                | Fable.Number UInt16 -> "toUInt16Bytes"
+                | Fable.Number UInt32 -> "toUInt32Bytes"
+                | Fable.Number UInt64 -> "toUInt64Bytes"
+                | Fable.Number Float32 -> "toSingleBytes"
+                | Fable.Number Float64 -> "toDoubleBytes"
+                | x -> failwithf "Unsupported type in BitConverterGetBytes(): %A" x
+            else i.methodName
+        CoreLibCall("Date", Some methodName, false, i.args)
+        |> makeCall i.range i.returnType |> Some
+
     let convert com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "toSByte" | "toByte"
@@ -1653,6 +1683,7 @@ module private AstPass =
         | "Microsoft.FSharp.Core.StringModule" -> strings com info
         | "Microsoft.FSharp.Core.PrintfModule"
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
+        | "System.BitConverter" -> bitConvert com info
         | "System.Convert" -> convert com info
         | "System.Console" -> console com info
         | "System.Diagnostics.Debug"
