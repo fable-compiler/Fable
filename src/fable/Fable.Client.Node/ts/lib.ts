@@ -1,24 +1,27 @@
-var path = require("path") || require("./path");
-var constants = require("./constants");
+import * as fs from "fs";
+import * as path from "path";
+import * as babel from 'babel-core';
+import * as child_process from 'child_process';
+import * as constants from "./constants";
+import { FableOptions, BabelAst, ContFunc, Continuation } from "./types";
 
 /**
  * Makes a node-style asynchronous function return an promise.
  * Pass the function and then the rest of arguments.
  * Example: `promisify(fs.remove, "build").then(() => ...)`
 */
-function promisify(f) {
+export function promisify(f: Function) {
     var args = Array.from(arguments).slice(1);
     return new Promise(function (resolve, reject) {
-        args.push(function (err, data) {
+        args.push(function (err: Error, data: any) {
             if (err) { reject(err); } else { resolve(data); }
         });
-        f.apply(this, args);
+        f.apply(null, args);
     });
 }
-exports.promisify = promisify;
 
 /** Prints a new line with the message on process.stderr */
-function stderrLog(tag, err) {
+export function stderrLog(tag: string | any, err?: any) {
     var prefix = null;
     if (err) {
         prefix = "[" + tag + " ERROR] ";
@@ -40,10 +43,9 @@ function stderrLog(tag, err) {
         console.log(err);
     }
 }
-exports.stderrLog = stderrLog;
 
 /** Prints a new line with the message on process.stdout */
-function stdoutLog(s) {
+export function stdoutLog(s: string) {
     if (typeof process === "object") {
         process.stdout.write(s + "\n");
     }
@@ -51,10 +53,9 @@ function stdoutLog(s) {
         console.log(s);
     }
 }
-exports.stdoutLog = stdoutLog;
 
 /** Finish the process according to the environment */
-function finish(code, continuation) {
+export function finish(code: number, continuation?: Continuation) {
     var err = code === 0 ? null : "FABLE EXIT CODE: " + code;
     if (typeof continuation === "object") {
         if (err && typeof continuation.reject === "function") {
@@ -62,7 +63,7 @@ function finish(code, continuation) {
             return;
         }
         else if (typeof continuation.resolve === "function") {
-            continuation.resolve();
+            continuation.resolve(null);
             return;
         }
     }
@@ -73,10 +74,9 @@ function finish(code, continuation) {
         throw err;
     }
 }
-exports.finish = finish;
 
-function splitByWhitespace(str) {
-    function stripQuotes(str, start, end) {
+export function splitByWhitespace(str: string) {
+    function stripQuotes(str: string, start: number, end: number) {
         return str[start] === '"' && str[end - 1] === '"'
                 ? str.substring(start + 1, end - 1)
                 : str.substring(start, end);
@@ -91,10 +91,8 @@ function splitByWhitespace(str) {
     results.push(stripQuotes(str, lastIndex, str.length));
     return results;
 }
-exports.splitByWhitespace = splitByWhitespace;
 
-function runCommandPrivate(workingDir, command, resolve, reject) {
-    var child_process = require('child_process');
+function runCommandPrivate(workingDir: string, command: string, resolve?: ContFunc, reject?: ContFunc) {
     var cmd, args;
     process.stdout.write(workingDir + "> " + command + "\n");
     // If there's no continuation, it means the process will run in parallel (postbuild-once).
@@ -111,7 +109,7 @@ function runCommandPrivate(workingDir, command, resolve, reject) {
         args = args.slice(1);
     }
     var proc = child_process.spawn(cmd, args, { cwd: workingDir });
-    proc.on('exit', function(code) {
+    proc.on('exit', function(code: number) {
         if (code === 0 && typeof resolve === "function")
             resolve(code);
         else if (code !== 0 && typeof reject === "function")
@@ -127,18 +125,16 @@ function runCommandPrivate(workingDir, command, resolve, reject) {
 }
 
 /** Runs a command and returns a Promise, requires child_process */
-function runCommand(workingDir, command) {
+export function runCommand(workingDir: string, command: string) {
     return new Promise(function (resolve, reject) {
         runCommandPrivate(workingDir, command, resolve, reject)
     });
 }
-exports.runCommand = runCommand;
 
 /** Starts a process to run the command and returns it, requires child_process */
-function runCommandInParallel(workingDir, command) {
+export function runCommandInParallel(workingDir: string, command: string) {
     return runCommandPrivate(workingDir, command);
 }
-exports.runCommandInParallel = runCommandInParallel;
 
 /**
  * Returns an array with tuples of plugin paths and config objects (requires 'resolve' package)
@@ -146,7 +142,7 @@ exports.runCommandInParallel = runCommandInParallel;
  * @param basedir Directory from where to resolve the plugins
  * @param prefix Will be attached to plugin names if missing (e.g. 'babel-plugin-')
 */
-function resolvePlugins(plugins, basedir, prefix) {
+export function resolvePlugins(plugins: any, basedir: string, prefix: string) {
     if (plugins == null) {
         return [];
     }
@@ -160,7 +156,7 @@ function resolvePlugins(plugins, basedir, prefix) {
     }
 
     var resolve = require("resolve");
-    return plugins.map(function (plugin) {
+    return plugins.map(function (plugin: any) {
         var config = {};
         if (Array.isArray(plugin)) {
             config = plugin[1];
@@ -170,56 +166,46 @@ function resolvePlugins(plugins, basedir, prefix) {
         return [resolve.sync(plugin, { basedir: basedir }), config];
     });
 }
-exports.resolvePlugins = resolvePlugins;
 
 /**
  * Checks if the file is an F# project (.fsproj) or script (.fsx)
- * @param {string} filePath The F# project file
  */
-function isFSharpProject(filePath) {
+export function isFSharpProject(filePath: string) {
     return typeof filePath === "string"
         && constants.FSHARP_PROJECT_EXTENSIONS.indexOf(path.extname(filePath).toLowerCase()) >= 0;
 }
-exports.isFSharpProject = isFSharpProject;
 
 /**
  * Checks if the file is an F# module (.fs), script (.fsx) or project (.fsproj)
- * @param {string} filePath The F# file
  */
-function isFSharpFile(filePath) {
+export function isFSharpFile(filePath: string) {
     return typeof filePath === "string"
         && constants.FSHARP_FILE_EXTENSIONS.indexOf(path.extname(filePath).toLowerCase()) >= 0;
 }
-exports.isFSharpFile = isFSharpFile;
 
 /**
  * Apparently path.isAbsolute is not very reliable
  * so this uses `path.resolve(x) === x`
- * @param {string} filePath
 */
-function isFullPath(filePath) {
+export function isFullPath(filePath: string) {
     return path.resolve(filePath) === filePath;
 }
-exports.isFullPath = isFullPath;
 
 /**
  * If path2 is absolute, returns it instead of joining
- * @param {string} path1
- * @param {string} path2
 */
-function pathJoin(path1, path2) {
+export function pathJoin(path1: string, path2: string) {
     if (!path2) { return path1 };
     return isFullPath(path2) ? path2 : path.join(path1, path2);
 }
-exports.pathJoin = pathJoin;
 
 /**
  * Calculates the common parent directory of an array of file paths
  * @param {string[]} filePaths Array of resolved file paths.
 */
-function getCommonBaseDir(filePaths) {
-    function getCommonPrefix(xs) {
-        function f(prefix, xs) {
+export function getCommonBaseDir(filePaths: string[]) {
+    function getCommonPrefix(xs: string[][]): string[] {
+        function f(prefix: string[], xs: string[][]): string[] {
             if (xs.length === 0) {
                 return prefix;
             }
@@ -233,21 +219,17 @@ function getCommonBaseDir(filePaths) {
         }
         return xs.length === 0 ? [] : f(xs[0], xs.slice(1));
     }
-    var normalized = filePaths.map(function (filePath) {
-        return path.dirname(filePath).replace(/\\/g, '/').split('/');
-    });
+    var normalized = filePaths.map(filePath => path.dirname(filePath).replace(/\\/g, '/').split('/'));
     return getCommonPrefix(normalized).join('/');
 }
-exports.getCommonBaseDir = getCommonBaseDir;
 
 /**
  * Converts a Babel AST to JS code.
  */
-function babelify(babelAst, opts) {
-    var babel = require("babel-core");
+export function babelify(babelAst: BabelAst, opts: FableOptions) {
     var outDir = pathJoin(opts.workingDir, opts.outDir);
 
-    var babelOpts = {
+    var babelOpts: babel.TransformOptions = {
         babelrc: opts.babelrc || false,
         filename: babelAst.fileName,
         // sourceRoot: outDir,
@@ -284,6 +266,7 @@ function babelify(babelAst, opts) {
         babelAst.jsIncludes.forEach(js => {
             parsed = babel.transformFileSync(js.sourcePath, babelOpts);
             res.push({
+                isEntry: false,
                 fileName: pathJoin(outDir, "js_includes/" + js.name) + ".js",
                 code: parsed.code,
                 map: parsed.map
@@ -297,10 +280,9 @@ function babelify(babelAst, opts) {
 
     return res;
 }
-exports.babelify = babelify;
 
 /** Create directory if it doesn't exist, requires 'fs' module */
-function ensureDirExists(dir, cont) {
+export function ensureDirExists(dir: string, cont?: ()=>void) {
     var fs = require("fs");
     if (fs.existsSync(dir)) {
         if (typeof cont === "function") { cont(); }
@@ -312,9 +294,8 @@ function ensureDirExists(dir, cont) {
         })
     }
 }
-exports.ensureDirExists = ensureDirExists;
 
-function writeFile(fileName, code, map) {
+export function writeFile(fileName: string, code: string, map: any) {
     var fs = require("fs");
     ensureDirExists(path.dirname(fileName));
     fs.writeFileSync(fileName, code);
@@ -323,13 +304,11 @@ function writeFile(fileName, code, map) {
         fs.writeFileSync(fileName + ".map", JSON.stringify(map));
     }
 }
-exports.writeFile = writeFile;
 
 /** Converts Babel AST to JS code and writes to disc */
-function babelifyToFile(babelAst, opts) {
+export function babelifyToFile(babelAst: BabelAst, opts: FableOptions) {
     // Use strict equality so it evals to false when opts.sourceMaps === "inline"
     babelify(babelAst, opts).forEach(parsed =>
         writeFile(parsed.fileName, parsed.code,
             opts.sourceMaps === true ? parsed.map : null));
 }
-exports.babelifyToFile = babelifyToFile;
