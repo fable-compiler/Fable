@@ -792,6 +792,29 @@ module private AstPass =
         | "writeLine" -> log com i |> Some
         | _ -> None
 
+    let decimals com (i: Fable.ApplyInfo) =
+        match i.methodName, i.args with
+        | ".ctor", [Fable.Value (Fable.IdentValue _)] ->
+            FableError("Passing bound values to the constructor is not supported.", ?range=i.range) |> raise
+        | ".ctor", [Fable.Value (Fable.NumberConst (x, _))] ->
+            makeConst (new decimal(x)) |> Some
+        | ".ctor", [Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, _))] ->
+            match arVals with
+            | [ Fable.Value (Fable.NumberConst (i1, Int32));
+                Fable.Value (Fable.NumberConst (i2, Int32));
+                Fable.Value (Fable.NumberConst (i3, Int32));
+                Fable.Value (Fable.NumberConst (i4, Int32)) ] ->
+                    makeConst (new decimal([| int i1; int i2; int i3; int i4 |])) |> Some
+            | _ -> None
+        | (".ctor" | "makeDecimal"),
+              [ Fable.Value (Fable.NumberConst (low, Int32));
+                Fable.Value (Fable.NumberConst (medium, Int32));
+                Fable.Value (Fable.NumberConst (high, Int32));
+                Fable.Value (Fable.BoolConst isNegative);
+                Fable.Value (Fable.NumberConst (scale, UInt8)) ] ->
+                    makeConst (new decimal(int low, int medium, int high, isNegative, byte scale)) |> Some
+        | _,_ -> None
+
     let debug com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "write" ->
@@ -869,12 +892,7 @@ module private AstPass =
         | "checkThis", (None, [arg]) -> Some arg
         | "unboxFast", OneArg (arg) -> wrap i.returnType arg |> Some
         | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
-        | "makeDecimal", (_, (Fable.Value (Fable.NumberConst (low, Int32)))::
-                             (Fable.Value (Fable.NumberConst (medium, Int32)))::
-                             (Fable.Value (Fable.NumberConst (high, Int32)))::
-                             (Fable.Value (Fable.BoolConst isNegative))::
-                             (Fable.Value (Fable.NumberConst (scale, UInt8)))::_) ->
-            makeConst (new decimal(int low,int medium,int high,isNegative,byte scale)) |> Some
+        | "makeDecimal", (_,_) -> decimals com i
         | "getString", TwoArgs (ar, idx)
         | "getArray", TwoArgs (ar, idx) ->
             makeGet i.range i.returnType ar idx |> Some
@@ -1675,6 +1693,7 @@ module private AstPass =
         | "System.BitConverter" -> bitConvert com info
         | "System.Convert" -> convert com info
         | "System.Console" -> console com info
+        | "System.Decimal" -> decimals com info
         | "System.Diagnostics.Debug"
         | "System.Diagnostics.Debugger" -> debug com info
         | "System.DateTime" -> dates com info
