@@ -754,17 +754,6 @@ module private AstPass =
         GlobalCall("console", Some "log", false, [v])
         |> makeCall i.range i.returnType
 
-    let toBytes com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
-        match args.Head.Type with
-        | Fable.String ->
-            GlobalCall ("Number", Some "parseFloat", false, args)
-            |> makeCall i.range i.returnType
-        | Fable.Number (LongInteger (Some _)) ->
-            InstanceCall (args.Head, "toNumber", args.Tail)
-            |> makeCall i.range (Fable.Number Float64)
-        | _ ->
-            wrap i.returnType args.Head
-
     let bitConvert com (i: Fable.ApplyInfo) =
         let methodName =
             if i.methodName = "getBytes" then
@@ -880,12 +869,12 @@ module private AstPass =
         | "checkThis", (None, [arg]) -> Some arg
         | "unboxFast", OneArg (arg) -> wrap i.returnType arg |> Some
         | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
-        | "makeDecimal", (_, (Fable.Value (Fable.NumberConst (U2.Case1 low, Int32)))::
-                             (Fable.Value (Fable.NumberConst (U2.Case1 medium, Int32)))::
-                             (Fable.Value (Fable.NumberConst (U2.Case1 high, Int32)))::
+        | "makeDecimal", (_, (Fable.Value (Fable.NumberConst (low, Int32)))::
+                             (Fable.Value (Fable.NumberConst (medium, Int32)))::
+                             (Fable.Value (Fable.NumberConst (high, Int32)))::
                              (Fable.Value (Fable.BoolConst isNegative))::
-                             (Fable.Value (Fable.NumberConst (U2.Case1 scale, UInt8)))::_) ->
-            makeConst (new decimal(low,medium,high,isNegative,byte scale)) |> Some
+                             (Fable.Value (Fable.NumberConst (scale, UInt8)))::_) ->
+            makeConst (new decimal(int low,int medium,int high,isNegative,byte scale)) |> Some
         | "getString", TwoArgs (ar, idx)
         | "getArray", TwoArgs (ar, idx) ->
             makeGet i.range i.returnType ar idx |> Some

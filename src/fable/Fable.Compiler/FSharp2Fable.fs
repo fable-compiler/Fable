@@ -310,7 +310,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let valueKind =
             match typ with
             | Fable.Boolean -> Fable.BoolConst false
-            | Fable.Number kind -> Fable.NumberConst (U2.Case1 0, kind)
+            | Fable.Number kind -> Fable.NumberConst (0., kind)
             | _ -> Fable.Null
         Fable.Value valueKind
 

@@ -49,7 +49,7 @@ export function getBytesUInt64(value: Long.Long) {
 }
 export function getBytesSingle(value: number) {
     let bytes = new Uint8Array(4);
-    new DataView(bytes.buffer).setFloat32(0, Math.fround(value), littleEndian);
+    new DataView(bytes.buffer).setFloat32(0, value, littleEndian);
     return bytes;
 }
 export function getBytesDouble(value: number) {
