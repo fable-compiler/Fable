@@ -35,20 +35,20 @@ type GameStatus = {
     active : bool;
 }
 
-let canMove direction pong =
+let canMove direction paddle =
     match direction with
-    | (1, _) -> pong.y > 0.
-    | (_, 1) -> pong.y + pong.height < h
+    | (1, _) -> paddle.y > 0.
+    | (_, 1) -> paddle.y + paddle.height < h
     | _ -> false
 
-let move direction pong =
-    if pong |> canMove direction then
+let move direction paddle =
+    if paddle |> canMove direction then
         match direction with
-        | (1, _) -> { pong with y = pong.y - 5. }
-        | (_, 1) -> { pong with y = pong.y + 5. }
-        | _ -> pong
+        | (1, _) -> { paddle with y = paddle.y - 5. }
+        | (_, 1) -> { paddle with y = paddle.y + 5. }
+        | _ -> paddle
     else
-        pong
+        paddle
 
 type Collision = 
     | None
@@ -59,13 +59,13 @@ type Collision =
     | LeftPong
     | RightPong
 
-let checkCollision pong1 pong2 ball =
+let checkCollision leftPaddle rightPaddle ball =
     let hitTop = ball.element.y <= 0.
     let hitBottom = ball.element.y + ball.element.height >= h
-    let hitLeft = ball.element.x <= pong1.x && ((ball.element.y >= pong1.y && ball.element.y <= pong1.y + pong1.height) |> not)
-    let hitRight = ball.element.x + ball.element.width >= pong2.x + pong2.width && ((ball.element.y >= pong2.y && ball.element.y <= pong2.y + pong2.height) |> not)
-    let hitLeftPong = ball.element.x <= pong1.x + pong1.width && ball.element.y >= pong1.y && ball.element.y <= pong1.y + pong1.height
-    let hitRightPong = ball.element.x + ball.element.width >= pong2.x && ball.element.y >= pong2.y && ball.element.y <= pong2.y + pong2.height
+    let hitLeft = ball.element.x <= leftPaddle.x && ((ball.element.y >= leftPaddle.y && ball.element.y <= leftPaddle.y + leftPaddle.height) |> not)
+    let hitRight = ball.element.x + ball.element.width >= rightPaddle.x + rightPaddle.width && ((ball.element.y >= rightPaddle.y && ball.element.y <= rightPaddle.y + rightPaddle.height) |> not)
+    let hitLeftPong = ball.element.x <= leftPaddle.x + leftPaddle.width && ball.element.y >= leftPaddle.y && ball.element.y <= leftPaddle.y + leftPaddle.height
+    let hitRightPong = ball.element.x + ball.element.width >= rightPaddle.x && ball.element.y >= rightPaddle.y && ball.element.y <= rightPaddle.y + rightPaddle.height
     match (hitTop, hitBottom, hitLeft, hitRight, hitLeftPong, hitRightPong) with
     | (true, _, _, _, _, _) -> Top
     | (_, true, _, _, _, _) -> Bottom
@@ -75,21 +75,21 @@ let checkCollision pong1 pong2 ball =
     | (_, _, _, _, _, true) -> RightPong
     | _ -> None
 
-let calculateAngle pong hitRightPong determineAngle ball =
-    let relativeIntersectY = (pong.y + (pong.height / 2.)) - ball.element.y
-    let normalizedRelativeIntersectionY = (relativeIntersectY / (pong.height / 2.))
-    if normalizedRelativeIntersectionY = 0. && hitRightPong then
+let calculateAngle paddle hitRightPaddle determineAngle ball =
+    let relativeIntersectY = (paddle.y + (paddle.height / 2.)) - ball.element.y
+    let normalizedRelativeIntersectionY = (relativeIntersectY / (paddle.height / 2.))
+    if normalizedRelativeIntersectionY = 0. && hitRightPaddle then
         Math.PI
     else
         normalizedRelativeIntersectionY |> determineAngle
 
-let collision pong1 pong2 ball =
-    match ball |> checkCollision pong1 pong2 with
+let collision leftPaddle rightPaddle ball =
+    match ball |> checkCollision leftPaddle rightPaddle with
     | None -> ball.angle
     | Top | Bottom -> -ball.angle
     | Left | Right -> ball.angle
-    | LeftPong -> ball |> calculateAngle pong1 false (fun intersection -> intersection * (5. * Math.PI / 12.)) // Max. bounce = 75°
-    | RightPong -> ball |> calculateAngle pong2 true (fun intersection -> Math.PI - intersection * (5. * Math.PI / 12.))
+    | LeftPong -> ball |> calculateAngle leftPaddle false (fun intersection -> intersection * (5. * Math.PI / 12.)) // Max. bounce = 75°
+    | RightPong -> ball |> calculateAngle rightPaddle true (fun intersection -> Math.PI - intersection * (5. * Math.PI / 12.))
 
 let moveBall angle ball = { 
     element = { x = ball.element.x + ball.speed * cos angle;
@@ -100,24 +100,26 @@ let moveBall angle ball = {
     angle = angle; 
 }
 
-let checkGameStatus pong1 pong2 ball gameStatus =
-    match ball |> checkCollision pong1 pong2 with
+let checkGameStatus leftPaddle rightPaddle ball gameStatus =
+    match ball |> checkCollision leftPaddle rightPaddle with
     | Left -> { gameStatus with scoreRight = gameStatus.scoreRight + 1; active = false }
     | Right -> { gameStatus with scoreLeft = gameStatus.scoreLeft + 1; active = false }
     | _ -> gameStatus
 
 // ------------------------------------------------------------------------------------------------------------------------
 
-let render (w, h) pong1 pong2 ball gameStatus  =
+let render (w, h) leftPaddle rightPaddle ball gameStatus  =
     (0., 0., w, h) |> Win.drawRect("black")
-    (pong1.x, pong1.y, pong1.width, pong1.height) |> Win.drawRect("white")
-    (pong2.x, pong2.y, pong2.width, pong2.height) |> Win.drawRect("white")
+    (leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height) |> Win.drawRect("white")
+    (rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height) |> Win.drawRect("white")
     (w / 4., 40.) |> Win.drawText (string(gameStatus.scoreLeft)) "white" "30px Arial"
     (w / 1.25 - 30., 40.) |> Win.drawText (string(gameStatus.scoreRight)) "white" "30px Arial"
     (ball.element.x, ball.element.y, ball.element.width, 0., 2. * Math.PI) |> Win.drawCircle("yellow")
+    if gameStatus.active |> not then
+        (w / 2. - 230., h / 2. + 40.) |> Win.drawText "Press space to start" "green" "40px Lucida Console"
 
-let initialPong1 = { x = 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
-let initialPong2 = { x = w - 15. - 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
+let initialLeftPaddle = { x = 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
+let initialRightPaddle = { x = w - 15. - 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
 let initialBall = 
     { element = { x = w / 2.; y = h / 2.; width = 5.; height = 5. }; 
     speed = 3.;
@@ -127,13 +129,13 @@ let initialGameStatus = { scoreLeft = 0; scoreRight = 0; active = false; }
 
 Keyboard.init()
 
-let rec update pong1 pong2 ball gameStatus () =
-    let pong1 = if gameStatus.active then pong1 |> move (Keyboard.leftControlsPressed()) else initialPong1
-    let pong2 = if gameStatus.active then pong2 |> move (Keyboard.rightControlsPressed()) else initialPong2
-    let angle = if gameStatus.active then collision pong1 pong2 ball else ball.angle
+let rec update leftPaddle rightPaddle ball gameStatus () =
+    let leftPaddle = if gameStatus.active then leftPaddle |> move (Keyboard.leftControlsPressed()) else initialLeftPaddle
+    let rightPaddle = if gameStatus.active then rightPaddle |> move (Keyboard.rightControlsPressed()) else initialRightPaddle
+    let angle = if gameStatus.active then collision leftPaddle rightPaddle ball else ball.angle
     let ball = if gameStatus.active then ball |> moveBall angle else { initialBall with angle = if angle = 0. then Math.PI else 0. }
-    let gameStatus = if Keyboard.spacePressed() = 1 then { gameStatus with active = true } else gameStatus |> checkGameStatus pong1 pong2 ball
-    render (w, h) pong1 pong2 ball gameStatus
-    window.setTimeout(update pong1 pong2 ball gameStatus, 1000. / 60.) |> ignore
+    let gameStatus = if Keyboard.spacePressed() = 1 then { gameStatus with active = true } else gameStatus |> checkGameStatus leftPaddle rightPaddle ball
+    render (w, h) leftPaddle rightPaddle ball gameStatus
+    window.setTimeout(update leftPaddle rightPaddle ball gameStatus, 1000. / 60.) |> ignore
 
-update initialPong1 initialPong2 initialBall initialGameStatus ()
+update initialLeftPaddle initialRightPaddle initialBall initialGameStatus ()
