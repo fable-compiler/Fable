@@ -57,11 +57,18 @@ let makeLongInt (x: uint64) unsigned =
     let args = [Value lowBits; Value highBits; Value unsigned]
     Apply (makeCoreRef "Long" (Some "fromBits"), args, ApplyMeth, Any, None)
 
+let makeFloat32 (x: float32) =
+    let args = [Value (NumberConst (U2.Case2 (float x), Float32))]
+    let callee = Apply (makeIdentExpr "Math", [Value (StringConst "fround")], ApplyGet, Any, None)
+    Apply (callee, args, ApplyMeth, Any, None)
+
 let makeConst (value: obj) =
     match value with
     // Long Integer types
     | :? int64 as x -> makeLongInt (uint64 x) false
     | :? uint64 as x -> makeLongInt x true
+    // Short Float type
+    | :? float32 as x -> makeFloat32 x
     | _ ->
         match value with
         | :? bool as x -> BoolConst x
@@ -76,7 +83,6 @@ let makeConst (value: obj) =
         | :? uint32 as x -> NumberConst (U2.Case1 (int x), UInt32)
         // Float types
         | :? float as x -> NumberConst (U2.Case2 x, Float64)
-        | :? float32 as x -> NumberConst (U2.Case2 (float x), Float32)
         | :? decimal as x -> NumberConst (U2.Case2 (float x), Float64)
         // TODO: Regex
         | :? unit | _ when isNull value -> Null

@@ -769,19 +769,19 @@ module private AstPass =
         let methodName =
             if i.methodName = "getBytes" then
                 match i.args.Head.Type with
-                | Fable.Boolean -> "toBooleanBytes"
-                | Fable.Char -> "toCharBytes"
-                | Fable.Number Int16 -> "toInt16Bytes"
-                | Fable.Number Int32 -> "toInt32Bytes"
-                | Fable.Number Int64 -> "toInt64Bytes"
-                | Fable.Number UInt16 -> "toUInt16Bytes"
-                | Fable.Number UInt32 -> "toUInt32Bytes"
-                | Fable.Number UInt64 -> "toUInt64Bytes"
-                | Fable.Number Float32 -> "toSingleBytes"
-                | Fable.Number Float64 -> "toDoubleBytes"
-                | x -> failwithf "Unsupported type in BitConverterGetBytes(): %A" x
+                | Fable.Boolean -> "getBytesBoolean"
+                | Fable.Char -> "getBytesChar"
+                | Fable.Number Int16 -> "getBytesInt16"
+                | Fable.Number Int32 -> "getBytesInt32"
+                | Fable.Number Int64 -> "getBytesInt64"
+                | Fable.Number UInt16 -> "getBytesUInt16"
+                | Fable.Number UInt32 -> "getBytesUInt32"
+                | Fable.Number UInt64 -> "getBytesUInt64"
+                | Fable.Number Float32 -> "getBytesSingle"
+                | Fable.Number Float64 -> "getBytesDouble"
+                | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
             else i.methodName
-        CoreLibCall("Date", Some methodName, false, i.args)
+        CoreLibCall("BitConverter", Some methodName, false, i.args)
         |> makeCall i.range i.returnType |> Some
 
     let convert com (i: Fable.ApplyInfo) =
