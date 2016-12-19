@@ -651,6 +651,20 @@ let ``use calls Dispose at the end of the scope`` () =
     res |> equal 10
     !cell |> equal 20
 
+let createCellDiposable cell = 
+  cell := 10
+  { new System.IDisposable with
+      member x.Dispose() = cell := 20 }
+
+[<Test>]
+let ``use calls Dispose (of an object) at the end of the scope`` () =
+    let cell = ref 0
+    let res =
+        use c = createCellDiposable cell
+        !cell
+    res |> equal 10
+    !cell |> equal 20
+
 [<Test>]
 let ``Unchecked.defaultof works`` () =
     Unchecked.defaultof<int> |> equal 0
