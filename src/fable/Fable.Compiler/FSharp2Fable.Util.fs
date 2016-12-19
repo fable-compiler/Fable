@@ -505,17 +505,16 @@ module Patterns =
         | "System.Int16" -> Some Int16
         | "System.UInt16" -> Some UInt16
         | "System.Int32" -> Some Int32
-        // Units of measure
-        | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
         | "System.UInt32" -> Some UInt32
         | "System.Int64" -> Some Int64
         | "System.UInt64" -> Some UInt64
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
-        // Units of measure
-        | Naming.StartsWith "Microsoft.FSharp.Core.float" _ -> Some Float64
-        | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
         | "System.Decimal" -> Some Decimal
+        // Units of measure
+        | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
+        | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
+        | Naming.StartsWith "Microsoft.FSharp.Core.float" _ -> Some Float64
         | _ -> None
 
     let (|Switch|_|) fsExpr =

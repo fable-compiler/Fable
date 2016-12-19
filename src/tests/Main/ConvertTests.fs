@@ -18,7 +18,11 @@ let ``System.Convert.ToSByte works``() =
     sbyte(257uL) |> equal x
     sbyte(1.f) |> equal x
     sbyte(1.) |> equal x
+    sbyte(1.4) |> equal x
+    sbyte(1.5) |> equal x
+    sbyte(1.6) |> equal x
     sbyte(1.m) |> equal x
+
     Convert.ToSByte(1y) |> equal x
     Convert.ToSByte(1uy) |> equal x
     Convert.ToSByte(1s) |> equal x
@@ -31,6 +35,12 @@ let ``System.Convert.ToSByte works``() =
     Convert.ToSByte(1.f) |> equal x
     Convert.ToSByte(1.) |> equal x
     Convert.ToSByte(1.m) |> equal x
+    Convert.ToSByte(1.4) |> equal x
+    Convert.ToSByte(1.5) |> equal (x+x)
+    Convert.ToSByte(1.6) |> equal (x+x)
+    Convert.ToSByte(2.5) |> equal (x+x)
+    Convert.ToSByte(2.6) |> equal (x+x+x)
+    Convert.ToSByte(3.5) |> equal (x+x+x+x)
 
 [<Test>]
 let ``System.Convert.ToInt16 works``() =
@@ -46,7 +56,11 @@ let ``System.Convert.ToInt16 works``() =
     int16(65537uL) |> equal x
     int16(1.f) |> equal x
     int16(1.) |> equal x
+    int16(1.4) |> equal x
+    int16(1.5) |> equal x
+    int16(1.6) |> equal x
     int16(1.m) |> equal x
+
     Convert.ToInt16(1y) |> equal x
     Convert.ToInt16(1uy) |> equal x
     Convert.ToInt16(1s) |> equal x
@@ -59,6 +73,12 @@ let ``System.Convert.ToInt16 works``() =
     Convert.ToInt16(1.f) |> equal x
     Convert.ToInt16(1.) |> equal x
     Convert.ToInt16(1.m) |> equal x
+    Convert.ToInt16(1.4) |> equal x
+    Convert.ToInt16(1.5) |> equal (x+x)
+    Convert.ToInt16(1.6) |> equal (x+x)
+    Convert.ToInt16(2.5) |> equal (x+x)
+    Convert.ToInt16(2.6) |> equal (x+x+x)
+    Convert.ToInt16(3.5) |> equal (x+x+x+x)
 
 [<Test>]
 let ``System.Convert.ToInt32 works``() =
@@ -74,10 +94,10 @@ let ``System.Convert.ToInt32 works``() =
     int(1uL) |> equal x
     int(1.f) |> equal x
     int(1.) |> equal x
-    int(1.m) |> equal x
-    int(1.4999999) |> equal x
+    int(1.4) |> equal x
     int(1.5) |> equal x
-    int(1.9999999) |> equal x
+    int(1.6) |> equal x
+    int(1.m) |> equal x
 
     Convert.ToInt32(1y) |> equal x
     Convert.ToInt32(1uy) |> equal x
@@ -91,14 +111,12 @@ let ``System.Convert.ToInt32 works``() =
     Convert.ToInt32(1.f) |> equal x
     Convert.ToInt32(1.) |> equal x
     Convert.ToInt32(1.m) |> equal x
-    Convert.ToInt32(1.4999999) |> equal (1)
-    Convert.ToInt32(1.5) |> equal (2)
-    Convert.ToInt32(1.9999999) |> equal (2)
-    Convert.ToInt32(2.5) |> equal (2)
-    Convert.ToInt32(2.6) |> equal (3)
-    Convert.ToInt32(3.5) |> equal (4)
-
-
+    Convert.ToInt32(1.4) |> equal x
+    Convert.ToInt32(1.5) |> equal (x+x)
+    Convert.ToInt32(1.6) |> equal (x+x)
+    Convert.ToInt32(2.5) |> equal (x+x)
+    Convert.ToInt32(2.6) |> equal (x+x+x)
+    Convert.ToInt32(3.5) |> equal (x+x+x+x)
 
 [<Test>]
 let ``System.Convert.ToInt64 works``() =
@@ -114,7 +132,11 @@ let ``System.Convert.ToInt64 works``() =
     int64(1uL) |> equal x
     int64(1.f) |> equal x
     int64(1.) |> equal x
+    int64(1.4) |> equal x
+    int64(1.5) |> equal x
+    int64(1.6) |> equal x
     int64(1.m) |> equal x
+
     Convert.ToInt64(1y) |> equal x
     Convert.ToInt64(1uy) |> equal x
     Convert.ToInt64(1s) |> equal x
@@ -127,6 +149,12 @@ let ``System.Convert.ToInt64 works``() =
     Convert.ToInt64(1.f) |> equal x
     Convert.ToInt64(1.) |> equal x
     Convert.ToInt64(1.m) |> equal x
+    Convert.ToInt64(1.4) |> equal x
+    Convert.ToInt64(1.5) |> equal (x+x)
+    Convert.ToInt64(1.6) |> equal (x+x)
+    Convert.ToInt64(2.5) |> equal (x+x)
+    Convert.ToInt64(2.6) |> equal (x+x+x)
+    Convert.ToInt64(3.5) |> equal (x+x+x+x)
 
 [<Test>]
 let ``System.Convert.ToByte works``() =
@@ -142,7 +170,11 @@ let ``System.Convert.ToByte works``() =
     byte(257uL) |> equal x
     byte(1.f) |> equal x
     byte(1.) |> equal x
+    byte(1.4) |> equal x
+    byte(1.5) |> equal x
+    byte(1.6) |> equal x
     byte(1.m) |> equal x
+
     Convert.ToByte(1y) |> equal x
     Convert.ToByte(1uy) |> equal x
     Convert.ToByte(1s) |> equal x
@@ -155,6 +187,12 @@ let ``System.Convert.ToByte works``() =
     Convert.ToByte(1.f) |> equal x
     Convert.ToByte(1.) |> equal x
     Convert.ToByte(1.m) |> equal x
+    Convert.ToByte(1.4) |> equal x
+    Convert.ToByte(1.5) |> equal (x+x)
+    Convert.ToByte(1.6) |> equal (x+x)
+    Convert.ToByte(2.5) |> equal (x+x)
+    Convert.ToByte(2.6) |> equal (x+x+x)
+    Convert.ToByte(3.5) |> equal (x+x+x+x)
 
 [<Test>]
 let ``System.Convert.ToUInt16 works``() =
@@ -170,7 +208,11 @@ let ``System.Convert.ToUInt16 works``() =
     uint16(65537uL) |> equal x
     uint16(1.f) |> equal x
     uint16(1.) |> equal x
+    uint16(1.4) |> equal x
+    uint16(1.5) |> equal x
+    uint16(1.6) |> equal x
     uint16(1.m) |> equal x
+
     Convert.ToUInt16(1y) |> equal x
     Convert.ToUInt16(1uy) |> equal x
     Convert.ToUInt16(1s) |> equal x
@@ -183,6 +225,12 @@ let ``System.Convert.ToUInt16 works``() =
     Convert.ToUInt16(1.f) |> equal x
     Convert.ToUInt16(1.) |> equal x
     Convert.ToUInt16(1.m) |> equal x
+    Convert.ToUInt16(1.4) |> equal x
+    Convert.ToUInt16(1.5) |> equal (x+x)
+    Convert.ToUInt16(1.6) |> equal (x+x)
+    Convert.ToUInt16(2.5) |> equal (x+x)
+    Convert.ToUInt16(2.6) |> equal (x+x+x)
+    Convert.ToUInt16(3.5) |> equal (x+x+x+x)
 
 [<Test>]
 let ``System.Convert.ToUInt32 works``() =
@@ -198,7 +246,11 @@ let ``System.Convert.ToUInt32 works``() =
     uint32(1uL) |> equal x
     uint32(1.f) |> equal x
     uint32(1.) |> equal x
+    uint32(1.4) |> equal x
+    uint32(1.5) |> equal x
+    uint32(1.6) |> equal x
     uint32(1.m) |> equal x
+
     Convert.ToUInt32(1y) |> equal x
     Convert.ToUInt32(1uy) |> equal x
     Convert.ToUInt32(1s) |> equal x
@@ -211,6 +263,12 @@ let ``System.Convert.ToUInt32 works``() =
     Convert.ToUInt32(1.f) |> equal x
     Convert.ToUInt32(1.) |> equal x
     Convert.ToUInt32(1.m) |> equal x
+    Convert.ToUInt32(1.4) |> equal x
+    Convert.ToUInt32(1.5) |> equal (x+x)
+    Convert.ToUInt32(1.6) |> equal (x+x)
+    Convert.ToUInt32(2.5) |> equal (x+x)
+    Convert.ToUInt32(2.6) |> equal (x+x+x)
+    Convert.ToUInt32(3.5) |> equal (x+x+x+x)
 
 [<Test>]
 let ``System.Convert.ToUInt64 works``() =
@@ -226,7 +284,11 @@ let ``System.Convert.ToUInt64 works``() =
     uint64(1uL) |> equal x
     uint64(1.f) |> equal x
     uint64(1.) |> equal x
+    uint64(1.4) |> equal x
+    uint64(1.5) |> equal x
+    uint64(1.6) |> equal x
     uint64(1.m) |> equal x
+
     Convert.ToUInt64(1y) |> equal x
     Convert.ToUInt64(1uy) |> equal x
     Convert.ToUInt64(1s) |> equal x
@@ -239,6 +301,12 @@ let ``System.Convert.ToUInt64 works``() =
     Convert.ToUInt64(1.f) |> equal x
     Convert.ToUInt64(1.) |> equal x
     Convert.ToUInt64(1.m) |> equal x
+    Convert.ToUInt64(1.4) |> equal x
+    Convert.ToUInt64(1.5) |> equal (x+x)
+    Convert.ToUInt64(1.6) |> equal (x+x)
+    Convert.ToUInt64(2.5) |> equal (x+x)
+    Convert.ToUInt64(2.6) |> equal (x+x+x)
+    Convert.ToUInt64(3.5) |> equal (x+x+x+x)
 
 [<Test>]
 let ``System.Convert.ToSingle works``() =
@@ -255,6 +323,7 @@ let ``System.Convert.ToSingle works``() =
     float32(1.f) |> equal x
     float32(1.) |> equal x
     float32(1.m) |> equal x
+
     Convert.ToSingle(1y) |> equal x
     Convert.ToSingle(1uy) |> equal x
     Convert.ToSingle(1s) |> equal x
@@ -283,6 +352,7 @@ let ``System.Convert.ToDouble works``() =
     float(1.f) |> equal x
     float(1.) |> equal x
     float(1.m) |> equal x
+
     Convert.ToDouble(1y) |> equal x
     Convert.ToDouble(1uy) |> equal x
     Convert.ToDouble(1s) |> equal x
@@ -310,6 +380,7 @@ let ``System.Convert.ToDecimal works``() =
     decimal(1.f) |> equal x
     decimal(1.) |> equal x
     decimal(1.m) |> equal x
+
     Convert.ToDecimal(1y) |> equal x
     Convert.ToDecimal(1uy) |> equal x
     Convert.ToDecimal(1s) |> equal x
@@ -322,3 +393,151 @@ let ``System.Convert.ToDecimal works``() =
     Convert.ToDecimal(1.f) |> equal x
     Convert.ToDecimal(1.) |> equal x
     Convert.ToDecimal(1.m) |> equal x
+
+[<Test>]
+let ``BitConverter.GetBytes Boolean works``() =
+    let value = true
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 1uy |]
+
+[<Test>]
+let ``BitConverter.GetBytes Char works``() =
+    let value = 'A'
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 65uy; 0uy |]
+
+[<Test>]
+let ``BitConverter.GetBytes Int16 works``() =
+    let value = 0x0102s
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 2uy; 1uy |]
+
+[<Test>]
+let ``BitConverter.GetBytes Int32 works``() =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 4uy; 3uy; 2uy; 1uy |]
+
+[<Test>]
+let ``BitConverter.GetBytes Int64 works``() =
+    let value = 0x0102030405060708L
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 8uy; 7uy; 6uy; 5uy; 4uy; 3uy; 2uy; 1uy |]
+
+[<Test>]
+let ``BitConverter.GetBytes UInt16 works``() =
+    let value = 0xFF02us
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 2uy; 255uy |]
+
+[<Test>]
+let ``BitConverter.GetBytes UInt32 works``() =
+    let value = 0xFF020304u
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 4uy; 3uy; 2uy; 255uy |]
+
+[<Test>]
+let ``BitConverter.GetBytes UInt64 works``() =
+    let value = 0xFF02030405060708UL
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 8uy; 7uy; 6uy; 5uy; 4uy; 3uy; 2uy; 255uy |]
+
+[<Test>]
+let ``BitConverter.GetBytes Single works``() =
+    let value = 1.0f
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 0uy; 0uy; 128uy; 63uy |]
+
+[<Test>]
+let ``BitConverter.GetBytes Double works``() =
+    let value = 1.0
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 240uy; 63uy |]
+
+[<Test>]
+let ``BitConverter.Int64BitsToDouble works``() =
+    let f = BitConverter.Int64BitsToDouble(1L)
+    f |> equal 4.9406564584124654E-324
+
+[<Test>]
+let ``BitConverter.DoubleToInt64Bits works``() =
+    let i = BitConverter.DoubleToInt64Bits(1.0)
+    i |> equal 4607182418800017408L
+
+[<Test>]
+let ``BitConverter.ToBoolean works``() =
+    let value = true
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToBoolean(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToChar works``() =
+    let value = 'A'
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToChar(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToInt16 works``() =
+    let value = 0x0102s
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt16(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToInt32 works``() =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt32(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToInt64 works``() =
+    let value = 0x0102030405060708L
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt64(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToUInt16 works``() =
+    let value = 0xFF02us
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt16(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToUInt32 works``() =
+    let value = 0xFF020304u
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt32(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToUInt64 works``() =
+    let value = 0xFF02030405060708UL
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt64(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToSingle works``() =
+    let value = 1.0f
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToSingle(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToDouble works``() =
+    let value = 1.0
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToDouble(bytes, 0) |> equal value
+
+[<Test>]
+let ``BitConverter.ToString works``() =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes) |> equal "04-03-02-01"
+
+[<Test>]
+let ``BitConverter.ToString 2 works``() =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes, 1) |> equal "03-02-01"
+
+[<Test>]
+let ``BitConverter.ToString 3 works``() =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes, 1, 2) |> equal "03-02"

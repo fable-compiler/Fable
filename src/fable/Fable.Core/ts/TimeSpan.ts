@@ -1,4 +1,5 @@
 import { compare as utilCompare } from "./Util"
+import * as Long from "./Long"
 
 export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
   switch (arguments.length) {
@@ -17,8 +18,8 @@ export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 
   return d * 86400000 + h * 3600000 + m * 60000 + s * 1000 + ms;
 }
 
-export function fromTicks(ticks: number) {
-  return ticks / 10000;
+export function fromTicks(ticks: Long.Long) {
+  return ticks.div(10000).toNumber();
 }
 
 export function fromDays(d: number) {
@@ -58,7 +59,7 @@ export function milliseconds(ts: number) {
 }
 
 export function ticks(ts: number) {
-  return <number>ts * 10000;
+  return Long.fromNumber(ts).mul(10000);
 }
 
 export function totalDays(ts: number) {
