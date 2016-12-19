@@ -664,3 +664,18 @@ let ``FSharpRef can be used in properties``() = // See #521
     r := true
     match x with TestRef r2 -> !r2
     |> equal true
+
+let delay (f:unit -> unit) = f
+
+let mutable mutableValue = 0
+
+let rec recursive1 = delay (fun () -> recursive2())
+and recursive2 =
+    mutableValue <- 5
+    fun () -> mutableValue <- mutableValue * 2
+
+[<Test>]
+let ``Recursive values work``() = // See #237
+    mutableValue |> equal 5
+    recursive1()
+    mutableValue |> equal 10
