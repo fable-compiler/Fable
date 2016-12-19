@@ -110,7 +110,7 @@ type BooleanLiteral(value, ?loc) =
 
 type NumericLiteral(value, ?loc) =
     inherit Literal("NumericLiteral", ?loc = loc)
-    member x.value: U2<int, float> = value
+    member x.value: float = value
 
 (** ##Misc *)
 type Decorator(value, ?loc) =

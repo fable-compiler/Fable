@@ -246,9 +246,13 @@ module Util =
             | _ -> upcast Babel.AnyTypeAnnotation()
         | _ -> upcast Babel.AnyTypeAnnotation()
 
+    let (|NotALongInteger|) = function
+        | Int64 | UInt64 -> None
+        | _ as kind -> Some kind
+
     let buildArray (com: IBabelCompiler) ctx consKind typ =
         match typ with
-        | Fable.Number kind when not com.Options.noTypedArrays ->
+        | Fable.Number (NotALongInteger (Some kind)) when not com.Options.noTypedArrays ->
             let cons =
                 Fable.Util.getTypedArrayName com kind
                 |> Babel.Identifier
@@ -900,11 +904,11 @@ module Util =
         let privateIdent = identFromName privateName
         let decl: Babel.Declaration =
             match expr with
-            | :? Babel.ClassExpression as e when e.id.IsSome ->
-                upcast Babel.ClassDeclaration(e.body, e.id.Value,
+            | :? Babel.ClassExpression as e ->
+                upcast Babel.ClassDeclaration(e.body, privateIdent,
                     ?super=e.superClass, ?typeParams=e.typeParameters, ?loc=e.loc)
-            | :? Babel.FunctionExpression as e when e.id.IsSome ->
-                upcast Babel.FunctionDeclaration(e.id.Value, e.``params``, e.body,
+            | :? Babel.FunctionExpression as e ->
+                upcast Babel.FunctionDeclaration(privateIdent, e.``params``, e.body,
                     ?returnType=e.returnType, ?typeParams=e.typeParameters, ?loc=e.loc)
             | _ -> upcast varDeclaration range privateIdent isMutable expr
         match isPublic with

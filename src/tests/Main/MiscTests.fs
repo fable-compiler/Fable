@@ -5,6 +5,65 @@ open System
 open Util.Testing
 open Fable.Tests.Util
 
+open System.Collections.Generic
+
+let dictAny (v:seq<'k*'v>) = unbox<IDictionary<'k,'v>> (dict (unbox<seq<obj * obj>> v))
+
+let zipUnsorted (arr1:_[]) (arr2:_[]) =
+  let d1 = dictAny arr1
+  let d2 = dictAny arr2
+  let res = ResizeArray<_>()
+  for kv1 in d1 do
+    let v2 =
+      if d2.ContainsKey(kv1.Key) then Some(d2.[kv1.Key])
+      else None
+    res.Add(kv1.Key, (Some kv1.Value, v2))
+  for kv2 in d2 do
+    if not (d1.ContainsKey(kv2.Key)) then
+      res.Add(kv2.Key, (None, Some kv2.Value))
+  Array.ofSeq res
+
+let isSortedUsing test proj (arr:_[]) =
+  let rec loop i =
+    if i = arr.Length then true
+    else test (proj arr.[i-1]) (proj arr.[i]) && loop (i+1)
+  arr.Length = 0 || loop 1
+
+let zipSorted (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
+  let mutable i1 = 0
+  let mutable i2 = 0
+  let inline (<.) (a:'k) (b:'k) = compare a b < 0
+  let inline eq (a:'k) (b:'k) = compare a b = 0
+  let res = ResizeArray<_>()
+  while i1 < arr1.Length && i2 < arr2.Length do
+    let (k1, v1), (k2, v2) = arr1.[i1], arr2.[i2]
+    if eq k1 k2 then
+      res.Add(k1, (Some v1, Some v2))
+      i1 <- i1 + 1
+      i2 <- i2 + 1
+    elif k1 <. k2 then
+      res.Add(k1, (Some v1, None))
+      i1 <- i1 + 1
+    elif k2 <. k1 then
+      res.Add(k2, (None, Some v2))
+      i2 <- i2 + 1
+  while i1 < arr1.Length do
+    let k1, v1 = arr1.[i1]
+    res.Add(k1, (Some v1, None))
+    i1 <- i1 + 1
+  while i2 < arr2.Length do
+    let k2, v2 = arr2.[i2]
+    res.Add(k2, (None, Some v2))
+    i2 <- i2 + 2
+  Array.ofSeq res
+  
+let zipAny (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
+  let inline (<=.) (a:'k) (b:'k) = compare a b <= 0
+  let inline (>=.) (a:'k) (b:'k) = compare a b >= 0
+  if isSortedUsing (<=.) fst arr1 && isSortedUsing (<=.) fst arr2 then zipSorted arr1 arr2
+  elif isSortedUsing (>=.) fst arr1 && isSortedUsing (>=.) fst arr2 then Array.rev (zipSorted (Array.rev arr1) (Array.rev arr2))
+  else zipUnsorted arr1 arr2
+
 [<Test>]
 let ``for .. downto works``() = // See #411
     let mutable x = ""
@@ -678,3 +737,18 @@ let ``FSharpRef can be used in properties``() = // See #521
     r := true
     match x with TestRef r2 -> !r2
     |> equal true
+
+let delay (f:unit -> unit) = f
+
+let mutable mutableValue = 0
+
+let rec recursive1 = delay (fun () -> recursive2())
+and recursive2 =
+    mutableValue <- 5
+    fun () -> mutableValue <- mutableValue * 2
+
+[<Test>]
+let ``Recursive values work``() = // See #237
+    mutableValue |> equal 5
+    recursive1()
+    mutableValue |> equal 10

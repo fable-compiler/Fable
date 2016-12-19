@@ -61,6 +61,11 @@ module Util =
         | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
         | Float32 | Float64 | Decimal -> Float
 
+    let (|LongInteger|) = function
+        | Int64 -> Some false
+        | UInt64 -> Some true
+        | _ -> None
+
     let addWarning (com: ICompiler) (i: Fable.ApplyInfo) (warning: string) =
         attachRangeAndFile i.range i.fileName warning
         |> Warning |> com.AddLog
@@ -150,13 +155,16 @@ module Util =
             CoreLibCall ("Util", Some "toString", false, [arg])
             |> makeCall i.range i.returnType
 
-    let toFloat com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
-        match arg.Type with
+    let toFloat com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
+        match args.Head.Type with
         | Fable.String ->
-            GlobalCall ("Number", Some "parseFloat", false, [arg])
+            GlobalCall ("Number", Some "parseFloat", false, args)
             |> makeCall i.range i.returnType
+        | Fable.Number (LongInteger (Some _)) ->
+            InstanceCall (args.Head, "toNumber", args.Tail)
+            |> makeCall i.range (Fable.Number Float64)
         | _ ->
-            wrap i.returnType arg
+            wrap i.returnType args.Head
 
     let toInt com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
         let kindIndex kind = //        0   1   2   3   4   5   6   7   8   9  10
@@ -176,34 +184,50 @@ module Util =
             let v = kindIndex kindFrom // argument type
             let h = kindIndex kindTo   // return type
             ((v > h) || (v < 4 && h > 3)) && (h < 8)
+        let emitLong unsigned args =
+            CoreLibCall("Long", Some "fromNumber", false, args@[makeConst unsigned])
+            |> makeCall i.range i.returnType
+        let emitCast kindTo args =
+            match kindTo with
+            | LongInteger (Some unsigned) -> emitLong unsigned args
+            | _ ->
+                match kindTo with
+                | Int8 -> "($0 + 0x80 & 0xFF) - 0x80"
+                | Int16 -> "($0 + 0x8000 & 0xFFFF) - 0x8000"
+                | Int32 -> "~~$0"
+                | UInt8 -> "$0 & 0xFF"
+                | UInt16 -> "$0 & 0xFFFF"
+                | UInt32 -> "$0 >>> 0"
+                | _ -> "$0"
+                |> emit i <| args
         match args.Head.Type with
         | Fable.Char ->
             InstanceCall(args.Head, "charCodeAt", [makeConst 0])
             |> makeCall i.range i.returnType
         | Fable.String ->
-            GlobalCall ("Number", Some "parseInt", false, args)
-            |> makeCall i.range i.returnType
+            match i.returnType with
+            | Fable.Number (LongInteger (Some unsigned)) ->
+                let args = [args.Head]@[makeConst unsigned]@args.Tail 
+                CoreLibCall ("Long", Some "fromString", false, args)
+                |> makeCall i.range i.returnType
+            | _ ->
+                GlobalCall ("Number", Some "parseInt", false, args)
+                |> makeCall i.range i.returnType
         | Fable.Number kindFrom ->
             match i.returnType with
             | Fable.Number kindTo when needToCast kindFrom kindTo ->
-                match i.ownerFullName, kindTo with
-                | "System.Convert", Int32 ->
-                    CoreLibCall("Util", Some "round", false, i.args)
+                match kindFrom, kindTo with
+                | LongInteger (Some _), _ ->
+                    InstanceCall (args.Head, "toNumber", args.Tail)
+                    |> makeCall i.range (Fable.Number Float64)
+                | Float, Integer when i.ownerFullName = "System.Convert" ->
+                    CoreLibCall("Util", Some "round", false, args)
                     |> makeCall i.range i.returnType
-                | _ ->
-                    match kindTo with
-                    | Int8 -> "($0 + 0x80 & 0xFF) - 0x80"
-                    | Int16 -> "($0 + 0x8000 & 0xFFFF) - 0x8000"
-                    | Int32 -> "~~$0"
-                    | Int64 -> "Math.trunc($0)" // only 53-bit (still better than nothing)
-                    | UInt8 -> "$0 & 0xFF"
-                    | UInt16  -> "$0 & 0xFFFF"
-                    | UInt32-> "$0 >>> 0"
-                    | UInt64 -> "(x => (x > 0) ? Math.trunc(x) : (x >>> 0))($0)" // 53-bit positive, 32-bit negative
-                    | Float32 -> "$0"
-                    | Float64 -> "$0"
-                    | Decimal -> "$0"
-                    |> fun pattern -> emit i (pattern) [args.Head]
+                | _, _ -> args.Head
+                |> List.singleton
+                |> emitCast kindTo
+            | Fable.Number (LongInteger (Some unsigned)) ->
+                emitLong unsigned [args.Head]
             | Fable.Number _ -> emit i "$0" [args.Head]
             | _ -> wrap i.returnType args.Head
         | _ -> wrap i.returnType args.Head
@@ -221,6 +245,7 @@ module Util =
         | Fable.Apply(CoreMeth "List" "ofArray" _, [arr], Fable.ApplyMeth,_,_), _ -> arr
         | CoreCons "List", _ ->
             Fable.ArrayConst(Fable.ArrayValues [], genArg i.returnType) |> Fable.Value
+        | _, Fable.Array(Fable.Number (LongInteger (Some _))) -> arrayFrom "Array" expr
         // Typed arrays
         | _, Fable.Array(Fable.Number numberKind) when not com.Options.noTypedArrays ->
             arrayFrom (getTypedArrayName com numberKind) expr
@@ -241,6 +266,25 @@ module Util =
         | _::[Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)] ->
             let typRef = Fable.Value(Fable.TypeRef(ent,[]))
             InstanceCall(typRef, m.OverloadName, args)
+            |> makeCall i.range i.returnType
+        | Fable.Number (LongInteger (Some _))::_
+        | _::[Fable.Number (LongInteger (Some _))] ->
+            let meth =
+                match meth with
+                | "op_Addition" -> "add"
+                | "op_Subtraction" -> "sub"
+                | "op_Multiply" -> "mul"
+                | "op_Division" -> "div"
+                | "op_Modulus" -> "mod"
+                | "op_LeftShift" -> "shl"
+                | "op_RightShift" -> "shr"
+                | "op_BitwiseAnd" -> "and"
+                | "op_BitwiseOr" -> "or"
+                | "op_ExclusiveOr" -> "xor"
+                | "op_LogicalNot" -> "not"
+                | "op_UnaryNegation" -> "neg"
+                | _ -> failwithf "Unknown operator: %s" meth
+            InstanceCall (args.Head, meth, args.Tail)
             |> makeCall i.range i.returnType
         // Floor result of integer divisions (see #172)
         // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
@@ -280,6 +324,9 @@ module Util =
             if equal then expr
             else makeUnOp i.range i.returnType [expr] UnaryNot
         match args.Head.Type with
+        | Fable.Number (LongInteger (Some _)) ->
+            InstanceCall(args.Head, "equals", args.Tail)
+            |> makeCall i.range i.returnType |> is equal |> Some
         | Fable.Any | Fable.Unit | Fable.Boolean | Fable.Char | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
             Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
@@ -307,6 +354,9 @@ module Util =
             | None -> comparison
             | Some op -> makeEqOp r [comparison; makeConst 0] op
         match args.Head.Type with
+        | Fable.Number (LongInteger (Some _)) ->
+            InstanceCall(args.Head, "compare", args.Tail)
+            |> makeCall r (Fable.Number Int32) |> wrapWith op
         | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ when Option.isSome op ->
             makeEqOp r args op.Value
@@ -481,9 +531,14 @@ module private AstPass =
         | _ -> None
 
     let operators (com: ICompiler) (info: Fable.ApplyInfo) =
-        let math range typ args methName =
-            GlobalCall ("Math", Some methName, false, args)
-            |> makeCall range typ |> Some
+        let math range typ (args: Fable.Expr list) methName =
+            match methName, typ with
+            | "abs", Fable.Number Int64 ->
+                InstanceCall (args.Head, "abs", args.Tail)
+                |> makeCall range typ |> Some
+            | _ ->
+                GlobalCall ("Math", Some methName, false, args)
+                |> makeCall range typ |> Some
         let r, typ, args = info.range, info.returnType, info.args
         match info.methodName with
         | "keyValuePattern" ->
@@ -565,7 +620,7 @@ module private AstPass =
         | "toInt32" | "toUInt32"
         | "toInt64" | "toUInt64"
             -> toInt com info args |> Some
-        | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info args.Head |> Some
+        | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info args |> Some
         | "toChar" -> toChar com info args.Head |> Some
         | "toString" -> toString com info args.Head |> Some
         | "createDictionary" ->
@@ -699,6 +754,25 @@ module private AstPass =
         GlobalCall("console", Some "log", false, [v])
         |> makeCall i.range i.returnType
 
+    let bitConvert com (i: Fable.ApplyInfo) =
+        let methodName =
+            if i.methodName = "getBytes" then
+                match i.args.Head.Type with
+                | Fable.Boolean -> "getBytesBoolean"
+                | Fable.Char -> "getBytesChar"
+                | Fable.Number Int16 -> "getBytesInt16"
+                | Fable.Number Int32 -> "getBytesInt32"
+                | Fable.Number Int64 -> "getBytesInt64"
+                | Fable.Number UInt16 -> "getBytesUInt16"
+                | Fable.Number UInt32 -> "getBytesUInt32"
+                | Fable.Number UInt64 -> "getBytesUInt64"
+                | Fable.Number Float32 -> "getBytesSingle"
+                | Fable.Number Float64 -> "getBytesDouble"
+                | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
+            else i.methodName
+        CoreLibCall("BitConverter", Some methodName, false, i.args)
+        |> makeCall i.range i.returnType |> Some
+
     let convert com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "toSByte" | "toByte"
@@ -707,7 +781,7 @@ module private AstPass =
         | "toInt64" | "toUInt64"
             -> toInt com i i.args |> Some
         | "toSingle" | "toDouble" | "toDecimal"
-            -> toFloat com i i.args.Head |> Some
+            -> toFloat com i i.args |> Some
         | _ -> None
 
     let console com (i: Fable.ApplyInfo) =
@@ -717,6 +791,29 @@ module private AstPass =
             log com i |> Some
         | "writeLine" -> log com i |> Some
         | _ -> None
+
+    let decimals com (i: Fable.ApplyInfo) =
+        match i.methodName, i.args with
+        | ".ctor", [Fable.Value (Fable.IdentValue _)] ->
+            FableError("Passing bound values to the constructor is not supported.", ?range=i.range) |> raise
+        | ".ctor", [Fable.Value (Fable.NumberConst (x, _))] ->
+            makeConst (new decimal(x)) |> Some
+        | ".ctor", [Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, _))] ->
+            match arVals with
+            | [ Fable.Value (Fable.NumberConst (i1, Int32));
+                Fable.Value (Fable.NumberConst (i2, Int32));
+                Fable.Value (Fable.NumberConst (i3, Int32));
+                Fable.Value (Fable.NumberConst (i4, Int32)) ] ->
+                    makeConst (new decimal([| int i1; int i2; int i3; int i4 |])) |> Some
+            | _ -> None
+        | (".ctor" | "makeDecimal"),
+              [ Fable.Value (Fable.NumberConst (low, Int32));
+                Fable.Value (Fable.NumberConst (medium, Int32));
+                Fable.Value (Fable.NumberConst (high, Int32));
+                Fable.Value (Fable.BoolConst isNegative);
+                Fable.Value (Fable.NumberConst (scale, UInt8)) ] ->
+                    makeConst (new decimal(int low, int medium, int high, isNegative, byte scale)) |> Some
+        | _,_ -> None
 
     let debug com (i: Fable.ApplyInfo) =
         match i.methodName with
@@ -795,12 +892,7 @@ module private AstPass =
         | "checkThis", (None, [arg]) -> Some arg
         | "unboxFast", OneArg (arg) -> wrap i.returnType arg |> Some
         | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
-        | "makeDecimal", (_, (Fable.Value (Fable.NumberConst (U2.Case1 low, Int32)))::
-                             (Fable.Value (Fable.NumberConst (U2.Case1 medium, Int32)))::
-                             (Fable.Value (Fable.NumberConst (U2.Case1 high, Int32)))::
-                             (Fable.Value (Fable.BoolConst isNegative))::
-                             (Fable.Value (Fable.NumberConst (U2.Case1 scale, UInt8)))::_) ->
-            makeConst (new decimal(low,medium,high,isNegative,byte scale)) |> Some
+        | "makeDecimal", (_,_) -> decimals com i
         | "getString", TwoArgs (ar, idx)
         | "getArray", TwoArgs (ar, idx) ->
             makeGet i.range i.returnType ar idx |> Some
@@ -1598,8 +1690,10 @@ module private AstPass =
         | "Microsoft.FSharp.Core.StringModule" -> strings com info
         | "Microsoft.FSharp.Core.PrintfModule"
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
+        | "System.BitConverter" -> bitConvert com info
         | "System.Convert" -> convert com info
         | "System.Console" -> console com info
+        | "System.Decimal" -> decimals com info
         | "System.Diagnostics.Debug"
         | "System.Diagnostics.Debugger" -> debug com info
         | "System.DateTime" -> dates com info

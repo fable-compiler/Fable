@@ -51,6 +51,57 @@ let ``Bitwise shift right can be generated``() =
     Assert.AreEqual (4 >>> 2, 1)
 
 [<Test>]
+let ``Int64 Infix add can be generated``() =
+    Assert.AreEqual (4L + 2L, 6L)
+
+[<Test>]
+let ``Int64 Infix subtract can be generated``() =
+    Assert.AreEqual (4L - 2L, 2L)
+
+[<Test>]
+let ``Int64 Infix multiply can be generated``() =
+    Assert.AreEqual (4L * 2L, 8L)
+
+[<Test>]
+let ``Int64 Infix divide can be generated``() =
+    Assert.AreEqual (4L / 2L, 2L)
+
+[<Test>]
+let ``Int64 Integer division doesn't produce floats``() =
+    Assert.AreEqual (5. / 2., 2.5)
+    Assert.AreEqual (5L / 2L, 2L)
+    Assert.AreEqual (5L / 3L, 1L)
+    Assert.AreEqual (float 5L / 2., 2.5)
+
+[<Test>]
+let ``Int64 Infix modulo can be generated``() =
+    Assert.AreEqual (4L % 3L, 1L)
+
+[<Test>]
+let ``Int64 Evaluation order is preserved by generated code``() =
+    Assert.AreEqual ((4L - 2L) * 2L + 1L, 5L)
+
+[<Test>]
+let ``Int64 Bitwise and can be generated``() =
+    Assert.AreEqual (6L &&& 2L, 2L)
+
+[<Test>]
+let ``Int64 Bitwise or can be generated``() =
+    Assert.AreEqual (4L ||| 2L, 6L)
+
+[<Test>]
+let ``Int64 Int64 Bitwise shift left can be generated``() =
+    Assert.AreEqual (4L <<< 2, 16L)
+
+[<Test>]
+let ``Int64 Bitwise shift right can be generated``() =
+    Assert.AreEqual (4L >>> 2, 1L)
+
+[<Test>]
+let ``Int64 abs works``() =
+    Assert.AreEqual (abs -4L, 4L)
+
+[<Test>]
 let ``abs works``() =
     Assert.AreEqual (abs -4, 4)
 

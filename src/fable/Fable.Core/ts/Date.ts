@@ -1,5 +1,6 @@
 import { create as timeSpanCreate } from "./TimeSpan"
 import { compare as utilCompare } from "./Util"
+import * as Long from "./Long"
 
 export const enum DateKind {
   UTC = 1,
@@ -118,7 +119,10 @@ export function year(d: Date) {
 }
 
 export function ticks(d: Date) {
-  return (d.getTime() + 6.2135604e+13 /* millisecondsJSOffset */) * 10000;
+  return Long.fromNumber(d.getTime())
+             .add(62135596800000) // UnixEpochMilliseconds
+             .sub((<any>d).kind == DateKind.Local ? d.getTimezoneOffset()*60*1000 : 0)
+             .mul(10000);
 }
 
 export function toBinary(d: Date) {
@@ -162,8 +166,8 @@ export function addMilliseconds(d: Date, v: number) {
   return parse(d.getTime() + v, (<any>d).kind);
 }
 
-export function addTicks(d: Date, v: number) {
-  return parse(d.getTime() + v / 10000, (<any>d).kind);
+export function addTicks(d: Date, t: Long.Long) {
+  return parse(Long.fromNumber(d.getTime()).add(t.div(10000)).toNumber(), (<any>d).kind);
 }
 
 export function addYears(d: Date, v: number) {

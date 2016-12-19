@@ -238,7 +238,7 @@ and ValueKind =
     | TypeRef of Entity * genArgs: (string * Expr) list
     | IdentValue of Ident
     | ImportRef of memb: string * path: string * ImportKind
-    | NumberConst of U2<int,float> * NumberKind
+    | NumberConst of float * NumberKind
     | StringConst of string
     | BoolConst of bool
     | RegexConst of source: string * flags: RegexFlag list

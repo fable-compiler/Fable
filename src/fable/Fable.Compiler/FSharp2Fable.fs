@@ -34,21 +34,23 @@ let private (|SpecialValue|_|) com ctx = function
     | _ -> None
 
 let private (|BaseCons|_|) com ctx (fsExpr: FSharpExpr) =
+    let equalsEntName meth entName =
+        match tryEnclosingEntity meth with
+        | Some ent -> (sanitizeEntityFullName ent) = entName
+        | None -> false
     let validateGenArgs' typArgs =
         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
             validateGenArgs ctx (makeRangeFrom fsExpr) tdef.GenericParameters typArgs)
     match fsExpr with
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         match ctx.baseClass with
-        | Some baseFullName
-            when sanitizeEntityFullName meth.EnclosingEntity = baseFullName ->
+        | Some baseFullName when equalsEntName meth baseFullName ->
             validateGenArgs' typArgs
             Some (meth, args)
         | _ -> None
     | BasicPatterns.Call(None, meth, typArgs, _, args) ->
         match ctx.baseClass with
-        | Some baseFullName when meth.CompiledName = ".ctor"
-                            && (sanitizeEntityFullName meth.EnclosingEntity) = baseFullName ->
+        | Some baseFullName when meth.CompiledName = ".ctor" && equalsEntName meth baseFullName ->
             if not meth.IsImplicitConstructor then
                 FableError("Inheritance is only possible with base class primary constructor: "
                             + baseFullName, makeRange fsExpr.Range) |> raise
@@ -310,7 +312,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let valueKind =
             match typ with
             | Fable.Boolean -> Fable.BoolConst false
-            | Fable.Number kind -> Fable.NumberConst (U2.Case1 0, kind)
+            | Fable.Number kind -> Fable.NumberConst (0., kind)
             | _ -> Fable.Null
         Fable.Value valueKind
 
@@ -377,7 +379,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 if not flags.IsInstance then argTypes else argTypes.Tail
                 |> List.map (makeType com ctx)
             candidates |> List.tryPick (fun meth ->
-                let methTypes = getArgTypes com meth.CurriedParameterGroups
+                let methTypes = getArgTypes com ctx meth.CurriedParameterGroups
                 if compareConcreteAndGenericTypes argTypes methTypes
                 then Some meth else None)
             |> function Some m -> makeCall m | None -> giveUp()
@@ -512,8 +514,10 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 let args = List.map (com.Transform ctx) args
                 let typ, range = makeType com ctx baseCallExpr.Type, makeRange baseCallExpr.Range
                 let baseClass =
-                    makeTypeFromDef com ctx meth.EnclosingEntity []
-                    |> makeNonGenTypeRef |> Some
+                    tryEnclosingEntity meth
+                    |> Option.map (fun ent ->
+                        makeTypeFromDef com ctx ent []
+                        |> makeNonGenTypeRef)
                 let baseCons =
                     let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
                     let m = Fable.Member(".ctor", Fable.Constructor, Fable.InstanceLoc, [], Fable.Any)
@@ -839,9 +843,11 @@ type private DeclInfo() =
         |> Option.isSome
     let decls = ResizeArray<_>()
     let children = Dictionary<string, TmpDecl>()
-    let tryFindChild (ent: FSharpEntity) =
-        if children.ContainsKey ent.FullName
-        then Some children.[ent.FullName] else None
+    let tryFindChild (meth: FSharpMemberOrFunctionOrValue) =
+        tryEnclosingEntity meth
+        |> Option.bind (fun ent ->
+            if children.ContainsKey ent.FullName
+            then Some children.[ent.FullName] else None)
     member self.IsIgnoredEntity (ent: FSharpEntity) =
         ent.IsEnum
         || ent.IsInterface
@@ -855,11 +861,11 @@ type private DeclInfo() =
             || Option.isSome(meth.Attributes |> tryFindAtt (fun name ->
                 name = Atts.import || name = Atts.global_ || name = Atts.emit))
         then true
-        else match tryFindChild meth.EnclosingEntity with
+        else match tryFindChild meth with
              | Some IgnoredEnt -> true
              | _ -> false
     member self.AddMethod (meth: FSharpMemberOrFunctionOrValue, methDecl: Fable.Declaration) =
-        match tryFindChild meth.EnclosingEntity with
+        match tryFindChild meth with
         | None ->
             if meth.IsModuleValueOrMember
                 && not meth.Accessibility.IsPrivate
@@ -887,7 +893,7 @@ type private DeclInfo() =
         | Some fullName -> children.Add(fullName, IgnoredEnt)
         | None -> ()
     member self.TryGetOwner (meth: FSharpMemberOrFunctionOrValue) =
-        match tryFindChild meth.EnclosingEntity with
+        match tryFindChild meth with
         | Some (Ent (ent,_,_,_)) -> Some ent
         | _ -> None
     member self.GetDeclarations (com, ctx): Fable.Declaration list =
@@ -922,7 +928,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         let ctx, privateName =
             // Bind module member names to context to prevent
             // name clashes (they will become variables in JS)
-            if meth.EnclosingEntity.IsFSharpModule then
+            if isModuleMember meth then
                 let typ = makeType com ctx meth.FullType
                 let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
                 ctx, Some (privateName.Name)
@@ -948,13 +954,13 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 |> fun (ctx, args, extraArgs) ->
                     getMemberKind meth, args, extraArgs, transformExpr com ctx body
         let entMember =
-            let fableEnt = makeEntity com ctx meth.EnclosingEntity
             let argTypes = List.map Fable.Ident.getType args
-            let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
-            match fableEnt.TryGetMember(memberName, memberKind, memberLoc, argTypes) with
-            | Some m -> m
-            | None -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-            |> fun m -> Fable.MemberDeclaration(m, privateName, args@extraArgs, body, getRefLocation meth |> makeRange |> Some)
+            let fullTyp = makeOriginalCurriedType com ctx meth.CurriedParameterGroups body.Type
+            let tryGetMember (e: Fable.Entity) = e.TryGetMember(memberName, memberKind, memberLoc, argTypes)
+            match tryEnclosingEntity meth with
+            | Some (FableEntity com ctx (Try tryGetMember m)) -> m
+            | _ -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
+        let entMember = Fable.MemberDeclaration(entMember, privateName, args@extraArgs, body, getRefLocation meth |> makeRange |> Some)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
     let relativeImport = tryGetRelativeImport meth.Attributes
@@ -970,7 +976,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     elif isInline meth
     then
         // Inlining custom type operators is problematic, see #230
-        if not meth.EnclosingEntity.IsFSharpModule && meth.CompiledName.StartsWith "op_"
+        if not (isModuleMember meth) && meth.CompiledName.StartsWith "op_"
         then
             sprintf "Custom type operators cannot be inlined: %s" meth.FullName
             |> attachRangeAndFile (getRefLocation meth |> makeRange |> Some) ctx.fileName
@@ -1047,7 +1053,7 @@ let private getRootModuleAndDecls decls =
                 then mods, decl::typDecls, other
                 else mods, typDecls, decl::other
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(m,_,_)
-                when not m.EnclosingEntity.IsFSharpModule ->
+                when not (isModuleMember m) ->
                 mods, decl::typDecls, other // Type members
             | _ ->
                 mods, typDecls, decl::other)
@@ -1222,13 +1228,16 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         else
             let fcom = FableCompiler(com, projectMaps, entitiesCache, inlineExprsCache)
             let rootEnt, rootDecls =
-                let ctx = { Context.Empty with fileName = file.FileName }
+                let emptyRootEnt = Fable.Entity.CreateRootModule file.FileName
+                let ctx = Context.Create(file.FileName, emptyRootEnt)
                 let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
                 match rootEnt with
                 | Some e when hasAtt Atts.erase e.Attributes -> makeEntity fcom ctx e, []
-                | Some e -> makeEntity fcom ctx e, transformDeclarations fcom ctx rootDecls
-                | None -> Fable.Entity.CreateRootModule file.FileName,
-                            transformDeclarations fcom ctx rootDecls
+                | Some e ->
+                    let rootEnt = makeEntity fcom ctx e
+                    let ctx = { ctx with enclosingModule = rootEnt }
+                    rootEnt, transformDeclarations fcom ctx rootDecls
+                | None -> emptyRootEnt, transformDeclarations fcom ctx rootDecls
             match rootDecls with
             | [] -> None
             | rootDecls ->

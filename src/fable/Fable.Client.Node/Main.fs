@@ -38,7 +38,9 @@ type FSProjInfo = FSharp2Fable.Compiler.FSProjectInfo
 let readOptions argv =
     let splitKeyValue (x: string) =
         let xs = x.Split('=')
-        xs.[0], xs.[1]
+        if xs.Length > 1
+        then xs.[0], xs.[1]
+        else xs.[0], (string true)
     let def opts key defArg f =
         defaultArg (Map.tryFind key opts |> Option.map f) defArg
     let rec readOpts opts = function
@@ -83,7 +85,6 @@ let parseErrors errors =
                     er.EndLineAlternate er.EndColumn
                     er.FileName
         match er.Severity, er.ErrorNumber with
-        | _, 40 -> true, "Recursive value definitions are not supported" + loc // See #237
         | FSharpErrorSeverity.Warning, _ -> false, er.Message + loc
         | FSharpErrorSeverity.Error, _ -> true, er.Message + loc
     errors
@@ -489,6 +490,8 @@ let compileDll (checker: FSharpChecker) (comOpts: CompilerOptions) (coreVer: Ver
         |> List.singleton |> printMessages
 
 let attribsOfSymbol (s:FSharpSymbol) =
+    let tryOr f def =
+        try f() with _ -> def
     [ match s with
         | :? FSharpField as v ->
             yield "field"
@@ -525,7 +528,7 @@ let attribsOfSymbol (s:FSharpSymbol) =
             if v.IsValueType then yield "valuetype"
 
         | :? FSharpMemberOrFunctionOrValue as v ->
-            yield "owner: " + v.EnclosingEntity.CompiledName
+            yield "owner: " + (tryOr (fun () -> v.EnclosingEntity.CompiledName) "<unknown>")
             if v.IsActivePattern then yield "active_pattern"
             if v.IsDispatchSlot then yield "dispatch_slot"
             if v.IsModuleValueOrMember && not v.IsMember then yield "val"
@@ -569,8 +572,8 @@ let rec printFSharpDecls prefix decls = seq {
             yield sprintf "%s%i) METHOD: %s %A" prefix i meth.CompiledName (attribsOfSymbol meth)
             yield sprintf "%stype: %A" prefix meth.FullType
             yield sprintf "%sargs: %A" prefix args
-            if not meth.IsCompilerGenerated
-            then yield sprintf "%sbody: %A" prefix body
+            // if not meth.IsCompilerGenerated then
+            yield sprintf "%sbody: %A" prefix body
             yield ""
         | FSharpImplementationFileDeclaration.InitAction (expr) ->
             yield sprintf "%s%i) ACTION" prefix i
