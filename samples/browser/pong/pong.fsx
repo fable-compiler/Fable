@@ -56,23 +56,23 @@ type Collision =
     | Bottom
     | Left
     | Right
-    | LeftPong
-    | RightPong
+    | LeftPaddle
+    | RightPaddle
 
 let checkCollision leftPaddle rightPaddle ball =
     let hitTop = ball.element.y <= 0.
     let hitBottom = ball.element.y + ball.element.height >= h
     let hitLeft = ball.element.x <= leftPaddle.x && ((ball.element.y >= leftPaddle.y && ball.element.y <= leftPaddle.y + leftPaddle.height) |> not)
     let hitRight = ball.element.x + ball.element.width >= rightPaddle.x + rightPaddle.width && ((ball.element.y >= rightPaddle.y && ball.element.y <= rightPaddle.y + rightPaddle.height) |> not)
-    let hitLeftPong = ball.element.x <= leftPaddle.x + leftPaddle.width && ball.element.y >= leftPaddle.y && ball.element.y <= leftPaddle.y + leftPaddle.height
-    let hitRightPong = ball.element.x + ball.element.width >= rightPaddle.x && ball.element.y >= rightPaddle.y && ball.element.y <= rightPaddle.y + rightPaddle.height
-    match (hitTop, hitBottom, hitLeft, hitRight, hitLeftPong, hitRightPong) with
+    let hitLeftPaddle = ball.element.x <= leftPaddle.x + leftPaddle.width && ball.element.y >= leftPaddle.y && ball.element.y <= leftPaddle.y + leftPaddle.height
+    let hitRightPaddle = ball.element.x + ball.element.width >= rightPaddle.x && ball.element.y >= rightPaddle.y && ball.element.y <= rightPaddle.y + rightPaddle.height
+    match (hitTop, hitBottom, hitLeft, hitRight, hitLeftPaddle, hitRightPaddle) with
     | (true, _, _, _, _, _) -> Top
     | (_, true, _, _, _, _) -> Bottom
     | (_, _, true, _, _, _) -> Left
     | (_, _, _, true, _, _) -> Right
-    | (_, _, _, _, true, _) -> LeftPong
-    | (_, _, _, _, _, true) -> RightPong
+    | (_, _, _, _, true, _) -> LeftPaddle
+    | (_, _, _, _, _, true) -> RightPaddle
     | _ -> None
 
 let calculateAngle paddle hitRightPaddle determineAngle ball =
@@ -88,8 +88,8 @@ let collision leftPaddle rightPaddle ball =
     | None -> ball.angle
     | Top | Bottom -> -ball.angle
     | Left | Right -> ball.angle
-    | LeftPong -> ball |> calculateAngle leftPaddle false (fun intersection -> intersection * (5. * Math.PI / 12.)) // Max. bounce = 75°
-    | RightPong -> ball |> calculateAngle rightPaddle true (fun intersection -> Math.PI - intersection * (5. * Math.PI / 12.))
+    | LeftPaddle -> ball |> calculateAngle leftPaddle false (fun intersection -> intersection * (5. * Math.PI / 12.)) // Max. bounce = 75°
+    | RightPaddle -> ball |> calculateAngle rightPaddle true (fun intersection -> Math.PI - intersection * (5. * Math.PI / 12.))
 
 let moveBall angle ball = { 
     element = { x = ball.element.x + ball.speed * cos angle;
