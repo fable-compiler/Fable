@@ -16,7 +16,7 @@ type RandomPlugin() =
                     Fable.Wrapped (o, info.returnType) |> Some
                 | "Next" ->
                     let intConst x =
-                        Fable.NumberConst (U2.Case1 x, Int32) |> Fable.Value
+                        Fable.NumberConst (float x, Int32) |> Fable.Value
                     let min, max =
                         match info.args with
                         | [] -> intConst 0, intConst System.Int32.MaxValue
@@ -34,4 +34,3 @@ type RandomPlugin() =
                     // |> Some
                 | _ -> None
             | _ -> None
-            

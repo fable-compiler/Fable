@@ -285,11 +285,13 @@ export function createDisposable(f: () => void): IDisposable {
 }
 
 export function createObj(fields: Iterable<[string, any]>) {
-    var o: any = {};
-    for (var kv of fields) {
-        o[kv[0]] = kv[1];
-    }
-    return o;
+  const iter = fields[Symbol.iterator]();
+  let cur = iter.next(), o: any = {};
+  while (!cur.done) {
+    o[cur.value[0]] = cur.value[1];
+    cur = iter.next();
+  }
+  return o;
 }
 
 export function toPlainJsObj(source: any) {

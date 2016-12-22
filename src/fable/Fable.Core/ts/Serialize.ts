@@ -197,7 +197,9 @@ function inflate(val: any, typ: any, path: string): any {
     }
     if (info.properties) {
       const properties: {[k:string]:any} = info.properties;
-      for (let k of Object.getOwnPropertyNames(properties)) {
+      const ks = Object.getOwnPropertyNames(properties);
+      for (let i=0; i < ks.length; i++) {
+        let k = ks[i];
         val[k] = inflate(val[k], new List(properties[k], enclosing), combine(path, k));
       }
       return Object.assign(new typ(), val);

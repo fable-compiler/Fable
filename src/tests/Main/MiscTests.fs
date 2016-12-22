@@ -56,7 +56,7 @@ let zipSorted (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
     res.Add(k2, (None, Some v2))
     i2 <- i2 + 2
   Array.ofSeq res
-  
+
 let zipAny (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
   let inline (<=.) (a:'k) (b:'k) = compare a b <= 0
   let inline (>=.) (a:'k) (b:'k) = compare a b >= 0
@@ -651,13 +651,13 @@ let ``use calls Dispose at the end of the scope`` () =
     res |> equal 10
     !cell |> equal 20
 
-let createCellDiposable cell = 
+let createCellDiposable cell =
   cell := 10
   { new System.IDisposable with
       member x.Dispose() = cell := 20 }
 
 [<Test>]
-let ``use calls Dispose (of an object) at the end of the scope`` () =
+let ``use calls Dispose (of an object expression) at the end of the scope`` () =
     let cell = ref 0
     let res =
         use c = createCellDiposable cell

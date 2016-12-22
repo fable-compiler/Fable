@@ -6,6 +6,7 @@ import { IComparable } from "./Util"
 import { toString } from "./Util"
 import GenericComparer from "./GenericComparer"
 import FSymbol from "./Symbol"
+import { iterate as seqIterate } from "./Seq"
 import { fold as seqFold } from "./Seq"
 import { reduce as seqReduce } from "./Seq"
 import { forAll as seqForAll } from "./Seq"
@@ -784,7 +785,7 @@ export function op_Addition<T>(set1: FSet<T>, set2: FSet<T>) {
 }
 
 export function unionInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
-  for (const x of set2) { set1.add(x); }
+  seqIterate(function (x) { set1.add(x) }, set2);
 }
 
 export function unionMany<T>(sets: Iterable<FSet<T>>) {
@@ -806,7 +807,7 @@ export function op_Subtraction<T>(set1: FSet<T>, set2: FSet<T>) {
 }
 
 export function differenceInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
-  for (const x of set2) { set1.delete(x); }
+  seqIterate(function (x) { set1.delete(x) }, set2);
 }
 
 export function intersect<T>(set1: FSet<T>, set2: FSet<T>) {
@@ -819,7 +820,7 @@ export function intersect<T>(set1: FSet<T>, set2: FSet<T>) {
 
 export function intersectInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
   const set2_ = set2 instanceof Set ? set2 : new Set(set2);
-  for (const x of set1) { if (!set2_.has(x)) { set1.delete(x); } }
+  seqIterate(function (x) { if (!set2_.has(x)) { set1.delete(x); } }, set1);
 }
 
 export function intersectMany<T>(sets: Iterable<FSet<T>>) {

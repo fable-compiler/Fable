@@ -1,17 +1,16 @@
 {
   "ignore": [
-    "node_modules/**/*.*",
     "umd/*.*"
   ],
   "env": {
     "target-es2015": {
       "presets": [
-        [ "es2015", { "modules": false } ]
+        [ "es2015", { "loose": true, "modules": false } ]
       ]
     },
     "target-umd": {
       "presets": [
-        [ "es2015", { "modules": "umd" } ]
+        [ "es2015", { "loose": true, "modules": "umd" } ]
       ]
     }
   }

@@ -484,8 +484,9 @@ module Util =
                     let body =
                         Babel.ObjectProperty(Babel.StringLiteral "interfaces", ifcs)
                         |> U3.Case1 |> List.singleton |> Babel.ObjectExpression
-                    Babel.ObjectProperty(getSymbol com ctx "reflection", body, computed=true)
-                    |> U3.Case1 |> consBack props
+                        |> Babel.ReturnStatement :> Babel.Statement |> List.singleton |> Babel.BlockStatement
+                    Babel.ObjectMethod(Babel.ObjectMeth, getSymbol com ctx "reflection", [], body, computed=true)
+                    |> U3.Case2 |> consBack props
             |> fun props ->
                 upcast Babel.ObjectExpression(props, ?loc=range)
 
