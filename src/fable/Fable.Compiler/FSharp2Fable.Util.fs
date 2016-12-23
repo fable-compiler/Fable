@@ -39,7 +39,7 @@ type MemberInfo =
 
 type Context =
     { fileName: string
-    ; enclosingModule: Fable.Entity
+    ; enclosingEntity: Fable.Entity
     ; scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
     ; scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
     ; typeArgs: (string * FSharpType) list
@@ -50,7 +50,7 @@ type Context =
     ; isDelegate: bool }
     static member Create(fileName, enclosingModule) =
         { fileName = fileName
-        ; enclosingModule = enclosingModule
+        ; enclosingEntity = enclosingModule
         ; scope = []
         ; scopedInlines = []
         ; typeArgs = []
@@ -1288,7 +1288,7 @@ module Util =
                     makeTypeFromDef com ctx ent [] |> makeNonGenTypeRef
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the method belongs to the current enclosing module
-                | _ -> Fable.DeclaredType(ctx.enclosingModule, []) |> makeNonGenTypeRef
+                | _ -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef
             let methName = sanitizeMethodName meth
     (**     *Check if this a getter or setter  *)
             match getMemberKind meth with
@@ -1364,7 +1364,7 @@ module Util =
                 | Some ent -> makeTypeFromDef com ctx ent [] |> makeNonGenTypeRef
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the value belongs to the current enclosing module
-                | None -> Fable.DeclaredType(ctx.enclosingModule, []) |> makeNonGenTypeRef
+                | None -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef
             Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
 
     let makeDelegateFrom (com: IFableCompiler) ctx delegateType fsExpr =

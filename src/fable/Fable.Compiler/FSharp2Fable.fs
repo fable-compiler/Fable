@@ -213,7 +213,10 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
     | BaseCons com ctx (meth, args) ->
         let args = List.map (transformExprWithRole AppliedArgument com ctx) args
         let typ, range = makeType com ctx fsExpr.Type, makeRangeFrom fsExpr
-        Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
+        let superCall = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
+        if ctx.baseClass = Some "System.Exception"
+        then Fable.Sequential([superCall; setProto ctx.enclosingEntity], range)
+        else superCall
 
     | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) methArgs
@@ -794,11 +797,10 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
         if needsCompImpl then yield makeUnionCompareMethod fableType ]
     | Fable.Record fields
     | Fable.Exception fields ->
-      let isEx = match fableEnt.Kind with Fable.Exception _ -> true | _ -> false
       // Structs are considered equivalent to records but
       // some already include a constructor (see #569)
       [ if fableEnt.Members |> Seq.exists (fun m -> m.Kind = Fable.Constructor) |> not
-        then yield makeRecordCons isEx fields
+        then yield makeRecordCons fableEnt fields
         yield makeReflectionMeth fableEnt false nullable fableEnt.FullName
                 ("FSharpRecord"::fableEnt.Interfaces) None (Some fields)
         if needsEqImpl then yield makeRecordEqualMethod fableType
@@ -953,8 +955,8 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                     else ctx, args, extraArgs
                 |> fun (ctx, args, extraArgs) ->
                     match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
-                    | true, Some(EntityKind(Fable.Class(Some(fullName, _), _))) ->
-                        { ctx with baseClass = Some fullName }, args, extraArgs
+                    | true, Some(EntityKind(Fable.Class(Some(fullName, _), _)) as ent) ->
+                        { ctx with baseClass = Some fullName; enclosingEntity=ent}, args, extraArgs
                     | _ -> ctx, args, extraArgs
                 |> fun (ctx, args, extraArgs) ->
                     getMemberKind meth, args, extraArgs, transformExpr com ctx body
@@ -1240,7 +1242,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                 | Some e when hasAtt Atts.erase e.Attributes -> makeEntity fcom ctx e, []
                 | Some e ->
                     let rootEnt = makeEntity fcom ctx e
-                    let ctx = { ctx with enclosingModule = rootEnt }
+                    let ctx = { ctx with enclosingEntity = rootEnt }
                     rootEnt, transformDeclarations fcom ctx rootDecls
                 | None -> emptyRootEnt, transformDeclarations fcom ctx rootDecls
             match rootDecls with

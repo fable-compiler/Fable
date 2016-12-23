@@ -98,6 +98,9 @@ let makeUnknownFnType (arity: int) =
 let makeGet range typ callee propExpr =
     Apply (callee, [propExpr], ApplyGet, typ, range)
 
+let makeUntypedGet callee prop =
+    Apply (callee, [Value(StringConst prop)], ApplyGet, Any, None)
+
 let makeArray elementType arrExprs =
     ArrayConst(ArrayValues arrExprs, elementType) |> Value
 
@@ -257,7 +260,13 @@ let makeUnionCons () =
     let body = Apply (emit, [], ApplyMeth, Unit, None)
     MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), None, args, body, None)
 
-let makeRecordCons (isException: bool) (props: (string*Type) list) =
+// This is necessary when extending built-in JS types and compiling to ES5
+// See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
+let setProto (ent: Entity) =
+    let meth = makeUntypedGet (makeIdentExpr "Object") "setPrototypeOf"
+    Apply(meth, [This |> Value; makeUntypedGet (Fable.DeclaredType(ent, []) |> makeNonGenTypeRef) "prototype"], ApplyMeth, Any, None)
+
+let makeRecordCons (ent: Entity) (props: (string*Type) list) =
     let args =
         ([], props) ||> List.fold (fun args (name, typ) ->
             let name =
@@ -266,19 +275,15 @@ let makeRecordCons (isException: bool) (props: (string*Type) list) =
             (Ident(name, typ))::args)
         |> List.rev
     let body =
-        Seq.zip args props
-        |> Seq.map (fun (arg, (propName, _)) ->
-            let propName =
-                if Naming.identForbiddenCharsRegex.IsMatch propName
-                then "['" + (propName.Replace("'", "\\'")) + "']"
-                else "." + propName
-            "this" + propName + "=" + arg.Name)
-        |> String.concat ";"
-        |> fun body ->
-            let body = makeEmit None Unit [] body
-            if isException
-            then makeSequential None [Apply(Value Super, [], ApplyMeth, Any, None); body]
-            else body
+        List.zip args props
+        |> List.map (fun (arg, (propName, _)) ->
+            Set(Value This, Some(makeConst propName), makeIdentExpr arg.Name, None))
+        |> fun setters ->
+            match ent.Kind with
+            | Fable.Exception _ ->
+                let superCall = Apply(Value Super, [], ApplyMeth, Any, None)
+                Sequential(superCall::(setProto ent)::setters, None)
+            | _ -> Sequential(setters, None)
     MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, None)
 
 let private makeMeth argType returnType name coreMeth =

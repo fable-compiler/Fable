@@ -493,3 +493,28 @@ let ``Value Types work``() = // See #568
     test2.Value |> equal 7
     let p = Point2D(2.)
     p.Y |> equal 2.
+
+exception MyEx of int*string
+
+[<Test>]
+let ``Custom F# exceptions work``() =
+    try
+        MyEx(4,"ERROR") |> raise
+    with
+    | MyEx(4, msg) -> msg + "!!"
+    | MyEx(_, msg) -> msg + "??"
+    | ex -> "unknown"
+    |> equal "ERROR!!"
+
+type MyEx2(f: float) =
+  inherit Exception(sprintf "Code: %i" (int f))
+  member __.Code = f
+
+[<Test>]
+let ``Custom exceptions work``() =
+    try
+        MyEx2(5.5) |> raise
+    with
+    | :? MyEx2 as ex -> ex.Message, ex.Code
+    | ex -> "unknown", 0.
+    |> equal ("Code: 5", 5.5)
