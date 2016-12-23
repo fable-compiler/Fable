@@ -301,12 +301,17 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
     | BasicPatterns.ThisValue _typ ->
         makeThisRef com ctx (makeRangeFrom fsExpr) None
 
-    | BasicPatterns.Value v when v.IsMemberThisValue ->
-        Some v |> makeThisRef com ctx (makeRangeFrom fsExpr)
-
-    | BasicPatterns.Value v ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
-        makeValueFrom com ctx r typ role v
+    | BasicPatterns.Value var ->
+        if var.IsMemberThisValue
+        then Some var |> makeThisRef com ctx (makeRangeFrom fsExpr)
+        elif isInline var
+        then
+            match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
+            | Some (_,fsExpr) -> com.Transform ctx fsExpr
+            | None -> FableError("Cannot resolve locally inlined value: " + var.DisplayName, makeRange fsExpr.Range) |> raise
+        else
+            let r, typ = makeRangeFrom fsExpr, makeType com ctx fsExpr.Type
+            makeValueFrom com ctx r typ role var
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         let valueKind =
