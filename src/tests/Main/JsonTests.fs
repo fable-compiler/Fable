@@ -370,6 +370,18 @@ let ``Optional union of record: for null`` () =
     | _ -> false
     |> equal true
 
+#if FABLE_COMPILER
+type UnionWithCaseOfObj =
+    | CaseOfObj of obj
+    | AnotherCase
+
+[<Test>]
+let ``Union with case of obj with single undefined field value`` () =
+    let x = UnionWithCaseOfObj.CaseOfObj Fable.Import.Node.``global``.undefined
+    let json = toJson x
+    let x2 = ofJson<UnionWithCaseOfObj> json
+    x2 |> equal x
+#endif
 
 #if FABLE_COMPILER
 type IData = interface end
