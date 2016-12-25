@@ -204,3 +204,25 @@ let ``Classes can trigger non-CLI events``() =
     disp.Dispose()
     classWithEvent.TestEvent("Bye")
     equal "Hello" result
+
+[<Test>]
+let ``Events are unsubscribed correctly``() = // See #609
+    let mutable counter = 0
+    let test = new Event<_>()
+
+    let firstSubscriber =
+        test.Publish
+        |> Observable.filter (fun x -> x < 25)
+        |> Observable.subscribe (fun x -> counter <- counter + x)
+
+    let secondSubscriber =
+        test.Publish
+        |> Observable.filter (fun x -> x > 25)
+        |> Observable.subscribe (fun x -> counter <- counter + x)
+
+    secondSubscriber.Dispose()
+
+    for i in [1..50] do
+        test.Trigger(i)
+
+    equal 300 counter

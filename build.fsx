@@ -346,6 +346,7 @@ let quickTest _ =
         "-o src/tools/temp"
         "-m commonjs"
         "--refs Fable.Core=./build/fable-core/umd"
+        "--extra noVersionCheck"
     ]
     Node.run "." "src/tools/temp/QuickTest.js" []
 

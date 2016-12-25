@@ -22,6 +22,7 @@ export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
 
 export default class Event<T> implements IEvent<T> {
   private _subscriber: (o: IObserver<T>) => IDisposable;
+  private _dotnetDelegates: Map<DotNetDelegate<T>, Delegate<T>>;
   delegates: Array<Delegate<T>>;
 
   constructor(_subscriber?: (o: IObserver<T>) => IDisposable, delegates?: any[]) {
@@ -50,17 +51,28 @@ export default class Event<T> implements IEvent<T> {
   }
 
   private _removeHandler(f: Delegate<T>) {
-    const index = this.delegates.findIndex(el => "" + el == "" + f);  // Special dedication to Chet Husk.
+    const index = this.delegates.indexOf(f);
     if (index > -1)
       this.delegates.splice(index, 1);
   }
 
   AddHandler(handler: DotNetDelegate<T>) {
-    this._addHandler(x => handler(undefined, x));
+    if (this._dotnetDelegates == null) {
+      this._dotnetDelegates = new Map<DotNetDelegate<T>,Delegate<T>>();
+    }
+    const f = function (x: T) { handler(null, x) };
+    this._dotnetDelegates.set(handler, f);
+    this._addHandler(f)
   }
 
   RemoveHandler(handler: DotNetDelegate<T>) {
-    this._removeHandler(x => handler(undefined, x));
+    if (this._dotnetDelegates != null) {
+      const f = this._dotnetDelegates.get(handler);
+      if (f != null) {
+        this._dotnetDelegates.delete(handler);
+        this._removeHandler(f);
+      }
+    }
   }
 
   // IObservable<T> methods
