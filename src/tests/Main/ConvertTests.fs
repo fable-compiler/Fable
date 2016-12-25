@@ -5,6 +5,42 @@ open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
+let ``System.Double.Parse works``() =
+    Double.Parse("1.5") |> equal 1.5
+
+[<Test>]
+let ``System.Double.TryParse works``() =
+    let success1, res1 = Double.TryParse("1.5")
+    equal true success1
+    equal 1.5 res1
+    let success2, _ = Double.TryParse("foo")
+    equal false success2
+
+[<Test>]
+let ``System.Single.Parse works``() =
+    Single.Parse("1.5") |> equal 1.5f
+
+[<Test>]
+let ``System.Single.TryParse works``() =
+    let success1, res1 = Single.TryParse("1.5")
+    equal true success1
+    equal 1.5f res1
+    let success2, _ = Single.TryParse("foo")
+    equal false success2
+
+[<Test>]
+let ``System.Int32.Parse works``() =
+    Int32.Parse("5") |> equal 5
+
+[<Test>]
+let ``System.Int32.TryParse works``() =
+    let success1, res1 = Int32.TryParse("5")
+    equal true success1
+    equal 5 res1
+    let success2, _ = Int32.TryParse("foo")
+    equal false success2
+
+[<Test>]
 let ``System.Convert.ToSByte works``() =
     let x = 1y
     sbyte(1y) |> equal x

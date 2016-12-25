@@ -207,11 +207,11 @@ module Util =
         | Fable.String ->
             match i.returnType with
             | Fable.Number (LongInteger (Some unsigned)) ->
-                let args = [args.Head]@[makeConst unsigned]@args.Tail 
+                let args = [args.Head]@[makeConst unsigned]@args.Tail
                 CoreLibCall ("Long", Some "fromString", false, args)
                 |> makeCall i.range i.returnType
             | _ ->
-                GlobalCall ("Number", Some "parseInt", false, args)
+                GlobalCall ("Number", Some "parseInt", false, [args.Head; makeConst 10])
                 |> makeCall i.range i.returnType
         | Fable.Number kindFrom ->
             match i.returnType with
@@ -772,6 +772,29 @@ module private AstPass =
             else i.methodName
         CoreLibCall("BitConverter", Some methodName, false, i.args)
         |> makeCall i.range i.returnType |> Some
+
+    let parse (com: ICompiler) (i: Fable.ApplyInfo) isFloat =
+        let parseString str =
+            let meth, args, kind =
+                if isFloat
+                then "parseFloat", [str], Float64
+                else "parseInt", [str; makeConst 10], Int32
+            GlobalCall("Number", Some meth, false, args)
+            |> makeCall i.range (Fable.Number kind)
+        match i.methodName with
+        | "parse" | "tryParse" ->
+            match i.methodName, i.args with
+            | "parse", [str] ->
+                parseString str |> Some
+            | "tryParse", [str; defValue] ->
+                let var = com.GetUniqueVar() |> makeIdent
+                let setter = Fable.VarDeclaration(var, parseString str, false)
+                let res = emit i "isNaN($0) ? [false, $1] : [true, $0]" [Fable.IdentValue var |> Fable.Value; defValue]
+                Fable.Sequential([setter; res], i.range) |> Some
+            | _ ->
+                FableError(sprintf "%s.%s only accepts a single argument"
+                            i.ownerFullName i.methodName, ?range=i.range) |> raise
+        | _ -> None
 
     let convert com (i: Fable.ApplyInfo) =
         match i.methodName with
@@ -1691,6 +1714,8 @@ module private AstPass =
         | "Microsoft.FSharp.Core.PrintfModule"
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
         | "System.BitConverter" -> bitConvert com info
+        | "System.Int32" -> parse com info false
+        | "System.Single" | "System.Double" -> parse com info true
         | "System.Convert" -> convert com info
         | "System.Console" -> console com info
         | "System.Decimal" -> decimals com info
