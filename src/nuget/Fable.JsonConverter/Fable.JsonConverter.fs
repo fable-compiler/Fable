@@ -93,7 +93,8 @@ type JsonConverter() =
             | true, Kind.DateTime ->
                 let dt = value :?> DateTime
                 // Make sure the DateTime is saved in UTC and ISO format (see #604)
-                serializer.Serialize(writer, dt.ToUniversalTime().ToString("O"))
+                let universalTime = if dt.Kind = DateTimeKind.Local then dt.ToUniversalTime() else dt
+                serializer.Serialize(writer, universalTime.ToString("O"))
             | true, Kind.Option ->
                 let _,fields = FSharpValue.GetUnionFields(value, t)
                 serializer.Serialize(writer, fields.[0])

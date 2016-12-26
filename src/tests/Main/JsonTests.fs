@@ -118,6 +118,15 @@ let ``Date``() =
     result.Month |> equal 1
     result.Day |> equal 30
 
+[<Test>]
+let ``Date Unspecified Kind``() =
+    let d = System.DateTime(2016, 1, 30, 0, 0, 0, System.DateTimeKind.Unspecified)
+    let json = d |> toJson
+    let result : System.DateTime = ofJson json
+    result.Year |> equal 2016
+    result.Month |> equal 1
+    result.Day |> equal 30
+
 type JsonDate = {
     Date : System.DateTime
 }
