@@ -111,21 +111,25 @@ let ``Validation works``() =
 
 [<Test>]
 let ``Date``() =
-    let d = System.DateTime(2016, 1, 30, 0, 0, 0, System.DateTimeKind.Utc)
+    let d = System.DateTime(2016, 1, 30, 11, 25, 0, System.DateTimeKind.Utc)
     let json = d |> toJson
     let result : System.DateTime = ofJson json
     result.Year |> equal 2016
     result.Month |> equal 1
     result.Day |> equal 30
+    result.Hour |> equal 11
+    result.Minute |> equal 25
 
 [<Test>]
-let ``Date Unspecified Kind``() =
-    let d = System.DateTime(2016, 1, 30, 0, 0, 0, System.DateTimeKind.Unspecified)
+let ``Date Kind Unspecified roundtrip``() =
+    let d = System.DateTime(2016, 1, 30, 11, 25, 0, System.DateTimeKind.Unspecified)
     let json = d |> toJson
     let result : System.DateTime = ofJson json
     result.Year |> equal 2016
     result.Month |> equal 1
     result.Day |> equal 30
+    result.Hour |> equal 11
+    result.Minute |> equal 25
 
 type JsonDate = {
     Date : System.DateTime

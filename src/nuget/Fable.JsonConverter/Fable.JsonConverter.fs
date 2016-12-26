@@ -92,8 +92,10 @@ type JsonConverter() =
                 serializer.Serialize(writer, value)
             | true, Kind.DateTime ->
                 let dt = value :?> DateTime
-                // Make sure the DateTime is saved in UTC and ISO format (see #604)
+                // Override .ToUniversalTime() behavior and assume DateTime.Kind = Unspecified as UTC values on serialization to avoid breaking roundtrips.
+                // Make it up to user code to manage such values (see #613).
                 let universalTime = if dt.Kind = DateTimeKind.Local then dt.ToUniversalTime() else dt
+                // Make sure the DateTime is saved in UTC and ISO format (see #604)
                 serializer.Serialize(writer, universalTime.ToString("O"))
             | true, Kind.Option ->
                 let _,fields = FSharpValue.GetUnionFields(value, t)
@@ -138,7 +140,7 @@ type JsonConverter() =
             serializer.Deserialize(reader, t)
         | true, Kind.DateTime ->
             match reader.Value with
-            | :? DateTime -> reader.Value // Avoid culture-sensitive string roundtrip for already parsed dates
+            | :? DateTime -> reader.Value // Avoid culture-sensitive string roundtrip for already parsed dates (see #613).
             | _ ->
                 let json = serializer.Deserialize(reader, typeof<string>) :?> string
                 upcast DateTime.Parse(json)
