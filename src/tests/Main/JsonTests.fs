@@ -111,10 +111,12 @@ let ``Validation works``() =
 
 [<Test>]
 let ``Date``() =
-    let d = System.DateTime(2016, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let d = System.DateTime(2016, 1, 30, 0, 0, 0, System.DateTimeKind.Utc)
     let json = d |> toJson
     let result : System.DateTime = ofJson json
     result.Year |> equal 2016
+    result.Month |> equal 1
+    result.Day |> equal 30
 
 type JsonDate = {
     Date : System.DateTime

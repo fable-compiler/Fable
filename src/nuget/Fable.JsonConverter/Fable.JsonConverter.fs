@@ -136,8 +136,11 @@ type JsonConverter() =
         | false, _ ->
             serializer.Deserialize(reader, t)
         | true, Kind.DateTime ->
-            let json = serializer.Deserialize(reader, typeof<string>) :?> string
-            upcast DateTime.Parse(json)
+            match reader.Value with
+            | :? DateTime -> reader.Value // Avoid culture-sensitive string roundtrip for already parsed dates
+            | _ ->
+                let json = serializer.Deserialize(reader, typeof<string>) :?> string
+                upcast DateTime.Parse(json)
         | true, Kind.Option ->
             let innerType = t.GetGenericArguments().[0]
             let innerType =
