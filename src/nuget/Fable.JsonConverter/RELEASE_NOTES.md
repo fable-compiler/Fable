@@ -1,3 +1,9 @@
+### 0.1.0
+
+* Fix #604: `System.DateTime`
+* Read `StringEnum` unions
+* Read `Pojo` unions
+
 ### 0.0.8
 
 * Convert `StringEnum` unions
