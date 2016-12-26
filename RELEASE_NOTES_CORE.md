@@ -1,3 +1,7 @@
+### 0.7.16
+
+* See fable-compiler 0.7.23 release notes
+
 ### 0.7.15
 
 * Add optional argument to GlobalAttribute

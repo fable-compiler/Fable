@@ -1,3 +1,15 @@
+### 0.7.23
+
+* Fix #348 #608 Double/Int32 Parse & TryParse
+* Fix #609: Event unsubscription
+* Fix custom exception type testing in ES5
+* Inline local lambdas as values (#601)
+* Fix edge case in `toJson` (#611)
+* Fix fable-core Babel compilation
+* Added 64-bit integers (#600)
+* Fix #237: Recursive value definitions
+* Added char to int (#594)
+
 ### 0.7.22
 
 * Fix secondary constructors of imported classes
