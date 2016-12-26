@@ -211,7 +211,7 @@ module Util =
                 CoreLibCall ("Long", Some "fromString", false, args)
                 |> makeCall i.range i.returnType
             | _ ->
-                GlobalCall ("Number", Some "parseInt", false, [args.Head; makeConst 10])
+                GlobalCall ("Number", Some "parseInt", false, args)
                 |> makeCall i.range i.returnType
         | Fable.Number kindFrom ->
             match i.returnType with
