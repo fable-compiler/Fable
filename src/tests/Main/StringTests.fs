@@ -343,6 +343,15 @@ let ``String.LastIndexOf works with offset``() =
       |> equal 1
 
 [<Test>]
+let ``String.IndexOfAny works``() =
+      "abcdbcebc".IndexOfAny([|'b'|]) |> equal 1
+      "abcdbcebc".IndexOfAny([|'b'|], 2) |> equal 4
+      "abcdbcebc".IndexOfAny([|'b'|], 2, 2) |> equal -1
+      "abcdbcebc".IndexOfAny([|'f';'e'|]) |> equal 6
+      "abcdbcebc".IndexOfAny([|'f';'e'|], 2) |> equal 6
+      "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
+
+[<Test>]
 let ``String.StartsWith works``() =
       let args = [("ab", true); ("cd", false); ("abcdx", false)]
       for arg in args do
