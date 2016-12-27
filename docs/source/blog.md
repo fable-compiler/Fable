@@ -1,4 +1,4 @@
- - tagline: Latest news about Fable!
+ - tagline: Latest news about Fable
 
 # Fable blog
 

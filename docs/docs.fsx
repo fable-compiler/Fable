@@ -391,7 +391,7 @@ Target "PublishDocs" (fun _ ->
 
 Target "PublishStaticPages" (fun _ ->
     generateStaticPages publishSite true ()
-    // publishDocs()
+    publishDocs()
 )
 
 // --------------------------------------------------------------------------------------
