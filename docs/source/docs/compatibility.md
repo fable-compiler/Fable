@@ -62,7 +62,7 @@ Events            | fable-core/Event
 ## FSharp.Core
 
 Most of FSharp.Core operators are supported, as well as formatting with
-`sprintf`, `printfn` or `failiwthf` (`String.Format` is also available).
+`sprintf`, `printfn` or `failwithf` (`String.Format` is also available).
 The following types and/or corresponding modules from FSharp.Core lib will
 likewise translate to JS:
 
