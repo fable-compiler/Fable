@@ -284,7 +284,7 @@ Target "FableCompilerNetcore" (fun _ ->
         // Compile Fable.Core TypeScript
         let fableCoreSrcDir = "src/fable/Fable.Core/ts"
         Npm.install __SOURCE_DIRECTORY__ []
-        Npm.script __SOURCE_DIRECTORY__ "tsc" ["--module commonjs --project " + fableCoreSrcDir]
+        Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/tsconfig.umd.json" fableCoreSrcDir]
 
         // Compile JavaScript tests
         Node.run "." buildDir ["src/tests --target netcore"]
