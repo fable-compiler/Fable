@@ -11,7 +11,6 @@
     "targets": {
         "netcore": {
             "projFile": "Main/project.fsx",
-            "ecma": "es2015",
             "module": "commonjs",
             "refs": { "Fable.Core": "../../build/fable-core/umd" },
             "symbols": ["DOTNETCORE"],
