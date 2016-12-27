@@ -12,6 +12,47 @@ import { year } from "./Date"
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
 
+const StringComparison = {
+  CurrentCulture: 0,
+  CurrentCultureIgnoreCase: 1,
+  InvariantCulture: 2,
+  InvariantCultureIgnoreCase: 3,
+  Ordinal: 4,
+  OrdinalIgnoreCase: 5,
+};
+
+function cmp(x: string, y: string, ic: any) {
+  function isIgnoreCase(i: any) {
+    return i === true ||
+      i === StringComparison.CurrentCultureIgnoreCase ||
+      i === StringComparison.InvariantCultureIgnoreCase ||
+      i === StringComparison.OrdinalIgnoreCase;
+  }
+  function isOrdinal(i: any) {
+    return i === StringComparison.Ordinal ||
+      i === StringComparison.OrdinalIgnoreCase;
+  }
+  if (x == null) return y == null ? 0 : -1;
+  if (y == null) return 1; // everything is bigger than null
+  if (isIgnoreCase(ic)) { x = x.toLowerCase(); y = y.toLowerCase(); }
+  if (isOrdinal(ic))
+    return (x === y) ? 0 : (x < y ? -1 : 1);
+  else
+    return x.localeCompare(y);
+}
+
+export function compare(...args: any[]): number {
+  switch (args.length) {
+    case 2: return cmp(args[0], args[1], false);
+    case 3: return cmp(args[0], args[1], args[2]);
+    case 4: return cmp(args[0], args[1], args[2] === true);
+    case 5: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), false);
+    case 6: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5]);
+    case 7: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5] === true);
+    default: throw new Error("String.compare: Unsupported number of parameters");
+  }
+}
+
 function toHex(value : number) {
   return value < 0
     ? "ff" + (16777215 - (Math.abs(value) - 1)).toString(16)
