@@ -181,7 +181,7 @@ export function compare(x: any, y: any): number {
   if (x == null) // Return 0 if both are null or undefined
     return y == null ? 0 : -1;
   else if (y == null)
-    return -1;
+    return 1; // everything is bigger than null
   else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
     return -1;
   else if (hasInterface(x, "System.IComparable"))

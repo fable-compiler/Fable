@@ -223,9 +223,23 @@ let ``String.ctor(char[], int, int) works``() =
 // System.String - static methods
 
 [<Test>]
-let ``String.Contains works``() =
-      "ABC".Contains("B") |> equal true
-      "ABC".Contains("Z") |> equal false
+let ``String.Compare works``() =
+      System.String.Compare("abc", "abc") |> equal 0
+      System.String.Compare("ABC", "abc") |> equal 1
+      System.String.Compare("abc", "abd") |> equal -1
+      System.String.Compare("bbc", "abd") |> equal 1
+      System.String.Compare("ABC", "abc", false) |> equal 1
+      System.String.Compare("ABC", "abc", true) |> equal 0
+      System.String.Compare("ABC", "abd", true) |> equal -1
+      System.String.Compare("BBC", "abd", true) |> equal 1
+      System.String.Compare("ABC", "abc", StringComparison.CurrentCulture) > 0 |> equal true
+      System.String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
+      System.String.Compare("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal 0
+      System.String.Compare("abc", 0, "bcd", 0, 3) |> equal -1
+      System.String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
+      System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.CurrentCulture) > 0 |> equal true
+      System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.Ordinal) < 0 |> equal true
+      System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.OrdinalIgnoreCase) |> equal 0
 
 [<Test>]
 let ``String.IsNullOrEmpty works``() =
@@ -242,6 +256,11 @@ let ``String.IsNullOrWhiteSpace works``() =
             |> equal (snd arg)
 
 // System.String - instance methods
+
+[<Test>]
+let ``String.Contains works``() =
+      "ABC".Contains("B") |> equal true
+      "ABC".Contains("Z") |> equal false
 
 [<Test>]
 let ``String.Split works``() =
