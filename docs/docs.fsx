@@ -41,7 +41,7 @@ let contentPage = "content.html"
 let samplePage  = "sample.html"
 let fableRoot   = __SOURCE_DIRECTORY__ </> ".." |> Path.GetFullPath
 let temp        = fableRoot </> "temp"
-let samplesRoot = fableRoot </> "samples" 
+let samplesRoot = fableRoot </> "samples"
 
 let samples =
   [ // Browser samples with HTML content
@@ -254,7 +254,7 @@ let generateSamplePage siteRoot name path =
     // If there is `index.html` page, read `<!-- [body] -->` bit from it
     let (app, appHead), appStyle =
       let index = fableRoot </> path </> "index.html"
-      ( if File.Exists index then 
+      ( if File.Exists index then
            let indexHtml = File.ReadAllText(index)
            extractMarkedPagePart "body" indexHtml,
            extractMarkedPagePart "head" indexHtml
@@ -262,7 +262,7 @@ let generateSamplePage siteRoot name path =
       ( if attrs.ContainsKey("app-style") then attrs.["app-style"] else "" )
 
     // Require paths are specified using ` .. ` - drop <code>
-    let requirePaths = 
+    let requirePaths =
       if not (attrs.ContainsKey("require-paths")) then "" else
       Regex.Match(attrs.["require-paths"], "<code>(.*)</code>").Groups.[1].Value
 
@@ -333,8 +333,8 @@ let startWebServer () =
         >=> Writers.setHeader "Expires" "0"
         >=> choose [ Files.browseHome; Filters.path "/" >=> Files.browseFileHome "index.html" ] ]
 
-    let addMime f = function 
-      | ".wav" -> Writers.mkMimeType "audio/wav" false 
+    let addMime f = function
+      | ".wav" -> Writers.mkMimeType "audio/wav" false
       | ".tsv" -> Writers.mkMimeType "text/tsv" false | ext -> f ext
     let app ctx = app { ctx with runtime = { ctx.runtime with mimeTypesMap = addMime ctx.runtime.mimeTypesMap } }
 
@@ -391,7 +391,7 @@ Target "PublishDocs" (fun _ ->
 
 Target "PublishStaticPages" (fun _ ->
     generateStaticPages publishSite true ()
-    publishDocs()
+    // publishDocs()
 )
 
 // --------------------------------------------------------------------------------------
