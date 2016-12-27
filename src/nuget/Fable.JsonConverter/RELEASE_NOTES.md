@@ -1,3 +1,7 @@
+### 0.1.1
+
+* `System.DateTime` fixes (see PR #613)
+
 ### 0.1.0
 
 * Fix #604: `System.DateTime`
