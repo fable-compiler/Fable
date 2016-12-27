@@ -34,11 +34,15 @@ function cmp(x: string, y: string, ic: any) {
   }
   if (x == null) return y == null ? 0 : -1;
   if (y == null) return 1; // everything is bigger than null
-  if (isIgnoreCase(ic)) { x = x.toLowerCase(); y = y.toLowerCase(); }
-  if (isOrdinal(ic))
+
+  if (isOrdinal(ic)) {
+    if (isIgnoreCase(ic)) { x = x.toLowerCase(); y = y.toLowerCase(); }
     return (x === y) ? 0 : (x < y ? -1 : 1);
-  else
+  }
+  else {
+    if (isIgnoreCase(ic)) { x = x.toLocaleLowerCase(); y = y.toLocaleLowerCase(); }
     return x.localeCompare(y);
+  }
 }
 
 export function compare(...args: any[]): number {
@@ -55,6 +59,26 @@ export function compare(...args: any[]): number {
 
 export function compareTo(x: string, y: string) {
   return cmp(x, y, false);
+}
+
+export function indexOfAny (str: string, anyOf: string[], ...args: number[]) {
+  if (str == null || str === "")
+    return -1;
+  var startIndex = (args.length > 0) ? args[0] : 0;
+  if (startIndex < 0)
+    throw new Error("String.indexOfAny: Start index cannot be negative");
+  var length = (args.length > 1) ? args[1] : str.length - startIndex;
+  if (length < 0)
+    throw new Error("String.indexOfAny: Length cannot be negative");
+  if (length > str.length - startIndex)
+    throw new Error("String.indexOfAny: Invalid startIndex and length");
+  str = str.substr(startIndex, length);
+  for (let c of anyOf) {
+    let index = str.indexOf(c);
+    if (index > -1)
+      return index + startIndex;
+  }
+  return -1;
 }
 
 function toHex(value : number) {
