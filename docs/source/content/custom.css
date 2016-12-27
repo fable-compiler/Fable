@@ -42,11 +42,8 @@ body {
 .fb-heading {
   background:#7A325D;
   color:#f0f0f0;
-  padding:25px 0px 40px 0px;
-  text-align:center;
-}
-.fb-hp-heading {
   padding:15px 0px 20px 0px;
+  text-align:center;
 }
 .fb-heading h1 {
   font-weight:400;
