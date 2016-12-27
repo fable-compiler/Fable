@@ -223,7 +223,21 @@ let ``String.ctor(char[], int, int) works``() =
 // System.String - static methods
 
 [<Test>]
+let ``System.String.Equals works``() =
+      System.String.Equals("abc", "abc") |> equal true
+      System.String.Equals("ABC", "abc") |> equal false
+      System.String.Equals("abc", "abd") |> equal false
+      "abc".Equals("abc") |> equal true
+      "ABC".Equals("abc") |> equal false
+      "abc".Equals("abd") |> equal false
+      System.String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
+      System.String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
+      "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
+      "ABC".Equals("abc", StringComparison.OrdinalIgnoreCase) |> equal true
+
+[<Test>]
 let ``String.Compare works``() =
+      "ABC".CompareTo("abc") > 0 |> equal true
       System.String.Compare("abc", "abc") |> equal 0
       System.String.Compare("ABC", "abc") |> equal 1
       System.String.Compare("abc", "abd") |> equal -1

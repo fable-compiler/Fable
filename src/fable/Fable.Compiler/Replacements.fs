@@ -105,6 +105,10 @@ module Util =
         InstanceCall(c, meth, args)
         |> makeCall i.range i.returnType
 
+    let ccall com (i: Fable.ApplyInfo) cmod meth args =
+        CoreLibCall(cmod, Some meth, false, args)
+        |> makeCall i.range i.returnType
+
     let emit (i: Fable.ApplyInfo) emit args =
         makeEmit i.range i.returnType args emit
 
@@ -687,6 +691,15 @@ module private AstPass =
         | "length" ->
             let c, _ = instanceArgs i.callee i.args
             makeGet i.range i.returnType c (makeConst "length") |> Some
+        | "equals" ->
+            match i.callee, i.args with
+            | Some x, [y]
+            | None, [x; y] ->
+                makeEqOp i.range [x; y] BinaryEqualStrict |> Some
+            | Some x, [y; kind]
+            | None, [x; y; kind] ->
+                makeEqOp i.range [ccall com i "String" "compare" [x; y; kind]; makeConst 0] BinaryEqualStrict |> Some
+            | _ -> None
         | "contains" ->
             makeEqOp i.range [icall com i "indexOf"; makeConst 0] BinaryGreaterOrEqual |> Some
         | "startsWith" ->

@@ -53,6 +53,10 @@ export function compare(...args: any[]): number {
   }
 }
 
+export function compareTo(x: string, y: string) {
+  return cmp(x, y, false);
+}
+
 function toHex(value : number) {
   return value < 0
     ? "ff" + (16777215 - (Math.abs(value) - 1)).toString(16)
