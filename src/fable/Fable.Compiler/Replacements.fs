@@ -1029,9 +1029,6 @@ module private AstPass =
                 | _ -> i.args
             CoreLibCall("Date", Some "create", false, args)
             |> makeCall i.range i.returnType |> Some
-        | "kind" ->
-            makeGet i.range i.returnType i.callee.Value (makeConst "kind")
-            |> Some
         | "toString" ->
             match i.args with
             | [Type Fable.String as format] ->

@@ -3,17 +3,9 @@ import { compare as utilCompare } from "./Util"
 import * as Long from "./Long"
 
 export const enum DateKind {
+  Unspecified = 0,
   UTC = 1,
   Local = 2
-}
-
-function __changeKind(d: Date, kind: DateKind) {
-  let d2: Date;
-  return (<any>d).kind == kind ? d : (d2 = new Date(d.getTime()), (<any>d2).kind = kind, d2);
-}
-
-function __getValue(d: Date, key: string): number {
-  return (<any>d)[((<any>d).kind == DateKind.UTC ? "getUTC" : "get") + key]();
 }
 
 export function minValue() {
@@ -25,11 +17,16 @@ export function maxValue() {
 }
 
 export function parse(v?: any, kind?: DateKind): any {
-  const date = (v == null) ? new Date() : new Date(v);
-  if (isNaN(date.getTime()))
+  if (kind == null) {
+    kind = typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local;
+  }
+  let date = (v == null) ? new Date() : new Date(v);
+  if (kind === DateKind.Local) {
+    (date as any).kind = kind;
+  }
+  if (isNaN(date.getTime())) {
     throw new Error("The string is not a valid Date.");
-  (<any>date).kind = kind ||
-    (typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local);
+  }
   return date;
 }
 
@@ -43,12 +40,17 @@ export function tryParse(v: any): [boolean, Date] {
 }
 
 export function create(year: number, month: number, day: number, h: number = 0, m: number = 0, s: number = 0, ms: number = 0, kind: DateKind = DateKind.Local) {
-  const date: Date = (kind === DateKind.UTC)
-    ? new Date(Date.UTC(year, month - 1, day, h, m, s, ms))
-    : new Date(year, month - 1, day, h, m, s, ms);
-  if (isNaN(date.getTime()))
+  let date: Date;
+  if (kind === DateKind.Local) {
+    date = new Date(year, month - 1, day, h, m, s, ms);
+    (date as any).kind = kind;
+  }
+  else {
+    date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms));
+  }
+  if (isNaN(date.getTime())) {
     throw new Error("The parameters describe an unrepresentable Date.");
-  (<any>date).kind = kind;
+  }
   return date;
 }
 
@@ -75,11 +77,18 @@ export function daysInMonth(year: number, month: number) {
 }
 
 export function toUniversalTime(d: Date) {
-  return __changeKind(d, 1);
+  return (d as any).kind === DateKind.Local ? new Date(d.getTime()) : d;
 }
 
 export function toLocalTime(d: Date) {
-  return __changeKind(d, 2);
+  if ((d as any).kind === DateKind.Local) {
+    return d;
+  }
+  else {
+    let d2 = new Date(d.getTime());
+    (d2 as any).kind = DateKind.Local;
+    return d2;
+  }
 }
 
 export function timeOfDay(d: Date) {
@@ -87,50 +96,54 @@ export function timeOfDay(d: Date) {
 }
 
 export function date(d: Date) {
-  return create(year(d), month(d), day(d), 0, 0, 0, 0, (<any>d).kind);
+  return create(year(d), month(d), day(d), 0, 0, 0, 0, (d as any).kind || DateKind.UTC);
+}
+
+export function kind(d: Date) {
+  return (d as any).kind || DateKind.UTC;
 }
 
 export function day(d: Date) {
-  return __getValue(d, "Date");
+  return (d as any).kind === DateKind.Local ? d.getDate() : d.getUTCDate();
 }
 
 export function hour(d: Date) {
-  return __getValue(d, "Hours");
+  return (d as any).kind === DateKind.Local ? d.getHours() : d.getUTCHours();
 }
 
 export function millisecond(d: Date) {
-  return __getValue(d, "Milliseconds");
+  return (d as any).kind === DateKind.Local ? d.getMilliseconds() : d.getUTCMilliseconds();
 }
 
 export function minute(d: Date) {
-  return __getValue(d, "Minutes");
+  return (d as any).kind === DateKind.Local ? d.getMinutes() : d.getUTCMinutes();
 }
 
 export function month(d: Date) {
-  return __getValue(d, "Month") + 1;
+  return ((d as any).kind === DateKind.Local ? d.getMonth() : d.getUTCMonth()) + 1;
 }
 
 export function second(d: Date) {
-  return __getValue(d, "Seconds");
+  return (d as any).kind === DateKind.Local ? d.getSeconds() : d.getUTCSeconds();
 }
 
 export function year(d: Date) {
-  return __getValue(d, "FullYear");
+  return (d as any).kind === DateKind.Local ? d.getFullYear() : d.getUTCFullYear();
+}
+
+export function dayOfWeek(d: Date) {
+  return (d as any).kind === DateKind.Local ? d.getDay() : d.getUTCDay();
 }
 
 export function ticks(d: Date) {
   return Long.fromNumber(d.getTime())
              .add(62135596800000) // UnixEpochMilliseconds
-             .sub((<any>d).kind == DateKind.Local ? d.getTimezoneOffset()*60*1000 : 0)
+             .sub((d as any).kind == DateKind.Local ? d.getTimezoneOffset()*60*1000 : 0)
              .mul(10000);
 }
 
 export function toBinary(d: Date) {
   return ticks(d);
-}
-
-export function dayOfWeek(d: Date) {
-  return __getValue(d, "Day");
 }
 
 export function dayOfYear(d: Date) {
@@ -143,31 +156,31 @@ export function dayOfYear(d: Date) {
 }
 
 export function add(d: Date, ts: number) {
-  return parse(d.getTime() + <number>ts, (<any>d).kind);
+  return parse(d.getTime() + <number>ts, (d as any).kind || DateKind.UTC);
 }
 
 export function addDays(d: Date, v: number) {
-  return parse(d.getTime() + v * 86400000, (<any>d).kind);
+  return parse(d.getTime() + v * 86400000, (d as any).kind || DateKind.UTC);
 }
 
 export function addHours(d: Date, v: number) {
-  return parse(d.getTime() + v * 3600000, (<any>d).kind);
+  return parse(d.getTime() + v * 3600000, (d as any).kind || DateKind.UTC);
 }
 
 export function addMinutes(d: Date, v: number) {
-  return parse(d.getTime() + v * 60000, (<any>d).kind);
+  return parse(d.getTime() + v * 60000, (d as any).kind || DateKind.UTC);
 }
 
 export function addSeconds(d: Date, v: number) {
-  return parse(d.getTime() + v * 1000, (<any>d).kind);
+  return parse(d.getTime() + v * 1000, (d as any).kind || DateKind.UTC);
 }
 
 export function addMilliseconds(d: Date, v: number) {
-  return parse(d.getTime() + v, (<any>d).kind);
+  return parse(d.getTime() + v, (d as any).kind || DateKind.UTC);
 }
 
 export function addTicks(d: Date, t: Long.Long) {
-  return parse(Long.fromNumber(d.getTime()).add(t.div(10000)).toNumber(), (<any>d).kind);
+  return parse(Long.fromNumber(d.getTime()).add(t.div(10000)).toNumber(), (d as any).kind || DateKind.UTC);
 }
 
 export function addYears(d: Date, v: number) {
@@ -175,7 +188,7 @@ export function addYears(d: Date, v: number) {
   const newYear = year(d) + v;
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, day(d));
-  return create(newYear, newMonth, newDay, hour(d), minute(d), second(d), millisecond(d), (<any>d).kind);
+  return create(newYear, newMonth, newDay, hour(d), minute(d), second(d), millisecond(d), (d as any).kind || DateKind.UTC);
 }
 
 export function addMonths(d: Date, v: number) {
@@ -194,12 +207,12 @@ export function addMonths(d: Date, v: number) {
   const newYear = year(d) + yearOffset;
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, day(d));
-  return create(newYear, newMonth, newDay, hour(d), minute(d), second(d), millisecond(d), (<any>d).kind);
+  return create(newYear, newMonth, newDay, hour(d), minute(d), second(d), millisecond(d), (d as any).kind || DateKind.UTC);
 }
 
 export function subtract(d: Date, that: Date | number) {
   return typeof that == "number"
-    ? parse(d.getTime() - <number>that, (<any>d).kind)
+    ? parse(d.getTime() - <number>that, (d as any).kind || DateKind.UTC)
     : d.getTime() - (<Date>that).getTime();
 }
 

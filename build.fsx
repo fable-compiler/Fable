@@ -464,19 +464,13 @@ Target "FableCoreRelease" (fun _ ->
     // Copy README and package.json
     FileUtils.cp (fableCoreSrcDir </> "ts/README.md") fableCoreNpmDir
     FileUtils.cp (fableCoreSrcDir </> "ts/package.json") fableCoreNpmDir
-    FileUtils.cp (fableCoreSrcDir </> "ts/.babelrc") fableCoreNpmDir
 
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.command fableCoreNpmDir "version" [releaseCore.Value.NugetVersion]
 
     // Compile TypeScript
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts" fableCoreSrcDir]
-
-    // Compile Es2015 syntax to ES5 with different module targets
-    setEnvironVar "BABEL_ENV" "target-umd"
-    Npm.script __SOURCE_DIRECTORY__ "babel" [sprintf "%s --out-dir %s/umd" fableCoreNpmDir fableCoreNpmDir]
-    setEnvironVar "BABEL_ENV" "target-es2015"
-    Npm.script __SOURCE_DIRECTORY__ "babel" [sprintf "%s --out-dir %s" fableCoreNpmDir fableCoreNpmDir]
+    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts/tsconfig.umd.json" fableCoreSrcDir]
 )
 
 Target "FableCoreDebug" (fun _ ->
@@ -491,11 +485,7 @@ Target "FableCoreDebug" (fun _ ->
 
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts" fableCoreSrcDir]
-
-    setEnvironVar "BABEL_ENV" "target-umd"
-    Npm.script __SOURCE_DIRECTORY__ "babel" [sprintf "%s --out-dir %s/umd" fableCoreNpmDir fableCoreNpmDir]
-    setEnvironVar "BABEL_ENV" "target-es2015"
-    Npm.script __SOURCE_DIRECTORY__ "babel" [sprintf "%s --out-dir %s" fableCoreNpmDir fableCoreNpmDir]
+    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts/tsconfig.umd.json" fableCoreSrcDir]
 )
 
 Target "UpdateSampleRequirements" (fun _ ->
