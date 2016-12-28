@@ -10,6 +10,9 @@
     "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
     "targets": {
         "netcore": {
+            "projFile": "Main/project.fsx",
+            "module": "commonjs",
+            "refs": { "Fable.Core": "../../build/fable-core/umd" },
             "symbols": ["DOTNETCORE"],
             "plugins": ["../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
         }
