@@ -157,7 +157,6 @@ module JsInterop =
     /// Converts a plain JS object (POJO) to an instance of the specified type.
     /// This is only intended if you're using a custom serialization method
     /// (that must produce same objects as `toJson`) instead of `ofJson`.
-    /// ATTENTION: This method **mutates** the object argument.
     let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
 
 

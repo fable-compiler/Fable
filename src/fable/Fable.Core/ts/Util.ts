@@ -16,67 +16,66 @@ export interface IDisposable {
   Dispose(): void;
 }
 
-export type NonDeclaredTypeKind = "Any" | "Unit" | "Option" | "Array" | "Tuple" | "GenericParam" | "Interface"
+export type NonDeclaredTypeKind =
+  | "Any" | "Unit" | "Option" | "Array" | "Tuple"
+  | "GenericParam" | "GenericType" | "Interface"
+
+export type Type = FunctionConstructor;
+export type Dic<T> = {[key: string]: T}
 
 export class NonDeclaredType implements IEquatable<NonDeclaredType> {
   public kind: NonDeclaredTypeKind;
-  public name: string;
-  public generics: any[];
+  public definition: string | Type;
+  public generics: Type | Type[] | Dic<Type>;
 
-  constructor(kind: NonDeclaredTypeKind, name?: string, generics?: any[]) {
+  constructor(kind: NonDeclaredTypeKind, definition?: string | Type, generics?: Type | Type[] | Dic<Type>) {
     this.kind = kind;
-    this.name = name;
-    this.generics = generics || [];
+    this.definition = definition;
+    this.generics = generics;
   }
 
   Equals(other: NonDeclaredType) {
-    return this.kind === other.kind
-      && this.name === other.name
-      && equals(this.generics, other.generics);
+    if (this.kind === other.kind && this.definition === other.definition) {
+      return typeof this.generics === "object"
+        // equalsRecords should also work for Type[] (tuples)
+        ? equalsRecords(this.generics, other.generics)
+        : this.generics === other.generics;
+    }
+    return false;
   }
-}
-
-class GenericNonDeclaredType extends NonDeclaredType {
-  constructor(kind: NonDeclaredTypeKind, generics: any[]) {
-    super(kind, null, generics);
-  }
-  [FSymbol.generics]() { return this.generics; }
 }
 
 export const Any = new NonDeclaredType("Any");
 
 export const Unit = new NonDeclaredType("Unit");
 
-export function Option(t: any) {
-  return new GenericNonDeclaredType("Option", [t]) as NonDeclaredType;
+export function Option(t: Type) {
+  return new NonDeclaredType("Option", "Option", t) as NonDeclaredType;
 }
 
-function FArray(t: any) {
-  return new GenericNonDeclaredType("Array", [t]) as NonDeclaredType;
+function FArray(t: Type) {
+  return new NonDeclaredType("Array", "Array", t) as NonDeclaredType;
 }
 export { FArray as Array }
 
-export function Tuple(ts: any[]) {
-  return new GenericNonDeclaredType("Tuple", ts) as NonDeclaredType;
+export function Tuple(ts: Type[]) {
+  return new NonDeclaredType("Tuple", "Tuple", ts) as NonDeclaredType;
 }
 
-export function GenericParam(name: string) {
-  return new NonDeclaredType("GenericParam", name);
+export function GenericParam(definition: string) {
+  return new NonDeclaredType("GenericParam", definition);
 }
 
-export function Interface(name: string) {
-  return new NonDeclaredType("Interface", name);
+export function Interface(definition: string) {
+  return new NonDeclaredType("Interface", definition);
 }
 
-export function makeGeneric(typeDef: FunctionConstructor, genArgs: any): any {
-  return class extends typeDef { [FSymbol.generics]() { return genArgs; } };
+export function makeGeneric(typeDef: Type, genArgs: Dic<Type>) {
+  return new NonDeclaredType("GenericType", typeDef, genArgs);
 }
 
-/**
- * Checks if this a function constructor extending another with generic info.
- */
 export function isGeneric(typ: any): boolean {
-  return typeof typ === "function" && !!typ.prototype[FSymbol.generics];
+  return typ instanceof NonDeclaredType && typ.generics != null;
 }
 
 /**
@@ -84,8 +83,7 @@ export function isGeneric(typ: any): boolean {
  * Attention: Unlike .NET this doesn't throw an exception if type is not generic.
 */
 export function getDefinition(typ: any): any {
-  return typeof typ === "function" && (typ.prototype as any)[FSymbol.generics]
-        ? Object.getPrototypeOf(typ.prototype).constructor : typ;
+  return isGeneric(typ) ? typ.definition : typ;
 }
 
 export function extendInfo(cons: FunctionConstructor, info: any) {
@@ -145,9 +143,6 @@ export function equals(x: any, y: any): boolean {
     return y == null;
   else if (y == null)
     return false;
-  else if (isGeneric(x) && isGeneric(y))
-    return getDefinition(x) === getDefinition(y)
-            && equalsRecords(x.prototype[FSymbol.generics](), y.prototype[FSymbol.generics]());
   else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
     return false;
   // Equals override or IEquatable implementation

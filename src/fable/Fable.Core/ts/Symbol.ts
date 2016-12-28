@@ -16,7 +16,6 @@ const fableGlobal: {
       types: new Map<string, FunctionConstructor>(),
       symbols: {
         reflection: Symbol("reflection"),
-        generics: Symbol("generics")
       }
     };
   }

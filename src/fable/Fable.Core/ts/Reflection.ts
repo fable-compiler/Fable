@@ -5,17 +5,22 @@ import FSymbol from "./Symbol"
 export function resolveGeneric(idx: string | number, enclosing: List<any>): List<any> {
   try {
     const t = enclosing.head;
-    if (t instanceof NonDeclaredType) {
+    if (t.generics == null) {
       return resolveGeneric(idx, enclosing.tail)
     }
     else {
-      const generics = (<any>t.prototype)[FSymbol.generics]();
       const name = typeof idx === "string"
-        ? idx : Object.getOwnPropertyNames(generics)[idx];
-      const resolved = generics[name];
-      return resolved instanceof NonDeclaredType && resolved.kind === "GenericParam"
-        ? resolveGeneric(resolved.name, enclosing.tail)
-        : new List(resolved, enclosing);
+        ? idx : Object.getOwnPropertyNames(t.generics)[idx];
+      const resolved = t.generics[name];
+      if (resolved == null) {
+          return resolveGeneric(idx, enclosing.tail);
+      }
+      else if (resolved instanceof NonDeclaredType && resolved.kind === "GenericParam") {
+          return resolveGeneric(resolved.definition as string, enclosing.tail);
+      }
+      else {
+          return new List(resolved, enclosing);
+      }
     }
   }
   catch (err) {
@@ -60,14 +65,14 @@ export function getTypeFullName(typ: any, option?: string): string {
         case "Unit":
           return "unit";
         case "Option":
-          return getTypeFullName(typ.generics[0], option) + " option";
+          return getTypeFullName(typ.generics, option) + " option";
         case "Array":
-          return getTypeFullName(typ.generics[0], option) + "[]";
+          return getTypeFullName(typ.generics, option) + "[]";
         case "Tuple":
-          return typ.generics.map(x => getTypeFullName(x, option)).join(" * ");
+          return (typ.generics as FunctionConstructor[]).map(x => getTypeFullName(x, option)).join(" * ");
         case "GenericParam":
         case "Interface":
-          return typ.name;
+          return typ.definition as string;
         case "Any":
         default:
           return "unknown";

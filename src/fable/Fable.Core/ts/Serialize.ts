@@ -86,11 +86,14 @@ function inflate(val: any, typ: any, path: string): any {
       switch (typ.kind) {
         case "Option":
         case "Array":
-          return needsInflate(new List(typ.generics[0], enclosing));
+          return needsInflate(new List(typ.generics, enclosing));
         case "Tuple":
-          return typ.generics.some((x: any) => needsInflate(new List(x, enclosing)));
+          return (typ.generics as FunctionConstructor[]).some((x: any) =>
+            needsInflate(new List(x, enclosing)));
         case "GenericParam":
-          return needsInflate(resolveGeneric(typ.name, enclosing.tail));
+          return needsInflate(resolveGeneric(typ.definition as string, enclosing.tail));
+        case "GenericType":
+          return true;
         default:
           return false;
       }
@@ -142,38 +145,41 @@ function inflate(val: any, typ: any, path: string): any {
       case "Unit":
         return null;
       case "Option":
-        return inflate(val, new List(typ.generics[0], enclosing), path);
+        return inflate(val, new List(typ.generics, enclosing), path);
       case "Array":
-        return inflateArray(val, new List(typ.generics[0], enclosing), path);
+        return inflateArray(val, new List(typ.generics, enclosing), path);
       case "Tuple":
-        return typ.generics.map((x, i) => inflate(val[i], new List(x, enclosing), combine(path, i)));
+        return (typ.generics as FunctionConstructor[]).map((x, i) =>
+          inflate(val[i], new List(x, enclosing), combine(path, i)));
       case "GenericParam":
-        return inflate(val, resolveGeneric(typ.name, enclosing.tail), path);
-      // case "Interface": // case "Any":
-      default: return val;
+        return inflate(val, resolveGeneric(typ.definition as string, enclosing.tail), path);
+      case "GenericType":
+        const def = typ.definition as Function;
+        if (def === List) {
+          return listOfArray(inflateArray(val, resolveGeneric(0, enclosing), path));
+        }
+        if (def === FSet) {
+          return setCreate(inflateArray(val, resolveGeneric(0, enclosing), path));
+        }
+        if (def === Set) {
+          return new Set(inflateArray(val, resolveGeneric(0, enclosing), path));
+        }
+        if (def === FMap) {
+          return mapCreate(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing), path));
+        }
+        if (def === Map) {
+          return new Map(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing), path));
+        }
+        return inflate(val, new List(typ.definition, enclosing), path);
+      default:  // case "Interface": // case "Any":
+        return val;
     }
   }
   else if (typeof typ === "function") {
-    const proto = typ.prototype;
     if (typ === Date) {
       return dateParse(val);
     }
-    if (proto instanceof List) {
-      return listOfArray(inflateArray(val, resolveGeneric(0, enclosing), path));
-    }
-    if (proto instanceof FSet) {
-      return setCreate(inflateArray(val, resolveGeneric(0, enclosing), path));
-    }
-    if (proto instanceof Set) {
-      return new Set(inflateArray(val, resolveGeneric(0, enclosing), path));
-    }
-    if (proto instanceof FMap) {
-      return mapCreate(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing), path));
-    }
-    if (proto instanceof Map) {
-      return new Map(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing), path));
-    }
-    const info = typeof proto[FSymbol.reflection] === "function" ? proto[FSymbol.reflection]() : {};
+    const info = typeof typ.prototype[FSymbol.reflection] === "function" ? typ.prototype[FSymbol.reflection]() : {};
     // Union types
     if (info.cases) {
       let u: any = { Fields: [] };
@@ -198,13 +204,14 @@ function inflate(val: any, typ: any, path: string): any {
       return Object.assign(new typ(), u);
     }
     if (info.properties) {
+      let temp: any = {};
       const properties: {[k:string]:any} = info.properties;
       const ks = Object.getOwnPropertyNames(properties);
       for (let i=0; i < ks.length; i++) {
         let k = ks[i];
-        val[k] = inflate(val[k], new List(properties[k], enclosing), combine(path, k));
+        temp[k] = inflate(val[k], new List(properties[k], enclosing), combine(path, k));
       }
-      return Object.assign(new typ(), val);
+      return Object.assign(new typ(), temp);
     }
     return val;
   }

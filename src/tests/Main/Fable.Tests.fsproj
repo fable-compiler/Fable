@@ -37,6 +37,9 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Threading" />
+    <Reference Include="System.Threading.Tasks" />
+    <Reference Include="System.Text.RegularExpressions" />
     <Reference Include="Fable.Core">
       <HintPath>../../../build/fable-core/Fable.Core.dll</HintPath>
     </Reference>
