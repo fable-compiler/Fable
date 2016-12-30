@@ -1,3 +1,10 @@
+### 0.7.24
+
+* Fix module generic methods without arguments
+* Added `String.IndexOfAny/Compare/Equals` with `StringComparison` enum
+* Fix generic types when compiling to ES2015
+* Unify `Equals` and `CompareTo` methods of `Long.ts`
+
 ### 0.7.23
 
 * Fix #348 #608 Double/Int32 Parse & TryParse

@@ -312,6 +312,15 @@ and Expr =
 
     static member getType (expr: Expr) = expr.Type
 
+    member x.IsJsStatement =
+        match x with
+        | Value _ | ObjExpr _ | Apply _ | Quote _ -> true
+        | Wrapped (e,_) -> e.IsJsStatement
+        | IfThenElse (_,thenExpr,elseExpr,_) -> thenExpr.IsJsStatement || elseExpr.IsJsStatement
+        | Throw _ | DebugBreak _ | Loop _ | Set _ | VarDeclaration _
+        | Sequential _ | TryCatch _ | Switch _ -> true
+        | Label _ | Break _ | Continue _ | Return _ -> true
+
     member x.Type =
         match x with
         | Value kind -> kind.Type

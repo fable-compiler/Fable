@@ -251,6 +251,7 @@ module Helpers =
         // `.EnclosingEntity` only fails for compiler generated module members
         if ent.IsNone || (ent.Value.IsFSharpModule) then
             if meth.CurriedParameterGroups.Count = 0
+                && meth.GenericParameters.Count = 0
             then Fable.Field
             else Fable.Method
         elif meth.IsImplicitConstructor then Fable.Constructor

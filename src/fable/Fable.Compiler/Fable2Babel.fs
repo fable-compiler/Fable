@@ -638,8 +638,10 @@ module Util =
                             thenStatement, elseStatement, range) ->
             let thenStatement = transformBlock com ctx None thenStatement
             let elseStatement =
-                if isNull elseStatement
-                then None else Some(transformBlock com ctx None elseStatement :> Babel.Statement)
+                match elseStatement with
+                | e when isNull e -> None
+                | Fable.IfThenElse _ as e-> com.TransformStatement ctx e |> Some
+                | e -> transformBlock com ctx None e :> Babel.Statement |> Some
             upcast Babel.IfStatement(guardExpr, thenStatement,
                             ?alternate=elseStatement, ?loc=range)
 
@@ -764,8 +766,10 @@ module Util =
                             thenStatement, elseStatement, range) ->
             let thenStatement = transformBlock com ctx (Some ret) thenStatement
             let elseStatement =
-                if isNull elseStatement
-                then None else Some(transformBlock com ctx (Some ret) elseStatement :> Babel.Statement)
+                match elseStatement with
+                | e when isNull e -> None
+                | Fable.IfThenElse _ as e-> com.TransformExprAndResolve ctx ret e |> Some
+                | e -> transformBlock com ctx (Some ret) e :> Babel.Statement |> Some
             upcast Babel.IfStatement(guardExpr, thenStatement,
                             ?alternate=elseStatement, ?loc=range)
 
@@ -807,6 +811,8 @@ module Util =
             | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _ ->
                 transformBlock com ctx None body |> U2.Case1
             | Fable.Sequential _ | Fable.TryCatch _ ->
+                transformBlock com ctx (Some Return) body |> U2.Case1
+            | Fable.IfThenElse _ when body.IsJsStatement ->
                 transformBlock com ctx (Some Return) body |> U2.Case1
             | _ -> transformExpr com ctx body |> U2.Case2
         args, body

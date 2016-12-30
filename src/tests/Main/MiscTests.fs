@@ -693,3 +693,10 @@ let ``Recursive values work``() = // See #237
     mutableValue |> equal 5
     recursive1()
     mutableValue |> equal 10
+
+let empty<'a> = [Unchecked.defaultof<'a>]
+
+[<Test>]
+let ``Module generic methods without arguments work``() =
+    let li = empty<string>
+    Seq.length li |> equal 1

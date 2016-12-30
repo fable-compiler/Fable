@@ -1,3 +1,7 @@
+### 0.7.17
+
+* See fable-compiler 0.7.24 release notes
+
 ### 0.7.16
 
 * See fable-compiler 0.7.23 release notes

@@ -1747,6 +1747,7 @@ module private AstPass =
         | "System.Threading.CancellationTokenSource" -> cancels com info
         | "System.Math"
         | "Microsoft.FSharp.Core.Operators"
+        | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators"
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
         | "Microsoft.FSharp.Core.FSharpRef" -> references com info
         | "System.Activator" -> activator com info
