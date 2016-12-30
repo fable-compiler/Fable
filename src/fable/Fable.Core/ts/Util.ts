@@ -148,8 +148,6 @@ export function equals(x: any, y: any): boolean {
   // Equals override or IEquatable implementation
   else if (typeof x.Equals === "function")
     return x.Equals(y);
-  else if (typeof x.equals === "function")
-    return x.equals(y);
   else if (Array.isArray(x)) {
     if (x.length != y.length) return false;
     for (let i = 0; i < x.length; i++)

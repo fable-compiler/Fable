@@ -287,7 +287,7 @@ Target "FableCompilerNetcore" (fun _ ->
         Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/tsconfig.umd.json" fableCoreSrcDir]
 
         // Compile JavaScript tests
-        Node.run "." "build/fable" ["src/tests/DllRef"]
+        //Node.run "." "build/fable" ["src/tests/DllRef"]
         Node.run "." buildDir ["src/tests --target netcore"]
         let testsBuildDir = "build/tests"
         FileUtils.cp "src/tests/package.json" testsBuildDir

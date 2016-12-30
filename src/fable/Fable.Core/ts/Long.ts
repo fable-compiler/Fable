@@ -221,6 +221,13 @@ export class Long {
     eq = this.equals;
 
     /**
+     * Tests if this Long's value equals the specified's. This is an alias of {@link Long#equals}.
+     * @param {!Long|number|string} other Other value
+     * @returns {boolean}
+     */
+    Equals = this.equals;
+
+    /**
      * Tests if this Long's value differs from the specified's.
      * @param {!Long|number|string} other Other value
      * @returns {boolean}
