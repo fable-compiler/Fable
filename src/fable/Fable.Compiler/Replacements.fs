@@ -264,6 +264,22 @@ module Util =
             |> function None -> None | Some m -> Some(ent, m)
         let apply op args =
             Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range)
+        let nativeOp = function
+            | "op_Addition" -> Fable.BinaryOp BinaryPlus
+            | "op_Subtraction" -> Fable.BinaryOp BinaryMinus
+            | "op_Multiply" -> Fable.BinaryOp BinaryMultiply
+            | "op_Division" -> Fable.BinaryOp BinaryDivide
+            | "op_Modulus" -> Fable.BinaryOp BinaryModulus
+            | "op_LeftShift" -> Fable.BinaryOp BinaryShiftLeft
+            | "op_RightShift" -> Fable.BinaryOp BinaryShiftRightSignPropagating
+            | "op_BitwiseAnd" -> Fable.BinaryOp BinaryAndBitwise
+            | "op_BitwiseOr" -> Fable.BinaryOp BinaryOrBitwise
+            | "op_ExclusiveOr" -> Fable.BinaryOp BinaryXorBitwise
+            | "op_LogicalNot" -> Fable.UnaryOp UnaryNotBitwise
+            | "op_UnaryNegation" -> Fable.UnaryOp UnaryMinus
+            | "op_BooleanAnd" -> Fable.LogicalOp LogicalAnd
+            | "op_BooleanOr" -> Fable.LogicalOp LogicalOr
+            | _ -> failwithf "Unknown operator: %s" meth
         let argTypes = List.map Fable.Expr.getType args
         match argTypes with
         | Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)::_
@@ -300,25 +316,12 @@ module Util =
         | EntFullName (KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" modName)::_ ->
             CoreLibCall (modName, Some meth, false, args)
             |> makeCall i.range i.returnType
+        | (Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _)::_ ->
+            apply (nativeOp meth) args
         | _ ->
-            let op =
-                match meth with
-                | "op_Addition" -> Fable.BinaryOp BinaryPlus
-                | "op_Subtraction" -> Fable.BinaryOp BinaryMinus
-                | "op_Multiply" -> Fable.BinaryOp BinaryMultiply
-                | "op_Division" -> Fable.BinaryOp BinaryDivide
-                | "op_Modulus" -> Fable.BinaryOp BinaryModulus
-                | "op_LeftShift" -> Fable.BinaryOp BinaryShiftLeft
-                | "op_RightShift" -> Fable.BinaryOp BinaryShiftRightSignPropagating
-                | "op_BitwiseAnd" -> Fable.BinaryOp BinaryAndBitwise
-                | "op_BitwiseOr" -> Fable.BinaryOp BinaryOrBitwise
-                | "op_ExclusiveOr" -> Fable.BinaryOp BinaryXorBitwise
-                | "op_LogicalNot" -> Fable.UnaryOp UnaryNotBitwise
-                | "op_UnaryNegation" -> Fable.UnaryOp UnaryMinus
-                | "op_BooleanAnd" -> Fable.LogicalOp LogicalAnd
-                | "op_BooleanOr" -> Fable.LogicalOp LogicalOr
-                | _ -> failwithf "Unknown operator: %s" meth
-            apply op args
+            "The type of the operands is unknown at compile, native JS operator will be applied."
+            |> addWarning com i
+            apply (nativeOp meth) args
 
     let equals equal com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
         let op equal =
@@ -327,13 +330,10 @@ module Util =
         let is equal expr =
             if equal then expr
             else makeUnOp i.range i.returnType [expr] UnaryNot
-        match args.Head.Type with
-        | Fable.Number (LongInteger (Some _)) ->
-            InstanceCall(args.Head, "equals", args.Tail)
+        let icall (args: Fable.Expr list) equal =
+            InstanceCall(args.Head, "Equals", args.Tail)
             |> makeCall i.range i.returnType |> is equal |> Some
-        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.Char | Fable.String
-        | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
-            Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+        match args.Head.Type with
         | EntFullName "System.DateTime" ->
             CoreLibCall ("Date", Some "equals", false, args)
             |> makeCall i.range i.returnType |> is equal |> Some
@@ -343,8 +343,12 @@ module Util =
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpSet" ->
-            InstanceCall(args.Head, "Equals", args.Tail)
-            |> makeCall i.range i.returnType |> is equal |> Some
+            icall args equal
+        | Fable.Number (LongInteger (Some _)) ->
+            icall args equal
+        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.Char | Fable.String
+        | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
+            Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | Fable.Array _ | Fable.Tuple _
         | Fable.MetaType | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
             CoreLibCall("Util", Some "equals", false, args)
@@ -357,19 +361,20 @@ module Util =
             match op with
             | None -> comparison
             | Some op -> makeEqOp r [comparison; makeConst 0] op
-        match args.Head.Type with
-        | Fable.Number (LongInteger (Some _)) ->
-            InstanceCall(args.Head, "compare", args.Tail)
+        let icall (args: Fable.Expr list) op =
+            InstanceCall(args.Head, "CompareTo", args.Tail)
             |> makeCall r (Fable.Number Int32) |> wrapWith op
-        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
-        | Fable.Number _ | Fable.Function _ | Fable.Enum _ when Option.isSome op ->
-            makeEqOp r args op.Value
+        match args.Head.Type with
         | Fable.DeclaredType(ent, _)
             when ent.HasInterface "System.IComparable"
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
-            InstanceCall(args.Head, "CompareTo", args.Tail)
-            |> makeCall r (Fable.Number Int32) |> wrapWith op
+            icall args op
+        | Fable.Number (LongInteger (Some _)) ->
+            icall args op
+        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
+        | Fable.Number _ | Fable.Function _ | Fable.Enum _ when Option.isSome op ->
+            makeEqOp r args op.Value
         | _ ->
             CoreLibCall("Util", Some "compare", false, args)
             |> makeCall r (Fable.Number Int32) |> wrapWith op

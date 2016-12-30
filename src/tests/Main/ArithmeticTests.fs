@@ -261,3 +261,26 @@ let ``System.Random works``() =
     let rnd = System.Random()
     let x = rnd.Next(5)
     Assert.AreEqual(true, x >= 0 && x < 5)
+
+let equals (x:'a) (y:'a) = x = y
+let compareTo (x:'a) (y:'a) = compare x y
+
+[<Test>]
+let ``Long integers equality works``() =
+    let x = 5L
+    let y = 5L
+    let z = 6L
+    Assert.AreEqual(true, (x = y))
+    Assert.AreEqual(false, (y = z))
+    Assert.AreEqual(true, equals y x)
+    Assert.AreEqual(false, equals z x)
+
+[<Test>]
+let ``Long integers comparison works``() =
+    let x = 5L
+    let y = 5L
+    let z = 6L
+    Assert.AreEqual(0, compare x y)
+    Assert.AreEqual(-1, compare y z)
+    Assert.AreEqual(0, compareTo y x)
+    Assert.AreEqual(1, compareTo z x)

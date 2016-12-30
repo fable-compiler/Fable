@@ -37,7 +37,7 @@ export class Long {
      * @type {boolean}
      */
     unsigned: boolean;
-    
+
     /**
      * Constructs a 64 bit two's-complement integer, given its low and high 32 bit values as *signed* integers.
      *  See the from* functions below for more convenient ways of constructing Longs.
@@ -147,7 +147,7 @@ export class Long {
     }
 
     /**
-     * Gets the number of bits needed to represent the absolute value of this 
+     * Gets the number of bits needed to represent the absolute value of this
      * @returns {number}
      */
     getNumBitsAbs(): number {
@@ -219,13 +219,6 @@ export class Long {
      * @returns {boolean}
      */
     eq = this.equals;
-
-    /**
-     * Tests if this Long's value equals the specified's. This is an alias of {@link Long#equals}.
-     * @param {!Long|number|string} other Other value
-     * @returns {boolean}
-     */
-    Equals = this.equals;
 
     /**
      * Tests if this Long's value differs from the specified's.
@@ -373,7 +366,7 @@ export class Long {
     abs = this.absolute;
 
     /**
-     * Returns the sum of this and the specified 
+     * Returns the sum of this and the specified
      * @param {!Long|number|string} addend Addend
      * @returns {!Long} Sum
      */
@@ -409,7 +402,7 @@ export class Long {
     }
 
     /**
-     * Returns the difference of this and the specified 
+     * Returns the difference of this and the specified
      * @param {!Long|number|string} subtrahend Subtrahend
      * @returns {!Long} Difference
      */
@@ -427,7 +420,7 @@ export class Long {
     sub = this.subtract;
 
     /**
-     * Returns the product of this and the specified 
+     * Returns the product of this and the specified
      * @param {!Long|number|string} multiplier Multiplier
      * @returns {!Long} Product
      */
@@ -553,7 +546,7 @@ export class Long {
                 return UONE;
             res = UZERO;
         }
-            
+
         // Repeat the following until the remainder is less than other:  find a
         // floating-point that approximates remainder / other *from below*, add this
         // into the result, and subtract it from the remainder.  It is critical that
@@ -617,7 +610,7 @@ export class Long {
     mod = this.modulo;
 
     /**
-     * Returns the bitwise NOT of this 
+     * Returns the bitwise NOT of this
      * @returns {!Long}
      */
     not() {
@@ -798,9 +791,13 @@ export class Long {
             (lo >>> 24) & 0xff,
             (lo >>> 16) & 0xff,
             (lo >>>  8) & 0xff,
-            lo          & 0xff        
+            lo          & 0xff
         ];
     }
+
+    // Aliases for compatibility with Fable
+    Equals = this.equals;
+    CompareTo = this.compare;
 }
 
 
@@ -812,7 +809,7 @@ var UINT_CACHE: { [i: number]: Long; } = {};
 
 
 /**
- * Tests if the specified object is a 
+ * Tests if the specified object is a
  * @param {*} obj Object
  * @returns {boolean}
  */
@@ -909,7 +906,7 @@ export function fromString(str: string, unsigned: boolean = false, radix: number
         throw Error('empty string');
     if (str === "NaN" || str === "Infinity" || str === "+Infinity" || str === "-Infinity")
         return ZERO;
-    if (typeof unsigned === 'number') { 
+    if (typeof unsigned === 'number') {
         // For goog.math.long compatibility
         radix = unsigned,
         unsigned = false;
@@ -948,7 +945,7 @@ export function fromString(str: string, unsigned: boolean = false, radix: number
 }
 
 /**
- * Converts the specified value to a 
+ * Converts the specified value to a
  * @param {!Long|number|string|!{low: number, high: number, unsigned: boolean}} val Value
  * @returns {!Long}
  */
@@ -976,12 +973,12 @@ const TWO_PWR_24 = fromInt(TWO_PWR_24_DBL);
 /**
  * Signed zero.
  * @type {!Long}
- */    
+ */
 export const ZERO = fromInt(0);
 /**
  * Unsigned zero.
  * @type {!Long}
- */    
+ */
 export const UZERO = fromInt(0, true);
 /**
  * Signed one.

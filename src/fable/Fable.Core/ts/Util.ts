@@ -177,10 +177,10 @@ export function compare(x: any, y: any): number {
     return 1; // everything is bigger than null
   else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
     return -1;
-  else if (hasInterface(x, "System.IComparable"))
+  // Some types (see Long.ts) may just implement the function and not the interface
+  // else if (hasInterface(x, "System.IComparable"))
+  else if (typeof x.CompareTo === "function")
     return x.CompareTo(y);
-  else if (typeof x.compare === "function")
-    return x.compare(y);
   else if (Array.isArray(x)) {
     if (x.length != y.length) return x.length < y.length ? -1 : 1;
     for (let i = 0, j = 0; i < x.length; i++)
