@@ -808,9 +808,9 @@ module Util =
         let body: U2<Babel.BlockStatement, Babel.Expression> =
             match body with
             | ExprType Fable.Unit
-            | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _ ->
+            | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _ | Fable.Set _ ->
                 transformBlock com ctx None body |> U2.Case1
-            | Fable.Sequential _ | Fable.TryCatch _ ->
+            | Fable.Sequential _ | Fable.TryCatch _ | Fable.Switch _ ->
                 transformBlock com ctx (Some Return) body |> U2.Case1
             | Fable.IfThenElse _ when body.IsJsStatement ->
                 transformBlock com ctx (Some Return) body |> U2.Case1
