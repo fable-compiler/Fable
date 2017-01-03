@@ -152,8 +152,8 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
     let projReferences = projParsed.References |> Seq.map (fun x ->
         let include' = beforeComma x.Include
         if include'.StartsWith "."
-        then include', Path.Combine(projDir, include') |> Some
-        else include', x.HintPath |> Option.map (fun x -> Path.Combine(projDir, x)))
+        then include', Path.Combine(projDir, Path.normalizePath include') |> Some
+        else include', x.HintPath |> Option.map (fun x -> Path.Combine(projDir, Path.normalizePath x)))
 #if DOTNETCORE
     let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
     let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
