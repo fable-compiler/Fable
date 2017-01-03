@@ -48,7 +48,7 @@ module Redux =
 
     let createStore (reducer: 'TState->'TAction->'TState) (initState: 'TState): IStore<'TState, 'TAction> =
         // Check if the action is a lifecycle event dispatched by Redux before applying the reducer
-        let jsReducer = JsFunc2(fun _this state action ->
+        let jsReducer = JsFunc2(fun state action ->
             match !!action?``type``: obj with
             | :?string as s when s.StartsWith "@@" -> state
             | _ -> reducer state action)

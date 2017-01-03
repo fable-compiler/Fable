@@ -137,8 +137,6 @@ module Main =
         member __.removeCompleted() =
             todos <- filters.["active"] todos
 
-    let x = 4 % 5
-
     let extraOpts = %[
         "watch" => %[
             "todos" => %[

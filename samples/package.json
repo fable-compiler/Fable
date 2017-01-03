@@ -1,9 +1,9 @@
 {
   "private": true,
   "dependencies": {
-    "fable-compiler": "^0.7.18",
-    "fable-core": "^0.7.14",
-    "fable-powerpack": "^0.0.18",
+    "fable-compiler": "^0.7.24",
+    "fable-core": "^0.7.17",
+    "fable-powerpack": "^0.0.19",
     "fable-react": "^0.7.4",
     "fable-plugins-nunit": "^0.7.2",
     "fable-import-d3": "^0.0.4",
