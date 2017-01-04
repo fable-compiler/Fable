@@ -127,3 +127,46 @@ let ``Local inline values work``() =
     res.[1] |> snd |> equal (Some 2, None)
     res.[2] |> fst |> equal "c"
     res.[2] |> snd |> equal (None, Some 5.)
+
+open Aether
+open Aether.Operators
+
+let Lens_get (g, _) = fun o -> g o
+let Lens_set (_, s) = fun i o -> s i o
+let Lens_map (g, s) = fun f o -> s (f (g o)) o
+
+let chars : Isomorphism<string, char[]> =
+    (fun x -> x.ToCharArray ()), (fun x -> String (x))
+
+let rev : Isomorphism<char[], char[]> =
+    Array.rev, Array.rev
+
+let inline (=!) x y = Assert.AreEqual(y, x)
+
+[<Test>]
+let ``Lens.get returns correct values`` () =
+    Lens_get fst_ ("Good","Bad") =! "Good"
+
+[<Test>]
+let ``Lens.set sets value correctly`` () =
+    Lens_set fst_ "Good" ("Bad",()) =! ("Good",())
+
+[<Test>]
+let ``Lens.map modifies values correctly`` () =
+    Lens_map fst_ (fun x -> x + x) ("Good",()) =! ("GoodGood",())
+
+[<Test>]
+let ``Ismorphism composition over a lens gets value`` () =
+    Lens_get (fst_ >-> chars) ("Good",()) =! [| 'G'; 'o'; 'o'; 'd' |]
+
+[<Test>]
+let ``Ismorphism composition over a lens sets value`` () =
+    Lens_set (fst_ >-> chars) [| 'G'; 'o'; 'o'; 'd' |] ("Bad",()) =! ("Good",())
+
+[<Test>]
+let ``Ismorphism composition over a lens gets value over multiple isomorphisms`` () =
+    Lens_get (fst_ >-> chars >-> rev) ("dooG",()) =! [| 'G'; 'o'; 'o'; 'd' |]
+
+[<Test>]
+let ``Ismorphism composition over a lens sets value over multiple isomorphisms`` () =
+    Lens_set (fst_ >-> chars >-> rev) [| 'd'; 'o'; 'o'; 'G' |] ("Bad",()) =! ("Good",())

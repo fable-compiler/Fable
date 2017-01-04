@@ -14,6 +14,7 @@
     "../DllRef/Lib.fs"
     "../DllRef/Lib2.fs"
     "../Project With Spaces/Util/Util.fs"
+    "Util/Aether.fs"
     "Util/Util.fs"
     "Util/Util2.fs"
     "../../tests_external/Util3.fs"

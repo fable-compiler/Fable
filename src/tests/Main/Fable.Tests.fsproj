@@ -61,6 +61,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Util/Aether.fs" />
     <Compile Include="Util/Util.fs" />
     <Compile Include="Util/Util2.fs" />
     <Compile Include="../../tests_external/Util3.fs" />

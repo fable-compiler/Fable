@@ -70,7 +70,7 @@ type IFableCompiler =
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
     abstract IsReplaceCandidate: FSharpEntity -> bool
     abstract TryGetInternalFile: FSharpEntity -> string option
-    abstract GetEntity: Context -> FSharpEntity -> Fable.Entity
+    abstract GetEntity: FSharpEntity -> Fable.Entity
     abstract TryGetInlineExpr: FSharpMemberOrFunctionOrValue -> (Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) option
     abstract AddInlineExpr: string -> (Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) -> unit
     abstract AddUsedVarName: string -> unit
@@ -635,10 +635,10 @@ module Types =
             | _ -> isAttributeEntity t.TypeDefinition
         | _ -> false
 
-    let rec getBaseClass (com: IFableCompiler) ctx (tdef: FSharpEntity) =
+    let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
         match tdef.BaseType with
         | Some(TypeDefinition tdef) when tdef.FullName <> "System.Object" ->
-            let typeRef = makeTypeFromDef com ctx tdef [] |> makeNonGenTypeRef
+            let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef
             Some (sanitizeEntityFullName tdef, typeRef)
         | _ -> None
 
@@ -667,23 +667,23 @@ module Types =
             ?overloadIndex = overloadIndex,
             hasRestParams = hasRestParams meth)
 
-    and getArgTypes com ctx (args: IList<IList<FSharpParameter>>) =
+    and getArgTypes com (args: IList<IList<FSharpParameter>>) =
         // FSharpParameters don't contain the `this` arg
         match args |> Seq.map Seq.toList |> Seq.toList with
         | [] -> []
         | [[singleArg]] when isUnit singleArg.Type -> []
         // The F# compiler "untuples" the args in methods
-        | args -> List.concat args |> List.map (fun x -> makeType com ctx x.Type)
+        | args -> List.concat args |> List.map (fun x -> makeType com [] x.Type)
 
-    and makeOriginalCurriedType com ctx (args: IList<IList<FSharpParameter>>) returnType =
+    and makeOriginalCurriedType com (args: IList<IList<FSharpParameter>>) returnType =
         let tys = args |> Seq.map (fun tuple ->
-            let tuple = tuple |> Seq.map (fun t -> makeType com ctx t.Type)
+            let tuple = tuple |> Seq.map (fun t -> makeType com [] t.Type)
             match List.ofSeq tuple with
             | [singleArg] -> singleArg
             | args -> Fable.Tuple(args) )
         Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function([a], b))
 
-    and getMembers com ctx (tdef: FSharpEntity) =
+    and getMembers com (tdef: FSharpEntity) =
         let isAbstract =
             hasAtt Atts.abstractClass tdef.Attributes
         let isDefaultImplementation (x: FSharpMemberOrFunctionOrValue) =
@@ -704,7 +704,7 @@ module Types =
                 && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod)))
             |> Seq.map (fun meth -> sanitizeMethodName meth, getMemberKind meth, getMemberLoc meth, meth)
             |> Seq.toArray
-        let getMembers' ctx loc (tdef: FSharpEntity) =
+        let getMembers' loc (tdef: FSharpEntity) =
             members
             |> Seq.filter (fun (_, _, mloc, _) -> sameMemberLoc loc mloc)
             |> Seq.groupBy (fun (name, kind, _, _) -> name, kind)
@@ -716,35 +716,36 @@ module Types =
                     | Fable.InstanceLoc -> members.Length > 1 || existsInterfaceMember name
                     | Fable.StaticLoc -> members.Length > 1
                 members |> Array.mapi (fun i (_, _, loc, meth) ->
-                    let argTypes = getArgTypes com ctx meth.CurriedParameterGroups
-                    let returnType = makeType com ctx meth.ReturnParameter.Type
-                    let originalTyp = makeOriginalCurriedType com ctx meth.CurriedParameterGroups returnType
+                    let argTypes = getArgTypes com meth.CurriedParameterGroups
+                    let returnType = makeType com [] meth.ReturnParameter.Type
+                    let originalTyp = makeOriginalCurriedType com meth.CurriedParameterGroups returnType
                     let overloadIndex = if isOverloaded then Some i else None
                     makeMethodFrom com name kind loc argTypes returnType originalTyp overloadIndex meth
             ))
             |> Seq.toList
-        let instanceMembers = getMembers' ctx Fable.InstanceLoc tdef
-        let staticMembers = getMembers' ctx Fable.StaticLoc tdef
-        let interfaceMembers = getMembers' ctx (Fable.InterfaceLoc "") tdef
+        let instanceMembers = getMembers' Fable.InstanceLoc tdef
+        let staticMembers = getMembers' Fable.StaticLoc tdef
+        let interfaceMembers = getMembers' (Fable.InterfaceLoc "") tdef
         instanceMembers@interfaceMembers@staticMembers
 
-    and makeEntity (com: IFableCompiler) ctx (tdef: FSharpEntity): Fable.Entity =
+    /// Don't use this method directly, use IFableCompiler.GetEntity instead
+    and makeEntity (com: IFableCompiler) (tdef: FSharpEntity): Fable.Entity =
         let makeFields (tdef: FSharpEntity) =
             tdef.FSharpFields
-            |> Seq.map (fun x -> x.Name, makeType com ctx x.FieldType)
+            |> Seq.map (fun x -> x.Name, makeType com [] x.FieldType)
             |> Seq.toList
         let makeProperties (tdef: FSharpEntity) =
             tdef.MembersFunctionsAndValues
             |> Seq.choose (fun x ->
                 if not x.IsPropertyGetterMethod then None else
-                match makeType com ctx x.FullType with
+                match makeType com [] x.FullType with
                 | Fable.Function(_, returnType) ->
                     Some(x.DisplayName, returnType)
                 | _ -> None)
             |> Seq.toList
         let makeCases (tdef: FSharpEntity) =
             tdef.UnionCases |> Seq.map (fun x ->
-                x.Name, [for fi in x.UnionCaseFields do yield makeType com ctx fi.FieldType])
+                x.Name, [for fi in x.UnionCaseFields do yield makeType com [] fi.FieldType])
             |> Map
         let getKind () =
             if tdef.IsInterface then Fable.Interface
@@ -752,7 +753,7 @@ module Types =
             elif tdef.IsFSharpRecord || tdef.IsValueType then makeFields tdef |> Fable.Record
             elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
             elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
-            else Fable.Class(getBaseClass com ctx tdef, makeProperties tdef)
+            else Fable.Class(getBaseClass com tdef, makeProperties tdef)
         let genParams =
             tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
         let infcs =
@@ -766,10 +767,10 @@ module Types =
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
         Fable.Entity (Lazy<_>(fun () -> getKind()), com.TryGetInternalFile tdef,
-            sanitizeEntityFullName tdef, Lazy<_>(fun () -> getMembers com ctx tdef),
+            sanitizeEntityFullName tdef, Lazy<_>(fun () -> getMembers com tdef),
             genParams, infcs, decs, tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
 
-    and makeTypeFromDef (com: IFableCompiler) ctx (tdef: FSharpEntity)
+    and makeTypeFromDef (com: IFableCompiler) typeArgs (tdef: FSharpEntity)
                         (genArgs: seq<FSharpType>) =
         let fullName = defaultArg tdef.TryFullName tdef.CompiledName
         // Guard: F# abbreviations shouldn't be passed as argument
@@ -777,7 +778,7 @@ module Types =
         then failwith "Abbreviation passed to makeTypeFromDef"
         // Array
         elif tdef.IsArrayType
-        then Fable.Array(Seq.head genArgs |> makeType com ctx)
+        then Fable.Array(Seq.head genArgs |> makeType com typeArgs)
         // Enum
         elif tdef.IsEnum
         then Fable.Enum fullName
@@ -787,24 +788,24 @@ module Types =
             if fullName.StartsWith("System.Action")
             then
                 if Seq.length genArgs = 1
-                then [Seq.head genArgs |> makeType com ctx], Fable.Unit
+                then [Seq.head genArgs |> makeType com typeArgs], Fable.Unit
                 else [], Fable.Unit
                 |> Fable.Function
             elif fullName.StartsWith("System.Func")
             then
                 match Seq.length genArgs with
                 | 0 -> [], Fable.Unit
-                | 1 -> [], Seq.head genArgs |> makeType com ctx
-                | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctx) |> Seq.toList,
-                        Seq.last genArgs |> makeType com ctx
+                | 1 -> [], Seq.head genArgs |> makeType com typeArgs
+                | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com typeArgs) |> Seq.toList,
+                        Seq.last genArgs |> makeType com typeArgs
                 |> Fable.Function
             else
             try
                 let argTypes =
                     tdef.FSharpDelegateSignature.DelegateArguments
-                    |> Seq.map (snd >> makeType com ctx) |> Seq.toList
+                    |> Seq.map (snd >> makeType com typeArgs) |> Seq.toList
                 let retType =
-                    makeType com ctx tdef.FSharpDelegateSignature.DelegateReturnType
+                    makeType com typeArgs tdef.FSharpDelegateSignature.DelegateReturnType
                 Fable.Function(argTypes, retType)
             with _ -> Fable.Function([Fable.Any], Fable.Any)
         // Object
@@ -817,10 +818,10 @@ module Types =
         | "System.String" | "System.Guid" -> Fable.String
         | "Microsoft.FSharp.Core.Unit" -> Fable.Unit
         | "Microsoft.FSharp.Core.FSharpOption`1" ->
-            let t = Seq.tryHead genArgs |> Option.map (makeType com ctx)
+            let t = Seq.tryHead genArgs |> Option.map (makeType com typeArgs)
             Fable.Option(defaultArg t Fable.Any)
         | "System.Collections.Generic.List`1" ->
-            let t = Seq.tryHead genArgs |> Option.map (makeType com ctx)
+            let t = Seq.tryHead genArgs |> Option.map (makeType com typeArgs)
             Fable.Array(defaultArg t Fable.Any)
         | NumberKind kind -> Fable.Number kind
         | _ ->
@@ -837,19 +838,16 @@ module Types =
                 else None)
             |> defaultArg <|
                 // Declared Type
-                Fable.DeclaredType(com.GetEntity ctx tdef,
-                    genArgs |> Seq.map (makeType com ctx) |> Seq.toList)
+                Fable.DeclaredType(com.GetEntity tdef,
+                    genArgs |> Seq.map (makeType com typeArgs) |> Seq.toList)
 
-    and makeType (com: IFableCompiler) (ctx: Context) (NonAbbreviatedType t) =
+    and makeType (com: IFableCompiler) typeArgs (NonAbbreviatedType t) =
         let makeGenArgs (genArgs: #seq<FSharpType>) =
-            Seq.map (makeType com ctx) genArgs |> Seq.toList
+            Seq.map (makeType com typeArgs) genArgs |> Seq.toList
         let resolveGenParam (genParam: FSharpGenericParameter) =
-            ctx.typeArgs
-            |> List.tryFind (fun (name,_) -> name = genParam.Name)
-            |> function
-            | Some (_,typ) ->
-                // Clear typeArgs to prevent infinite recursion
-                makeType com {ctx with typeArgs=[]} typ
+            match typeArgs |> List.tryFind (fun (name,_) -> name = genParam.Name) with
+            // Clear typeArgs to prevent infinite recursion
+            | Some (_,typ) -> makeType com [] typ
             | None -> Fable.GenericParam genParam.Name
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
@@ -860,15 +858,15 @@ module Types =
         // Funtion
         elif t.IsFunctionType
         then
-            let argType = makeType com ctx t.GenericArguments.[0]
-            let returnType = makeType com ctx t.GenericArguments.[1]
+            let argType = makeType com typeArgs t.GenericArguments.[0]
+            let returnType = makeType com typeArgs t.GenericArguments.[1]
             Fable.Function([argType], returnType)
         elif t.HasTypeDefinition
-        then makeTypeFromDef com ctx t.TypeDefinition t.GenericArguments
+        then makeTypeFromDef com typeArgs t.TypeDefinition t.GenericArguments
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
-    let inline (|FableEntity|) com ctx e = makeEntity com ctx e
-    let inline (|FableType|) com ctx t = makeType com ctx t
+    let inline (|FableEntity|) (com: IFableCompiler) e = com.GetEntity e
+    let inline (|FableType|) com (ctx: Context) t = makeType com ctx.typeArgs t
 
 module Identifiers =
     open Helpers
@@ -892,7 +890,7 @@ module Identifiers =
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
-        bindIdent com ctx (makeType com ctx fsRef.FullType) (Some fsRef) fsRef.CompiledName
+        bindIdent com ctx (makeType com ctx.typeArgs fsRef.FullType) (Some fsRef) fsRef.CompiledName
 
     let (|BindIdent|) = bindIdentFrom
 
@@ -1011,13 +1009,13 @@ module Util =
             args = args
             returnType = typ
             decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
-            calleeTypeArgs = typArgs |> List.map (makeType com ctx)
-            methodTypeArgs = methTypArgs |> List.map (makeType com ctx)
+            calleeTypeArgs = typArgs |> List.map (makeType com ctx.typeArgs)
+            methodTypeArgs = methTypArgs |> List.map (makeType com ctx.typeArgs)
             genericAvailability = ctx.genericAvailability
             lambdaArgArity = lambdaArgArity
         }
 
-    let buildApplyInfoFrom com ctx r typ
+    let buildApplyInfoFrom com (ctx: Context) r typ
             (typArgs, methTypArgs)
             (callee, args)
             (owner: FSharpEntity option)
@@ -1030,7 +1028,7 @@ module Util =
             else 0
         let ownerType, ownerFullName =
             match owner with
-            | Some ent -> makeTypeFromDef com ctx ent [], sanitizeEntityFullName ent
+            | Some ent -> makeTypeFromDef com ctx.typeArgs ent [], sanitizeEntityFullName ent
             | None -> Fable.Any, "System.Object"
         buildApplyInfo com ctx r typ ownerType ownerFullName (sanitizeMethodName meth) (getMemberKind meth)
             (meth.Attributes, typArgs, methTypArgs, lambdaArgArity) (callee, args)
@@ -1115,7 +1113,7 @@ module Util =
             Naming.genericPlaceholderRegex.Replace(macro, fun m ->
                 match genArgs.TryFind m.Groups.[1].Value with
                 | Some t ->
-                    makeType com ctx t |> makeTypeRef genInfo |> addExtraArg
+                    makeType com ctx.typeArgs t |> makeTypeRef genInfo |> addExtraArg
                 | None ->
                     sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
                         m.Groups.[1].Value macro
@@ -1228,13 +1226,13 @@ module Util =
             genName, makeTypeRef genInfo typ)
         |> makeJsObject None
 
-    let (|ExtensionMember|_|) com ctx r typ (callee, args, argTypes) owner (meth: FSharpMemberOrFunctionOrValue) =
+    let (|ExtensionMember|_|) com (ctx: Context) r typ (callee, args, argTypes) owner (meth: FSharpMemberOrFunctionOrValue) =
         match meth.IsExtensionMember, callee, owner with
         | true, Some callee, Some ent ->
-            let typRef = makeTypeFromDef com ctx ent [] |> makeNonGenTypeRef
+            let typRef = makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef
             let methName =
                 let methName = sanitizeMethodName meth
-                let ent = makeEntity com ctx ent
+                let ent = com.GetEntity ent
                 let loc = if meth.IsInstanceMember then Fable.InstanceLoc else Fable.StaticLoc
                 match ent.TryGetMember(methName, getMemberKind meth, loc, argTypes) with
                 | Some m -> m.OverloadName | None -> methName
@@ -1247,7 +1245,7 @@ module Util =
                      (meth: FSharpMemberOrFunctionOrValue)
                      (typArgs, methTypArgs) callee args =
         validateGenArgs ctx r meth.GenericParameters methTypArgs
-        let argTypes = getArgTypes com ctx meth.CurriedParameterGroups
+        let argTypes = getArgTypes com meth.CurriedParameterGroups
         let args =
             if hasRestParams meth then
                 let args = List.rev args
@@ -1286,7 +1284,7 @@ module Util =
                 match callee, owner with
                 | Some callee, _ -> callee
                 | None, Some ent ->
-                    makeTypeFromDef com ctx ent [] |> makeNonGenTypeRef
+                    makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the method belongs to the current enclosing module
                 | _ -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef
@@ -1314,7 +1312,7 @@ module Util =
                 else
                     match owner with
                     | Some ent ->
-                        let ent = makeEntity com ctx ent
+                        let ent = com.GetEntity ent
                         ent.TryGetMember(methName, kind, getMemberLoc meth, argTypes)
                         |> function Some m -> m.OverloadName | None -> methName
                         |> applyMeth
@@ -1362,7 +1360,7 @@ module Util =
         | _ ->
             let typeRef =
                 match owner with
-                | Some ent -> makeTypeFromDef com ctx ent [] |> makeNonGenTypeRef
+                | Some ent -> makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the value belongs to the current enclosing module
                 | None -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef
@@ -1382,7 +1380,7 @@ module Util =
                 when fullName delegateType = "System.Func`1" -> e
             | _ -> fsExpr
         let arity =
-            match makeType com ctx delegateType with
+            match makeType com ctx.typeArgs delegateType with
             | Fable.Function(args,_) -> args.Length
             | _ ->
                 "Cannot calculate arity of delegate, please report."

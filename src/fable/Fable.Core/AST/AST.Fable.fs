@@ -62,8 +62,6 @@ and EntityKind =
 
 and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
            ?genParams, ?interfaces, ?decorators, ?isPublic) =
-    static let metaType =
-        DeclaredType(Entity(lazy Class(None, []), None, "System.Type", lazy []), [])
     let genParams = defaultArg genParams []
     let decorators = defaultArg decorators []
     let interfaces = defaultArg interfaces []
