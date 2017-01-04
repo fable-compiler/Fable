@@ -1157,7 +1157,7 @@ module Util =
                         (meth: FSharpMemberOrFunctionOrValue) =
         meth.Attributes
         |> Seq.choose (makeDecorator com)
-        |> tryImported meth.CompiledName
+        |> tryImported (lazy sanitizeMethodName meth)
         |> function
             | Some expr ->
                 match meth with

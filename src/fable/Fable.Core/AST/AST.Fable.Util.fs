@@ -105,13 +105,13 @@ let makeArray elementType arrExprs =
     ArrayConst(ArrayValues arrExprs, elementType) |> Value
 
 /// Ignores relative imports (e.g. `[<Import("foo","./lib.js")>]`)
-let tryImported name (decs: #seq<Decorator>) =
+let tryImported (name: Lazy<string>) (decs: #seq<Decorator>) =
     decs |> Seq.tryPick (fun x ->
         match x.Name, x.Arguments with
         | "Global", [:? string as name] ->
             makeIdent name |> IdentValue |> Value |> Some
         | "Global", _ ->
-            makeIdent name |> IdentValue |> Value |> Some
+            makeIdent name.Value |> IdentValue |> Value |> Some
         | "Import", [(:? string as memb); (:? string as path)]
             when not(path.StartsWith ".") ->
             Some(Value(ImportRef(memb.Trim(), path.Trim(), CustomImport)))
@@ -177,7 +177,7 @@ let rec makeTypeRef (genInfo: GenericInfo) typ =
         makeNonDeclaredTypeRef (NonDeclInterface ent.FullName)
     | DeclaredType(ent, genArgs) ->
         // Imported types come from JS so they don't need to be made generic
-        match tryImported ent.Name ent.Decorators with
+        match tryImported (lazy ent.Name) ent.Decorators with
         | Some expr -> expr
         | None when not genInfo.makeGeneric || genArgs.IsEmpty -> Value(TypeRef(ent,[]))
         | None ->

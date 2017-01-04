@@ -1,3 +1,8 @@
+### 0.7.25
+
+* Fix #623: JS Global properties
+* Fix #624: Aether compilation
+
 ### 0.7.24
 
 * Fix module generic methods without arguments
