@@ -139,7 +139,7 @@ module JsInterop =
     let importAll<'T> (path: string):'T = jsNative
 
     /// Convert F# unions, records and classes into plain JS objects
-    /// DEPRECATED: Use a Pojo record
+    /// DEPRECATED: Use a Pojo record or union
     let [<Obsolete>] toPlainJsObj (o: 'T): obj = jsNative
 
     /// Serialize F# objects to JSON

@@ -98,8 +98,6 @@ It was actually [David Teasdale](https://github.com/davidtme) who started work o
 
 If you still want to use the old method (e.g. when you don't know the concrete type you will receive), please call the `toJsonWithTypeInfo` and `ofJsonWithTypeInfo` functions. You can then interact with Json.NET using the `TypeNameHandling.All` option, but please remember Json.NET is not adding type info to F# union types so you will need [the following converter](https://github.com/fable-compiler/Fable/blob/master/src/tools/UnionTypeInfoConverter.fsx).
 
-> **Caveat**: The JSON is not validated as there's no Reflection API for Fable yet. Coming soon!
-
 <br />
 
 There are still many new features in Fable 0.7, here I'm only listing the most important points for the migration. Again, please be understanding while the documentation and samples are being updated. The community is already making wonderful with Fable like the [Gamma Project](http://rio2016.thegamma.net/) by Tomas Petricek, [Ionide](http://ionide.io/) by Krzysztof Cieślak, [fable-elmish](https://github.com/fable-compiler/fable-elmish) by Eugene Tolmachev and [fable-arch](http://fable.io/fable-arch/) by Tomas Jansson and Maxime Mangel, as well as Steffen Forkmann and François Nicaise work on React Native and Pixi.js respectively; and I'm sure there will be many other great projects coming with Fable 0.7. There's already work going on to improve editor support and Enrico Sada is bringing a surprise for the new `.fsproj` format, so there are exciting times ahead for Fable. Keep tuned!
