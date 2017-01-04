@@ -522,7 +522,8 @@ module Patterns =
         let isStringOrNumber (NonAbbreviatedType typ) =
             if not typ.HasTypeDefinition then false else
             match typ.TypeDefinition.TryFullName with
-            | Some("System.String") | Some(NumberKind _) -> true
+            | Some("System.String") -> true
+            | Some(NumberKind kind) when kind <> Int64 && kind <> UInt64 -> true
             | _ when typ.TypeDefinition.IsEnum -> true
             | _ -> false
         let rec makeSwitch map matchValue e =
