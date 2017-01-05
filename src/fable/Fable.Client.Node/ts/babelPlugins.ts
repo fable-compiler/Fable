@@ -1,13 +1,17 @@
-var template = require("babel-template");
+import * as traverse from "babel-traverse";
+import * as types from "babel-types";
+
+type UseTemplate = (nodes?: {[placeholder: string]: types.Node}) => types.Node[];
+const template: (code: string)=>UseTemplate = require("babel-template");
 
 // Remove null args at the end of method or constructor calls.
 // This may conflict in some situations when comparing null to undefined, see #231,
 // but if disabled can cause problems with some APIs that use options to represent optional
 // arguments like CanvasRenderingContext2D.fill: ?fillRule: string -> unit (fails if passed null).
-function removeNullTailArgs(path) {
+function removeNullTailArgs<T>(path: traverse.NodePath<types.NewExpression | types.CallExpression>) {
   if (Array.isArray(path.node.arguments)) {
     for (var i = path.node.arguments.length - 1; i >= 0; i--) {
-      if (path.node.arguments[i].type === "NullLiteral")
+      if (types.isNullLiteral(path.node.arguments[i]))
         path.node.arguments.splice(i, 1);
       else
         break;
@@ -21,11 +25,11 @@ function removeNullTailArgs(path) {
  * arguments set to None by F# compiler and may conflict with some JS APIs.
  * This plugin must come after transformMacroExpressions (see #377).
  */
-exports.removeUnneededNulls = {
+export const removeUnneededNulls = {
   visitor: {
     // Remove `null;` statements (e.g. at the end of constructors)
-    ExpressionStatement: function(path) {
-      if (path.node.expression.type == "NullLiteral")
+    ExpressionStatement: function(path: traverse.NodePath<types.ExpressionStatement>) {
+      if (types.isNullLiteral(path.node))
         path.remove();
     },
     CallExpression: removeNullTailArgs,
@@ -37,9 +41,9 @@ exports.removeUnneededNulls = {
  * When Babel compiles class methods to ES5 it keeps the function named
  * even if it's a function expression, this is causing problems with Rollup.
  */
-exports.removeFunctionExpressionNames = {
+export const removeFunctionExpressionNames = {
   visitor: {
-    FunctionExpression: function(path) {
+    FunctionExpression: function(path: traverse.NodePath<types.FunctionExpression>) {
       path.node.id = null;
     }
   }
@@ -48,15 +52,16 @@ exports.removeFunctionExpressionNames = {
 /**
  * Custom plugin to simulate macro expressions.
  */
-exports.transformMacroExpressions = {
+export const transformMacroExpressions = {
   visitor: {
-    StringLiteral: function(path) {
-      if (!path.node.macro || !path.node.value) {
+    StringLiteral: function(path: traverse.NodePath<types.StringLiteral>) {
+      var node = path.node as any;
+      if (!node.macro || !node.value) {
           return;
       }
-      var buildArgs = {}, macro = path.node.value;
+      var buildArgs: any = {}, macro: string = node.value;
       try {
-        var args = path.node.args;
+        var args = node.args;
         for (var i = 0; i < args.length; i++) {
             buildArgs["$" + i] = args[i];
         }
@@ -86,9 +91,6 @@ exports.transformMacroExpressions = {
           console.log("BABEL ERROR: Failed to parse macro: " + macro);
           console.log("MACRO ARGUMENTS: " + Object.getOwnPropertyNames(buildArgs).join());
           console.log(err.message);
-          if (opts.verbose && err.stack) {
-            console.log(err.stack);
-          }
           process.exit(1);
       }
     }
