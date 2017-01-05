@@ -1,9 +1,10 @@
 import * as fs from "fs";
 import * as path from "path";
-import * as babel from 'babel-core';
-import * as child_process from 'child_process';
+import * as child_process from "child_process";
+import * as babel from "babel-core";
+import * as resolve from "resolve";
 import * as constants from "./constants";
-import { FableOptions, BabelAst, ContFunc, Continuation } from "./types";
+import { FableOptions, BabelAst, BabelFile, Continuation } from "./types";
 
 /**
  * Makes a node-style asynchronous function return an promise.
@@ -92,13 +93,13 @@ export function splitByWhitespace(str: string) {
     return results;
 }
 
-function runCommandPrivate(workingDir: string, command: string, resolve?: ContFunc, reject?: ContFunc) {
+function runCommandPrivate(workingDir: string, command: string, continuation?: Continuation) {
     var cmd, args;
     process.stdout.write(workingDir + "> " + command + "\n");
     // If there's no continuation, it means the process will run in parallel (postbuild-once).
     // If we use `cmd /C` on Windows we won't be able to kill the cmd child process later.
     // See http://stackoverflow.com/a/32814686 (unfortutanely the solutions didn't seem to apply here)
-    if (process.platform === "win32" && resolve) {
+    if (process.platform === "win32" && continuation) {
         cmd = "cmd";
         args = splitByWhitespace(command);
         args.splice(0,0,"/C");
@@ -110,10 +111,9 @@ function runCommandPrivate(workingDir: string, command: string, resolve?: ContFu
     }
     var proc = child_process.spawn(cmd, args, { cwd: workingDir });
     proc.on('exit', function(code: number) {
-        if (code === 0 && typeof resolve === "function")
-            resolve(code);
-        else if (code !== 0 && typeof reject === "function")
-            reject(code);
+        if (continuation) {
+            code === 0 ? continuation.resolve(code) : continuation.reject(code);
+        }
     });
     proc.stderr.on('data', function(data) {
         stderrLog(data.toString());
@@ -127,7 +127,7 @@ function runCommandPrivate(workingDir: string, command: string, resolve?: ContFu
 /** Runs a command and returns a Promise, requires child_process */
 export function runCommand(workingDir: string, command: string) {
     return new Promise(function (resolve, reject) {
-        runCommandPrivate(workingDir, command, resolve, reject)
+        runCommandPrivate(workingDir, command, { resolve, reject })
     });
 }
 
@@ -155,7 +155,6 @@ export function resolvePlugins(plugins: any, basedir: string, prefix: string) {
         plugins = [plugins];
     }
 
-    var resolve = require("resolve");
     return plugins.map(function (plugin: any) {
         var config = {};
         if (Array.isArray(plugin)) {
@@ -226,7 +225,7 @@ export function getCommonBaseDir(filePaths: string[]) {
 /**
  * Converts a Babel AST to JS code.
  */
-export function babelify(babelAst: BabelAst, opts: FableOptions) {
+export function babelify(babelAst: BabelAst, opts: FableOptions): BabelFile[] {
     var outDir = pathJoin(opts.workingDir, opts.outDir);
 
     var babelOpts: babel.TransformOptions = {
@@ -241,8 +240,7 @@ export function babelify(babelAst: BabelAst, opts: FableOptions) {
     // The F# code is only necessary when generating source maps
     if (opts.sourceMaps && babelAst.originalFileName) {
         try {
-            var fs = require("fs");
-            fsCode = fs.readFileSync(babelAst.originalFileName);
+            fsCode = fs.readFileSync(babelAst.originalFileName).toString();
             babelOpts.sourceMaps = opts.sourceMaps,
             babelOpts.sourceMapTarget = path.basename(babelAst.fileName),
             babelOpts.sourceFileName = path.relative(path.dirname(babelAst.fileName),
@@ -281,9 +279,8 @@ export function babelify(babelAst: BabelAst, opts: FableOptions) {
     return res;
 }
 
-/** Create directory if it doesn't exist, requires 'fs' module */
+/** Create directory if it doesn't exist */
 export function ensureDirExists(dir: string, cont?: ()=>void) {
-    var fs = require("fs");
     if (fs.existsSync(dir)) {
         if (typeof cont === "function") { cont(); }
     }
@@ -296,7 +293,6 @@ export function ensureDirExists(dir: string, cont?: ()=>void) {
 }
 
 export function writeFile(fileName: string, code: string, map: any) {
-    var fs = require("fs");
     ensureDirExists(path.dirname(fileName));
     fs.writeFileSync(fileName, code);
     if (map) {

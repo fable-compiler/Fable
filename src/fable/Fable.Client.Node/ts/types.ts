@@ -1,11 +1,15 @@
-import * as types from "babel-types";
-import * as constants from "./constants";
+import * as babelTypes from "babel-types";
+import * as babelCore from "babel-core";
 
-export type ContFunc = (data:any)=>void;
+export type BuildResult = "SUCCESS" | "FAIL" | "NEEDS_FULL_REBUILD";
+
+export type WatchStatus = "WATCHING" | "BUILDING";
+
+export type Dic<T> = { [k: string]: T }
 
 export interface Continuation {
-    reject: ContFunc,
-    resolve: ContFunc
+    reject: Function,
+    resolve: Function
 }
 
 export interface Scripts {
@@ -17,7 +21,7 @@ export interface Scripts {
 export interface FableOptions {
     projFile: string[],
     watch: boolean | string | string[],
-    watching?: keyof constants.STATUS,
+    watching?: WatchStatus,
     ecma: string,
     module: string,
     rollup: boolean | string | any,
@@ -33,7 +37,9 @@ export interface FableOptions {
     targets: {[k:string]: FableOptions},
     extra?: any,
     loose?: boolean,
-    declaration?: boolean
+    declaration?: boolean,
+    verbose?: boolean,
+    inMemory?: boolean
 }
 
 export interface JsInclude {
@@ -41,12 +47,19 @@ export interface JsInclude {
     sourcePath: string
 }
 
-export interface BabelAst extends types.Node {
+export interface BabelAst extends babelTypes.Node {
     isEntry: boolean,
     fileName: string,
     originalFileName: string,
     jsIncludes?: JsInclude[]
 }
+
+export interface BabelFile {
+    isEntry: boolean,
+    fileName: string,
+    code: string,
+    map: Object
+};
 
 export interface Foo {
     isEntry: boolean,

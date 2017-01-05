@@ -194,7 +194,10 @@ Target "Clean" (fun _ ->
 )
 
 let buildFableCompilerJs buildDir isNetcore =
-    FileUtils.cp_r "src/fable/Fable.Client.Node/js" buildDir
+    // Compile TypeScript
+    Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project src/fable/Fable.Client.Node/ts"]
+
+    FileUtils.cp "src/fable/Fable.Client.Node/ts/package.json" buildDir
     FileUtils.cp "README.md" buildDir
     Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
     Npm.install buildDir []

@@ -32,7 +32,3 @@ export const JS_MODULES = {
     es6: "es",
     iife: "iife" // Accepted by Rollup
 };
-
-export type RESULT = "SUCCESS" | "FAIL" | "NEEDS_FULL_REBUILD";
-
-export type STATUS = "WATCHING" | "BUILDING";
