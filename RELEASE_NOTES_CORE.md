@@ -1,3 +1,7 @@
+### 0.7.18
+
+* Allow inflation of lists serialized with `JSON.stringify`
+
 ### 0.7.17
 
 * See fable-compiler 0.7.24 release notes
