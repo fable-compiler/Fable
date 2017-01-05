@@ -676,11 +676,13 @@ let ``Lists serialized with Json.NET can be deserialized``() =
 type Entry = {
       description : string
       id : int
-}
+} with member __.Value = "Foo"
+
 type ListContainer = {
       entries : Entry list
 }
 
+#if FABLE_COMPILER
 [<Test>]
 let ``Lists serialized with stringify can be inflated``() =
     let json = """{
@@ -698,18 +700,16 @@ let ``Lists serialized with stringify can be inflated``() =
                   }
             }
       }"""
-    #if FABLE_COMPILER
-    let x2 : ListContainer = 
+    let x2 : ListContainer =
              Fable.Import.JS.JSON.parse json
              |> Fable.Core.JsInterop.inflate
-    #else
-    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<ListContainer> json
-    #endif
     match x2 with
     | {entries = [{ id=0; description="abc" }
-                  { id=1; description="def" }]} -> true
+                  { id=1; description="def" }]} ->
+      x2.entries.Head.Value = "Foo"
     | _ -> false
     |> equal true
+#endif
 
 type List(x: int) =
     member val Value = x

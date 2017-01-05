@@ -76,50 +76,66 @@ function invalidate(val: any, typ: any, path: string) {
   throw new Error(`${fsFormat("%A",val)} ${path ? "("+path+")" : ""} is not of type ${getTypeFullName(typ)}`) ;
 }
 
+function needsInflate(enclosing: List<any>): boolean {
+  const typ = enclosing.head;
+  if (typeof typ === "string") {
+    return false;
+  }
+  if (typ instanceof NonDeclaredType) {
+    switch (typ.kind) {
+      case "Option":
+      case "Array":
+        return needsInflate(new List(typ.generics, enclosing));
+      case "Tuple":
+        return (typ.generics as FunctionConstructor[]).some((x: any) =>
+          needsInflate(new List(x, enclosing)));
+      case "GenericParam":
+        return needsInflate(resolveGeneric(typ.definition as string, enclosing.tail));
+      case "GenericType":
+        return true;
+      default:
+        return false;
+    }
+  }
+  return true;
+}
+
+function inflateArray(arr: any[], enclosing: List<any>, path: string): any[] {
+  if (!Array.isArray) {
+    invalidate(arr, "array", path);
+  }
+  // TODO: Validate non-inflated elements
+  return needsInflate(enclosing)
+          ? arr.map((x: any, i: number) => inflate(x, enclosing, combine(path, i)))
+          : arr;
+}
+
+function inflateMap(obj: any, keyEnclosing: List<any>, valEnclosing: List<any>, path: string): [any, any][] {
+  const inflateKey = keyEnclosing.head !== "string";
+  const inflateVal = needsInflate(valEnclosing);
+  return Object
+    .getOwnPropertyNames(obj)
+    .map(k => {
+      const key = inflateKey ? inflate(JSON.parse(k), keyEnclosing, combine(path, k)): k;
+      const val = inflateVal ? inflate(obj[k], valEnclosing, combine(path, k)) : obj[k];
+      return [key, val] as [any, any];
+    });
+}
+
+function inflateList(val: any, enclosing: List<any>, path: string) {
+  let ar = [], li = new List(), cur = val, inf = needsInflate(enclosing);
+  while (cur.tail != null) {
+    ar.push(inf ? inflate(cur.head, enclosing, path) : cur.head);
+    cur = cur.tail;
+  }
+  ar.reverse();
+  for (let i=0; i<ar.length; i++) {
+    li = new List(ar[i], li);
+  }
+  return li;
+}
+
 function inflate(val: any, typ: any, path: string): any {
-  function needsInflate(enclosing: List<any>): boolean {
-    const typ = enclosing.head;
-    if (typeof typ === "string") {
-      return false;
-    }
-    if (typ instanceof NonDeclaredType) {
-      switch (typ.kind) {
-        case "Option":
-        case "Array":
-          return needsInflate(new List(typ.generics, enclosing));
-        case "Tuple":
-          return (typ.generics as FunctionConstructor[]).some((x: any) =>
-            needsInflate(new List(x, enclosing)));
-        case "GenericParam":
-          return needsInflate(resolveGeneric(typ.definition as string, enclosing.tail));
-        case "GenericType":
-          return true;
-        default:
-          return false;
-      }
-    }
-    return true;
-  }
-  function inflateArray(arr: any[], enclosing: List<any>, path: string): any[] {
-    if (!Array.isArray) {
-      invalidate(arr, "array", path);
-    }
-    // TODO: Validate non-inflated elements
-    return needsInflate(enclosing)
-            ? arr.map((x: any, i: number) => inflate(x, enclosing, combine(path, i)))
-            : arr;
-  }
-  function inflateMap(obj: any, keyEnclosing: List<any>, valEnclosing: List<any>, path: string): [any, any][] {
-    const inflateKey = keyEnclosing.head !== "string";
-    const inflateVal = needsInflate(valEnclosing);
-    return Object
-      .getOwnPropertyNames(obj)
-      .map(k => {
-        const key = inflateKey ? inflate(JSON.parse(k), keyEnclosing, combine(path, k)): k;
-        const val = inflateVal ? inflate(obj[k], valEnclosing, combine(path, k)) : obj[k];
-        return [key, val] as [any, any];
-      });
-  }
   let enclosing: List<any> = null;
   if (typ instanceof List) {
     enclosing = typ;
@@ -156,8 +172,11 @@ function inflate(val: any, typ: any, path: string): any {
       case "GenericType":
         const def = typ.definition as Function;
         if (def === List) {
-          return listOfArray(inflateArray(val, resolveGeneric(0, enclosing), path));
+          return Array.isArray(val)
+            ? listOfArray(inflateArray(val, resolveGeneric(0, enclosing), path))
+            : inflateList(val, resolveGeneric(0, enclosing), path);
         }
+        // TODO: Should we try to inflate also sets and maps serialized with `JSON.stringify`?
         if (def === FSet) {
           return setCreate(inflateArray(val, resolveGeneric(0, enclosing), path));
         }
@@ -182,26 +201,34 @@ function inflate(val: any, typ: any, path: string): any {
     const info = typeof typ.prototype[FSymbol.reflection] === "function" ? typ.prototype[FSymbol.reflection]() : {};
     // Union types
     if (info.cases) {
-      let u: any = { Fields: [] };
+      let uCase: string, uFields = [];
+      // Cases withouth fields are serialized as strings by `toJson`
       if (typeof val === "string") {
-        u.Case = val;
+        uCase = val;
       }
+      // Same shape as runtime DUs, for example, if they've been serialized with `JSON.stringify`
+      else if (typeof val.Case === "string" && Array.isArray(val.Fields)) {
+        uCase = val.Case;
+        uFields = val.Fields;
+      }
+      // Non-empty cases are serialized as `{ "MyCase": [1, 2] }` by `toJson`
       else {
         const caseName = Object.getOwnPropertyNames(val)[0];
         const fieldTypes: any[] = info.cases[caseName];
         if (Array.isArray(fieldTypes)) {
           const fields = fieldTypes.length > 1 ? val[caseName] : [val[caseName]];
-          u.Case = caseName;
+          uCase = caseName;
           path = combine(path, caseName);
           for (let i = 0; i < fieldTypes.length; i++) {
-            u.Fields.push(inflate(fields[i], new List(fieldTypes[i], enclosing), combine(path, i)));
+            uFields.push(inflate(fields[i], new List(fieldTypes[i], enclosing), combine(path, i)));
           }
         }
       }
-      if (u.Case in info.cases === false) {
+      // Validate
+      if (uCase in info.cases === false) {
         invalidate(val, typ, path);
       }
-      return Object.assign(new typ(), u);
+      return new typ(uCase, uFields);
     }
     if (info.properties) {
       let temp: any = {};
