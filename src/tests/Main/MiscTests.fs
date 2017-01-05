@@ -635,6 +635,13 @@ let ``Pattern matching optimization works (switch statement)``() =
     | _ -> x <- "?"
     equal "Hi there!" x
 
+    // Pattern matching with Int64/UInt64 is not converted to switch
+    match 2L with
+    | 1L -> x <- "1L"
+    | 2L -> x <- "2L"
+    | _ -> x <- "?"
+    equal "2L" x
+
     // Pattern matching with boolean is not converted to switch
     match false with
     | true -> x <- "True"
