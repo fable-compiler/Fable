@@ -195,6 +195,7 @@ Target "Clean" (fun _ ->
 
 let buildFableCompilerJs buildDir isNetcore =
     // Compile TypeScript
+    Npm.install __SOURCE_DIRECTORY__ []
     let fableClientNodeTsDir = "src/fable/Fable.Client.Node/ts"
     Npm.install fableClientNodeTsDir []
     Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project " + fableClientNodeTsDir]

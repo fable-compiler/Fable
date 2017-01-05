@@ -1,6 +1,3 @@
-import * as babelTypes from "babel-types";
-import * as babelCore from "babel-core";
-
 export type BuildResult = "SUCCESS" | "FAIL" | "NEEDS_FULL_REBUILD";
 
 export type WatchStatus = "WATCHING" | "BUILDING";
@@ -47,7 +44,7 @@ export interface JsInclude {
     sourcePath: string
 }
 
-export interface BabelAst extends babelTypes.Node {
+export interface BabelAst {
     isEntry: boolean,
     fileName: string,
     originalFileName: string,

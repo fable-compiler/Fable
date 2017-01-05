@@ -251,7 +251,7 @@ export function babelify(babelAst: BabelAst, opts: FableOptions): BabelFile[] {
         }
     }
 
-    var parsed = babel.transformFromAst(babelAst, fsCode, babelOpts);
+    var parsed = babel.transformFromAst(babelAst as any, fsCode, babelOpts);
     var res = [{
         isEntry: babelAst.isEntry,
         fileName: babelAst.fileName,
