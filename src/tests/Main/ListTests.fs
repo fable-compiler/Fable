@@ -673,6 +673,44 @@ let ``Lists serialized with Json.NET can be deserialized``() =
     | _ -> false
     |> equal true
 
+type Entry = {
+      description : string
+      id : int
+}
+type ListContainer = {
+      entries : Entry list
+}
+
+[<Test>]
+let ``Lists serialized with stringify can be inflated``() =
+    let json = """{
+            "entries": {
+                  "head": {
+                        "description": "abc",
+                        "id": 0
+                  },
+                  "tail": {
+                        "head": {
+                              "description": "def",
+                              "id": 1
+                        },
+                        "tail": {}
+                  }
+            }
+      }"""
+    #if FABLE_COMPILER
+    let x2 : ListContainer = 
+             Fable.Import.JS.JSON.parse json
+             |> Fable.Core.JsInterop.inflate
+    #else
+    let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<ListContainer> json
+    #endif
+    match x2 with
+    | {entries = [{ id=0; description="abc" }
+                  { id=1; description="def" }]} -> true
+    | _ -> false
+    |> equal true
+
 type List(x: int) =
     member val Value = x
 
