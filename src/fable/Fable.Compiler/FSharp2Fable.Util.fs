@@ -1368,6 +1368,7 @@ module Util =
             Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
 
     let makeDelegateFrom (com: IFableCompiler) ctx delegateType fsExpr =
+        let ctx = { ctx with isDelegate = true}
         let fsExpr =
             let fullName t =
                 tryDefinition t
@@ -1409,7 +1410,6 @@ module Util =
         match fsExpr with
         | CurriedLambda(args, body) when(getArgsLength args) = arity ->
             let ctx, args = makeLambdaArgs com ctx args
-            let ctx = { ctx with isDelegate = true}
             let body = com.Transform ctx body
             Fable.Lambda(args, body, not containsJsThis) |> Fable.Value
         | Transform com ctx expr ->
