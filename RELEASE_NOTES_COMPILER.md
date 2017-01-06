@@ -1,3 +1,10 @@
+### 0.7.26
+
+* Fixed Option.foldBack (#634)
+* Improve .NET Enumerator/JS Iterator compatibility
+* Fix #633: jsThis
+* Fixed Option.foldBack (PR #634)
+
 ### 0.7.25
 
 * Fix #623: JS Global properties
