@@ -1,4 +1,7 @@
 {
+    "include": [
+        "*.ts"
+    ],
     "compilerOptions": {
         "target": "es5",
         "lib": ["es2015"],
@@ -7,11 +10,10 @@
         "noFallthroughCasesInSwitch": true,
         "noImplicitAny": false,
         "noImplicitReturns": true,
-        "noImplicitThis": true,
+        "noImplicitThis": true
         //"noUnusedLocals": true,
         //"noUnusedParameters": true,
         //"strictNullChecks": true,
         // "declaration": true,
-        "outDir": "../../../../build/fable"
     }
 }

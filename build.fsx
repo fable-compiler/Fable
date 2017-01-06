@@ -195,15 +195,16 @@ Target "Clean" (fun _ ->
 
 let buildFableCompilerJs buildDir isNetcore =
     // Compile TypeScript
-    Npm.install __SOURCE_DIRECTORY__ []
-    let fableClientNodeTsDir = "src/fable/Fable.Client.Node/ts"
-    Npm.install fableClientNodeTsDir []
-    Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project " + fableClientNodeTsDir]
+    !! "src/fable/Fable.Client.Node/ts/*.*"
+    |> Seq.iter (fun file -> FileUtils.cp file buildDir)
 
-    FileUtils.cp (fableClientNodeTsDir + "/package.json") buildDir
-    FileUtils.cp "README.md" buildDir
-    Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
     Npm.install buildDir []
+    Npm.install __SOURCE_DIRECTORY__ []
+    Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project " + buildDir]
+
+    FileUtils.cp "README.md" buildDir
+    !! (buildDir + "/*.ts")  |> Seq.iter FileUtils.rm
+    Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
 
     // Update constants.js
     let pkgVersion =
