@@ -318,6 +318,18 @@ let ``Option.filter works``() = // See #390
     Some "A" |> Option.filter (fun _ -> false) |> optionToString |> equal "None"
     Some "A" |> Option.filter (fun _ -> true) |> optionToString |> equal "Some A"
 
+[<Test>]
+let ``Option.fold works``() =
+    (5, None) ||> Option.fold (*) |> equal 5
+    (5, Some 7) ||> Option.fold (*) |> equal 35
+
+[<Test>]
+let ``Option.foldBack works``() =
+    let a = (None, 1)
+    let b = (Some 2, 3)
+    (None, 5) ||> Option.foldBack (*) |> equal 5
+    (Some 7, 5) ||> Option.foldBack (*) |> equal 35
+
 type OptTest = OptTest of int option
 
 [<Test>]

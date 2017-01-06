@@ -1016,6 +1016,11 @@ module private AstPass =
                 Fable.IfThenElse(cond, e, Fable.Value Fable.Null, i.range))
             |> Some
         | "toArray" -> toArray i.range i.args.Head |> Some
+        | "foldBack" ->
+            let opt = wrapInLet (fun e -> toArray i.range e) i.args.Tail.Head
+            let args = i.args.Head::opt::i.args.Tail.Tail
+            CoreLibCall("Seq", Some "foldBack", false, deleg com i args)
+            |> makeCall i.range i.returnType |> Some
         | meth ->
             let args =
                 let args = List.rev i.args
