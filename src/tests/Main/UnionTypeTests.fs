@@ -325,10 +325,18 @@ let ``Option.fold works``() =
 
 [<Test>]
 let ``Option.foldBack works``() =
-    let a = (None, 1)
-    let b = (Some 2, 3)
     (None, 5) ||> Option.foldBack (*) |> equal 5
     (Some 7, 5) ||> Option.foldBack (*) |> equal 35
+
+[<Test>]
+let ``Option.toArray works``() =
+    None |> Option.toArray |> equal [||]
+    Some (Leaf 7) |> Option.toArray |> equal [|Leaf 7|]
+
+[<Test>]
+let ``Option.toList works``() =
+    None |> Option.toList |> equal []
+    Some (Leaf 7) |> Option.toList |> equal [Leaf 7]
 
 type OptTest = OptTest of int option
 
