@@ -1,8 +1,40 @@
 import { IDisposable } from "./Util"
 import { equals } from "./Util"
-import { compare } from "./Util"
+import { compare, hasInterface } from "./Util"
 import { permute as arrayPermute } from "./Array"
 import List from "./ListClass"
+
+export class Enumerator<T> {
+  private current: T;
+  constructor(private iter: Iterator<T>) { }
+  MoveNext() {
+    const cur = this.iter.next();
+    this.current = cur.value;
+    return !cur.done;
+  }
+  get Current() {
+    return this.current;
+  }
+  Reset() {
+    throw new Error("JS iterators cannot be reset");
+  }
+  Dispose() { }
+}
+
+export function getEnumerator<T>(o: any): Enumerator<T> {
+  return hasInterface(o, "System.Collections.Generic.IEnumerable")
+    ? o.GetEnumerator() : new Enumerator(o[Symbol.iterator]());
+}
+
+export function toIterator<T>(en: Enumerator<T>): Iterator<T> {
+  return {
+    next() {
+      return en.MoveNext()
+        ? { done: false, value: en.Current }
+        : { done: true, value: null }
+    }
+  }
+}
 
 function __failIfNone<T>(res: T) {
   if (res == null)

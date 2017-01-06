@@ -83,3 +83,11 @@ export function unzip3<T1, T2, T3>(xs: ArrayLike<[T1, T2, T3]>) {
   }
   return [bs, cs, ds];
 }
+
+export function getSubArray<T>(xs: Array<T>, startIndex: number, count: number) {
+  return xs.slice(startIndex, startIndex + count);
+}
+
+export function fill<T>(target: Array<T>, targetIndex: number, count: number, value: T) {
+  target.fill(value, targetIndex, targetIndex + count)
+}

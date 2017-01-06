@@ -38,7 +38,7 @@ type IBabelCompiler =
     abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
         Fable.Declaration list -> Babel.ClassExpression
     abstract TransformObjectExpr: Context -> Fable.ObjExprMember list ->
-        string list -> Fable.Expr option -> SourceLocation option -> Babel.Expression
+        Fable.Expr option -> SourceLocation option -> Babel.Expression
 
 and IDeclarePlugin =
     inherit IPlugin
@@ -143,7 +143,7 @@ module Util =
                 genArgs |> List.map (fun (name, expr) ->
                     let m = Fable.Member(name, Fable.Field, Fable.InstanceLoc, [], Fable.Any)
                     m, [], expr)
-                |> fun ms -> com.TransformObjectExpr ctx ms [] None None
+                |> fun ms -> com.TransformObjectExpr ctx ms None None
                 |> fun genArgs ->
                     upcast Babel.CallExpression(
                         getCoreLibImport com ctx "Util" "makeGeneric",
@@ -339,76 +339,6 @@ module Util =
             | U2.Case2 e -> Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
         args, body, returnType, typeParams
 
-    let makeIterator =
-        let noargs = []
-        let name = Babel.MemberExpression(
-                        Babel.Identifier("Symbol"),
-                        Babel.Identifier("iterator"),
-                        computed=false) :> Babel.Expression
-        let body =
-            Babel.BlockStatement(
-              [ Babel.VariableDeclaration(
-                    Babel.Identifier("en"),
-                    Babel.CallExpression(
-                        Babel.MemberExpression(
-                            Babel.ThisExpression(),
-                            Babel.Identifier("GetEnumerator")),
-                        noargs) :> Babel.Expression,
-                    Babel.Let)
-                Babel.IfStatement(
-                    Babel.MemberExpression(
-                        Babel.Identifier("en"),
-                        Babel.Identifier("next")),
-                    Babel.ReturnStatement(
-                        Babel.Identifier("en")))
-                Babel.ReturnStatement(
-                    Babel.ObjectExpression(
-                      [ Babel.ObjectProperty(
-                            Babel.Identifier("next"),
-                            Babel.ArrowFunctionExpression(
-                                noargs,
-                                Babel.BlockStatement(
-                                  [ Babel.ReturnStatement(
-                                        Babel.ObjectExpression(
-                                          [ Babel.ObjectProperty(
-                                                Babel.Identifier("done"),
-                                                Babel.UnaryExpression(
-                                                    UnaryNot,
-                                                    Babel.CallExpression(
-                                                        Babel.MemberExpression(
-                                                            Babel.Identifier("en"),
-                                                            Babel.Identifier("MoveNext")),
-                                                        noargs) :> Babel.Expression
-                                                ) :> Babel.Expression) |> U3.Case1
-                                            Babel.ObjectProperty(
-                                                Babel.Identifier("value"),
-                                                Babel.MemberExpression(
-                                                    Babel.Identifier("en"),
-                                                    Babel.Identifier("Current"))) |> U3.Case1
-                                            ]))
-                                    ]) |> U2.Case1)) |> U3.Case1
-                        ]))
-                ])
-        name, noargs, body
-
-    let isEnumerable interfaces =
-        let hasInterface x = interfaces |> List.contains x
-        hasInterface "System.Collections.Generic.IEnumerable"
-
-    let appendClassIterator interfaces members =
-        if isEnumerable interfaces then
-            let name, args, body = makeIterator
-            let m = Babel.ClassMethod(Babel.ClassFunction, name, args, body, computed=true, ``static``=false)
-            members @ [m |> U2.Case1]
-        else members
-
-    let appendObjectIterator interfaces members =
-        if isEnumerable interfaces then
-            let name, args, body = makeIterator
-            let m = Babel.ObjectMethod(Babel.ObjectMeth, name, args, body, computed=true)
-            members @ [m |> U3.Case2]
-        else members
-
     let transformValue (com: IBabelCompiler) ctx r = function
         | Fable.ImportRef (memb, path, kind) ->
             let memb, parts =
@@ -444,7 +374,7 @@ module Util =
             "Unexpected stand-alone operator detected" |> Fable.Util.attachRange r |> failwith
 
     let transformObjectExpr (com: IBabelCompiler) ctx
-                            (members, interfaces, baseClass, range): Babel.Expression =
+                            (members, baseClass, range): Babel.Expression =
         match baseClass with
         | Some _ as baseClass ->
             members
@@ -455,9 +385,9 @@ module Util =
         | None ->
             members |> List.map (fun (m: Fable.Member, args, body: Fable.Expr) ->
                 let key, computed =
-                    if m.IsSymbol
-                    then getSymbol com ctx m.Name, true
-                    else sanitizeName m.Name
+                    match m.Computed with
+                    | Some e -> com.TransformExpr ctx e, true
+                    | None -> sanitizeName m.Name
                 let makeMethod kind =
                     let args, body', returnType, typeParams =
                         getMemberArgs com ctx args body m.GenericParameters m.HasRestParams
@@ -475,18 +405,6 @@ module Util =
                     Babel.ObjectProperty(key, com.TransformExpr ctx body,
                             computed=computed, ?loc=body.Range)
                     |> U3.Case1)
-            |> appendObjectIterator interfaces
-            |> fun props ->
-                match interfaces with
-                | [] -> props
-                | interfaces ->
-                    let ifcs = buildStringArray interfaces
-                    let body =
-                        Babel.ObjectProperty(Babel.StringLiteral "interfaces", ifcs)
-                        |> U3.Case1 |> List.singleton |> Babel.ObjectExpression
-                        |> Babel.ReturnStatement :> Babel.Statement |> List.singleton |> Babel.BlockStatement
-                    Babel.ObjectMethod(Babel.ObjectMeth, getSymbol com ctx "reflection", [], body, computed=true)
-                    |> U3.Case2 |> consBack props
             |> fun props ->
                 upcast Babel.ObjectExpression(props, ?loc=range)
 
@@ -699,8 +617,8 @@ module Util =
         match expr with
         | Fable.Value kind -> transformValue com ctx expr.Range kind
 
-        | Fable.ObjExpr (members, interfaces, baseClass, range) ->
-            transformObjectExpr com ctx (members, interfaces, baseClass, range)
+        | Fable.ObjExpr (members, _, baseClass, _) ->
+            transformObjectExpr com ctx (members, baseClass, expr.Range)
 
         | Fable.Wrapped (TransformExpr com ctx expr, _) -> expr
 
@@ -749,8 +667,8 @@ module Util =
         | Fable.Value kind ->
             transformValue com ctx expr.Range kind |> resolve ret
 
-        | Fable.ObjExpr (members, interfaces, baseClass, range) ->
-            transformObjectExpr com ctx (members, interfaces, baseClass, range)
+        | Fable.ObjExpr (members, _, baseClass, _) ->
+            transformObjectExpr com ctx (members, baseClass, expr.Range)
             |> resolve ret
 
         | Fable.Wrapped (TransformExpr com ctx expr, _) ->
@@ -823,11 +741,11 @@ module Util =
             Babel.ClassProperty(Babel.Identifier(name), typeAnnotation=typ)
             |> U2<Babel.ClassMethod,_>.Case2
         let declareMethod range kind name args (body: Fable.Expr)
-                          typeParams hasRestParams isStatic isSymbol =
+                          typeParams hasRestParams isStatic computed =
             let name, computed =
-                if isSymbol
-                then getSymbol com ctx name, true
-                else sanitizeName name
+                match computed with
+                | Some e -> transformExpr com ctx e, true
+                | None -> sanitizeName name
             let args, body, returnType, typeParams =
                 getMemberArgs com ctx args body typeParams hasRestParams
             Babel.ClassMethod(kind, name, args, body, computed, isStatic,
@@ -838,23 +756,22 @@ module Util =
         decls
         |> List.map (function
             | Fable.MemberDeclaration(m, _, args, body, range) ->
-                let kind, name, loc, isSymbol, body =
+                let kind, name, loc, computed, body =
                     match m.Kind with
                     | Fable.Constructor ->
                         let body =
                             match ent with
                             | Some(EntKind(Fable.Class(Some _, _))) -> checkBaseCall body
                             | _ -> body
-                        Babel.ClassConstructor, "constructor", Fable.InstanceLoc, false, body
-                    | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.Location, m.IsSymbol, body
-                    | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.Location, m.IsSymbol, body
-                    | Fable.Setter -> Babel.ClassSetter, m.Name, m.Location, m.IsSymbol, body
+                        Babel.ClassConstructor, "constructor", Fable.InstanceLoc, None, body
+                    | Fable.Method -> Babel.ClassFunction, m.OverloadName, m.Location, m.Computed, body
+                    | Fable.Getter | Fable.Field -> Babel.ClassGetter, m.Name, m.Location, m.Computed, body
+                    | Fable.Setter -> Babel.ClassSetter, m.Name, m.Location, m.Computed, body
                 let isStatic = loc = Fable.StaticLoc
-                declareMethod range kind name args body m.GenericParameters m.HasRestParams isStatic isSymbol
+                declareMethod range kind name args body m.GenericParameters m.HasRestParams isStatic computed
             | Fable.ActionDeclaration _
             | Fable.EntityDeclaration _ as decl ->
                 failwithf "Unexpected declaration in class: %A" decl)
-        |> appendClassIterator interfaces
         |> fun members ->
             let id = ent |> Option.map (fun x -> identFromName x.Name)
             let typeParams, members =
@@ -1140,8 +1057,8 @@ module Util =
             member bcom.TransformFunction ctx args body = transformFunction bcom ctx args body
             member bcom.TransformClass ctx r baseClass members =
                 transformClass bcom ctx r None baseClass members
-            member bcom.TransformObjectExpr ctx membs ifcs baseClass r =
-                transformObjectExpr bcom ctx (membs, ifcs, baseClass, r)
+            member bcom.TransformObjectExpr ctx membs baseClass r =
+                transformObjectExpr bcom ctx (membs, baseClass, r)
         interface ICompiler with
             member __.Options = com.Options
             member __.ProjDir = com.ProjDir

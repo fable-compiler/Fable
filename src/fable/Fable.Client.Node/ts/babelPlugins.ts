@@ -29,7 +29,7 @@ export const removeUnneededNulls = {
   visitor: {
     // Remove `null;` statements (e.g. at the end of constructors)
     ExpressionStatement: function(path: traverse.NodePath<types.ExpressionStatement>) {
-      if (types.isNullLiteral(path.node))
+      if (types.isNullLiteral(path.node.expression))
         path.remove();
     },
     CallExpression: removeNullTailArgs,

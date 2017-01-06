@@ -536,6 +536,13 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let members =
             (objType, overrides)::otherOverrides
             |> List.collect (fun (typ, overrides) ->
+                let overrides =
+                    if not typ.HasTypeDefinition then overrides else
+                    let typName = typ.TypeDefinition.FullName.Replace(".","-")
+                    overrides |> List.where (fun x ->
+                        typName + "-" + x.Signature.Name
+                        |> Naming.ignoredInterfaceMethods.Contains
+                        |> not)
                 overrides |> List.map (fun over ->
                     let info = { isInstance = true; passGenerics = false }
                     let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
@@ -575,14 +582,17 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                                 over.GenericParameters |> List.map (fun x -> x.Name),
                                 hasRestParams = hasRestParams)
                     m, args', body))
-        let members =
-            match baseCons with
-            | Some baseCons -> baseCons::members
-            | None -> members
         let interfaces =
             objType::(otherOverrides |> List.map fst)
             |> List.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
             |> List.distinct
+        let members =
+            [ match baseCons with Some c -> yield c | None -> ()
+              yield! members
+              if List.contains "System.Collections.Generic.IEnumerable" interfaces
+              then yield makeIteratorMethodArgsAndBody()
+              yield makeReflectionMethodArgsAndBody None false false interfaces None None
+            ]
         let range = makeRangeFrom fsExpr
         let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
         match capturedThis with
@@ -792,7 +802,7 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     match fableEnt.Kind with
     | Fable.Union cases ->
       [ yield makeUnionCons()
-        yield makeReflectionMeth fableEnt false nullable fableEnt.FullName
+        yield makeReflectionMethod (Some fableEnt) false nullable
                 ("FSharpUnion"::fableEnt.Interfaces) (Some cases) None
         if needsEqImpl then yield makeUnionEqualMethod fableType
         if needsCompImpl then yield makeUnionCompareMethod fableType ]
@@ -802,15 +812,19 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
       // some already include a constructor (see #569)
       [ if fableEnt.Members |> Seq.exists (fun m -> m.Kind = Fable.Constructor) |> not
         then yield makeRecordCons fableEnt fields
-        yield makeReflectionMeth fableEnt false nullable fableEnt.FullName
+        yield makeReflectionMethod (Some fableEnt) false nullable
                 ("FSharpRecord"::fableEnt.Interfaces) None (Some fields)
         if needsEqImpl then yield makeRecordEqualMethod fableType
         if needsCompImpl then yield makeRecordCompareMethod fableType ]
     | Fable.Class(baseClass, properties) ->
-      [makeReflectionMeth fableEnt baseClass.IsSome nullable fableEnt.FullName
+      [makeReflectionMethod (Some fableEnt) baseClass.IsSome nullable
             fableEnt.Interfaces None (Some properties)]
     | _ -> []
-    |> fun autoMeths -> [yield! autoMeths; yield! childDecls]
+    |> fun autoMeths ->
+        [ yield! autoMeths
+          if fableEnt.HasInterface "System.Collections.Generic.IEnumerable"
+          then yield makeIteratorMethod()
+          yield! childDecls ]
 
 // The F# compiler considers class methods as children of the enclosing module.
 // We use this type to correct that, see type DeclInfo below.
@@ -868,6 +882,7 @@ type private DeclInfo() =
         if (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.CompiledName)
             || Option.isSome(meth.Attributes |> tryFindAtt (fun name ->
                 name = Atts.import || name = Atts.global_ || name = Atts.emit))
+            || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
         then true
         else match tryFindChild meth with
              | Some IgnoredEnt -> true

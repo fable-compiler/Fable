@@ -84,7 +84,7 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
         | 0 -> failwithf "Unexpected entity full name: %s" fullName
         | i -> fullName.Substring(0, i)
     member x.HasInterface (fullName: string) =
-        List.exists ((=) fullName) interfaces
+        List.contains fullName interfaces
     /// Finds decorator by name
     member x.TryGetDecorator decorator =
         decorators |> List.tryFind (fun x -> x.Name = decorator)
@@ -132,7 +132,7 @@ and MemberLoc =
     | InterfaceLoc of string
 
 and Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?decorators,
-           ?isPublic, ?isMutable, ?isSymbol, ?hasRestParams, ?overloadIndex) =
+           ?isPublic, ?isMutable, ?computed, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.Location: MemberLoc = loc
@@ -143,7 +143,7 @@ and Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?de
     member x.Decorators: Decorator list = defaultArg decorators []
     member x.IsPublic: bool = defaultArg isPublic true
     member x.IsMutable: bool = defaultArg isMutable false
-    member x.IsSymbol: bool = defaultArg isSymbol false
+    member x.Computed: Expr option = computed
     member x.HasRestParams: bool = defaultArg hasRestParams false
     member x.OverloadIndex: int option = overloadIndex
     member x.OverloadName: string =
@@ -341,9 +341,14 @@ and Expr =
 
     member x.Range: SourceLocation option =
         match x with
+        | ObjExpr (_,_,_,(Some _ as r)) -> r
+        | ObjExpr (decls,_,_,None) ->
+            match decls |> List.choose (fun (_,_,body) -> body.Range) with
+            | [] -> None
+            | [r] -> Some r
+            | r1::rest -> r1 + (List.last rest) |> Some
         | Value v -> v.Range
         | VarDeclaration (_,e,_) | Wrapped (e,_) | Quote e -> e.Range
-        | ObjExpr (_,_,_,range)
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
         | Throw (_,_,range)

@@ -298,9 +298,22 @@ let makeRecordEqualMethod argType = makeMeth argType Boolean "Equals" "equalsRec
 let makeUnionCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareRecords"
 
-let makeReflectionMeth (ent: Fable.Entity) extend nullable typeFullName interfaces cases properties =
+let makeIteratorMethodArgsAndBody() =
+    let body =
+        let arg = Apply (makeUntypedGet (Value This) "GetEnumerator", [], ApplyMeth, Any, None)
+        CoreLibCall("Seq", Some "toIterator", false, [arg]) |> makeCall None Any
+    let comp = makeUntypedGet (makeIdentExpr "Symbol") "iterator"
+    Member("Symbol.iterator", Method, InstanceLoc, [], Any, computed=comp), [], body
+
+let makeIteratorMethod() =
+    let m, args, body = makeIteratorMethodArgsAndBody()
+    MemberDeclaration(m, None, args, body, None)
+
+let makeReflectionMethodArgsAndBody (ent: Fable.Entity option) extend nullable interfaces cases properties =
     let members = [
-        yield "type", Value(StringConst typeFullName)
+        match ent with
+        | Some ent -> yield "type", Value(StringConst ent.FullName)
+        | None -> ()
         if nullable then yield "nullable", Value(BoolConst true)
         if extend || not(List.isEmpty interfaces)
         then
@@ -325,11 +338,17 @@ let makeReflectionMeth (ent: Fable.Entity) extend nullable typeFullName interfac
         | None -> []
     ]
     let info =
-        if not extend
-        then makeJsObject None members
-        else CoreLibCall("Util", Some "extendInfo", false,
+        match ent, extend with
+        | Some ent, true ->
+            CoreLibCall("Util", Some "extendInfo", false,
                 [makeTypeRefFrom ent; makeJsObject None members]) |> makeCall None Any
-    MemberDeclaration(Member("reflection", Method, InstanceLoc, [], Any, isSymbol=true), None, [], info, None)
+        | _ -> makeJsObject None members
+    let comp = makeUntypedGet (makeCoreRef "Symbol" None) "reflection"
+    Member("FSymbol.reflection", Method, InstanceLoc, [], Any, computed=comp), [], info
+
+let makeReflectionMethod (ent: Fable.Entity option) extend nullable interfaces cases properties =
+    let m, args, body = makeReflectionMethodArgsAndBody ent extend nullable interfaces cases properties
+    MemberDeclaration(m, None, args, body, None)
 
 let makeDelegate (com: ICompiler) arity (expr: Expr) =
     let rec flattenLambda (arity: int option) isArrow accArgs = function

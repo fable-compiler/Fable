@@ -323,3 +323,7 @@ export function round(value : number, digits: number = 0) {
     const r = (f > 0.5 - e && f < 0.5 + e) ? ((i % 2 == 0) ? i : i + 1) : Math.round(n);
     return digits ? r / m : r;
 }
+
+export function randomNext(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}

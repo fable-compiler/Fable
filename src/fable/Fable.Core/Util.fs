@@ -44,7 +44,12 @@ module Naming =
     /// Interfaces automatically assigned by the F# compiler
     /// to unions and records. Ignored by Fable.
     let ignoredInterfaces =
-        set [ "System.Collections.IStructuralEquatable"; "System.Collections.IStructuralComparable" ]
+        set [ "System.Collections.IStructuralEquatable"; "System.Collections.IStructuralComparable"
+              "System.Collections.IEnumerable"; "System.Collections.IEnumerator" ]
+
+    let ignoredInterfaceMethods =
+        set [ "System-Collections-IEnumerable-GetEnumerator"
+            ; "System-Collections-IEnumerator-get_Current" ]
 
     /// Methods automatically assigned by the F# compiler
     /// for unions and records. Ignored by Fable.

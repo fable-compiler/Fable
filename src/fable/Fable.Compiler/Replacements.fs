@@ -1500,17 +1500,11 @@ module private AstPass =
             | "take" -> icall "slice" (i.args.Tail.Head, [makeConst 0; i.args.Head])
             | "skip" -> icall "slice" (i.args.Tail.Head, [i.args.Head])
             | "copy" -> icall "slice" (i.args.Head, [])
-            | "getSubArray" ->
-                // Array.sub array startIndex count
-                // array.slice(startIndex, startIndex + count)
-                emit i "$0.slice($1, $1 + $2)" i.args |> Some
+            | "getSubArray" | "fill" ->
+                ccall com i "Array" i.methodName i.args |> Some
             | "truncate" ->
                 // Array.truncate count array
                 emit i "$1.slice(0, $0)" i.args |> Some
-            | "fill" ->
-                // Array.fill target targetIndex count value
-                // target.fill(value, targetIndex, targetIndex + count)
-                emit i "$0.fill($3, $1, $1 + $2)" i.args |> Some
             | "map" ->
                 match i.methodTypeArgs with
                 // Native JS map is risky with typed arrays as they coerce
@@ -1645,14 +1639,10 @@ module private AstPass =
             |> Some
         | _ -> None
 
-    let enumerator com (info: Fable.ApplyInfo) =
+    let enumerable com (info: Fable.ApplyInfo) =
         match info.methodName with
         | "getEnumerator" ->
-            emit info "$0[Symbol.iterator]()" [info.callee.Value] |> Some
-        | "moveNext" ->
-            emit info "$0.current = $0.next(), !$0.current.done" [info.callee.Value] |> Some
-        | "current" ->
-            emit info "$0.current.value" [info.callee.Value] |> Some
+            ccall com info "Seq" "getEnumerator" [] |> Some
         | _ -> None
 
     let mailbox com (info: Fable.ApplyInfo) =
@@ -1766,9 +1756,7 @@ module private AstPass =
         | "System.Text.RegularExpressions.GroupCollection"
         | "System.Text.RegularExpressions.Regex" -> regex com info
         | "System.Collections.Generic.IEnumerable"
-        | "System.Collections.Generic.IEnumerator"
-        | "System.Collections.IEnumerable"
-        | "System.Collections.IEnumerator" -> enumerator com info
+        | "System.Collections.IEnumerable" -> enumerable com info
         | "System.Collections.Generic.Dictionary"
         | "System.Collections.Generic.IDictionary" -> dictionaries com info
         | "System.Collections.Generic.HashSet"
