@@ -318,6 +318,26 @@ let ``Option.filter works``() = // See #390
     Some "A" |> Option.filter (fun _ -> false) |> optionToString |> equal "None"
     Some "A" |> Option.filter (fun _ -> true) |> optionToString |> equal "Some A"
 
+[<Test>]
+let ``Option.fold works``() =
+    (5, None) ||> Option.fold (*) |> equal 5
+    (5, Some 7) ||> Option.fold (*) |> equal 35
+
+[<Test>]
+let ``Option.foldBack works``() =
+    (None, 5) ||> Option.foldBack (*) |> equal 5
+    (Some 7, 5) ||> Option.foldBack (*) |> equal 35
+
+[<Test>]
+let ``Option.toArray works``() =
+    None |> Option.toArray |> equal [||]
+    Some (Leaf 7) |> Option.toArray |> equal [|Leaf 7|]
+
+[<Test>]
+let ``Option.toList works``() =
+    None |> Option.toList |> equal []
+    Some (Leaf 7) |> Option.toList |> equal [Leaf 7]
+
 type OptTest = OptTest of int option
 
 [<Test>]
