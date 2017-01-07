@@ -56,3 +56,16 @@ let ``Enumerable object expr works``() =
     let f1 = Seq.toArray (fib())
     let f2 = Seq.toArray (toSeq fibGen)
     f1 = f2 |> equal true
+
+let mkEnumerable someList =
+    { new IEnumerable<'T> with
+        member x.GetEnumerator() = (someList :> IEnumerable<_>).GetEnumerator() // <-- javascript runtime error here
+      interface System.Collections.IEnumerable with
+        member x.GetEnumerator() = ((someList :> IEnumerable<_>).GetEnumerator() :> System.Collections.IEnumerator) }
+
+[<Test>]
+let ``.NET Enumerator can be converted to JS iterator back and forth``() =
+    mkEnumerable [1..10]
+    |> Seq.toList
+    |> List.sum
+    |> equal 55

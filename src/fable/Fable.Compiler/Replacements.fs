@@ -1634,15 +1634,13 @@ module private AstPass =
                 | [max] -> makeConst 0, max
                 | [min; max] -> min, max
                 | _ -> failwith "Unexpected arg count for Random.Next"
-            "Math.floor(Math.random() * ($1 - $0)) + $0"
-            |> emit info <| [min; max]
-            |> Some
+            ccall com info "Util" "randomNext" [min; max] |> Some
         | _ -> None
 
     let enumerable com (info: Fable.ApplyInfo) =
-        match info.methodName with
-        | "getEnumerator" ->
-            ccall com info "Seq" "getEnumerator" [] |> Some
+        match info.callee, info.methodName with
+        | Some callee, "getEnumerator" ->
+            ccall com info "Seq" "getEnumerator" [callee] |> Some
         | _ -> None
 
     let mailbox com (info: Fable.ApplyInfo) =
