@@ -80,13 +80,13 @@ let readOptions argv =
 /// Returns an (errors, warnings) tuple
 let parseErrors errors =
     let parseError (er: FSharpErrorInfo) =
-        let loc = sprintf " (L%i,%i-L%i,%i) (%s)"
-                    er.StartLineAlternate er.StartColumn
-                    er.EndLineAlternate er.EndColumn
-                    er.FileName
-        match er.Severity, er.ErrorNumber with
-        | FSharpErrorSeverity.Warning, _ -> false, er.Message + loc
-        | FSharpErrorSeverity.Error, _ -> true, er.Message + loc
+        let isError, severity =
+            match er.Severity with
+            | FSharpErrorSeverity.Warning -> false, "warning"
+            | FSharpErrorSeverity.Error -> true, "error"
+        isError, sprintf "%s(L%i,%i) : %s FSHARP: %s"
+            er.FileName er.StartLineAlternate er.StartColumn
+            severity er.Message
     errors
     |> Array.map parseError
     |> Array.partition fst

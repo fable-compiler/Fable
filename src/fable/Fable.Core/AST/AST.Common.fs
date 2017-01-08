@@ -27,9 +27,12 @@ type FableError(msg: string, ?range: SourceLocation, ?file: string) =
     member __.Range = range
     member __.File = file
     member __.FormattedMessage =
-        let range = match range with Some r -> " " + string r | None -> ""
-        let file = match file with Some f -> " (" + f + ")" | None -> ""
-        msg + range + file
+        let range =
+            match range with
+            | Some r -> sprintf "%i, %i" r.start.line r.start.column
+            | None -> "1"
+        let file = defaultArg file "unknown"
+        sprintf "%s(%s) : error FABLE: %s" file range msg
 
 type NumberKind =
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 | Float32 | Float64 | Decimal

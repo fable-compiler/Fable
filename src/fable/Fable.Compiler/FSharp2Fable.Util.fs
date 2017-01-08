@@ -1118,8 +1118,7 @@ module Util =
                 | None ->
                     sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
                         m.Groups.[1].Value macro
-                    |> attachRangeAndFile r ctx.fileName
-                    |> Warning |> com.AddLog
+                    |> addWarning com ctx.fileName r
                     m.Value)
         else macro
         |> fun macro -> macro, args@(List.rev extraArgs)
@@ -1221,8 +1220,7 @@ module Util =
                      "to a function with `PassGenericsAttribute`. This will likely fail " +
                      "at runtime. Try adding `PassGenericsAttribute` to the calling method " +
                      "or using concrete types.")
-                    |> attachRangeAndFile r ctx.fileName
-                    |> Warning |> com.AddLog
+                    |> addWarning com ctx.fileName r
                 | None -> ()
             genName, makeTypeRef genInfo typ)
         |> makeJsObject None
@@ -1340,8 +1338,7 @@ module Util =
                 |> Fable.IdentValue |> Fable.Value
         | ThisUnavailable ->
             "`this` seems to be used in a context where it's not available, please check."
-            |> attachRangeAndFile r ctx.fileName
-            |> Warning |> com.AddLog
+            |> addWarning com ctx.fileName r
             Fable.Value Fable.This
 
     let makeValueFrom com ctx r typ role (v: FSharpMemberOrFunctionOrValue) =
@@ -1386,8 +1383,7 @@ module Util =
             | Fable.Function(args,_) -> args.Length
             | _ ->
                 "Cannot calculate arity of delegate, please report."
-                |> attachRangeAndFile (makeRangeFrom fsExpr) ctx.fileName
-                |> Warning |> com.AddLog
+                |> addWarning com ctx.fileName (makeRangeFrom fsExpr)
                 1
         let containsJsThis =
             fsExpr |> deepExists (function JsThis -> true | _ -> false)

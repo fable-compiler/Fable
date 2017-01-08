@@ -95,7 +95,7 @@ export function bundle(jsFiles: Dic<BabelFile>, opts: FableOptions, fableProc: c
         })
         .catch((err: Error) => {
             // The stack here is a bit noisy just report the message
-            fableLib.stderrLog("BUNDLE", err.message);
+            fableLib.stderrLog(err.message);
             bundleCache = null;
             let buildResult: BuildResult = null;
             if (!fullRebuildTriggered) {

@@ -1002,14 +1002,12 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         if not (isModuleMember meth) && meth.CompiledName.StartsWith "op_"
         then
             sprintf "Custom type operators cannot be inlined: %s" meth.FullName
-            |> attachRangeAndFile (getRefLocation meth |> makeRange |> Some) ctx.fileName
-            |> Warning |> com.AddLog
+            |> addWarning com ctx.fileName (getRefLocation meth |> makeRange |> Some)
             addMethod None
         else
             if com.Options.dll && meth.Accessibility.IsPublic then
                 "Inline public methods won't be accessible when referencing the project as a .dll"
-                |> attachRangeAndFile (getRefLocation meth |> makeRange |> Some) ctx.fileName
-                |> Warning |> com.AddLog
+                |> addWarning com ctx.fileName (getRefLocation meth |> makeRange |> Some)
             let vars = Seq.collect id args |> countRefs body
             com.AddInlineExpr meth.FullName (vars, body)
             declInfo, ctx

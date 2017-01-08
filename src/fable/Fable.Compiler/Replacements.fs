@@ -66,10 +66,6 @@ module Util =
         | UInt64 -> Some true
         | _ -> None
 
-    let addWarning (com: ICompiler) (i: Fable.ApplyInfo) (warning: string) =
-        attachRangeAndFile i.range i.fileName warning
-        |> Warning |> com.AddLog
-
     // The core lib expects non-curried lambdas
     let deleg com (info: Fable.ApplyInfo) args =
         if info.lambdaArgArity > 1
@@ -86,7 +82,7 @@ module Util =
             "`typeof` is being called on a generic parameter, "
             + "consider inlining the method (for `internal` members) "
             + "or using `PassGenericsAttribute`."
-            |> addWarning com info
+            |> addWarning com info.fileName info.range
             makeTypeRef genInfo t
         | t -> makeTypeRef genInfo t
 
@@ -320,7 +316,7 @@ module Util =
             apply (nativeOp meth) args
         | _ ->
             "The type of the operands is unknown at compile, native JS operator will be applied."
-            |> addWarning com i
+            |> addWarning com i.fileName i.range
             apply (nativeOp meth) args
 
     let equals equal com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
@@ -494,7 +490,7 @@ module private AstPass =
             |> makeCall i.range i.returnType |> Some
         | "jsNative" ->
             // TODO: Fail at compile time?
-            addWarning com i "jsNative is being compiled without replacement, this will fail at runtime."
+            addWarning com i.fileName i.range "jsNative is being compiled without replacement, this will fail at runtime."
             "A function supposed to be replaced by JS native code has been called, please check."
             |> Fable.StringConst |> Fable.Value |> List.singleton
             |> newError i.range i.returnType
@@ -525,7 +521,7 @@ module private AstPass =
         | "printFormatToStringThen" ->
             emit "x=>x"
         | "printFormat" ->
-            addWarning com i "printf will behave as printfn"
+            addWarning com i.fileName i.range "printf will behave as printfn"
             emit "x=>{console.log(x)}"
         | "printFormatLine" ->
             emit "x=>{console.log(x)}"
@@ -828,7 +824,7 @@ module private AstPass =
     let console com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "write" ->
-            addWarning com i "Write will behave as WriteLine"
+            addWarning com i.fileName i.range "Write will behave as WriteLine"
             log com i |> Some
         | "writeLine" -> log com i |> Some
         | _ -> None
@@ -859,7 +855,7 @@ module private AstPass =
     let debug com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "write" ->
-            addWarning com i "Write will behave as WriteLine"
+            addWarning com i.fileName i.range "Write will behave as WriteLine"
             log com i |> Some
         | "writeLine" -> log com i |> Some
         | "break" -> Fable.DebugBreak i.range |> Some
@@ -1076,7 +1072,7 @@ module private AstPass =
             match i.calleeTypeArgs.Head with
             | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for Dictionary keys, please use F# Map"
-                |> addWarning com i
+                |> addWarning com i.fileName i.range
             | _ -> ()
             let makeMap args =
                 GlobalCall("Map", None, true, args) |> makeCall i.range i.returnType
@@ -1114,7 +1110,7 @@ module private AstPass =
             match i.calleeTypeArgs.Head with
             | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
                 "Structural equality is not supported for HashSet, please use F# Set"
-                |> addWarning com i
+                |> addWarning com i.fileName i.range
             | _ -> ()
             let makeSet args =
                 GlobalCall("Set", None, true, args) |> makeCall i.range i.returnType
@@ -1572,7 +1568,7 @@ module private AstPass =
                 sprintf "%s %s"
                     "Cannot resolve .GetType() at compile time."
                     "The type created at runtime won't contain generic information."
-                |> addWarning com i
+                |> addWarning com i.fileName i.range
                 CoreLibCall("Reflection", Some "getType", false, [i.callee.Value])
                 |> makeCall i.range i.returnType |> Some
             | t ->
@@ -1701,7 +1697,8 @@ module private AstPass =
         match info.methodName with
         | "start" ->
             // Just add warning, the replacement will actually happen in coreLibPass
-            addWarning com info "Async.Start will behave as StartImmediate"
+            "Async.Start will behave as StartImmediate"
+            |> addWarning com info.fileName info.range
             None
         | "cancellationToken" ->
             // Make sure cancellationToken is called as a function and not a getter

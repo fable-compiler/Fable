@@ -435,3 +435,11 @@ let compareConcreteAndGenericTypes appliedArgs declaredArgs =
             else genArgs.Add(name, x); true
         | x, y -> x = y
     listsEqual argEqual appliedArgs declaredArgs
+
+let addWarning (com: ICompiler) (file: string) (range: SourceLocation option) (warning: string) =
+    let range =
+        match range with
+        | Some r -> sprintf "%i, %i" r.start.line r.start.column
+        | None -> "1"
+    sprintf "%s(%s) : warning FABLE: %s" file range warning
+    |> Warning |> com.AddLog

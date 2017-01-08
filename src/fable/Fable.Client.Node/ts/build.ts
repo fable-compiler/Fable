@@ -12,7 +12,7 @@ import { readOptions } from "./options";
 /** Processes a JSON received from .NET process. If it's a Babel AST it will be compiled. */
 function processJson(json: string, opts: FableOptions, continuation: Continuation) {
     try {
-        var babelAst;
+        let babelAst: any;
         try {
             babelAst = JSON.parse(json);
         }
@@ -21,7 +21,7 @@ function processJson(json: string, opts: FableOptions, continuation: Continuatio
         }
         if (babelAst.type == "LOG") {
             if (babelAst.message.indexOf("[WARNING]") == 0) {
-                fableLib.stdoutLog(babelAst.message);
+                fableLib.stdoutLog(babelAst.message.replace("[WARNING]", "").trim());
             }
             else if (opts.verbose) {
                 fableLib.stdoutLog(babelAst.message);
@@ -146,7 +146,7 @@ function build(opts: FableOptions, continuation: Continuation) {
     });
 
     fableProc.stderr.on('data', function(data: Buffer) {
-        fableLib.stderrLog("FABLE", data.toString().substring(0, 300) + "...");
+        fableLib.stderrLog(data.toString().substring(0, 300) + "...");
         fableLib.finish(1, continuation);
     });
 
@@ -207,7 +207,7 @@ function main(opts: FableOptions, continuation?: Continuation) {
         }
     }
     catch (err) {
-        fableLib.stderrLog("OPTIONS", err);
+        fableLib.stderrLog(err);
         fableLib.finish(1, continuation);
     }
 }

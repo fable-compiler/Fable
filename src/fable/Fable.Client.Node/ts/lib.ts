@@ -22,27 +22,15 @@ export function promisify(f: Function) {
 }
 
 /** Prints a new line with the message on process.stderr */
-export function stderrLog(tag: string | any, err?: any) {
-    var prefix = null;
-    if (err) {
-        prefix = "[" + tag + " ERROR] ";
-    }
-    else {
-        prefix = "[ERROR] ";
-        err = tag;
-    }
+export function stderrLog(err: string | Error) {
+    const msg = typeof err === "string"
+        ? err
+        : err.message + (err.stack ? "\n" + err.stack : "");
 
-    if (typeof err === "object" && err.message) {
-        err = err.message + (err.stack ? "\n" + err.stack : "")
-    }
-    err = String(err);
-
-    if (typeof process === "object") {
-        process.stderr.write(prefix + err + "\n");
-    }
-    else {
+    if (typeof process === "object")
+        process.stderr.write(err + "\n");
+    else
         console.log(err);
-    }
 }
 
 /** Prints a new line with the message on process.stdout */
