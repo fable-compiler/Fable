@@ -22,7 +22,7 @@ export class Enumerator<T> {
 }
 
 export function getEnumerator<T>(o: any): Enumerator<T> {
-  return hasInterface(o, "System.Collections.Generic.IEnumerable")
+  return typeof o.GetEnumerator === "function"
     ? o.GetEnumerator() : new Enumerator(o[Symbol.iterator]());
 }
 

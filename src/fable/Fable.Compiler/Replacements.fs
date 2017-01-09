@@ -549,8 +549,11 @@ module private AstPass =
         | "keyValuePattern" ->
             info.args.Head |> Some
         | "defaultArg" ->
-            let cond = makeEqOp r [args.Head; Fable.Value Fable.Null] BinaryUnequal
-            Fable.IfThenElse(cond, args.Head, args.Tail.Head, r) |> Some
+            match args with
+            | [Fable.Value(Fable.IdentValue _) as arg1; arg2] ->
+                let cond = makeEqOp r [arg1; Fable.Value Fable.Null] BinaryUnequal
+                Fable.IfThenElse(cond, arg1, arg2, r) |> Some
+            | args -> ccall com info "Util" "defaultArg" args |> Some
         | "defaultAsyncBuilder" -> makeCoreRef "AsyncBuilder" (Some "singleton") |> Some
         // Negation
         | "not" -> makeUnOp r info.returnType args UnaryNot |> Some

@@ -569,7 +569,7 @@ export default class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMa
   [FSymbol.reflection]() {
     return {
       type: "Microsoft.FSharp.Collections.FSharpMap",
-      interfaces: ["System.IEquatable", "System.IComparable"]
+      interfaces: ["System.IEquatable", "System.IComparable", "System.Collections.Generic.IDictionary"]
     }
   }
 }

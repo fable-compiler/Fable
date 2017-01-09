@@ -107,7 +107,10 @@ export function extendInfo(cons: FunctionConstructor, info: any) {
 }
 
 export function hasInterface(obj: any, interfaceName: string) {
-  if (typeof obj[FSymbol.reflection] === "function") {
+  if (interfaceName === "System.Collections.Generic.IEnumerable") {
+    return typeof obj[Symbol.iterator] === "function";
+  }
+  else if (typeof obj[FSymbol.reflection] === "function") {
     const interfaces = obj[FSymbol.reflection]().interfaces;
     return Array.isArray(interfaces) && interfaces.indexOf(interfaceName) > -1;
   }
@@ -326,4 +329,8 @@ export function round(value : number, digits: number = 0) {
 
 export function randomNext(min: number, max: number) {
   return Math.floor(Math.random() * (max - min)) + min;
+}
+
+export function defaultArg<T>(arg: T, defaultValue: T) {
+  return arg == null ? defaultValue : arg;
 }

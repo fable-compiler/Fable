@@ -1,3 +1,7 @@
+### 0.7.20
+
+* Add `IDictionary` interface to F# Map
+
 ### 0.7.19
 
 * See fable-compiler 0.7.26 release notes
