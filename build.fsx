@@ -195,6 +195,7 @@ Target "Clean" (fun _ ->
 
 let buildFableCompilerJs buildDir isNetcore =
     // Compile TypeScript
+    FileUtils.mkdir buildDir
     !! "src/fable/Fable.Client.Node/ts/*.*"
     |> Seq.iter (fun file -> FileUtils.cp file buildDir)
 
@@ -290,7 +291,6 @@ Target "FableCompilerNetcore" (fun _ ->
 
         // Compile Fable.Core TypeScript
         let fableCoreSrcDir = "src/fable/Fable.Core/ts"
-        Npm.install __SOURCE_DIRECTORY__ []
         Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/tsconfig.umd.json" fableCoreSrcDir]
 
         // Compile JavaScript tests

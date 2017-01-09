@@ -12,6 +12,7 @@
         "netcore": {
             "projFile": "Main/project.fsx",
             "module": "commonjs",
+            "includeJs": true,
             "refs": { "Fable.Core": "../../build/fable-core/umd" },
             "symbols": ["DOTNETCORE"],
             "plugins": ["../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
