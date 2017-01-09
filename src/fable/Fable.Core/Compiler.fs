@@ -10,6 +10,7 @@ type CompilerOptions = {
         rollup: bool
         watch: bool
         dll: bool
+        includeJs: bool
         noTypedArrays: bool
         clamp: bool
         declaration: bool

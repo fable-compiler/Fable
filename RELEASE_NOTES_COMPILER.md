@@ -1,3 +1,9 @@
+### 0.7.27
+
+* Add `--includeJs` compiler argument
+* Fix #629: Visual Studio error format
+* Fix  #637: IEnumerable runtime issue
+
 ### 0.7.26
 
 * Fixed Option.foldBack (#634)

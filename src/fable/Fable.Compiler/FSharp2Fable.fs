@@ -585,6 +585,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let interfaces =
             objType::(otherOverrides |> List.map fst)
             |> List.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
+            |> List.filter (Naming.ignoredInterfaces.Contains >> not)
             |> List.distinct
         let members =
             [ match baseCons with Some c -> yield c | None -> ()

@@ -1018,11 +1018,18 @@ module Util =
                                 |> Seq.exists (fun x -> x.name = name))
                         jsIncludes.Add({ sourcePath=sourcePath; name=name })
                         getRelativePath name
-                let resolvePath (ctx: Context) (importPath: string) =
-                    if not(importPath.StartsWith ".") then importPath else
-                    let fileDir = IO.Path.GetDirectoryName(ctx.file.SourceFile)
-                    let importPath = IO.Path.GetFullPath(IO.Path.Combine(fileDir, importPath))
-                    includeJs importPath
+                let resolvePath (com: ICompiler) (ctx: Context) (importPath: string) =
+                    let resolveRelative (ctx: Context) (importPath: string) =
+                        let fileDir = IO.Path.GetDirectoryName(ctx.file.SourceFile)
+                        IO.Path.GetFullPath(IO.Path.Combine(fileDir, importPath))
+                    match com.Options.includeJs, importPath with
+                    | true, Naming.StartsWith "." _ ->
+                        resolveRelative ctx importPath |> includeJs
+                    | false, Naming.StartsWith "." _ ->
+                        // Resolve relative paths with `outDir` if they don't point to an internal file: see #472
+                        resolveRelative ctx importPath
+                        |> Path.getRelativeFileOrDirPath false ctx.file.TargetFile false
+                    | _ -> importPath
                 match imports.TryGetValue((selector, path)) with
                 | true, i -> upcast Babel.Identifier(i.localIdent)
                 | false, _ ->
@@ -1035,10 +1042,8 @@ module Util =
                             | Fable.Internal file -> Some file
                             | _ -> None
                         path =
-                            // Resolve relative paths with `outDir` if
-                            // they don't point to an internal file: see #472
                             match kind with
-                            | Fable.CustomImport -> resolvePath ctx path
+                            | Fable.CustomImport -> resolvePath com ctx path
                             | Fable.Internal _ -> path
                             | Fable.CoreLib ->
                                 let path = com.Options.coreLib + "/" + path + Naming.targetFileExtension

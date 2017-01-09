@@ -3,6 +3,7 @@
     "outDir": "../../../build/tests_dll",
     "refs": { "Fable.Core": "../../../build/fable-core/umd" },
     "module": "commonjs",
+    "includeJs": true,
     "clamp": true,
     "dll": true
 }

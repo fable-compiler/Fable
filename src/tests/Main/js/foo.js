@@ -1,6 +1,8 @@
-export const foo = "foo"
+"use strict";
 
-export class MyClass {
+exports.foo = "foo"
+
+exports.MyClass = class {
     constructor(v) {
         this.__value = typeof v === "string" ? v : "haha";
     }
