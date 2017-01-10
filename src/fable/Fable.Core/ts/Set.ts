@@ -39,7 +39,7 @@ interface SetIterator {
 }
 
 export class SetTree {
-  public Case: string;
+  public Case: "SetEmpty" | "SetOne" | "SetNode";
   public Fields: any[];
 
   constructor(caseName: "SetEmpty" | "SetOne" | "SetNode", fields: any[]) {
@@ -128,29 +128,27 @@ function tree_rebalance(t1: SetTree, k: any, t2: SetTree) {
 }
 
 function tree_add(comparer: IComparer<any>, k: any, t: SetTree): SetTree {
-  return t.Case === "SetOne" ? (() => {
-    var c = comparer.Compare(k, t.Fields[0]);
+  if (t.Case === "SetOne") {
+    const c = comparer.Compare(k, t.Fields[0]);
     if (c < 0) {
       return tree_SetNode(k, new SetTree("SetEmpty", []), t, 2);
+    } else if (c === 0) {
+      return t;
     } else {
-      if (c === 0) {
-        return t;
-      } else {
-        return tree_SetNode(k, t, new SetTree("SetEmpty", []), 2);
-      }
+      return tree_SetNode(k, t, new SetTree("SetEmpty", []), 2);
     }
-  })() : t.Case === "SetEmpty" ? tree_SetOne(k) : (() => {
-    var c = comparer.Compare(k, t.Fields[0]);
+  } else if (t.Case === "SetEmpty") {
+    return tree_SetOne(k);
+  } else {
+    const c = comparer.Compare(k, t.Fields[0]);
     if (c < 0) {
       return tree_rebalance(tree_add(comparer, k, t.Fields[1]), t.Fields[0], t.Fields[2]);
+    } else if (c === 0) {
+      return t;
     } else {
-      if (c === 0) {
-        return t;
-      } else {
-        return tree_rebalance(t.Fields[1], t.Fields[0], tree_add(comparer, k, t.Fields[2]));
-      }
+      return tree_rebalance(t.Fields[1], t.Fields[0], tree_add(comparer, k, t.Fields[2]));
     }
-  })();
+  }
 }
 
 function tree_balance(comparer: IComparer<any>, t1: SetTree, k: any, t2: SetTree): SetTree {
@@ -204,97 +202,97 @@ function tree_balance(comparer: IComparer<any>, t1: SetTree, k: any, t2: SetTree
 }
 
 function tree_split(comparer: IComparer<any>, pivot: any, t: SetTree): any { // [SetTree, boolean, SetTree] {
-  return t.Case === "SetOne" ? (() => {
-    var c = comparer.Compare(t.Fields[0], pivot);
+  if (t.Case === "SetOne") {
+    const c = comparer.Compare(t.Fields[0], pivot);
+
     if (c < 0) {
       return [t, false, new SetTree("SetEmpty", [])];
+    } else if (c === 0) {
+      return [new SetTree("SetEmpty", []), true, new SetTree("SetEmpty", [])];
     } else {
-      if (c === 0) {
-        return [new SetTree("SetEmpty", []), true, new SetTree("SetEmpty", [])];
-      } else {
-        return [new SetTree("SetEmpty", []), false, t];
-      }
+      return [new SetTree("SetEmpty", []), false, t];
     }
-  })() : t.Case === "SetEmpty" ? [new SetTree("SetEmpty", []), false, new SetTree("SetEmpty", [])] : (() => {
-    var c = comparer.Compare(pivot, t.Fields[0]);
+  } else if (t.Case === "SetEmpty") {
+    return [new SetTree("SetEmpty", []), false, new SetTree("SetEmpty", [])];
+  } else {
+    const c = comparer.Compare(pivot, t.Fields[0]);
+
     if (c < 0) {
-      var patternInput = tree_split(comparer, pivot, t.Fields[1]);
-      var t11Lo = patternInput[0];
-      var t11Hi = patternInput[2];
-      var havePivot = patternInput[1];
-      return [t11Lo, havePivot, tree_balance(comparer, t11Hi, t.Fields[0], t.Fields[2])];
+      const patternInput = tree_split(comparer, pivot, t.Fields[1]);
+      return [patternInput[0], patternInput[1], tree_balance(comparer, patternInput[2], t.Fields[0], t.Fields[2])];
+    } else if (c === 0) {
+      return [t.Fields[1], true, t.Fields[2]];
     } else {
-      if (c === 0) {
-        return [t.Fields[1], true, t.Fields[2]];
-      } else {
-        var patternInput = tree_split(comparer, pivot, t.Fields[2]);
-        var t12Lo = patternInput[0];
-        var t12Hi = patternInput[2];
-        var havePivot = patternInput[1];
-        return [tree_balance(comparer, t.Fields[1], t.Fields[0], t12Lo), havePivot, t12Hi];
-      }
+      const patternInput = tree_split(comparer, pivot, t.Fields[2]);
+      return [tree_balance(comparer, t.Fields[1], t.Fields[0], patternInput[0]), patternInput[1], patternInput[2]];
     }
-  })();
+  }
 }
 
 function tree_spliceOutSuccessor(t: SetTree): any { // [any,SetTree] {
-  return t.Case === "SetOne" ? [t.Fields[0], new SetTree("SetEmpty", [])] : t.Case === "SetNode" ? t.Fields[1].Case === "SetEmpty" ? [t.Fields[0], t.Fields[2]] : (() => {
-    var patternInput = tree_spliceOutSuccessor(t.Fields[1]);
-    var l_ = patternInput[1];
-    var k3 = patternInput[0];
-    return [k3, tree_mk(l_, t.Fields[0], t.Fields[2])];
-  })() : (() => {
+  if (t.Case === "SetOne") {
+    return [t.Fields[0], new SetTree("SetEmpty", [])];
+  } else if (t.Case === "SetNode") {
+    if (t.Fields[1].Case === "SetEmpty") {
+      return [t.Fields[0], t.Fields[2]];
+    } else {
+      const patternInput = tree_spliceOutSuccessor(t.Fields[1]);
+      return [patternInput[0], tree_mk(patternInput[1], t.Fields[0], t.Fields[2])];
+    }
+  } else {
     throw new Error("internal error: Map.spliceOutSuccessor");
-  })();
+  }
 }
 
 function tree_remove(comparer: IComparer<any>, k: any, t: SetTree): SetTree {
-  return t.Case === "SetOne" ? (() => {
-    var c = comparer.Compare(k, t.Fields[0]);
+  if (t.Case === "SetOne") {
+    const c = comparer.Compare(k, t.Fields[0]);
+
     if (c === 0) {
       return new SetTree("SetEmpty", []);
     } else {
       return t;
     }
-  })() : t.Case === "SetNode" ? (() => {
-    var c = comparer.Compare(k, t.Fields[0]);
+  } else if (t.Case === "SetNode") {
+    const c = comparer.Compare(k, t.Fields[0]);
+
     if (c < 0) {
       return tree_rebalance(tree_remove(comparer, k, t.Fields[1]), t.Fields[0], t.Fields[2]);
-    } else {
-      if (c === 0) {
-        var matchValue = [t.Fields[1], t.Fields[2]];
-        if (matchValue[0].Case === "SetEmpty") {
-          return t.Fields[2];
-        } else {
-          if (matchValue[1].Case === "SetEmpty") {
-            return t.Fields[1];
-          } else {
-            var patternInput = tree_spliceOutSuccessor(t.Fields[2]);
-            var sk = patternInput[0];
-            var r_ = patternInput[1];
-            return tree_mk(t.Fields[1], sk, r_);
-          }
-        }
+    } else if (c === 0) {
+      const matchValue = [t.Fields[1], t.Fields[2]];
+
+      if (matchValue[0].Case === "SetEmpty") {
+        return t.Fields[2];
+      } else if (matchValue[1].Case === "SetEmpty") {
+        return t.Fields[1];
       } else {
-        return tree_rebalance(t.Fields[1], t.Fields[0], tree_remove(comparer, k, t.Fields[2]));
+        const patternInput = tree_spliceOutSuccessor(t.Fields[2]);
+        return tree_mk(t.Fields[1], patternInput[0], patternInput[1]);
       }
+    } else {
+      return tree_rebalance(t.Fields[1], t.Fields[0], tree_remove(comparer, k, t.Fields[2]));
     }
-  })() : t;
+  } else {
+    return t;
+  }
 }
 
 function tree_mem(comparer: IComparer<any>, k: any, t: SetTree): boolean {
-  return t.Case === "SetOne" ? comparer.Compare(k, t.Fields[0]) === 0 : t.Case === "SetEmpty" ? false : (() => {
-    var c = comparer.Compare(k, t.Fields[0]);
+  if (t.Case === "SetOne") {
+    return comparer.Compare(k, t.Fields[0]) === 0;
+  } else if (t.Case === "SetEmpty") {
+    return false;
+  } else {
+    const c = comparer.Compare(k, t.Fields[0]);
+
     if (c < 0) {
       return tree_mem(comparer, k, t.Fields[1]);
+    } else if (c === 0) {
+      return true;
     } else {
-      if (c === 0) {
-        return true;
-      } else {
-        return tree_mem(comparer, k, t.Fields[2]);
-      }
+      return tree_mem(comparer, k, t.Fields[2]);
     }
-  })();
+  }
 }
 
 function tree_iter(f: (x:any)=>void, t: SetTree) {
@@ -314,11 +312,15 @@ function tree_foldBack(f: (x:any, acc:any)=>any, m: SetTree, x: any): any {
 }
 
 function tree_fold(f: (acc:any, x:any)=>any, x: any, m: SetTree): any {
-  return m.Case === "SetOne" ? f(x, m.Fields[0]) : m.Case === "SetEmpty" ? x : (() => {
-    var x_1 = tree_fold(f, x, m.Fields[1]);
-    var x_2 = f(x_1, m.Fields[0]);
+  if (m.Case === "SetOne") {
+    return f(x, m.Fields[0]);
+  } else if (m.Case === "SetEmpty") {
+    return x;
+  } else {
+    const x_1 = tree_fold(f, x, m.Fields[1]);
+    const x_2 = f(x_1, m.Fields[0]);
     return tree_fold(f, x_2, m.Fields[2]);
-  })();
+  }
 }
 
 function tree_forall(f: (x:any)=>boolean, m: SetTree): boolean {
@@ -342,10 +344,18 @@ function tree_psubset(comparer: IComparer<any>, a: SetTree, b: SetTree) {
 }
 
 function tree_filterAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree, acc: SetTree): SetTree {
-  return s.Case === "SetOne" ? f(s.Fields[0]) ? tree_add(comparer, s.Fields[0], acc) : acc : s.Case === "SetEmpty" ? acc : (() => {
-    var acc_1 = f(s.Fields[0]) ? tree_add(comparer, s.Fields[0], acc) : acc;
+  if (s.Case === "SetOne") {
+    if (f(s.Fields[0])) {
+      return tree_add(comparer, s.Fields[0], acc);
+    } else {
+      return acc;
+    }
+  } else if (s.Case === "SetEmpty") {
+    return acc;
+  } else {
+    const acc_1 = f(s.Fields[0]) ? tree_add(comparer, s.Fields[0], acc) : acc;
     return tree_filterAux(comparer, f, s.Fields[1], tree_filterAux(comparer, f, s.Fields[2], acc_1));
-  })();
+  }
 }
 
 function tree_filter(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree): SetTree {
@@ -413,11 +423,19 @@ function tree_union(comparer: IComparer<any>, t1: SetTree, t2: SetTree): SetTree
 }
 
 function tree_intersectionAux(comparer: IComparer<any>, b: SetTree, m: SetTree, acc: SetTree): SetTree {
-  return m.Case === "SetOne" ? tree_mem(comparer, m.Fields[0], b) ? tree_add(comparer, m.Fields[0], acc) : acc : m.Case === "SetEmpty" ? acc : (() => {
-    var acc_1 = tree_intersectionAux(comparer, b, m.Fields[2], acc);
-    var acc_2 = tree_mem(comparer, m.Fields[0], b) ? tree_add(comparer, m.Fields[0], acc_1) : acc_1;
+  if (m.Case === "SetOne") {
+    if (tree_mem(comparer, m.Fields[0], b)) {
+      return tree_add(comparer, m.Fields[0], acc);
+    } else {
+      return acc;
+    }
+  } else if (m.Case === "SetEmpty") {
+    return acc;
+  } else {
+    const acc_1 = tree_intersectionAux(comparer, b, m.Fields[2], acc);
+    const acc_2 = tree_mem(comparer, m.Fields[0], b) ? tree_add(comparer, m.Fields[0], acc_1) : acc_1;
     return tree_intersectionAux(comparer, b, m.Fields[1], acc_2);
-  })();
+  }
 }
 
 function tree_intersection(comparer: IComparer<any>, a: SetTree, b: SetTree) {
@@ -438,19 +456,9 @@ function tree_partitionAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: Set
     if (s.Case === "SetEmpty") {
       return acc;
     } else {
-      var acc_2 = (() => {
-        var arg30_ = acc[0];
-        var arg31_ = acc[1];
-        return tree_partitionAux(comparer, f, s.Fields[2], arg30_, arg31_);
-      })();
-      var acc_3 = (() => {
-        var acc1 = acc_2[0];
-        var acc2 = acc_2[1];
-        return tree_partition1(comparer, f, s.Fields[0], acc1, acc2);
-      })();
-      var arg30_ = acc_3[0];
-      var arg31_ = acc_3[1];
-      return tree_partitionAux(comparer, f, s.Fields[1], arg30_, arg31_);
+      const acc_2 = tree_partitionAux(comparer, f, s.Fields[2], acc[0], acc[1]);
+      const acc_3 = tree_partition1(comparer, f, s.Fields[0], acc_2[0], acc_2[1]);
+      return tree_partitionAux(comparer, f, s.Fields[1], acc_3[0], acc_3[1]);
     }
   }
 }
