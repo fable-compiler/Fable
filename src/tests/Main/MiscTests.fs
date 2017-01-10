@@ -152,7 +152,7 @@ module FooModule =
 open FooModule
 
 [<Test>]
-let ``Inline methods with this argument work``() =
+let ``Inline methods with this argument work``() = // See #638
     let x = FooInline()
     x.Foo |> equal "FooBar"
     x.Foofy 4 |> equal "BarBarBarBar"
@@ -162,7 +162,7 @@ type FooInline with
     member inline self.FoofyPlus(i) = self.Foofy(i * 2)
 
 [<Test>]
-let ``Inline extension methods with this argument work``() =
+let ``Inline extension methods with this argument work``() = // See #638
     let x = FooInline()
     x.Bar2 |> equal "BarBar"
     x.FoofyPlus 3 |> equal "BarBarBarBarBarBar"

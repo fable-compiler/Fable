@@ -273,6 +273,21 @@ module Helpers =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
+    let removeOmittedOptionalArguments (meth: FSharpMemberOrFunctionOrValue) args =
+        let rec removeArgs (args: (Fable.Expr*FSharpParameter) list) =
+            match args with
+            | (arg, p)::rest ->
+                match arg with
+                | (Fable.Wrapped(Fable.Value Fable.Null, _) | Fable.Value Fable.Null)
+                    when p.IsOptionalArg -> removeArgs rest
+                | _ -> args
+            | _ -> args
+        if meth.CurriedParameterGroups.Count <> 1
+            || meth.CurriedParameterGroups.[0].Count <> List.length args
+        then args
+        else
+            List.zip args (Seq.toList meth.CurriedParameterGroups.[0])
+            |> List.rev |> removeArgs |> List.rev |> List.map fst
     let rec deepExists f (expr: FSharpExpr) =
         if f expr
         then true
@@ -1257,6 +1272,7 @@ module Util =
                 | _ ->
                     (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
             else
+                let args = removeOmittedOptionalArguments meth args // See #231, #640
                 if hasAtt Atts.passGenerics meth.Attributes
                 then
                     let genArgs = [passGenerics com ctx r (typArgs, methTypArgs) meth]

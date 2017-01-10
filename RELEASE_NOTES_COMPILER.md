@@ -1,3 +1,8 @@
+### 0.7.28
+
+* Fix #640: Omitted non optional nulls
+* Fix #638: Inlined methods with `this` argument
+
 ### 0.7.27
 
 * Add `--includeJs` compiler argument

@@ -19,3 +19,9 @@ exports.MyClass = class {
         return typeof s === "string" ? s.toUpperCase() : "bar";
     }
 }
+
+exports.fooOptional = {
+    Foo1() { return arguments.length },
+    Foo2() { return arguments.length },
+    Foo3() { return arguments.length }
+}

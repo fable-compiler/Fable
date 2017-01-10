@@ -118,4 +118,20 @@ let ``Secondary constructors of an imported class work``() =
     let c2 = MyClass("hoho")
     c.value |> equal "haha"
     c2.value |> equal "hoho"
+
+type FooOptional =
+    abstract Foo1: x: int * ?y: string -> int
+    abstract Foo2: x: int * y: string option -> int
+    abstract Foo3: x: int * y: string -> int
+
+[<Test>]
+let ``Only omitted optional arguments are removed``() = // See #231, #640
+    let x: FooOptional = Fable.Core.JsInterop.import "fooOptional" "./js/foo.js"
+    x.Foo1(5) |> equal 1
+    x.Foo1(5, "3") |> equal 2
+    x.Foo2(5, None) |> equal 2
+    x.Foo3(5, null) |> equal 2
+    x.Foo1(5,"3") |> equal 2
+    x.Foo2(5,Some "3") |> equal 2
+    x.Foo3(5, "3") |> equal 2
 #endif
