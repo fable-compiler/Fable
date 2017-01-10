@@ -284,3 +284,9 @@ let ``Long integers comparison works``() =
     Assert.AreEqual(-1, compare y z)
     Assert.AreEqual(0, compareTo y x)
     Assert.AreEqual(1, compareTo z x)
+
+[<Test>]
+let ``bigint equality works``() =
+    let a = 9007199254740992I
+    let b = 9007199254740993I
+    Assert.AreNotEqual(a, b) 
