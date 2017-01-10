@@ -31,7 +31,7 @@ type ThisAvailability =
     // they can also be nested (see makeThisRef and the ObjectExpr pattern)
     | ThisCaptured
         of currentThis: FSharpMemberOrFunctionOrValue option
-        * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Ident) list
+        * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
 
 type MemberInfo =
     { isInstance: bool
@@ -1178,7 +1178,6 @@ module Util =
         if not(isInline meth) then None else
         match com.TryGetInlineExpr meth with
         | Some (vars, fsExpr) ->
-            let args = match callee with Some x -> x::args | None -> args
             let ctx, assignments =
                 ((ctx, []), vars, args)
                 |||> Seq.fold2 (fun (ctx, assignments) var arg ->
@@ -1193,7 +1192,11 @@ module Util =
                         { ctx with scope = (Some var.Key, arg)::ctx.scope }, assignments
                 )
             let typeArgs = matchGenericParams com ctx meth (typArgs, methTypArgs)
-            let expr = com.Transform {ctx with typeArgs=typeArgs} fsExpr
+            let ctx =
+                match callee with
+                | Some callee -> {ctx with thisAvailability=ThisCaptured(None, [None, callee]); typeArgs=typeArgs}
+                | None -> {ctx with typeArgs=typeArgs}
+            let expr = com.Transform ctx fsExpr
             if List.isEmpty assignments
             then Some expr
             else makeSequential r (assignments@[expr]) |> Some
@@ -1332,10 +1335,8 @@ module Util =
                     // (the unknown `this` ref outside nested object expressions),
                     // so this means we've reached the end of the list.
                     | None, ident -> Some ident)
-                |> Fable.IdentValue |> Fable.Value
             | None, _ ->
                 capturedThis |> List.last |> snd
-                |> Fable.IdentValue |> Fable.Value
         | ThisUnavailable ->
             "`this` seems to be used in a context where it's not available, please check."
             |> addWarning com ctx.fileName r
@@ -1392,9 +1393,9 @@ module Util =
             match containsJsThis, ctx.thisAvailability with
             | false, _ -> None
             | true, ThisUnavailable -> None
-            | true, ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdent]
+            | true, ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdentExpr]
             | true, ThisCaptured(prevThis, prevVars) ->
-                (prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
+                (prevThis, com.GetUniqueVar() |> makeIdentExpr)::prevVars |> Some
         let ctx =
             match capturedThis with
             | None -> ctx
@@ -1418,7 +1419,7 @@ module Util =
             Fable.Lambda(lambdaArgs, body, not containsJsThis) |> Fable.Value
         |> fun lambda ->
             match capturedThis with
-            | Some((_,capturedThis)::_) ->
+            | Some((_,Fable.Value(Fable.IdentValue capturedThis))::_) ->
                 let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
                 Fable.Sequential([varDecl; lambda], lambda.Range)
             | _ -> lambda

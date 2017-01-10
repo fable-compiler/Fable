@@ -514,9 +514,9 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let capturedThis =
             match ctx.thisAvailability with
             | ThisUnavailable -> None
-            | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdent]
+            | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdentExpr]
             | ThisCaptured(prevThis, prevVars) ->
-                (prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
+                (prevThis, com.GetUniqueVar() |> makeIdentExpr)::prevVars |> Some
         let baseClass, baseCons =
             match baseCallExpr with
             | BasicPatterns.Call(None, meth, _, _, args) ->
@@ -597,7 +597,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let range = makeRangeFrom fsExpr
         let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
         match capturedThis with
-        | Some((_,capturedThis)::_) ->
+        | Some((_,Fable.Value(Fable.IdentValue capturedThis))::_) ->
             let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
             Fable.Sequential([varDecl; objExpr], range)
         | _ -> objExpr
@@ -1009,7 +1009,11 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             if com.Options.dll && meth.Accessibility.IsPublic then
                 "Inline public methods won't be accessible when referencing the project as a .dll"
                 |> addWarning com ctx.fileName (getRefLocation meth |> makeRange |> Some)
-            let vars = Seq.collect id args |> countRefs body
+            let vars =
+                match args with
+                | [thisArg]::args when meth.IsInstanceMember -> args
+                | _ -> args
+                |> Seq.collect id |> countRefs body
             com.AddInlineExpr meth.FullName (vars, body)
             declInfo, ctx
     else addMethod None
