@@ -31,9 +31,14 @@ module Util =
 
     let (|Type|) (expr: Fable.Expr) = expr.Type
 
-    let (|NumberType|) = function
+    let (|NumberType|_|) = function
         | Fable.Number kind -> Some kind
         | _ -> None
+
+    let (|Number|ExtNumber|NoNumber|) = function
+        | Fable.Number kind -> Number kind
+        | Fable.ExtendedNumber kind -> ExtNumber kind
+        | _ -> NoNumber
 
     let (|EntFullName|_|) (typ: Fable.Type) =
         match typ with
@@ -58,13 +63,8 @@ module Util =
         match callee, args with None, arg1::arg2::arg3::_ -> Some (arg1, arg2, arg3) | _ -> None
 
     let (|Integer|Float|) = function
-        | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 -> Integer
+        | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
         | Float32 | Float64 | Decimal -> Float
-
-    let (|LongInteger|) = function
-        | Int64 -> Some false
-        | UInt64 -> Some true
-        | _ -> None
 
     // The core lib expects non-curried lambdas
     let deleg com (info: Fable.ApplyInfo) args =
@@ -83,8 +83,8 @@ module Util =
             + "consider inlining the method (for `internal` members) "
             + "or using `PassGenericsAttribute`."
             |> addWarning com info.fileName info.range
-            makeTypeRef genInfo t
-        | t -> makeTypeRef genInfo t
+            makeTypeRef com genInfo t
+        | t -> makeTypeRef com genInfo t
 
     let instanceArgs (callee: Fable.Expr option) (args: Fable.Expr list) =
         match callee with
@@ -151,7 +151,7 @@ module Util =
             GlobalCall ("String", None, false, [arg])
             |> makeCall i.range i.returnType
         | Fable.MetaType | Fable.Any | Fable.GenericParam _
-        | Fable.DeclaredType _ | Fable.Option _ ->
+        | Fable.ExtendedNumber _ | Fable.DeclaredType _ | Fable.Option _ ->
             CoreLibCall ("Util", Some "toString", false, [arg])
             |> makeCall i.range i.returnType
 
@@ -160,75 +160,76 @@ module Util =
         | Fable.String ->
             GlobalCall ("Number", Some "parseFloat", false, args)
             |> makeCall i.range i.returnType
-        | Fable.Number (LongInteger (Some _)) ->
+        | Fable.ExtendedNumber (Int64 | UInt64) ->
             InstanceCall (args.Head, "toNumber", args.Tail)
             |> makeCall i.range (Fable.Number Float64)
         | _ ->
             wrap i.returnType args.Head
 
     let toInt com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
-        let kindIndex kind = //        0   1   2   3   4   5   6   7   8   9  10
-            match kind with  //        i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec
-            | Int8 -> 0      // 0 i8   -   -   -   -   +   +   +   +   -   -   -
-            | Int16 -> 1     // 1 i16  +   -   -   -   +   +   +   +   -   -   -
-            | Int32 -> 2     // 2 i32  +   +   -   -   +   +   +   +   -   -   -
-            | Int64 -> 3     // 3 i64  +   +   +   -   +   +   +   +   -   -   -
-            | UInt8 -> 4     // 4 u8   +   +   +   +   -   -   -   -   -   -   -
-            | UInt16 -> 5    // 5 u16  +   +   +   +   +   -   -   -   -   -   -
-            | UInt32 -> 6    // 6 u32  +   +   +   +   +   +   -   -   -   -   -
-            | UInt64 -> 7    // 7 u64  +   +   +   +   +   +   +   -   -   -   -
-            | Float32 -> 8   // 8 f32  +   +   +   +   +   +   +   +   -   -   -
-            | Float64 -> 9   // 9 f64  +   +   +   +   +   +   +   +   -   -   -
-            | Decimal -> 10  //10 dec  +   +   +   +   +   +   +   +   -   -   -
-        let needToCast kindFrom kindTo =
-            let v = kindIndex kindFrom // argument type
-            let h = kindIndex kindTo   // return type
+        let kindIndex t =           //        0   1   2   3   4   5   6   7   8   9  10
+            match t with            //        i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec
+            | Number Int8 -> 0      // 0 i8   -   -   -   -   +   +   +   +   -   -   -
+            | Number Int16 -> 1     // 1 i16  +   -   -   -   +   +   +   +   -   -   -
+            | Number Int32 -> 2     // 2 i32  +   +   -   -   +   +   +   +   -   -   -
+            | ExtNumber Int64 -> 3  // 3 i64  +   +   +   -   +   +   +   +   -   -   -
+            | Number UInt8 -> 4     // 4 u8   +   +   +   +   -   -   -   -   -   -   -
+            | Number UInt16 -> 5    // 5 u16  +   +   +   +   +   -   -   -   -   -   -
+            | Number UInt32 -> 6    // 6 u32  +   +   +   +   +   +   -   -   -   -   -
+            | ExtNumber UInt64 -> 7 // 7 u64  +   +   +   +   +   +   +   -   -   -   -
+            | Number Float32 -> 8   // 8 f32  +   +   +   +   +   +   +   +   -   -   -
+            | Number Float64 -> 9   // 9 f64  +   +   +   +   +   +   +   +   -   -   -
+            | Number Decimal -> 10  //10 dec  +   +   +   +   +   +   +   +   -   -   -
+            | NoNumber -> failwith "Unexpected non-number type"
+        let needToCast typeFrom typeTo =
+            let v = kindIndex typeFrom // argument type
+            let h = kindIndex typeTo   // return type
             ((v > h) || (v < 4 && h > 3)) && (h < 8)
         let emitLong unsigned args =
             CoreLibCall("Long", Some "fromNumber", false, args@[makeConst unsigned])
             |> makeCall i.range i.returnType
-        let emitCast kindTo args =
-            match kindTo with
-            | LongInteger (Some unsigned) -> emitLong unsigned args
-            | _ ->
-                match kindTo with
-                | Int8 -> "($0 + 0x80 & 0xFF) - 0x80"
-                | Int16 -> "($0 + 0x8000 & 0xFFFF) - 0x8000"
-                | Int32 -> "~~$0"
-                | UInt8 -> "$0 & 0xFF"
-                | UInt16 -> "$0 & 0xFFFF"
-                | UInt32 -> "$0 >>> 0"
-                | _ -> "$0"
-                |> emit i <| args
+        let emitCast typeTo args =
+            match typeTo with
+            | ExtNumber UInt64 -> emitLong true args
+            | ExtNumber Int64 -> emitLong false args
+            | Number Int8 -> emit i "($0 + 0x80 & 0xFF) - 0x80" args
+            | Number Int16 -> emit i "($0 + 0x8000 & 0xFFFF) - 0x8000" args
+            | Number Int32 -> emit i "~~$0" args
+            | Number UInt8 -> emit i "$0 & 0xFF" args
+            | Number UInt16 -> emit i "$0 & 0xFFFF" args
+            | Number UInt32 -> emit i "$0 >>> 0" args
+            | Number _ -> emit i "$0" args
+            | NoNumber -> failwith "Unexpected non-number type"
         match args.Head.Type with
         | Fable.Char ->
             InstanceCall(args.Head, "charCodeAt", [makeConst 0])
             |> makeCall i.range i.returnType
         | Fable.String ->
             match i.returnType with
-            | Fable.Number (LongInteger (Some unsigned)) ->
+            | Fable.ExtendedNumber (Int64|UInt64 as kind) ->
+                let unsigned = kind = UInt64
                 let args = [args.Head]@[makeConst unsigned]@args.Tail
                 CoreLibCall ("Long", Some "fromString", false, args)
                 |> makeCall i.range i.returnType
             | _ ->
                 GlobalCall ("Number", Some "parseInt", false, args)
                 |> makeCall i.range i.returnType
-        | Fable.Number kindFrom ->
+        | Number _ | ExtNumber _ as typeFrom ->
             match i.returnType with
-            | Fable.Number kindTo when needToCast kindFrom kindTo ->
-                match kindFrom, kindTo with
-                | LongInteger (Some _), _ ->
+            | Number _ | ExtNumber _ as typeTo when needToCast typeFrom typeTo ->
+                match typeFrom, typeTo with
+                | ExtNumber (UInt64|Int64), _ ->
                     InstanceCall (args.Head, "toNumber", args.Tail)
                     |> makeCall i.range (Fable.Number Float64)
-                | Float, Integer when i.ownerFullName = "System.Convert" ->
+                | Number Float, (Number Integer | ExtNumber(Int64|UInt64)) when i.ownerFullName = "System.Convert" ->
                     CoreLibCall("Util", Some "round", false, args)
                     |> makeCall i.range i.returnType
                 | _, _ -> args.Head
                 |> List.singleton
-                |> emitCast kindTo
-            | Fable.Number (LongInteger (Some unsigned)) ->
-                emitLong unsigned [args.Head]
-            | Fable.Number _ -> emit i "$0" [args.Head]
+                |> emitCast typeTo
+            | ExtNumber (UInt64|Int64 as kind) ->
+                emitLong (kind = UInt64) [args.Head]
+            | Number _ -> emit i "$0" [args.Head]
             | _ -> wrap i.returnType args.Head
         | _ -> wrap i.returnType args.Head
 
@@ -245,7 +246,6 @@ module Util =
         | Fable.Apply(CoreMeth "List" "ofArray" _, [arr], Fable.ApplyMeth,_,_), _ -> arr
         | CoreCons "List", _ ->
             Fable.ArrayConst(Fable.ArrayValues [], genArg i.returnType) |> Fable.Value
-        | _, Fable.Array(Fable.Number (LongInteger (Some _))) -> arrayFrom "Array" expr
         // Typed arrays
         | _, Fable.Array(Fable.Number numberKind) when not com.Options.noTypedArrays ->
             arrayFrom (getTypedArrayName com numberKind) expr
@@ -283,8 +283,8 @@ module Util =
             let typRef = Fable.Value(Fable.TypeRef(ent,[]))
             InstanceCall(typRef, m.OverloadName, args)
             |> makeCall i.range i.returnType
-        | Fable.Number (LongInteger (Some _))::_
-        | _::[Fable.Number (LongInteger (Some _))] ->
+        | Fable.ExtendedNumber (Int64|UInt64)::_
+        | _::[Fable.ExtendedNumber (Int64|UInt64)] ->
             let meth =
                 match meth with
                 | "op_Addition" -> "add"
@@ -340,7 +340,7 @@ module Util =
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpSet" ->
             icall args equal
-        | Fable.Number (LongInteger (Some _)) ->
+        | Fable.ExtendedNumber _ ->
             icall args equal
         | Fable.Any | Fable.Unit | Fable.Boolean | Fable.Char | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
@@ -366,7 +366,7 @@ module Util =
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
             icall args op
-        | Fable.Number (LongInteger (Some _)) ->
+        | Fable.ExtendedNumber _ ->
             icall args op
         | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ when Option.isSome op ->
@@ -538,7 +538,7 @@ module private AstPass =
     let operators (com: ICompiler) (info: Fable.ApplyInfo) =
         let math range typ (args: Fable.Expr list) methName =
             match methName, typ with
-            | "abs", Fable.Number Int64 ->
+            | "abs", Fable.ExtendedNumber Int64 ->
                 InstanceCall (args.Head, "abs", args.Tail)
                 |> makeCall range typ |> Some
             | _ ->
@@ -779,10 +779,10 @@ module private AstPass =
                 | Fable.Char -> "getBytesChar"
                 | Fable.Number Int16 -> "getBytesInt16"
                 | Fable.Number Int32 -> "getBytesInt32"
-                | Fable.Number Int64 -> "getBytesInt64"
+                | Fable.ExtendedNumber Int64 -> "getBytesInt64"
                 | Fable.Number UInt16 -> "getBytesUInt16"
                 | Fable.Number UInt32 -> "getBytesUInt32"
-                | Fable.Number UInt64 -> "getBytesUInt64"
+                | Fable.ExtendedNumber UInt64 -> "getBytesUInt64"
                 | Fable.Number Float32 -> "getBytesSingle"
                 | Fable.Number Float64 -> "getBytesDouble"
                 | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
@@ -951,7 +951,7 @@ module private AstPass =
             CoreLibCall("Array", Some "setSlice", false, args)
             |> makeCall i.range i.returnType |> Some
         | "typeTestGeneric", (None, [expr]) ->
-            makeTypeTest i.range i.methodTypeArgs.Head expr |> Some
+            makeTypeTest com i.range i.methodTypeArgs.Head expr |> Some
         | "createInstance", (None, _) ->
             let typRef, args = resolveTypeRef com i false i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
@@ -1509,14 +1509,14 @@ module private AstPass =
                 // Native JS map is risky with typed arrays as they coerce
                 // the final result (see #120, #171)
                 | Fable.Any::_ | Fable.GenericParam _::_ -> None
-                | NumberType(Some _) as tin::[tout] when tin = tout ->
+                | (Number _ as tin)::[tout] when tin = tout ->
                     icall "map" (i.args.[1], deleg com i [i.args.[0]])
-                | NumberType None::[NumberType None] ->
+                | (ExtNumber _|NoNumber)::[ExtNumber _|NoNumber] ->
                     icall "map" (i.args.[1], deleg com i [i.args.[0]])
                 | _ -> None
             | "append" ->
                 match i.methodTypeArgs with
-                | [Fable.Any] | [NumberType(Some _)] -> None
+                | [Fable.Any] | [Number _] -> None
                 | _ -> icall "concat" (i.args.Head, i.args.Tail)
             | "indexed" ->
                 emit i "$0.map((x, y) => [y, x])" i.args |> Some
@@ -1576,7 +1576,7 @@ module private AstPass =
                 |> makeCall i.range i.returnType |> Some
             | t ->
                 let genInfo = {makeGeneric=true; genericAvailability=false}
-                makeTypeRef genInfo t |> Some
+                makeTypeRef com genInfo t |> Some
         | _ -> None
 
     let types com (info: Fable.ApplyInfo) =
@@ -1588,7 +1588,7 @@ module private AstPass =
             | "fullName" -> str ent.FullName |> Some
             | "name" -> str ent.Name |> Some
             | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeConst |> Some
-            | "getGenericTypeDefinition" -> makeTypeRefFrom ent |> Some
+            | "getGenericTypeDefinition" -> makeTypeRefFrom com ent |> Some
             | _ -> None
         | _ ->
             let getTypeFullName args =

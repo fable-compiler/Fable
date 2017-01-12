@@ -158,7 +158,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
         |> function
         | Some repl -> repl
-        | None -> Fable.Apply(makeNonGenTypeRef unionType, argExprs, Fable.ApplyCons, unionType, Some range)
+        | None -> Fable.Apply(makeNonGenTypeRef com unionType, argExprs, Fable.ApplyCons, unionType, Some range)
 
 and private transformComposableExpr com ctx fsExpr argExprs =
     // See (|ComposableExpr|_|) active pattern to check which expressions are valid here
@@ -215,7 +215,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         let superCall = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
         if ctx.baseClass = Some "System.Exception"
-        then Fable.Sequential([superCall; setProto ctx.enclosingEntity], range)
+        then Fable.Sequential([superCall; setProto com ctx.enclosingEntity], range)
         else superCall
 
     | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
@@ -454,7 +454,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx.typeArgs calleeType
-                      |> makeNonGenTypeRef
+                      |> makeNonGenTypeRef com
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeGetFrom com ctx r typ callee (makeConst fieldName)
 
@@ -487,7 +487,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeNonGenTypeRef calleeType
+            | None -> makeNonGenTypeRef com calleeType
         Fable.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -526,7 +526,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                     tryEnclosingEntity meth
                     |> Option.map (fun ent ->
                         makeTypeFromDef com ctx.typeArgs ent []
-                        |> makeNonGenTypeRef)
+                        |> makeNonGenTypeRef com)
                 let baseCons =
                     let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
                     let m = Fable.Member(".ctor", Fable.Constructor, Fable.InstanceLoc, [], Fable.Any)
@@ -592,7 +592,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
               yield! members
               if List.contains "System.Collections.Generic.IEnumerable" interfaces
               then yield makeIteratorMethodArgsAndBody()
-              yield makeReflectionMethodArgsAndBody None false false interfaces None None
+              yield makeReflectionMethodArgsAndBody com None false false interfaces None None
             ]
         let range = makeRangeFrom fsExpr
         let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
@@ -624,7 +624,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
             |> function
             | Some repl -> repl
-            | None -> Fable.Apply(makeNonGenTypeRef recordType, argExprs, Fable.ApplyCons,
+            | None -> Fable.Apply(makeNonGenTypeRef com recordType, argExprs, Fable.ApplyCons,
                             makeType com ctx.typeArgs fsExpr.Type, range)
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
@@ -635,7 +635,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
-        makeTypeTest (makeRangeFrom fsExpr) typ expr
+        makeTypeTest com (makeRangeFrom fsExpr) typ expr
 
     | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr, fsType, unionCase) ->
         let checkCase name =
@@ -658,7 +658,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                         then makeType com ctx.typeArgs fsType.GenericArguments.[idx]
                         else unionType
                     else unionType
-                makeTypeTest (makeRangeFrom fsExpr) typ unionExpr
+                makeTypeTest com (makeRangeFrom fsExpr) typ unionExpr
         | OptionUnion ->
             let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.Value Fable.Null] opKind
@@ -803,7 +803,7 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     match fableEnt.Kind with
     | Fable.Union cases ->
       [ yield makeUnionCons()
-        yield makeReflectionMethod (Some fableEnt) false nullable
+        yield makeReflectionMethod com (Some fableEnt) false nullable
                 ("FSharpUnion"::fableEnt.Interfaces) (Some cases) None
         if needsEqImpl then yield makeUnionEqualMethod fableType
         if needsCompImpl then yield makeUnionCompareMethod fableType ]
@@ -812,13 +812,13 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
       // Structs are considered equivalent to records but
       // some already include a constructor (see #569)
       [ if fableEnt.Members |> Seq.exists (fun m -> m.Kind = Fable.Constructor) |> not
-        then yield makeRecordCons fableEnt fields
-        yield makeReflectionMethod (Some fableEnt) false nullable
+        then yield makeRecordCons com fableEnt fields
+        yield makeReflectionMethod com (Some fableEnt) false nullable
                 ("FSharpRecord"::fableEnt.Interfaces) None (Some fields)
         if needsEqImpl then yield makeRecordEqualMethod fableType
         if needsCompImpl then yield makeRecordCompareMethod fableType ]
     | Fable.Class(baseClass, properties) ->
-      [makeReflectionMethod (Some fableEnt) baseClass.IsSome nullable
+      [makeReflectionMethod com (Some fableEnt) baseClass.IsSome nullable
             fableEnt.Interfaces None (Some properties)]
     | _ -> []
     |> fun autoMeths ->

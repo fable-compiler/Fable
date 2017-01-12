@@ -522,8 +522,6 @@ module Patterns =
         | "System.UInt16" -> Some UInt16
         | "System.Int32" -> Some Int32
         | "System.UInt32" -> Some UInt32
-        | "System.Int64" -> Some Int64
-        | "System.UInt64" -> Some UInt64
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
         | "System.Decimal" -> Some Decimal
@@ -533,12 +531,17 @@ module Patterns =
         | Naming.StartsWith "Microsoft.FSharp.Core.float" _ -> Some Float64
         | _ -> None
 
+    let (|ExtendedNumberKind|_|) = function
+        | "System.Int64" -> Some Int64
+        | "System.UInt64" -> Some UInt64
+        | _ -> None
+
     let (|Switch|_|) fsExpr =
         let isStringOrNumber (NonAbbreviatedType typ) =
             if not typ.HasTypeDefinition then false else
             match typ.TypeDefinition.TryFullName with
             | Some("System.String") -> true
-            | Some(NumberKind kind) when kind <> Int64 && kind <> UInt64 -> true
+            | Some(NumberKind kind) -> true
             | _ when typ.TypeDefinition.IsEnum -> true
             | _ -> false
         let rec makeSwitch map matchValue e =
@@ -654,7 +657,7 @@ module Types =
     let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
         match tdef.BaseType with
         | Some(TypeDefinition tdef) when tdef.FullName <> "System.Object" ->
-            let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef
+            let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef com
             Some (sanitizeEntityFullName tdef, typeRef)
         | _ -> None
 
@@ -840,6 +843,7 @@ module Types =
             let t = Seq.tryHead genArgs |> Option.map (makeType com typeArgs)
             Fable.Array(defaultArg t Fable.Any)
         | NumberKind kind -> Fable.Number kind
+        | ExtendedNumberKind kind -> Fable.ExtendedNumber kind
         | _ ->
             // Check erased types
             tdef.Attributes
@@ -1129,7 +1133,7 @@ module Util =
             Naming.genericPlaceholderRegex.Replace(macro, fun m ->
                 match genArgs.TryFind m.Groups.[1].Value with
                 | Some t ->
-                    makeType com ctx.typeArgs t |> makeTypeRef genInfo |> addExtraArg
+                    makeType com ctx.typeArgs t |> makeTypeRef com genInfo |> addExtraArg
                 | None ->
                     sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
                         m.Groups.[1].Value macro
@@ -1240,13 +1244,13 @@ module Util =
                      "or using concrete types.")
                     |> addWarning com ctx.fileName r
                 | None -> ()
-            genName, makeTypeRef genInfo typ)
+            genName, makeTypeRef com genInfo typ)
         |> makeJsObject None
 
     let (|ExtensionMember|_|) com (ctx: Context) r typ (callee, args, argTypes) owner (meth: FSharpMemberOrFunctionOrValue) =
         match meth.IsExtensionMember, callee, owner with
         | true, Some callee, Some ent ->
-            let typRef = makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef
+            let typRef = makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
             let methName =
                 let methName = sanitizeMethodName meth
                 let ent = com.GetEntity ent
@@ -1302,10 +1306,10 @@ module Util =
                 match callee, owner with
                 | Some callee, _ -> callee
                 | None, Some ent ->
-                    makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef
+                    makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the method belongs to the current enclosing module
-                | _ -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef
+                | _ -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef com
             let methName = sanitizeMethodName meth
     (**     *Check if this a getter or setter  *)
             match getMemberKind meth with
@@ -1375,10 +1379,10 @@ module Util =
         | _ ->
             let typeRef =
                 match owner with
-                | Some ent -> makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef
+                | Some ent -> makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the value belongs to the current enclosing module
-                | None -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef
+                | None -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef com
             Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
 
     let makeDelegateFrom (com: IFableCompiler) ctx delegateType fsExpr =

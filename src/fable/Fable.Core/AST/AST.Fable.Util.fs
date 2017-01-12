@@ -123,6 +123,18 @@ let makeJsObject range (props: (string * Expr) list) =
         m, [], body)
     ObjExpr(membs, [], None, range)
 
+let getTypedArrayName (com: ICompiler) numberKind =
+    match numberKind with
+    | Int8 -> "Int8Array"
+    | UInt8 -> if com.Options.clamp then "Uint8ClampedArray" else "Uint8Array"
+    | Int16 -> "Int16Array"
+    | UInt16 -> "Uint16Array"
+    | Int32 -> "Int32Array"
+    | UInt32 -> "Uint32Array"
+    | Float32 -> "Float32Array"
+    | Float64 -> "Float64Array"
+    | Decimal -> "Float64Array"
+
 let makeNonDeclaredTypeRef (nonDeclType: NonDeclaredType) =
     let get t =
         Wrapped(makeCoreRef "Util" (Some t), MetaType)
@@ -146,26 +158,30 @@ type GenericInfo = {
     genericAvailability: bool
 }
 
-let rec makeTypeRef (genInfo: GenericInfo) typ =
+let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
     let str s = Wrapped(Value(StringConst s), MetaType)
     match typ with
     | Boolean -> str "boolean"
     | Char
     | String -> str "string"
     | Number _ | Enum _ -> str "number"
+    | ExtendedNumber (Int64|UInt64) ->
+        makeCoreRef "Long" (Some "Long")
     | Function _ -> str "function"
     | MetaType | Any -> makeNonDeclaredTypeRef NonDeclAny
     | Unit -> makeNonDeclaredTypeRef NonDeclUnit
+    | Array (Number kind) when not com.Options.noTypedArrays ->
+        Ident(getTypedArrayName com kind, MetaType) |> IdentValue |> Value
     | Array genArg ->
-        makeTypeRef genInfo genArg
+        makeTypeRef com genInfo genArg
         |> NonDeclArray
         |> makeNonDeclaredTypeRef
     | Option genArg ->
-        makeTypeRef genInfo genArg
+        makeTypeRef com genInfo genArg
         |> NonDeclOption
         |> makeNonDeclaredTypeRef
     | Tuple genArgs ->
-        List.map (makeTypeRef genInfo) genArgs
+        List.map (makeTypeRef com genInfo) genArgs
         |> NonDeclTuple
         |> makeNonDeclaredTypeRef
     | GenericParam name ->
@@ -181,7 +197,7 @@ let rec makeTypeRef (genInfo: GenericInfo) typ =
         | Some expr -> expr
         | None when not genInfo.makeGeneric || genArgs.IsEmpty -> Value(TypeRef(ent,[]))
         | None ->
-            List.map (makeTypeRef genInfo) genArgs
+            List.map (makeTypeRef com genInfo) genArgs
             |> List.zip ent.GenericParameters
             |> fun genArgs -> Value(TypeRef(ent, genArgs))
 
@@ -213,17 +229,17 @@ and makeCall (range: SourceLocation option) typ kind =
         |> getCallee meth args typ
         |> apply (getKind isCons) args
 
-let makeNonGenTypeRef typ =
-    makeTypeRef { makeGeneric=false; genericAvailability=false } typ
+let makeNonGenTypeRef com typ =
+    makeTypeRef com { makeGeneric=false; genericAvailability=false } typ
 
-let makeTypeRefFrom ent =
+let makeTypeRefFrom com ent =
     let genInfo = { makeGeneric=false; genericAvailability=false }
-    DeclaredType(ent, []) |> makeTypeRef genInfo
+    DeclaredType(ent, []) |> makeTypeRef com genInfo
 
 let makeEmit r t args macro =
     Apply(Value(Emit macro), args, ApplyMeth, t, r)
 
-let rec makeTypeTest range (typ: Type) expr =
+let rec makeTypeTest com range (typ: Type) expr =
     let jsTypeof (primitiveType: string) expr =
         let typof = makeUnOp None String [expr] UnaryTypeof
         makeBinOp range Boolean [typof; makeConst primitiveType] BinaryEqualStrict
@@ -234,6 +250,8 @@ let rec makeTypeTest range (typ: Type) expr =
     | Char
     | String _ -> jsTypeof "string" expr
     | Number _ | Enum _ -> jsTypeof "number" expr
+    | ExtendedNumber (Int64|UInt64) ->
+        makeBinOp range Boolean [expr; makeCoreRef "Long" (Some "Long")] BinaryInstanceOf
     | Boolean -> jsTypeof "boolean" expr
     | Unit -> makeBinOp range Boolean [expr; Value Null] BinaryEqual
     | Function _ -> jsTypeof "function" expr
@@ -241,14 +259,14 @@ let rec makeTypeTest range (typ: Type) expr =
         CoreLibCall ("Util", Some "isArray", false, [expr])
         |> makeCall range Boolean
     | Any -> makeConst true
-    | Option typ -> makeTypeTest range typ expr
+    | Option typ -> makeTypeTest com range typ expr
     | DeclaredType(typEnt, _) ->
         match typEnt.Kind with
         | Interface ->
             CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
             |> makeCall range Boolean
         | _ ->
-            makeBinOp range Boolean [expr; makeNonGenTypeRef typ] BinaryInstanceOf
+            makeBinOp range Boolean [expr; makeNonGenTypeRef com typ] BinaryInstanceOf
     | GenericParam name ->
         "Cannot type test generic parameter " + name
         |> attachRange range |> failwith
@@ -262,11 +280,11 @@ let makeUnionCons () =
 
 // This is necessary when extending built-in JS types and compiling to ES5
 // See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
-let setProto (ent: Entity) =
+let setProto com (ent: Entity) =
     let meth = makeUntypedGet (makeIdentExpr "Object") "setPrototypeOf"
-    Apply(meth, [This |> Value; makeUntypedGet (Fable.DeclaredType(ent, []) |> makeNonGenTypeRef) "prototype"], ApplyMeth, Any, None)
+    Apply(meth, [This |> Value; makeUntypedGet (Fable.DeclaredType(ent, []) |> makeNonGenTypeRef com) "prototype"], ApplyMeth, Any, None)
 
-let makeRecordCons (ent: Entity) (props: (string*Type) list) =
+let makeRecordCons com (ent: Entity) (props: (string*Type) list) =
     let args =
         ([], props) ||> List.fold (fun args (name, typ) ->
             let name =
@@ -282,7 +300,7 @@ let makeRecordCons (ent: Entity) (props: (string*Type) list) =
             match ent.Kind with
             | Fable.Exception _ ->
                 let superCall = Apply(Value Super, [], ApplyMeth, Any, None)
-                Sequential(superCall::(setProto ent)::setters, None)
+                Sequential(superCall::(setProto com ent)::setters, None)
             | _ -> Sequential(setters, None)
     MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, None)
 
@@ -309,7 +327,7 @@ let makeIteratorMethod() =
     let m, args, body = makeIteratorMethodArgsAndBody()
     MemberDeclaration(m, None, args, body, None)
 
-let makeReflectionMethodArgsAndBody (ent: Fable.Entity option) extend nullable interfaces cases properties =
+let makeReflectionMethodArgsAndBody com (ent: Fable.Entity option) extend nullable interfaces cases properties =
     let members = [
         match ent with
         | Some ent -> yield "type", Value(StringConst ent.FullName)
@@ -323,7 +341,7 @@ let makeReflectionMethodArgsAndBody (ent: Fable.Entity option) extend nullable i
         | Some properties ->
             let genInfo = { makeGeneric=true; genericAvailability=false }
             properties |> List.map (fun (name, typ) ->
-                let body = makeTypeRef genInfo typ
+                let body = makeTypeRef com genInfo typ
                 Member(name, Field, InstanceLoc, [], Any), [], body)
             |> fun decls -> ["properties", ObjExpr(decls, [], None, None)]
         | None -> []
@@ -331,7 +349,7 @@ let makeReflectionMethodArgsAndBody (ent: Fable.Entity option) extend nullable i
         | Some cases ->
             let genInfo = { makeGeneric=true; genericAvailability=false }
             cases |> Seq.map (fun (kv: System.Collections.Generic.KeyValuePair<_,_>) ->
-                let typs = kv.Value |> List.map (makeTypeRef genInfo)
+                let typs = kv.Value |> List.map (makeTypeRef com genInfo)
                 let typs = Fable.ArrayConst(Fable.ArrayValues typs, Any) |> Fable.Value
                 Member(kv.Key, Field, InstanceLoc, [], Any), [], typs)
             |> fun decls -> ["cases", ObjExpr(Seq.toList decls, [], None, None)]
@@ -341,13 +359,13 @@ let makeReflectionMethodArgsAndBody (ent: Fable.Entity option) extend nullable i
         match ent, extend with
         | Some ent, true ->
             CoreLibCall("Util", Some "extendInfo", false,
-                [makeTypeRefFrom ent; makeJsObject None members]) |> makeCall None Any
+                [makeTypeRefFrom com ent; makeJsObject None members]) |> makeCall None Any
         | _ -> makeJsObject None members
     let comp = makeUntypedGet (makeCoreRef "Symbol" None) "reflection"
     Member("FSymbol.reflection", Method, InstanceLoc, [], Any, computed=comp), [], info
 
-let makeReflectionMethod (ent: Fable.Entity option) extend nullable interfaces cases properties =
-    let m, args, body = makeReflectionMethodArgsAndBody ent extend nullable interfaces cases properties
+let makeReflectionMethod com (ent: Fable.Entity option) extend nullable interfaces cases properties =
+    let m, args, body = makeReflectionMethodArgsAndBody com ent extend nullable interfaces cases properties
     MemberDeclaration(m, None, args, body, None)
 
 let makeDelegate (com: ICompiler) arity (expr: Expr) =
@@ -393,19 +411,6 @@ let makeApply range typ callee exprs =
         let typ' = if i = lasti then typ else Any // makeUnknownFnType (i+1)
         i + 1, Apply (callee, [expr], ApplyMeth, typ', range))
     |> snd
-
-let getTypedArrayName (com: ICompiler) numberKind =
-    match numberKind with
-    | Int8 -> "Int8Array"
-    | UInt8 -> if com.Options.clamp then "Uint8ClampedArray" else "Uint8Array"
-    | Int16 -> "Int16Array"
-    | UInt16 -> "Uint16Array"
-    | Int32 -> "Int32Array"
-    | UInt32 -> "Uint32Array"
-    | Float32 -> "Float32Array"
-    | Float64 -> "Float64Array"
-    | Decimal -> "Float64Array"
-    | _ -> failwithf "Invalid typed array type: %A" numberKind
 
 /// Helper when we need to compare the types of the arguments applied to a method
 /// (concrete) with the declared argument types for that method (may be generic)
