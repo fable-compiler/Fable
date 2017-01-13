@@ -53,7 +53,7 @@ export function Option(t: Type) {
   return new NonDeclaredType("Option", null, t) as NonDeclaredType;
 }
 
-function FArray(t: Type, isTypedArray = false) {
+function FableArray(t: Type, isTypedArray = false) {
   let def: Type = null, genArg: Type = null;
   if (isTypedArray) {
     def = t;
@@ -63,7 +63,7 @@ function FArray(t: Type, isTypedArray = false) {
   }
   return new NonDeclaredType("Array", def, genArg) as NonDeclaredType;
 }
-export { FArray as Array }
+export { FableArray as Array }
 
 export function Tuple(ts: Type[]) {
   return new NonDeclaredType("Tuple", null, ts) as NonDeclaredType;

@@ -20,12 +20,12 @@ import { scan as seqScan } from "./Seq"
 
 export function distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
   return seqChoose(
-    (tup: [T, FSet<K>]) => tup[0],
-    seqScan((tup: [T, FSet<K>], x: T) => {
+    (tup: [T, FableSet<K>]) => tup[0],
+    seqScan((tup: [T, FableSet<K>], x: T) => {
       const acc = tup[1];
       const k = f(x);
       return acc.has(k) ? [<T>null, acc] : [x, add(k, acc)];
-    }, [<T>null, create<K>()] as [T, FSet<K>], xs));
+    }, [<T>null, create<K>()] as [T, FableSet<K>], xs));
 }
 
 export function distinct<T>(xs: Iterable<T>) {
@@ -690,7 +690,7 @@ function tree_ofSeq(comparer: IComparer<any>, c: Iterable<any>) {
   return tree_mkFromEnumerator(comparer, new SetTree("SetEmpty", []), ie);
 }
 
-export default class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>>, Iterable<T> {
+export default class FableSet<T> implements IEquatable<FableSet<T>>, IComparable<FableSet<T>>, Iterable<T> {
   // TODO: These should be made internal, once TypeScript accepts that modifier
   public tree: SetTree;
   public comparer: IComparer<T>;
@@ -702,11 +702,11 @@ export default class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>
     return "set [" + Array.from(this).map(toString).join("; ") + "]";
   }
 
-  Equals(s2: FSet<T>) {
+  Equals(s2: FableSet<T>) {
     return this.CompareTo(s2) === 0;
   }
 
-  CompareTo(s2: FSet<T>) {
+  CompareTo(s2: FableSet<T>) {
     return this === s2 ? 0 : tree_compare(this.comparer, this.tree, s2.tree);
   }
 
@@ -726,7 +726,7 @@ export default class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>
   }
 
   /** Not supported */
-  add(v: T): FSet<T> {
+  add(v: T): FableSet<T> {
     throw new Error("not supported");
   }
 
@@ -753,7 +753,7 @@ export default class FSet<T> implements IEquatable<FSet<T>>, IComparable<FSet<T>
 }
 
 function from<T>(comparer: IComparer<T>, tree: SetTree) {
-  let s = new FSet<T>();
+  let s = new FableSet<T>();
   s.tree = tree
   s.comparer = comparer || new GenericComparer<T>();
   return s;
@@ -764,11 +764,11 @@ export function create<T>(ie?: Iterable<T>, comparer?: IComparer<T>) {
   return from(comparer, ie ? tree_ofSeq(comparer, ie) : new SetTree("SetEmpty", []));
 }
 
-export function isEmpty<T>(s: FSet<T>) {
+export function isEmpty<T>(s: FableSet<T>) {
   return tree_isEmpty(s.tree);
 }
 
-export function add<T>(item: T, s: FSet<T>) {
+export function add<T>(item: T, s: FableSet<T>) {
   return from(s.comparer, tree_add(s.comparer, item, s.tree));
 }
 
@@ -776,11 +776,11 @@ export function addInPlace<T>(item: T, s: Set<T>) {
   return s.has(item) ? false : (s.add(item), true);
 }
 
-export function remove<T>(item: T, s: FSet<T>) {
+export function remove<T>(item: T, s: FableSet<T>) {
   return from(s.comparer, tree_remove(s.comparer, item, s.tree));
 }
 
-export function union<T>(set1: FSet<T>, set2: FSet<T>) {
+export function union<T>(set1: FableSet<T>, set2: FableSet<T>) {
   return set2.tree.Case === "SetEmpty"
     ? set1
     : set1.tree.Case === "SetEmpty"
@@ -788,7 +788,7 @@ export function union<T>(set1: FSet<T>, set2: FSet<T>) {
       : from(set1.comparer, tree_union(set1.comparer, set1.tree, set2.tree));
 }
 
-export function op_Addition<T>(set1: FSet<T>, set2: FSet<T>) {
+export function op_Addition<T>(set1: FableSet<T>, set2: FableSet<T>) {
   return union(set1, set2);
 }
 
@@ -796,13 +796,13 @@ export function unionInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
   seqIterate(function (x) { set1.add(x) }, set2);
 }
 
-export function unionMany<T>(sets: Iterable<FSet<T>>) {
+export function unionMany<T>(sets: Iterable<FableSet<T>>) {
   // Pass args as union(s, acc) instead of union(acc, s)
   // to discard the comparer of the first empty set
-  return seqFold((acc, s) => <FSet<T>>union(s, acc), create<T>(), sets);
+  return seqFold((acc, s) => <FableSet<T>>union(s, acc), create<T>(), sets);
 }
 
-export function difference<T>(set1: FSet<T>, set2: FSet<T>) {
+export function difference<T>(set1: FableSet<T>, set2: FableSet<T>) {
   return set1.tree.Case === "SetEmpty"
     ? set1
     : set2.tree.Case === "SetEmpty"
@@ -810,7 +810,7 @@ export function difference<T>(set1: FSet<T>, set2: FSet<T>) {
       : from(set1.comparer, tree_diff(set1.comparer, set1.tree, set2.tree));
 }
 
-export function op_Subtraction<T>(set1: FSet<T>, set2: FSet<T>) {
+export function op_Subtraction<T>(set1: FableSet<T>, set2: FableSet<T>) {
   return difference(set1, set2);
 }
 
@@ -818,7 +818,7 @@ export function differenceInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
   seqIterate(function (x) { set1.delete(x) }, set2);
 }
 
-export function intersect<T>(set1: FSet<T>, set2: FSet<T>) {
+export function intersect<T>(set1: FableSet<T>, set2: FableSet<T>) {
   return set2.tree.Case === "SetEmpty"
     ? set2
     : set1.tree.Case === "SetEmpty"
@@ -831,13 +831,13 @@ export function intersectInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
   seqIterate(function (x) { if (!set2_.has(x)) { set1.delete(x); } }, set1);
 }
 
-export function intersectMany<T>(sets: Iterable<FSet<T>>) {
-  return seqReduce((s1, s2) => <FSet<T>>intersect(s1, s2), sets);
+export function intersectMany<T>(sets: Iterable<FableSet<T>>) {
+  return seqReduce((s1, s2) => <FableSet<T>>intersect(s1, s2), sets);
 }
 
-export function isProperSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
-  if (set1 instanceof FSet && set2 instanceof FSet) {
-    return tree_psubset(set1.comparer, set1.tree, (set2 as FSet<T>).tree);
+export function isProperSubsetOf<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
+  if (set1 instanceof FableSet && set2 instanceof FableSet) {
+    return tree_psubset(set1.comparer, set1.tree, (set2 as FableSet<T>).tree);
   }
   else {
     set2 = set2 instanceof Set ? set2 : new Set(set2);
@@ -845,13 +845,13 @@ export function isProperSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<
   }
 }
 
-export function isProperSubset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+export function isProperSubset<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
   return isProperSubsetOf(set1, set2);
 }
 
-export function isSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
-  if (set1 instanceof FSet && set2 instanceof FSet) {
-    return tree_subset(set1.comparer, set1.tree, (set2 as FSet<T>).tree);
+export function isSubsetOf<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
+  if (set1 instanceof FableSet && set2 instanceof FableSet) {
+    return tree_subset(set1.comparer, set1.tree, (set2 as FableSet<T>).tree);
   }
   else {
     set2 = set2 instanceof Set ? set2 : new Set(set2);
@@ -859,25 +859,25 @@ export function isSubsetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
   }
 }
 
-export function isSubset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+export function isSubset<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
   return isSubsetOf(set1, set2);
 }
 
-export function isProperSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
-  if (set1 instanceof FSet && set2 instanceof FSet) {
-    return tree_psubset(set1.comparer, (set2 as FSet<T>).tree, set1.tree);
+export function isProperSupersetOf<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
+  if (set1 instanceof FableSet && set2 instanceof FableSet) {
+    return tree_psubset(set1.comparer, (set2 as FableSet<T>).tree, set1.tree);
   }
   else {
     return isProperSubset(set2 instanceof Set ? set2 : new Set(set2), set1);
   }
 }
 
-export function isProperSuperset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+export function isProperSuperset<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
   return isProperSupersetOf(set1, set2);
 }
 
-export function isSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
-  if (set1 instanceof FSet && set2 instanceof FSet) {
+export function isSupersetOf<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
+  if (set1 instanceof FableSet && set2 instanceof FableSet) {
     return tree_subset(set1.comparer, set2.tree, set1.tree);
   }
   else {
@@ -885,11 +885,11 @@ export function isSupersetOf<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) 
   }
 }
 
-export function isSuperset<T>(set1: FSet<T> | Set<T>, set2: FSet<T> | Set<T>) {
+export function isSuperset<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
   return isSupersetOf(set1, set2);
 }
 
-export function copyTo<T>(xs: FSet<T> | Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
+export function copyTo<T>(xs: FableSet<T> | Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
   if (!Array.isArray(arr) && !ArrayBuffer.isView(arr))
     throw new Error("Array is invalid");
 
@@ -903,7 +903,7 @@ count = count || arr.length;
   }
 }
 
-export function partition<T>(f: (x: T) => boolean, s: FSet<T>): [FSet<T>,FSet<T>] {
+export function partition<T>(f: (x: T) => boolean, s: FableSet<T>): [FableSet<T>,FableSet<T>] {
   if (s.tree.Case === "SetEmpty") {
     return [s,s];
   }
@@ -913,7 +913,7 @@ export function partition<T>(f: (x: T) => boolean, s: FSet<T>): [FSet<T>,FSet<T>
   }
 }
 
-export function filter<T>(f: (x: T) => boolean, s: FSet<T>): FSet<T> {
+export function filter<T>(f: (x: T) => boolean, s: FableSet<T>): FableSet<T> {
   if (s.tree.Case === "SetEmpty") {
     return s;
   }
@@ -922,43 +922,43 @@ export function filter<T>(f: (x: T) => boolean, s: FSet<T>): FSet<T> {
   }
 }
 
-export function map<T,U>(f: (x: T) => U, s: FSet<T>): FSet<U> {
+export function map<T,U>(f: (x: T) => U, s: FableSet<T>): FableSet<U> {
   const comparer = new GenericComparer<U>();
   return from(comparer, tree_fold((acc, k) => tree_add(comparer, f(k), acc), new SetTree("SetEmpty", []), s.tree));
 }
 
-export function exists<T>(f: (x: T) => boolean, s: FSet<T>): boolean {
+export function exists<T>(f: (x: T) => boolean, s: FableSet<T>): boolean {
   return tree_exists(f, s.tree);
 }
 
-export function forAll<T>(f: (x: T) => boolean, s: FSet<T>): boolean {
+export function forAll<T>(f: (x: T) => boolean, s: FableSet<T>): boolean {
   return tree_forall(f, s.tree);
 }
 
-export function fold<T,U>(f: (acc: U, x: T) => U, seed: U, s: FSet<T>): U {
+export function fold<T,U>(f: (acc: U, x: T) => U, seed: U, s: FableSet<T>): U {
   return tree_fold(f, seed, s.tree);
 }
 
-export function foldBack<T,U>(f: (x: T, acc: U) => U, s: FSet<T>, seed: U): U {
+export function foldBack<T,U>(f: (x: T, acc: U) => U, s: FableSet<T>, seed: U): U {
   return tree_foldBack(f, s.tree, seed);
 }
 
-export function iterate<T>(f: (v: T) => void, s: FSet<T>) {
+export function iterate<T>(f: (v: T) => void, s: FableSet<T>) {
   tree_iter(f, s.tree);
 }
 
-export function minimumElement<T>(s: FSet<T>): T {
+export function minimumElement<T>(s: FableSet<T>): T {
   return tree_minimumElement(s.tree);
 }
 
-export function minElement<T>(s: FSet<T>): T {
+export function minElement<T>(s: FableSet<T>): T {
   return tree_minimumElement(s.tree);
 }
 
-export function maximumElement<T>(s: FSet<T>): T {
+export function maximumElement<T>(s: FableSet<T>): T {
   return tree_maximumElement(s.tree);
 }
 
-export function maxElement<T>(s: FSet<T>): T {
+export function maxElement<T>(s: FableSet<T>): T {
   return tree_maximumElement(s.tree);
 }

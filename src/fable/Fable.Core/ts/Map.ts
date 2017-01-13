@@ -492,7 +492,7 @@ function tree_moveNext(i: MapIterator): IteratorResult<[any, any]> {
     };
 }
 
-export default class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMap<K,V>>, Iterable<[K,V]> {
+export default class FableMap<K,V> implements IEquatable<FableMap<K,V>>, IComparable<FableMap<K,V>>, Iterable<[K,V]> {
   // TODO: These should be made internal, once TypeScript accepts that modifier
   tree: MapTree;
   comparer: IComparer<K>;
@@ -504,11 +504,11 @@ export default class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMa
     return "map [" + Array.from(this).map(toString).join("; ") + "]";
   }
 
-  Equals(m2: FMap<K,V>) {
+  Equals(m2: FableMap<K,V>) {
     return this.CompareTo(m2) === 0;
   }
 
-  CompareTo(m2: FMap<K,V>) {
+  CompareTo(m2: FableMap<K,V>) {
     return this === m2 ? 0 : seqCompareWith((kvp1, kvp2) => {
       var c = this.comparer.Compare(kvp1[0], kvp2[0]);
       return c !== 0 ? c : compare(kvp1[1], kvp2[1]);
@@ -543,7 +543,7 @@ export default class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMa
   }
 
   /** Not supported */
-  set(k: K, v: V): FMap<K,V> {
+  set(k: K, v: V): FableMap<K,V> {
     throw new Error("not supported");
   }
 
@@ -570,7 +570,7 @@ export default class FMap<K,V> implements IEquatable<FMap<K,V>>, IComparable<FMa
 }
 
 function from<K, V>(comparer: IComparer<K>, tree: MapTree) {
-    let map = new FMap<K, V>();
+    let map = new FableMap<K, V>();
     map.tree = tree
     map.comparer = comparer || new GenericComparer<K>();
     return map;
@@ -578,18 +578,18 @@ function from<K, V>(comparer: IComparer<K>, tree: MapTree) {
 
 export function create<K, V>(ie?: Iterable<[K, V]>, comparer?: IComparer<K>) {
     comparer = comparer || new GenericComparer<K>();
-    return from(comparer, ie ? tree_ofSeq(comparer, ie) : tree_empty()) as FMap<K, V>;
+    return from(comparer, ie ? tree_ofSeq(comparer, ie) : tree_empty()) as FableMap<K, V>;
 }
 
-export function add<K, V>(k: K, v: V, map: FMap<K, V>) {
-    return from(map.comparer, tree_add(map.comparer, k, v, map.tree)) as FMap<K, V>;
+export function add<K, V>(k: K, v: V, map: FableMap<K, V>) {
+    return from(map.comparer, tree_add(map.comparer, k, v, map.tree)) as FableMap<K, V>;
 }
 
-export function remove<K, V>(item: K, map: FMap<K, V>) {
-    return from(map.comparer, tree_remove(map.comparer, item, map.tree)) as FMap<K, V>;
+export function remove<K, V>(item: K, map: FableMap<K, V>) {
+    return from(map.comparer, tree_remove(map.comparer, item, map.tree)) as FableMap<K, V>;
 }
 
-export function containsValue<K, V>(v: V, map: Map<K, V> | FMap<K, V>) {
+export function containsValue<K, V>(v: V, map: Map<K, V> | FableMap<K, V>) {
     return seqFold((acc, k) => acc || equals(map.get(k), v), false, map.keys());
 }
 
@@ -597,66 +597,66 @@ export function tryGetValue<K,V>(map: Map<K,V>, key: K, defaultValue: V): [boole
     return map.has(key) ? [true, map.get(key)] : [false, defaultValue];
 }
 
-export function exists<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+export function exists<K, V>(f: (k: K, v: V) => boolean, map: FableMap<K, V>) {
     return tree_exists(f, map.tree);
 }
 
-export function find<K, V>(k: K, map: FMap<K, V>) {
+export function find<K, V>(k: K, map: FableMap<K, V>) {
     return tree_find(map.comparer, k, map.tree) as V;
 }
 
-export function tryFind<K, V>(k: K, map: FMap<K, V>) {
+export function tryFind<K, V>(k: K, map: FableMap<K, V>) {
     return tree_tryFind(map.comparer, k, map.tree) as V;
 }
 
-export function filter<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
-    return from(map.comparer, tree_filter(map.comparer, f, map.tree)) as FMap<K, V>;
+export function filter<K, V>(f: (k: K, v: V) => boolean, map: FableMap<K, V>) {
+    return from(map.comparer, tree_filter(map.comparer, f, map.tree)) as FableMap<K, V>;
 }
 
-export function fold<K, V, ST>(f: (acc: ST, k: K, v: V) => ST, seed: ST, map: FMap<K, V>) {
+export function fold<K, V, ST>(f: (acc: ST, k: K, v: V) => ST, seed: ST, map: FableMap<K, V>) {
     return tree_fold(f, seed, map.tree) as ST;
 }
 
-export function foldBack<K, V, ST>(f: (k: K, v: V, acc: ST) => ST, map: FMap<K, V>, seed: ST) {
+export function foldBack<K, V, ST>(f: (k: K, v: V, acc: ST) => ST, map: FableMap<K, V>, seed: ST) {
     return tree_foldBack(f, map.tree, seed) as ST;
 }
 
-export function forAll<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+export function forAll<K, V>(f: (k: K, v: V) => boolean, map: FableMap<K, V>) {
     return tree_forall(f, map.tree);
 }
 
-export function isEmpty<K, V>(map: FMap<K, V>) {
+export function isEmpty<K, V>(map: FableMap<K, V>) {
     return tree_isEmpty(map.tree);
 }
 
-export function iterate<K, V>(f: (k: K, v: V) => void, map: FMap<K, V>) {
+export function iterate<K, V>(f: (k: K, v: V) => void, map: FableMap<K, V>) {
     tree_iter(f, map.tree);
 }
 
-export function map<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
-    return from(map.comparer, tree_mapi(f, map.tree)) as FMap<K, U>;
+export function map<K, T, U>(f: (k: K, v: T) => U, map: FableMap<K, T>) {
+    return from(map.comparer, tree_mapi(f, map.tree)) as FableMap<K, U>;
 }
 
-export function partition<K, V>(f: (k: K, v: V) => boolean, map: FMap<K, V>) {
+export function partition<K, V>(f: (k: K, v: V) => boolean, map: FableMap<K, V>) {
     const rs = tree_partition(map.comparer, f, map.tree);
-    return [from(map.comparer, rs[0]), from(map.comparer, rs[1])] as [FMap<K, V>, FMap<K, V>];
+    return [from(map.comparer, rs[0]), from(map.comparer, rs[1])] as [FableMap<K, V>, FableMap<K, V>];
 }
 
-export function findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FMap<K, V>) {
+export function findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FableMap<K, V>) {
     return seqPick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
 }
 
-export function tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FMap<K, V>) {
+export function tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FableMap<K, V>) {
     return seqTryPick(kv => f(kv[0], kv[1]) ? kv[0] : null, map);
 }
 
-export function pick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
+export function pick<K, T, U>(f: (k: K, v: T) => U, map: FableMap<K, T>) {
     const res = tryPick(f, map) as U;
     if (res != null)
         return res;
     throw new Error("key not found");
 }
 
-export function tryPick<K, T, U>(f: (k: K, v: T) => U, map: FMap<K, T>) {
+export function tryPick<K, T, U>(f: (k: K, v: T) => U, map: FableMap<K, T>) {
     return tree_tryPick(f, map.tree) as U;
 }
