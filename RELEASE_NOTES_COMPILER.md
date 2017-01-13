@@ -1,3 +1,7 @@
+### 0.7.29
+
+* Add `BigInteger` support
+
 ### 0.7.28
 
 * Fix #640: Omitted non optional nulls

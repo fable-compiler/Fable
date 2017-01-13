@@ -1,3 +1,7 @@
+### 0.7.21
+
+* Add `BigInteger` support
+
 ### 0.7.20
 
 * Add `IDictionary` interface to F# Map
