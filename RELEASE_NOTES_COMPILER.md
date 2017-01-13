@@ -1,3 +1,9 @@
+### 0.7.30
+
+* Fix #649: Int64 serialization
+* Fix #648: Caching of namespace F# entities
+* Fix #646: Zero fill shift right (>>>) for uint32
+
 ### 0.7.29
 
 * Add `BigInteger` support

@@ -1,3 +1,7 @@
+### 0.7.22
+
+* See fable-compiler 0.7.30 release notes
+
 ### 0.7.21
 
 * Add `BigInteger` support
