@@ -51,6 +51,11 @@ let ``Bitwise shift right can be generated``() =
     Assert.AreEqual (4 >>> 2, 1)
 
 [<Test>]
+let ``Zero fill shift right (>>>) for uint32``() = // See #646
+    Assert.AreEqual (0x80000000 >>> 1, -1073741824)
+    Assert.AreEqual (0x80000000u >>> 1, 1073741824u)
+
+[<Test>]
 let ``Int64 Infix add can be generated``() =
     Assert.AreEqual (4L + 2L, 6L)
 

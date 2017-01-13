@@ -265,14 +265,17 @@ module Util =
             |> function None -> None | Some m -> Some(ent, m)
         let apply op args =
             Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range)
-        let nativeOp = function
+        let nativeOp leftOperand = function
             | "op_Addition" -> Fable.BinaryOp BinaryPlus
             | "op_Subtraction" -> Fable.BinaryOp BinaryMinus
             | "op_Multiply" -> Fable.BinaryOp BinaryMultiply
             | "op_Division" -> Fable.BinaryOp BinaryDivide
             | "op_Modulus" -> Fable.BinaryOp BinaryModulus
             | "op_LeftShift" -> Fable.BinaryOp BinaryShiftLeft
-            | "op_RightShift" -> Fable.BinaryOp BinaryShiftRightSignPropagating
+            | "op_RightShift" ->
+                match leftOperand with
+                | Fable.Number UInt32 -> Fable.BinaryOp BinaryShiftRightZeroFill // See #646
+                | _ -> Fable.BinaryOp BinaryShiftRightSignPropagating
             | "op_BitwiseAnd" -> Fable.BinaryOp BinaryAndBitwise
             | "op_BitwiseOr" -> Fable.BinaryOp BinaryOrBitwise
             | "op_ExclusiveOr" -> Fable.BinaryOp BinaryXorBitwise
@@ -322,11 +325,11 @@ module Util =
             CoreLibCall (modName, Some meth, false, args)
             |> makeCall i.range i.returnType
         | (Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _)::_ ->
-            apply (nativeOp meth) args
+            apply (nativeOp argTypes.Head meth) args
         | _ ->
             "The type of the operands is unknown at compile, native JS operator will be applied."
             |> addWarning com i.fileName i.range
-            apply (nativeOp meth) args
+            apply (nativeOp argTypes.Head meth) args
 
     let equals equal com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
         let op equal =
