@@ -964,7 +964,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             | None ->
                 let info =
                     { isInstance = meth.IsInstanceMember
-                    ; passGenerics = hasAtt Atts.passGenerics meth.Attributes }
+                    ; passGenerics = hasPassGenericsAtt meth }
                 bindMemberArgs com ctx info args
                 |> fun (ctx, _, args, extraArgs) ->
                     if memberLoc <> Fable.StaticLoc
@@ -984,13 +984,13 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             match tryEnclosingEntity meth with
             | Some (FableEntity com (Try tryGetMember m)) -> m
             | _ -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-        let entMember = Fable.MemberDeclaration(entMember, privateName, args@extraArgs, body, getRefLocation meth |> makeRange |> Some)
+        let entMember = Fable.MemberDeclaration(entMember, privateName, args@extraArgs, body, getMethLocation meth |> makeRange |> Some)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
     let relativeImport = tryGetRelativeImport meth.Attributes
     if Option.isSome relativeImport && hasAtt Atts.emit meth.Attributes then
         let msg = sprintf "%s cannot be combined with %s for relative paths" Atts.emit Atts.import
-        FableError(msg, getRefLocation meth |> makeRange) |> raise
+        FableError(msg, getMethLocation meth |> makeRange) |> raise
     if Option.isSome relativeImport
     then
         addMethod relativeImport
@@ -1003,12 +1003,12 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         if not (isModuleMember meth) && meth.CompiledName.StartsWith "op_"
         then
             sprintf "Custom type operators cannot be inlined: %s" meth.FullName
-            |> addWarning com ctx.fileName (getRefLocation meth |> makeRange |> Some)
+            |> addWarning com ctx.fileName (getMethLocation meth |> makeRange |> Some)
             addMethod None
         else
             if com.Options.dll && meth.Accessibility.IsPublic then
                 "Inline public methods won't be accessible when referencing the project as a .dll"
-                |> addWarning com ctx.fileName (getRefLocation meth |> makeRange |> Some)
+                |> addWarning com ctx.fileName (getMethLocation meth |> makeRange |> Some)
             let vars =
                 match args with
                 | [thisArg]::args when meth.IsInstanceMember -> args

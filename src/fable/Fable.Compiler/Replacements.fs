@@ -167,6 +167,9 @@ module Util =
             wrap i.returnType args.Head
 
     let toInt com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
+        let notImplemented typ =
+            FableError(sprintf "Converting from/to %s is not yet supported" typ, ?range=i.range)
+            |> raise
         let kindIndex t =           //        0   1   2   3   4   5   6   7   8   9  10
             match t with            //        i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec
             | Number Int8 -> 0      // 0 i8   -   -   -   -   +   +   +   +   -   -   -
@@ -180,6 +183,7 @@ module Util =
             | Number Float32 -> 8   // 8 f32  +   +   +   +   +   +   +   +   -   -   -
             | Number Float64 -> 9   // 9 f64  +   +   +   +   +   +   +   +   -   -   -
             | Number Decimal -> 10  //10 dec  +   +   +   +   +   +   +   +   -   -   -
+            | ExtNumber BigInt -> notImplemented "BigInteger"
             | NoNumber -> failwith "Unexpected non-number type"
         let needToCast typeFrom typeTo =
             let v = kindIndex typeFrom // argument type
@@ -190,6 +194,7 @@ module Util =
             |> makeCall i.range i.returnType
         let emitCast typeTo args =
             match typeTo with
+            | ExtNumber BigInt -> notImplemented "BigInteger"
             | ExtNumber UInt64 -> emitLong true args
             | ExtNumber Int64 -> emitLong false args
             | Number Int8 -> emit i "($0 + 0x80 & 0xFF) - 0x80" args
@@ -282,6 +287,10 @@ module Util =
         | _::[Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)] ->
             let typRef = Fable.Value(Fable.TypeRef(ent,[]))
             InstanceCall(typRef, m.OverloadName, args)
+            |> makeCall i.range i.returnType
+        | Fable.ExtendedNumber BigInt::_
+        | _::[Fable.ExtendedNumber BigInt] ->
+            CoreLibCall ("BigInt", Some meth, false, args)
             |> makeCall i.range i.returnType
         | Fable.ExtendedNumber (Int64|UInt64)::_
         | _::[Fable.ExtendedNumber (Int64|UInt64)] ->
@@ -541,7 +550,9 @@ module private AstPass =
             | "abs", Fable.ExtendedNumber Int64 ->
                 InstanceCall (args.Head, "abs", args.Tail)
                 |> makeCall range typ |> Some
-            | _ ->
+            | "abs", Fable.ExtendedNumber BigInt ->
+                ccall com info "BigInt" "abs" info.args |> Some
+             | _ ->
                 GlobalCall ("Math", Some methName, false, args)
                 |> makeCall range typ |> Some
         let r, typ, args = info.range, info.returnType, info.args
@@ -1711,6 +1722,24 @@ module private AstPass =
             asyncMeth "catchAsync" info.args
         | _ -> None
 
+    let bigint com (i: Fable.ApplyInfo) =
+        match i.callee, i.methodName with
+        | Some callee, meth -> icall com i meth |> Some
+        | None, ".ctor" ->
+            match i.args with
+            | [Type (Fable.ExtendedNumber Int64)] -> ccall com i "BigInt" "fromInt64" i.args
+            | [_] -> ccall com i "BigInt" "fromInt32" i.args
+            | _ ->
+                CoreLibCall("BigInt", None, true, i.args)
+                |> makeCall i.range i.returnType
+            |> Some
+        | None, ("fromZero"|"fromOne") ->
+            let fi = if i.methodName = "fromZero" then "zero" else "one"
+            makeCoreRef "BigInt" (Some fi) |> Some
+        | None, "fromString" ->
+            ccall com i "BigInt" "parse" i.args |> Some
+        | None, meth -> ccall com i "BigInt" meth i.args |> Some
+
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | Naming.StartsWith fableCore _ -> fableCoreLib com info
@@ -1786,6 +1815,8 @@ module private AstPass =
         | "System.Lazy" | "Microsoft.FSharp.Control.Lazy"
         | "Microsoft.FSharp.Control.LazyExtensions" -> laziness com info
         | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com info
+        | "System.Numerics.BigInteger"
+        | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com info
         | _ -> None
 
 module private CoreLibPass =

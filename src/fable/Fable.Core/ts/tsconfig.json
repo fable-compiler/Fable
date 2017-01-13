@@ -3,6 +3,7 @@
         "target": "es5",
         "lib": [ "es6", "dom" ],
         "module": "es6",
+        "allowJs": true,
         "noEmitOnError": true,
         "noFallthroughCasesInSwitch": true,
         "noImplicitAny": true,
@@ -12,7 +13,7 @@
         //"noUnusedLocals": true,
         //"noUnusedParameters": true,
         //"strictNullChecks": true,
-        "declaration": true,
+        "declaration": false,
         "outDir": "../../../../build/fable-core"
     }
 }

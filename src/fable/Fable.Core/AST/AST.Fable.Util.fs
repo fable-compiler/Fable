@@ -165,13 +165,16 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
     | Char
     | String -> str "string"
     | Number _ | Enum _ -> str "number"
-    | ExtendedNumber (Int64|UInt64) ->
-        makeCoreRef "Long" (Some "Long")
+    | ExtendedNumber kind ->
+        match kind with
+        | Int64|UInt64 -> makeCoreRef "Long" (Some "Long")
+        | BigInt -> makeCoreRef "BigInt" None
     | Function _ -> str "function"
     | MetaType | Any -> makeNonDeclaredTypeRef NonDeclAny
     | Unit -> makeNonDeclaredTypeRef NonDeclUnit
     | Array (Number kind) when not com.Options.noTypedArrays ->
-        Ident(getTypedArrayName com kind, MetaType) |> IdentValue |> Value
+        let def = Ident(getTypedArrayName com kind, MetaType) |> IdentValue |> Value
+        Apply(makeCoreRef "Util" (Some "Array"), [def; makeConst true], ApplyMeth, MetaType, None)
     | Array genArg ->
         makeTypeRef com genInfo genArg
         |> NonDeclArray
@@ -252,6 +255,8 @@ let rec makeTypeTest com range (typ: Type) expr =
     | Number _ | Enum _ -> jsTypeof "number" expr
     | ExtendedNumber (Int64|UInt64) ->
         makeBinOp range Boolean [expr; makeCoreRef "Long" (Some "Long")] BinaryInstanceOf
+    | ExtendedNumber BigInt ->
+        makeBinOp range Boolean [expr; makeCoreRef "BigInt" None] BinaryInstanceOf
     | Boolean -> jsTypeof "boolean" expr
     | Unit -> makeBinOp range Boolean [expr; Value Null] BinaryEqual
     | Function _ -> jsTypeof "function" expr

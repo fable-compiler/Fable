@@ -3,6 +3,7 @@
         "target": "es5",
         "lib": [ "es6", "dom" ],
         "module": "umd",
+        "allowJs": true,
         "noEmitOnError": true,
         "noFallthroughCasesInSwitch": true,
         "noImplicitAny": true,

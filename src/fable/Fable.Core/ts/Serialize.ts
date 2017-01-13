@@ -85,7 +85,7 @@ function needsInflate(enclosing: List<any>): boolean {
     switch (typ.kind) {
       case "Option":
       case "Array":
-        return needsInflate(new List(typ.generics, enclosing));
+        return typ.definition != null || needsInflate(new List(typ.generics, enclosing));
       case "Tuple":
         return (typ.generics as FunctionConstructor[]).some((x: any) =>
           needsInflate(new List(x, enclosing)));
@@ -163,7 +163,12 @@ function inflate(val: any, typ: any, path: string): any {
       case "Option":
         return inflate(val, new List(typ.generics, enclosing), path);
       case "Array":
-        return inflateArray(val, new List(typ.generics, enclosing), path);
+        if (typ.definition != null) { // Typed arrays
+          return new (typ.definition as FunctionConstructor)(val);
+        }
+        else {
+          return inflateArray(val, new List(typ.generics, enclosing), path);
+        }
       case "Tuple":
         return (typ.generics as FunctionConstructor[]).map((x, i) =>
           inflate(val[i], new List(x, enclosing), combine(path, i)));
@@ -231,14 +236,14 @@ function inflate(val: any, typ: any, path: string): any {
       return new typ(uCase, uFields);
     }
     if (info.properties) {
-      let temp: any = {};
+      let newObj: any = new typ();
       const properties: {[k:string]:any} = info.properties;
       const ks = Object.getOwnPropertyNames(properties);
       for (let i=0; i < ks.length; i++) {
         let k = ks[i];
-        temp[k] = inflate(val[k], new List(properties[k], enclosing), combine(path, k));
+        newObj[k] = inflate(val[k], new List(properties[k], enclosing), combine(path, k));
       }
-      return Object.assign(new typ(), temp);
+      return newObj;
     }
     return val;
   }

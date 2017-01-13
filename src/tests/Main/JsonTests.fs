@@ -160,6 +160,13 @@ let ``Arrays 2``() =
     let x2 = ofJson<R2[]> json
     x2.[0].Foo() |> equal "bar"
 
+[<Test>]
+let ``Typed Arrays``() =
+    let xs1 = [|1;2;3|]
+    let json = toJson xs1
+    let xs2 = ofJson<int[]> json
+    Array.sum xs2 |> equal (Array.sum xs1)
+
 type ChildArray = {
     Children : JsonArray[]
 }

@@ -202,10 +202,10 @@ module Helpers =
         | Some loc -> loc
         | None -> ent.DeclarationLocation
 
-    let getRefLocation (ent: FSharpMemberOrFunctionOrValue) =
-        match ent.ImplementationLocation with
+    let getMethLocation (meth: FSharpMemberOrFunctionOrValue) =
+        match meth.ImplementationLocation with
         | Some loc -> loc
-        | None -> ent.DeclarationLocation
+        | None -> meth.DeclarationLocation
 
     /// Lower first letter if there's no explicit compiled name
     let lowerCaseName (unionCase: FSharpUnionCase) =
@@ -273,6 +273,13 @@ module Helpers =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
+    let hasPassGenericsAtt (meth: FSharpMemberOrFunctionOrValue) =
+        match hasAtt Atts.passGenerics meth.Attributes with
+        | true when hasRestParams meth ->
+            let r = getMethLocation meth |> makeRange
+            FableError(Atts.passGenerics + " is not compatible with ParamArrayAttribute", r) |> raise
+        | result -> result
+
     let removeOmittedOptionalArguments (meth: FSharpMemberOrFunctionOrValue) args =
         let rec removeArgs (args: (Fable.Expr*FSharpParameter) list) =
             match args with
@@ -283,7 +290,11 @@ module Helpers =
                 | _ -> args
             | _ -> args
         if meth.CurriedParameterGroups.Count <> 1
-            || meth.CurriedParameterGroups.[0].Count <> List.length args
+        then args
+        elif meth.CurriedParameterGroups.[0].Count = 1
+                && isUnit meth.CurriedParameterGroups.[0].[0].Type
+        then []
+        elif meth.CurriedParameterGroups.[0].Count <> List.length args
         then args
         else
             List.zip args (Seq.toList meth.CurriedParameterGroups.[0])
@@ -534,6 +545,7 @@ module Patterns =
     let (|ExtendedNumberKind|_|) = function
         | "System.Int64" -> Some Int64
         | "System.UInt64" -> Some UInt64
+        | "System.Numerics.BigInteger" -> Some BigInt
         | _ -> None
 
     let (|Switch|_|) fsExpr =

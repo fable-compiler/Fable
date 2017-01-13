@@ -41,7 +41,7 @@ type NumberKind =
 
 /// Numbers that are not represented with JS native number type
 type ExtendedNumberKind =
-    | Int64 | UInt64
+    | Int64 | UInt64 | BigInt
 
 type RegexFlag =
     | RegexGlobal | RegexIgnoreCase | RegexMultiline | RegexSticky
