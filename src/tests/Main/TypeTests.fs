@@ -518,3 +518,4 @@ let ``Custom exceptions work``() =
     | :? MyEx2 as ex -> ex.Message, ex.Code
     | ex -> "unknown", 0.
     |> equal ("Code: 5", 5.5)
+

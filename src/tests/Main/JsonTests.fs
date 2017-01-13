@@ -428,3 +428,10 @@ let ``Generics with interface`` () =
     let result : Things list = Fable.Core.JsInterop.ofJsonWithTypeInfo json
     result.[1].data = ({ kind = "number"; number = 3 } :> IData) |> equal true
 #endif
+
+type RrdWithLong = { long: int64 }
+[<Test>]
+let ``Roundtripped int64 is convertible to float``() =
+    let r = {long = 0L} |> Fable.Core.JsInterop.toJson  |> Fable.Core.JsInterop.ofJson<RrdWithLong>
+    r.long |> float
+    |> equal 0.
