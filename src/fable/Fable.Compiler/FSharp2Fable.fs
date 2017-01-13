@@ -158,7 +158,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
         |> function
         | Some repl -> repl
-        | None -> Fable.Apply(makeNonGenTypeRef unionType, argExprs, Fable.ApplyCons, unionType, Some range)
+        | None -> Fable.Apply(makeNonGenTypeRef com unionType, argExprs, Fable.ApplyCons, unionType, Some range)
 
 and private transformComposableExpr com ctx fsExpr argExprs =
     // See (|ComposableExpr|_|) active pattern to check which expressions are valid here
@@ -215,7 +215,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         let superCall = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
         if ctx.baseClass = Some "System.Exception"
-        then Fable.Sequential([superCall; setProto ctx.enclosingEntity], range)
+        then Fable.Sequential([superCall; setProto com ctx.enclosingEntity], range)
         else superCall
 
     | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
@@ -454,7 +454,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx.typeArgs calleeType
-                      |> makeNonGenTypeRef
+                      |> makeNonGenTypeRef com
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeGetFrom com ctx r typ callee (makeConst fieldName)
 
@@ -487,7 +487,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeNonGenTypeRef calleeType
+            | None -> makeNonGenTypeRef com calleeType
         Fable.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -514,9 +514,9 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         let capturedThis =
             match ctx.thisAvailability with
             | ThisUnavailable -> None
-            | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdent]
+            | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdentExpr]
             | ThisCaptured(prevThis, prevVars) ->
-                (prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
+                (prevThis, com.GetUniqueVar() |> makeIdentExpr)::prevVars |> Some
         let baseClass, baseCons =
             match baseCallExpr with
             | BasicPatterns.Call(None, meth, _, _, args) ->
@@ -526,7 +526,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                     tryEnclosingEntity meth
                     |> Option.map (fun ent ->
                         makeTypeFromDef com ctx.typeArgs ent []
-                        |> makeNonGenTypeRef)
+                        |> makeNonGenTypeRef com)
                 let baseCons =
                     let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
                     let m = Fable.Member(".ctor", Fable.Constructor, Fable.InstanceLoc, [], Fable.Any)
@@ -592,12 +592,12 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
               yield! members
               if List.contains "System.Collections.Generic.IEnumerable" interfaces
               then yield makeIteratorMethodArgsAndBody()
-              yield makeReflectionMethodArgsAndBody None false false interfaces None None
+              yield makeReflectionMethodArgsAndBody com None false false interfaces None None
             ]
         let range = makeRangeFrom fsExpr
         let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
         match capturedThis with
-        | Some((_,capturedThis)::_) ->
+        | Some((_,Fable.Value(Fable.IdentValue capturedThis))::_) ->
             let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
             Fable.Sequential([varDecl; objExpr], range)
         | _ -> objExpr
@@ -624,7 +624,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
             |> function
             | Some repl -> repl
-            | None -> Fable.Apply(makeNonGenTypeRef recordType, argExprs, Fable.ApplyCons,
+            | None -> Fable.Apply(makeNonGenTypeRef com recordType, argExprs, Fable.ApplyCons,
                             makeType com ctx.typeArgs fsExpr.Type, range)
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
@@ -635,7 +635,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
-        makeTypeTest (makeRangeFrom fsExpr) typ expr
+        makeTypeTest com (makeRangeFrom fsExpr) typ expr
 
     | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr, fsType, unionCase) ->
         let checkCase name =
@@ -658,7 +658,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                         then makeType com ctx.typeArgs fsType.GenericArguments.[idx]
                         else unionType
                     else unionType
-                makeTypeTest (makeRangeFrom fsExpr) typ unionExpr
+                makeTypeTest com (makeRangeFrom fsExpr) typ unionExpr
         | OptionUnion ->
             let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.Value Fable.Null] opKind
@@ -803,7 +803,7 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     match fableEnt.Kind with
     | Fable.Union cases ->
       [ yield makeUnionCons()
-        yield makeReflectionMethod (Some fableEnt) false nullable
+        yield makeReflectionMethod com (Some fableEnt) false nullable
                 ("FSharpUnion"::fableEnt.Interfaces) (Some cases) None
         if needsEqImpl then yield makeUnionEqualMethod fableType
         if needsCompImpl then yield makeUnionCompareMethod fableType ]
@@ -812,13 +812,13 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
       // Structs are considered equivalent to records but
       // some already include a constructor (see #569)
       [ if fableEnt.Members |> Seq.exists (fun m -> m.Kind = Fable.Constructor) |> not
-        then yield makeRecordCons fableEnt fields
-        yield makeReflectionMethod (Some fableEnt) false nullable
+        then yield makeRecordCons com fableEnt fields
+        yield makeReflectionMethod com (Some fableEnt) false nullable
                 ("FSharpRecord"::fableEnt.Interfaces) None (Some fields)
         if needsEqImpl then yield makeRecordEqualMethod fableType
         if needsCompImpl then yield makeRecordCompareMethod fableType ]
     | Fable.Class(baseClass, properties) ->
-      [makeReflectionMethod (Some fableEnt) baseClass.IsSome nullable
+      [makeReflectionMethod com (Some fableEnt) baseClass.IsSome nullable
             fableEnt.Interfaces None (Some properties)]
     | _ -> []
     |> fun autoMeths ->
@@ -964,7 +964,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             | None ->
                 let info =
                     { isInstance = meth.IsInstanceMember
-                    ; passGenerics = hasAtt Atts.passGenerics meth.Attributes }
+                    ; passGenerics = hasPassGenericsAtt meth }
                 bindMemberArgs com ctx info args
                 |> fun (ctx, _, args, extraArgs) ->
                     if memberLoc <> Fable.StaticLoc
@@ -984,13 +984,13 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             match tryEnclosingEntity meth with
             | Some (FableEntity com (Try tryGetMember m)) -> m
             | _ -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-        let entMember = Fable.MemberDeclaration(entMember, privateName, args@extraArgs, body, getRefLocation meth |> makeRange |> Some)
+        let entMember = Fable.MemberDeclaration(entMember, privateName, args@extraArgs, body, getMethLocation meth |> makeRange |> Some)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
     let relativeImport = tryGetRelativeImport meth.Attributes
     if Option.isSome relativeImport && hasAtt Atts.emit meth.Attributes then
         let msg = sprintf "%s cannot be combined with %s for relative paths" Atts.emit Atts.import
-        FableError(msg, getRefLocation meth |> makeRange) |> raise
+        FableError(msg, getMethLocation meth |> makeRange) |> raise
     if Option.isSome relativeImport
     then
         addMethod relativeImport
@@ -1003,13 +1003,17 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         if not (isModuleMember meth) && meth.CompiledName.StartsWith "op_"
         then
             sprintf "Custom type operators cannot be inlined: %s" meth.FullName
-            |> addWarning com ctx.fileName (getRefLocation meth |> makeRange |> Some)
+            |> addWarning com ctx.fileName (getMethLocation meth |> makeRange |> Some)
             addMethod None
         else
             if com.Options.dll && meth.Accessibility.IsPublic then
                 "Inline public methods won't be accessible when referencing the project as a .dll"
-                |> addWarning com ctx.fileName (getRefLocation meth |> makeRange |> Some)
-            let vars = Seq.collect id args |> countRefs body
+                |> addWarning com ctx.fileName (getMethLocation meth |> makeRange |> Some)
+            let vars =
+                match args with
+                | [thisArg]::args when meth.IsInstanceMember -> args
+                | _ -> args
+                |> Seq.collect id |> countRefs body
             com.AddInlineExpr meth.FullName (vars, body)
             declInfo, ctx
     else addMethod None

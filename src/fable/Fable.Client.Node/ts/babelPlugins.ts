@@ -31,9 +31,7 @@ export const removeUnneededNulls = {
     ExpressionStatement: function(path: traverse.NodePath<types.ExpressionStatement>) {
       if (types.isNullLiteral(path.node.expression))
         path.remove();
-    },
-    CallExpression: removeNullTailArgs,
-    NewExpression: removeNullTailArgs
+    }
   }
 };
 

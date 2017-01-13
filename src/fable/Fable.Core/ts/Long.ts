@@ -798,6 +798,7 @@ export class Long {
     // Aliases for compatibility with Fable
     Equals = this.equals;
     CompareTo = this.compare;
+    ToString = this.toString;
 }
 
 

@@ -50,16 +50,23 @@ export const Any = new NonDeclaredType("Any");
 export const Unit = new NonDeclaredType("Unit");
 
 export function Option(t: Type) {
-  return new NonDeclaredType("Option", "Option", t) as NonDeclaredType;
+  return new NonDeclaredType("Option", null, t) as NonDeclaredType;
 }
 
-function FArray(t: Type) {
-  return new NonDeclaredType("Array", "Array", t) as NonDeclaredType;
+function FableArray(t: Type, isTypedArray = false) {
+  let def: Type = null, genArg: Type = null;
+  if (isTypedArray) {
+    def = t;
+  }
+  else {
+    genArg = t;
+  }
+  return new NonDeclaredType("Array", def, genArg) as NonDeclaredType;
 }
-export { FArray as Array }
+export { FableArray as Array }
 
 export function Tuple(ts: Type[]) {
-  return new NonDeclaredType("Tuple", "Tuple", ts) as NonDeclaredType;
+  return new NonDeclaredType("Tuple", null, ts) as NonDeclaredType;
 }
 
 export function GenericParam(definition: string) {

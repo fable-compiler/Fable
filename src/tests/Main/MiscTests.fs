@@ -143,6 +143,30 @@ let inline f x y = x + y
 let ``Inline methods work``() =
     f 2 3 |> equal 5
 
+module FooModule =
+    type FooInline() =
+        member __.Bar = "Bar"
+        member inline self.Foo = "Foo" + self.Bar
+        member inline self.Foofy(i) = String.replicate i self.Bar
+
+open FooModule
+
+[<Test>]
+let ``Inline methods with this argument work``() = // See #638
+    let x = FooInline()
+    x.Foo |> equal "FooBar"
+    x.Foofy 4 |> equal "BarBarBarBar"
+
+type FooInline with
+    member inline self.Bar2 = "Bar" + self.Bar
+    member inline self.FoofyPlus(i) = self.Foofy(i * 2)
+
+[<Test>]
+let ``Inline extension methods with this argument work``() = // See #638
+    let x = FooInline()
+    x.Bar2 |> equal "BarBar"
+    x.FoofyPlus 3 |> equal "BarBarBarBarBarBar"
+
 [<Test>]
 let ``Calls to core lib from a subfolder work``() =
     Util2.Helper.Format("{0} + {0} = {1}", 2, 4)

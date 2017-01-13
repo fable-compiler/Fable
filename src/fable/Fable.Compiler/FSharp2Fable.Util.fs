@@ -31,7 +31,7 @@ type ThisAvailability =
     // they can also be nested (see makeThisRef and the ObjectExpr pattern)
     | ThisCaptured
         of currentThis: FSharpMemberOrFunctionOrValue option
-        * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Ident) list
+        * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
 
 type MemberInfo =
     { isInstance: bool
@@ -202,10 +202,10 @@ module Helpers =
         | Some loc -> loc
         | None -> ent.DeclarationLocation
 
-    let getRefLocation (ent: FSharpMemberOrFunctionOrValue) =
-        match ent.ImplementationLocation with
+    let getMethLocation (meth: FSharpMemberOrFunctionOrValue) =
+        match meth.ImplementationLocation with
         | Some loc -> loc
-        | None -> ent.DeclarationLocation
+        | None -> meth.DeclarationLocation
 
     /// Lower first letter if there's no explicit compiled name
     let lowerCaseName (unionCase: FSharpUnionCase) =
@@ -273,6 +273,32 @@ module Helpers =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
+    let hasPassGenericsAtt (meth: FSharpMemberOrFunctionOrValue) =
+        match hasAtt Atts.passGenerics meth.Attributes with
+        | true when hasRestParams meth ->
+            let r = getMethLocation meth |> makeRange
+            FableError(Atts.passGenerics + " is not compatible with ParamArrayAttribute", r) |> raise
+        | result -> result
+
+    let removeOmittedOptionalArguments (meth: FSharpMemberOrFunctionOrValue) args =
+        let rec removeArgs (args: (Fable.Expr*FSharpParameter) list) =
+            match args with
+            | (arg, p)::rest ->
+                match arg with
+                | (Fable.Wrapped(Fable.Value Fable.Null, _) | Fable.Value Fable.Null)
+                    when p.IsOptionalArg -> removeArgs rest
+                | _ -> args
+            | _ -> args
+        if meth.CurriedParameterGroups.Count <> 1
+        then args
+        elif meth.CurriedParameterGroups.[0].Count = 1
+                && isUnit meth.CurriedParameterGroups.[0].[0].Type
+        then []
+        elif meth.CurriedParameterGroups.[0].Count <> List.length args
+        then args
+        else
+            List.zip args (Seq.toList meth.CurriedParameterGroups.[0])
+            |> List.rev |> removeArgs |> List.rev |> List.map fst
     let rec deepExists f (expr: FSharpExpr) =
         if f expr
         then true
@@ -507,8 +533,6 @@ module Patterns =
         | "System.UInt16" -> Some UInt16
         | "System.Int32" -> Some Int32
         | "System.UInt32" -> Some UInt32
-        | "System.Int64" -> Some Int64
-        | "System.UInt64" -> Some UInt64
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
         | "System.Decimal" -> Some Decimal
@@ -518,12 +542,18 @@ module Patterns =
         | Naming.StartsWith "Microsoft.FSharp.Core.float" _ -> Some Float64
         | _ -> None
 
+    let (|ExtendedNumberKind|_|) = function
+        | "System.Int64" -> Some Int64
+        | "System.UInt64" -> Some UInt64
+        | "System.Numerics.BigInteger" -> Some BigInt
+        | _ -> None
+
     let (|Switch|_|) fsExpr =
         let isStringOrNumber (NonAbbreviatedType typ) =
             if not typ.HasTypeDefinition then false else
             match typ.TypeDefinition.TryFullName with
             | Some("System.String") -> true
-            | Some(NumberKind kind) when kind <> Int64 && kind <> UInt64 -> true
+            | Some(NumberKind kind) -> true
             | _ when typ.TypeDefinition.IsEnum -> true
             | _ -> false
         let rec makeSwitch map matchValue e =
@@ -639,7 +669,7 @@ module Types =
     let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
         match tdef.BaseType with
         | Some(TypeDefinition tdef) when tdef.FullName <> "System.Object" ->
-            let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef
+            let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef com
             Some (sanitizeEntityFullName tdef, typeRef)
         | _ -> None
 
@@ -825,6 +855,7 @@ module Types =
             let t = Seq.tryHead genArgs |> Option.map (makeType com typeArgs)
             Fable.Array(defaultArg t Fable.Any)
         | NumberKind kind -> Fable.Number kind
+        | ExtendedNumberKind kind -> Fable.ExtendedNumber kind
         | _ ->
             // Check erased types
             tdef.Attributes
@@ -1114,7 +1145,7 @@ module Util =
             Naming.genericPlaceholderRegex.Replace(macro, fun m ->
                 match genArgs.TryFind m.Groups.[1].Value with
                 | Some t ->
-                    makeType com ctx.typeArgs t |> makeTypeRef genInfo |> addExtraArg
+                    makeType com ctx.typeArgs t |> makeTypeRef com genInfo |> addExtraArg
                 | None ->
                     sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
                         m.Groups.[1].Value macro
@@ -1178,7 +1209,6 @@ module Util =
         if not(isInline meth) then None else
         match com.TryGetInlineExpr meth with
         | Some (vars, fsExpr) ->
-            let args = match callee with Some x -> x::args | None -> args
             let ctx, assignments =
                 ((ctx, []), vars, args)
                 |||> Seq.fold2 (fun (ctx, assignments) var arg ->
@@ -1193,7 +1223,11 @@ module Util =
                         { ctx with scope = (Some var.Key, arg)::ctx.scope }, assignments
                 )
             let typeArgs = matchGenericParams com ctx meth (typArgs, methTypArgs)
-            let expr = com.Transform {ctx with typeArgs=typeArgs} fsExpr
+            let ctx =
+                match callee with
+                | Some callee -> {ctx with thisAvailability=ThisCaptured(None, [None, callee]); typeArgs=typeArgs}
+                | None -> {ctx with typeArgs=typeArgs}
+            let expr = com.Transform ctx fsExpr
             if List.isEmpty assignments
             then Some expr
             else makeSequential r (assignments@[expr]) |> Some
@@ -1222,13 +1256,13 @@ module Util =
                      "or using concrete types.")
                     |> addWarning com ctx.fileName r
                 | None -> ()
-            genName, makeTypeRef genInfo typ)
+            genName, makeTypeRef com genInfo typ)
         |> makeJsObject None
 
     let (|ExtensionMember|_|) com (ctx: Context) r typ (callee, args, argTypes) owner (meth: FSharpMemberOrFunctionOrValue) =
         match meth.IsExtensionMember, callee, owner with
         | true, Some callee, Some ent ->
-            let typRef = makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef
+            let typRef = makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
             let methName =
                 let methName = sanitizeMethodName meth
                 let ent = com.GetEntity ent
@@ -1254,6 +1288,7 @@ module Util =
                 | _ ->
                     (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
             else
+                let args = removeOmittedOptionalArguments meth args // See #231, #640
                 if hasAtt Atts.passGenerics meth.Attributes
                 then
                     let genArgs = [passGenerics com ctx r (typArgs, methTypArgs) meth]
@@ -1283,10 +1318,10 @@ module Util =
                 match callee, owner with
                 | Some callee, _ -> callee
                 | None, Some ent ->
-                    makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef
+                    makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the method belongs to the current enclosing module
-                | _ -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef
+                | _ -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef com
             let methName = sanitizeMethodName meth
     (**     *Check if this a getter or setter  *)
             match getMemberKind meth with
@@ -1332,10 +1367,8 @@ module Util =
                     // (the unknown `this` ref outside nested object expressions),
                     // so this means we've reached the end of the list.
                     | None, ident -> Some ident)
-                |> Fable.IdentValue |> Fable.Value
             | None, _ ->
                 capturedThis |> List.last |> snd
-                |> Fable.IdentValue |> Fable.Value
         | ThisUnavailable ->
             "`this` seems to be used in a context where it's not available, please check."
             |> addWarning com ctx.fileName r
@@ -1358,10 +1391,10 @@ module Util =
         | _ ->
             let typeRef =
                 match owner with
-                | Some ent -> makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef
+                | Some ent -> makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the value belongs to the current enclosing module
-                | None -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef
+                | None -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef com
             Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
 
     let makeDelegateFrom (com: IFableCompiler) ctx delegateType fsExpr =
@@ -1392,9 +1425,9 @@ module Util =
             match containsJsThis, ctx.thisAvailability with
             | false, _ -> None
             | true, ThisUnavailable -> None
-            | true, ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdent]
+            | true, ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdentExpr]
             | true, ThisCaptured(prevThis, prevVars) ->
-                (prevThis, com.GetUniqueVar() |> makeIdent)::prevVars |> Some
+                (prevThis, com.GetUniqueVar() |> makeIdentExpr)::prevVars |> Some
         let ctx =
             match capturedThis with
             | None -> ctx
@@ -1418,7 +1451,7 @@ module Util =
             Fable.Lambda(lambdaArgs, body, not containsJsThis) |> Fable.Value
         |> fun lambda ->
             match capturedThis with
-            | Some((_,capturedThis)::_) ->
+            | Some((_,Fable.Value(Fable.IdentValue capturedThis))::_) ->
                 let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
                 Fable.Sequential([varDecl; lambda], lambda.Range)
             | _ -> lambda

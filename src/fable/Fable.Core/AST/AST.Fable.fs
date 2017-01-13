@@ -18,6 +18,7 @@ type Type =
     | Char
     | String
     | Number of NumberKind
+    | ExtendedNumber of ExtendedNumberKind
     | Option of genericArg: Type
     | Array of genericArg: Type
     | Tuple of genericArgs: Type list

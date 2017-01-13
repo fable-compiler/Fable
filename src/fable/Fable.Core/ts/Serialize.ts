@@ -1,9 +1,9 @@
-import FSymbol from "./Symbol"
+import FableSymbol from "./Symbol"
 import { getType } from "./Symbol"
 import List from "./List"
 import { ofArray as listOfArray } from "./List"
-import FSet from "./Set"
-import FMap from "./Map"
+import FableSet from "./Set"
+import FableMap from "./Map"
 import { create as mapCreate } from "./Map"
 import { create as setCreate } from "./Set"
 import { hasInterface } from "./Util"
@@ -20,11 +20,11 @@ export function toJson(o: any): string {
       return Array.from(v as any);
     }
     else if (v != null && typeof v === "object") {
-      const properties = typeof v[FSymbol.reflection] === "function" ? v[FSymbol.reflection]().properties : null;
-      if (v instanceof List || v instanceof FSet || v instanceof Set) {
+      const properties = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]().properties : null;
+      if (v instanceof List || v instanceof FableSet || v instanceof Set) {
         return Array.from(v);
       }
-      else if (v instanceof FMap || v instanceof Map) {
+      else if (v instanceof FableMap || v instanceof Map) {
         return fold((o: any, kv: [any,any]) => {
           return o[toJson(kv[0])] = kv[1], o;
         }, {}, v);
@@ -66,8 +66,8 @@ function isNullable(typ: any): boolean {
     return typ.kind !== "Array" && typ.kind !== "Tuple";
   }
   else {
-    const info = typeof typ.prototype[FSymbol.reflection] === "function"
-      ? typ.prototype[FSymbol.reflection]() : null;
+    const info = typeof typ.prototype[FableSymbol.reflection] === "function"
+      ? typ.prototype[FableSymbol.reflection]() : null;
     return info ? info.nullable : true;
   }
 }
@@ -85,7 +85,7 @@ function needsInflate(enclosing: List<any>): boolean {
     switch (typ.kind) {
       case "Option":
       case "Array":
-        return needsInflate(new List(typ.generics, enclosing));
+        return typ.definition != null || needsInflate(new List(typ.generics, enclosing));
       case "Tuple":
         return (typ.generics as FunctionConstructor[]).some((x: any) =>
           needsInflate(new List(x, enclosing)));
@@ -163,7 +163,12 @@ function inflate(val: any, typ: any, path: string): any {
       case "Option":
         return inflate(val, new List(typ.generics, enclosing), path);
       case "Array":
-        return inflateArray(val, new List(typ.generics, enclosing), path);
+        if (typ.definition != null) { // Typed arrays
+          return new (typ.definition as FunctionConstructor)(val);
+        }
+        else {
+          return inflateArray(val, new List(typ.generics, enclosing), path);
+        }
       case "Tuple":
         return (typ.generics as FunctionConstructor[]).map((x, i) =>
           inflate(val[i], new List(x, enclosing), combine(path, i)));
@@ -177,13 +182,13 @@ function inflate(val: any, typ: any, path: string): any {
             : inflateList(val, resolveGeneric(0, enclosing), path);
         }
         // TODO: Should we try to inflate also sets and maps serialized with `JSON.stringify`?
-        if (def === FSet) {
+        if (def === FableSet) {
           return setCreate(inflateArray(val, resolveGeneric(0, enclosing), path));
         }
         if (def === Set) {
           return new Set(inflateArray(val, resolveGeneric(0, enclosing), path));
         }
-        if (def === FMap) {
+        if (def === FableMap) {
           return mapCreate(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing), path));
         }
         if (def === Map) {
@@ -198,7 +203,7 @@ function inflate(val: any, typ: any, path: string): any {
     if (typ === Date) {
       return dateParse(val);
     }
-    const info = typeof typ.prototype[FSymbol.reflection] === "function" ? typ.prototype[FSymbol.reflection]() : {};
+    const info = typeof typ.prototype[FableSymbol.reflection] === "function" ? typ.prototype[FableSymbol.reflection]() : {};
     // Union types
     if (info.cases) {
       let uCase: string, uFields = [];
@@ -231,14 +236,14 @@ function inflate(val: any, typ: any, path: string): any {
       return new typ(uCase, uFields);
     }
     if (info.properties) {
-      let temp: any = {};
+      let newObj: any = new typ();
       const properties: {[k:string]:any} = info.properties;
       const ks = Object.getOwnPropertyNames(properties);
       for (let i=0; i < ks.length; i++) {
         let k = ks[i];
-        temp[k] = inflate(val[k], new List(properties[k], enclosing), combine(path, k));
+        newObj[k] = inflate(val[k], new List(properties[k], enclosing), combine(path, k));
       }
-      return Object.assign(new typ(), temp);
+      return newObj;
     }
     return val;
   }
@@ -260,13 +265,13 @@ export function toJsonWithTypeInfo(o: any): string {
       return Array.from(v as any);
     }
     else if (v != null && typeof v === "object") {
-      const typeName = typeof v[FSymbol.reflection] === "function" ? v[FSymbol.reflection]().type : null;
-      if (v instanceof List || v instanceof FSet || v instanceof Set) {
+      const typeName = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]().type : null;
+      if (v instanceof List || v instanceof FableSet || v instanceof Set) {
         return {
           $type: typeName || "System.Collections.Generic.HashSet",
           $values: Array.from(v) };
       }
-      else if (v instanceof FMap || v instanceof Map) {
+      else if (v instanceof FableMap || v instanceof Map) {
         return fold(
           (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; },
           { $type: typeName || "System.Collections.Generic.Dictionary" }, v);

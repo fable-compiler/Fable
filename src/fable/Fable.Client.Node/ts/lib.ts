@@ -28,9 +28,9 @@ export function stderrLog(err: string | Error) {
         : err.message + (err.stack ? "\n" + err.stack : "");
 
     if (typeof process === "object")
-        process.stderr.write(err + "\n");
+        process.stderr.write(msg + "\n");
     else
-        console.log(err);
+        console.log(msg);
 }
 
 /** Prints a new line with the message on process.stdout */
