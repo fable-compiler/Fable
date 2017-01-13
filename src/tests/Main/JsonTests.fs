@@ -427,11 +427,12 @@ let ``Generics with interface`` () =
     let json = """ {"$type":"Microsoft.FSharp.Collections.FSharpList`1[[Fable.Tests.Json+Things, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Json+Things, Fable.Tests","name":"one","data":{"$type":"Fable.Tests.Json+Numbered, Fable.Tests","kind":"number","number":4}},{"$type":"Fable.Tests.Json+Things, Fable.Tests","name":"two","data":{"$type":"Fable.Tests.Json+Numbered, Fable.Tests","kind":"number","number":3}},{"$type":"Fable.Tests.Json+Things, Fable.Tests","name":"three","data":{"$type":"Fable.Tests.Json+Text, Fable.Tests","kind":"text","text":"yo!"}}]} """
     let result : Things list = Fable.Core.JsInterop.ofJsonWithTypeInfo json
     result.[1].data = ({ kind = "number"; number = 3 } :> IData) |> equal true
-#endif
 
 type RrdWithLong = { long: int64 }
+
 [<Test>]
 let ``Roundtripped int64 is convertible to float``() =
-    let r = {long = 0L} |> Fable.Core.JsInterop.toJson  |> Fable.Core.JsInterop.ofJson<RrdWithLong>
+    let r = {long = 0L} |> toJson  |> ofJson<RrdWithLong>
     r.long |> float
     |> equal 0.
+#endif

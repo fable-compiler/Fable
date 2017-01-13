@@ -1,5 +1,6 @@
 // Source: https://github.com/dcodeIO/long.js/blob/master/LICENSE
 
+import _Symbol from "./Symbol";
 
 // The internal representation of a long is the two given signed, 32-bit values.
 // We use 32-bit pieces because these are the size of integers on which
@@ -799,6 +800,18 @@ export class Long {
     Equals = this.equals;
     CompareTo = this.compare;
     ToString = this.toString;
+
+    [_Symbol.reflection]() {
+        return {
+            type: "System.Int64",
+            interfaces: ["FSharpRecord", "System.IComparable"],
+            properties: {
+                low: "number",
+                high: "number",
+                unsigned: "boolean"
+            }
+        };
+    } 
 }
 
 
