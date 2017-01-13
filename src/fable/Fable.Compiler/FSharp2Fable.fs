@@ -1138,9 +1138,7 @@ type FableCompiler(com: ICompiler, projectMaps: Dictionary<string,Map<string, Fa
             then None
             else Some (getEntityLocation tdef).FileName
         member fcom.GetEntity tdef =
-            entitiesCache.GetOrAdd(
-                defaultArg tdef.TryFullName tdef.CompiledName,
-                fun _ -> makeEntity fcom tdef)
+            entitiesCache.GetOrAdd(getEntityFullName tdef, fun () -> makeEntity fcom tdef)
         member fcom.TryGetInlineExpr meth =
             let success, expr = inlineExprsCache.TryGetValue meth.FullName
             if success then Some expr else None
@@ -1255,16 +1253,17 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
             let fcom = FableCompiler(com, projectMaps, entitiesCache, inlineExprsCache)
             let rootEnt, rootDecls =
                 let fcom = fcom :> IFableCompiler
-                let emptyRootEnt = Fable.Entity.CreateRootModule file.FileName
-                let ctx = Context.Create(file.FileName, emptyRootEnt)
                 let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
                 match rootEnt with
                 | Some e when hasAtt Atts.erase e.Attributes -> fcom.GetEntity e, []
                 | Some e ->
                     let rootEnt = fcom.GetEntity e
-                    let ctx = { ctx with enclosingEntity = rootEnt }
+                    let ctx = Context.Create(file.FileName, rootEnt)
                     rootEnt, transformDeclarations fcom ctx rootDecls
-                | None -> emptyRootEnt, transformDeclarations fcom ctx rootDecls
+                | None ->
+                    let emptyRootEnt = Fable.Entity.CreateRootModule file.FileName
+                    let ctx = Context.Create(file.FileName, emptyRootEnt)
+                    emptyRootEnt, transformDeclarations fcom ctx rootDecls
             match rootDecls with
             | [] -> None
             | rootDecls ->

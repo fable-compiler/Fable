@@ -101,23 +101,19 @@ module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
         if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
 
-    let private sanitizeEntityNamePrivate =
-        let reg = Regex("`\d+")
-        fun (full: bool) (ent: FSharpEntity) ->
-            if not full
-            then reg.Replace(ent.CompiledName, "")
-            else
-            let fullName = reg.Replace(defaultArg ent.TryFullName ent.CompiledName, "")
-            if not ent.IsNamespace
-            then fullName
-            else
-                // TODO: When ent.IsNamespace, FullName doesn't work. Report bug.
-                [|defaultArg ent.Namespace ""; fullName|]
-                |> Array.filter (System.String.IsNullOrEmpty >> not)
-                |> String.concat "."
+    // TODO: Report bug in FCS repo, when ent.IsNamespace, FullName doesn't work.
+    let getEntityFullName (ent: FSharpEntity) =
+        if ent.IsNamespace
+        then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
+        else defaultArg ent.TryFullName ent.CompiledName
 
-    let sanitizeEntityName ent = sanitizeEntityNamePrivate false ent
-    let sanitizeEntityFullName ent = sanitizeEntityNamePrivate true ent
+    let private genArgsCountRegex = Regex("`\d+")
+
+    let sanitizeEntityName (ent: FSharpEntity) =
+        genArgsCountRegex.Replace(ent.CompiledName, "")
+
+    let sanitizeEntityFullName (ent: FSharpEntity) =
+        genArgsCountRegex.Replace(getEntityFullName ent, "")
 
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
