@@ -1,7 +1,7 @@
 import { setType } from "./Symbol";
 import _Symbol from "./Symbol";
 import { toString as toString_1, Array as _Array } from "./Util";
-import { factorial as bigNatFactorial, ofString, toFloat, toUInt64, toUInt32, pow as bigNatPow, two as bigNatTwo, rem, lte, hcf, bitOr, bitAnd, divmod, mul, isOne, sub, gte, scale as bigNatScale, one as bigNatOne, add, ofInt64, toString, hash as bigNatHash, gt, lt, isZero, equal, getSmall, isSmall, ofInt32 } from "./BigInt/BigNat";
+import { factorial as bigNatFactorial, ofString, toFloat, toUInt64 as bigNattoUInt64, toUInt32 as bigNattoUInt32, pow as bigNatPow, two as bigNatTwo, rem, lte, hcf, bitOr, bitAnd, divmod, mul, isOne, sub, gte, scale as bigNatScale, one as bigNatOne, add, ofInt64, toString, hash as bigNatHash, gt, lt, isZero, equal, getSmall, isSmall, ofInt32 } from "./BigInt/BigNat";
 import BigNat from "./BigInt/BigNat";
 import { initialize } from "./Seq";
 import { fromBits, fromNumber } from "./Long";
@@ -647,11 +647,27 @@ export function op_GreaterThanOrEqual(x, y) {
   }
 }
 
-export function op_Explicit_0(x) {
+export function toSByte(x) {
+  return (toInt32(x) + 0x80 & 0xFF) - 0x80;
+}
+
+export function toByte(x) {
+  return toUInt32(x) & 0xFF;
+}
+
+export function toInt16(x) {
+  return (toInt32(x) + 0x8000 & 0xFFFF) - 0x8000;
+}
+
+export function toUInt16(x) {
+  return toUInt32(x) & 0xFFFF;
+}
+
+export function toInt32(x) {
   if (x.IsZero) {
     return 0;
   } else {
-    const u = toUInt32(x.V);
+    const u = bigNattoUInt32(x.V);
 
     if (u <= 2147483647 >>> 0) {
       return x.SignInt * ~~u;
@@ -663,23 +679,23 @@ export function op_Explicit_0(x) {
   }
 }
 
-export function op_Explicit_0(x) {
+export function toUInt32(x) {
   if (x.IsZero) {
     return 0;
   } else {
-    return toUInt32(x.V);
+    return bigNattoUInt32(x.V);
   }
 }
 
-export function op_Explicit_0(x) {
+export function toInt64(x) {
   if (x.IsZero) {
     return fromBits(0, 0, false);
   } else {
-    const u = toUInt64(x.V);
+    const u = bigNattoUInt64(x.V);
 
-    if (u.CompareTo(fromNumber(fromBits(4294967295, 2147483647, false).toNumber(), true)) <= 0) {
-      return fromNumber(x.SignInt, false).mul(fromNumber(u.toNumber(), false));
-    } else if (x.SignInt === -1 ? u.Equals(fromNumber(fromBits(4294967295, 2147483647, false).add(fromBits(1, 0, false)).toNumber(), true)) : false) {
+    if (u.CompareTo(fromBits(4294967295, 2147483647, false)) <= 0) {
+      return fromNumber(x.SignInt, false).mul(u);
+    } else if (x.SignInt === -1 ? u.Equals(fromBits(4294967295, 2147483647, false).add(fromBits(1, 0, false))) : false) {
       return fromBits(0, 2147483648, false);
     } else {
       throw new Error();
@@ -687,15 +703,15 @@ export function op_Explicit_0(x) {
   }
 }
 
-export function op_Explicit_0(x) {
+export function toUInt64(x) {
   if (x.IsZero) {
     return fromBits(0, 0, true);
   } else {
-    return toUInt64(x.V);
+    return bigNattoUInt64(x.V);
   }
 }
 
-export function op_Explicit_0(x) {
+export function toDouble(x) {
   const matchValue = x.SignInt;
   let $var20 = null;
 
@@ -725,6 +741,14 @@ export function op_Explicit_0(x) {
   }
 
   return $var20;
+}
+
+export function toSingle(x) {
+  return Math.fround(toDouble(x));
+}
+
+export function toDecimal(x) {
+  return toDouble(x); //TODO: fix when decimal is implemented
 }
 
 export function parse(text) {
