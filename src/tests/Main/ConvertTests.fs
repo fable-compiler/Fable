@@ -4,6 +4,10 @@ open System
 open Util.Testing
 open Fable.Tests.Util
 
+//-------------------------------------
+// Parse and TryParse
+//-------------------------------------
+
 [<Test>]
 let ``System.Double.Parse works``() =
     Double.Parse("1.5") |> equal 1.5
@@ -39,6 +43,10 @@ let ``System.Int32.TryParse works``() =
     equal 5 res1
     let success2, _ = Int32.TryParse("foo")
     equal false success2
+
+//-------------------------------------
+// System.Convert
+//-------------------------------------
 
 [<Test>]
 let ``System.Convert.ToSByte works``() =
@@ -430,6 +438,10 @@ let ``System.Convert.ToDecimal works``() =
     Convert.ToDecimal(1.) |> equal x
     Convert.ToDecimal(1.m) |> equal x
 
+//-------------------------------------
+// System.BitConverter
+//-------------------------------------
+
 [<Test>]
 let ``BitConverter.GetBytes Boolean works``() =
     let value = true
@@ -577,3 +589,68 @@ let ``BitConverter.ToString 3 works``() =
     let value = 0x01020304
     let bytes = BitConverter.GetBytes(value)
     BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
+
+//-------------------------------------
+// System.Numerics.BigInteger
+//-------------------------------------
+
+[<Test>]
+let ``BigInt ToSByte works``() =
+    let value = 0x02y
+    sbyte (bigint (int32 value)) |> equal value
+
+[<Test>]
+let ``BigInt ToInt16 works``() =
+    let value = 0x0102s
+    int16 (bigint (int32 value)) |> equal value
+
+[<Test>]
+let ``BigInt ToInt32 works``() =
+    let value = 0x01020304
+    int32 (bigint value) |> equal value
+
+[<Test>]
+let ``BigInt ToInt64 works``() =
+    let value = 0x0102030405060708L
+    int64 (bigint value) |> equal value
+
+[<Test>]
+let ``BigInt ToByte works``() =
+    let value = 0x02uy
+    byte (bigint (uint32 value)) |> equal value
+
+[<Test>]
+let ``BigInt ToUInt16 works``() =
+    let value = 0xFF02us
+    uint16 (bigint (uint32 value)) |> equal value
+
+[<Test>]
+let ``BigInt ToUInt32 works``() =
+    //let value = 0xFF020304u //TODO: BigInt.fromUInt32 not implemented yet, so this will fail
+    let value = 0x1F020304u
+    uint32 (bigint value) |> equal value
+
+[<Test>]
+let ``BigInt ToUInt64 works``() =
+    let value = 0xFF02030405060708UL
+    uint64 (bigint value) |> equal value
+
+[<Test>]
+let ``BigInt ToSingle works``() =
+    let value = 1.0f
+    single (bigint value) |> equal value
+
+[<Test>]
+let ``BigInt ToDouble works``() =
+    let value = -1.0
+    double (bigint value) |> equal value
+
+[<Test>]
+let ``BigInt ToDecimal works``() =
+    let value = 1.0m
+    decimal (bigint value) |> equal value
+
+[<Test>]
+let ``BigInt ToString works``() =
+    let value = 1234567890
+    string (bigint value) |> equal "1234567890"

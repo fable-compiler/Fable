@@ -163,6 +163,14 @@ module Util =
         | Fable.ExtendedNumber (Int64 | UInt64) ->
             InstanceCall (args.Head, "toNumber", args.Tail)
             |> makeCall i.range (Fable.Number Float64)
+        | Fable.ExtendedNumber BigInt ->
+            let meth = match i.returnType with
+                        | Number Float32 -> "toSingle"
+                        | Number Float64 -> "toDouble"
+                        | Number Decimal -> "toDecimal"
+                        | _ -> failwith "Unexpected conversion"
+            CoreLibCall("BigInt", Some meth, false, args)
+            |> makeCall i.range i.returnType
         | _ ->
             wrap i.returnType args.Head
 
@@ -170,31 +178,40 @@ module Util =
         let notImplemented typ =
             FableError(sprintf "Converting from/to %s is not yet supported" typ, ?range=i.range)
             |> raise
-        let kindIndex t =           //        0   1   2   3   4   5   6   7   8   9  10
-            match t with            //        i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec
-            | Number Int8 -> 0      // 0 i8   -   -   -   -   +   +   +   +   -   -   -
-            | Number Int16 -> 1     // 1 i16  +   -   -   -   +   +   +   +   -   -   -
-            | Number Int32 -> 2     // 2 i32  +   +   -   -   +   +   +   +   -   -   -
-            | ExtNumber Int64 -> 3  // 3 i64  +   +   +   -   +   +   +   +   -   -   -
-            | Number UInt8 -> 4     // 4 u8   +   +   +   +   -   -   -   -   -   -   -
-            | Number UInt16 -> 5    // 5 u16  +   +   +   +   +   -   -   -   -   -   -
-            | Number UInt32 -> 6    // 6 u32  +   +   +   +   +   +   -   -   -   -   -
-            | ExtNumber UInt64 -> 7 // 7 u64  +   +   +   +   +   +   +   -   -   -   -
-            | Number Float32 -> 8   // 8 f32  +   +   +   +   +   +   +   +   -   -   -
-            | Number Float64 -> 9   // 9 f64  +   +   +   +   +   +   +   +   -   -   -
-            | Number Decimal -> 10  //10 dec  +   +   +   +   +   +   +   +   -   -   -
-            | ExtNumber BigInt -> notImplemented "BigInteger"
+        let kindIndex t =            //         0   1   2   3   4   5   6   7   8   9  10  11
+            match t with             //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
+            | Number Int8 -> 0       //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
+            | Number Int16 -> 1      //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
+            | Number Int32 -> 2      //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
+            | ExtNumber Int64 -> 3   //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
+            | Number UInt8 -> 4      //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
+            | Number UInt16 -> 5     //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
+            | Number UInt32 -> 6     //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
+            | ExtNumber UInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
+            | Number Float32 -> 8    //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
+            | Number Float64 -> 9    //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
+            | Number Decimal -> 10   // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
+            | ExtNumber BigInt -> 11 // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
             | NoNumber -> failwith "Unexpected non-number type"
         let needToCast typeFrom typeTo =
-            let v = kindIndex typeFrom // argument type
-            let h = kindIndex typeTo   // return type
-            ((v > h) || (v < 4 && h > 3)) && (h < 8)
-        let emitLong unsigned args =
-            CoreLibCall("Long", Some "fromNumber", false, args@[makeConst unsigned])
+            let v = kindIndex typeFrom // argument type (vertical)
+            let h = kindIndex typeTo   // return type (horizontal)
+            ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
+        let emitLong unsigned (args: Fable.Expr list) =
+            match args.Head.Type with
+            | ExtNumber (Int64|UInt64) ->
+                CoreLibCall("Long", Some "fromValue", false, args)
+            | _ -> CoreLibCall("Long", Some "fromNumber", false, args@[makeConst unsigned])
+            |> makeCall i.range i.returnType
+        let emitBigInt (args: Fable.Expr list) =
+            match args.Head.Type with
+            | ExtNumber (Int64|UInt64) ->
+                CoreLibCall("BigInt", Some "fromInt64", false, args)
+            | _ -> CoreLibCall("BigInt", Some "fromInt32", false, args)
             |> makeCall i.range i.returnType
         let emitCast typeTo args =
             match typeTo with
-            | ExtNumber BigInt -> notImplemented "BigInteger"
+            | ExtNumber BigInt -> emitBigInt args
             | ExtNumber UInt64 -> emitLong true args
             | ExtNumber Int64 -> emitLong false args
             | Number Int8 -> emit i "($0 + 0x80 & 0xFF) - 0x80" args
@@ -204,6 +221,21 @@ module Util =
             | Number UInt16 -> emit i "$0 & 0xFFFF" args
             | Number UInt32 -> emit i "$0 >>> 0" args
             | Number _ -> emit i "$0" args
+            | NoNumber -> failwith "Unexpected non-number type"
+        let castBigIntMethod typeTo =
+            match typeTo with
+            | ExtNumber BigInt -> failwith "Unexpected conversion"
+            | Number Int8 -> "toSByte"
+            | Number Int16 -> "toInt16"
+            | Number Int32 -> "toInt32"
+            | ExtNumber Int64 -> "toInt64"
+            | Number UInt8 -> "toByte"
+            | Number UInt16 -> "toUInt16"
+            | Number UInt32 -> "toUInt32"
+            | ExtNumber UInt64 -> "toUInt64"
+            | Number Float32 -> "toSingle"
+            | Number Float64 -> "toDouble"
+            | Number Decimal -> "toDecimal"
             | NoNumber -> failwith "Unexpected non-number type"
         match args.Head.Type with
         | Fable.Char ->
@@ -219,11 +251,15 @@ module Util =
             | _ ->
                 GlobalCall ("Number", Some "parseInt", false, args)
                 |> makeCall i.range i.returnType
+        | ExtNumber BigInt ->
+            let meth = castBigIntMethod i.returnType
+            CoreLibCall("BigInt", Some meth, false, args)
+            |> makeCall i.range i.returnType
         | Number _ | ExtNumber _ as typeFrom ->
             match i.returnType with
             | Number _ | ExtNumber _ as typeTo when needToCast typeFrom typeTo ->
                 match typeFrom, typeTo with
-                | ExtNumber (UInt64|Int64), _ ->
+                | ExtNumber (UInt64|Int64), Number _ ->
                     InstanceCall (args.Head, "toNumber", args.Tail)
                     |> makeCall i.range (Fable.Number Float64)
                 | Number Float, (Number Integer | ExtNumber(Int64|UInt64)) when i.ownerFullName = "System.Convert" ->
@@ -1730,7 +1766,7 @@ module private AstPass =
         | Some callee, meth -> icall com i meth |> Some
         | None, ".ctor" ->
             match i.args with
-            | [Type (Fable.ExtendedNumber Int64)] -> ccall com i "BigInt" "fromInt64" i.args
+            | [Type (Fable.ExtendedNumber (Int64|UInt64))] -> ccall com i "BigInt" "fromInt64" i.args
             | [_] -> ccall com i "BigInt" "fromInt32" i.args
             | _ ->
                 CoreLibCall("BigInt", None, true, i.args)
