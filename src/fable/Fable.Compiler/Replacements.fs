@@ -1772,6 +1772,8 @@ module private AstPass =
                 CoreLibCall("BigInt", None, true, i.args)
                 |> makeCall i.range i.returnType
             |> Some
+        | None, ("zero"|"one"|"two") ->
+            makeCoreRef "BigInt" (Some i.methodName) |> Some
         | None, ("fromZero"|"fromOne") ->
             let fi = if i.methodName = "fromZero" then "zero" else "one"
             makeCoreRef "BigInt" (Some fi) |> Some

@@ -56,18 +56,6 @@ export default class BigInteger {
     }
   }
 
-  static get One() {
-    return one;
-  }
-
-  static get Two() {
-    return two;
-  }
-
-  static get Zero() {
-    return zero;
-  }
-
   get StructuredDisplayString() {
     return toString_1(this);
   }
