@@ -1174,9 +1174,11 @@ module Util =
                     emitMeth.Invoke(emitInstance, args) |> unbox |> Some
                 with
                 | :? AST.FableError as err -> raise err
-                | ex -> sprintf "Error when invoking %s.%s"
+                | ex -> let exMsg = if ex.GetType() = typeof<TargetInvocationException> 
+                                    then ex.InnerException.Message else ex.Message
+                        sprintf "Error when invoking %s.%s"
                             emitFsType.TypeDefinition.DisplayName emitMethName
-                        |> attachRange r |> fun msg -> Exception(msg + ": " + ex.Message, ex) |> raise
+                        |> attachRange r |> fun msg -> Exception(msg + ": " + exMsg, ex) |> raise
             | _ -> "EmitAttribute must receive a string or Type argument" |> attachRange r |> failwith
         | _ -> None
 
