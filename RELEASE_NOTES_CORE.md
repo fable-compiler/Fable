@@ -1,3 +1,7 @@
+### 0.7.23
+
+* Added BigInt conversions: PR #650
+
 ### 0.7.22
 
 * See fable-compiler 0.7.30 release notes

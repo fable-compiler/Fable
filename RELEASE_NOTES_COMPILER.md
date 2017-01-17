@@ -1,3 +1,7 @@
+### 0.7.31
+
+* Added BigInt conversions: PR #650
+
 ### 0.7.30
 
 * Fix #649: Int64 serialization
