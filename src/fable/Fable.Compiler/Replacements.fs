@@ -433,7 +433,7 @@ module Util =
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
             [emitNoInfo "(x,y) => x.CompareTo(y)" []]
-        | Some _ -> [emitNoInfo "(x,y) => x < y ? -1 : x > y ? 1 : 0" []]
+        | Some _ -> [makeCoreRef "Util" (Some "compare")]
         |> fun args -> CoreLibCall("GenericComparer", None, true, args)
         |> makeCall None Fable.Any
 
