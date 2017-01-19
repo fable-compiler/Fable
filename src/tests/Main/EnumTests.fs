@@ -107,6 +107,12 @@ let ``EnumOfValue works``() =
     EnumOfValue 2 |> equal Fruits.Banana
     EnumOfValue 3 |> equal Fruits.Coconut
 
+[<Test>]
+let ``Enum operator enum works``() =
+    enum 1 |> equal Fruits.Apple
+    enum 2 |> equal Fruits.Banana
+    enum 3 |> equal Fruits.Coconut
+
 open LanguagePrimitives
 
 type Vegetables =

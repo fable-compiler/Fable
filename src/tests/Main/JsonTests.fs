@@ -293,6 +293,12 @@ let ``Maps`` () =
     result.a.Count |> equal 2
     result.a.["b"] = { a="bb"; b=2 } |> equal true
 
+[<Test>]
+let ``Map string keys are not quoted``() = // #659
+    let v = [ "foo", 1 ] |> Map.ofList 
+    let serialised = toJson v
+    (toJson v).Replace(" ", "") |> equal """{"foo":1}"""
+
 type DictionaryJson =
     { a: System.Collections.Generic.Dictionary<string, Child> }
 

@@ -1,3 +1,7 @@
+### 0.7.33
+
+* Add operator `enum`
+
 ### 0.7.32
 
 * Fixed default comparer: PR #658

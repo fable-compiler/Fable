@@ -25,8 +25,13 @@ export function toJson(o: any): string {
         return Array.from(v);
       }
       else if (v instanceof FableMap || v instanceof Map) {
+        let stringKeys: boolean = null;
         return fold((o: any, kv: [any,any]) => {
-          return o[toJson(kv[0])] = kv[1], o;
+          if (stringKeys === null) {
+            stringKeys = typeof kv[0] === "string"; 
+          }
+          o[stringKeys ? kv[0] : toJson(kv[0])] = kv[1];
+          return o;
         }, {}, v);
       }
       else if (!hasInterface(v, "FSharpRecord") && properties) {

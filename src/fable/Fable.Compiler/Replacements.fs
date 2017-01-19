@@ -681,6 +681,7 @@ module private AstPass =
         | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info args |> Some
         | "toChar" -> toChar com info args.Head |> Some
         | "toString" -> toString com info args.Head |> Some
+        | "toEnum" -> args.Head |> Some        
         | "createDictionary" ->
             GlobalCall("Map", None, true, args) |> makeCall r typ |> Some
         | "createSet" ->

@@ -1,3 +1,7 @@
+### 0.7.24
+
+* Fixed serialization of maps with string keys: #659
+
 ### 0.7.23
 
 * Added BigInt conversions: PR #650
