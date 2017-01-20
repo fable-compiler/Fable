@@ -414,15 +414,16 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             FableError("Cannot resolve locally inlined value: " + var.DisplayName, range) |> raise
 
     | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
-        let args = List.map (transformExprWithRole AppliedArgument com ctx) args
+        let args2 = List.map (transformExprWithRole AppliedArgument com ctx) args
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         if callee.Type.FullName = "Fable.Core.Applicable" then
-            match args with
-            | [Fable.Value(Fable.TupleConst args)] -> args
-            | args -> args
+            match args, args2 with
+            | [arg], _ when isUnit arg.Type -> []
+            | _, [Fable.Value(Fable.TupleConst args2)] -> args2
+            | _, args2 -> args2
             |> List.map (makeDelegate com None)
             |> fun args -> Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
-        else makeApply range typ callee args
+        else makeApply range typ callee args2
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)

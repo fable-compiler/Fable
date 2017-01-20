@@ -101,6 +101,19 @@ let ``KeyValueList attribute works at runtime``() =
     opts?QTY |> unbox |> equal 5
     opts?flag1 |> unbox |> equal true
 
+let [<Emit("arguments.length")>] argCount: int = jsNative
+
+type ArgCounter() =
+    member x.foo() = argCount
+
+[<Test>]
+let ``Unit argument is not replaced by null in dynamic programming``() =
+    let o = ArgCounter()
+    !!o?foo() |> equal 0
+    let f = box o?foo
+    f$() |> unbox<int> |> equal 0
+    !!(f :?> JsFunc).Invoke() |> equal 0
+
 [<StringEnum>]
 type MyStrings =
     | Vertical

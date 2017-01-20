@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as commandLineArgs from "command-line-args";
-import * as commandLineUsage from "command-line-usage";
+import * as commandLineUsage from "command-line-usage/lib/command-line-usage";
 import * as semver from "semver";
 import * as json5 from "json5";
 

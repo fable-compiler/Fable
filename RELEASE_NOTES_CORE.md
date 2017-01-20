@@ -1,3 +1,7 @@
+### 0.7.25
+
+* Fix #660: `Option.fold` and `Option.foldBack`
+
 ### 0.7.24
 
 * Fixed serialization of maps with string keys: #659

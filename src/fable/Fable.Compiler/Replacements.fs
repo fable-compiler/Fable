@@ -454,6 +454,7 @@ module private AstPass =
     let fableCoreLib com (i: Fable.ApplyInfo) =
         let destruct = function
             | Fable.Value(Fable.TupleConst exprs) -> exprs
+            | expr when expr.Type = Fable.Unit -> []
             | expr -> [expr]
         match i.methodName with
         | Naming.StartsWith "import" _ ->
@@ -681,7 +682,7 @@ module private AstPass =
         | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info args |> Some
         | "toChar" -> toChar com info args.Head |> Some
         | "toString" -> toString com info args.Head |> Some
-        | "toEnum" -> args.Head |> Some        
+        | "toEnum" -> args.Head |> Some
         | "createDictionary" ->
             GlobalCall("Map", None, true, args) |> makeCall r typ |> Some
         | "createSet" ->
@@ -1022,17 +1023,13 @@ module private AstPass =
 
     let options (com: ICompiler) (i: Fable.ApplyInfo) =
         // Prevent functions being run twice, see #198
-        let wrapInLet f expr =
-            let ident = com.GetUniqueVar() |> makeIdent
-            [
-                Fable.VarDeclaration(ident, expr, false)
-                f(Fable.Value(Fable.IdentValue ident))
-            ]
-            |> fun exprs -> Fable.Sequential(exprs, i.range)
-        let toArray r optExpr =
-            // "$0 != null ? [$0]: []"
-            let makeArray exprs = Fable.ArrayConst(Fable.ArrayValues exprs, genArg i.returnType) |> Fable.Value
-            Fable.IfThenElse(makeEqOp r [optExpr; Fable.Value Fable.Null] BinaryUnequal, makeArray [optExpr], makeArray [], r)
+        let runIfSome r expr defValue f =
+            CoreLibCall("Util", Some  "defaultArg", false, [expr; defValue; f])
+            |> makeCall r Fable.Any
+        let toArray r arg =
+            let ident = makeIdent "x"
+            makeLambdaExpr [ident] (makeArray Fable.Any [Fable.IdentValue ident |> Fable.Value])
+            |> runIfSome r arg (makeArray Fable.Any [])
         let getCallee() = match i.callee with Some c -> c | None -> i.args.Head
         match i.methodName with
         | "none" -> Fable.Null |> Fable.Value |> Some
@@ -1049,35 +1046,25 @@ module private AstPass =
         | "map" | "bind" ->
             // emit i "$1 != null ? $0($1) : $1" i.args |> Some
             let f, arg = i.args.Head, i.args.Tail.Head
-            arg |> wrapInLet (fun e ->
-                Fable.IfThenElse(
-                    makeEqOp i.range [e; Fable.Value Fable.Null] BinaryUnequal,
-                    Fable.Apply(f, [e], Fable.ApplyMeth, Fable.Any, i.range),
-                    e, i.range))
-            |> Some
+            runIfSome i.range arg (Fable.Value Fable.Null) f |> Some
         | "filter" ->
-            // emit i "$1 != null && $0($1) ? $1 : null" i.args |> Some
-            let f, arg = i.args.Head, i.args.Tail.Head
-            arg |> wrapInLet (fun e ->
-                let cond =
-                    [ makeEqOp i.range [e; Fable.Value Fable.Null] BinaryUnequal
-                      Fable.Apply(f, [e], Fable.ApplyMeth, Fable.Any, i.range) ]
-                    |> makeLogOp i.range <| LogicalAnd
-                Fable.IfThenElse(cond, e, Fable.Value Fable.Null, i.range))
+            let filter, arg = i.args.Head, i.args.Tail.Head
+            "x => $0(x) ? x : null"
+            |> makeEmit None Fable.Any [filter]
+            |> runIfSome i.range arg (Fable.Value Fable.Null)
             |> Some
-        | "toArray" -> toArray i.range i.args.Head |> Some
+        | "toArray" ->
+            toArray i.range i.args.Head |> Some
         | "foldBack" ->
-            let opt = wrapInLet (fun e -> toArray i.range e) i.args.Tail.Head
+            let opt = toArray None i.args.Tail.Head
             let args = i.args.Head::opt::i.args.Tail.Tail
-            CoreLibCall("Seq", Some "foldBack", false, deleg com i args)
-            |> makeCall i.range i.returnType |> Some
+            ccall com i "Seq" "foldBack" (deleg com i args) |> Some
         | meth ->
             let args =
                 let args = List.rev i.args
-                wrapInLet (fun e -> toArray i.range e) args.Head
-                |> fun argsHead -> List.rev (argsHead::args.Tail)
-            CoreLibCall("Seq", Some meth, false, deleg com i args)
-            |> makeCall i.range i.returnType |> Some
+                let opt = toArray None args.Head
+                List.rev (opt::args.Tail)
+            ccall com i "Seq" meth (deleg com i args) |> Some
 
     let timeSpans com (i: Fable.ApplyInfo) =
         // let callee = match i.callee with Some c -> c | None -> i.args.Head

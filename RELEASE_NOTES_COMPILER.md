@@ -1,3 +1,7 @@
+### 0.7.34
+
+* Fix #660: `Option.fold` and `Option.foldBack`
+
 ### 0.7.33
 
 * Add operator `enum`

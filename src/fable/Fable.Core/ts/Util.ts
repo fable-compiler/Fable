@@ -338,6 +338,6 @@ export function randomNext(min: number, max: number) {
   return Math.floor(Math.random() * (max - min)) + min;
 }
 
-export function defaultArg<T>(arg: T, defaultValue: T) {
-  return arg == null ? defaultValue : arg;
+export function defaultArg<T,U>(arg: T, defaultValue: T, f?: (x:T)=>U) {
+  return arg == null ? defaultValue : (f != null ? f(arg) : arg);
 }

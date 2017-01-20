@@ -1174,7 +1174,7 @@ module Util =
                     emitMeth.Invoke(emitInstance, args) |> unbox |> Some
                 with
                 | :? AST.FableError as err -> raise err
-                | ex -> let exMsg = if ex.GetType() = typeof<TargetInvocationException> 
+                | ex -> let exMsg = if ex.GetType() = typeof<TargetInvocationException>
                                     then ex.InnerException.Message else ex.Message
                         sprintf "Error when invoking %s.%s"
                             emitFsType.TypeDefinition.DisplayName emitMethName
@@ -1373,7 +1373,7 @@ module Util =
             Fable.Value Fable.This
 
     let makeValueFrom com ctx r typ role (v: FSharpMemberOrFunctionOrValue) =
-        if typ = Fable.Unit then Fable.Value Fable.Null else
+        if typ = Fable.Unit then Fable.Wrapped(Fable.Value Fable.Null, Fable.Unit) else
         let owner = tryEnclosingEntity v
         let i = buildApplyInfoFrom com ctx r typ ([], []) (None, []) owner v
         match v with
@@ -1411,6 +1411,7 @@ module Util =
             | _ -> fsExpr
         let arity =
             match makeType com ctx.typeArgs delegateType with
+            | Fable.Function([Fable.Unit],_) -> 0
             | Fable.Function(args,_) -> args.Length
             | _ ->
                 "Cannot calculate arity of delegate, please report."

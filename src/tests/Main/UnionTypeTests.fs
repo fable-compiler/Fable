@@ -328,6 +328,31 @@ let ``Option.foldBack works``() =
     (None, 5) ||> Option.foldBack (*) |> equal 5
     (Some 7, 5) ||> Option.foldBack (*) |> equal 35
 
+[<NoEquality; NoComparison>]
+type FoldTest =
+| FoldA of FoldTest option
+| FoldB of int
+
+let rec folding1 test acc =
+  let f2 (opt:FoldTest option) acc = Option.fold (fun a b -> folding1 b a) acc opt
+  match test with
+  | FoldA d -> f2 d acc
+  | FoldB i -> i::acc
+
+let rec folding2 test acc =
+  let f2 (opt:FoldTest option) acc = Option.foldBack folding2 opt acc
+  match test with
+  | FoldA d -> f2 d acc
+  | FoldB i -> i::acc
+
+[<Test>]
+let ``Option.fold works II``() = // See #660
+    folding1 (FoldA (Some (FoldB 1))) [] |> equal [1]
+
+[<Test>]
+let ``Option.foldBack works II``() = // See #660
+    folding2 (FoldA (Some (FoldB 1))) [] |> equal [1]
+
 [<Test>]
 let ``Option.toArray works``() =
     None |> Option.toArray |> equal [||]
