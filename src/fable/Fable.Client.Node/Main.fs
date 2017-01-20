@@ -139,7 +139,7 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
     let projDir = Path.GetDirectoryName(projFile)
     let projParsed = Forge.ProjectSystem.FsProject.load projFile
     let sourceFiles =
-        projParsed.OrderedSourceFiles
+        projParsed.SourceFiles
         |> Seq.map (fun x ->
             match x.Link with
             // Sometimes Link includes the relative path, sometimes not
@@ -185,7 +185,7 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
           SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.Resolve(
             ReferenceResolver.ResolutionEnvironment.CompileTimeLike,
             [| for a in refs -> (a, "") |],
-            defaultArg projParsed.Settings.TargetFrameworkVersion.Data "v4.5.1",
+            "v4.5.1",
             [SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.DotNetFrameworkReferenceAssembliesRootDirectory + @"\v4.5.1" ],
             "",
             fscoreDir,
@@ -239,7 +239,7 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
         ProjectFileName = projFile
         ProjectFileNames = sourceFiles
         OtherOptions = allFlags
-        ReferencedProjects = [| |] // TODO: read from projParsed.ProjectReferences
+        ReferencedProjects = [| |]
         IsIncompleteTypeCheckEnvironment = false
         UseScriptResolutionRules = false
         LoadTime = DateTime.Now

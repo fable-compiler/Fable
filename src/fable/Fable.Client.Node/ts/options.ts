@@ -182,7 +182,8 @@ function readBabelOptions(opts: FableOptions) {
         customPlugins.removeFunctionExpressionNames
     );
 
-    // if opts.babelrc is true, read Babel plugins and presets from .babelrc
+    // If opts.babelrc is true, let Babel read plugins and presets from .babelrc
+    // Babel will automatically read configuration from .babelrc if we don't pass `babelrc: false`
     if (opts.babelrc) {
         opts.babel = { presets: babelPresets, plugins: babelPlugins };
         return opts;

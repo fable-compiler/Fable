@@ -1,13 +1,11 @@
 source https://www.nuget.org/api/v2
 
 nuget FAKE
-nuget FSharp.Compiler.Service 8.0.0
+nuget FSharp.Compiler.Service
 nuget FSharp.Core
 nuget Newtonsoft.Json
 nuget NUnit
 nuget NUnit.Runners
-nuget Suave
-github fable-compiler/Forge
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
 github fsharp/FSharp.Compiler.Service src/fsharp/ReferenceResolver.fs
 github fsharp/FSharp.Compiler.Service src/fsharp/SimulatedMSBuildReferenceResolver.fs
