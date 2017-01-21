@@ -2,7 +2,9 @@ namespace Fable.FSharp2Fable
 
 open System
 open System.Collections.Generic
+#if !FABLE_COMPILER
 open System.Reflection
+#endif
 open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
@@ -11,7 +13,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
 
-#if DOTNETCORE
+#if DOTNETCORE && !FABLE_COMPILER
 [<AutoOpen>]
 module ReflectionAdapters =
     type System.Reflection.Assembly with
@@ -212,7 +214,7 @@ module Helpers =
         |> function
             | Some name -> name.ConstructorArguments.[0] |> snd |> string
             | None -> Naming.lowerFirst unionCase.DisplayName
-        |> makeConst
+        |> makeStrConst
 
     let getArgCount (meth: FSharpMemberOrFunctionOrValue) =
         let args = meth.CurriedParameterGroups
@@ -521,7 +523,7 @@ module Patterns =
              Call(None,_op_Equality,[],[_typeInt],
                 [ILAsm ("[I_ldlen; AI_conv DT_I4]",[],[_matchValue2])
                  Const (length,_typeInt2)]),
-             Const (_falseConst,_typeBool)) -> Some (matchValue, length)
+             Const (_falseConst,_typeBool)) -> Some (matchValue, length, _typeInt2)
         | _ -> None
 
     let (|NumberKind|_|) = function
@@ -555,10 +557,10 @@ module Patterns =
             | _ when typ.TypeDefinition.IsEnum -> true
             | _ -> false
         let rec makeSwitch map matchValue e =
-            let addCase map (idx: int) (case: obj) =
-                match Map.tryFind idx map with
-                | Some cases -> Map.add idx (case::cases) map
-                | None -> Map.add idx [case] map
+            // let addCase map (idx: int) (case: obj) =
+            //     match Map.tryFind idx map with
+            //     | Some cases -> Map.add idx (case::cases) map
+            //     | None -> Map.add idx [case] map
             match e with
             | IfThenElse(Call(None,op_Equality,[],_,[Value var; Const(case,_)]),
                          DecisionTreeSuccess(idx, []), elseExpr)
@@ -1104,6 +1106,7 @@ module Util =
         |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> (genPar.Name, t)::acc)
         |> List.rev
 
+#if !FABLE_COMPILER
     let getEmitter =
         // Prevent ReflectionTypeLoadException
         // From http://stackoverflow.com/a/7889272
@@ -1127,6 +1130,7 @@ module Util =
                 let typ = getTypes assembly |> Seq.find (fun x ->
                     x.AssemblyQualifiedName = tdef.QualifiedName)
                 System.Activator.CreateInstance(typ))
+#endif
 
     let emittedGenericArguments com (ctx: Context) r meth (typArgs, methTypArgs)
                                 macro (args: Fable.Expr list) =
@@ -1164,6 +1168,7 @@ module Util =
                 let macro, args =
                     emittedGenericArguments com ctx r meth (typArgs, methTypArgs) macro args
                 Fable.Apply(Fable.Emit(macro) |> Fable.Value, args, Fable.ApplyMeth, typ, r) |> Some
+#if !FABLE_COMPILER
             | (:? FSharpType as emitFsType)::(:? string as emitMethName)::extraArg
                 when emitFsType.HasTypeDefinition ->
                 try
@@ -1181,6 +1186,7 @@ module Util =
                         sprintf "Error when invoking %s.%s"
                             emitFsType.TypeDefinition.DisplayName emitMethName
                         |> attachRange r |> fun msg -> Exception(msg + ": " + exMsg, ex) |> raise
+#endif
             | _ -> "EmitAttribute must receive a string or Type argument" |> attachRange r |> failwith
         | _ -> None
 
@@ -1269,7 +1275,7 @@ module Util =
                 let loc = if meth.IsInstanceMember then Fable.InstanceLoc else Fable.StaticLoc
                 match ent.TryGetMember(methName, getMemberKind meth, loc, argTypes) with
                 | Some m -> m.OverloadName | None -> methName
-            let ext = makeGet r Fable.Any typRef (makeConst methName)
+            let ext = makeGet r Fable.Any typRef (makeStrConst methName)
             let bind = Fable.Emit("$0.bind($1)($2...)") |> Fable.Value
             Fable.Apply (bind, ext::callee::args, Fable.ApplyMeth, typ, r) |> Some
         | _ -> None
@@ -1326,9 +1332,9 @@ module Util =
     (**     *Check if this a getter or setter  *)
             match getMemberKind meth with
             | Fable.Getter | Fable.Field ->
-                makeGetFrom com ctx r typ callee (makeConst methName)
+                makeGetFrom com ctx r typ callee (makeStrConst methName)
             | Fable.Setter ->
-                Fable.Set (callee, Some (makeConst methName), args.Head, r)
+                Fable.Set (callee, Some (makeStrConst methName), args.Head, r)
     (**     *Check if this is an implicit constructor *)
             | Fable.Constructor ->
                 Fable.Apply (callee, args, Fable.ApplyCons, typ, r)
@@ -1336,7 +1342,7 @@ module Util =
             | Fable.Method as kind ->
                 let applyMeth methName =
                     // let calleeType = Fable.Function(Some argTypes, typ)
-                    let m = makeGet r Fable.Any callee (makeConst methName)
+                    let m = makeGet r Fable.Any callee (makeStrConst methName)
                     Fable.Apply(m, args, Fable.ApplyMeth, typ, r)
                 if belongsToInterfaceOrImportedEntity meth
                 then
@@ -1395,7 +1401,7 @@ module Util =
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the value belongs to the current enclosing module
                 | None -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef com
-            Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
+            Fable.Apply (typeRef, [makeStrConst v.CompiledName], Fable.ApplyGet, typ, r)
 
     let makeDelegateFrom (com: IFableCompiler) ctx delegateType fsExpr =
         let ctx = { ctx with isDelegate = true}

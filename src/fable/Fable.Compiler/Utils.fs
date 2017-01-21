@@ -1,6 +1,6 @@
 namespace Fable
 
-#if DOTNETCORE
+#if DOTNETCORE && !FABLE_COMPILER
 [<AutoOpen>]
 module ReflectionAdapters =
     open System.Reflection
@@ -31,20 +31,20 @@ module Extensions =
             v
 
 module Map = 
-    let findOrNew<'T when 'T : (new : unit -> 'T)> (k: string) (m: Map<string, obj>) =
-        match Map.tryFind k m with
-        | Some(:? 'T as x) -> x
-        | _ -> new 'T()
 
     let findOrRun<'T> (f: unit->'T) (k: string) (m: Map<string, obj>) =
         match Map.tryFind k m with
-        | Some(:? 'T as x) -> x
+        | Some x -> downcast x
         | _ -> f()
+
+    // let findOrNew<'T when 'T : (new : unit->'T)> (k: string) (m: Map<string, obj>) =
+    //     findOrRun (fun () -> new 'T()) k m
 
 module Option = 
     let toBool (f: 'T->bool) (opt: 'T option) =
         match opt with Some x when f x -> true | _ -> false 
 
+#if !FABLE_COMPILER
 module Json =
     open System.Reflection
     open FSharp.Reflection
@@ -90,6 +90,7 @@ module Json =
                 writer.WritePropertyName(p.Name)
                 serializer.Serialize(writer, p.GetValue(v)))
             writer.WriteEndObject()
+#endif //!FABLE_COMPILER
 
 module Plugins =
     let tryPlugin<'T,'V when 'T:>IPlugin> r (f: 'T->'V option) =

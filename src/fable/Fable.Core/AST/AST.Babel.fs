@@ -10,8 +10,8 @@ open Fable.AST
 /// otherwise it is an object consisting of a start position (the position of the first character of the parsed source region)
 /// and an end position (the position of the first character after the parsed source region):
 [<AbstractClass>]
-type Node(typ, ?loc) =
-    member x.``type``: string = typ
+type Node(``type``, ?loc) =
+    member x.``type``: string = ``type``
     member x.loc: SourceLocation option = loc
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
@@ -28,8 +28,8 @@ type Node(typ, ?loc) =
 [<AbstractClass>] type ModuleDeclaration(typ, ?loc) = inherit Node(typ, ?loc = loc)
 
 [<AbstractClass>]
-type TypeAnnotationInfo(typ) =
-    member x.``type``: string = typ
+type TypeAnnotationInfo(``type``) =
+    member x.``type``: string = ``type``
 
 type TypeAnnotation(typeInfo) =
     member x.``type`` = "TypeAnnotation"
@@ -277,11 +277,11 @@ type ForOfStatement(left, right, body, ?loc) =
     member x.right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
-type FunctionDeclaration(id, arguments, body, ?generator, ?async,
+type FunctionDeclaration(id, ``params``, body, ?generator, ?async,
                          ?returnType, ?typeParams, ?loc) =
     inherit Declaration("FunctionDeclaration", ?loc = loc)
     member x.id: Identifier = id
-    member x.``params``: Pattern list = arguments
+    member x.``params``: Pattern list = ``params``
     member x.body: BlockStatement = body
     member x.generator = defaultArg generator false
     member x.async = defaultArg async false
@@ -298,19 +298,19 @@ type ThisExpression(?loc) =
     inherit Expression("ThisExpression", ?loc = loc)
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-type ArrowFunctionExpression(arguments, body, ?async, ?loc) =
+type ArrowFunctionExpression(``params``, body, ?async, ?loc) =
     inherit Expression("ArrowFunctionExpression", ?loc = loc)
     member x.expression =
         match body with U2.Case1 _ -> false | U2.Case2 _ -> true
-    member x.``params``: Pattern list = arguments
+    member x.``params``: Pattern list = ``params``
     member x.body: U2<BlockStatement, Expression> = body
     member x.async: bool = defaultArg async false
 
-type FunctionExpression(arguments, body, ?generator, ?async,
+type FunctionExpression(``params``, body, ?generator, ?async,
                         ?id, ?returnType, ?typeParams, ?loc) =
     inherit Expression("FunctionExpression", ?loc = loc)
     member x.id: Identifier option = id
-    member x.``params``: Pattern list = arguments
+    member x.``params``: Pattern list = ``params``
     member x.body: BlockStatement = body
     member x.generator: bool = defaultArg generator false
     member x.async: bool = defaultArg async false
@@ -365,13 +365,13 @@ type ObjectProperty(key, value, ?shorthand, ?computed, ?loc) =
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
-type ObjectMethod(kind, key, arguments, body, ?computed, ?generator,
+type ObjectMethod(kind, key, ``params``, body, ?computed, ?generator,
                   ?async, ?returnType, ?typeParams, ?loc) =
     inherit ObjectMember("ObjectMethod", key, ?computed=computed, ?loc=loc)
     member x.kind = match kind with ObjectGetter -> "get"
                                   | ObjectSetter -> "set"
                                   | ObjectMeth -> "method"
-    member x.``params``: Pattern list = arguments
+    member x.``params``: Pattern list = ``params``
     member x.body: BlockStatement = body
     member x.generator: bool = defaultArg generator false
     member x.async: bool = defaultArg async false
@@ -527,7 +527,7 @@ type RestElement(argument, ?loc) =
 type ClassMethodKind =
     | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind, key, args, body, computed, ``static``,
+type ClassMethod(kind, key, ``params``, body, computed, ``static``,
                  ?returnType, ?typeParams, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     member x.kind = match kind with ClassConstructor -> "constructor"
@@ -535,7 +535,7 @@ type ClassMethod(kind, key, args, body, computed, ``static``,
                                   | ClassSetter -> "set"
                                   | ClassFunction -> "method"
     member x.key: Expression = key
-    member x.``params``: Pattern list = args
+    member x.``params``: Pattern list = ``params``
     member x.body: BlockStatement = body
     member x.computed: bool = computed
     member x.``static``: bool = ``static``
@@ -665,9 +665,9 @@ type FunctionTypeParam(name, typeInfo, ?optional) =
     member x.typeAnnotation: TypeAnnotationInfo = typeInfo
     member x.optional = defaultArg optional false
 
-type FunctionTypeAnnotation(args, returnType, ?rest) =
+type FunctionTypeAnnotation(``params``, returnType, ?rest) =
     inherit TypeAnnotationInfo("FunctionTypeAnnotation")
-    member x.``params``: FunctionTypeParam list = args
+    member x.``params``: FunctionTypeParam list = ``params``
     member x.rest: FunctionTypeParam option = rest
     member x.returnType: TypeAnnotationInfo = returnType
 

@@ -169,7 +169,7 @@ module Util =
                 if fileInfo.targetFile.StartsWith("///")
                 then fileInfo.targetFile.Substring(3)
                 else Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.targetFile
-                |> fun x -> System.IO.Path.ChangeExtension(x, Naming.targetFileExtension)
+                |> fun x -> Path.ChangeExtension(x, Naming.targetFileExtension)
             getParts fileInfo.rootModule ent.FullName memb
             |> function
             | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
@@ -1000,7 +1000,7 @@ module Util =
                             || (imports.Values |> Seq.exists (fun i -> i.localIdent = s)))
                 let includeJs (sourcePath: string) =
                     let getRelativePath name =
-                        IO.Path.Combine(bcom.Options.outDir, "js_includes", name + ".js")
+                        Path.Combine3(bcom.Options.outDir, "js_includes", name + ".js")
                         |> Path.getRelativeFileOrDirPath false ctx.file.TargetFile false
                     Seq.append prevJsIncludes jsIncludes
                     |> Seq.tryFind (fun x -> x.sourcePath = sourcePath)
@@ -1008,7 +1008,7 @@ module Util =
                     | Some jsInclude -> getRelativePath jsInclude.name
                     | None ->
                         let name =
-                            IO.Path.GetFileNameWithoutExtension(sourcePath)
+                            Path.GetFileNameWithoutExtension(sourcePath)
                             |> Naming.preventConflicts (fun name ->
                                 Seq.append prevJsIncludes jsIncludes
                                 |> Seq.exists (fun x -> x.name = name))
@@ -1016,8 +1016,8 @@ module Util =
                         getRelativePath name
                 let resolvePath (com: ICompiler) (ctx: Context) (importPath: string) =
                     let resolveRelative (ctx: Context) (importPath: string) =
-                        let fileDir = IO.Path.GetDirectoryName(ctx.file.SourceFile)
-                        IO.Path.GetFullPath(IO.Path.Combine(fileDir, importPath))
+                        let fileDir = Path.GetDirectoryName(ctx.file.SourceFile)
+                        Path.GetFullPath(Path.Combine(fileDir, importPath))
                     match com.Options.includeJs, importPath with
                     | true, Naming.StartsWith "." _ ->
                         resolveRelative ctx importPath |> includeJs
@@ -1044,7 +1044,7 @@ module Util =
                             | Fable.CoreLib ->
                                 let path = com.Options.coreLib + "/" + path + Naming.targetFileExtension
                                 if not(path.StartsWith ".") then path else
-                                IO.Path.GetFullPath path
+                                Path.GetFullPath path
                                 |> Path.getRelativePath ctx.file.TargetFile
                                 |> fun path -> path.TrimEnd('/')
                     }
@@ -1077,8 +1077,8 @@ module Compiler =
             ("projectMaps", extra)
             ||> Map.findOrRun (fun () -> failwith "Expected project maps")
         let prevJsIncludes = ResizeArray<Babel.JsInclude>()
-        let dependenciesDic: Dictionary<string, string list> =
-            Map.findOrNew "dependencies" extra
+        let newCache = fun () -> Dictionary<string, string list>()
+        let dependenciesDic = Map.findOrRun newCache "dependencies" extra
         files |> Seq.map (fun (file: Fable.File) ->
             try
                 // let t = PerfTimer("Fable > Babel")

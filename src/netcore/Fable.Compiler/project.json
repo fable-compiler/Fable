@@ -6,7 +6,7 @@
     "compilerName": "fsc",
     "compile": {
       "includeFiles": [
-        "../../fable/Fable.Compiler/Util.fs",
+        "../../fable/Fable.Compiler/Utils.fs",
         "../../fable/Fable.Compiler/Replacements.fs",
         "../../fable/Fable.Compiler/FSharp2Fable.Util.fs",
         "../../fable/Fable.Compiler/FSharp2Fable.fs",

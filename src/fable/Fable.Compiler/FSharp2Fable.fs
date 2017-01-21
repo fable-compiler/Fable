@@ -1,6 +1,8 @@
 module Fable.FSharp2Fable.Compiler
 
+#if !FABLE_COMPILER
 open System.IO
+#endif
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
@@ -22,10 +24,10 @@ open Util
 let private (|SpecialValue|_|) com ctx = function
     | BasicPatterns.ILFieldGet (None, typ, fieldName) as fsExpr when typ.HasTypeDefinition ->
         match typ.TypeDefinition.TryFullName, fieldName with
-        | Some "System.String", "Empty" -> Some (makeConst "")
-        | Some "System.Guid", "Empty" -> Some (makeConst "00000000-0000-0000-0000-000000000000")
+        | Some "System.String", "Empty" -> Some (makeStrConst "")
+        | Some "System.Guid", "Empty" -> Some (makeStrConst "00000000-0000-0000-0000-000000000000")
         | Some "System.TimeSpan", "Zero" ->
-            Fable.Wrapped(makeConst 0, makeType com ctx.typeArgs fsExpr.Type) |> Some
+            Fable.Wrapped(makeIntConst 0, makeType com ctx.typeArgs fsExpr.Type) |> Some
         | Some "System.DateTime", "MaxValue"
         | Some "System.DateTime", "MinValue" ->
             CoreLibCall("Date", Some (Naming.lowerFirst fieldName), false, [])
@@ -132,7 +134,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | KeyValueUnion ->
         let key, value =
             match argExprs with
-            | [] -> lowerCaseName unionCase, makeConst true
+            | [] -> lowerCaseName unionCase, makeBoolConst true
             | [expr] -> lowerCaseName unionCase, expr
             | [key; expr] when hasAtt Atts.erase unionCase.Attributes -> key, expr
             | _ -> FableError("KeyValue Union Cases must have one or zero fields: " + unionType.FullName, range) |> raise
@@ -144,13 +146,13 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | PojoUnion ->
         List.zip (Seq.toList unionCase.UnionCaseFields) argExprs
         |> List.map (fun (fi, e) -> fi.Name, e)
-        |> List.append ["type", makeConst unionCase.Name]
+        |> List.append ["type", makeStrConst unionCase.Name]
         |> makeJsObject (Some range)
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
         let argExprs = [
-            makeConst unionCase.Name    // Include Tag name in args
+            makeStrConst unionCase.Name    // Include Tag name in args
             Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))
         ]
         buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
@@ -225,14 +227,14 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     | CreateEvent (callee, eventName, meth, typArgs, methTypArgs, methArgs) ->
         let callee, args = com.Transform ctx callee, List.map (com.Transform ctx) methArgs
-        let callee = Fable.Apply(callee, [makeConst eventName], Fable.ApplyGet, Fable.Any, None)
+        let callee = Fable.Apply(callee, [makeStrConst eventName], Fable.ApplyGet, Fable.Any, None)
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) (Some callee) args
 
-    | CheckArrayLength (Transform com ctx arr, length) ->
+    | CheckArrayLength (Transform com ctx arr, length, FableType com ctx typ) ->
         let r = makeRangeFrom fsExpr
-        let lengthExpr = Fable.Apply(arr, [makeConst "length"], Fable.ApplyGet, Fable.Number Int32, r)
-        makeEqOp r [lengthExpr; makeConst length] BinaryEqualStrict
+        let lengthExpr = Fable.Apply(arr, [makeStrConst "length"], Fable.ApplyGet, Fable.Number Int32, r)
+        makeEqOp r [lengthExpr; makeTypeConst typ length] BinaryEqualStrict
 
     | PrintFormat (Transform com ctx expr) -> expr
 
@@ -250,7 +252,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             ([record], updatedFields)
             ||> List.fold (fun acc (FieldName fieldName, e) ->
                 let r, value = makeRangeFrom e, com.Transform ctx e
-                let e = Fable.Set(record, Some(makeConst fieldName), value, r)
+                let e = Fable.Set(record, Some(makeStrConst fieldName), value, r)
                 e::acc)
         Fable.Sequential(assignments, r)
 
@@ -280,20 +282,8 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         |> makeLoop (makeRangeFrom fsExpr)
 
     (** Values *)
-    // Arrays with small data (ushort, byte) won't fit the NewArray pattern
-    // as they would require too much memory
-    | BasicPatterns.Const(:? System.Array as arr, typ) ->
-        let arrExprs = [
-            for i in 0 .. (arr.GetLength(0) - 1) ->
-                arr.GetValue(i) |> makeConst
-        ]
-        match arr.GetType().GetElementType().FullName with
-        | NumberKind kind -> Fable.Number kind
-        | _ -> Fable.Any
-        |> makeArray <| arrExprs
-
     | BasicPatterns.Const(value, FableType com ctx typ) ->
-        let e = makeConst value
+        let e = makeTypeConst typ value
         if e.Type = typ then e
         // Enumerations are compiled as const but they have a different type
         else Fable.Wrapped (e, typ)
@@ -457,11 +447,11 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             | None -> makeType com ctx.typeArgs calleeType
                       |> makeNonGenTypeRef com
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGetFrom com ctx r typ callee (makeConst fieldName)
+        makeGetFrom com ctx r typ callee (makeStrConst fieldName)
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGetFrom com ctx r typ tupleExpr (makeConst tupleElemIndex)
+        makeGetFrom com ctx r typ tupleExpr (makeIntConst tupleElemIndex)
 
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, fsType, unionCase, FieldName fieldName) ->
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
@@ -469,17 +459,17 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         | ErasedUnion | OptionUnion ->
             Fable.Wrapped(unionExpr, typ)
         | ListUnion ->
-            makeGet range typ unionExpr (Naming.lowerFirst fieldName |> makeConst)
+            makeGet range typ unionExpr (Naming.lowerFirst fieldName |> makeStrConst)
         | PojoUnion ->
-            makeConst fieldName |> makeGet range typ unionExpr
+            makeStrConst fieldName |> makeGet range typ unionExpr
         | KeyValueUnion ->
             FableError("KeyValueUnion types cannot be used in pattern matching", ?range=range) |> raise
         | StringEnum ->
             FableError("StringEnum types cannot have fields", ?range=range) |> raise
         | OtherType ->
             let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
-            let fields = makeGet range typ unionExpr ("Fields" |> makeConst)
-            makeGet range typ fields (i |> makeConst)
+            let fields = makeGet range typ unionExpr ("Fields" |> makeStrConst)
+            makeGet range typ fields (i |> makeIntConst)
 
     | BasicPatterns.ILFieldSet (callee, typ, fieldName, value) ->
         failwithf "Unsupported ILField reference %O: %A" (makeRange fsExpr.Range) fsExpr
@@ -489,11 +479,11 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeNonGenTypeRef com calleeType
-        Fable.Set (callee, Some (makeConst fieldName), value, makeRangeFrom fsExpr)
+        Fable.Set (callee, Some (makeStrConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGetFrom com ctx r typ unionExpr (makeConst "tag")
+        makeGetFrom com ctx r typ unionExpr (makeStrConst "tag")
 
     | BasicPatterns.UnionCaseSet (Transform com ctx unionExpr, _type, _case, _caseField, _valueExpr) ->
         makeRange fsExpr.Range |> failwithf "Unexpected UnionCaseSet %O"
@@ -640,8 +630,8 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr, fsType, unionCase) ->
         let checkCase name =
-            let left = makeGet None Fable.String unionExpr (makeConst name)
-            let right = makeConst unionCase.Name
+            let left = makeGet None Fable.String unionExpr (makeStrConst name)
+            let right = makeStrConst unionCase.Name
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
         match fsType with
         | ErasedUnion ->
@@ -665,7 +655,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.Value Fable.Null] opKind
         | ListUnion ->
             let opKind = if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
-            let expr = makeGet None Fable.Any unionExpr (makeConst "tail")
+            let expr = makeGet None Fable.Any unionExpr (makeStrConst "tail")
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [expr; Fable.Value Fable.Null] opKind
         | StringEnum ->
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict
@@ -678,7 +668,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     (** Pattern Matching *)
     | Switch(matchValue, cases, defaultCase, decisionTargets) ->
-        let transformCases assignVar =
+        let transformCases caseType assignVar =
             let transformBody idx =
                 let body = transformExpr com ctx (snd decisionTargets.[idx])
                 match assignVar with
@@ -686,7 +676,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
                 | None -> body
             let cases =
                 cases |> Seq.map (fun kv ->
-                    List.map makeConst kv.Value, transformBody kv.Key)
+                    List.map (makeTypeConst caseType) kv.Value, transformBody kv.Key)
                 |> Seq.toList
             let defaultCase = transformBody defaultCase
             cases, defaultCase
@@ -694,14 +684,15 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             let t = makeType com ctx.typeArgs matchValue.FullType
             makeValueFrom com ctx None t UnknownRole matchValue
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let caseType = matchValue.Type
         match typ with
         | Fable.Unit ->
-            let cases, defaultCase = transformCases None
+            let cases, defaultCase = transformCases caseType None
             Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
         | _ ->
             let assignVar = com.GetUniqueVar() |> makeIdent
             let cases, defaultCase =
-                Fable.IdentValue assignVar |> Fable.Value |> Some |> transformCases
+                Fable.IdentValue assignVar |> Fable.Value |> Some |> transformCases caseType
             makeSequential r [
                 Fable.VarDeclaration(assignVar, Fable.Value Fable.Null, true)
                 Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
@@ -1189,6 +1180,9 @@ let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResul
     // This dictionary must be mutable so `dict` cannot be used
     let dic = Dictionary()
     dic.Add(Naming.current, Map.empty)
+
+#if FABLE_COMPILER
+#else
     parsedProj.ProjectContext.GetReferencedAssemblies()
     |> Seq.choose (fun assembly ->
         assembly.FileName |> Option.bind (fun asmPath ->
@@ -1231,6 +1225,7 @@ let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResul
             dic.Add(asmPath, fableMap)
         with _ -> ()
     )
+#endif
     dic
 
 let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
@@ -1239,8 +1234,8 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
         ||> Map.findOrRun (fun () -> getProjectMaps com parsedProj projInfo)
     // Cache for entities and inline expressions
     let entitiesCache = Dictionary<string, Fable.Entity>()
-    let inlineExprsCache: Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr> =
-        Map.findOrNew "inline" projInfo.Extra
+    let newCache = fun () -> Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr>()
+    let inlineExprsCache = Map.findOrRun newCache "inline" projInfo.Extra
     // Start transforming files
     let entryFile =
         parsedProj.AssemblyContents.ImplementationFiles

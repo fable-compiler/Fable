@@ -304,7 +304,7 @@ type FileResolver() =
             kv.Value |> Seq.map (fun (srcFile, trgFile) ->
             // Use GetFullPath to prevent things like "parentDir/./childDir"
             // which can cause problems when calculating relative paths
-            srcFile, Path.GetFullPath <| Path.Combine(outDir, projDir, Path.ChangeExtension(trgFile, ".js"))))
+            srcFile, Path.GetFullPath <| Path.Combine3(outDir, projDir, Path.ChangeExtension(trgFile, ".js"))))
         |> Map
 
 let mergeProjectOpts (opts1: FSharpProjectOptions option, resolver: FileResolver)
