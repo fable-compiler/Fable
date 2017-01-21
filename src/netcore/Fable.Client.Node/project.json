@@ -6,6 +6,11 @@
     "compilerName": "fsc",
     "compile": {
       "includeFiles": [
+        "../../fable/Fable.Client.Node/Forge/Prelude.fs",
+        "../../fable/Fable.Client.Node/Forge/ResizeArray.fs",
+        "../../fable/Fable.Client.Node/Forge/XLinq.fs",
+        "../../fable/Fable.Client.Node/Forge/Constants.fs",
+        "../../fable/Fable.Client.Node/Forge/ProjectSystem.fs",
         "../../fable/Fable.Client.Node/Main.fs"
       ]
     },
@@ -21,10 +26,6 @@
       "target": "project"
     },
     "Fable.Compiler": {
-      "version": "1.0.0-*",
-      "target": "project"
-    },
-    "Forge.ProjectSystem": {
       "version": "1.0.0-*",
       "target": "project"
     }

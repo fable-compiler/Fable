@@ -730,6 +730,9 @@ module private AstPass =
         | _ -> None
 
     let strings com (i: Fable.ApplyInfo) =
+        let icall2 meth (callee, args) =
+            InstanceCall (callee, meth, args)
+            |> makeCall i.range i.returnType
         match i.methodName with
         | ".ctor" ->
             match i.args.Head.Type with
@@ -757,9 +760,11 @@ module private AstPass =
                 makeEqOp i.range [ccall com i "String" "compare" [x; y; kind]; makeConst 0] BinaryEqualStrict |> Some
             | _ -> None
         | "contains" ->
-            makeEqOp i.range [icall com i "indexOf"; makeConst 0] BinaryGreaterOrEqual |> Some
+            if (List.length i.args) > 1 then addWarning com i.fileName i.range "String.Contains: second argument is ignored"
+            makeEqOp i.range [icall2 "indexOf" (i.callee.Value, [i.args.Head]); makeConst 0] BinaryGreaterOrEqual |> Some
         | "startsWith" ->
-            makeEqOp i.range [icall com i "indexOf"; makeConst 0] BinaryEqualStrict |> Some
+            if (List.length i.args) > 1 then addWarning com i.fileName i.range "String.StartsWith: second argument is ignored"
+            makeEqOp i.range [icall2 "indexOf" (i.callee.Value, [i.args.Head]); makeConst 0] BinaryEqualStrict |> Some
         | "substring" -> icall com i "substr" |> Some
         | "toUpper" -> icall com i "toLocaleUpperCase" |> Some
         | "toUpperInvariant" -> icall com i "toUpperCase" |> Some
