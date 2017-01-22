@@ -59,6 +59,10 @@ export function readRollupOptions(opts: FableOptions) {
         ? fableLib.pathJoin(outDir, "bundle.js")
         : fableLib.pathJoin(opts.workingDir, rollupOpts.dest);
 
+    if (!opts.verbose) { // Swallow Rollup warnings
+        rollupOpts.onwarn = warning => {};
+    }
+
     opts.rollup = rollupOpts;
     return opts;
 }

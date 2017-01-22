@@ -1,3 +1,8 @@
+### 0.7.35
+
+* Only show Rollup warnings in `--verbose` mode
+* Minor fixes
+
 ### 0.7.34
 
 * Fix #660: `Option.fold` and `Option.foldBack`

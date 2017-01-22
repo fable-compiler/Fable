@@ -163,6 +163,8 @@ module Helpers =
         else false
 
     let belongsToInterfaceOrImportedEntity (meth: FSharpMemberOrFunctionOrValue) =
+        // TODO: Temporary HACK to fix #577
+        if meth.FullName.StartsWith("Fable.Import.Node") then true else
         match tryEnclosingEntity meth with
         | Some ent ->
             meth.IsExplicitInterfaceImplementation
