@@ -11,8 +11,6 @@ module Patterns =
         if Set.contains item set then Some item else None
 
 module Naming =
-    open System
-    open System.IO
     open System.Text.RegularExpressions
     open Patterns
 
@@ -25,7 +23,7 @@ module Naming =
     /// This is null to keep compatibility with Require.js
     /// (which expects paths not to have extensions), in the
     /// future this will probably be changed to ".js"
-    let targetFileExtension: string = null // ".js"
+    let targetFileExtension: string = "" // ".js"
 
     let [<Literal>] current = "CURRENT"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
@@ -69,7 +67,7 @@ module Naming =
 
     let replaceIdentForbiddenChars (ident: string) =
         identForbiddenCharsRegex.Replace(ident, fun (m: Match) ->
-            "$" + (int m.Value.[0]).ToString("X") + "$")
+        sprintf "$%X$" (int m.Value.[0]) )
 
     let removeGetSetPrefix =
         let reg2 = Regex(@"^[gs]et_")
@@ -121,14 +119,62 @@ module Naming =
 
 module Path =
     open System
-    open System.IO
     open Patterns
+
+    let Combine (path1: string, path2: string) =
+#if FABLE_COMPILER
+        (path1.TrimEnd [|'\\';'/'|]) + "/" + (path2.TrimStart [|'\\';'/'|])
+#else
+        IO.Path.Combine(path1, path2)
+#endif
+
+    let Combine3 (path1: string, path2: string, path3: string) =
+#if FABLE_COMPILER
+        (path1.TrimEnd [|'\\';'/'|]) + "/" + (path2.Trim [|'\\';'/'|]) + "/" + (path3.TrimStart [|'\\';'/'|])
+#else
+        IO.Path.Combine(path1, path2, path3)
+#endif
+
+    let ChangeExtension (path: string, ext: string) =
+#if FABLE_COMPILER
+        path+ext //TODO: proper implementation
+#else
+        IO.Path.ChangeExtension(path, ext)
+#endif
+
+    let GetExtension (path: string) =
+#if FABLE_COMPILER
+        path //TODO: proper implementation
+#else
+        IO.Path.GetExtension(path)
+#endif
+
+    let GetFileNameWithoutExtension (path: string) =
+#if FABLE_COMPILER
+        path //TODO: proper implementation
+#else
+        IO.Path.GetFileNameWithoutExtension(path)
+#endif
+
+    let GetDirectoryName (path: string) =
+#if FABLE_COMPILER
+        path //TODO: proper implementation
+#else
+        IO.Path.GetDirectoryName(path)
+#endif
+
+    let GetFullPath (path: string) =
+#if FABLE_COMPILER
+        path //TODO: proper implementation
+#else
+        IO.Path.GetFullPath(path)
+#endif
 
     let normalizePath (path: string) =
         path.Replace("\\", "/")
 
     let normalizeFullPath (path: string) =
-        Path.GetFullPath(path).Replace("\\", "/")
+        normalizePath (GetFullPath path)
 
     /// Creates a relative path from one file or folder to another.
     let getRelativeFileOrDirPath fromIsDir fromPath toIsDir toPath =
@@ -146,17 +192,17 @@ module Path =
             elif c = path1.Length && c = path2.Length
             then String.Empty
             else
-                let builder = new System.Text.StringBuilder()
+                let mutable builder = ""
                 while c < path1.Length do
-                    if path1.[c] = '/' then builder.Append("../") |> ignore
+                    if path1.[c] = '/' then builder <- builder + "../"
                     c <- c + 1
                 if builder.Length = 0 && path2.Length - 1 = d
                 then "./"
-                else builder.ToString() + path2.Substring(d + 1)
+                else builder + path2.Substring(d + 1)
         // Add a dummy file to make it work correctly with dirs
         let addDummyFile isDir path =
             if isDir
-            then IO.Path.Combine(path, Naming.dummyFile)
+            then Combine (path, Naming.dummyFile)
             else path
         let fromPath = addDummyFile fromIsDir fromPath
         let toPath = addDummyFile toIsDir toPath
@@ -167,7 +213,7 @@ module Path =
     let getRelativePath fromPath toPath =
         // This is not 100% reliable, but IO.Directory.Exists doesn't
         // work either if the directory doesn't exist (e.g. `outDir`)
-        let isDir = Path.GetExtension >> String.IsNullOrWhiteSpace
+        let isDir = GetExtension >> String.IsNullOrWhiteSpace
         // let isDir = IO.Directory.Exists
         getRelativeFileOrDirPath (isDir fromPath) fromPath (isDir toPath) toPath
 
@@ -194,7 +240,7 @@ module Path =
         filePaths
         |> Seq.map (fun filePath ->
             filePath
-            |> Path.GetDirectoryName
+            |> GetDirectoryName
             |> normalizePath
             |> fun path ->
                 path.Split('/') |> Array.filter (String.IsNullOrWhiteSpace >> not))

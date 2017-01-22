@@ -62,31 +62,54 @@ let makeFloat32 (x: float32) =
     let callee = Apply (makeIdentExpr "Math", [Value (StringConst "fround")], ApplyGet, Any, None)
     Apply (callee, args, ApplyMeth, Any, None)
 
-let makeConst (value: obj) =
-    match value with
+let makeBoolConst (x: bool) = BoolConst x |> Value
+let makeStrConst (x: string) = StringConst x |> Value
+let makeIntConst (x: int) = NumberConst (float x, Int32) |> Value
+let makeNumConst (x: float) = NumberConst (float x, Float64) |> Value
+let makeDecConst (x: decimal) = NumberConst (float x, Float64) |> Value
+
+let makeTypeConst (typ: Type) (value: obj) =
+    match typ, value with
     // Long Integer types
-    | :? int64 as x -> makeLongInt (uint64 x) false
-    | :? uint64 as x -> makeLongInt x true
+    | ExtendedNumber Int64, (:? int64 as x) -> makeLongInt (uint64 x) false
+    | ExtendedNumber UInt64, (:? uint64 as x) -> makeLongInt x true
+    // Enum 64-bit types (TODO: proper JS support, as Enum has no type)
+    | Enum _, (:? int64 as x) -> makeLongInt (uint64 x) false
+    | Enum _, (:? uint64 as x) -> makeLongInt x true
     // Short Float type
-    | :? float32 as x -> makeFloat32 x
+    | Number Float32, (:? float32 as x) -> makeFloat32 x
     | _ ->
-        match value with
-        | :? bool as x -> BoolConst x
-        | :? string as x -> StringConst x
-        | :? char as x -> StringConst (string x)
+        match typ, value with
+        | Boolean, (:? bool as x) -> BoolConst x
+        | String, (:? string as x) -> StringConst x
+        | Char, (:? char as x) -> StringConst (string x)
         // Integer types
-        | :? int as x -> NumberConst (float x, Int32)
-        | :? byte as x -> NumberConst (float x, UInt8)
-        | :? sbyte as x -> NumberConst (float x, Int8)
-        | :? int16 as x -> NumberConst (float x, Int16)
-        | :? uint16 as x -> NumberConst (float x, UInt16)
-        | :? uint32 as x -> NumberConst (float x, UInt32)
+        | Number UInt8, (:? byte as x) -> NumberConst (float x, UInt8)
+        | Number Int8, (:? sbyte as x) -> NumberConst (float x, Int8)
+        | Number Int16, (:? int16 as x) -> NumberConst (float x, Int16)
+        | Number UInt16, (:? uint16 as x) -> NumberConst (float x, UInt16)
+        | Number Int32, (:? int as x) -> NumberConst (float x, Int32)
+        | Number UInt32, (:? uint32 as x) -> NumberConst (float x, UInt32)
         // Float types
-        | :? float as x -> NumberConst (float x, Float64)
-        | :? decimal as x -> NumberConst (float x, Float64)
+        | Number Float64, (:? float as x) -> NumberConst (float x, Float64)
+        | Number Decimal, (:? decimal as x) -> NumberConst (float x, Float64)
+        // Enums (TODO: proper JS support, as Enum has no type)
+        | Enum _, (:? byte as x) -> NumberConst (float x, UInt8)
+        | Enum _, (:? sbyte as x) -> NumberConst (float x, Int8)
+        | Enum _, (:? int16 as x) -> NumberConst (float x, Int16)
+        | Enum _, (:? uint16 as x) -> NumberConst (float x, UInt16)
+        | Enum _, (:? int as x) -> NumberConst (float x, Int32)
+        | Enum _, (:? uint32 as x) -> NumberConst (float x, UInt32)
         // TODO: Regex
-        | :? unit | _ when isNull value -> Null
-        | _ -> failwithf "Unexpected literal %O" value
+        | Unit, (:? unit) | _ when isNull value -> Null
+        // Arrays with small data type (ushort, byte) come as Const
+        | Array (Number kind), (:? (byte[]) as arr) ->
+            let values = arr |> Array.map (fun x -> NumberConst (float x, kind) |> Value) |> Seq.toList
+            ArrayConst (ArrayValues values, Number kind)
+        | Array (Number kind), (:? (uint16[]) as arr) ->
+            let values = arr |> Array.map (fun x -> NumberConst (float x, kind) |> Value) |> Seq.toList
+            ArrayConst (ArrayValues values, Number kind)
+        | _ -> failwithf "Unexpected type %A, literal %O" typ value
         |> Value
 
 let makeFnType args (body: Expr) =
@@ -174,7 +197,7 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
     | Unit -> makeNonDeclaredTypeRef NonDeclUnit
     | Array (Number kind) when not com.Options.noTypedArrays ->
         let def = Ident(getTypedArrayName com kind, MetaType) |> IdentValue |> Value
-        Apply(makeCoreRef "Util" (Some "Array"), [def; makeConst true], ApplyMeth, MetaType, None)
+        Apply(makeCoreRef "Util" (Some "Array"), [def; makeBoolConst true], ApplyMeth, MetaType, None)
     | Array genArg ->
         makeTypeRef com genInfo genArg
         |> NonDeclArray
@@ -210,7 +233,7 @@ and makeCall (range: SourceLocation option) typ kind =
         | None -> owner
         | Some meth ->
             // let fnTyp = Function(List.map Expr.getType args |> Some, returnType)
-            Apply (owner, [makeConst meth], ApplyGet, Any, None)
+            Apply (owner, [makeStrConst meth], ApplyGet, Any, None)
     let apply kind args callee =
         Apply(callee, args, kind, typ, range)
     let getKind isCons =
@@ -218,7 +241,7 @@ and makeCall (range: SourceLocation option) typ kind =
     match kind with
     | InstanceCall (callee, meth, args) ->
         // let fnTyp = Function(List.map Expr.getType args |> Some, typ)
-        Apply (callee, [makeConst meth], ApplyGet, Any, None)
+        Apply (callee, [makeStrConst meth], ApplyGet, Any, None)
         |> apply ApplyMeth args
     | ImportCall (importPath, modName, meth, isCons, args) ->
         Value (ImportRef (modName, importPath, CustomImport))
@@ -245,7 +268,7 @@ let makeEmit r t args macro =
 let rec makeTypeTest com range (typ: Type) expr =
     let jsTypeof (primitiveType: string) expr =
         let typof = makeUnOp None String [expr] UnaryTypeof
-        makeBinOp range Boolean [typof; makeConst primitiveType] BinaryEqualStrict
+        makeBinOp range Boolean [typof; makeStrConst primitiveType] BinaryEqualStrict
     let jsInstanceOf (typeRef: Expr) expr =
         makeBinOp None Boolean [expr; typeRef] BinaryInstanceOf
     match typ with
@@ -263,12 +286,12 @@ let rec makeTypeTest com range (typ: Type) expr =
     | Array _ | Tuple _ ->
         CoreLibCall ("Util", Some "isArray", false, [expr])
         |> makeCall range Boolean
-    | Any -> makeConst true
+    | Any -> makeBoolConst true
     | Option typ -> makeTypeTest com range typ expr
     | DeclaredType(typEnt, _) ->
         match typEnt.Kind with
         | Interface ->
-            CoreLibCall ("Util", Some "hasInterface", false, [expr; makeConst typEnt.FullName])
+            CoreLibCall ("Util", Some "hasInterface", false, [expr; makeStrConst typEnt.FullName])
             |> makeCall range Boolean
         | _ ->
             makeBinOp range Boolean [expr; makeNonGenTypeRef com typ] BinaryInstanceOf
@@ -300,7 +323,7 @@ let makeRecordCons com (ent: Entity) (props: (string*Type) list) =
     let body =
         List.zip args props
         |> List.map (fun (arg, (propName, _)) ->
-            Set(Value This, Some(makeConst propName), makeIdentExpr arg.Name, None))
+            Set(Value This, Some(makeStrConst propName), makeIdentExpr arg.Name, None))
         |> fun setters ->
             match ent.Kind with
             | Fable.Exception _ ->

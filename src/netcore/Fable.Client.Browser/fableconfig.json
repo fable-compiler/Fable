@@ -1,0 +1,24 @@
+{
+    "projFile": "project.fsx",
+    "module": "commonjs",
+    "sourceMaps": false,
+    "ecma": "es2015",
+    "outDir": "out",
+    "copyExt": true,
+    "plugins": [
+    ],
+    "symbols": [
+      "FX_NO_CORHOST_SIGNER",
+      "FX_NO_LINKEDRESOURCES",
+      "FX_NO_PDB_READER",
+      "FX_NO_PDB_WRITER",
+      "NO_COMPILER_BACKEND",
+      "NO_INLINE_IL_PARSER",
+      "TRACE",
+      "DEBUG"
+    ],
+    "scripts": {
+        "prebuild": "npm install",
+        "postbuild": "node out/Fable.Client.Browser/project"
+    }
+}
