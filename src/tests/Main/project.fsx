@@ -4,7 +4,7 @@
 #if FABLE_COMPILER
 #r "System.Threading.dll"
 #r "System.Text.RegularExpressions.dll"
-#r "../../../packages/NUnit/lib/dotnet/nunit.framework.dll"
+#r "../../../packages/NUnit/lib/netstandard1.6/nunit.framework.dll"
 #r "../../../packages/Newtonsoft.Json/lib/netstandard1.0/Newtonsoft.Json.dll"
 #r "../../netcore/tests/bin/Release/netcoreapp1.0/Fable.Core.dll"
 #endif
