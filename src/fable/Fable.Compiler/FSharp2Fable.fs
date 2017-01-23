@@ -255,10 +255,17 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         Fable.Sequential(assignments, r)
 
     | JsThis ->
-        if ctx.isDelegate
-        then Fable.Value Fable.This
-        else FableError("`jsThis` can only be called within a delegate",
-                        makeRange fsExpr.Range) |> raise
+        let err msg =
+            FableError(msg, makeRange fsExpr.Range) |> raise
+        if ctx.thisAvailability = ThisUnavailable
+        then
+            if ctx.functionValue = LambdaFunctionValue
+            then err "To prevent the outside `this` being captured, please turn the lambda into a delegate"
+            else Fable.Value Fable.This
+        else
+            if ctx.functionValue = DelegateFunctionValue
+            then Fable.Value Fable.This
+            else err "`this` is alreay bound in the current context, please wrap `jsThis` in a delegate"
 
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -441,13 +448,13 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         makeSequential (makeRangeFrom fsExpr) [first; second]
 
     (** ## Lambdas *)
-    | BasicPatterns.Lambda (var, body) ->
-        let ctx, args = makeLambdaArgs com ctx [var]
-        Fable.Lambda (args, transformExpr com ctx body, true) |> Fable.Value
-
     | BasicPatterns.NewDelegate(delegateType, expr) ->
         makeDelegateFrom com ctx delegateType expr
 
+    | BasicPatterns.Lambda (var, body) ->
+        let ctx, args = makeLambdaArgs com ctx [var]
+        let ctx = { ctx with functionValue = LambdaFunctionValue }
+        Fable.Lambda (args, transformExpr com ctx body, true) |> Fable.Value
 
     (** ## Getters and Setters *)
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->

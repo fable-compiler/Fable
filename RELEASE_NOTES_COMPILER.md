@@ -1,3 +1,8 @@
+### 0.7.36
+
+* Add FSharp.Core.dll to fable-compiler package
+* Improve handling of `jsThis`
+
 ### 0.7.35
 
 * Only show Rollup warnings in `--verbose` mode

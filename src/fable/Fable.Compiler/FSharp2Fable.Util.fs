@@ -33,6 +33,11 @@ type ThisAvailability =
         of currentThis: FSharpMemberOrFunctionOrValue option
         * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
 
+type FunctionValue =
+    | NoFunctionValue
+    | LambdaFunctionValue
+    | DelegateFunctionValue
+
 type MemberInfo =
     { isInstance: bool
     ; passGenerics: bool }
@@ -47,7 +52,7 @@ type Context =
     ; baseClass: string option
     ; thisAvailability: ThisAvailability
     ; genericAvailability: bool
-    ; isDelegate: bool }
+    ; functionValue: FunctionValue }
     static member Create(fileName, enclosingModule) =
         { fileName = fileName
         ; enclosingEntity = enclosingModule
@@ -58,7 +63,7 @@ type Context =
         ; baseClass = None
         ; thisAvailability = ThisUnavailable
         ; genericAvailability = false
-        ; isDelegate = false }
+        ; functionValue = NoFunctionValue }
 
 type Role =
     | AppliedArgument
@@ -1398,7 +1403,7 @@ module Util =
             Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
 
     let makeDelegateFrom (com: IFableCompiler) ctx delegateType fsExpr =
-        let ctx = { ctx with isDelegate = true}
+        let ctx = { ctx with functionValue = DelegateFunctionValue }
         let fsExpr =
             let fullName t =
                 tryDefinition t

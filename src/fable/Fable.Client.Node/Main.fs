@@ -171,15 +171,8 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
                 yield (localLib name)
         ]
 #else
-    let fscoreDir =
-        if System.Environment.OSVersion.Platform = System.PlatformID.Win32NT then // file references only valid on Windows
-            let PF =
-                match Environment.GetEnvironmentVariable("ProgramFiles(x86)") with
-                | null -> Environment.GetEnvironmentVariable("ProgramFiles")  // if PFx86 is null, then we are 32-bit and just get PF
-                | s -> s
-            PF + @"\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0"
-        else
-            System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory()
+    let fscoreDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+    let fsCoreLib = Path.Combine(fscoreDir, "FSharp.Core.dll")
     let resolve refs =
         let resolvedFiles =
           SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.Resolve(
@@ -214,12 +207,11 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
 
         let coreReferences = [
 #if DOTNETCORE
-            "FSharp.Core", Some fsCoreLib
             "CoreLib", Some sysCoreLib
 #else
-            "FSharp.Core", None
             "System", None
 #endif
+            "FSharp.Core", Some fsCoreLib
             "mscorlib", None
             "System.Runtime", None
         ]
