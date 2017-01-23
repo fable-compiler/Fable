@@ -1,4 +1,4 @@
-### 0.7.36
+### 0.7.37
 
 * Add FSharp.Core.dll to fable-compiler package
 * Improve handling of `jsThis`

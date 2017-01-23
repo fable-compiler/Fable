@@ -171,8 +171,12 @@ let forgeGetProjectOptions (opts: CompilerOptions) projFile =
                 yield (localLib name)
         ]
 #else
-    let fscoreDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    let fsCoreLib = Path.Combine(fscoreDir, "FSharp.Core.dll")
+    let fscoreDir, fsCoreLib =
+        let fscoreDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+        let fsCoreLib = Path.Combine(fscoreDir, "FSharp.Core.dll")
+        if System.Environment.OSVersion.Platform = System.PlatformID.Win32NT
+        then fscoreDir, fsCoreLib
+        else System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), fsCoreLib
     let resolve refs =
         let resolvedFiles =
           SimulatedMSBuildReferenceResolver.SimulatedMSBuildResolver.Resolve(
