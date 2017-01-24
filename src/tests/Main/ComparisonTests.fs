@@ -142,6 +142,7 @@ let ``Record equality works``() =
     Object.ReferenceEquals(r1, r1) |> equal true
     Object.ReferenceEquals(r1, r2) |> equal false
 
+#if FABLE_COMPILER
 
 [<Test>]
 let ``Record equality ignores dynamic fields``() =
@@ -159,6 +160,8 @@ let ``Record comparison ignores dynamic fields``() =
     let r2 = { a = 1; b = 2 }
     r2?c <- 2
     equal 0 (compare r1 r2)
+
+#endif
 
 [<ReferenceEquality>]
 type RTest2 = { a2: int; b2: int }
