@@ -3,6 +3,7 @@ module Fable.Tests.Comparison
 open System
 open Util.Testing
 open Fable.Tests.Util
+open Fable.Core.JsInterop
 open System.Collections.Generic
 
 [<Test>]
@@ -140,6 +141,24 @@ let ``Record equality works``() =
     equal false (r1 <> r2)
     Object.ReferenceEquals(r1, r1) |> equal true
     Object.ReferenceEquals(r1, r2) |> equal false
+
+
+[<Test>]
+let ``Record equality ignores dynamic fields``() =
+    let r1 = { a = 1; b = 2 }
+    r1?c <- 1
+    let r2 = { a = 1; b = 2 }
+    r2?c <- 2
+    equal true (r1 = r2)
+    equal false (r1 <> r2)
+
+[<Test>]
+let ``Record comparison ignores dynamic fields``() =
+    let r1 = { a = 1; b = 2 }
+    r1?c <- 1
+    let r2 = { a = 1; b = 2 }
+    r2?c <- 2
+    equal 0 (compare r1 r2)
 
 [<ReferenceEquality>]
 type RTest2 = { a2: int; b2: int }

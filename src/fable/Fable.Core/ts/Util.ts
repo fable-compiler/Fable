@@ -124,6 +124,14 @@ export function hasInterface(obj: any, interfaceName: string) {
   return false;
 }
 
+export function getPropertyNames(obj: any) {
+  if (obj == null) {
+    return [];
+  }
+  const propertyMap = typeof obj[FSymbol.reflection] === "function" ? obj[FSymbol.reflection]().properties : obj;
+  return Object.getOwnPropertyNames(propertyMap);
+}
+
 export function isArray(obj: any) {
   return Array.isArray(obj) || ArrayBuffer.isView(obj);
 }
@@ -220,7 +228,7 @@ export function equalsRecords(x: any, y: any): boolean {
     return true;
   }
   else {
-    const keys = Object.getOwnPropertyNames(x);
+    const keys = getPropertyNames(x);
     for (let i=0; i<keys.length; i++) {
       if (!equals(x[keys[i]], y[keys[i]]))
         return false;
@@ -235,7 +243,7 @@ export function compareRecords(x: any, y: any): number {
     return 0;
   }
   else {
-    const keys = Object.getOwnPropertyNames(x);
+    const keys = getPropertyNames(x);
     for (let i=0; i<keys.length; i++) {
       let res = compare(x[keys[i]], y[keys[i]]);
       if (res !== 0)
