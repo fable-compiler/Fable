@@ -20,6 +20,8 @@ type Context = {
     file: Fable.File
     moduleFullName: string
     rootEntitiesPrivateNames: Map<string, string>
+    tailCallInfo: (string*string list) option
+    mutable isTailCallOptimized: bool
 }
 
 type IBabelCompiler =
@@ -33,7 +35,7 @@ type IBabelCompiler =
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
     abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
     abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Babel.Statement
-    abstract TransformFunction: Context -> Fable.Ident list -> Fable.Expr ->
+    abstract TransformFunction: Context -> string option -> Fable.Ident list -> Fable.Expr ->
         (Babel.Pattern list) * U2<Babel.BlockStatement, Babel.Expression>
     abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
         Fable.Declaration list -> Babel.ClassExpression
@@ -310,8 +312,8 @@ module Util =
         | Some baseCall, statements -> Fable.Sequential(baseCall::(List.rev statements), consBody.Range)
         | None, statements -> consBody
 
-    let getMemberArgs (com: IBabelCompiler) ctx args (body: Fable.Expr) typeParams hasRestParams =
-        let args', body' = com.TransformFunction ctx args body
+    let getMemberArgs (com: IBabelCompiler) ctx id args (body: Fable.Expr) typeParams hasRestParams =
+        let args', body' = com.TransformFunction ctx id args body
         let args, returnType, typeParams =
             if com.Options.declaration then
                 args' |> List.mapi (fun i arg ->
@@ -351,7 +353,7 @@ module Util =
         | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
         | Fable.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
         | Fable.Lambda (args, body, isArrow) ->
-            let args, body = com.TransformFunction ctx args body
+            let args, body = com.TransformFunction ctx None args body
             if isArrow
             // Arrow functions capture the enclosing `this` in JS
             then upcast Babel.ArrowFunctionExpression (args, body, ?loc=r)
@@ -386,7 +388,9 @@ module Util =
                     | None -> sanitizeName m.Name
                 let makeMethod kind =
                     let args, body', returnType, typeParams =
-                        getMemberArgs com ctx args body m.GenericParameters m.HasRestParams
+                        // TODO: Strip down forbidden chars if necessary
+                        let id = match key with :? Babel.Identifier as id -> Some id.name | _ -> None
+                        getMemberArgs com ctx id args body m.GenericParameters m.HasRestParams
                     Babel.ObjectMethod(kind, key, args, body', ?returnType=returnType,
                         ?typeParams=typeParams, computed=computed, ?loc=body.Range)
                     |> U3.Case2
@@ -438,6 +442,9 @@ module Util =
                 if List.length args = 1
                 then getExpr com ctx callee args.Head
                 else FableError("Getter with none or multiple arguments detected", ?range=range) |> raise
+
+    let redundantBlock statements =
+        Babel.BlockStatement(statements, redundant=true) :> Babel.Statement
 
     let block r statements =
         Babel.BlockStatement(statements, ?loc=r)
@@ -588,7 +595,7 @@ module Util =
 
         | Fable.Sequential(statements, range) ->
             statements |> List.map (com.TransformStatement ctx)
-            |> block range :> Babel.Statement
+            |> redundantBlock
 
         | Fable.Label(name, body, range) ->
             upcast Babel.LabeledStatement(ident name, com.TransformStatement ctx body, ?loc=range)
@@ -671,8 +678,19 @@ module Util =
             resolve ret expr
 
         | Fable.Apply (callee, args, kind, _, range) ->
-            transformApply com ctx (callee, args, kind, range)
-            |> resolve ret
+            match ret, ctx.tailCallInfo, callee with
+            | Return, Some(id, argIds), Fable.Value(Fable.IdentValue id2)
+                when id = id2.Name && argIds.Length = args.Length ->
+                ctx.isTailCallOptimized <- true
+                [ for (argId, arg) in List.zip argIds args do
+                    let argId = Babel.Identifier argId
+                    let arg = transformExpr com ctx arg
+                    yield Babel.ExpressionStatement(assign None argId arg) :> Babel.Statement
+                  yield upcast Babel.ContinueStatement(Babel.Identifier id) ]
+                |> redundantBlock
+            | _ ->
+                transformApply com ctx (callee, args, kind, range)
+                |> resolve ret
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
@@ -688,13 +706,12 @@ module Util =
                             ?alternate=elseStatement, ?loc=range)
 
         | Fable.Sequential (statements, range) ->
-            let statements =
-                let lasti = (List.length statements) - 1
-                statements |> List.mapi (fun i statement ->
-                    if i < lasti
-                    then com.TransformStatement ctx statement
-                    else com.TransformExprAndResolve ctx ret statement)
-            upcast block range statements
+            let lasti = (List.length statements) - 1
+            statements |> List.mapi (fun i statement ->
+                if i < lasti
+                then com.TransformStatement ctx statement
+                else com.TransformExprAndResolve ctx ret statement)
+            |> redundantBlock
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
             let handler =
@@ -716,9 +733,13 @@ module Util =
         | Fable.Quote quote ->
             transformQuote com ctx expr.Range quote |> resolve ret
 
-    let transformFunction com ctx args (body: Fable.Expr) =
-        let args: Babel.Pattern list =
+    let transformFunction com ctx id args (body: Fable.Expr) =
+        let args2: Babel.Pattern list =
             List.map (fun x -> upcast ident x) args
+        let ctx =
+            match id with
+            | None -> { ctx with isTailCallOptimized = false; tailCallInfo = None }
+            | Some id -> { ctx with isTailCallOptimized = false; tailCallInfo = Some(id, args |> List.map (fun a -> a.Name)) }
         let body: U2<Babel.BlockStatement, Babel.Expression> =
             match body with
             | ExprType Fable.Unit
@@ -729,7 +750,14 @@ module Util =
             | Fable.IfThenElse _ when body.IsJsStatement ->
                 transformBlock com ctx (Some Return) body |> U2.Case1
             | _ -> transformExpr com ctx body |> U2.Case2
-        args, body
+        let body =
+            match ctx.isTailCallOptimized, id, body with
+            | true, Some id, U2.Case1 body ->
+                Babel.LabeledStatement(Babel.Identifier id,
+                    Babel.WhileStatement(Babel.BooleanLiteral true, body, ?loc=body.loc), ?loc=body.loc)
+                :> Babel.Statement |> List.singleton |> block body.loc |> U2.Case1
+            | _ -> body
+        args2, body
 
     let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
         let declareProperty com ctx name typ =
@@ -743,7 +771,9 @@ module Util =
                 | Some e -> transformExpr com ctx e, true
                 | None -> sanitizeName name
             let args, body, returnType, typeParams =
-                getMemberArgs com ctx args body typeParams hasRestParams
+                // TODO: Strip down forbidden chars if necessary
+                let id = match name with :? Babel.Identifier as id -> Some id.name | _ -> None
+                getMemberArgs com ctx id args body typeParams hasRestParams
             Babel.ClassMethod(kind, name, args, body, computed, isStatic,
                 ?returnType=returnType, ?typeParams=typeParams, ?loc=range)
             |> U2<_,Babel.ClassProperty>.Case1
@@ -854,12 +884,12 @@ module Util =
                 | _ -> transformExpr com ctx body
             | Fable.Method ->
                 let bodyRange = body.Range
+                let id = defaultArg privName m.OverloadName
                 let args, body, returnType, typeParams =
-                    getMemberArgs com ctx args body m.GenericParameters false
+                    getMemberArgs com ctx (Some id) args body m.GenericParameters false
                 // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
-                let id = Babel.Identifier(defaultArg privName m.OverloadName)
-                upcast Babel.FunctionExpression (args, body, id=id,
+                upcast Babel.FunctionExpression (args, body, id=Babel.Identifier id,
                     ?returnType=returnType, ?typeParams=typeParams, ?loc=bodyRange)
             | Fable.Constructor | Fable.Setter ->
                 failwithf "Unexpected member in module %O: %A" modIdent m.Kind
@@ -1055,7 +1085,7 @@ module Util =
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
-            member bcom.TransformFunction ctx args body = transformFunction bcom ctx args body
+            member bcom.TransformFunction ctx id args body = transformFunction bcom ctx id args body
             member bcom.TransformClass ctx r baseClass members =
                 transformClass bcom ctx r None baseClass members
             member bcom.TransformObjectExpr ctx membs baseClass r =
@@ -1086,6 +1116,8 @@ module Compiler =
                 let com = makeCompiler com prevJsIncludes projectMaps
                 let ctx = {
                     file = file
+                    tailCallInfo = None
+                    isTailCallOptimized = false
                     moduleFullName = curProjMap.[file.SourceFile].rootModule
                     rootEntitiesPrivateNames =
                         file.Declarations

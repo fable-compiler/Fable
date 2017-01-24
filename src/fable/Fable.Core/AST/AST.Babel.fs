@@ -151,10 +151,11 @@ type ExpressionStatement(expression, ?loc) =
     member x.expression: Expression = expression
 
 /// A block statement, i.e., a sequence of statements surrounded by braces.
-type BlockStatement(body, ?directives, ?loc) =
+type BlockStatement(body, ?directives, ?redundant, ?loc) =
     inherit Statement("BlockStatement", ?loc = loc)
     member x.body: Statement list = body
     member x.directives: Directive list = defaultArg directives []
+    member x.redundant = defaultArg redundant false
 
 /// An empty statement, i.e., a solitary semicolon.
 type EmptyStatement(?loc) =
