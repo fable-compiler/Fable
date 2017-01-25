@@ -42,9 +42,15 @@ export function watch(opts: FableOptions, buildResult: BuildResult, fableProc: c
     else {
         dirs = opts.projFile.map(dir => path.dirname(fableLib.pathJoin(opts.workingDir, dir)));
     }
+
     fableLib.stdoutLog("Watching " + dirs.join('\n\t'));
     fableLib.stdoutLog("Press Enter to terminate process.");
     opts.watching = "WATCHING";
+
+    var matchesGlobs = function (filePath) {
+        var filename = fableLib.pathJoin(path.dirname(filePath), "*" + path.extname(filePath).toLowerCase());
+        return dirs.indexOf(filename) > -1;
+    }
 
     var ready = false;
     var watcher = chokidar
@@ -52,7 +58,7 @@ export function watch(opts: FableOptions, buildResult: BuildResult, fableProc: c
         .on("ready", function() { ready = true; })
         .on("all", function(ev: string, filePath: string) {
             if (ready) {
-                if (fableLib.isFSharpFile(filePath)) {
+                if (fableLib.isFSharpFile(filePath) || matchesGlobs(filePath)) {
                     prev = next;
                     next = [filePath, new Date()];
                     if (!tooClose(opts, filePath, prev)) {
