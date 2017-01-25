@@ -20,10 +20,6 @@ module ReflectionAdapters =
             globalLoadContext.LoadFromAssemblyPath(filePath)
 #endif
 
-type DecisionTarget =
-    | TargetRef of Fable.Ident
-    | TargetImpl of FSharpMemberOrFunctionOrValue list * FSharpExpr
-
 type ThisAvailability =
     | ThisUnavailable
     | ThisAvailable
@@ -33,10 +29,11 @@ type ThisAvailability =
         of currentThis: FSharpMemberOrFunctionOrValue option
         * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
 
-type FunctionValue =
-    | NoFunctionValue
-    | LambdaFunctionValue
-    | DelegateFunctionValue
+type FunctionBody =
+    | NoFunctionBody
+    | MethodBody
+    | LambdaFunctionBody
+    | DelegateFunctionBody
 
 type MemberInfo =
     { isInstance: bool
@@ -45,25 +42,29 @@ type MemberInfo =
 type Context =
     { fileName: string
     ; enclosingEntity: Fable.Entity
+    // Some expressions that create scope in F# don't do it in JS (like let bindings)
+    // so we need a mutable registry to prevent duplicated var names
+    ; methodVarNames: HashSet<string>
     ; scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
     ; scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
     ; typeArgs: (string * FSharpType) list
-    ; decisionTargets: Map<int, DecisionTarget>
+    ; decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
     ; baseClass: string option
     ; thisAvailability: ThisAvailability
     ; genericAvailability: bool
-    ; functionValue: FunctionValue }
+    ; functionBody: FunctionBody }
     static member Create(fileName, enclosingModule) =
         { fileName = fileName
         ; enclosingEntity = enclosingModule
+        ; methodVarNames = HashSet()
         ; scope = []
         ; scopedInlines = []
         ; typeArgs = []
-        ; decisionTargets = Map.empty<_,_>
+        ; decisionTargets = None
         ; baseClass = None
         ; thisAvailability = ThisUnavailable
         ; genericAvailability = false
-        ; functionValue = NoFunctionValue }
+        ; functionBody = NoFunctionBody }
 
 type Role =
     | AppliedArgument
@@ -914,10 +915,14 @@ module Identifiers =
     let bindIdent (com: IFableCompiler) (ctx: Context) typ
                   (fsRef: FSharpMemberOrFunctionOrValue option) tentativeName =
         let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
+            if ctx.methodVarNames.Contains x then true else
             List.exists (fun (_,x') ->
                 match x' with
                 | Fable.Value (Fable.IdentValue i) -> x = i.Name
                 | _ -> false) ctx.scope)
+        // In methods, we use ctx.methodVarNames to prevent duplicated variables
+        if ctx.functionBody <> NoFunctionBody then
+            ctx.methodVarNames.Add sanitizedName |> ignore
         com.AddUsedVarName sanitizedName
         let ident = Fable.Ident(sanitizedName, typ)
         let identValue = Fable.Value (Fable.IdentValue ident)
@@ -989,6 +994,7 @@ module Util =
             ctx, List.rev args
 
     let bindMemberArgs com ctx (info: MemberInfo) (args: FSharpMemberOrFunctionOrValue list list) =
+        let ctx = { ctx with methodVarNames = HashSet(); functionBody = MethodBody }
         let thisArg, args =
             match args with
             | [thisArg]::args when info.isInstance ->
@@ -1403,7 +1409,7 @@ module Util =
             Fable.Apply (typeRef, [makeConst v.CompiledName], Fable.ApplyGet, typ, r)
 
     let makeDelegateFrom (com: IFableCompiler) ctx delegateType fsExpr =
-        let ctx = { ctx with functionValue = DelegateFunctionValue }
+        let ctx = { ctx with functionBody = DelegateFunctionBody }
         let fsExpr =
             let fullName t =
                 tryDefinition t

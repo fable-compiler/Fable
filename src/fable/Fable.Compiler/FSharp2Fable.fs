@@ -259,11 +259,11 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             FableError(msg, makeRange fsExpr.Range) |> raise
         if ctx.thisAvailability = ThisUnavailable
         then
-            if ctx.functionValue = LambdaFunctionValue
+            if ctx.functionBody = LambdaFunctionBody
             then err "To prevent the outside `this` being captured, please turn the lambda into a delegate"
             else Fable.Value Fable.This
         else
-            if ctx.functionValue = DelegateFunctionValue
+            if ctx.functionBody = DelegateFunctionBody
             then Fable.Value Fable.This
             else err "`this` is alreay bound in the current context, please wrap `jsThis` in a delegate"
 
@@ -453,7 +453,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     | BasicPatterns.Lambda (var, body) ->
         let ctx, args = makeLambdaArgs com ctx [var]
-        let ctx = { ctx with functionValue = LambdaFunctionValue }
+        let ctx = { ctx with functionBody = LambdaFunctionBody }
         Fable.Lambda (args, transformExpr com ctx body, true) |> Fable.Value
 
     (** ## Getters and Setters *)
@@ -685,35 +685,20 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
 
     (** Pattern Matching *)
     | Switch(matchValue, cases, defaultCase, decisionTargets) ->
-        let transformCases assignVar =
-            let transformBody idx =
-                let body = transformExpr com ctx (snd decisionTargets.[idx])
-                match assignVar with
-                | Some assignVar -> Fable.Set(assignVar, None, body, body.Range)
-                | None -> body
-            let cases =
-                cases |> Seq.map (fun kv ->
-                    List.map makeConst kv.Value, transformBody kv.Key)
-                |> Seq.toList
-            let defaultCase = transformBody defaultCase
-            cases, defaultCase
+        let cases =
+            cases
+            |> Seq.map (fun kv ->
+                let labels = List.map makeConst kv.Value
+                let body = snd decisionTargets.[kv.Key] |> transformExpr com ctx
+                labels, body)
+            |> Seq.toList
+        let defaultCase =
+            snd decisionTargets.[defaultCase] |> transformExpr com ctx
         let matchValue =
             let t = makeType com ctx.typeArgs matchValue.FullType
             makeValueFrom com ctx None t UnknownRole matchValue
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        match typ with
-        | Fable.Unit ->
-            let cases, defaultCase = transformCases None
-            Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
-        | _ ->
-            let assignVar = com.GetUniqueVar() |> makeIdent
-            let cases, defaultCase =
-                Fable.IdentValue assignVar |> Fable.Value |> Some |> transformCases
-            makeSequential r [
-                Fable.VarDeclaration(assignVar, Fable.Value Fable.Null, true)
-                Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
-                Fable.Value(Fable.IdentValue assignVar)
-            ]
+        Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
 
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
         let rec getTargetRefsCount map = function
@@ -730,57 +715,53 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
             | e ->
                 failwithf "Unexpected DecisionTree branch %O: %A" (makeRange e.Range) e
         let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
-        // Convert targets referred more than once into functions
-        // and just pass the F# implementation for the others
-        let ctx, assignments =
-            targetRefsCount
-            |> Map.filter (fun k v -> v > 1)
-            |> Map.fold (fun (ctx, acc) k v ->
-                let targetVars, targetExpr = decisionTargets.[k]
-                let targetVars, targetCtx =
-                    (targetVars, ([], ctx)) ||> List.foldBack (fun var (vars, ctx) ->
-                        let ctx, var = bindIdentFrom com ctx var
-                        var::vars, ctx)
-                let lambda =
-                    com.Transform targetCtx targetExpr |> makeLambdaExpr targetVars
-                let ctx, ident = bindIdent com ctx lambda.Type None (sprintf "$target%i" k)
-                ctx, Map.add k (ident, lambda) acc) (ctx, Map.empty<_,_>)
-        let decisionTargets =
-            targetRefsCount |> Map.map (fun k v ->
-                match v with
-                | 1 -> TargetImpl decisionTargets.[k]
-                | _ -> TargetRef (fst assignments.[k]))
-        let ctx = { ctx with decisionTargets = decisionTargets }
-        if assignments.Count = 0 then
-            transformExpr com ctx decisionExpr
-        else
-            let assignments =
-                assignments
-                |> Seq.map (fun pair ->
-                    let ident, lambda = pair.Value
-                    Fable.VarDeclaration (ident, lambda, false))
+        if targetRefsCount |> Map.exists (fun _ v -> v > 1)
+        then
+            let ctx = { ctx with decisionTargets = None }
+            let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+            let tempVar = com.GetUniqueVar() |> makeIdent
+            let tempVarFirstItem =
+                (Fable.Value(Fable.IdentValue tempVar), makeConst 0)
+                ||> makeGet None (Fable.Number Int32)
+            let cases =
+                targetRefsCount
+                |> Seq.map (fun kv ->
+                    let vars, body = decisionTargets.[kv.Key]
+                    let ctx =
+                        let mutable i = 0
+                        (ctx, vars) ||> List.fold (fun ctx var ->
+                            i <- i + 1
+                            (Fable.Value(Fable.IdentValue tempVar), makeConst i)
+                            ||> makeGet None (makeType com ctx.typeArgs var.FullType)
+                            |> bindExpr ctx var)
+                    [makeConst kv.Key], transformExpr com ctx body)
                 |> Seq.toList
-            Fable.Sequential (assignments @ [transformExpr com ctx decisionExpr], makeRangeFrom fsExpr)
+            [ Fable.VarDeclaration(tempVar, transformExpr com ctx decisionExpr, false)
+            ; Fable.Switch(tempVarFirstItem, cases, None, typ, r) ]
+            |> makeSequential r
+        else
+            let targets = targetRefsCount |> Map.map (fun k _ -> decisionTargets.[k])
+            let ctx = { ctx with decisionTargets = Some targets }
+            transformExpr com ctx decisionExpr
 
     | BasicPatterns.DecisionTreeSuccess (decIndex, decBindings) ->
-        match Map.tryFind decIndex ctx.decisionTargets with
-        | None -> failwithf "Missing decision target %O" (makeRange fsExpr.Range)
-        // If we get a reference to a function, call it
-        | Some (TargetRef targetRef) ->
-            Fable.Apply (Fable.IdentValue targetRef |> Fable.Value,
-                (decBindings |> List.map (transformExpr com ctx)),
-                Fable.ApplyMeth, makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr)
-        // If we get an implementation without bindings, just transform it
-        | Some (TargetImpl ([], Transform com ctx decBody)) -> decBody
-        // If we have bindings, create the assignments
-        | Some (TargetImpl (decVars, decBody)) ->
-            let newContext, assignments =
-                List.foldBack2 (fun var (Transform com ctx binding) (accContext, accAssignments) ->
-                    let (BindIdent com accContext (newContext, ident)) = var
-                    let assignment = Fable.VarDeclaration (ident, binding, var.IsMutable)
-                    newContext, (assignment::accAssignments)) decVars decBindings (ctx, [])
-            assignments @ [transformExpr com newContext decBody]
-            |> makeSequential (makeRangeFrom fsExpr)
+        match ctx.decisionTargets with
+        | Some decisionTargets ->
+            match Map.tryFind decIndex decisionTargets with
+            | None -> failwithf "Missing decision target %O" (makeRange fsExpr.Range)
+            | Some ([], Transform com ctx decBody) -> decBody
+            // If we have values, bind them to context
+            | Some (decVars, decBody) ->
+                let ctx =
+                    (ctx, decVars, decBindings)
+                    |||> List.fold2 (fun ctx var (Transform com ctx binding) ->
+                        bindExpr ctx var binding)
+                transformExpr com ctx decBody
+        | None ->
+            decBindings
+            |> List.map (transformExpr com ctx)
+            |> List.append [makeConst decIndex]
+            |> makeArray Fable.Any
 
     | BasicPatterns.Quote(Transform com ctx expr) ->
         Fable.Quote(expr)

@@ -179,6 +179,7 @@ function readBabelOptions(opts: FableOptions) {
         customPlugins.transformMacroExpressions,
         // removeUnneededNulls must come after transformMacroExpressions (see #377)
         customPlugins.removeUnneededNulls,
+        customPlugins.removeRedundantBlocks,
         customPlugins.removeFunctionExpressionNames
     );
 

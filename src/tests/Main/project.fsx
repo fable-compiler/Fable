@@ -47,6 +47,7 @@
     "SetTests.fs"
     "StringTests.fs"
     "SudokuTest.fs"
+    "TailCallTests.fs"
     "TupleTypeTests.fs"
     "TypeTests.fs"
     "UnionTypeTests.fs"

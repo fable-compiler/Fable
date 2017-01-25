@@ -151,10 +151,11 @@ type ExpressionStatement(expression, ?loc) =
     member x.expression: Expression = expression
 
 /// A block statement, i.e., a sequence of statements surrounded by braces.
-type BlockStatement(body, ?directives, ?loc) =
+type BlockStatement(body, ?directives, ?redundant, ?loc) =
     inherit Statement("BlockStatement", ?loc = loc)
     member x.body: Statement list = body
     member x.directives: Directive list = defaultArg directives []
+    member x.redundant = defaultArg redundant false
 
 /// An empty statement, i.e., a solitary semicolon.
 type EmptyStatement(?loc) =
@@ -237,7 +238,7 @@ type VariableDeclarationKind = Var | Let | Const
 type VariableDeclaration(kind, declarations, ?loc) =
     inherit Declaration("VariableDeclaration", ?loc = loc)
     new (var, ?init, ?kind, ?loc) =
-        VariableDeclaration(defaultArg kind Var, [VariableDeclarator(var, ?init=init, ?loc=loc)], ?loc=loc)
+        VariableDeclaration(defaultArg kind Let, [VariableDeclarator(var, ?init=init, ?loc=loc)], ?loc=loc)
     member x.declarations: VariableDeclarator list = declarations
     member x.kind =
         match kind with Var -> "var" | Let -> "let" | Const -> "const"

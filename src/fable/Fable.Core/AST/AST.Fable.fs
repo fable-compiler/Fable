@@ -249,6 +249,19 @@ and ValueKind =
     /// isArrow: Arrow functions capture the enclosing `this` in JS
     | Lambda of args: Ident list * body: Expr * isArrow: bool
     | Emit of string
+    member x.ImmediateSubExpressions: Expr list =
+        match x with
+        | Null | This | Super | IdentValue _ | ImportRef _
+        | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _
+        | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> []
+        | Spread x -> [x]
+        | TypeRef(_,genArgs) -> genArgs |> List.map snd
+        | ArrayConst(kind,_) ->
+            match kind with
+            | ArrayValues exprs -> exprs
+            | ArrayAlloc e -> [e]
+        | TupleConst exprs -> exprs
+        | Lambda(_,body,_) -> [body]
     member x.Type =
         match x with
         | Null -> Any
@@ -313,7 +326,7 @@ and Expr =
 
     member x.IsJsStatement =
         match x with
-        | Value _ | ObjExpr _ | Apply _ | Quote _ -> true
+        | Value _ | ObjExpr _ | Apply _ | Quote _ -> false
         | Wrapped (e,_) -> e.IsJsStatement
         | IfThenElse (_,thenExpr,elseExpr,_) -> thenExpr.IsJsStatement || elseExpr.IsJsStatement
         | Throw _ | DebugBreak _ | Loop _ | Set _ | VarDeclaration _
@@ -363,3 +376,40 @@ and Expr =
         | Break (_, range)
         | Continue (_, range)
         | Return (_, range) -> range
+
+    member x.ImmediateSubExpressions: Expr list =
+        match x with
+        | Value v -> v.ImmediateSubExpressions
+        | ObjExpr (decls,_,baseClass,_) ->
+            (decls |> List.map (fun (_,_,e) -> e))@(Option.toList baseClass)
+        | VarDeclaration (_,e,_) -> [e]
+        | Wrapped (e,_) -> [e]
+        | Quote e -> [e]
+        | Throw (e,_,_) -> [e]
+        | Apply (callee,args,_,_,_) -> callee::args
+        | Label (_,e,_) -> [e]
+        | Return (e,_) -> [e]
+        | IfThenElse (cond,thenExpr,elseExpr,_) -> [cond;thenExpr;elseExpr]
+        | Loop (kind,_) ->
+            match kind with
+            | While(e1,e2) -> [e1;e2]
+            | For(_,e1,e2,e3,_) -> [e1;e2;e3]
+            | ForOf(_,e1,e2) -> [e1;e2]
+        | Set (callee,prop,value,_) ->
+            [ yield callee
+              yield! Option.toList prop
+              yield value ]
+        | Sequential (exprs,_) -> exprs
+        | TryCatch (body,catch,finalizer,_) ->
+            [ yield body
+              match catch with
+              | Some (_,catch) -> yield catch
+              | None -> ()
+              yield! Option.toList finalizer ]
+        | Switch (test,cases,defCase,_,_) ->
+            [ yield test
+              for (labels, body) in cases do
+                yield! labels
+                yield body
+              yield! Option.toList defCase]
+        | DebugBreak _ | Break _ | Continue _ -> []

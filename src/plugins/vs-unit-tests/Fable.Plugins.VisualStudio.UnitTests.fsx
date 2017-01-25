@@ -72,7 +72,7 @@ module Util =
             | RunSync asyncBuilder -> buildAsyncTestBody body.Range asyncBuilder
             | _ -> [], body
         let testBody =
-            let args, body = com.TransformFunction ctx testArgs testBody
+            let args, body = com.TransformFunction ctx None testArgs testBody
             Babel.ArrowFunctionExpression (args, body, ?loc=testBody.Range) :> Babel.Expression
         let testName =
             Babel.StringLiteral testMeth.Name :> Babel.Expression
