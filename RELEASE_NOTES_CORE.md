@@ -1,3 +1,7 @@
+### 0.7.26
+
+* Fix #666: F# record equality and comparison checks only declared members
+
 ### 0.7.25
 
 * Fix #660: `Option.fold` and `Option.foldBack`
