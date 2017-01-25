@@ -662,14 +662,8 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
 
         // Compile project files, print them and get extra info
         // ----------------------------------------------------
-        let rewrites =
-            com.Plugins |> Seq.choose (function _, (:? IRewritePlugin as r) -> Some r | _ -> None)
-        let applyRewrites (extra, input) =
-            extra, rewrites |> Seq.fold (fun input rewrite -> rewrite.Rewrite input) input
-
         let extraInfo, files =
             FSharp2Fable.Compiler.transformFiles com parsedProj projInfo
-            |> applyRewrites
             |> saveFableAst
             |> Fable2Babel.Compiler.transformFiles com
 

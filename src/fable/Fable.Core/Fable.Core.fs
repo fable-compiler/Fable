@@ -56,13 +56,6 @@ type KeyValueListAttribute() =
 type StringEnumAttribute() =
     inherit Attribute()
 
-/// [EXPERIMENTAL] Record updates will be compiled as mutations: { x with a = 5 }
-/// Fable will fail if the original value is used after being updated or passed to a function.
-/// More info: http://fable.io/docs/interacting.html#MutatingUpdate-attribute
-[<AttributeUsage(AttributeTargets.Class)>]
-type MutatingUpdateAttribute() =
-    inherit Attribute()
-
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U2<'a, 'b> = Case1 of 'a | Case2 of 'b

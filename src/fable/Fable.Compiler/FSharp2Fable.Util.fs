@@ -68,11 +68,6 @@ type Context =
         ; genericAvailability = false
         ; functionBody = NoFunctionBody }
 
-type Role =
-    | AppliedArgument
-    // For now we're only interested in applied arguments
-    | UnknownRole
-
 type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
@@ -95,7 +90,6 @@ module Atts =
     let stringEnum = typeof<Fable.Core.StringEnumAttribute>.FullName
     let keyValueList = typeof<Fable.Core.KeyValueListAttribute>.FullName
     let passGenerics = typeof<Fable.Core.PassGenericsAttribute>.FullName
-    let mutatingUpdate = typeof<Fable.Core.MutatingUpdateAttribute>.FullName
 
 module Helpers =
     let tryBoth (f1: 'a->'b option) (f2: 'a->'b option) (x: 'a) =
@@ -160,14 +154,6 @@ module Helpers =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition
         then typ.TypeDefinition.TryFullName = Some "Microsoft.FSharp.Core.Unit"
-        else false
-
-    // TODO: Check that all record fields are immutable?
-    let isMutatingUpdate (typ: FSharpType) =
-        let typ = nonAbbreviatedType typ
-        if typ.HasTypeDefinition
-        then typ.TypeDefinition.IsFSharpRecord
-                && hasAtt Atts.mutatingUpdate typ.TypeDefinition.Attributes
         else false
 
     let belongsToInterfaceOrImportedEntity (meth: FSharpMemberOrFunctionOrValue) =
@@ -597,41 +583,6 @@ module Patterns =
             | None -> None
         | _ -> None
 
-    /// Record updates as in `{ a with name = "Anna" }`
-    let (|RecordMutatingUpdate|_|) fsExpr =
-        let rec visit identAndBindings = function
-            | Let((ident, binding), letBody) when ident.IsCompilerGenerated ->
-                visit ((ident, binding)::identAndBindings) letBody
-            | NewRecord(NonAbbreviatedType recType, argExprs) when isMutatingUpdate recType ->
-                ((None, []), Seq.zip recType.TypeDefinition.FSharpFields argExprs)
-                ||> Seq.fold (fun (prevRec, updatedFields) (fi, e) ->
-                    match e with
-                    | FSharpFieldGet(Some(Value prevRec'), recType', fi')
-                        when recType' = recType && fi.Name = fi'.Name ->
-                        match prevRec with
-                        | Some prevRec ->
-                            if prevRec = prevRec'
-                            then Some prevRec', updatedFields
-                            else None, []
-                        | None ->
-                            if not prevRec'.IsMutable
-                            then Some prevRec', updatedFields
-                            else None, []
-                    | e -> prevRec, (fi, e)::updatedFields)
-                |> function
-                    | Some prevRec, updatedFields ->
-                        let updatedFields =
-                            let identAndBindings = dict identAndBindings
-                            updatedFields |> List.map (fun (fi, e) ->
-                                match e with
-                                | Value ident when identAndBindings.ContainsKey ident ->
-                                    fi, identAndBindings.[ident]
-                                | e -> fi, e)
-                        Some(recType, prevRec, updatedFields)
-                    | _ -> None
-            | _ -> None
-        visit [] fsExpr
-
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList)
@@ -941,10 +892,6 @@ module Identifiers =
         ctx.scope
         |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
         |> function
-            | Some(_, (Fable.Value(Fable.IdentValue i) as boundExpr)) ->
-                if i.IsConsumed && isMutatingUpdate fsRef.FullType then
-                    FableError("Value marked as MutatingUpdate has already been consumed: " + i.Name, ?range=r) |> raise
-                Some boundExpr
             | Some(_, boundExpr) -> Some boundExpr
             | None -> None
 
@@ -1391,7 +1338,7 @@ module Util =
             |> addWarning com ctx.fileName r
             Fable.Value Fable.This
 
-    let makeValueFrom com ctx r typ role (v: FSharpMemberOrFunctionOrValue) =
+    let makeValueFrom com ctx r typ (v: FSharpMemberOrFunctionOrValue) =
         if typ = Fable.Unit then Fable.Wrapped(Fable.Value Fable.Null, Fable.Unit) else
         let owner = tryEnclosingEntity v
         let i = buildApplyInfoFrom com ctx r typ ([], []) (None, []) owner v
@@ -1400,11 +1347,7 @@ module Util =
         | Imported com ctx r typ i ([], []) [] imported -> imported
         | Emitted com ctx r typ i ([], []) (None, []) emitted -> emitted
         | Replaced com i owner replaced -> replaced
-        | Try (tryGetBoundExpr ctx r) e ->
-            match role, e with
-            | AppliedArgument, Fable.Value(Fable.IdentValue i) ->
-                i.Consume(); e
-            | _ -> e
+        | Try (tryGetBoundExpr ctx r) e -> e
         | _ ->
             let typeRef =
                 match owner with

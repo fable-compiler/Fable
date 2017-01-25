@@ -4,6 +4,7 @@ open Fable
 open Fable.AST
 open System
 open System.Collections.Generic
+open System.Text.RegularExpressions
 
 type ReturnStrategy =
     | Return
@@ -220,7 +221,7 @@ module Util =
                 if fileInfo.targetFile.StartsWith("///")
                 then fileInfo.targetFile.Substring(3)
                 else Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.targetFile
-                |> fun x -> Path.ChangeExtension(x, Naming.targetFileExtension)
+                |> fun x -> Regex.Replace(x, "\.\w+$", Naming.targetFileExtension)
             getParts fileInfo.rootModule ent.FullName memb
             |> function
             | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
@@ -674,18 +675,6 @@ module Util =
         | Fable.Sequential(statements, range) ->
             statements |> List.collect (com.TransformStatement ctx)
 
-        | Fable.Label(name, body, range) ->
-            [Babel.LabeledStatement(ident name, com.TransformStatement ctx body |> List.head, ?loc=range) :> Babel.Statement]
-
-        | Fable.Break(optName, range) ->
-            [Babel.BreakStatement(?label=Option.map ident optName, ?loc=range) :> Babel.Statement]
-
-        | Fable.Continue(optName, range) ->
-            [Babel.ContinueStatement(?label=Option.map ident optName, ?loc=range) :> Babel.Statement]
-
-        | Fable.Return(e, range) ->
-            com.TransformExprAndResolve ctx Return e
-
         | Fable.Wrapped (expr, _) ->
             com.TransformStatement ctx expr
 
@@ -725,8 +714,7 @@ module Util =
         // These cannot appear in expression position in JS
         // They must be wrapped in a lambda
         | Fable.Sequential _ | Fable.TryCatch _ | Fable.Throw _
-        | Fable.DebugBreak _ | Fable.Loop _ | Fable.Switch _
-        | Fable.Break _ | Fable.Continue _ | Fable.Label _ | Fable.Return _ ->
+        | Fable.DebugBreak _ | Fable.Loop _ | Fable.Switch _ ->
             iife com ctx expr :> Babel.Expression
 
         | Fable.VarDeclaration _ ->
@@ -811,8 +799,7 @@ module Util =
         // These cannot be resolved (don't return anything)
         // Just compile as a statement
         | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _
-        | Fable.Set _ | Fable.VarDeclaration _ | Fable.Return _
-        | Fable.Label _ | Fable.Continue _ | Fable.Break _ ->
+        | Fable.Set _ | Fable.VarDeclaration _ ->
             com.TransformStatement ctx expr
 
         | Fable.Quote quote ->
