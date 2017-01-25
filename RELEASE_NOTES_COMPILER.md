@@ -1,3 +1,7 @@
+### 0.7.38
+
+* Tailcall optimizations: PR #669
+
 ### 0.7.37
 
 * Add FSharp.Core.dll to fable-compiler package

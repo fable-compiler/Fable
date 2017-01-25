@@ -35,17 +35,6 @@ export const removeUnneededNulls = {
   }
 };
 
-export const removeRedundantBlocks = {
-  visitor: {
-    BlockStatement: function(path: traverse.NodePath<types.BlockStatement>) {
-      var node = path.node as any;
-      if (node.redundant) {
-        path.replaceWithMultiple(path.node.body);
-      }
-    }
-  }
-};
-
 /**
  * When Babel compiles class methods to ES5 it keeps the function named
  * even if it's a function expression, this is causing problems with Rollup.

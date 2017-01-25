@@ -57,8 +57,8 @@ type IBabelCompiler =
     abstract GetAllImports: unit -> seq<Import>
     abstract GetAllJsIncludes: unit -> seq<Babel.JsInclude>
     abstract TransformExpr: Context -> Fable.Expr -> Babel.Expression
-    abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement
-    abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Babel.Statement
+    abstract TransformStatement: Context -> Fable.Expr -> Babel.Statement list
+    abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Babel.Statement list
     abstract TransformFunction: Context -> ITailCallOpportunity option -> Fable.Ident list -> Fable.Expr ->
         (Babel.Pattern list) * U2<Babel.BlockStatement, Babel.Expression>
     abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
@@ -497,9 +497,6 @@ module Util =
                 then getExpr com ctx callee args.Head
                 else FableError("Getter with none or multiple arguments detected", ?range=range) |> raise
 
-    let redundantBlock statements =
-        Babel.BlockStatement(statements, redundant=true) :> Babel.Statement
-
     let block r statements =
         Babel.BlockStatement(statements, ?loc=r)
 
@@ -508,19 +505,20 @@ module Util =
     let transformBlock (com: IBabelCompiler) ctx ret expr: Babel.BlockStatement =
         match ret, expr with
         | None, Fable.Sequential(statements, range) ->
-            List.map (com.TransformStatement ctx) statements |> block range
+            List.collect (com.TransformStatement ctx) statements |> block range
         | None, _ ->
-            block expr.Range [com.TransformStatement ctx expr]
+            com.TransformStatement ctx expr |> block expr.Range
         | Some ret, Fable.Sequential(statements, range) ->
-            let statements =
-                let lasti = (List.length statements) - 1
-                statements |> List.mapi (fun i statement ->
-                    if i < lasti
-                    then com.TransformStatement ctx statement
-                    else com.TransformExprAndResolve ctx ret statement)
-            block range statements
+            let lasti = (List.length statements) - 1
+            statements
+            |> List.mapi (fun i statement ->
+                if i < lasti
+                then com.TransformStatement ctx statement
+                else com.TransformExprAndResolve ctx ret statement)
+            |> List.concat
+            |> block range
         | Some ret, _ ->
-            block expr.Range [com.TransformExprAndResolve ctx ret expr]
+            com.TransformExprAndResolve ctx ret expr |> block expr.Range
 
     let transformSwitch com ctx returnStrategy (matchValue, cases, defaultCase, range) =
         let transformCase test branch =
@@ -549,6 +547,20 @@ module Util =
             | Some defaultCase -> cases@[transformCase None defaultCase]
             | None -> cases
         Babel.SwitchStatement(com.TransformExpr ctx matchValue, cases, ?loc=range)
+
+    // Even if IfStatement doesn't enforce it, compile both branches as blocks
+    // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
+    let rec transformIfStatement (com: IBabelCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
+        let guardExpr = com.TransformExpr ctx guardExpr
+        let thenStmnt = transformBlock com ctx ret thenStmnt
+        let elseStmnt =
+            match elseStmnt with
+            | e when isNull e -> None
+            | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt, r) ->
+                transformIfStatement com ctx r ret guardExpr thenStmnt elseStmnt
+                :> Babel.Statement |> Some
+            | e -> transformBlock com ctx ret e :> Babel.Statement |> Some
+        Babel.IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt, ?loc=r)
 
     // TODO: Experimental support for Quotations
     let transformQuote com ctx r expr =
@@ -581,28 +593,27 @@ module Util =
         //     | _ -> failwithf "Unexpected expression inside quote %O" fExpr.Range
         // toJson expr
 
-    let transformStatement com ctx (expr: Fable.Expr): Babel.Statement =
+    let transformStatement com ctx (expr: Fable.Expr): Babel.Statement list =
         match expr with
         | Fable.Loop (loopKind, range) ->
             match loopKind with
             | Fable.While (TransformExpr com ctx guard, body) ->
-                upcast Babel.WhileStatement (guard, transformBlock com ctx None body, ?loc=range)
+                Babel.WhileStatement(guard, transformBlock com ctx None body, ?loc=range) :> Babel.Statement
             | Fable.ForOf (var, TransformExpr com ctx enumerable, body) ->
                 // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right
                 let var = Babel.VariableDeclaration(ident var, kind=Babel.Let)
-                upcast Babel.ForOfStatement (
-                    U2.Case1 var, enumerable, transformBlock com ctx None body, ?loc=range)
-            | Fable.For (var, TransformExpr com ctx start,
-                            TransformExpr com ctx limit, body, isUp) ->
+                Babel.ForOfStatement(U2.Case1 var, enumerable, transformBlock com ctx None body, ?loc=range) :> Babel.Statement
+            | Fable.For (var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp) ->
                 let op1, op2 =
                     if isUp
                     then BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
                     else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
-                upcast Babel.ForStatement (
+                Babel.ForStatement(
                     transformBlock com ctx None body,
                     start |> varDeclaration None (ident var) true |> U2.Case1,
                     Babel.BinaryExpression (op1, ident var, limit),
-                    Babel.UpdateExpression (op2, false, ident var), ?loc=range)
+                    Babel.UpdateExpression (op2, false, ident var), ?loc=range) :> Babel.Statement
+            |> List.singleton
 
         | Fable.Set (callee, property, value, range) ->
             let ret =
@@ -613,7 +624,7 @@ module Util =
 
         | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path, kind)), isMutable) ->
             let value = com.GetImportExpr ctx var.Name path kind
-            varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement
+            [varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement]
 
         | Fable.VarDeclaration (var, CurriedLambda(innestArgs::restArgs as tcArgs, body, isArrow), false) ->
             let value =
@@ -625,7 +636,7 @@ module Util =
                 (innestLambda, restArgs) ||> List.fold (fun body args ->
                     let args = args |> List.map (fun x -> ident x :> Babel.Pattern)
                     transformLambda body.loc isArrow args (U2.Case2 body))
-            varDeclaration expr.Range (ident var) false value :> Babel.Statement
+            [varDeclaration expr.Range (ident var) false value :> Babel.Statement]
 
         | Fable.VarDeclaration (var, value, isMutable) ->
             if value.IsJsStatement
@@ -633,10 +644,10 @@ module Util =
                 let var = ident var
                 let decl = Babel.VariableDeclaration var :> Babel.Statement
                 let body = com.TransformExprAndResolve ctx (Assign var) value
-                redundantBlock [decl; body]
+                decl::body
             else
                 let value = com.TransformExpr ctx value
-                varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement
+                [varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement]
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
             let handler =
@@ -646,43 +657,34 @@ module Util =
             let finalizer =
                 finalizer |> Option.map (fun finalizer ->
                     transformBlock com ctx None body)
-            upcast Babel.TryStatement (transformBlock com ctx None body,
-                ?handler=handler, ?finalizer=finalizer, ?loc=range)
+            [Babel.TryStatement(transformBlock com ctx None body,
+                ?handler=handler, ?finalizer=finalizer, ?loc=range) :> Babel.Statement]
 
         | Fable.Throw (TransformExpr com ctx ex, _, range) ->
-            upcast Babel.ThrowStatement(ex, ?loc=range)
+            [Babel.ThrowStatement(ex, ?loc=range) :> Babel.Statement]
 
         | Fable.DebugBreak range ->
-            upcast Babel.DebuggerStatement(?loc=range)
+            [Babel.DebuggerStatement(?loc=range) :> Babel.Statement]
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
-        | Fable.IfThenElse (TransformExpr com ctx guardExpr,
-                            thenStatement, elseStatement, range) ->
-            let thenStatement = transformBlock com ctx None thenStatement
-            let elseStatement =
-                match elseStatement with
-                | e when isNull e -> None
-                | Fable.IfThenElse _ as e-> com.TransformStatement ctx e |> Some
-                | e -> transformBlock com ctx None e :> Babel.Statement |> Some
-            upcast Babel.IfStatement(guardExpr, thenStatement,
-                            ?alternate=elseStatement, ?loc=range)
+        | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt, range) ->
+            [transformIfStatement com ctx range None guardExpr thenStmnt elseStmnt :> Babel.Statement ]
 
         | Fable.Switch(matchValue, cases, defaultCase, _, range) ->
-            upcast transformSwitch com ctx None (matchValue, cases, defaultCase, range)
+            [transformSwitch com ctx None (matchValue, cases, defaultCase, range) :> Babel.Statement]
 
         | Fable.Sequential(statements, range) ->
-            statements |> List.map (com.TransformStatement ctx)
-            |> redundantBlock
+            statements |> List.collect (com.TransformStatement ctx)
 
         | Fable.Label(name, body, range) ->
-            upcast Babel.LabeledStatement(ident name, com.TransformStatement ctx body, ?loc=range)
+            [Babel.LabeledStatement(ident name, com.TransformStatement ctx body |> List.head, ?loc=range) :> Babel.Statement]
 
         | Fable.Break(optName, range) ->
-            upcast Babel.BreakStatement(?label=Option.map ident optName, ?loc=range)
+            [Babel.BreakStatement(?label=Option.map ident optName, ?loc=range) :> Babel.Statement]
 
         | Fable.Continue(optName, range) ->
-            upcast Babel.ContinueStatement(?label=Option.map ident optName, ?loc=range)
+            [Babel.ContinueStatement(?label=Option.map ident optName, ?loc=range) :> Babel.Statement]
 
         | Fable.Return(e, range) ->
             com.TransformExprAndResolve ctx Return e
@@ -692,7 +694,7 @@ module Util =
 
         // Expressions become ExpressionStatements
         | Fable.Value _ | Fable.Apply _ | Fable.ObjExpr _ | Fable.Quote _ ->
-            upcast Babel.ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range)
+            [Babel.ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range) :> Babel.Statement]
 
     let transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Babel.Expression =
         match expr with
@@ -739,21 +741,21 @@ module Util =
             transformQuote com ctx expr.Range quote
 
     let transformExprAndResolve (com: IBabelCompiler) ctx ret
-                                 (expr: Fable.Expr): Babel.Statement =
+                                 (expr: Fable.Expr): Babel.Statement list =
         let resolve strategy expr: Babel.Statement =
             match strategy with
             | Return -> upcast Babel.ReturnStatement(expr, ?loc=expr.loc)
             | Assign left -> upcast Babel.ExpressionStatement(assign expr.loc left expr, ?loc=expr.loc)
         match expr with
         | Fable.Value kind ->
-            transformValue com ctx expr.Range kind |> resolve ret
+            transformValue com ctx expr.Range kind |> resolve ret |> List.singleton
 
         | Fable.ObjExpr (members, _, baseClass, _) ->
             transformObjectExpr com ctx (members, baseClass, expr.Range)
-            |> resolve ret
+            |> resolve ret |> List.singleton
 
         | Fable.Wrapped (TransformExpr com ctx expr, _) ->
-            resolve ret expr
+            resolve ret expr |> List.singleton
 
         | Fable.Apply (callee, args, kind, _, range) ->
             match ret, ctx.tailCallOpportunity, expr with
@@ -780,23 +782,14 @@ module Util =
                   for KeyValue(argId,tempVar) in tempVars do
                     yield assign None (identFromName argId) (identFromName tempVar) |> Babel.ExpressionStatement :> Babel.Statement
                   yield upcast Babel.ContinueStatement(identFromName tc.Label) ]
-                |> redundantBlock
             | _ ->
                 transformApply com ctx (callee, args, kind, range)
-                |> resolve ret
+                |> resolve ret |> List.singleton
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
-        | Fable.IfThenElse (TransformExpr com ctx guardExpr,
-                            thenStatement, elseStatement, range) ->
-            let thenStatement = transformBlock com ctx (Some ret) thenStatement
-            let elseStatement =
-                match elseStatement with
-                | e when isNull e -> None
-                | Fable.IfThenElse _ as e-> com.TransformExprAndResolve ctx ret e |> Some
-                | e -> transformBlock com ctx (Some ret) e :> Babel.Statement |> Some
-            upcast Babel.IfStatement(guardExpr, thenStatement,
-                            ?alternate=elseStatement, ?loc=range)
+        | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt, range) ->
+            [transformIfStatement com ctx range (Some ret) guardExpr thenStmnt elseStmnt :> Babel.Statement ]
 
         | Fable.Sequential (statements, range) ->
             let lasti = (List.length statements) - 1
@@ -804,7 +797,7 @@ module Util =
                 if i < lasti
                 then com.TransformStatement ctx statement
                 else com.TransformExprAndResolve ctx ret statement)
-            |> redundantBlock
+            |> List.concat
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
             let handler =
@@ -813,11 +806,11 @@ module Util =
                         transformBlock com ctx (Some ret) body, ?loc=body.Range))
             let finalizer =
                 finalizer |> Option.map (transformBlock com ctx None)
-            upcast Babel.TryStatement (transformBlock com ctx (Some ret) body,
-                ?handler=handler, ?finalizer=finalizer, ?loc=range)
+            [Babel.TryStatement(transformBlock com ctx (Some ret) body,
+                ?handler=handler, ?finalizer=finalizer, ?loc=range) :> Babel.Statement]
 
         | Fable.Switch(matchValue, cases, defaultCase, _, range) ->
-            upcast transformSwitch com ctx (Some ret) (matchValue, cases, defaultCase, range)
+            [transformSwitch com ctx (Some ret) (matchValue, cases, defaultCase, range) :> Babel.Statement]
 
         // These cannot be resolved (don't return anything)
         // Just compile as a statement
@@ -827,7 +820,7 @@ module Util =
             com.TransformStatement ctx expr
 
         | Fable.Quote quote ->
-            transformQuote com ctx expr.Range quote |> resolve ret
+            transformQuote com ctx expr.Range quote |> resolve ret |> List.singleton
 
     let transformFunction com ctx tailcallChance args (body: Fable.Expr) =
         let args2: Babel.Pattern list =
@@ -1056,8 +1049,8 @@ module Util =
                 (statements |> List.map U2.Case1) @ acc
             | Fable.ActionDeclaration (e,_) ->
                 transformStatement com ctx e
-                |> U2.Case1
-                |> consBack acc
+                |> List.map U2.Case1
+                |> List.append <| acc
             | Fable.MemberDeclaration(m,privName,args,body,r) ->
                 match m.Kind with
                 | Fable.Constructor | Fable.Setter _ -> acc // Only happens for VS tests
