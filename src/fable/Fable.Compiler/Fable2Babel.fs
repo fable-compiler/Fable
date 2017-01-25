@@ -532,9 +532,7 @@ module Util =
                 | _ -> b.body@[Babel.BreakStatement()], Some test
             | None -> b.body, None // Default branch
             |> fun (statements, test) ->
-                // Put the body of the case in a block to prevent scope problems (see #483)
-                let body = [block b.loc statements :> Babel.Statement]
-                Babel.SwitchCase(body, ?test=test, ?loc=b.loc)
+                Babel.SwitchCase(statements, ?test=test, ?loc=b.loc)
         let cases =
             cases |> List.collect(fun (tests, branch) ->
                 let prev =
