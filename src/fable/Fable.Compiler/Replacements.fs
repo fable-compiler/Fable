@@ -1126,8 +1126,11 @@ module private AstPass =
             | [] -> makeMap [] |> Some
             | _ ->
                 match i.args.Head.Type with
-                | Fable.Number Int32 -> makeMap [] |> Some
-                | _ -> makeMap i.args |> Some
+                | Fable.DeclaredType(ent, _) when ent.FullName.StartsWith("System.Collections.Generic.IDictionary") ->
+                    makeMap i.args |> Some
+                | _ ->
+                    addWarning com i.fileName i.range "Dictionary constructor parameter is ignored"
+                    makeMap [] |> Some
         | "isReadOnly" ->
             Fable.BoolConst false |> Fable.Value |> Some
         | "count" ->
@@ -1164,8 +1167,11 @@ module private AstPass =
             | [] -> makeSet [] |> Some
             | _ ->
                 match i.args.Head.Type with
-                | Fable.Number Int32 -> makeSet [] |> Some
-                | _ -> makeSet i.args |> Some
+                | Fable.DeclaredType(ent, _) when ent.FullName.StartsWith("System.Collections.Generic.IEnumerable") ->
+                    makeSet i.args |> Some
+                | _ ->
+                    addWarning com i.fileName i.range "HashSet constructor parameter is ignored"
+                    makeSet [] |> Some
         | "count" ->
             makeGet i.range i.returnType i.callee.Value (makeConst "size") |> Some
         | "isReadOnly" ->

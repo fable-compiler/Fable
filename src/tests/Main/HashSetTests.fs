@@ -5,6 +5,13 @@ open Fable.Tests.Util
 open System.Collections.Generic
 
 [<Test>]
+let ``HashSet ctor from Enumerable works``() =
+    let s = List.toSeq [1;2;2;3]
+    let xs = HashSet<int>(s)
+    xs |> Seq.toList
+    |> equal [1;2;3]
+
+[<Test>]
 let ``HashSet ctor creates empty HashSet``() =
     let xs = HashSet<int>()
     xs |> Seq.isEmpty
