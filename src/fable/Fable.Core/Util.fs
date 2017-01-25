@@ -119,49 +119,31 @@ module Naming =
 
 module Path =
     open System
+    open System.Text.RegularExpressions
     open Patterns
 
     let Combine (path1: string, path2: string) =
-#if FABLE_COMPILER
         (path1.TrimEnd [|'\\';'/'|]) + "/" + (path2.TrimStart [|'\\';'/'|])
-#else
-        IO.Path.Combine(path1, path2)
-#endif
 
     let Combine3 (path1: string, path2: string, path3: string) =
-#if FABLE_COMPILER
         (path1.TrimEnd [|'\\';'/'|]) + "/" + (path2.Trim [|'\\';'/'|]) + "/" + (path3.TrimStart [|'\\';'/'|])
-#else
-        IO.Path.Combine(path1, path2, path3)
-#endif
 
     let ChangeExtension (path: string, ext: string) =
-#if FABLE_COMPILER
-        path+ext //TODO: proper implementation
-#else
-        IO.Path.ChangeExtension(path, ext)
-#endif
+        Regex.Replace(path, "\.\w+$", ext)
 
     let GetExtension (path: string) =
-#if FABLE_COMPILER
-        path //TODO: proper implementation
-#else
-        IO.Path.GetExtension(path)
-#endif
+        Regex.Match(path, "\.\w+$").Value
 
     let GetFileNameWithoutExtension (path: string) =
-#if FABLE_COMPILER
-        path //TODO: proper implementation
-#else
-        IO.Path.GetFileNameWithoutExtension(path)
-#endif
+        let normPath = path.Replace("\\", "/").TrimEnd('/')
+        let i = normPath.LastIndexOf("/")
+        let filename = path.Substring(i + 1)
+        Regex.Replace(filename, "\.\w+$", "")
 
     let GetDirectoryName (path: string) =
-#if FABLE_COMPILER
-        path //TODO: proper implementation
-#else
-        IO.Path.GetDirectoryName(path)
-#endif
+        let normPath = path.Replace("\\", "/")
+        let i = normPath.LastIndexOf("/")
+        path.Substring(0, i)
 
     let GetFullPath (path: string) =
 #if FABLE_COMPILER

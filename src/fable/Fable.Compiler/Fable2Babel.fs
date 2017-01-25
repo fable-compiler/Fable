@@ -221,7 +221,7 @@ module Util =
                 if fileInfo.targetFile.StartsWith("///")
                 then fileInfo.targetFile.Substring(3)
                 else Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.targetFile
-                |> fun x -> Regex.Replace(x, "\.\w+$", Naming.targetFileExtension)
+                |> fun x -> Path.ChangeExtension(x, Naming.targetFileExtension)
             getParts fileInfo.rootModule ent.FullName memb
             |> function
             | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
