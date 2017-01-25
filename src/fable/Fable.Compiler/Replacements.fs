@@ -390,11 +390,11 @@ module Util =
             icall args equal
         | Fable.ExtendedNumber _ ->
             icall args equal
-        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.Char | Fable.String
+        | Fable.Unit | Fable.Boolean | Fable.Char | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
             Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | Fable.Array _ | Fable.Tuple _
-        | Fable.MetaType | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
+        | Fable.Any | Fable.MetaType | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
             CoreLibCall("Util", Some "equals", false, args)
             |> makeCall i.range i.returnType |> is equal |> Some
 
@@ -416,7 +416,7 @@ module Util =
             icall args op
         | Fable.ExtendedNumber _ ->
             icall args op
-        | Fable.Any | Fable.Unit | Fable.Boolean | Fable.String
+        | Fable.Unit | Fable.Boolean | Fable.String
         | Fable.Number _ | Fable.Function _ | Fable.Enum _ when Option.isSome op ->
             makeEqOp r args op.Value
         | _ ->

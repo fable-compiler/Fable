@@ -93,6 +93,7 @@
     <Compile Include="SetTests.fs" />
     <Compile Include="StringTests.fs" />
     <Compile Include="SudokuTest.fs" />
+    <Compile Include="TailCallTests.fs" />
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />

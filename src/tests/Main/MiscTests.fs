@@ -41,7 +41,7 @@ let ``Using self identifier from class definition in members works``() = // See 
     let t = Test(5)
     t.Foo() |> equal 24
 
-let log (a: string) (b: string) = String.Format("a = {0}, b = {0}", a, b)
+let log (a: string) (b: string) = String.Format("a = {0}, b = {1}", a, b)
 let logItem1 = log "item1"
 let logItem2 = log "item2"
 
