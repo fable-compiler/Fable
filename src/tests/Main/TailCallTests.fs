@@ -7,38 +7,48 @@ open Fable.Tests.Util
 open System
 open System.Collections.Generic
 
-let rec factorial1 aux n =
-  if n = 0 then aux
-  else factorial1 (aux * n) (n - 1)
+module Functions =
+    let rec factorial1 aux n =
+        if n = 0 then aux
+        else factorial1 (aux * n) (n - 1)
+
+    let rec factorial2 n =
+        match n with
+        | 0 | 1 -> 1
+        | _ -> n * factorial2(n-1)
+
+    let factorial3 n =
+        let rec loop i acc =
+            match i with
+            | 0 | 1 -> acc
+            | _ -> loop (i-1) (acc * i)
+        loop n 1
+
+    let rec sum v m s =
+        if v >= m
+        then s
+        else sum (v + 1L) m (s + v)
+
+    let rec iife a =
+        2 * (match id a with
+            | []  -> 0
+            | [x]  -> x
+            | h::t -> iife t)
+
+open Functions
 
 [<Test>]
 let ``Recursive functions can be tailcall optimized``() =
     factorial1 1 10 |> equal 3628800
 
-let rec factorial2 n =
-    match n with
-    | 0 | 1 -> 1
-    | _ -> n * factorial2(n-1)
 
 [<Test>]
 let ``Non-tailcall recursive functions work``() =
     factorial2 10 |> equal 3628800
 
-let factorial3 n =
-    let rec loop i acc =
-        match i with
-        | 0 | 1 -> acc
-        | _ -> loop (i-1) (acc * i)
-    loop n 1
-
 [<Test>]
 let ``Nested functions can be tailcall optimized``() =
     factorial3 10 |> equal 3628800
-
-let rec sum v m s =
-    if v >= m
-    then s
-    else sum (v + 1L) m (s + v)
 
 [<Test>]
 let ``Arguments can be consumed after being "passed" in tailcall optimizations``() =
@@ -74,3 +84,7 @@ let ``Mutually recursive functions can be partially optimized``() =
     s.ToCharArray() |> Seq.toList |> parseTokens []
     |> Seq.concat |> Seq.map string |> String.concat ""
     |> equal "56"
+
+[<Test>]
+let ``IIFEs prevent tailcall optimization``() = // See #674
+    iife [5; 4; 3] |> equal 24

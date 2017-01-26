@@ -1,4 +1,4 @@
-### 0.7.38
+### 0.7.39
 
 * Tailcall optimizations: PR #669
 

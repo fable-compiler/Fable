@@ -329,12 +329,9 @@ module Util =
         :> Babel.Expression
 
     /// Immediately Invoked Function Expression
-    let iife range (statement: Babel.Statement) =
-        let block =
-            match statement with
-            | :? Babel.BlockStatement as block -> U2.Case1 block
-            | _ -> Babel.BlockStatement([statement], ?loc=range) |> U2.Case1
-        Babel.CallExpression(Babel.ArrowFunctionExpression([], block, ?loc=range), [], ?loc=range)
+    let iife (com: IBabelCompiler) ctx (expr: Fable.Expr) =
+        let _, body = com.TransformFunction ctx None [] expr
+        Babel.CallExpression(Babel.ArrowFunctionExpression ([], body, ?loc=expr.Range), [], ?loc=expr.Range)
 
     let varDeclaration range (var: Babel.Pattern) (isMutable: bool) value =
         let kind = if isMutable then Babel.Let else Babel.Const
@@ -730,8 +727,7 @@ module Util =
         | Fable.Sequential _ | Fable.TryCatch _ | Fable.Throw _
         | Fable.DebugBreak _ | Fable.Loop _ | Fable.Switch _
         | Fable.Break _ | Fable.Continue _ | Fable.Label _ | Fable.Return _ ->
-            transformBlock com ctx (Some Return) expr :> Babel.Statement
-            |> iife expr.Range :> Babel.Expression
+            iife com ctx expr :> Babel.Expression
 
         | Fable.VarDeclaration _ ->
             "Unexpected variable declaration"
