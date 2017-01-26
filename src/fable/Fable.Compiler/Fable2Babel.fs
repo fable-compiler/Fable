@@ -552,7 +552,7 @@ module Util =
         let thenStmnt = transformBlock com ctx ret thenStmnt
         let elseStmnt =
             match elseStmnt with
-            | e when isNull e -> None
+            | e when Option.isNone ret && isNull e -> None
             | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt, r) ->
                 transformIfStatement com ctx r ret guardExpr thenStmnt elseStmnt
                 :> Babel.Statement |> Some
