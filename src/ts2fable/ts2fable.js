@@ -724,6 +724,27 @@ function visitInterface(node, opts) {
     return ifc;
 }
 
+function mergeModules( a, b ) {
+    return {
+        name: a.name,
+        path: a.path,
+        interfaces: a.interfaces.concat( b.interfaces ),
+        properties: a.properties.concat( b.properties ),
+        methods: a.methods.concat( b.methods ),
+        modules: mergeNamesakeModules( a.modules.concat( b.modules ) )
+    };
+}
+
+function mergeNamesakeModules( modules ) {
+    var grouped = {};
+    modules.forEach( function(m) { 
+        if ( !Array.isArray( grouped[m.name] ) ) grouped[m.name] = [];
+        grouped[m.name].push( m );
+    } );
+
+    return Object.keys(grouped).map( function(k) { return grouped[k].reduce( mergeModules ); } );
+}
+
 function visitModule(node, opts) {
     opts = opts || {};
     var mod = {
@@ -821,7 +842,7 @@ function visitFile(node) {
     return {
         properties: properties,
         interfaces: interfaces,
-        modules: modules
+        modules: mergeNamesakeModules( modules )
     };
 }
 
