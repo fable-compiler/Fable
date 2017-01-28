@@ -219,11 +219,15 @@ let ``Conversion to Action works``() =
     let f4' = Action(fun () -> myMutableField <- 7)
     let f5' = Action(f5)
     let f6' = Action(f7 3)
+    let f7' i () = myMutableField <- i * 3
+    let f8' = Action(f7' 3)
     f4'.Invoke()
     equal 7 myMutableField
     f5'.Invoke()
     equal 5 myMutableField
     f6'.Invoke()
+    equal 9 myMutableField
+    f8'.Invoke()
     equal 9 myMutableField
 
 let (|NonEmpty|_|) (s: string) =

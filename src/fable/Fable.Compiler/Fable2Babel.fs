@@ -97,26 +97,6 @@ module Util =
             |> function true, _ -> Some(exprs, r) | _ -> None
         | _ -> None
 
-    let (|FullApply|_|) (com: ICompiler) e =
-        let rec loop r t accArgs = function
-            | Fable.Apply(callee,args,Fable.ApplyMeth,_,_) ->
-                loop r t (args@accArgs) callee
-            | e -> Some(e,accArgs,t,r)
-        match e with
-        | Fable.Apply(callee,args,Fable.ApplyMeth,t,r) ->
-            loop r t args callee
-        | _ -> None
-
-    let (|CurriedLambda|_|) e =
-        let rec curriedLambda isArrow accArgs = function
-            | Fable.Value(Fable.Lambda(args, body, isArrow2)) when isArrow = isArrow2 ->
-                curriedLambda isArrow (args::accArgs) body
-            | e -> accArgs, e, isArrow
-        match e with
-        | Fable.Value(Fable.Lambda(args, body, isArrow)) ->
-            curriedLambda isArrow [args] body |> Some
-        | _ -> None
-
     let rec deepExists f (expr: Fable.Expr) =
         if f expr
         then true
@@ -384,8 +364,8 @@ module Util =
             | U2.Case2 e -> Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
         args, body, returnType, typeParams
 
-    let transformLambda r isArrow args body: Babel.Expression =
-        if isArrow
+    let transformLambda r captureThis args body: Babel.Expression =
+        if captureThis
         // Arrow functions capture the enclosing `this` in JS
         then upcast Babel.ArrowFunctionExpression (args, body, ?loc=r)
         else
@@ -409,9 +389,9 @@ module Util =
         | Fable.StringConst x -> upcast Babel.StringLiteral (x)
         | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
         | Fable.RegexConst (source, flags) -> upcast Babel.RegExpLiteral (source, flags)
-        | Fable.Lambda (args, body, isArrow) ->
+        | Fable.Lambda (args, body, captureThis) ->
             com.TransformFunction ctx None args body
-            ||> transformLambda r isArrow
+            ||> transformLambda r captureThis
         | Fable.ArrayConst (cons, typ) -> buildArray com ctx cons typ
         | Fable.TupleConst vals -> buildArray com ctx (Fable.ArrayValues vals) Fable.Any
         | Fable.Emit emit -> macroExpression None emit []
@@ -440,7 +420,9 @@ module Util =
                     let args, body', returnType, typeParams =
                         let tc =
                             match key with
-                            | :? Babel.Identifier as id -> ClassTailCallOpportunity(id.name, args) :> ITailCallOpportunity |> Some
+                            | :? Babel.Identifier as id ->
+                                ClassTailCallOpportunity(id.name, args)
+                                :> ITailCallOpportunity |> Some
                             | _ -> None
                         getMemberArgsAndBody com ctx tc args body m.GenericParameters m.HasRestParams
                     Babel.ObjectMethod(kind, key, args, body', ?returnType=returnType,
@@ -461,6 +443,10 @@ module Util =
                 upcast Babel.ObjectExpression(props, ?loc=range)
 
     let transformApply com ctx (callee, args, kind, range): Babel.Expression =
+        let args =
+            match args with
+            | [unitArg: Fable.Expr] when unitArg.Type = Fable.Unit -> []
+            | args -> args
         match callee, args with
         // Logical, Binary and Unary Operations
         // If the operation has been wrapped in a lambda, there may be arguments in excess,
@@ -624,16 +610,11 @@ module Util =
             let value = com.GetImportExpr ctx var.Name path kind
             [varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement]
 
-        | Fable.VarDeclaration (var, CurriedLambda(innestArgs::restArgs as tcArgs, body, isArrow), false) ->
+        | Fable.VarDeclaration (var, Fable.Value(Fable.Lambda(args, body, captureThis)), false) ->
             let value =
-                let tcArgs = List.rev tcArgs |> List.concat
-                let tc = NamedTailCallOpportunity(var.Name, tcArgs) :> ITailCallOpportunity |> Some
-                let innestLambda =
-                    com.TransformFunction ctx tc innestArgs body
-                    ||> transformLambda body.Range isArrow
-                (innestLambda, restArgs) ||> List.fold (fun body args ->
-                    let args = args |> List.map (fun x -> ident x :> Babel.Pattern)
-                    transformLambda body.loc isArrow args (U2.Case2 body))
+                let tc = NamedTailCallOpportunity(var.Name, args) :> ITailCallOpportunity |> Some
+                com.TransformFunction ctx tc args body
+                ||> transformLambda body.Range captureThis
             [varDeclaration expr.Range (ident var) false value :> Babel.Statement]
 
         | Fable.VarDeclaration (var, value, isMutable) ->
@@ -742,8 +723,8 @@ module Util =
             resolve ret expr |> List.singleton
 
         | Fable.Apply (callee, args, kind, _, range) ->
-            match ret, ctx.tailCallOpportunity, expr with
-            | Return, Some tc, FullApply com (callee, args, _, _)
+            match ctx.tailCallOpportunity, kind, ret with
+            | Some tc, Fable.ApplyMeth, Return
                 when tc.Args.Length = args.Length && tc.IsRecursiveRef callee ->
                 ctx.isTailCallOptimized <- true
                 let zippedArgs = List.zip tc.Args args
@@ -805,10 +786,14 @@ module Util =
         | Fable.Quote quote ->
             transformQuote com ctx expr.Range quote |> resolve ret |> List.singleton
 
-    let transformFunction com ctx tailcallChance args (body: Fable.Expr) =
-        let args2: Babel.Pattern list =
-            List.map (fun x -> upcast ident x) args
-        let ctx = { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }
+    let transformFunction com ctx tailcallChance (args: Fable.Ident list) (body: Fable.Expr) =
+        let ctx, args =
+            match args with
+            | [unitArg] when unitArg.Type = Fable.Unit ->
+                { ctx with isTailCallOptimized = false; tailCallOpportunity = None }, []
+            | args ->
+                let args = List.map (fun x -> ident x :> Babel.Pattern) args
+                { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }, args
         let body: U2<Babel.BlockStatement, Babel.Expression> =
             match body with
             | ExprType Fable.Unit
@@ -829,7 +814,7 @@ module Util =
                     Babel.WhileStatement(Babel.BooleanLiteral true, body, ?loc=body.loc), ?loc=body.loc)
                 :> Babel.Statement |> List.singleton |> block body.loc |> U2.Case1
             | _ -> body
-        args2, body
+        args, body
 
     let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
         let declareProperty com ctx name typ =

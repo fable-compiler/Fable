@@ -112,12 +112,6 @@ let makeTypeConst (typ: Type) (value: obj) =
         | _ -> failwithf "Unexpected type %A, literal %O" typ value
         |> Value
 
-let makeFnType args (body: Expr) =
-    Function(List.map Ident.getType args, body.Type)
-
-let makeUnknownFnType (arity: int) =
-    Function(List.init arity (fun _ -> Any), Any)
-
 let makeGet range typ callee propExpr =
     Apply (callee, [propExpr], ApplyGet, typ, range)
 
@@ -310,7 +304,7 @@ let makeUnionCons () =
 // See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
 let setProto com (ent: Entity) =
     let meth = makeUntypedGet (makeIdentExpr "Object") "setPrototypeOf"
-    Apply(meth, [This |> Value; makeUntypedGet (Fable.DeclaredType(ent, []) |> makeNonGenTypeRef com) "prototype"], ApplyMeth, Any, None)
+    Apply(meth, [This |> Value; makeUntypedGet (DeclaredType(ent, []) |> makeNonGenTypeRef com) "prototype"], ApplyMeth, Any, None)
 
 let makeRecordCons com (ent: Entity) (props: (string*Type) list) =
     let args =
@@ -326,7 +320,7 @@ let makeRecordCons com (ent: Entity) (props: (string*Type) list) =
             Set(Value This, Some(makeStrConst propName), makeIdentExpr arg.Name, None))
         |> fun setters ->
             match ent.Kind with
-            | Fable.Exception _ ->
+            | Exception _ ->
                 let superCall = Apply(Value Super, [], ApplyMeth, Any, None)
                 Sequential(superCall::(setProto com ent)::setters, None)
             | _ -> Sequential(setters, None)
@@ -355,7 +349,7 @@ let makeIteratorMethod() =
     let m, args, body = makeIteratorMethodArgsAndBody()
     MemberDeclaration(m, None, args, body, None)
 
-let makeReflectionMethodArgsAndBody com (ent: Fable.Entity option) extend nullable interfaces cases properties =
+let makeReflectionMethodArgsAndBody com (ent: Entity option) extend nullable interfaces cases properties =
     let members = [
         match ent with
         | Some ent -> yield "type", Value(StringConst ent.FullName)
@@ -378,7 +372,7 @@ let makeReflectionMethodArgsAndBody com (ent: Fable.Entity option) extend nullab
             let genInfo = { makeGeneric=true; genericAvailability=false }
             cases |> Seq.map (fun (kv: System.Collections.Generic.KeyValuePair<_,_>) ->
                 let typs = kv.Value |> List.map (makeTypeRef com genInfo)
-                let typs = Fable.ArrayConst(Fable.ArrayValues typs, Any) |> Fable.Value
+                let typs = ArrayConst(ArrayValues typs, Any) |> Value
                 Member(kv.Key, Field, InstanceLoc, [], Any), [], typs)
             |> fun decls -> ["cases", ObjExpr(Seq.toList decls, [], None, None)]
         | None -> []
@@ -392,53 +386,85 @@ let makeReflectionMethodArgsAndBody com (ent: Fable.Entity option) extend nullab
     let comp = makeUntypedGet (makeCoreRef "Symbol" None) "reflection"
     Member("FSymbol.reflection", Method, InstanceLoc, [], Any, computed=comp), [], info
 
-let makeReflectionMethod com (ent: Fable.Entity option) extend nullable interfaces cases properties =
+let makeReflectionMethod com (ent: Entity option) extend nullable interfaces cases properties =
     let m, args, body = makeReflectionMethodArgsAndBody com ent extend nullable interfaces cases properties
     MemberDeclaration(m, None, args, body, None)
 
-let makeDelegate (com: ICompiler) arity (expr: Expr) =
-    let rec flattenLambda (arity: int option) isArrow accArgs = function
-        | Value (Lambda (args, body, isArrow')) when arity.IsNone || List.length accArgs < arity.Value ->
-            flattenLambda arity (isArrow && isArrow') (accArgs@args) body
-        | _ when arity.IsSome && List.length accArgs < arity.Value ->
-            None
-        | body ->
-            Value (Lambda (accArgs, body, isArrow)) |> Some
-    let wrap arity isArrow expr =
-        match arity with
-        | Some arity when arity > 1 ->
-            let lambdaArgs =
-                [for i=1 to arity do yield Ident(com.GetUniqueVar(), Any)]
-            let lambdaBody =
-                (expr, lambdaArgs)
-                ||> List.fold (fun callee arg ->
-                    Apply (callee, [Value (IdentValue arg)],
-                        ApplyMeth, Any, expr.Range))
-            Lambda (lambdaArgs, lambdaBody, isArrow) |> Value
-        | _ -> expr // Do nothing
-    match expr, expr.Type, arity with
-    | Value (Lambda (args, body, isArrow)), _, _ ->
-        match flattenLambda arity isArrow args body with
-        | Some expr -> expr
-        | None -> wrap arity isArrow expr
-    | _, Function _, Some arity ->
-        wrap (Some arity) false expr
-    | _ -> expr
+let (|Type|) (expr: Expr) = expr.Type
 
-/// Checks if an F# let binding is being applied and
-/// applies arguments as for a curried function
-let makeApply range typ callee exprs =
+// Deal with function arguments with higher arity than expected
+// E.g.: [|"1";"2"|] |> Array.map (fun x y -> x + y)
+// JS: ["1","2"].map($var1 => $var2 => ((x, y) => x + y)($var1, $var2))
+let rec ensureArity com argTypes args =
+    let rec needsWrapping = function
+        | Function(expected,_), Function(actual,returnType) ->
+            if (expected.Length < actual.Length)
+                || (expected.Length > actual.Length)
+                || List.zip expected actual |> List.exists (needsWrapping >> Option.isSome)
+            then Some(expected, actual, returnType)
+            else None
+        | _ -> None
+    let wrap (com: ICompiler) typ (f: Expr) expectedArgs actualArgs =
+        let outerArgs =
+            expectedArgs |> List.map (fun t -> makeTypedIdent (com.GetUniqueVar()) t)
+        if List.length expectedArgs < List.length actualArgs then
+            List.skip expectedArgs.Length actualArgs
+            |> List.map (fun t -> makeTypedIdent (com.GetUniqueVar()) t)
+            |> fun innerArgs ->
+                let args = outerArgs@innerArgs |> List.map (IdentValue >> Value)
+                makeApply com f.Range typ f args
+                |> makeLambdaExpr innerArgs
+        elif List.length expectedArgs > List.length actualArgs then
+            if Option.isSome f.Range then
+                sprintf "A function with less arguments than expected has been wrapped at %O. %s"
+                        f.Range.Value "Side effects may be delayed."
+                |> Warning |> com.AddLog
+            let innerArgs = List.take actualArgs.Length outerArgs |> List.map (IdentValue >> Value)
+            let outerArgs = List.skip actualArgs.Length outerArgs |> List.map (IdentValue >> Value)
+            let innerApply = makeApply com f.Range (Function(List.map Expr.getType outerArgs,typ)) f innerArgs
+            makeApply com f.Range typ innerApply outerArgs
+        else
+            outerArgs |> List.map (IdentValue >> Value)
+            |> makeApply com f.Range typ f
+        |> makeLambdaExpr outerArgs
+    if List.length argTypes <> List.length args then args else // TODO: Raise warning?
+    List.zip argTypes args
+    |> List.map (fun (argType, arg: Expr) ->
+        match needsWrapping (argType, arg.Type) with
+        | Some (expected, actual, returnType) ->
+            wrap com returnType arg expected actual
+        | None -> arg)
+
+and makeApply com range typ callee (args: Expr list) =
     let callee =
         match callee with
         // If we're applying against a F# let binding, wrap it with a lambda
         | Sequential _ ->
             Apply(Value(Lambda([],callee,true)), [], ApplyMeth, callee.Type, callee.Range)
         | _ -> callee
-    let lasti = (List.length exprs) - 1
-    ((0, callee), exprs) ||> List.fold (fun (i, callee) expr ->
-        let typ' = if i = lasti then typ else Any // makeUnknownFnType (i+1)
-        i + 1, Apply (callee, [expr], ApplyMeth, typ', range))
-    |> snd
+    match callee.Type with
+    // Make necessary transformations if we're applying more or less
+    // arguments than the specified function arity
+    | Function(argTypes, _) ->
+        if argTypes.Length < args.Length && argTypes.Length >= 1 // TODO: Remove >= 1
+        then
+            let innerArgs = List.take argTypes.Length args
+            let outerArgs = List.skip argTypes.Length args
+            Apply(callee, ensureArity com argTypes innerArgs, ApplyMeth,
+                    Function(List.map Expr.getType outerArgs, typ), range)
+            |> makeApply com range typ <| outerArgs
+        elif argTypes.Length > args.Length && args.Length >= 1 // TODO: Remove >= 1
+        then
+            List.skip args.Length argTypes
+            |> List.map (fun t -> Ident(com.GetUniqueVar(), t))
+            |> fun argTypes2 ->
+                let args2 = argTypes2 |> List.map (IdentValue >> Value)
+                Apply(callee, ensureArity com argTypes (args@args2), ApplyMeth, typ, range)
+                |> makeLambdaExpr argTypes2
+        else
+            Apply(callee, ensureArity com argTypes args, ApplyMeth, typ, range)
+    | _ ->
+        Apply(callee, args, ApplyMeth, typ, range)
 
 /// Helper when we need to compare the types of the arguments applied to a method
 /// (concrete) with the declared argument types for that method (may be generic)

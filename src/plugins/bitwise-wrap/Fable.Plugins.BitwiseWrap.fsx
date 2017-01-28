@@ -31,6 +31,7 @@ type BitwiseWrapPlugin() =
                         match kind with
                         | Int64 -> Some "Math.trunc($0)" // only 53-bit (still better than nothing)
                         | UInt64 -> Some "($0 > 0) ? Math.trunc($0) : ($0 >>> 0)" // 53-bit positive, 32-bit negative
+                        | BigInt -> None
                     | _ -> None
 
                 let applyMask t args =

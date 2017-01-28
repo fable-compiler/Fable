@@ -156,7 +156,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))
         ]
         buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
-            ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
+            ".ctor" Fable.Constructor ([],[],[]) (None, argExprs)
         |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
         |> function
         | Some repl -> repl
@@ -195,7 +195,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     // Pipe must come after ErasableLambda
     | Pipe (Transform com ctx callee, args) ->
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
-        makeApply range typ callee (List.map (transformExpr com ctx) args)
+        makeApply com range typ callee (List.map (transformExpr com ctx) args)
 
     | Composition (expr1, args1, expr2, args2) ->
         let lambdaArg = com.GetUniqueVar() |> makeIdent
@@ -242,17 +242,10 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Wrapped(expr, appType)
 
     | JsThis ->
-        let err msg =
-            FableError(msg, makeRange fsExpr.Range) |> raise
-        if ctx.thisAvailability = ThisUnavailable
-        then
-            if ctx.functionBody = LambdaFunctionBody
-            then err "To prevent the outside `this` being captured, please turn the lambda into a delegate"
-            else Fable.Value Fable.This
-        else
-            if ctx.functionBody = DelegateFunctionBody
-            then Fable.Value Fable.This
-            else err "`this` is alreay bound in the current context, please wrap `jsThis` in a delegate"
+        if ctx.thisAvailability <> ThisUnavailable then
+            "JS `this` is already captured in this context, try to use it in a module function"
+            |> addWarning com ctx.fileName (makeRange fsExpr.Range |> Some)
+        Fable.Value Fable.This
 
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
@@ -296,7 +289,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             | None -> FableError("Cannot resolve locally inlined value: " + var.DisplayName, makeRange fsExpr.Range) |> raise
         else
             let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-            makeValueFrom com ctx r typ var
+            makeValueFrom com ctx r typ true var
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         let valueKind =
@@ -367,7 +360,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | Some(tdef, candidates) ->
             let argTypes =
                 if not flags.IsInstance then argTypes else argTypes.Tail
-                |> function [singleArg] when isUnit singleArg -> [] | args -> args
                 |> List.map (makeType com ctx.typeArgs)
             candidates |> List.tryPick (fun meth ->
                 let methTypes = getArgTypes com meth.CurriedParameterGroups
@@ -391,21 +383,22 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             let args = List.map (transformExpr com ctx) args
             let resolvedCtx = { ctx with typeArgs = matchGenericParams com ctx var ([], typeArgs) }
             let callee = com.Transform resolvedCtx fsExpr
-            makeApply (Some range) typ callee args
+            makeApply com (Some range) typ callee args
         | None ->
             FableError("Cannot resolve locally inlined value: " + var.DisplayName, range) |> raise
 
-    | BasicPatterns.Application(Transform com ctx callee, _typeArgs, args) ->
-        let args2 = List.map (transformExpr com ctx) args
+    | FlattenedApplication(Transform com ctx callee, typeArgs, args) ->
+        // So far I've only seen application without arguments when accessing None values
+        if args.Length = 0 then callee else
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
+        let args = List.map (transformExpr com ctx) args
         if callee.Type.FullName = "Fable.Core.Applicable" then
-            match args, args2 with
-            | [arg], _ when isUnit arg.Type -> []
-            | _, [Fable.Value(Fable.TupleConst args2)] -> args2
-            | _, args2 -> args2
-            |> List.map (makeDelegate com None)
-            |> fun args -> Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
-        else makeApply range typ callee args2
+            let args =
+                match args with
+                | [Fable.Value(Fable.TupleConst args)] -> args
+                | args -> args
+            Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
+        else makeApply com range typ callee args
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)
@@ -423,13 +416,53 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeSequential (makeRangeFrom fsExpr) [first; second]
 
     (** ## Lambdas *)
-    | BasicPatterns.NewDelegate(delegateType, expr) ->
-        makeDelegateFrom com ctx delegateType expr
+    | BasicPatterns.NewDelegate(delegateType, fsExpr) ->
+        let wrapInZeroArgsLambda r typ (args: FSharpExpr list) fref =
+            let args = List.map (transformExpr com ctx) args
+            let captureThis = ctx.thisAvailability <> ThisUnavailable
+            let body =
+                Fable.Apply(fref, args, Fable.ApplyMeth, typ, r)
+            Fable.Lambda([], body, captureThis) |> Fable.Value
+        let isSpecialCase t =
+            tryDefinition t
+            |> Option.bind (fun tdef -> tdef.TryFullName)
+            |> Option.toBool (fun name -> name = "System.Func`1" || name = "System.Action")
+        match fsExpr with
+        // There are special cases (`Func` with one gen param and `Action` with no params)
+        // the F# compiler translates as an application
+        | BasicPatterns.Call(None,v,[],[],args)
+        | BasicPatterns.Application(BasicPatterns.Value v,_,args)
+        | BasicPatterns.Application(BasicPatterns.Application(BasicPatterns.Value v,_,args),_,_)
+                when isSpecialCase delegateType ->
+            let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+            makeValueFrom com ctx r typ false v |> wrapInZeroArgsLambda r typ args
+        | fsExpr -> transformExpr com ctx fsExpr
 
-    | BasicPatterns.Lambda (var, body) ->
-        let ctx, args = makeLambdaArgs com ctx [var]
-        let ctx = { ctx with functionBody = LambdaFunctionBody }
-        Fable.Lambda (args, transformExpr com ctx body, true) |> Fable.Value
+    | FlattenedLambda(args, tupleDestructs, body) ->
+        let ctx, args = makeLambdaArgs com ctx args
+        let ctx =
+            (ctx, tupleDestructs)
+            ||> List.fold (fun ctx (var, value) ->
+                transformExpr com ctx value |> bindExpr ctx var)
+        let captureThis = ctx.thisAvailability <> ThisUnavailable
+        let body = transformExpr com ctx body
+        let fsType = makeType com ctx.typeArgs fsExpr.Type
+        let expectedArgCount =
+            match fsType with
+            | Fable.Function(argTypes,_) -> List.length argTypes |> max 1
+            | _ -> 1
+        let actualArgCount = List.length args |> max 1
+        Fable.Lambda(args, body, captureThis) |> Fable.Value
+        // if expectedArgCount = actualArgCount
+        // then Fable.Lambda(args, body, captureThis) |> Fable.Value
+        // else
+        //     let lambda = Fable.Lambda(args, body, false) |> Fable.Value
+        //     let args =
+        //         if captureThis
+        //         then [makeIntConst actualArgCount; lambda; Fable.Value Fable.This]
+        //         else [makeIntConst actualArgCount; lambda]
+        //     CoreLibCall("Util", Some "CurriedLambda", false, args)
+        //     |> makeCall (makeRangeFrom fsExpr) fsType
 
     (** ## Getters and Setters *)
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
@@ -482,7 +515,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.ValueSet (valToSet, Transform com ctx valueExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs valToSet.FullType
-        let valToSet = makeValueFrom com ctx r typ valToSet
+        let valToSet = makeValueFrom com ctx r typ false valToSet
         Fable.Set (valToSet, None, valueExpr, r)
 
     (** Instantiation *)
@@ -603,7 +636,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | _ ->
             let recordType = makeType com ctx.typeArgs fsType
             buildApplyInfo com ctx range recordType recordType (recordType.FullName)
-                ".ctor" Fable.Constructor ([],[],[],0) (None, argExprs)
+                ".ctor" Fable.Constructor ([],[],[]) (None, argExprs)
             |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
             |> function
             | Some repl -> repl
@@ -661,7 +694,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     (** Pattern Matching *)
     | Switch(matchValue, cases, defaultCase, decisionTargets) ->
         let matchValueType = makeType com ctx.typeArgs matchValue.FullType
-        let matchValue = makeValueFrom com ctx None matchValueType matchValue
+        let matchValue = makeValueFrom com ctx None matchValueType false matchValue
         let cases =
             cases
             |> Seq.map (fun kv ->

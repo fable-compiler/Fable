@@ -102,7 +102,10 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
             then false
             elif m.OverloadIndex.IsNone
             then true
-            else argsEqual m.ArgumentTypes argTypes)
+            else
+                match argTypes with
+                | [Unit] -> m.ArgumentTypes.Length = 0
+                | argTypes -> argsEqual m.ArgumentTypes argTypes)
     static member CreateRootModule fileName =
         Entity (lazy Module, Some fileName, "", lazy [], [], [], [], true)
 
@@ -204,8 +207,6 @@ and ApplyInfo = {
     calleeTypeArgs: Type list
     methodTypeArgs: Type list
     genericAvailability: bool
-    /// If the method accepts a lambda as first argument, indicates its arity
-    lambdaArgArity: int
 }
 
 and ApplyKind =
@@ -243,8 +244,7 @@ and ValueKind =
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
-    /// isArrow: Arrow functions capture the enclosing `this` in JS
-    | Lambda of args: Ident list * body: Expr * isArrow: bool
+    | Lambda of args: Ident list * body: Expr * captureThis: bool
     | Emit of string
     member x.ImmediateSubExpressions: Expr list =
         match x with

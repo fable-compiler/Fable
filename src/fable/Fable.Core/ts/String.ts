@@ -88,7 +88,6 @@ function toHex(value : number) {
 }
 
 export function fsFormat(str: string, ...args: any[]): Function | string {
-  let _cont: any;
   function isObject(x: any) {
     return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
   }
@@ -129,17 +128,20 @@ export function fsFormat(str: string, ...args: any[]): Function | string {
       return once.replace(/%/g, "%%");
     });
   }
-  function makeFn(str: any) {
-    return (rep: any) => {
-      const str2 = formatOnce(str, rep);
-      return fsFormatRegExp.test(str2)
-        ? makeFn(str2) : _cont(str2.replace(/%%/g, "%"));
-    };
-  }
   if (args.length === 0) {
-    return (cont: any) => {
-      _cont = cont;
-      return fsFormatRegExp.test(str) ? makeFn(str) : _cont(str);
+    return (cont: Function) => {
+      if (fsFormatRegExp.test(str)) {
+        return function () {
+          var strCopy = str;
+          for (let i = 0; i < arguments.length; i++) {
+            strCopy = formatOnce(strCopy, arguments[i]);
+          }
+          return cont(strCopy.replace(/%%/g, "%"));
+        }
+      }
+      else {
+        return cont(str)
+      }
     };
   }
   else {
