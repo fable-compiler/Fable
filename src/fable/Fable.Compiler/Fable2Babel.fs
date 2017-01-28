@@ -821,7 +821,13 @@ module Util =
     let transformFunction com ctx tailcallChance args (body: Fable.Expr) =
         let args2: Babel.Pattern list =
             List.map (fun x -> upcast ident x) args
-        let ctx = { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }
+        let ctx =
+            let tailcallChance =
+                // Function arguments may contain delayed references to old arguments (see #681)
+                args |> List.exists (fun a ->
+                    match a.Type with Fable.Function _ -> true | _ -> false)
+                |> function true -> None | false -> tailcallChance
+            { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }
         let body: U2<Babel.BlockStatement, Babel.Expression> =
             match body with
             | ExprType Fable.Unit

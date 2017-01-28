@@ -50,12 +50,16 @@ module Functions =
             elif c = 0 then Some v2
             else tryFind k r
 
+    let rec functionArguments x f =
+        match x with
+        | [] -> f x
+        | h::t -> functionArguments t (f << id)
+
 open Functions
 
 [<Test>]
 let ``Recursive functions can be tailcall optimized``() =
     factorial1 1 10 |> equal 3628800
-
 
 [<Test>]
 let ``Non-tailcall recursive functions work``() =
@@ -104,7 +108,6 @@ let ``Mutually recursive functions can be partially optimized``() =
 let ``IIFEs prevent tailcall optimization``() = // See #674
     iife [5; 4; 3] |> equal 24
 
-
 [<Test>]
 let ``Tailcall optimization doesn't cause endless loops``() = // See #675
     One("a", 42)
@@ -114,3 +117,6 @@ let ``Tailcall optimization doesn't cause endless loops``() = // See #675
     |> tryFind "a"
     |> equal None
 
+let ``Function arguments prevent tail call optimization``() = // See #681
+    functionArguments [1;2;3] id
+    |> equal []
