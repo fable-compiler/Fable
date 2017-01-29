@@ -653,7 +653,7 @@ module Util =
                         transformBlock com ctx None body, ?loc=body.Range))
             let finalizer =
                 finalizer |> Option.map (fun finalizer ->
-                    transformBlock com ctx None body)
+                    transformBlock com ctx None finalizer)
             [Babel.TryStatement(transformBlock com ctx None body,
                 ?handler=handler, ?finalizer=finalizer, ?loc=range) :> Babel.Statement]
 
