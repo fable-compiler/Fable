@@ -317,10 +317,11 @@ let makeRecordCons com (ent: Entity) (props: (string*Type) list) =
     let body =
         List.zip args props
         |> List.map (fun (arg, (propName, _)) ->
-            Set(Value This, Some(makeStrConst propName), makeIdentExpr arg.Name, None))
+            Set(Value This, Some(makeStrConst propName), arg |> IdentValue |> Value, None))
         |> fun setters ->
             match ent.Kind with
             | Exception _ ->
+                // TODO: If we are compiling to ES2015 this is not needed
                 let superCall = Apply(Value Super, [], ApplyMeth, Any, None)
                 Sequential(superCall::(setProto com ent)::setters, None)
             | _ -> Sequential(setters, None)

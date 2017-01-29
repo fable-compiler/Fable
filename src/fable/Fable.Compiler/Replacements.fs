@@ -850,7 +850,9 @@ module AstPass =
                 then "parseFloat", [str], Float64
                 else "parseInt", [str; makeIntConst 10], Int32
             GlobalCall("Number", Some meth, false, args)
-            |> makeCall i.range (Fable.Number kind)
+                // Don't use Float64/Int32 as the return type here to prevent
+                // the result being wrapped with `| 0`
+            |> makeCall i.range Fable.Any //(Fable.Number kind)
         match i.methodName with
         | "parse" | "tryParse" ->
             match i.methodName, i.args with

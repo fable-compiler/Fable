@@ -364,6 +364,17 @@ module Util =
             | U2.Case2 e -> Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
         args, body, returnType, typeParams
 
+    /// Wrap int expressions with `| 0` to help optimization of JS VMs
+    let wrapIntExpression typ (e: Babel.Expression) =
+        match e, typ with
+        | :? Babel.NumericLiteral, _ -> e
+        // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
+        | _, Fable.Number(Int8 | Int16 | Int32)
+        | _, Fable.Enum _ ->
+            Babel.BinaryExpression(BinaryOrBitwise, e, Babel.NumericLiteral(0.), ?loc=e.loc)
+            :> Babel.Expression
+        | _ -> e
+
     let transformLambda r captureThis args body: Babel.Expression =
         if captureThis
         // Arrow functions capture the enclosing `this` in JS
@@ -625,7 +636,7 @@ module Util =
                 let body = com.TransformExprAndResolve ctx (Assign var) value
                 decl::body
             else
-                let value = com.TransformExpr ctx value
+                let value = com.TransformExpr ctx value |> wrapIntExpression value.Type
                 [varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement]
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
@@ -681,7 +692,8 @@ module Util =
             upcast Babel.ConditionalExpression (
                 guardExpr, thenExpr, elseExpr, ?loc = range)
 
-        | Fable.Set (callee, property, TransformExpr com ctx value, range) ->
+        | Fable.Set(callee, property, value, range) ->
+            let value = com.TransformExpr ctx value |> wrapIntExpression value.Type
             match property with
             | None -> com.TransformExpr ctx callee
             | Some property -> getExpr com ctx callee property
@@ -713,7 +725,8 @@ module Util =
             | Assign left -> upcast Babel.ExpressionStatement(assign expr.loc left expr, ?loc=expr.loc)
         match expr with
         | Fable.Value kind ->
-            transformValue com ctx expr.Range kind |> resolve ret |> List.singleton
+            transformValue com ctx expr.Range kind
+            |> wrapIntExpression expr.Type |> resolve ret |> List.singleton
 
         | Fable.ObjExpr (members, _, baseClass, _) ->
             transformObjectExpr com ctx (members, baseClass, expr.Range)
@@ -749,7 +762,7 @@ module Util =
                   yield upcast Babel.ContinueStatement(identFromName tc.Label) ]
             | _ ->
                 transformApply com ctx (callee, args, kind, range)
-                |> resolve ret |> List.singleton
+                |> wrapIntExpression expr.Type |> resolve ret |> List.singleton
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
