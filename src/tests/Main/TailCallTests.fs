@@ -66,6 +66,18 @@ module Functions =
         test 0    
         log
 
+    let recWithUse () =
+        let mutable log = ""
+        let disp(n) = 
+          { new System.IDisposable with
+              member x.Dispose() = log <- log + string "ABCDE".[n] }
+        let rec test n =   
+          use _disp = disp(n)
+          log <- log + string "abcde".[n] 
+          if n < 4 then test (n+1) 
+        test 0    
+        log
+
 open Functions
 
 [<Test>]
@@ -131,6 +143,10 @@ let ``Tailcall optimization doesn't cause endless loops``() = // See #675
 [<Test>]
 let ``Recursive functions containing finally work``() =
     recWithFinally () |> equal "abcdeEDCBA"
+
+[<Test>]
+let ``Recursive functions containing use work``() =
+    recWithUse () |> equal "abcdeEDCBA"
 
 let ``Function arguments prevent tail call optimization``() = // See #681
     functionArguments [1;2;3] id
