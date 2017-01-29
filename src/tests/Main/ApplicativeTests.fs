@@ -170,3 +170,87 @@ let ``Ismorphism composition over a lens gets value over multiple isomorphisms``
 [<Test>]
 let ``Ismorphism composition over a lens sets value over multiple isomorphisms`` () =
     Lens_set (fst_ >-> chars >-> rev) [| 'd'; 'o'; 'o'; 'G' |] ("Bad",()) =! ("Good",())
+
+let mutable mutableValue = 0
+
+let moduleValueReturnsLambda =
+    mutableValue <- 5
+    fun () -> mutableValue * 2
+
+let moduleMethodReturnsLambda i =
+    mutableValue <- i
+    fun j -> mutableValue * j
+
+[<Test>]
+let ``Module values/methods returning lambdas work``() =
+    moduleValueReturnsLambda() |> equal 10
+    moduleMethodReturnsLambda 7 9 |> equal 63
+    // mutableValue has changed so this produces a different result
+    moduleValueReturnsLambda() |> equal 14
+
+let mutable mutableValue2 = 0
+
+type LambdaFactory() =
+    member x.ClassPropertyReturnsLambda =
+        mutableValue2 <- 5
+        fun i -> mutableValue2 * i
+    member x.ClassMethodReturnsLambda y =
+        mutableValue2 <- y
+        fun z -> mutableValue2 * z
+
+[<Test>]
+let ``Class properties/methods returning lambdas work``() =
+    let x = LambdaFactory()
+    x.ClassPropertyReturnsLambda 5 |> equal 25
+    x.ClassMethodReturnsLambda 2 8 |> equal 16
+    // Class properties are actually methods,
+    // so this should still give the same result
+    x.ClassPropertyReturnsLambda 5 |> equal 25
+
+[<Test>]
+let ``Local values returning lambdas work``() =
+    let mutable mutableValue = 0
+    let localValueReturnsLambda =
+        mutableValue <- 5
+        fun () -> mutableValue * 2
+    let localFunctionReturnsLambda i =
+        mutableValue <- i
+        fun j -> mutableValue * j
+    localValueReturnsLambda() |> equal 10
+    localFunctionReturnsLambda 7 9 |> equal 63
+    // mutableValue has changed so this produces a different result
+    localValueReturnsLambda() |> equal 14
+
+// This test doesn't work, we need to add runtime
+// checks to support more than 2 nested lambdas
+// [<Test>]
+// let ``NestedLambdas``() =
+//     let mutable m = 0
+//     let f i =
+//         m <- i
+//         fun j ->
+//             m <- m + j
+//             fun k ->
+//                 m <- m + k
+//     f 2 3 4
+//     equal 9 m
+
+let genericLambdaArgument f = f 42
+let genericLambdaArgument2 f g = f (fun x -> g)
+
+[<Test>]
+let ``Generic lambda arguments work``() =
+    genericLambdaArgument (fun x y -> x + y) 3 |> equal 45
+    genericLambdaArgument ((+) 1) |> equal 43
+    genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
+    genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
+
+[<Test>]
+let ``Generic lambda arguments work locally``() =
+    let genericLambdaArgument f = f 42
+    genericLambdaArgument (+) 3 |> equal 45
+    genericLambdaArgument (fun x -> x + 1) |> equal 43
+
+    let genericLambdaArgument2 f g = f (fun x -> g)
+    genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
+    genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
