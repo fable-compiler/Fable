@@ -55,6 +55,17 @@ module Functions =
         | [] -> f x
         | h::t -> functionArguments t (f << id)
 
+    let recWithFinally () =
+        let mutable log = ""
+        let rec test n =   
+          try 
+            log <- log + string "abcde".[n] 
+            if n < 4 then test (n+1) 
+          finally
+            log <- log + string "ABCDE".[n] 
+        test 0    
+        log
+
 open Functions
 
 [<Test>]
@@ -117,6 +128,13 @@ let ``Tailcall optimization doesn't cause endless loops``() = // See #675
     |> tryFind "a"
     |> equal None
 
+[<Test>]
+let ``Recursive functions containing finally work``() =
+    recWithFinally () |> equal "abcdeEDCBA"
+
 let ``Function arguments prevent tail call optimization``() = // See #681
     functionArguments [1;2;3] id
     |> equal []
+    
+
+    
