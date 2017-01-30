@@ -191,6 +191,14 @@ module Helpers =
         | Some loc -> loc
         | None -> meth.DeclarationLocation
 
+    let getUnionCaseIndex r fsType unionCaseName =
+        match tryDefinition fsType with
+        | None ->
+            FableError("Cannot find Type definition for union case " + unionCaseName, makeRange r) |> raise
+        | Some tdef ->
+            tdef.UnionCases
+            |> Seq.findIndex (fun uc -> uc.Name = unionCaseName)
+
     /// Lower first letter if there's no explicit compiled name
     let lowerCaseName (unionCase: FSharpUnionCase) =
         unionCase.Attributes
@@ -740,7 +748,7 @@ module Types =
         let makeCases (tdef: FSharpEntity) =
             tdef.UnionCases |> Seq.map (fun x ->
                 x.Name, [for fi in x.UnionCaseFields do yield makeType com [] fi.FieldType])
-            |> Map
+            |> Seq.toList
         let getKind () =
             if tdef.IsInterface then Fable.Interface
             elif tdef.IsFSharpUnion then makeCases tdef |> Fable.Union

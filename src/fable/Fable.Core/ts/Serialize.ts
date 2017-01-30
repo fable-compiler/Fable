@@ -20,7 +20,6 @@ export function toJson(o: any): string {
       return Array.from(v as any);
     }
     else if (v != null && typeof v === "object") {
-      const properties = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]().properties : null;
       if (v instanceof List || v instanceof FableSet || v instanceof Set) {
         return Array.from(v);
       }
@@ -28,28 +27,39 @@ export function toJson(o: any): string {
         let stringKeys: boolean = null;
         return fold((o: any, kv: [any,any]) => {
           if (stringKeys === null) {
-            stringKeys = typeof kv[0] === "string"; 
+            stringKeys = typeof kv[0] === "string";
           }
           o[stringKeys ? kv[0] : toJson(kv[0])] = kv[1];
           return o;
         }, {}, v);
       }
-      else if (!hasInterface(v, "FSharpRecord") && properties) {
+
+      const reflectionInfo = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]() : {};
+      const interfaces = Array.isArray(reflectionInfo.interfaces) ? reflectionInfo.interfaces : [];
+      if (interfaces.indexOf("FSharpRecord") > -1 && reflectionInfo.properties) {
         return fold((o: any, prop: string) => {
           return o[prop] = v[prop], o;
-        }, {}, Object.getOwnPropertyNames(properties));
+        }, {}, Object.getOwnPropertyNames(reflectionInfo.properties));
       }
-      else if (hasInterface(v, "FSharpUnion")) {
-        if (!v.Fields || !v.Fields.length) {
-          return v.Case;
+      else if (interfaces.indexOf("FSharpUnion") > -1 && reflectionInfo.cases) {
+        const caseInfo = reflectionInfo.cases[v.tag],
+              caseName = caseInfo[0],
+              fieldsLength = caseInfo.length - 1;
+        if (fieldsLength === 0) {
+          return caseName;
         }
-        else if (v.Fields.length === 1) {
+        else if (fieldsLength === 1) {
           // Prevent undefined assignment from removing case property; see #611:
-          const fieldValue = typeof v.Fields[0] === 'undefined' ? null : v.Fields[0];
-          return { [v.Case]: fieldValue };
+          const fieldValue = typeof v.a === 'undefined' ? null : v.a;
+          return { [caseName]: fieldValue };
         }
         else {
-          return { [v.Case]: v.Fields };
+          let fields = [], i = 97 /* 'a' */, j = String.fromCharCode(i);
+          while (v[j] !== void 0) {
+            fields.push(v[j]);
+            j = String.fromCharCode(++i);
+          }
+          return { [caseName]: fields };
         }
       }
     }
@@ -211,34 +221,42 @@ function inflate(val: any, typ: any, path: string): any {
     const info = typeof typ.prototype[FableSymbol.reflection] === "function" ? typ.prototype[FableSymbol.reflection]() : {};
     // Union types
     if (info.cases) {
-      let uCase: string, uFields = [];
-      // Cases withouth fields are serialized as strings by `toJson`
-      if (typeof val === "string") {
-        uCase = val;
-      }
+      let newVal: any, caseName: string;
       // Same shape as runtime DUs, for example, if they've been serialized with `JSON.stringify`
-      else if (typeof val.Case === "string" && Array.isArray(val.Fields)) {
-        uCase = val.Case;
-        uFields = val.Fields;
+      if (typeof val.tag === "number") {
+        newVal = new typ();
+        return Object.assign(newVal, val);
+      }
+      // Cases without fields are serialized as strings by `toJson`
+      else if (typeof val === "string") {
+        caseName = val;
       }
       // Non-empty cases are serialized as `{ "MyCase": [1, 2] }` by `toJson`
       else {
-        const caseName = Object.getOwnPropertyNames(val)[0];
-        const fieldTypes: any[] = info.cases[caseName];
-        if (Array.isArray(fieldTypes)) {
-          const fields = fieldTypes.length > 1 ? val[caseName] : [val[caseName]];
-          uCase = caseName;
-          path = combine(path, caseName);
-          for (let i = 0; i < fieldTypes.length; i++) {
-            uFields.push(inflate(fields[i], new List(fieldTypes[i], enclosing), combine(path, i)));
-          }
+        caseName = Object.getOwnPropertyNames(val)[0];
+      }
+      // Locate case index
+      let tag = -1, i = -1;
+      while (info.cases[++i] != null) {
+        if (info.cases[i][0] === caseName) {
+          tag = i;
+          break;
         }
       }
       // Validate
-      if (uCase in info.cases === false) {
+      if (tag === -1) {
         invalidate(val, typ, path);
       }
-      return new typ(uCase, uFields);
+      newVal = new typ(tag);
+      if (info.cases[tag].length > 1) {
+        const fields = Array.isArray(val[caseName]) ? val[caseName] : [val[caseName]];
+        path = combine(path, caseName);
+        for (let i = 0; i < fields.length; i++) {
+          newVal[String.fromCharCode(97 /*'a'*/ + i)] =
+            inflate(fields[i], new List(info.cases[tag][i + 1], enclosing), combine(path, i));
+        }
+      }
+      return newVal;
     }
     if (info.properties) {
       let newObj: any = new typ();

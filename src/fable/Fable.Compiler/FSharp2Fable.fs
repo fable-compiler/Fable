@@ -151,10 +151,9 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
-        let argExprs = [
-            makeStrConst unionCase.Name    // Include Tag name in args
-            Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))
-        ]
+        let argExprs =
+            let tag = getUnionCaseIndex fsExpr.Range fsType unionCase.Name |> makeIntConst
+            tag::argExprs
         buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
             ".ctor" Fable.Constructor ([],[],[]) (None, argExprs)
         |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
@@ -493,8 +492,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             FableError("StringEnum types cannot have fields", ?range=range) |> raise
         | OtherType ->
             let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
-            let fields = makeGet range typ unionExpr ("Fields" |> makeStrConst)
-            makeGet range typ fields (i |> makeIntConst)
+            97 + i |> char |> string |> makeStrConst
+            |> makeGet range typ unionExpr
 
     | BasicPatterns.ILFieldSet (callee, typ, fieldName, value) ->
         failwithf "Unsupported ILField reference %O: %A" (makeRange fsExpr.Range) fsExpr
@@ -654,9 +653,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeTypeTest com (makeRangeFrom fsExpr) typ expr
 
     | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr, fsType, unionCase) ->
-        let checkCase name =
-            let left = makeGet None Fable.String unionExpr (makeStrConst name)
-            let right = makeStrConst unionCase.Name
+        let checkCase propName right =
+            let left = makeGet None Fable.String unionExpr (makeStrConst propName)
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
         match fsType with
         | ErasedUnion ->
@@ -687,9 +685,11 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | KeyValueUnion ->
             FableError("KeyValueUnion types cannot be used in pattern matching", makeRange fsExpr.Range) |> raise
         | PojoUnion ->
-            checkCase "type"
+            makeStrConst unionCase.Name |> checkCase "type"
         | OtherType ->
-            checkCase "Case"
+            getUnionCaseIndex fsExpr.Range fsType unionCase.Name
+            |> makeIntConst
+            |> checkCase "tag"
 
     (** Pattern Matching *)
     | Switch(matchValue, cases, defaultCase, decisionTargets) ->
@@ -798,7 +798,7 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     // Unions, records and F# exceptions don't have a constructor
     match fableEnt.Kind with
     | Fable.Union cases ->
-      [ yield makeUnionCons()
+      [ yield makeUnionCons cases
         yield makeReflectionMethod com (Some fableEnt) false nullable
                 ("FSharpUnion"::fableEnt.Interfaces) (Some cases) None
         if needsEqImpl then yield makeUnionEqualMethod fableType

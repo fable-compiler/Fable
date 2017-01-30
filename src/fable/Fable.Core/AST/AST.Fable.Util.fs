@@ -293,12 +293,18 @@ let rec makeTypeTest com range (typ: Type) expr =
         "Cannot type test generic parameter " + name
         |> attachRange range |> failwith
 
-let makeUnionCons () =
-    let args = [Ident("caseName", String); Ident("fields", Array Any)]
-    let argTypes = List.map Ident.getType args
-    let emit = Emit "this.Case=caseName; this.Fields = fields;" |> Value
-    let body = Apply (emit, [], ApplyMeth, Unit, None)
-    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), None, args, body, None)
+let makeUnionCons cases =
+    let maxFields = cases |> Seq.map (snd >> List.length) |> Seq.max
+    let args =
+        let tag = Ident("tag", Number Int32)
+        match maxFields with
+        | 0 -> [tag]
+        | i -> tag::[for j=0 to (i-1) do yield Ident(97 + j |> char |> string, Any)]
+    let body =
+        args |> List.map (fun arg ->
+            Set(Value This, Some(makeStrConst arg.Name), arg |> IdentValue |> Value, None))
+        |> fun setters -> Sequential(setters, None)
+    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, None)
 
 // This is necessary when extending built-in JS types and compiling to ES5
 // See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
@@ -371,11 +377,12 @@ let makeReflectionMethodArgsAndBody com (ent: Entity option) extend nullable int
         yield! cases |> function
         | Some cases ->
             let genInfo = { makeGeneric=true; genericAvailability=false }
-            cases |> Seq.map (fun (kv: System.Collections.Generic.KeyValuePair<_,_>) ->
-                let typs = kv.Value |> List.map (makeTypeRef com genInfo)
-                let typs = ArrayConst(ArrayValues typs, Any) |> Value
-                Member(kv.Key, Field, InstanceLoc, [], Any), [], typs)
-            |> fun decls -> ["cases", ObjExpr(Seq.toList decls, [], None, None)]
+            cases |> List.map (fun (tag, typs) ->
+                let tag = Value(StringConst tag)
+                let typs = List.map (makeTypeRef com genInfo) typs
+                ArrayConst(ArrayValues(tag::typs), Any) |> Value)
+            |> fun cases ->
+                ["cases", ArrayConst(ArrayValues cases, Any) |> Value]
         | None -> []
     ]
     let info =

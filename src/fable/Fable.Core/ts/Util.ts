@@ -258,13 +258,15 @@ export function equalsUnions(x: any, y: any): boolean {
   if (x === y) {
     return true;
   }
-  else if (x.Case !== y.Case) {
+  else if (x.tag !== y.tag) {
     return false;
   }
   else {
-    for (let i=0; i<x.Fields.length; i++) {
-      if (!equals(x.Fields[i], y.Fields[i]))
+    let i = 97 /* 'a' */, j = String.fromCharCode(i);
+    while (x[j] !== void 0) {
+      if (!equals(x[j], y[j]))
         return false;
+      j = String.fromCharCode(++i);
     }
     return true;
   }
@@ -276,13 +278,15 @@ export function compareUnions(x: any, y: any): number {
     return 0;
   }
   else {
-    let res = compare(x.Case, y.Case)
+    let res = x.tag < y.tag ? -1 : (x.tag > y.tag ? 1 : 0);
     if (res !== 0)
       return res;
-    for (let i=0; i<x.Fields.length; i++) {
-      res = compare(x.Fields[i], y.Fields[i]);
+    let i = 97 /* 'a' */, j = String.fromCharCode(i);
+    while (x[j] !== void 0) {
+      res = compare(x[j], y[j]);
       if (res !== 0)
         return res;
+      j = String.fromCharCode(++i);
     }
     return 0;
   }

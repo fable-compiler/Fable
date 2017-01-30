@@ -254,3 +254,15 @@ let ``Generic lambda arguments work locally``() =
     let genericLambdaArgument2 f g = f (fun x -> g)
     genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
     genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
+
+let partialApplication(f: int->int->int) =
+    let f2 = f 1
+    let f3 = fun x y -> x - y
+    let f3' = (*)
+    let f4 = f3 2
+    let f4' = f3' 3
+    f2 7 + f4 8 + f4' 9
+
+[<Test>]
+let ``Lambdas can be partially applied``() =
+    partialApplication (+) |> equal 29

@@ -55,7 +55,7 @@ and NonDeclaredType =
 (** ##Entities *)
 and EntityKind =
     | Module
-    | Union of cases: Map<string, Type list>
+    | Union of cases: (string*Type list) list
     | Record of fields: (string*Type) list
     | Exception of fields: (string*Type) list
     | Class of baseClass: (string*Expr) option * properties: (string*Type) list
