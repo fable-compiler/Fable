@@ -517,7 +517,7 @@ module Util =
         | Some ret, _ ->
             com.TransformExprAndResolve ctx ret expr |> block expr.Range
 
-    let transformSwitch com ctx returnStrategy (matchValue, cases, defaultCase, range) =
+    let transformSwitch com ctx range returnStrategy (matchValue, cases, defaultCase) =
         let transformCase test branch =
             let b = transformBlock com ctx returnStrategy branch
             match test with
@@ -544,6 +544,18 @@ module Util =
             | Some defaultCase -> cases@[transformCase None defaultCase]
             | None -> cases
         Babel.SwitchStatement(com.TransformExpr ctx matchValue, cases, ?loc=range)
+
+    let transformTryCatch com ctx range returnStrategy (body, catch, finalizer) =
+        // try .. catch statements cannot be tail call optimized
+        let ctx = { ctx with tailCallOpportunity = None }
+        let handler =
+            catch |> Option.map (fun (param, body) ->
+                Babel.CatchClause (ident param,
+                    transformBlock com ctx returnStrategy body, ?loc=body.Range))
+        let finalizer =
+            finalizer |> Option.map (transformBlock com ctx None)
+        [Babel.TryStatement(transformBlock com ctx returnStrategy body,
+            ?handler=handler, ?finalizer=finalizer, ?loc=range) :> Babel.Statement]
 
     // Even if IfStatement doesn't enforce it, compile both branches as blocks
     // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
@@ -647,15 +659,7 @@ module Util =
                 [varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement]
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
-            let ctx = { ctx with tailCallOpportunity = None }
-            let handler =
-                catch |> Option.map (fun (param, body) ->
-                    Babel.CatchClause (ident param,
-                        transformBlock com ctx None body, ?loc=body.Range))
-            let finalizer =
-                finalizer |> Option.map (transformBlock com ctx None)
-            [Babel.TryStatement(transformBlock com ctx None body,
-                ?handler=handler, ?finalizer=finalizer, ?loc=range) :> Babel.Statement]
+            transformTryCatch com ctx range None (body, catch, finalizer)
 
         | Fable.Throw (TransformExpr com ctx ex, _, range) ->
             [Babel.ThrowStatement(ex, ?loc=range) :> Babel.Statement]
@@ -669,7 +673,7 @@ module Util =
             [transformIfStatement com ctx range None guardExpr thenStmnt elseStmnt :> Babel.Statement ]
 
         | Fable.Switch(matchValue, cases, defaultCase, _, range) ->
-            [transformSwitch com ctx None (matchValue, cases, defaultCase, range) :> Babel.Statement]
+            [transformSwitch com ctx range None (matchValue, cases, defaultCase) :> Babel.Statement]
 
         | Fable.Sequential(statements, range) ->
             statements |> List.collect (com.TransformStatement ctx)
@@ -796,18 +800,10 @@ module Util =
             |> List.concat
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
-            let ctx = { ctx with tailCallOpportunity = None }
-            let handler =
-                catch |> Option.map (fun (param, body) ->
-                    Babel.CatchClause (ident param,
-                        transformBlock com ctx (Some ret) body, ?loc=body.Range))
-            let finalizer =
-                finalizer |> Option.map (transformBlock com ctx None)
-            [Babel.TryStatement(transformBlock com ctx (Some ret) body,
-                ?handler=handler, ?finalizer=finalizer, ?loc=range) :> Babel.Statement]
+            transformTryCatch com ctx range (Some ret) (body, catch, finalizer)
 
         | Fable.Switch(matchValue, cases, defaultCase, _, range) ->
-            [transformSwitch com ctx (Some ret) (matchValue, cases, defaultCase, range) :> Babel.Statement]
+            [transformSwitch com ctx range (Some ret) (matchValue, cases, defaultCase) :> Babel.Statement]
 
         // These cannot be resolved (don't return anything)
         // Just compile as a statement

@@ -1,6 +1,6 @@
-### 0.7.41
+### 0.7.42
 
-* Tailcall optimizations: PR #669
+* Tailcall optimizations: PR #669 + Fixes
 
 ### 0.7.37
 
