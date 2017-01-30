@@ -647,13 +647,13 @@ module Util =
                 [varDeclaration expr.Range (ident var) isMutable value :> Babel.Statement]
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
+            let ctx = { ctx with tailCallOpportunity = None }
             let handler =
                 catch |> Option.map (fun (param, body) ->
                     Babel.CatchClause (ident param,
                         transformBlock com ctx None body, ?loc=body.Range))
             let finalizer =
-                finalizer |> Option.map (fun finalizer ->
-                    transformBlock com ctx None finalizer)
+                finalizer |> Option.map (transformBlock com ctx None)
             [Babel.TryStatement(transformBlock com ctx None body,
                 ?handler=handler, ?finalizer=finalizer, ?loc=range) :> Babel.Statement]
 
@@ -796,6 +796,7 @@ module Util =
             |> List.concat
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
+            let ctx = { ctx with tailCallOpportunity = None }
             let handler =
                 catch |> Option.map (fun (param, body) ->
                     Babel.CatchClause (ident param,
