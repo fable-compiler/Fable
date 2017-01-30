@@ -74,8 +74,8 @@ module Functions =
         let rec test n =   
           use _disp = disp(n)
           log <- log + string "abcde".[n] 
-          if n < 4 then test (n+1) 
-        test 0    
+          if n < 4 then test (n+1) else 0
+        test 0 |> ignore
         log
 
 open Functions
