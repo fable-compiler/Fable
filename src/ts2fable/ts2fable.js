@@ -22,6 +22,10 @@ enum:
 `[TYPE_KEYWORD] [DECORATOR][NAME] =
 `,
 
+alias:
+`[TYPE_KEYWORD] [DECORATOR][NAME] =
+`,
+
 classProperty:
 `[STATIC]member [INSTANCE][NAME] with get(): [TYPE][OPTION] = jsNative and set(v: [TYPE][OPTION]): unit = jsNative`,
 
@@ -374,8 +378,13 @@ function printInterface(prefix) {
     }
     return function (ifc, i) {
         var isEnum = ifc.kind === "enum" || ifc.kind === "stringEnum";
+        var isAlias = ifc.kind === "alias";
         var template = 
-            prefix + (isEnum ? templates.enum : templates.interface)
+            isEnum ? templates.enum : 
+            isAlias ? templates.alias :
+            templates.interface;
+        var template = 
+            prefix + template
             .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
             .replace("[NAME]", escape(ifc.name))
             .replace("[DECORATOR]", printDecorator(ifc))
