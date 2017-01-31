@@ -28,7 +28,7 @@ const optionDefinitions = [
   { name: 'babelPlugins', multiple: true, description: "Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the project directory." },
   { name: 'refs', multiple: true, description: "Alternative location for compiled JS files of referenced libraries." },
   { name: 'coreLib', description: "Shortcut for `--refs Fable.Core={VALUE}`." },
-  { name: 'loose', type: Boolean, description: "Enable loose transformations for babel-preset-es2015 plugins." },
+  { name: 'loose', type: Boolean, description: "Enable loose transformations for babel-preset-es2015 plugins (true by default)." },
   { name: 'babelrc', type: Boolean, description: "Use a `.babelrc` file for Babel configuration (invalidates other Babel related options)." },
   { name: 'clamp', type: Boolean, description: "Compile unsigned byte arrays as Uint8ClampedArray." },
   { name: 'noTypedArrays', type: Boolean, description: "Don't compile numeric arrays as JS typed arrays." },
@@ -162,16 +162,16 @@ function readFableConfigOptions(opts: any) {
 function readBabelOptions(opts: FableOptions) {
     var babelPresets: any[] = [],
         // Add plugins to emit .d.ts files if necessary
-        babelPlugins = opts.declaration
-        ? [[require("babel-dts-generator"),
+        babelPlugins: any[] = opts.declaration
+        ? [[require.resolve("babel-dts-generator"),
             {
                 "packageName": "",
                 "typings": fableLib.pathJoin(opts.workingDir, opts.outDir),
                 "suppressAmbientDeclaration": true,
                 "ignoreEmptyInterfaces": false
             }],
-            require("babel-plugin-transform-flow-strip-types"),
-            require("babel-plugin-transform-class-properties")]
+            require.resolve("babel-plugin-transform-flow-strip-types"),
+            require.resolve("babel-plugin-transform-class-properties")]
         : [];
 
     // Add custom plugins
@@ -199,12 +199,12 @@ function readBabelOptions(opts: FableOptions) {
             throw "Unknown module target: " + opts.module;
         }
         babelPresets.push([require.resolve("babel-preset-es2015"), {
-            "loose": opts.loose,
+            "loose": "loose" in opts ? opts.loose : true,
             "modules": opts.rollup ? false : module
         }]);
     }
     else if (!opts.rollup && opts.module in constants.JS_MODULES) {
-        babelPlugins.push(require("babel-plugin-transform-es2015-modules-" + opts.module));
+        babelPlugins.push(require.resolve("babel-plugin-transform-es2015-modules-" + opts.module));
     }
 
     // Extra Babel plugins

@@ -456,59 +456,53 @@ Target "PublishJsonConverter" (fun _ ->
     publishNugetPackage pkg
 )
 
-Target "FableCoreRelease" (fun _ ->
+let compileFableCore isRelease =
     let fableCoreNpmDir = "build/fable-core"
     let fableCoreSrcDir = "src/fable/Fable.Core"
 
-    DeleteDir fableCoreNpmDir
+    if isRelease then
+        DeleteDir fableCoreNpmDir
+        Util.assemblyInfo fableCoreSrcDir releaseCore.Value.NugetVersion []
+
     CreateDir fableCoreNpmDir
 
-    // Update Fable.Core version
-    Util.assemblyInfo fableCoreSrcDir releaseCore.Value.NugetVersion []
+    let buildOptions =
+        if isRelease then
+            [ "Configuration", "Release"
+            ; "DebugSymbols", "False"
+            ; "DebugType", "None"
+            ; "DefineConstants", "IMPORT"
+            ; "DocumentationFile", "../../../build/fable-core/Fable.Core.xml" ]
+        else
+            [ "Configuration", "Debug"
+            ; "DefineConstants", "IMPORT"]
 
     !! (fableCoreSrcDir </> "Fable.Core.fsproj")
-    |> MSBuild fableCoreNpmDir "Build" [
-        "Configuration","Release"
-        "DebugSymbols", "False"
-        "DebugType", "None"
-        "DefineConstants","IMPORT"
-        "DocumentationFile","../../../build/fable-core/Fable.Core.xml"]
+    |> MSBuild fableCoreNpmDir "Build" buildOptions
     |> ignore // Log outputs all files in node_modules
 
-    // Remove unneeded files
-    !! (fableCoreNpmDir </> "*.*")
-    |> Seq.iter (fun file ->
-        let fileName = Path.GetFileName file
-        if fileName <> "Fable.Core.dll" && fileName <> "Fable.Core.xml" then
-            FileUtils.rm file
-    )
-
-    // Copy README and package.json
-    FileUtils.cp (fableCoreSrcDir </> "ts/README.md") fableCoreNpmDir
-    FileUtils.cp (fableCoreSrcDir </> "ts/package.json") fableCoreNpmDir
-
-    Npm.install __SOURCE_DIRECTORY__ []
-    Npm.command fableCoreNpmDir "version" [releaseCore.Value.NugetVersion]
-
-    // Compile TypeScript
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts" fableCoreSrcDir]
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts/tsconfig.umd.json" fableCoreSrcDir]
-)
-
-Target "FableCoreDebug" (fun _ ->
-    let fableCoreNpmDir = "build/fable-core"
-    let fableCoreSrcDir = "src/fable/Fable.Core"
-
-    !! (fableCoreSrcDir </> "Fable.Core.fsproj")
-    |> MSBuild fableCoreNpmDir "Build" [
-        "Configuration","Debug"
-        "DefineConstants","IMPORT"]
-    |> ignore // Log outputs all files in node_modules
+    if isRelease then
+        // Remove unneeded files
+        !! (fableCoreNpmDir </> "*.*")
+        |> Seq.iter (fun file ->
+            let fileName = Path.GetFileName file
+            if fileName <> "Fable.Core.dll" && fileName <> "Fable.Core.xml" then
+                FileUtils.rm file)
+        // Copy README and package.json
+        FileUtils.cp (fableCoreSrcDir </> "ts/README.md") fableCoreNpmDir
+        FileUtils.cp (fableCoreSrcDir </> "ts/package.json") fableCoreNpmDir
+        Npm.command fableCoreNpmDir "version" [releaseCore.Value.NugetVersion]
 
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts" fableCoreSrcDir]
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts/tsconfig.umd.json" fableCoreSrcDir]
-)
+
+    CreateDir (fableCoreNpmDir + "/umd")
+    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts -m umd --outDir %s/umd" fableCoreSrcDir fableCoreNpmDir]
+
+
+Target "FableCoreRelease" (fun _ -> compileFableCore true)
+
+Target "FableCoreDebug" (fun _ -> compileFableCore false)
 
 Target "UpdateSampleRequirements" (fun _ ->
     let fableVersion = "^" + releaseCompiler.Value.NugetVersion
