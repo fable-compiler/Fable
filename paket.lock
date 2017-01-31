@@ -4,7 +4,10 @@ NUGET
     FSharp.Compiler.Service (9.0.1)
       System.Collections.Immutable (>= 1.2)
       System.Reflection.Metadata (>= 1.4.1-beta-24227-04)
-    FSharp.Core (4.0.0.1)
+    FSharp.Core (4.0.0.1) - redirects: force
+    Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40-full
+      Microsoft.Bcl.Build (>= 1.0.14)
+    Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40-full
     Microsoft.CSharp (4.3) - framework: >= netstandard10
       System.Collections (>= 4.3) - framework: dnxcore50, >= netstandard13
       System.Diagnostics.Debug (>= 4.3) - framework: dnxcore50, >= netstandard13
@@ -22,6 +25,9 @@ NUGET
       System.Runtime.Extensions (>= 4.3) - framework: dnxcore50, >= netstandard13
       System.Runtime.InteropServices (>= 4.3) - framework: dnxcore50, >= netstandard13
       System.Threading (>= 4.3) - framework: dnxcore50, >= netstandard13
+    Microsoft.Net.Http (2.2.29) - framework: net10, net11, net20, net30, net35, net40, net40-full
+      Microsoft.Bcl (>= 1.1.10)
+      Microsoft.Bcl.Build (>= 1.0.14)
     Microsoft.NETCore.Platforms (1.1) - framework: >= net463, >= netstandard11, netstandard12, netstandard13
     Microsoft.NETCore.Targets (1.1) - framework: >= net463, >= netstandard11, netstandard12, netstandard13
     Microsoft.Win32.Primitives (4.3) - framework: >= net463, >= netstandard16
@@ -112,6 +118,8 @@ NUGET
       NUnit.Extension.NUnitV2ResultWriter (>= 3.5)
       NUnit.Extension.TeamCityEventListener (>= 1.0.2)
       NUnit.Extension.VSProjectLoader (>= 3.5)
+    Octokit (0.24)
+      Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40-full
     runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3) - framework: >= net463, >= netstandard16
     runtime.fedora.23-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3) - framework: >= net463, >= netstandard16
     runtime.fedora.24-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3) - framework: >= net463, >= netstandard16
@@ -605,8 +613,11 @@ GITHUB
   remote: fsprojects/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (2bf9330417734c6e4976691bc88c9335f2337c6e)
   remote: fsharp/FSharp.Compiler.Service
-    src/fsharp/ReferenceResolver.fs (729bdbf8793a82f01121f327a47d26d64398a6be)
-    src/fsharp/SimulatedMSBuildReferenceResolver.fs (729bdbf8793a82f01121f327a47d26d64398a6be)
+    src/fsharp/ReferenceResolver.fs (2d51df21ca1d86d4d6676ead3b1fb125b2a0d1ba)
+    src/fsharp/SimulatedMSBuildReferenceResolver.fs (2d51df21ca1d86d4d6676ead3b1fb125b2a0d1ba)
+  remote: fsharp/FAKE
+    modules/Octokit/Octokit.fsx (e842705560e95dd75dd2c6a78fb1ae62db545297)
+      Octokit (>= 0.20)
 GROUP Docs
 NUGET
   remote: https://www.nuget.org/api/v2
@@ -619,7 +630,7 @@ NUGET
       FSharpVSPowerTools.Core (>= 2.3 < 2.4)
     FSharpVSPowerTools.Core (2.3)
       FSharp.Compiler.Service (>= 2.0.0.3)
-    Microsoft.FSharp.Core.netcore (1.0.0-alpha-161205) - framework: >= netstandard16
+    Microsoft.FSharp.Core.netcore (1.0.0-rc-170122) - framework: >= netstandard16
       System.Collections (>= 4.0.11)
       System.Console (>= 4.0)
       System.Diagnostics.Debug (>= 4.0.11)

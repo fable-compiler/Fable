@@ -1,4 +1,5 @@
 #r "packages/FAKE/tools/FakeLib.dll"
+#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 
 open System
 open System.IO
@@ -6,6 +7,13 @@ open System.Text.RegularExpressions
 open System.Collections.Generic
 open Fake
 open Fake.AssemblyInfoFile
+open Fake.Git
+open Octokit
+
+#if MONO
+// prevent incorrect output encoding (e.g. https://github.com/fsharp/FAKE/issues/1196)
+System.Console.OutputEncoding <- System.Text.Encoding.UTF8
+#endif
 
 module Util =
     open System.Net
@@ -177,7 +185,13 @@ module Fake =
         System.Threading.Thread.Sleep 1000
         exitCode
 
-// version info
+// Project info
+let project = "Fable"
+let authors = ["Alfonso García-Caro"]
+
+let gitOwner = "fable-compiler"
+let gitHome = "https://github.com/" + gitOwner
+
 let releaseCompiler = Util.loadReleaseNotes "COMPILER"
 let releaseCore = Util.loadReleaseNotes "CORE"
 
@@ -529,6 +543,38 @@ Target "PublishDocs" (fun _ ->
 Target "PublishStaticPages" (fun _ ->
     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "PublishStaticPages"]
     if exit <> 0 then failwith "Publishing documentation failed"
+)
+
+Target "GitHubRelease" (fun _ ->
+    let release =
+        releaseCompiler.Value
+    let user =
+        match getBuildParam "github-user" with
+        | s when not (String.IsNullOrWhiteSpace s) -> s
+        | _ -> getUserInput "GitHub Username: "
+    let pw =
+        match getBuildParam "github-pw" with
+        | s when not (String.IsNullOrWhiteSpace s) -> s
+        | _ -> getUserPassword "GitHub Password: "
+    let remote =
+        Git.CommandHelper.getGitResult "" "remote -v"
+        |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
+        |> Seq.tryFind (fun (s: string) -> s.Contains(gitOwner + "/" + project))
+        |> function None -> gitHome + "/" + project | Some (s: string) -> s.Split().[0]
+
+    StageAll ""
+    Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
+    Branches.pushBranch "" remote (Information.getBranchName "")
+
+    Branches.tag "" release.NugetVersion
+    Branches.pushTag "" remote release.NugetVersion
+
+    // release on github
+    createClient user pw
+    |> createDraft gitOwner project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
+    // |> uploadFile (buildDir</>("FSharp.Compiler.Service." + release.NugetVersion + ".nupkg"))
+    |> releaseDraft
+    |> Async.RunSynchronously
 )
 
 Target "All" ignore
