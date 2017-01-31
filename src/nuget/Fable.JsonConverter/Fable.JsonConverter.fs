@@ -20,8 +20,10 @@ open System
 open FSharp.Reflection
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
+open System.Reflection
 open System.Collections.Generic
 open System.Collections.Concurrent
+open System.Text.RegularExpressions
 
 type Kind =
     | Other = 0
@@ -31,6 +33,12 @@ type Kind =
     | PojoDU = 4
     | StringEnum = 5
     | DateTime = 6
+
+module private Cache =
+    let jsonConverterTypes = ConcurrentDictionary<Type,Kind>()
+    let serializationBinderTypes = ConcurrentDictionary<string,Type>()
+
+open Cache
 
 /// Converts F# options, tuples and unions to a format understandable
 /// by Fable. Code adapted from Lev Gorodinski's original.
@@ -67,10 +75,9 @@ type JsonConverter() =
         FSharpType.GetUnionCases(t)
         |> Array.find (fun uci -> uci.Name = name)
 
-    let typeCache = ConcurrentDictionary<Type,Kind>()
     override x.CanConvert(t) =
         let kind =
-            typeCache.GetOrAdd(t, fun t ->
+            jsonConverterTypes.GetOrAdd(t, fun t ->
                 if t.FullName = "System.DateTime"
                 then Kind.DateTime
                 elif t.Name = "FSharpOption`1"
@@ -87,7 +94,7 @@ type JsonConverter() =
         then serializer.Serialize(writer, value)
         else
             let t = value.GetType()
-            match typeCache.TryGetValue(t) with
+            match jsonConverterTypes.TryGetValue(t) with
             | false, _ ->
                 serializer.Serialize(writer, value)
             | true, Kind.DateTime ->
@@ -135,7 +142,7 @@ type JsonConverter() =
                 serializer.Serialize(writer, value)
 
     override x.ReadJson(reader, t, existingValue, serializer) =
-        match typeCache.TryGetValue(t) with
+        match jsonConverterTypes.TryGetValue(t) with
         | false, _ ->
             serializer.Deserialize(reader, t)
         | true, Kind.DateTime ->
@@ -205,6 +212,25 @@ type JsonConverter() =
             | _ -> failwith "invalid token"
         | true, _ ->
             serializer.Deserialize(reader, t)
+
+// See https://github.com/fable-compiler/Fable/issues/450#issuecomment-251000889
+type SerializationBinder() =
+    inherit System.Runtime.Serialization.SerializationBinder()
+    let findType name =
+        System.AppDomain.CurrentDomain.GetAssemblies()
+        |> Seq.tryPick(fun a ->
+            a.GetTypes()
+            |> Seq.tryPick(fun t -> if t.FullName.Replace("+", ".") = name then Some t else None))
+    let getType name =
+        serializationBinderTypes.GetOrAdd(name, findType >> Option.toObj)
+
+    override x.BindToType(assemblyName:string, typeName:string) =
+        if not <| isNull assemblyName
+        then base.BindToType(assemblyName, typeName)
+        else getType typeName
+    override x.BindToName(typ:Type, assemblyName:byref<string>, typeName:byref<string>) =
+        assemblyName <- null
+        typeName <- typ.FullName.Replace("+", ".")
 
 #if INTERACTIVE
 #r "../../../build/fable-core/Fable.Core.dll"

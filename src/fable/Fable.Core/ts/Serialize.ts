@@ -14,57 +14,58 @@ import { resolveGeneric, getTypeFullName } from "./Reflection"
 import { parse as dateParse } from "./Date"
 import { fsFormat } from "./String"
 
-export function toJson(o: any): string {
-  return JSON.stringify(o, (k, v) => {
-    if (ArrayBuffer.isView(v)) {
-      return Array.from(v as any);
+function deflate(v: any) {
+  if (ArrayBuffer.isView(v)) {
+    return Array.from(v as any);
+  }
+  else if (v != null && typeof v === "object") {
+    if (v instanceof List || v instanceof FableSet || v instanceof Set) {
+      return Array.from(v);
     }
-    else if (v != null && typeof v === "object") {
-      if (v instanceof List || v instanceof FableSet || v instanceof Set) {
-        return Array.from(v);
-      }
-      else if (v instanceof FableMap || v instanceof Map) {
-        let stringKeys: boolean = null;
-        return fold((o: any, kv: [any,any]) => {
-          if (stringKeys === null) {
-            stringKeys = typeof kv[0] === "string";
-          }
-          o[stringKeys ? kv[0] : toJson(kv[0])] = kv[1];
-          return o;
-        }, {}, v);
-      }
+    else if (v instanceof FableMap || v instanceof Map) {
+      let stringKeys: boolean = null;
+      return fold((o: any, kv: [any,any]) => {
+        if (stringKeys === null) {
+          stringKeys = typeof kv[0] === "string";
+        }
+        o[stringKeys ? kv[0] : toJson(kv[0])] = kv[1];
+        return o;
+      }, {}, v);
+    }
 
-      const reflectionInfo = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]() : {};
-      const interfaces = Array.isArray(reflectionInfo.interfaces) ? reflectionInfo.interfaces : [];
-      if (interfaces.indexOf("FSharpRecord") > -1 && reflectionInfo.properties) {
-        return fold((o: any, prop: string) => {
-          return o[prop] = v[prop], o;
-        }, {}, Object.getOwnPropertyNames(reflectionInfo.properties));
+    const reflectionInfo = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]() : {};
+    if (reflectionInfo.properties) {
+      return fold((o: any, prop: string) => {
+        return o[prop] = v[prop], o;
+      }, {}, Object.getOwnPropertyNames(reflectionInfo.properties));
+    }
+    else if (reflectionInfo.cases) {
+      const caseInfo = reflectionInfo.cases[v.tag],
+            caseName = caseInfo[0],
+            fieldsLength = caseInfo.length - 1;
+      if (fieldsLength === 0) {
+        return caseName;
       }
-      else if (interfaces.indexOf("FSharpUnion") > -1 && reflectionInfo.cases) {
-        const caseInfo = reflectionInfo.cases[v.tag],
-              caseName = caseInfo[0],
-              fieldsLength = caseInfo.length - 1;
-        if (fieldsLength === 0) {
-          return caseName;
+      else if (fieldsLength === 1) {
+        // Prevent undefined assignment from removing case property; see #611:
+        const fieldValue = typeof v.a === 'undefined' ? null : v.a;
+        return { [caseName]: fieldValue };
+      }
+      else {
+        let fields = [], i = 97 /* 'a' */, j = String.fromCharCode(i);
+        while (v[j] !== void 0) {
+          fields.push(v[j]);
+          j = String.fromCharCode(++i);
         }
-        else if (fieldsLength === 1) {
-          // Prevent undefined assignment from removing case property; see #611:
-          const fieldValue = typeof v.a === 'undefined' ? null : v.a;
-          return { [caseName]: fieldValue };
-        }
-        else {
-          let fields = [], i = 97 /* 'a' */, j = String.fromCharCode(i);
-          while (v[j] !== void 0) {
-            fields.push(v[j]);
-            j = String.fromCharCode(++i);
-          }
-          return { [caseName]: fields };
-        }
+        return { [caseName]: fields };
       }
     }
-    return v;
-  });
+  }
+  return v;
+}
+
+export function toJson(o: any): string {
+  return JSON.stringify(o, (k, v) => deflate(v));
 }
 
 function combine(path1: string, path2: number | string): string {
@@ -150,6 +151,47 @@ function inflateList(val: any, enclosing: List<any>, path: string) {
   return li;
 }
 
+function inflateUnion(val: any, typ: FunctionConstructor, info: any, path: string, inflateField?: Function) {
+  let newVal: any, caseName: string;
+  // Same shape as runtime DUs, for example, if they've been serialized with `JSON.stringify`
+  if (typeof val.tag === "number") {
+    newVal = new typ();
+    return Object.assign(newVal, val);
+  }
+  // Cases without fields are serialized as strings by `toJson`
+  else if (typeof val === "string") {
+    caseName = val;
+  }
+  // Non-empty cases are serialized as `{ "MyCase": [1, 2] }` by `toJson`
+  else {
+    caseName = Object.getOwnPropertyNames(val)[0];
+  }
+  // Locate case index
+  let tag = -1, i = -1;
+  while (info.cases[++i] != null) {
+    if (info.cases[i][0] === caseName) {
+      tag = i;
+      break;
+    }
+  }
+  // Validate
+  if (tag === -1) {
+    invalidate(val, typ, path);
+  }
+  newVal = new typ(tag as any);
+  let caseInfo = info.cases[tag];
+  if (caseInfo.length > 1) {
+      const fields = caseInfo.length > 2 ? val[caseName] : [val[caseName]];
+      path = combine(path, caseName);
+      for (let i = 0; i < fields.length; i++) {
+          newVal[String.fromCharCode(97 /*'a'*/ + i)] =
+            inflateField ? inflateField(fields[i], caseInfo[i + 1], combine(path, i)) : fields[i];
+      }
+  }
+  return newVal;
+
+}
+
 function inflate(val: any, typ: any, path: string): any {
   let enclosing: List<any> = null;
   if (typ instanceof List) {
@@ -221,42 +263,7 @@ function inflate(val: any, typ: any, path: string): any {
     const info = typeof typ.prototype[FableSymbol.reflection] === "function" ? typ.prototype[FableSymbol.reflection]() : {};
     // Union types
     if (info.cases) {
-      let newVal: any, caseName: string;
-      // Same shape as runtime DUs, for example, if they've been serialized with `JSON.stringify`
-      if (typeof val.tag === "number") {
-        newVal = new typ();
-        return Object.assign(newVal, val);
-      }
-      // Cases without fields are serialized as strings by `toJson`
-      else if (typeof val === "string") {
-        caseName = val;
-      }
-      // Non-empty cases are serialized as `{ "MyCase": [1, 2] }` by `toJson`
-      else {
-        caseName = Object.getOwnPropertyNames(val)[0];
-      }
-      // Locate case index
-      let tag = -1, i = -1;
-      while (info.cases[++i] != null) {
-        if (info.cases[i][0] === caseName) {
-          tag = i;
-          break;
-        }
-      }
-      // Validate
-      if (tag === -1) {
-        invalidate(val, typ, path);
-      }
-      newVal = new typ(tag);
-      if (info.cases[tag].length > 1) {
-        const fields = Array.isArray(val[caseName]) ? val[caseName] : [val[caseName]];
-        path = combine(path, caseName);
-        for (let i = 0; i < fields.length; i++) {
-          newVal[String.fromCharCode(97 /*'a'*/ + i)] =
-            inflate(fields[i], new List(info.cases[tag][i + 1], enclosing), combine(path, i));
-        }
-      }
-      return newVal;
+      return inflateUnion(val, typ, info, path, (fi: any, t: FunctionConstructor, p: string) => inflate(fi, new List(t, enclosing), path));
     }
     if (info.properties) {
       let newObj: any = new typ();
@@ -288,25 +295,26 @@ export function toJsonWithTypeInfo(o: any): string {
       return Array.from(v as any);
     }
     else if (v != null && typeof v === "object") {
-      const typeName = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]().type : null;
+      const info = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]() : {};
       if (v instanceof List || v instanceof FableSet || v instanceof Set) {
         return {
-          $type: typeName || "System.Collections.Generic.HashSet",
+          $type: info.type || "System.Collections.Generic.HashSet",
           $values: Array.from(v) };
       }
       else if (v instanceof FableMap || v instanceof Map) {
         return fold(
           (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; },
-          { $type: typeName || "System.Collections.Generic.Dictionary" }, v);
+          { $type: info.type || "System.Collections.Generic.Dictionary" }, v);
       }
-      else if (typeName) {
+      else if (info.type) {
         if (hasInterface(v, "FSharpUnion") || hasInterface(v, "FSharpRecord")) {
-          return Object.assign({ $type: typeName }, v);
+          // TODO
+          return Object.assign({ $type: info.type }, v);
         }
         else {
           const proto = Object.getPrototypeOf(v),
                 props = Object.getOwnPropertyNames(proto),
-                o = { $type: typeName } as {[k:string]:any};
+                o = { $type: info.type } as {[k:string]:any};
           for (let i = 0; i < props.length; i++) {
             const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
             if (prop.get)
@@ -327,6 +335,7 @@ export function ofJsonWithTypeInfo(json: any, genArgs: any): any {
     else if (typeof v === "object" && typeof v.$type === "string") {
       // Remove generic args and assembly info added by Newtonsoft.Json
       let type = v.$type.replace('+', '.'), i = type.indexOf('`');
+      delete v.$type;
       if (i > -1) {
         type = type.substr(0,i);
       }
@@ -347,20 +356,21 @@ export function ofJsonWithTypeInfo(json: any, genArgs: any): any {
         return new Set(v.$values);
       }
       else if (type == "Microsoft.FSharp.Collections.FSharpMap") {
-        delete v.$type;
         return mapCreate(Object.getOwnPropertyNames(v)
                                   .map(k => [k, v[k]] as [any,any]));
       }
       else if (type == "System.Collections.Generic.Dictionary") {
-        delete v.$type;
         return new Map(Object.getOwnPropertyNames(v)
                               .map(k => [k, v[k]] as [any,any]));
       }
       else {
-        const T = getType(type);
-        if (T) {
-          delete v.$type;
-          return Object.assign(new T(), v);
+        const typ = getType(type);
+        if (typ) {
+          const info = typeof (typ.prototype as any)[FableSymbol.reflection] === "function" ?  (typ.prototype as any)[FableSymbol.reflection]() : {};
+          if (info.cases) {
+             return inflateUnion(v, typ, info, k);
+          }
+          return Object.assign(new typ(), v);
         }
       }
     }
