@@ -4,7 +4,7 @@
 #endif
 
 #load
-        "../../../../FSharp.Compiler.Service_fable/src/fsharp/Fable.FCS/Fable.FCS.fsx"
+        "../../../../FSharp.Compiler.Service_fable/src/fsharp/fcs-fable/fcs-fable.fsx"
 
         "../../fable/Fable.Core/Compiler.fs"
         "../../fable/Fable.Core/Util.fs"

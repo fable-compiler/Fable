@@ -213,6 +213,7 @@ type JsonConverter() =
         | true, _ ->
             serializer.Deserialize(reader, t)
 
+#if !DOTNETCORE
 // See https://github.com/fable-compiler/Fable/issues/450#issuecomment-251000889
 type SerializationBinder() =
     inherit System.Runtime.Serialization.SerializationBinder()
@@ -231,6 +232,7 @@ type SerializationBinder() =
     override x.BindToName(typ:Type, assemblyName:byref<string>, typeName:byref<string>) =
         assemblyName <- null
         typeName <- typ.FullName.Replace("+", ".")
+#endif
 
 #if INTERACTIVE
 #r "../../../build/fable-core/Fable.Core.dll"
