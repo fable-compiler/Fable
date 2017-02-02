@@ -1,10 +1,10 @@
 {
   "private": true,
   "engines": {
-    "fable": "^0.7.35"
+    "fable": "^0.7.42"
   },
   "dependencies": {
-    "babel-preset-babili": "0.0.10",
-    "fable-core": "^0.7.25"
+    "babel-preset-babili": "^0.0.10",
+    "fable-core": "^0.7.26"
   }
 }
