@@ -862,6 +862,13 @@ module private AstPass =
             GlobalCall("Number", Some meth, false, args)
             |> makeCall i.range (Fable.Number kind)
         match i.methodName with
+        | "isNaN" when isFloat -> 
+            match i.args with
+            | [someNumber] ->
+                GlobalCall("Number", Some "isNaN", false, i.args)
+                |> makeCall i.range (Fable.Number Float64)
+                |> Some
+            | _ -> None
         | "parse" | "tryParse" ->
             match i.methodName, i.args with
             | "parse", [str] ->
@@ -1798,7 +1805,8 @@ module private AstPass =
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
         | "System.BitConverter" -> bitConvert com info
         | "System.Int32" -> parse com info false
-        | "System.Single" | "System.Double" -> parse com info true
+        | "System.Single" 
+        | "System.Double" -> parse com info true
         | "System.Convert" -> convert com info
         | "System.Console" -> console com info
         | "System.Decimal" -> decimals com info

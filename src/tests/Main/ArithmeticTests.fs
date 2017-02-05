@@ -195,6 +195,23 @@ let ``pown works``() =
 let ``sqrt works``() =
     sqrt 4.5 |> checkTo3dp 2121.
 
+// As per 
+// https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L217
+[<Test>]
+let ``sqrt matches .net core implementation``() = 
+    let positiveInfinity = System.Double.PositiveInfinity
+    let negativeInfinity = System.Double.NegativeInfinity
+    let NaN = System.Double.NaN
+    let isNaN = fun x -> System.Double.IsNaN(x)
+
+    checkTo3dp 1732. (sqrt 3.0)
+    Assert.AreEqual(sqrt 0.0 , 0.0) 
+    Assert.AreEqual(isNaN (sqrt -3.0), true)
+    Assert.AreEqual(isNaN (sqrt NaN), true)
+    Assert.AreEqual(isNaN (sqrt negativeInfinity), true)
+    Assert.AreEqual(sqrt positiveInfinity, positiveInfinity)
+
+
 [<Test>]
 let ``acos works``() =
     acos 0.25 |> checkTo3dp 1318.
