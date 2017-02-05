@@ -1,0 +1,41 @@
+﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk" ToolsVersion="15.0">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard1.6</TargetFramework>
+    <EnableDefaultCompileItems>False</EnableDefaultCompileItems>
+    <DefineConstants>DOTNETCORE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Compiler.fs" />
+    <Compile Include="Util.fs" />
+    <Compile Include="AST/AST.Common.fs" />
+    <Compile Include="AST/AST.Fable.fs" />
+    <Compile Include="AST/AST.Fable.Util.fs" />
+    <Compile Include="AST/AST.Babel.fs" />
+    <Compile Include="Plugins.fs" />
+    <Compile Include="Fable.Core.fs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(DefineConstants.Contains('IMPORT'))">
+    <Compile Include="Import/Fable.Import.JS.fs" />
+    <Compile Include="Import/Fable.Import.Browser.fs" />
+    <Compile Include="Import/Fable.Import.Node.fs" />
+    <Compile Include="Fable.Core.Extensions.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.FSharp.Core.netcore" Version="1.0.0-alpha-*" />
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.0-*">
+      <PrivateAssets>All</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <DotNetCliToolReference Include="dotnet-compile-fsc">
+      <Version>1.0.0-*</Version>
+    </DotNetCliToolReference>
+  </ItemGroup>
+
+</Project>

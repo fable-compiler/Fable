@@ -115,8 +115,8 @@ let ``Async cancellation works``() =
         sleepAndAssign tcs2.Token res2
         sleepAndAssign tcs3.Token res3
         tcs2.Cancel()
-        tcs3.CancelAfter(150)
-        do! Async.Sleep 125
+        tcs3.CancelAfter(200)
+        do! Async.Sleep 150
         equal false !res1
         equal false !res2
         equal true !res3
@@ -181,7 +181,7 @@ let ``Async.Parallel works``() =
     async {
         let makeWork i =
             async {
-                do! Async.Sleep 50
+                do! Async.Sleep 100
                 return i
             }
         let res: int[] ref = ref [||]
@@ -190,7 +190,7 @@ let ``Async.Parallel works``() =
             let! x = Async.Parallel works
             res := x
         } |> Async.StartImmediate
-        do! Async.Sleep 100
+        do! Async.Sleep 250
         !res |> Array.sum |> equal 6
     } |> Async.RunSynchronously
 

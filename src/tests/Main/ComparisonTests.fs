@@ -361,7 +361,7 @@ let ``max works with records``() =
 let ``max with objects implementing IComparable works``() =
     let c1 = Test(5)
     let c2 = Test(5)
-    max c1 c2 |> equal c1
+    Object.ReferenceEquals(max c1 c2, c1) |> equal true
 
 [<Test>]
 let ``min works with primitives``() =
@@ -379,7 +379,7 @@ let ``min works with records``() =
 let ``min with objects implementing IComparable works``() =
     let c1 = Test(5)
     let c2 = Test(5)
-    min c1 c2 |> equal c2
+    Object.ReferenceEquals(min c1 c2, c2) |> equal true
 
 [<Test>]
 let ``isNull works with primitives``() =

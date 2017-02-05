@@ -1,13 +1,11 @@
-<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk" ToolsVersion="15.0">
+﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk" ToolsVersion="15.0">
   <PropertyGroup>
     <TargetFramework>netstandard1.6</TargetFramework>
     <EnableDefaultCompileItems>False</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="../../build/fable-core/Fable.Core.dll" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Util4.fs" />
+    <Compile Include="Util\Util.fsi" />
+    <Compile Include="Util\Util.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.FSharp.Core.netcore" Version="1.0.0-alpha-*" />

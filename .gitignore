@@ -2,6 +2,7 @@
 jsconfig.json
 
 /nuget/
+/dotnetsdk/
 src/fable/Fable.Core/npm/*.dll*
 src/fable/Fable.Core/npm/*.pdb
 src/fable/Fable.Core/npm/*.xml

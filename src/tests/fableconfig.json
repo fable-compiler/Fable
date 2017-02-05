@@ -1,21 +1,14 @@
 {
     "projFile": [
-        "Project With Spaces/Fable.Tests.Spaces.fsproj",
+        "DllRef/Fable.Tests.DllRef.fsproj",
+        "Project_With_Spaces/Fable.Tests.Spaces.fsproj",
         "../tests_external/Fable.Tests.External.fsproj",
         "Main/Fable.Tests.fsproj"
     ],
-    "refs": { "Fable.Core": "../../build/fable-core/umd" },
+    "coreLib": "../../build/fable-core/umd",
     "module": "commonjs",
     "outDir": "../../build/tests",
-    "plugins": ["../plugins/nunit/Fable.Plugins.NUnit.dll"],
-    "targets": {
-        "netcore": {
-            "projFile": "Main/project.fsx",
-            "module": "commonjs",
-            "includeJs": true,
-            "refs": { "Fable.Core": "../../build/fable-core/umd" },
-            "symbols": ["DOTNETCORE"],
-            "plugins": ["../plugins/nunit/bin/Release/netstandard1.6/nunit.dll"]
-        }
-    }
+    "plugins": ["../../build/nunit/Fable.Plugins.NUnit.dll"],
+    "symbols": ["DOTNETCORE"],
+    "includeJs": true
 }

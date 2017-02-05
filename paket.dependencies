@@ -1,14 +1,7 @@
 source https://www.nuget.org/api/v2
 
 nuget FAKE
-nuget FSharp.Compiler.Service
-nuget FSharp.Core redirects: force
-nuget Newtonsoft.Json
-nuget NUnit
-nuget NUnit.Runners
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
-github fsharp/FSharp.Compiler.Service src/fsharp/ReferenceResolver.fs
-github fsharp/FSharp.Compiler.Service src/fsharp/SimulatedMSBuildReferenceResolver.fs
 github fsharp/FAKE modules/Octokit/Octokit.fsx
 
 group Docs

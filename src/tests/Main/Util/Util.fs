@@ -6,12 +6,12 @@ module Testing =
     #if FABLE_COMPILER
     type Assert = Fable.Core.Testing.Assert
     type TestAttribute = Fable.Core.Testing.TestAttribute
-    type TestFixtureAttribute = Fable.Core.Testing.TestFixtureAttribute
     #else
-    type Assert = NUnit.Framework.Assert
-    type TestAttribute = NUnit.Framework.TestAttribute
-    type TestFixtureAttribute = NUnit.Framework.TestFixtureAttribute
+    type Assert = Xunit.Assert
+    type TestAttribute = Xunit.FactAttribute
     #endif
+    type TestFixtureAttribute = Fable.Core.Testing.TestFixtureAttribute
+
 
 open Testing
 
@@ -26,7 +26,11 @@ let foo2 = "foo"
 #endif
 
 let equal (expected: 'T) (actual: 'T) =
+    #if FABLE_COMPILER
     Assert.AreEqual(expected, actual)
+    #else
+    Assert.Equal<'T>(expected, actual)
+    #endif
 
 let rec sumFirstSeq (zs: seq<float>) (n: int): float =
    match n with

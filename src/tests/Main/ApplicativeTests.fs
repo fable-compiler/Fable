@@ -85,7 +85,7 @@ let ``Infix applicative can be generated``() =
     let r' = match a <*> r with
              | Ok x -> x
              | _ -> failwith "expected Ok"
-    Assert.AreEqual ("1", r' )
+    equal "1" r'
 
 let inline apply (a:'a) (b:'b) =
     a <*> b
@@ -97,7 +97,7 @@ let ``Infix applicative with inline functions can be generated``() =
     let r' = match apply a r with
              | Ok x -> x
              | _ -> failwith "expected Ok"
-    Assert.AreEqual ("1", r' )
+    equal "1" r'
 
 type Foo1(i) =
     member x.Foo() = i
@@ -114,8 +114,8 @@ let ``Local inline typed lambdas work``() =
     let inline localFoo (x:^t) = foo x 5
     let x1 = Foo1(2)
     let x2 = Foo2(2)
-    Assert.AreEqual(7, localFoo x1)
-    Assert.AreEqual(14, localFoo x2)
+    equal 7 <| localFoo x1
+    equal 14 <| localFoo x2
 
 [<Test>]
 let ``Local inline values work``() =
@@ -141,7 +141,7 @@ let chars : Isomorphism<string, char[]> =
 let rev : Isomorphism<char[], char[]> =
     Array.rev, Array.rev
 
-let inline (=!) x y = Assert.AreEqual(y, x)
+let inline (=!) x y = equal y x
 
 [<Test>]
 let ``Lens.get returns correct values`` () =
