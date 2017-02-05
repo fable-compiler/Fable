@@ -119,7 +119,7 @@ function build(opts: FableOptions, continuation: Continuation) {
     // Call Fable.exe
     if (opts.verbose) {
         fableLib.stdoutLog("\nWORKING DIR: " + opts.workingDir) + "\n";
-        fableLib.stdoutLog("PROJECT FILE" + (opts.projFile.length > 1 ? "S" : "")  + ": " + opts.projFile.join("; "));
+        fableLib.stdoutLog("PROJECT FILE: " + opts.projFile);
         fableLib.stdoutLog("OUTPUT DIR: " + opts.outDir);
         fableLib.stdoutLog("\nFABLE COMMAND: " + fableCmd + " " + fableCmdArgs.join(" ") + "\n");
     }

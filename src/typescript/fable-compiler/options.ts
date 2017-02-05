@@ -13,7 +13,7 @@ import { readRollupOptions } from "./bundle";
 
 // Don't use default values as they would block options from fableconfig.json
 const optionDefinitions = [
-  { name: 'projFile', defaultOption: true, multiple: true, description: "The F# project (.fsproj) or script (.fsx) to compile." },
+  { name: 'projFile', defaultOption: true, description: "The F# project (.fsproj) or script (.fsx) to compile." },
   { name: 'outDir', alias: 'o', description: "Where to put compiled JS files. Defaults to project directory." },
   { name: 'module', alias: 'm', description: "Specify module code generation: `commonjs`, `umd`, `amd` or `es2015` (default)." },
   { name: 'sourceMaps', alias: 's', description: "Generate source maps: `false` (default), `true` or `inline`." },
@@ -54,10 +54,10 @@ function resolvePath(optName: string, value: any, workingDir: string) {
     // Discard null values or empty strings
     if (value) {
         switch (optName) {
+            case "projFile":
             case "outDir":
                 return resolve(value);
             // Multiple values
-            case "projFile":
             case "plugins":
             case "babelPlugins":
                 return value.map(resolve);
@@ -104,13 +104,10 @@ function readCommandLineOptions() {
 /** Reads options from fableconfig.json, requires json5 */
 function readFableConfigOptions(opts: any) {
     opts.workingDir = path.resolve(opts.workingDir || process.cwd());
-    if (typeof opts.projFile === "string") {
-        opts.projFile = [opts.projFile];
-    }
     var cfgFile = fableLib.pathJoin(opts.workingDir, constants.FABLE_CONFIG_FILE);
 
-    if (Array.isArray(opts.projFile) && opts.projFile.length === 1) {
-        var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile[0]);
+    if (typeof opts.projFile === "string") {
+        var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile);
         var projDir = fs.statSync(fullProjFile).isDirectory()
                         ? fullProjFile
                         : path.dirname(fullProjFile);
@@ -223,23 +220,20 @@ export function readOptions(opts?: FableOptions) {
     opts = opts || readCommandLineOptions();
     opts = readFableConfigOptions(opts);
 
-    opts.projFile = Array.isArray(opts.projFile) ? opts.projFile : [opts.projFile];
-    if (!opts.projFile[0]) {
+    if (!opts.projFile) {
         throw "--projFile is empty";
     }
-    for (var i = 0; i < opts.projFile.length; i++) {
-        var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile[i] || '');
-        if (!fableLib.isFSharpProject(fullProjFile)) {
-            throw "Not an F# project (.fsproj) or script (.fsx): " + fullProjFile;
-        }
-        if (!fs.existsSync(fullProjFile)) {
-            throw "Cannot find file: " + fullProjFile;
-        }
+    var fullProjFile = fableLib.pathJoin(opts.workingDir, opts.projFile);
+    if (!fableLib.isFSharpProject(fullProjFile)) {
+        throw "Not an F# project (.fsproj) or script (.fsx): " + fullProjFile;
+    }
+    if (!fs.existsSync(fullProjFile)) {
+        throw "Cannot find file: " + fullProjFile;
     }
 
     // Default values & option processing
     opts.ecma = opts.ecma || "es5";
-    opts.outDir = opts.outDir ? opts.outDir : (opts.projFile.length === 1 ? path.dirname(opts.projFile[0]) : ".");
+    opts.outDir = opts.outDir ? opts.outDir : path.dirname(opts.projFile);
     if (opts.module == null) {
         opts.module = opts.rollup ? "iife" : "es2015";
     }

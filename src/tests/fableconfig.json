@@ -1,10 +1,5 @@
 {
-    "projFile": [
-        "DllRef/Fable.Tests.DllRef.fsproj",
-        "Project_With_Spaces/Fable.Tests.Spaces.fsproj",
-        "../tests_external/Fable.Tests.External.fsproj",
-        "Main/Fable.Tests.fsproj"
-    ],
+    "projFile": "Main/Fable.Tests.fsproj",
     "coreLib": "../../build/fable-core/umd",
     "module": "commonjs",
     "outDir": "../../build/tests",

@@ -16,7 +16,7 @@ export interface Scripts {
 }
 
 export interface FableOptions {
-    projFile: string[],
+    projFile: string,
     watch: boolean | string | string[],
     watching?: WatchStatus,
     ecma: string,

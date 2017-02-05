@@ -36,6 +36,13 @@ type PerfTimer(label) =
 
 type FSProjInfo = FSharp2Fable.Compiler.FSProjectInfo
 
+type CrackedFsproj = {
+    projectFile: string
+    sourceFiles: string list
+    projectReferences: string list
+    dllReferences: string list
+}
+
 let readOptions argv =
     let splitKeyValue (x: string) =
         let xs = x.Split('=')
@@ -57,7 +64,7 @@ let readOptions argv =
     let li f = function U2.Case1 v -> [f v] | U2.Case2 v -> List.map f v
     let opts = readOpts Map.empty<_,_> (List.ofArray argv)
     let opts = {
-        projFile = def opts "projFile" [] (li Path.GetFullPath) |> List.rev
+        projFile = def opts "projFile" "" (un Path.GetFullPath)
         outDir = def opts "outDir" "." (un Path.GetFullPath)
         coreLib = "fable-core"
         moduleSystem = def opts "module" "es2015" (un id)
@@ -167,62 +174,89 @@ let getBasicCompilerArgs (opts: CompilerOptions) optimize =
         yield "-r:" + fsCoreLib // "FSharp.Core"
     |]
 
-/// Ultra-simplistic resolution of .fsproj. Returns relative references
-/// (starting with `.`) and source files.
-let parseFsproj (path: string) =
+/// Ultra-simplistic resolution of .fsproj files
+let crackFsproj (projFile: string) =
+    let withName s (xs: XElement seq) =
+        xs |> Seq.filter (fun x -> x.Name.LocalName = s)
     let (|BeforeComma|) (att: XAttribute) =
         let str = att.Value
         match str.IndexOf(',', 0) with
         | -1 -> str
         | i -> str.Substring(0, i)
-    let withName s (xs: XElement seq) =
-        xs |> Seq.filter (fun x -> x.Name.LocalName = s)
-    let doc = XDocument.Load(path)
-    let relativeReferences =
-        doc.Root.Elements()
-        |> withName "ItemGroup"
-        |> Seq.collect (fun x -> x.Elements() |> withName "Reference")
-        |> Seq.choose (fun x ->
-        match x.Attribute(XName.Get "Include") with
-        | null -> None
-        | BeforeComma att when att.StartsWith(".") -> Some att
-        | _ ->
-            x.Elements() |> withName "HintPath" |> Seq.tryHead
-            |> Option.map (fun x -> x.Value))
-        |> Seq.toArray
-    let sourceFiles =
-        doc.Root.Elements()
-        |> withName "ItemGroup"
-        |> Seq.collect (fun x -> x.Elements() |> withName "Compile")
-        |> Seq.choose (fun x ->
-        x.Elements() |> withName "Link" |> Seq.tryHead
-        |> function
-            | Some link when link.Value.StartsWith(".") -> Some link.Value
+    let (|SourceFile|ProjectReference|RelativeDllReference|Another|) (el: XElement) =
+        match el.Name.LocalName with
+        | "Compile" ->
+            el.Elements() |> withName "Link"
+            |> Seq.tryHead |> function
+            | Some link when link.Value.StartsWith(".") ->
+                SourceFile link.Value
             | _ ->
-            match x.Attribute(XName.Get "Include") with
-            | null -> None
-            | att -> Some att.Value)
-        |> Seq.toArray
-    relativeReferences, sourceFiles
-
-let getProjectOptionsFromFsproj (opts: CompilerOptions) projFile =
-    let projDir = Path.GetDirectoryName(projFile)
-    let relativeRefs, sourceFiles = parseFsproj projFile
-    let sourceFiles =
+                match el.Attribute(XName.Get "Include") with
+                | null -> Another
+                | att -> SourceFile att.Value
+        | "ProjectReference" ->
+            match el.Attribute(XName.Get "Include") with
+            | null -> Another
+            | att -> ProjectReference att.Value
+        | "Reference" ->
+            match el.Attribute(XName.Get "Include") with
+            | null -> Another
+            | BeforeComma att when att.StartsWith(".") -> RelativeDllReference att
+            | _ ->
+                el.Elements() |> withName "HintPath"
+                |> Seq.tryHead |> function
+                | Some x -> RelativeDllReference x.Value
+                | None -> Another
+        | _ -> Another
+    let doc = XDocument.Load(projFile)
+    let sourceFiles, projectReferences, relativeDllReferences =
+        doc.Root.Elements()
+        |> withName "ItemGroup"
+        |> Seq.map (fun item ->
+            (item.Elements(), ([], [], []))
+            ||> Seq.foldBack (fun item (src, prj, dll) ->
+                match item with
+                | SourceFile s -> s::src, prj, dll
+                | ProjectReference p -> src, p::prj, dll
+                | RelativeDllReference d -> src, prj, d::dll
+                | Another -> src, prj, dll))
+        |> Seq.reduce (fun (src1, prj1, dll1) (src2, prj2, dll2) ->
+            src1@src2, prj1@prj2, dll1@dll2)
+    let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
+    { projectFile = projFile
+    ; sourceFiles =
         sourceFiles
-        |> Seq.map Path.normalizePath
-        |> Seq.filter (fun fileName -> fileName.EndsWith(".fs") || fileName.EndsWith(".fsx"))
-        |> Seq.map (fun fileName -> Path.Combine(projDir, fileName))
-        |> Seq.toArray
-    let relativeRefs =
-        relativeRefs
-        |> Seq.map (fun x ->
-            Path.Combine(projDir, Path.normalizePath x))
-    let projOptions =
-        relativeRefs |> Seq.map (fun x -> "-r:" + (Path.GetFullPath x)) |> Seq.toArray
-        |> makeProjectOptions projFile sourceFiles
-    //printfn "Forge projOptions ===> %A" projOptions
-    projOptions
+        |> List.filter (fun fileName -> fileName.EndsWith(".fs") || fileName.EndsWith(".fsx"))
+        |> List.map (fun fileName -> Path.Combine(projDir, Path.normalizePath fileName) |> Path.GetFullPath)
+    ; projectReferences =
+        projectReferences
+        |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath)
+    ; dllReferences =
+        relativeDllReferences
+        |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
+
+let getProjectOptionsFromFsproj projFile =
+    let rec crackProjects (acc: CrackedFsproj list) projFile =
+        match acc |> List.tryFind (fun x -> x.projectFile = projFile) with
+        | Some crackedFsproj ->
+            // Add a reference to the front to preserve compilation order
+            // Duplicated items will be removed later
+            crackedFsproj::acc
+        | None ->
+            let crackedFsproj = crackFsproj projFile
+            let acc = crackedFsproj::acc
+            (crackedFsproj.projectReferences, acc)
+            ||> Seq.foldBack (fun projFile acc ->
+                crackProjects acc projFile)
+    let crackedFsprojs =
+        crackProjects [] projFile
+        |> List.distinctBy (fun x -> x.projectFile)
+    let sourceFiles =
+        crackedFsprojs |> Seq.collect (fun x -> x.sourceFiles) |> Seq.toArray
+    let otherOptions =
+        crackedFsprojs |> Seq.collect (fun x -> x.dllReferences)
+        |> Seq.distinct |> Seq.map ((+) "-r:") |> Seq.toArray
+    makeProjectOptions projFile sourceFiles otherOptions
 
 let printMessages (msgs: #seq<CompilerMessage>) =
     msgs
@@ -371,7 +405,7 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: s
         |]
         getProjectOptionsFromScript checker opts projFile
     | ".fsproj" ->
-        getProjectOptionsFromFsproj opts projFile
+        getProjectOptionsFromFsproj projFile
     | s -> failwithf "Unsupported project type: %s" s
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
@@ -394,8 +428,10 @@ let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFi
     retry()
 
 let getFullProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
-    opts.projFile
-    |> Seq.map (retryGetProjectOpts checker opts)
+    [retryGetProjectOpts checker opts opts.projFile]
+    // TODO: mergeProjectOpts is used here because in Fable 0.7 it was possible
+    // to pass several projects in fableconfig. To remove it, we must add the
+    // FileResolver pass here
     |> Seq.fold mergeProjectOpts (None, FileResolver())
     |> fun (projOpts, resolver) ->
         let projOpts = projOpts.Value
@@ -422,7 +458,7 @@ let makeCompiler opts plugins =
     let id = ref 0
     let monitor = obj()
     let logs = ResizeArray()
-    let projDir = Fable.Path.getCommonBaseDir opts.projFile
+    let projDir = Path.GetDirectoryName opts.projFile
     { new ICompiler with
         member __.Options = opts
         member __.ProjDir = projDir
@@ -473,7 +509,7 @@ let packageDllAndMap (checker: FSharpChecker) (comOpts: CompilerOptions) (coreVe
     if Directory.Exists(comOpts.outDir) |> not then
         Directory.CreateDirectory(comOpts.outDir) |> ignore
     let projOut =
-        let projName = Path.GetFileNameWithoutExtension(Seq.last comOpts.projFile)
+        let projName = Path.GetFileNameWithoutExtension(comOpts.projFile)
         Path.GetFullPath(Path.Combine(comOpts.outDir, projName))
     // Generate fablemap
     let compilerVer =
@@ -593,7 +629,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
         // -----------------------------------
         let projInfo =
             match projInfo.FileMask with
-            | Some file when com.Options.projFile |> List.exists ((=) file) ->
+            | Some file when com.Options.projFile = file ->
                 let projOpts, filePairs = getFullProjectOpts checker com.Options
                 FSProjInfo(projOpts, filePairs, ?fileMask=projInfo.FileMask, extra=projInfo.Extra)
             | _ -> projInfo

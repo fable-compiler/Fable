@@ -1,7 +1,7 @@
 namespace Fable
 
 type CompilerOptions = {
-        projFile: string list
+        projFile: string
         outDir: string
         coreLib: string
         moduleSystem: string

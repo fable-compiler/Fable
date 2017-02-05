@@ -13,7 +13,7 @@ let bundleCache: any = null;
 let fullRebuildTriggered = false;
 
 function normalizeProjectName(opts: FableOptions) {
-    var projName = path.basename(opts.projFile[opts.projFile.length - 1]);
+    var projName = path.basename(opts.projFile);
     return projName.substr(0, projName.indexOf(".")).replace(/[^A-Z_]/ig, "_");
 }
 

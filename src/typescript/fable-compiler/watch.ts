@@ -40,7 +40,7 @@ export function watch(opts: FableOptions, buildResult: BuildResult, fableProc: c
         dirs = opts.watch.map(dir => fableLib.pathJoin(opts.workingDir, dir));
     }
     else {
-        dirs = opts.projFile.map(dir => path.dirname(fableLib.pathJoin(opts.workingDir, dir)));
+        dirs = path.dirname(fableLib.pathJoin(opts.workingDir, opts.projFile));
     }
     fableLib.stdoutLog("Watching " + dirs.join('\n\t'));
     fableLib.stdoutLog("Press Enter to terminate process.");
