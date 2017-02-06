@@ -481,15 +481,18 @@ let getMinimumFableCoreVersion() =
             Version att.Value |> Some
         | _ -> None)
 
-let printFile =
+let printFile (com: ICompiler) =
     let jsonSettings =
         JsonSerializerSettings(
             Converters=[|Json.ErasedUnionConverter()|],
             NullValueHandling=NullValueHandling.Ignore,
             StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
     fun (file: AST.Babel.Program) ->
-        JsonConvert.SerializeObject (file, jsonSettings)
-        |> Console.Out.WriteLine
+        let json = JsonConvert.SerializeObject (file, jsonSettings)
+        json |> Console.Out.WriteLine
+        if com.Options.extra |> Map.containsKey "saveBabelAst" then
+            let filePath = Path.ChangeExtension(file.fileName, ".babel.ast")
+            File.WriteAllText(filePath, json)
 
 let printException (ex: Exception) =
     let rec innerStack (ex: Exception) =
@@ -706,7 +709,7 @@ let compile (com: ICompiler) checker (projInfo: FSProjInfo) =
             |> Fable2Babel.Compiler.transformFiles com
 
         files
-        |> Seq.iter printFile
+        |> Seq.iter (printFile com)
 
         // Print logs
         // ----------
