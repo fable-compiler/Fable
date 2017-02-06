@@ -506,8 +506,8 @@ Target "All" (fun () ->
     buildCoreJs ()
     buildNUnitPlugin ()
     buildJsonConverter ()
-    runTestsDotnet ()
     runTestsJs ()
+    runTestsDotnet ()
 )
 
 // Start build
