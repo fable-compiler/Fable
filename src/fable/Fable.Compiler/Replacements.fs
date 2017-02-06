@@ -645,6 +645,11 @@ module private AstPass =
          | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
          | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
             applyOp com info args info.methodName |> Some
+        | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
+            match info.args with 
+            | [x] -> math r typ args info.methodName
+            | [x; baseValue] ->  emit info "Math.log($0) / Math.log($1)" info.args |> Some
+            | _ -> None
         // Math functions
         // TODO: optimize square pow: x * x
         | "pow" | "powInteger" | "op_Exponentiation" -> math r typ args "pow"
