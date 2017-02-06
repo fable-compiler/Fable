@@ -731,3 +731,11 @@ let empty<'a> = [Unchecked.defaultof<'a>]
 let ``Module generic methods without arguments work``() =
     let li = empty<string>
     Seq.length li |> equal 1
+
+module private MyPrivateModule =
+    let private bar = "bar"
+    let publicFoo() = sprintf "foo %s" bar
+
+[<Test>]
+let ``Public members of private modules can be accessed``() = // See #696
+    MyPrivateModule.publicFoo() |> equal "foo bar"

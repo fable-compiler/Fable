@@ -457,6 +457,20 @@ let ``A type overloading an interface method can be inherited``() =
     (foo :> IFoo).Foo() |> equal "BARFOO"
     mangleFoo foo |> equal "BARFOO"
 
+type BaseClass () =
+    abstract member Init: unit -> int
+    default self.Init () = 5
+
+type ExtendedClass () =
+    inherit BaseClass ()
+
+    override self.Init() =
+        base.Init() + 2
+
+[<Test>]
+let ``Default implementation of non-abstract class members don't get an overload index``() = // See #701
+    ExtendedClass().Init() |> equal 7
+
 type Employee = { name: string; age: float; location: Location }
 and Location = { name: string; mutable employees: Employee list }
 
