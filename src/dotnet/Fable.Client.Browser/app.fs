@@ -15,7 +15,11 @@ let readFileSync: System.Func<string, byte[]> = failwith "JS only"
 let main argv =
     try
         let source = """
-printfn "answer: %A" 42
+let test() =
+    let a = 1
+    let b = 2
+    a + b
+printfn "answer: %A" (test())
 """
         let metadataPath = "/temp/metadata/"
         let references = ["mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics"]
