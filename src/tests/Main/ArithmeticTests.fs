@@ -244,6 +244,7 @@ let ``tan works``() =
 let ``exp works``() =
     exp 8.0 |> checkTo3dp 2980957.
 
+// https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L228
 [<Test>]
 let ``log works``() =
     log 232.12 |> checkTo3dp 5447.
@@ -254,6 +255,7 @@ let ``log works``() =
     Assert.AreEqual(isNaN (log negativeInfinity), true)
     Assert.AreEqual(log positiveInfinity, positiveInfinity)
 
+// https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L239
 let ``Math.Log(double, double) works``() = 
     Assert.AreEqual(3.0, Math.Log(8.0, 2.0))
     Assert.AreEqual(1.0, Math.Log(3.0, 3.0))
