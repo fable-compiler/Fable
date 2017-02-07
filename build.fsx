@@ -283,21 +283,18 @@ let nugetRestore () =
     Util.run clientSrcDir dotnetExePath "restore"
 
 let buildCompilerJs () =
-    CreateDir compilerBuildDir
+    Npm.install "src/typescript/fable-compiler" []
+    Npm.install __SOURCE_DIRECTORY__ []
+    Node.run "src/typescript/fable-compiler" "../../../node_modules/typescript/bin/tsc" []
 
-    !! "src/typescript/fable-compiler/**/*.*"
-        -- "src/typescript/fable-compiler/node_modules/**/*.*"
+    CreateDir compilerBuildDir
+    !! "src/typescript/fable-compiler/out/**/*.*"
     |> Seq.iter (fun path -> FileUtils.cp path compilerBuildDir)
 
     Npm.install compilerBuildDir []
-    Npm.install __SOURCE_DIRECTORY__ []
-    Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project " + compilerBuildDir]
-
-    !! (compilerBuildDir + "/**/*.ts")
-        ++ (compilerBuildDir + "/tsconfig.json")
-    |> Seq.iter FileUtils.rm
 
     FileUtils.cp "README.md" compilerBuildDir
+    FileUtils.cp "src/typescript/fable-compiler/package.json" compilerBuildDir
     Npm.command compilerBuildDir "version" [releaseCompiler.Value.NugetVersion]
 
     // Update constants.js
@@ -495,6 +492,9 @@ Target "GitHubRelease" (fun _ ->
     |> releaseDraft
     |> Async.RunSynchronously
 )
+
+Target "FableCompilerDebug" (buildCompiler false)
+Target "FableCompilerDebugJs" buildCompilerJs
 
 Target "All" (fun () ->
     installDotnetSdk ()

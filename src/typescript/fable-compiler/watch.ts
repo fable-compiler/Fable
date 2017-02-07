@@ -32,7 +32,7 @@ export function watch(opts: FableOptions, buildResult: BuildResult, fableProc: c
     let next: [string, Date] = null, prev = null;
     (fableProc.stdin as any).setEncoding("utf-8");
 
-    let dirs = null;
+    let dirs: string[] = null;
     if (typeof opts.watch === "string") {
         dirs = [fableLib.pathJoin(opts.workingDir, opts.watch)];
     }
@@ -40,7 +40,7 @@ export function watch(opts: FableOptions, buildResult: BuildResult, fableProc: c
         dirs = opts.watch.map(dir => fableLib.pathJoin(opts.workingDir, dir));
     }
     else {
-        dirs = path.dirname(fableLib.pathJoin(opts.workingDir, opts.projFile));
+        dirs = [path.dirname(fableLib.pathJoin(opts.workingDir, opts.projFile))];
     }
     fableLib.stdoutLog("Watching " + dirs.join('\n\t'));
     fableLib.stdoutLog("Press Enter to terminate process.");

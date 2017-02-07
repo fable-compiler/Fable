@@ -515,17 +515,20 @@ module Util =
         | Some ret, _ ->
             com.TransformExprAndResolve ctx ret expr |> block expr.Range
 
-    let transformSwitch com ctx range returnStrategy (matchValue, cases, defaultCase) =
+    let transformSwitch (com: IBabelCompiler) ctx range returnStrategy (matchValue, cases, defaultCase) =
         let transformCase test branch =
-            let b = transformBlock com ctx returnStrategy branch
-            match test with
-            | Some(TransformExpr com ctx test) ->
-                match returnStrategy with
-                | Some Return -> b.body, Some test
-                | _ -> b.body@[Babel.BreakStatement()], Some test
-            | None -> b.body, None // Default branch
-            |> fun (statements, test) ->
-                Babel.SwitchCase(statements, ?test=test, ?loc=b.loc)
+            let statements, test =
+                let statements =
+                    match returnStrategy with
+                    | Some ret -> com.TransformExprAndResolve ctx ret branch
+                    | None -> com.TransformStatement ctx branch
+                match test with
+                | Some(TransformExpr com ctx test) ->
+                    match returnStrategy with
+                    | Some Return -> statements, Some test
+                    | _ -> statements@[Babel.BreakStatement()], Some test
+                | None -> statements, None // Default branch
+            Babel.SwitchCase(statements, ?test=test, ?loc=branch.Range)
         let cases =
             cases |> List.collect(fun (tests, branch) ->
                 let prev =

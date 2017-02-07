@@ -1,6 +1,6 @@
 {
-    "include": [
-        "*.ts"
+    "exclude": [
+        "node_modules"
     ],
     "compilerOptions": {
         "target": "es5",
@@ -10,7 +10,8 @@
         "noFallthroughCasesInSwitch": true,
         "noImplicitAny": false,
         "noImplicitReturns": true,
-        "noImplicitThis": true
+        "noImplicitThis": true,
+        "outDir": "out"
         //"noUnusedLocals": true,
         //"noUnusedParameters": true,
         //"strictNullChecks": true,
