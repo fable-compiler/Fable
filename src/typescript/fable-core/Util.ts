@@ -262,11 +262,10 @@ export function equalsUnions(x: any, y: any): boolean {
     return false;
   }
   else {
-    let i = 97 /* 'a' */, j = String.fromCharCode(i);
-    while (x[j] !== void 0) {
+    for (let i = 97 /* 'a' */, j: string; i < 97 + x.size; i++) {
+      j = String.fromCharCode(i);
       if (!equals(x[j], y[j]))
         return false;
-      j = String.fromCharCode(++i);
     }
     return true;
   }
@@ -281,12 +280,11 @@ export function compareUnions(x: any, y: any): number {
     let res = x.tag < y.tag ? -1 : (x.tag > y.tag ? 1 : 0);
     if (res !== 0)
       return res;
-    let i = 97 /* 'a' */, j = String.fromCharCode(i);
-    while (x[j] !== void 0) {
+    for (let i = 97 /* 'a' */, j: string; i < 97 + x.size; i++) {
+      j = String.fromCharCode(i);
       res = compare(x[j], y[j]);
       if (res !== 0)
         return res;
-      j = String.fromCharCode(++i);
     }
     return 0;
   }

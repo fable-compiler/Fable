@@ -390,17 +390,22 @@ let compileAndRunMochaTests es2015 =
     Npm.install testsBuildDir []
     Npm.script testsBuildDir "test" []
 
-let quickTest _ =
-    Node.run "." "build/Fable" [
-        "src/tools/QuickTest.fsx"
-        "-o src/tools/temp"
-        "-m commonjs"
-        "--refs Fable.Core=./build/fable-core/umd"
-        "--extra noVersionCheck"
+let quickTest isES2015 _ =
+    let fableArgs = [
+        yield "src/tools/QuickTest.fsx"
+        yield "--verbose"
+        yield "-o src/tools/temp"
+        yield "-m commonjs"
+        yield "--refs Fable.Core=./build/fable-core/umd"
+        yield "--extra noVersionCheck"
+        if isES2015 then yield "--ecma es2015"
     ]
+    Node.run "." "build/Fable" fableArgs
     Node.run "." "src/tools/temp/QuickTest.js" []
 
-Target "QuickTest" quickTest
+Target "QuickTest" (quickTest false)
+
+Target "QuickTestES2015" (quickTest true)
 
 Target "PublishCore" (fun _ ->
     // Check if version is prerelease or not

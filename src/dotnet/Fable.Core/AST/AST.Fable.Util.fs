@@ -303,7 +303,10 @@ let makeUnionCons cases =
     let body =
         args |> List.map (fun arg ->
             Set(Value This, Some(makeStrConst arg.Name), arg |> IdentValue |> Value, None))
-        |> fun setters -> Sequential(setters, None)
+        |> fun setters ->
+            let argsLength = makeIdentExpr "arguments" |> makeGet None (Number Int32) <| makeStrConst "length"
+            let setSize = Set(Value This, Some(makeStrConst "size"), makeBinOp None (Number Int32) [argsLength; makeIntConst 1] BinaryMinus, None)
+            Sequential(setSize::setters, None)
     MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, None)
 
 // This is necessary when extending built-in JS types and compiling to ES5

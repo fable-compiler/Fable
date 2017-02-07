@@ -52,10 +52,10 @@ function deflate(v: any) {
         return { [caseName]: fieldValue };
       }
       else {
-        let fields = [], i = 97 /* 'a' */, j = String.fromCharCode(i);
-        while (v[j] !== void 0) {
+        let fields = [];
+        for (let i = 97 /* 'a' */, j: string; i < 97 + v.size; i++) {
+          j = String.fromCharCode(i);
           fields.push(v[j]);
-          j = String.fromCharCode(++i);
         }
         return { [caseName]: fields };
       }
@@ -183,6 +183,7 @@ function inflateUnion(val: any, typ: FunctionConstructor, info: any, path: strin
   if (caseInfo.length > 1) {
       const fields = caseInfo.length > 2 ? val[caseName] : [val[caseName]];
       path = combine(path, caseName);
+      newVal.size = fields.length;
       for (let i = 0; i < fields.length; i++) {
           newVal[String.fromCharCode(97 /*'a'*/ + i)] =
             inflateField ? inflateField(fields[i], caseInfo[i + 1], combine(path, i)) : fields[i];

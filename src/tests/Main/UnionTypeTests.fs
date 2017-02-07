@@ -186,7 +186,7 @@ let ``Pattern matching json parse union cases still works``() =
 let ``Union cases json stringify is as we expect``() =
     ObjectType({Prop1 = "value1"; Prop2 = 2})
     |> jsonStringify
-    |> equal """{"tag":3,"a":{"Prop1":"value1","Prop2":2}}"""
+    |> equal """{"size":1,"tag":3,"a":{"Prop1":"value1","Prop2":2}}"""
 #endif
 
 type Tree =
