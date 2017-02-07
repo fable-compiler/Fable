@@ -238,12 +238,14 @@
    * Babel options for transpilation as used by the REPL
    */
   function Options () {
+    var $astInput = $('#option-astInput');
     var $evaluate = $('#option-evaluate');
     var $lineWrap = $('#option-lineWrap');
     var $babili = $('#option-babili');
 
     var options = {};
     Object.defineProperties(options, {
+      astInput: $checkbox($astInput),
       babili: $checkbox($babili),
       evaluate: $checkbox($evaluate),
       lineWrap: $checkbox($lineWrap),
@@ -252,6 +254,7 @@
 
     // Merge in defaults
     var defaults = {
+      astInput: false,
       babili: false,
       evaluate: false,
       lineWrap: false,
@@ -340,10 +343,17 @@
       const source = this.getSource();
       const references = ["FSharp.Core","mscorlib", "System", "System.Core", "System.Data", "System.IO", "System.Xml", "System.Numerics"];
 
-      const readAllBytes = function (fileName) { return metadata[fileName]; }
-      const asts = project.compileSource(readAllBytes, references, source);
-      let ast = fixInvalidAst(asts[0]);
-
+      let ast = null;
+      if (this.options.astInput) {
+        // parse babel AST input
+        ast = JSON.parse(source);
+      }
+      else {
+        // compile AST from F# source
+        const readAllBytes = function (fileName) { return metadata[fileName]; }
+        const asts = project.compileSource(readAllBytes, references, source);
+        ast = fixInvalidAst(asts[0]);
+      }
       let options = {
         presets: presets.filter(Boolean),
         filename: 'repl',
