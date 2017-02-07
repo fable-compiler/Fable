@@ -197,6 +197,23 @@ let ``pown works``() =
 let ``sqrt works``() =
     sqrt 4.5 |> checkTo3dp 2121.
 
+let positiveInfinity = System.Double.PositiveInfinity
+let negativeInfinity = System.Double.NegativeInfinity
+let NaN = System.Double.NaN
+let isNaN = fun x -> System.Double.IsNaN(x)
+
+// As per 
+// https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L217
+[<Test>]
+let ``sqrt matches .net core implementation``() = 
+    checkTo3dp 1732. (sqrt 3.0)
+    Assert.AreEqual(sqrt 0.0 , 0.0) 
+    Assert.AreEqual(isNaN (sqrt -3.0), true)
+    Assert.AreEqual(isNaN (sqrt NaN), true)
+    Assert.AreEqual(isNaN (sqrt negativeInfinity), true)
+    Assert.AreEqual(sqrt positiveInfinity, positiveInfinity)
+
+
 [<Test>]
 let ``acos works``() =
     acos 0.25 |> checkTo3dp 1318.
@@ -229,9 +246,31 @@ let ``tan works``() =
 let ``exp works``() =
     exp 8.0 |> checkTo3dp 2980957.
 
+// https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L228
 [<Test>]
 let ``log works``() =
     log 232.12 |> checkTo3dp 5447.
+    checkTo3dp 1098. (log 3.0)
+    Assert.AreEqual(log 0.0, negativeInfinity)
+    Assert.AreEqual(isNaN (log -2.0), true)
+    Assert.AreEqual(isNaN (log NaN), true)
+    Assert.AreEqual(isNaN (log negativeInfinity), true)
+    Assert.AreEqual(log positiveInfinity, positiveInfinity)
+
+// https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L239
+let ``Math.Log(double, double) works``() = 
+    Assert.AreEqual(3.0, Math.Log(8.0, 2.0))
+    Assert.AreEqual(1.0, Math.Log(3.0, 3.0))
+    Math.Log(14., 3.0) |> checkTo3dp 2402.
+    Assert.AreEqual(negativeInfinity, Math.Log(0.0, 3.0)) 
+    Assert.AreEqual(positiveInfinity, Math.Log(positiveInfinity, 3.0))
+    Assert.AreEqual(true, isNaN (Math.Log(-3.0, 3.0)))
+    Assert.AreEqual(true, isNaN (Math.Log(NaN, 3.0)))
+    Assert.AreEqual(true, isNaN (Math.Log(negativeInfinity, 3.0)))
+    
+    
+
+
 
 [<Test>]
 let ``log10 works``() =

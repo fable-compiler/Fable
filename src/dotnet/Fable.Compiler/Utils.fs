@@ -19,7 +19,7 @@ module Extensions =
             | false, _ ->
                 let v = addFn()
                 dic.Add(key, v)
-                v  
+                v
         member dic.AddOrUpdate(key, addFn, updateFn) =
             let v =
                 match dic.TryGetValue(key) with
@@ -30,8 +30,7 @@ module Extensions =
             dic.Add(key, v)
             v
 
-module Map = 
-
+module Map =
     let findOrRun<'T> (f: unit->'T) (k: string) (m: Map<string, obj>) =
         match Map.tryFind k m with
         | Some x -> downcast x
@@ -40,9 +39,26 @@ module Map =
     // let findOrNew<'T when 'T : (new : unit->'T)> (k: string) (m: Map<string, obj>) =
     //     findOrRun (fun () -> new 'T()) k m
 
-module Option = 
+module Option =
     let toBool (f: 'T->bool) (opt: 'T option) =
-        match opt with Some x when f x -> true | _ -> false 
+        match opt with Some x when f x -> true | _ -> false
+
+module List =
+    let isSingle = function
+        | [x] -> true
+        | _ -> false
+
+    /// Same as List.length xs > 1
+    let isMultiple = function
+        | [] | [_] -> false
+        | _ -> true
+
+    let rec sameLength xs1 xs2 =
+        match xs1, xs2 with
+        | [], [] -> true
+        | [_], [_] -> true
+        | _::xs1, _::xs2 -> sameLength xs1 xs2
+        | _ -> false
 
 #if !FABLE_COMPILER
 module Json =
@@ -57,12 +73,12 @@ module Json =
         FSharpType.IsUnion t &&
             t.GetCustomAttributes true
             |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
-            
+
     let getErasedUnionValue (v: obj) =
         match FSharpValue.GetUnionFields (v, v.GetType()) with
         | _, [|v|] -> Some v
         | _ -> None
-            
+
     type ErasedUnionConverter() =
         inherit JsonConverter()
         let typeCache = ConcurrentDictionary<Type,bool>()
@@ -72,7 +88,7 @@ module Json =
             failwith "Not implemented"
         override x.WriteJson(writer, v, serializer) =
             match getErasedUnionValue v with
-            | Some v -> serializer.Serialize(writer, v) 
+            | Some v -> serializer.Serialize(writer, v)
             | None -> writer.WriteNull()
 
     type LocationEraser() =

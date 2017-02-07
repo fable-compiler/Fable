@@ -142,6 +142,13 @@ module Helpers =
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline -> true
 
+    /// .IsPrivate for members of a private module always evaluate to true (see #696)
+    /// so we just make all members of a private module public until a proper solution comes in FCS
+    let isPublicMethod (meth: FSharpMemberOrFunctionOrValue) =
+        match tryEnclosingEntity meth with
+        | Some ent when ent.Accessibility.IsPrivate -> true
+        | _ -> not meth.Accessibility.IsPrivate
+
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition
@@ -345,7 +352,7 @@ module Patterns =
     // `3 |> add 1 2` will become `let x=1 in let y=2 in fun z -> add(x,y,z)`
     let (|Closure|_|) fsExpr =
         let checkArgs (identAndRepls: (FSharpMemberOrFunctionOrValue*FSharpExpr) list) args =
-            if identAndRepls.Length <> (List.length args) then false else
+            if not(List.sameLength identAndRepls args) then false else
             (args, identAndRepls)
             ||> List.forall2 (fun arg (ident, _) ->
                 if ident.IsMutable then false else
@@ -665,7 +672,7 @@ module Types =
             originalType = originalTyp,
             genParams = (meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList),
             decorators = (meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList),
-            isPublic = (not meth.Accessibility.IsPrivate && not meth.IsCompilerGenerated),
+            isPublic = (isPublicMethod meth && not meth.IsCompilerGenerated),
             isMutable = meth.IsMutable,
             ?overloadIndex = overloadIndex,
             hasRestParams = hasRestParams meth)
@@ -690,6 +697,10 @@ module Types =
             hasAtt Atts.abstractClass tdef.Attributes
         let isDefaultImplementation (x: FSharpMemberOrFunctionOrValue) =
             isAbstract && x.IsOverrideOrExplicitInterfaceImplementation && not x.IsExplicitInterfaceImplementation
+        // F# allows abstract method syntax in non-abstract classes
+        // if there's a default implementation (see #701)
+        let isFakeAbstractMethod (x: FSharpMemberOrFunctionOrValue) =
+            not isAbstract && not tdef.IsInterface && x.IsDispatchSlot
         let existsInterfaceMember name =
             tdef.AllInterfaces
             |> Seq.exists (fun ifc ->
@@ -703,7 +714,8 @@ module Types =
                 // to prevent confusing them with overloads (see #505)
                 not(isDefaultImplementation x)
                 // Property members that are no getter nor setter don't actually get implemented
-                && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod)))
+                && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod))
+                && not(isFakeAbstractMethod x))
             |> Seq.map (fun meth -> sanitizeMethodName meth, getMemberKind meth, getMemberLoc meth, meth)
             |> Seq.toArray
         let getMembers' loc (tdef: FSharpEntity) =
@@ -770,7 +782,7 @@ module Types =
             |> Seq.toList
         Fable.Entity (Lazy<_>(fun () -> getKind()), com.TryGetInternalFile tdef,
             sanitizeEntityFullName tdef, Lazy<_>(fun () -> getMembers com tdef),
-            genParams, infcs, decs, tdef.Accessibility.IsPublic || tdef.Accessibility.IsInternal)
+            genParams, infcs, decs, not tdef.Accessibility.IsPrivate)
 
     and makeTypeFromDef (com: IFableCompiler) typeArgs (tdef: FSharpEntity)
                         (genArgs: seq<FSharpType>) =

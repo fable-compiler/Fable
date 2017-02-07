@@ -635,6 +635,11 @@ module AstPass =
          | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
          | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
             applyOp com info args info.methodName |> Some
+        | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
+            match info.args with 
+            | [x] -> math r typ args info.methodName
+            | [x; baseValue] ->  emit info "Math.log($0) / Math.log($1)" info.args |> Some
+            | _ -> None
         // Math functions
         // TODO: optimize square pow: x * x
         | "pow" | "powInteger" | "op_Exponentiation" -> math r typ args "pow"
@@ -854,6 +859,13 @@ module AstPass =
                 // the result being wrapped with `| 0`
             |> makeCall i.range Fable.Any //(Fable.Number kind)
         match i.methodName with
+        | "isNaN" when isFloat -> 
+            match i.args with
+            | [someNumber] ->
+                GlobalCall("Number", Some "isNaN", false, i.args)
+                |> makeCall i.range (Fable.Number Float64)
+                |> Some
+            | _ -> None
         | "parse" | "tryParse" ->
             match i.methodName, i.args with
             | "parse", [str] ->
@@ -1804,7 +1816,8 @@ module AstPass =
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
         | "System.BitConverter" -> bitConvert com info
         | "System.Int32" -> parse com info false
-        | "System.Single" | "System.Double" -> parse com info true
+        | "System.Single" 
+        | "System.Double" -> parse com info true
         | "System.Convert" -> convert com info
         | "System.Console" -> console com info
         | "System.Decimal" -> decimals com info

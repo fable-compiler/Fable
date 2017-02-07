@@ -140,7 +140,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             | _ -> FableError("KeyValue Union Cases must have one or zero fields: " + unionType.FullName, range) |> raise
         Fable.TupleConst [key; value] |> Fable.Value
     | StringEnum ->
-        if argExprs.Length > 0 then
+        if not(List.isEmpty argExprs) then
             FableError("StringEnum types cannot have fields", range) |> raise
         lowerCaseName unionCase
     | PojoUnion ->
@@ -888,7 +888,7 @@ type private DeclInfo() =
         match tryFindChild meth with
         | None ->
             if meth.IsModuleValueOrMember
-                && not meth.Accessibility.IsPrivate
+                && isPublicMethod meth
                 && not meth.IsCompilerGenerated
                 && not meth.IsExtensionMember then
                 checkPublicNameConflicts meth.CompiledName
@@ -1027,8 +1027,7 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
         let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type,
                             isPublic = not ent.Accessibility.IsPrivate)
         let decl = Fable.MemberDeclaration(m, Some ident.Name, [], body, Some r)
-        let publicName =
-            if ent.Accessibility.IsPrivate then None else Some entName
+        let publicName = if m.IsPublic then Some entName else None
         declInfo.AddIgnoredChild ent
         declInfo.AddDeclaration(decl, ?publicName=publicName)
         declInfo, ctx

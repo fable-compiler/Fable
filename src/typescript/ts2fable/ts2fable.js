@@ -22,6 +22,10 @@ enum:
 `[TYPE_KEYWORD] [DECORATOR][NAME] =
 `,
 
+alias:
+`[TYPE_KEYWORD] [DECORATOR][NAME] =
+`,
+
 classProperty:
 `[STATIC]member [INSTANCE][NAME] with get(): [TYPE][OPTION] = jsNative and set(v: [TYPE][OPTION]): unit = jsNative`,
 
@@ -374,8 +378,13 @@ function printInterface(prefix) {
     }
     return function (ifc, i) {
         var isEnum = ifc.kind === "enum" || ifc.kind === "stringEnum";
+        var isAlias = ifc.kind === "alias";
         var template = 
-            prefix + (isEnum ? templates.enum : templates.interface)
+            isEnum ? templates.enum : 
+            isAlias ? templates.alias :
+            templates.interface;
+        var template = 
+            prefix + template
             .replace("[TYPE_KEYWORD]", i === 0 ? "type" : "and")
             .replace("[NAME]", escape(ifc.name))
             .replace("[DECORATOR]", printDecorator(ifc))
@@ -674,6 +683,32 @@ function getInterface(node, opts) {
     return ifc;
 }
 
+function mergeNamesakes( xs, getName, mergeTwo ) {
+    var grouped = {};
+    xs.forEach( function(x) { 
+        var name = getName(x);
+        if ( !Array.isArray( grouped[name] ) ) grouped[name] = [];
+        grouped[name].push( x );
+    } );
+
+    return Object.keys(grouped).map( function(k) { return grouped[k].reduce( mergeTwo ); } );
+}
+
+function mergeInterfaces( a, b ) {
+    return {
+        name: a.name,
+        kind: a.kind,
+        parents: a.parents,
+        path: a.path,
+        properties: a.properties.concat( b.properties ),
+        methods: a.methods.concat( b.methods )
+    };
+}
+
+function mergeNamesakeInterfaces( intfs ) {
+    return mergeNamesakes( intfs, function(i) { return i.name; }, mergeInterfaces );
+}
+
 function visitInterface(node, opts) {
     var ifc = getInterface(node, opts);
     (node.members || []).forEach(function(node) {
@@ -734,7 +769,7 @@ function mergeModules( a, b ) {
     return {
         name: a.name,
         path: a.path,
-        interfaces: a.interfaces.concat( b.interfaces ),
+        interfaces: mergeNamesakeInterfaces( a.interfaces.concat( b.interfaces ) ),
         properties: a.properties.concat( b.properties ),
         methods: a.methods.concat( b.methods ),
         modules: mergeNamesakeModules( a.modules.concat( b.modules ) )
@@ -742,13 +777,43 @@ function mergeModules( a, b ) {
 }
 
 function mergeNamesakeModules( modules ) {
-    var grouped = {};
-    modules.forEach( function(m) { 
-        if ( !Array.isArray( grouped[m.name] ) ) grouped[m.name] = [];
-        grouped[m.name].push( m );
-    } );
+    return mergeNamesakes( modules, function(m) { return m.name; }, mergeModules );
+}
 
-    return Object.keys(grouped).map( function(k) { return grouped[k].reduce( mergeModules ); } );
+function visitModuleNode(mod, modPath) {
+    return function(node) {
+        switch (node.kind) {
+            case ts.SyntaxKind.InterfaceDeclaration:
+                mod.interfaces.push(visitInterface(node, { kind: "interface", path: modPath }));
+                break;
+            case ts.SyntaxKind.ClassDeclaration:
+                mod.interfaces.push(visitInterface(node, { kind: "class", path: modPath }));
+                break;
+            case ts.SyntaxKind.TypeAliasDeclaration:
+                if (node.type.types && node.type.types[0].kind == ts.SyntaxKind.StringLiteralType)
+                    mod.interfaces.push(getStringEnum(node))
+                else
+                    mod.interfaces.push(visitInterface(node, { kind: "alias", path: modPath }));
+                break;
+            case ts.SyntaxKind.VariableStatement:
+                var varsAndTypes = getVariables(node);
+                varsAndTypes.variables.forEach(x => mod.properties.push(x));
+                varsAndTypes.anonymousTypes.forEach(x => mod.interfaces.push(x));
+                break;
+            case ts.SyntaxKind.FunctionDeclaration:
+                mod.methods.push(getMethod(node, { static: true }));
+                break;
+            case ts.SyntaxKind.ModuleDeclaration:
+                var m = visitModule(node, { path: modPath });
+                var isEmpty = Object.keys(m).every(function(k) { return !Array.isArray(m[k]) || m[k].length === 0 });
+                if (!isEmpty)
+                    mod.modules.push(m);
+                break;
+            case ts.SyntaxKind.EnumDeclaration:
+                mod.interfaces.push(getEnum(node));
+                break;
+        }
+    };
 }
 
 function visitModule(node, opts) {
@@ -769,36 +834,7 @@ function visitModule(node, opts) {
             break;
             
         case ts.SyntaxKind.ModuleBlock:
-            node.body.statements.forEach(function(node) {
-                switch (node.kind) {
-                    case ts.SyntaxKind.InterfaceDeclaration:
-                        mod.interfaces.push(visitInterface(node, { kind: "interface", path: modPath }));
-                        break;
-                    case ts.SyntaxKind.ClassDeclaration:
-                        mod.interfaces.push(visitInterface(node, { kind: "class", path: modPath }));
-                        break;
-                    case ts.SyntaxKind.TypeAliasDeclaration:
-                        if (node.type.types && node.type.types[0].kind == ts.SyntaxKind.StringLiteralType)
-                            mod.interfaces.push(getStringEnum(node))
-                        else
-                            mod.interfaces.push(visitInterface(node, { kind: "alias", path: modPath }));
-                        break;
-                    case ts.SyntaxKind.VariableStatement:
-                        var varsAndTypes = getVariables(node);
-                        varsAndTypes.variables.forEach(x => mod.properties.push(x));
-                        varsAndTypes.anonymousTypes.forEach(x => mod.interfaces.push(x));
-                        break;
-                    case ts.SyntaxKind.FunctionDeclaration:
-                        mod.methods.push(getMethod(node, { static: true }));
-                        break;
-                    case ts.SyntaxKind.ModuleDeclaration:
-                        mod.modules.push(visitModule(node, { path: modPath }));
-                        break;
-                    case ts.SyntaxKind.EnumDeclaration:
-                        mod.interfaces.push(getEnum(node));
-                        break;
-                }
-            });
+            node.body.statements.forEach(visitModuleNode(mod, modPath));
             break;
     }
 
@@ -806,49 +842,20 @@ function visitModule(node, opts) {
 }
 
 function visitFile(node) {
-    var properties = [], methods = [], interfaces = [], modules = [];
-    ts.forEachChild(node, function(node) {
-        switch (node.kind) {
-            case ts.SyntaxKind.VariableStatement:
-                var varsAndTypes = getVariables(node);
-                varsAndTypes.variables.forEach(x => properties.push(x));
-                varsAndTypes.anonymousTypes.forEach(x => interfaces.push(x));
-                break;
-            case ts.SyntaxKind.FunctionDeclaration:
-                methods.push(getMethod(node, { static: true }));
-                break;
-            case ts.SyntaxKind.ModuleDeclaration:
-                var mod = visitModule(node);
-                var isEmpty = Object.keys(mod).reduce(function(acc, k) {
-                    return acc && !(Array.isArray(mod[k]) && mod[k].length > 0);
-                }, true);
-                if (!isEmpty)
-                    modules.push(mod);
-                break;
-            case ts.SyntaxKind.InterfaceDeclaration:
-                var ifc = visitInterface(node);
-                // Fix interface duplications in lib.core.es6.d.ts
-                var prev = interfaces.filter(x => x.name == ifc.name)[0];
-                if (prev != null) {
-                    prev.properties = prev.properties.concat(ifc.properties);
-                    prev.methods = prev.methods.concat(ifc.methods);
-                }
-                else {
-				    interfaces.push(visitInterface(node));
-                }
-                break;
-            case ts.SyntaxKind.TypeAliasDeclaration:
-                interfaces.push(visitInterface(node, { kind: "alias" }));
-                break;
-            case ts.SyntaxKind.ClassDeclaration:
-				interfaces.push(visitInterface(node, { kind: "class" }));
-                break;
-        }
-    });
+    var file = {
+      interfaces: [],
+      properties: [],
+      methods: [],
+      modules: []
+    };
+
+    ts.forEachChild(node, visitModuleNode(file, null));
+
     return {
-        properties: properties,
-        interfaces: interfaces,
-        modules: mergeNamesakeModules( modules )
+        properties: file.properties,
+        interfaces: file.interfaces,
+        methods: file.methods,
+        modules: mergeNamesakeModules( file.modules )
     };
 }
 
