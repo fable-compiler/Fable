@@ -13,8 +13,7 @@
       "FX_NO_PDB_WRITER",
       "NO_COMPILER_BACKEND",
       "NO_INLINE_IL_PARSER",
-      "TRACE",
-      "DEBUG"
+      "TRACE"
     ],
     "scripts": {
         "prebuild": "npm install",
