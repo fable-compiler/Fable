@@ -1056,7 +1056,10 @@ and private transformDeclarations (com: IFableCompiler) ctx decls =
                 transformEntityDecl com ctx declInfo e sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                 transformMemberDecl com ctx declInfo meth args body
-            | FSharpImplementationFileDeclaration.InitAction (Transform com ctx e as fe) ->
+            | FSharpImplementationFileDeclaration.InitAction fe ->
+                // To prevent name clashes in JS create a scope for members and init actions
+                // where variables must always have a unique name
+                let e = com.Transform { ctx with scopedVarNames = HashSet() |> Some } fe
                 declInfo.AddDeclaration(Fable.ActionDeclaration (e, makeRangeFrom fe))
                 declInfo, ctx
         ) (DeclInfo(), ctx)

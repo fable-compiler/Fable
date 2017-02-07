@@ -42,9 +42,7 @@ type Context =
     ; scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
     /// Some expressions that create scope in F# don't do it in JS (like let bindings)
     /// so we need a mutable registry to prevent duplicated var names.
-    /// (Methods are used as the scope for unique var names)
     ; scopedVarNames: HashSet<string> option
-    ; nonScopedVarNames: HashSet<string>
     ; typeArgs: (string * FSharpType) list
     ; decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
     ; baseClass: string option
@@ -56,7 +54,6 @@ type Context =
         ; scope = []
         ; scopedInlines = []
         ; scopedVarNames = None
-        ; nonScopedVarNames = HashSet()
         ; typeArgs = []
         ; decisionTargets = None
         ; baseClass = None
@@ -897,10 +894,14 @@ module Identifiers =
         let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
             match ctx.scopedVarNames with
             | Some varNames when varNames.Contains x -> true
-            | _ -> ctx.nonScopedVarNames.Contains x)
+            | _ ->
+                List.exists (fun (_,x') ->
+                    match x' with
+                    | Fable.Value (Fable.IdentValue i) -> x = i.Name
+                    | _ -> false) ctx.scope)
         match ctx.scopedVarNames with
         | Some varNames -> varNames.Add sanitizedName |> ignore
-        | None -> ctx.nonScopedVarNames.Add sanitizedName |> ignore
+        | None -> ()
         // We still need to keep track of all used variable names in the file
         // so they're not used for imports
         com.AddUsedVarName sanitizedName
@@ -967,6 +968,8 @@ module Util =
         ctx, List.rev args
 
     let bindMemberArgs com ctx (info: MemberInfo) (args: FSharpMemberOrFunctionOrValue list list) =
+        // To prevent name clashes in JS create a scope for members
+        // where variables must always have a unique name
         let ctx = { ctx with scopedVarNames = HashSet() |> Some }
         let thisArg, args =
             match args with
