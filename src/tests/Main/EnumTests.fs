@@ -135,3 +135,15 @@ let ``Pattern matching can be nested within a switch statement``() = // See #483
         | _ -> "bar"
     | _ -> "invalid choice"
     |> equal "kuma"
+
+let myRootValue =
+    match 5 with
+    // mutable is used to prevent immutable binding optimization
+    | 0 -> let mutable r = 4 in r + 4
+    | 5 -> let mutable r = 3 in r + 7
+    | _ -> -1
+
+
+[<Test>]
+let ``Non-scoped (in JS) variables with same name can be used``() = // See #700
+    equal 10 myRootValue

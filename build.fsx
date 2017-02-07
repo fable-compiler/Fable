@@ -291,10 +291,9 @@ let buildCompilerJs () =
     !! "src/typescript/fable-compiler/out/**/*.*"
     |> Seq.iter (fun path -> FileUtils.cp path compilerBuildDir)
 
-    Npm.install compilerBuildDir []
-
     FileUtils.cp "README.md" compilerBuildDir
     FileUtils.cp "src/typescript/fable-compiler/package.json" compilerBuildDir
+    Npm.install compilerBuildDir []
     Npm.command compilerBuildDir "version" [releaseCompiler.Value.NugetVersion]
 
     // Update constants.js

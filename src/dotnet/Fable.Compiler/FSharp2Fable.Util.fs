@@ -38,11 +38,13 @@ type MemberInfo =
 type Context =
     { fileName: string
     ; enclosingEntity: Fable.Entity
-    // Some expressions that create scope in F# don't do it in JS (like let bindings)
-    // so we need a mutable registry to prevent duplicated var names
-    ; methodVarNames: HashSet<string> option
     ; scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
     ; scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
+    /// Some expressions that create scope in F# don't do it in JS (like let bindings)
+    /// so we need a mutable registry to prevent duplicated var names.
+    /// (Methods are used as the scope for unique var names)
+    ; scopedVarNames: HashSet<string> option
+    ; nonScopedVarNames: HashSet<string>
     ; typeArgs: (string * FSharpType) list
     ; decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
     ; baseClass: string option
@@ -51,9 +53,10 @@ type Context =
     static member Create(fileName, enclosingModule) =
         { fileName = fileName
         ; enclosingEntity = enclosingModule
-        ; methodVarNames = None
         ; scope = []
         ; scopedInlines = []
+        ; scopedVarNames = None
+        ; nonScopedVarNames = HashSet()
         ; typeArgs = []
         ; decisionTargets = None
         ; baseClass = None
@@ -892,17 +895,14 @@ module Identifiers =
     let bindIdent (com: IFableCompiler) (ctx: Context) typ
                   (fsRef: FSharpMemberOrFunctionOrValue option) tentativeName =
         let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
-            match ctx.methodVarNames with
+            match ctx.scopedVarNames with
             | Some varNames when varNames.Contains x -> true
-            | _ ->
-                List.exists (fun (_,x') ->
-                    match x' with
-                    | Fable.Value (Fable.IdentValue i) -> x = i.Name
-                    | _ -> false) ctx.scope)
-        // In methods, we use ctx.methodVarNames to prevent duplicated variables
-        match ctx.methodVarNames with
+            | _ -> ctx.nonScopedVarNames.Contains x)
+        match ctx.scopedVarNames with
         | Some varNames -> varNames.Add sanitizedName |> ignore
-        | None -> ()
+        | None -> ctx.nonScopedVarNames.Add sanitizedName |> ignore
+        // We still need to keep track of all used variable names in the file
+        // so they're not used for imports
         com.AddUsedVarName sanitizedName
         let ident = Fable.Ident(sanitizedName, typ)
         let identValue = Fable.Value (Fable.IdentValue ident)
@@ -967,7 +967,7 @@ module Util =
         ctx, List.rev args
 
     let bindMemberArgs com ctx (info: MemberInfo) (args: FSharpMemberOrFunctionOrValue list list) =
-        let ctx = { ctx with methodVarNames = HashSet() |> Some }
+        let ctx = { ctx with scopedVarNames = HashSet() |> Some }
         let thisArg, args =
             match args with
             | [thisArg]::args when info.isInstance ->
