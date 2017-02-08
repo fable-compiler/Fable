@@ -24,6 +24,6 @@
     <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
   </ItemGroup>
   <ItemGroup>
-    <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-*" />
+    <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-preview2-*" />
   </ItemGroup>
 </Project>

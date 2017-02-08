@@ -59,9 +59,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.2.0-*" />
   </ItemGroup>
   <ItemGroup>
-    <DotNetCliToolReference Include="dotnet-compile-fsc">
-      <Version>1.0.0-*</Version>
-    </DotNetCliToolReference>
+    <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-preview2-*" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />
