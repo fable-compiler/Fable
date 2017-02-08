@@ -288,10 +288,13 @@ let buildCompilerJs () =
     Node.run "src/typescript/fable-compiler" "../../../node_modules/typescript/bin/tsc" []
 
     CopyDir compilerBuildDir "src/typescript/fable-compiler/out" (fun _ -> true)
-    CopyDir (compilerBuildDir </> "node_modules") "src/typescript/fable-compiler/node_modules" (fun _ -> true)
-
     FileUtils.cp "README.md" compilerBuildDir
     FileUtils.cp "src/typescript/fable-compiler/package.json" compilerBuildDir
+    // Copying node_modules fails in AppVeyor because paths are too long
+    if environVar "APPVEYOR" = "True"
+    then Npm.install compilerBuildDir []
+    else CopyDir (compilerBuildDir </> "node_modules") "src/typescript/fable-compiler/node_modules" (fun _ -> true)
+
     Npm.command compilerBuildDir "version" [releaseCompiler.Value.NugetVersion]
 
     // Update constants.js
