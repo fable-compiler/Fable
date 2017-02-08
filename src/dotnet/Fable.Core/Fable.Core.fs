@@ -153,7 +153,7 @@ module JsInterop =
     let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
 
 
-    /// Compiles to JS `this` keyword. Can only be used within a delegate.
+    /// Compiles to JS `this` keyword.
     ///
     /// ## Sample
     ///     let fn = JsFunc2(fun x y -> jsThis?add(x, y))

@@ -104,7 +104,7 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
             then true
             else
                 match argTypes with
-                | [Unit] -> m.ArgumentTypes.Length = 0
+                | [Unit] -> List.isEmpty m.ArgumentTypes
                 | argTypes -> argsEqual m.ArgumentTypes argTypes)
     static member CreateRootModule fileName =
         Entity (lazy Module, Some fileName, "", lazy [], [], [], [], true)

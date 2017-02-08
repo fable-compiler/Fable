@@ -1,5 +1,35 @@
 namespace Fable
 
+module Map =
+    let findOrRun<'T> (f: unit->'T) (k: string) (m: Map<string, obj>) =
+        match Map.tryFind k m with
+        | Some x -> downcast x
+        | _ -> f()
+
+    // let findOrNew<'T when 'T : (new : unit->'T)> (k: string) (m: Map<string, obj>) =
+    //     findOrRun (fun () -> new 'T()) k m
+
+module Option =
+    let toBool (f: 'T->bool) (opt: 'T option) =
+        match opt with Some x when f x -> true | _ -> false
+
+module List =
+    let isSingle = function
+        | [x] -> true
+        | _ -> false
+
+    /// Same as List.length xs > 1
+    let isMultiple = function
+        | [] | [_] -> false
+        | _ -> true
+
+    let rec sameLength xs1 xs2 =
+        match xs1, xs2 with
+        | [], [] -> true
+        | [_], [_] -> true
+        | _::xs1, _::xs2 -> sameLength xs1 xs2
+        | _ -> false
+
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
 

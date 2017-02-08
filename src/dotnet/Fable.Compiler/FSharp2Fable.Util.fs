@@ -803,13 +803,13 @@ module Types =
             then
                 if Seq.length genArgs = 1
                 then [Seq.head genArgs |> makeType com typeArgs], Fable.Unit
-                else [], Fable.Unit
+                else [Fable.Unit], Fable.Unit
                 |> Fable.Function
             elif fullName.StartsWith("System.Func")
             then
                 match Seq.length genArgs with
-                | 0 -> [], Fable.Unit
-                | 1 -> [], Seq.head genArgs |> makeType com typeArgs
+                | 0 -> [Fable.Unit], Fable.Unit
+                | 1 -> [Fable.Unit], Seq.head genArgs |> makeType com typeArgs
                 | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com typeArgs) |> Seq.toList,
                         Seq.last genArgs |> makeType com typeArgs
                 |> Fable.Function

@@ -409,8 +409,10 @@ let (|Type|) (expr: Expr) = expr.Type
 let rec ensureArity com argTypes args =
     let rec needsWrapping = function
         | Function(expected,_), Function(actual,returnType) ->
-            if (expected.Length < actual.Length)
-                || (expected.Length > actual.Length)
+            let expectedLength = List.length expected
+            let actualLength = List.length actual
+            if (expectedLength < actualLength)
+                || (expectedLength > actualLength)
                 || List.zip expected actual |> List.exists (needsWrapping >> Option.isSome)
             then Some(expected, actual, returnType)
             else None
@@ -418,27 +420,29 @@ let rec ensureArity com argTypes args =
     let wrap (com: ICompiler) typ (f: Expr) expectedArgs actualArgs =
         let outerArgs =
             expectedArgs |> List.map (fun t -> makeTypedIdent (com.GetUniqueVar()) t)
-        if List.length expectedArgs < List.length actualArgs then
-            List.skip expectedArgs.Length actualArgs
+        let expectedArgsLength = List.length expectedArgs
+        let actualArgsLength = List.length actualArgs
+        if expectedArgsLength < actualArgsLength then
+            List.skip expectedArgsLength actualArgs
             |> List.map (fun t -> makeTypedIdent (com.GetUniqueVar()) t)
             |> fun innerArgs ->
                 let args = outerArgs@innerArgs |> List.map (IdentValue >> Value)
                 makeApply com f.Range typ f args
                 |> makeLambdaExpr innerArgs
-        elif List.length expectedArgs > List.length actualArgs then
+        elif expectedArgsLength > actualArgsLength then
             if Option.isSome f.Range then
                 sprintf "A function with less arguments than expected has been wrapped at %O. %s"
                         f.Range.Value "Side effects may be delayed."
                 |> Warning |> com.AddLog
-            let innerArgs = List.take actualArgs.Length outerArgs |> List.map (IdentValue >> Value)
-            let outerArgs = List.skip actualArgs.Length outerArgs |> List.map (IdentValue >> Value)
+            let innerArgs = List.take actualArgsLength outerArgs |> List.map (IdentValue >> Value)
+            let outerArgs = List.skip actualArgsLength outerArgs |> List.map (IdentValue >> Value)
             let innerApply = makeApply com f.Range (Function(List.map Expr.getType outerArgs,typ)) f innerArgs
             makeApply com f.Range typ innerApply outerArgs
         else
             outerArgs |> List.map (IdentValue >> Value)
             |> makeApply com f.Range typ f
         |> makeLambdaExpr outerArgs
-    if List.length argTypes <> List.length args then args else // TODO: Raise warning?
+    if not(List.sameLength argTypes args) then args else // TODO: Raise warning?
     List.zip argTypes args
     |> List.map (fun (argType, arg: Expr) ->
         match needsWrapping (argType, arg.Type) with
@@ -457,16 +461,18 @@ and makeApply com range typ callee (args: Expr list) =
     // Make necessary transformations if we're applying more or less
     // arguments than the specified function arity
     | Function(argTypes, _) ->
-        if argTypes.Length < args.Length && argTypes.Length >= 1 // TODO: Remove >= 1
+        let argsLength = List.length args
+        let argTypesLength = List.length argTypes
+        if argTypesLength < argsLength && argTypesLength >= 1 // TODO: Remove >= 1
         then
-            let innerArgs = List.take argTypes.Length args
-            let outerArgs = List.skip argTypes.Length args
+            let innerArgs = List.take argTypesLength args
+            let outerArgs = List.skip argTypesLength args
             Apply(callee, ensureArity com argTypes innerArgs, ApplyMeth,
                     Function(List.map Expr.getType outerArgs, typ), range)
             |> makeApply com range typ <| outerArgs
-        elif argTypes.Length > args.Length && args.Length >= 1 // TODO: Remove >= 1
+        elif argTypesLength > argsLength && argsLength >= 1 // TODO: Remove >= 1
         then
-            List.skip args.Length argTypes
+            List.skip argsLength argTypes
             |> List.map (fun t -> Ident(com.GetUniqueVar(), t))
             |> fun argTypes2 ->
                 let args2 = argTypes2 |> List.map (IdentValue >> Value)
@@ -482,7 +488,7 @@ and makeApply com range typ callee (args: Expr list) =
 /// (e.g. when resolving a TraitCall)
 let compareConcreteAndGenericTypes appliedArgs declaredArgs =
     let listsEqual f li1 li2 =
-        if List.length li1 <> List.length li2
+        if not(List.sameLength li1 li2)
         then false
         else List.fold2 (fun b x y -> if b then f x y else false) true li1 li2
     let genArgs = System.Collections.Generic.Dictionary<string, Type>()
