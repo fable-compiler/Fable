@@ -27,15 +27,11 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.FSharp.Core.netcore" Version="1.0.0-alpha-*" />
-    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.0-*">
-      <PrivateAssets>All</PrivateAssets>
-    </PackageReference>
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.0-*" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
-    <DotNetCliToolReference Include="dotnet-compile-fsc">
-      <Version>1.0.0-*</Version>
-    </DotNetCliToolReference>
+    <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-preview2-*" />
   </ItemGroup>
 
 </Project>
