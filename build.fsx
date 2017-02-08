@@ -287,13 +287,11 @@ let buildCompilerJs () =
     Npm.install __SOURCE_DIRECTORY__ []
     Node.run "src/typescript/fable-compiler" "../../../node_modules/typescript/bin/tsc" []
 
-    CreateDir compilerBuildDir
-    !! "src/typescript/fable-compiler/out/**/*.*"
-    |> Seq.iter (fun path -> FileUtils.cp path compilerBuildDir)
+    CopyDir compilerBuildDir "src/typescript/fable-compiler/out" (fun _ -> true)
+    CopyDir (compilerBuildDir </> "node_modules") "src/typescript/fable-compiler/node_modules" (fun _ -> true)
 
     FileUtils.cp "README.md" compilerBuildDir
     FileUtils.cp "src/typescript/fable-compiler/package.json" compilerBuildDir
-    Npm.install compilerBuildDir []
     Npm.command compilerBuildDir "version" [releaseCompiler.Value.NugetVersion]
 
     // Update constants.js

@@ -266,3 +266,9 @@ let partialApplication(f: int->int->int) =
 [<Test>]
 let ``Lambdas can be partially applied``() =
     partialApplication (+) |> equal 29
+
+[<Test>]
+let ``Flattened lambdas can be composed``() = // See #704
+    let f = (+) >> id
+    List.foldBack f [1;2;3;4] 0
+    |> equal 10

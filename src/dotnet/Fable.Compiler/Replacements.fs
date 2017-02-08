@@ -636,7 +636,7 @@ module AstPass =
          | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
             applyOp com info args info.methodName |> Some
         | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
-            match info.args with 
+            match info.args with
             | [x] -> math r typ args info.methodName
             | [x; baseValue] ->  emit info "Math.log($0) / Math.log($1)" info.args |> Some
             | _ -> None
@@ -653,16 +653,17 @@ module AstPass =
             |> makeCall r typ |> Some
         // Function composition
         | "op_ComposeRight" | "op_ComposeLeft" ->
-            // If expression is a let binding we have to wrap it in a function
-            let wrap expr placeholder =
-                match expr with
-                | Fable.Sequential _ -> sprintf "((()=>%s)())" placeholder
-                | _ -> placeholder
-            let args = if info.methodName = "op_ComposeRight" then args else List.rev args
-            let f0 = wrap args.Head "$0"
-            let f1 = wrap args.Tail.Head "$1"
-            let pattern = System.String.Format("{0}=>{1}({2}({0}))", com.GetUniqueVar(), f1,f0)
-            emit info pattern args |> Some
+            match args, info.methodName with
+            | [arg1; arg2], "op_ComposeRight" -> Some(arg1, arg2)
+            | [arg1; arg2], "op_ComposeLeft" -> Some(arg2, arg1)
+            | _ -> None
+            |> Option.map (fun (f1, f2) ->
+                let tempVar = com.GetUniqueVar() |> makeIdent
+                [Fable.IdentValue tempVar |> Fable.Value]
+                |> makeApply com info.range Fable.Any f1
+                |> List.singleton
+                |> makeApply com info.range Fable.Any f2
+                |> makeLambdaExpr [tempVar])
         // Reference
         | "op_Dereference" -> makeGet r Fable.Any args.Head (makeStrConst "contents") |> Some
         | "op_ColonEquals" -> Fable.Set(args.Head, Some(makeStrConst "contents"), args.Tail.Head, r) |> Some
@@ -859,7 +860,7 @@ module AstPass =
                 // the result being wrapped with `| 0`
             |> makeCall i.range Fable.Any //(Fable.Number kind)
         match i.methodName with
-        | "isNaN" when isFloat -> 
+        | "isNaN" when isFloat ->
             match i.args with
             | [someNumber] ->
                 GlobalCall("Number", Some "isNaN", false, i.args)
@@ -1816,7 +1817,7 @@ module AstPass =
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
         | "System.BitConverter" -> bitConvert com info
         | "System.Int32" -> parse com info false
-        | "System.Single" 
+        | "System.Single"
         | "System.Double" -> parse com info true
         | "System.Convert" -> convert com info
         | "System.Console" -> console com info
