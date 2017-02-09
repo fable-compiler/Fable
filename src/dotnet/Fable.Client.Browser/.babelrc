@@ -1,3 +1,5 @@
 ﻿{
-  "presets": ["es2015", "babili"]
+  "presets": [["es2015", { "modules": false }], "babili"],
+  "comments": false,
+  "compact": true
 }
