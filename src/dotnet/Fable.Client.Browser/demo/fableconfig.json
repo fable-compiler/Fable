@@ -1,7 +1,6 @@
 {
     "projFile": "project.fsx",
     "ecma": "es2015",
-    "sourceMaps": true,
     "babelrc": false,
     "rollup": {
         "dest": "./out/bundle.js"
