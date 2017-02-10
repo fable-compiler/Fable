@@ -1,4 +1,4 @@
-﻿(function(babel, $, _, ace, window) {
+(function(babel, $, _, ace, window) {
   'use strict';
 
   var presets = [
