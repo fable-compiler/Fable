@@ -871,7 +871,7 @@ type private DeclInfo() =
     member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
         if (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.CompiledName)
             || Option.isSome(meth.Attributes |> tryFindAtt (fun name ->
-                name = Atts.import || name = Atts.global_ || name = Atts.emit))
+                name = Atts.import || name = Atts.global_ || name = Atts.emit || name = Atts.erase))
             || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
         then true
         else match tryFindChild meth with
