@@ -15,6 +15,22 @@ import { parse as dateParse } from "./Date"
 import { fsFormat } from "./String"
 
 function deflate(v: any) {
+
+  // for some reason objects in DU have duplicate props
+  // this copies only the correct unmangled properties
+  function copyProps(o: any) {
+    if (o != null && typeof o === "object") {
+        let tmp: { [key: string]: any; } = {};
+        for (let prop in o) {
+            let i = prop.indexOf('@');
+            if (i >= 0) { prop = prop.substr(0, i); }
+            tmp[prop] = o[prop];
+        }
+        o = tmp;
+    }
+    return o;
+  }
+
   if (ArrayBuffer.isView(v)) {
     return Array.from(v as any);
   }
@@ -49,15 +65,15 @@ function deflate(v: any) {
       else if (fieldsLength === 1) {
         // Prevent undefined assignment from removing case property; see #611:
         const fieldValue = typeof v.a === 'undefined' ? null : v.a;
-        return { [caseName]: fieldValue };
+        return copyProps(fieldValue); //{ [caseName]: fieldValue };
       }
       else {
         let fields = [];
         for (let i = 97 /* 'a' */, j: string; i < 97 + v.size; i++) {
           j = String.fromCharCode(i);
-          fields.push(v[j]);
+          fields.push(copyProps(v[j]));
         }
-        return { [caseName]: fields };
+        return fields; //{ [caseName]: fields };
       }
     }
   }

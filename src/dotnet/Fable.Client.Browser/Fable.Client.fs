@@ -108,7 +108,14 @@ let makeCompiler opts plugins =
 
 let printFile =
     fun (file: AST.Babel.Program) ->
-        printfn "%A" file
+#if DOTNETCORE || DOTNET40
+        // technically there should be a conversion to JSON here
+        // but we're trying to avoid adding the Json.NET reference
+        // as this is just to show it compiles properly on dotnet.
+        printfn "Babel AST: %A" file
+#else
+        printfn "%s" (Fable.Core.JsInterop.toJson file)
+#endif
 
 let printMessages (msgs: seq<CompilerMessage>) =
     msgs
