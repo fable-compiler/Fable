@@ -324,21 +324,6 @@
       presets.push('babili');
     }
 
-    function fixInvalidAst(ast) {
-      function isObject(x) {
-        return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
-      }
-      let fixValue = function (k, v) {
-        return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v)
-          : v && v.Case && v.Fields && Array.isArray(v.Fields) ?
-              v.Fields.length == 1 ? v.Fields[0] : v.Fields.length > 1 ? v.Fields : v.Case
-          : (k.startsWith("directives@") || k.startsWith("specifiers@")) && !v ? [] : v;
-      };
-      let astJson = JSON.stringify(ast, fixValue).replace(/@[0-9]+"/g, '"');
-      let newAst = JSON.parse(astJson);
-      return newAst;
-    }
-
     try {
       const source = this.getSource();
       const references = ["FSharp.Core","mscorlib", "System", "System.Core", "System.Data", "System.IO", "System.Xml", "System.Numerics"];
@@ -352,7 +337,7 @@
         // compile AST from F# source
         const readAllBytes = function (fileName) { return metadata[fileName]; }
         const asts = project.compileSource(readAllBytes, references, source);
-        ast = fixInvalidAst(asts[0]);
+        ast = JSON.parse(asts[0]);
       }
       let options = {
         presets: presets.filter(Boolean),

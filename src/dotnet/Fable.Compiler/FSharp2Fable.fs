@@ -1129,6 +1129,7 @@ type FableCompiler(com: ICompiler, projectMaps: Dictionary<string,Map<string, Fa
             match ent.TryFullName, ent.Assembly.FileName with
             // TODO: Temporary HACK to fix #577
             | Some fullName, _ when fullName.StartsWith("Fable.Import.Node") -> false
+            | Some fullName, _ when fullName.StartsWith("Fable.Core.JsInterop") -> true
             | _, Some asmPath -> projectMaps.ContainsKey asmPath |> not
             | _ -> false
         member fcom.TryGetInternalFile tdef =
