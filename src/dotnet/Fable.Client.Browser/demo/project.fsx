@@ -10,5 +10,5 @@ let compileSource readAllBytes references source =
     let fileName = "stdin.fsx"
     let files = compileAst com checker (fileName, source)
     files
-    // |> Seq.map (fun file -> Fable.Core.JsInterop.toJson file)
+    |> Seq.map (fun file -> Fable.Core.JsInterop.toJson file)
     |> Array.ofSeq

@@ -326,8 +326,7 @@
 
     try {
       var source = this.getSource();
-      var references = ["FSharp.Core","mscorlib", "System", "System.Core", "System.Data", "System.IO", "System.Xml", "System.Numerics", "System.Runtime", "System.Runtime.Numerics",
-      "System.Reflection", "System.Reflection.Primitives", "System.Globalization"];
+      var references = ["FSharp.Core","mscorlib", "System", "System.Core", "System.Data", "System.IO", "System.Xml", "System.Numerics"];
 
       var ast = null;
       if (this.options.astInput) {
@@ -337,10 +336,8 @@
       else {
         // compile AST from F# source
         var readAllBytes = function (fileName) { return metadata[fileName]; }
-        debugger;
         var asts = project.compileSource(readAllBytes, references, source);
-        // ast = JSON.parse(asts[0]);
-        ast = asts[0];
+        ast = JSON.parse(asts[0]);
       }
       var options = {
         presets: presets.filter(Boolean),
@@ -527,12 +524,7 @@
       "System.Data.dll",
       "System.IO.dll",
       "System.Xml.dll",
-      "System.Numerics.dll",
-      "System.Runtime.dll",
-      "System.Runtime.Numerics.dll",
-      "System.Reflection.dll",
-      "System.Reflection.Primitives.dll",
-      "System.Globalization.dll"
+      "System.Numerics.dll"
     ];
     references.map(function(fileName){
       getFileBlob(fileName, '/out/metadata/' + fileName);
