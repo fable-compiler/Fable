@@ -8,12 +8,12 @@
 
         "../Fable.Core/Compiler.fs"
         "../Fable.Core/Util.fs"
+        "../Fable.Core/Fable.Core.fs"
         "../Fable.Core/AST/AST.Common.fs"
         "../Fable.Core/AST/AST.Fable.fs"
         "../Fable.Core/AST/AST.Fable.Util.fs"
         "../Fable.Core/AST/AST.Babel.fs"
         "../Fable.Core/Plugins.fs"
-        "../Fable.Core/Fable.Core.fs"
         // "../Fable.Core/Import/Fable.Import.JS.fs"
         // "../Fable.Core/Import/Fable.Import.Browser.fs"
         // "../Fable.Core/Import/Fable.Import.Node.fs"

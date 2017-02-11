@@ -1,6 +1,7 @@
 {
     "projFile": "project.fsx",
-    "ecma": "es2015",
+    // "ecma": "es2015",
+    "coreLib": "../../../../build/fable-core",
     "babelrc": false,
     "rollup": {
         "dest": "./out/bundle.js"

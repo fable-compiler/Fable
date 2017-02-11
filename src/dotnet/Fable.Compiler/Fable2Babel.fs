@@ -2,6 +2,7 @@ module Fable.Fable2Babel
 
 open Fable
 open Fable.AST
+open Fable.Core
 open System
 open System.Collections.Generic
 open System.Text.RegularExpressions

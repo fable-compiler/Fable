@@ -1,6 +1,7 @@
 namespace Fable.AST.Babel
 open Fable
 open Fable.AST
+open Fable.Core
 
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.

@@ -325,21 +325,24 @@
     }
 
     try {
-      const source = this.getSource();
-      const references = ["FSharp.Core","mscorlib", "System", "System.Core", "System.Data", "System.IO", "System.Xml", "System.Numerics"];
+      var source = this.getSource();
+      var references = ["FSharp.Core","mscorlib", "System", "System.Core", "System.Data", "System.IO", "System.Xml", "System.Numerics", "System.Runtime", "System.Runtime.Numerics",
+      "System.Reflection", "System.Reflection.Primitives", "System.Globalization"];
 
-      let ast = null;
+      var ast = null;
       if (this.options.astInput) {
         // parse babel AST input
         ast = JSON.parse(source);
       }
       else {
         // compile AST from F# source
-        const readAllBytes = function (fileName) { return metadata[fileName]; }
-        const asts = project.compileSource(readAllBytes, references, source);
-        ast = JSON.parse(asts[0]);
+        var readAllBytes = function (fileName) { return metadata[fileName]; }
+        debugger;
+        var asts = project.compileSource(readAllBytes, references, source);
+        // ast = JSON.parse(asts[0]);
+        ast = asts[0];
       }
-      let options = {
+      var options = {
         presets: presets.filter(Boolean),
         filename: 'repl',
         babelrc: false,
@@ -445,7 +448,7 @@
   function onOutputClear() {
     repl.setOutput("");
   }
-  
+
   //repl.input.on('change', _.debounce(onSourceChange, 500));
   //repl.$toolBar.on('change', onSourceChange);
 
@@ -515,7 +518,7 @@
   };
 
   function loadMetadata() {
-    let references = [
+    var references = [
       "FSharp.Core.dll",
       "FSharp.Core.sigdata",
       "mscorlib.dll",
@@ -524,13 +527,18 @@
       "System.Data.dll",
       "System.IO.dll",
       "System.Xml.dll",
-      "System.Numerics.dll"
+      "System.Numerics.dll",
+      "System.Runtime.dll",
+      "System.Runtime.Numerics.dll",
+      "System.Reflection.dll",
+      "System.Reflection.Primitives.dll",
+      "System.Globalization.dll"
     ];
     references.map(function(fileName){
       getFileBlob(fileName, '/out/metadata/' + fileName);
     });
   }
-  
+
   loadMetadata();
 
   $('#fabel-compile').on('click', onSourceChange);

@@ -10,12 +10,12 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Util.fs" />
+    <Compile Include="Fable.Core.fs" />
     <Compile Include="AST/AST.Common.fs" />
     <Compile Include="AST/AST.Fable.fs" />
     <Compile Include="AST/AST.Fable.Util.fs" />
     <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Plugins.fs" />
-    <Compile Include="Fable.Core.fs" />
   </ItemGroup>
 
   <ItemGroup Condition="$(DefineConstants.Contains('IMPORT'))">

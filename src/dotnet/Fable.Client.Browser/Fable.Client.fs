@@ -4,6 +4,7 @@ open System
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
+open Fable.Core
 
 type FSProjInfo = FSharp2Fable.Compiler.FSProjectInfo
 
@@ -17,6 +18,9 @@ type CompilerMessage =
             dict [ ("type", "ERROR"); ("message", msg) ]
         | Log msg ->
             dict [ ("type", "LOG"); ("message", msg) ]
+
+// Make the type non-erasable
+type U2<'a, 'b> = Case1 of 'a | Case2 of 'b
 
 let readOptions argv =
     let splitKeyValue (x: string) =

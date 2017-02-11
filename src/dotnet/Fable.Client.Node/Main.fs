@@ -12,6 +12,7 @@ open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
 open Newtonsoft.Json
 open Fable
 open Fable.AST
+open Fable.Core
 
 type CompilerMessage =
     | Error of message: string * stack: string option
