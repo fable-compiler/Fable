@@ -369,7 +369,7 @@ let buildJsonConverter () =
 let runTestsDotnet () =
     Util.run "src/tests_external" dotnetExePath "restore"
     Util.run "src/tests/DllRef" dotnetExePath "restore"
-    Util.run "src/tests/Project_With_Spaces" dotnetExePath "restore"
+    Util.run "src/tests/Project With Spaces" dotnetExePath "restore"
     Util.run "src/tests/Main" dotnetExePath "restore"
 
     Util.run "src/tests/Main" dotnetExePath "test"

@@ -64,6 +64,6 @@
   <ItemGroup>
     <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />
     <ProjectReference Include="..\..\tests_external\Fable.Tests.External.fsproj" />
-    <ProjectReference Include="..\Project_With_Spaces\Fable.Tests.Spaces.fsproj" />
+    <ProjectReference Include="..\Project With Spaces\Fable.Tests.Spaces.fsproj" />
   </ItemGroup>
 </Project>
