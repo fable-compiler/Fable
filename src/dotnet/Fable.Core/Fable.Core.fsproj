@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard1.6</TargetFramework>
-    <EnableDefaultCompileItems>False</EnableDefaultCompileItems>
     <DefineConstants>DOTNETCORE</DefineConstants>
   </PropertyGroup>
 

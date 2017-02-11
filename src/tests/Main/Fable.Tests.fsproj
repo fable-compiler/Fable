@@ -1,7 +1,6 @@
 ﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk" ToolsVersion="15.0">
   <PropertyGroup>
     <TargetFramework>netcoreapp1.0</TargetFramework>
-    <EnableDefaultCompileItems>False</EnableDefaultCompileItems>
     <DefineConstants>DOTNETCORE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>

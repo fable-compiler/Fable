@@ -196,7 +196,7 @@ let gitHome = "https://github.com/" + gitOwner
 let releaseCompiler = Util.loadReleaseNotes "COMPILER"
 let releaseCore = Util.loadReleaseNotes "CORE"
 
-let dotnetcliVersion = "1.0.0-rc3-004530"
+let dotnetcliVersion = "1.0.0-rc4-004771"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let compilerBuildDir = "build/fable"
