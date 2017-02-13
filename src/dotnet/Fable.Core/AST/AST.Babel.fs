@@ -1,7 +1,6 @@
 namespace Fable.AST.Babel
 open Fable
 open Fable.AST
-open Fable.Core
 
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
@@ -14,6 +13,29 @@ open Fable.Core
 type Node(``type``, ?loc) =
     member x.``type``: string = ``type``
     member x.loc: SourceLocation option = loc
+
+[<Fable.Core.Erase>]
+type U2< ^a, ^b when ^a: (member ``type``:string)
+                and 'b: (member ``type``:string)> =
+    | Case1 of ^a
+    | Case2 of ^b
+    member inline x.``type``: string =
+        match x with
+        | Case1 a -> (^a : (member ``type``:string) a)
+        | Case2 b -> (^b : (member ``type``:string) b)
+
+[<Fable.Core.Erase>]
+type U3<'a, 'b, 'c when 'a: (member ``type``:string)
+                    and 'b: (member ``type``:string)
+                    and 'c: (member ``type``:string)> =
+    | Case1 of 'a
+    | Case2 of 'b
+    | Case3 of 'c
+    member inline x.``type``: string =
+        match x with
+        | Case1 a -> (^a : (member ``type``:string) a)
+        | Case2 b -> (^b : (member ``type``:string) b)
+        | Case3 c -> (^c : (member ``type``:string) c)
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 [<AbstractClass>] type Expression(typ, ?loc) = inherit Node(typ, ?loc = loc)

@@ -3,12 +3,16 @@
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable.Client
 
-let compileSource readAllBytes references source =
-    let checker = InteractiveChecker(List.ofArray references, readAllBytes)
+let mutable checker: InteractiveChecker option = None
+
+let createChecker readAllBytes references =
+    InteractiveChecker(List.ofArray references, readAllBytes)
+
+let compileSource checker source =
     let opts = readOptions [||]
     let com = makeCompiler opts []
     let fileName = "stdin.fsx"
     let files = compileAst com checker (fileName, source)
     files
     |> Seq.map (fun file -> Fable.Core.JsInterop.toJson file)
-    |> Array.ofSeq
+    |> Seq.head

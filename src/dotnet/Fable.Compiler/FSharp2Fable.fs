@@ -471,11 +471,11 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             | None -> makeType com ctx.typeArgs calleeType
                       |> makeNonGenTypeRef com
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGetFrom com ctx r typ callee (makeStrConst fieldName)
+        makeGetFrom r typ callee (makeStrConst fieldName)
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGetFrom com ctx r typ tupleExpr (makeIntConst tupleElemIndex)
+        makeGetFrom r typ tupleExpr (makeIntConst tupleElemIndex)
 
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, fsType, unionCase, FieldName fieldName) ->
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
@@ -507,7 +507,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGetFrom com ctx r typ unionExpr (makeStrConst "tag")
+        makeGetFrom r typ unionExpr (makeStrConst "tag")
 
     | BasicPatterns.UnionCaseSet (Transform com ctx unionExpr, _type, _case, _caseField, _valueExpr) ->
         makeRange fsExpr.Range |> failwithf "Unexpected UnionCaseSet %O"

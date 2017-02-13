@@ -1,6 +1,84 @@
 (function(babel, $, _, ace, window) {
   'use strict';
 
+  var template = babel.template;
+  // Remove null args at the end of method or constructor calls.
+  // This may conflict in some situations when comparing null to undefined, see #231,
+  // but if disabled can cause problems with some APIs that use options to represent optional
+  // arguments like CanvasRenderingContext2D.fill: ?fillRule: string -> unit (fails if passed null).
+  function removeNullTailArgs(path) {
+      if (Array.isArray(path.node.arguments)) {
+          for (var i = path.node.arguments.length - 1; i >= 0; i--) {
+              if (path.node.arguments[i].type === "NullLiteral")
+                  path.node.arguments.splice(i, 1);
+              else
+                  break;
+          }
+      }
+  }
+  /**
+   * Removes unnecessary null statements and null arguments at the end
+   * of method/constructor calls, as these usually represent optional
+   * arguments set to None by F# compiler and may conflict with some JS APIs.
+   * This plugin must come after transformMacroExpressions (see #377).
+   */
+  var removeUnneededNulls = {
+      visitor: {
+          // Remove `null;` statements (e.g. at the end of constructors)
+          ExpressionStatement: function (path) {
+              if (path.node.expression.type === "NullLiteral") {
+                  debugger;
+                  path.remove();
+              }
+          }
+      }
+  };
+  /**
+   * Custom plugin to simulate macro expressions.
+   */
+  var transformMacroExpressions = {
+      visitor: {
+          StringLiteral: function (path) {
+              var node = path.node;
+              if (!node.macro || !node.value) {
+                  return;
+              }
+              var buildArgs = {}, macro = node.value;
+              try {
+                  var args = node.args;
+                  for (var i = 0; i < args.length; i++) {
+                      buildArgs["$" + i] = args[i];
+                  }
+                  macro = macro
+                      .replace(/\$(\d+)\.\.\./, function (m, i) {
+                      var rep = [], j = parseInt(i);
+                      for (; j < args.length; j++) {
+                          rep.push("$" + j);
+                      }
+                      return rep.join(",");
+                  })
+                      .replace(/\{\{\$(\d+)\?(.*?)\:(.*?)\}\}/g, function (_, g1, g2, g3) {
+                      var i = parseInt(g1);
+                      return i < args.length && args[i].value ? g2 : g3;
+                  })
+                      .replace(/\{\{([^\}]*\$(\d+).*?)\}\}/g, function (_, g1, g2) {
+                      var i = parseInt(g2);
+                      return i < args.length ? g1 : "";
+                  });
+                  var buildMacro = template(macro);
+                  path.replaceWithMultiple(buildMacro(buildArgs));
+              }
+              catch (err) {
+                err.message =
+                  "BABEL ERROR: Failed to parse macro: " + macro + "\n" +
+                  "MACRO ARGUMENTS: " + Object.getOwnPropertyNames(buildArgs).join() + "\n" +
+                  err.message;
+                throw err;
+              }
+          }
+      }
+  };
+
   var presets = [
     'es2015',
     'es2015-loose',
@@ -308,39 +386,25 @@
     return this.input.getValue();
   };
 
-  REPL.prototype.compile = function () {
-    this.output.session.setUseWrapMode(this.options.lineWrap);
-
+  REPL.prototype.transformFromAst = function (ast) {
     var transformed;
-    this.clearOutput();
-
-    if (this.options.babili && !hasBabiliLoaded()) {
-      this.setOutput('// Babili is loading, please wait...');
-      return;
-    }
-
-    var presets = this.options.presets.split(',');
-    if (this.options.babili) {
-      presets.push('babili');
-    }
-
     try {
-      var source = this.getSource();
-      var references = ["FSharp.Core","mscorlib", "System", "System.Core", "System.Data", "System.IO", "System.Xml", "System.Numerics"];
+      // if (this.options.babili && !hasBabiliLoaded()) {
+      //   this.setOutput('// Babili is loading, please wait...');
+      //   return;
+      // }
 
-      var ast = null;
-      if (this.options.astInput) {
-        // parse babel AST input
-        ast = JSON.parse(source);
-      }
-      else {
-        // compile AST from F# source
-        var readAllBytes = function (fileName) { return metadata[fileName]; }
-        var asts = project.compileSource(readAllBytes, references, source);
-        ast = JSON.parse(asts[0]);
-      }
+      // var presets = this.options.presets.split(',');
+      // if (this.options.babili) {
+      //   presets.push('babili');
+      // }
+
       var options = {
-        presets: presets.filter(Boolean),
+        // presets: presets.filter(Boolean),
+        plugins: [
+          transformMacroExpressions,
+          removeUnneededNulls,
+        ],
         filename: 'repl',
         babelrc: false,
       };
@@ -355,6 +419,21 @@
 
     if (this.options.evaluate) {
       this.evaluate(transformed.code);
+    }
+  }
+
+  REPL.prototype.compile = function () {
+    this.output.session.setUseWrapMode(this.options.lineWrap);
+
+    var transformed;
+    this.clearOutput();
+
+    var source = this.getSource();
+    if (this.options.astInput) {
+      this.transformFromAst(JSON.parse(source));
+    }
+    else {
+      myWorker.postMessage(source);
     }
   };
 
@@ -418,6 +497,10 @@
    * Initialize the REPL
    */
   var repl = new REPL();
+  var myWorker = new Worker("worker.js");
+  myWorker.onmessage = function (e) {
+    repl.transformFromAst(JSON.parse(e.data));
+  };
 
   function onPresetChange() {
     // Update the list of presets that are displayed on the dropdown list anchor
@@ -492,46 +575,6 @@
       $(resizeSelector).off('mousedown', onResizeStart);
     };
   }
-
-  //-------------------------------------
-  // loading metadata
-  //-------------------------------------
-  var metadata = {}
-
-  var getFileBlob = function (key, url) {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", url);
-    xhr.responseType = "arraybuffer";
-    xhr.onload = function (oEvent) {
-      var arrayBuffer = xhr.response;
-      if (arrayBuffer) {
-        metadata[key] = new Uint8Array(arrayBuffer);
-      }
-    };
-    xhr.onerror = function (oEvent) {
-      console.log('Error loading ' + url);
-    };
-    xhr.send();
-  };
-
-  function loadMetadata() {
-    var references = [
-      "FSharp.Core.dll",
-      "FSharp.Core.sigdata",
-      "mscorlib.dll",
-      "System.dll",
-      "System.Core.dll",
-      "System.Data.dll",
-      "System.IO.dll",
-      "System.Xml.dll",
-      "System.Numerics.dll"
-    ];
-    references.map(function(fileName){
-      getFileBlob(fileName, '/out/metadata/' + fileName);
-    });
-  }
-
-  loadMetadata();
 
   $('#fabel-compile').on('click', onSourceChange);
   $('#fabel-clear').on('click', onOutputClear);

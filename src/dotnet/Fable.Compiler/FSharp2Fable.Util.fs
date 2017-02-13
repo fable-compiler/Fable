@@ -259,7 +259,8 @@ module Helpers =
     let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
         let isInterface =
             meth.IsExplicitInterfaceImplementation
-            || (tryEnclosingEntity meth |> Option.toBool (fun ent -> ent.IsInterface))
+            || (meth.IsInstanceMember
+                && (tryEnclosingEntity meth |> Option.toBool (fun ent -> ent.IsInterface)))
         if isInterface then meth.DisplayName else
         match getMemberKind meth with
         | Fable.Getter | Fable.Setter -> meth.DisplayName
@@ -1010,7 +1011,7 @@ module Util =
             | None -> None
         Fable.TryCatch (body, catchClause, finalizer, makeRangeFrom fsExpr)
 
-    let makeGetFrom com ctx r typ callee propExpr =
+    let makeGetFrom r typ callee propExpr =
         Fable.Apply (callee, [propExpr], Fable.ApplyGet, typ, r)
 
     // This method doesn't work, the arguments don't keep the attributes
@@ -1142,6 +1143,31 @@ module Util =
                     m.Value)
         else macro
         |> fun macro -> macro, args@(List.rev extraArgs)
+
+    let (|Erased|_|) r typ (owner: FSharpEntity option) (callee, args)
+                        (meth: FSharpMemberOrFunctionOrValue) =
+        match owner with
+        | Some owner ->
+            match owner.Attributes with
+            | ContainsAtt Atts.erase attArgs ->
+                match callee with
+                | Some callee ->
+                    let methName = meth.DisplayName
+                    match getMemberKind meth with
+                    | Fable.Getter | Fable.Field ->
+                        makeGetFrom r typ callee (makeStrConst methName)
+                    | Fable.Setter ->
+                        Fable.Set (callee, Some (makeStrConst methName), List.head args, r)
+                    | Fable.Method ->
+                        let m = makeGet r Fable.Any callee (makeStrConst methName)
+                        Fable.Apply(m, args, Fable.ApplyMeth, typ, r)
+                    | Fable.Constructor ->
+                        FableError("Erased type cannot have constructors", ?range=r) |> raise
+                    |> Some
+                | None ->
+                    FableError("Cannot call a static method of an erased type: " + meth.DisplayName, ?range=r) |> raise
+            | _ -> None
+        | None -> None
 
     let (|Emitted|_|) com ctx r typ i (typArgs, methTypArgs) (callee, args)
                         (meth: FSharpMemberOrFunctionOrValue) =
@@ -1294,6 +1320,7 @@ module Util =
         | Plugin com i replaced -> replaced
         | Imported com ctx r typ i (typArgs, methTypArgs) args imported -> imported
         | Emitted com ctx r typ i (typArgs, methTypArgs) (callee, args) emitted -> emitted
+        | Erased r typ owner (callee, args) erased -> erased
         | Replaced com i owner replaced -> replaced
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         | ExtensionMember com ctx r typ (callee, args, argTypes) owner expr -> expr
@@ -1317,7 +1344,7 @@ module Util =
     (**     *Check if this a getter or setter  *)
             match getMemberKind meth with
             | Fable.Getter | Fable.Field ->
-                makeGetFrom com ctx r typ callee (makeStrConst methName)
+                makeGetFrom r typ callee (makeStrConst methName)
             | Fable.Setter ->
                 Fable.Set (callee, Some (makeStrConst methName), args.Head, r)
     (**     *Check if this is an implicit constructor *)
@@ -1366,33 +1393,39 @@ module Util =
             Fable.Value Fable.This
 
     let makeValueFrom com ctx r typ eraseUnit (v: FSharpMemberOrFunctionOrValue) =
+        let resolveValue com ctx r typ owner v =
+            match tryGetBoundExpr ctx r v with
+            | Some e -> e
+            | None ->
+                let typ, typeRef =
+                    match owner with
+                    | Some ent -> typ, makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
+                    // Cases when tryEnclosingEntity returns None are rare (see #237)
+                    // Let's assume the value belongs to the current enclosing module
+                    | None ->
+                        // Checking the type is necessary to prevent issues with `AST.Fable.Util.ensureArity`
+                        // Seems references to auto generated methods are not wrapped in lambdas
+                        // See MiscTests.``Recursive values work`` (#237)
+                        let typ =
+                            v.CurriedParameterGroups
+                            |> Seq.map (fun gr ->
+                                if gr.Count = 1
+                                then gr.[0].Type |> makeType com ctx.typeArgs
+                                else Fable.Any) // TODO: Tuple type?
+                            |> fun argTypes -> Fable.Function(Seq.toList argTypes, makeType com ctx.typeArgs v.ReturnParameter.Type)
+                        typ, Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef com
+                Fable.Apply (typeRef, [makeStrConst v.CompiledName], Fable.ApplyGet, typ, r)
         if eraseUnit && typ = Fable.Unit
         then Fable.Wrapped(Fable.Value Fable.Null, Fable.Unit)
+        elif v.IsModuleValueOrMember
+        then
+            let owner = tryEnclosingEntity v
+            let i = buildApplyInfoFrom com ctx r typ ([], []) (None, []) owner v
+            match v with
+            | Plugin com i replaced -> replaced
+            | Imported com ctx r typ i ([], []) [] imported -> imported
+            | Emitted com ctx r typ i ([], []) (None, []) emitted -> emitted
+            | Replaced com i owner replaced -> replaced
+            | v -> resolveValue com ctx r typ owner v
         else
-        let owner = tryEnclosingEntity v
-        let i = buildApplyInfoFrom com ctx r typ ([], []) (None, []) owner v
-        match v with
-        | Plugin com i replaced -> replaced
-        | Imported com ctx r typ i ([], []) [] imported -> imported
-        | Emitted com ctx r typ i ([], []) (None, []) emitted -> emitted
-        | Replaced com i owner replaced -> replaced
-        | Try (tryGetBoundExpr ctx r) e -> e
-        | _ ->
-            let typ, typeRef =
-                match owner with
-                | Some ent -> typ, makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
-                // Cases when tryEnclosingEntity returns None are rare (see #237)
-                // Let's assume the value belongs to the current enclosing module
-                | None ->
-                    // Checking the type is necessary to prevent issues with `AST.Fable.Util.ensureArity`
-                    // Seems references to auto generated methods are not wrapped in lambdas
-                    // See MiscTests.``Recursive values work`` (#237)
-                    let typ =
-                        v.CurriedParameterGroups
-                        |> Seq.map (fun gr ->
-                            if gr.Count = 1
-                            then gr.[0].Type |> makeType com ctx.typeArgs
-                            else Fable.Any) // TODO: Tuple type?
-                        |> fun argTypes -> Fable.Function(Seq.toList argTypes, makeType com ctx.typeArgs v.ReturnParameter.Type)
-                    typ, Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef com
-            Fable.Apply (typeRef, [makeStrConst v.CompiledName], Fable.ApplyGet, typ, r)
+            resolveValue com ctx r typ None v

@@ -86,10 +86,11 @@ export const transformMacroExpressions = {
         path.replaceWithMultiple(buildMacro(buildArgs));
       }
       catch (err) {
-          console.log("BABEL ERROR: Failed to parse macro: " + macro);
-          console.log("MACRO ARGUMENTS: " + Object.getOwnPropertyNames(buildArgs).join());
-          console.log(err.message);
-          process.exit(1);
+        err.message =
+          "BABEL ERROR: Failed to parse macro: " + macro + "\n" +
+          "MACRO ARGUMENTS: " + Object.getOwnPropertyNames(buildArgs).join() + "\n" +
+          err.message;
+        throw err;
       }
     }
   }

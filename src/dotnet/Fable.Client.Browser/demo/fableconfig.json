@@ -1,8 +1,11 @@
 {
     "projFile": "project.fsx",
-    // "ecma": "es2015",
+    "ecma": "es2015",
     "coreLib": "../../../../build/fable-core",
     "babelrc": false,
+    "babelPlugins": [
+        "transform-es2015-block-scoping"
+    ],
     "rollup": {
         "dest": "./out/bundle.js"
     },
@@ -16,7 +19,7 @@
       "TRACE"
     ],
     "scripts": {
-        "prebuild": "npm install",
+        "prebuild": "node node_modules/webpack/bin/webpack babel-standalone.js out/babel-standalone.js --output-library Babel -p",
         "postbuild": "node server"
     }
 }

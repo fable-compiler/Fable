@@ -2,7 +2,7 @@ namespace Fable.Plugins
 
 open Fable
 open Fable.AST
-open Fable.Core
+open Fable.AST.Babel
 open Fable.Fable2Babel
 
 module Util =
