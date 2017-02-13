@@ -277,9 +277,7 @@ let clean () =
 
 let nugetRestore () =
     Util.run coreSrcDir dotnetExePath "restore"
-    FullName "lib"
-    |> sprintf "restore -s file://%s -s https://api.nuget.org/v3/index.json"
-    |> Util.run compilerSrcDir dotnetExePath
+    Util.run compilerSrcDir dotnetExePath "restore"
     Util.run clientSrcDir dotnetExePath "restore"
 
 let buildCompilerJs () =

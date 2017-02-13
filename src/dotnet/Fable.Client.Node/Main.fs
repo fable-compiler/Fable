@@ -112,7 +112,9 @@ let makeProjectOptions project sources otherOptions =
       IsIncompleteTypeCheckEnvironment = false
       UseScriptResolutionRules = false
       LoadTime = DateTime.Now
-      UnresolvedReferences = None }
+      UnresolvedReferences = None
+      OriginalLoadReferences = []
+      ExtraProjectInfo = None }
 
 let getProjectOptionsFromScript (checker: FSharpChecker) (opts: CompilerOptions) scriptFile =
     let otherFlags = [|
@@ -166,6 +168,7 @@ let getBasicCompilerArgs (opts: CompilerOptions) optimize =
         yield "-r:" + resolve "System"
 #endif
         yield "-r:" + resolve "mscorlib"
+        yield "-r:" + resolve "System.Collections"
         yield "-r:" + resolve "System.IO"
         yield "-r:" + resolve "System.Runtime"
         yield "-r:" + resolve "System.Runtime.Numerics"
