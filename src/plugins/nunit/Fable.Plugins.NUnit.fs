@@ -106,10 +106,14 @@ module Util =
 open Util
 
 type NUnitPlugin() =
+    let helper =
+        { new IDeclareMember with
+            member __.DeclareMember(a,b,c,d,e,f,g) =
+                declareModMember a b c d e f g }
     interface IDeclarePlugin with
         member x.TryDeclareRoot com ctx file =
             if file.Root.TryGetDecorator "TestFixture" |> Option.isNone then None else
-            Util.transformModDecls com ctx declareModMember None file.Declarations
+            Util.transformModDecls com ctx helper None file.Declarations
             |> castStatements
             |> transformTestFixture file.Root (Some file.Range)
             |> U2.Case1
@@ -122,7 +126,7 @@ type NUnitPlugin() =
                 |> List.singleton |> Some
             | TestFixture (fixture, testDecls, testRange) ->
                 let ctx = { ctx with moduleFullName = fixture.FullName }
-                Util.transformModDecls com ctx declareModMember None testDecls
+                Util.transformModDecls com ctx helper None testDecls
                 |> castStatements
                 |> transformTestFixture fixture testRange
                 |> List.singleton |> Some

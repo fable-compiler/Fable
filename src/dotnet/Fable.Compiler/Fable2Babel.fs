@@ -77,6 +77,9 @@ and IDeclarePlugin =
         com: IBabelCompiler -> ctx: Context -> file: Fable.File
         -> (U2<Statement, ModuleDeclaration> list) option
 
+type IDeclareMember =
+    abstract member DeclareMember: SourceLocation option * string * string option * bool * bool * Identifier option * Expression -> U2<Statement, ModuleDeclaration> list
+
 module Util =
     let inline (|EntKind|) (ent: Fable.Entity) = ent.Kind
     let inline (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
@@ -951,7 +954,7 @@ module Util =
             let expDecl = ExportNamedDeclaration(specifiers=[expSpec])
             [expDecl :> ModuleDeclaration |> U2.Case2; decl :> Statement |> U2.Case1]
 
-    let transformModMember (com: IBabelCompiler) ctx declareMember modIdent
+    let transformModMember (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent
                            (m: Fable.Member, privName, args, body, range) =
         let expr =
             match m.Kind with
@@ -976,7 +979,7 @@ module Util =
             match range, expr.loc with Some r1, Some r2 -> Some(r1 + r2) | _ -> None
         if m.TryGetDecorator("EntryPoint").IsSome
         then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
-        else declareMember memberRange m.OverloadName privName m.IsPublic m.IsMutable modIdent expr
+        else helper.DeclareMember(memberRange, m.OverloadName, privName, m.IsPublic, m.IsMutable, modIdent, expr)
 
     let declareInterfaceEntity (com: IBabelCompiler) (ent: Fable.Entity) =
         // TODO: Add `extends` (inherited interfaces)
@@ -988,13 +991,12 @@ module Util =
         InterfaceDeclaration(body, id, []) :> Statement
         |> U2.Case1 |> List.singleton
 
-    let declareClass com ctx declareMember modIdent
-                     (ent: Fable.Entity) privateName
-                     entDecls entRange baseClass isClass =
+    let declareClass com ctx (helper: IDeclareMember) modIdent
+                     (ent: Fable.Entity) privateName entDecls entRange baseClass =
         let classDecl =
             // Don't create a new context for class declarations
-            transformClass com ctx entRange (Some ent) baseClass entDecls
-            |> declareMember entRange ent.Name (Some privateName) ent.IsPublic false modIdent
+            let classExpr = transformClass com ctx entRange (Some ent) baseClass entDecls
+            helper.DeclareMember(entRange, ent.Name, Some privateName, ent.IsPublic, false, modIdent, classExpr)
         let classDecl =
             (declareType com ctx ent |> U2.Case1)::classDecl
         // Check if there's a static constructor
@@ -1016,7 +1018,11 @@ module Util =
         let modIdent = Identifier Naming.exportsIdent
         let modDecls =
             let ctx = { ctx with moduleFullName = ent.FullName }
-            transformModDecls com ctx declareNestedModMember (Some modIdent) entDecls
+            let helper =
+                { new IDeclareMember with
+                    member __.DeclareMember(a,b,c,d,e,f,g) =
+                        declareNestedModMember a b c d e f g }
+            transformModDecls com ctx helper (Some modIdent) entDecls
             |> List.map (function
                 | U2.Case1 statement -> statement
                 | U2.Case2 _ -> failwith "Unexpected export in nested module")
@@ -1026,7 +1032,7 @@ module Util =
             [U2.Case1 (upcast ObjectExpression [])],
             ?loc=entRange)
 
-    and transformModDecls (com: IBabelCompiler) ctx declareMember modIdent decls =
+    and transformModDecls (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent decls =
         let pluginDeclare (decl: Fable.Declaration) =
             com.DeclarePlugins
             |> Plugins.tryPlugin decl.Range (fun p -> p.TryDeclare com ctx decl)
@@ -1041,26 +1047,22 @@ module Util =
             | Fable.MemberDeclaration(m,privName,args,body,r) ->
                 match m.Kind with
                 | Fable.Constructor | Fable.Setter _ -> acc // Only happens for VS tests
-                | _ -> transformModMember com ctx declareMember modIdent (m,privName,args,body,r) @ acc
+                | _ -> transformModMember com ctx helper modIdent (m,privName,args,body,r) @ acc
             | Fable.EntityDeclaration (ent, privateName, entDecls, entRange) ->
                 match ent.Kind with
                 | Fable.Interface ->
                     declareInterfaceEntity com ent
                 | Fable.Class(baseClass, _) ->
                     let baseClass = baseClass |> Option.map snd
-                    declareClass com ctx declareMember modIdent
-                        ent privateName entDecls entRange baseClass true
+                    declareClass com ctx helper modIdent ent privateName entDecls entRange baseClass
                 | Fable.Exception _ ->
                     let baseClass = Some(Fable.Value(Fable.IdentValue(Fable.Ident("Error"))))
-                    declareClass com ctx declareMember modIdent
-                        ent privateName entDecls entRange baseClass true
+                    declareClass com ctx helper modIdent ent privateName entDecls entRange baseClass
                 | Fable.Union _ | Fable.Record _ ->
-                    declareClass com ctx declareMember modIdent
-                        ent privateName entDecls entRange None false
+                    declareClass com ctx helper modIdent ent privateName entDecls entRange None
                 | Fable.Module ->
-                    transformNestedModule com ctx ent entDecls entRange
-                    |> declareMember entRange ent.Name (Some privateName)
-                        ent.IsPublic false modIdent
+                    let m = transformNestedModule com ctx ent entDecls entRange
+                    helper.DeclareMember(entRange, ent.Name, Some privateName, ent.IsPublic, false, modIdent, m)
                 |> List.append <| acc) []
         |> fun decls ->
             match modIdent with
@@ -1212,7 +1214,12 @@ module Compiler =
                         p.TryDeclareRoot com ctx file)
                     |> function
                     | Some rootDecls -> rootDecls
-                    | None -> transformModDecls com ctx declareRootModMember None file.Declarations
+                    | None ->
+                        let helper =
+                            { new IDeclareMember with
+                                member __.DeclareMember(a,b,c,d,e,f,g) =
+                                    declareRootModMember a b c d e f g }
+                        transformModDecls com ctx helper None file.Declarations
                 // Add imports
                 let rootDecls, dependencies =
                     let dependencies = HashSet()
