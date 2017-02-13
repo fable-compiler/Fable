@@ -3,8 +3,6 @@
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable.Client
 
-let mutable checker: InteractiveChecker option = None
-
 let createChecker readAllBytes references =
     InteractiveChecker(List.ofArray references, readAllBytes)
 

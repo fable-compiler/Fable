@@ -2,32 +2,14 @@
   'use strict';
 
   var template = babel.template;
-  // Remove null args at the end of method or constructor calls.
-  // This may conflict in some situations when comparing null to undefined, see #231,
-  // but if disabled can cause problems with some APIs that use options to represent optional
-  // arguments like CanvasRenderingContext2D.fill: ?fillRule: string -> unit (fails if passed null).
-  function removeNullTailArgs(path) {
-      if (Array.isArray(path.node.arguments)) {
-          for (var i = path.node.arguments.length - 1; i >= 0; i--) {
-              if (path.node.arguments[i].type === "NullLiteral")
-                  path.node.arguments.splice(i, 1);
-              else
-                  break;
-          }
-      }
-  }
   /**
-   * Removes unnecessary null statements and null arguments at the end
-   * of method/constructor calls, as these usually represent optional
-   * arguments set to None by F# compiler and may conflict with some JS APIs.
-   * This plugin must come after transformMacroExpressions (see #377).
+   * Removes unnecessary null statements (e.g. at the end of constructors)
    */
   var removeUnneededNulls = {
       visitor: {
           // Remove `null;` statements (e.g. at the end of constructors)
           ExpressionStatement: function (path) {
               if (path.node.expression.type === "NullLiteral") {
-                  debugger;
                   path.remove();
               }
           }
@@ -349,7 +331,7 @@
    */
   function REPL () {
     this.storage = new StorageService();
-    var state = this.storage.get('replState') || {};
+    var state = this.storage.get('replState') || { code: 'printfn "Hello World!"' };
     _.assign(state, UriUtils.parseQuery());
 
     this.options = _.assign(new Options(), state);
@@ -399,6 +381,10 @@
       //   presets.push('babili');
       // }
 
+      if (ast.error) {
+        throw ast.error;
+      }
+
       var options = {
         // presets: presets.filter(Boolean),
         plugins: [
@@ -411,7 +397,7 @@
       transformed = babel.transformFromAst(ast, null, options);
     } catch (err) {
       //this.printError(err.message);
-      this.setOutput(err.message);
+      this.setOutput(err.message + "\n" + err.stack);
       throw err;
     }
 
@@ -433,6 +419,7 @@
       this.transformFromAst(JSON.parse(source));
     }
     else {
+      this.setOutput("Compiling, please wait...");
       myWorker.postMessage(source);
     }
   };
@@ -493,15 +480,6 @@
     this.storage.set('replState', state);
   };
 
-  /*
-   * Initialize the REPL
-   */
-  var repl = new REPL();
-  var myWorker = new Worker("worker.js");
-  myWorker.onmessage = function (e) {
-    repl.transformFromAst(JSON.parse(e.data));
-  };
-
   function onPresetChange() {
     // Update the list of presets that are displayed on the dropdown list anchor
     var presetList = repl.options.presets.replace(/,/g, ', ');
@@ -511,23 +489,29 @@
   }
 
   function onSourceChange () {
-    var error;
-    try {
-      repl.compile();
-    } catch(err) {
-      error = err;
-    }
+    repl.compile();
     var code = repl.getSource();
     var state = _.assign(repl.options, {
       code: code
     });
     repl.persistState(state);
-    if (error) throw error;
   }
 
   function onOutputClear() {
     repl.setOutput("");
   }
+
+  /*
+   * Initialize the REPL
+   */
+  var repl = new REPL();
+  var myWorker = new Worker("worker.js");
+  myWorker.onmessage = function (e) {
+    repl.transformFromAst(JSON.parse(e.data));
+  };
+
+  // Trigger first compilation
+  onSourceChange();
 
   //repl.input.on('change', _.debounce(onSourceChange, 500));
   //repl.$toolBar.on('change', onSourceChange);

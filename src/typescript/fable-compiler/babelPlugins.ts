@@ -4,26 +4,8 @@ import * as types from "babel-types";
 type UseTemplate = (nodes?: {[placeholder: string]: types.Node}) => types.Node[];
 const template: (code: string)=>UseTemplate = require("babel-template");
 
-// Remove null args at the end of method or constructor calls.
-// This may conflict in some situations when comparing null to undefined, see #231,
-// but if disabled can cause problems with some APIs that use options to represent optional
-// arguments like CanvasRenderingContext2D.fill: ?fillRule: string -> unit (fails if passed null).
-function removeNullTailArgs<T>(path: traverse.NodePath<types.NewExpression | types.CallExpression>) {
-  if (Array.isArray(path.node.arguments)) {
-    for (var i = path.node.arguments.length - 1; i >= 0; i--) {
-      if (types.isNullLiteral(path.node.arguments[i]))
-        path.node.arguments.splice(i, 1);
-      else
-        break;
-    }
-  }
-}
-
 /**
- * Removes unnecessary null statements and null arguments at the end
- * of method/constructor calls, as these usually represent optional
- * arguments set to None by F# compiler and may conflict with some JS APIs.
- * This plugin must come after transformMacroExpressions (see #377).
+ * Removes unnecessary null statements (e.g. at the end of constructors)
  */
 export const removeUnneededNulls = {
   visitor: {

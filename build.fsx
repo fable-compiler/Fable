@@ -265,6 +265,7 @@ let installDotnetSdk () =
 
 let clean () =
     !! "src/dotnet/**/bin" ++ "src/dotnet/**/obj/"
+        -- "src/dotnet/Fable.Client.Browser/demo/**"
         ++ "build/fable-core" ++ "build/json-converter"
         ++ "build/nunit" ++ "build/tests_dll"
     |> CleanDirs

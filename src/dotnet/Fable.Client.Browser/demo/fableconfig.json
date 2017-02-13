@@ -7,7 +7,7 @@
         "transform-es2015-block-scoping"
     ],
     "rollup": {
-        "dest": "./out/bundle.js"
+        "dest": "./repl/bundle.js"
     },
     "symbols": [
       "FX_NO_CORHOST_SIGNER",
@@ -19,7 +19,7 @@
       "TRACE"
     ],
     "scripts": {
-        "prebuild": "node node_modules/webpack/bin/webpack babel-standalone.js out/babel-standalone.js --output-library Babel -p",
+        "prebuild": "node node_modules/webpack/bin/webpack babel-standalone.js repl/babel-standalone.js --output-library Babel -p",
         "postbuild": "node server"
     }
 }

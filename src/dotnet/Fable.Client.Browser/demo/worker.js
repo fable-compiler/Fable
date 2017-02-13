@@ -1,4 +1,4 @@
-importScripts('out/bundle.js');
+importScripts('repl/bundle.min.js');
 
 var checker = null;
 var metadata = {}
@@ -32,15 +32,28 @@ var getFileBlob = function (key, url) {
 };
 
 references.map(function(fileName){
-    getFileBlob(fileName, '/out/metadata/' + fileName);
+    getFileBlob(fileName, '/repl/metadata/' + fileName);
 });
 
-onmessage = function (e) {
-    if (checker === null) {
-        var readAllBytes = function (fileName) { return metadata[fileName]; }
-        var references2 = references.filter(x => x.endsWith(".dll")).map(x => x.replace(".dll", ""));
-        checker = project.createChecker(readAllBytes, references2);
+function compile(source) {
+    try {
+        if (checker === null) {
+            if (Object.getOwnPropertyNames(metadata).length < references.length) {
+                setTimeout(() => compile(source), 200);
+                return;
+            }
+            var readAllBytes = function (fileName) { return metadata[fileName]; }
+            var references2 = references.filter(x => x.endsWith(".dll")).map(x => x.replace(".dll", ""));
+            checker = project.createChecker(readAllBytes, references2);
+        }
+        var json = project.compileSource(checker, source);
+        postMessage(json);
     }
-    var json = project.compileSource(checker, e.data);
-    postMessage(json);
+    catch (err) {
+        postMessage(JSON.stringify({ error: { message: err.message, stack: err.stack }}));
+    }
+}
+
+onmessage = function (e) {
+    compile(e.data);
 }
