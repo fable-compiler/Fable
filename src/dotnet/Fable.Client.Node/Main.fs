@@ -169,6 +169,7 @@ let getBasicCompilerArgs (opts: CompilerOptions) optimize =
 #endif
         yield "-r:" + resolve "mscorlib"
         yield "-r:" + resolve "System.Collections"
+        yield "-r:" + resolve "System.Diagnostics.Debug"
         yield "-r:" + resolve "System.IO"
         yield "-r:" + resolve "System.Runtime"
         yield "-r:" + resolve "System.Runtime.Numerics"
@@ -227,10 +228,11 @@ let crackFsproj (projFile: string) =
         |> Seq.reduce (fun (src1, prj1, dll1) (src2, prj2, dll2) ->
             src1@src2, prj1@prj2, dll1@dll2)
     let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
+    let reg = Regex("\\.fs[ix]?$")
     { projectFile = projFile
     ; sourceFiles =
         sourceFiles
-        |> List.filter (fun fileName -> fileName.EndsWith(".fs") || fileName.EndsWith(".fsx"))
+        |> List.filter (fun fileName -> reg.IsMatch(fileName))
         |> List.map (fun fileName -> Path.Combine(projDir, Path.normalizePath fileName) |> Path.GetFullPath)
     ; projectReferences =
         projectReferences

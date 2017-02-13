@@ -1,5 +1,6 @@
 {
-    "projFile": "project.fsx",
+    "projFile": "../Fable.Client.Browser.fsproj",
+    "verbose": true,
     "ecma": "es2015",
     "coreLib": "../../../../build/fable-core",
     "babelrc": false,
@@ -18,8 +19,8 @@
       "NO_INLINE_IL_PARSER",
       "TRACE"
     ],
-    "scripts": {
-        "prebuild": "node node_modules/webpack/bin/webpack babel-standalone.js repl/babel-standalone.js --output-library Babel -p",
-        "postbuild": "node server"
-    }
+    // "scripts": {
+    //     "prebuild": "node node_modules/webpack/bin/webpack babel-standalone.js repl/babel-standalone.js --output-library Babel -p",
+    //     "postbuild": "node server"
+    // }
 }

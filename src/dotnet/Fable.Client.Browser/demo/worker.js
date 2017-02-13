@@ -3,19 +3,25 @@ importScripts('repl/bundle.min.js');
 var checker = null;
 var metadata = {}
 
+// Files have .txt extension to allow gzipping in Github Pages
 var references = [
-    "FSharp.Core.dll",
-    "FSharp.Core.sigdata",
-    "mscorlib.dll",
-    "System.dll",
-    "System.Core.dll",
-    "System.Data.dll",
-    "System.IO.dll",
-    "System.Xml.dll",
-    "System.Numerics.dll"
+    "FSharp.Core.sigdata.txt",
+    "FSharp.Core.txt",
+    "mscorlib.txt",
+    "System.txt",
+    "System.Core.txt",
+    "System.Data.txt",
+    "System.IO.txt",
+    "System.Xml.txt",
+    "System.Numerics.txt"
 ];
 
-var getFileBlob = function (key, url) {
+function isSigdata(ref) {
+    return ref.indexOf(".sigdata") >= 0;
+}
+
+function getFileBlob(key, url) {
+    key = key.replace(".txt", isSigdata(key) ? "" : ".dll")
     var xhr = new XMLHttpRequest();
     xhr.open("GET", url);
     xhr.responseType = "arraybuffer";
@@ -43,10 +49,10 @@ function compile(source) {
                 return;
             }
             var readAllBytes = function (fileName) { return metadata[fileName]; }
-            var references2 = references.filter(x => x.endsWith(".dll")).map(x => x.replace(".dll", ""));
-            checker = project.createChecker(readAllBytes, references2);
+            var references2 = references.filter(x => !isSigdata(x)).map(x => x.replace(".txt", ""));
+            checker = Fable.createChecker(readAllBytes, references2);
         }
-        var json = project.compileSource(checker, source);
+        var json = Fable.compileSource(checker, source);
         postMessage(json);
     }
     catch (err) {

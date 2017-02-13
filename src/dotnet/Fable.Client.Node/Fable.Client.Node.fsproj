@@ -12,7 +12,7 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.FSharp.Core.netcore" Version="1.0.0-alpha-*" />
+    <PackageReference Include="Microsoft.FSharp.Core.netcore" Version="1.0.0-rc-*" />
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.0-*" PrivateAssets="All" />
     <PackageReference Include="System.Xml.XDocument" Version="4.3.0" />
   </ItemGroup>
