@@ -500,6 +500,8 @@ module Patterns =
     let (|ImmutableBinding|_|) = function
         | Let((var, (Value v as value)), body)
             when not var.IsMutable && not v.IsMutable && not v.IsMemberThisValue -> Some((var, value), body)
+        | Let((var, (Const _ as value)), body)
+            when not var.IsMutable -> Some((var, value), body)
         | Let((var, (UnionCaseGet(Value v,_,_,_) as value)), body)
             when not var.IsMutable && not v.IsMutable -> Some((var, value), body)
         | Let((var, (TupleGet(_,_,Value v) as value)), body)
@@ -1226,6 +1228,12 @@ module Util =
 
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r (typArgs, methTypArgs)
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
+        let hasDoubleEvalRisk = function
+            | Fable.Value _
+            // Getters may have double eval risk, but let's discard it to prevent
+            // the generation of too many closures
+            | Fable.Apply(_,_,Fable.ApplyGet,_,_) -> false
+            | _ -> true
         if not(isInline meth) then None else
         match com.TryGetInlineExpr meth with
         | Some (vars, fsExpr) ->
@@ -1234,7 +1242,7 @@ module Util =
                 |||> Seq.fold2 (fun (ctx, assignments) var arg ->
                     // If an expression is referenced more than once, assign it
                     // to a temp var to prevent multiple evaluations
-                    if var.Value > 1 then
+                    if var.Value > 1 && hasDoubleEvalRisk arg then
                         let tmpVar = com.GetUniqueVar() |> makeIdent
                         let assign = Fable.VarDeclaration(tmpVar, arg, false)
                         let scope = (Some var.Key, Fable.Value(Fable.IdentValue tmpVar))::ctx.scope
