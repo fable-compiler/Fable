@@ -209,25 +209,7 @@ export function degree(n) {
 }
 export function addP(i, n, c, p, q, r) {
   if (i < n) {
-    const x = (() => {
-      const $var2 = i;
-      const $var1 = p;
-
-      if ($var2 < $var1.bound) {
-        return $var1.digits[$var2];
-      } else {
-        return 0;
-      }
-    })() + (() => {
-      const $var4 = i;
-      const $var3 = q;
-
-      if ($var4 < $var3.bound) {
-        return $var3.digits[$var4];
-      } else {
-        return 0;
-      }
-    })() + c;
+    const x = (i < p.bound ? p.digits[i] : 0) + (i < q.bound ? q.digits[i] : 0) + c;
 
     r.digits[i] = modbase(x);
     const c_1 = divbase(x);
@@ -243,25 +225,7 @@ export function add(p, q) {
 }
 export function subP(i, n, c, p, q, r) {
   if (i < n) {
-    const x = (() => {
-      const $var6 = i;
-      const $var5 = p;
-
-      if ($var6 < $var5.bound) {
-        return $var5.digits[$var6];
-      } else {
-        return 0;
-      }
-    })() - (() => {
-      const $var8 = i;
-      const $var7 = q;
-
-      if ($var8 < $var7.bound) {
-        return $var7.digits[$var8];
-      } else {
-        return 0;
-      }
-    })() + c;
+    const x = (i < p.bound ? p.digits[i] : 0) - (i < q.bound ? q.digits[i] : 0) + c;
 
     if (x > 0) {
       r.digits[i] = modbase(x);
@@ -564,27 +528,8 @@ export function extractBits(n, enc, bi) {
   const bjw = ~~(bj / baseBits);
 
   if (biw !== bjw) {
-    const x = (() => {
-      const $var10 = biw;
-      const $var9 = n;
-
-      if ($var10 < $var9.bound) {
-        return $var9.digits[$var10];
-      } else {
-        return 0;
-      }
-    })();
-
-    const y = (() => {
-      const $var12 = bjw;
-      const $var11 = n;
-
-      if ($var12 < $var11.bound) {
-        return $var11.digits[$var12];
-      } else {
-        return 0;
-      }
-    })();
+    const x = biw < n.bound ? n.digits[biw] : 0;
+    const y = bjw < n.bound ? n.digits[bjw] : 0;
 
     const xbit = bi % baseBits;
     const nxbits = baseBits - xbit;
@@ -594,16 +539,7 @@ export function extractBits(n, enc, bi) {
     const x_3 = x_2 & bitmask[enc.bigL];
     return x_3;
   } else {
-    const x = (() => {
-      const $var14 = biw;
-      const $var13 = n;
-
-      if ($var14 < $var13.bound) {
-        return $var13.digits[$var14];
-      } else {
-        return 0;
-      }
-    })();
+    const x = biw < n.bound ? n.digits[biw] : 0;
 
     const xbit = bi % baseBits;
     const x_1 = x >> xbit;
@@ -955,88 +891,56 @@ export function ofInt64(n) {
   return embed64(n);
 }
 export function toUInt32(n) {
-  const matchValue = n.bound;
   let $var15 = null;
 
-  switch (matchValue) {
+  switch (n.bound) {
     case 0:
-      {
-        $var15 = 0;
-        break;
-      }
+      $var15 = 0;
+      break;
 
     case 1:
-      {
-        $var15 = n.digits[0] >>> 0;
-        break;
-      }
+      $var15 = n.digits[0] >>> 0;
+      break;
 
     case 2:
-      {
-        {
-          const patternInput = [n.digits[0], n.digits[1]];
-
-          if (patternInput[1] > baseMask32B) {
-            throw new Error();
-          }
-
-          $var15 = ((patternInput[0] & baseMask32A) >>> 0) + ((patternInput[1] & baseMask32B) >>> 0 << baseShift32B);
-        }
-        break;
-      }
-
-    default:
-      {
+      if (n.digits[1] > baseMask32B) {
         throw new Error();
       }
+
+      $var15 = ((n.digits[0] & baseMask32A) >>> 0) + ((n.digits[1] & baseMask32B) >>> 0 << baseShift32B);
+      break;
+
+    default:
+      throw new Error();
   }
 
   return $var15;
 }
 export function toUInt64(n) {
-  const matchValue = n.bound;
   let $var16 = null;
 
-  switch (matchValue) {
+  switch (n.bound) {
     case 0:
-      {
         $var16 = fromBits(0, 0, true);
         break;
-      }
 
     case 1:
-      {
         $var16 = fromNumber(n.digits[0], true);
         break;
-      }
 
     case 2:
-      {
-        {
-          const patternInput = [n.digits[0], n.digits[1]];
-          $var16 = fromNumber(patternInput[0] & baseMask64A, true).add(fromNumber(patternInput[1] & baseMask64B, true).shl(baseShift64B));
-        }
-        break;
-      }
+      $var16 = fromNumber(n.digits[0] & baseMask64A, true).add(fromNumber(n.digits[1] & baseMask64B, true).shl(baseShift64B));
+      break;
 
     case 3:
-      {
-        {
-          const patternInput = [n.digits[0], n.digits[1], n.digits[2]];
-
-          if (patternInput[2] > baseMask64C) {
-            throw new Error();
-          }
-
-          $var16 = fromNumber(patternInput[0] & baseMask64A, true).add(fromNumber(patternInput[1] & baseMask64B, true).shl(baseShift64B)).add(fromNumber(patternInput[2] & baseMask64C, true).shl(baseShift64C));
-        }
-        break;
-      }
-
-    default:
-      {
+      if (n.digits[2] > baseMask64C) {
         throw new Error();
       }
+      $var16 = fromNumber(n.digits[0] & baseMask64A, true).add(fromNumber(n.digits[1] & baseMask64B, true).shl(baseShift64B)).add(fromNumber(n.digits[2] & baseMask64C, true).shl(baseShift64C));
+      break;
+
+    default:
+        throw new Error();
   }
 
   return $var16;
@@ -1116,11 +1020,8 @@ export function isSmall(n) {
   return n.bound <= 1;
 }
 export function getSmall(n) {
-  const $var18 = 0;
-  const $var17 = n;
-
-  if ($var18 < $var17.bound) {
-    return $var17.digits[$var18];
+  if (0 < n.bound) {
+    return n.digits[0];
   } else {
     return 0;
   }
