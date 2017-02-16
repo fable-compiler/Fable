@@ -447,6 +447,26 @@ module Util =
         CoreLibCall(modName, Some "create", false, args)
         |> makeCall i.range i.returnType
 
+    let makeDictionary r t keyType args =
+        match keyType with
+        | Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _ ->
+            CoreLibCall("Map", Some "create", false, args)
+        | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
+            CoreLibCall("Map", Some "create", false, args)
+        | _ ->
+            GlobalCall("Map", None, true, args)
+        |> makeCall r t
+
+    let makeHashSet r t valueType args =
+        match valueType with
+        | Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _ ->
+            CoreLibCall("Set", Some "create", false, args)
+        | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
+            CoreLibCall("Set", Some "create", false, args)
+        | _ ->
+            GlobalCall("Set", None, true, args)
+        |> makeCall r t
+
 module AstPass =
     open Util
 
@@ -686,7 +706,7 @@ module AstPass =
         | "toString" -> toString com info args.Head |> Some
         | "toEnum" -> args.Head |> Some
         | "createDictionary" ->
-            GlobalCall("Map", None, true, args) |> makeCall r typ |> Some
+            makeDictionary r typ info.methodTypeArgs.Head args |> Some
         | "createSet" ->
             makeMapOrSetCons com info "Set" args |> Some
         // Ignore: wrap to keep Unit type (see Fable2Babel.transformFunction)
@@ -1140,23 +1160,17 @@ module AstPass =
     let dictionaries (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
-            match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
-                "Structural equality is not supported for Dictionary keys, please use F# Map"
-                |> addWarning com i.fileName i.range
-            | _ -> ()
-            let makeMap args =
-                GlobalCall("Map", None, true, args) |> makeCall i.range i.returnType
             match i.args with
-            | [] -> makeMap [] |> Some
+            | [] -> makeDictionary i.range i.returnType i.calleeTypeArgs.Head [] |> Some
             | _ ->
                 match i.args.Head.Type with
                 | Fable.DeclaredType(ent, _) when ent.FullName.StartsWith("System.Collections.Generic.IDictionary") ->
-                    makeMap i.args |> Some
+                    makeDictionary i.range i.returnType i.calleeTypeArgs.Head i.args |> Some
                 | _ ->
                     addWarning com i.fileName i.range "Dictionary constructor parameter is ignored"
-                    makeMap [] |> Some
+                    makeDictionary i.range i.returnType i.calleeTypeArgs.Head [] |> Some
         | "isReadOnly" ->
+            // TODO: Check for immutable maps with IDictionary interface
             Fable.BoolConst false |> Fable.Value |> Some
         | "count" ->
             makeGet i.range i.returnType i.callee.Value (makeStrConst "size") |> Some
@@ -1181,22 +1195,15 @@ module AstPass =
     let hashSets (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
-            match i.calleeTypeArgs.Head with
-            | DeclaredKind(Fable.Record _) | DeclaredKind(Fable.Union _) ->
-                "Structural equality is not supported for HashSet, please use F# Set"
-                |> addWarning com i.fileName i.range
-            | _ -> ()
-            let makeSet args =
-                GlobalCall("Set", None, true, args) |> makeCall i.range i.returnType
             match i.args with
-            | [] -> makeSet [] |> Some
+            | [] -> makeHashSet i.range i.returnType i.calleeTypeArgs.Head [] |> Some
             | _ ->
                 match i.args.Head.Type with
                 | Fable.DeclaredType(ent, _) when ent.FullName.StartsWith("System.Collections.Generic.IEnumerable") ->
-                    makeSet i.args |> Some
+                    makeHashSet i.range i.returnType i.calleeTypeArgs.Head i.args |> Some
                 | _ ->
                     addWarning com i.fileName i.range "HashSet constructor parameter is ignored"
-                    makeSet [] |> Some
+                    makeHashSet i.range i.returnType i.calleeTypeArgs.Head [] |> Some
         | "count" ->
             makeGet i.range i.returnType i.callee.Value (makeStrConst "size") |> Some
         | "isReadOnly" ->

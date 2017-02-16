@@ -168,6 +168,20 @@ let ``Dictionary.Remove works``() =
     dic.Remove("A") |> equal true
     dic.Remove("C") |> equal false
 
+type MyRecord = { a: int }
+
+[<Test>]
+let ``Dictionary.Remove with records as keys works``() =
+    let x1 = { a = 5 }
+    let x2 = { a = 5 }
+    let x3 = { a = 10 }
+    let x4 = { a = 15 }
+    let dic = Dictionary<_,_>()
+    dic.Add(x1, "Hello")
+    dic.Add(x3, "World!")
+    dic.Remove(x2) |> equal true
+    dic.Remove(x4) |> equal false
+
 [<Test>]
 let ``Interface IDictionary.Count works``() =
     let dic = dict <| seq { for i in 1. .. 10. -> i.ToString(), i*i }

@@ -111,15 +111,28 @@ let ``HashSet.Count works``() =
 [<Test>]
 let ``HashSet.Add works``() =
     let hs = HashSet<_>()
-    hs.Add("A", "Hello") |> equal true
-    hs.Add("B", "World!") |> equal true
+    hs.Add("A") |> equal true
+    hs.Add("B") |> equal true
+    hs.Count |> equal 2
+
+type MyRecord = { a: int }
+
+[<Test>]
+let ``HashSet.Add with records works``() =
+    let x1 = { a = 5 }
+    let x2 = { a = 5 }
+    let x3 = { a = 10 }
+    let hs = HashSet<_>()
+    hs.Add(x1) |> equal true
+    hs.Add(x2) |> equal false
+    hs.Add(x3) |> equal true
     hs.Count |> equal 2
 
 [<Test>]
 let ``HashSet.Clear works``() =
     let hs = HashSet<_>()
-    hs.Add("A", 1) |> equal true
-    hs.Add("B", 2) |> equal true
+    hs.Add(1) |> equal true
+    hs.Add(2) |> equal true
     hs.Clear()
     hs.Count |> equal 0
 
@@ -161,6 +174,19 @@ let ``HashSet.Remove works``() =
     hs.Add("B") |> ignore
     hs.Remove("A") |> equal true
     hs.Remove("C") |> equal false
+
+[<Test>]
+let ``HashSet.Remove with records works``() =
+    let x1 = { a = 5 }
+    let x2 = { a = 5 }
+    let x3 = { a = 10 }
+    let hs = HashSet<_>()
+    hs.Add(x1) |> ignore
+    hs.Count |> equal 1
+    hs.Remove(x3) |> equal false
+    hs.Count |> equal 1
+    hs.Remove(x1) |> equal true
+    hs.Count |> equal 0
 
 type R = { i: int; s: string }
 
