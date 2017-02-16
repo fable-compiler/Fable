@@ -646,7 +646,7 @@ module private AstPass =
          | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
             applyOp com info args info.methodName |> Some
         | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
-            match info.args with 
+            match info.args with
             | [x] -> math r typ args info.methodName
             | [x; baseValue] ->  emit info "Math.log($0) / Math.log($1)" info.args |> Some
             | _ -> None
@@ -867,7 +867,7 @@ module private AstPass =
             GlobalCall("Number", Some meth, false, args)
             |> makeCall i.range (Fable.Number kind)
         match i.methodName with
-        | "isNaN" when isFloat -> 
+        | "isNaN" when isFloat ->
             match i.args with
             | [someNumber] ->
                 GlobalCall("Number", Some "isNaN", false, i.args)
@@ -1656,6 +1656,7 @@ module private AstPass =
             | "name" -> str ent.Name |> Some
             | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeConst |> Some
             | "getGenericTypeDefinition" -> makeTypeRefFrom com ent |> Some
+            | "getTypeInfo" -> info.callee
             | _ -> None
         | _ ->
             let getTypeFullName args =
@@ -1778,7 +1779,7 @@ module private AstPass =
             asyncMeth "catchAsync" info.args
         | _ -> None
 
-    let bigint com (i: Fable.ApplyInfo) =
+    let bigint (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.callee, i.methodName with
         | Some callee, meth -> icall i meth |> Some
         | None, ".ctor" ->
@@ -1798,6 +1799,34 @@ module private AstPass =
             ccall i "BigInt" "parse" i.args |> Some
         | None, meth -> ccall i "BigInt" meth i.args |> Some
 
+    let fsharpType (com: ICompiler) (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | "getRecordFields" ->
+            let proto = ccall_ i.args.Head.Range Fable.Any "Reflection" "getPrototypeOfType" i.args
+            ccall i "Util" "getPropertyNames" [proto] |> Some
+        | "isRecord" ->
+            let proto = ccall_ i.args.Head.Range Fable.Any "Reflection" "getPrototypeOfType" i.args
+            ccall i "Util" "hasInterface" [proto; Fable.StringConst "FSharpRecord" |> Fable.Value] |> Some
+        | _ -> None
+
+    let fsharpValue (com: ICompiler) (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | "getRecordFields" ->
+            ccall i "Reflection" "getPropertyValues" i.args |> Some
+        | "getRecordField" ->
+            match i.args with
+            | [record; propInfo] ->
+                makeGet i.range i.returnType record propInfo |> Some
+            | _ -> None
+        | "makeRecord" ->
+            match i.args with
+            | [typ; vals] ->
+                let typ = ccall_ typ.Range Fable.MetaType "Util" "getDefinition" [typ]
+                let spread = Fable.Spread vals |> Fable.Value
+                Fable.Apply(typ, [spread], Fable.ApplyCons, i.returnType, i.range) |> Some
+            | _ -> None
+        | _ -> None
+
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
         | Naming.StartsWith fableCore _ -> fableCoreLib com info
@@ -1810,7 +1839,7 @@ module private AstPass =
         | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com info
         | "System.BitConverter" -> bitConvert com info
         | "System.Int32" -> parse com info false
-        | "System.Single" 
+        | "System.Single"
         | "System.Double" -> parse com info true
         | "System.Convert" -> convert com info
         | "System.Console" -> console com info
@@ -1862,8 +1891,8 @@ module private AstPass =
         | "Microsoft.FSharp.Collections.MapModule"
         | "Microsoft.FSharp.Collections.FSharpSet"
         | "Microsoft.FSharp.Collections.SetModule" -> mapAndSets com info
-        // For some reason `typeof<'T>.Name` translates to `System.Reflection.MemberInfo.name`
-        // and not `System.Type.name` (as with `typeof<'T>.FullName` and `typeof<'T>.Namespace`)
+        // `typeof<'T>.Name` is actually `System.Reflection.MemberInfo.name`,
+        // not `System.Type.name` (as with `typeof<'T>.FullName` and `typeof<'T>.Namespace`)
         | "System.Reflection.MemberInfo"
         | "System.Type" -> types com info
         | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com info
@@ -1876,6 +1905,12 @@ module private AstPass =
         | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com info
         | "System.Numerics.BigInteger"
         | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com info
+        | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info
+        | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info
+        | "System.Reflection.PropertyInfo" ->
+            // The `Name` property is actually from System.Reflection.MemberInfo,
+            // so this won't be reached
+            match info.methodName with "name" -> info.callee | _ -> None
         | _ -> None
 
 module private CoreLibPass =

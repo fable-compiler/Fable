@@ -124,11 +124,18 @@ export function hasInterface(obj: any, interfaceName: string) {
   return false;
 }
 
+/**
+ * Returns:
+ * - Records: array with names of fields
+ * - Classes: array with names of getters
+ * - Nulls and unions: empty array
+ * - JS Objects: The result of calling Object.getOwnPropertyNames
+ */
 export function getPropertyNames(obj: any) {
   if (obj == null) {
     return [];
   }
-  const propertyMap = typeof obj[FSymbol.reflection] === "function" ? obj[FSymbol.reflection]().properties : obj;
+  const propertyMap = typeof obj[FSymbol.reflection] === "function" ? obj[FSymbol.reflection]().properties || [] : obj;
   return Object.getOwnPropertyNames(propertyMap);
 }
 

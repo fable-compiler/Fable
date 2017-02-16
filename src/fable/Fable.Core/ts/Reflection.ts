@@ -1,4 +1,4 @@
-import { NonDeclaredType } from "./Util"
+import { NonDeclaredType, getPropertyNames } from "./Util"
 import List from "./List"
 import FSymbol from "./Symbol"
 
@@ -73,6 +73,8 @@ export function getTypeFullName(typ: any, option?: string): string {
         case "GenericParam":
         case "Interface":
           return typ.definition as string;
+        case "GenericType":
+          return getTypeFullName(typ.definition, option);
         case "Any":
         default:
           return "unknown";
@@ -84,4 +86,24 @@ export function getTypeFullName(typ: any, option?: string): string {
     return trim(typeof proto[FSymbol.reflection] === "function"
       ? proto[FSymbol.reflection]().type : null, option);
   }
+}
+
+export function getPrototypeOfType(typ: FunctionConstructor) {
+  if (typeof typ === "string") {
+    return null;
+  }
+  else if (typ instanceof NonDeclaredType) {
+    return typ.kind === "GenericType" ? (typ.definition as any).prototype : null;
+  }
+  else {
+    return typ.prototype;
+  }
+}
+
+export function getPropertyValues(obj: any): any[] {
+    const keys = getPropertyNames(obj), values = [];
+    for (let i=0; i<keys.length; i++) {
+      values.push(obj[keys[i]]);
+    }
+    return values;
 }

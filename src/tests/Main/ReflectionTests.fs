@@ -1,7 +1,7 @@
 [<Util.Testing.TestFixture>]
 module Fable.Tests.Reflection
 
-#if DOTNETCORE && !FABLE_COMPILER
+#if DOTNETCORE
 open System.Reflection
 module System =
     type System.Type with
@@ -179,14 +179,14 @@ let ``FSharp.Reflection: Exception`` () =
     let exTypeFields = FSharpType.GetExceptionFields typ
     let exValueFields = FSharpValue.GetExceptionFields(ex)
 
-    let expectedExFields = 
+    let expectedExFields =
         [|
             "String", box "a"
             "Int", box 1
         |]
 
-    let exFields = 
-        exTypeFields 
+    let exFields =
+        exTypeFields
         |> Array.map (fun field -> field.Name)
         |> flip Array.zip exValueFields
 
@@ -221,9 +221,9 @@ let ``FSharp.Reflection: Record`` () =
         |> Array.forall (fun (info, value) ->
             FSharpValue.GetRecordField(record, info) = value
         )
-    let canMakeSameRecord = 
+    let canMakeSameRecord =
         unbox<TestRecord> (FSharpValue.MakeRecord(typ, recordValueFields)) = record
-    
+
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
@@ -271,10 +271,10 @@ let ``FSharp.Reflection: Union`` () =
     let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| box 1 |]
     let expectedUnionFields = [| expectedUnionCase1Fields; expectedUnionCase2Fields |]
 
-    let unionFields = 
+    let unionFields =
         Array.zip unionCaseInfos unionCaseValueFields
         |> Array.map (fun (info, values) ->
-            let types = 
+            let types =
                 info.GetFields()
                 |> Array.map (fun field -> field.PropertyType)
             info.Tag, info.Name, types, values
