@@ -1,4 +1,4 @@
-importScripts('repl/bundle.min.js');
+importScripts('repl/bundle.js');
 
 var checker = null;
 var metadata = {}
