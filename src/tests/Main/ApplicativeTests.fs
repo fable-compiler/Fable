@@ -272,3 +272,21 @@ let ``Flattened lambdas can be composed``() = // See #704
     let f = (+) >> id
     List.foldBack f [1;2;3;4] 0
     |> equal 10
+
+type ImplicitType<'a,'b> =
+    | Case1 of 'a
+    | Case2 of 'b
+    static member op_Implicit(x:'a) = ImplicitType.Case1 x
+    static member op_Implicit(x:'b) = ImplicitType.Case2 x
+
+let inline (!+) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_Implicit : ^t1 -> ^t2) x)
+
+let implicitMethod (arg: ImplicitType<string, int>) (i: int) =
+    match arg with
+    | ImplicitType.Case1 _ -> 1
+    | ImplicitType.Case2 _ -> 2
+
+[<Test>]
+let ``TraitCall can resolve overloads with a single generic argument``() =
+    implicitMethod !+"hello" 5 |> equal 1
+    implicitMethod !+6       5 |> equal 2

@@ -330,10 +330,10 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         let giveUp() =
             FableError("Cannot resolve trait call " + traitName, ?range=r) |> raise
-        let (|ResolveGeneric|_|) ctx (t: FSharpType) =
+        let (|ResolveGeneric|_|) genArgs (t: FSharpType) =
             if not t.IsGenericParameter then Some t else
             let genParam = t.GenericParameter
-            ctx.typeArgs |> List.tryPick (fun (name,t) ->
+            genArgs |> Seq.tryPick (fun (name,t) ->
                 if name = genParam.Name then Some t else None)
         let makeCall meth =
             let callee, args =
@@ -345,23 +345,35 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             makeCallFrom com ctx r typ meth ([],[]) callee args
         sourceTypes
         |> List.tryPick (function
-            | ResolveGeneric ctx (TypeDefinition tdef) ->
+            | ResolveGeneric ctx.typeArgs (TypeDefinition tdef as typ) ->
                 tdef.MembersFunctionsAndValues |> Seq.filter (fun m ->
                     // Property members that are no getter nor setter don't actually get implemented
                     not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
                     && m.IsInstanceMember = flags.IsInstance
                     && m.CompiledName = traitName)
-                |> Seq.toList |> function [] -> None | ms -> Some (tdef, ms)
+                |> Seq.toList |> function [] -> None | ms -> Some (typ, tdef, ms)
             | _ -> None)
         |> function
-        | Some(_, [meth]) ->
+        | Some(_, _, [meth]) ->
             makeCall meth
-        | Some(tdef, candidates) ->
+        | Some(typ, tdef, candidates) ->
+            let genArgs =
+                if tdef.GenericParameters.Count = typ.GenericArguments.Count
+                then Seq.zip (tdef.GenericParameters |> Seq.map (fun p -> p.Name)) typ.GenericArguments |> Seq.toArray |> Some
+                else None
             let argTypes =
                 if not flags.IsInstance then argTypes else argTypes.Tail
                 |> List.map (makeType com ctx.typeArgs)
             candidates |> List.tryPick (fun meth ->
-                let methTypes = getArgTypes com meth.CurriedParameterGroups
+                let methTypes =
+                    // FSharpParameters don't contain the `this` arg
+                    // The F# compiler "untuples" the args in methods
+                    let methTypes = Seq.concat meth.CurriedParameterGroups |> Seq.map (fun x -> x.Type)
+                    match genArgs with
+                    | Some genArgs -> methTypes |> Seq.map (function ResolveGeneric genArgs x -> x | x -> x)
+                    | None -> methTypes
+                    |> Seq.map (makeType com [])
+                    |> Seq.toList
                 if compareConcreteAndGenericTypes argTypes methTypes
                 then Some meth else None)
             |> function Some m -> makeCall m | None -> giveUp()
