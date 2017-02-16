@@ -356,7 +356,7 @@
         $label.tabIndex = -1;
         $label.addEventListener(
           'click',
-          () => downloadFile("/samples/" + sampleName + ".fs", repl.setSource.bind(repl)),
+          () => downloadFile("/repl_samples/" + sampleName + ".fs", repl.setSource.bind(repl)),
           false
         );
 
