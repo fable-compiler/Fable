@@ -501,6 +501,7 @@ Target "FableCompilerDebug" (buildCompiler false)
 Target "FableCompilerDebugJs" buildCompilerJs
 Target "FableCoreDebug" (buildCore false)
 Target "FableCoreDebugJs" buildCoreJs
+Target "RunTestsJs" runTestsJs
 
 Target "All" (fun () ->
     installDotnetSdk ()
