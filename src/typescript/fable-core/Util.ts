@@ -351,3 +351,58 @@ export function randomNext(min: number, max: number) {
 export function defaultArg<T,U>(arg: T, defaultValue: T, f?: (x:T)=>U) {
   return arg == null ? defaultValue : (f != null ? f(arg) : arg);
 }
+
+export function applyOperator(x: any, y: any, operator: string): any {
+  function getMethod(obj: any): Function {
+    if (typeof obj === "object") {
+      const cons = Object.getPrototypeOf(obj).constructor;
+      if (typeof cons[operator] === "function") {
+        return cons[operator];
+      }
+    }
+    return null;
+  }
+
+  let meth = getMethod(x);
+  if (meth != null) {
+    return meth(x, y);
+  }
+
+  meth = getMethod(y);
+  if (meth != null) {
+    return meth(x, y);
+  }
+
+  switch (operator) {
+    case "op_Addition":
+      return x + y;
+    case "op_Subtraction":
+      return x - y;
+    case "op_Multiply":
+      return x * y;
+    case "op_Division":
+      return x / y;
+    case "op_Modulus":
+      return x % y;
+    case "op_LeftShift":
+      return x << y;
+    case "op_RightShift":
+      return x >> y;
+    case "op_BitwiseAnd":
+      return x & y;
+    case "op_BitwiseOr":
+      return x | y;
+    case "op_ExclusiveOr":
+      return x ^ y;
+    case "op_LogicalNot":
+      return x + y;
+    case "op_UnaryNegation":
+      return !x;
+    case "op_BooleanAnd":
+      return x && y;
+    case "op_BooleanOr":
+      return x || y;
+    default:
+      return null;
+  }
+}

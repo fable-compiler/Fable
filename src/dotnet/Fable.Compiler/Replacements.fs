@@ -357,12 +357,11 @@ module Util =
         | EntFullName (KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" modName)::_ ->
             CoreLibCall (modName, Some meth, false, args)
             |> makeCall i.range i.returnType
+        | EntFullName "System.TimeSpan"::_
         | (Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _)::_ ->
             apply (nativeOp argTypes.Head meth) args
         | _ ->
-            "The type of the operands is unknown at compile, native JS operator will be applied."
-            |> addWarning com i.fileName i.range
-            apply (nativeOp argTypes.Head meth) args
+            ccall i "Util" "applyOperator" (args@[makeStrConst meth])
 
     let equals equal com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
         let op equal =
@@ -570,7 +569,7 @@ module AstPass =
             let prop = makeStrConst "contents"
             match i.methodKind with
             | Fable.Getter _ ->
-                makeGet i.range Fable.Any i.callee.Value prop |> Some
+                makeGet i.range i.returnType i.callee.Value prop |> Some
             | Fable.Setter _ ->
                 Fable.Set(i.callee.Value, Some prop, i.args.Head, i.range) |> Some
             | _ -> None
@@ -685,7 +684,7 @@ module AstPass =
                 |> makeApply com info.range Fable.Any f2
                 |> makeLambdaExpr [tempVar])
         // Reference
-        | "op_Dereference" -> makeGet r Fable.Any args.Head (makeStrConst "contents") |> Some
+        | "op_Dereference" -> makeGet r info.returnType args.Head (makeStrConst "contents") |> Some
         | "op_ColonEquals" -> Fable.Set(args.Head, Some(makeStrConst "contents"), args.Tail.Head, r) |> Some
         | "ref" -> makeJsObject r [("contents", args.Head)] |> Some
         | "increment" | "decrement" ->
