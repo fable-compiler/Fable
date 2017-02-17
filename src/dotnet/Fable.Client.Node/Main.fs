@@ -119,6 +119,9 @@ let makeProjectOptions project sources otherOptions =
 let getProjectOptionsFromScript (checker: FSharpChecker) (opts: CompilerOptions) scriptFile =
     let otherFlags = [|
         yield "--target:library"
+#if DOTNETCORE
+        yield "--targetprofile:netcore"
+#endif
         for symbol in opts.symbols do yield "--define:" + symbol
     |]
     checker.GetProjectOptionsFromScript(scriptFile, File.ReadAllText scriptFile, otherFlags = otherFlags)
@@ -161,8 +164,8 @@ let getBasicCompilerArgs (opts: CompilerOptions) optimize =
         yield "--fullpaths"
         yield "--flaterrors"
         yield "--target:library"
-        yield "--targetprofile:netcore"
 #if DOTNETCORE
+        yield "--targetprofile:netcore"
         yield "-r:" + sysCoreLib // "CoreLib"
 #else
         yield "-r:" + resolve "System"
@@ -405,10 +408,6 @@ let mergeProjectOpts (opts1: FSharpProjectOptions option, resolver: FileResolver
 let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
-        let otherFlags = [|
-            yield "--target:library"
-            for symbol in opts.symbols do yield "--define:" + symbol
-        |]
         getProjectOptionsFromScript checker opts projFile
     | ".fsproj" ->
         getProjectOptionsFromFsproj projFile
