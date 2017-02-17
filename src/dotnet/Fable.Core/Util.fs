@@ -133,7 +133,7 @@ module Naming =
 
     let preventConflicts conflicts name =
         let rec check n =
-            let name = if n > 0 then sprintf "%s_%i" name n else name
+            let name = if n > 0 then name + "_" + (string n) else name
             if not (conflicts name) then name else check (n+1)
         check 0
 

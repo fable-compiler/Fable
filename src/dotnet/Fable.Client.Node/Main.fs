@@ -124,7 +124,8 @@ let getProjectOptionsFromScript (checker: FSharpChecker) (opts: CompilerOptions)
 #endif
         for symbol in opts.symbols do yield "--define:" + symbol
     |]
-    checker.GetProjectOptionsFromScript(scriptFile, File.ReadAllText scriptFile, otherFlags = otherFlags)
+    checker.GetProjectOptionsFromScript(scriptFile, File.ReadAllText scriptFile,
+                                        assumeDotNetFramework=false, otherFlags=otherFlags)
     |> Async.RunSynchronously
     |> fun opts ->
         opts.OtherOptions
