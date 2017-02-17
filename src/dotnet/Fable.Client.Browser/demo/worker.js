@@ -5,6 +5,7 @@ var metadata = {}
 
 // Files have .txt extension to allow gzipping in Github Pages
 var references = [
+    "Fable.Core.txt",
     "FSharp.Core.sigdata.txt",
     "FSharp.Core.txt",
     "mscorlib.txt",
