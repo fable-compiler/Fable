@@ -1,5 +1,4 @@
-import { IComparer } from "./Util"
-import { compare } from "./Util"
+import { IComparer, IEqualityComparer, compare } from "./Util"
 import FSymbol from "./Symbol"
 
 export default class GenericComparer<T> implements IComparer<T> {
@@ -12,4 +11,8 @@ export default class GenericComparer<T> implements IComparer<T> {
   [FSymbol.reflection]() {
     return { interfaces: ["System.IComparer"] }
   }
+}
+
+export function fromEqualityComparer<T>(eqComparer: IEqualityComparer<T>) {
+  return new GenericComparer<T>((x, y) => eqComparer.Equals(x, y) ? 0 : 1);
 }

@@ -1025,7 +1025,7 @@ module Util =
 //        | _ -> false
 
     let buildApplyInfo com (ctx: Context) r typ ownerType ownerFullName methName methKind
-            (atts, typArgs, methTypArgs) (callee, args): Fable.ApplyInfo =
+            (atts, typArgs, methTypArgs) (callee, args, argTypes): Fable.ApplyInfo =
         {
             ownerType = ownerType
             ownerFullName = ownerFullName
@@ -1035,6 +1035,7 @@ module Util =
             fileName = ctx.fileName
             callee = callee
             args = args
+            argTypes = argTypes
             returnType = typ
             decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
             calleeTypeArgs = typArgs |> List.map (makeType com ctx.typeArgs)
@@ -1044,7 +1045,7 @@ module Util =
 
     let buildApplyInfoFrom com (ctx: Context) r typ
             (typArgs, methTypArgs)
-            (callee, args)
+            (callee, args, argTypes)
             (owner: FSharpEntity option)
             (meth: FSharpMemberOrFunctionOrValue)
             : Fable.ApplyInfo =
@@ -1053,7 +1054,7 @@ module Util =
             | Some ent -> makeTypeFromDef com ctx.typeArgs ent [], sanitizeEntityFullName ent
             | None -> Fable.Any, "System.Object"
         buildApplyInfo com ctx r typ ownerType ownerFullName (sanitizeMethodName meth) (getMemberKind meth)
-            (meth.Attributes, typArgs, methTypArgs) (callee, args)
+            (meth.Attributes, typArgs, methTypArgs) (callee, args, argTypes)
 
     let tryPlugin (com: IFableCompiler) (info: Fable.ApplyInfo) =
         com.ReplacePlugins
@@ -1322,7 +1323,7 @@ module Util =
                 then args@[passGenerics com ctx r (typArgs, methTypArgs) meth]
                 else args
         let owner = tryEnclosingEntity meth
-        let i = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs) (callee, args) owner meth
+        let i = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs) (callee, args, argTypes) owner meth
         match meth with
         (** -Check for replacements, emits... *)
         | Plugin com i replaced -> replaced
@@ -1428,7 +1429,7 @@ module Util =
         elif v.IsModuleValueOrMember
         then
             let owner = tryEnclosingEntity v
-            let i = buildApplyInfoFrom com ctx r typ ([], []) (None, []) owner v
+            let i = buildApplyInfoFrom com ctx r typ ([], []) (None, [], []) owner v
             match v with
             | Plugin com i replaced -> replaced
             | Imported com ctx r typ i ([], []) [] imported -> imported

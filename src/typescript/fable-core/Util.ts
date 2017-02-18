@@ -8,6 +8,10 @@ export interface IComparable<T> {
   CompareTo(x: T): number;
 }
 
+export interface IEqualityComparer<T> {
+  Equals(x: T, y: T): boolean;
+}
+
 export interface IEquatable<T> {
   Equals(x: T): boolean;
 }

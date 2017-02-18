@@ -289,7 +289,28 @@ module Util =
             arrayFrom (getTypedArrayName com numberKind) expr
         | _ -> arrayFrom "Array" expr
 
-    let applyOp com (i: Fable.ApplyInfo) (args: Fable.Expr list) meth =
+    let getZero = function
+        | Fable.DeclaredType(ent, _) as t ->
+            match ent.FullName with
+            | "System.TimeSpan" -> makeIntConst 0
+            | "System.DateTime" ->
+                GlobalCall ("Date", None, true, [makeIntConst 0])
+                |> makeCall None t
+            | "Microsoft.FSharp.Collections.FSharpSet" ->
+                ccall_ None t "Set" "create" []
+            | _ ->
+                let callee = Fable.TypeRef(ent,[]) |> Fable.Value
+                makeGet None t callee (makeStrConst "Zero")
+        | Fable.ExtendedNumber kind as t ->
+            match kind with
+            | Int64 | UInt64 ->
+                ccall_ None t "Long" "fromInt" [makeIntConst 0]
+            | BigInt ->
+                ccall_ None t "BigInt" "fromInt32" [makeIntConst 0]
+        | Fable.Char | Fable.String -> makeStrConst ""
+        | _ -> makeIntConst 0
+
+    let applyOp range returnType (args: Fable.Expr list) argTypes meth =
         let replacedEntities =
             set [ "System.TimeSpan"; "System.DateTime"; "Microsoft.FSharp.Collections.FSharpSet" ]
         let (|CustomOp|_|) meth argTypes (ent: Fable.Entity) =
@@ -297,7 +318,7 @@ module Util =
             ent.TryGetMember(meth, Fable.Method, Fable.StaticLoc, argTypes)
             |> function None -> None | Some m -> Some(ent, m)
         let apply op args =
-            Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, i.returnType, i.range)
+            Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, returnType, range)
         let nativeOp leftOperand = function
             | "op_Addition" -> Fable.BinaryOp BinaryPlus
             | "op_Subtraction" -> Fable.BinaryOp BinaryMinus
@@ -323,11 +344,11 @@ module Util =
         | _::[Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)] ->
             let typRef = Fable.Value(Fable.TypeRef(ent,[]))
             InstanceCall(typRef, m.OverloadName, args)
-            |> makeCall i.range i.returnType
+            |> makeCall range returnType
         | Fable.ExtendedNumber BigInt::_
         | _::[Fable.ExtendedNumber BigInt] ->
             CoreLibCall ("BigInt", Some meth, false, args)
-            |> makeCall i.range i.returnType
+            |> makeCall range returnType
         | Fable.ExtendedNumber (Int64|UInt64)::_
         | _::[Fable.ExtendedNumber (Int64|UInt64)] ->
             let meth =
@@ -346,7 +367,7 @@ module Util =
                 | "op_UnaryNegation" -> "neg"
                 | _ -> failwithf "Unknown operator: %s" meth
             InstanceCall (args.Head, meth, args.Tail)
-            |> makeCall i.range i.returnType
+            |> makeCall range returnType
         // Floor result of integer divisions (see #172)
         // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
         | Fable.Number Integer::_ when meth = "op_Division" ->
@@ -356,12 +377,12 @@ module Util =
         | EntFullName (KeyValue "System.DateTime" "Date" modName)::_
         | EntFullName (KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" modName)::_ ->
             CoreLibCall (modName, Some meth, false, args)
-            |> makeCall i.range i.returnType
+            |> makeCall range returnType
         | EntFullName "System.TimeSpan"::_
         | (Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _)::_ ->
             apply (nativeOp argTypes.Head meth) args
         | _ ->
-            ccall i "Util" "applyOperator" (args@[makeStrConst meth])
+            ccall_ range returnType "Util" "applyOperator" (args@[makeStrConst meth])
 
     let equals equal com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
         let op equal =
@@ -446,11 +467,12 @@ module Util =
         CoreLibCall(modName, Some "create", false, args)
         |> makeCall i.range i.returnType
 
-    let makeDictionary r t keyType args =
-        match keyType with
-        | Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _ ->
+    let makeDictionary r t forceFSharpMap keyType args =
+        match forceFSharpMap, keyType with
+        | true, _
+        | false, (Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _) ->
             CoreLibCall("Map", Some "create", false, args)
-        | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
+        | false, Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
             CoreLibCall("Map", Some "create", false, args)
         | _ ->
             GlobalCall("Map", None, true, args)
@@ -653,7 +675,7 @@ module AstPass =
          | "op_Modulus" | "op_LeftShift" | "op_RightShift"
          | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
          | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
-            applyOp com info args info.methodName |> Some
+            applyOp info.range info.returnType args info.argTypes info.methodName |> Some
         | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
             match info.args with
             | [x] -> math r typ args info.methodName
@@ -705,7 +727,7 @@ module AstPass =
         | "toString" -> toString com info args.Head |> Some
         | "toEnum" -> args.Head |> Some
         | "createDictionary" ->
-            makeDictionary r typ info.methodTypeArgs.Head args |> Some
+            makeDictionary r typ false info.methodTypeArgs.Head args |> Some
         | "createSet" ->
             makeMapOrSetCons com info "Set" args |> Some
         // Ignore: wrap to keep Unit type (see Fable2Babel.transformFunction)
@@ -1157,17 +1179,33 @@ module AstPass =
         | _ -> None
 
     let dictionaries (com: ICompiler) (i: Fable.ApplyInfo) =
+        let (|IDictionary|_|) = function
+            | EntFullName "System.Collections.Generic.IDictionary" -> Some IDictionary
+            | _ -> None
+        let (|IEqualityComparer|_|) = function
+            | EntFullName "System.Collections.Generic.IEqualityComparer" -> Some IEqualityComparer
+            | _ -> None
+        let makeComparer (e: Fable.Expr) =
+            ccall_ e.Range e.Type "GenericComparer" "fromEqualityComparer" [e]
+        let makeDic forceFSharpMap args =
+            makeDictionary i.range i.returnType forceFSharpMap i.calleeTypeArgs.Head args
         match i.methodName with
         | ".ctor" ->
-            match i.args with
-            | [] -> makeDictionary i.range i.returnType i.calleeTypeArgs.Head [] |> Some
-            | _ ->
-                match i.args.Head.Type with
-                | Fable.DeclaredType(ent, _) when ent.FullName.StartsWith("System.Collections.Generic.IDictionary") ->
-                    makeDictionary i.range i.returnType i.calleeTypeArgs.Head i.args |> Some
-                | _ ->
-                    addWarning com i.fileName i.range "Dictionary constructor parameter is ignored"
-                    makeDictionary i.range i.returnType i.calleeTypeArgs.Head [] |> Some
+            match i.argTypes with
+            | [] ->
+                makeDic false [] |> Some
+            | [IDictionary] ->
+                makeDic false i.args |> Some
+            | [IDictionary; IEqualityComparer] ->
+                makeDic true [i.args.Head; makeComparer i.args.Tail.Head] |> Some
+            | [IEqualityComparer] ->
+                makeDic true [Fable.Value Fable.Null; makeComparer i.args.Head] |> Some
+            | [Fable.Number _] ->
+                makeDic false [] |> Some
+            | [Fable.Number _; IEqualityComparer] ->
+                makeDic true [Fable.Value Fable.Null; makeComparer i.args.Tail.Head] |> Some
+            | _ -> None
+
         | "isReadOnly" ->
             // TODO: Check for immutable maps with IDictionary interface
             Fable.BoolConst false |> Fable.Value |> Some
@@ -1503,19 +1541,18 @@ module AstPass =
             | Array -> toArray com i i.args.Head
             |> Some
         | "sum" | "sumBy" ->
-            match meth, i.methodTypeArgs with
-            | "sum", [Fable.DeclaredType(ent, _) as t]
-            | "sumBy", [_;Fable.DeclaredType(ent, _) as t] ->
-                let zero = Fable.Apply(Fable.Value(Fable.TypeRef(ent,[])), [makeStrConst "Zero"],
-                                        Fable.ApplyGet, i.returnType, None)
+            match i.returnType with
+            | Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _ ->
+                ccall "Seq" meth args |> Some
+            | t ->
+                let zero = getZero t
                 let fargs = [makeTypedIdent "x" t; makeTypedIdent "y" t]
-                let addFn = wrapInLambda fargs (fun args -> applyOp com i args "op_Addition")
+                let addFn = wrapInLambda fargs (fun args ->
+                    applyOp None Fable.Any args [t; t] "op_Addition")
                 if meth = "sum"
                 then addFn, args.Head
                 else emitNoInfo "((f,add)=>(x,y)=>add(x,f(y)))($0,$1)" [args.Head;addFn], args.Tail.Head
                 |> fun (f, xs) -> ccall "Seq" "fold" [f; zero; xs] |> Some
-            | _ ->
-                ccall "Seq" meth args |> Some
         | "min" | "minBy" | "max" | "maxBy" ->
             let reduce macro macroArgs xs =
                 ccall "Seq" "reduce" [emitNoInfo macro macroArgs; xs] |> Some

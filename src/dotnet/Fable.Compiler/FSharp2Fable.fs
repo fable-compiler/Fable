@@ -151,11 +151,11 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
-        let argExprs =
+        let argExprs, argTypes =
             let tag = getUnionCaseIndex fsExpr.Range fsType unionCase.Name |> makeIntConst
-            tag::argExprs
+            tag::argExprs, (Fable.Number Int32)::(List.map Fable.Expr.getType argExprs)
         buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
-            ".ctor" Fable.Constructor ([],[],[]) (None, argExprs)
+            ".ctor" Fable.Constructor ([],[],[]) (None, argExprs, argTypes)
         |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
         |> function
         | Some repl -> repl
@@ -638,6 +638,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let range = makeRangeFrom fsExpr
+        let argTypes = argExprs |> List.map (fun e -> makeType com ctx.typeArgs e.Type)
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         match tryDefinition fsType with
         | Some tdef when tdef.Attributes |> hasAtt Atts.pojo ->
@@ -647,7 +648,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | _ ->
             let recordType = makeType com ctx.typeArgs fsType
             buildApplyInfo com ctx range recordType recordType (recordType.FullName)
-                ".ctor" Fable.Constructor ([],[],[]) (None, argExprs)
+                ".ctor" Fable.Constructor ([],[],[]) (None, argExprs, argTypes)
             |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
             |> function
             | Some repl -> repl
