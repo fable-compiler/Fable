@@ -819,8 +819,10 @@ module AstPass =
             if (List.length i.args) > 1 then addWarning com i.fileName i.range "String.Contains: second argument is ignored"
             makeEqOp i.range [icall2 "indexOf" (i.callee.Value, [i.args.Head]); makeIntConst 0] BinaryGreaterOrEqual |> Some
         | "startsWith" ->
-            if (List.length i.args) > 1 then addWarning com i.fileName i.range "String.StartsWith: second argument is ignored"
-            makeEqOp i.range [icall2 "indexOf" (i.callee.Value, [i.args.Head]); makeIntConst 0] BinaryEqualStrict |> Some
+            match i.args with
+            | [str] -> makeEqOp i.range [icall2 "indexOf" (i.callee.Value, [i.args.Head]); makeIntConst 0] BinaryEqualStrict |> Some
+            | [str; comp] -> ccall i "String" "startsWith" (i.callee.Value::i.args) |> Some
+            | _ -> None
         | "substring" -> icall i "substr" |> Some
         | "toUpper" -> icall i "toLocaleUpperCase" |> Some
         | "toUpperInvariant" -> icall i "toUpperCase" |> Some
@@ -1241,7 +1243,7 @@ module AstPass =
                 ccall_ e.Range e.Type "GenericComparer" "fromEqualityComparer" [e]
             match i.argTypes with
             | [] | [IEnumerable] ->
-                makeHashSet i.range i.returnType false i.calleeTypeArgs.Head [] |> Some
+                makeHashSet i.range i.returnType false i.calleeTypeArgs.Head i.args |> Some
             | [IEnumerable; IEqualityComparer] ->
                 [i.args.Head; makeComparer i.args.Tail.Head]
                 |> makeHashSet i.range i.returnType true i.calleeTypeArgs.Head |> Some

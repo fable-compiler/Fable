@@ -374,6 +374,14 @@ let ``String.StartsWith works``() =
             |> equal (snd arg)
 
 [<Test>]
+let ``String.StartsWith with StringComparison works``() =
+      let args = [("ab", true); ("cd", false); ("abcdx", false)]
+      for arg in args do
+            "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+            |> equal (snd arg)
+
+
+[<Test>]
 let ``String.EndsWith works``() =
       let args = [("ab", false); ("cd", true); ("abcdx", false)]
       for arg in args do

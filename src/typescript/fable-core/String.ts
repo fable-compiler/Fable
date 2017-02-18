@@ -61,6 +61,13 @@ export function compareTo(x: string, y: string) {
   return cmp(x, y, false);
 }
 
+export function startsWith(str: string, pattern: string, ic: number) {
+  if (str.length >= pattern.length) {
+    return cmp(str.substr(0, pattern.length), pattern, ic) === 0;
+  }
+  return false;
+}
+
 export function indexOfAny (str: string, anyOf: string[], ...args: number[]) {
   if (str == null || str === "")
     return -1;
