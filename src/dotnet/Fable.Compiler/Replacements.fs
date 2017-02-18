@@ -45,6 +45,18 @@ module Util =
         | Fable.DeclaredType(ent, _) -> Some ent.FullName
         | _ -> None
 
+    let (|IDictionary|_|) = function
+        | EntFullName "System.Collections.Generic.IDictionary" -> Some IDictionary
+        | _ -> None
+
+    let (|IEnumerable|_|) = function
+        | EntFullName "System.Collections.Generic.IEnumerable" -> Some IEnumerable
+        | _ -> None
+
+    let (|IEqualityComparer|_|) = function
+        | EntFullName "System.Collections.Generic.IEqualityComparer" -> Some IEqualityComparer
+        | _ -> None
+
     let (|DeclaredKind|_|) (typ: Fable.Type) =
         match typ with
         | Fable.DeclaredType(ent, _) -> Some ent.Kind
@@ -478,11 +490,12 @@ module Util =
             GlobalCall("Map", None, true, args)
         |> makeCall r t
 
-    let makeHashSet r t valueType args =
-        match valueType with
-        | Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _ ->
+    let makeHashSet r t forceFSharpType valueType args =
+        match forceFSharpType, valueType with
+        | true, _
+        | false, (Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _) ->
             CoreLibCall("Set", Some "create", false, args)
-        | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
+        | false, Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
             CoreLibCall("Set", Some "create", false, args)
         | _ ->
             GlobalCall("Set", None, true, args)
@@ -1179,12 +1192,6 @@ module AstPass =
         | _ -> None
 
     let dictionaries (com: ICompiler) (i: Fable.ApplyInfo) =
-        let (|IDictionary|_|) = function
-            | EntFullName "System.Collections.Generic.IDictionary" -> Some IDictionary
-            | _ -> None
-        let (|IEqualityComparer|_|) = function
-            | EntFullName "System.Collections.Generic.IEqualityComparer" -> Some IEqualityComparer
-            | _ -> None
         let makeComparer (e: Fable.Expr) =
             ccall_ e.Range e.Type "GenericComparer" "fromEqualityComparer" [e]
         let makeDic forceFSharpMap args =
@@ -1192,9 +1199,7 @@ module AstPass =
         match i.methodName with
         | ".ctor" ->
             match i.argTypes with
-            | [] ->
-                makeDic false [] |> Some
-            | [IDictionary] ->
+            | [] | [IDictionary] ->
                 makeDic false i.args |> Some
             | [IDictionary; IEqualityComparer] ->
                 makeDic true [i.args.Head; makeComparer i.args.Tail.Head] |> Some
@@ -1232,15 +1237,18 @@ module AstPass =
     let hashSets (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
-            match i.args with
-            | [] -> makeHashSet i.range i.returnType i.calleeTypeArgs.Head [] |> Some
-            | _ ->
-                match i.args.Head.Type with
-                | Fable.DeclaredType(ent, _) when ent.FullName.StartsWith("System.Collections.Generic.IEnumerable") ->
-                    makeHashSet i.range i.returnType i.calleeTypeArgs.Head i.args |> Some
-                | _ ->
-                    addWarning com i.fileName i.range "HashSet constructor parameter is ignored"
-                    makeHashSet i.range i.returnType i.calleeTypeArgs.Head [] |> Some
+            let makeComparer (e: Fable.Expr) =
+                ccall_ e.Range e.Type "GenericComparer" "fromEqualityComparer" [e]
+            match i.argTypes with
+            | [] | [IEnumerable] ->
+                makeHashSet i.range i.returnType false i.calleeTypeArgs.Head [] |> Some
+            | [IEnumerable; IEqualityComparer] ->
+                [i.args.Head; makeComparer i.args.Tail.Head]
+                |> makeHashSet i.range i.returnType true i.calleeTypeArgs.Head |> Some
+            | [IEqualityComparer] ->
+                [Fable.Value Fable.Null; makeComparer i.args.Head]
+                |> makeHashSet i.range i.returnType true i.calleeTypeArgs.Head |> Some
+            | _ -> None
         | "count" ->
             makeGet i.range i.returnType i.callee.Value (makeStrConst "size") |> Some
         | "isReadOnly" ->

@@ -17,6 +17,28 @@ let ``HashSet ctor creates empty HashSet``() =
     xs |> Seq.isEmpty
     |> equal true
 
+type MyRefType(i: int) =
+    member x.Value = i
+
+let ``HashSets with IEqualityComparer work``() =
+    let x = MyRefType(4)
+    let y = MyRefType(4)
+    let z = MyRefType(6)
+    let set = HashSet<_>()
+    set.Add(x) |> equal true
+    set.Contains(x) |> equal true
+    set.Contains(y) |> equal false
+
+    let comparer =
+        { new IEqualityComparer<MyRefType> with
+            member __.Equals(x, y) = x.Value = y.Value
+            member __.GetHashCode(x) = x.Value }
+    let set2 = HashSet<_>(comparer)
+    set2.Add(x) |> equal true
+    set2.Contains(x) |> equal true
+    set2.Contains(y) |> equal true
+    set2.Contains(z) |> equal false
+
 let set l =
     let xs = HashSet<_>()
     for x in l do
