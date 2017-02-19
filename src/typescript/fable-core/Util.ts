@@ -190,7 +190,7 @@ export function equals(x: any, y: any): boolean {
     return true;
   }
   else if (x instanceof Date)
-    return x.getTime() == y.getTime();
+    return x.getTime() === y.getTime();
   else
     return false;
 }
@@ -226,8 +226,14 @@ export function compare(x: any, y: any): number {
     }
     return 0;
   }
-  else if (x instanceof Date)
-    return compare(x.getTime(), y.getTime());
+  else if (x instanceof Date) {
+    let xtime = x.getTime(), ytime = y.getTime();
+    return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
+  }
+  else if (typeof x === "object") {
+    let xhash = hash(x), yhash = hash(y);
+    return xhash < yhash ? -1 : 1;
+  }
   else
     return x < y ? -1 : 1;
 }

@@ -25,7 +25,7 @@ export function fromEqualityComparer<T>(comparer: IEqualityComparer<T>) {
         return comparer.Equals(x, y) ? 0 : 1;
       }
       else {
-        return xhash < yhash ? 1 : -1;
+        return xhash < yhash ? -1 : 1;
       }
     });
   }
