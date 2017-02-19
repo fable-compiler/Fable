@@ -1,5 +1,5 @@
 {
-    "projFile": "../Fable.Client.Browser.fsproj",
+    "projFile": "../Fable.Compiler.fsx",
     "verbose": true,
     "ecma": "es2015",
     "coreLib": "../../../../build/fable-core",
