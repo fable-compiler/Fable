@@ -200,13 +200,13 @@ and ApplyInfo = {
     methodKind: MemberKind
     callee: Expr option
     args: Expr list
-    argTypes: Type list
     returnType: Type
     range: SourceLocation option
     fileName: string
     decorators: Decorator list
     calleeTypeArgs: Type list
     methodTypeArgs: Type list
+    methodArgTypes: Type list
     genericAvailability: bool
 }
 

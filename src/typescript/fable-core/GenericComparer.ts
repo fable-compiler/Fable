@@ -14,5 +14,7 @@ export default class GenericComparer<T> implements IComparer<T> {
 }
 
 export function fromEqualityComparer<T>(eqComparer: IEqualityComparer<T>) {
-  return new GenericComparer<T>((x, y) => eqComparer.Equals(x, y) ? 0 : 1);
+  var f = typeof (eqComparer as any).Compare === "function"
+            ? (eqComparer as any).Compare : (x: T, y: T) => eqComparer.Equals(x, y) ? 0 : 1;
+  return new GenericComparer<T>(f);
 }

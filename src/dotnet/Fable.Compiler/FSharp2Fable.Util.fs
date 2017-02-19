@@ -47,7 +47,8 @@ type Context =
     ; decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
     ; baseClass: string option
     ; thisAvailability: ThisAvailability
-    ; genericAvailability: bool }
+    ; genericAvailability: bool
+    ; isLambdaBody: bool }
     static member Create(fileName, enclosingModule) =
         { fileName = fileName
         ; enclosingEntity = enclosingModule
@@ -58,7 +59,8 @@ type Context =
         ; decisionTargets = None
         ; baseClass = None
         ; thisAvailability = ThisUnavailable
-        ; genericAvailability = false }
+        ; genericAvailability = false
+        ; isLambdaBody = false }
 
 type IFableCompiler =
     inherit ICompiler
@@ -1025,7 +1027,7 @@ module Util =
 //        | _ -> false
 
     let buildApplyInfo com (ctx: Context) r typ ownerType ownerFullName methName methKind
-            (atts, typArgs, methTypArgs) (callee, args, argTypes): Fable.ApplyInfo =
+            (atts, typArgs, methTypArgs, methArgTypes) (callee, args): Fable.ApplyInfo =
         {
             ownerType = ownerType
             ownerFullName = ownerFullName
@@ -1035,18 +1037,17 @@ module Util =
             fileName = ctx.fileName
             callee = callee
             args = args
-            argTypes = argTypes
             returnType = typ
             decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
             calleeTypeArgs = typArgs |> List.map (makeType com ctx.typeArgs)
             methodTypeArgs = methTypArgs |> List.map (makeType com ctx.typeArgs)
+            methodArgTypes = methArgTypes
             genericAvailability = ctx.genericAvailability
         }
 
     let buildApplyInfoFrom com (ctx: Context) r typ
-            (typArgs, methTypArgs)
-            (callee, args, argTypes)
-            (owner: FSharpEntity option)
+            (typArgs, methTypArgs, methArgTypes)
+            (callee, args) (owner: FSharpEntity option)
             (meth: FSharpMemberOrFunctionOrValue)
             : Fable.ApplyInfo =
         let ownerType, ownerFullName =
@@ -1054,7 +1055,7 @@ module Util =
             | Some ent -> makeTypeFromDef com ctx.typeArgs ent [], sanitizeEntityFullName ent
             | None -> Fable.Any, "System.Object"
         buildApplyInfo com ctx r typ ownerType ownerFullName (sanitizeMethodName meth) (getMemberKind meth)
-            (meth.Attributes, typArgs, methTypArgs) (callee, args, argTypes)
+            (meth.Attributes, typArgs, methTypArgs, methArgTypes) (callee, args)
 
     let tryPlugin (com: IFableCompiler) (info: Fable.ApplyInfo) =
         com.ReplacePlugins
@@ -1307,9 +1308,9 @@ module Util =
                      (meth: FSharpMemberOrFunctionOrValue)
                      (typArgs, methTypArgs) callee args =
         validateGenArgs ctx r meth.GenericParameters methTypArgs
-        let argTypes = getArgTypes com meth.CurriedParameterGroups
+        let methArgTypes = getArgTypes com meth.CurriedParameterGroups
         let args =
-            let args = ensureArity com argTypes args
+            let args = ensureArity com methArgTypes args
             if hasRestParams meth then
                 let args = List.rev args
                 match args.Head with
@@ -1323,7 +1324,7 @@ module Util =
                 then args@[passGenerics com ctx r (typArgs, methTypArgs) meth]
                 else args
         let owner = tryEnclosingEntity meth
-        let i = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs) (callee, args, argTypes) owner meth
+        let i = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs, methArgTypes) (callee, args) owner meth
         match meth with
         (** -Check for replacements, emits... *)
         | Plugin com i replaced -> replaced
@@ -1332,7 +1333,7 @@ module Util =
         | Erased r typ owner (callee, args) erased -> erased
         | Replaced com i owner replaced -> replaced
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
-        | ExtensionMember com ctx r typ (callee, args, argTypes) owner expr -> expr
+        | ExtensionMember com ctx r typ (callee, args, methArgTypes) owner expr -> expr
         | Try (tryGetBoundExpr ctx r) e ->
             match getMemberKind meth with
             | Fable.Getter | Fable.Field -> e
@@ -1362,7 +1363,7 @@ module Util =
     (**     *If nothing of the above applies, call the method normally *)
             | Fable.Method as kind ->
                 let applyMeth methName =
-                    // let calleeType = Fable.Function(Some argTypes, typ)
+                    // let calleeType = Fable.Function(Some methArgTypes, typ)
                     let m = makeGet r Fable.Any callee (makeStrConst methName)
                     Fable.Apply(m, args, Fable.ApplyMeth, typ, r)
                 if belongsToInterfaceOrImportedEntity meth
@@ -1374,7 +1375,7 @@ module Util =
                     match owner with
                     | Some ent ->
                         let ent = com.GetEntity ent
-                        ent.TryGetMember(methName, kind, getMemberLoc meth, argTypes)
+                        ent.TryGetMember(methName, kind, getMemberLoc meth, methArgTypes)
                         |> function Some m -> m.OverloadName | None -> methName
                         |> applyMeth
                     | None -> applyMeth methName
@@ -1429,7 +1430,7 @@ module Util =
         elif v.IsModuleValueOrMember
         then
             let owner = tryEnclosingEntity v
-            let i = buildApplyInfoFrom com ctx r typ ([], []) (None, [], []) owner v
+            let i = buildApplyInfoFrom com ctx r typ ([], [], []) (None, []) owner v
             match v with
             | Plugin com i replaced -> replaced
             | Imported com ctx r typ i ([], []) [] imported -> imported

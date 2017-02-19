@@ -151,11 +151,11 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
-        let argExprs, argTypes =
+        let argExprs =
             let tag = getUnionCaseIndex fsExpr.Range fsType unionCase.Name |> makeIntConst
-            tag::argExprs, (Fable.Number Int32)::(List.map Fable.Expr.getType argExprs)
+            tag::argExprs
         buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
-            ".ctor" Fable.Constructor ([],[],[]) (None, argExprs, argTypes)
+            ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
         |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
         |> function
         | Some repl -> repl
@@ -450,30 +450,32 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | fsExpr -> transformExpr com ctx fsExpr
 
     | FlattenedLambda(args, tupleDestructs, body) ->
+        let rec getNestedLambdas acc = function
+            | Fable.Function(args, returnType) -> getNestedLambdas ((List.length args)::acc) returnType
+            | _ -> acc
         let ctx, args = makeLambdaArgs com ctx args
         let ctx =
             (ctx, tupleDestructs)
             ||> List.fold (fun ctx (var, value) ->
                 transformExpr com ctx value |> bindExpr ctx var)
         let captureThis = ctx.thisAvailability <> ThisUnavailable
-        let body = transformExpr com ctx body
-        let fsType = makeType com ctx.typeArgs fsExpr.Type
-        let expectedArgCount =
-            match fsType with
-            | Fable.Function(argTypes,_) -> List.length argTypes |> max 1
-            | _ -> 1
-        let actualArgCount = List.length args |> max 1
-        Fable.Lambda(args, body, captureThis) |> Fable.Value
-        // if expectedArgCount = actualArgCount
-        // then Fable.Lambda(args, body, captureThis) |> Fable.Value
-        // else
-        //     let lambda = Fable.Lambda(args, body, false) |> Fable.Value
-        //     let args =
-        //         if captureThis
-        //         then [makeIntConst actualArgCount; lambda; Fable.Value Fable.This]
-        //         else [makeIntConst actualArgCount; lambda]
-        //     CoreLibCall("Util", Some "CurriedLambda", false, args)
-        //     |> makeCall (makeRangeFrom fsExpr) fsType
+        let body = transformExpr com { ctx with isLambdaBody = true } body
+        let lambda = Fable.Lambda(args, body, captureThis) |> Fable.Value
+        if ctx.isLambdaBody
+        then lambda
+        else
+            let nestedLambdas = getNestedLambdas [List.length args] body.Type
+            if List.length nestedLambdas <= 2
+            then lambda
+            else
+                let args =
+                    [ yield List.rev nestedLambdas
+                            |> List.map makeIntConst
+                            |> makeArray Fable.Any
+                      yield lambda
+                      if captureThis then yield Fable.Value Fable.This ]
+                CoreLibCall("CurriedLambda", None, false, args)
+                |> makeCall (makeRangeFrom fsExpr) lambda.Type
 
     (** ## Getters and Setters *)
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
@@ -638,7 +640,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let range = makeRangeFrom fsExpr
-        let argTypes = argExprs |> List.map (fun e -> makeType com ctx.typeArgs e.Type)
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         match tryDefinition fsType with
         | Some tdef when tdef.Attributes |> hasAtt Atts.pojo ->
@@ -648,7 +649,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | _ ->
             let recordType = makeType com ctx.typeArgs fsType
             buildApplyInfo com ctx range recordType recordType (recordType.FullName)
-                ".ctor" Fable.Constructor ([],[],[]) (None, argExprs, argTypes)
+                ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
             |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
             |> function
             | Some repl -> repl

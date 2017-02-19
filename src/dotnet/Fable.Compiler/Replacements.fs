@@ -322,7 +322,7 @@ module Util =
         | Fable.Char | Fable.String -> makeStrConst ""
         | _ -> makeIntConst 0
 
-    let applyOp range returnType (args: Fable.Expr list) argTypes meth =
+    let applyOp range returnType (args: Fable.Expr list) meth =
         let replacedEntities =
             set [ "System.TimeSpan"; "System.DateTime"; "Microsoft.FSharp.Collections.FSharpSet" ]
         let (|CustomOp|_|) meth argTypes (ent: Fable.Entity) =
@@ -357,12 +357,10 @@ module Util =
             let typRef = Fable.Value(Fable.TypeRef(ent,[]))
             InstanceCall(typRef, m.OverloadName, args)
             |> makeCall range returnType
-        | Fable.ExtendedNumber BigInt::_
-        | _::[Fable.ExtendedNumber BigInt] ->
+        | Fable.ExtendedNumber BigInt::_ ->
             CoreLibCall ("BigInt", Some meth, false, args)
             |> makeCall range returnType
-        | Fable.ExtendedNumber (Int64|UInt64)::_
-        | _::[Fable.ExtendedNumber (Int64|UInt64)] ->
+        | Fable.ExtendedNumber (Int64|UInt64)::_ ->
             let meth =
                 match meth with
                 | "op_Addition" -> "add"
@@ -480,25 +478,29 @@ module Util =
         |> makeCall i.range i.returnType
 
     let makeDictionary r t forceFSharpMap keyType args =
-        match forceFSharpMap, keyType with
-        | true, _
-        | false, (Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _) ->
-            CoreLibCall("Map", Some "create", false, args)
-        | false, Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
-            CoreLibCall("Map", Some "create", false, args)
-        | _ ->
-            GlobalCall("Map", None, true, args)
+        if forceFSharpMap
+        then CoreLibCall("Map", Some "create", false, args)
+        else
+            match keyType with
+            | Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _ ->
+                CoreLibCall("Map", Some "create", false, args)
+            | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
+                CoreLibCall("Map", Some "create", false, args)
+            | _ ->
+                GlobalCall("Map", None, true, args)
         |> makeCall r t
 
-    let makeHashSet r t forceFSharpType valueType args =
-        match forceFSharpType, valueType with
-        | true, _
-        | false, (Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _) ->
-            CoreLibCall("Set", Some "create", false, args)
-        | false, Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
-            CoreLibCall("Set", Some "create", false, args)
-        | _ ->
-            GlobalCall("Set", None, true, args)
+    let makeHashSet r t forceFSharpSet valueType args =
+        if forceFSharpSet
+        then CoreLibCall("Set", Some "create", false, args)
+        else
+            match valueType with
+            | (Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _) ->
+                CoreLibCall("Set", Some "create", false, args)
+            | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
+                CoreLibCall("Set", Some "create", false, args)
+            | _ ->
+                GlobalCall("Set", None, true, args)
         |> makeCall r t
 
 module AstPass =
@@ -688,7 +690,7 @@ module AstPass =
          | "op_Modulus" | "op_LeftShift" | "op_RightShift"
          | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
          | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
-            applyOp info.range info.returnType args info.argTypes info.methodName |> Some
+            applyOp info.range info.returnType args info.methodName |> Some
         | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
             match info.args with
             | [x] -> math r typ args info.methodName
@@ -1200,7 +1202,7 @@ module AstPass =
             makeDictionary i.range i.returnType forceFSharpMap i.calleeTypeArgs.Head args
         match i.methodName with
         | ".ctor" ->
-            match i.argTypes with
+            match i.methodArgTypes with
             | [] | [IDictionary] ->
                 makeDic false i.args |> Some
             | [IDictionary; IEqualityComparer] ->
@@ -1212,7 +1214,6 @@ module AstPass =
             | [Fable.Number _; IEqualityComparer] ->
                 makeDic true [Fable.Value Fable.Null; makeComparer i.args.Tail.Head] |> Some
             | _ -> None
-
         | "isReadOnly" ->
             // TODO: Check for immutable maps with IDictionary interface
             Fable.BoolConst false |> Fable.Value |> Some
@@ -1241,7 +1242,7 @@ module AstPass =
         | ".ctor" ->
             let makeComparer (e: Fable.Expr) =
                 ccall_ e.Range e.Type "GenericComparer" "fromEqualityComparer" [e]
-            match i.argTypes with
+            match i.methodArgTypes with
             | [] | [IEnumerable] ->
                 makeHashSet i.range i.returnType false i.calleeTypeArgs.Head i.args |> Some
             | [IEnumerable; IEqualityComparer] ->
@@ -1558,7 +1559,7 @@ module AstPass =
                 let zero = getZero t
                 let fargs = [makeTypedIdent "x" t; makeTypedIdent "y" t]
                 let addFn = wrapInLambda fargs (fun args ->
-                    applyOp None Fable.Any args [t; t] "op_Addition")
+                    applyOp None Fable.Any args "op_Addition")
                 if meth = "sum"
                 then addFn, args.Head
                 else emitNoInfo "((f,add)=>(x,y)=>add(x,f(y)))($0,$1)" [args.Head;addFn], args.Tail.Head

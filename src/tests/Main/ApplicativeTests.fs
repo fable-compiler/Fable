@@ -290,3 +290,28 @@ let implicitMethod (arg: ImplicitType<string, int>) (i: int) =
 let ``TraitCall can resolve overloads with a single generic argument``() =
     implicitMethod !+"hello" 5 |> equal 1
     implicitMethod !+6       5 |> equal 2
+
+[<Test>]
+let ``More than two lambdas can be nested``() =
+    let mutable mut = 0
+    let f x =
+        mut <- mut + 1
+        fun y z ->
+            mut <- mut + 1
+            fun u w ->
+                x + y + z + u + w
+    f 1 2 3 4 5 |> equal 15
+    let f2 = f 3 4 5 6
+    f2 7 |> equal 25
+
+[<Test>]
+let ``Multiple nested lambdas can be partially applied``() =
+    let mutable mut = 0
+    let f x y z =
+        mut <- mut + 1
+        fun u ->
+            mut <- mut + 1
+            fun w ->
+                x + y + z + u + w
+    let f2 = f 1 2
+    f2 3 4 5 |> equal 15

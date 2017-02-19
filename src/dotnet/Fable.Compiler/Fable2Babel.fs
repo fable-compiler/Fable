@@ -502,21 +502,10 @@ module Util =
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
     let transformBlock (com: IBabelCompiler) ctx ret expr: BlockStatement =
-        match ret, expr with
-        | None, Fable.Sequential(statements, range) ->
-            List.collect (com.TransformStatement ctx) statements |> block range
-        | None, _ ->
+        match ret with
+        | None ->
             com.TransformStatement ctx expr |> block expr.Range
-        | Some ret, Fable.Sequential(statements, range) ->
-            let lasti = (List.length statements) - 1
-            statements
-            |> List.mapi (fun i statement ->
-                if i < lasti
-                then com.TransformStatement ctx statement
-                else com.TransformExprAndResolve ctx ret statement)
-            |> List.concat
-            |> block range
-        | Some ret, _ ->
+        | Some ret ->
             com.TransformExprAndResolve ctx ret expr |> block expr.Range
 
     let transformSwitch (com: IBabelCompiler) ctx range returnStrategy (matchValue, cases, defaultCase) =
@@ -1043,6 +1032,9 @@ module Util =
             | Fable.ActionDeclaration (e,_) ->
                 transformStatement com ctx e
                 |> List.map U2.Case1
+                // The accumulated statements will be reverted,
+                // so we have to revert these too
+                |> List.rev
                 |> List.append <| acc
             | Fable.MemberDeclaration(m,privName,args,body,r) ->
                 match m.Kind with

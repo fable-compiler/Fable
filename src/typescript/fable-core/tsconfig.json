@@ -8,7 +8,7 @@
         "noFallthroughCasesInSwitch": true,
         "noImplicitAny": true,
         "noImplicitReturns": true,
-        "noImplicitThis": true,
+        "noImplicitThis": false,
         "removeComments": true,
         //"noUnusedLocals": true,
         //"noUnusedParameters": true,
