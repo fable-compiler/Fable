@@ -1688,7 +1688,7 @@ module AstPass =
 
     let objects com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | "getHashCode" -> i.callee
+        | "getHashCode" -> ccall i "Util" "hash" [i.callee.Value] |> Some
         | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
         | "toString" -> toString com i i.callee.Value |> Some

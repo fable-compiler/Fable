@@ -10,6 +10,7 @@ export interface IComparable<T> {
 
 export interface IEqualityComparer<T> {
   Equals(x: T, y: T): boolean;
+  GetHashCode(x: T): number;
 }
 
 export interface IEquatable<T> {
@@ -151,10 +152,15 @@ export function toString(o: any) {
 }
 
 export function hash(x: any): number {
-  let s = JSON.stringify(x);
-  let h = 5381, i = 0, len = s.length;
-  while (i < len) { h = (h * 33) ^ s.charCodeAt(i++); }
-  return h;
+  if (x != null && typeof x.GetHashCode == "function") {
+    return x.GetHashCode();
+  }
+  else {
+    let s = JSON.stringify(x);
+    let h = 5381, i = 0, len = s.length;
+    while (i < len) { h = (h * 33) ^ s.charCodeAt(i++); }
+    return h;
+  }
 }
 
 export function equals(x: any, y: any): boolean {
