@@ -187,7 +187,7 @@
       this.input.setValue(UriUtils.decode(state.code || ''));
 
       this.output = new Editor('.babel-repl-output .ace_editor').editor;
-      this.output.setReadOnly(true);
+      // this.output.setReadOnly(true);
       this.output.setHighlightActiveLine(false);
       this.output.setHighlightGutterLine(false);
 
@@ -201,6 +201,19 @@
     REPL.prototype.clearOutput = function () {
       this.$errorReporter.text('');
       this.$consoleReporter.text('');
+    };
+
+    REPL.prototype.runOutput = function () {
+      // Use AMD modules for evaluation
+      var code = this.output.getValue();
+      var transformed = babel.transform(code, { plugins: [ "transform-es2015-modules-amd" ]});
+
+      // Make some changes to make the code immediately runnable
+      this.evaluate(
+        transformed.code
+          .replace("define", "require")
+          .replace('"use strict";', '"use strict"; try { exports = exports || {}; } catch (err) {}')
+      );
     };
 
     REPL.prototype.setOutput = function (output) {
@@ -230,7 +243,6 @@
     }
 
     REPL.prototype.transformFromAst = function (ast) {
-      var transformed;
       try {
         if (ast.error) {
           throw ast.error;
@@ -238,27 +250,28 @@
 
         var options = {
           plugins: [
-            "transform-es2015-modules-amd",
             babelPlugins.transformMacroExpressions,
             babelPlugins.removeUnneededNulls,
           ],
           filename: 'repl',
           babelrc: false,
         };
-        transformed = babel.transformFromAst(ast, null, options);
+
+        if (!document.getElementById('option-es2015').checked) {
+          options.presets = [
+            ["es2015", {"modules": false }]
+          ];
+        }
+
+        var transformed = babel.transformFromAst(ast, null, options);
+        var code = transformed.code;
+        this.setOutput(code);
+        this.runOutput();
       } catch (err) {
         //this.printError(err.message);
         this.setOutput(err.message + "\n" + err.stack);
         // throw err;
       }
-
-      this.setOutput(transformed.code);
-
-      // Make some changes to make the code immediately runnable
-      this.evaluate(
-        transformed.code
-          .replace("define", "require")
-          .replace('"use strict";', '"use strict"; exports = exports || {};'));
     }
 
     REPL.prototype.compile = function () {
@@ -373,7 +386,7 @@
     repl.onSourceChange();
 
     $('#fabel-compile').on('click', () => repl.onSourceChange());
-    $('#fabel-clear').on('click', () => repl.setOutput(""));
+    $('#fabel-run').on('click', () => repl.runOutput());
   })();
 
   // /*

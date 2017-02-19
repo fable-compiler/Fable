@@ -5,16 +5,16 @@ var metadata = {}
 
 // Files have .txt extension to allow gzipping in Github Pages
 var references = [
-    "Fable.Core.txt",
-    "FSharp.Core.sigdata.txt",
-    "FSharp.Core.txt",
     "mscorlib.txt",
     "System.txt",
     "System.Core.txt",
     "System.Data.txt",
     "System.IO.txt",
     "System.Xml.txt",
-    "System.Numerics.txt"
+    "System.Numerics.txt",
+    "FSharp.Core.sigdata.txt",
+    "FSharp.Core.txt",
+    "Fable.Core.txt"
 ];
 
 function isSigdata(ref) {

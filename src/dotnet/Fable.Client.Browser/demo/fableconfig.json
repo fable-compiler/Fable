@@ -4,12 +4,13 @@
     "ecma": "es2015",
     "coreLib": "../../../../build/fable-core",
     "babelrc": false,
-    "babelPlugins": [
-        "transform-es2015-block-scoping"
-    ],
+    // "babelPlugins": [
+    //     "transform-es2015-block-scoping"
+    // ],
     "rollup": {
         "dest": "./repl/bundle.js"
     },
+    "outDir": "out",
     "symbols": [
       "FX_NO_CORHOST_SIGNER",
       "FX_NO_LINKEDRESOURCES",
