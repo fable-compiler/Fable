@@ -192,17 +192,3 @@ let compile (com: ICompiler) checker (fileName, source) =
         printException ex
         printfn "[SIGFAIL]"
         false
-
-open Microsoft.FSharp.Compiler.SourceCodeServices
-
-let createChecker readAllBytes references =
-    InteractiveChecker(List.ofArray references, readAllBytes)
-
-let compileSource checker source =
-    let opts = readOptions [||]
-    let com = makeCompiler opts []
-    let fileName = "stdin.fsx"
-    let files = compileAst com checker (fileName, source)
-    files
-    |> Seq.map (fun file -> Fable.Core.JsInterop.toJson file)
-    |> Seq.head
