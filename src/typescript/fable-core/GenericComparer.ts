@@ -22,7 +22,7 @@ export function fromEqualityComparer<T>(comparer: IEqualityComparer<T>) {
     return new GenericComparer<T>(function (x: T, y: T) {
       var xhash = comparer.GetHashCode(x), yhash = comparer.GetHashCode(y);
       if (xhash === yhash) {
-        return comparer.Equals(x, y) ? 0 : 1;
+        return comparer.Equals(x, y) ? 0 : -1;
       }
       else {
         return xhash < yhash ? -1 : 1;

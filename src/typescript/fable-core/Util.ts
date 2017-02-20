@@ -195,6 +195,10 @@ export function equals(x: any, y: any): boolean {
     return false;
 }
 
+export function comparePrimitives(x: any, y: any): number {
+  return x === y ? 0 : (x < y ? -1 : 1);
+}
+
 export function compare(x: any, y: any): number {
   // Optimization if they are referencially equal
   if (x === y)
@@ -232,7 +236,12 @@ export function compare(x: any, y: any): number {
   }
   else if (typeof x === "object") {
     let xhash = hash(x), yhash = hash(y);
-    return xhash < yhash ? -1 : 1;
+    if (xhash === yhash) {
+      return equals(x, y) ? 0 : -1;
+    }
+    else {
+      return xhash < yhash ? -1 : 1;
+    }
   }
   else
     return x < y ? -1 : 1;

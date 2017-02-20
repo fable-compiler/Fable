@@ -95,7 +95,6 @@ let ``Union equality works``() =
 [<CustomEquality; CustomComparison>]
 type UTest2 =
     | String of string
-#if DOTNETCORE
     override x.GetHashCode() = x.GetHashCode()
     override x.Equals(yobj) =
        match yobj with
@@ -103,7 +102,6 @@ type UTest2 =
             match x, y with
             | String s1, String s2 -> (s1 + s1) = s2
          | _ -> false
-#endif
     interface System.IEquatable<UTest2> with
         member x.Equals(y) =
             match x, y with
@@ -114,11 +112,8 @@ type UTest2 =
             | :? UTest2 as y ->
                 match x, y with
                 | String s1, String s2 -> compare (s1 + s1) s2
-#if DOTNETCORE
             | _ -> invalidArg "yobj" "cannot compare values of different types"
-#else
             | _ -> -1
-#endif
 
 [<Test>]
 let ``Union custom equality works``() =
@@ -183,11 +178,8 @@ type Test(i: int) =
         member x.CompareTo(yobj) =
             match yobj with
             | :? Test as y -> compare (y.Value + 1) x.Value
-#if DOTNETCORE
             | _ -> invalidArg "yobj" "cannot compare values of different types"
-#else
             | _ -> -1
-#endif
 
     interface System.IEquatable<Test> with
         member x.Equals(y) =

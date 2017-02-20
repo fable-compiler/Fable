@@ -410,6 +410,7 @@ module Util =
             |> makeCall i.range i.returnType |> is equal |> Some
         | Fable.DeclaredType(ent, _)
             when (ent.HasInterface "System.IEquatable"
+                    && ent.FullName <> "System.Guid"
                     && ent.FullName <> "System.TimeSpan")
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
@@ -417,8 +418,9 @@ module Util =
             icall args equal
         | Fable.ExtendedNumber _ ->
             icall args equal
-        | Fable.Unit | Fable.Boolean | Fable.Char | Fable.String
-        | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
+        | EntFullName "System.Guid"
+        | EntFullName "System.TimeSpan"
+        | Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _ ->
             Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | Fable.Array _ | Fable.Tuple _
         | Fable.Any | Fable.MetaType | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
@@ -438,32 +440,41 @@ module Util =
         match args.Head.Type with
         | Fable.DeclaredType(ent, _)
             when ent.HasInterface "System.IComparable"
+                && ent.FullName <> "System.Guid"
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
             icall args op
         | Fable.ExtendedNumber _ ->
             icall args op
-        | Fable.Unit | Fable.Boolean | Fable.Char | Fable.String
-        | Fable.Number _ | Fable.Function _ | Fable.Enum _ ->
-            if Option.isSome op
-            then makeEqOp r args op.Value
-            else ccall_ r (Fable.Number Int32) "Util" "compare" args |> wrapWith op
+        | EntFullName "System.Guid"
+        | EntFullName "System.TimeSpan"
+        | Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _ ->
+            match op with
+            | Some op -> makeEqOp r args op
+            | None -> ccall_ r (Fable.Number Int32) "Util" "comparePrimitives" args
         | Fable.Array _ | Fable.Tuple _
         | Fable.Any | Fable.MetaType | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
              ccall_ r (Fable.Number Int32) "Util" "compare" args |> wrapWith op
 
-    let makeComparer com (typArg: Fable.Type option) =
-        match typArg with
-        | None
-        | Some(Fable.Option _) | Some(Fable.Array _ | Fable.Tuple _) ->
-            [makeCoreRef "Util" (Some "compare")]
-        | Some(Fable.DeclaredType(ent, _))
-            when ent.HasInterface "System.IComparable"
-                && ent.FullName <> "System.TimeSpan"
-                && ent.FullName <> "System.DateTime" ->
-            [emitNoInfo "(x,y) => x.CompareTo(y)" []]
-        | Some _ -> [makeCoreRef "Util" (Some "compare")]
-        |> fun args -> CoreLibCall("GenericComparer", None, true, args)
+    let makeComparer (typArg: Fable.Type option) =
+        let f =
+            match typArg with
+            | Some(EntFullName "System.Guid")
+            | Some(EntFullName "System.TimeSpan")
+            | Some(Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _) ->
+                makeCoreRef "Util" (Some "comparePrimitives")
+            | Some(EntFullName "System.DateTime") ->
+                emitNoInfo "(x,y) => x = x.getTime(), y = y.getTime(), x === y ? 0 : (x < y ? -1 : 1)" []
+            | Some(Fable.ExtendedNumber _) ->
+                emitNoInfo "(x,y) => x.CompareTo(y)" []
+            | Some(Fable.DeclaredType(ent, _))
+                when ent.HasInterface "System.IComparable"
+                    && ent.FullName <> "System.TimeSpan"
+                    && ent.FullName <> "System.DateTime" ->
+                emitNoInfo "(x,y) => x.CompareTo(y)" []
+            | Some _ | None ->
+                makeCoreRef "Util" (Some "compare")
+        CoreLibCall("GenericComparer", None, true, [f])
         |> makeCall None Fable.Any
 
     let makeMapOrSetCons com (i: Fable.ApplyInfo) modName args =
@@ -473,35 +484,43 @@ module Util =
             | [], [] -> None
         let args =
             (if List.isEmpty args then [Fable.Value Fable.Null] else args)
-            @ [makeComparer com typArg]
+            @ [makeComparer typArg]
         CoreLibCall(modName, Some "create", false, args)
         |> makeCall i.range i.returnType
 
     let makeDictionary r t forceFSharpMap keyType args =
+        let makeFSharpMap keyType args =
+            match args with
+            | [iterable] -> [iterable; makeComparer (Some keyType)]
+            | args -> args
+            |> ccall_ r t "Map" "create"
         if forceFSharpMap
-        then CoreLibCall("Map", Some "create", false, args)
+        then makeFSharpMap keyType args
         else
             match keyType with
             | Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _ ->
-                CoreLibCall("Map", Some "create", false, args)
+                makeFSharpMap keyType args
             | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
-                CoreLibCall("Map", Some "create", false, args)
+                makeFSharpMap keyType args
             | _ ->
-                GlobalCall("Map", None, true, args)
-        |> makeCall r t
+                GlobalCall("Map", None, true, args) |> makeCall r t
 
     let makeHashSet r t forceFSharpSet valueType args =
+        let makeFSharpSet valueType args =
+            match args with
+            | [iterable] -> [iterable; makeComparer (Some valueType)]
+            | args -> args
+            |> ccall_ r t "Set" "create"
         if forceFSharpSet
-        then CoreLibCall("Set", Some "create", false, args)
+        then makeFSharpSet valueType args
         else
             match valueType with
             | (Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _) ->
-                CoreLibCall("Set", Some "create", false, args)
+                makeFSharpSet valueType args
             | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
-                CoreLibCall("Set", Some "create", false, args)
+                makeFSharpSet valueType args
             | _ ->
-                GlobalCall("Set", None, true, args)
-        |> makeCall r t
+                GlobalCall("Set", None, true, args) |> makeCall r t
 
 module AstPass =
     open Util
@@ -2018,6 +2037,7 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
             CoreLibCall("Util", Some "makeGeneric", false, [expr; genArgs])
             |> makeCall None Fable.Any
     match ent.FullName with
+    | "System.Guid" -> Fable.StringConst "string" |> Fable.Value |> Some
     | "System.TimeSpan" -> Fable.StringConst "number" |> Fable.Value |> Some
     | "System.DateTime" -> makeIdentExpr "Date" |> Some
     | "System.Timers.Timer" -> makeCoreRef "Timer" None |> Some
