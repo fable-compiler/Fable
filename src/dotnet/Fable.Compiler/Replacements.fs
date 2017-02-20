@@ -468,9 +468,7 @@ module Util =
             | Some(Fable.ExtendedNumber _) ->
                 emitNoInfo "(x,y) => x.CompareTo(y)" []
             | Some(Fable.DeclaredType(ent, _))
-                when ent.HasInterface "System.IComparable"
-                    && ent.FullName <> "System.TimeSpan"
-                    && ent.FullName <> "System.DateTime" ->
+                when ent.HasInterface "System.IComparable" ->
                 emitNoInfo "(x,y) => x.CompareTo(y)" []
             | Some _ | None ->
                 makeCoreRef "Util" (Some "compare")
@@ -488,39 +486,24 @@ module Util =
         CoreLibCall(modName, Some "create", false, args)
         |> makeCall i.range i.returnType
 
-    let makeDictionary r t forceFSharpMap keyType args =
-        let makeFSharpMap keyType args =
+    let makeDictionaryOrHashSet r t modName forceFSharp typArg args =
+        let makeFSharp typArg args =
             match args with
-            | [iterable] -> [iterable; makeComparer (Some keyType)]
+            | [iterable] -> [iterable; makeComparer (Some typArg)]
             | args -> args
-            |> ccall_ r t "Map" "create"
-        if forceFSharpMap
-        then makeFSharpMap keyType args
+            |> ccall_ r t modName "create"
+        if forceFSharp
+        then makeFSharp typArg args
         else
-            match keyType with
+            match typArg with
             | Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _ ->
-                makeFSharpMap keyType args
-            | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
-                makeFSharpMap keyType args
+                makeFSharp typArg args
+            | Fable.DeclaredType(ent, _) when ent.HasInterface "System.IComparable"
+                    && ent.FullName <> "System.TimeSpan"
+                    && ent.FullName <> "System.Guid" ->
+                makeFSharp typArg args
             | _ ->
-                GlobalCall("Map", None, true, args) |> makeCall r t
-
-    let makeHashSet r t forceFSharpSet valueType args =
-        let makeFSharpSet valueType args =
-            match args with
-            | [iterable] -> [iterable; makeComparer (Some valueType)]
-            | args -> args
-            |> ccall_ r t "Set" "create"
-        if forceFSharpSet
-        then makeFSharpSet valueType args
-        else
-            match valueType with
-            | (Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _) ->
-                makeFSharpSet valueType args
-            | Fable.DeclaredType(ent, _) when ent.HasInterface("System.IComparable") ->
-                makeFSharpSet valueType args
-            | _ ->
-                GlobalCall("Set", None, true, args) |> makeCall r t
+                GlobalCall(modName, None, true, args) |> makeCall r t
 
 module AstPass =
     open Util
@@ -761,7 +744,7 @@ module AstPass =
         | "toString" -> toString com info args.Head |> Some
         | "toEnum" -> args.Head |> Some
         | "createDictionary" ->
-            makeDictionary r typ false info.methodTypeArgs.Head args |> Some
+            makeDictionaryOrHashSet r typ "Map" false info.methodTypeArgs.Head args |> Some
         | "createSet" ->
             makeMapOrSetCons com info "Set" args |> Some
         // Ignore: wrap to keep Unit type (see Fable2Babel.transformFunction)
@@ -1218,7 +1201,7 @@ module AstPass =
         let makeComparer (e: Fable.Expr) =
             ccall_ e.Range e.Type "Comparer" "fromEqualityComparer" [e]
         let makeDic forceFSharpMap args =
-            makeDictionary i.range i.returnType forceFSharpMap i.calleeTypeArgs.Head args
+            makeDictionaryOrHashSet i.range i.returnType "Map" forceFSharpMap i.calleeTypeArgs.Head args
         match i.methodName with
         | ".ctor" ->
             match i.methodArgTypes with
@@ -1257,19 +1240,21 @@ module AstPass =
         | _ -> None
 
     let hashSets (com: ICompiler) (i: Fable.ApplyInfo) =
+        let makeHashSet forceFSharp args =
+            makeDictionaryOrHashSet i.range i.returnType "Set" forceFSharp i.calleeTypeArgs.Head args
         match i.methodName with
         | ".ctor" ->
             let makeComparer (e: Fable.Expr) =
                 ccall_ e.Range e.Type "Comparer" "fromEqualityComparer" [e]
             match i.methodArgTypes with
             | [] | [IEnumerable] ->
-                makeHashSet i.range i.returnType false i.calleeTypeArgs.Head i.args |> Some
+                makeHashSet false i.args |> Some
             | [IEnumerable; IEqualityComparer] ->
                 [i.args.Head; makeComparer i.args.Tail.Head]
-                |> makeHashSet i.range i.returnType true i.calleeTypeArgs.Head |> Some
+                |> makeHashSet true |> Some
             | [IEqualityComparer] ->
                 [Fable.Value Fable.Null; makeComparer i.args.Head]
-                |> makeHashSet i.range i.returnType true i.calleeTypeArgs.Head |> Some
+                |> makeHashSet true |> Some
             | _ -> None
         | "count" ->
             makeGet i.range i.returnType i.callee.Value (makeStrConst "size") |> Some
