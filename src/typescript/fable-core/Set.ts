@@ -4,7 +4,7 @@ import { IComparer } from "./Util"
 import { IEquatable } from "./Util"
 import { IComparable } from "./Util"
 import { toString } from "./Util"
-import GenericComparer from "./GenericComparer"
+import Comparer from "./Comparer"
 import FSymbol from "./Symbol"
 import { iterate as seqIterate } from "./Seq"
 import { fold as seqFold } from "./Seq"
@@ -751,12 +751,12 @@ export default class FableSet<T> implements IEquatable<FableSet<T>>, IComparable
 function from<T>(comparer: IComparer<T>, tree: SetTree) {
   let s = new FableSet<T>();
   s.tree = tree
-  s.comparer = comparer || new GenericComparer<T>();
+  s.comparer = comparer || new Comparer<T>();
   return s;
 }
 
 export function create<T>(ie?: Iterable<T>, comparer?: IComparer<T>) {
-  comparer = comparer || new GenericComparer<T>();
+  comparer = comparer || new Comparer<T>();
   return from(comparer, ie ? tree_ofSeq(comparer, ie) : new SetTree(0));
 }
 
@@ -919,7 +919,7 @@ export function filter<T>(f: (x: T) => boolean, s: FableSet<T>): FableSet<T> {
 }
 
 export function map<T,U>(f: (x: T) => U, s: FableSet<T>): FableSet<U> {
-  const comparer = new GenericComparer<U>();
+  const comparer = new Comparer<U>();
   return from(comparer, tree_fold((acc, k) => tree_add(comparer, f(k), acc), new SetTree(0), s.tree));
 }
 

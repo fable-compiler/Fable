@@ -6,7 +6,7 @@ import { IComparable } from "./Util"
 import { toString } from "./Util"
 import { equals } from "./Util"
 import { compare } from "./Util"
-import GenericComparer from "./GenericComparer"
+import Comparer from "./Comparer"
 import FSymbol from "./Symbol"
 import { map as seqMap } from "./Seq"
 import { fold as seqFold } from "./Seq"
@@ -608,12 +608,12 @@ export default class FableMap<K,V> implements IEquatable<FableMap<K,V>>, ICompar
 function from<K, V>(comparer: IComparer<K>, tree: MapTree) {
     let map = new FableMap<K, V>();
     map.tree = tree
-    map.comparer = comparer || new GenericComparer<K>();
+    map.comparer = comparer || new Comparer<K>();
     return map;
 }
 
 export function create<K, V>(ie?: Iterable<[K, V]>, comparer?: IComparer<K>) {
-    comparer = comparer || new GenericComparer<K>();
+    comparer = comparer || new Comparer<K>();
     return from(comparer, ie ? tree_ofSeq(comparer, ie) : tree_empty()) as FableMap<K, V>;
 }
 

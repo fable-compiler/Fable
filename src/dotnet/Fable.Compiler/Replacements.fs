@@ -474,7 +474,7 @@ module Util =
                 emitNoInfo "(x,y) => x.CompareTo(y)" []
             | Some _ | None ->
                 makeCoreRef "Util" (Some "compare")
-        CoreLibCall("GenericComparer", None, true, [f])
+        CoreLibCall("Comparer", None, true, [f])
         |> makeCall None Fable.Any
 
     let makeMapOrSetCons com (i: Fable.ApplyInfo) modName args =
@@ -1216,7 +1216,7 @@ module AstPass =
 
     let dictionaries (com: ICompiler) (i: Fable.ApplyInfo) =
         let makeComparer (e: Fable.Expr) =
-            ccall_ e.Range e.Type "GenericComparer" "fromEqualityComparer" [e]
+            ccall_ e.Range e.Type "Comparer" "fromEqualityComparer" [e]
         let makeDic forceFSharpMap args =
             makeDictionary i.range i.returnType forceFSharpMap i.calleeTypeArgs.Head args
         match i.methodName with
@@ -1260,7 +1260,7 @@ module AstPass =
         match i.methodName with
         | ".ctor" ->
             let makeComparer (e: Fable.Expr) =
-                ccall_ e.Range e.Type "GenericComparer" "fromEqualityComparer" [e]
+                ccall_ e.Range e.Type "Comparer" "fromEqualityComparer" [e]
             match i.methodArgTypes with
             | [] | [IEnumerable] ->
                 makeHashSet i.range i.returnType false i.calleeTypeArgs.Head i.args |> Some
