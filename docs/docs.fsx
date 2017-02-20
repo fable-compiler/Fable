@@ -29,7 +29,7 @@ open Fake.Git
 // --------------------------------------------------------------------------------------
 
 // Where to push generated documentation
-let publishSite = "//fable.io"
+let publishSite = "//fable.io" //Use something like "//127.0.0.1:8080" to test locally
 let githubLink = "http://github.com/fable-compiler/fable-compiler.github.io"
 let publishBranch = "master"
 

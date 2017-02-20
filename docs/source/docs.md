@@ -6,7 +6,7 @@ The following documentation pages are generated from the `docs` pages
 in the Fable repository on GitHub. Is anything unclear or missing?
 Help us make Fable better by contributing!
 
-<div class="fb-docs">
+<div class="fable-docs">
 <div class="row"><div class="col-sm-6">
 
 ### [<i class="fa fa-cog" aria-hidden="true"></i> Compiling to JavaScript](docs/compiling.html)
