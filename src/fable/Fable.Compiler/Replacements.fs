@@ -1808,10 +1808,14 @@ module private AstPass =
         | "getExceptionFields" ->
             let proto = ccall_ i.args.Head.Range Fable.Any "Reflection" "getPrototypeOfType" i.args
             ccall i "Util" "getPropertyNames" [proto] |> Some
+        | "getTupleElements" ->
+            ccall i "Reflection" "getTupleElements" i.args |> Some
         | "isRecord" ->
             hasInterface "FSharpRecord" i.args.Head |> Some
         | "isExceptionRepresentation" ->
             hasInterface "FSharpException" i.args.Head |> Some
+        | "isTuple" ->
+            ccall i "Reflection" "isTupleType" i.args |> Some
         | _ -> None
 
     let fsharpValue (com: ICompiler) (i: Fable.ApplyInfo) =
@@ -1819,6 +1823,11 @@ module private AstPass =
         | "getRecordFields"
         | "getExceptionFields" ->
             ccall i "Reflection" "getPropertyValues" i.args |> Some
+        | "getTupleFields" ->
+            // TODO: Check if it's an array first?
+            Some i.args.Head
+        | "getTupleField" ->
+            makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
         | "getRecordField" ->
             match i.args with
             | [record; propInfo] ->
@@ -1831,6 +1840,8 @@ module private AstPass =
                 let spread = Fable.Spread vals |> Fable.Value
                 Fable.Apply(typ, [spread], Fable.ApplyCons, i.returnType, i.range) |> Some
             | _ -> None
+        | "makeTuple" ->
+            Some i.args.Head
         | _ -> None
 
     let tryReplace com (info: Fable.ApplyInfo) =

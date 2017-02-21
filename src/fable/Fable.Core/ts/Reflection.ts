@@ -107,3 +107,17 @@ export function getPropertyValues(obj: any): any[] {
     }
     return values;
 }
+
+export function getTupleElements(typ: any): FunctionConstructor[] {
+  if (typ instanceof NonDeclaredType && typ.kind === "Tuple") {
+    return typ.generics as FunctionConstructor[];
+  }
+  throw new Error("Type " + getTypeFullName(typ) + " is not a tuple type.");
+}
+
+export function isTupleType(typ: any): boolean {
+  if (typ instanceof NonDeclaredType) {
+    return typ.kind === "Tuple";
+  }
+  return false;
+}
