@@ -144,6 +144,15 @@ export function getPropertyNames(obj: any) {
   return Object.getOwnPropertyNames(propertyMap);
 }
 
+export function getUnionFields(obj: any) {
+  let fields = [];
+  for (let i = 97 /* 'a' */, j: string; i < 97 + (obj.size|0); i++) {
+    let j = String.fromCharCode(i);
+    fields.push(obj[j]);
+  }
+  return fields;
+}
+
 export function isArray(obj: any) {
   return Array.isArray(obj) || ArrayBuffer.isView(obj);
 }

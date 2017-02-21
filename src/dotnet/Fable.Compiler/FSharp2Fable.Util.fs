@@ -1074,7 +1074,7 @@ module Util =
             | Some _ as repl -> repl
             | None when isInterface info.ownerType -> None
             | None -> FableError("Cannot find replacement for " +
-                        info.ownerFullName + "." + info.methodName, ?range=info.range) |> raise
+                        info.ownerFullName + "::" + info.methodName, ?range=info.range) |> raise
         | _ -> None
 
     let (|Replaced|_|) (com: IFableCompiler) i owner (meth: FSharpMemberOrFunctionOrValue) =

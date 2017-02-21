@@ -1,4 +1,4 @@
-import { NonDeclaredType, getPropertyNames, getDefinition } from "./Util"
+import { NonDeclaredType, getPropertyNames, getDefinition, getUnionFields as utilGetUnionFields } from "./Util"
 import List from "./List"
 import FSymbol from "./Symbol"
 
@@ -144,8 +144,7 @@ export function getUnionCases(typ: any): any[] {
   if (proto != null && typeof proto[FSymbol.reflection] === "function") {
     const info = proto[FSymbol.reflection]();
     if (info.cases) {
-      return Object.getOwnPropertyNames(info.cases)
-        .map((k,i) => new MemberInfo(k, i, typ, null, info.cases[k]));
+      return info.cases.map((uci: any[], i: number) => new MemberInfo(uci[0], i, typ, null, uci.slice(1)));
     }
   }
   throw new Error("Type " + getTypeFullName(typ) + " doesn't contain union case info.");
@@ -159,15 +158,9 @@ export function getUnionFields(obj: any, typ?: any): any[] {
   if (obj != null && typeof obj[FSymbol.reflection] === "function") {
     const info = obj[FSymbol.reflection]();
     if (info.cases) {
-      let uci: any = null, cases = Object.getOwnPropertyNames(info.cases);
-      for (let i = 0; i < cases.length; i++) {
-        if (cases[i] === obj.Case) {
-          uci = new MemberInfo(cases[i], i, typ, null, info.cases[cases[i]]);
-          break;
-        }
-      }
+      const uci = info.cases[obj.tag];
       if (uci != null) {
-        return [uci, obj.Fields];
+        return [new MemberInfo(uci[0], obj.tag, typ, null, uci.slice(1)), utilGetUnionFields(obj)];
       }
     }
   }
@@ -176,7 +169,7 @@ export function getUnionFields(obj: any, typ?: any): any[] {
 
 export function makeUnion(caseInfo: MemberInfo, args: any[]): any {
   const Cons = getDefinition(caseInfo.declaringType);
-  return new Cons(caseInfo.name, ...args);
+  return new Cons(caseInfo.index, ...args);
 }
 
 export function getTupleElements(typ: any): FunctionConstructor[] {

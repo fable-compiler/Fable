@@ -175,6 +175,7 @@ let getBasicCompilerArgs (opts: CompilerOptions) optimize =
         yield "-r:" + resolve "System.Collections"
         yield "-r:" + resolve "System.Diagnostics.Debug"
         yield "-r:" + resolve "System.IO"
+        yield "-r:" + resolve "System.Reflection"
         yield "-r:" + resolve "System.Runtime"
         yield "-r:" + resolve "System.Runtime.Numerics"
         yield "-r:" + resolve "System.Threading"

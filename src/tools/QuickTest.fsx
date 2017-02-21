@@ -10,9 +10,7 @@
 open System
 open Fable.Core
 open Fable.Core.JsInterop
-
-type TestAttribute() =
-    inherit System.Attribute()
+open Fable.Core.Testing
 
 let equal expected actual =
     let areEqual = expected = actual

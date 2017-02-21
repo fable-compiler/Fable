@@ -2,6 +2,7 @@ module Fable.Replacements
 open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
+open System.Text.RegularExpressions
 
 module Util =
     let [<Literal>] system = "System."
@@ -423,7 +424,8 @@ module Util =
         | Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _ ->
             Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | Fable.Array _ | Fable.Tuple _
-        | Fable.Any | Fable.MetaType | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
+        | Fable.Unit | Fable.Any | Fable.MetaType | Fable.DeclaredType _
+        | Fable.GenericParam _ | Fable.Option _ | Fable.Function _ ->
             CoreLibCall("Util", Some "equals", false, args)
             |> makeCall i.range i.returnType |> is equal |> Some
 
@@ -453,8 +455,9 @@ module Util =
             | Some op -> makeEqOp r args op
             | None -> ccall_ r (Fable.Number Int32) "Util" "comparePrimitives" args
         | Fable.Array _ | Fable.Tuple _
-        | Fable.Any | Fable.MetaType | Fable.DeclaredType _ | Fable.GenericParam _ | Fable.Option _ ->
-             ccall_ r (Fable.Number Int32) "Util" "compare" args |> wrapWith op
+        | Fable.Unit | Fable.Any | Fable.MetaType | Fable.DeclaredType _
+        | Fable.GenericParam _ | Fable.Option _ | Fable.Function _ ->
+            ccall_ r (Fable.Number Int32) "Util" "compare" args |> wrapWith op
 
     let makeComparer (typArg: Fable.Type option) =
         let f =
@@ -1864,11 +1867,11 @@ module AstPass =
             ccall i "BigInt" "parse" i.args |> Some
         | None, meth -> ccall i "BigInt" meth i.args |> Some
 
-    let fsharpType (com: ICompiler) (i: Fable.ApplyInfo) =
+    let fsharpType (com: ICompiler) (i: Fable.ApplyInfo) methName =
         let hasInterface ifc (typRef: Fable.Expr) =
             let proto = ccall_ typRef.Range Fable.Any "Reflection" "getPrototypeOfType" [typRef]
             ccall i "Util" "hasInterface" [proto; Fable.StringConst ifc |> Fable.Value]
-        match i.methodName with
+        match methName with
         | "getRecordFields"
         | "getExceptionFields" ->
             ccall i "Reflection" "getProperties" i.args |> Some
@@ -1886,8 +1889,8 @@ module AstPass =
             ccall i "Reflection" "isTupleType" i.args |> Some
         | _ -> None
 
-    let fsharpValue (com: ICompiler) (i: Fable.ApplyInfo) =
-        match i.methodName with
+    let fsharpValue (com: ICompiler) (i: Fable.ApplyInfo) methName =
+        match methName with
         | "getUnionFields" ->
             ccall i "Reflection" "getUnionFields" i.args |> Some
         | "getRecordFields"
@@ -1991,8 +1994,16 @@ module AstPass =
         | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com info
         | "System.Numerics.BigInteger"
         | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com info
-        | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info
-        | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info
+        | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info info.methodName
+        | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info info.methodName
+        | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
+            // In netcore F# Reflection methods become extensions
+            // with names like `FSharpType.GetExceptionFields.Static`
+            let isFSharpType = info.methodName.StartsWith("fSharpType")
+            let methName = Regex.Match(info.methodName, "\.(\w+)\.").Groups.[1].Value |> Naming.lowerFirst
+            if isFSharpType
+            then fsharpType com info methName
+            else fsharpValue com info methName
         | "Microsoft.FSharp.Reflection.UnionCaseInfo"
         | "System.Reflection.PropertyInfo"
         | "System.Reflection.MemberInfo" ->

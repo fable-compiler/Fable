@@ -6,16 +6,13 @@ import FableSet from "./Set"
 import FableMap from "./Map"
 import { create as mapCreate } from "./Map"
 import { create as setCreate } from "./Set"
-import { hasInterface } from "./Util"
-import { getDefinition } from "./Util"
-import { NonDeclaredType } from "./Util"
+import { NonDeclaredType, getDefinition, getUnionFields } from "./Util"
 import { fold } from "./Seq"
 import { resolveGeneric, getTypeFullName } from "./Reflection"
 import { parse as dateParse } from "./Date"
 import { fsFormat } from "./String"
 
 function deflate(v: any) {
-
   if (ArrayBuffer.isView(v)) {
     return Array.from(v as any);
   }
@@ -53,13 +50,7 @@ function deflate(v: any) {
         return { [caseName]: fieldValue };
       }
       else {
-        let fields = [];
-        let startCode = 'a'.charCodeAt(0);
-        for (let i = 0; i < v.size; i++) {
-          let j = String.fromCharCode(startCode + i);
-          fields.push(v[j]);
-        }
-        return { [caseName]: fields };
+        return { [caseName]: getUnionFields(v) };
       }
     }
   }
@@ -309,22 +300,17 @@ export function toJsonWithTypeInfo(o: any): string {
           (o: ({ [i:string]: any}), kv: [any,any]) => { o[kv[0]] = kv[1]; return o; },
           { $type: info.type || "System.Collections.Generic.Dictionary" }, v);
       }
-      else if (info.type) {
-        if (hasInterface(v, "FSharpUnion") || hasInterface(v, "FSharpRecord")) {
-          // TODO
-          return Object.assign({ $type: info.type }, v);
-        }
-        else {
-          const proto = Object.getPrototypeOf(v),
-                props = Object.getOwnPropertyNames(proto),
-                o = { $type: info.type } as {[k:string]:any};
-          for (let i = 0; i < props.length; i++) {
-            const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
-            if (prop.get)
-              o[props[i]] = prop.get.apply(v);
-          }
-          return o;
-        }
+      else if (info.properties) {
+        return fold((o: any, prop: string) => {
+          return o[prop] = v[prop], o;
+        }, { $type: info.type }, Object.getOwnPropertyNames(info.properties));
+      }
+      else if (info.cases) {
+        const uci = info.cases[v.tag], fields = getUnionFields(v);
+        return {
+          [uci[0]]: uci.length <= 2 ? fields[0] : fields,
+          $type: info.type
+        };
       }
     }
     return v;
