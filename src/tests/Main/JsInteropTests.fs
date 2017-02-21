@@ -114,6 +114,17 @@ let ``Unit argument is not replaced by null in dynamic programming``() =
     f$() |> unbox<int> |> equal 0
     !!(f :?> JsFunc).Invoke() |> equal 0
 
+type IAdder =
+    [<Emit("$1 + $2")>]
+    abstract Add: int * int -> int
+
+[<Erase>]
+let adder: IAdder = jsNative
+
+[<Test>]
+let ``Erase attribute works``() =
+    adder.Add(4, 5) |> equal 9
+
 [<StringEnum>]
 type MyStrings =
     | Vertical
@@ -137,4 +148,3 @@ let validatePassword = function
 let ``Pattern matching with StringEnum works``() =
     validatePassword NewPassword
     |> equal "np"
-

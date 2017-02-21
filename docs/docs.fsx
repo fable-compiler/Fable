@@ -29,7 +29,7 @@ open Fake.Git
 // --------------------------------------------------------------------------------------
 
 // Where to push generated documentation
-let publishSite = "//fable.io"
+let publishSite = "//fable.io" //Use something like "//127.0.0.1:8080" to test locally
 let githubLink = "http://github.com/fable-compiler/fable-compiler.github.io"
 let publishBranch = "master"
 
@@ -314,17 +314,21 @@ let refreshEvent = new Event<unit>()
 
 let socketHandler (webSocket : WebSocket) cx = socket {
     while true do
+      let byteResponse = 
+        "refreshed"
+        |> System.Text.Encoding.ASCII.GetBytes
+        |> ByteSegment
       let! refreshed =
         Control.Async.AwaitEvent(refreshEvent.Publish)
         |> Suave.Sockets.SocketOp.ofAsync
-      do! webSocket.send Text (Suave.Utils.ASCII.bytes "refreshed") true }
+      do! webSocket.send Text byteResponse true }
 
 let startWebServer () =
     let port = 8911
     let serverConfig =
         { defaultConfig with
            homeFolder = Some (FullName output)
-           bindings = [ HttpBinding.mkSimple HTTP "127.0.0.1" port ] }
+           bindings = [ HttpBinding.createSimple HTTP "127.0.0.1" port ] }
     let app =
       choose [
         Filters.path "/websocket" >=> handShake socketHandler
@@ -334,8 +338,8 @@ let startWebServer () =
         >=> choose [ Files.browseHome; Filters.path "/" >=> Files.browseFileHome "index.html" ] ]
 
     let addMime f = function
-      | ".wav" -> Writers.mkMimeType "audio/wav" false
-      | ".tsv" -> Writers.mkMimeType "text/tsv" false | ext -> f ext
+      | ".wav" -> Writers.createMimeType "audio/wav" false
+      | ".tsv" -> Writers.createMimeType "text/tsv" false | ext -> f ext
     let app ctx = app { ctx with runtime = { ctx.runtime with mimeTypesMap = addMime ctx.runtime.mimeTypesMap } }
 
     startWebServerAsync serverConfig app |> snd |> Async.Start

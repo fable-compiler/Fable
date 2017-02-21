@@ -1,6 +1,26 @@
-import { NonDeclaredType } from "./Util"
+import { NonDeclaredType, getPropertyNames, getDefinition } from "./Util"
 import List from "./List"
 import FSymbol from "./Symbol"
+
+export class MemberInfo {
+  name: string;
+  index: number;
+  declaringType: any;
+  propertyType: any;
+  unionFields: any[];
+
+  constructor(name: string, index: number, declaringType: any, propertyType?: any, unionFields?: any[]) {
+    this.name = name;
+    this.index = index;
+    this.declaringType = declaringType;
+    this.propertyType = propertyType;
+    this.unionFields = unionFields;
+  }
+
+  getUnionFields() {
+    return this.unionFields.map((fi,i) => new MemberInfo("unknown", i, this.declaringType, fi));
+  }
+}
 
 export function resolveGeneric(idx: string | number, enclosing: List<any>): List<any> {
   try {
@@ -73,6 +93,8 @@ export function getTypeFullName(typ: any, option?: string): string {
         case "GenericParam":
         case "Interface":
           return typ.definition as string;
+        case "GenericType":
+          return getTypeFullName(typ.definition, option);
         case "Any":
         default:
           return "unknown";
@@ -84,4 +106,89 @@ export function getTypeFullName(typ: any, option?: string): string {
     return trim(typeof proto[FSymbol.reflection] === "function"
       ? proto[FSymbol.reflection]().type : null, option);
   }
+}
+
+export function getName(x: any): string {
+  if (x instanceof MemberInfo) {
+    return x.name;
+  }
+  return getTypeFullName(x, "name");
+}
+
+export function getPrototypeOfType(typ: FunctionConstructor) {
+  if (typeof typ === "string") {
+    return null;
+  }
+  else if (typ instanceof NonDeclaredType) {
+    return typ.kind === "GenericType" ? (typ.definition as any).prototype : null;
+  }
+  else {
+    return typ.prototype;
+  }
+}
+
+export function getProperties(typ: any): any[] {
+  const proto = getPrototypeOfType(typ);
+  if (proto != null && typeof proto[FSymbol.reflection] === "function") {
+    const info = proto[FSymbol.reflection]();
+    if (info.properties) {
+      return Object.getOwnPropertyNames(info.properties)
+        .map((k,i) => new MemberInfo(k, i, typ, info.properties[k]));
+    }
+  }
+  throw new Error("Type " + getTypeFullName(typ) + " doesn't contain property info.");
+}
+
+export function getUnionCases(typ: any): any[] {
+  const proto = getPrototypeOfType(typ);
+  if (proto != null && typeof proto[FSymbol.reflection] === "function") {
+    const info = proto[FSymbol.reflection]();
+    if (info.cases) {
+      return Object.getOwnPropertyNames(info.cases)
+        .map((k,i) => new MemberInfo(k, i, typ, null, info.cases[k]));
+    }
+  }
+  throw new Error("Type " + getTypeFullName(typ) + " doesn't contain union case info.");
+}
+
+export function getPropertyValues(obj: any): any[] {
+  return getPropertyNames(obj).map(k => obj[k]);
+}
+
+export function getUnionFields(obj: any, typ?: any): any[] {
+  if (obj != null && typeof obj[FSymbol.reflection] === "function") {
+    const info = obj[FSymbol.reflection]();
+    if (info.cases) {
+      let uci: any = null, cases = Object.getOwnPropertyNames(info.cases);
+      for (let i = 0; i < cases.length; i++) {
+        if (cases[i] === obj.Case) {
+          uci = new MemberInfo(cases[i], i, typ, null, info.cases[cases[i]]);
+          break;
+        }
+      }
+      if (uci != null) {
+        return [uci, obj.Fields];
+      }
+    }
+  }
+  throw new Error("Not an F# union type.");
+}
+
+export function makeUnion(caseInfo: MemberInfo, args: any[]): any {
+  const Cons = getDefinition(caseInfo.declaringType);
+  return new Cons(caseInfo.name, ...args);
+}
+
+export function getTupleElements(typ: any): FunctionConstructor[] {
+  if (typ instanceof NonDeclaredType && typ.kind === "Tuple") {
+    return typ.generics as FunctionConstructor[];
+  }
+  throw new Error("Type " + getTypeFullName(typ) + " is not a tuple type.");
+}
+
+export function isTupleType(typ: any): boolean {
+  if (typ instanceof NonDeclaredType) {
+    return typ.kind === "Tuple";
+  }
+  return false;
 }

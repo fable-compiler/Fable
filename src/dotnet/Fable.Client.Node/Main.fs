@@ -461,8 +461,7 @@ let parseFSharpProject (com: ICompiler) (checker: FSharpChecker)
         |> FableError |> raise
 
 let makeCompiler opts plugins =
-    let id = ref 0
-    let monitor = obj()
+    let mutable id = 0
     let logs = ResizeArray()
     let projDir = Path.GetDirectoryName opts.projFile
     { new ICompiler with
@@ -475,9 +474,7 @@ let makeCompiler opts plugins =
             logs.Clear()
             upcast copy
         member __.GetUniqueVar() =
-            lock monitor (fun () ->
-                id := !id + 1
-                "$var" + string !id) }
+            "$var" + (System.Threading.Interlocked.Increment(&id).ToString())  }
 
 let getMinimumFableCoreVersion() =
     let assembly = typeof<CompilerOptions>.GetTypeInfo().Assembly

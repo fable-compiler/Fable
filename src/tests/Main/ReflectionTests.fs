@@ -1,7 +1,7 @@
 [<Util.Testing.TestFixture>]
 module Fable.Tests.Reflection
 
-#if DOTNETCORE && !FABLE_COMPILER
+#if DOTNETCORE
 open System.Reflection
 module System =
     type System.Type with
@@ -154,3 +154,140 @@ let ``Overloads with PassGenericsAttribute work``() =
     let bus = MessageBus()
     bus.create x |> equal "topic1: Firm"
     bus.create ("global", x) |> equal "global: Firm"
+
+// FSharpType and FSharpValue reflection tests
+
+open FSharp.Reflection
+
+exception TestException of String: string * Int: int
+
+let flip f b a = f a b
+
+type TestRecord = {
+    String: string
+    Int: int
+}
+
+type TestUnion =
+    | StringCase of String: string
+    | IntCase of Int: int
+
+[<Test>]
+let ``FSharp.Reflection: Exception`` () =
+    let typ = typeof<TestException>
+    let ex = TestException("a", 1)
+    let exTypeFields = FSharpType.GetExceptionFields typ
+    let exValueFields = FSharpValue.GetExceptionFields(ex)
+
+    let expectedExFields =
+        [|
+            "String", box "a"
+            "Int", box 1
+        |]
+
+    let exFields =
+        exTypeFields
+        |> Array.map (fun field -> field.Name)
+        |> flip Array.zip exValueFields
+
+    let isExceptionRepresentation = FSharpType.IsExceptionRepresentation typ
+    let matchExFields = exFields = expectedExFields
+
+    let all = isExceptionRepresentation && matchExFields
+    all |> equal true
+
+[<Test>]
+let ``FSharp.Reflection: Record`` () =
+    let typ = typeof<TestRecord>
+    let record = { String = "a"; Int = 1 }
+    let recordTypeFields = FSharpType.GetRecordFields typ
+    let recordValueFields = FSharpValue.GetRecordFields record
+
+    let expectedRecordFields =
+        [|
+            "String", box "a"
+            "Int", box 1
+        |]
+
+    let recordFields =
+        recordTypeFields
+        |> Array.map (fun field -> field.Name)
+        |> flip Array.zip recordValueFields
+
+    let isRecord = FSharpType.IsRecord typ
+    let matchRecordFields = recordFields = expectedRecordFields
+    let matchIndividualRecordFields =
+        Array.zip recordTypeFields recordValueFields
+        |> Array.forall (fun (info, value) ->
+            FSharpValue.GetRecordField(record, info) = value
+        )
+    let canMakeSameRecord =
+        unbox<TestRecord> (FSharpValue.MakeRecord(typ, recordValueFields)) = record
+
+    let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
+    all |> equal true
+
+[<Test>]
+let ``FSharp.Reflection: Tuple`` () =
+    let typ = typeof<string * int>
+    let tuple = "a", 1
+    let tupleTypeFields = FSharpType.GetTupleElements typ
+    let tupleValueFields = FSharpValue.GetTupleFields tuple
+
+    let expectedTupleFields =
+        [|
+            typeof<string>, box "a"
+            typeof<int>, box 1
+        |]
+
+    let tupleFields = Array.zip tupleTypeFields tupleValueFields
+
+    let isTuple = FSharpType.IsTuple typ
+    let matchTupleFields = tupleFields = expectedTupleFields
+    let matchIndividualTupleFields =
+        tupleValueFields
+        |> Array.mapi (fun i value -> i, value)
+        |> Array.forall (fun (i, value) ->
+            FSharpValue.GetTupleField(tuple, i) = value
+        )
+    let canMakeSameTuple =
+        unbox<string * int> (FSharpValue.MakeTuple(tupleValueFields, typ)) = tuple
+
+    let all = isTuple && matchTupleFields && matchIndividualTupleFields && canMakeSameTuple
+    all |> equal true
+
+[<Test>]
+let ``FSharp.Reflection: Union`` () =
+    let typ = typeof<TestUnion>
+    let unionCase1 = StringCase "a"
+    let unionCase2 = IntCase 1
+    let unionTypeFields = FSharpType.GetUnionCases typ
+    unionTypeFields |> Array.exists (fun x -> x.Name = "StringCase") |> equal true
+    unionTypeFields |> Array.exists (fun x -> x.Name = "IntCase") |> equal true
+    let unionCase1Info, unionCase1ValueFields = FSharpValue.GetUnionFields(unionCase1, typ)
+    let unionCase2Info, unionCase2ValueFields = FSharpValue.GetUnionFields(unionCase2, typ)
+    let unionCaseInfos = [| unionCase1Info; unionCase2Info |]
+    let unionCaseValueFields = [| unionCase1ValueFields; unionCase2ValueFields |]
+
+    let expectedUnionCase1Fields = "StringCase", [| typeof<string> |], [| box "a" |]
+    let expectedUnionCase2Fields = "IntCase", [| typeof<int> |], [| box 1 |]
+    let expectedUnionFields = [| expectedUnionCase1Fields; expectedUnionCase2Fields |]
+
+    let unionFields =
+        Array.zip unionCaseInfos unionCaseValueFields
+        |> Array.map (fun (info, values) ->
+            let types =
+                info.GetFields()
+                |> Array.map (fun field -> field.PropertyType)
+            info.Name, types, values
+        )
+        |> Array.sortByDescending (fun (a,b,c) -> a)
+
+    let isUnion = FSharpType.IsUnion typ
+    let matchUnionFields = unionFields = expectedUnionFields
+    let canMakeSameUnionCases =
+        unbox<TestUnion> (FSharpValue.MakeUnion(unionCase1Info, unionCase1ValueFields)) = unionCase1
+        && unbox<TestUnion> (FSharpValue.MakeUnion(unionCase2Info, unionCase2ValueFields)) = unionCase2
+
+    let all = isUnion && matchUnionFields && canMakeSameUnionCases
+    all |> equal true

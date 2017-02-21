@@ -1721,6 +1721,7 @@ module AstPass =
             | "name" -> str ent.Name |> Some
             | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeBoolConst |> Some
             | "getGenericTypeDefinition" -> makeTypeRefFrom com ent |> Some
+            | "getTypeInfo" -> info.callee
             | _ -> None
         | _ ->
             let getTypeFullName args =
@@ -1843,7 +1844,7 @@ module AstPass =
             asyncMeth "catchAsync" info.args
         | _ -> None
 
-    let bigint com (i: Fable.ApplyInfo) =
+    let bigint (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.callee, i.methodName with
         | Some callee, meth -> icall i meth |> Some
         | None, ".ctor" ->
@@ -1862,6 +1863,58 @@ module AstPass =
         | None, "fromString" ->
             ccall i "BigInt" "parse" i.args |> Some
         | None, meth -> ccall i "BigInt" meth i.args |> Some
+
+    let fsharpType (com: ICompiler) (i: Fable.ApplyInfo) =
+        let hasInterface ifc (typRef: Fable.Expr) =
+            let proto = ccall_ typRef.Range Fable.Any "Reflection" "getPrototypeOfType" [typRef]
+            ccall i "Util" "hasInterface" [proto; Fable.StringConst ifc |> Fable.Value]
+        match i.methodName with
+        | "getRecordFields"
+        | "getExceptionFields" ->
+            ccall i "Reflection" "getProperties" i.args |> Some
+        | "getUnionCases" ->
+            ccall i "Reflection" "getUnionCases" i.args |> Some
+        | "getTupleElements" ->
+            ccall i "Reflection" "getTupleElements" i.args |> Some
+        | "isUnion" ->
+            hasInterface "FSharpUnion" i.args.Head |> Some
+        | "isRecord" ->
+            hasInterface "FSharpRecord" i.args.Head |> Some
+        | "isExceptionRepresentation" ->
+            hasInterface "FSharpException" i.args.Head |> Some
+        | "isTuple" ->
+            ccall i "Reflection" "isTupleType" i.args |> Some
+        | _ -> None
+
+    let fsharpValue (com: ICompiler) (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | "getUnionFields" ->
+            ccall i "Reflection" "getUnionFields" i.args |> Some
+        | "getRecordFields"
+        | "getExceptionFields" ->
+            ccall i "Reflection" "getPropertyValues" i.args |> Some
+        | "getTupleFields" -> // TODO: Check if it's an array first?
+            Some i.args.Head
+        | "getTupleField" ->
+            makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
+        | "getRecordField" ->
+            match i.args with
+            | [record; propInfo] ->
+                let prop = makeGet propInfo.Range Fable.String propInfo (Fable.StringConst "name" |> Fable.Value)
+                makeGet i.range i.returnType record prop |> Some
+            | _ -> None
+        | "makeUnion" ->
+            ccall i "Reflection" "makeUnion" i.args |> Some
+        | "makeRecord" ->
+            match i.args with
+            | [typ; vals] ->
+                let typ = ccall_ typ.Range Fable.MetaType "Util" "getDefinition" [typ]
+                let spread = Fable.Spread vals |> Fable.Value
+                Fable.Apply(typ, [spread], Fable.ApplyCons, i.returnType, i.range) |> Some
+            | _ -> None
+        | "makeTuple" ->
+            Some i.args.Head
+        | _ -> None
 
     let tryReplace com (info: Fable.ApplyInfo) =
         match info.ownerFullName with
@@ -1927,9 +1980,6 @@ module AstPass =
         | "Microsoft.FSharp.Collections.MapModule"
         | "Microsoft.FSharp.Collections.FSharpSet"
         | "Microsoft.FSharp.Collections.SetModule" -> mapAndSets com info
-        // For some reason `typeof<'T>.Name` translates to `System.Reflection.MemberInfo.name`
-        // and not `System.Type.name` (as with `typeof<'T>.FullName` and `typeof<'T>.Namespace`)
-        | "System.Reflection.MemberInfo"
         | "System.Type" -> types com info
         | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com info
         | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
@@ -1941,6 +1991,20 @@ module AstPass =
         | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com info
         | "System.Numerics.BigInteger"
         | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com info
+        | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info
+        | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info
+        | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+        | "System.Reflection.PropertyInfo"
+        | "System.Reflection.MemberInfo" ->
+            match info.callee, info.methodName with
+            | _, "getFields" -> icall info "getUnionFields" |> Some
+            | Some c, "name" -> ccall info "Reflection" "getName" [c] |> Some
+            | Some c, ("tag" | "propertyType") ->
+                let prop =
+                    if info.methodName = "tag" then "index" else info.methodName
+                    |> Fable.StringConst |> Fable.Value
+                makeGet info.range info.returnType c prop |> Some
+            | _ -> None
         | _ -> None
 
 module CoreLibPass =

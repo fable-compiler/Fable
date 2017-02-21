@@ -1,3 +1,8 @@
+### 0.7.43
+
+* Add reflection methods (see ReflectionTests.fs)
+* Improve import expressions #721
+
 ### 0.7.42
 
 * Tailcall optimizations: PR #669 + Fixes
