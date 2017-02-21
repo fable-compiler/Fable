@@ -1,3 +1,7 @@
+### 0.7.27
+
+* Add reflection methods (see ReflectionTests.fs)
+
 ### 0.7.26
 
 * Fix #666: F# record equality and comparison checks only declared members
