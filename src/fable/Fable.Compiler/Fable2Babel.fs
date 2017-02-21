@@ -968,10 +968,7 @@ module Util =
         let expr =
             match m.Kind with
             | Fable.Getter | Fable.Field ->
-                match body with
-                | Fable.Value(Fable.ImportRef(Naming.placeholder, path, kind)) ->
-                    com.GetImportExpr ctx m.Name path kind
-                | _ -> transformExpr com ctx body
+                transformExpr com ctx body
             | Fable.Method ->
                 let bodyRange = body.Range
                 let id = defaultArg privName m.OverloadName

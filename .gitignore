@@ -1,6 +1,10 @@
 .vscode/
 jsconfig.json
 
+# Remove after merging narumi branch
+src/dotnet
+src/typescript
+
 /nuget/
 src/fable/Fable.Core/npm/*.dll*
 src/fable/Fable.Core/npm/*.pdb

@@ -921,21 +921,30 @@ type private DeclInfo() =
                 Fable.EntityDeclaration(ent, privateName, processMemberDecls com ctx ent decls, range))
         |> Seq.toList
 
-let private tryGetRelativeImport (atts: #seq<FSharpAttribute>) =
-    match tryFindAtt ((=) Atts.import) atts with
-    | Some att ->
-        try
+let private tryGetImport r methName (atts: #seq<FSharpAttribute>) (body: FSharpExpr option) =
+    let getStringConst = function
+        | BasicPatterns.Const(:? string as str, _) -> str
+        | _ -> FableError("Import expressions can only be used with string literals", r) |> raise
+    try
+        match tryFindAtt ((=) Atts.import) atts, body with
+        | Some att, _ ->
             match att.ConstructorArguments.[0], att.ConstructorArguments.[1] with
-            | (_, (:? string as selector)), (_, (:? string as path))
-                when path.StartsWith(".") -> Some(selector, path)
+            | (_, (:? string as selector)), (_, (:? string as path)) -> Some(selector, path)
             | _ -> None
-        with
+        | _, Some(BasicPatterns.Call(None, meth, _, _, args))
+            when meth.FullName.StartsWith("Fable.Core.JsInterop.import") ->
+            let importMeth = meth.FullName.Substring(meth.FullName.LastIndexOf(".") + 1)
+            match importMeth with
+            | "import" -> Some(getStringConst args.Head, getStringConst args.Tail.Head)
+            | "importMember" ->  Some(methName, getStringConst args.Head)
+            | "importDefault" -> Some("default", getStringConst args.Head)
+            | _ -> Some("*", getStringConst args.Head) // importAll
         | _ -> None
-    | _ -> None
+    with _ -> None
 
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    let addMethod relativeImport =
+    let addMethod range import meth args body =
         let memberName = sanitizeMethodName meth
         let memberLoc = getMemberLoc meth
         let ctx, privateName =
@@ -947,7 +956,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 ctx, Some (privateName.Name)
             else ctx, None
         let memberKind, args, extraArgs, body =
-            match relativeImport with
+            match import with
             | Some(selector, path) ->
                 Fable.Field, [], [], makeImport selector path
             | None ->
@@ -973,16 +982,17 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             match tryEnclosingEntity meth with
             | Some (FableEntity com (Try tryGetMember m)) -> m
             | _ -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-        let entMember = Fable.MemberDeclaration(entMember, privateName, args@extraArgs, body, getMethLocation meth |> makeRange |> Some)
+        let entMember = Fable.MemberDeclaration(entMember, privateName, args@extraArgs, body, Some range)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
-    let relativeImport = tryGetRelativeImport meth.Attributes
-    if Option.isSome relativeImport && hasAtt Atts.emit meth.Attributes then
+    let range = getMethLocation meth |> makeRange
+    let import = tryGetImport range meth.DisplayName meth.Attributes (Some body)
+    if Option.isSome import && hasAtt Atts.emit meth.Attributes then
         let msg = sprintf "%s cannot be combined with %s for relative paths" Atts.emit Atts.import
-        FableError(msg, getMethLocation meth |> makeRange) |> raise
-    if Option.isSome relativeImport
+        FableError(msg, range) |> raise
+    if Option.isSome import
     then
-        addMethod relativeImport
+        addMethod range import meth args body
     elif declInfo.IsIgnoredMethod meth
     then
         declInfo, ctx
@@ -992,12 +1002,12 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         if not (isModuleMember meth) && meth.CompiledName.StartsWith "op_"
         then
             sprintf "Custom type operators cannot be inlined: %s" meth.FullName
-            |> addWarning com ctx.fileName (getMethLocation meth |> makeRange |> Some)
-            addMethod None
+            |> addWarning com ctx.fileName (Some range)
+            addMethod range None meth args body
         else
             if com.Options.dll && meth.Accessibility.IsPublic then
                 "Inline public methods won't be accessible when referencing the project as a .dll"
-                |> addWarning com ctx.fileName (getMethLocation meth |> makeRange |> Some)
+                |> addWarning com ctx.fileName (Some range)
             let vars =
                 match args with
                 | [thisArg]::args when meth.IsInstanceMember -> args
@@ -1005,21 +1015,21 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 |> Seq.collect id |> countRefs body
             com.AddInlineExpr meth.FullName (vars, body)
             declInfo, ctx
-    else addMethod None
+    else addMethod range None meth args body
 
 let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                                     (ent: FSharpEntity) subDecls =
-    let relativeImport = tryGetRelativeImport ent.Attributes
-    if Option.isSome relativeImport
+    let range = getEntityLocation ent |> makeRange
+    let import = tryGetImport range ent.DisplayName ent.Attributes None
+    if Option.isSome import
     then
-        let selector, path = relativeImport.Value
-        let r = getEntityLocation ent |> makeRange
+        let selector, path = import.Value
         let entName, body = sanitizeEntityName ent, makeImport selector path
         // Bind entity name to context to prevent name clashes
         let ctx, ident = bindIdent com ctx Fable.Any None entName
         let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type,
                             isPublic = not ent.Accessibility.IsPrivate)
-        let decl = Fable.MemberDeclaration(m, Some ident.Name, [], body, Some r)
+        let decl = Fable.MemberDeclaration(m, Some ident.Name, [], body, Some range)
         let publicName = if m.IsPublic then Some entName else None
         declInfo.AddIgnoredChild ent
         declInfo.AddDeclaration(decl, ?publicName=publicName)
