@@ -371,3 +371,44 @@ let ``Final statement inside async expressions can throw``() =
         do! Async.Sleep 100
         equal "1 boom!" !data
     } |> Async.RunSynchronously
+
+[<Test>]
+let ``Async.Bind propagates exceptions``() = // See #724
+    async {
+        let task1 name = async {
+            // printfn "testing with %s" name
+            if name = "fail" then
+                failwith "Invalid access credentials"
+            return "Ok"
+        }
+
+        let task2 name = async {
+            // printfn "testing with %s" name
+            do! Async.Sleep 100 //difference between task1 and task2
+            if name = "fail" then
+                failwith "Invalid access credentials"
+            return "Ok"
+        }
+
+        let doWork name task =
+            let catch comp = async {
+                let! res = Async.Catch comp
+                return
+                    match res with
+                    | Choice1Of2 str -> str
+                    | Choice2Of2 ex -> ex.Message
+            }
+            // printfn "doing work - %s" name
+            async {
+                let! a = task "work" |> catch
+                // printfn "work - %A" a
+                let! b = task "fail" |> catch
+                // printfn "fail - %A" b
+                return a, b
+            }
+
+        let! res1 = doWork "task1" task1
+        let! res2 = doWork "task2" task2
+        equal ("Ok", "Invalid access credentials") res1
+        equal ("Ok", "Invalid access credentials") res2
+    } |> Async.RunSynchronously

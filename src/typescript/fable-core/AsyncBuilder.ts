@@ -58,7 +58,14 @@ export function protectedCont<T>(f: IAsync<T>) {
 export function protectedBind<T, U>(computation: IAsync<T>, binder: (x: T) => IAsync<U>) {
     return protectedCont((ctx: IAsyncContext<U>) => {
         computation({
-            onSuccess: (x: T) => binder(x)(ctx),
+            onSuccess: (x: T) => {
+              try {
+                binder(x)(ctx)
+              }
+              catch (ex) {
+                ctx.onError(ex);
+              }
+            },
             onError: ctx.onError,
             onCancel: ctx.onCancel,
             cancelToken: ctx.cancelToken,
