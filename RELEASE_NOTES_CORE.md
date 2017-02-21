@@ -1,3 +1,7 @@
+### 0.7.28
+
+* Fix exception propagation with Async.Bind: #724
+
 ### 0.7.27
 
 * Add reflection methods (see ReflectionTests.fs)
