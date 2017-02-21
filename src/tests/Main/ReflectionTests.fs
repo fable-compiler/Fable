@@ -262,13 +262,15 @@ let ``FSharp.Reflection: Union`` () =
     let unionCase1 = StringCase "a"
     let unionCase2 = IntCase 1
     let unionTypeFields = FSharpType.GetUnionCases typ
+    unionTypeFields |> Array.exists (fun x -> x.Name = "StringCase") |> equal true
+    unionTypeFields |> Array.exists (fun x -> x.Name = "IntCase") |> equal true
     let unionCase1Info, unionCase1ValueFields = FSharpValue.GetUnionFields(unionCase1, typ)
     let unionCase2Info, unionCase2ValueFields = FSharpValue.GetUnionFields(unionCase2, typ)
     let unionCaseInfos = [| unionCase1Info; unionCase2Info |]
     let unionCaseValueFields = [| unionCase1ValueFields; unionCase2ValueFields |]
 
-    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string> |], [| box "a" |]
-    let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| box 1 |]
+    let expectedUnionCase1Fields = "StringCase", [| typeof<string> |], [| box "a" |]
+    let expectedUnionCase2Fields = "IntCase", [| typeof<int> |], [| box 1 |]
     let expectedUnionFields = [| expectedUnionCase1Fields; expectedUnionCase2Fields |]
 
     let unionFields =
@@ -277,8 +279,9 @@ let ``FSharp.Reflection: Union`` () =
             let types =
                 info.GetFields()
                 |> Array.map (fun field -> field.PropertyType)
-            info.Tag, info.Name, types, values
+            info.Name, types, values
         )
+        |> Array.sortByDescending (fun (a,b,c) -> a)
 
     let isUnion = FSharpType.IsUnion typ
     let matchUnionFields = unionFields = expectedUnionFields

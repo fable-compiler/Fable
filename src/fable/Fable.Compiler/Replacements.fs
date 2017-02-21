@@ -1806,10 +1806,13 @@ module private AstPass =
         match i.methodName with
         | "getRecordFields"
         | "getExceptionFields" ->
-            let proto = ccall_ i.args.Head.Range Fable.Any "Reflection" "getPrototypeOfType" i.args
-            ccall i "Util" "getPropertyNames" [proto] |> Some
+            ccall i "Reflection" "getProperties" i.args |> Some
+        | "getUnionCases" ->
+            ccall i "Reflection" "getUnionCases" i.args |> Some
         | "getTupleElements" ->
             ccall i "Reflection" "getTupleElements" i.args |> Some
+        | "isUnion" ->
+            hasInterface "FSharpUnion" i.args.Head |> Some
         | "isRecord" ->
             hasInterface "FSharpRecord" i.args.Head |> Some
         | "isExceptionRepresentation" ->
@@ -1820,19 +1823,23 @@ module private AstPass =
 
     let fsharpValue (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.methodName with
+        | "getUnionFields" ->
+            ccall i "Reflection" "getUnionFields" i.args |> Some
         | "getRecordFields"
         | "getExceptionFields" ->
             ccall i "Reflection" "getPropertyValues" i.args |> Some
-        | "getTupleFields" ->
-            // TODO: Check if it's an array first?
+        | "getTupleFields" -> // TODO: Check if it's an array first?
             Some i.args.Head
         | "getTupleField" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
         | "getRecordField" ->
             match i.args with
             | [record; propInfo] ->
-                makeGet i.range i.returnType record propInfo |> Some
+                let prop = makeGet propInfo.Range Fable.String propInfo (Fable.StringConst "name" |> Fable.Value)
+                makeGet i.range i.returnType record prop |> Some
             | _ -> None
+        | "makeUnion" ->
+            ccall i "Reflection" "makeUnion" i.args |> Some
         | "makeRecord" ->
             match i.args with
             | [typ; vals] ->
@@ -1908,9 +1915,6 @@ module private AstPass =
         | "Microsoft.FSharp.Collections.MapModule"
         | "Microsoft.FSharp.Collections.FSharpSet"
         | "Microsoft.FSharp.Collections.SetModule" -> mapAndSets com info
-        // `typeof<'T>.Name` is actually `System.Reflection.MemberInfo.name`,
-        // not `System.Type.name` (as with `typeof<'T>.FullName` and `typeof<'T>.Namespace`)
-        | "System.Reflection.MemberInfo"
         | "System.Type" -> types com info
         | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com info
         | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
@@ -1924,10 +1928,18 @@ module private AstPass =
         | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com info
         | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info
         | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info
-        | "System.Reflection.PropertyInfo" ->
-            // The `Name` property is actually from System.Reflection.MemberInfo,
-            // so this won't be reached
-            match info.methodName with "name" -> info.callee | _ -> None
+        | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+        | "System.Reflection.PropertyInfo"
+        | "System.Reflection.MemberInfo" ->
+            match info.callee, info.methodName with
+            | _, "getFields" -> icall info "getUnionFields" |> Some
+            | Some c, "name" -> ccall info "Reflection" "getName" [c] |> Some
+            | Some c, ("tag" | "propertyType") ->
+                let prop =
+                    if info.methodName = "tag" then "index" else info.methodName
+                    |> Fable.StringConst |> Fable.Value
+                makeGet info.range info.returnType c prop |> Some
+            | _ -> None
         | _ -> None
 
 module private CoreLibPass =

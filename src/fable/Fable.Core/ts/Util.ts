@@ -82,7 +82,7 @@ export function makeGeneric(typeDef: Type, genArgs: Dic<Type>) {
 }
 
 export function isGeneric(typ: any): boolean {
-  return typ instanceof NonDeclaredType && typ.generics != null;
+  return typ instanceof NonDeclaredType && typ.kind === "GenericType";
 }
 
 /**
