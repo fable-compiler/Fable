@@ -369,8 +369,14 @@ let makeReflectionMethodArgsAndBody com (ent: Fable.Entity option) extend nullab
     let comp = makeUntypedGet (makeCoreRef "Symbol" None) "reflection"
     Member("FSymbol.reflection", Method, InstanceLoc, [], Any, computed=comp), [], info
 
-let makeReflectionMethod com (ent: Fable.Entity option) extend nullable interfaces cases properties =
-    let m, args, body = makeReflectionMethodArgsAndBody com ent extend nullable interfaces cases properties
+let makeReflectionMethod com (ent: Fable.Entity) extend nullable cases properties =
+    let interfaces =
+        match ent.Kind with
+        | Fable.Union _ -> "FSharpUnion"::ent.Interfaces
+        | Fable.Record _ -> "FSharpRecord"::ent.Interfaces
+        | Fable.Exception _ -> "FSharpException"::ent.Interfaces
+        | _ -> ent.Interfaces
+    let m, args, body = makeReflectionMethodArgsAndBody com (Some ent) extend nullable interfaces cases properties
     MemberDeclaration(m, None, args, body, None)
 
 let makeDelegate (com: ICompiler) arity (expr: Expr) =

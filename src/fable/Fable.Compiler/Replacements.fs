@@ -1800,18 +1800,24 @@ module private AstPass =
         | None, meth -> ccall i "BigInt" meth i.args |> Some
 
     let fsharpType (com: ICompiler) (i: Fable.ApplyInfo) =
+        let hasInterface ifc (typRef: Fable.Expr) =
+            let proto = ccall_ typRef.Range Fable.Any "Reflection" "getPrototypeOfType" [typRef]
+            ccall i "Util" "hasInterface" [proto; Fable.StringConst ifc |> Fable.Value]
         match i.methodName with
-        | "getRecordFields" ->
+        | "getRecordFields"
+        | "getExceptionFields" ->
             let proto = ccall_ i.args.Head.Range Fable.Any "Reflection" "getPrototypeOfType" i.args
             ccall i "Util" "getPropertyNames" [proto] |> Some
         | "isRecord" ->
-            let proto = ccall_ i.args.Head.Range Fable.Any "Reflection" "getPrototypeOfType" i.args
-            ccall i "Util" "hasInterface" [proto; Fable.StringConst "FSharpRecord" |> Fable.Value] |> Some
+            hasInterface "FSharpRecord" i.args.Head |> Some
+        | "isExceptionRepresentation" ->
+            hasInterface "FSharpException" i.args.Head |> Some
         | _ -> None
 
     let fsharpValue (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.methodName with
-        | "getRecordFields" ->
+        | "getRecordFields"
+        | "getExceptionFields" ->
             ccall i "Reflection" "getPropertyValues" i.args |> Some
         | "getRecordField" ->
             match i.args with

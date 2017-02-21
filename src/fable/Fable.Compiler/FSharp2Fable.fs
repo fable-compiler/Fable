@@ -792,8 +792,7 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
     match fableEnt.Kind with
     | Fable.Union cases ->
       [ yield makeUnionCons()
-        yield makeReflectionMethod com (Some fableEnt) false nullable
-                ("FSharpUnion"::fableEnt.Interfaces) (Some cases) None
+        yield makeReflectionMethod com fableEnt false nullable (Some cases) None
         if needsEqImpl then yield makeUnionEqualMethod fableType
         if needsCompImpl then yield makeUnionCompareMethod fableType ]
     | Fable.Record fields
@@ -802,13 +801,11 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
       // some already include a constructor (see #569)
       [ if fableEnt.Members |> Seq.exists (fun m -> m.Kind = Fable.Constructor) |> not
         then yield makeRecordCons com fableEnt fields
-        yield makeReflectionMethod com (Some fableEnt) false nullable
-                ("FSharpRecord"::fableEnt.Interfaces) None (Some fields)
+        yield makeReflectionMethod com fableEnt false nullable None (Some fields)
         if needsEqImpl then yield makeRecordEqualMethod fableType
         if needsCompImpl then yield makeRecordCompareMethod fableType ]
     | Fable.Class(baseClass, properties) ->
-      [makeReflectionMethod com (Some fableEnt) baseClass.IsSome nullable
-            fableEnt.Interfaces None (Some properties)]
+      [makeReflectionMethod com fableEnt baseClass.IsSome nullable None (Some properties)]
     | _ -> []
     |> fun autoMeths ->
         [ yield! autoMeths
