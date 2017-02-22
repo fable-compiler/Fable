@@ -919,6 +919,15 @@ type private DeclInfo() =
         |> Seq.toList
 
 let private tryGetImport r methName (atts: #seq<FSharpAttribute>) (body: FSharpExpr option) =
+    let (|ImportExpr|_|) e =
+        let rec matchExpr = function
+            | BasicPatterns.Call(None, meth, _, _, args)
+                when meth.FullName.StartsWith("Fable.Core.JsInterop.import") -> Some(meth,args)
+            // Apparently the F# compiler creates bindings for function arguments, see #721 (5th comment)
+            | BasicPatterns.Let((var, _), body)
+                when var.IsCompilerGenerated -> matchExpr body
+            | _ -> None
+        matchExpr e
     let getStringConst = function
         | BasicPatterns.Const(:? string as str, _) -> str
         | _ -> FableError("Import expressions can only be used with string literals", r) |> raise
@@ -928,8 +937,7 @@ let private tryGetImport r methName (atts: #seq<FSharpAttribute>) (body: FSharpE
             match att.ConstructorArguments.[0], att.ConstructorArguments.[1] with
             | (_, (:? string as selector)), (_, (:? string as path)) -> Some(selector, path)
             | _ -> None
-        | _, Some(BasicPatterns.Call(None, meth, _, _, args))
-            when meth.FullName.StartsWith("Fable.Core.JsInterop.import") ->
+        | _, Some(ImportExpr(meth, args)) ->
             let importMeth = meth.FullName.Substring(meth.FullName.LastIndexOf(".") + 1)
             match importMeth with
             | "import" -> Some(getStringConst args.Head, getStringConst args.Tail.Head)
