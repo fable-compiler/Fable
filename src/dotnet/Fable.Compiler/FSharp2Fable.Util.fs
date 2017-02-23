@@ -42,7 +42,7 @@ type Context =
     ; scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
     /// Some expressions that create scope in F# don't do it in JS (like let bindings)
     /// so we need a mutable registry to prevent duplicated var names.
-    ; scopedVarNames: HashSet<string> option
+    ; varNames: HashSet<string>
     ; typeArgs: (string * FSharpType) list
     ; decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
     ; baseClass: string option
@@ -54,7 +54,7 @@ type Context =
         ; enclosingEntity = enclosingModule
         ; scope = []
         ; scopedInlines = []
-        ; scopedVarNames = None
+        ; varNames = HashSet()
         ; typeArgs = []
         ; decisionTargets = None
         ; baseClass = None
@@ -905,26 +905,24 @@ module Identifiers =
     let bindExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) expr =
         { ctx with scope = (Some fsRef, expr)::ctx.scope}
 
-    /// Make a sanitized identifier from a tentative name
-    let bindIdent (com: IFableCompiler) (ctx: Context) typ
-                  (fsRef: FSharpMemberOrFunctionOrValue option) tentativeName =
-        let sanitizedName = tentativeName |> Naming.sanitizeIdent (fun x ->
-            match ctx.scopedVarNames with
-            | Some varNames when varNames.Contains x -> true
-            | _ ->
-                List.exists (fun (_,x') ->
-                    match x' with
-                    | Fable.Value (Fable.IdentValue i) -> x = i.Name
-                    | _ -> false) ctx.scope)
-        match ctx.scopedVarNames with
-        | Some varNames -> varNames.Add sanitizedName |> ignore
-        | None -> ()
+    let private bindIdentPrivate (com: IFableCompiler) (ctx: Context) typ
+                  (fsRef: FSharpMemberOrFunctionOrValue option) force name =
+        let sanitizedName = name |> Naming.sanitizeIdent (fun x ->
+            not force && ctx.varNames.Contains x)
+        ctx.varNames.Add sanitizedName |> ignore
         // We still need to keep track of all used variable names in the file
         // so they're not used for imports
         com.AddUsedVarName sanitizedName
         let ident = Fable.Ident(sanitizedName, typ)
         let identValue = Fable.Value (Fable.IdentValue ident)
         { ctx with scope = (fsRef, identValue)::ctx.scope}, ident
+
+    let bindIdentWithExactName com ctx typ fsRef name =
+        bindIdentPrivate com ctx typ fsRef true name
+
+    /// Make a sanitized identifier from a tentative name
+    let bindIdent com ctx typ fsRef tentativeName =
+        bindIdentPrivate com ctx typ fsRef false tentativeName
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
@@ -987,7 +985,7 @@ module Util =
     let bindMemberArgs com ctx (info: MemberInfo) (args: FSharpMemberOrFunctionOrValue list list) =
         // To prevent name clashes in JS create a scope for members
         // where variables must always have a unique name
-        let ctx = { ctx with scopedVarNames = HashSet() |> Some }
+        let ctx = { ctx with varNames = HashSet(ctx.varNames) }
         let thisArg, args =
             match args with
             | [thisArg]::args when info.isInstance ->

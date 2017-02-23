@@ -1044,7 +1044,7 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
         let selector, path = import.Value
         let entName, body = sanitizeEntityName ent, makeImport selector path
         // Bind entity name to context to prevent name clashes
-        let ctx, ident = bindIdent com ctx Fable.Any None entName
+        let ctx, ident = bindIdentWithExactName com ctx Fable.Any None entName
         let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type,
                             isPublic = not ent.Accessibility.IsPrivate)
         let decl = Fable.MemberDeclaration(m, Some ident.Name, [], body, Some range)
@@ -1062,9 +1062,8 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
     then
         declInfo, ctx
     else
-        // Bind entity name to context to prevent name
-        // clashes (it will become a variable in JS)
-        let ctx, ident = sanitizeEntityName ent |> bindIdent com ctx Fable.Any None
+        // Bind entity name to context to prevent name clashes (it will become a variable in JS)
+        let ctx, ident = sanitizeEntityName ent |> bindIdentWithExactName com ctx Fable.Any None
         declInfo.AddChild(com, ctx, ent, ident.Name, childDecls)
         declInfo, ctx
 
@@ -1077,9 +1076,7 @@ and private transformDeclarations (com: IFableCompiler) ctx decls =
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                 transformMemberDecl com ctx declInfo meth args body
             | FSharpImplementationFileDeclaration.InitAction fe ->
-                // To prevent name clashes in JS create a scope for members and init actions
-                // where variables must always have a unique name
-                let e = com.Transform { ctx with scopedVarNames = HashSet() |> Some } fe
+                let e = com.Transform ctx fe
                 declInfo.AddDeclaration(Fable.ActionDeclaration (e, makeRangeFrom fe))
                 declInfo, ctx
         ) (DeclInfo(), ctx)
