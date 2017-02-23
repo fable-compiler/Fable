@@ -1,3 +1,7 @@
+### 0.7.44
+
+* Fix import expressions with methods with function arguments: #721
+
 ### 0.7.43
 
 * Add reflection methods (see ReflectionTests.fs)
