@@ -22,6 +22,6 @@
     ],
     "scripts": {
         "prebuild": "node node_modules/webpack/bin/webpack babel-standalone.js repl/babel-standalone.js --output-library Babel -p",
-        "postbuild": "node server"
+        // "postbuild": "node server"
     }
 }

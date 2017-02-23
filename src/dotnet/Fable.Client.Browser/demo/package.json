@@ -5,10 +5,9 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "babel-plugin-transform-es2015-block-scoping": "^6.22.0",
-    "babel-standalone": "^6.22.1",
-    "babel-template": "^6.22.0",
-    "uglify-js-harmony": "^2.6.2",
+    "babel-plugin-transform-es2015-block-scoping": "^6.23.0",
+    "babel-standalone": "^6.23.1",
+    "babel-template": "^6.23.0",
     "webpack": "^2.2.1"
   }
 }
