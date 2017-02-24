@@ -42,14 +42,14 @@ let measureTime (f: unit -> unit) =
 #endif
 let main argv =
     try
-        let references = ["mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics"]
+        let references = ["mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics";"Fable.Core"]
         let checker = InteractiveChecker(references, readAllBytes)
         let opts = readOptions argv
         let com = makeCompiler opts []
         let fileName = "test_script.fsx"
         let source = readAllText fileName
         //let success = compile com checker (fileName, source)
-        let f() = compileAst com checker (fileName, source) |> ignore
+        let f() = compileAst com checker (fileName, "stdin") |> ignore
         let bench i =
             let ms = measureTime f
             printfn "iteration %d, duration %d ms" i ms
