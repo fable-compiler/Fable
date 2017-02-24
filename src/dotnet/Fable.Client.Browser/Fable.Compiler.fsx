@@ -36,7 +36,7 @@ let createChecker readAllBytes references =
 let compileSource checker source =
     let opts = readOptions [||]
     let com = makeCompiler opts []
-    let fileName = "stdin.fsx"
+    let fileName = "stdin"
     let files = compileAst com checker (fileName, source)
     files
     |> Seq.map (fun file -> Fable.Core.JsInterop.toJson file)
