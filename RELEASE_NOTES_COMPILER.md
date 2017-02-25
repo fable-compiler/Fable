@@ -1,4 +1,4 @@
-### 0.7.44
+### 0.7.45
 
 * Fix import expressions with methods with function arguments: #721
 
