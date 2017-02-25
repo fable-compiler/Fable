@@ -53,7 +53,7 @@ function compile(source) {
             var references2 = references.filter(x => !isSigdata(x)).map(x => x.replace(".txt", ""));
             checker = Fable.createChecker(readAllBytes, references2);
         }
-        var json = Fable.compileSource(checker, source);
+        var json = Fable.compileToJson(checker, source);
         postMessage(json);
     }
     catch (err) {
