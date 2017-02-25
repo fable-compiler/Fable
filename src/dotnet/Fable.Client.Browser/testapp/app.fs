@@ -49,7 +49,10 @@ let main argv =
         let fileName = "test_script.fsx"
         let source = readAllText fileName
         //let success = compile com checker (fileName, source)
-        let f() = compileAst com checker (fileName, "stdin") |> ignore
+        let f() =
+            compileAst com checker (fileName, source)
+            |> Seq.map (fun file -> Fable.Core.JsInterop.toJson file)
+            |> ignore
         let bench i =
             let ms = measureTime f
             printfn "iteration %d, duration %d ms" i ms
