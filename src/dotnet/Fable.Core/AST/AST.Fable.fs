@@ -165,12 +165,10 @@ and ExternalEntity =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
 
-and File(sourceFile, targetFile, root, decls, ?isEntry, ?usedVarNames) =
-    member x.SourceFile: string = sourceFile
-    member x.TargetFile: string = targetFile
+and File(sourcePath, root, decls, ?usedVarNames) =
+    member x.SourcePath: string = sourcePath
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
-    member x.IsEntry: bool = defaultArg isEntry false
     member x.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
     member x.Range =
         match decls with

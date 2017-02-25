@@ -1261,10 +1261,6 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
     let entitiesCache = Dictionary<string, Fable.Entity>()
     let newCache = fun () -> Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr>()
     let inlineExprsCache = Map.findOrRun newCache "inline" projInfo.Extra
-    // Start transforming files
-    let entryFile =
-        parsedProj.AssemblyContents.ImplementationFiles
-        |> List.last |> fun file -> file.FileName
     parsedProj.AssemblyContents.ImplementationFiles
     |> Seq.choose (fun file ->
         try
@@ -1291,8 +1287,7 @@ let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (pro
                 let curProj = projectMaps.[Naming.current]
                 let fileInfo: Fable.FileInfo = {targetFile=projInfo.FilePairs.[file.FileName]; rootModule=rootEnt.FullName}
                 projectMaps.[Naming.current] <- Map.add file.FileName fileInfo curProj
-                Fable.File(file.FileName, projInfo.FilePairs.[file.FileName], rootEnt, rootDecls,
-                    isEntry=(file.FileName = entryFile), usedVarNames=fcom.UsedVarNames) |> Some
+                Fable.File(file.FileName, rootEnt, rootDecls, usedVarNames=fcom.UsedVarNames) |> Some
         with
         | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.FileName) |> raise
         | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise

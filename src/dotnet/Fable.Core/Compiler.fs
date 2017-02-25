@@ -17,6 +17,10 @@ type CompilerOptions = {
         extra: Map<string, string>
     }
 
+type CompilerState = {
+    RootModules: Map<string, string>
+}
+
 type LogMessage =
     | Warning of string
     | Info of string
@@ -32,6 +36,7 @@ type IPlugin =
 
 type ICompiler =
     abstract ProjDir: string
+    abstract State: CompilerState
     abstract Options: CompilerOptions
     abstract Plugins: (string*IPlugin) list
     abstract AddLog: LogMessage->unit
