@@ -53,11 +53,10 @@ type Context = {
 type IBabelCompiler =
     inherit ICompiler
     abstract DeclarePlugins: (string*IDeclarePlugin) list
-    abstract GetFileInfo: string -> Fable.FileInfo
+    abstract GetRootModule: string -> string
     abstract GetImportExpr: Context -> selector: string -> path: string ->
         Fable.ImportKind -> Expression
     abstract GetAllImports: unit -> seq<Import>
-    abstract GetAllJsIncludes: unit -> seq<JsInclude>
     abstract TransformExpr: Context -> Fable.Expr -> Expression
     abstract TransformStatement: Context -> Fable.Expr -> Statement list
     abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Statement list
@@ -199,14 +198,10 @@ module Util =
             match Replacements.tryReplaceEntity com ent genArgs with
             | Some expr -> com.TransformExpr ctx expr
             | None -> failwithf "Cannot access type: %s" ent.FullName
-        | Some file when ctx.file.SourceFile <> file ->
-            let fileInfo = com.GetFileInfo file
-            let importPath =
-                if fileInfo.targetFile.StartsWith("///")
-                then fileInfo.targetFile.Substring(3)
-                else Path.getRelativeFileOrDirPath false ctx.file.TargetFile false fileInfo.targetFile
-                |> fun x -> Path.ChangeExtension(x, Naming.targetFileExtension)
-            getParts fileInfo.rootModule ent.FullName memb
+        | Some file when ctx.file.SourcePath <> file ->
+            let rootModule = com.GetRootModule(file)
+            let importPath = Path.getRelativeFileOrDirPath false ctx.file.SourcePath false file
+            getParts rootModule ent.FullName memb
             |> function
             | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
             | memb::parts ->
@@ -1062,10 +1057,7 @@ module Util =
                 |> consBack decls
             |> List.rev
 
-    let makeCompiler (com: ICompiler) (prevJsIncludes: JsInclude seq)
-                     (projectMaps: Dictionary<string,Map<string, Fable.FileInfo>>) =
-        let prevJsIncludes = prevJsIncludes |> Seq.toList
-        let jsIncludes = ResizeArray<JsInclude>()
+    let makeCompiler (com: ICompiler) (state: ICompilerState) =
         let imports = Dictionary<string,Import>()
         let declarePlugins =
             com.Plugins |> List.choose (function
@@ -1074,12 +1066,8 @@ module Util =
         { new IBabelCompiler with
             member bcom.DeclarePlugins =
                 declarePlugins
-            member bcom.GetFileInfo fileName =
-                projectMaps |> Seq.tryPick (fun kv ->
-                    Map.tryFind fileName kv.Value)
-                |> function
-                | Some info -> info
-                | None -> failwithf "Cannot find info for file: %s" fileName
+            member bcom.GetRootModule(file) =
+                state.GetRootModule(file)
             // TODO: Create a cache to optimize imports
             member bcom.GetImportExpr ctx selector path kind =
                 let sanitizeSelector selector =
@@ -1098,35 +1086,7 @@ module Util =
                     |> Naming.sanitizeIdent (fun s ->
                         ctx.file.UsedVarNames.Contains s
                             || (imports.Values |> Seq.exists (fun i -> i.localIdent = s)))
-                let includeJs (sourcePath: string) =
-                    let getRelativePath name =
-                        Path.Combine3(bcom.Options.outDir, "js_includes", name + ".js")
-                        |> Path.getRelativeFileOrDirPath false ctx.file.TargetFile false
-                    Seq.append prevJsIncludes jsIncludes
-                    |> Seq.tryFind (fun x -> x.sourcePath = sourcePath)
-                    |> function
-                    | Some jsInclude -> getRelativePath jsInclude.name
-                    | None ->
-                        let name =
-                            Path.GetFileNameWithoutExtension(sourcePath)
-                            |> Naming.preventConflicts (fun name ->
-                                Seq.append prevJsIncludes jsIncludes
-                                |> Seq.exists (fun x -> x.name = name))
-                        jsIncludes.Add({ sourcePath=sourcePath; name=name })
-                        getRelativePath name
-                let resolvePath (com: ICompiler) (ctx: Context) (importPath: string) =
-                    let resolveRelative (ctx: Context) (importPath: string) =
-                        let fileDir = Path.GetDirectoryName(ctx.file.SourceFile)
-                        Path.GetFullPath(Path.Combine(fileDir, importPath))
-                    match com.Options.includeJs, importPath with
-                    | true, Naming.StartsWith "." _ ->
-                        resolveRelative ctx importPath |> includeJs
-                    | false, Naming.StartsWith "." _ ->
-                        // Resolve relative paths with `outDir` if they don't point to an internal file: see #472
-                        resolveRelative ctx importPath
-                        |> Path.getRelativeFileOrDirPath false ctx.file.TargetFile false
-                    | _ -> importPath
-                match imports.TryGetValue(path + "|" + selector) with
+                match imports.TryGetValue(path + "::" + selector) with
                 | true, i -> upcast Identifier(i.localIdent)
                 | false, _ ->
                     let localId = getLocalIdent ctx selector
@@ -1139,19 +1099,17 @@ module Util =
                             | _ -> None
                         path =
                             match kind with
-                            | Fable.CustomImport -> resolvePath com ctx path
-                            | Fable.Internal _ -> path
+                            | Fable.CustomImport | Fable.Internal _ -> path
                             | Fable.CoreLib ->
                                 let path = com.Options.coreLib + "/" + path + Naming.targetFileExtension
                                 if not(path.StartsWith ".") then path else
                                 Path.GetFullPath path
-                                |> Path.getRelativePath ctx.file.TargetFile
+                                |> Path.getRelativePath ctx.file.SourcePath
                                 |> fun path -> path.TrimEnd('/')
                     }
-                    imports.Add(path + "|" + selector, i)
+                    imports.Add(path + "::" + selector, i)
                     upcast Identifier (localId)
             member bcom.GetAllImports () = upcast imports.Values
-            member bcom.GetAllJsIncludes () = upcast jsIncludes
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
@@ -1172,86 +1130,67 @@ module Compiler =
     open Util
     open System.IO
 
-    let transformFiles (com: ICompiler) (extra: Map<string, obj>, files) =
-        let projectMaps: Dictionary<string, Map<string, Fable.FileInfo>> =
-            ("projectMaps", extra)
-            ||> Map.findOrRun (fun () -> failwith "Expected project maps")
-        let prevJsIncludes = ResizeArray<JsInclude>()
-        let newCache = fun () -> Dictionary<string, string list>()
-        let dependenciesDic = Map.findOrRun newCache "dependencies" extra
-        files |> Seq.map (fun (file: Fable.File) ->
-            try
-                // let t = PerfTimer("Fable > Babel")
-                let curProjMap = projectMaps.[Naming.current]
-                let com = makeCompiler com prevJsIncludes projectMaps
-                let ctx = {
-                    file = file
-                    tailCallOpportunity = None
-                    isTailCallOptimized = false
-                    moduleFullName = curProjMap.[file.SourceFile].rootModule
-                    rootEntitiesPrivateNames =
-                        file.Declarations
-                        |> Seq.choose (function
-                            | Fable.EntityDeclaration(ent, privName, _, _) when ent.Name <> privName ->
-                                Some(ent.Name, privName)
-                            | _ -> None)
-                        |> Map
-                }
-                let rootDecls =
-                    com.DeclarePlugins
-                    |> Plugins.tryPlugin (Some file.Range) (fun p ->
-                        p.TryDeclareRoot com ctx file)
-                    |> function
-                    | Some rootDecls -> rootDecls
-                    | None ->
-                        let helper =
-                            { new IDeclareMember with
-                                member __.DeclareMember(a,b,c,d,e,f,g) =
-                                    declareRootModMember a b c d e f g }
-                        transformModDecls com ctx helper None file.Declarations
-                // Add imports
-                let rootDecls, dependencies =
-                    let dependencies = HashSet()
-                    com.GetAllImports()
-                    |> Seq.mapi (fun ident import ->
-                        import.internalFile |> Option.iter (dependencies.Add >> ignore)
-                        let localId = Identifier(import.localIdent)
-                        let specifier =
-                            match import.selector with
-                            | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
-                            | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
-                            | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1
-                        import.path, specifier)
-                    |> Seq.groupBy (fun (path, _) -> path)
-                    |> Seq.collect (fun (path, specifiers) ->
-                        let mems, defs, alls =
-                            (([], [], []), Seq.map snd specifiers)
-                            ||> Seq.fold (fun (mems, defs, alls) x ->
-                                match x.``type`` with
-                                | "ImportNamespaceSpecifier" -> mems, defs, x::alls
-                                | "ImportDefaultSpecifier" -> mems, x::defs, alls
-                                | _ -> x::mems, defs, alls)
-                        [mems; defs; alls]
-                        |> Seq.choose (function
-                            | [] -> None
-                            | specifiers ->
-                                ImportDeclaration(specifiers, StringLiteral path)
-                                :> ModuleDeclaration |> U2.Case2 |> Some))
-                    |> Seq.toList |> fun importDecls ->
-                        (importDecls@rootDecls), Seq.toList dependencies
-                dependenciesDic.AddOrUpdate(
-                    Path.normalizeFullPath file.SourceFile,
-                    (fun _ -> dependencies), (fun _ _ -> dependencies))
-                |> ignore
-                let jsIncludes = com.GetAllJsIncludes() |> Seq.toList
-                prevJsIncludes.AddRange(jsIncludes)
-                // Return the Babel file
-                Program(file.TargetFile, file.SourceFile, jsIncludes,
-                                file.Range, rootDecls, isEntry=file.IsEntry)
-            with
-            | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.SourceFile) |> raise
-            | ex -> exn (sprintf "%s (%s)" ex.Message file.SourceFile, ex) |> raise
-        )
-        |> fun seq ->
-            let extra = Map.add "dependencies" (box dependenciesDic) extra
-            extra, seq
+    let transformFile (com: ICompiler) (state: ICompilerState) (file: Fable.File) =
+        try
+            // let t = PerfTimer("Fable > Babel")
+            let com = makeCompiler com state
+            let ctx = {
+                file = file
+                tailCallOpportunity = None
+                isTailCallOptimized = false
+                moduleFullName = state.GetRootModule(file.SourcePath)
+                rootEntitiesPrivateNames =
+                    file.Declarations
+                    |> Seq.choose (function
+                        | Fable.EntityDeclaration(ent, privName, _, _) when ent.Name <> privName ->
+                            Some(ent.Name, privName)
+                        | _ -> None)
+                    |> Map
+            }
+            let rootDecls =
+                com.DeclarePlugins
+                |> Plugins.tryPlugin (Some file.Range) (fun p ->
+                    p.TryDeclareRoot com ctx file)
+                |> function
+                | Some rootDecls -> rootDecls
+                | None ->
+                    let helper =
+                        { new IDeclareMember with
+                            member __.DeclareMember(a,b,c,d,e,f,g) =
+                                declareRootModMember a b c d e f g }
+                    transformModDecls com ctx helper None file.Declarations
+            // Add imports
+            let rootDecls, dependencies =
+                let dependencies = HashSet()
+                com.GetAllImports()
+                |> Seq.mapi (fun ident import ->
+                    import.internalFile |> Option.iter (dependencies.Add >> ignore)
+                    let localId = Identifier(import.localIdent)
+                    let specifier =
+                        match import.selector with
+                        | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
+                        | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
+                        | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1
+                    import.path, specifier)
+                |> Seq.groupBy (fun (path, _) -> path)
+                |> Seq.collect (fun (path, specifiers) ->
+                    let mems, defs, alls =
+                        (([], [], []), Seq.map snd specifiers)
+                        ||> Seq.fold (fun (mems, defs, alls) x ->
+                            match x.``type`` with
+                            | "ImportNamespaceSpecifier" -> mems, defs, x::alls
+                            | "ImportDefaultSpecifier" -> mems, x::defs, alls
+                            | _ -> x::mems, defs, alls)
+                    [mems; defs; alls]
+                    |> Seq.choose (function
+                        | [] -> None
+                        | specifiers ->
+                            ImportDeclaration(specifiers, StringLiteral path)
+                            :> ModuleDeclaration |> U2.Case2 |> Some))
+                |> Seq.toList |> fun importDecls ->
+                    (importDecls@rootDecls), Seq.toList dependencies
+            // Return the Babel file
+            Program(file.SourcePath, file.Range, rootDecls)
+        with
+        | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.SourcePath) |> raise
+        | ex -> exn (sprintf "%s (%s)" ex.Message file.SourcePath, ex) |> raise

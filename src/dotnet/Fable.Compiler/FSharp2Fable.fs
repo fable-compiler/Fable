@@ -1023,15 +1023,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             |> addWarning com ctx.fileName (Some range)
             addMethod range None meth args body
         else
-            if com.Options.dll && meth.Accessibility.IsPublic then
-                "Inline public methods won't be accessible when referencing the project as a .dll"
-                |> addWarning com ctx.fileName (Some range)
-            let vars =
-                match args with
-                | [thisArg]::args when meth.IsInstanceMember -> args
-                | _ -> args
-                |> Seq.collect id |> countRefs body
-            com.AddInlineExpr meth.FullName (vars, body)
+            // Inline methods are ignored
             declInfo, ctx
     else addMethod range None meth args body
 
@@ -1083,57 +1075,29 @@ and private transformDeclarations (com: IFableCompiler) ctx decls =
     declInfo.GetDeclarations(com, ctx)
 
 let private getRootModuleAndDecls decls =
-    let nameConflicts (decls: FSharpImplementationFileDeclaration list) =
-        false // TODO
-    let (|ModuleAndTypes|_|) (decls: FSharpImplementationFileDeclaration list) =
-        (([], [], []), decls) ||> List.fold (fun (mods, typDecls, other) decl ->
-            match decl with
-            | FSharpImplementationFileDeclaration.Entity(e,subDecls) ->
-                if e.IsFSharpModule
-                then (e,subDecls)::mods, typDecls, other
-                elif not e.IsNamespace && List.isEmpty subDecls // Type
-                then mods, decl::typDecls, other
-                else mods, typDecls, decl::other
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(m,_,_)
-                when not (isModuleMember m) ->
-                mods, decl::typDecls, other // Type members
-            | _ ->
-                mods, typDecls, decl::other)
-        |> function
-        | [mod'], typDecls, [] -> Some(mod', List.rev typDecls)
-        | _ -> None
     let rec getRootModuleAndDecls outerEnt decls =
         match decls with
         | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
                 when ent.IsFSharpModule || ent.IsNamespace ->
             getRootModuleAndDecls (Some ent) decls
-        // TODO: This optimization tries to conflate in a single root module
-        // the common F# pattern of having a type and a module with the same name.
-        // However is not playing well at the moment with inline functions (see #556).
-        // A first pass is needed to cache inline functions (this is going to be
-        // necessary anyways with recursive modules).
-        // | ModuleAndTypes((rootMod, modDecls), decls)
-        //          when nameConflicts (decls@modDecls) |> not ->
-        //     (Some rootMod), decls@modDecls
         | decls -> outerEnt, decls
     getRootModuleAndDecls None decls
 
-let makeFileMap (fileImpls: FSharpImplementationFileContents list)
-                (filePairs: Map<string, string>) =
-    fileImpls
-    |> Seq.map (fun fileImpl ->
-        let fileInfo: Fable.FileInfo =
-            match getRootModuleAndDecls fileImpl.Declarations with
-            | Some rootModule, _ ->
-                sanitizeEntityFullName rootModule
-            | None, _ -> ""
-            |> fun ns -> {targetFile=filePairs.[fileImpl.FileName]; rootModule=ns}
-        fileImpl.FileName, fileInfo)
-    |> Map
+let tryGetMethodArgsAndBody (parsedProj: FSharpCheckProjectResults) (meth: FSharpMemberOrFunctionOrValue) =
+    let rec tryGetMethodArgsAndBody' meth = function
+        | FSharpImplementationFileDeclaration.Entity (e, decls) ->
+            decls |> List.tryPick (tryGetMethodArgsAndBody' meth)
+        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth2, args, body) ->
+            if obj.ReferenceEquals(meth, meth2)
+            then Some(args, body)
+            else None
+        | FSharpImplementationFileDeclaration.InitAction fe -> None
+    let fileName = (getMethLocation meth).FileName
+    parsedProj.AssemblyContents.ImplementationFiles
+    |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
+    |> Option.bind (fun f -> f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' meth))
 
-type FableCompiler(com: ICompiler, projectMaps: Dictionary<string,Map<string, Fable.FileInfo>>,
-                   entitiesCache: Dictionary<string, Fable.Entity>,
-                   inlineExprsCache: Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr>) =
+type FableCompiler(com: ICompiler, state: ICompilerState, parsedProj: FSharpCheckProjectResults) =
     let replacePlugins =
         com.Plugins |> List.choose (function
             | path, (:? IReplacePlugin as plugin) -> Some (path, plugin)
@@ -1144,25 +1108,29 @@ type FableCompiler(com: ICompiler, projectMaps: Dictionary<string,Map<string, Fa
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
         member fcom.IsReplaceCandidate ent =
-            match ent.TryFullName, ent.Assembly.FileName with
+            match ent.TryFullName with
             // TODO: Temporary HACK to fix #577
-            | Some fullName, _ when fullName.StartsWith("Fable.Import.Node") -> false
-            | Some fullName, _ when fullName.StartsWith("Fable.Core.JsInterop") -> true
-            | _, Some asmPath -> projectMaps.ContainsKey asmPath |> not
+            | Some fullName when fullName.StartsWith("Fable.Import.Node") -> false
+            | Some fullName when fullName.StartsWith("Fable.Core.JsInterop") -> true
             | _ -> false
         member fcom.TryGetInternalFile tdef =
             if (fcom :> IFableCompiler).IsReplaceCandidate tdef
             then None
             else Some (getEntityLocation tdef).FileName
         member fcom.GetEntity tdef =
-            entitiesCache.GetOrAdd(getEntityFullName tdef, fun () -> makeEntity fcom tdef)
-        member fcom.TryGetInlineExpr meth =
-            let success, expr = inlineExprsCache.TryGetValue meth.FullName
-            if success then Some expr else None
-        member fcom.AddInlineExpr fullName inlineExpr =
-            inlineExprsCache.AddOrUpdate(fullName,
-                (fun _ -> inlineExpr), (fun _ _ -> inlineExpr))
-            |> ignore
+            state.GetOrAddEntity(getEntityFullName tdef, fun () -> makeEntity fcom tdef)
+        member fcom.GetInlineExpr meth =
+            state.GetOrAddInlineExpr(meth.FullName, fun () ->
+                match tryGetMethodArgsAndBody parsedProj meth with
+                | Some(args, body) ->
+                    let vars =
+                        match args with
+                        | [thisArg]::args when meth.IsInstanceMember -> args
+                        | _ -> args
+                        |> Seq.collect id |> countRefs body
+                    (upcast vars, body)
+                | None ->
+                    FableError("Cannot find inline method " + meth.FullName) |> raise)
         member fcom.AddUsedVarName varName =
             usedVarNames.Add varName |> ignore
         member fcom.ReplacePlugins =
@@ -1175,126 +1143,33 @@ type FableCompiler(com: ICompiler, projectMaps: Dictionary<string,Map<string, Fa
         member __.GetLogs() = com.GetLogs()
         member __.GetUniqueVar() = com.GetUniqueVar()
 
-type FSProjectInfo(projectOpts: FSharpProjectOptions, filePairs: Map<string, string>,
-                    ?fileMask: string, ?extra: Map<string, obj>) =
-    let extra = defaultArg extra Map.empty
-    let dependencies: IDictionary<string, string list> =
-        ("dependencies", extra)
-        ||> Map.findOrRun (fun () -> upcast Dictionary())
-    let arePathsEqual p1 p2 =
-        (Path.normalizeFullPath p1) = (Path.normalizeFullPath p2)
-    member __.ProjectOpts = projectOpts
-    member __.FilePairs = filePairs
-    member __.FileMask = fileMask
-    member __.Extra = extra
-    member __.IsMasked(fileName) =
-        match fileMask with
-        | Some mask ->
-            if arePathsEqual fileName mask
-            then true
-            else
-                let success, deps = dependencies.TryGetValue(fileName)
-                success && List.exists (arePathsEqual mask) deps
-        | None -> true
-
-let private getProjectMaps (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
-    // Path.Combine is giving problems in Windows
-    let combine (path1: string) (path2: string) =
-        let path2 = if path2.StartsWith(".") then path2.Substring(1) else path2
-        path1.TrimEnd('/') + "/" + path2.TrimStart('/')
-    // This dictionary must be mutable so `dict` cannot be used
-    let dic = Dictionary()
-    dic.Add(Naming.current, Map.empty)
-
-#if FABLE_COMPILER
-#else
-    parsedProj.ProjectContext.GetReferencedAssemblies()
-    |> Seq.choose (fun assembly ->
-        assembly.FileName |> Option.bind (fun asmPath ->
-            let mapPath = Path.ChangeExtension(asmPath, Naming.fablemapExt)
-            if File.Exists mapPath then Some(asmPath, mapPath) else None))
-    |> Seq.iter (fun (asmPath, mapPath) ->
-        try
-            let asmName = Path.GetFileNameWithoutExtension(asmPath)
-            let resolve =
-                // TODO: Use a case insensitive search?
-                match Map.tryFind asmName com.Options.refs with
-                | Some baseDir when baseDir.StartsWith(".") ->
-                    Path.GetFullPath(baseDir)
-                | Some baseDir ->
-                    // The triple slash is just a mark to indicate
-                    // the import must NOT be resolved with a relative path
-                    "///" + baseDir
-                | None ->
-                    let baseDir =
-                        let asmDir = Path.GetDirectoryName(Path.GetFullPath(asmPath))
-                        // If we're compiling to a non-ES2015 module check if the referenced
-                        // library includes a UMD distribution
-                        if not com.Options.rollup
-                            && Naming.umdModules.Contains com.Options.moduleSystem
-                        then
-                            let umdDir = Path.Combine(asmDir, "umd")
-                            if Directory.Exists(umdDir) then umdDir else asmDir
-                        else asmDir
-                    // If the assembly is an npm package, use an absolute reference
-                    let i = baseDir.IndexOf("node_modules/")
-                    if i > -1 then "///" + baseDir.Substring(i + 13) else baseDir
-                |> fun baseDir ->
-                    fun path -> combine baseDir path
-            let fableMap =
-                let json = File.ReadAllText(mapPath)
-                Newtonsoft.Json.JsonConvert.DeserializeObject<Fable.FableMap>(json).files
-                |> Seq.map (fun kv ->
-                    kv.Key, { kv.Value with targetFile = resolve kv.Value.targetFile })
-                |> Map
-            dic.Add(asmPath, fableMap)
-        with _ -> ()
-    )
-#endif
-    dic
-
-let transformFiles (com: ICompiler) (parsedProj: FSharpCheckProjectResults) (projInfo: FSProjectInfo) =
-    let projectMaps =
-        ("projectMaps", projInfo.Extra)
-        ||> Map.findOrRun (fun () -> getProjectMaps com parsedProj projInfo)
-    // Cache for entities and inline expressions
-    let entitiesCache = Dictionary<string, Fable.Entity>()
-    let newCache = fun () -> Dictionary<string, Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr>()
-    let inlineExprsCache = Map.findOrRun newCache "inline" projInfo.Extra
-    parsedProj.AssemblyContents.ImplementationFiles
-    |> Seq.choose (fun file ->
-        try
-        if not(projInfo.IsMasked file.FileName)
-        then None
-        else
-            let fcom = FableCompiler(com, projectMaps, entitiesCache, inlineExprsCache)
-            let rootEnt, rootDecls =
-                let fcom = fcom :> IFableCompiler
-                let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
-                match rootEnt with
-                | Some e when hasAtt Atts.erase e.Attributes -> fcom.GetEntity e, []
-                | Some e ->
-                    let rootEnt = fcom.GetEntity e
-                    let ctx = Context.Create(file.FileName, rootEnt)
-                    rootEnt, transformDeclarations fcom ctx rootDecls
-                | None ->
-                    let emptyRootEnt = Fable.Entity.CreateRootModule file.FileName
-                    let ctx = Context.Create(file.FileName, emptyRootEnt)
-                    emptyRootEnt, transformDeclarations fcom ctx rootDecls
-            match rootDecls with
-            | [] -> None
-            | rootDecls ->
-                let curProj = projectMaps.[Naming.current]
-                let fileInfo: Fable.FileInfo = {targetFile=projInfo.FilePairs.[file.FileName]; rootModule=rootEnt.FullName}
-                projectMaps.[Naming.current] <- Map.add file.FileName fileInfo curProj
-                Fable.File(file.FileName, rootEnt, rootDecls, usedVarNames=fcom.UsedVarNames) |> Some
-        with
-        | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.FileName) |> raise
-        | ex -> exn (sprintf "%s (%s)" ex.Message file.FileName, ex) |> raise
-    )
-    |> fun seq ->
-        let extra =
-            projInfo.Extra
-            |> Map.add "projectMaps" (box projectMaps)
-            |> Map.add "inline" (box inlineExprsCache)
-        extra, seq
+let transformFile (com: ICompiler) (state: ICompilerState) (parsedProj: FSharpCheckProjectResults) (fileName: string) =
+    try
+        let file =
+            let fileName = Path.normalizeFullPath fileName
+            parsedProj.AssemblyContents.ImplementationFiles
+            |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
+            |> function
+                | Some file -> file
+                | None -> FableError("File doesn't belong to parsed project") |> raise
+        let fcom = FableCompiler(com, state, parsedProj)
+        let rootEnt, rootDecls =
+            let fcom = fcom :> IFableCompiler
+            let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
+            match rootEnt with
+            | Some e when hasAtt Atts.erase e.Attributes -> fcom.GetEntity e, []
+            | Some e ->
+                let rootEnt = fcom.GetEntity e
+                let ctx = Context.Create(file.FileName, rootEnt)
+                rootEnt, transformDeclarations fcom ctx rootDecls
+            | None ->
+                let emptyRootEnt = Fable.Entity.CreateRootModule file.FileName
+                let ctx = Context.Create(file.FileName, emptyRootEnt)
+                emptyRootEnt, transformDeclarations fcom ctx rootDecls
+        match rootDecls with
+        | [] -> None
+        | rootDecls ->
+            Fable.File(file.FileName, rootEnt, rootDecls, usedVarNames=fcom.UsedVarNames) |> Some
+    with
+    | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=fileName) |> raise
+    | ex -> exn (sprintf "%s (%s)" ex.Message fileName, ex) |> raise

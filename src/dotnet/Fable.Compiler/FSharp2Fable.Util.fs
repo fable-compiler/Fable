@@ -68,8 +68,7 @@ type IFableCompiler =
     abstract IsReplaceCandidate: FSharpEntity -> bool
     abstract TryGetInternalFile: FSharpEntity -> string option
     abstract GetEntity: FSharpEntity -> Fable.Entity
-    abstract TryGetInlineExpr: FSharpMemberOrFunctionOrValue -> (Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) option
-    abstract AddInlineExpr: string -> (Dictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) -> unit
+    abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> (IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr)
     abstract AddUsedVarName: string -> unit
     abstract ReplacePlugins: (string*IReplacePlugin) list
 
@@ -1234,9 +1233,10 @@ module Util =
             // the generation of too many closures
             | Fable.Apply(_,_,Fable.ApplyGet,_,_) -> false
             | _ -> true
-        if not(isInline meth) then None else
-        match com.TryGetInlineExpr meth with
-        | Some (vars, fsExpr) ->
+        if not(isInline meth)
+        then None
+        else
+            let vars, fsExpr = com.GetInlineExpr meth
             let ctx, assignments =
                 ((ctx, []), vars, args)
                 |||> Seq.fold2 (fun (ctx, assignments) var arg ->
@@ -1259,9 +1259,6 @@ module Util =
             if List.isEmpty assignments
             then Some expr
             else makeSequential r (assignments@[expr]) |> Some
-        | None ->
-            FableError(meth.FullName + " is inlined but is not reachable. " +
-                "If it belongs to an external project try removing inline modifier.", ?range=r) |> raise
 
     let passGenerics com ctx r (typArgs, methTypArgs) meth =
         let rec hasUnresolvedGenerics = function

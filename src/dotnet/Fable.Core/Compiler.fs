@@ -2,24 +2,14 @@ namespace Fable
 
 type CompilerOptions = {
         projFile: string
-        outDir: string
         coreLib: string
-        moduleSystem: string
         symbols: string list
         plugins: string list
-        rollup: bool
-        watch: bool
-        dll: bool
         noTypedArrays: bool
         clamp: bool
         declaration: bool
-        refs: Map<string, string>
         extra: Map<string, string>
     }
-
-type CompilerState = {
-    RootModules: Map<string, string>
-}
 
 type LogMessage =
     | Warning of string
@@ -36,7 +26,6 @@ type IPlugin =
 
 type ICompiler =
     abstract ProjDir: string
-    abstract State: CompilerState
     abstract Options: CompilerOptions
     abstract Plugins: (string*IPlugin) list
     abstract AddLog: LogMessage->unit

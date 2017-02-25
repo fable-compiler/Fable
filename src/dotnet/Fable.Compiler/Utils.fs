@@ -1,5 +1,16 @@
 namespace Fable
 
+open System.Collections.Generic
+open Microsoft.FSharp.Compiler.SourceCodeServices
+open Fable.AST
+
+type InlineExpr = IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr
+
+type ICompilerState =
+    abstract GetRootModule: string -> string
+    abstract GetOrAddEntity: string * (unit->Fable.Entity) -> Fable.Entity
+    abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
+
 #if DOTNETCORE && !FABLE_COMPILER
 [<AutoOpen>]
 module ReflectionAdapters =
