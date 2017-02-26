@@ -42,7 +42,7 @@ let measureTime (f: unit -> unit) =
 #endif
 let main argv =
     try
-        let references = ["mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics";"Fable.Core"]
+        let references = ["FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics";"Fable.Core"]
         let checker = InteractiveChecker(references, readAllBytes)
         let opts = readOptions argv
         let com = makeCompiler opts []
