@@ -14,6 +14,7 @@
         //"noUnusedParameters": true,
         //"strictNullChecks": true,
         "declaration": false,
-        "outDir": "../../../build/fable-core"
+        "outDir": "../../../build/fable-core",
+        "newLine": "LF"
     }
 }

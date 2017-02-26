@@ -11,7 +11,8 @@
         "noImplicitAny": false,
         "noImplicitReturns": true,
         "noImplicitThis": true,
-        "outDir": "out"
+        "outDir": "out",
+        "newLine": "LF"
         //"noUnusedLocals": true,
         //"noUnusedParameters": true,
         //"strictNullChecks": true,
