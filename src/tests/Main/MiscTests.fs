@@ -195,6 +195,20 @@ let ``Conversion to Func<_> works``() =
     let f = Func<_>(fun () -> 6)
     f.Invoke() |> equal 6
 
+open Microsoft.FSharp.Core.OptimizedClosures
+
+[<Test>]
+let ``Conversion to FSharpFunc<_,_,_> works``() =
+    let f x y = x + y
+    let f = FSharpFunc<_,_,_>.Adapt(f)
+    f.Invoke(1, 2) |> equal 3
+
+[<Test>]
+let ``Conversion to FSharpFunc<_,_,_,_> works``() =
+    let f x y z = x + y + z
+    let f = FSharpFunc<_,_,_,_>.Adapt(f)
+    f.Invoke(1, 2, 3) |> equal 6
+
 let mutable myMutableField = 0
 
 let f4 i = myMutableField <- i
