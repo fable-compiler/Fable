@@ -242,12 +242,8 @@
       this.persistState(state);
     }
 
-    REPL.prototype.transformFromAst = function (ast) {
+    REPL.prototype.transformFromAst = function (data) {
       try {
-        if (ast.error) {
-          throw ast.error;
-        }
-
         var options = {
           plugins: [
             babelPlugins.transformMacroExpressions,
@@ -263,10 +259,21 @@
           ];
         }
 
+        var startTime = performance.now();
+        var ast = JSON.parse(data.json);
+        if (ast.error) { throw ast.error; }
         var transformed = babel.transformFromAst(ast, null, options);
+        var elapsed = performance.now() - startTime;
+
         var code = transformed.code;
         this.setOutput(code);
         this.runOutput();
+
+        // print elapsed time
+        var elapsedMessage =
+            "FSharp compile time: " + Math.round(data.elapsed) + " ms, " +
+            "Babel compile time: " + Math.round(elapsed) + " ms";
+        this.printError(elapsedMessage);
       } catch (err) {
         //this.printError(err.message);
         this.setOutput(err.message + "\n" + err.stack);
@@ -350,7 +357,7 @@
     var repl = new REPL();
 
     fableWorker.onmessage = function (e) {
-      repl.transformFromAst(JSON.parse(e.data));
+      repl.transformFromAst(e.data);
     };
 
     function initSamples(repl) {
