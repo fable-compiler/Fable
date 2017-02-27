@@ -20,23 +20,39 @@ type Import = {
 
 type ITailCallOpportunity =
     abstract Label: string
-    abstract Args: Fable.Ident list
+    abstract Args: string list
+    abstract ReplaceArgs: bool
     abstract IsRecursiveRef: Fable.Expr -> bool
 
-type ClassTailCallOpportunity(name, args: Fable.Ident list) =
+let private getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
+    // If some arguments are functions we need to capture the current values to
+    // prevent delayed references from getting corrupted, for that we use block-scoped
+    // ES2015 variable declarations. See #681
+    let replaceArgs =
+        args |> List.exists (fun arg ->
+            match arg.Type with
+            | Fable.Function _ -> true
+            | _ -> false)
+    replaceArgs, args |> List.map (fun arg -> if replaceArgs then com.GetUniqueVar() else arg.Name)
+
+type ClassTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
+    let replaceArgs, argIds = getTailCallArgIds com args
     interface ITailCallOpportunity with
         member x.Label = name
-        member x.Args = args
+        member x.Args = argIds
+        member x.ReplaceArgs = replaceArgs
         member x.IsRecursiveRef(e) =
             match e with
             | Fable.Apply(Fable.Value Fable.This, [Fable.Value(Fable.StringConst name2)], Fable.ApplyGet, _, _) ->
                 name = name2
             | _ -> false
 
-type NamedTailCallOpportunity(name, args: Fable.Ident list) =
+type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
+    let replaceArgs, argIds = getTailCallArgIds com args
     interface ITailCallOpportunity with
         member x.Label = name
-        member x.Args = args
+        member x.Args = argIds
+        member x.ReplaceArgs = replaceArgs
         member x.IsRecursiveRef(e) =
             match e with
             | Fable.Value(Fable.IdentValue id) -> name = id.Name
@@ -436,7 +452,7 @@ module Util =
                         let tc =
                             match key with
                             | :? Identifier as id ->
-                                ClassTailCallOpportunity(id.name, args)
+                                ClassTailCallOpportunity(com, id.name, args)
                                 :> ITailCallOpportunity |> Some
                             | _ -> None
                         getMemberArgsAndBody com ctx tc args body m.GenericParameters m.HasRestParams
@@ -631,7 +647,7 @@ module Util =
 
         | Fable.VarDeclaration (var, Fable.Value(Fable.Lambda(args, body, captureThis)), false) ->
             let value =
-                let tc = NamedTailCallOpportunity(var.Name, args) :> ITailCallOpportunity |> Some
+                let tc = NamedTailCallOpportunity(com, var.Name, args) :> ITailCallOpportunity |> Some
                 com.TransformFunction ctx tc args body
                 ||> transformLambda body.Range captureThis
             [varDeclaration expr.Range (ident var) false value :> Statement]
@@ -740,7 +756,7 @@ module Util =
             | Some tc, Fable.ApplyMeth, Return
                 when tc.Args.Length = args.Length && tc.IsRecursiveRef callee ->
                 ctx.isTailCallOptimized <- true
-                let zippedArgs = List.zip (tc.Args |> List.map (fun x -> x.Name)) args
+                let zippedArgs = List.zip tc.Args args
                 let tempVars =
                     let rec checkCrossRefs acc = function
                         | [] | [_] -> acc
@@ -816,27 +832,14 @@ module Util =
         let args, body =
             match ctx.isTailCallOptimized, tailcallChance, body with
             | true, Some tc, U2.Case1 body ->
-                // If some arguments are functions we need to capture the current value to
-                // prevent self references from getting corrupted, for that we use a block-scoped
-                // ES2015 variable declaration. See #681
-                let funcArgReplacements =
-                    (Map.empty, tc.Args) ||> List.fold (fun acc arg ->
-                        match arg.Type with
-                        | Fable.Function _ -> Map.add arg.Name (com.GetUniqueVar()) acc
-                        | _ -> acc)
                 let args, body =
-                    if Map.isEmpty funcArgReplacements
-                    then args, body
-                    else
-                        let args =
-                            args |> List.map (fun arg ->
-                                match Map.tryFind arg.name funcArgReplacements with
-                                | Some id -> Identifier id
-                                | None -> arg)
+                    if tc.ReplaceArgs
+                    then
                         let statements =
-                            ([], funcArgReplacements) ||> Map.fold (fun acc argId tempVar ->
-                                (varDeclaration None (Identifier argId) true (Identifier tempVar) :> Statement)::acc)
-                        args, block body.loc (statements@body.body)
+                            (List.zip args tc.Args, []) ||> List.foldBack (fun (arg, tempVar) acc ->
+                                (varDeclaration None arg false (Identifier tempVar) :> Statement)::acc)
+                        tc.Args |> List.map Identifier, block body.loc (statements@body.body)
+                    else args, body
                 args, LabeledStatement(Identifier tc.Label,
                     WhileStatement(BooleanLiteral true, body, ?loc=body.loc), ?loc=body.loc)
                 :> Statement |> List.singleton |> block body.loc |> U2.Case1
@@ -857,7 +860,7 @@ module Util =
             let args, body, returnType, typeParams =
                 let tc =
                     match name with
-                    | :? Identifier as id -> ClassTailCallOpportunity(id.name, args) :> ITailCallOpportunity |> Some
+                    | :? Identifier as id -> ClassTailCallOpportunity(com, id.name, args) :> ITailCallOpportunity |> Some
                     | _ -> None
                 getMemberArgsAndBody com ctx tc args body typeParams hasRestParams
             ClassMethod(kind, name, args, body, computed, isStatic,
@@ -969,7 +972,7 @@ module Util =
                 let bodyRange = body.Range
                 let id = defaultArg privName m.OverloadName
                 let args, body, returnType, typeParams =
-                    let tc = NamedTailCallOpportunity(id, args) :> ITailCallOpportunity
+                    let tc = NamedTailCallOpportunity(com, id, args) :> ITailCallOpportunity
                     getMemberArgsAndBody com ctx (Some tc) args body m.GenericParameters false
                 // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
