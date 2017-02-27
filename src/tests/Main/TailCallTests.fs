@@ -51,9 +51,10 @@ module Functions =
             else tryFind k r
 
     let rec functionArguments x f =
+        let f = f << id
         match x with
         | [] -> f x
-        | h::t -> functionArguments t (f << id)
+        | h::t -> functionArguments t f
 
     let rec iterate f n x =
         match n with
@@ -153,9 +154,9 @@ let ``Recursive functions containing finally work``() =
 let ``Recursive functions containing use work``() =
     recWithUse () |> equal "abcdeEDCBA"
 
-let ``Function arguments prevent tail call optimization``() = // See #681
+let ``Function arguments can be optimized``() = // See #681
     functionArguments [1;2;3] id
     |> equal []
 
-let ``Function arguments prevent tail call optimization II``() = // See #681
+let ``Function arguments can be optimized II``() = // See #681
     iterate ((*) 2) 5 10 |> equal 320

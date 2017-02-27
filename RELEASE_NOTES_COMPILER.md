@@ -1,4 +1,4 @@
-### 0.7.46
+### 0.7.47
 
 * Tailcall optmize function arguments: #681
 

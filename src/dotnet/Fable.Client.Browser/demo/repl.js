@@ -280,7 +280,7 @@
       } catch (err) {
         //this.printError(err.message);
         this.setOutput(err.message);
-        console.log(err.message + "\n" + err.stack);
+        console.error(err.message + "\n" + err.stack);
         // throw err;
       }
     }
