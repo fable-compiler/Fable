@@ -1,3 +1,7 @@
+### 0.7.46
+
+* Tailcall optmize function arguments: #681
+
 ### 0.7.45
 
 * Fix import expressions with methods with function arguments: #721

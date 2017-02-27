@@ -18,13 +18,13 @@ type Import = {
 
 type ITailCallOpportunity =
     abstract Label: string
-    abstract Args: string list
+    abstract Args: Fable.Ident list
     abstract IsRecursiveRef: Fable.Expr -> bool
 
 type ClassTailCallOpportunity(name, args: Fable.Ident list) =
     interface ITailCallOpportunity with
         member x.Label = name
-        member x.Args = args |> List.map (fun a -> a.Name)
+        member x.Args = args
         member x.IsRecursiveRef(e) =
             match e with
             | Fable.Apply(Fable.Value Fable.This, [Fable.Value(Fable.StringConst name2)], Fable.ApplyGet, _, _) ->
@@ -34,7 +34,7 @@ type ClassTailCallOpportunity(name, args: Fable.Ident list) =
 type NamedTailCallOpportunity(name, args: Fable.Ident list) =
     interface ITailCallOpportunity with
         member x.Label = name
-        member x.Args = args |> List.map (fun a -> a.Name)
+        member x.Args = args
         member x.IsRecursiveRef(e) =
             match e with
             | Fable.Value(Fable.IdentValue id) -> name = id.Name
@@ -44,6 +44,7 @@ type Context = {
     file: Fable.File
     moduleFullName: string
     rootEntitiesPrivateNames: Map<string, string>
+    replaceIdents: Map<string, string>
     tailCallOpportunity: ITailCallOpportunity option
     mutable isTailCallOptimized: bool
 }
@@ -393,7 +394,7 @@ module Util =
             | U2.Case2 e -> Babel.BlockStatement([Babel.ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
             |> fun body -> upcast Babel.FunctionExpression (args, body, ?loc=r)
 
-    let transformValue (com: IBabelCompiler) ctx r = function
+    let transformValue (com: IBabelCompiler) (ctx: Context) r = function
         | Fable.ImportRef (memb, path, kind) ->
             let memb, parts =
                 let parts = Array.toList(memb.Split('.'))
@@ -403,7 +404,10 @@ module Util =
         | Fable.This -> upcast Babel.ThisExpression ()
         | Fable.Super -> upcast Babel.Super ()
         | Fable.Null -> upcast Babel.NullLiteral ()
-        | Fable.IdentValue i -> upcast Babel.Identifier (i.Name)
+        | Fable.IdentValue i ->
+            match Map.tryFind i.Name ctx.replaceIdents with
+            | Some ident -> upcast Babel.Identifier ident
+            | None -> upcast Babel.Identifier i.Name
         | Fable.NumberConst (x,_) -> upcast Babel.NumericLiteral x
         | Fable.StringConst x -> upcast Babel.StringLiteral (x)
         | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
@@ -762,7 +766,18 @@ module Util =
             | Return, Some tc, FullApply com (callee, args, _, _)
                 when tc.Args.Length = args.Length && tc.IsRecursiveRef callee ->
                 ctx.isTailCallOptimized <- true
-                let zippedArgs = List.zip tc.Args args
+                let ident x = Babel.Identifier x
+                // If some arguments are functions we need to capture the current value to
+                // prevent self references from getting corrupted, for that we use a block-scoped
+                // ES2015 variable declaration. See #681
+                let replacements =
+                    (Map.empty, tc.Args) ||> List.fold (fun acc arg ->
+                        match arg.Type with
+                        | Fable.Function _ ->
+                            Map.add arg.Name (com.GetUniqueVar()) acc
+                        | _ -> acc)
+                let ctx = { ctx with replaceIdents = replacements }
+                let zippedArgs = List.zip (tc.Args |> List.map (fun x -> x.Name)) args
                 let tempVars =
                     let rec checkCrossRefs acc = function
                         | [] | [_] -> acc
@@ -772,16 +787,18 @@ module Util =
                             |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
                             |> checkCrossRefs <| rest
                     checkCrossRefs Map.empty zippedArgs
-                [ for (argId, arg) in zippedArgs do
+                [ for KeyValue(argId, tempVar) in replacements do
+                    yield varDeclaration None (ident tempVar) false (ident argId) :> Babel.Statement
+                  for (argId, arg) in zippedArgs do
                     let arg = transformExpr com ctx arg
                     match Map.tryFind argId tempVars with
                     | Some tempVar ->
-                        yield varDeclaration None (identFromName tempVar) false arg :> Babel.Statement
+                        yield varDeclaration None (ident tempVar) false arg :> Babel.Statement
                     | None ->
-                        yield assign None (identFromName argId) arg |> Babel.ExpressionStatement :> Babel.Statement
+                        yield assign None (ident argId) arg |> Babel.ExpressionStatement :> Babel.Statement
                   for KeyValue(argId,tempVar) in tempVars do
-                    yield assign None (identFromName argId) (identFromName tempVar) |> Babel.ExpressionStatement :> Babel.Statement
-                  yield upcast Babel.ContinueStatement(identFromName tc.Label) ]
+                    yield assign None (ident argId) (ident tempVar) |> Babel.ExpressionStatement :> Babel.Statement
+                  yield upcast Babel.ContinueStatement(ident tc.Label) ]
             | _ ->
                 transformApply com ctx (callee, args, kind, range)
                 |> resolve ret |> List.singleton
@@ -819,11 +836,6 @@ module Util =
         let args2: Babel.Pattern list =
             List.map (fun x -> upcast ident x) args
         let ctx =
-            let tailcallChance =
-                // Function arguments may contain delayed references to old arguments (see #681)
-                args |> List.exists (fun a ->
-                    match a.Type with Fable.Function _ -> true | _ -> false)
-                |> function true -> None | false -> tailcallChance
             { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }
         let body: U2<Babel.BlockStatement, Babel.Expression> =
             match body with
@@ -1204,8 +1216,6 @@ module Compiler =
                 let com = makeCompiler com prevJsIncludes projectMaps
                 let ctx = {
                     file = file
-                    tailCallOpportunity = None
-                    isTailCallOptimized = false
                     moduleFullName = curProjMap.[file.SourceFile].rootModule
                     rootEntitiesPrivateNames =
                         file.Declarations
@@ -1214,6 +1224,9 @@ module Compiler =
                                 Some(ent.Name, privName)
                             | _ -> None)
                         |> Map
+                    replaceIdents = Map.empty
+                    tailCallOpportunity = None
+                    isTailCallOptimized = false
                 }
                 let rootDecls =
                     com.DeclarePlugins

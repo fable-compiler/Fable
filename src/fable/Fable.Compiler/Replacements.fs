@@ -663,16 +663,22 @@ module private AstPass =
             |> makeCall r typ |> Some
         // Function composition
         | "op_ComposeRight" | "op_ComposeLeft" ->
+            let apply e args = Fable.Apply(e, args, Fable.ApplyMeth, Fable.Any, None)
             // If expression is a let binding we have to wrap it in a function
-            let wrap expr placeholder =
+            let wrap expr =
                 match expr with
-                | Fable.Sequential _ -> sprintf "((()=>%s)())" placeholder
-                | _ -> placeholder
+                | Fable.Sequential _ ->
+                    let lambda = Fable.Lambda([], expr, true) |> Fable.Value
+                    apply lambda []
+                | _ -> expr
             let args = if info.methodName = "op_ComposeRight" then args else List.rev args
-            let f0 = wrap args.Head "$0"
-            let f1 = wrap args.Tail.Head "$1"
-            let pattern = System.String.Format("{0}=>{1}({2}({0}))", com.GetUniqueVar(), f1,f0)
-            emit info pattern args |> Some
+            let f0 = wrap args.Head
+            let f1 = wrap args.Tail.Head
+            let tempVar = com.GetUniqueVar() |> makeIdent
+            let body =
+                Fable.IdentValue tempVar |> Fable.Value |> List.singleton
+                |> apply f0 |> List.singleton |> apply f1
+            Fable.Lambda([tempVar], body, true) |> Fable.Value |> Some
         // Reference
         | "op_Dereference" -> makeGet r Fable.Any args.Head (makeConst "contents") |> Some
         | "op_ColonEquals" -> Fable.Set(args.Head, Some(makeConst "contents"), args.Tail.Head, r) |> Some
