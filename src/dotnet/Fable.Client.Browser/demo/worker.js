@@ -59,7 +59,7 @@ function compile(source) {
         postMessage({ json: json, elapsed: elapsed });
     }
     catch (err) {
-        postMessage(JSON.stringify({ error: { message: err.message, stack: err.stack }}));
+        postMessage({ error: { message: err.message, stack: err.stack }});
     }
 }
 
