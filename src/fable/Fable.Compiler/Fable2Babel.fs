@@ -44,7 +44,6 @@ type Context = {
     file: Fable.File
     moduleFullName: string
     rootEntitiesPrivateNames: Map<string, string>
-    replaceIdents: Map<string, string>
     tailCallOpportunity: ITailCallOpportunity option
     mutable isTailCallOptimized: bool
 }
@@ -404,10 +403,7 @@ module Util =
         | Fable.This -> upcast Babel.ThisExpression ()
         | Fable.Super -> upcast Babel.Super ()
         | Fable.Null -> upcast Babel.NullLiteral ()
-        | Fable.IdentValue i ->
-            match Map.tryFind i.Name ctx.replaceIdents with
-            | Some ident -> upcast Babel.Identifier ident
-            | None -> upcast Babel.Identifier i.Name
+        | Fable.IdentValue i -> upcast Babel.Identifier i.Name
         | Fable.NumberConst (x,_) -> upcast Babel.NumericLiteral x
         | Fable.StringConst x -> upcast Babel.StringLiteral (x)
         | Fable.BoolConst x -> upcast Babel.BooleanLiteral (x)
@@ -767,16 +763,6 @@ module Util =
                 when tc.Args.Length = args.Length && tc.IsRecursiveRef callee ->
                 ctx.isTailCallOptimized <- true
                 let ident x = Babel.Identifier x
-                // If some arguments are functions we need to capture the current value to
-                // prevent self references from getting corrupted, for that we use a block-scoped
-                // ES2015 variable declaration. See #681
-                let replacements =
-                    (Map.empty, tc.Args) ||> List.fold (fun acc arg ->
-                        match arg.Type with
-                        | Fable.Function _ ->
-                            Map.add arg.Name (com.GetUniqueVar()) acc
-                        | _ -> acc)
-                let ctx = { ctx with replaceIdents = replacements }
                 let zippedArgs = List.zip (tc.Args |> List.map (fun x -> x.Name)) args
                 let tempVars =
                     let rec checkCrossRefs acc = function
@@ -787,9 +773,7 @@ module Util =
                             |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
                             |> checkCrossRefs <| rest
                     checkCrossRefs Map.empty zippedArgs
-                [ for KeyValue(argId, tempVar) in replacements do
-                    yield varDeclaration None (ident tempVar) false (ident argId) :> Babel.Statement
-                  for (argId, arg) in zippedArgs do
+                [ for (argId, arg) in zippedArgs do
                     let arg = transformExpr com ctx arg
                     match Map.tryFind argId tempVars with
                     | Some tempVar ->
@@ -833,10 +817,8 @@ module Util =
             transformQuote com ctx expr.Range quote |> resolve ret |> List.singleton
 
     let transformFunction com ctx tailcallChance args (body: Fable.Expr) =
-        let args2: Babel.Pattern list =
-            List.map (fun x -> upcast ident x) args
-        let ctx =
-            { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }
+        let args = List.map ident args
+        let ctx = { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }
         let body: U2<Babel.BlockStatement, Babel.Expression> =
             match body with
             | ExprType Fable.Unit
@@ -850,14 +832,35 @@ module Util =
                 if Option.isSome tailcallChance
                 then transformBlock com ctx (Some Return) body |> U2.Case1
                 else transformExpr com ctx body |> U2.Case2
-        let body =
+        let args, body =
             match ctx.isTailCallOptimized, tailcallChance, body with
-            | true, Some tailcallChance, U2.Case1 body ->
-                Babel.LabeledStatement(Babel.Identifier tailcallChance.Label,
+            | true, Some tc, U2.Case1 body ->
+                // If some arguments are functions we need to capture the current value to
+                // prevent self references from getting corrupted, for that we use a block-scoped
+                // ES2015 variable declaration. See #681
+                let funcArgReplacements =
+                    (Map.empty, tc.Args) ||> List.fold (fun acc arg ->
+                        match arg.Type with
+                        | Fable.Function _ -> Map.add arg.Name (com.GetUniqueVar()) acc
+                        | _ -> acc)
+                let args, body =
+                    if Map.isEmpty funcArgReplacements
+                    then args, body
+                    else
+                        let args =
+                            args |> List.map (fun arg ->
+                                match Map.tryFind arg.name funcArgReplacements with
+                                | Some id -> Babel.Identifier id
+                                | None -> arg)
+                        let statements =
+                            ([], funcArgReplacements) ||> Map.fold (fun acc argId tempVar ->
+                                (varDeclaration None (Babel.Identifier argId) true (Babel.Identifier tempVar) :> Babel.Statement)::acc)
+                        args, block body.loc (statements@body.body)
+                args, Babel.LabeledStatement(Babel.Identifier tc.Label,
                     Babel.WhileStatement(Babel.BooleanLiteral true, body, ?loc=body.loc), ?loc=body.loc)
                 :> Babel.Statement |> List.singleton |> block body.loc |> U2.Case1
-            | _ -> body
-        args2, body
+            | _ -> args, body
+        args |> List.map (fun x -> x :> Babel.Pattern), body
 
     let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
         let declareProperty com ctx name typ =
@@ -1224,7 +1227,6 @@ module Compiler =
                                 Some(ent.Name, privName)
                             | _ -> None)
                         |> Map
-                    replaceIdents = Map.empty
                     tailCallOpportunity = None
                     isTailCallOptimized = false
                 }
