@@ -244,6 +244,10 @@
 
     REPL.prototype.transformFromAst = function (data) {
       try {
+        if (data.error) {
+          throw data.error;
+        }
+
         var options = {
           plugins: [
             babelPlugins.transformMacroExpressions,
@@ -261,7 +265,6 @@
 
         var startTime = performance.now();
         var ast = JSON.parse(data.json);
-        if (ast.error) { throw ast.error; }
         var transformed = babel.transformFromAst(ast, null, options);
         var elapsed = performance.now() - startTime;
 
@@ -276,7 +279,8 @@
         this.printError(elapsedMessage);
       } catch (err) {
         //this.printError(err.message);
-        this.setOutput(err.message + "\n" + err.stack);
+        this.setOutput(err.message);
+        console.log(err.message + "\n" + err.stack);
         // throw err;
       }
     }
@@ -361,16 +365,9 @@
     };
 
     function initSamples(repl) {
-      var samples = {
-        tailcall: "Tail call",
-        sudoku: "Sudoku solver",
-        fibonacci: "Recursive Fibonacci",
-        fibonacci_memoize: "Memoized Fibonacci"
-      }
-
       // Create the checkboxes for all available samples
       var $sampleContainer = document.getElementById('sample-dropdown');
-      Object.keys(samples).forEach(function(sampleName) {
+      Object.keys(SAMPLES).forEach(function(sampleName) {
         var $label = document.createElement('a');
         $label.href = '#';
         $label.className = 'small';
@@ -381,7 +378,7 @@
           false
         );
 
-        $label.appendChild(document.createTextNode(samples[sampleName]));
+        $label.appendChild(document.createTextNode(SAMPLES[sampleName]));
 
         var $li = document.createElement('li');
         $li.appendChild($label);
