@@ -40,6 +40,10 @@ let ``Import with relative paths from external files works``() =
     Fable.Tests.Util4.bar2 |> equal 5
 
 [<Test>]
+let ``Import expressions with methods work``() = // See #721
+    Fable.Tests.Util.apply (Func<_,_,_>(fun x y -> x + y)) 2 3 |> equal 5
+
+[<Test>]
 let ``Import with relative paths from referenced dll works``() =
     Lib.モジュール.one |> equal 1
     Lib.モジュール.three |> equal 3

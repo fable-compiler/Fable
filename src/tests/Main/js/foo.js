@@ -2,6 +2,10 @@
 
 exports.foo = "foo"
 
+exports.apply = function(f, x, y) {
+    return f(x, y);
+}
+
 exports.MyClass = class {
     constructor(v) {
         this.__value = typeof v === "string" ? v : "haha";

@@ -20,13 +20,13 @@ type Import = {
 
 type ITailCallOpportunity =
     abstract Label: string
-    abstract Args: string list
+    abstract Args: Fable.Ident list
     abstract IsRecursiveRef: Fable.Expr -> bool
 
 type ClassTailCallOpportunity(name, args: Fable.Ident list) =
     interface ITailCallOpportunity with
         member x.Label = name
-        member x.Args = args |> List.map (fun a -> a.Name)
+        member x.Args = args
         member x.IsRecursiveRef(e) =
             match e with
             | Fable.Apply(Fable.Value Fable.This, [Fable.Value(Fable.StringConst name2)], Fable.ApplyGet, _, _) ->
@@ -36,7 +36,7 @@ type ClassTailCallOpportunity(name, args: Fable.Ident list) =
 type NamedTailCallOpportunity(name, args: Fable.Ident list) =
     interface ITailCallOpportunity with
         member x.Label = name
-        member x.Args = args |> List.map (fun a -> a.Name)
+        member x.Args = args
         member x.IsRecursiveRef(e) =
             match e with
             | Fable.Value(Fable.IdentValue id) -> name = id.Name
@@ -46,6 +46,7 @@ type Context = {
     file: Fable.File
     moduleFullName: string
     rootEntitiesPrivateNames: Map<string, string>
+    replaceIdents: Map<string, string>
     tailCallOpportunity: ITailCallOpportunity option
     mutable isTailCallOptimized: bool
 }
@@ -389,7 +390,7 @@ module Util =
             | U2.Case2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
             |> fun body -> upcast FunctionExpression (args, body, ?loc=r)
 
-    let transformValue (com: IBabelCompiler) ctx r = function
+    let transformValue (com: IBabelCompiler) (ctx: Context) r = function
         | Fable.ImportRef (memb, path, kind) ->
             let memb, parts =
                 let parts = Array.toList(memb.Split('.'))
@@ -399,7 +400,10 @@ module Util =
         | Fable.This -> upcast ThisExpression ()
         | Fable.Super -> upcast Super ()
         | Fable.Null -> upcast NullLiteral ()
-        | Fable.IdentValue i -> upcast Identifier (i.Name)
+        | Fable.IdentValue i ->
+            match Map.tryFind i.Name ctx.replaceIdents with
+            | Some ident -> upcast Identifier ident
+            | None -> upcast Identifier i.Name
         | Fable.NumberConst (x,_) -> upcast NumericLiteral x
         | Fable.StringConst x -> upcast StringLiteral (x)
         | Fable.BoolConst x -> upcast BooleanLiteral (x)
@@ -740,7 +744,17 @@ module Util =
             | Some tc, Fable.ApplyMeth, Return
                 when tc.Args.Length = args.Length && tc.IsRecursiveRef callee ->
                 ctx.isTailCallOptimized <- true
-                let zippedArgs = List.zip tc.Args args
+                // If some arguments are functions we need to capture the current value to
+                // prevent self references from getting corrupted, for that we use a block-scoped
+                // ES2015 variable declaration. See #681
+                let replacements =
+                    (Map.empty, tc.Args) ||> List.fold (fun acc arg ->
+                        match arg.Type with
+                        | Fable.Function _ ->
+                            Map.add arg.Name (com.GetUniqueVar()) acc
+                        | _ -> acc)
+                let ctx = { ctx with replaceIdents = replacements }
+                let zippedArgs = List.zip (tc.Args |> List.map (fun x -> x.Name)) args
                 let tempVars =
                     let rec checkCrossRefs acc = function
                         | [] | [_] -> acc
@@ -750,16 +764,18 @@ module Util =
                             |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
                             |> checkCrossRefs <| rest
                     checkCrossRefs Map.empty zippedArgs
-                [ for (argId, arg) in zippedArgs do
+                [ for KeyValue(argId, tempVar) in replacements do
+                    yield varDeclaration None (Identifier tempVar) false (Identifier argId) :> Statement
+                  for (argId, arg) in zippedArgs do
                     let arg = transformExpr com ctx arg
                     match Map.tryFind argId tempVars with
                     | Some tempVar ->
-                        yield varDeclaration None (identFromName tempVar) false arg :> Statement
+                        yield varDeclaration None (Identifier tempVar) false arg :> Statement
                     | None ->
-                        yield assign None (identFromName argId) arg |> ExpressionStatement :> Statement
+                        yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
                   for KeyValue(argId,tempVar) in tempVars do
-                    yield assign None (identFromName argId) (identFromName tempVar) |> ExpressionStatement :> Statement
-                  yield upcast ContinueStatement(identFromName tc.Label) ]
+                    yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
+                  yield upcast ContinueStatement(Identifier tc.Label) ]
             | _ ->
                 transformApply com ctx (callee, args, kind, range)
                 |> wrapIntExpression expr.Type |> resolve ret |> List.singleton
@@ -798,11 +814,6 @@ module Util =
             | [unitArg] when unitArg.Type = Fable.Unit ->
                 { ctx with isTailCallOptimized = false; tailCallOpportunity = None }, []
             | args ->
-                // Function arguments may contain delayed references to old arguments (see #681)
-                let tailcallChance =
-                    args |> List.exists (fun a ->
-                        match a.Type with Fable.Function _ -> true | _ -> false)
-                    |> function true -> None | false -> tailcallChance
                 let args = List.map (fun x -> ident x :> Pattern) args
                 { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }, args
         let body: U2<BlockStatement, Expression> =
@@ -1126,7 +1137,7 @@ module Util =
                         resolveRelative ctx importPath
                         |> Path.getRelativeFileOrDirPath false ctx.file.TargetFile false
                     | _ -> importPath
-                match imports.TryGetValue(path + "|" + selector) with
+                match imports.TryGetValue(path + "::" + selector) with
                 | true, i -> upcast Identifier(i.localIdent)
                 | false, _ ->
                     let localId = getLocalIdent ctx selector
@@ -1139,7 +1150,11 @@ module Util =
                             | _ -> None
                         path =
                             match kind with
+                            #if FABLE_COMPILER
+                            | Fable.CustomImport -> path
+                            #else
                             | Fable.CustomImport -> resolvePath com ctx path
+                            #endif
                             | Fable.Internal _ -> path
                             | Fable.CoreLib ->
                                 let path = com.Options.coreLib + "/" + path + Naming.targetFileExtension
@@ -1148,7 +1163,7 @@ module Util =
                                 |> Path.getRelativePath ctx.file.TargetFile
                                 |> fun path -> path.TrimEnd('/')
                     }
-                    imports.Add(path + "|" + selector, i)
+                    imports.Add(path + "::" + selector, i)
                     upcast Identifier (localId)
             member bcom.GetAllImports () = upcast imports.Values
             member bcom.GetAllJsIncludes () = upcast jsIncludes
@@ -1186,8 +1201,6 @@ module Compiler =
                 let com = makeCompiler com prevJsIncludes projectMaps
                 let ctx = {
                     file = file
-                    tailCallOpportunity = None
-                    isTailCallOptimized = false
                     moduleFullName = curProjMap.[file.SourceFile].rootModule
                     rootEntitiesPrivateNames =
                         file.Declarations
@@ -1196,6 +1209,9 @@ module Compiler =
                                 Some(ent.Name, privName)
                             | _ -> None)
                         |> Map
+                    replaceIdents = Map.empty
+                    tailCallOpportunity = None
+                    isTailCallOptimized = false
                 }
                 let rootDecls =
                     com.DeclarePlugins
