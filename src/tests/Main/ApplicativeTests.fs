@@ -325,16 +325,8 @@ open Microsoft.FSharp.Core.OptimizedClosures
 [<Test>]
 let ``Partial application of optimized closures works``() =
   let mutable m = 1
-  let f1 x y z = m <- m + 1; x + y + z
-  let f1 x = m <- m + 1; (fun y z -> x + y + z)
-  let f1 = FSharpFunc<_,_,_,_>.Adapt(f1)
-  let r1 = f1.Invoke(1, 2, 3)
+  let f x = m <- m + 1; (fun y z -> x + y + z)
+  let f = FSharpFunc<_,_,_,_>.Adapt(f)
+  let r = f.Invoke(1, 2, 3)
   equal 2 m
-  equal 6 r1
-
-  m <- 1
-  let f2 x = m <- m + 1; (fun y z -> x + y + z)
-  let f2 = FSharpFunc<_,_,_,_>.Adapt(f2)
-  let r2 = f2.Invoke(1, 2, 3)
-  equal 2 m
-  equal 6 r2
+  equal 6 r
