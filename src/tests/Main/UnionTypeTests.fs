@@ -453,3 +453,27 @@ let ``Pattern matching works in filter``() =
     |> Array.filter (fun r -> match r.Case with MyUnion.Case1 -> true | _ -> false)
     |> Array.length
     |> equal 2
+
+#if FABLE_COMPILER
+open Fable.Core
+
+[<Test>]
+let ``Case testing with generic erased unions works``() =
+    let strify (x: U2<int,string>) =
+        match x with
+        | U2.Case1 i -> "i: " + string i
+        | U2.Case2 s -> "s: " + s
+    U2.Case2 "foo" |> strify |> equal "s: foo"
+    U2.Case1 42 |> strify |> equal "i: 42"
+
+[<Erase>]
+#endif
+type DU = Int of int | Str of string
+
+[<Test>]
+let ``Case testing with erased unions works``() =
+    let strify = function
+        | Int i -> "i: " + string i
+        | Str s -> "s: " + s
+    Str "foo" |> strify |> equal "s: foo"
+    Int 42 |> strify |> equal "i: 42"
