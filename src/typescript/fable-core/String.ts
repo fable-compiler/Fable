@@ -1,5 +1,4 @@
 import { toString } from "./Util"
-import { getRestParams } from "./Util"
 import { escape } from "./RegExp"
 import { DateKind } from "./Date"
 import { second } from "./Date"
@@ -284,8 +283,17 @@ export function isNullOrWhiteSpace(str: string | any) {
 }
 
 export function join(delimiter: string, xs: ArrayLike<string>) {
-  xs = typeof xs == "string" ? getRestParams(arguments, 1) : xs;
-  return (Array.isArray(xs) ? xs : Array.from(xs)).join(delimiter);
+  let xs2 = xs as any;
+  if (typeof xs === "string") {
+    const len = arguments.length;
+    xs2 = Array(len - 1);
+    for (let key = 1; key < len; key++)
+      xs2[key - 1] = arguments[key];
+  }
+  else if (!Array.isArray(xs)) {
+    xs2 = Array.from(xs);
+  }
+  return xs2.join(delimiter);
 }
 
 export function newGuid() {
@@ -338,13 +346,19 @@ export function split(str: string, splitters: string[], count?: number, removeEm
     throw new Error("Count cannot be less than zero");
   if (count === 0)
     return [];
-  splitters = Array.isArray(splitters) ? splitters : getRestParams(arguments, 1);
-  splitters = splitters.map(x => escape(x));
-  splitters = splitters.length > 0 ? splitters : [" "];
+  let splitters2 = splitters;
+  if (!Array.isArray(splitters)) {
+    const len = arguments.length;
+    splitters2 = Array(len - 1);
+    for (let key = 1; key < len; key++)
+      splitters2[key - 1] = arguments[key];
+  }
+  splitters2 = splitters2.map(x => escape(x));
+  splitters2 = splitters2.length > 0 ? splitters2 : [" "];
   let m: RegExpExecArray;
   let i = 0;
   const splits: string[] = [];
-  const reg = new RegExp(splitters.join("|"), "g");
+  const reg = new RegExp(splitters2.join("|"), "g");
   while ((count == null || count > 1) && (m = reg.exec(str)) !== null) {
     if (!removeEmpty || (m.index - i) > 0) {
       count = count != null ? count - 1 : count;

@@ -12,7 +12,7 @@ export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 
       break;
     default:
       // d,h,m,s,ms
-      d = arguments[0], h = arguments[1], m = arguments[2], s = arguments[3], ms = arguments[4] || 0;
+      d = arguments[0], h = arguments[1], m = arguments[2], s = arguments[3], ms = arguments[4] | 0;
       break;
   }
   return d * 86400000 + h * 3600000 + m * 60000 + s * 1000 + ms;
