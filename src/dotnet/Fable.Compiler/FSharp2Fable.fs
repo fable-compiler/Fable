@@ -1083,7 +1083,8 @@ let private getRootModuleAndDecls decls =
         | decls -> outerEnt, decls
     getRootModuleAndDecls None decls
 
-let tryGetMethodArgsAndBody (parsedProj: FSharpCheckProjectResults) (meth: FSharpMemberOrFunctionOrValue) =
+let private tryGetMethodArgsAndBody (checkedProject: FSharpCheckProjectResults)
+                                    (meth: FSharpMemberOrFunctionOrValue) =
     let rec tryGetMethodArgsAndBody' meth = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
             decls |> List.tryPick (tryGetMethodArgsAndBody' meth)
@@ -1093,11 +1094,11 @@ let tryGetMethodArgsAndBody (parsedProj: FSharpCheckProjectResults) (meth: FShar
             else None
         | FSharpImplementationFileDeclaration.InitAction fe -> None
     let fileName = (getMethLocation meth).FileName
-    parsedProj.AssemblyContents.ImplementationFiles
+    checkedProject.AssemblyContents.ImplementationFiles
     |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
     |> Option.bind (fun f -> f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' meth))
 
-type FableCompiler(com: ICompiler, state: ICompilerState, parsedProj: FSharpCheckProjectResults) =
+type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharpCheckProjectResults) =
     let replacePlugins =
         com.Plugins |> List.choose (function
             | path, (:? IReplacePlugin as plugin) -> Some (path, plugin)
@@ -1108,10 +1109,10 @@ type FableCompiler(com: ICompiler, state: ICompilerState, parsedProj: FSharpChec
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
         member fcom.IsReplaceCandidate ent =
-            match ent.TryFullName with
+            match ent.TryFullName, ent.Assembly.FileName with
             // TODO: Temporary HACK to fix #577
-            | Some fullName when fullName.StartsWith("Fable.Import.Node") -> false
-            | Some fullName when fullName.StartsWith("Fable.Core.JsInterop") -> true
+            | Some fullName, _ when fullName.StartsWith("Fable.Import.Node") -> false
+            | _, Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> true
             | _ -> false
         member fcom.TryGetInternalFile tdef =
             if (fcom :> IFableCompiler).IsReplaceCandidate tdef
@@ -1121,7 +1122,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, parsedProj: FSharpChec
             state.GetOrAddEntity(getEntityFullName tdef, fun () -> makeEntity fcom tdef)
         member fcom.GetInlineExpr meth =
             state.GetOrAddInlineExpr(meth.FullName, fun () ->
-                match tryGetMethodArgsAndBody parsedProj meth with
+                match tryGetMethodArgsAndBody checkedProject meth with
                 | Some(args, body) ->
                     let vars =
                         match args with
@@ -1136,28 +1137,33 @@ type FableCompiler(com: ICompiler, state: ICompilerState, parsedProj: FSharpChec
         member fcom.ReplacePlugins =
             replacePlugins
     interface ICompiler with
+        member __.CoreLib = com.CoreLib
         member __.Options = com.Options
-        member __.ProjDir = com.ProjDir
         member __.Plugins = com.Plugins
         member __.AddLog msg = com.AddLog msg
-        member __.GetLogs() = com.GetLogs()
         member __.GetUniqueVar() = com.GetUniqueVar()
 
-let transformFile (com: ICompiler) (state: ICompilerState) (parsedProj: FSharpCheckProjectResults) (fileName: string) =
+let getRootModuleFullName (file: FSharpImplementationFileContents) =
+    let rootEnt, _ = getRootModuleAndDecls file.Declarations
+    match rootEnt with
+    | Some rootEnt -> sanitizeEntityFullName rootEnt
+    | None -> ""
+
+let transformFile (com: ICompiler) (state: ICompilerState)
+                  (checkedProject: FSharpCheckProjectResults) (fileName: string) =
     try
         let file =
             let fileName = Path.normalizeFullPath fileName
-            parsedProj.AssemblyContents.ImplementationFiles
+            checkedProject.AssemblyContents.ImplementationFiles
             |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
             |> function
                 | Some file -> file
                 | None -> FableError("File doesn't belong to parsed project") |> raise
-        let fcom = FableCompiler(com, state, parsedProj)
+        let fcom = FableCompiler(com, state, checkedProject)
         let rootEnt, rootDecls =
             let fcom = fcom :> IFableCompiler
             let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
             match rootEnt with
-            | Some e when hasAtt Atts.erase e.Attributes -> fcom.GetEntity e, []
             | Some e ->
                 let rootEnt = fcom.GetEntity e
                 let ctx = Context.Create(file.FileName, rootEnt)
@@ -1166,10 +1172,7 @@ let transformFile (com: ICompiler) (state: ICompilerState) (parsedProj: FSharpCh
                 let emptyRootEnt = Fable.Entity.CreateRootModule file.FileName
                 let ctx = Context.Create(file.FileName, emptyRootEnt)
                 emptyRootEnt, transformDeclarations fcom ctx rootDecls
-        match rootDecls with
-        | [] -> None
-        | rootDecls ->
-            Fable.File(file.FileName, rootEnt, rootDecls, usedVarNames=fcom.UsedVarNames) |> Some
+        Fable.File(file.FileName, rootEnt, rootDecls, usedVarNames=fcom.UsedVarNames)
     with
     | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=fileName) |> raise
     | ex -> exn (sprintf "%s (%s)" ex.Message fileName, ex) |> raise

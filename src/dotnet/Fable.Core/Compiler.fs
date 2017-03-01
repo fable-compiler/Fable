@@ -1,15 +1,11 @@
 namespace Fable
 
-type CompilerOptions = {
-        projFile: string
-        coreLib: string
-        symbols: string list
-        plugins: string list
-        noTypedArrays: bool
-        clamp: bool
-        declaration: bool
-        extra: Map<string, string>
-    }
+type CompilerOptions =
+    { symbols: string list
+    ; plugins: string list
+    ; clamp: bool
+    ; declaration: bool
+    ; typedArrays: bool }
 
 type LogMessage =
     | Warning of string
@@ -25,9 +21,8 @@ type IPlugin =
     interface end
 
 type ICompiler =
-    abstract ProjDir: string
+    abstract CoreLib: string
     abstract Options: CompilerOptions
     abstract Plugins: (string*IPlugin) list
     abstract AddLog: LogMessage->unit
-    abstract GetLogs: unit->seq<LogMessage>
     abstract GetUniqueVar: unit->string

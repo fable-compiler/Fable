@@ -5,22 +5,11 @@
     <DefineConstants>DOTNETCORE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Fable.Compiler/Fable.Compiler.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="ProjectCracker.fs" />
-    <Compile Include="Printers.fs" />
-    <Compile Include="State.fs" />
-    <Compile Include="Server.fs" />
-    <Compile Include="Main.fs" />
+    <Compile Include="server.fsx" />
   </ItemGroup>
   <ItemGroup>
     <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-preview2-*" />
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.0-beta-060000" PrivateAssets="All" />
     <PackageReference Include="FSharp.Core" Version="4.1.*" />
-    <PackageReference Include="System.Xml.XDocument" Version="4.3.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <DotNetCliToolReference Include="Microsoft.DotNet.Watcher.Tools" Version="1.0.0-msbuild2-final" />
   </ItemGroup>
 </Project>

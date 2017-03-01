@@ -189,7 +189,7 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
     | Function _ -> str "function"
     | MetaType | Any -> makeNonDeclaredTypeRef NonDeclAny
     | Unit -> makeNonDeclaredTypeRef NonDeclUnit
-    | Array (Number kind) when not com.Options.noTypedArrays ->
+    | Array (Number kind) when com.Options.typedArrays ->
         let def = Ident(getTypedArrayName com kind, MetaType) |> IdentValue |> Value
         Apply(makeCoreRef "Util" (Some "Array"), [def; makeBoolConst true], ApplyMeth, MetaType, None)
     | Array genArg ->

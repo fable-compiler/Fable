@@ -199,6 +199,7 @@ module Util =
             | Some expr -> com.TransformExpr ctx expr
             | None -> failwithf "Cannot access type: %s" ent.FullName
         | Some file when ctx.file.SourcePath <> file ->
+            printfn "%s" ent.FullName
             let rootModule = com.GetRootModule(file)
             let importPath = Path.getRelativeFileOrDirPath false ctx.file.SourcePath false file
             getParts rootModule ent.FullName memb
@@ -279,7 +280,7 @@ module Util =
 
     let buildArray (com: IBabelCompiler) ctx consKind typ =
         match typ with
-        | Fable.Number kind when not com.Options.noTypedArrays ->
+        | Fable.Number kind when com.Options.typedArrays ->
             let cons =
                 Fable.Util.getTypedArrayName com kind
                 |> Identifier
@@ -1101,7 +1102,7 @@ module Util =
                             match kind with
                             | Fable.CustomImport | Fable.Internal _ -> path
                             | Fable.CoreLib ->
-                                let path = com.Options.coreLib + "/" + path + Naming.targetFileExtension
+                                let path = com.CoreLib + "/" + path + Naming.targetFileExtension
                                 if not(path.StartsWith ".") then path else
                                 Path.GetFullPath path
                                 |> Path.getRelativePath ctx.file.SourcePath
@@ -1119,11 +1120,10 @@ module Util =
             member bcom.TransformObjectExpr ctx membs baseClass r =
                 transformObjectExpr bcom ctx (membs, baseClass, r)
         interface ICompiler with
+            member __.CoreLib = com.CoreLib
             member __.Options = com.Options
-            member __.ProjDir = com.ProjDir
             member __.Plugins = com.Plugins
             member __.AddLog msg = com.AddLog msg
-            member __.GetLogs() = com.GetLogs()
             member __.GetUniqueVar() = com.GetUniqueVar() }
 
 module Compiler =

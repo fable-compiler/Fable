@@ -37,28 +37,44 @@ var isPortFree = function(port) {
 
 function getFreePort(port) {
   var port = port || getRandomInt(1000, 10000);
-  console.log("Checking port " + port + "...");
+  // console.log("Checking port " + port + "...");
   return isPortFree(port).then(res =>
     res ? port : getFreePort()
   );
 }
 
-function send(port, msg) {
-  return new Promise(resolve => {
-    var client = new net.Socket();
+function send(port, msg, callback) {
+  return new Promise((resolve, reject) => {
+    console.log("Start client to connect to port " + port)
+    var client = new net.Socket(), resolved = false;
+
     client.connect(port, HOST, function() {
       console.log('Client connected');
       client.write(msg);
     });
 
+    client.on('error', function(err) {
+      if (!resolved) {
+        resolved = true;
+        reject(err);
+      }
+    });
+
     client.on('data', function(data) {
       console.log('Client Received: ' + data);
+      if (!resolved) {
+        resolved = true;
+        resolve(data.toString());
+      }
       client.destroy();
     });
 
     client.on('close', function() {
       console.log('Client connection closed');
-      resolve();
+      if (!resolved) {
+        resolved = true;
+        resolve();
+      }
     });
   });
 }
@@ -83,4 +99,8 @@ function init() {
     .then(() => server.endServer())
 }
 
-init();
+// init();
+
+exports.sleep = sleep;
+exports.getFreePort = getFreePort;
+exports.send = send;

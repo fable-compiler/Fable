@@ -23,19 +23,6 @@ let printMessages (msgs: #seq<CompilerMessage>) =
     |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
     |> Seq.iter Console.Out.WriteLine
 
-let printFile (com: ICompiler) =
-    let jsonSettings =
-        JsonSerializerSettings(
-            Converters=[|Json.ErasedUnionConverter()|],
-            NullValueHandling=NullValueHandling.Ignore,
-            StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
-    fun (file: AST.Babel.Program) ->
-        let json = JsonConvert.SerializeObject (file, jsonSettings)
-        json |> Console.Out.WriteLine
-        if com.Options.extra |> Map.containsKey "saveBabelAst" then
-            let filePath = Path.ChangeExtension(file.fileName, ".babel.ast")
-            File.WriteAllText(filePath, json)
-
 let printException (ex: Exception) =
     let rec innerStack (ex: Exception) =
         if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException

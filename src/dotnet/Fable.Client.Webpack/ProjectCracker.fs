@@ -211,8 +211,8 @@ let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFi
         | ex -> failwithf "Cannot read project options: %s" ex.Message
     retry()
 
-let getFullProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) =
-    let projOpts = retryGetProjectOpts checker opts opts.projFile
+let getFullProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
+    let projOpts = retryGetProjectOpts checker opts projFile
     Array.append (getBasicCompilerArgs opts false) projOpts.OtherOptions
     |> makeProjectOptions projOpts.ProjectFileName projOpts.ProjectFileNames
 
