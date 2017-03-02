@@ -17,19 +17,19 @@ let hrTimeElapsed(time: float[]): float[] = failwith "JS only"
 
 let readAllBytes = fun (fileName:string) -> readFileSync.Invoke (metadataPath + fileName)
 let readAllText = fun (filePath:string) -> readTextSync.Invoke (filePath, "utf8")
-let measureTime (f: unit -> unit) =
+let measureTime (f: unit -> 'a) =
     let startTime = hrTimeNow()
-    f()
+    let res = f()
     let elapsed = hrTimeElapsed(startTime)
-    int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
+    int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
 #else
 let readAllBytes = fun (fileName:string) -> System.IO.File.ReadAllBytes (metadataPath + fileName)
 let readAllText = fun (filePath:string) -> System.IO.File.ReadAllText (filePath, System.Text.Encoding.UTF8)
-let measureTime (f: unit -> unit) =
+let measureTime (f: unit -> 'a) =
     let sw = System.Diagnostics.Stopwatch.StartNew()
-    f()
+    let res = f()
     sw.Stop()
-    sw.ElapsedMilliseconds
+    sw.ElapsedMilliseconds, res
 #endif
 
 // let measureTime f =
@@ -43,18 +43,21 @@ let measureTime (f: unit -> unit) =
 let main argv =
     try
         let references = ["FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics";"Fable.Core"]
-        let checker = InteractiveChecker(references, readAllBytes)
         let opts = readOptions argv
         let com = makeCompiler opts []
         let fileName = "test_script.fsx"
         let source = readAllText fileName
+        let createChecker() =
+            InteractiveChecker(references, readAllBytes)
+        let ms, checker = measureTime createChecker
+        printfn "InteractiveChecker created in %d ms" ms
         //let success = compile com checker (fileName, source)
         let f() =
             compileAst com checker (fileName, source)
             |> Seq.map (fun file -> Fable.Core.JsInterop.toJson file)
             |> ignore
         let bench i =
-            let ms = measureTime f
+            let ms, _ = measureTime f
             printfn "iteration %d, duration %d ms" i ms
         [1..10] |> List.iter bench
     with ex ->

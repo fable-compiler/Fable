@@ -4,7 +4,6 @@
     "sourceMaps": false,
     "ecma": "es2015",
     "outDir": "out",
-    "copyExt": true,
     "coreLib": "../../../../build/fable-core/umd",
     "symbols": [
       "FX_NO_CORHOST_SIGNER",
