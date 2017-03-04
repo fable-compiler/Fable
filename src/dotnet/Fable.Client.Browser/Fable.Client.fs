@@ -1,6 +1,7 @@
 module Fable.Client
 
 open System
+open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
