@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
+    <Compile Include="Parser.fs" />
     <Compile Include="State.fs" />
     <Compile Include="Server.fs" />
     <Compile Include="Main.fs" />

@@ -10,7 +10,7 @@ open System.Threading.Tasks
 
 let rec private loop (server: TcpListener) (buffer: byte[]) (onMessage: (string*(string->unit)->unit)) = async {
     try
-        printfn "Waiting for connection..."
+        // printfn "Waiting for connection..."
         let! client = server.AcceptTcpClientAsync() |> Async.AwaitTask
         let stream = client.GetStream()
         let i = stream.Read(buffer, 0, buffer.Length)

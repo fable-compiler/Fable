@@ -12,5 +12,8 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^7.0.5"
+  },
+  "dependencies": {
+    "babel-core": "^6.23.1"
   }
 }

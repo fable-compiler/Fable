@@ -31,13 +31,13 @@ let makeProjectOptions project sources otherOptions =
       OriginalLoadReferences = []
       ExtraProjectInfo = None }
 
-let getProjectOptionsFromScript (checker: FSharpChecker) (opts: CompilerOptions) scriptFile =
+let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scriptFile =
     let otherFlags = [|
         yield "--target:library"
 #if DOTNETCORE
         yield "--targetprofile:netcore"
 #endif
-        for symbol in opts.symbols do yield "--define:" + symbol
+        for constant in define do yield "--define:" + constant
     |]
     checker.GetProjectOptionsFromScript(scriptFile, File.ReadAllText scriptFile,
                                         assumeDotNetFramework=false, otherFlags=otherFlags)
@@ -47,14 +47,14 @@ let getProjectOptionsFromScript (checker: FSharpChecker) (opts: CompilerOptions)
         |> Array.filter (fun x ->
             // Keep only relative references
             x.StartsWith("-r:") && (x.Contains("./") || x.Contains(".\\")))
-        |> makeProjectOptions opts.ProjectFileName opts.ProjectFileNames
+        |> makeProjectOptions scriptFile opts.ProjectFileNames
 
 let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
 let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
 let sysPath = Path.GetDirectoryName(sysCoreLib)
 let localPath = Path.GetDirectoryName(typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location)
 
-let getBasicCompilerArgs (opts: CompilerOptions) optimize =
+let getBasicCompilerArgs (define: string[]) optimize =
     let (|FileExists|_|) f path =
         let path = f path
         if File.Exists path then Some path else None
@@ -73,8 +73,8 @@ let getBasicCompilerArgs (opts: CompilerOptions) optimize =
         yield "--simpleresolution"
         yield "--nocopyfsharpcore"
         // yield "--define:DEBUG"
-        for symbol in opts.symbols do
-            yield "--define:" + symbol
+        for constant in define do
+            yield "--define:" + constant
         yield "--optimize" + (if optimize then "+" else "-")
         yield "--warn:3"
         yield "--fullpaths"
@@ -184,10 +184,10 @@ let getProjectOptionsFromFsproj projFile =
         |> Seq.distinct |> Seq.map ((+) "-r:") |> Seq.toArray
     makeProjectOptions projFile sourceFiles otherOptions
 
-let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
+let getProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
-        getProjectOptionsFromScript checker opts projFile
+        getProjectOptionsFromScript checker define projFile
     | ".fsproj" ->
         getProjectOptionsFromFsproj projFile
     | s -> failwithf "Unsupported project type: %s" s
@@ -196,11 +196,11 @@ let getProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: s
 // file for changes. In some cases that editor will lock the file which can cause fable to
 // get a read error. If that happens the lock is usually brief so we can reasonably wait
 // for it to be released.
-let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
+let retryGetProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
     let retryUntil = (DateTime.UtcNow + TimeSpan.FromSeconds 5.)
     let rec retry () =
         try
-            getProjectOpts checker opts projFile
+            getProjectOpts checker define projFile
         with
         | :? IOException as ioex ->
             if retryUntil > DateTime.UtcNow then
@@ -211,8 +211,8 @@ let retryGetProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFi
         | ex -> failwithf "Cannot read project options: %s" ex.Message
     retry()
 
-let getFullProjectOpts (checker: FSharpChecker) (opts: CompilerOptions) (projFile: string) =
-    let projOpts = retryGetProjectOpts checker opts projFile
-    Array.append (getBasicCompilerArgs opts false) projOpts.OtherOptions
+let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
+    let projOpts = retryGetProjectOpts checker define projFile
+    Array.append (getBasicCompilerArgs define false) projOpts.OtherOptions
     |> makeProjectOptions projOpts.ProjectFileName projOpts.ProjectFileNames
 

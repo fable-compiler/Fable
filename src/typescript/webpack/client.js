@@ -45,11 +45,12 @@ function getFreePort(port) {
 
 function send(port, msg, callback) {
   return new Promise((resolve, reject) => {
-    console.log("Start client to connect to port " + port)
+    var buffer = "";
+    // console.log("Start client to connect to port " + port)
     var client = new net.Socket(), resolved = false;
 
     client.connect(port, HOST, function() {
-      console.log('Client connected');
+      console.log('Send ' + msg + ' to ' + HOST + ':' + port);
       client.write(msg);
     });
 
@@ -61,19 +62,14 @@ function send(port, msg, callback) {
     });
 
     client.on('data', function(data) {
-      console.log('Client Received: ' + data);
-      if (!resolved) {
-        resolved = true;
-        resolve(data.toString());
-      }
-      client.destroy();
+      buffer += data.toString();
     });
 
     client.on('close', function() {
-      console.log('Client connection closed');
+      // console.log('Client connection closed');
       if (!resolved) {
         resolved = true;
-        resolve();
+        resolve(buffer);
       }
     });
   });

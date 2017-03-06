@@ -199,7 +199,6 @@ module Util =
             | Some expr -> com.TransformExpr ctx expr
             | None -> failwithf "Cannot access type: %s" ent.FullName
         | Some file when ctx.file.SourcePath <> file ->
-            printfn "%s" ent.FullName
             let rootModule = com.GetRootModule(file)
             let importPath = Path.getRelativeFileOrDirPath false ctx.file.SourcePath false file
             getParts rootModule ent.FullName memb
@@ -1062,7 +1061,7 @@ module Util =
         let imports = Dictionary<string,Import>()
         let declarePlugins =
             com.Plugins |> List.choose (function
-                | path, (:? IDeclarePlugin as plugin) -> Some (path, plugin)
+                | { path=path; plugin=(:? IDeclarePlugin as plugin)} -> Some (path, plugin)
                 | _ -> None)
         { new IBabelCompiler with
             member bcom.DeclarePlugins =

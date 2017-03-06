@@ -15,6 +15,7 @@ let main argv =
             | false, _ -> DEFAULT_PORT
         else DEFAULT_PORT
     let agent = startAgent()
+    // TODO: Add help text
     Server.start port agent.Post
     |> Async.RunSynchronously
     0

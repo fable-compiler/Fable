@@ -1101,7 +1101,7 @@ let private tryGetMethodArgsAndBody (checkedProject: FSharpCheckProjectResults)
 type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharpCheckProjectResults) =
     let replacePlugins =
         com.Plugins |> List.choose (function
-            | path, (:? IReplacePlugin as plugin) -> Some (path, plugin)
+            | { path=path; plugin=(:? IReplacePlugin as plugin)} -> Some (path, plugin)
             | _ -> None)
     let usedVarNames = HashSet<string>()
     member fcom.UsedVarNames = set usedVarNames
