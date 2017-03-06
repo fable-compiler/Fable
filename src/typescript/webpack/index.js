@@ -86,19 +86,27 @@ module.exports = function(buffer) {
     };
     client.send(port, JSON.stringify(msg))
         .then(data => {
-            var options = {
-                plugins: [
-                    babelPlugins.transformMacroExpressions,
-                    babelPlugins.removeUnneededNulls,
-                ],
-            };
-            var transformed = babel.transformFromAst(JSON.parse(data), null, options);
-            // TODO: Mark dependencies
-            callback(null, transformed.code)
+            var data = JSON.parse(data);
+            if (data.error) {
+                callback(data.error);
+            }
+            else {
+                data.infos.forEach(x => console.log(x))
+                data.warnings.forEach(x => this.emitWarning(x))
+                var options = {
+                    plugins: [
+                        babelPlugins.transformMacroExpressions,
+                        babelPlugins.removeUnneededNulls,
+                    ],
+                };
+                var transformed = babel.transformFromAst(data, null, options);
+                // TODO: Mark dependencies
+                callback(null, transformed.code);
+            }
         })
         .catch(err => {
-            // this.emitError(err.message)
-            callback(err)
+            var msg = err.message + " Make sure Fable server is running on port " + port;
+            callback(new Error(msg))
         })
 };
 module.exports.raw = true;

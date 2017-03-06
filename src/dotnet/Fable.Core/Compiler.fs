@@ -5,15 +5,17 @@ type CompilerOptions =
     ; typedArrays: bool
     ; clampByteArrays: bool }
 
-type LogMessage =
+type Log =
     | Warning of string
     | Info of string
-    | Error of string
     override x.ToString() =
         match x with
         | Warning s -> "[WARNING] " + s
-        | Error s -> "[ERROR] " + s
         | Info s -> "[INFO] " + s
+    static member message x =
+        match x with
+        | Warning s -> s
+        | Info s -> s
 
 type IPlugin =
     interface end
@@ -25,5 +27,5 @@ type ICompiler =
     abstract CoreLib: string
     abstract Options: CompilerOptions
     abstract Plugins: PluginInfo list
-    abstract AddLog: LogMessage->unit
+    abstract AddLog: Log->unit
     abstract GetUniqueVar: unit->string

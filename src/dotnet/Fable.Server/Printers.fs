@@ -7,32 +7,6 @@ open Newtonsoft.Json
 open Fable
 open Fable.AST
 
-type CompilerMessage =
-    | Error of message: string * stack: string option
-    | Log of message: string
-    static member toDic = function
-        | Error (msg, Some stack) ->
-            dict [ ("type", "ERROR"); ("message", msg); ("stack", stack) ]
-        | Error (msg, None) ->
-            dict [ ("type", "ERROR"); ("message", msg) ]
-        | Log msg ->
-            dict [ ("type", "LOG"); ("message", msg) ]
-
-let printMessages (msgs: #seq<CompilerMessage>) =
-    msgs
-    |> Seq.map (CompilerMessage.toDic >> JsonConvert.SerializeObject)
-    |> Seq.iter Console.Out.WriteLine
-
-let printException (ex: Exception) =
-    let rec innerStack (ex: Exception) =
-        if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
-    let msg, stackTrace =
-        match ex with
-        // Don't print stack trace for known Fable errors
-        | :? FableError as err -> err.FormattedMessage, None
-        | ex -> ex.Message, Some(innerStack ex)
-    printMessages [Error(msg, stackTrace)]
-
 let attribsOfSymbol (s:FSharpSymbol) =
     let tryOr f def =
         try f() with _ -> def

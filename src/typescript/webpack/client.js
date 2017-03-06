@@ -3,12 +3,6 @@ var server = require('./server');
 
 var HOST = '127.0.0.1';
 
-function sleep(ms) {
-  return new Promise(function (resolve) {
-    setTimeout(() => resolve(), ms);
-  })
-}
-
 function getRandomInt(min, max) {
   min = Math.ceil(min);
   max = Math.floor(max);
@@ -50,7 +44,7 @@ function send(port, msg, callback) {
     var client = new net.Socket(), resolved = false;
 
     client.connect(port, HOST, function() {
-      console.log('Send ' + msg + ' to ' + HOST + ':' + port);
+      // console.log('Send ' + msg + ' to ' + HOST + ':' + port);
       client.write(msg);
     });
 
@@ -75,28 +69,5 @@ function send(port, msg, callback) {
   });
 }
 
-function init() {
-  var port = 1300;
-  Promise.resolve()
-  // getFreePort()
-    // .then(p => {
-    //   port = p;
-    //   server.startServer(port);
-    //   return sleep(1000);
-    // })
-    .then(() => send(port, 'Hello, server! Love, Client.'))
-    .then(() => sleep(500))
-    .then(() => send(port, 'Are you there?'))
-    .then(() => sleep(500))
-    .then(() => send(port, 'Can you hear me?'))
-    .then(() => sleep(500))
-    .then(() => send(port, 'Finito'))
-    .then(() => sleep(500))
-    .then(() => server.endServer())
-}
-
-// init();
-
-exports.sleep = sleep;
 exports.getFreePort = getFreePort;
 exports.send = send;
