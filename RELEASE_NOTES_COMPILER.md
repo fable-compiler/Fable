@@ -1,3 +1,7 @@
+### 0.7.49
+
+* Fix #744: CLI argument flags
+
 ### 0.7.48
 
 * Fix #736: Case testing with erased unions

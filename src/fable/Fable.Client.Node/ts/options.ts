@@ -83,6 +83,11 @@ function readCommandLineOptions() {
         return o;
     }
     var opts = commandLineArgs(optionDefinitions);
+    // Latest version of command-line-args doesn't set empty flags to true but null
+    for (var k in opts) {
+        if (opts[k] === null)
+            opts[k] = true;
+    }
     if (opts.help) {
         fableLib.stdoutLog(commandLineUsage(getAppDescription()));
         fableLib.finish(0);
