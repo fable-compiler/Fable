@@ -2,7 +2,7 @@ var child_process  = require('child_process');
 var client = require("./client.js");
 var babel = require("babel-core");
 
-var port = 61225;
+var DEFAULT_PORT = 61225;
 
 var babelPlugins = (function () {
   var template = babel.template;
@@ -70,20 +70,25 @@ var babelPlugins = (function () {
   }
 })();
 
+function or(option, _default) {
+    return option !== void 0 ? option : _default;
+}
 
 module.exports = function(buffer) {
     this.cacheable();
     var callback = this.async();
+    var port = or(this.options.port, DEFAULT_PORT);
     var msg = {
         path: this.resourcePath,
         options: {
-            symbols: [],
-            plugins: [],
-            clamp: false,
-            declaration: false,
-            typedArrays: true
+            define: or(this.options.define, []),
+            plugins: or(this.options.plugins, []),
+            declaration: or(this.options.declarion, false),
+            typedArrays: or(this.options.typedArrays, true),
+            clampByteArrays: or(this.options.clampByteArrays, false),
         }
     };
+    console.log("Compiling " + this.resourcePath + "...")
     client.send(port, JSON.stringify(msg))
         .then(data => {
             var data = JSON.parse(data);
@@ -105,7 +110,7 @@ module.exports = function(buffer) {
             }
         })
         .catch(err => {
-            var msg = err.message + " Make sure Fable server is running on port " + port;
+            var msg = err.message + "\nMake sure Fable server is running on port " + port;
             callback(new Error(msg))
         })
 };

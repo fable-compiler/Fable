@@ -1,5 +1,4 @@
 var net = require('net');
-var server = require('./server');
 
 var HOST = '127.0.0.1';
 
