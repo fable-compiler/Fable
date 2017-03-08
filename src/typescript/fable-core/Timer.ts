@@ -34,7 +34,7 @@ export default class Timer implements IDisposable {
             if (!this.AutoReset)
               this.Enabled = false;
             this._elapsed.Trigger(new Date());
-          }, this.Interval);
+          }, this.Interval) as any;
         } else {
           this._timeoutId = setTimeout(() => {
             this.Enabled = false;
@@ -42,7 +42,7 @@ export default class Timer implements IDisposable {
             if (this.AutoReset)
               this.Enabled = true;
             this._elapsed.Trigger(new Date());
-          }, this.Interval);
+          }, this.Interval) as any;
         }
       } else {
         if (this._timeoutId) {

@@ -22,14 +22,14 @@ const config = {
         }
     }]
   },
-  externals: [
-    function(context, request, callback) {
-      if (/fable-core/.test(request)){
-        return callback(null, 'commonjs ' + request);
-      }
-      callback();
-    }
-  ],
+  // externals: [
+  //   function(context, request, callback) {
+  //     if (/fable-core/.test(request)){
+  //       return callback(null, 'commonjs ' + request);
+  //     }
+  //     callback();
+  //   }
+  // ],
 };
 
 module.exports = config;

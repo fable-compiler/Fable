@@ -13,7 +13,7 @@ open ProjectCracker
 open Parser
 
 let fableCoreLocation =
-    let coreDir = Path.Combine(Assembly.GetEntryAssembly().Location, "fable-core")
+    let coreDir = Path.Combine(System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "fable-core")
     let cwd = System.IO.Directory.GetCurrentDirectory()
     Path.getRelativeFileOrDirPath true cwd true coreDir
 

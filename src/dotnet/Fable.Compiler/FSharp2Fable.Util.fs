@@ -69,6 +69,7 @@ type IFableCompiler =
     abstract TryGetInternalFile: FSharpEntity -> string option
     abstract GetEntity: FSharpEntity -> Fable.Entity
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> (IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr)
+    abstract AddInlineExpr: string * (IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) -> unit
     abstract AddUsedVarName: string -> unit
     abstract ReplacePlugins: (string*IReplacePlugin) list
 

@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Fable.Core">
-      <HintPath>../../../build/fable-core/Fable.Core.dll</HintPath>
+      <HintPath>../../../build/fable/Fable.Core.dll</HintPath>
     </Reference>
     <Reference Include="Fable.JsonConverter">
       <HintPath>../../../build/json-converter/Fable.JsonConverter.dll</HintPath>

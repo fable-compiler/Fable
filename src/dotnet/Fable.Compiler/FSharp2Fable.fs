@@ -1023,7 +1023,12 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             |> addWarning com ctx.fileName (Some range)
             addMethod range None meth args body
         else
-            // Inline methods are ignored
+            let vars =
+                match args with
+                | [thisArg]::args when meth.IsInstanceMember -> args
+                | _ -> args
+                |> Seq.collect id |> countRefs body
+            com.AddInlineExpr(meth.FullName, (upcast vars, body))
             declInfo, ctx
     else addMethod range None meth args body
 
@@ -1085,18 +1090,22 @@ let private getRootModuleAndDecls decls =
 
 let private tryGetMethodArgsAndBody (checkedProject: FSharpCheckProjectResults)
                                     (meth: FSharpMemberOrFunctionOrValue) =
-    let rec tryGetMethodArgsAndBody' meth = function
+    let rec tryGetMethodArgsAndBody' (methFullName: string) = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
-            decls |> List.tryPick (tryGetMethodArgsAndBody' meth)
+            match e.TryFullName with
+            | Some fullName when methFullName.StartsWith(fullName) ->
+                decls |> List.tryPick (tryGetMethodArgsAndBody' methFullName)
+            | _ -> None
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth2, args, body) ->
-            if obj.ReferenceEquals(meth, meth2)
+            if methFullName = meth2.FullName
             then Some(args, body)
             else None
         | FSharpImplementationFileDeclaration.InitAction fe -> None
     let fileName = (getMethLocation meth).FileName
     checkedProject.AssemblyContents.ImplementationFiles
-    |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
-    |> Option.bind (fun f -> f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' meth))
+    |> Seq.tryFind (fun f -> f.FileName = fileName)
+    |> Option.bind (fun f ->
+        f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' meth.FullName))
 
 type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharpCheckProjectResults) =
     let replacePlugins =
@@ -1132,6 +1141,8 @@ type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharp
                     (upcast vars, body)
                 | None ->
                     FableError("Cannot find inline method " + meth.FullName) |> raise)
+        member fcom.AddInlineExpr(fullName, inlineExpr) =
+            state.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
         member fcom.AddUsedVarName varName =
             usedVarNames.Add varName |> ignore
         member fcom.ReplacePlugins =

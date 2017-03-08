@@ -49,6 +49,14 @@ module Util =
                 info.Arguments <- args) TimeSpan.MaxValue
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
 
+    let start workingDir fileName args =
+        let p = new System.Diagnostics.Process()
+        p.StartInfo.FileName <- fileName
+        p.StartInfo.WorkingDirectory <- workingDir
+        p.StartInfo.Arguments <- args
+        p.Start() |> ignore
+        p
+
     let runAndReturn workingDir fileName args =
         printfn "CWD: %s" workingDir
         let fileName, args =
@@ -352,10 +360,12 @@ let runTestsDotnet () =
     Util.run "src/tests/Main" dotnetExePath "test"
 
 let runTestsJs () =
-    Node.run "." "build/fable" ["src/tests --verbose"]
-    FileUtils.cp "src/tests/package.json" "build/tests"
-    Npm.install "build/tests" []
-    Npm.script testsBuildDir "test" []
+    Npm.install __SOURCE_DIRECTORY__ []
+    Npm.install "src/typescript/fable-loader" []
+    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/Fable.Server.dll"
+    Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config ./src/tests/webpack.config.js"]
+    Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
+    fableServer.Kill()
 
 let compileAndRunMochaTests es2015 =
     let testsBuildDir = "build/tests"
@@ -486,7 +496,6 @@ Target "All" (fun () ->
     clean ()
     nugetRestore ()
     buildCompiler true ()
-    buildCore true ()
     buildCoreJs ()
     buildNUnitPlugin ()
     buildJsonConverter ()

@@ -952,8 +952,7 @@ module Util =
                     getMemberArgsAndBody com ctx (Some tc) args body m.GenericParameters false
                 // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
-                upcast FunctionExpression (args, body, id=Identifier id,
-                    ?returnType=returnType, ?typeParams=typeParams, ?loc=bodyRange)
+                upcast FunctionExpression(args, body, ?returnType=returnType, ?typeParams=typeParams, ?loc=bodyRange)
             | Fable.Constructor | Fable.Setter ->
                 failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
