@@ -8,6 +8,9 @@
     "devDependencies": {
         "typescript": "^2.2.1",
         "webpack": "^2.2.1",
-        "mocha": "^3.2.0"
+        "mocha": "^3.2.0",
+        "babel-core": "^6.23.1",
+        "babel-loader": "^6.4.0",
+        "babel-preset-es2015": "^6.22.0"
     }
 }

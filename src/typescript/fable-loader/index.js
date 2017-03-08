@@ -104,13 +104,12 @@ module.exports = function(buffer) {
             else {
                 data.infos.forEach(x => console.log(x))
                 data.warnings.forEach(x => this.emitWarning(x))
-                var options = {
-                    plugins: [
-                        babelPlugins.transformMacroExpressions,
-                        babelPlugins.removeUnneededNulls,
-                    ],
-                };
-                var transformed = babel.transformFromAst(data, null, options);
+                var babelOptions = opts.babel || {};
+                babelOptions.plugins = [
+                    babelPlugins.transformMacroExpressions,
+                    babelPlugins.removeUnneededNulls,
+                ].concat(babelOptions.plugins || []);
+                var transformed = babel.transformFromAst(data, null, babelOptions);
                 // TODO: Mark dependencies
                 callback(null, transformed.code);
             }
