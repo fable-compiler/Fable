@@ -1,9 +1,13 @@
 {
     "private": true,
     "scripts": {
-        "tsc": "tsc"
+        "tsc": "tsc",
+        "mocha": "mocha",
+        "webpack": "webpack"
     },
     "devDependencies": {
-        "typescript": "^2.1.5"
+        "typescript": "^2.2.1",
+        "webpack": "^2.2.1",
+        "mocha": "^3.2.0"
     }
 }

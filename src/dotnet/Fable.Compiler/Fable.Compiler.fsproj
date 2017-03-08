@@ -7,7 +7,6 @@
     <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />

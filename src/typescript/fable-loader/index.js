@@ -74,21 +74,27 @@ function or(option, _default) {
     return option !== void 0 ? option : _default;
 }
 
+function join(arg) {
+    return Array.isArray(arg) ? arg.join(";") : arg;
+}
+
 module.exports = function(buffer) {
     this.cacheable();
     var callback = this.async();
-    var port = or(this.options.port, DEFAULT_PORT);
+    var opts = this.loaders[0].options;
+    var port = or(opts.port, DEFAULT_PORT);
     var msg = {
         path: this.resourcePath,
+        define: or(opts.define, []),
+        plugins: or(opts.plugins, []),
         options: {
-            define: or(this.options.define, []),
-            plugins: or(this.options.plugins, []),
-            declaration: or(this.options.declarion, false),
-            typedArrays: or(this.options.typedArrays, true),
-            clampByteArrays: or(this.options.clampByteArrays, false),
+            declaration: or(opts.declaration, false),
+            typedArrays: or(opts.typedArrays, true),
+            clampByteArrays: or(opts.clampByteArrays, false),
         }
     };
     console.log("Compiling " + this.resourcePath + "...")
+    // console.log("Sent: define=" + join(msg.define) + "; plugins=" + join(msg.define.plugins));
     client.send(port, JSON.stringify(msg))
         .then(data => {
             var data = JSON.parse(data);

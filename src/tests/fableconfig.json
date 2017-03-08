@@ -1,9 +1,0 @@
-{
-    "projFile": "Main/Fable.Tests.fsproj",
-    "coreLib": "../../build/fable-core/umd",
-    "module": "commonjs",
-    "outDir": "../../build/tests",
-    "plugins": ["../../build/nunit/Fable.Plugins.NUnit.dll"],
-    "symbols": ["DOTNETCORE"],
-    "includeJs": true
-}

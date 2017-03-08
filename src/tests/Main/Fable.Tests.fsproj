@@ -48,6 +48,7 @@
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />

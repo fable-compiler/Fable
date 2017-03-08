@@ -33,12 +33,13 @@ let private parseString (key: string) (o: JObject)  =
 let (|Parse|) (msg: string) =
     let json = JsonConvert.DeserializeObject<JObject>(msg)
     let path =  parseString "path" json |> Path.normalizeFullPath
-    let define = parseStringArray [||] "define" json
+    let define = parseStringArray [||] "define" json |> Array.append [|"FABLE_COMPILER"|]
     let plugins = parseStringArray [||] "plugins" json
     let opts =
         { declaration = parseBoolean false "declaration" json
         ; typedArrays = parseBoolean true "typedArrays" json
         ; clampByteArrays = parseBoolean false "clampByteArrays" json }
+    // printfn "Parsed options: path=%s; define=%A; plugins=%A; options=%A" path define plugins opts
     { path=path; define=define; plugins=plugins; options=opts }
 
 let getDefaultOptions() =
