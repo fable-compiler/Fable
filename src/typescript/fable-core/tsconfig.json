@@ -1,8 +1,6 @@
 {
     "compilerOptions": {
-        "target": "es5",
-        "lib": [ "es6", "dom" ],
-        "module": "es6",
+        "target": "es6",
         "allowJs": true,
         "noEmitOnError": true,
         "noFallthroughCasesInSwitch": true,
@@ -14,7 +12,7 @@
         //"noUnusedParameters": true,
         //"strictNullChecks": true,
         "declaration": false,
-        "outDir": "../../../build/fable-core",
+        "outDir": "../../../build/fable/fable-core",
         "newLine": "LF"
     }
 }

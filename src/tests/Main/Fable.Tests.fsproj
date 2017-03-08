@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Fable.Core">
-      <HintPath>../../../build/fable-core/Fable.Core.dll</HintPath>
+      <HintPath>../../../build/fable/Fable.Core.dll</HintPath>
     </Reference>
     <Reference Include="Fable.JsonConverter">
       <HintPath>../../../build/json-converter/Fable.JsonConverter.dll</HintPath>
@@ -48,6 +48,7 @@
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />

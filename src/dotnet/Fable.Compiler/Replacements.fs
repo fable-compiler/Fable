@@ -298,7 +298,7 @@ module Util =
         | CoreCons "List", _ ->
             Fable.ArrayConst(Fable.ArrayValues [], genArg i.returnType) |> Fable.Value
         // Typed arrays
-        | _, Fable.Array(Fable.Number numberKind) when not com.Options.noTypedArrays ->
+        | _, Fable.Array(Fable.Number numberKind) when com.Options.typedArrays ->
             arrayFrom (getTypedArrayName com numberKind) expr
         | _ -> arrayFrom "Array" expr
 

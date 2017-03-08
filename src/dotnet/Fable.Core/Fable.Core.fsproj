@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="Fable.Core.fs" />
@@ -15,9 +14,6 @@
     <Compile Include="AST/AST.Fable.Util.fs" />
     <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Plugins.fs" />
-  </ItemGroup>
-
-  <ItemGroup Condition="$(DefineConstants.Contains('IMPORT'))">
     <Compile Include="Import/Fable.Import.JS.fs" />
     <Compile Include="Import/Fable.Import.Browser.fs" />
     <Compile Include="Import/Fable.Import.Node.fs" />

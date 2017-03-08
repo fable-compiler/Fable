@@ -143,7 +143,7 @@ let makeJsObject range (props: (string * Expr) list) =
 let getTypedArrayName (com: ICompiler) numberKind =
     match numberKind with
     | Int8 -> "Int8Array"
-    | UInt8 -> if com.Options.clamp then "Uint8ClampedArray" else "Uint8Array"
+    | UInt8 -> if com.Options.clampByteArrays then "Uint8ClampedArray" else "Uint8Array"
     | Int16 -> "Int16Array"
     | UInt16 -> "Uint16Array"
     | Int32 -> "Int32Array"
@@ -189,7 +189,7 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
     | Function _ -> str "function"
     | MetaType | Any -> makeNonDeclaredTypeRef NonDeclAny
     | Unit -> makeNonDeclaredTypeRef NonDeclUnit
-    | Array (Number kind) when not com.Options.noTypedArrays ->
+    | Array (Number kind) when com.Options.typedArrays ->
         let def = Ident(getTypedArrayName com kind, MetaType) |> IdentValue |> Value
         Apply(makeCoreRef "Util" (Some "Array"), [def; makeBoolConst true], ApplyMeth, MetaType, None)
     | Array genArg ->

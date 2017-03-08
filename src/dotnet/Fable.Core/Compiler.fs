@@ -1,40 +1,31 @@
 namespace Fable
 
-type CompilerOptions = {
-        projFile: string
-        outDir: string
-        coreLib: string
-        moduleSystem: string
-        symbols: string list
-        plugins: string list
-        rollup: bool
-        watch: bool
-        dll: bool
-        includeJs: bool
-        noTypedArrays: bool
-        clamp: bool
-        declaration: bool
-        refs: Map<string, string>
-        extra: Map<string, string>
-    }
+type CompilerOptions =
+    { declaration: bool
+    ; typedArrays: bool
+    ; clampByteArrays: bool }
 
-type LogMessage =
+type Log =
     | Warning of string
     | Info of string
-    | Error of string
     override x.ToString() =
         match x with
         | Warning s -> "[WARNING] " + s
-        | Error s -> "[ERROR] " + s
         | Info s -> "[INFO] " + s
+    static member message x =
+        match x with
+        | Warning s -> s
+        | Info s -> s
 
 type IPlugin =
     interface end
 
+type PluginInfo =
+    { path: string; plugin: IPlugin }
+
 type ICompiler =
-    abstract ProjDir: string
+    abstract CoreLib: string
     abstract Options: CompilerOptions
-    abstract Plugins: (string*IPlugin) list
-    abstract AddLog: LogMessage->unit
-    abstract GetLogs: unit->seq<LogMessage>
+    abstract Plugins: PluginInfo list
+    abstract AddLog: Log->unit
     abstract GetUniqueVar: unit->string

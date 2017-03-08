@@ -49,6 +49,14 @@ module Util =
                 info.Arguments <- args) TimeSpan.MaxValue
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
 
+    let start workingDir fileName args =
+        let p = new System.Diagnostics.Process()
+        p.StartInfo.FileName <- fileName
+        p.StartInfo.WorkingDirectory <- workingDir
+        p.StartInfo.Arguments <- args
+        p.Start() |> ignore
+        p
+
     let runAndReturn workingDir fileName args =
         printfn "CWD: %s" workingDir
         let fileName, args =
@@ -204,12 +212,13 @@ let coreBuildDir = "build/fable-core"
 let testsBuildDir = "build/tests"
 let coreSrcDir = "src/dotnet/Fable.Core"
 let compilerSrcDir = "src/dotnet/Fable.Compiler"
-let clientSrcDir = "src/dotnet/Fable.Client.Node"
+let serverSrcDir = "src/dotnet/Fable.Server"
 
 
 // Targets
 let installDotnetSdk () =
     let dotnetSDKPath = FullName "./dotnetsdk"
+
     let correctVersionInstalled =
         try
             let processResult =
@@ -266,6 +275,7 @@ let installDotnetSdk () =
 let clean () =
     !! "src/dotnet/**/bin" ++ "src/dotnet/**/obj/"
         -- "src/dotnet/Fable.Client.Browser/demo/**"
+        -- "src/dotnet/Fable.Client.Browser/testapp/**"
         ++ "build/fable-core" ++ "build/json-converter"
         ++ "build/nunit" ++ "build/tests_dll"
     |> CleanDirs
@@ -279,7 +289,7 @@ let clean () =
 let nugetRestore () =
     Util.run coreSrcDir dotnetExePath "restore"
     Util.run compilerSrcDir dotnetExePath "restore"
-    Util.run clientSrcDir dotnetExePath "restore"
+    Util.run serverSrcDir dotnetExePath "restore"
 
 let buildCompilerJs () =
     Npm.install "src/typescript/fable-compiler" []
@@ -306,48 +316,25 @@ let buildCompilerJs () =
         | line -> line)
 
 let buildCompiler isRelease () =
-    if isRelease then
-        Util.assemblyInfo coreSrcDir releaseCore.Value.NugetVersion []
-        Util.assemblyInfo compilerSrcDir releaseCompiler.Value.NugetVersion []
-        Util.assemblyInfo clientSrcDir releaseCompiler.Value.NugetVersion [
-            Attribute.Metadata ("fableCoreVersion", Util.normalizeVersion releaseCore.Value.NugetVersion)
-        ]
-
-    sprintf "publish -o ../../../%s/bin -c %s"
+    sprintf "publish -o ../../../%s -c %s"
         compilerBuildDir (if isRelease then "Release" else "Debug")
-    |> Util.run clientSrcDir dotnetExePath
+    |> Util.run serverSrcDir dotnetExePath
 
     // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
-    FileUtils.cp (compilerBuildDir + "/bin/runtimes/any/native/FSharp.Core.optdata") (compilerBuildDir + "/bin")
-    FileUtils.cp (compilerBuildDir + "/bin/runtimes/any/native/FSharp.Core.sigdata") (compilerBuildDir + "/bin")
+    FileUtils.cp (compilerBuildDir + "/runtimes/any/native/FSharp.Core.optdata") compilerBuildDir
+    FileUtils.cp (compilerBuildDir + "/runtimes/any/native/FSharp.Core.sigdata") compilerBuildDir
 
 let buildCoreJs () =
-    CreateDir coreBuildDir
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project src/typescript/fable-core"]
 
-    CreateDir (coreBuildDir + "/umd")
-    Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project src/typescript/fable-core -m umd --outDir build/fable-core/umd"]
-
-    // Copy README and package.json
-    FileUtils.cp "src/typescript/fable-core/README.md" coreBuildDir
-    FileUtils.cp "src/typescript/fable-core/package.json" coreBuildDir
-    Npm.command coreBuildDir "version" [releaseCore.Value.NugetVersion]
-
 let buildCore isRelease () =
-    if isRelease then
-        Util.assemblyInfo coreSrcDir releaseCore.Value.NugetVersion []
-
-    // TODO: Documentation is not working with dotnet F# SDK atm
-    if isRelease
-    then "build -c Release /p:DefineConstants=IMPORT" ///p:DocumentationFile=$(OutputPath)/$(TargetFramework)/$(AssemblyName).xml"
-    else "build -c Release /p:DefineConstants=IMPORT"
+    let config = if isRelease then "Release" else "Debug"
+    sprintf "build -c %s" config
     |> Util.run coreSrcDir dotnetExePath
 
     CreateDir coreBuildDir
-    let config = if isRelease then "Release" else "Debug"
     FileUtils.cp (sprintf "%s/bin/%s/netstandard1.6/Fable.Core.dll" coreSrcDir config) coreBuildDir
-
     // TODO: Doc generation doesn't work with netcorecli-fsc atm
     // FileUtils.cp (sprintf "%s/bin/%s/netstandard1.6/Fable.Core.xml" coreSrcDir config) coreBuildDir
 
@@ -374,10 +361,12 @@ let runTestsDotnet () =
     Util.run "src/tests/Main" dotnetExePath "test"
 
 let runTestsJs () =
-    Node.run "." "build/fable" ["src/tests --verbose"]
-    FileUtils.cp "src/tests/package.json" "build/tests"
-    Npm.install "build/tests" []
-    Npm.script testsBuildDir "test" []
+    Npm.install __SOURCE_DIRECTORY__ []
+    Npm.install "src/typescript/fable-loader" []
+    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/Fable.Server.dll"
+    Node.run "src/tests" "../../node_modules/webpack/bin/webpack.js" []
+    Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
+    fableServer.Kill()
 
 let compileAndRunMochaTests es2015 =
     let testsBuildDir = "build/tests"
@@ -508,8 +497,6 @@ Target "All" (fun () ->
     clean ()
     nugetRestore ()
     buildCompiler true ()
-    buildCompilerJs ()
-    buildCore true ()
     buildCoreJs ()
     buildNUnitPlugin ()
     buildJsonConverter ()
