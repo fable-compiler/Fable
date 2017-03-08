@@ -1,3 +1,11 @@
+### 0.7.47
+
+* Tailcall optmize function arguments: #681
+
+### 0.7.45
+
+* Fix import expressions with methods with function arguments: #721
+
 ### 0.7.43
 
 * Add reflection methods (see ReflectionTests.fs)

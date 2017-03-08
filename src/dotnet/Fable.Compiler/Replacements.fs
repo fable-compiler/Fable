@@ -1110,6 +1110,7 @@ module AstPass =
 
     let funcs com (i: Fable.ApplyInfo) =
         match i.methodName, i.callee with
+        | "adapt", _ -> wrap i.returnType i.args.Head |> Some
         | "invoke", Some callee ->
             Fable.Apply(callee, i.args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | _ -> None
@@ -1941,7 +1942,8 @@ module AstPass =
         | "System.DateTime" -> dates com info
         | "System.TimeSpan" -> timeSpans com info
         | "System.Action" | "System.Func"
-        | "Microsoft.FSharp.Core.FSharpFunc" -> funcs com info
+        | "Microsoft.FSharp.Core.FSharpFunc"
+        | "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" -> funcs com info
         | "System.Random" -> random com info
         | "Microsoft.FSharp.Core.FSharpOption"
         | "Microsoft.FSharp.Core.OptionModule" -> options com info

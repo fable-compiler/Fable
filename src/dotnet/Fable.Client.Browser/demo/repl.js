@@ -242,10 +242,10 @@
       this.persistState(state);
     }
 
-    REPL.prototype.transformFromAst = function (ast) {
+    REPL.prototype.transformFromAst = function (data) {
       try {
-        if (ast.error) {
-          throw ast.error;
+        if (data.error) {
+          throw data.error;
         }
 
         var options = {
@@ -263,13 +263,24 @@
           ];
         }
 
+        var startTime = performance.now();
+        var ast = JSON.parse(data.json);
         var transformed = babel.transformFromAst(ast, null, options);
+        var elapsed = performance.now() - startTime;
+
         var code = transformed.code;
         this.setOutput(code);
         this.runOutput();
+
+        // print elapsed time
+        var elapsedMessage =
+            "FSharp compile time: " + Math.round(data.elapsed) + " ms, " +
+            "Babel compile time: " + Math.round(elapsed) + " ms";
+        this.printError(elapsedMessage);
       } catch (err) {
         //this.printError(err.message);
-        this.setOutput(err.message + "\n" + err.stack);
+        this.setOutput(err.message);
+        console.error(err.message + "\n" + err.stack);
         // throw err;
       }
     }
@@ -350,20 +361,13 @@
     var repl = new REPL();
 
     fableWorker.onmessage = function (e) {
-      repl.transformFromAst(JSON.parse(e.data));
+      repl.transformFromAst(e.data);
     };
 
     function initSamples(repl) {
-      var samples = {
-        tailcall: "Tail call",
-        sudoku: "Sudoku solver",
-        fibonacci: "Recursive Fibonacci",
-        fibonacci_memoize: "Memoized Fibonacci"
-      }
-
       // Create the checkboxes for all available samples
       var $sampleContainer = document.getElementById('sample-dropdown');
-      Object.keys(samples).forEach(function(sampleName) {
+      Object.keys(SAMPLES).forEach(function(sampleName) {
         var $label = document.createElement('a');
         $label.href = '#';
         $label.className = 'small';
@@ -374,7 +378,7 @@
           false
         );
 
-        $label.appendChild(document.createTextNode(samples[sampleName]));
+        $label.appendChild(document.createTextNode(SAMPLES[sampleName]));
 
         var $li = document.createElement('li');
         $li.appendChild($label);

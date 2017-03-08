@@ -51,29 +51,36 @@ module Functions =
             else tryFind k r
 
     let rec functionArguments x f =
+        let f2 = f >> ((+) 3)
         match x with
-        | [] -> f x
-        | h::t -> functionArguments t (f << id)
+        | [] -> failwith "empty list"
+        | [x] -> f x
+        | h::t -> functionArguments t f2
+
+    let rec iterate f n x =
+        match n with
+        | 0 -> x
+        | _ -> iterate f (n - 1) (f x)
 
     let recWithFinally () =
         let mutable log = ""
-        let rec test n =   
-          try 
-            log <- log + string "abcde".[n] 
-            if n < 4 then test (n+1) 
+        let rec test n =
+          try
+            log <- log + string "abcde".[n]
+            if n < 4 then test (n+1)
           finally
-            log <- log + string "ABCDE".[n] 
-        test 0    
+            log <- log + string "ABCDE".[n]
+        test 0
         log
 
     let recWithUse () =
         let mutable log = ""
-        let disp(n) = 
+        let disp(n) =
           { new System.IDisposable with
               member x.Dispose() = log <- log + string "ABCDE".[n] }
-        let rec test n =   
+        let rec test n =
           use _disp = disp(n)
-          log <- log + string "abcde".[n] 
+          log <- log + string "abcde".[n]
           if n < 4 then test (n+1) else 0
         test 0 |> ignore
         log
@@ -148,9 +155,8 @@ let ``Recursive functions containing finally work``() =
 let ``Recursive functions containing use work``() =
     recWithUse () |> equal "abcdeEDCBA"
 
-let ``Function arguments prevent tail call optimization``() = // See #681
-    functionArguments [1;2;3] id
-    |> equal []
-    
+let ``Function arguments can be optimized``() = // See #681
+    functionArguments [1;2;3] ((+) 2) |> equal 11
 
-    
+let ``Function arguments can be optimized II``() = // See #681
+    iterate ((*) 2) 5 10 |> equal 320

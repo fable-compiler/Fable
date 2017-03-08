@@ -221,20 +221,6 @@ let ``Local values returning lambdas work``() =
     // mutableValue has changed so this produces a different result
     localValueReturnsLambda() |> equal 14
 
-// This test doesn't work, we need to add runtime
-// checks to support more than 2 nested lambdas
-// [<Test>]
-// let ``NestedLambdas``() =
-//     let mutable m = 0
-//     let f i =
-//         m <- i
-//         fun j ->
-//             m <- m + j
-//             fun k ->
-//                 m <- m + k
-//     f 2 3 4
-//     equal 9 m
-
 let genericLambdaArgument f = f 42
 let genericLambdaArgument2 f g = f (fun x -> g)
 
@@ -292,6 +278,24 @@ let ``TraitCall can resolve overloads with a single generic argument``() =
     implicitMethod !+6       5 |> equal 2
 
 [<Test>]
+let ``NestedLambdas``() =
+    let mutable m = 0
+    let f i =
+        m <- i
+        fun j ->
+            m <- m + j
+            fun k ->
+                m <- m + k
+                fun u ->
+                    m + u
+    let f2 = f 1
+    let f3 = f2 2
+    let f4 = f3 3
+    f4 4 |> equal 10
+    let f5 = f 6 7 8
+    f5 9 |> equal 30
+
+[<Test>]
 let ``More than two lambdas can be nested``() =
     let mutable mut = 0
     let f x =
@@ -315,3 +319,14 @@ let ``Multiple nested lambdas can be partially applied``() =
                 x + y + z + u + w
     let f2 = f 1 2
     f2 3 4 5 |> equal 15
+
+open Microsoft.FSharp.Core.OptimizedClosures
+
+[<Test>]
+let ``Partial application of optimized closures works``() =
+  let mutable m = 1
+  let f x = m <- m + 1; (fun y z -> x + y + z)
+  let f = FSharpFunc<_,_,_,_>.Adapt(f)
+  let r = f.Invoke(1, 2, 3)
+  equal 2 m
+  equal 6 r

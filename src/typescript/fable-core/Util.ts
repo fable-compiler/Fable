@@ -157,12 +157,6 @@ export function isArray(obj: any) {
   return Array.isArray(obj) || ArrayBuffer.isView(obj);
 }
 
-export function getRestParams(args: ArrayLike<any>, idx: number) {
-  for (var _len = args.length, restArgs = Array(_len > idx ? _len - idx : 0), _key = idx; _key < _len; _key++)
-    restArgs[_key - idx] = args[_key];
-  return restArgs;
-}
-
 export function toString(o: any) {
   return o != null && typeof o.ToString == "function" ? o.ToString() : String(o);
 }

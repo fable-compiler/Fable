@@ -21,22 +21,38 @@ type Import = {
 type ITailCallOpportunity =
     abstract Label: string
     abstract Args: string list
+    abstract ReplaceArgs: bool
     abstract IsRecursiveRef: Fable.Expr -> bool
 
-type ClassTailCallOpportunity(name, args: Fable.Ident list) =
+let private getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
+    // If some arguments are functions we need to capture the current values to
+    // prevent delayed references from getting corrupted, for that we use block-scoped
+    // ES2015 variable declarations. See #681
+    let replaceArgs =
+        args |> List.exists (fun arg ->
+            match arg.Type with
+            | Fable.Function _ -> true
+            | _ -> false)
+    replaceArgs, args |> List.map (fun arg -> if replaceArgs then com.GetUniqueVar() else arg.Name)
+
+type ClassTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
+    let replaceArgs, argIds = getTailCallArgIds com args
     interface ITailCallOpportunity with
         member x.Label = name
-        member x.Args = args |> List.map (fun a -> a.Name)
+        member x.Args = argIds
+        member x.ReplaceArgs = replaceArgs
         member x.IsRecursiveRef(e) =
             match e with
             | Fable.Apply(Fable.Value Fable.This, [Fable.Value(Fable.StringConst name2)], Fable.ApplyGet, _, _) ->
                 name = name2
             | _ -> false
 
-type NamedTailCallOpportunity(name, args: Fable.Ident list) =
+type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
+    let replaceArgs, argIds = getTailCallArgIds com args
     interface ITailCallOpportunity with
         member x.Label = name
-        member x.Args = args |> List.map (fun a -> a.Name)
+        member x.Args = argIds
+        member x.ReplaceArgs = replaceArgs
         member x.IsRecursiveRef(e) =
             match e with
             | Fable.Value(Fable.IdentValue id) -> name = id.Name
@@ -384,7 +400,7 @@ module Util =
             | U2.Case2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
             |> fun body -> upcast FunctionExpression (args, body, ?loc=r)
 
-    let transformValue (com: IBabelCompiler) ctx r = function
+    let transformValue (com: IBabelCompiler) (ctx: Context) r = function
         | Fable.ImportRef (memb, path, kind) ->
             let memb, parts =
                 let parts = Array.toList(memb.Split('.'))
@@ -394,7 +410,7 @@ module Util =
         | Fable.This -> upcast ThisExpression ()
         | Fable.Super -> upcast Super ()
         | Fable.Null -> upcast NullLiteral ()
-        | Fable.IdentValue i -> upcast Identifier (i.Name)
+        | Fable.IdentValue i -> upcast Identifier i.Name
         | Fable.NumberConst (x,_) -> upcast NumericLiteral x
         | Fable.StringConst x -> upcast StringLiteral (x)
         | Fable.BoolConst x -> upcast BooleanLiteral (x)
@@ -431,7 +447,7 @@ module Util =
                         let tc =
                             match key with
                             | :? Identifier as id ->
-                                ClassTailCallOpportunity(id.name, args)
+                                ClassTailCallOpportunity(com, id.name, args)
                                 :> ITailCallOpportunity |> Some
                             | _ -> None
                         getMemberArgsAndBody com ctx tc args body m.GenericParameters m.HasRestParams
@@ -626,7 +642,7 @@ module Util =
 
         | Fable.VarDeclaration (var, Fable.Value(Fable.Lambda(args, body, captureThis)), false) ->
             let value =
-                let tc = NamedTailCallOpportunity(var.Name, args) :> ITailCallOpportunity |> Some
+                let tc = NamedTailCallOpportunity(com, var.Name, args) :> ITailCallOpportunity |> Some
                 com.TransformFunction ctx tc args body
                 ||> transformLambda body.Range captureThis
             [varDeclaration expr.Range (ident var) false value :> Statement]
@@ -749,12 +765,12 @@ module Util =
                     let arg = transformExpr com ctx arg
                     match Map.tryFind argId tempVars with
                     | Some tempVar ->
-                        yield varDeclaration None (identFromName tempVar) false arg :> Statement
+                        yield varDeclaration None (Identifier tempVar) false arg :> Statement
                     | None ->
-                        yield assign None (identFromName argId) arg |> ExpressionStatement :> Statement
+                        yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
                   for KeyValue(argId,tempVar) in tempVars do
-                    yield assign None (identFromName argId) (identFromName tempVar) |> ExpressionStatement :> Statement
-                  yield upcast ContinueStatement(identFromName tc.Label) ]
+                    yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
+                  yield upcast ContinueStatement(Identifier tc.Label) ]
             | _ ->
                 transformApply com ctx (callee, args, kind, range)
                 |> wrapIntExpression expr.Type |> resolve ret |> List.singleton
@@ -793,12 +809,7 @@ module Util =
             | [unitArg] when unitArg.Type = Fable.Unit ->
                 { ctx with isTailCallOptimized = false; tailCallOpportunity = None }, []
             | args ->
-                // Function arguments may contain delayed references to old arguments (see #681)
-                let tailcallChance =
-                    args |> List.exists (fun a ->
-                        match a.Type with Fable.Function _ -> true | _ -> false)
-                    |> function true -> None | false -> tailcallChance
-                let args = List.map (fun x -> ident x :> Pattern) args
+                let args = List.map ident args
                 { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }, args
         let body: U2<BlockStatement, Expression> =
             match body with
@@ -813,14 +824,22 @@ module Util =
                 if Option.isSome tailcallChance
                 then transformBlock com ctx (Some Return) body |> U2.Case1
                 else transformExpr com ctx body |> U2.Case2
-        let body =
+        let args, body =
             match ctx.isTailCallOptimized, tailcallChance, body with
-            | true, Some tailcallChance, U2.Case1 body ->
-                LabeledStatement(Identifier tailcallChance.Label,
+            | true, Some tc, U2.Case1 body ->
+                let args, body =
+                    if tc.ReplaceArgs
+                    then
+                        let statements =
+                            (List.zip args tc.Args, []) ||> List.foldBack (fun (arg, tempVar) acc ->
+                                (varDeclaration None arg false (Identifier tempVar) :> Statement)::acc)
+                        tc.Args |> List.map Identifier, block body.loc (statements@body.body)
+                    else args, body
+                args, LabeledStatement(Identifier tc.Label,
                     WhileStatement(BooleanLiteral true, body, ?loc=body.loc), ?loc=body.loc)
                 :> Statement |> List.singleton |> block body.loc |> U2.Case1
-            | _ -> body
-        args, body
+            | _ -> args, body
+        args |> List.map (fun x -> x :> Pattern), body
 
     let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
         let declareProperty com ctx name typ =
@@ -836,7 +855,7 @@ module Util =
             let args, body, returnType, typeParams =
                 let tc =
                     match name with
-                    | :? Identifier as id -> ClassTailCallOpportunity(id.name, args) :> ITailCallOpportunity |> Some
+                    | :? Identifier as id -> ClassTailCallOpportunity(com, id.name, args) :> ITailCallOpportunity |> Some
                     | _ -> None
                 getMemberArgsAndBody com ctx tc args body typeParams hasRestParams
             ClassMethod(kind, name, args, body, computed, isStatic,
@@ -948,7 +967,7 @@ module Util =
                 let bodyRange = body.Range
                 let id = defaultArg privName m.OverloadName
                 let args, body, returnType, typeParams =
-                    let tc = NamedTailCallOpportunity(id, args) :> ITailCallOpportunity
+                    let tc = NamedTailCallOpportunity(com, id, args) :> ITailCallOpportunity
                     getMemberArgsAndBody com ctx (Some tc) args body m.GenericParameters false
                 // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
