@@ -6,11 +6,11 @@
     <Version>1.0.0-alpha</Version>
     <DefineConstants>$(DefineConstants);DOTNET40</DefineConstants>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_CORHOST_SIGNER</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_LINKEDRESOURCES</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_PDB_READER</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_PDB_WRITER</DefineConstants>
+    <DefineConstants>$(DefineConstants);FX_NO_WEAKTABLE</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_COMPILER_BACKEND</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
     <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
