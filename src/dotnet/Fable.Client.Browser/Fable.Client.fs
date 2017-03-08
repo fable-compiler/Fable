@@ -143,7 +143,10 @@ let makeProjInfo (com: ICompiler) fileName =
         ReferencedProjects = [| |]
         IsIncompleteTypeCheckEnvironment = false
         UseScriptResolutionRules = false
-        LoadTime = DateTime.Now }
+        LoadTime = DateTime.Now
+        UnresolvedReferences = None
+        OriginalLoadReferences = []
+        ExtraProjectInfo = None }
     let filePairs =
         [fileName]
         |> Seq.map (fun fileName ->
