@@ -367,7 +367,6 @@ let runFableServer f =
 
 let runTestsJs () =
     Npm.install __SOURCE_DIRECTORY__ []
-    Npm.install "src/typescript/fable-loader" []
     runFableServer <| fun () ->
         Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]

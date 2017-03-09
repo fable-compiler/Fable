@@ -17,7 +17,6 @@
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
-
   "devDependencies": {
     "@types/node": "^7.0.5"
   },
