@@ -144,15 +144,6 @@ export function getPropertyNames(obj: any) {
   return Object.getOwnPropertyNames(propertyMap);
 }
 
-export function getUnionFields(obj: any) {
-  let fields = [];
-  for (let i = 97 /* 'a' */, j: string; i < 97 + (obj.size|0); i++) {
-    let j = String.fromCharCode(i);
-    fields.push(obj[j]);
-  }
-  return fields;
-}
-
 export function isArray(obj: any) {
   return Array.isArray(obj) || ArrayBuffer.isView(obj);
 }
@@ -297,9 +288,8 @@ export function equalsUnions(x: any, y: any): boolean {
     return false;
   }
   else {
-    for (let i = 97 /* 'a' */, j: string; i < 97 + x.size; i++) {
-      j = String.fromCharCode(i);
-      if (!equals(x[j], y[j]))
+    for (let i = 0; i < x.fields.length; i++) {
+      if (!equals(x.fields[i], y.fields[i]))
         return false;
     }
     return true;
@@ -315,9 +305,8 @@ export function compareUnions(x: any, y: any): number {
     let res = x.tag < y.tag ? -1 : (x.tag > y.tag ? 1 : 0);
     if (res !== 0)
       return res;
-    for (let i = 97 /* 'a' */, j: string; i < 97 + x.size; i++) {
-      j = String.fromCharCode(i);
-      res = compare(x[j], y[j]);
+    for (let i = 0; i < x.fields.length; i++) {
+      res = compare(x.fields[i], y.fields[i]);
       if (res !== 0)
         return res;
     }

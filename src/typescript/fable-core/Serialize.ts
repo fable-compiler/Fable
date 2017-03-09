@@ -6,7 +6,7 @@ import FableSet from "./Set"
 import FableMap from "./Map"
 import { create as mapCreate } from "./Map"
 import { create as setCreate } from "./Set"
-import { NonDeclaredType, getDefinition, getUnionFields } from "./Util"
+import { NonDeclaredType, getDefinition } from "./Util"
 import { fold } from "./Seq"
 import { resolveGeneric, getTypeFullName } from "./Reflection"
 import { parse as dateParse } from "./Date"
@@ -46,11 +46,11 @@ function deflate(v: any) {
       }
       else if (fieldsLength === 1) {
         // Prevent undefined assignment from removing case property; see #611:
-        const fieldValue = typeof v.a === 'undefined' ? null : v.a;
+        const fieldValue = typeof v.fields[0] === 'undefined' ? null : v.fields[0];
         return { [caseName]: fieldValue };
       }
       else {
-        return { [caseName]: getUnionFields(v) };
+        return { [caseName]: v.fields };
       }
     }
   }
@@ -176,10 +176,10 @@ function inflateUnion(val: any, typ: FunctionConstructor, info: any, path: strin
   if (caseInfo.length > 1) {
       const fields = caseInfo.length > 2 ? val[caseName] : [val[caseName]];
       path = combine(path, caseName);
-      newVal.size = fields.length;
       for (let i = 0; i < fields.length; i++) {
-          newVal[String.fromCharCode(97 /*'a'*/ + i)] =
-            inflateField ? inflateField(fields[i], caseInfo[i + 1], combine(path, i)) : fields[i];
+          newVal.fields.push(inflateField
+            ? inflateField(fields[i], caseInfo[i + 1], combine(path, i))
+            : fields[i]);
       }
   }
   return newVal;
@@ -306,9 +306,9 @@ export function toJsonWithTypeInfo(o: any): string {
         }, { $type: info.type }, Object.getOwnPropertyNames(info.properties));
       }
       else if (info.cases) {
-        const uci = info.cases[v.tag], fields = getUnionFields(v);
+        const uci = info.cases[v.tag];
         return {
-          [uci[0]]: uci.length <= 2 ? fields[0] : fields,
+          [uci[0]]: uci.length <= 2 ? v.fields[0] : v.fields,
           $type: info.type
         };
       }

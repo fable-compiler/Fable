@@ -294,20 +294,14 @@ let rec makeTypeTest com range (typ: Type) expr =
         |> attachRange range |> failwith
 
 let makeUnionCons cases =
-    let maxFields = cases |> Seq.map (snd >> List.length) |> Seq.max
-    let args =
-        let tag = Ident("tag", Number Int32)
-        match maxFields with
-        | 0 -> [tag]
-        | i -> tag::[for j=0 to (i-1) do yield Ident(97 + j |> char |> string, Any)]
-    let body =
-        args |> List.map (fun arg ->
-            Set(Value This, Some(makeStrConst arg.Name), arg |> IdentValue |> Value, None))
-        |> fun setters ->
-            let argsLength = makeIdentExpr "arguments" |> makeGet None (Number Int32) <| makeStrConst "length"
-            let setSize = Set(Value This, Some(makeStrConst "size"), makeBinOp None (Number Int32) [argsLength; makeIntConst 1] BinaryMinus, None)
-            Sequential(setSize::setters, None)
-    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, None)
+    let args = [Ident("tag", String); Ident("fields", Array Any)]
+    let argTypes = List.map Ident.getType args
+    let setter1 = Set(Value This, Some(makeStrConst "tag"), Value(IdentValue args.[0]), None)
+    let setter2 =
+        let binOp = Apply(Value (LogicalOp LogicalOr), [Value(IdentValue args.[1]); Value(ArrayConst(ArrayValues [], Any))], ApplyMeth, Array Any, None)
+        Set(Value This, Some(makeStrConst "fields"), binOp, None)
+    let body = Sequential([setter1; setter2], None)
+    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), None, args, body, None)
 
 // This is necessary when extending built-in JS types and compiling to ES5
 // See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work

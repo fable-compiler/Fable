@@ -15,7 +15,7 @@ function join(arg) {
 module.exports = function(buffer) {
     this.cacheable();
     var callback = this.async();
-    var opts = this.loaders[0].options;
+    var opts = this.loaders[0].options || {};
     var port = or(opts.port, DEFAULT_PORT);
 
     var babelOptions = opts.babel || {};

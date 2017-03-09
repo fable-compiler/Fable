@@ -1,4 +1,4 @@
-import { NonDeclaredType, getPropertyNames, getDefinition, getUnionFields as utilGetUnionFields } from "./Util"
+import { NonDeclaredType, getPropertyNames, getDefinition } from "./Util"
 import List from "./List"
 import FSymbol from "./Symbol"
 
@@ -160,7 +160,7 @@ export function getUnionFields(obj: any, typ?: any): any[] {
     if (info.cases) {
       const uci = info.cases[obj.tag];
       if (uci != null) {
-        return [new MemberInfo(uci[0], obj.tag, typ, null, uci.slice(1)), utilGetUnionFields(obj)];
+        return [new MemberInfo(uci[0], obj.tag, typ, null, uci.slice(1)), obj.fields];
       }
     }
   }

@@ -360,36 +360,21 @@ let runTestsDotnet () =
 
     Util.run "src/tests/Main" dotnetExePath "test"
 
+let runFableServer f =
+    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/Fable.Server.dll"
+    try f()
+    finally fableServer.Kill()
+
 let runTestsJs () =
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.install "src/typescript/fable-loader" []
-    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/Fable.Server.dll"
-    Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
+    runFableServer <| fun () ->
+        Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
-    fableServer.Kill()
-
-let compileAndRunMochaTests es2015 =
-    let testsBuildDir = "build/tests"
-    let testCompileArgs =
-        ["--verbose" + if es2015 then " --ecma es2015" else ""]
-
-    // Node.run "." "build/fable" ["src/tests/DllRef --verbose"]
-    Node.run "." "build/fable" ("src/tests/"::testCompileArgs)
-    FileUtils.cp "src/tests/package.json" testsBuildDir
-    Npm.install testsBuildDir []
-    Npm.script testsBuildDir "test" []
 
 let quickTest isES2015 _ =
-    let fableArgs = [
-        yield "src/tools/QuickTest.fsx"
-        yield "--verbose"
-        yield "-o src/tools/temp"
-        yield "-m commonjs"
-        yield "--refs Fable.Core=./build/fable-core/umd"
-        yield "--extra noVersionCheck"
-        if isES2015 then yield "--ecma es2015"
-    ]
-    Node.run "." "build/Fable" fableArgs
+    runFableServer <| fun () ->
+        Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tools/webpack.config.js"]
     Node.run "." "src/tools/temp/QuickTest.js" []
 
 Target "QuickTest" (quickTest false)
