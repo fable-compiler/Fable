@@ -1,0 +1,18 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <FableTasksLib>$(MSBuildThisFileDirectory)\bin\Debug\netstandard1.4\FableTasks.dll</FableTasksLib>
+  </PropertyGroup>
+
+  <UsingTask AssemblyFile="$(FableTasksLib)" TaskName="Fable.ResolveFableReferences" />
+
+  <Target Name="Fable">
+    <Fable.ResolveFableReferences Input="@(FableReference)" ProjectDirectory="$(MSBuildProjectDirectory)">
+        <Output ItemName="ResolvedFableReference" TaskParameter="Result" />
+    </Fable.ResolveFableReferences>
+
+    <ItemGroup>
+        <ProjectReference Include="@(ResolvedFableReference)" />
+    </ItemGroup>
+  </Target>
+
+</Project>
