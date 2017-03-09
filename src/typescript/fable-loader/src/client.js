@@ -28,22 +28,19 @@ var isPortFree = function(port) {
   })
 };
 
-function getFreePort(port) {
+exports.getFreePort = function(port) {
   var port = port || getRandomInt(1000, 10000);
-  // console.log("Checking port " + port + "...");
   return isPortFree(port).then(res =>
     res ? port : getFreePort()
   );
 }
 
-function send(port, msg, callback) {
+exports.send = function(port, msg) {
   return new Promise((resolve, reject) => {
     var buffer = "";
-    // console.log("Start client to connect to port " + port)
     var client = new net.Socket(), resolved = false;
 
     client.connect(port, HOST, function() {
-      // console.log('Send ' + msg + ' to ' + HOST + ':' + port);
       client.write(msg);
     });
 
@@ -59,7 +56,6 @@ function send(port, msg, callback) {
     });
 
     client.on('close', function() {
-      // console.log('Client connection closed');
       if (!resolved) {
         resolved = true;
         resolve(buffer);
@@ -67,6 +63,3 @@ function send(port, msg, callback) {
     });
   });
 }
-
-exports.getFreePort = getFreePort;
-exports.send = send;

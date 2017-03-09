@@ -364,7 +364,7 @@ let runTestsJs () =
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.install "src/typescript/fable-loader" []
     let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/Fable.Server.dll"
-    Node.run "src/tests" "../../node_modules/webpack/bin/webpack.js" []
+    Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
     fableServer.Kill()
 

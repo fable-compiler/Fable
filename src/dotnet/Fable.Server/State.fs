@@ -146,11 +146,13 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 Converters=[|Json.ErasedUnionConverter()|],
                 NullValueHandling=NullValueHandling.Ignore,
                 StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
-        fun (replyChannel: string->unit) (value: obj) ->
+        fun (replyChannel: string->unit) fileName (value: obj) ->
+            fileName |> Option.iter (printfn "Fable server sent: %s")
             JsonConvert.SerializeObject(value, jsonSettings) |> replyChannel
     let rec loop (checker: FSharpChecker) (com: Compiler) (state: State option) = async {
         let! (Parse msg), replyChannel = agent.Receive()
         try
+            printfn "Fable server received: %s" msg.path
             let com, state =
                 match state with
                 | Some state ->
@@ -182,19 +184,23 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
             FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
             |> Fable2Babel.Compiler.transformFile com state
             |> addLogs com
-            |> toJsonAndReply replyChannel
+            |> toJsonAndReply replyChannel (Some fileName)
             return! loop checker com (Some state)
         with
         | :? FableError as err ->
+            let errMessage = err.FormattedMessage
+            printfn "%s" errMessage
             // Don't print stack trace for known Fable errors
-            ["error", dict ["message", err.FormattedMessage]]
-            |> dict |> toJsonAndReply replyChannel
+            ["error", dict ["message", errMessage]]
+            |> dict |> toJsonAndReply replyChannel None
             return! loop checker com state
         | ex ->
             let rec innerStack (ex: Exception) =
                 if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
-            ["error", dict ["message", ex.Message; "stack", innerStack ex]]
-            |> dict |> toJsonAndReply replyChannel
+            let stack = innerStack ex
+            printfn "ERROR: %s\n%s" ex.Message stack
+            ["error", dict ["message", ex.Message; "stack", stack]]
+            |> dict |> toJsonAndReply replyChannel None
             return! loop checker com state
     }
     let compiler = Compiler(getDefaultOptions(), [])
