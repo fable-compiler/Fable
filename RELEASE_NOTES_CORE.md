@@ -1,3 +1,7 @@
+### 1.0.0-narumi-1
+
+* Test
+
 ### 0.7.28
 
 * Fix exception propagation with Async.Bind: #724

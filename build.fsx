@@ -9,6 +9,7 @@ open System.Collections.Generic
 open Fake
 open Fake.AssemblyInfoFile
 open Fake.Git
+open Fake.ReleaseNotesHelper
 open Octokit
 
 #if MONO
@@ -201,8 +202,9 @@ let authors = ["Alfonso García-Caro"]
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
 
-let releaseCompiler = Util.loadReleaseNotes "COMPILER"
 let releaseCore = Util.loadReleaseNotes "CORE"
+let releaseCompiler = Util.loadReleaseNotes "COMPILER"
+let releaseTools = Util.loadReleaseNotes "TOOLS"
 
 let dotnetcliVersion = "1.0.1"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
@@ -380,17 +382,38 @@ Target "QuickTest" (quickTest false)
 
 Target "QuickTestES2015" (quickTest true)
 
-Target "PublishCore" (fun _ ->
-    // Check if version is prerelease or not
-    if releaseCore.Value.NugetVersion.IndexOf("-") > 0 then ["--tag next"] else []
-    |> Npm.command "build/fable-core" "publish"
-)
+let pushNuget (releaseNotes: ReleaseNotes) projFile =
+    let mutable updated: bool option = None
+    let version = releaseNotes.NugetVersion
+    let reg = Regex("<Version>(.*?)</Version>")
+    let projFile = __SOURCE_DIRECTORY__ </> projFile
+    projFile |> Util.visitFile (fun line ->
+        match updated with
+        | Some updated -> line
+        | None ->
+            let m = reg.Match(line)
+            if not m.Success
+            then line
+            elif m.Groups.[1].Value = version
+            then updated <- Some false; line
+            else
+                updated <- Some true
+                reg.Replace(line, "<Version>"+version+"</Version>"))
+    // Publish package if version has been updated
+    match updated with
+    | Some true ->
+        let projDir = Path.GetDirectoryName(projFile)
+        Util.run projDir dotnetExePath "pack -c Release"
+        Directory.GetFiles(projDir </> "bin/Release", "*.nupkg")
+        |> Array.tryHead |> Option.iter (fun nupkg ->
+            sprintf "nuget push %s -s nuget.org" nupkg
+            |> Util.run projDir dotnetExePath)
+    | _ -> ()
 
-Target "PublishCompiler" (fun _ ->
-    // Check if version is prerelease or not
-    if releaseCompiler.Value.NugetVersion.IndexOf("-") > 0 then ["--tag next"] else []
-    |> Npm.command "build/fable" "publish"
-)
+let publishFableNugetPackages () =
+    pushNuget releaseCore.Value     "src/dotnet/Fable.Core/Fable.Core.fsproj"
+    pushNuget releaseCompiler.Value "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
+    pushNuget releaseTools.Value    "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
 
 let publishNugetPackage pkg =
     let release =
@@ -475,6 +498,13 @@ Target "FableCompilerDebug" (buildCompiler false)
 // Target "FableCoreDebug" (buildCore false)
 Target "FableCoreDebugJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
+
+Target "PublishNugetPackages" (fun () ->
+    installDotnetSdk ()
+    clean ()
+    nugetRestore ()
+    publishFableNugetPackages ()
+)
 
 Target "All" (fun () ->
     installDotnetSdk ()
