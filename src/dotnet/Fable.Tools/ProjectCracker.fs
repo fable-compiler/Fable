@@ -149,6 +149,7 @@ let crackFsproj (projFile: string) =
             src1@src2, prj1@prj2, dll1@dll2)
     let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
     let reg = Regex("\\.fs[ix]?$")
+    let isNpmPkg = projDir.Contains("node_modules")
     { projectFile = projFile
     ; sourceFiles =
         sourceFiles
@@ -156,7 +157,11 @@ let crackFsproj (projFile: string) =
         |> List.map (fun fileName -> Path.Combine(projDir, Path.normalizePath fileName) |> Path.GetFullPath)
     ; projectReferences =
         projectReferences
-        |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath)
+        |> List.map (fun projRef ->
+            // Resolve NodeModulesDir MSBuild property for libraries
+            // See "How to write a Fable library" for more info
+            let projRef = projRef.Replace("$(NodeModulesDir)", if isNpmPkg then ".." else "node_modules")
+            Path.Combine(projDir, Path.normalizePath projRef) |> Path.GetFullPath)
     ; dllReferences =
         relativeDllReferences
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }

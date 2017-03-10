@@ -45,6 +45,6 @@ let main argv =
 """
     | Some "--version" -> printfn "%O" version.Value
     | Some "start" -> argv.[1..] |> argsToMap |> startServer
-    | Some cmd -> failwithf "Unrecognized command: %s. Use `dotnet fable --help` to see available options" cmd
-    | None -> failwith "Command missing. Use `dotnet fable --help` to see available options"
+    | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options" cmd
+    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options"
     0
