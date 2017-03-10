@@ -1,6 +1,14 @@
+### 0.7.49
+
+* Fix #744: CLI argument flags
+
+### 0.7.48
+
+* Fix #736: Case testing with erased unions
+
 ### 0.7.47
 
-* Tailcall optmize function arguments: #681
+* Tailcall optimizes function arguments: #681
 
 ### 0.7.45
 

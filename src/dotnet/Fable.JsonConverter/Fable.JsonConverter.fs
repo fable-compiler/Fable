@@ -11,7 +11,10 @@ module ReflectionAdapters =
 
     type System.Type with
         member this.IsValueType = this.GetTypeInfo().IsValueType
-        member this.GetGenericArguments() = this.GetTypeInfo().GenericTypeArguments
+        member this.IsGenericType = this.GetTypeInfo().IsGenericType
+        member this.GetMethod(name) = this.GetTypeInfo().GetMethod(name)
+        member this.GetGenericArguments() = this.GetTypeInfo().GetGenericArguments()
+        member this.MakeGenericType(args) = this.GetTypeInfo().MakeGenericType(args)
         member this.GetCustomAttributes(inherits : bool) : obj[] =
             downcast box(CustomAttributeExtensions.GetCustomAttributes(this.GetTypeInfo(), inherits) |> Seq.toArray)
 #endif
@@ -33,6 +36,43 @@ type Kind =
     | PojoDU = 4
     | StringEnum = 5
     | DateTime = 6
+    | MapOrDictWithNonStringKey = 7
+
+/// Helper for serializing map/dict with non-primitive, non-string keys such as unions and records.
+/// Performs additional serialization/deserialization of the key object and uses the resulting JSON
+/// representation of the key object as the string key in the serialized map/dict.
+type MapSerializer<'k,'v when 'k : comparison>() =
+    static member Deserialize(t:Type, reader:JsonReader, serializer:JsonSerializer) =
+        let dictionary =
+            serializer.Deserialize<Dictionary<string,'v>>(reader)
+                |> Seq.fold (fun (dict:Dictionary<'k,'v>) kvp ->
+                    use tempReader = new System.IO.StringReader(kvp.Key)
+                    let key = serializer.Deserialize(tempReader, typeof<'k>) :?> 'k
+                    dict.Add(key, kvp.Value)
+                    dict
+                    ) (Dictionary<'k,'v>())
+        if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<Map<_,_>>
+        then dictionary |> Seq.map (|KeyValue|) |> Map.ofSeq :> obj
+        elif t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>>
+        then dictionary :> obj
+        else failwith "MapSerializer input type wasn't a Map or a Dictionary"
+    static member Serialize(value: obj, writer:JsonWriter, serializer:JsonSerializer) =
+        let kvpSeq =
+            match value with
+            | :? Map<'k,'v> as mapObj -> mapObj |> Map.toSeq
+            | :? Dictionary<'k,'v> as dictObj -> dictObj |> Seq.map (|KeyValue|)
+            | _ -> failwith "MapSerializer input value wasn't a Map or a Dictionary"
+        writer.WriteStartObject()
+        use tempWriter = new System.IO.StringWriter()
+        kvpSeq
+            |> Seq.iter (fun (k,v) ->
+                let key =
+                    tempWriter.GetStringBuilder().Clear() |> ignore
+                    serializer.Serialize(tempWriter, k)
+                    tempWriter.ToString()
+                writer.WritePropertyName(key)
+                serializer.Serialize(writer, v) )
+        writer.WriteEndObject()
 
 module private Cache =
     let jsonConverterTypes = ConcurrentDictionary<Type,Kind>()
@@ -86,6 +126,11 @@ type JsonConverter() =
                 then Kind.Tuple
                 elif (FSharpType.IsUnion t && t.Name <> "FSharpList`1")
                 then getUnionKind t
+                elif t.IsGenericType
+                    && (t.GetGenericTypeDefinition() = typedefof<Map<_,_>> || t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>>)
+                    && t.GetGenericArguments().[0] <> typeof<string>
+                then
+                    Kind.MapOrDictWithNonStringKey
                 else Kind.Other)
         kind <> Kind.Other
 
@@ -138,6 +183,11 @@ type JsonConverter() =
                     then serializer.Serialize(writer, fields.[0])
                     else serializer.Serialize(writer, fields)
                     writer.WriteEndObject()
+            | true, Kind.MapOrDictWithNonStringKey ->
+                let mapTypes = t.GetGenericArguments()
+                let mapSerializer = typedefof<MapSerializer<_,_>>.MakeGenericType mapTypes
+                let mapSerializeMethod = mapSerializer.GetMethod("Serialize")
+                mapSerializeMethod.Invoke(null, [| value; writer; serializer |]) |> ignore
             | true, _ ->
                 serializer.Serialize(writer, value)
 
@@ -210,6 +260,11 @@ type JsonConverter() =
                     FSharpValue.MakeUnion(uci, [|value|])
             | JsonToken.Null -> null // for { "union": null }
             | _ -> failwith "invalid token"
+        | true, Kind.MapOrDictWithNonStringKey ->
+            let mapTypes = t.GetGenericArguments()
+            let mapSerializer = typedefof<MapSerializer<_,_>>.MakeGenericType mapTypes
+            let mapDeserializeMethod = mapSerializer.GetMethod("Deserialize")
+            mapDeserializeMethod.Invoke(null, [| t; reader; serializer |])
         | true, _ ->
             serializer.Deserialize(reader, t)
 
@@ -240,6 +295,8 @@ open Fable.Core
 
 type [<Pojo>] U = MyCase of ja:int * jo:string
 type [<StringEnum>] U2 = Foo | [<CompiledName("B-A-R")>] Bar
+type UnionKey = K1 | K2 of string
+type RecordKey = { Key: string }
 
 module Test =
     let test (o: 'T) =
@@ -252,4 +309,41 @@ module Test =
     test Foo
     test Bar
     test <| DateTime(2016, 12, 13, 8, 00, 0)
+
+    let printDict (d:Dictionary<_,_>) =
+        printf "Dictionary [ "
+        d.Keys |> Seq.iter (fun k -> printf "(%A, %A) " k d.[k])
+        printfn "]"
+
+    let testDict (o: 'T) =
+        let json = JsonConvert.SerializeObject(o, JsonConverter())
+        printfn "%s" json
+        let o2 = JsonConvert.DeserializeObject<'T>(json, JsonConverter())
+        printDict o2
+
+    // maps with union and record keys #697
+    printfn "\n** map/dict with union and record keys:"
+    let mapUnionKey = [ (K1,1); (K2 "two",2); (K2 "three",3) ] |> Map.ofList
+    let mapRecordKey = [ ({Key="one"},1); ({Key="two"},2) ] |> Map.ofList
+
+    test mapUnionKey
+    test mapRecordKey
+
+    let dictUnionKey = Dictionary(mapUnionKey)
+    let dictRecordKey = Dictionary(mapRecordKey)
+
+    testDict dictUnionKey
+    testDict dictRecordKey
+
+    // backward compatibility; ensure map with simple key serialized by previous version can still be deserialized
+    printfn "\n** deserialization of previous simple key serialization:"
+    let prevSerializedStringKey = "{\"one\":1,\"two\":2}"
+    let prevSerializedIntKey = "{\"1\":\"one\",\"2\":\"two\"}"
+
+    printfn "%A" (JsonConvert.DeserializeObject<Map<string,int>>(prevSerializedStringKey, JsonConverter()))
+    printfn "%A" (JsonConvert.DeserializeObject<Map<int,string>>(prevSerializedIntKey, JsonConverter()))
+
+    printDict (JsonConvert.DeserializeObject<Dictionary<string,int>>(prevSerializedStringKey, JsonConverter()))
+    printDict (JsonConvert.DeserializeObject<Dictionary<int,string>>(prevSerializedIntKey, JsonConverter()))
+
 #endif

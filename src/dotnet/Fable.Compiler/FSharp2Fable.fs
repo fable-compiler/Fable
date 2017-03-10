@@ -628,27 +628,27 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
         makeTypeTest com (makeRangeFrom fsExpr) typ expr
 
-    | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr, fsType, unionCase) ->
+    | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr, NonAbbreviatedType fsType, unionCase) ->
         let checkCase propName right =
             let left = makeGet None Fable.String unionExpr (makeStrConst propName)
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
         match fsType with
         | ErasedUnion ->
-            let unionType = makeType com ctx.typeArgs fsType
+            let unionName = defaultArg fsType.TypeDefinition.TryFullName "unknown"
             if unionCase.UnionCaseFields.Count <> 1 then
-                FableError("Erased Union Cases must have one single field: "
-                            + unionType.FullName, makeRange fsExpr.Range) |> raise
+                FableError("Erased Union Cases must have one single field: " + unionName, makeRange fsExpr.Range) |> raise
             else
-                let typ =
-                    let m = Regex.Match(unionCase.Name, @"^Case(\d+)$")
-                    if m.Success
-                    then
-                        let idx = int m.Groups.[1].Value - 1
-                        if fsType.GenericArguments.Count > idx
-                        then makeType com ctx.typeArgs fsType.GenericArguments.[idx]
-                        else unionType
-                    else unionType
-                makeTypeTest com (makeRangeFrom fsExpr) typ unionExpr
+                let fi = unionCase.UnionCaseFields.[0]
+                if fi.FieldType.IsGenericParameter
+                then
+                    let name = fi.FieldType.GenericParameter.Name
+                    let index =
+                        fsType.TypeDefinition.GenericParameters
+                        |> Seq.findIndex (fun arg -> arg.Name = name)
+                    fsType.GenericArguments |> Seq.item index
+                else fi.FieldType
+                |> makeType com ctx.typeArgs
+                |> makeTypeTest com (makeRangeFrom fsExpr) <| unionExpr
         | OptionUnion ->
             let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
             makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.Value Fable.Null] opKind
