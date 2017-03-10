@@ -212,7 +212,7 @@ let coreBuildDir = "build/fable-core"
 let testsBuildDir = "build/tests"
 let coreSrcDir = "src/dotnet/Fable.Core"
 let compilerSrcDir = "src/dotnet/Fable.Compiler"
-let serverSrcDir = "src/dotnet/Fable.Server"
+let toolsSrcDir = "src/dotnet/Fable.Tools"
 
 
 // Targets
@@ -289,7 +289,7 @@ let clean () =
 let nugetRestore () =
     Util.run coreSrcDir dotnetExePath "restore"
     Util.run compilerSrcDir dotnetExePath "restore"
-    Util.run serverSrcDir dotnetExePath "restore"
+    Util.run toolsSrcDir dotnetExePath "restore"
 
 let buildCompilerJs () =
     Npm.install "src/typescript/fable-compiler" []
@@ -318,7 +318,7 @@ let buildCompilerJs () =
 let buildCompiler isRelease () =
     sprintf "publish -o ../../../%s -c %s"
         compilerBuildDir (if isRelease then "Release" else "Debug")
-    |> Util.run serverSrcDir dotnetExePath
+    |> Util.run toolsSrcDir dotnetExePath
 
     // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
     FileUtils.cp (compilerBuildDir + "/runtimes/any/native/FSharp.Core.optdata") compilerBuildDir
@@ -361,7 +361,7 @@ let runTestsDotnet () =
     Util.run "src/tests/Main" dotnetExePath "test"
 
 let runFableServer f =
-    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/Fable.Server.dll"
+    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll start"
     try f()
     finally fableServer.Kill()
 

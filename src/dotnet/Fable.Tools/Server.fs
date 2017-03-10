@@ -36,11 +36,14 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
             let stream = client.GetStream()
             let i = stream.Read(buffer, 0, buffer.Length)
             let data = Encoding.UTF8.GetString(buffer, 0, i)
-            onMessage(data, fun (reply: string) ->
-                let msg = Encoding.UTF8.GetBytes(reply)
-                stream.Write(msg, 0, msg.Length)
-                client.Dispose())
-            return! loop timeout server buffer onMessage
+            if data = "[SIGTERM]"
+            then return ()
+            else
+                onMessage(data, fun (reply: string) ->
+                    let msg = Encoding.UTF8.GetBytes(reply)
+                    stream.Write(msg, 0, msg.Length)
+                    client.Dispose())
+                return! loop timeout server buffer onMessage
         | None ->
             printfn "Timeout (%ims) reached. Closing server..." timeout
             return ()
@@ -53,5 +56,6 @@ let start port timeout onMessage =
     let buffer = Array.zeroCreate<byte> 8192
     let server = new TcpListener(IPAddress.Parse("127.0.0.1"), port)
     server.Start()
-    printfn "Fable server started on port %i" port
+    printfn "Fable server started on port %i%s" port
+        (if timeout >= 0 then sprintf " (timeout %ims)" timeout else "")
     loop timeout server buffer onMessage
