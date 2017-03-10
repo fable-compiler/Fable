@@ -25,6 +25,21 @@ module Util =
             when coreMod' = coreMod -> Some CoreCons
         | _ -> None
 
+    let (|UnionCons|_|) expr =
+        match expr with
+        | Fable.Apply(_, args, Fable.ApplyCons, Fable.DeclaredType(ent, _), _) ->
+            match ent.Kind with
+            | Fable.Union cases ->
+                match args with
+                | [Fable.Value(Fable.NumberConst(tag, _))] ->
+                    Some(int tag, [], cases)
+                | [Fable.Value(Fable.NumberConst(tag, _));
+                    Fable.Value(Fable.ArrayConst(Fable.ArrayValues fields, _))] ->
+                    Some(int tag, fields, cases)
+                | _ -> None
+            | _ -> None
+        | _ -> None
+
     let (|Null|_|) = function
         | Fable.Wrapped(Fable.Value Fable.Null,_)
         | Fable.Value Fable.Null -> Some null
@@ -552,22 +567,28 @@ module AstPass =
             Fable.Apply(i.args.Head, args, applyMeth, i.returnType, i.range) |> Some
         | "op_EqualsEqualsGreater" ->
             Fable.TupleConst(List.take 2 i.args) |> Fable.Value |> Some
-        | "createObj" ->
+        | "createObj" | "keyValueList" ->
             let (|Fields|_|) = function
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, _)) ->
-                    exprs
-                    |> List.choose (function
-                        | Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
-                            Some(key, value)
+                    (Some [], exprs) ||> List.fold (fun acc e ->
+                        match acc, e with
+                        | Some acc, Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
+                            (key, value)::acc |> Some
+                        | Some acc, UnionCons(tag, fields, cases) ->
+                            let key = cases |> List.item tag |> fst |> Naming.lowerFirst
+                            let value =
+                                match fields with
+                                | [] -> Fable.Value(Fable.BoolConst true)
+                                | [expr] -> expr
+                                | exprs -> Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, Fable.Any))
+                            (key, value)::acc |> Some
                         | _ -> None)
-                    |> function
-                        | fields when fields.Length = exprs.Length -> Some fields
-                        | _ -> None
+                    |> Option.map List.rev
                 | _ -> None
             match i.args.Head with
             | CoreCons "List" ->
                 makeJsObject i.range [] |> Some
-            | Fable.Apply(_, [Fields fields], _, _, _) ->
+            | Fable.Apply(CoreMeth "List" "ofArray" _, [Fields fields], _, _, _) ->
                 makeJsObject i.range fields |> Some
             | _ ->
                 CoreLibCall("Util", Some "createObj", false, i.args)

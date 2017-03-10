@@ -62,43 +62,36 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
     o?foo <- fun x y -> x / y
     o?foo(25, 5) |> unbox<int> |> equal 5
 
-// [<Test>]
-// let ``JS accepts any object as exception``() =
-//     try
-//         let o = createObj [ "foo" ==> 3 ]
-//         raise(unbox o)
-//     with ex -> ex.Message
-//     |> equal """{"foo":3}"""
-
-[<KeyValueList>]
 type MyOptions =
     | Flag1
     | Name of string
-    | [<CompiledName("QTY")>] QTY of int
+    | [<CompiledName("foo")>] QTY of int
 
 [<Test>]
-let ``KeyValueList attribute works at compile time``() =
-    let opts = [
-        Name "Fable"
-        QTY 5
-        Flag1
-    ]
+let ``KeyValueList works at compile time``() =
+    let opts =
+        keyValueList [
+            Name "Fable"
+            QTY 5
+            Flag1
+        ]
     opts?name |> unbox |> equal "Fable"
-    opts?QTY |> unbox |> equal 5
+    opts?foo |> unbox |> equal 5
     opts?flag1 |> unbox |> equal true
 
 [<Test>]
-let ``KeyValueList attribute works at runtime``() =
+let ``KeyValueList works at runtime``() =
     let buildAtRuntime = function
         | null | "" -> Flag1
         | name -> Name name
-    let opts = [
-        buildAtRuntime "Fable"
-        QTY 5
-        buildAtRuntime ""
-    ]
+    let opts =
+        keyValueList [
+            buildAtRuntime "Fable"
+            QTY 5
+            buildAtRuntime ""
+        ]
     opts?name |> unbox |> equal "Fable"
-    opts?QTY |> unbox |> equal 5
+    opts?foo |> unbox |> equal 5
     opts?flag1 |> unbox |> equal true
 
 let [<Emit("arguments.length")>] argCount: int = jsNative

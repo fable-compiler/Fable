@@ -323,9 +323,27 @@ export function createDisposable(f: () => void): IDisposable {
 
 export function createObj(fields: Iterable<[string, any]>) {
   const iter = fields[Symbol.iterator]();
-  let cur = iter.next(), o: any = {};
+  let cur = iter.next(), o: any = {}, value: any = null,
+    cases: any = null, caseInfo: any = null, key: string = null;
   while (!cur.done) {
-    o[cur.value[0]] = cur.value[1];
+    value = cur.value;
+    if (Array.isArray(value)) {
+      o[value[0]] = value[1];
+    }
+    else {
+      if (cases == null && typeof value[FSymbol.reflection] === "function") {
+        cases = value[FSymbol.reflection]().cases;
+      }
+      if (cases != null && Array.isArray(caseInfo = cases[value.tag])) {
+        key = caseInfo[0];
+        key = key[0].toLowerCase() + key.substr(1)
+        o[key] = caseInfo.length === 1
+          ? true : (caseInfo.length === 2 ? value.fields[0] : value.fields);
+      }
+      else {
+        throw new Error("Cannot infer key and value of " + value)
+      }
+    }
     cur = iter.next();
   }
   return o;

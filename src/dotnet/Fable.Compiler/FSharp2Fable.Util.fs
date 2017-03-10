@@ -82,7 +82,6 @@ module Atts =
     let erase = typeof<Fable.Core.EraseAttribute>.FullName
     let pojo = typeof<Fable.Core.PojoAttribute>.FullName
     let stringEnum = typeof<Fable.Core.StringEnumAttribute>.FullName
-    let keyValueList = typeof<Fable.Core.KeyValueListAttribute>.FullName
     let passGenerics = typeof<Fable.Core.PassGenericsAttribute>.FullName
 
 module Helpers =
@@ -614,7 +613,7 @@ module Patterns =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList)
 
-    let (|OptionUnion|ListUnion|ErasedUnion|KeyValueUnion|StringEnum|PojoUnion|OtherType|) (typ: FSharpType) =
+    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|PojoUnion|OtherType|) (typ: FSharpType) =
         match tryDefinition typ with
         | None -> OtherType
         | Some tdef ->
@@ -627,7 +626,6 @@ module Patterns =
                 |> Seq.tryPick (fun name ->
                     if name = Atts.erase then Some ErasedUnion
                     elif name = Atts.stringEnum then Some StringEnum
-                    elif name = Atts.keyValueList then Some KeyValueUnion
                     elif name = Atts.pojo then Some PojoUnion
                     else None)
                 |> defaultArg <| OtherType
@@ -763,8 +761,14 @@ module Types =
                 | _ -> None)
             |> Seq.toList
         let makeCases (tdef: FSharpEntity) =
-            tdef.UnionCases |> Seq.map (fun x ->
-                x.Name, [for fi in x.UnionCaseFields do yield makeType com [] fi.FieldType])
+            tdef.UnionCases |> Seq.map (fun uci ->
+                let name =
+                    uci.Attributes
+                    |> tryFindAtt ((=) Atts.compiledName)
+                    |> function
+                        | Some name -> name.ConstructorArguments.[0] |> snd |> string
+                        | None -> uci.Name
+                name, [for fi in uci.UnionCaseFields do yield makeType com [] fi.FieldType])
             |> Seq.toList
         let getKind () =
             if tdef.IsInterface then Fable.Interface
@@ -851,9 +855,7 @@ module Types =
             |> Seq.tryPick (fun name ->
                 if name = Atts.stringEnum
                 then Some Fable.String
-                elif name = Atts.erase
-                    || name = Atts.keyValueList
-                    || name = Atts.pojo
+                elif name = Atts.erase || name = Atts.pojo
                 then Some Fable.Any
                 else None)
             |> defaultArg <|

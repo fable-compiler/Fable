@@ -44,12 +44,6 @@ type PassGenericsAttribute() =
 type PojoAttribute() =
     inherit Attribute()
 
-/// Compile union case lists as JS object literals.
-/// More info: http://fable.io/docs/interacting.html#KeyValueList-attribute
-[<AttributeUsage(AttributeTargets.Class)>]
-type KeyValueListAttribute() =
-    inherit Attribute()
-
 /// Compile union types as string literals.
 /// More info: http://fable.io/docs/interacting.html#StringEnum-attribute
 [<AttributeUsage(AttributeTargets.Class)>]
@@ -111,6 +105,10 @@ module JsInterop =
     /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
     let createObj (fields: #seq<string*obj>): obj = jsNative
 
+    /// Create a literal JS object from a collection of union constructors.
+    /// E.g. `keyValueList [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
+    let keyValueList(li: 'T list): obj = jsNative
+
     /// Create an empty JS object: {}
     let createEmpty<'T> : 'T = jsNative
 
@@ -151,7 +149,6 @@ module JsInterop =
     /// This is only intended if you're using a custom serialization method
     /// (that must produce same objects as `toJson`) instead of `ofJson`.
     let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
-
 
     /// Compiles to JS `this` keyword.
     ///
@@ -209,27 +206,6 @@ module JsInterop =
     type [<AllowNullLiteral>] JsFunc =
         [<Emit("$0($1...)")>]
         abstract Invoke: [<ParamArray>]args:obj[]->obj
-
-    /// Same as `System.Func<unit,'Out>`
-    type JsFunc0<'Out> = Func<unit,'Out>
-
-    /// Same as `System.Func<'Arg1,'Out>`
-    type JsFunc1<'Arg1,'Out> = Func<'Arg1,'Out>
-
-    /// Same as `System.Func<'Arg1,'Arg2,'Out>`
-    type JsFunc2<'Arg1,'Arg2,'Out> = Func<'Arg1,'Arg2,'Out>
-
-    /// Same as `System.Func<'Arg1,'Arg2,'Arg3,'Out>`
-    type JsFunc3<'Arg1,'Arg2,'Arg3,'Out> = Func<'Arg1,'Arg2,'Arg3,'Out>
-
-    /// Same as `System.Func<'Arg1,'Arg2,'Arg3,'Arg4,'Out>`
-    type JsFunc4<'Arg1,'Arg2,'Arg3,'Arg4,'Out> = Func<'Arg1,'Arg2,'Arg3,'Arg4,'Out>
-
-    /// Same as `System.Func<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out>`
-    type JsFunc5<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out> = Func<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out>
-
-    /// Same as `System.Func<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out>`
-    type JsFunc6<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out> = Func<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out>
 
 module Testing =
     type TestAttribute() =

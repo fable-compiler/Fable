@@ -471,8 +471,8 @@ Target "GitHubRelease" (fun _ ->
 )
 
 Target "FableCompilerDebug" (buildCompiler false)
-Target "FableCompilerDebugJs" buildCompilerJs
-Target "FableCoreDebug" (buildCore false)
+// Target "FableCompilerDebugJs" buildCompilerJs
+// Target "FableCoreDebug" (buildCore false)
 Target "FableCoreDebugJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
 
