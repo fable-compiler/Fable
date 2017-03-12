@@ -65,19 +65,20 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
 type MyOptions =
     | Flag1
     | Name of string
-    | [<CompiledName("foo")>] QTY of int
+    | [<CompiledName("Foo")>] QTY of int
 
 [<Test>]
 let ``KeyValueList works at compile time``() =
     let opts =
-        keyValueList [
-            Name "Fable"
-            QTY 5
-            Flag1
-        ]
+        [ Name "Fable"
+        ; QTY 5
+        ; Flag1]
+        |> keyValueList CaseRules.LowerFirst
     opts?name |> unbox |> equal "Fable"
     opts?foo |> unbox |> equal 5
     opts?flag1 |> unbox |> equal true
+    let opts2 = keyValueList CaseRules.None [ Name "Fable"]
+    opts2?Name |> unbox |> equal "Fable"
 
 [<Test>]
 let ``KeyValueList works at runtime``() =
@@ -85,14 +86,15 @@ let ``KeyValueList works at runtime``() =
         | null | "" -> Flag1
         | name -> Name name
     let opts =
-        keyValueList [
-            buildAtRuntime "Fable"
-            QTY 5
-            buildAtRuntime ""
-        ]
+        [ buildAtRuntime "Fable"
+        ; QTY 5
+        ; buildAtRuntime ""]
+        |> keyValueList CaseRules.LowerFirst
     opts?name |> unbox |> equal "Fable"
     opts?foo |> unbox |> equal 5
     opts?flag1 |> unbox |> equal true
+    let opts2 = keyValueList CaseRules.None [ buildAtRuntime "Fable"]
+    opts2?Name |> unbox |> equal "Fable"
 
 let [<Emit("arguments.length")>] argCount: int = jsNative
 

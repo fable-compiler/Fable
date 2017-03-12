@@ -1,5 +1,6 @@
 module Fable.Replacements
 open Fable
+open Fable.Core
 open Fable.AST
 open Fable.AST.Fable.Util
 open System.Text.RegularExpressions
@@ -523,6 +524,33 @@ module Util =
             | _ ->
                 GlobalCall(modName, None, true, args) |> makeCall r t
 
+    let makeJsLiteral r caseRule keyValueList =
+        let (|Fields|_|) caseRule = function
+            | Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, _)) ->
+                (Some [], exprs) ||> List.fold (fun acc e ->
+                    match acc, e with
+                    | Some acc, Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
+                        (key, value)::acc |> Some
+                    | Some acc, UnionCons(tag, fields, cases) ->
+                        let key =
+                            let key = cases |> List.item tag |> fst
+                            match caseRule with
+                            | CaseRules.LowerFirst -> Naming.lowerFirst key
+                            | _ -> key
+                        let value =
+                            match fields with
+                            | [] -> Fable.Value(Fable.BoolConst true)
+                            | [expr] -> expr
+                            | exprs -> Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, Fable.Any))
+                        (key, value)::acc |> Some
+                    | _ -> None)
+                |> Option.map List.rev
+            | _ -> None
+        match keyValueList with
+        | CoreCons "List" -> makeJsObject r []
+        | Fable.Apply(CoreMeth "List" "ofArray" _, [Fields caseRule fields], _, _, _) -> makeJsObject r fields
+        | _ -> ccall_ r Fable.Any "Util" "createObj" [keyValueList; caseRule |> int |> makeIntConst]
+
 module AstPass =
     open Util
 
@@ -569,32 +597,16 @@ module AstPass =
             Fable.Apply(i.args.Head, args, applyMeth, i.returnType, i.range) |> Some
         | "op_EqualsEqualsGreater" ->
             Fable.TupleConst(List.take 2 i.args) |> Fable.Value |> Some
-        | "createObj" | "keyValueList" ->
-            let (|Fields|_|) = function
-                | Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, _)) ->
-                    (Some [], exprs) ||> List.fold (fun acc e ->
-                        match acc, e with
-                        | Some acc, Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
-                            (key, value)::acc |> Some
-                        | Some acc, UnionCons(tag, fields, cases) ->
-                            let key = cases |> List.item tag |> fst |> Naming.lowerFirst
-                            let value =
-                                match fields with
-                                | [] -> Fable.Value(Fable.BoolConst true)
-                                | [expr] -> expr
-                                | exprs -> Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, Fable.Any))
-                            (key, value)::acc |> Some
-                        | _ -> None)
-                    |> Option.map List.rev
-                | _ -> None
-            match i.args.Head with
-            | CoreCons "List" ->
-                makeJsObject i.range [] |> Some
-            | Fable.Apply(CoreMeth "List" "ofArray" _, [Fields fields], _, _, _) ->
-                makeJsObject i.range fields |> Some
-            | _ ->
-                CoreLibCall("Util", Some "createObj", false, i.args)
-                |> makeCall i.range i.returnType |> Some
+        | "createObj" ->
+            makeJsLiteral i.range CaseRules.None i.args.Head |> Some
+         | "keyValueList" ->
+            match i.args with
+            | [Fable.Wrapped(Fable.Value(Fable.NumberConst(rule, _)),_); keyValueList] ->
+                let caseRule: CaseRules = enum (int rule)
+                makeJsLiteral i.range caseRule keyValueList |> Some
+            | [caseRule; keyValueList] ->
+                ccall_ i.range Fable.Any "Util" "createObj" [keyValueList; caseRule] |> Some
+            | _ -> None
         | "createEmpty" ->
             Fable.ObjExpr ([], [], None, i.range)
             |> wrap i.returnType |> Some

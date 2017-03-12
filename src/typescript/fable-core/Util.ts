@@ -321,7 +321,12 @@ export function createDisposable(f: () => void): IDisposable {
   }
 }
 
-export function createObj(fields: Iterable<[string, any]>) {
+const CaseRules = {
+  None: 0,
+  LowerFirst: 1,
+};
+
+export function createObj(fields: Iterable<[string, any]>, caseRule = CaseRules.None) {
   const iter = fields[Symbol.iterator]();
   let cur = iter.next(), o: any = {}, value: any = null,
     cases: any = null, caseInfo: any = null, key: string = null;
@@ -336,7 +341,9 @@ export function createObj(fields: Iterable<[string, any]>) {
       }
       if (cases != null && Array.isArray(caseInfo = cases[value.tag])) {
         key = caseInfo[0];
-        key = key[0].toLowerCase() + key.substr(1)
+        if (caseRule === CaseRules.LowerFirst) {
+          key = key[0].toLowerCase() + key.substr(1)
+        }
         o[key] = caseInfo.length === 1
           ? true : (caseInfo.length === 2 ? value.fields[0] : value.fields);
       }

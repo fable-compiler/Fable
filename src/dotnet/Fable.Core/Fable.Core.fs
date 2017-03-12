@@ -113,6 +113,10 @@ type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> =
 /// DO NOT USE: Internal type for Fable dynamic operations
 type Applicable = obj->obj
 
+type CaseRules =
+    | None = 0
+    | LowerFirst = 1
+
 module JsInterop =
     /// Has same effect as `unbox` (dynamic casting erased in compiled JS code).
     /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
@@ -149,8 +153,8 @@ module JsInterop =
     let createObj (fields: #seq<string*obj>): obj = jsNative
 
     /// Create a literal JS object from a collection of union constructors.
-    /// E.g. `keyValueList [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
-    let keyValueList(li: 'T list): obj = jsNative
+    /// E.g. `keyValueList  [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
+    let keyValueList (caseRule: CaseRules) (li: 'T list): obj = jsNative
 
     /// Create an empty JS object: {}
     let createEmpty<'T> : 'T = jsNative
