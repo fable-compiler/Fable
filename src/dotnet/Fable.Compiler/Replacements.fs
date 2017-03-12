@@ -552,6 +552,8 @@ module AstPass =
             Fable.ImportRef(selector, path, Fable.CustomImport) |> Fable.Value |> Some
         | "op_BangBang" ->
             Fable.Wrapped (i.args.Head, i.methodTypeArgs.Head) |> Some
+        // The (!^) is only for erased types so we don't need to wrap the result
+        | "op_BangHat" -> i.args.Head |> Some
         | "op_Dynamic" ->
             makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
         | "op_DynamicAssignment" ->

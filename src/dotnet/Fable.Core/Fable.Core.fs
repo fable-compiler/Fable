@@ -52,23 +52,63 @@ type StringEnumAttribute() =
 
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
-type [<Erase>] U2<'a, 'b> = Case1 of 'a | Case2 of 'b
+type [<Erase>] U2<'a, 'b> =
+    | Case1 of 'a
+    | Case2 of 'b
+    static member op_ErasedCast(x:'a) = Case1 x
+    static member op_ErasedCast(x:'b) = Case2 x
 
 /// Erased union type to represent one of three possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
-type [<Erase>] U3<'a, 'b, 'c> = Case1 of 'a | Case2 of 'b | Case3 of 'c
+type [<Erase>] U3<'a, 'b, 'c> =
+    | Case1 of 'a
+    | Case2 of 'b
+    | Case3 of 'c
+    static member op_ErasedCast(x:'a) = Case1 x
+    static member op_ErasedCast(x:'b) = Case2 x
+    static member op_ErasedCast(x:'c) = Case3 x
 
 /// Erased union type to represent one of four possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
-type [<Erase>] U4<'a, 'b, 'c, 'd> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd
+type [<Erase>] U4<'a, 'b, 'c, 'd> =
+    | Case1 of 'a
+    | Case2 of 'b
+    | Case3 of 'c
+    | Case4 of 'd
+    static member op_ErasedCast(x:'a) = Case1 x
+    static member op_ErasedCast(x:'b) = Case2 x
+    static member op_ErasedCast(x:'c) = Case3 x
+    static member op_ErasedCast(x:'d) = Case4 x
 
 /// Erased union type to represent one of five possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
-type [<Erase>] U5<'a, 'b, 'c, 'd, 'e> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e
+type [<Erase>] U5<'a, 'b, 'c, 'd, 'e> =
+    | Case1 of 'a
+    | Case2 of 'b
+    | Case3 of 'c
+    | Case4 of 'd
+    | Case5 of 'e
+    static member op_ErasedCast(x:'a) = Case1 x
+    static member op_ErasedCast(x:'b) = Case2 x
+    static member op_ErasedCast(x:'c) = Case3 x
+    static member op_ErasedCast(x:'d) = Case4 x
+    static member op_ErasedCast(x:'e) = Case5 x
 
 /// Erased union type to represent one of six possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
-type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> = Case1 of 'a | Case2 of 'b | Case3 of 'c | Case4 of 'd | Case5 of 'e | Case6 of 'f
+type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> =
+    | Case1 of 'a
+    | Case2 of 'b
+    | Case3 of 'c
+    | Case4 of 'd
+    | Case5 of 'e
+    | Case6 of 'f
+    static member op_ErasedCast(x:'a) = Case1 x
+    static member op_ErasedCast(x:'b) = Case2 x
+    static member op_ErasedCast(x:'c) = Case3 x
+    static member op_ErasedCast(x:'d) = Case4 x
+    static member op_ErasedCast(x:'e) = Case5 x
+    static member op_ErasedCast(x:'f) = Case6 x
 
 /// DO NOT USE: Internal type for Fable dynamic operations
 type Applicable = obj->obj
@@ -77,6 +117,9 @@ module JsInterop =
     /// Has same effect as `unbox` (dynamic casting erased in compiled JS code).
     /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
     let (!!) x: 'T = jsNative
+
+    // Implicit cast for erased types
+    let inline (!^) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_ErasedCast : ^t1 -> ^t2) x)
 
     /// Dynamically access a property of an arbitrary object.
     /// `myObj?propA` in JS becomes `myObj.propA`
