@@ -636,6 +636,21 @@ module AstPass =
             |> Fable.StringConst |> Fable.Value |> List.singleton
             |> newError i.range i.returnType
             |> fun err -> Fable.Throw(err, i.returnType, i.range) |> Some
+        | "applySpread" ->
+            let callee, args =
+                match i.args with
+                | [callee; Fable.Value(Fable.TupleConst args)] -> callee, args
+                | [callee; arg] -> callee, [arg]
+                | _ -> FableError("Unexpected args passed to JsInterop.applySpread", ?range=i.range) |> raise
+            let args =
+                match List.rev args with
+                | [] ->  []
+                | CoreCons "List"::rest -> List.rev rest
+                | Fable.Apply(CoreMeth "List" "ofArray",
+                                [Fable.Value(Fable.ArrayConst(Fable.ArrayValues spreadValues, _))], _,_,_)::rest ->
+                    (List.rev rest) @ spreadValues
+                | expr::rest -> (List.rev rest) @ [Fable.Value(Fable.Spread expr)]
+            Fable.Apply(callee, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | _ -> None
 
     let references com (i: Fable.ApplyInfo) =
