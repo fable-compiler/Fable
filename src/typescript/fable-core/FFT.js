@@ -1,5 +1,5 @@
-import { fromNumber, fromBits } from "../Long";
-import { map, initialize, replicate } from "../Seq";
+import { fromNumber, fromBits } from "./Long";
+import { map, initialize, replicate } from "./Seq";
 export function pow32(x, n) {
   if (n === 0) {
     return 1;

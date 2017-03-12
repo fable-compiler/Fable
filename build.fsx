@@ -209,7 +209,7 @@ let releaseTools = Util.loadReleaseNotes "TOOLS"
 let dotnetcliVersion = "1.0.1"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
-let compilerBuildDir = "build/fable"
+let toolsBuildDir = "build/fable"
 let coreBuildDir = "build/fable-core"
 let testsBuildDir = "build/tests"
 let coreSrcDir = "src/dotnet/Fable.Core"
@@ -293,43 +293,24 @@ let nugetRestore () =
     Util.run compilerSrcDir dotnetExePath "restore"
     Util.run toolsSrcDir dotnetExePath "restore"
 
-let buildCompilerJs () =
-    Npm.install "src/typescript/fable-compiler" []
-    Npm.install __SOURCE_DIRECTORY__ []
-    Node.run "src/typescript/fable-compiler" "../../../node_modules/typescript/bin/tsc" []
-
-    CopyDir compilerBuildDir "src/typescript/fable-compiler/out" (fun _ -> true)
-    FileUtils.cp "README.md" compilerBuildDir
-    FileUtils.cp "src/typescript/fable-compiler/package.json" compilerBuildDir
-    // Copying node_modules fails in AppVeyor because paths are too long
-    if environVar "APPVEYOR" = "True"
-    then Npm.install compilerBuildDir []
-    else CopyDir (compilerBuildDir </> "node_modules") "src/typescript/fable-compiler/node_modules" (fun _ -> true)
-
-    Npm.command compilerBuildDir "version" [releaseCompiler.Value.NugetVersion]
-
-    // Update constants.js
-    let pkgVersion =
-        releaseCompiler.Value.NugetVersion
-        |> sprintf "PKG_VERSION = \"%s\""
-    compilerBuildDir </> "constants.js"
-    |> Util.visitFile (function
-        | Util.RegexReplace "PKG_VERSION\s*=\s\".*?\"" pkgVersion newLine -> newLine
-        | line -> line)
-
-let buildCompiler isRelease () =
-    sprintf "publish -o ../../../%s -c %s"
-        compilerBuildDir (if isRelease then "Release" else "Debug")
+let buildTools isRelease () =
+    sprintf "publish -o ../../../%s -c %s /p:DefineConstants=NO_PACKAGE"
+        toolsBuildDir (if isRelease then "Release" else "Debug")
     |> Util.run toolsSrcDir dotnetExePath
 
     // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
-    FileUtils.cp (compilerBuildDir + "/runtimes/any/native/FSharp.Core.optdata") compilerBuildDir
-    FileUtils.cp (compilerBuildDir + "/runtimes/any/native/FSharp.Core.sigdata") compilerBuildDir
+    FileUtils.cp (toolsBuildDir + "/runtimes/any/native/FSharp.Core.optdata") toolsBuildDir
+    FileUtils.cp (toolsBuildDir + "/runtimes/any/native/FSharp.Core.sigdata") toolsBuildDir
 
 let buildCoreJs () =
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project src/typescript/fable-core"]
-
+    let directory = new DirectoryInfo( __SOURCE_DIRECTORY__ </> "build/fable-core")
+    let subdirs = directory.GetDirectories()
+    if subdirs.Length > 0 then
+        "Subfolders in fable-core won't be replicate in the nuget package (see Fable.Core.fsproj). "
+            + "If this has been fixed, please delete this check"
+        |> failwith
 let buildCore isRelease () =
     let config = if isRelease then "Release" else "Debug"
     sprintf "build -c %s" config
@@ -402,6 +383,8 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
     // Publish package if version has been updated
     match updated with
     | Some true ->
+        if projFile.EndsWith("Fable.Core.fsproj") then
+            buildCoreJs ()
         let projDir = Path.GetDirectoryName(projFile)
         Util.run projDir dotnetExePath "pack -c Release"
         Directory.GetFiles(projDir </> "bin/Release", "*.nupkg")
@@ -493,9 +476,7 @@ Target "GitHubRelease" (fun _ ->
     |> Async.RunSynchronously
 )
 
-Target "FableCompilerDebug" (buildCompiler false)
-// Target "FableCompilerDebugJs" buildCompilerJs
-// Target "FableCoreDebug" (buildCore false)
+Target "FableToolsDebug" (buildTools false)
 Target "FableCoreDebugJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
 
@@ -510,7 +491,7 @@ Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
     nugetRestore ()
-    buildCompiler true ()
+    buildTools true ()
     buildCoreJs ()
     buildNUnitPlugin ()
     buildJsonConverter ()

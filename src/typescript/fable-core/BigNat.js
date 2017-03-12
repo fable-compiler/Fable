@@ -1,11 +1,11 @@
-import { setType } from "../Symbol";
-import _Symbol from "../Symbol";
-import { Array as FArray } from "../Util";
-import { fromBits, fromNumber } from "../Long";
-import { replicate, initialize } from "../Seq";
+import { setType } from "./Symbol";
+import _Symbol from "./Symbol";
+import { Array as FArray } from "./Util";
+import { fromBits, fromNumber } from "./Long";
+import { replicate, initialize } from "./Seq";
 import { computeFftPaddedPolynomialProduct, toInt, mzero, ofInt32 as ofInt32_1, maxBitsInsideFp } from "./FFT";
-import List from "../List";
-import { isNullOrEmpty, join } from "../String";
+import List from "./List";
+import { isNullOrEmpty, join } from "./String";
 
 export default class BigNat {
   constructor(bound, digits) {

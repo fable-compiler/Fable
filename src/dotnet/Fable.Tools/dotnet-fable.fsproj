@@ -3,7 +3,6 @@
     <Version>1.0.0-narumi-3</Version>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp1.0</TargetFramework>
-    <DefineConstants>DOTNETCORE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Fable.Compiler/Fable.Compiler.fsproj" />

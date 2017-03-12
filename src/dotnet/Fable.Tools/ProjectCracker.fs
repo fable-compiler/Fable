@@ -34,7 +34,7 @@ let makeProjectOptions project sources otherOptions =
 let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scriptFile =
     let otherFlags = [|
         yield "--target:library"
-#if DOTNETCORE
+#if !NETFX
         yield "--targetprofile:netcore"
 #endif
         for constant in define do yield "--define:" + constant
@@ -50,6 +50,7 @@ let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scri
         |> makeProjectOptions scriptFile opts.ProjectFileNames
 
 let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
+let fableCoreLib = typeof<Fable.Core.EraseAttribute>.GetTypeInfo().Assembly.Location
 let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
 let sysPath = Path.GetDirectoryName(sysCoreLib)
 let localPath = Path.GetDirectoryName(typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location)
@@ -80,11 +81,11 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "--fullpaths"
         yield "--flaterrors"
         yield "--target:library"
-#if DOTNETCORE
+#if NETFX
+        yield "-r:" + resolve "System"
+#else
         yield "--targetprofile:netcore"
         yield "-r:" + sysCoreLib // "CoreLib"
-#else
-        yield "-r:" + resolve "System"
 #endif
         yield "-r:" + resolve "mscorlib"
         yield "-r:" + resolve "System.Collections"
@@ -97,6 +98,7 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "-r:" + resolve "System.Threading.Tasks"
         yield "-r:" + resolve "System.Text.RegularExpressions"
         yield "-r:" + fsCoreLib // "FSharp.Core"
+        yield "-r:" + fableCoreLib // "FSharp.Core"
     |]
 
 /// Ultra-simplistic resolution of .fsproj files

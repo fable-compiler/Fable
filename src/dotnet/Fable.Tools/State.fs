@@ -12,8 +12,13 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open ProjectCracker
 open Parser
 
-let fableCoreLocation =
-    let coreDir = Path.Combine(System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "fable-core")
+let fableCoreJsDir =
+    #if NO_PACKAGE
+    let fableCoreDirRelativePath = "../fable-core"
+    #else // Nuget package
+    let fableCoreDirRelativePath = "../../fable-core"
+    #endif
+    let coreDir = Path.Combine(Path.GetDirectoryName(ProjectCracker.fableCoreLib), fableCoreDirRelativePath)
     let cwd = System.IO.Directory.GetCurrentDirectory()
     Path.getRelativeFileOrDirPath true cwd true coreDir
 
@@ -46,11 +51,11 @@ type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProj
             inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
 let loadAssembly path =
-#if DOTNETCORE
+#if NETFX
+    Assembly.LoadFrom(path)
+#else
     let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
     globalLoadContext.LoadFromAssemblyPath(path)
-#else
-    Assembly.LoadFrom(path)
 #endif
 
 type Compiler(options, plugins) =
@@ -58,7 +63,7 @@ type Compiler(options, plugins) =
     let logs = ResizeArray()
     member __.Logs = logs
     interface ICompiler with
-        member __.CoreLib = fableCoreLocation
+        member __.CoreLib = fableCoreJsDir
         member __.Options = options
         member __.Plugins = plugins
         member __.AddLog msg = logs.Add msg
@@ -123,6 +128,11 @@ let createState checker projectOptions (com: ICompiler) (msg: Message) projFile 
         match projectOptions with
         | Some projectOptions -> projectOptions
         | None -> getFullProjectOpts checker msg.define projFile
+    // printfn "F# Project: %s" projectOptions.ProjectFileName
+    // for option in projectOptions.OtherOptions do
+    //     printfn "%s" option
+    // for file in projectOptions.ProjectFileNames do
+    //     printfn "%s" file
     let logs, checkedProject =
         // TODO: Do this asynchronously?
         parseFSharpProject checker projectOptions

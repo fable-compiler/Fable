@@ -12,6 +12,10 @@ function join(arg) {
     return Array.isArray(arg) ? arg.join(";") : arg;
 }
 
+function ensureArray(obj) {
+    return Array.isArray(obj) ? obj : [];
+}
+
 module.exports = function(buffer) {
     this.cacheable();
     var callback = this.async();
@@ -43,12 +47,17 @@ module.exports = function(buffer) {
                 callback(data.error);
             }
             else {
-                console.log("Fable client received: " + msg.path)
-                data.infos.forEach(x => console.log(x))
-                data.warnings.forEach(x => this.emitWarning(x))
-                var transformed = babel.transformFromAst(data, null, babelOptions);
-                // TODO: Mark dependencies
-                callback(null, transformed.code);
+                console.log("Fable client received: " + msg.path);
+                ensureArray(data.infos).forEach(x => console.log(x));
+                ensureArray(data.warnings).forEach(x => this.emitWarning(x));
+                try {
+                    var transformed = babel.transformFromAst(data, null, babelOptions);
+                    // TODO: Mark dependencies
+                    callback(null, transformed.code);
+                }
+                catch (err) {
+                    callback(err)
+                }
             }
         })
         .catch(err => {

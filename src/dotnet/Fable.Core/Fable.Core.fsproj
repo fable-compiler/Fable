@@ -22,6 +22,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="../../../build/fable-core/**/*.*">
+      <!--TODO: Using this, subfolders are not replicated in fable-core-->
+      <PackagePath>fable-core</PackagePath>
+      <Pack>true</Pack>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-preview2-*" />
     <PackageReference Include="FSharp.Core" Version="4.1.*" />
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.0-beta-060000" PrivateAssets="All" />

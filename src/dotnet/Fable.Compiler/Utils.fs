@@ -11,7 +11,7 @@ type ICompilerState =
     abstract GetOrAddEntity: string * (unit->Fable.Entity) -> Fable.Entity
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
 
-#if DOTNETCORE && !FABLE_COMPILER
+#if !NETFX && !FABLE_COMPILER
 [<AutoOpen>]
 module ReflectionAdapters =
     open System.Reflection

@@ -13,7 +13,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
 
-#if DOTNETCORE && !FABLE_COMPILER
+#if !NETFX && !FABLE_COMPILER
 [<AutoOpen>]
 module ReflectionAdapters =
     type System.Reflection.Assembly with
@@ -1298,8 +1298,11 @@ module Util =
                 match ent.TryGetMember(methName, getMemberKind meth, loc, argTypes) with
                 | Some m -> m.OverloadName | None -> methName
             let ext = makeGet r Fable.Any typRef (makeStrConst methName)
-            let bind = Fable.Emit("$0.bind($1)($2...)") |> Fable.Value
-            Fable.Apply (bind, ext::callee::args, Fable.ApplyMeth, typ, r) |> Some
+            // Bind the extension method so `this` has the proper value: extMethod.bind(callee)(...args)
+            let bind =
+                let meth = makeGet None Fable.Any ext (makeStrConst "bind")
+                Fable.Apply(meth, [callee], Fable.ApplyMeth, Fable.Any, None)
+            Fable.Apply (bind, args, Fable.ApplyMeth, typ, r) |> Some
         | _ -> None
 
     let makeCallFrom (com: IFableCompiler) ctx r typ

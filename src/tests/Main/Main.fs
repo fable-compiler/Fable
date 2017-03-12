@@ -4,36 +4,36 @@
 
 #if FABLE_COMPILER
 open Fable.Core.JsInterop
-importAll "./ApplicativeTests.fs" |> ignore
-importAll "./ArithmeticTests.fs" |> ignore
-importAll "./ArrayTests.fs" |> ignore
-importAll "./AsyncTests.fs" |> ignore
-importAll "./ComparisonTests.fs" |> ignore
-importAll "./ConvertTests.fs" |> ignore
-importAll "./DateTimeTests.fs" |> ignore
-importAll "./DictionaryTests.fs" |> ignore
-importAll "./EnumerableTests.fs" |> ignore
-importAll "./EnumTests.fs" |> ignore
-importAll "./EventTests.fs" |> ignore
-importAll "./HashSetTests.fs" |> ignore
-importAll "./ImportTests.fs" |> ignore
-importAll "./JsInteropTests.fs" |> ignore
-importAll "./JsonTests.fs" |> ignore
-importAll "./ListTests.fs" |> ignore
-importAll "./MapTests.fs" |> ignore
-importAll "./MiscTests.fs" |> ignore
-importAll "./ObservableTests.fs" |> ignore
-importAll "./RecordTypeTests.fs" |> ignore
-importAll "./ReflectionTests.fs" |> ignore
-importAll "./RegexTests.fs" |> ignore
-importAll "./ResizeArrayTests.fs" |> ignore
-importAll "./SeqExpressionTests.fs" |> ignore
-importAll "./SeqTests.fs" |> ignore
-importAll "./SetTests.fs" |> ignore
-importAll "./StringTests.fs" |> ignore
-importAll "./SudokuTest.fs" |> ignore
-importAll "./TailCallTests.fs" |> ignore
-importAll "./TupleTypeTests.fs" |> ignore
-importAll "./TypeTests.fs" |> ignore
-importAll "./UnionTypeTests.fs" |> ignore
+importAll "./ApplicativeTests.fs"
+importAll "./ArithmeticTests.fs"
+importAll "./ArrayTests.fs"
+importAll "./AsyncTests.fs"
+importAll "./ComparisonTests.fs"
+importAll "./ConvertTests.fs"
+importAll "./DateTimeTests.fs"
+importAll "./DictionaryTests.fs"
+importAll "./EnumerableTests.fs"
+importAll "./EnumTests.fs"
+importAll "./EventTests.fs"
+importAll "./HashSetTests.fs"
+importAll "./ImportTests.fs"
+importAll "./JsInteropTests.fs"
+importAll "./JsonTests.fs"
+importAll "./ListTests.fs"
+importAll "./MapTests.fs"
+importAll "./MiscTests.fs"
+importAll "./ObservableTests.fs"
+importAll "./RecordTypeTests.fs"
+importAll "./ReflectionTests.fs"
+importAll "./RegexTests.fs"
+importAll "./ResizeArrayTests.fs"
+importAll "./SeqExpressionTests.fs"
+importAll "./SeqTests.fs"
+importAll "./SetTests.fs"
+importAll "./StringTests.fs"
+importAll "./SudokuTest.fs"
+importAll "./TailCallTests.fs"
+importAll "./TupleTypeTests.fs"
+importAll "./TypeTests.fs"
+importAll "./UnionTypeTests.fs"
 #endif

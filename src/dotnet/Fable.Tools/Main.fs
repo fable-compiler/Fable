@@ -1,12 +1,27 @@
 module Fable.Client.Webpack.Main
 
 open System
+open System.IO
 open System.Reflection
+open System.Runtime.InteropServices
 open State
 
 let [<Literal>] DEFAULT_PORT = 61225
 
-let version = lazy Assembly.GetEntryAssembly().GetName().Version
+let assemblyVersion = lazy Assembly.GetEntryAssembly().GetName().Version
+let assemblyLocation = lazy Assembly.GetEntryAssembly().Location
+
+let startProcess workingDir fileName args =
+    let fileName, args =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        then "cmd", ("/C " + fileName + " " + args)
+        else fileName, args
+    let p = new System.Diagnostics.Process()
+    p.StartInfo.FileName <- fileName
+    p.StartInfo.Arguments <- args
+    p.StartInfo.WorkingDirectory <- workingDir
+    p.Start() |> ignore
+    p
 
 let argsToMap (argv: string[]) =
     try
@@ -30,7 +45,6 @@ let startServer argsMap =
         port, timeout
     let agent = startAgent()
     Server.start port timeout agent.Post
-    |> Async.RunSynchronously
 
 [<EntryPoint>]
 let main argv =
@@ -43,8 +57,13 @@ let main argv =
     --port         Port number (default 61225)
     --timeout      Stop the server if timeout (ms) is reached
 """
-    | Some "--version" -> printfn "%O" version.Value
-    | Some "start" -> argv.[1..] |> argsToMap |> startServer
+    | Some "--version" -> printfn "%O" assemblyVersion.Value
+    | Some "start" -> argv.[1..] |> argsToMap |> startServer |> Async.RunSynchronously
+    | Some "npm-run" ->
+        argv.[2..] |> argsToMap |> startServer |> Async.Start
+        let workingDir = Directory.GetCurrentDirectory()
+        let p = startProcess workingDir "npm" ("run " + argv.[1])
+        p.WaitForExit()
     | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options" cmd
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options"
     0
