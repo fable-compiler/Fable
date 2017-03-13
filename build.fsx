@@ -305,12 +305,7 @@ let buildTools isRelease () =
 let buildCoreJs () =
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project src/typescript/fable-core"]
-    let directory = new DirectoryInfo( __SOURCE_DIRECTORY__ </> "build/fable-core")
-    let subdirs = directory.GetDirectories()
-    if subdirs.Length > 0 then
-        "Subfolders in fable-core won't be replicate in the nuget package (see Fable.Core.fsproj). "
-            + "If this has been fixed, please delete this check"
-        |> failwith
+
 let buildCore isRelease () =
     let config = if isRelease then "Release" else "Debug"
     sprintf "build -c %s" config
@@ -390,7 +385,8 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
             buildCoreJs ()
         Util.run projDir dotnetExePath "pack -c Release"
         Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
-        |> Array.tryHead |> Option.iter (fun nupkg ->
+        |> Array.tryFind (fun nupkg -> nupkg.Contains(version))
+        |> Option.iter (fun nupkg ->
             Path.GetFullPath nupkg
             |> sprintf "nuget push %s -s nuget.org"
             |> Util.run projDir dotnetExePath)

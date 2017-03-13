@@ -23,8 +23,8 @@
 
   <ItemGroup>
     <Content Include="../../../build/fable-core/**/*.*">
-      <!--TODO: Using this, subfolders are not replicated in fable-core-->
-      <PackagePath>fable-core</PackagePath>
+      <!-- The Windows directory separator is necessary to keep the folder structure -->
+      <PackagePath>fable-core\</PackagePath>
       <Pack>true</Pack>
     </Content>
   </ItemGroup>
