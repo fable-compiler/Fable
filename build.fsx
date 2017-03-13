@@ -271,8 +271,8 @@ let installDotnetSdk () =
 
         dotnetExePath <- dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
 
-    let oldPath = System.Environment.GetEnvironmentVariable("PATH")
-    System.Environment.SetEnvironmentVariable("PATH", sprintf "%s%s%s" dotnetSDKPath (System.IO.Path.PathSeparator.ToString()) oldPath)
+    // let oldPath = System.Environment.GetEnvironmentVariable("PATH")
+    // System.Environment.SetEnvironmentVariable("PATH", sprintf "%s%s%s" dotnetSDKPath (System.IO.Path.PathSeparator.ToString()) oldPath)
 
 let clean () =
     !! "src/dotnet/**/bin" ++ "src/dotnet/**/obj/"

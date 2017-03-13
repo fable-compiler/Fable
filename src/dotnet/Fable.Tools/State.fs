@@ -136,7 +136,8 @@ let createState checker projectOptions (com: ICompiler) (msg: Message) projFile 
     let logs, checkedProject =
         // TODO: Do this asynchronously?
         parseFSharpProject checker projectOptions
-    // TODO: Add warnings to compiler
+    for log in logs do
+        (com :> ICompiler).AddLog(log)
     com, State(projectOptions, checkedProject)
 
 let toJsonAndReply =
@@ -175,7 +176,7 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
             |> fun (infos, warnings) ->
                Array.map Log.message infos,
                Array.map Log.message warnings
-        Babel.Program(file.fileName, loc, file.body, file.directives, infos, warnings)
+        Babel.Program(file.fileName, loc, file.body, file.dependencies, file.directives, infos, warnings)
     let rec loop (checker: FSharpChecker) (com: Compiler) (state: State option) = async {
         let! (Parse msg), replyChannel = agent.Receive()
         try
@@ -200,23 +201,25 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                             |> FableError |> raise
                 | None ->
                     createState checker None com msg msg.path
-            // TODO: Start this in a background task to receive other messages?
-            // If path is an .fsproj change it to the last file in project
-            let fileName =
-                if msg.path.EndsWith(".fsproj")
-                then Array.last state.ProjectOptions.ProjectFileNames
-                else msg.path
-            // Set file as already compiled
-            state.CompiledFiles.[fileName] <- true
-            Async.Start(async {
-                try
-                    FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
-                    |> Fable2Babel.Compiler.transformFile com state
-                    |> addLogs com
-                    |> toJsonAndReply replyChannel (Some fileName)
-                with ex ->
-                    sendError replyChannel ex
-            })
+            let fileName = msg.path
+            if fileName.EndsWith(".fsproj")
+            then
+                let lastFile = Array.last state.ProjectOptions.ProjectFileNames
+                Fable2Babel.Compiler.createFacade fileName lastFile
+                |> addLogs com
+                |> toJsonAndReply replyChannel (Some fileName)
+            else
+                // Set file as already compiled
+                state.CompiledFiles.[fileName] <- true
+                Async.Start(async {
+                    try
+                        FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
+                        |> Fable2Babel.Compiler.transformFile com state
+                        |> addLogs com
+                        |> toJsonAndReply replyChannel (Some fileName)
+                    with ex ->
+                        sendError replyChannel ex
+                })
             return! loop checker com (Some state)
         with ex ->
             sendError replyChannel ex

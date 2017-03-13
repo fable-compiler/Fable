@@ -1147,6 +1147,12 @@ module Compiler =
     open Util
     open System.IO
 
+    let createFacade (facadeFile: string) (importFile: string) =
+        let decls =
+            StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)
+            |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> List.singleton
+        Program(facadeFile, SourceLocation.Empty, decls)
+
     let transformFile (com: ICompiler) (state: ICompilerState) (file: Fable.File) =
         try
             // let t = PerfTimer("Fable > Babel")
@@ -1207,7 +1213,7 @@ module Compiler =
                 |> Seq.toList |> fun importDecls ->
                     (importDecls@rootDecls), Seq.toList dependencies
             // Return the Babel file
-            Program(file.SourcePath, file.Range, rootDecls)
+            Program(file.SourcePath, file.Range, rootDecls, dependencies=dependencies)
         with
         | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.SourcePath) |> raise
         | ex -> exn (sprintf "%s (%s)" ex.Message file.SourcePath, ex) |> raise

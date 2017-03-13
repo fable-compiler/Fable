@@ -1,3 +1,4 @@
+var path = require("path");
 var babel = require("babel-core");
 var client = require("./src/client.js");
 var babelPlugins = require("./src/babel-plugins.js");
@@ -48,12 +49,18 @@ module.exports = function(buffer) {
             }
             else {
                 console.log("Fable client received: " + msg.path);
+                ensureArray(data.dependencies).forEach(x => this.addDependency(x));
                 ensureArray(data.infos).forEach(x => console.log(x));
                 ensureArray(data.warnings).forEach(x => this.emitWarning(x));
                 try {
-                    var transformed = babel.transformFromAst(data, null, babelOptions);
-                    // TODO: Mark dependencies
-                    callback(null, transformed.code);
+                    var fsCode = null;
+                    if (this.sourceMap) {
+                        fsCode = buffer.toString();
+                        babelOptions.sourceMaps = true;
+                        babelOptions.sourceFileName = path.relative(process.cwd(), data.fileName.replace(/\\/g, '/'));
+                    }
+                    var transformed = babel.transformFromAst(data, fsCode, babelOptions);
+                    callback(null, transformed.code, transformed.map);
                 }
                 catch (err) {
                     callback(err)
