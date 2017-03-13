@@ -46,7 +46,7 @@ let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scri
         opts.OtherOptions
         |> Array.filter (fun x ->
             // Keep only relative references
-            x.StartsWith("-r:") && (x.Contains("./") || x.Contains(".\\")))
+            x.StartsWith("-r:") && (x.Contains("./") || x.Contains(".\\")) && not(x.EndsWith("Fable.Core.dll")))
         |> makeProjectOptions scriptFile opts.ProjectFileNames
 
 let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
@@ -166,6 +166,7 @@ let crackFsproj (projFile: string) =
             Path.Combine(projDir, Path.normalizePath projRef) |> Path.GetFullPath)
     ; dllReferences =
         relativeDllReferences
+        |> List.filter (fun x -> not(x.EndsWith("Fable.Core.dll")))
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
 
 let getProjectOptionsFromFsproj projFile =

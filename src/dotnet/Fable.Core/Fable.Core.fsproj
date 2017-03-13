@@ -1,9 +1,9 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.0-narumi-1</Version>
+    <Version>1.0.0-narumi-5</Version>
     <TargetFramework>netstandard1.6</TargetFramework>
-    <DefineConstants>DOTNETCORE</DefineConstants>
+    <!--<DocumentationFile>$(OutputPath)Fable.Core.xml</DocumentationFile>-->
   </PropertyGroup>
 
   <ItemGroup>

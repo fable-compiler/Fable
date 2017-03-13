@@ -364,6 +364,9 @@ Target "QuickTest" (quickTest false)
 Target "QuickTestES2015" (quickTest true)
 
 let pushNuget (releaseNotes: ReleaseNotes) projFile =
+    let projDir = Path.GetDirectoryName(projFile)
+    // Restore dependencies here so they're updated to latest project versions
+    Util.run projDir dotnetExePath "restore"
     let mutable updated: bool option = None
     let version = releaseNotes.NugetVersion
     let reg = Regex("<Version>(.*?)</Version>")
@@ -385,11 +388,11 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
     | Some true ->
         if projFile.EndsWith("Fable.Core.fsproj") then
             buildCoreJs ()
-        let projDir = Path.GetDirectoryName(projFile)
         Util.run projDir dotnetExePath "pack -c Release"
-        Directory.GetFiles(projDir </> "bin/Release", "*.nupkg")
+        Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
         |> Array.tryHead |> Option.iter (fun nupkg ->
-            sprintf "nuget push %s -s nuget.org" nupkg
+            Path.GetFullPath nupkg
+            |> sprintf "nuget push %s -s nuget.org"
             |> Util.run projDir dotnetExePath)
     | _ -> ()
 
@@ -483,7 +486,6 @@ Target "RunTestsJs" runTestsJs
 Target "PublishNugetPackages" (fun () ->
     installDotnetSdk ()
     clean ()
-    nugetRestore ()
     publishFableNugetPackages ()
 )
 
