@@ -1,3 +1,7 @@
+### 0.7.29
+
+* Make TransformOptions not inherit #751
+
 ### 0.7.28
 
 * Fix exception propagation with Async.Bind: #724
