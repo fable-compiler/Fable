@@ -460,6 +460,14 @@ let ``Naming values with same name as module works``() =
     equal 30 Same.Same.shouldEqual30
 
 [<Test>]
+let ``Can access nested recursive function with mangled name``() =
+    Util.Bar.nestedRecursive 3 |> equal 10
+
+[<Test>]
+let ``Can access non nested recursive function with mangled name``() =
+    Util.nonNestedRecursive "ja" |> equal "jajaja"
+
+[<Test>]
 let ``Module members don't conflict with JS names``() =
     Util.Int32Array |> Array.sum |> equal 3
 

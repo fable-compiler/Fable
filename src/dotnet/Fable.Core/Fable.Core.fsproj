@@ -1,7 +1,7 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.0-narumi-6</Version>
+    <Version>1.0.0-narumi-7</Version>
     <TargetFramework>netstandard1.6</TargetFramework>
     <!--<DocumentationFile>$(OutputPath)Fable.Core.xml</DocumentationFile>-->
   </PropertyGroup>

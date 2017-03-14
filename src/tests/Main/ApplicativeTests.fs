@@ -330,3 +330,10 @@ let ``Partial application of optimized closures works``() =
   let r = f.Invoke(1, 2, 3)
   equal 2 m
   equal 6 r
+
+[<Test>]
+let ``No errors because references to missing unit args``() =
+    let foofy str =
+        fun () -> "foo" + str
+    let f1 = foofy "bar"
+    f1 () |> equal "foobar"

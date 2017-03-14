@@ -80,3 +80,13 @@ match { a = 5 } with
 match { a = 2 } with
 | { a = 2 } -> x <- 2
 | _ -> x <- 4
+
+module Foo =
+    let update () = ()
+
+module Bar =
+    let rec nestedRecursive i = update (i+2)
+    and update i = i + 5
+
+let rec nonNestedRecursive s = update s
+and update s = String.replicate 3 s
