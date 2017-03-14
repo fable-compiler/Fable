@@ -19,8 +19,7 @@ JS libraries: [classnames](https://github.com/JedWatson/classnames) and
 [director](https://github.com/flatiron/director).
 *)
 
-#r "../../node_modules/fable-core/Fable.Core.dll"
-#r "../../node_modules/fable-react/Fable.React.dll"
+module React.TodoMVC
 
 open System
 open Fable.Core
