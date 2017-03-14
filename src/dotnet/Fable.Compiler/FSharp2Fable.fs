@@ -1059,10 +1059,10 @@ let private tryGetMethodArgsAndBody (checkedProject: FSharpCheckProjectResults)
                                     (meth: FSharpMemberOrFunctionOrValue) =
     let rec tryGetMethodArgsAndBody' (methFullName: string) = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
-            match e.TryFullName with
-            | Some fullName when methFullName.StartsWith(fullName) ->
-                decls |> List.tryPick (tryGetMethodArgsAndBody' methFullName)
-            | _ -> None
+            let entFullName = getEntityFullName e
+            if entFullName.StartsWith(entFullName)
+            then List.tryPick (tryGetMethodArgsAndBody' methFullName) decls
+            else None
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth2, args, body) ->
             if methFullName = meth2.FullName
             then Some(args, body)

@@ -172,6 +172,14 @@ module Util =
             | _ -> property
         | _ -> MemberExpression (expr, property, computed) :> Expression
 
+    let rec tryFindMember (ownerName: string) membName entName decls =
+        decls |> List.tryPick (function
+            | Fable.EntityDeclaration(ent,_,subDecls,_) when ownerName.StartsWith(ent.FullName) ->
+                tryFindMember ownerName membName ent.FullName subDecls
+            | Fable.MemberDeclaration(m, privateName,_,_,_) when ownerName = entName && m.Name = membName ->
+                Some(m, privateName)
+            | _ -> None)
+
     let rec accessExpr (members: string list) (baseExpr: Expression option) =
         match baseExpr with
         | Some baseExpr ->
@@ -226,6 +234,12 @@ module Util =
             |> makeGeneric
         | _ ->
             match getParts ctx.moduleFullName ent.FullName memb with
+            | [membName] when Option.isSome memb ->
+                // Check if the member has a private name
+                match tryFindMember ent.FullName membName ctx.file.Root.FullName ctx.file.Declarations with
+                | Some(_, Some privateName) -> accessExpr [privateName] None
+                // TODO: Fail if member couldn't be found?
+                | _ -> accessExpr [membName] None
             | rootMemb::parts when Naming.identForbiddenCharsRegex.IsMatch rootMemb ->
                 // Check if the root entity is represented internally with a private name
                 if ctx.rootEntitiesPrivateNames.ContainsKey(rootMemb)

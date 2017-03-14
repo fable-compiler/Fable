@@ -403,6 +403,13 @@ let makeReflectionMethod com (ent: Fable.Entity) extend nullable cases propertie
 
 let (|Type|) (expr: Expr) = expr.Type
 
+// Unit args can be removed from final code,
+// so we must prevent references to missing args
+let argIdentToExpr (id: Ident) =
+    match id.Type with
+    | Unit -> Value Null
+    | _ -> IdentValue id |> Value
+
 // Deal with function arguments with higher arity than expected
 // E.g.: [|"1";"2"|] |> Array.map (fun x y -> x + y)
 // JS: ["1","2"].map($var1 => $var2 => ((x, y) => x + y)($var1, $var2))
@@ -426,7 +433,7 @@ let rec ensureArity com argTypes args =
             List.skip expectedArgsLength actualArgs
             |> List.map (fun t -> makeTypedIdent (com.GetUniqueVar()) t)
             |> fun innerArgs ->
-                let args = outerArgs@innerArgs |> List.map (IdentValue >> Value)
+                let args = outerArgs@innerArgs |> List.map argIdentToExpr
                 makeApply com f.Range typ f args
                 |> makeLambdaExpr innerArgs
         elif expectedArgsLength > actualArgsLength then
@@ -434,12 +441,12 @@ let rec ensureArity com argTypes args =
                 sprintf "A function with less arguments than expected has been wrapped at %O. %s"
                         f.Range.Value "Side effects may be delayed."
                 |> Warning |> com.AddLog
-            let innerArgs = List.take actualArgsLength outerArgs |> List.map (IdentValue >> Value)
-            let outerArgs = List.skip actualArgsLength outerArgs |> List.map (IdentValue >> Value)
+            let innerArgs = List.take actualArgsLength outerArgs |> List.map argIdentToExpr
+            let outerArgs = List.skip actualArgsLength outerArgs |> List.map argIdentToExpr
             let innerApply = makeApply com f.Range (Function(List.map Expr.getType outerArgs,typ)) f innerArgs
             makeApply com f.Range typ innerApply outerArgs
         else
-            outerArgs |> List.map (IdentValue >> Value)
+            outerArgs |> List.map argIdentToExpr
             |> makeApply com f.Range typ f
         |> makeLambdaExpr outerArgs
     if not(List.sameLength argTypes args) then args else // TODO: Raise warning?
@@ -475,7 +482,7 @@ and makeApply com range typ callee (args: Expr list) =
             List.skip argsLength argTypes
             |> List.map (fun t -> Ident(com.GetUniqueVar(), t))
             |> fun argTypes2 ->
-                let args2 = argTypes2 |> List.map (IdentValue >> Value)
+                let args2 = argTypes2 |> List.map argIdentToExpr
                 Apply(callee, ensureArity com argTypes (args@args2), ApplyMeth, typ, range)
                 |> makeLambdaExpr argTypes2
         else

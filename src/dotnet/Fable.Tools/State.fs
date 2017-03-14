@@ -213,8 +213,18 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 state.CompiledFiles.[fileName] <- true
                 Async.Start(async {
                     try
-                        FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
-                        |> Fable2Babel.Compiler.transformFile com state
+                        let fableFile = FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
+                        // Print AST
+                        // state.CheckedProject.AssemblyContents.ImplementationFiles
+                        // |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
+                        // |> Option.iter (fun f ->
+                        //     let name = System.IO.Path.GetFileNameWithoutExtension(fileName)
+                        //     Printers.printFSharpDecls "" f.Declarations
+                        //     |> fun lines -> System.IO.File.WriteAllLines(name + ".fs.ast", lines)
+                        //     Printers.printFableDecls fableFile.Declarations
+                        //     |> fun lines -> System.IO.File.WriteAllLines(name + ".fable.ast", lines)
+                        // )
+                        Fable2Babel.Compiler.transformFile com state fableFile
                         |> addLogs com
                         |> toJsonAndReply replyChannel (Some fileName)
                     with ex ->
