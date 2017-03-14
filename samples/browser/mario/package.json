@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "build": "node ../../node_modules/fable-compiler",
+    "build": "node ../../node_modules/webpack/bin/webpack.js",
     "start": "node ../server"
   }
 }
