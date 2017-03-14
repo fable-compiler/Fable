@@ -176,7 +176,7 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
             |> fun (infos, warnings) ->
                Array.map Log.message infos,
                Array.map Log.message warnings
-        Babel.Program(file.fileName, loc, file.body, file.dependencies, file.directives, infos, warnings)
+        Babel.Program(file.fileName, loc, file.body, file.directives, infos, warnings)
     let rec loop (checker: FSharpChecker) (com: Compiler) (state: State option) = async {
         let! (Parse msg), replyChannel = agent.Receive()
         try

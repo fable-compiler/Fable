@@ -49,7 +49,6 @@ module.exports = function(buffer) {
             }
             else {
                 console.log("Fable client received: " + msg.path);
-                ensureArray(data.dependencies).forEach(x => this.addDependency(x));
                 ensureArray(data.infos).forEach(x => console.log(x));
                 ensureArray(data.warnings).forEach(x => this.emitWarning(x));
                 try {

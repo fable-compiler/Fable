@@ -1183,37 +1183,33 @@ module Compiler =
                                 declareRootModMember a b c d e f g }
                     transformModDecls com ctx helper None file.Declarations
             // Add imports
-            let rootDecls, dependencies =
-                let dependencies = HashSet()
-                com.GetAllImports()
-                |> Seq.mapi (fun ident import ->
-                    import.internalFile |> Option.iter (dependencies.Add >> ignore)
-                    let localId = Identifier(import.localIdent)
-                    let specifier =
-                        match import.selector with
-                        | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
-                        | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
-                        | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1
-                    import.path, specifier)
-                |> Seq.groupBy (fun (path, _) -> path)
-                |> Seq.collect (fun (path, specifiers) ->
-                    let mems, defs, alls =
-                        (([], [], []), Seq.map snd specifiers)
-                        ||> Seq.fold (fun (mems, defs, alls) x ->
-                            match x.``type`` with
-                            | "ImportNamespaceSpecifier" -> mems, defs, x::alls
-                            | "ImportDefaultSpecifier" -> mems, x::defs, alls
-                            | _ -> x::mems, defs, alls)
-                    [mems; defs; alls]
-                    |> Seq.choose (function
-                        | [] -> None
-                        | specifiers ->
-                            ImportDeclaration(specifiers, StringLiteral path)
-                            :> ModuleDeclaration |> U2.Case2 |> Some))
-                |> Seq.toList |> fun importDecls ->
-                    (importDecls@rootDecls), Seq.toList dependencies
+            com.GetAllImports()
+            |> Seq.mapi (fun ident import ->
+                let localId = Identifier(import.localIdent)
+                let specifier =
+                    match import.selector with
+                    | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
+                    | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
+                    | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1
+                import.path, specifier)
+            |> Seq.groupBy (fun (path, _) -> path)
+            |> Seq.collect (fun (path, specifiers) ->
+                let mems, defs, alls =
+                    (([], [], []), Seq.map snd specifiers)
+                    ||> Seq.fold (fun (mems, defs, alls) x ->
+                        match x.``type`` with
+                        | "ImportNamespaceSpecifier" -> mems, defs, x::alls
+                        | "ImportDefaultSpecifier" -> mems, x::defs, alls
+                        | _ -> x::mems, defs, alls)
+                [mems; defs; alls]
+                |> Seq.choose (function
+                    | [] -> None
+                    | specifiers ->
+                        ImportDeclaration(specifiers, StringLiteral path)
+                        :> ModuleDeclaration |> U2.Case2 |> Some))
             // Return the Babel file
-            Program(file.SourcePath, file.Range, rootDecls, dependencies=dependencies)
+            |> fun importDecls ->
+                 Program(file.SourcePath, file.Range, (Seq.toList importDecls)@rootDecls)
         with
         | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.SourcePath) |> raise
         | ex -> exn (sprintf "%s (%s)" ex.Message file.SourcePath, ex) |> raise
