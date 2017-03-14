@@ -457,9 +457,10 @@ module stream =
         member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = jsNative
 
     and [<AllowNullLiteral>] TransformOptions =
-        inherit ReadableOptions
-        inherit WritableOptions
-
+        abstract highWaterMark: float option with get, set
+        abstract decodeStrings: bool option with get, set
+        abstract objectMode: bool option with get, set
+        abstract encoding: string option with get, set
 
     and [<AllowNullLiteral>] [<Import("Transform","stream")>] Transform(?opts: TransformOptions) =
         inherit events.EventEmitter()
