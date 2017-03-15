@@ -1128,7 +1128,6 @@ type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharp
         member fcom.ReplacePlugins =
             replacePlugins
     interface ICompiler with
-        member __.CoreLib = com.CoreLib
         member __.Options = com.Options
         member __.Plugins = com.Plugins
         member __.AddLog msg = com.AddLog msg

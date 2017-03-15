@@ -23,6 +23,7 @@ const config = {
         use: {
             loader: resolve("../typescript/fable-loader"),
             options: {
+                fableCore: resolve("../../build/fable-core"),
                 define: "DOTNETCORE",
                 plugins: resolve("../../build/nunit/Fable.Plugins.NUnit.dll"),
                 babel: babelOptions

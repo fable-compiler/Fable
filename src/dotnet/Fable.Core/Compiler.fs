@@ -1,7 +1,8 @@
 namespace Fable
 
 type CompilerOptions =
-    { declaration: bool
+    { fableCore: string
+    ; declaration: bool
     ; typedArrays: bool
     ; clampByteArrays: bool }
 
@@ -24,7 +25,6 @@ type PluginInfo =
     { path: string; plugin: IPlugin }
 
 type ICompiler =
-    abstract CoreLib: string
     abstract Options: CompilerOptions
     abstract Plugins: PluginInfo list
     abstract AddLog: Log->unit

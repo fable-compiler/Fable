@@ -1,7 +1,7 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.0-narumi-7</Version>
+    <Version>1.0.0-narumi-8</Version>
     <TargetFramework>netstandard1.6</TargetFramework>
     <!--<DocumentationFile>$(OutputPath)Fable.Core.xml</DocumentationFile>-->
   </PropertyGroup>
@@ -21,13 +21,13 @@
     <Compile Include="Fable.Core.Extensions.fs" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!-- The Windows directory separator at the end is necessary to keep the folder structure -->
+  <!--<ItemGroup>
     <Content Include="../../../build/fable-core/**/*.*">
-      <!-- The Windows directory separator is necessary to keep the folder structure -->
       <PackagePath>fable-core\</PackagePath>
       <Pack>true</Pack>
     </Content>
-  </ItemGroup>
+  </ItemGroup>-->
 
   <ItemGroup>
     <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-preview2-*" />

@@ -1133,7 +1133,7 @@ module Util =
                             match kind with
                             | Fable.CustomImport | Fable.Internal _ -> path
                             | Fable.CoreLib ->
-                                let path = com.CoreLib + "/" + path + Naming.targetFileExtension
+                                let path = com.Options.fableCore + "/" + path + Naming.targetFileExtension
                                 if not(path.StartsWith ".") then path else
                                 Path.GetFullPath path
                                 |> Path.getRelativePath ctx.file.SourcePath
@@ -1151,7 +1151,6 @@ module Util =
             member bcom.TransformObjectExpr ctx membs baseClass r =
                 transformObjectExpr bcom ctx (membs, baseClass, r)
         interface ICompiler with
-            member __.CoreLib = com.CoreLib
             member __.Options = com.Options
             member __.Plugins = com.Plugins
             member __.AddLog msg = com.AddLog msg

@@ -1,6 +1,6 @@
 {
   "name": "fable-loader",
-  "version": "1.0.0-narumi-6",
+  "version": "1.0.0-narumi-8",
   "description": "Webpack loader for Fable compiler",
   "main": "index.js",
   "scripts": {
@@ -21,6 +21,7 @@
     "@types/node": "^7.0.5"
   },
   "peerDependencies": {
+    "fable-core": "^1.0.0-narumi-8",
     "babel-core": "^6.23.1"
   }
 }

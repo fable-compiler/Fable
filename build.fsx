@@ -215,7 +215,7 @@ let testsBuildDir = "build/tests"
 let coreSrcDir = "src/dotnet/Fable.Core"
 let compilerSrcDir = "src/dotnet/Fable.Compiler"
 let toolsSrcDir = "src/dotnet/Fable.Tools"
-
+let coreJsSrcDir = "src/typescript/fable-core"
 
 // Targets
 let installDotnetSdk () =
@@ -294,7 +294,7 @@ let nugetRestore () =
     Util.run toolsSrcDir dotnetExePath "restore"
 
 let buildTools isRelease () =
-    sprintf "publish -o ../../../%s -c %s /p:DefineConstants=NO_PACKAGE"
+    sprintf "publish -o ../../../%s -c %s"
         toolsBuildDir (if isRelease then "Release" else "Debug")
     |> Util.run toolsSrcDir dotnetExePath
 
@@ -304,7 +304,9 @@ let buildTools isRelease () =
 
 let buildCoreJs () =
     Npm.install __SOURCE_DIRECTORY__ []
-    Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project src/typescript/fable-core"]
+    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
+    FileUtils.cp (coreJsSrcDir </> "README.md")    "build/fable-core"
+    FileUtils.cp (coreJsSrcDir </> "package.json") "build/fable-core"
 
 let buildCore isRelease () =
     let config = if isRelease then "Release" else "Debug"
@@ -381,8 +383,6 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
     // Publish package if version has been updated
     match updated with
     | Some true ->
-        if projFile.EndsWith("Fable.Core.fsproj") then
-            buildCoreJs ()
         Util.run projDir dotnetExePath "pack -c Release"
         Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
         |> Array.tryFind (fun nupkg -> nupkg.Contains(version))
@@ -476,7 +476,7 @@ Target "GitHubRelease" (fun _ ->
 )
 
 Target "FableToolsDebug" (buildTools false)
-Target "FableCoreDebugJs" buildCoreJs
+Target "FableCoreJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
 
 Target "PublishNugetPackages" (fun () ->

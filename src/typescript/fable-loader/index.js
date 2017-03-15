@@ -33,13 +33,13 @@ module.exports = function(buffer) {
         path: this.resourcePath,
         define: or(opts.define, []),
         plugins: or(opts.plugins, []),
-        options: {
-            declaration: or(opts.declaration, false),
-            typedArrays: or(opts.typedArrays, true),
-            clampByteArrays: or(opts.clampByteArrays, false),
-        }
+        fableCore: or(opts.fableCore, "fable-core"),
+        declaration: or(opts.declaration, false),
+        typedArrays: or(opts.typedArrays, true),
+        clampByteArrays: or(opts.clampByteArrays, false),
     };
     console.log("Fable client sent: " + msg.path)
+    // console.log("Full message: " + JSON.stringify(msg))
 
     client.send(port, JSON.stringify(msg))
         .then(data => {

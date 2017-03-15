@@ -12,16 +12,6 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open ProjectCracker
 open Parser
 
-let fableCoreJsDir =
-    #if NO_PACKAGE
-    let fableCoreDirRelativePath = "../fable-core"
-    #else // Nuget package
-    let fableCoreDirRelativePath = "../../fable-core"
-    #endif
-    let coreDir = Path.Combine(Path.GetDirectoryName(ProjectCracker.fableCoreLib), fableCoreDirRelativePath)
-    let cwd = System.IO.Directory.GetCurrentDirectory()
-    Path.getRelativeFileOrDirPath true cwd true coreDir
-
 type Command = string * (string -> unit)
 
 type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
@@ -63,7 +53,6 @@ type Compiler(options, plugins) =
     let logs = ResizeArray()
     member __.Logs = logs
     interface ICompiler with
-        member __.CoreLib = fableCoreJsDir
         member __.Options = options
         member __.Plugins = plugins
         member __.AddLog msg = logs.Add msg
