@@ -224,6 +224,7 @@ open NodeJS
 
 module net_types =
     type [<AllowNullLiteral>] Socket =
+        inherit EventEmitter
         abstract writable: bool with get, set
         abstract _write: chunk: obj * encoding: string * callback: Function -> unit
         abstract write: chunk: obj * ?cb: Function -> bool
