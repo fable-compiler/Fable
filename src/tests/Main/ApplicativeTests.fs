@@ -337,3 +337,11 @@ let ``No errors because references to missing unit args``() =
         fun () -> "foo" + str
     let f1 = foofy "bar"
     f1 () |> equal "foobar"
+
+type ArityRecord = { arity2: int->int->string }
+
+[<Test>]
+let ``Arity is checked also when constructing records``() =
+    let f i j = (i * 2) + (j * 3)
+    let r = { arity2 = fun x -> f x >> fun y -> sprintf "foo%i" y }
+    r.arity2 4 5 |> equal "foo23"

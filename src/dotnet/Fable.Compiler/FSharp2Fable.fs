@@ -117,7 +117,13 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             let tag = getUnionCaseIndex fsExpr.Range fsType unionCase.Name |> makeIntConst
             match argExprs with
             | [] -> [tag]
-            | argExprs -> [tag; Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))]
+            | argExprs ->
+                let argTypes =
+                    unionCase.UnionCaseFields
+                    |> Seq.map (fun x -> makeType com [] x.FieldType)
+                    |> Seq.toList
+                let argExprs = ensureArity com argTypes argExprs
+                [tag; Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))]
         buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
             ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
         |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
@@ -136,7 +142,7 @@ and private transformComposableExpr com ctx fsExpr argExprs =
         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
             validateGenArgs ctx r tdef.GenericParameters typArgs)
         makeCallFrom com ctx r typ meth (typArgs, []) None argExprs
-    | BasicPatterns.NewUnionCase(fsType, unionCase, _) ->
+    | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, _) ->
         transformNonListNewUnionCase com ctx fsExpr fsType unionCase argExprs
     | _ -> failwithf "Expected ComposableExpr %O" (makeRange fsExpr.Range)
 
@@ -600,7 +606,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         List.map (com.Transform ctx) args
         |> makeCallFrom com ctx r typ meth (typArgs, []) None
 
-    | BasicPatterns.NewRecord(fsType, argExprs) ->
+    | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
         let range = makeRangeFrom fsExpr
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         match tryDefinition fsType with
@@ -609,6 +615,13 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> List.map (fun (fi, e) -> fi.Name, e)
             |> makeJsObject range
         | _ ->
+            let argExprs =
+                if fsType.HasTypeDefinition
+                then
+                    fsType.TypeDefinition.FSharpFields
+                    |> Seq.map (fun x -> makeType com [] x.FieldType)
+                    |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
+                else argExprs
             let recordType = makeType com ctx.typeArgs fsType
             buildApplyInfo com ctx range recordType recordType (recordType.FullName)
                 ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
@@ -618,7 +631,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             | None -> Fable.Apply(makeNonGenTypeRef com recordType, argExprs, Fable.ApplyCons,
                             makeType com ctx.typeArgs fsExpr.Type, range)
 
-    | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
+    | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
         match fsType with
         | ListType _ -> transformNewList com ctx fsExpr fsType argExprs
         | _ -> List.map (com.Transform ctx) argExprs
