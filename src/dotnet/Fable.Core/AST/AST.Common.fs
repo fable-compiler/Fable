@@ -33,7 +33,7 @@ type FableError(msg: string, ?range: SourceLocation, ?file: string) =
         | None -> msg
 
 type NumberKind =
-    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64 | Decimal
+    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64
 
 /// Numbers that are not represented with JS native number type
 type ExtendedNumberKind =

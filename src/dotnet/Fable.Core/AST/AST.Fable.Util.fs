@@ -92,7 +92,7 @@ let makeTypeConst (typ: Type) (value: obj) =
         | Number UInt32, (:? uint32 as x) -> NumberConst (float x, UInt32)
         // Float types
         | Number Float64, (:? float as x) -> NumberConst (float x, Float64)
-        | Number Decimal, (:? decimal as x) -> NumberConst (float x, Float64)
+        | Number Float64, (:? decimal as x) -> NumberConst (float x, Float64)
         // Enums (TODO: proper JS support, as Enum has no type)
         | Enum _, (:? byte as x) -> NumberConst (float x, UInt8)
         | Enum _, (:? sbyte as x) -> NumberConst (float x, Int8)
@@ -150,7 +150,6 @@ let getTypedArrayName (com: ICompiler) numberKind =
     | UInt32 -> "Uint32Array"
     | Float32 -> "Float32Array"
     | Float64 -> "Float64Array"
-    | Decimal -> "Float64Array"
 
 let makeNonDeclaredTypeRef (nonDeclType: NonDeclaredType) =
     let get t =

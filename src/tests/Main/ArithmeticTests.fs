@@ -410,3 +410,11 @@ let ``Big integers comparison works``() =
     equal(-1, compare y z)
     equal(0, compareTo y x)
     equal(1, compareTo z x)
+
+let decimalOne = 1M
+let decimalTwo = 2M
+
+[<Test>]
+let ``Member values of decimal type can be compared``() = // See #747
+    equal(true, decimalOne < decimalTwo)
+    equal(false, decimalOne > decimalTwo)

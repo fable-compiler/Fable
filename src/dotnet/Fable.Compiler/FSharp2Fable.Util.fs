@@ -553,7 +553,9 @@ module Patterns =
         | "System.UInt32" -> Some UInt32
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
-        | "System.Decimal" -> Some Decimal
+        // TODO: Proper decimal implementation (move to ExtendedNumberKind)
+        | "System.Decimal"
+        | "Microsoft.FSharp.Core.decimal`1" -> Some Float64
         // Units of measure
         | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
         | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
@@ -613,7 +615,7 @@ module Patterns =
         atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList)
 
-    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|PojoUnion|OtherType|) (typ: FSharpType) =
+    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|PojoUnion|OtherType|) (NonAbbreviatedType typ: FSharpType) =
         match tryDefinition typ with
         | None -> OtherType
         | Some tdef ->

@@ -93,7 +93,7 @@ module Util =
 
     let (|Integer|Float|) = function
         | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
-        | Float32 | Float64 | Decimal -> Float
+        | Float32 | Float64 -> Float
 
     let resolveTypeRef com (info: Fable.ApplyInfo) generic t =
         let genInfo =
@@ -193,7 +193,7 @@ module Util =
             let meth = match i.returnType with
                         | Number Float32 -> "toSingle"
                         | Number Float64 -> "toDouble"
-                        | Number Decimal -> "toDecimal"
+                        // | Number Decimal -> "toDecimal"
                         | _ -> failwith "Unexpected conversion"
             CoreLibCall("BigInt", Some meth, false, args)
             |> makeCall i.range i.returnType
@@ -216,7 +216,7 @@ module Util =
             | ExtNumber UInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
             | Number Float32 -> 8    //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
             | Number Float64 -> 9    //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
-            | Number Decimal -> 10   // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
+            // | Number Decimal -> 10   // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
             | ExtNumber BigInt -> 11 // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
             | NoNumber -> failwith "Unexpected non-number type"
         let needToCast typeFrom typeTo =
@@ -261,7 +261,7 @@ module Util =
             | ExtNumber UInt64 -> "toUInt64"
             | Number Float32 -> "toSingle"
             | Number Float64 -> "toDouble"
-            | Number Decimal -> "toDecimal"
+            // | Number Decimal -> "toDecimal"
             | NoNumber -> failwith "Unexpected non-number type"
         match args.Head.Type with
         | Fable.Char ->

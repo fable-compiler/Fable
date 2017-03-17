@@ -142,7 +142,7 @@ and private transformComposableExpr com ctx fsExpr argExprs =
         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
             validateGenArgs ctx r tdef.GenericParameters typArgs)
         makeCallFrom com ctx r typ meth (typArgs, []) None argExprs
-    | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, _) ->
+    | BasicPatterns.NewUnionCase(fsType, unionCase, _) ->
         transformNonListNewUnionCase com ctx fsExpr fsType unionCase argExprs
     | _ -> failwithf "Expected ComposableExpr %O" (makeRange fsExpr.Range)
 
@@ -606,7 +606,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         List.map (com.Transform ctx) args
         |> makeCallFrom com ctx r typ meth (typArgs, []) None
 
-    | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
+    | BasicPatterns.NewRecord(fsType, argExprs) ->
         let range = makeRangeFrom fsExpr
         let argExprs = argExprs |> List.map (transformExpr com ctx)
         match tryDefinition fsType with
@@ -614,24 +614,24 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             List.zip (Seq.toList tdef.FSharpFields) argExprs
             |> List.map (fun (fi, e) -> fi.Name, e)
             |> makeJsObject range
-        | _ ->
+        | tdef ->
             let argExprs =
-                if fsType.HasTypeDefinition
-                then
-                    fsType.TypeDefinition.FSharpFields
+                match tdef with
+                | Some tdef ->
+                    tdef.FSharpFields
                     |> Seq.map (fun x -> makeType com [] x.FieldType)
                     |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
-                else argExprs
+                | None -> argExprs
             let recordType = makeType com ctx.typeArgs fsType
             buildApplyInfo com ctx range recordType recordType (recordType.FullName)
                 ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
-            |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
+            |> tryBoth (tryPlugin com) (tryReplace com tdef)
             |> function
             | Some repl -> repl
             | None -> Fable.Apply(makeNonGenTypeRef com recordType, argExprs, Fable.ApplyCons,
                             makeType com ctx.typeArgs fsExpr.Type, range)
 
-    | BasicPatterns.NewUnionCase(NonAbbreviatedType fsType, unionCase, argExprs) ->
+    | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
         match fsType with
         | ListType _ -> transformNewList com ctx fsExpr fsType argExprs
         | _ -> List.map (com.Transform ctx) argExprs
