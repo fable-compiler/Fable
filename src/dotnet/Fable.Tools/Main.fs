@@ -23,6 +23,13 @@ let startProcess workingDir fileName args =
     p.Start() |> ignore
     p
 
+let runProcess workingDir fileName args =
+    let p = startProcess workingDir fileName args
+    p.WaitForExit()
+    match p.ExitCode with
+    | 0 -> ()
+    | c -> failwithf "Process %s %s finished with code %i" fileName args c
+
 let argsToMap (argv: string[]) =
     try
         argv
@@ -56,6 +63,10 @@ let main argv =
   start          Start Fable server
     --port         Port number (default 61225)
     --timeout      Stop the server if timeout (ms) is reached
+  npm-run        Start a server, run an npm script and shut it down
+    <script>       Name of the npm script, e.g.: `dotnet fable npm-run start`
+    --port         Port number (default 61225)
+  add            Adds one or several Fable npm packages
 """
     | Some "--version" -> printfn "%O" assemblyVersion.Value
     | Some "start" -> argv.[1..] |> argsToMap |> startServer |> Async.RunSynchronously
@@ -64,6 +75,23 @@ let main argv =
         let workingDir = Directory.GetCurrentDirectory()
         let p = startProcess workingDir "npm" ("run " + argv.[1])
         p.WaitForExit()
+    | Some "add" ->
+        let packages = argv.[1..]
+        let workingDir = Directory.GetCurrentDirectory()
+        runProcess workingDir "npm" ("install --save" + (String.concat " " packages))
+        let rec findPackageJsonDir dir =
+            if File.Exists(Path.Combine(dir, "package.json"))
+            then dir
+            else
+                let parent = Directory.GetParent(dir)
+                if isNull parent then
+                    failwith "Couldn't find package.json directory"
+                findPackageJsonDir parent.FullName
+        let pkgJsonDir = findPackageJsonDir workingDir
+        for pkg in packages do
+            let projRef = Path.Combine(pkgJsonDir, "node_modules", pkg, pkg.Replace("-", ".") + ".fsproj")
+            runProcess workingDir "dotnet" ("add reference " + projRef)
+
     | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options" cmd
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options"
     0

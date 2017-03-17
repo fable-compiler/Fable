@@ -117,11 +117,11 @@ let createState checker projectOptions (com: ICompiler) (msg: Message) projFile 
         match projectOptions with
         | Some projectOptions -> projectOptions
         | None -> getFullProjectOpts checker msg.define projFile
-    // printfn "F# Project: %s" projectOptions.ProjectFileName
+    printfn "F# PROJECT: %s" projectOptions.ProjectFileName
     // for option in projectOptions.OtherOptions do
     //     printfn "%s" option
-    // for file in projectOptions.ProjectFileNames do
-    //     printfn "%s" file
+    for file in projectOptions.ProjectFileNames do
+        printfn "%s" file
     let logs, checkedProject =
         // TODO: Do this asynchronously?
         parseFSharpProject checker projectOptions

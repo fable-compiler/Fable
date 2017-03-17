@@ -101,10 +101,28 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "-r:" + fableCoreLib // "FSharp.Core"
     |]
 
+/// At the moment this only supports conditions like "$(MSBuildThisFileDirectory.Contains('node_modules')"
+let tryEvalMsBuildCondition (projDir: string) (condition: string) =
+    let reg = Regex("(!)?\$\(MSBuildThisFileDirectory\.Contains\('(.*?)\)", RegexOptions.Compiled)
+    let m = reg.Match(condition)
+    if m.Success
+    then
+        let contains = projDir.Contains(m.Groups.[2].Value)
+        if m.Groups.[1].Value = "!" then not contains else contains
+    else FableError("Cannot evaluate MSBuild condition " + condition) |> raise
+
 /// Ultra-simplistic resolution of .fsproj files
 let crackFsproj (projFile: string) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
+    let withNameAndFulfillingCondition projDir s (xs: XElement seq) =
+        xs |> Seq.filter (fun el ->
+            if el.Name.LocalName = s
+            then
+                match el.Attribute(XName.Get "Condition") with
+                | null -> true
+                | att -> tryEvalMsBuildCondition projDir att.Value
+            else false)
     let (|BeforeComma|) (att: XAttribute) =
         let str = att.Value
         match str.IndexOf(',', 0) with
@@ -136,9 +154,10 @@ let crackFsproj (projFile: string) =
                 | None -> Another
         | _ -> Another
     let doc = XDocument.Load(projFile)
+    let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
     let sourceFiles, projectReferences, relativeDllReferences =
         doc.Root.Elements()
-        |> withName "ItemGroup"
+        |> withNameAndFulfillingCondition projDir "ItemGroup"
         |> Seq.map (fun item ->
             (item.Elements(), ([], [], []))
             ||> Seq.foldBack (fun item (src, prj, dll) ->
@@ -149,9 +168,7 @@ let crackFsproj (projFile: string) =
                 | Another -> src, prj, dll))
         |> Seq.reduce (fun (src1, prj1, dll1) (src2, prj2, dll2) ->
             src1@src2, prj1@prj2, dll1@dll2)
-    let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
     let reg = Regex("\\.fs[ix]?$")
-    let isNpmPkg = projDir.Contains("node_modules")
     { projectFile = projFile
     ; sourceFiles =
         sourceFiles
@@ -160,9 +177,6 @@ let crackFsproj (projFile: string) =
     ; projectReferences =
         projectReferences
         |> List.map (fun projRef ->
-            // Resolve NodeModulesDir MSBuild property for libraries
-            // See "How to write a Fable library" for more info
-            let projRef = projRef.Replace("$(NodeModulesDir)", if isNpmPkg then ".." else "node_modules")
             Path.Combine(projDir, Path.normalizePath projRef) |> Path.GetFullPath)
     ; dllReferences =
         relativeDllReferences

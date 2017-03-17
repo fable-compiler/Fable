@@ -4,6 +4,7 @@ var client = require("./src/client.js");
 var babelPlugins = require("./src/babel-plugins.js");
 
 var DEFAULT_PORT = 61225;
+var fableCoreVersion = null;
 
 function or(option, _default) {
     return option !== void 0 ? option : _default;
@@ -33,11 +34,19 @@ module.exports = function(buffer) {
         path: this.resourcePath,
         define: or(opts.define, []),
         plugins: or(opts.plugins, []),
-        fableCore: or(opts.fableCore, "fable-core"),
+        fableCore: or(opts.fableCore, null),
         declaration: or(opts.declaration, false),
         typedArrays: or(opts.typedArrays, true),
         clampByteArrays: or(opts.clampByteArrays, false),
     };
+
+    if (opts.fableCore == null) {
+        if (fableCoreVersion == null) {
+            fableCoreVersion = require("fable-core/package.json").version;
+        }
+        msg.fableCore = path.join(__dirname, "../fable-core");
+    }
+
     console.log("Fable client sent: " + msg.path)
     // console.log("Full message: " + JSON.stringify(msg))
 
@@ -48,7 +57,7 @@ module.exports = function(buffer) {
                 callback(data.error);
             }
             else {
-                console.log("Fable client received: " + msg.path);
+                // console.log("Fable client received: " + msg.path);
                 ensureArray(data.infos).forEach(x => console.log(x));
                 ensureArray(data.warnings).forEach(x => this.emitWarning(x));
                 try {
