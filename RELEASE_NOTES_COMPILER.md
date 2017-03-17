@@ -1,3 +1,7 @@
+### 0.7.50
+
+* Fix #747: Decimal comparison
+
 ### 0.7.49
 
 * Fix #744: CLI argument flags

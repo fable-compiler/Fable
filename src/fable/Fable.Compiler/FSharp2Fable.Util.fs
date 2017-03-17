@@ -547,6 +547,7 @@ module Patterns =
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
         | "System.Decimal" -> Some Decimal
+        | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Decimal
         // Units of measure
         | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
         | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
