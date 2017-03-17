@@ -103,7 +103,7 @@ let getBasicCompilerArgs (define: string[]) optimize =
 
 /// At the moment this only supports conditions like "$(MSBuildThisFileDirectory.Contains('node_modules')"
 let tryEvalMsBuildCondition (projDir: string) (condition: string) =
-    let reg = Regex("(!)?\$\(MSBuildThisFileDirectory\.Contains\('(.*?)\)", RegexOptions.Compiled)
+    let reg = Regex("(!)?\$\(MSBuildThisFileDirectory\.Contains\('(.*?)'\)", RegexOptions.Compiled)
     let m = reg.Match(condition)
     if m.Success
     then
@@ -219,14 +219,14 @@ let getProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string
 // get a read error. If that happens the lock is usually brief so we can reasonably wait
 // for it to be released.
 let retryGetProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
-    let retryUntil = (DateTime.UtcNow + TimeSpan.FromSeconds 5.)
+    let retryUntil = (DateTime.UtcNow + TimeSpan.FromSeconds 2.)
     let rec retry () =
         try
             getProjectOpts checker define projFile
         with
         | :? IOException as ioex ->
             if retryUntil > DateTime.UtcNow then
-                System.Threading.Thread.Sleep 100
+                System.Threading.Thread.Sleep 500
                 retry()
             else
                 failwithf "IO Error trying read project options: %s " ioex.Message
