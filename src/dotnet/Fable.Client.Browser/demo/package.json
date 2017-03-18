@@ -1,13 +1,15 @@
 {
   "private": true,
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "dependencies": {
     "babel-plugin-transform-es2015-block-scoping": "^6.23.0",
     "babel-standalone": "^6.23.1",
     "babel-template": "^6.23.0",
     "webpack": "^2.2.1"
+  },
+  "scripts": {
+    "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
+    "build": "node ../../../../node_modules/webpack/bin/webpack.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   }
 }

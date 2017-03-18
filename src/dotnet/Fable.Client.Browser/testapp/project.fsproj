@@ -1,23 +1,17 @@
 ﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Version>1.0.0-alpha</Version>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp1.0</TargetFramework>
-    <Version>1.0.0-alpha</Version>
-    <DefineConstants>$(DefineConstants);DOTNET40</DefineConstants>
-    <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_CORHOST_SIGNER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_LINKEDRESOURCES</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_PDB_READER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_PDB_WRITER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_WEAKTABLE</DefineConstants>
-    <DefineConstants>$(DefineConstants);NO_COMPILER_BACKEND</DefineConstants>
-    <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
-    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <DefineConstants>DOTNETCORE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../Fable.Compiler.fsx"/>
+    <ProjectReference Include="../Fable.Client.Browser.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="app.fs"/>
   </ItemGroup>
 

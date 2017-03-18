@@ -5,7 +5,8 @@ open Fable.Client
 
 let metadataPath = "/temp/metadata/"
 
-#if !DOTNETCORE && !DOTNET40
+#if !DOTNETCORE
+
 [<Fable.Core.Import("readFileSync", "fs")>]
 let readFileSync: System.Func<string, byte[]> = failwith "JS only"
 [<Fable.Core.Import("readFileSync", "fs")>]
@@ -22,7 +23,9 @@ let measureTime (f: unit -> 'a) =
     let res = f()
     let elapsed = hrTimeElapsed(startTime)
     int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
-#else
+
+#else // DOTNETCORE
+
 let readAllBytes = fun (fileName:string) -> System.IO.File.ReadAllBytes (metadataPath + fileName)
 let readAllText = fun (filePath:string) -> System.IO.File.ReadAllText (filePath, System.Text.Encoding.UTF8)
 let measureTime (f: unit -> 'a) =
@@ -30,14 +33,11 @@ let measureTime (f: unit -> 'a) =
     let res = f()
     sw.Stop()
     sw.ElapsedMilliseconds, res
+
 #endif
 
-// let measureTime f =
-//     let startTime = System.DateTime.UtcNow
-//     f()
-//     (System.DateTime.UtcNow - startTime).Milliseconds
 
-#if DOTNETCORE || DOTNET40
+#if DOTNETCORE
 [<EntryPoint>]
 #endif
 let main argv =
@@ -51,15 +51,14 @@ let main argv =
             InteractiveChecker(references, readAllBytes)
         let ms, checker = measureTime createChecker
         printfn "InteractiveChecker created in %d ms" ms
-        //let success = compile com checker (fileName, source)
         let f() =
             compileAst com checker (fileName, source)
-            |> Seq.map (fun file -> Fable.Core.JsInterop.toJson file)
+            |> Fable.Core.JsInterop.toJson
             |> ignore
         let bench i =
             let ms, _ = measureTime f
             printfn "iteration %d, duration %d ms" i ms
         [1..10] |> List.iter bench
     with ex ->
-        printException ex
+        printfn "Error: %A" ex.Message
     0

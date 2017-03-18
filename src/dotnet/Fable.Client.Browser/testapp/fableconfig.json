@@ -1,22 +1,22 @@
-{
-    "projFile": "project.fsx",
-    "module": "commonjs",
-    "sourceMaps": false,
-    "ecma": "es2015",
-    "outDir": "out",
-    "coreLib": "../../../../build/fable-core/umd",
-    "symbols": [
-      "FX_NO_CORHOST_SIGNER",
-      "FX_NO_LINKEDRESOURCES",
-      "FX_NO_PDB_READER",
-      "FX_NO_PDB_WRITER",
-      "FX_NO_WEAKTABLE",
-      "NO_COMPILER_BACKEND",
-      "NO_INLINE_IL_PARSER",
-      "TRACE"
-    ],
-    "scripts": {
-        "prebuild": "REM npm install",
-        "postbuild": "node out/testapp/project"
-    }
-}
+// {
+//     "projFile": "project.fsx",
+//     "module": "commonjs",
+//     "sourceMaps": false,
+//     "ecma": "es2015",
+//     "outDir": "out",
+//     "coreLib": "../../../../build/fable-core/umd",
+//     "symbols": [
+//       "FX_NO_CORHOST_SIGNER",
+//       "FX_NO_LINKEDRESOURCES",
+//       "FX_NO_PDB_READER",
+//       "FX_NO_PDB_WRITER",
+//       "FX_NO_WEAKTABLE",
+//       "NO_COMPILER_BACKEND",
+//       "NO_INLINE_IL_PARSER",
+//       "TRACE"
+//     ],
+//     "scripts": {
+//         "prebuild": "REM npm install",
+//         "postbuild": "node out/testapp/project"
+//     }
+// }
