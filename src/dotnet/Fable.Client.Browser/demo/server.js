@@ -9,6 +9,7 @@ const port = 8080
 
 http.createServer(function (request, response) {
   try {
+    console.log(`${request.method} ${request.url}`);
     let requestUrl = url.parse(request.url);
     let fsPath = baseDirectory + path.normalize(requestUrl.pathname);
     var fileStream = fs.createReadStream(fsPath)

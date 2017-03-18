@@ -5,16 +5,16 @@ var metadata = {}
 
 // Files have .txt extension to allow gzipping in Github Pages
 var references = [
-    "mscorlib.txt",
-    "System.txt",
-    "System.Core.txt",
-    "System.Data.txt",
-    "System.IO.txt",
-    "System.Xml.txt",
-    "System.Numerics.txt",
-    "FSharp.Core.sigdata.txt",
-    "FSharp.Core.txt",
-    "Fable.Core.txt"
+    "mscorlib.dll",
+    "System.dll",
+    "System.Core.dll",
+    "System.Data.dll",
+    "System.IO.dll",
+    "System.Xml.dll",
+    "System.Numerics.dll",
+    "FSharp.Core.sigdata",
+    "FSharp.Core.dll",
+    "Fable.Core.dll"
 ];
 
 function isSigdata(ref) {
@@ -22,9 +22,8 @@ function isSigdata(ref) {
 }
 
 function getFileBlob(key, url) {
-    key = key.replace(".txt", isSigdata(key) ? "" : ".dll")
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", url);
+    xhr.open("GET", url + ".txt");
     xhr.responseType = "arraybuffer";
     xhr.onload = function (oEvent) {
       var arrayBuffer = xhr.response;
@@ -50,7 +49,7 @@ function compile(source) {
                 return;
             }
             var readAllBytes = function (fileName) { return metadata[fileName]; }
-            var references2 = references.filter(x => !isSigdata(x)).map(x => x.replace(".txt", ""));
+            var references2 = references.filter(x => !isSigdata(x)).map(x => x.replace(".dll", ""));
             checker = Fable.createChecker(readAllBytes, references2);
         }
         var startTime = performance.now();

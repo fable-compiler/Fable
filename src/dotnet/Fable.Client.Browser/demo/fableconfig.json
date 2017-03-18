@@ -1,28 +1,28 @@
-{
-    "projFile": "../Fable.Compiler.fsx",
-    "verbose": true,
-    "ecma": "es2015",
-    "coreLib": "../../../../build/fable-core",
-    "babelrc": false,
-    "babelPlugins": [
-        "transform-es2015-block-scoping"
-    ],
-    "rollup": {
-        "dest": "./repl/bundle.js"
-    },
-    "outDir": "out",
-    "symbols": [
-      "FX_NO_CORHOST_SIGNER",
-      "FX_NO_LINKEDRESOURCES",
-      "FX_NO_PDB_READER",
-      "FX_NO_PDB_WRITER",
-      "FX_NO_WEAKTABLE",
-      "NO_COMPILER_BACKEND",
-      "NO_INLINE_IL_PARSER",
-      "TRACE"
-    ],
-    "scripts": {
-        "prebuild": "node node_modules/webpack/bin/webpack babel-standalone.js repl/babel-standalone.js --output-library Babel -p",
-        // "postbuild": "node server"
-    }
-}
+// {
+//     "projFile": "../Fable.Compiler.fsx",
+//     "verbose": true,
+//     "ecma": "es2015",
+//     "coreLib": "../../../../build/fable-core",
+//     "babelrc": false,
+//     "babelPlugins": [
+//         "transform-es2015-block-scoping"
+//     ],
+//     "rollup": {
+//         "dest": "./repl/bundle.js"
+//     },
+//     "outDir": "out",
+//     "symbols": [
+//       "FX_NO_CORHOST_SIGNER",
+//       "FX_NO_LINKEDRESOURCES",
+//       "FX_NO_PDB_READER",
+//       "FX_NO_PDB_WRITER",
+//       "FX_NO_WEAKTABLE",
+//       "NO_COMPILER_BACKEND",
+//       "NO_INLINE_IL_PARSER",
+//       "TRACE"
+//     ],
+//     "scripts": {
+//         "prebuild": "node node_modules/webpack/bin/webpack babel-standalone.js repl/babel-standalone.js --output-library Babel -p",
+//         // "postbuild": "node server"
+//     }
+// }

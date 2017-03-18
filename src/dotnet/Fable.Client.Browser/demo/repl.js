@@ -159,7 +159,7 @@
     this.session = this.editor.getSession();
     this.document = this.session.getDocument();
 
-    this.editor.setTheme('ace/theme/tomorrow');
+    this.editor.setTheme('ace/theme/tomorrow_night_bright');
     this.editor.setShowPrintMargin(false);
     this.editor.commands.removeCommands(['gotoline', 'find']);
     this.$el.css({
@@ -167,7 +167,11 @@
       lineHeight: 'inherit'
     });
 
-    this.session.setMode('ace/mode/javascript');
+    if (selector.indexOf('-repl-input') >= 0) {
+      this.session.setMode('ace/mode/ocaml'); //todo: mode/fsharp
+    } else {
+      this.session.setMode('ace/mode/javascript');
+    }
     this.session.setUseSoftTabs(true);
     this.session.setTabSize(2);
     this.session.setUseWorker(false);
