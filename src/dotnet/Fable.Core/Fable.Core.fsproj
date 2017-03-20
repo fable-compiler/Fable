@@ -30,9 +30,8 @@
   </ItemGroup>-->
 
   <ItemGroup>
-    <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-preview2-*" />
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
     <PackageReference Include="FSharp.Core" Version="4.1.*" />
-    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.0-beta-060000" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>
