@@ -89,6 +89,10 @@ let main argv =
                 findPackageJsonDir parent.FullName
         let pkgJsonDir = findPackageJsonDir workingDir
         for pkg in packages do
+            let pkg =
+                match pkg.IndexOf("@") with
+                | -1 -> pkg
+                | i -> pkg.Substring(0,i)
             let projRef = Path.Combine(pkgJsonDir, "node_modules", pkg, pkg.Replace("-", ".") + ".fsproj")
             runProcess workingDir "dotnet" ("add reference " + projRef)
 

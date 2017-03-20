@@ -198,7 +198,7 @@ let getProjectOptionsFromFsproj projFile =
                 crackProjects acc projFile)
     let crackedFsprojs =
         crackProjects [] projFile
-        |> List.distinctBy (fun x -> x.projectFile)
+        |> List.distinctBy (fun x -> x.projectFile.ToLower())
     let sourceFiles =
         crackedFsprojs |> Seq.collect (fun x -> x.sourceFiles) |> Seq.toArray
     let otherOptions =
