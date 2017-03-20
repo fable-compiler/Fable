@@ -1073,7 +1073,7 @@ let private tryGetMethodArgsAndBody (checkedProject: FSharpCheckProjectResults)
     let rec tryGetMethodArgsAndBody' (methFullName: string) = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
             let entFullName = getEntityFullName e
-            if entFullName.StartsWith(entFullName)
+            if methFullName.StartsWith(entFullName)
             then List.tryPick (tryGetMethodArgsAndBody' methFullName) decls
             else None
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth2, args, body) ->
@@ -1086,6 +1086,26 @@ let private tryGetMethodArgsAndBody (checkedProject: FSharpCheckProjectResults)
     |> Seq.tryFind (fun f -> f.FileName = fileName)
     |> Option.bind (fun f ->
         f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' meth.FullName))
+
+let private tryGetEntityImplementation (checkedProject: FSharpCheckProjectResults) (ent: FSharpEntity) =
+    let rec tryGetEntityImplementation' (entFullName: string) = function
+        | FSharpImplementationFileDeclaration.Entity (e, decls) ->
+            let entFullName2 = getEntityFullName e
+            if entFullName = entFullName2
+            then Some e
+            elif entFullName.StartsWith(entFullName2)
+            then List.tryPick (tryGetEntityImplementation' entFullName) decls
+            else None
+        | _ -> None
+    // For entities in checked project (no assembly), try to find the implementation entity
+    // when the declaration location doesn't correspond to the implementation location (see #754)
+    match ent.Assembly.FileName, ent.ImplementationLocation with
+    | None, Some loc when ent.DeclarationLocation.FileName <> loc.FileName ->
+        checkedProject.AssemblyContents.ImplementationFiles
+        |> Seq.tryFind (fun f -> f.FileName = loc.FileName)
+        |> Option.bind (fun f ->
+            f.Declarations |> List.tryPick (tryGetEntityImplementation' ent.FullName))
+    | _ -> Some ent
 
 type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharpCheckProjectResults) =
     let replacePlugins =
@@ -1108,7 +1128,10 @@ type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharp
             then None
             else Some (getEntityLocation tdef).FileName
         member fcom.GetEntity tdef =
-            state.GetOrAddEntity(getEntityFullName tdef, fun () -> makeEntity fcom tdef)
+            state.GetOrAddEntity(getEntityFullName tdef, fun () ->
+                match tryGetEntityImplementation checkedProject tdef with
+                | Some tdef -> makeEntity fcom tdef
+                | None -> FableError("Cannot find implementation of " + (getEntityFullName tdef)) |> raise)
         member fcom.GetInlineExpr meth =
             state.GetOrAddInlineExpr(meth.FullName, fun () ->
                 match tryGetMethodArgsAndBody checkedProject meth with

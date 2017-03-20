@@ -785,3 +785,8 @@ module private MyPrivateModule =
 [<Test>]
 let ``Public members of private modules can be accessed``() = // See #696
     MyPrivateModule.publicFoo() |> equal "foo bar"
+
+[<Test>]
+let ``Types declared in signature file work``() = // See #754
+    let t = Spaces.TRec.Create("haha", "hoho")
+    t.Value |> equal "hahahoho"
