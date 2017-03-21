@@ -102,6 +102,21 @@ module Util =
         // File.Delete(fileName)
         // File.Move(tempFileName, fileName)
 
+    let replaceLineOnce (replacer: string->Match->string option) (reg: Regex) (fileName: string) =
+        let found = ref false
+        fileName |> visitFile (fun line ->
+            if !found
+            then line
+            else
+                let m = reg.Match(line)
+                if not m.Success
+                then line
+                else
+                    found := true
+                    match replacer line m with
+                    | None -> line
+                    | Some newLine -> newLine)
+
     let compileScript symbols outDir fsxPath =
         let dllFile = Path.ChangeExtension(Path.GetFileName fsxPath, ".dll")
         let opts = [
@@ -364,25 +379,24 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
     let projDir = Path.GetDirectoryName(projFile)
     // Restore dependencies here so they're updated to latest project versions
     Util.run projDir dotnetExePath "restore"
-    let mutable updated: bool option = None
+    let updated = ref false
     let version = releaseNotes.NugetVersion
     let reg = Regex("<Version>(.*?)</Version>")
     let projFile = __SOURCE_DIRECTORY__ </> projFile
-    projFile |> Util.visitFile (fun line ->
-        match updated with
-        | Some updated -> line
-        | None ->
-            let m = reg.Match(line)
-            if not m.Success
-            then line
-            elif m.Groups.[1].Value = version
-            then updated <- Some false; line
-            else
-                updated <- Some true
-                reg.Replace(line, "<Version>"+version+"</Version>"))
+    (reg, projFile) ||> Util.replaceLineOnce (fun line m ->
+        if m.Groups.[1].Value = version
+        then None
+        else
+            updated := true
+            reg.Replace(line, "<Version>"+version+"</Version>") |> Some)
     // Publish package if version has been updated
-    match updated with
-    | Some true ->
+    if !updated then
+        // Update version in dotnet-fable Main file
+        if projFile.Contains("dotnet-fable.fsproj") then
+            let reg = Regex(@"VERSION\s*=\s*""(.*?)""")
+            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Main.fs")
+            (reg, mainFile) ||> Util.replaceLineOnce (fun line m ->
+                reg.Replace(line, sprintf "VERSION = \"%s\"" version) |> Some)
         Util.run projDir dotnetExePath "pack -c Release"
         Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
         |> Array.tryFind (fun nupkg -> nupkg.Contains(version))
@@ -390,7 +404,6 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
             Path.GetFullPath nupkg
             |> sprintf "nuget push %s -s nuget.org"
             |> Util.run projDir dotnetExePath)
-    | _ -> ()
 
 let publishFableNugetPackages () =
     pushNuget releaseCore.Value     "src/dotnet/Fable.Core/Fable.Core.fsproj"

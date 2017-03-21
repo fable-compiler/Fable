@@ -107,8 +107,10 @@ let tryEvalMsBuildCondition (projDir: string) (condition: string) =
     let m = reg.Match(condition)
     if m.Success
     then
+        let negate = m.Groups.[1].Value = "!"
         let contains = projDir.Contains(m.Groups.[2].Value)
-        if m.Groups.[1].Value = "!" then not contains else contains
+        // printfn "ProjDir contains '%s': %b (negate: %b) (%s)" m.Groups.[2].Value contains negate projDir
+        if negate then not contains else contains
     else FableError("Cannot evaluate MSBuild condition " + condition) |> raise
 
 /// Ultra-simplistic resolution of .fsproj files
@@ -185,7 +187,9 @@ let crackFsproj (projFile: string) =
 
 let getProjectOptionsFromFsproj projFile =
     let rec crackProjects (acc: CrackedFsproj list) projFile =
-        match acc |> List.tryFind (fun x -> x.projectFile = projFile) with
+        acc |> List.tryFind (fun x ->
+            String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))
+        |> function
         | Some crackedFsproj ->
             // Add a reference to the front to preserve compilation order
             // Duplicated items will be removed later
@@ -234,6 +238,9 @@ let retryGetProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: s
     retry()
 
 let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
+    let projFile = Path.GetFullPath(projFile)
+    if not(File.Exists(projFile)) then
+        failwithf "File does not exist: %s" projFile
     let projOpts = retryGetProjectOpts checker define projFile
     Array.append (getBasicCompilerArgs define false) projOpts.OtherOptions
     |> makeProjectOptions projOpts.ProjectFileName projOpts.ProjectFileNames

@@ -6,10 +6,8 @@ open System.Reflection
 open System.Runtime.InteropServices
 open State
 
+let [<Literal>] VERSION = "1.0.0-narumi-14"
 let [<Literal>] DEFAULT_PORT = 61225
-
-let assemblyVersion = lazy Assembly.GetEntryAssembly().GetName().Version
-let assemblyLocation = lazy Assembly.GetEntryAssembly().Location
 
 let startProcess workingDir fileName args =
     let fileName, args =
@@ -68,7 +66,7 @@ let main argv =
     --port         Port number (default 61225)
   add            Adds one or several Fable npm packages
 """
-    | Some "--version" -> printfn "%O" assemblyVersion.Value
+    | Some "--version" -> printfn "%s" VERSION
     | Some "start" -> argv.[1..] |> argsToMap |> startServer |> Async.RunSynchronously
     | Some "npm-run" ->
         argv.[2..] |> argsToMap |> startServer |> Async.Start
