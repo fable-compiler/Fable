@@ -51,7 +51,16 @@ Webpack is a JS bundler with many powerful features that has become the standard
 
 So with the Fable server mentioned above running, you only need to invoke Webpack with the appropriate configuration. Please check the Webpack documentation for more info. For convenience, you can also start the Fable server and Webpack with a single command using [npm scripts](https://docs.npmjs.com/misc/scripts). If you have a `build` script to invoke Webpack in your package.json, you can type: `dotnet fable npm-run build` to start and keep Fable server active only during the time the npm script is being executed.
 
-> By default, Fable server will listen in port 61225. You can modify it by using the `--port` argument when starting the Fable server and also passing `port` to the Fable loader options.
+> By default, Fable server will listen on port 61225. You can modify it by using the `--port` argument when starting the Fable server.
+
+Check [this example](https://github.com/fable-compiler/Fable/blob/f3fa826f4e7faf382383daf1e9af5e89dec7fe13/src/templates/simple/Content/webpack.config.js#L27-L30) to see how can you pass options to fable-loader. The currently available options are:
+
+- `babel`: Babel options in the same format as you would pass them to the babel-loader.
+- `define`: Array of define constants for conditional compilation (like `#if DEBUG`). The `FABLE_COMPILER` constant is always added by default. Please note that Fable won't use the `DefineConstants` property in the .fsproj file. (This option was named `symbols ` in Fable 0.7.)
+- `plugins`: Array of Fable plugins, same as in Fable 0.7.
+- `typedArrays`: Set it to false if you don't want Fable to generate [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Typed_arrays), true by default.
+- `clampByteArrays`: When generating typed arrays yo can set this to true to use [UInt8ClampedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray) for byte arrays.
+- `port`: The port where Fable server is listening, default 61225.
 
 ## Libraries
 
@@ -77,7 +86,7 @@ Not directly related with Fable 1.0 but in a happy coincidence **fable-elmish an
 
 ## Changes in code generation
 
-As you can see, most of the changes in Fable 1.0 have to do with the workflow, but there are still a few important changes in code generation. Most importantly, thanks to the outstanding accomplishment of [ncave](https://github.com/ncave) (who's ncave?) who has [compiled the F# compiler itself to JS using Fable](https://github.com/fsharp/FSharp.Compiler.Service/pull/688) enabling the [Fable REPL](http://fable.io/repl.html) to run entirely on the browser with no backend, we had the chance to analyze the generated JS code for a big, big, big project, fixing many subtle bugs that surfaced and introducing several optimizations.
+As you can see, most of the changes in Fable 1.0 have to do with the workflow, but there are still a few important changes in code generation. Most importantly, thanks to the outstanding achievement of [ncave](https://github.com/ncave) (who's ncave?) who has [compiled the F# compiler itself to JS using Fable](https://github.com/fsharp/FSharp.Compiler.Service/pull/688) enabling the [Fable REPL](http://fable.io/repl.html) to run entirely on the browser with no backend, we had the chance to analyze the generated JS code for a big, big, big project, fixing many subtle bugs that surfaced and introducing several optimizations.
 
 ### Curried lambdas are not compiled as nested functions anymore
 
@@ -89,9 +98,9 @@ Hopefully this change will help when interacting with external JS libraries and 
 
 ### `KeyValueList` attribute has been deprecated
 
-So far, in other to make the interaction with JS more idiomatic in F# I've introduced some attributes to change the runtime representation of certain types. This is nice because you can have the types we know and love from F# like unions and records, while they behave as JS objects, strings, etc. in runtime. But on the other hand, this was also problematic because developers had some expectations about these types that behave differently in runtime.
+So far, in order to make the interaction with JS more idiomatic in F# I've introduced some attributes to change the runtime representation of certain types. This is nice because you can have the types we know and love from F# like unions and records, while they behave as JS objects, strings, etc. in runtime. But on the other hand, this was also problematic because developers had some expectations about these types that behave differently in runtime.
 
-In order to avoid these frictions, Fable 1.0 won't introduce more _hacky_ attributes and will explore other ways to improve the interaction with JS that don't break from standard F#. In order to keep compatibility old attributes are still supported with the exception of `KeyValueList` that was used to represent options in JS (by transforming a list of union cases into a JS object). This is because this attribute was mainly used in libraries (like `fable-react`) and it's been possible to change it without modifying the API. Moreover the new solution (a `keyValueList` function) can be inlined to make the transformation happen in real time and avoid any performance penalty in runtime.
+In order to avoid these frictions, Fable 1.0 won't introduce more _hacky_ attributes and will explore other ways to improve the interaction with JS that don't break from standard F#. In order to keep compatibility old attributes are still supported with the exception of `KeyValueList` that was used to represent options in JS (by transforming a list of union cases into a JS object). This is because this attribute was mainly used in libraries (like `fable-react`) and it's been possible to change it without modifying the API. Moreover the new solution (a `keyValueList` function) can be inlined to make the transformation happen in compile time and avoid any performance penalty in runtime.
 
 ## How do I start?
 
