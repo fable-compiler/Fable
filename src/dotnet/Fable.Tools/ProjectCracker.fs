@@ -155,6 +155,9 @@ let crackFsproj (projFile: string) =
                 | Some x -> RelativeDllReference x.Value
                 | None -> Another
         | _ -> Another
+    // Use FableError to prevent retryGetProjectOpts keeps trying
+    if not(File.Exists(projFile)) then
+        FableError("File does not exist: " + projFile) |> raise
     let doc = XDocument.Load(projFile)
     let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
     let sourceFiles, projectReferences, relativeDllReferences =
@@ -234,13 +237,13 @@ let retryGetProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: s
                 retry()
             else
                 failwithf "IO Error trying read project options: %s " ioex.Message
-        | ex -> failwithf "Cannot read project options: %s" ex.Message
+        | _ -> reraise()
     retry()
 
 let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
-        failwithf "File does not exist: %s" projFile
+        FableError("File does not exist: " + projFile) |> raise
     let projOpts = retryGetProjectOpts checker define projFile
     Array.append (getBasicCompilerArgs define false) projOpts.OtherOptions
     |> makeProjectOptions projOpts.ProjectFileName projOpts.ProjectFileNames

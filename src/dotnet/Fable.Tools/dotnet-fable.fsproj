@@ -5,7 +5,6 @@
     <TargetFramework>netcoreapp1.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
     <ProjectReference Include="../Fable.Compiler/Fable.Compiler.fsproj" />
   </ItemGroup>
   <ItemGroup>
@@ -20,8 +19,6 @@
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
     <PackageReference Include="FSharp.Core" Version="4.1.*" />
     <PackageReference Include="System.Xml.XDocument" Version="4.3.0" />
-    <PackageReference Include="FSharp.Compiler.Service" Version="11.0.2" />
-    <PackageReference Include="Newtonsoft.Json" Version="9.0.2-beta2" />
   </ItemGroup>
   <ItemGroup>
     <DotNetCliToolReference Include="Microsoft.DotNet.Watcher.Tools" Version="1.0.0-msbuild2-final" />

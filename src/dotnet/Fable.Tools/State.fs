@@ -48,13 +48,20 @@ let loadAssembly path =
     globalLoadContext.LoadFromAssemblyPath(path)
 #endif
 
-type Compiler(options, plugins) =
+type Compiler() =
     let mutable id = 0
+    let mutable options' = getDefaultOptions()
+    let mutable plugins': PluginInfo list = []
     let logs = ResizeArray()
-    member __.Logs = logs
+    member __.Logs: Log seq = upcast logs
+    member __.Reset(?options, ?plugins) =
+        id <- 0
+        options' <- defaultArg options options'
+        plugins' <- defaultArg plugins plugins'
+        logs.Clear()
     interface ICompiler with
-        member __.Options = options
-        member __.Plugins = plugins
+        member __.Options = options'
+        member __.Plugins = plugins'
         member __.AddLog msg = logs.Add msg
         member __.GetUniqueVar() =
             "$var" + (System.Threading.Interlocked.Increment(&id).ToString())
@@ -103,31 +110,32 @@ let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptio
     let errors, warnings =
         parseErrors checkProjectResults.Errors
     if errors.Length = 0
-    then warnings |> Array.map Warning, checkProjectResults
+    then
+        printfn "F# project parsed successfully"
+        warnings |> Array.map Warning, checkProjectResults
     else errors
         |> Seq.append ["F# project contains errors:"]
         |> String.concat "\n"
         |> FableError |> raise
 
-let createState checker projectOptions (com: ICompiler) (msg: Message) projFile =
-    let com =
-        let plugins = loadPlugins msg.plugins com.Plugins
-        Compiler(msg.options, plugins)
+let createState checker projectOptions (com: ICompiler) (define: string[]) projFile =
     let projectOptions =
         match projectOptions with
         | Some projectOptions -> projectOptions
-        | None -> getFullProjectOpts checker msg.define projFile
-    printfn "F# PROJECT: %s" projectOptions.ProjectFileName
-    // for option in projectOptions.OtherOptions do
-    //     printfn "%s" option
-    for file in projectOptions.ProjectFileNames do
-        printfn "%s" file
+        | None ->
+            let projectOptions = getFullProjectOpts checker define projFile
+            if projFile.EndsWith(".fsproj") then
+                printfn "F# PROJECT: %s" projectOptions.ProjectFileName
+                // for option in projectOptions.OtherOptions do
+                //     printfn "%s" option
+                for file in projectOptions.ProjectFileNames do
+                    printfn "   %s" file
+            projectOptions
     let logs, checkedProject =
-        // TODO: Do this asynchronously?
         parseFSharpProject checker projectOptions
     for log in logs do
-        (com :> ICompiler).AddLog(log)
-    com, State(projectOptions, checkedProject)
+        com.AddLog(log)
+    State(projectOptions, checkedProject)
 
 let toJsonAndReply =
     let jsonSettings =
@@ -135,8 +143,7 @@ let toJsonAndReply =
             Converters=[|Json.ErasedUnionConverter()|],
             NullValueHandling=NullValueHandling.Ignore,
             StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
-    fun (replyChannel: string->unit) fileName (value: obj) ->
-        fileName |> Option.iter (printfn "Fable server sent: %s")
+    fun (replyChannel: string->unit) (value: obj) ->
         JsonConvert.SerializeObject(value, jsonSettings) |> replyChannel
 
 let sendError replyChannel (ex: Exception) =
@@ -145,86 +152,78 @@ let sendError replyChannel (ex: Exception) =
     match ex with
     | :? FableError as err ->
         let errMessage = err.FormattedMessage
-        printfn "%s" errMessage
         // Don't print stack trace for known Fable errors
-        ["error", dict ["message", errMessage]]
-        |> dict |> toJsonAndReply replyChannel None
+        printfn "%s" errMessage
+        ["error", errMessage] |> dict |> toJsonAndReply replyChannel
     | ex ->
         let stack = innerStack ex
         printfn "ERROR: %s\n%s" ex.Message stack
-        ["error", dict ["message", ex.Message; "stack", stack]]
-        |> dict |> toJsonAndReply replyChannel None
+        ["error", ex.Message] |> dict |> toJsonAndReply replyChannel
+
+let addLogs (com: Compiler) (file: Babel.Program) =
+    let loc = defaultArg file.loc SourceLocation.Empty
+    let infos, warnings =
+        com.Logs
+        |> Seq.toArray
+        |> Array.partition (function Info _ -> true | Warning _ -> false)
+        |> fun (infos, warnings) ->
+            Array.map Log.message infos,
+            Array.map Log.message warnings
+    Babel.Program(file.fileName, loc, file.body, file.directives, infos, warnings)
+
+let updateState (checker: FSharpChecker) (com: Compiler) (state: State option)
+                (define: string[]) (fileName: string) =
+    match state with
+    | Some state ->
+        if fileName.EndsWith(".fsproj") || fileName = state.ProjectFile // Must be an .fsx script
+        then createState checker None com define fileName
+        else
+            match state.CompiledFiles.TryGetValue(fileName) with
+            // Watch compilation, restart state
+            | true, true ->
+                createState checker (Some state.ProjectOptions) com define state.ProjectFile
+            | true, false ->
+                // Set file as already compiled
+                state.CompiledFiles.[fileName] <- true
+                state
+            | false, _ when fileName.EndsWith(".fsx") ->
+                createState checker None com define fileName
+            | false, _ ->
+                sprintf "%s doesn't belong to project %s" fileName state.ProjectFile
+                |> FableError |> raise
+    | None ->
+        createState checker None com define fileName
+
+let compile (com: Compiler) (state: State) (fileName: string) =
+    if fileName.EndsWith(".fsproj")
+    then
+        let lastFile = Array.last state.ProjectOptions.ProjectFileNames
+        Fable2Babel.Compiler.createFacade fileName lastFile
+    else
+        printfn "Compiling %s..." fileName
+        FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
+        |> Fable2Babel.Compiler.transformFile com state
+    |> addLogs com
 
 let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
-    let addLogs (com: Compiler) (file: Babel.Program) =
-        let loc = defaultArg file.loc SourceLocation.Empty
-        let infos, warnings =
-            com.Logs
-            |> Seq.toArray
-            |> Array.partition (function Info _ -> true | Warning _ -> false)
-            |> fun (infos, warnings) ->
-               Array.map Log.message infos,
-               Array.map Log.message warnings
-        Babel.Program(file.fileName, loc, file.body, file.directives, infos, warnings)
     let rec loop (checker: FSharpChecker) (com: Compiler) (state: State option) = async {
         let! (Parse msg), replyChannel = agent.Receive()
         try
-            printfn "Fable server received: %s" msg.path
-            let com, state =
-                match state with
-                | Some state ->
-                    if msg.path.EndsWith(".fsproj") || msg.path = state.ProjectFile // Must be an .fsx script
-                    then createState checker None com msg msg.path
-                    else
-                        match state.CompiledFiles.TryGetValue(msg.path) with
-                        // Watch compilation, restart state
-                        | true, true ->
-                            createState checker (Some state.ProjectOptions) com msg state.ProjectFile
-                        | true, false ->
-                            let com = com :> ICompiler
-                            Compiler(com.Options, com.Plugins), state
-                        | false, _ when msg.path.EndsWith(".fsx") ->
-                            createState checker None com msg msg.path
-                        | false, _ ->
-                            sprintf "%s doesn't belong to project %s" msg.path state.ProjectFile
-                            |> FableError |> raise
-                | None ->
-                    createState checker None com msg msg.path
-            let fileName = msg.path
-            if fileName.EndsWith(".fsproj")
-            then
-                let lastFile = Array.last state.ProjectOptions.ProjectFileNames
-                Fable2Babel.Compiler.createFacade fileName lastFile
-                |> addLogs com
-                |> toJsonAndReply replyChannel (Some fileName)
-            else
-                // Set file as already compiled
-                state.CompiledFiles.[fileName] <- true
-                Async.Start(async {
-                    try
-                        let fableFile = FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
-                        // Print AST
-                        // state.CheckedProject.AssemblyContents.ImplementationFiles
-                        // |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
-                        // |> Option.iter (fun f ->
-                        //     let name = System.IO.Path.GetFileNameWithoutExtension(fileName)
-                        //     Printers.printFSharpDecls "" f.Declarations
-                        //     |> fun lines -> System.IO.File.WriteAllLines(name + ".fs.ast", lines)
-                        //     Printers.printFableDecls fableFile.Declarations
-                        //     |> fun lines -> System.IO.File.WriteAllLines(name + ".fable.ast", lines)
-                        // )
-                        Fable2Babel.Compiler.transformFile com state fableFile
-                        |> addLogs com
-                        |> toJsonAndReply replyChannel (Some fileName)
-                    with ex ->
-                        sendError replyChannel ex
-                })
+            com.Reset(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
+            let state = updateState checker com state msg.define msg.path
+            async {
+                try
+                    compile com state msg.path
+                    |> toJsonAndReply replyChannel
+                with ex ->
+                    sendError replyChannel ex
+            } |> Async.Start
             return! loop checker com (Some state)
         with ex ->
             sendError replyChannel ex
             return! loop checker com state
     }
-    let compiler = Compiler(getDefaultOptions(), [])
+    let compiler = Compiler()
     let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
     loop checker compiler None
   )

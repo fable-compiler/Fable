@@ -47,17 +47,17 @@ module.exports = function(buffer) {
         msg.fableCore = path.join(__dirname, "../fable-core");
     }
 
-    console.log("Fable client sent: " + msg.path)
+    console.log("Fable loader sent: " + msg.path)
     // console.log("Full message: " + JSON.stringify(msg))
 
     client.send(port, JSON.stringify(msg))
         .then(data => {
             var data = JSON.parse(data);
             if (data.error) {
-                callback(data.error);
+                callback(new Error(data.error));
             }
             else {
-                // console.log("Fable client received: " + msg.path);
+                console.log("Fable loader received: " + msg.path);
                 ensureArray(data.infos).forEach(x => console.log(x));
                 ensureArray(data.warnings).forEach(x => this.emitWarning(x));
                 try {

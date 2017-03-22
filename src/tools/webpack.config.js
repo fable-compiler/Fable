@@ -1,7 +1,7 @@
 var path = require('path');
 
 function resolve(relativePath) {
-    return path.resolve(__dirname, relativePath);
+    return path.join(__dirname, relativePath);
 }
 
 module.exports = {

@@ -51,7 +51,7 @@ let (|Parse|) (msg: string) =
         { fableCore =
             match parseString "fable-core" "fableCore" json with
             | "fable-core" -> "fable-core"
-            | path -> makePathRelative path
+            | path -> (makePathRelative path).TrimEnd('/')
         ; declaration = parseBoolean false "declaration" json
         ; typedArrays = parseBoolean true "typedArrays" json
         ; clampByteArrays = parseBoolean false "clampByteArrays" json }

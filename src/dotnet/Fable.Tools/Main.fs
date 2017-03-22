@@ -4,6 +4,8 @@ open System
 open System.IO
 open System.Reflection
 open System.Runtime.InteropServices
+open Microsoft.FSharp.Compiler.SourceCodeServices
+open Parser
 open State
 
 let [<Literal>] VERSION = "1.0.0-narumi-14"
@@ -51,6 +53,18 @@ let startServer argsMap =
     let agent = startAgent()
     Server.start port timeout agent.Post
 
+let debug (projFile: string) (define: string[]) =
+    let define = Array.append define [|"FABLE_COMPILER"|]
+    let com = Compiler()
+    let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
+    try
+        let state = updateState checker com None define (Path.GetFullPath projFile)
+        for file in state.CompiledFiles.Keys |> Seq.rev do
+            com.Reset()
+            compile com state file |> printfn "%A"
+    with
+    | ex -> printfn "ERROR: %s\n%s" ex.Message ex.StackTrace
+
 [<EntryPoint>]
 let main argv =
     match Array.tryHead argv with
@@ -93,7 +107,8 @@ let main argv =
                 | i -> pkg.Substring(0,i)
             let projRef = Path.Combine(pkgJsonDir, "node_modules", pkg, pkg.Replace("-", ".") + ".fsproj")
             runProcess workingDir "dotnet" ("add reference " + projRef)
-
+    // | Some "debug" ->
+    //     debug argv.[1] argv.[2..]
     | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options" cmd
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options"
     0

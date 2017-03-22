@@ -96,6 +96,11 @@ module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
         if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
 
+    let rec nonAbbreviatedEntity (ent: FSharpEntity) =
+        if ent.IsFSharpAbbreviation
+        then (nonAbbreviatedType ent.AbbreviatedType).TypeDefinition
+        else ent
+
     // TODO: Report bug in FCS repo, when ent.IsNamespace, FullName doesn't work.
     let getEntityFullName (ent: FSharpEntity) =
         if ent.IsNamespace
@@ -650,16 +655,9 @@ module Types =
             | _ -> isAttributeEntity t.TypeDefinition
         | _ -> false
 
-    let rec getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
-        match tdef.BaseType with
-        | Some(TypeDefinition tdef) when tdef.FullName <> "System.Object" ->
-            let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef com
-            Some (sanitizeEntityFullName tdef, typeRef)
-        | _ -> None
-
     // Some attributes (like ComDefaultInterface) will throw an exception
     // when trying to access ConstructorArguments
-    and makeDecorator (com: IFableCompiler) (att: FSharpAttribute) =
+    let makeDecorator (com: IFableCompiler) (att: FSharpAttribute) =
         try
             let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
             let fullName =
@@ -671,138 +669,13 @@ module Types =
         with _ ->
             None
 
-    and makeMethodFrom com name kind loc argTypes returnType originalTyp overloadIndex
-                       (meth: FSharpMemberOrFunctionOrValue) =
-        Fable.Member(name, kind, loc, argTypes, returnType,
-            originalType = originalTyp,
-            genParams = (meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList),
-            decorators = (meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList),
-            isPublic = (isPublicMethod meth && not meth.IsCompilerGenerated),
-            isMutable = meth.IsMutable,
-            ?overloadIndex = overloadIndex,
-            hasRestParams = hasRestParams meth)
-
-    and getArgTypes com (args: IList<IList<FSharpParameter>>) =
-        // FSharpParameters don't contain the `this` arg
-        Seq.concat args
-        // The F# compiler "untuples" the args in methods
-        |> Seq.map (fun x -> makeType com [] x.Type)
-        |> Seq.toList
-
-    and makeOriginalCurriedType com (args: IList<IList<FSharpParameter>>) returnType =
-        let tys = args |> Seq.map (fun tuple ->
-            let tuple = tuple |> Seq.map (fun t -> makeType com [] t.Type)
-            match List.ofSeq tuple with
-            | [singleArg] -> singleArg
-            | args -> Fable.Tuple(args) )
-        Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function([a], b))
-
-    and getMembers com (tdef: FSharpEntity) =
-        let isAbstract =
-            hasAtt Atts.abstractClass tdef.Attributes
-        let isDefaultImplementation (x: FSharpMemberOrFunctionOrValue) =
-            isAbstract && x.IsOverrideOrExplicitInterfaceImplementation && not x.IsExplicitInterfaceImplementation
-        // F# allows abstract method syntax in non-abstract classes
-        // if there's a default implementation (see #701)
-        let isFakeAbstractMethod (x: FSharpMemberOrFunctionOrValue) =
-            not isAbstract && not tdef.IsInterface && x.IsDispatchSlot
-        let existsInterfaceMember name =
-            tdef.AllInterfaces
-            |> Seq.exists (fun ifc ->
-                if not ifc.HasTypeDefinition then false else
-                ifc.TypeDefinition.MembersFunctionsAndValues
-                |> Seq.exists (fun m -> m.DisplayName = name))
-        let members =
-            tdef.MembersFunctionsAndValues
-            |> Seq.filter (fun x ->
-                // Discard overrides in abstract classes (that is, default implementations)
-                // to prevent confusing them with overloads (see #505)
-                not(isDefaultImplementation x)
-                // Property members that are no getter nor setter don't actually get implemented
-                && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod))
-                && not(isFakeAbstractMethod x))
-            |> Seq.map (fun meth -> sanitizeMethodName meth, getMemberKind meth, getMemberLoc meth, meth)
-            |> Seq.toArray
-        let getMembers' loc (tdef: FSharpEntity) =
-            members
-            |> Seq.filter (fun (_, _, mloc, _) -> sameMemberLoc loc mloc)
-            |> Seq.groupBy (fun (name, kind, _, _) -> name, kind)
-            |> Seq.collect (fun ((name, kind), AsArray members) ->
-                let isOverloaded =
-                    if tdef.IsInterface then false else
-                    match loc with
-                    | Fable.InterfaceLoc _ -> false
-                    | Fable.InstanceLoc -> members.Length > 1 || existsInterfaceMember name
-                    | Fable.StaticLoc -> members.Length > 1
-                members |> Array.mapi (fun i (_, _, loc, meth) ->
-                    let argTypes = getArgTypes com meth.CurriedParameterGroups
-                    let returnType = makeType com [] meth.ReturnParameter.Type
-                    let originalTyp = makeOriginalCurriedType com meth.CurriedParameterGroups returnType
-                    let overloadIndex = if isOverloaded then Some i else None
-                    makeMethodFrom com name kind loc argTypes returnType originalTyp overloadIndex meth
-            ))
-            |> Seq.toList
-        let instanceMembers = getMembers' Fable.InstanceLoc tdef
-        let staticMembers = getMembers' Fable.StaticLoc tdef
-        let interfaceMembers = getMembers' (Fable.InterfaceLoc "") tdef
-        instanceMembers@interfaceMembers@staticMembers
-
-    /// Don't use this method directly, use IFableCompiler.GetEntity instead
-    and makeEntity (com: IFableCompiler) (tdef: FSharpEntity): Fable.Entity =
-        let makeFields (tdef: FSharpEntity) =
-            tdef.FSharpFields
-            |> Seq.map (fun x -> x.Name, makeType com [] x.FieldType)
-            |> Seq.toList
-        let makeProperties (tdef: FSharpEntity) =
-            tdef.MembersFunctionsAndValues
-            |> Seq.choose (fun x ->
-                if not x.IsPropertyGetterMethod then None else
-                match makeType com [] x.FullType with
-                | Fable.Function(_, returnType) ->
-                    Some(x.DisplayName, returnType)
-                | _ -> None)
-            |> Seq.toList
-        let makeCases (tdef: FSharpEntity) =
-            tdef.UnionCases |> Seq.map (fun uci ->
-                let name =
-                    uci.Attributes
-                    |> tryFindAtt ((=) Atts.compiledName)
-                    |> function
-                        | Some name -> name.ConstructorArguments.[0] |> snd |> string
-                        | None -> uci.Name
-                name, [for fi in uci.UnionCaseFields do yield makeType com [] fi.FieldType])
-            |> Seq.toList
-        let getKind () =
-            if tdef.IsInterface then Fable.Interface
-            elif tdef.IsFSharpUnion then makeCases tdef |> Fable.Union
-            elif tdef.IsFSharpRecord || tdef.IsValueType then makeFields tdef |> Fable.Record
-            elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
-            elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
-            else Fable.Class(getBaseClass com tdef, makeProperties tdef)
-        let genParams =
-            tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
-        let infcs =
-            tdef.DeclaredInterfaces
-            |> Seq.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
-            |> Seq.filter (Naming.ignoredInterfaces.Contains >> not)
-            |> Seq.distinct
-            |> Seq.toList
-        let decs =
-            tdef.Attributes
-            |> Seq.choose (makeDecorator com)
-            |> Seq.toList
-        Fable.Entity (Lazy<_>(fun () -> getKind()), com.TryGetInternalFile tdef,
-            sanitizeEntityFullName tdef, Lazy<_>(fun () -> getMembers com tdef),
-            genParams, infcs, decs, not tdef.Accessibility.IsPrivate)
-
-    and makeTypeFromDef (com: IFableCompiler) typeArgs (tdef: FSharpEntity)
+    let rec makeTypeFromDef (com: IFableCompiler) typeArgs (tdef: FSharpEntity)
                         (genArgs: seq<FSharpType>) =
-        let fullName = defaultArg tdef.TryFullName tdef.CompiledName
-        // Guard: F# abbreviations shouldn't be passed as argument
-        if tdef.IsFSharpAbbreviation
-        then failwith "Abbreviation passed to makeTypeFromDef"
+        let tdef = nonAbbreviatedEntity tdef
+        let fullName = getEntityFullName tdef
+        // printfn "makeTypeFromDef %s" fullName
         // Array
-        elif tdef.IsArrayType
+        if tdef.IsArrayType
         then Fable.Array(Seq.head genArgs |> makeType com typeArgs)
         // Enum
         elif tdef.IsEnum
@@ -866,6 +739,7 @@ module Types =
                     genArgs |> Seq.map (makeType com typeArgs) |> Seq.toList)
 
     and makeType (com: IFableCompiler) typeArgs (NonAbbreviatedType t) =
+        // printfn "makeType %O" t
         let makeGenArgs (genArgs: #seq<FSharpType>) =
             Seq.map (makeType com typeArgs) genArgs |> Seq.toList
         let resolveGenParam (genParam: FSharpGenericParameter) =
@@ -898,6 +772,137 @@ module Types =
         elif t.HasTypeDefinition
         then makeTypeFromDef com typeArgs t.TypeDefinition t.GenericArguments
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
+
+    let getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
+        match tdef.BaseType with
+        | Some(TypeDefinition tdef) when tdef.FullName <> "System.Object" ->
+            let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef com
+            Some (sanitizeEntityFullName tdef, typeRef)
+        | _ -> None
+
+    let makeMethodFrom com name kind loc argTypes returnType originalTyp overloadIndex
+                       (meth: FSharpMemberOrFunctionOrValue) =
+        Fable.Member(name, kind, loc, argTypes, returnType,
+            originalType = originalTyp,
+            genParams = (meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList),
+            decorators = (meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList),
+            isPublic = (isPublicMethod meth && not meth.IsCompilerGenerated),
+            isMutable = meth.IsMutable,
+            ?overloadIndex = overloadIndex,
+            hasRestParams = hasRestParams meth)
+
+    let getArgTypes com (args: IList<IList<FSharpParameter>>) =
+        // FSharpParameters don't contain the `this` arg
+        Seq.concat args
+        // The F# compiler "untuples" the args in methods
+        |> Seq.map (fun x -> makeType com [] x.Type)
+        |> Seq.toList
+
+    let makeOriginalCurriedType com (args: IList<IList<FSharpParameter>>) returnType =
+        let tys = args |> Seq.map (fun tuple ->
+            let tuple = tuple |> Seq.map (fun t -> makeType com [] t.Type)
+            match List.ofSeq tuple with
+            | [singleArg] -> singleArg
+            | args -> Fable.Tuple(args) )
+        Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function([a], b))
+
+    let getMembers com (tdef: FSharpEntity) =
+        let isAbstract =
+            hasAtt Atts.abstractClass tdef.Attributes
+        let isDefaultImplementation (x: FSharpMemberOrFunctionOrValue) =
+            isAbstract && x.IsOverrideOrExplicitInterfaceImplementation && not x.IsExplicitInterfaceImplementation
+        // F# allows abstract method syntax in non-abstract classes
+        // if there's a default implementation (see #701)
+        let isFakeAbstractMethod (x: FSharpMemberOrFunctionOrValue) =
+            not isAbstract && not tdef.IsInterface && x.IsDispatchSlot
+        let existsInterfaceMember name =
+            tdef.AllInterfaces
+            |> Seq.exists (fun ifc ->
+                if not ifc.HasTypeDefinition then false else
+                ifc.TypeDefinition.MembersFunctionsAndValues
+                |> Seq.exists (fun m -> m.DisplayName = name))
+        let members =
+            tdef.MembersFunctionsAndValues
+            |> Seq.filter (fun x ->
+                // Discard overrides in abstract classes (that is, default implementations)
+                // to prevent confusing them with overloads (see #505)
+                not(isDefaultImplementation x)
+                // Property members that are no getter nor setter don't actually get implemented
+                && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod))
+                && not(isFakeAbstractMethod x))
+            |> Seq.map (fun meth -> sanitizeMethodName meth, getMemberKind meth, getMemberLoc meth, meth)
+            |> Seq.toArray
+        let getMembers' loc (tdef: FSharpEntity) =
+            members
+            |> Seq.filter (fun (_, _, mloc, _) -> sameMemberLoc loc mloc)
+            |> Seq.groupBy (fun (name, kind, _, _) -> name, kind)
+            |> Seq.collect (fun ((name, kind), AsArray members) ->
+                let isOverloaded =
+                    if tdef.IsInterface then false else
+                    match loc with
+                    | Fable.InterfaceLoc _ -> false
+                    | Fable.InstanceLoc -> members.Length > 1 || existsInterfaceMember name
+                    | Fable.StaticLoc -> members.Length > 1
+                members |> Array.mapi (fun i (_, _, loc, meth) ->
+                    let argTypes = getArgTypes com meth.CurriedParameterGroups
+                    let returnType = makeType com [] meth.ReturnParameter.Type
+                    let originalTyp = makeOriginalCurriedType com meth.CurriedParameterGroups returnType
+                    let overloadIndex = if isOverloaded then Some i else None
+                    makeMethodFrom com name kind loc argTypes returnType originalTyp overloadIndex meth
+            ))
+            |> Seq.toList
+        let instanceMembers = getMembers' Fable.InstanceLoc tdef
+        let staticMembers = getMembers' Fable.StaticLoc tdef
+        let interfaceMembers = getMembers' (Fable.InterfaceLoc "") tdef
+        instanceMembers@interfaceMembers@staticMembers
+
+    /// Don't use this method directly, use IFableCompiler.GetEntity instead
+    let makeEntity (com: IFableCompiler) (tdef: FSharpEntity): Fable.Entity =
+        let makeFields (tdef: FSharpEntity) =
+            tdef.FSharpFields
+            |> Seq.map (fun x -> x.Name, makeType com [] x.FieldType)
+            |> Seq.toList
+        let makeProperties (tdef: FSharpEntity) =
+            tdef.MembersFunctionsAndValues
+            |> Seq.choose (fun x ->
+                if not x.IsPropertyGetterMethod then None else
+                match makeType com [] x.FullType with
+                | Fable.Function(_, returnType) ->
+                    Some(x.DisplayName, returnType)
+                | _ -> None)
+            |> Seq.toList
+        let makeCases (tdef: FSharpEntity) =
+            tdef.UnionCases |> Seq.map (fun uci ->
+                let name =
+                    uci.Attributes
+                    |> tryFindAtt ((=) Atts.compiledName)
+                    |> function
+                        | Some name -> name.ConstructorArguments.[0] |> snd |> string
+                        | None -> uci.Name
+                name, [for fi in uci.UnionCaseFields do yield makeType com [] fi.FieldType])
+            |> Seq.toList
+        let getKind () =
+            if tdef.IsInterface then Fable.Interface
+            elif tdef.IsFSharpUnion then makeCases tdef |> Fable.Union
+            elif tdef.IsFSharpRecord || tdef.IsValueType then makeFields tdef |> Fable.Record
+            elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
+            elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
+            else Fable.Class(getBaseClass com tdef, makeProperties tdef)
+        let genParams =
+            tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
+        let infcs =
+            tdef.DeclaredInterfaces
+            |> Seq.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
+            |> Seq.filter (Naming.ignoredInterfaces.Contains >> not)
+            |> Seq.distinct
+            |> Seq.toList
+        let decs =
+            tdef.Attributes
+            |> Seq.choose (makeDecorator com)
+            |> Seq.toList
+        Fable.Entity (lazy getKind(), com.TryGetInternalFile tdef,
+            sanitizeEntityFullName tdef, lazy getMembers com tdef,
+            genParams, infcs, decs, not tdef.Accessibility.IsPrivate)
 
     let inline (|FableEntity|) (com: IFableCompiler) e = com.GetEntity e
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.typeArgs t

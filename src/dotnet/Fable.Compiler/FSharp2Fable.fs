@@ -1104,7 +1104,8 @@ let private tryGetEntityImplementation (checkedProject: FSharpCheckProjectResult
         checkedProject.AssemblyContents.ImplementationFiles
         |> Seq.tryFind (fun f -> f.FileName = loc.FileName)
         |> Option.bind (fun f ->
-            f.Declarations |> List.tryPick (tryGetEntityImplementation' ent.FullName))
+            let entFullName = getEntityFullName ent
+            f.Declarations |> List.tryPick (tryGetEntityImplementation' entFullName))
     | _ -> Some ent
 
 type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharpCheckProjectResults) =

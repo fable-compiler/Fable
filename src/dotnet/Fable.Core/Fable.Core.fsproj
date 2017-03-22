@@ -1,11 +1,9 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <Version>1.0.0-narumi-8</Version>
     <TargetFramework>netstandard1.6</TargetFramework>
-    <!--<DocumentationFile>$(OutputPath)Fable.Core.xml</DocumentationFile>-->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Compiler.fs" />
     <Compile Include="Util.fs" />
@@ -20,18 +18,8 @@
     <Compile Include="Import/Fable.Import.Node.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
   </ItemGroup>
-
-  <!-- The Windows directory separator at the end is necessary to keep the folder structure -->
-  <!--<ItemGroup>
-    <Content Include="../../../build/fable-core/**/*.*">
-      <PackagePath>fable-core\</PackagePath>
-      <Pack>true</Pack>
-    </Content>
-  </ItemGroup>-->
-
   <ItemGroup>
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
     <PackageReference Include="FSharp.Core" Version="4.1.*" />
   </ItemGroup>
-
 </Project>

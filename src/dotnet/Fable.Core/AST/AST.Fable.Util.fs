@@ -220,7 +220,7 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
             |> List.zip ent.GenericParameters
             |> fun genArgs -> Value(TypeRef(ent, genArgs))
 
-and makeCall (range: SourceLocation option) typ kind =
+let makeCall (range: SourceLocation option) typ kind =
     let getCallee meth args returnType owner =
         match meth with
         | None -> owner

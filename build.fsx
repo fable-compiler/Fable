@@ -488,7 +488,7 @@ Target "GitHubRelease" (fun _ ->
     |> Async.RunSynchronously
 )
 
-Target "FableToolsDebug" (buildTools false)
+Target "FableTools" (buildTools true)
 Target "FableCoreJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
 

@@ -856,9 +856,12 @@ module Util =
         args |> List.map (fun x -> x :> Pattern), body
 
     let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
-        let declareProperty com ctx name typ =
-            let typ = TypeAnnotation(typeAnnotation com ctx typ)
-            ClassProperty(Identifier(name), typeAnnotation=typ)
+        let declareProperty (com: IBabelCompiler) ctx name typ =
+            let typ =
+                if com.Options.declaration
+                then TypeAnnotation(typeAnnotation com ctx typ) |> Some
+                else None
+            ClassProperty(Identifier(name), ?typeAnnotation=typ)
             |> U2<ClassMethod,_>.Case2
         let declareMethod range kind name args (body: Fable.Expr)
                           typeParams hasRestParams isStatic computed =

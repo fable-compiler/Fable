@@ -1,7 +1,7 @@
 var path = require('path');
 
 function resolve(filePath) {
-  return path.resolve(__dirname, filePath)
+  return path.join(__dirname, filePath)
 }
 
 var babelOptions = {
