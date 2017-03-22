@@ -590,8 +590,8 @@ module child_process_types =
 
     type Globals =
         member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
-        member __.exec(command: string, options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.exec(command: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.exec(command: string, options: obj, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.exec(command: string, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
         member __.execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
         member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
         member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
