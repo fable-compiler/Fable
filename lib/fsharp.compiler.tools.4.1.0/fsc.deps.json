@@ -1,0 +1,101 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v1.0",
+    "signature": "681c11222edb2a6f4ca77bcb6872d2565601e533"
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v1.0": {
+      "fsc/1.0.0": {
+        "dependencies": {
+          "Microsoft.DiaSymReader": "1.0.8",
+          "Microsoft.DiaSymReader.PortablePdb": "1.1.0",
+          "System.Diagnostics.TraceSource": "4.0.0",
+          "System.Reflection.Metadata": "1.4.1-beta-24227-04",
+          "System.ValueTuple": "4.0.0-rc3-24212-01"
+        },
+        "runtime": {
+          "fsc.dll": {}
+        }
+      },
+      "microsoft.diasymreader/1.0.8": {
+        "runtime": {
+          "lib/netstandard1.1/Microsoft.DiaSymReader.dll": {}
+        }
+      },
+      "microsoft.diasymreader.portablepdb/1.1.0": {
+        "dependencies": {
+          "Microsoft.DiaSymReader": "1.0.8",
+          "System.Reflection.Metadata": "1.4.1-beta-24227-04"
+        },
+        "runtime": {
+          "lib/netstandard1.1/Microsoft.DiaSymReader.PortablePdb.dll": {}
+        }
+      },
+      "system.diagnostics.tracesource/4.0.0": {
+        "runtimeTargets": {
+          "runtimes/unix/lib/netstandard1.3/System.Diagnostics.TraceSource.dll": {
+            "rid": "unix",
+            "assetType": "runtime"
+          },
+          "runtimes/win/lib/netstandard1.3/System.Diagnostics.TraceSource.dll": {
+            "rid": "win",
+            "assetType": "runtime"
+          }
+        }
+      },
+      "system.reflection.metadata/1.4.1-beta-24227-04": {
+        "runtime": {
+          "lib/netstandard1.1/System.Reflection.Metadata.dll": {}
+        }
+      },
+      "system.valuetuple/4.0.0-rc3-24212-01": {
+        "runtime": {
+          "lib/netstandard1.1/System.ValueTuple.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "fsc/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "microsoft.diasymreader/1.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ABLULVhCAiyBFLBT5xX6vB4NhZDgwUylGRQK+zW5nZn2rbh1f8LOnFZ9gVSxzL6qOzPNb32Nu3QZ43iZerHOxA==",
+      "path": "microsoft.diasymreader/1.0.8",
+      "hashPath": "microsoft.diasymreader.1.0.8.nupkg.sha512"
+    },
+    "microsoft.diasymreader.portablepdb/1.1.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-UWX1XcmvyWpZClcDUgD9vDhJ49WTJcQPGNh51k1gw6a4uDtXXKRQaR6ZHlxKhAxpvoqOgJ23gpOG1QvRJhonhg==",
+      "path": "microsoft.diasymreader.portablepdb/1.1.0",
+      "hashPath": "microsoft.diasymreader.portablepdb.1.1.0.nupkg.sha512"
+    },
+    "system.diagnostics.tracesource/4.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-6WVCczFZKXwpWpzd/iJkYnsmWTSFFiU24Xx/YdHXBcu+nFI/ehTgeqdJQFbtRPzbrO3KtRNjvkhtj4t5/WwWsA==",
+      "path": "system.diagnostics.tracesource/4.0.0",
+      "hashPath": "system.diagnostics.tracesource.4.0.0.nupkg.sha512"
+    },
+    "system.reflection.metadata/1.4.1-beta-24227-04": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-jZVwLiyqsuJOM6Cqx9KuFwmT/RlnB4/8p2UOsr4whk//a/ssGVAsyHuGjGzQpR0XDtASTHEuoB8dloNMVnJcpQ==",
+      "path": "system.reflection.metadata/1.4.1-beta-24227-04",
+      "hashPath": "system.reflection.metadata.1.4.1-beta-24227-04.nupkg.sha512"
+    },
+    "system.valuetuple/4.0.0-rc3-24212-01": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-yooyl0u8E5kNIAtmGt8hrpeQk66GMdPiujKpKqZl25EW0Q98vubsYokQ4FTZeunX0YR8ZN67+Zes3yKH1WaW0Q==",
+      "path": "system.valuetuple/4.0.0-rc3-24212-01",
+      "hashPath": "system.valuetuple.4.0.0-rc3-24212-01.nupkg.sha512"
+    }
+  }
+}

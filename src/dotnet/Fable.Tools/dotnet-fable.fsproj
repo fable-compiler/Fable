@@ -3,6 +3,8 @@
     <Version>1.0.0-narumi-902</Version>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp1.0</TargetFramework>
+    <!-- See https://github.com/dotnet/netcorecli-fsc/issues/98 -->
+    <FscToolPath>../../../lib/fsharp.compiler.tools.4.1.0</FscToolPath>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Fable.Compiler/Fable.Compiler.fsproj" />
@@ -16,8 +18,7 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-preview2-*" />
-    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.0-beta-060000" PrivateAssets="All" />
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
     <PackageReference Include="FSharp.Core" Version="4.1.*" />
     <PackageReference Include="System.Xml.XDocument" Version="4.3.0" />
   </ItemGroup>
