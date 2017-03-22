@@ -3,7 +3,8 @@
   "classifications": [ "Fable" ],
   "name": "Simple Fable App",
   "tags": {
-    "language": "F#"
+    "language": "F#",
+    "type": "project"
   },
   "identity": "Fable.Template",
   "groupIdentity": "Fable",
