@@ -8,7 +8,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Parser
 open State
 
-let [<Literal>] VERSION = "1.0.0-narumi-901"
+let [<Literal>] VERSION = "1.0.0-narumi-902"
 let [<Literal>] DEFAULT_PORT = 61225
 
 let startProcess workingDir fileName args =
@@ -16,6 +16,8 @@ let startProcess workingDir fileName args =
         if RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
         then "cmd", ("/C " + fileName + " " + args)
         else fileName, args
+    printfn "CWD: %s" workingDir
+    printfn "%s %s" fileName args
     let p = new System.Diagnostics.Process()
     p.StartInfo.FileName <- fileName
     p.StartInfo.Arguments <- args
@@ -90,7 +92,7 @@ let main argv =
     | Some "add" ->
         let packages = argv.[1..]
         let workingDir = Directory.GetCurrentDirectory()
-        runProcess workingDir "npm" ("install --save" + (String.concat " " packages))
+        runProcess workingDir "npm" ("install --save-dev " + (String.concat " " packages))
         let rec findPackageJsonDir dir =
             if File.Exists(Path.Combine(dir, "package.json"))
             then dir
@@ -99,14 +101,19 @@ let main argv =
                 if isNull parent then
                     failwith "Couldn't find package.json directory"
                 findPackageJsonDir parent.FullName
-        let pkgJsonDir = findPackageJsonDir workingDir
+        let nodeModulesDir = Path.Combine(findPackageJsonDir workingDir, "node_modules")
         for pkg in packages do
             let pkg =
                 match pkg.IndexOf("@") with
                 | -1 -> pkg
                 | i -> pkg.Substring(0,i)
-            let projRef = Path.Combine(pkgJsonDir, "node_modules", pkg, pkg.Replace("-", ".") + ".fsproj")
-            runProcess workingDir "dotnet" ("add reference " + projRef)
+            let pkgDir = Path.Combine(nodeModulesDir, pkg)
+            Directory.GetFiles(pkgDir, "*.fsproj") |> Array.tryHead |> function
+            | Some projRef ->
+                runProcess workingDir "dotnet" ("add reference " + projRef)
+            | None ->
+                printfn "Cannot find .fsproj in %s" pkgDir
+        runProcess workingDir "dotnet" "restore"
     // | Some "debug" ->
     //     debug argv.[1] argv.[2..]
     | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options" cmd
