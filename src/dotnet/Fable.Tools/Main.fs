@@ -8,7 +8,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Parser
 open State
 
-let [<Literal>] VERSION = "1.0.0-narumi-902"
+let [<Literal>] VERSION = "1.0.0-narumi-903"
 let [<Literal>] DEFAULT_PORT = 61225
 
 let startProcess workingDir fileName args =
