@@ -4,8 +4,7 @@
   "dependencies": {
     "babel-plugin-transform-es2015-block-scoping": "^6.23.0",
     "babel-standalone": "^6.23.1",
-    "babel-template": "^6.23.0",
-    "webpack": "^2.2.1"
+    "babel-template": "^6.23.0"
   },
   "scripts": {
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",

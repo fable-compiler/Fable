@@ -42,13 +42,12 @@ let measureTime (f: unit -> 'a) =
 #endif
 let main argv =
     try
-        let references = ["FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics";"Fable.Core"]
+        let references = [|"FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics";"Fable.Core"|]
         let opts = readOptions argv
         let com = makeCompiler opts []
         let fileName = "test_script.fsx"
         let source = readAllText fileName
-        let createChecker() =
-            InteractiveChecker(references, readAllBytes)
+        let createChecker() = references |> createChecker readAllBytes
         let ms, checker = measureTime createChecker
         printfn "InteractiveChecker created in %d ms" ms
         let f() =

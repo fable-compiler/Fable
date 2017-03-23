@@ -6,17 +6,20 @@ function resolve(filePath) {
 
 var babelOptions = {
   "presets": [
-    [resolve("../../../../node_modules/babel-preset-es2015"), {"modules": false}]
+    [resolve("../../../../node_modules/babel-preset-es2015"), {"modules": false}],
+    //[resolve("../../../../node_modules/babel-preset-babili"), {}]
   ]
 }
 
 module.exports = {
+  target: 'node',
   entry: resolve('./project.fsproj'),
   output: {
     filename: 'bundle.js',
     path: resolve('./out'),
+    library: "Fable"
   },
-  devtool: "source-map",
+  //devtool: "source-map",
   module: {
     rules: [
       {

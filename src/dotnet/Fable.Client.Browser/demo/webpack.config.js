@@ -16,6 +16,7 @@ module.exports = {
   output: {
     filename: 'bundle.min.js',
     path: resolve('./repl'),
+    library: "Fable"
   },
   //devtool: "source-map",
   module: {
