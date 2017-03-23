@@ -128,7 +128,7 @@ npm install
 Now it depends on your project configuration, in the simple project created you can type `dotnet fable npm-run start` (see above) to start a web server that hot reloads on code changes (the npm `start` script in package.json just invokes the webpack dev server). Remember you can also use the `dotnet fable add` command to add Fable libraries. For example if you want to add `fable-elmish-react` you can type:
 
 ```shell
-dotnet fable add fable-powerpack@next fable-elmish@next fable-elmish-react@next
+dotnet fable add fable-powerpack@next fable-react@next fable-elmish@next fable-elmish-react@next
 ```
 
 > At the moment Fable cannot resolve transitive dependencies so it's necessary to list them all.
