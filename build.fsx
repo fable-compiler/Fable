@@ -305,15 +305,15 @@ let clean () =
     !! "build/tests/**/*.*" -- "build/tests/node_modules/**/*.*"
     |> Seq.iter FileUtils.rm
 
-let nugetRestore () =
-    Util.run coreSrcDir dotnetExePath "restore"
-    Util.run compilerSrcDir dotnetExePath "restore"
-    Util.run toolsSrcDir dotnetExePath "restore"
+let nugetRestore baseDir () =
+    Util.run (baseDir </> "Fable.Core") dotnetExePath "restore"
+    Util.run (baseDir </> "Fable.Compiler") dotnetExePath "restore"
+    Util.run (baseDir </> "Fable.Tools") dotnetExePath "restore"
 
-let buildTools isRelease () =
-    sprintf "publish -o ../../../%s -c %s"
+let buildTools baseDir isRelease () =
+    sprintf "publish -o ../../../%s -c %s -v n"
         toolsBuildDir (if isRelease then "Release" else "Debug")
-    |> Util.run toolsSrcDir dotnetExePath
+    |> Util.run (baseDir </> "Fable.Tools") dotnetExePath
 
     // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
     FileUtils.cp (toolsBuildDir + "/runtimes/any/native/FSharp.Core.optdata") toolsBuildDir
@@ -507,8 +507,9 @@ Target "GitHubRelease" (fun _ ->
     |> Async.RunSynchronously
 )
 
-Target "NugetRestore" nugetRestore
-Target "FableToolsDebug" (buildTools false)
+Target "Clean" clean
+Target "NugetRestore" (nugetRestore "src/dotnet")
+Target "FableTools" (buildTools "src/dotnet" true)
 Target "FableCoreJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
 
@@ -529,13 +530,41 @@ Target "PublishPackages" (fun () ->
 Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
-    nugetRestore ()
-    buildTools true ()
+    nugetRestore "src/dotnet" ()
+    buildTools "src/dotnet" true ()
     buildCoreJs ()
     buildNUnitPlugin ()
     buildJsonConverter ()
     runTestsJs ()
     runTestsDotnet ()
+)
+
+Target "BuildRelease_4.1.0" (fun () ->
+    clean ()
+    nugetRestore "src/dotnet" ()
+    buildTools "src/dotnet" true ()
+    buildCoreJs ()
+)
+
+Target "BuildDebug_4.1.0" (fun () ->
+    clean ()
+    nugetRestore "src/dotnet" ()
+    buildTools "src/dotnet" false ()
+    buildCoreJs ()
+)
+
+Target "BuildRelease_4.1.1" (fun () ->
+    clean ()
+    nugetRestore "src/dotnet4.1.1" ()
+    buildTools "src/dotnet4.1.1" true ()
+    buildCoreJs ()
+)
+
+Target "BuildDebug_4.1.1" (fun () ->
+    clean ()
+    nugetRestore "src/dotnet4.1.1" ()
+    buildTools "src/dotnet4.1.1" false ()
+    buildCoreJs ()
 )
 
 // For these target to work, you need the following:
