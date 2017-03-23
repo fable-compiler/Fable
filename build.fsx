@@ -507,7 +507,8 @@ Target "GitHubRelease" (fun _ ->
     |> Async.RunSynchronously
 )
 
-Target "FableTools" (buildTools true)
+Target "NugetRestore" nugetRestore
+Target "FableToolsDebug" (buildTools false)
 Target "FableCoreJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
 

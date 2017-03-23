@@ -200,7 +200,7 @@ let compile (com: Compiler) (state: State) (fileName: string) =
         let lastFile = Array.last state.ProjectOptions.ProjectFileNames
         Fable2Babel.Compiler.createFacade fileName lastFile
     else
-        printfn "Compiling %s..." fileName
+        printfn "Compile %s" fileName
         FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
         |> Fable2Babel.Compiler.transformFile com state
     |> addLogs com

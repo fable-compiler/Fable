@@ -114,8 +114,8 @@ let main argv =
             | None ->
                 printfn "Cannot find .fsproj in %s" pkgDir
         runProcess workingDir "dotnet" "restore"
-    // | Some "debug" ->
-    //     debug argv.[1] argv.[2..]
+    | Some "debug" ->
+        debug argv.[1] argv.[2..]
     | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options" cmd
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options"
     0
