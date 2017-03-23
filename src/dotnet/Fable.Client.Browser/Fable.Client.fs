@@ -105,3 +105,17 @@ let compileAst (com: ICompiler) checker (fileName, source) =
         FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
         |> Fable2Babel.Compiler.transformFile com state
     file
+
+let createChecker readAllBytes references =
+    InteractiveChecker(List.ofArray references, readAllBytes)
+
+let compileSource checker source =
+    let opts = readOptions [||]
+    let com = makeCompiler opts []
+    let fileName = "stdin.fsx"
+    let file = compileAst com checker (fileName, source)
+    file
+
+let compileToJson checker source =
+    compileSource checker source
+    |> Fable.Core.JsInterop.toJson
