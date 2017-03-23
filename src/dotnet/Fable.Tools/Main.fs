@@ -13,7 +13,13 @@ let [<Literal>] DEFAULT_PORT = 61225
 
 let startProcess workingDir fileName args =
     let fileName, args =
-        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        let isWindows =
+            #if NETFX
+            true
+            #else
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            #endif
+        if isWindows
         then "cmd", ("/C " + fileName + " " + args)
         else fileName, args
     printfn "CWD: %s" workingDir

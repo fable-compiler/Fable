@@ -83,6 +83,8 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "--target:library"
 #if NETFX
         yield "-r:" + resolve "System"
+        yield "-r:" + resolve "System.Core"
+        yield "-r:" + resolve "System.Numerics"
 #else
         yield "--targetprofile:netcore"
         yield "-r:" + sysCoreLib // "CoreLib"

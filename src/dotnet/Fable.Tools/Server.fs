@@ -42,7 +42,12 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
                 onMessage(data, fun (reply: string) ->
                     let msg = Encoding.UTF8.GetBytes(reply)
                     stream.Write(msg, 0, msg.Length)
-                    client.Dispose())
+                    #if NETFX
+                    client.Close()
+                    #else
+                    client.Dispose()
+                    #endif
+                )
                 return! loop timeout server buffer onMessage
         | None ->
             printfn "Timeout (%ims) reached. Closing server..." timeout
