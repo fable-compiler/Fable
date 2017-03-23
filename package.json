@@ -1,0 +1,9 @@
+{
+    "private": true,
+    "scripts": {
+        "tsc": "tsc"
+    },
+    "devDependencies": {
+        "typescript": "^2.1.4"
+    }
+}

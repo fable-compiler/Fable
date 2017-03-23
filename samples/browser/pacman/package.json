@@ -1,21 +1,7 @@
 {
   "private": true,
-  "name": "pacman",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "core-js": "^2.4.0",
-    "fable-core": "0.0.21",
-    "requirejs": "^2.2.0"
-  },
-  "engines": {
-    "fable": ">=0.2.11"
+    "build": "node ../../node_modules/fable-compiler",
+    "start": "node ../server"
   }
 }

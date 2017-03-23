@@ -1,0 +1,11 @@
+{
+    "projFile": "./react-todomvc.fsx",
+    "rollup": {
+        "dest": "./out/bundle.js",
+        "external": ["react", "react-dom"],
+        "globals": {
+            "react": "React",
+            "react-dom": "ReactDOM"
+        }
+    }
+}

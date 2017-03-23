@@ -3,7 +3,7 @@
 // tagline: Using HTML5 canvas (adapted from FunScript)
 // ---
 
-#r "node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
 
 open Fable.Core
 open Fable.Import.Browser

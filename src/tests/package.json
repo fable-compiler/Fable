@@ -5,12 +5,12 @@
   "description": "Tests for fable-compiler",
   "main": "index.js",
   "scripts": {
-    "test": "mocha .",
+    "test": "mocha Main",
     "test-debug": "mocha . --debug-brk"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/src/tests"
+    "url": "https://github.com/fable-compiler/Fable/src/tests"
   },
   "keywords": [
     "fable",
@@ -21,7 +21,7 @@
   "author": "Alfonso Garcia-Caro",
   "license": "Apache-2.0",
   "dependencies": {
-    "fable-core": "*",
-    "mocha": "^2.4.5"
+    "fable-core": "^0.5.4",
+    "mocha": "^3.0.2"
   }
 }

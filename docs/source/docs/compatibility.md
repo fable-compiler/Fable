@@ -1,164 +1,164 @@
  - tagline: Supported F# language features and libraries
 
+**Attention**: This document corresponds to Fable 0.6.x and needs to be updated to the latest version. Please check the [migration guide](../blog/Introducing-0-7.html).
+
 # Compatibility
 
-The compiler follows two rough guidelines when transforming the code:
+Fable provides support for some classes of .NET BCL (Base Class Library) and most of
+FSharp.Core library. When possible, Fable translates .NET types and methods to native JS
+in order to keep `fable-core` small and improve performance.
 
-* Keep the [core library](https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js) small, falling back to native JS methods when possible.
-* If it makes the JS code cleaner and more idiomatic, make small changes in F# semantics
-  that don't have a big impact on developers' expectations.
+## .NET Base Class Library
 
-## Primitives
+The following classes are translated to JS and all their methods
+(static and instance) should be available in Fable.
 
-`string` and `char` compile to JS "string" while `bool` becomes "boolean".
-All numeric primitives compile to JS "number" (but see _Arrays_ below).
+.NET                                  | JavaScript
+--------------------------------------|----------------------------------------------------------
+System.String                         | string
+System.Guid                           | string
+System.TimeSpan                       | number
+System.DateTime                       | Date
+System.Timers.Timer                   | fable-core/Timer
+System.Collections.Generic.List       | Array
+System.Collections.Generic.HashSet    | Set
+System.Collections.Generic.Dictionary | Map
+System.Text.RegularExpressions.Regex  | RegExp
+System.Lazy                           | fable-core/Lazy
+System.Random                         | {}
+System.Math                           | (native JS functions)
 
-## Arrays
+The following static methods are also available:
 
-`ResizeArray` (alias for `System.Generic.Collection.List`) and non-numeric
-arrays are compiled to native JS arrays. Numeric arrays are compiled to
-[Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray)
-which should provide a performance boost when interacting with HTML5 canvas or WebGL.
+- `System.Console.WriteLine` (also with formatting)
+- `System.Diagnostics.Debug.WriteLine` (also with formatting)
+- `System.Diagnostics.Debug.Assert(condition: bool)`
+- `System.Diagnostics.Debugger.Break()`
+- `System.Activator.CreateInstance<'T>()`
+
+The following types can also be used, but BCL methods (e.g. `System.Int32.Parse`) are not available.
+Please use FSharp.Core functions (e.g. `int`) instead to operate them.
+
+.NET              | JavaScript
+------------------|----------------------------------------------------------
+System.Char       | string
+System.Boolean    | boolean
+Numeric Types     | number
+Arrays            | Array / Typed Arrays
+Events            | fable-core/Event
+
+### Caveats
+
+- All numeric types become JS `number` (64-bit floating type), including `decimal` and `int64`.
+- No bound checks for numeric types, unless you do explicit conversions (e.g. `byte 500`).
+- Integer division will always produce an integer.
+- Numeric arrays are compiled to [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray) when possible.
+- `Regex` will always behave as if passed `RegexOptions.ECMAScript` flag (e.g., no negative look-behind or named groups).
+- Structural equality is not available when using F# unions or records as `Dictionary` keys or `HashSet` values
+  (you can use F# `Map` or `Set` instead).
 
 > If you pass the `--clamp` argument to the compiler, byte arrays will be compiled as `Uint8ClampedArray`.
 
-## String printing
+## FSharp.Core
 
-The usual string format (with a few limitations) and printing methods in F# and .NET are available:
-`Console/Debug.WriteLine`, `String.Format`, `printfn`, `sprintf`... as well as the
-string instance methods.
+Most of FSharp.Core operators are supported, as well as formatting with
+`sprintf`, `printfn` or `failwithf` (`String.Format` is also available).
+The following types and/or corresponding modules from FSharp.Core lib will
+likewise translate to JS:
 
-## Regular expressions
+.NET              | JavaScript
+------------------|----------------------------------------------------------
+Tuples            | Array
+Option            | (erased)
+Choice            | fable-core/Choice
+String            | fable-core/String (module)
+Seq               | [Iterable](http://babeljs.io/docs/learn-es2015/#iterators-for-of)
+List              | fable-core/List
+Map               | fable-core/Map
+Set               | fable-core/Set
+Async             | fable-core/Async
+Event             | fable-core/Event (module)
+Observable        | fable-core/Observable (module)
+Arrays            | Array / Typed Arrays
+Events            | fable-core/Event
+MailboxProcessor  | fable-core/MailboxProcessor (limited support)
 
-You can use the `Regex` class in the same way as .NET, but the regex will always
-behave as if passed `RegexOptions.ECMAScript` flag (e.g., no negative look-behind
-or named groups).
+The following F# semantic and syntactic features are also available:
 
-## Date & Time
+- Records and Unions
+- Structural Equality/Comparison
+- Comprehensions (seq, array, list)
+- Computation Expressions
+- Pattern Matching
+- Active Patterns
+- Object Expressions
+- Units of measure
 
-You can use `DateTime` and `TimeSpan` with the same semantics as in .NET.
-`TimeSpan` will just be the number of milliseconds in JS, and `DateTime` will
-compile down to native JS `Date` with a `kind` property attached. It's also
-possible to use `Timer`s from the `System.Timers` namespace.
+### Caveats
 
-## Tuples
+- Options are **erased** in JS (`Some 5` becomes just `5` in JS and `None` translates to `null`).
+  This is needed for example, to represent TypeScript [optional properties](https://www.typescriptlang.org/docs/handbook/interfaces.html#optional-properties).
+- `IEnumerable` interface cannot be implemented. Use `seq` comprehensions
+  or `Seq` module functions to generate lazy sequences.
+- anArray.[i] where anArray's type is either Array or ResizeArray, and the index i is out of range, will not produce an exception but will return null
+- `Async.RunSynchronously` is not supported.
+- When opening `Fable.Core` you'll have access to `Async.AwaitPromise`
+  and `Async.StartAsPromise` extensions for easy interaction with [JS Promises](http://babeljs.io/docs/learn-es2015/#promises).
+- `MailboxProcessor` is single-threaded in JS and currently only
+  `Start`, `Receive`, `Post` and `PostAndAsyncReply` are implemented
+  (`cancellationToken` or `timeout` optional arguments are not supported).
 
-Tuples compile to native arrays. Destructuring, `fst`, `snd`... works normally.
 
-## Records
+## Object Oriented Programming
 
-Records are compiled as [ES2015 classes](http://babeljs.io/docs/learn-es2015/#classes)
-and they can be used with pattern matching (type information is available in runtime).
-Record properties will be attached directly to the object instead of the prototype
-making them compatible with `JSON.parse` or any other function accepting plain JS objects.
+The following OOP features are compatible with Fable:
 
-## Unions
+**Classes** translate to [ES6 classes](https://github.com/lukehoban/es6features#classes) and most
+of their .NET/F# characteristics are available: fields, methods, properties and constructors either
+instance/static or private/public (see below for a few caveats).
 
-Unions are also compiled as classes with the case name held in a `Case` property.
-Particular cases: Lists are a bit more optimized (they don't have a tag) and options are erased.
+**Overloads** and **secondary constructors** are allowed in class implementations (not for interfaces),
+but they'll have a suffix attached (`_0`, `_1`...) in JS and are not recommended.
 
-> Serialized unions can be read directly with Json.NET
+**Inheritance** is possible and conforms to [ES2015 inheritance](https://github.com/lukehoban/es6features#classes)
+but must be done by calling the _primary_ constructor of the base class (which can be **abstract**).
+Methods can be overridden and call the base implementation. Just note it won't be possible to access the
+base implementation from outside by casting the object. Example:
 
-## Enumerable
+```fsharp
+type A() =
+    member x.Foo() = "Hello"
 
-All enumerables compile to [ES2015 iterable interface](http://babeljs.io/docs/learn-es2015/#iterators-for-of)
-which means they're fully compatible with compliant JS code and native methods.
-The downside is you cannot implement the `IEnumerable` interface in a data structure,
-but you can use `seq`, `array` and `list` comprehensions normally.
+type B() =
+    inherit A()
+    member x.Foo() = base.Foo() + " World!"
 
-## Seq, List and Array modules
+// This prints "Hello World!" both in .NET and JS
+B().Foo() |> printfn "%s"
 
-All methods in F# `Seq` module have been implemented. There may be some still missing in `List`
-and `Array` modules, but in that case the compiler will default to the corresponding
-`Seq` function and build a new list or array from the response if necessary.
+// This prints "Hello" in .NET and "Hello World!" in JS
+(B() :> A).Foo() |> printfn "%s"
+```
 
-## Map, Set and Dictionary
+**Interface** methods are compiled as normal object methods (care is needed to prevent name collision)
+and it's possible to test against an interface (e.g. `x :? IComparable`) for types defined in F# code.
 
-Maps and Sets fall back to the [ES2015 corresponding classes](http://babeljs.io/docs/learn-es2015/#map-set-weak-map-weak-set)
-for performance. Adding and removing will create new objects. `System.Collections.Generic.Dictionary` compile to ES2015 `Map` too
-and allows mutable operations. Same for `System.Collections.Generic.HashSet`.
-
-## Async
-
-`async` computation expressions work as expected. However, `RunSynchronously` is not available and,
-as JS is single-threaded, `Start` and `StartImmediate` will have the same effect (likewise, `Async.Parallel`
-won't spawn background threads on its own). When opening `Fable.Core` you'll have access to `Async.AwaitPromise`
-and `Async.StartAsPromise` extensions for easy interaction with [JavaScript Promises](http://babeljs.io/docs/learn-es2015/#promises).
-
-## Custom computation expression
-
-It's possible to define custom computation expressions normally.
-
-## Pattern matching
-
-Pattern matching will work normally in JS and it will generate optimized
-code to prevent overhead. You can match union types, records, classes or
-interfaces (with `:? MyClass as x`), lists, etc. Destructuring, guards and
-multiple targets are also fine.
-
-## Active patterns
-
-Active patterns can be used normally.
-
-## Generics
-
-Generic information disappears in generated code. However, it's accessible
-to the compiler, so calls like `typeof<MyType>` are possible with concrete
-types or with generics in **inline** functions.
-
-## Attributes
-
-Decorators are coming to JavaScript. However, there are competing proposals
-and it's not yet clear how the definitive specs will be. For now, attributes
-are only visible to the compiler which uses them, for example, when defining
-[foreign interfaces](interacting.md).
-
-## Interfaces
-
-Interface methods are compiled to normal object methods (there's no explicit
-implementation so names may collide). The interface names will be attached
-to the type constructor as a Symbol-keyed property, making interface type testing
-possible at runtime to do patterns like [this one proposed by Yan Cui](http://theburningmonk.com/2012/03/f-extending-discriminated-unions-using-marker-interfaces/)
-to extend union types.
-
-## Overloads
-
-Overloads are allowed in class implementations (not for interfaces), but they'll
-have a suffix attached (`_1`, `_2`...) in generated code and are not recommended.
-The behaviour is similar for secondary constructors.
-
-## Custom operators
-
-Custom operators are possible, just note it won't be idiomatic to call
+**Custom operators** are possible, just note it won't be idiomatic to call
 them from JS if necessary (e.g., `Time.op_Addition(ts1, ts2)`).
 
-## Inheritance
+## Reflection
 
-Inheritance is possible and conforms to [ES2015 inheritance](https://github.com/lukehoban/es6features#classes).
-Just be careful to use the primary constructor of the base class,
-not a secondary one. Methods can be overridden too, but you won't
-be able to access the base methods by casting the object.
+Some limited support for reflection is available:
 
-## Lambdas
+**Type testing** (e.g. `x :? MyType`) is possible, also with customly defined
+interfaces (see above).
 
-Anonymous lambdas will be curried by default. If you want to pass a callback with
-more than one argument to JS code, please wrap it in a delegate first (e.g.,
-`Func<_,_,_>(fun x y -> x + y)`). If the signature of the method expects a
-delegate, this will be done automatically by the compiler.
+**System.Type** can be accessed (either with `.GetType()` or `typeof<MyType>`)
+and its `Name`, `FullName` and `Namespace` can be inspected.
 
-## Event and Observable
+**Generic information** disappears in generated code. However, it's accessible
+to the compiler, so calls like `typeof<MyType>` are possible with concrete
+types or with generics in _inline_ functions.
 
-Both [Events](https://github.com/fsprojects/Fable/blob/master/src/tests/EventTests.fs) and [Observable](https://github.com/fsprojects/Fable/blob/master/src/tests/ObservableTests.fs) are supported.
-
-## Object Expressions
-
-Object expressions are compatible for the most general cases.
-
-## Units of measure
-
-Units of measure are compatible (at least for `int` and `float`) but they will
-be erased from the generated JS code.
-
-
-You can check the [tests](https://github.com/fsprojects/Fable/tree/master/src/tests) when in doubt. If there's a test for something,
-it's supported :)
+**Attributes** are only visible to the compiler which uses them, for example, when defining
+[foreign interfaces](interacting.html).

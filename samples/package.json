@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "dependencies": {
+    "fable-compiler": "^0.7.34",
+    "fable-core": "^0.7.25",
+    "fable-powerpack": "^0.0.19",
+    "fable-react": "^0.8.0",
+    "fable-plugins-nunit": "^0.7.2",
+    "fable-import-d3": "^0.0.4",
+    "fable-import-pixi": "^0.0.10",
+    "fable-import-three": "^0.0.4",
+    "finalhandler": "^0.5.1",
+    "isomorphic-fetch": "^2.2.1",
+    "mocha": "^3.2.0",
+    "serve-static": "^1.11.1"
+  }
+}

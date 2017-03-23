@@ -5,7 +5,7 @@
 #load "../packages/docs/FSharp.Formatting/FSharp.Formatting.fsx"
 #I "../packages/docs/FAKE/tools/"
 #I "../packages/docs/Suave/lib/net40"
-#I "../packages/docs/DotLiquid/lib/NET45"
+#I "../packages/docs/DotLiquid/lib/NET451"
 #r "FakeLib.dll"
 #r "Suave.dll"
 #r "DotLiquid.dll"
@@ -29,9 +29,9 @@ open Fake.Git
 // --------------------------------------------------------------------------------------
 
 // Where to push generated documentation
-let publishSite = "//fsprojects.github.io/Fable"
-let githubLink = "http://github.com/fsprojects/Fable"
-let publishBranch = "gh-pages"
+let publishSite = "//fable.io" //Use something like "//127.0.0.1:8080" to test locally
+let githubLink = "http://github.com/fable-compiler/fable-compiler.github.io"
+let publishBranch = "master"
 
 // Paths with template/source/output locations
 let source      = __SOURCE_DIRECTORY__ </> "source"
@@ -41,7 +41,7 @@ let contentPage = "content.html"
 let samplePage  = "sample.html"
 let fableRoot   = __SOURCE_DIRECTORY__ </> ".." |> Path.GetFullPath
 let temp        = fableRoot </> "temp"
-let samplesRoot = fableRoot </> "samples" 
+let samplesRoot = fableRoot </> "samples"
 
 let samples =
   [ // Browser samples with HTML content
@@ -50,10 +50,17 @@ let samples =
     "samples/browser/ozmo", true
     "samples/browser/pacman", true
     "samples/browser/d3map", true
+    "samples/browser/webGLTerrain", true
+    "samples/browser/samegame", true
+    "samples/browser/virtualdom", true
+    "samples/browser/react-todomvc", true
+    "samples/browser/redux-todomvc", true
+    "samples/browser/lsystem", true
 
     // Non-browser samples without embedded HTML
     "samples/node/server", false
-    "samples/node/express", false ]
+    "samples/node/express", false
+    "samples/node/nunit", false ]
 
 
 // Set templates directory for DotLiquid
@@ -109,10 +116,9 @@ type Page =
     Tagline : string
     Content : string }
 
-
 // Copy static files from the 'source' folder to 'output' folder (add more extensions!)
 let copyFiles force =
-    Helpers.processDirectory force source output [".css"; ".js"; ".png"; ".gif"; ".jpg"]
+    Helpers.processDirectory force source output [".css"; ".js"; ".png"; ".gif"; ".jpg"; ""]
       (fun source outdir ->
           let name = Path.GetFileName(source)
           File.Copy(source, outdir </> name, true) )
@@ -170,6 +176,7 @@ let generateStaticPages siteRoot force () =
 /// into the output folder (we may need to add more dependencies here)
 let copySharedScripts () =
     CleanDir temp
+    Npm.run temp "init" ["--yes"]
     Npm.install temp ["core-js"; "requirejs"]
 
     ensureDirectory (output </> "samples" </> "scripts")
@@ -177,7 +184,7 @@ let copySharedScripts () =
     |> CopyFile (output </> "samples" </> "scripts" </> "core.min.js")
     temp </> "node_modules/requirejs/require.js"
     |> CopyFile (output </> "samples" </> "scripts" </> "require.js")
-    fableRoot </> "import/core/fable-core.min.js"
+    fableRoot </> "src/fable/Fable.Core/npm/fable-core.min.js"
     |> CopyFile (output </> "samples" </> "scripts" </> "fable-core.min.js")
 
 
@@ -194,12 +201,14 @@ let compileSample copyOutput name path =
     // Compile and copy JS files
     CleanDir temp
     System.Environment.CurrentDirectory <- fableRoot
-    Node.run fableRoot "build/fable" [path; "-o"; "../../../temp"]
+    Node.run fableRoot "build/fable" [path; "-o"; "../../../temp"; "--symbols"; "TUTORIAL"]
     ensureDirectory (output </> "samples" </> name)
 
     if copyOutput then
         // Copy compiled JavaScript files
-        !!(temp </> "*.*") |> CopyFiles (output </> "samples" </> name)
+        // Attention, for some reason it seems !!(temp </> "*.*") doesn't work properly in OSX
+        // !!(temp </> "*.*") |> CopyFiles (output </> "samples" </> name)
+        directoryCopy(temp, output </> "samples" </> name, true)
 
         // Copy subdirectories and static files (except for special ones)
         Directory.GetDirectories(path)
@@ -245,7 +254,7 @@ let generateSamplePage siteRoot name path =
     // If there is `index.html` page, read `<!-- [body] -->` bit from it
     let (app, appHead), appStyle =
       let index = fableRoot </> path </> "index.html"
-      ( if File.Exists index then 
+      ( if File.Exists index then
            let indexHtml = File.ReadAllText(index)
            extractMarkedPagePart "body" indexHtml,
            extractMarkedPagePart "head" indexHtml
@@ -253,7 +262,7 @@ let generateSamplePage siteRoot name path =
       ( if attrs.ContainsKey("app-style") then attrs.["app-style"] else "" )
 
     // Require paths are specified using ` .. ` - drop <code>
-    let requirePaths = 
+    let requirePaths =
       if not (attrs.ContainsKey("require-paths")) then "" else
       Regex.Match(attrs.["require-paths"], "<code>(.*)</code>").Groups.[1].Value
 
@@ -274,11 +283,16 @@ let generateSamplePage siteRoot name path =
 /// Generates pages from all samples & optionally recompiles the JS too
 let generateSamplePages siteRoot recompile () =
   traceImportant "Updating sample pages"
-  let lastEdit path = !! (path </> "*") |> Seq.map File.GetLastWriteTime |> Seq.fold max DateTime.MinValue
+  let lastEdit path = Directory.GetFiles(path) |> Seq.map File.GetLastWriteTime |> Seq.fold max DateTime.MinValue
   for sample, embed in samples do
-    let sourceModified = lastEdit (fableRoot </> sample)
-    let outputModified = lastEdit (output </> "samples" </> Path.GetFileName(sample))
-    if sourceModified > outputModified then
+    let outOfDate =
+        if Directory.Exists(output </> "samples" </> Path.GetFileName(sample)) |> not
+        then true
+        else
+            let sourceModified = lastEdit (fableRoot </> sample)
+            let outputModified = lastEdit (output </> "samples" </> Path.GetFileName(sample))
+            sourceModified > outputModified
+    if outOfDate then
       let name = Path.GetFileName(sample)
       traceImportant (sprintf "Generating sample page: %s" name)
       generateSamplePage siteRoot name sample
@@ -300,17 +314,21 @@ let refreshEvent = new Event<unit>()
 
 let socketHandler (webSocket : WebSocket) cx = socket {
     while true do
+      let byteResponse = 
+        "refreshed"
+        |> System.Text.Encoding.ASCII.GetBytes
+        |> ByteSegment
       let! refreshed =
         Control.Async.AwaitEvent(refreshEvent.Publish)
         |> Suave.Sockets.SocketOp.ofAsync
-      do! webSocket.send Text (Suave.Utils.ASCII.bytes "refreshed") true }
+      do! webSocket.send Text byteResponse true }
 
 let startWebServer () =
     let port = 8911
     let serverConfig =
         { defaultConfig with
            homeFolder = Some (FullName output)
-           bindings = [ HttpBinding.mkSimple HTTP "127.0.0.1" port ] }
+           bindings = [ HttpBinding.createSimple HTTP "127.0.0.1" port ] }
     let app =
       choose [
         Filters.path "/websocket" >=> handShake socketHandler
@@ -319,9 +337,9 @@ let startWebServer () =
         >=> Writers.setHeader "Expires" "0"
         >=> choose [ Files.browseHome; Filters.path "/" >=> Files.browseFileHome "index.html" ] ]
 
-    let addMime f = function 
-      | ".wav" -> Writers.mkMimeType "audio/wav" false 
-      | ".tsv" -> Writers.mkMimeType "text/tsv" false | ext -> f ext
+    let addMime f = function
+      | ".wav" -> Writers.createMimeType "audio/wav" false
+      | ".tsv" -> Writers.createMimeType "text/tsv" false | ext -> f ext
     let app ctx = app { ctx with runtime = { ctx.runtime with mimeTypesMap = addMime ctx.runtime.mimeTypesMap } }
 
     startWebServerAsync serverConfig app |> snd |> Async.Start
@@ -337,9 +355,9 @@ Target "CleanDocs" (fun _ ->
 )
 
 Target "GenerateDocs" (fun _ ->
-    copySharedScripts ()
+    // copySharedScripts ()
     generateStaticPages publishSite true ()
-    generateSamplePages publishSite true ()
+    // generateSamplePages publishSite true ()
 )
 
 Target "BrowseDocs" (fun _ ->
@@ -362,7 +380,7 @@ Target "BrowseDocs" (fun _ ->
     System.Threading.Thread.Sleep(-1)
 )
 
-Target "PublishDocs" (fun _ ->
+let publishDocs() =
   CleanDir temp
   Repository.cloneSingleBranch "" (githubLink + ".git") publishBranch temp
 
@@ -370,6 +388,14 @@ Target "PublishDocs" (fun _ ->
   StageAll temp
   Git.Commit.Commit temp (sprintf "Update site (%s)" (DateTime.Now.ToShortDateString()))
   Branches.push temp
+
+Target "PublishDocs" (fun _ ->
+    publishDocs()
+)
+
+Target "PublishStaticPages" (fun _ ->
+    generateStaticPages publishSite true ()
+    publishDocs()
 )
 
 // --------------------------------------------------------------------------------------

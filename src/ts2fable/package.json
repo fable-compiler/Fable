@@ -1,6 +1,6 @@
 {
   "name": "ts2fable",
-  "version": "0.1.15",
+  "version": "0.1.23",
   "description": "TypeScript definition files parser for fable-compiler",
   "main": "ts2fable.js",
   "bin": {
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/fsprojects/Fable/src/ts2fable"
+    "url": "https://github.com/fable-compiler/Fable/src/ts2fable"
   },
   "keywords": [
     "fable",
@@ -23,9 +23,9 @@
   "author": "Alfonso Garcia-Caro (https://twitter.com/alfonsogcnunez)",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/fsprojects/Fable/issues"
+    "url": "https://github.com/fable-compiler/Fable/issues"
   },
-  "homepage": "https://github.com/fsprojects/Fable#readme",
+  "homepage": "https://github.com/fable-compiler/Fable#readme",
   "dependencies": {
     "typescript": "^1.8.7"
   }

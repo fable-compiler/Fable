@@ -1,9 +1,7 @@
 {
-    "module": "amd",
-    "sourceMaps": true,
     "projFile": "./hokusai.fsx",
-    "outDir": "out",
-    "scripts": {
-        "prebuild": "npm install"
+    "sourceMaps": true,
+    "rollup": {
+        "dest": "./out/bundle.js"
     }
 }

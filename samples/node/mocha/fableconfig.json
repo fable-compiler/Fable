@@ -1,0 +1,9 @@
+{
+    "projFile": "./index.fsx",
+    "sourceMaps": true,
+    "module": "commonjs",
+    "outDir": "out",
+    "scripts": {
+        "postbuild": "npm test"
+    }
+}

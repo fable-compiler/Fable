@@ -1,0 +1,11 @@
+{
+    "projFile": "./index.fsx",
+    "rollup": {
+        "dest": "./out/bundle.js",
+        "external": "vue",
+        "globals": {
+            "vue": "Vue"
+        }
+
+    }
+}

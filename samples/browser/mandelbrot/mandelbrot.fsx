@@ -3,7 +3,7 @@
 // tagline: Using HTML5 canvas
 // ---
 
-#r "node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
 
 open Fable.Core
 open Fable.Import.Browser
@@ -16,7 +16,7 @@ let maxIter = 512
 let height = 800
 let width = 1000
 
-let minX = -2.1 
+let minX = -2.1
 let maxX = 0.5
 let minY = -1.4
 let maxY = 1.4
@@ -31,7 +31,7 @@ let getIterationCount (p : Complex) =
       z <- iteratePoint p z
       i <- i + 1
     i
-    
+
 let iterCountToColor (i : int) : Color =
     let i = maxIter - i
     { r = 0; g = i % 256; b = 100 * (i / 256); a = 255 }
@@ -44,7 +44,7 @@ let getCoordColor (x : int, y : int) : Color =
 
 let showSet() =
     let ctx = document.getElementsByTagName_canvas().[0].getContext_2d()
-    
+
     let img = ctx.createImageData(U2.Case1 (float width), float height)
     for y = 0 to height-1 do
         for x = 0 to width-1 do

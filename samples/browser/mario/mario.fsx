@@ -5,13 +5,13 @@
  - intro: Mario clone, based on functional reactive [sample written in
    Elm](http://debug.elm-lang.org/edit/Mario.elm). The Fable version is using HTML 5
    canvas to render the background and an `img` tag showing the Mario (using animated GIFs).
-   You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/mario/mario.fsx).
+   You can find the [full source code on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/mario/mario.fsx).
 
    To see how it works, use the left, right and up buttons to play. Our Mario respects
    no boundaries!
 *)
 (*** hide ***)
-#r "node_modules/fable-core/Fable.Core.dll"
+#r "../../node_modules/fable-core/Fable.Core.dll"
 open Fable.Core
 open Fable.Import.Browser
 
@@ -46,7 +46,7 @@ module Keyboard =
 (*** define:boring-window ***)
 module Win =
   // Get the canvas context for drawing
-  let canvas = document.getElementsByTagName_canvas().[0.]
+  let canvas = document.getElementsByTagName_canvas().[0]
   let context = canvas.getContext_2d()
 
   // Format RGB color as "rgb(r,g,b)"
@@ -70,7 +70,7 @@ module Win =
   /// Get the first <img /> element and set `src` (do
   /// nothing if it is the right one to keep animation)
   let image (src:string) =
-      let image = document.getElementsByTagName_img().[0.]
+      let image = document.getElementsByTagName_img().[0]
       if image.src.IndexOf(src) = -1 then image.src <- src
       image
 
@@ -81,7 +81,7 @@ Mario and composable physics
 
 We keep information about Mario in a single record type with fields that
 represent the current x and y coordinates (`x` and `y`), current velocity
-(`vx` and `vy`) and the current direction `dir`. The direction is used to
+(`vx` and `vy`) and the current direction (`dir`). The direction is used to
 pick the correct Mario image when rendering:
 *)
 
@@ -181,8 +181,8 @@ Keyboard helpers
 ----------------
 
 The `Keyboard` module handles keydown and keyup events of the window and
-exposes them using the `arrows` property (which is a tuple int*int with -1 if the
-left/up key is pressed, 1 if right/down key is pressed and 0 otherwise).
+exposes them using the `arrows` property (which is a tuple `int*int` with `-1` if the
+left/up key is pressed, `1` if right/down key is pressed and `0` otherwise).
 *)
 (*** include:boring-keyboard ***)
 

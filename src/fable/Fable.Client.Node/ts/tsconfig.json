@@ -1,0 +1,19 @@
+{
+    "include": [
+        "*.ts"
+    ],
+    "compilerOptions": {
+        "target": "es5",
+        "lib": ["es2015"],
+        "module": "commonjs",
+        "noEmitOnError": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitAny": false,
+        "noImplicitReturns": true,
+        "noImplicitThis": true
+        //"noUnusedLocals": true,
+        //"noUnusedParameters": true,
+        //"strictNullChecks": true,
+        // "declaration": true,
+    }
+}

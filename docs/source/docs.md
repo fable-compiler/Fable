@@ -6,7 +6,7 @@ The following documentation pages are generated from the `docs` pages
 in the Fable repository on GitHub. Is anything unclear or missing?
 Help us make Fable better by contributing!
 
-<div class="fb-docs">
+<div class="fable-docs">
 <div class="row"><div class="col-sm-6">
 
 ### [<i class="fa fa-cog" aria-hidden="true"></i> Compiling to JavaScript](docs/compiling.html)
@@ -37,7 +37,7 @@ interface. There are a couple of special attributes too. Learn more here!
 ### [<i class="fa fa-bank" aria-hidden="true"></i> Fable architecture](docs/plugins.html)
 
 Is it very easy to add features to Fable using plugins. The best example is [the
-plugin to transform NUnit tests into Mocha](https://github.com/fsprojects/Fable/tree/master/src/plugins/Fable.Plugins.NUnit.fsx).
+plugin to transform NUnit tests into Mocha](https://github.com/fable-compiler/Fable/tree/master/src/plugins/nunit/Fable.Plugins.NUnit.fsx).
 In order to understand the plugin system we'll review briefly how Fable works.
 
 </div></div>

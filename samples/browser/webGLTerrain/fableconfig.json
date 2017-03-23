@@ -1,0 +1,10 @@
+{
+    "projFile": "./webGLTerrain.fsx",
+    "rollup": {
+        "dest": "./out/bundle.js",
+        "external": ["three"],
+        "globals": {
+            "three": "THREE"
+        }
+    }
+}

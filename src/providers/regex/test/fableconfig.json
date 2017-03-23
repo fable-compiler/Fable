@@ -1,0 +1,9 @@
+{
+    "projFile": "Fable.Providers.Regex.Test.fsx",
+    "outDir": "../../../../build/tests/providers-regex",
+    "module": "commonjs",
+    "plugins": ["../../../plugins/nunit/Fable.Plugins.NUnit.fsx"],
+    "scripts": {
+        "postbuild": "npm test"
+    }
+}

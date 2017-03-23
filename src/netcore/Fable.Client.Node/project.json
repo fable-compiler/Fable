@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0-*",
+  "buildOptions": {
+    "debugType": "portable",
+    "emitEntryPoint": true,
+    "compilerName": "fsc",
+    "compile": {
+      "includeFiles": [
+        "../../fable/Fable.Client.Node/Forge/Prelude.fs",
+        "../../fable/Fable.Client.Node/Forge/ResizeArray.fs",
+        "../../fable/Fable.Client.Node/Forge/XLinq.fs",
+        "../../fable/Fable.Client.Node/Forge/Constants.fs",
+        "../../fable/Fable.Client.Node/Forge/ProjectSystem.fs",
+        "../../fable/Fable.Client.Node/Main.fs"
+      ]
+    },
+    "define": [
+      "DOTNETCORE",
+      "TRACE"
+    ]
+  },
+  "dependencies": {
+    "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*",
+    "Fable.Core": {
+      "version": "1.0.0-*",
+      "target": "project"
+    },
+    "Fable.Compiler": {
+      "version": "1.0.0-*",
+      "target": "project"
+    }
+  },
+  "frameworks": {
+    "netcoreapp1.0": {
+      "dependencies": {
+        "Microsoft.NETCore.App": {
+          "type": "platform",
+          "version": "1.0.0"
+        }
+      },
+      "imports": "dnxcore50"
+    }
+  },
+  "tools": {
+    "dotnet-compile-fsc": {
+      "version": "1.0.0-preview2-*",
+      "imports": "dnxcore50"
+    }
+  }
+}

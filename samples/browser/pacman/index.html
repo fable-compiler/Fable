@@ -12,19 +12,6 @@
         <canvas style="margin-left:auto;margin-right:auto; width:300px;height:300px;" id="canvas" width="300" height="300"></canvas>
     </div>
   <!-- [/body] -->
-  <script src="node_modules/core-js/client/core.min.js"></script>
-  <script src="node_modules/requirejs/require.js"></script>
-  <script>
-    requirejs.config({
-        // Set the baseUrl to the path of the compiled JS code
-        baseUrl: 'out',
-        paths: {
-            // Explicit path to core lib (relative to baseUrl, omit .js)
-            'fable-core': '../node_modules/fable-core/fable-core.min'
-        }
-    });
-    // Load the entry file of the app (use array, omit .js)
-    requirejs(["pacman"]);
-  </script>
+  <script src="out/bundle.js"></script>
 </body>
 </html>

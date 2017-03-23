@@ -1,5 +1,7 @@
  - tagline: Using Fable as part of your node applications
 
+**Attention**: This document corresponds to Fable 0.6.x and needs to be updated to the latest version. Please check the [migration guide](../blog/Introducing-0-7.html).
+
 # Compiling to JavaScript
 
 
@@ -21,6 +23,7 @@ you are using the latest version of the compiler. If you installed it globally,
 you can update it with `npm install -g fable-compiler`. You can see the version
 installed with `fable --help` and the latest version available in npm with `npm info fable-compiler version`.
 
+> If you have problems on Windows [see this](https://github.com/fable-compiler/Fable#requirements).
 
 ## CLI options
 
@@ -29,41 +32,64 @@ Besides the default argument (`--projFile`), the following options are available
 Option                  | Short     | Description
 ------------------------|-----------|----------------------------------------------------------------------
 `--outDir`              | `-o`      | Where to put compiled JS files. Defaults to project directory.
-`--module`              | `-m`      | Specify module code generation: `umd` (default), `commonjs`, `amd` or `es2015`.
+`--module`              | `-m`      | Specify module code generation: `commonjs` (default), `amd`, `umd` or `es2015`.
 `--sourceMaps`          | `-s`      | Generate source maps: `false` (default), `true` or `inline`.
 `--watch`               | `-w`      | Recompile project much faster on file modifications.
 `--ecma`                |           | Specify ECMAScript target version: `es5` (default) or `es2015`.
 `--symbols`             |           | F# symbols for conditional compilation, like `DEBUG`.
 `--plugins`             |           | Paths to Fable plugins.
 `--babelPlugins`        |           | Additional Babel plugins (without `babel-plugin-` prefix). Must be installed in the current directory.
-`--refs`                |           | Specify project references in `Project=js/import/path` format (see below).
-`--msbuild`             |           | Pass MSBuild arguments like `Configuration=Release`.
+`--loose`               |           | Enable “loose” transformations for babel-preset-es2015 plugins (true by default).
+`--babelrc`             |           | Use a `.babelrc` file for Babel configuration (invalidates other Babel related options).
+`--refs`                |           | Specify dll or project references in `Reference=js/import/path` format (see below).
 `--clamp`               |           | Compile unsigned byte arrays as Uint8ClampedArray.
-`--copyExt`             |           | Copy external files into a `.fable.external` folder.
+`--copyExt`             |           | Copy external files into `fable_external` folder (true by default).
 `--coreLib`             |           | In some cases, you may need to pass a different route to the core library, like `--coreLib fable-core/es2015`.
 `--verbose`             |           | Print more information about the compilation process.
 `--target`              | `-t`      | Use options from a specific target in `fableconfig.json`.
 `--debug`               | `-d`      | Shortcut for `--target debug`.
 `--production`          | `-p`      | Shortcut for `--target production`.
-`--code`                |           | Pass a string of code directly to Fable.
+`--declaration`         |           | [Experimental] Generates corresponding ‘.d.ts’ file.
+`--extra`               |           | Custom options for plugins in `Key=Value` format.
 `--help`                | `-h`      | Display usage guide.
 
+> Besides `projFile`, all paths (`outDir`, `plugins`...) will be considered relative to
+the project file directory if they're not absolute, but see `fableconfig.json` below.
 
 ## Project references
 
-You can use `--refs` argument to link referenced projects with the JS import path that must be used, using the following format: `[Project name without extension]=[JS import path]`.
+You can use `--refs` argument to link referenced dll or projects with the JS import path that must be used,
+using the following format: `[Reference name without extension]=[JS import path]`.
 
-Example:
+### Example: project reference
 
 ```shell
 fable src/lib/MyLib.fsproj --outDir out/lib
-fable src/another/MyNs.AnotherProject.fsproj
-  --outDir out/another
-fable src/main/MyProject.fsproj
-  --outDir out/main
-  --refs MyLib=../lib MyNs.AnotherProject=../another
+fable src/main/MyProject.fsproj --refs MyLib=../lib
 ```
 
+### Example: dll refence
+
+We assume we have an npm package with the following structure:
+
+```text
+my-lib/
+    js/MyLib.js
+    bin/MyLib.dll
+```
+
+If we are referencing `node_modules/bin/MyLib.dll` in our project,
+we can tell Fable to replace the refence with the JS code using the
+argument below (note if we are using node or a bundler like Webpack
+we can omit `./node_modules/` in the JS import path).
+
+```shell
+fable src/main/MyProject.fsproj --refs MyLib=my-lib/js
+```
+
+> See [fable-helpers-sample](https://www.npmjs.com/package/fable-helpers-sample) to know how to publish a Fable package.
+
+TODO: Explain how to use the EntryModule attribute
 
 ## fableconfig.json
 
@@ -78,8 +104,8 @@ If you omit the path, the compiler will assume it's in the current directory.
 fable my/path/
 ```
 
-> Note that in this case, all path configurations (`outDir`, `plugins`...) will be relative to
-the directory where `fableconfig.json` resides.
+> Note that in this case, all path configurations (`projFile`, `outDir`, `plugins`...) will be
+relative to the directory where `fableconfig.json` resides.
 
 Project references can be passed using a plain object:
 
@@ -95,7 +121,7 @@ Project references can be passed using a plain object:
 There are some options exclusive to `fableconfig.json`.
 
 * **scripts**: Commands that should be executed during specific phases of compilation.
-  Currently `prebuild`, `postbuild` and `onwatch` are accepted. For example, if you want
+  Currently `prebuild`, `postbuild` and `postbuild-once` are accepted. For example, if you want
   to run tests defined in the npm `package.json` file after the build you can write.
 
 ```json
@@ -105,6 +131,18 @@ There are some options exclusive to `fableconfig.json`.
     }
 }
 ```
+
+> `postbuild` will run for every compilation in watch mode. If you only want
+to run the script after the first full compilation, use `postbuild-once`.
+Attention: On Windows, `postbuild-once` can only be used with executable files (`.exe`),
+not with `.bat` or `.cmd` scripts.
+
+> The scripts will run as if you typed the command on a terminal window from
+the directory where `fableconfig.json` is. Fable scripts are not as powerful
+as npm scripts in `package.json`: if you want to run a binary from a local
+npm package you must specify the full path (e.g. use `node node_modules/webpack/bin/webpack`
+instead of just `webpack`). But you can always call an npm script from `fableconfig.json`
+as in the sample above.
 
 * **targets**: You can group different options in targets. If you don't want,
   say, source maps when deploying for production, you can use a config file as
@@ -138,7 +176,7 @@ version of Fable required to compile the project.
 
 ## fable-core
 
-[Fable's core library](https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js) must be included in the project.
+[Fable's core library](https://github.com/fable-compiler/Fable/blob/master/import/core/fable-core.js) must be included in the project.
 When targeting node or using a module bundler you only need to add the dependency:
 
 ```shell
@@ -183,14 +221,16 @@ Or you can import it directly in your F# code if you're using a bundler like
 Webpack or Browserify right before the entry point of your app.
 
 ```fsharp
-Node.require.Invoke("core-js") |> ignore
+open Fable.Core
+
+JsInterop.importAll "core-js"
 ```
 
 > The polyfill is not necessary when targeting node 4.4 or above.
 
 > Babel includes [its own polyfill](http://babeljs.io/docs/usage/polyfill/)
 with a lazy-sequence generator, but this is not needed as one is already included
-in [fable-core.js]https://github.com/fsprojects/Fable/blob/master/import/core/fable-core.js).
+in [fable-core.ts](https://github.com/fable-compiler/Fable/blob/master/src/fable/Fable.Core/npm/fable-core.ts).
 
 
 ## Modules
@@ -203,7 +243,7 @@ According to the `--module` argument (see above), these modules can be transform
 In the browser, when not using a bundler like Webpack or Browserify, you'll need a module loader like [require.js](http://requirejs.org) to start up the app.
 
 When a F# file makes a reference to another, the compiler will create an [import statement](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import)
-in the generated Javascript code. You can also generate imports by using the [Import attribute](interacting.md).
+in the generated Javascript code. You can also generate imports by using the [Import attribute](interacting.html).
 
 As JS must import external modules with an alias, there's no risk of namespace
 collision so, for convenience, the compiler will use the minimum route to access
@@ -237,6 +277,12 @@ as they're necessary to prevent name conflicts in the same file:
 $import0.MyModule1.myProperty !== $import0.MyModule2.myProperty
 ```
 
+> Note: When referencing a module or type from another file, Fable will automatically create
+the imports for the specific members you need. This allows [tree shaking](http://www.2ality.com/2015/12/webpack-tree-shaking.html)
+but it also means using a `#load` directive in a script file just for the side effects
+(for example, to run some code on the other file) won't work. Functions on the other
+file must be called explicitly.
+
 
 ## Debugging
 
@@ -250,48 +296,13 @@ or a capable IDE. In the case of Visual Studio Code, you can find instructions [
 ## Testing
 
 You can use any JS testing library to write tests for your project, but to make it
-easier to share code across platforms, a [plugin](plugins.md) is available to make
-[NUnit](http://www.nunit.org) tests compatible with [Mocha](https://mochajs.org)
-and this is what Fable uses for its own tests. The tests are compiled and run
-automatically when building the project:
-
-```shell
-build.cmd   // on windows
-./build.sh  // on unix
-```
-
-The most commonly used attributes (`TestFixture` and `Test`) and their respective
-`SetUp`/`TearDown` counterparts are implemented. For assertions, however, only
-`Assert.AreEqual` is available. But more features will be available soon.
-
-With some limitations, it's also possible to write asynchronous tests. For this,
-you just need to **wrap the whole test** with `Async.RunSynchronously`:
-
-```fsharp
-[<Test>]
-let ``Async.Sleep works``() =
-    Async.RunSynchronously(async {
-        let res = ref false
-        async {
-            do! Async.Sleep 50
-            return i
-        } |> Async.StartImmediate
-        Assert.AreEqual(false, !res)
-        do! Async.Sleep 100
-        Assert.AreEqual(true, !res)
-    })
-```
-
-> Note: If you don't want to have `NUnit` as dependency. You can also use the attributes
-and `Assert` type in `Fable.Core.Testing` module.
-
-For Visual Studio users, there's a similar plugin to convert Visual Studio Unit
-Tests to Mocha.
-
+easier to share code across platforms, a plugin is available to make
+[NUnit](http://www.nunit.org) tests compatible with [Mocha](https://mochajs.org).
+Check [the tutorial](http://fable-compiler.github.io/samples/nunit/index.html) for more info.
 
 ## Samples
 
-There are several samples available in the [repository](https://github.com/fsprojects/Fable/blob/master/samples) and you can also download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
+There are several samples available in the [repository](https://github.com/fable-compiler/Fable/blob/master/samples) and you can also download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
 Every sample includes a `fableconfig.json` file so they can be compiled just by running
 the `fable` command in the sample directory (or from a different directory by passing the route).
 Just be sure to install the npm dependencies the first time.
@@ -306,5 +317,5 @@ so usually this step is automatic.
 
 
 Now it's your turn to build a great app with Fable and show it to the world!
-Check [Compatibility](compatibility.md) and [Interacting with JavaScript](interacting.md)
+Check [Compatibility](compatibility.html) and [Interacting with JavaScript](interacting.html)
 to learn what you need to take into account when diving into JS.

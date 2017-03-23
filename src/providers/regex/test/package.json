@@ -1,0 +1,7 @@
+{
+    "private": true,
+    "scripts": {
+        "build": "node ../../../../build/fable",
+        "test": "node ../../../../build/tests/node_modules/mocha/bin/mocha ../../../../build/tests/providers-regex"
+    }
+}
