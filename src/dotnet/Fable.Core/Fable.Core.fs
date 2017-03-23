@@ -183,6 +183,11 @@ module JsInterop =
     /// DEPRECATED: Use a Pojo record or union
     let [<Obsolete>] toPlainJsObj (o: 'T): obj = jsNative
 
+    /// Converts an F# object into a plain JS object (POJO)
+    /// This is only intended if you're using a custom serialization method
+    /// and will produce the same object structure that `toJson` encodes
+    let deflate(o: 'T): obj = jsNative
+
     /// Serialize F# objects to JSON
     let toJson(o: 'T): string = jsNative
 

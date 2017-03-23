@@ -624,7 +624,7 @@ module AstPass =
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "toJson" | "ofJson" | "inflate" | "toPlainJsObj"
+        | "toJson" | "ofJson" | "deflate" | "inflate" | "toPlainJsObj"
         | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" ->
             let modName = if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
             CoreLibCall(modName, Some i.methodName, false, i.args)
