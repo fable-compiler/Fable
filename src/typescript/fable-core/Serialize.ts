@@ -12,7 +12,7 @@ import { resolveGeneric, getTypeFullName } from "./Reflection"
 import { parse as dateParse } from "./Date"
 import { fsFormat } from "./String"
 
-function deflate(v: any) {
+export function deflate(v: any) {
   if (ArrayBuffer.isView(v)) {
     return Array.from(v as any);
   }
