@@ -865,11 +865,11 @@ module private AstPass =
         |> makeCall i.range i.returnType |> Some
 
     let parse (com: ICompiler) (i: Fable.ApplyInfo) isFloat =
-        let parseString str =
+        let parseString str numberBase=
             let meth, args, kind =
                 if isFloat
                 then "parseFloat", [str], Float64
-                else "parseInt", [str; makeConst 10], Int32
+                else "parseInt", [str; makeConst numberBase], Int32
             GlobalCall("Number", Some meth, false, args)
             |> makeCall i.range (Fable.Number kind)
         match i.methodName with
@@ -881,12 +881,15 @@ module private AstPass =
                 |> Some
             | _ -> None
         | "parse" | "tryParse" ->
+            let hexConst = float System.Globalization.NumberStyles.HexNumber 
             match i.methodName, i.args with
             | "parse", [str] ->
-                parseString str |> Some
+                parseString str 10 |> Some
+            | "parse", [str; Fable.Wrapped(Fable.Value(Fable.NumberConst(hexConst,_)), Fable.Enum _)] ->
+                parseString str 16 |> Some
             | "tryParse", [str; defValue] ->
                 let var = com.GetUniqueVar() |> makeIdent
-                let setter = Fable.VarDeclaration(var, parseString str, false)
+                let setter = Fable.VarDeclaration(var, parseString str 10, false)
                 let res = emit i "isNaN($0) ? [false, $1] : [true, $0]" [Fable.IdentValue var |> Fable.Value; defValue]
                 Fable.Sequential([setter; res], i.range) |> Some
             | _ ->
