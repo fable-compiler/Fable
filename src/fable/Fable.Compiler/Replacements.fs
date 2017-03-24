@@ -895,6 +895,13 @@ module private AstPass =
             | _ ->
                 FableError(sprintf "%s.%s only accepts a single argument"
                             i.ownerFullName i.methodName, ?range=i.range) |> raise
+        | "toString" ->
+            match i.args with
+            | [Type Fable.String as format] ->
+                let format = emitNoInfo "'{0:' + $0 + '}'" [format]
+                CoreLibCall ("String", Some "format", false, [format;i.callee.Value])
+                |> makeCall i.range i.returnType |> Some
+            | _ -> toString com i i.callee.Value |> Some
         | _ -> None
 
     let convert com (i: Fable.ApplyInfo) =
