@@ -124,4 +124,19 @@ module JsonConverterTests =
         | Just _ -> Assert.Fail("Should not happed")
         | Nothing -> Assert.Pass()
 
-        
+    [<Test>]
+    let ``Deserialization with provided type at runtime works``() = 
+        let inputType = typeof<Option<int>>
+        let json = "5"
+        let parameterTypes = [| typeof<string>; typeof<System.Type> ; typeof<JsonConverter array> |]
+        let deserialize = typeof<JsonConvert>.GetMethod("DeserializeObject", parameterTypes) 
+        Assert.IsNotNull(deserialize)
+
+        let result = deserialize.Invoke(null, [| json; inputType; [| converter |] |])
+        match result with
+        | :? Option<int> as opt -> 
+              match opt with 
+              | Some n -> Assert.AreEqual(5, n)
+              | None -> Assert.Fail("Should not happen")
+        | _ -> Assert.Fail("Should not happen")
+                
