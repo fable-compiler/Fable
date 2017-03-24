@@ -37,6 +37,10 @@ let ``System.Int32.Parse works``() =
     Int32.Parse("5") |> equal 5
 
 [<Test>]
+let ``System.Int32.Parse with hex works``() =
+    Int32.Parse("555555", System.Globalization.NumberStyles.HexNumber) |> equal 5592405
+
+[<Test>]
 let ``System.Int32.TryParse works``() =
     let success1, res1 = Int32.TryParse("5")
     equal true success1
